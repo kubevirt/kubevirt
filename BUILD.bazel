@@ -245,6 +245,8 @@ container_bundle(
         "$(container_prefix)/$(image_prefix)fedora-cloud-container-disk-demo:$(container_tag)": "//containerimages:fedora-cloud-container-disk-image",
         "$(container_prefix)/$(image_prefix)microlivecd-container-disk-demo:$(container_tag)": "//containerimages:microlivecd-container-disk-image",
         "$(container_prefix)/$(image_prefix)virtio-container-disk:$(container_tag)": "//containerimages:virtio-container-disk-image",
+        # Customized container-disk images
+        "$(container_prefix)/$(image_prefix)fedora-sriov-lane-container-disk:$(container_tag)": "//containerimages:fedora-sriov-lane-container-disk-image",
         # testing images
         "$(container_prefix)/$(image_prefix)disks-images-provider:$(container_tag)": "//images/disks-images-provider:disks-images-provider-image",
         "$(container_prefix)/$(image_prefix)cdi-http-import-server:$(container_tag)": "//images/cdi-http-import-server:cdi-http-import-server-image",

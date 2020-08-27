@@ -321,6 +321,15 @@ container_pull(
     repository = "library/fedora",
 )
 
+# Pull fedora 32 customize container-disk
+container_pull(
+    name = "fedora_sriov_lane",
+    digest = "sha256:2d332d28863d0e415d58e335e836bd4f8a8c714e7a9d1f8f87418ef3db7c0afb",
+    registry = "index.docker.io",
+    repository = "kubevirt/fedora-sriov-testing",
+    #tag = "32",
+)
+
 # Pull base image libvirt
 container_pull(
     name = "libvirt",
