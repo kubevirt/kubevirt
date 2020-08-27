@@ -2508,15 +2508,32 @@ var _ = Describe("Configurations", func() {
 		vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred(), "Should successfully get VMI")
 
-		vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+		vmiVirtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 
 		tests.WaitAgentConnected(virtClient, vmi)
 
-		// Ensure that VMI IP Stays equal to PodIP even after Guest-Agent kicks in
-		Consistently(func() bool {
+		// Ensure that VMI 'ipAddress' and 'ipAddresses' stays equal to
+		// VMI virt-launcher pod 'PodIP' and 'PodIPs' even after Guest-Agent kicks in
+		Consistently(func() error {
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Should successfully get VMI")
-			return vmi.Status.Interfaces[0].IP == vmiPod.Status.PodIP
-		}, 30*time.Second, 1*time.Second).Should(BeTrue(), "VMI status IP should match VMI Pod IP")
+
+			if vmiVirtLauncherPod.Status.PodIP != vmi.Status.Interfaces[0].IP {
+				return fmt.Errorf("VMI status.Interfaces.IP and VMI virt-launcher pod status.PodIP doesnt match")
+			}
+
+			if len(vmiVirtLauncherPod.Status.PodIPs) == 0 ||
+				len(vmiVirtLauncherPod.Status.PodIPs) != len(vmi.Status.Interfaces[0].IPs) {
+				return fmt.Errorf("VMI status.Interfaces.IPs and VMI virt-launcher pod status.PodIPs, length dosent match")
+			}
+
+			for idx := 0; idx < len(vmiVirtLauncherPod.Status.PodIPs); idx++ {
+				if vmiVirtLauncherPod.Status.PodIPs[idx].IP != vmi.Status.Interfaces[0].IPs[idx] {
+					return fmt.Errorf("VMI status.Interfaces.IPs and VMI virt-launcher pod status.PodIPs, are not identical")
+				}
+			}
+
+			return nil
+		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "VMI status IP should match VMI Pod IP")
 	})
 })
