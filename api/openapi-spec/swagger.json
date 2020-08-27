@@ -9183,6 +9183,9 @@
      }
     }
    },
+   "v1.QemuGuestAgentAccessCredentialPropagation": {
+    "type": "object"
+   },
    "v1.RTCTimer": {
     "type": "object",
     "properties": {
@@ -9307,6 +9310,10 @@
      "configDrive": {
       "description": "ConfigDrivePropagation means that the ssh public keys are injected into the VM using metadata using the configDrive cloud-init provider",
       "$ref": "#/definitions/v1.ConfigDriveAccessCredentialPropagation"
+     },
+     "qemuGuestAgent": {
+      "description": "QemuGuestAgentAccessCredentailPropagation means ssh public keys are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.",
+      "$ref": "#/definitions/v1.QemuGuestAgentAccessCredentialPropagation"
      }
     }
    },
@@ -10312,7 +10319,8 @@
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.AccessCredential"
-      }
+      },
+      "x-kubernetes-list-type": "set"
      },
      "affinity": {
       "description": "If affinity is specifies, obey all the affinity rules",

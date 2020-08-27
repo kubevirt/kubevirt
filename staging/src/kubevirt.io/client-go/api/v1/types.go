@@ -152,6 +152,7 @@ type VirtualMachineInstanceSpec struct {
 	DNSConfig *k8sv1.PodDNSConfig `json:"dnsConfig,omitempty" protobuf:"bytes,26,opt,name=dnsConfig"`
 	// Specifies a set of public keys to inject into the vm guest
 	// +optional
+	// +listType=set
 	AccessCredentials []AccessCredential `json:"accessCredentials,omitempty"`
 }
 

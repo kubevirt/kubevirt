@@ -1084,6 +1084,10 @@ type AccessCredentialSecretSource struct {
 // +k8s:openapi-gen=true
 type ConfigDriveAccessCredentialPropagation struct{}
 
+//
+// +k8s:openapi-gen=true
+type QemuGuestAgentAccessCredentialPropagation struct{}
+
 // SSHPublicKeyAccessCredentialSource represents where to retrieve the ssh key
 // credentials
 // Only one of its members may be specified.
@@ -1103,6 +1107,11 @@ type SSHPublicKeyAccessCredentialPropagationMethod struct {
 	// ConfigDrivePropagation means that the ssh public keys are injected
 	// into the VM using metadata using the configDrive cloud-init provider
 	ConfigDrive *ConfigDriveAccessCredentialPropagation `json:"configDrive,omitempty"`
+
+	// QemuGuestAgentAccessCredentailPropagation means ssh public keys are
+	// dynamically injected into the vm at runtime via the qemu guest agent.
+	// This feature requires the qemu guest agent to be running within the guest.
+	QemuGuestAgent *QemuGuestAgentAccessCredentialPropagation `json:"qemuGuestAgent,omitempty"`
 }
 
 // SSHPublicKeyAccessCredential represents a source and propagation method for

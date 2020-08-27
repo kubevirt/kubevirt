@@ -1199,6 +1199,9 @@ func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.Acce
 
 				}
 			}
+			if accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent != nil {
+				methodCount++
+			}
 
 			if sourceCount != 1 {
 				causes = append(causes, metav1.StatusCause{

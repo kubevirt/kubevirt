@@ -360,6 +360,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.PodNetwork":                                                 schema_kubevirtio_client_go_api_v1_PodNetwork(ref),
 		"kubevirt.io/client-go/api/v1.Port":                                                       schema_kubevirtio_client_go_api_v1_Port(ref),
 		"kubevirt.io/client-go/api/v1.Probe":                                                      schema_kubevirtio_client_go_api_v1_Probe(ref),
+		"kubevirt.io/client-go/api/v1.QemuGuestAgentAccessCredentialPropagation":                  schema_kubevirtio_client_go_api_v1_QemuGuestAgentAccessCredentialPropagation(ref),
 		"kubevirt.io/client-go/api/v1.RTCTimer":                                                   schema_kubevirtio_client_go_api_v1_RTCTimer(ref),
 		"kubevirt.io/client-go/api/v1.ResourceRequirements":                                       schema_kubevirtio_client_go_api_v1_ResourceRequirements(ref),
 		"kubevirt.io/client-go/api/v1.RestartOptions":                                             schema_kubevirtio_client_go_api_v1_RestartOptions(ref),
@@ -16188,6 +16189,16 @@ func schema_kubevirtio_client_go_api_v1_Probe(ref common.ReferenceCallback) comm
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_QemuGuestAgentAccessCredentialPropagation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_RTCTimer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -16398,11 +16409,17 @@ func schema_kubevirtio_client_go_api_v1_SSHPublicKeyAccessCredentialPropagationM
 							Ref:         ref("kubevirt.io/client-go/api/v1.ConfigDriveAccessCredentialPropagation"),
 						},
 					},
+					"qemuGuestAgent": {
+						SchemaProps: spec.SchemaProps{
+							Description: "QemuGuestAgentAccessCredentailPropagation means ssh public keys are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.QemuGuestAgentAccessCredentialPropagation"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.ConfigDriveAccessCredentialPropagation"},
+			"kubevirt.io/client-go/api/v1.ConfigDriveAccessCredentialPropagation", "kubevirt.io/client-go/api/v1.QemuGuestAgentAccessCredentialPropagation"},
 	}
 }
 
@@ -17950,6 +17967,11 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceSpec(ref common.Re
 						},
 					},
 					"accessCredentials": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "Specifies a set of public keys to inject into the vm guest",
 							Type:        []string{"array"},
