@@ -301,7 +301,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 
 }
 
-func prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, usePostCopy bool) libvirt.DomainMigrateFlags {
+func prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge bool, migrationMode v1.MigrationMode) libvirt.DomainMigrateFlags {
 	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
 
 	if isBlockMigration {
@@ -313,7 +313,7 @@ func prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverg
 	if allowAutoConverge {
 		migrateFlags |= libvirt.MIGRATE_AUTO_CONVERGE
 	}
-	if usePostCopy {
+	if migrationMode == v1.MigrationPostCopy {
 		migrateFlags |= libvirt.MIGRATE_POSTCOPY
 	}
 
@@ -409,8 +409,8 @@ func mergeClusterMigrationOptionsWithVMIMigrationConfiguration(options *cmdclien
 		return
 	}
 
-	if migrationConfig.UsePostCopy != nil {
-		options.PostCopy = *migrationConfig.UsePostCopy
+	if migrationConfig.MigrationMode != nil {
+		options.MigrationMode = *migrationConfig.MigrationMode
 	}
 
 	if migrationConfig.AllowAutoConverge != nil {
@@ -491,7 +491,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 			return
 		}
 
-		migrateFlags := prepareMigrationFlags(isBlockMigration, options.UnsafeMigration, options.AllowAutoConverge, options.PostCopy)
+		migrateFlags := prepareMigrationFlags(isBlockMigration, options.UnsafeMigration, options.AllowAutoConverge, options.MigrationMode)
 		if options.UnsafeMigration {
 			log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
 		}
@@ -518,7 +518,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		defer close(migrationErrorChan)
 		go liveMigrationMonitor(vmi, dom, l, options, migrationErrorChan)
 
-		if options.PostCopy {
+		if options.MigrationMode == v1.MigrationPostCopy {
 			l.registerIterationEventForPostCopy(vmi, dom, options, migrationErrorChan)
 		}
 

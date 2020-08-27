@@ -429,9 +429,9 @@ type MigrationMode string
 
 const (
 	// MigrationPreCopy means the VMI migrations that is currenly running is in pre copy mode
-	MigrationPreCopy MigrationMode = "pre-copy"
+	MigrationPreCopy MigrationMode = "PreCopy"
 	// MigrationPostCopy means the VMI migrations that is currenly running is in post copy mode
-	MigrationPostCopy MigrationMode = "post-copy"
+	MigrationPostCopy MigrationMode = "PostCopy"
 )
 
 //
@@ -1459,7 +1459,7 @@ type PerVMIMigrationConfiguration struct {
 	CompletionTimeoutPerGiB *int64             `json:"completionTimeoutPerGiB,string,omitempty"`
 	ProgressTimeout         *int64             `json:"progressTimeout,string,omitempty"`
 	UnsafeMigrationOverride *bool              `json:"unsafeMigrationOverride,string,omitempty"`
-	UsePostCopy             *bool              `json:"usePostCopy,string,omitempty"`
+	MigrationMode           *MigrationMode     `json:"migrationMode,omitempty"`
 }
 
 // DeveloperConfiguration holds developer options

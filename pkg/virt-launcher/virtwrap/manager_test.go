@@ -707,8 +707,11 @@ var _ = Describe("Manager", func() {
 			isBlockMigration := migrationType == "block"
 			isUnsafeMigration := migrationType == "unsafe"
 			allowAutoConverge := migrationType == "autoConverge"
-			usePostCopy := migrationType == "postCopy"
-			flags := prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, usePostCopy)
+			migrationMode := v1.MigrationPreCopy
+			if migrationType == "postCopy" {
+				migrationMode = v1.MigrationPostCopy
+			}
+			flags := prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, migrationMode)
 			expectedMigrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
 
 			if isBlockMigration {
@@ -719,7 +722,7 @@ var _ = Describe("Manager", func() {
 			if allowAutoConverge {
 				expectedMigrateFlags |= libvirt.MIGRATE_AUTO_CONVERGE
 			}
-			if usePostCopy {
+			if migrationType == "postCopy" {
 				expectedMigrateFlags |= libvirt.MIGRATE_POSTCOPY
 			}
 			Expect(flags).To(Equal(expectedMigrateFlags))

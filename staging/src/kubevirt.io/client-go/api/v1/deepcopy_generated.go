@@ -1839,9 +1839,9 @@ func (in *PerVMIMigrationConfiguration) DeepCopyInto(out *PerVMIMigrationConfigu
 		*out = new(bool)
 		**out = **in
 	}
-	if in.UsePostCopy != nil {
-		in, out := &in.UsePostCopy, &out.UsePostCopy
-		*out = new(bool)
+	if in.MigrationMode != nil {
+		in, out := &in.MigrationMode, &out.MigrationMode
+		*out = new(MigrationMode)
 		**out = **in
 	}
 	return
