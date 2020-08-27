@@ -30,25 +30,28 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util/status"
+)
+
+const (
+	testNamespace = "default"
+	vmSnapshotUID = "uid"
+)
+
+var (
+	vmAPIGroup       = "kubevirt.io"
+	storageClassName = "rook-ceph-block"
+	t                = true
+	f                = false
 )
 
 var _ = Describe("Snapshot controlleer", func() {
-	const (
-		testNamespace = "default"
-		vnSnapshotUID = "uid"
-	)
-
 	var (
-		vmAPIGroup              = "kubevirt.io"
 		timeStamp               = metav1.Now()
 		vmName                  = "testvm"
 		vmSnapshotName          = "test-snapshot"
 		retain                  = snapshotv1.VirtualMachineSnapshotContentRetain
-		storageClassName        = "rook-ceph-block"
 		volumeSnapshotClassName = "csi-rbdplugin-snapclass"
-
-		t = true
-		f = false
 	)
 
 	timeFunc := func() *metav1.Time {
@@ -56,20 +59,7 @@ var _ = Describe("Snapshot controlleer", func() {
 	}
 
 	createVMSnapshot := func() *snapshotv1.VirtualMachineSnapshot {
-		return &snapshotv1.VirtualMachineSnapshot{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      vmSnapshotName,
-				Namespace: testNamespace,
-				UID:       vnSnapshotUID,
-			},
-			Spec: snapshotv1.VirtualMachineSnapshotSpec{
-				Source: corev1.TypedLocalObjectReference{
-					APIGroup: &vmAPIGroup,
-					Kind:     "VirtualMachine",
-					Name:     vmName,
-				},
-			},
-		}
+		return createVirtualMachineSnapshot(testNamespace, vmSnapshotName, vmName)
 	}
 
 	createVMSnapshotSuccess := func() *snapshotv1.VirtualMachineSnapshot {
@@ -94,80 +84,7 @@ var _ = Describe("Snapshot controlleer", func() {
 	}
 
 	createVM := func() *v1.VirtualMachine {
-		return &v1.VirtualMachine{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      vmName,
-				Namespace: testNamespace,
-				UID:       "uid",
-				Labels: map[string]string{
-					"kubevirt.io/vm": "vm-alpine-datavolume",
-				},
-			},
-			Spec: v1.VirtualMachineSpec{
-				Running: &f,
-				Template: &v1.VirtualMachineInstanceTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{
-							"kubevirt.io/vm": "vm-alpine-datavolume",
-						},
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
-							Devices: v1.Devices{
-								Disks: []v1.Disk{
-									{
-										Name: "disk1",
-										DiskDevice: v1.DiskDevice{
-											Disk: &v1.DiskTarget{
-												Bus: "virtio",
-											},
-										},
-									},
-								},
-							},
-							Resources: v1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceName(corev1.ResourceRequestsMemory): resource.MustParse("64M"),
-								},
-							},
-						},
-						Volumes: []v1.Volume{
-							{
-								Name: "disk1",
-								VolumeSource: v1.VolumeSource{
-									DataVolume: &v1.DataVolumeSource{
-										Name: "alpine-dv",
-									},
-								},
-							},
-						},
-					},
-				},
-				DataVolumeTemplates: []cdiv1alpha1.DataVolume{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "alpine-dv",
-						},
-						Spec: cdiv1alpha1.DataVolumeSpec{
-							Source: cdiv1alpha1.DataVolumeSource{
-								HTTP: &cdiv1alpha1.DataVolumeSourceHTTP{
-									URL: "http://cdi-http-import-server.kubevirt/images/alpine.iso",
-								},
-							},
-							PVC: &corev1.PersistentVolumeClaimSpec{
-								Resources: corev1.ResourceRequirements{
-									Requests: corev1.ResourceList{
-										corev1.ResourceName(corev1.ResourceStorage): resource.MustParse("2Gi"),
-									},
-								},
-								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-								StorageClassName: &storageClassName,
-							},
-						},
-					},
-				},
-			},
-		}
+		return createVirtualMachine(testNamespace, vmName)
 	}
 
 	createLockedVM := func() *v1.VirtualMachine {
@@ -186,82 +103,14 @@ var _ = Describe("Snapshot controlleer", func() {
 		}
 	}
 
-	createPodsUsingPVCs := func(vm *v1.VirtualMachine) []corev1.Pod {
-		var pods []corev1.Pod
-		for _, dv := range vm.Spec.DataVolumeTemplates {
-			pod := corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vm.Namespace,
-					Name:      "pod-" + dv.Name,
-				},
-				Spec: corev1.PodSpec{
-					Volumes: []corev1.Volume{
-						{
-							Name: "vol-" + dv.Name,
-							VolumeSource: corev1.VolumeSource{
-								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: dv.Name,
-								},
-							},
-						},
-					},
-				},
-			}
-			pods = append(pods, pod)
-		}
-		return pods
-	}
-
 	createPersistentVolumeClaims := func() []corev1.PersistentVolumeClaim {
-		vm := createLockedVM()
-		var pvcs []corev1.PersistentVolumeClaim
-		for i, dv := range vm.Spec.DataVolumeTemplates {
-			pvc := corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vm.Namespace,
-					Name:      dv.Name,
-				},
-				Spec: *dv.Spec.PVC,
-			}
-			pvc.Spec.VolumeName = fmt.Sprintf("volume%d", i+1)
-			pvc.ResourceVersion = "1"
-			pvcs = append(pvcs, pvc)
-		}
-		return pvcs
+		return createPVCsForVM(createLockedVM())
 	}
 
 	createVMSnapshotContent := func() *snapshotv1.VirtualMachineSnapshotContent {
 		vmSnapshot := createVMSnapshotInProgress()
-		var volumeBackups []snapshotv1.VolumeBackup
 		vm := createLockedVM()
-		vm.ResourceVersion = "1"
-		vm.Status = v1.VirtualMachineStatus{}
-
-		for i, pvc := range createPersistentVolumeClaims() {
-			diskName := fmt.Sprintf("disk%d", i+1)
-			volumeSnapshotName := fmt.Sprintf("vmsnapshot-%s-volume-%s", vmSnapshot.UID, diskName)
-			vb := snapshotv1.VolumeBackup{
-				VolumeName:            diskName,
-				PersistentVolumeClaim: pvc,
-				VolumeSnapshotName:    &volumeSnapshotName,
-			}
-			volumeBackups = append(volumeBackups, vb)
-		}
-
-		return &snapshotv1.VirtualMachineSnapshotContent{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:       "vmsnapshot-content-" + vnSnapshotUID,
-				Namespace:  testNamespace,
-				Finalizers: []string{"snapshot.kubevirt.io/vmsnapshotcontent-protection"},
-			},
-			Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
-				VirtualMachineSnapshotName: &vmSnapshotName,
-				Source: snapshotv1.SourceSpec{
-					VirtualMachine: vm,
-				},
-				VolumeBackups: volumeBackups,
-			},
-		}
+		return createVirtualMachineSnapshotContent(vmSnapshot, vm)
 	}
 
 	createStorageClass := func() *storagev1.StorageClass {
@@ -427,6 +276,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				CRDInformer:               crdInformer,
 				Recorder:                  recorder,
 				ResyncPeriod:              60 * time.Second,
+				vmStatusUpdater:           status.NewVMStatusUpdater(virtClient),
 			}
 			controller.Init()
 
@@ -1136,4 +986,175 @@ func expectVolumeSnapshotCreates(
 
 		return true, createObj, nil
 	})
+}
+
+func createVirtualMachine(namespace, name string) *v1.VirtualMachine {
+	return &v1.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			UID:       "uid",
+			Labels: map[string]string{
+				"kubevirt.io/vm": "vm-alpine-datavolume",
+			},
+		},
+		Spec: v1.VirtualMachineSpec{
+			Running: &f,
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"kubevirt.io/vm": "vm-alpine-datavolume",
+					},
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							Disks: []v1.Disk{
+								{
+									Name: "disk1",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: "virtio",
+										},
+									},
+								},
+							},
+						},
+						Resources: v1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceName(corev1.ResourceRequestsMemory): resource.MustParse("64M"),
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "disk1",
+							VolumeSource: v1.VolumeSource{
+								DataVolume: &v1.DataVolumeSource{
+									Name: "alpine-dv",
+								},
+							},
+						},
+					},
+				},
+			},
+			DataVolumeTemplates: []cdiv1alpha1.DataVolume{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "alpine-dv",
+					},
+					Spec: cdiv1alpha1.DataVolumeSpec{
+						Source: cdiv1alpha1.DataVolumeSource{
+							HTTP: &cdiv1alpha1.DataVolumeSourceHTTP{
+								URL: "http://cdi-http-import-server.kubevirt/images/alpine.iso",
+							},
+						},
+						PVC: &corev1.PersistentVolumeClaimSpec{
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceName(corev1.ResourceStorage): resource.MustParse("2Gi"),
+								},
+							},
+							AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+							StorageClassName: &storageClassName,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func createVirtualMachineSnapshot(namespace, name, vmName string) *snapshotv1.VirtualMachineSnapshot {
+	return &snapshotv1.VirtualMachineSnapshot{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			UID:       vmSnapshotUID,
+		},
+		Spec: snapshotv1.VirtualMachineSnapshotSpec{
+			Source: corev1.TypedLocalObjectReference{
+				APIGroup: &vmAPIGroup,
+				Kind:     "VirtualMachine",
+				Name:     vmName,
+			},
+		},
+	}
+}
+
+func createVirtualMachineSnapshotContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot, vm *v1.VirtualMachine) *snapshotv1.VirtualMachineSnapshotContent {
+	var volumeBackups []snapshotv1.VolumeBackup
+	vm.ResourceVersion = "1"
+	vm.Status = v1.VirtualMachineStatus{}
+
+	for i, pvc := range createPVCsForVM(vm) {
+		diskName := fmt.Sprintf("disk%d", i+1)
+		volumeSnapshotName := fmt.Sprintf("vmsnapshot-%s-volume-%s", vmSnapshot.UID, diskName)
+		vb := snapshotv1.VolumeBackup{
+			VolumeName:            diskName,
+			PersistentVolumeClaim: pvc,
+			VolumeSnapshotName:    &volumeSnapshotName,
+		}
+		volumeBackups = append(volumeBackups, vb)
+	}
+
+	return &snapshotv1.VirtualMachineSnapshotContent{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "vmsnapshot-content-" + vmSnapshotUID,
+			Namespace:  testNamespace,
+			Finalizers: []string{"snapshot.kubevirt.io/vmsnapshotcontent-protection"},
+		},
+		Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
+			VirtualMachineSnapshotName: &vmSnapshot.Name,
+			Source: snapshotv1.SourceSpec{
+				VirtualMachine: vm,
+			},
+			VolumeBackups: volumeBackups,
+		},
+	}
+}
+
+func createPVCsForVM(vm *v1.VirtualMachine) []corev1.PersistentVolumeClaim {
+	var pvcs []corev1.PersistentVolumeClaim
+	for i, dv := range vm.Spec.DataVolumeTemplates {
+		pvc := corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: vm.Namespace,
+				Name:      dv.Name,
+			},
+			Spec: *dv.Spec.PVC,
+		}
+		pvc.Spec.VolumeName = fmt.Sprintf("volume%d", i+1)
+		pvc.ResourceVersion = "1"
+		pvcs = append(pvcs, pvc)
+	}
+	return pvcs
+}
+
+func createPodsUsingPVCs(vm *v1.VirtualMachine) []corev1.Pod {
+	var pods []corev1.Pod
+
+	for _, dv := range vm.Spec.DataVolumeTemplates {
+		pod := corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: vm.Namespace,
+				Name:      "pod-" + dv.Name,
+			},
+			Spec: corev1.PodSpec{
+				Volumes: []corev1.Volume{
+					{
+						Name: "vol-" + dv.Name,
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+								ClaimName: dv.Name,
+							},
+						},
+					},
+				},
+			},
+		}
+		pods = append(pods, pod)
+	}
+
+	return pods
 }

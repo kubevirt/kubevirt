@@ -18495,11 +18495,6 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreStatus(ref com
 							Format: "",
 						},
 					},
-					"error": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.Error"),
-						},
-					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -18516,7 +18511,7 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreStatus(ref com
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/client-go/apis/snapshot/v1alpha1.Condition", "kubevirt.io/client-go/apis/snapshot/v1alpha1.Error", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VolumeRestore"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/client-go/apis/snapshot/v1alpha1.Condition", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VolumeRestore"},
 	}
 }
 

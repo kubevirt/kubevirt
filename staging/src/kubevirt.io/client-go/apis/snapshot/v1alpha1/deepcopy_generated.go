@@ -196,11 +196,6 @@ func (in *VirtualMachineRestoreStatus) DeepCopyInto(out *VirtualMachineRestoreSt
 		*out = new(bool)
 		**out = **in
 	}
-	if in.Error != nil {
-		in, out := &in.Error, &out.Error
-		*out = new(Error)
-		(*in).DeepCopyInto(*out)
-	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]Condition, len(*in))

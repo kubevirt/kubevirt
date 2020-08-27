@@ -11001,9 +11001,6 @@
        "type": "string"
       }
      },
-     "error": {
-      "$ref": "#/definitions/v1alpha1.Error"
-     },
      "restoreTime": {
       "$ref": "#/definitions/v1.Time"
      },

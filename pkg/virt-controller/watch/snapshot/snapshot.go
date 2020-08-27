@@ -796,5 +796,5 @@ func getPVCsFromVolumes(volumes []kubevirtv1.Volume) map[string]string {
 }
 
 func updateSnapshotCondition(ss *snapshotv1.VirtualMachineSnapshot, c snapshotv1.Condition) {
-	ss.Status.Conditions = updateCondition(ss.Status.Conditions, c)
+	ss.Status.Conditions = updateCondition(ss.Status.Conditions, c, false)
 }

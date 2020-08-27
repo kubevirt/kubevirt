@@ -240,9 +240,6 @@ type VirtualMachineRestoreStatus struct {
 	Complete *bool `json:"complete,omitempty"`
 
 	// +optional
-	Error *Error `json:"error,omitempty"`
-
-	// +optional
 	Conditions []Condition `json:"conditions,omitempty"`
 }
 

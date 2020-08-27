@@ -70,11 +70,11 @@ func newProgressingCondition(status corev1.ConditionStatus, reason string) snaps
 	}
 }
 
-func updateCondition(conditions []snapshotv1.Condition, c snapshotv1.Condition) []snapshotv1.Condition {
+func updateCondition(conditions []snapshotv1.Condition, c snapshotv1.Condition, includeReason bool) []snapshotv1.Condition {
 	found := false
 	for i := range conditions {
 		if conditions[i].Type == c.Type {
-			if conditions[i].Status != c.Status || conditions[i].Reason != c.Reason {
+			if conditions[i].Status != c.Status || (includeReason && conditions[i].Reason != c.Reason) {
 				conditions[i] = c
 			}
 			found = true
