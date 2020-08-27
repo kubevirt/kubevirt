@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+# Adding something
 set -e
 
 source $(dirname "$0")/common.sh
