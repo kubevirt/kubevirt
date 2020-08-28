@@ -1272,51 +1272,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
-			It("should ignore cluster default and use vmi configuration to migration using postcopy", func() {
-				data := map[string]string{
-					"migrationMode": "PreCopy",
-				}
-				migrationData, err := json.Marshal(data)
-				Expect(err).ToNot(HaveOccurred())
-				tests.UpdateClusterConfigValueAndWait("migrations", string(migrationData))
-
-				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-
-				usePostCopy := v1.MigrationPostCopy
-				vmi.Spec.MigrationConfiguration = &v1.PerVMIMigrationConfiguration{
-					MigrationMode: &usePostCopy,
-				}
-
-				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
-
-				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
-				Expect(expecterErr).ToNot(HaveOccurred())
-				defer expecter.Close()
-
-				// Need to wait for cloud init to finish and start the agent inside the vmi.
-				tests.WaitAgentConnected(virtClient, vmi)
-
-				runStressTest(expecter)
-
-				// execute a migration, wait for finalized state
-				By("Starting the Migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := runMigrationAndExpectCompletion(migration, 180)
-
-				// check VMI, confirm migration state
-				confirmVMIPostMigration(vmi, migrationUID)
-				confirmMigrationMode(vmi, v1.MigrationPostCopy)
-
-				// delete VMI
-				By("Deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-
-				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-			})
 
 			// It("postcopy migration should complete in less time understress than precopy", func() {
 			// 	data := map[string]string{
