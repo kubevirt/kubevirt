@@ -54,7 +54,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				Spec: snapshotv1.VirtualMachineSnapshotSpec{},
 			}
 
-			ar := createAdmissionReview(snapshot)
+			ar := createSnapshotAdmissionReview(snapshot)
 			resp := createTestVMSnapshotAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(Equal("Snapshot feature gate not enabled"))
@@ -97,7 +97,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				Spec: snapshotv1.VirtualMachineSnapshotSpec{},
 			}
 
-			ar := createAdmissionReview(snapshot)
+			ar := createSnapshotAdmissionReview(snapshot)
 			resp := createTestVMSnapshotAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
@@ -115,7 +115,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				},
 			}
 
-			ar := createAdmissionReview(snapshot)
+			ar := createSnapshotAdmissionReview(snapshot)
 			resp := createTestVMSnapshotAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
@@ -143,7 +143,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				},
 			}
 
-			ar := createUpdateAdmissionReview(oldSnapshot, snapshot)
+			ar := createSnapshotUpdateAdmissionReview(oldSnapshot, snapshot)
 			resp := createTestVMSnapshotAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
@@ -174,7 +174,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				},
 			}
 
-			ar := createUpdateAdmissionReview(oldSnapshot, snapshot)
+			ar := createSnapshotUpdateAdmissionReview(oldSnapshot, snapshot)
 			resp := createTestVMSnapshotAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
@@ -204,7 +204,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				t := true
 				vm.Spec.Running = &t
 
-				ar := createAdmissionReview(snapshot)
+				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
@@ -225,7 +225,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				t := true
 				vm.Spec.Running = &t
 
-				ar := createAdmissionReview(snapshot)
+				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
@@ -247,7 +247,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				t := true
 				vm.Spec.Running = &t
 
-				ar := createAdmissionReview(snapshot)
+				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
@@ -268,7 +268,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				f := false
 				vm.Spec.Running = &f
 
-				ar := createAdmissionReview(snapshot)
+				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(ar)
 				Expect(resp.Allowed).To(BeTrue())
 			})
@@ -276,7 +276,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 	})
 })
 
-func createAdmissionReview(snapshot *snapshotv1.VirtualMachineSnapshot) *v1beta1.AdmissionReview {
+func createSnapshotAdmissionReview(snapshot *snapshotv1.VirtualMachineSnapshot) *v1beta1.AdmissionReview {
 	bytes, _ := json.Marshal(snapshot)
 
 	ar := &v1beta1.AdmissionReview{
@@ -296,7 +296,7 @@ func createAdmissionReview(snapshot *snapshotv1.VirtualMachineSnapshot) *v1beta1
 	return ar
 }
 
-func createUpdateAdmissionReview(old, current *snapshotv1.VirtualMachineSnapshot) *v1beta1.AdmissionReview {
+func createSnapshotUpdateAdmissionReview(old, current *snapshotv1.VirtualMachineSnapshot) *v1beta1.AdmissionReview {
 	oldBytes, _ := json.Marshal(old)
 	currentBytes, _ := json.Marshal(current)
 
