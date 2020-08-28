@@ -20,10 +20,10 @@
 package prometheus
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	libvirt "libvirt.org/libvirt-go"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -234,6 +234,92 @@ var _ = Describe("Prometheus", func() {
 
 			// metrics about invalid stats never get pushed into the channel
 			Eventually(ch).Should(BeEmpty())
+		})
+
+		It("should expose vcpu state as a human readable string", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu:    &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{},
+				Vcpu: []stats.DomainStatsVcpu{
+					{
+						StateSet: true,
+						State:    int(libvirt.VCPU_RUNNING),
+						TimeSet:  true,
+						Time:     2000,
+					},
+				},
+			}
+
+			metric := &io_prometheus_client.Metric{}
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			result := <-ch
+			result.Write(metric)
+
+			Expect(result).ToNot(BeNil())
+			for _, label := range metric.GetLabel() {
+				if label.GetName() == "state" {
+					Expect(label.GetValue()).To(BeEquivalentTo("running"))
+				}
+			}
+
+			vmStats = &stats.DomainStats{
+				Cpu:    &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{},
+				Vcpu: []stats.DomainStatsVcpu{
+					{
+						StateSet: true,
+						State:    int(libvirt.VCPU_BLOCKED),
+						TimeSet:  true,
+						Time:     2000,
+					},
+				},
+			}
+
+			metric = &io_prometheus_client.Metric{}
+			ps.Report("test", &vmi, vmStats)
+
+			result = <-ch
+			result.Write(metric)
+
+			Expect(result).ToNot(BeNil())
+			for _, label := range metric.GetLabel() {
+				if label.GetName() == "state" {
+					Expect(label.GetValue()).To(BeEquivalentTo("blocked"))
+				}
+			}
+
+			vmStats = &stats.DomainStats{
+				Cpu:    &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{},
+				Vcpu: []stats.DomainStatsVcpu{
+					{
+						StateSet: true,
+						State:    int(libvirt.VCPU_OFFLINE),
+						TimeSet:  true,
+						Time:     2000,
+					},
+				},
+			}
+
+			metric = &io_prometheus_client.Metric{}
+			ps.Report("test", &vmi, vmStats)
+
+			result = <-ch
+			result.Write(metric)
+
+			Expect(result).ToNot(BeNil())
+			for _, label := range metric.GetLabel() {
+				if label.GetName() == "state" {
+					Expect(label.GetValue()).To(BeEquivalentTo("offline"))
+				}
+			}
 		})
 
 		It("should handle block read iops metrics", func() {
