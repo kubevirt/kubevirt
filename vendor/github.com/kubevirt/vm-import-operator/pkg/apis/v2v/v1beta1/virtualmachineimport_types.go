@@ -1,6 +1,8 @@
-package v1alpha1
+package v1beta1
 
 import (
+	"fmt"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -31,6 +33,8 @@ type VirtualMachineImportSpec struct {
 type VirtualMachineImportSourceSpec struct {
 	// +optional
 	Ovirt *VirtualMachineImportOvirtSourceSpec `json:"ovirt,omitempty"`
+	// +optional
+	Vmware *VirtualMachineImportVmwareSourceSpec `json:"vmware,omitempty"`
 }
 
 // VirtualMachineImportOvirtSourceSpec defines the mapping resources and the VM identity for oVirt source provider
@@ -40,6 +44,15 @@ type VirtualMachineImportOvirtSourceSpec struct {
 
 	// +optional
 	Mappings *OvirtMappings `json:"mappings,omitempty"`
+}
+
+// VirtualMachineImportVmwareSourceSpec defines the mapping resources and the VM identity for vmware source provider
+// +k8s:openapi-gen=true
+type VirtualMachineImportVmwareSourceSpec struct {
+	VM VirtualMachineImportVmwareSourceVMSpec `json:"vm"`
+
+	// +optional
+	Mappings *VmwareMappings `json:"mappings,omitempty"`
 }
 
 // ObjectIdentifier defines how a resource should be identified on kubevirt
@@ -62,6 +75,17 @@ type VirtualMachineImportOvirtSourceVMSpec struct {
 
 	// +optional
 	Cluster *VirtualMachineImportOvirtSourceVMClusterSpec `json:"cluster,omitempty"`
+}
+
+// VirtualMachineImportVmwareSourceVMSpec defines how to identify the VM in vCenter
+// +k8s:openapi-gen=true
+type VirtualMachineImportVmwareSourceVMSpec struct {
+	// UUID of virtual machine
+	// +optional
+	ID *string `json:"id,omitempty"`
+
+	// +optional
+	Name *string `json:"name,omitempty"`
 }
 
 // VirtualMachineImportOvirtSourceVMClusterSpec defines the source cluster's identity of the VM in oVirt
@@ -88,7 +112,7 @@ type VirtualMachineImportStatus struct {
 	Conditions []VirtualMachineImportCondition `json:"conditions"`
 
 	// +optional
-	DataVolumes []DataVolumeItem `json:"dataVolumes"`
+	DataVolumes []DataVolumeItem `json:"dataVolumes,omitempty"`
 }
 
 // VirtualMachineImportConditionType defines the condition of VM import
@@ -161,6 +185,9 @@ const (
 
 	// IncompleteMappingRules represents the inability to prepare the mapping rules
 	IncompleteMappingRules ValidConditionReason = "IncompleteMappingRules"
+
+	// ValidationReportedWarnings represents the existence of warnings related to resource mapping validation
+	ValidationReportedWarnings ValidConditionReason = "ValidationReportedWarnings"
 )
 
 // MappingRulesVerifiedReason defines the reasons for the MappingRulesVerified condition of VM import
@@ -199,6 +226,9 @@ const (
 
 	// ProcessingFailed represents failed import processing
 	ProcessingFailed ProcessingConditionReason = "ProcessingFailed"
+
+	// Pending represents pending for PVC to bound
+	Pending ProcessingConditionReason = "Pending"
 )
 
 // VirtualMachineImportCondition defines the observed state of VirtualMachineImport conditions
@@ -225,6 +255,13 @@ type VirtualMachineImportCondition struct {
 	// The last time the condition transit from one status to another
 	// +optional
 	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
+}
+
+func (cond VirtualMachineImportCondition) String() string {
+	return fmt.Sprintf(
+		"VirtualMachineImportCondition{type: %v, status: %v, reason: %v, message: %v}",
+		cond.Type, cond.Status, *cond.Reason, *cond.Message,
+	)
 }
 
 // DataVolumeItem defines the details of a data volume created by the VM import process

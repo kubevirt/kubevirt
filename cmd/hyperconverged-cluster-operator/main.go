@@ -26,7 +26,7 @@ import (
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	sspopv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis"
-	vmimportv1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1"
+	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	consolev1 "github.com/openshift/api/console/v1"
 	csvv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
@@ -182,7 +182,7 @@ func main() {
 		networkaddons.AddToScheme,
 		sspopv1.AddToScheme,
 		csvv1alpha1.AddToScheme,
-		vmimportv1.AddToScheme,
+		vmimportv1beta1.AddToScheme,
 		admissionregistrationv1.AddToScheme,
 		consolev1.AddToScheme,
 	} {

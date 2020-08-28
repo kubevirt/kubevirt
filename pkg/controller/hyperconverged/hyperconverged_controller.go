@@ -28,7 +28,7 @@ import (
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	version "github.com/kubevirt/hyperconverged-cluster-operator/version"
 	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
-	vmimportv1alpha1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1"
+	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -144,7 +144,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&sspv1.KubevirtTemplateValidator{},
 		&sspv1.KubevirtMetricsAggregation{},
 		&schedulingv1.PriorityClass{},
-		&vmimportv1alpha1.VMImportConfig{},
+		&vmimportv1beta1.VMImportConfig{},
 	} {
 		err = c.Watch(&source.Kind{Type: resource}, &handler.EnqueueRequestsFromMapFunc{
 			ToRequests: handler.ToRequestsFunc(
@@ -1438,7 +1438,7 @@ func (r *ReconcileHyperConverged) ensureVMImport(req *hcoRequest) *EnsureResult 
 	key := client.ObjectKey{Namespace: "", Name: vmImport.GetName()}
 	res.SetName(vmImport.GetName())
 
-	found := &vmimportv1alpha1.VMImportConfig{}
+	found := &vmimportv1beta1.VMImportConfig{}
 	err = r.client.Get(req.ctx, key, found)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -1501,12 +1501,12 @@ func (r *ReconcileHyperConverged) ensureConsoleCLIDownload(req *hcoRequest) erro
 }
 
 // newVMImportForCR returns a VM import CR
-func newVMImportForCR(cr *hcov1beta1.HyperConverged, namespace string) *vmimportv1alpha1.VMImportConfig {
+func newVMImportForCR(cr *hcov1beta1.HyperConverged, namespace string) *vmimportv1beta1.VMImportConfig {
 	labels := map[string]string{
 		hcoutil.AppLabel: cr.Name,
 	}
 
-	return &vmimportv1alpha1.VMImportConfig{
+	return &vmimportv1beta1.VMImportConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "vmimport-" + cr.Name,
 			Labels:    labels,

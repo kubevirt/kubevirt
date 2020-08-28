@@ -16,7 +16,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
 	sspopv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis"
 	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
-	vmimportv1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1"
+	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
@@ -47,7 +47,7 @@ type basicExpected struct {
 	kvCtb                *sspv1.KubevirtCommonTemplatesBundle
 	kvNlb                *sspv1.KubevirtNodeLabellerBundle
 	kvTv                 *sspv1.KubevirtTemplateValidator
-	vmi                  *vmimportv1.VMImportConfig
+	vmi                  *vmimportv1beta1.VMImportConfig
 	kvMtAg               *sspv1.KubevirtMetricsAggregation
 	imsConfig            *corev1.ConfigMap
 }
@@ -286,7 +286,7 @@ func initReconciler(client client.Client) *ReconcileHyperConverged {
 		cdiv1alpha1.AddToScheme,
 		networkaddons.AddToScheme,
 		sspopv1.AddToScheme,
-		vmimportv1.AddToScheme,
+		vmimportv1beta1.AddToScheme,
 		consolev1.AddToScheme,
 	} {
 		Expect(f(s)).To(BeNil())

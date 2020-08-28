@@ -1,6 +1,7 @@
-package v1alpha1
+package v1beta1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -16,6 +17,8 @@ type ResourceMappingSpec struct {
 
 	// +optional
 	OvirtMappings *OvirtMappings `json:"ovirt,omitempty"`
+	// +optional
+	VmwareMappings *VmwareMappings `json:"vmware,omitempty"`
 }
 
 // OvirtMappings defines the mappings of ovirt resources to kubevirt
@@ -27,18 +30,39 @@ type OvirtMappings struct {
 	// A logical network from ovirt can be mapped to multiple network attachment definitions
 	// on kubevirt by using vnic profile to network attachment definition mapping.
 	// +optional
-	NetworkMappings *[]ResourceMappingItem `json:"networkMappings,omitempty"`
+	NetworkMappings *[]NetworkResourceMappingItem `json:"networkMappings,omitempty"`
 
 	// StorageMappings defines the mapping of storage domains to storage classes
 	// +optional
-	StorageMappings *[]ResourceMappingItem `json:"storageMappings,omitempty"`
+	StorageMappings *[]StorageResourceMappingItem `json:"storageMappings,omitempty"`
 
 	// DiskMappings defines the mapping of disks to storage classes
 	// DiskMappings.Source.ID represents the disk ID on ovirt (as opposed to disk-attachment ID)
 	// DiskMappings.Source.Name represents the disk alias on ovirt
 	// DiskMappings is respected only when provided in context of a single VM import within VirtualMachineImport
 	// +optional
-	DiskMappings *[]ResourceMappingItem `json:"diskMappings,omitempty"`
+	DiskMappings *[]StorageResourceMappingItem `json:"diskMappings,omitempty"`
+}
+
+// VmwareMappings defines the mappings of vmware resources to kubevirt
+// +k8s:openapi-gen=true
+type VmwareMappings struct {
+	// NetworkMappings defines the mapping of guest network interfaces to kubevirt networks
+	// NetworkMappings.Source.Name represents the `network` field of the GuestNicInfo in vCenter
+	// NetworkMappings.Source.ID represents the `macAddress` field of the network adapter
+	// +optional
+	NetworkMappings *[]NetworkResourceMappingItem `json:"networkMappings,omitempty"`
+
+	// StorageMappings defines the mapping of datastores to storage classes
+	// StorageMappings.Source.Name represents the name of the Datastore in vCenter
+	// +optional
+	StorageMappings *[]StorageResourceMappingItem `json:"storageMappings,omitempty"`
+
+	// +optional
+	// DiskMappings defines the mapping of VirtualDisks to storage classes
+	// DiskMappings.Source.Name represents the disk name in vCenter
+	// DiskMappings.Source.ID represents the `DiskObjectId` or `vDiskID` of the VirtualDisk in vCenter
+	DiskMappings *[]StorageResourceMappingItem `json:"diskMappings,omitempty"`
 }
 
 // Source defines how to identify a resource on the provider, either by ID or by name
@@ -51,14 +75,24 @@ type Source struct {
 	ID *string `json:"id,omitempty"`
 }
 
-// ResourceMappingItem defines the mapping of a single resource from the provider to kubevirt
+// NetworkResourceMappingItem defines the network mapping of a single resource from the provider to kubevirt
 // +k8s:openapi-gen=true
-type ResourceMappingItem struct {
+type NetworkResourceMappingItem struct {
 	Source Source           `json:"source"`
 	Target ObjectIdentifier `json:"target"`
 
 	// +optional
 	Type *string `json:"type,omitempty"`
+}
+
+// StorageResourceMappingItem defines the storage mapping of a single resource from the provider to kubevirt
+// +k8s:openapi-gen=true
+type StorageResourceMappingItem struct {
+	Source Source           `json:"source"`
+	Target ObjectIdentifier `json:"target"`
+
+	// +optional
+	VolumeMode *corev1.PersistentVolumeMode `json:"volumeMode,omitempty"`
 }
 
 // ResourceMappingStatus defines the observed state of ResourceMapping

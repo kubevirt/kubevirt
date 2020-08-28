@@ -1373,6 +1373,8 @@ rules:
   - configmaps
   - secrets
   - serviceaccounts
+  - services
+  - services/finalizers
   verbs:
   - '*'
 - apiGroups:
@@ -1401,5 +1403,11 @@ rules:
   resources:
   - clusterrolebindings
   - clusterroles
+  verbs:
+  - '*'
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
   verbs:
   - '*'

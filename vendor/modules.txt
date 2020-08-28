@@ -129,8 +129,8 @@ github.com/kubevirt/cluster-network-addons-operator/pkg/names
 # github.com/kubevirt/kubevirt-ssp-operator v1.0.41
 github.com/kubevirt/kubevirt-ssp-operator/pkg/apis
 github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1
-# github.com/kubevirt/vm-import-operator v0.1.0
-github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1
+# github.com/kubevirt/vm-import-operator v0.2.0
+github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1
 # github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
@@ -696,6 +696,8 @@ k8s.io/client-go/util/retry
 k8s.io/client-go/util/workqueue
 # k8s.io/klog v1.0.0 => k8s.io/klog v0.4.0
 k8s.io/klog
+# k8s.io/klog/v2 v2.0.0
+k8s.io/klog/v2
 # k8s.io/kube-aggregator v0.18.6 => k8s.io/kube-aggregator v0.16.4
 k8s.io/kube-aggregator/pkg/apis/apiregistration
 k8s.io/kube-aggregator/pkg/apis/apiregistration/v1
@@ -710,7 +712,7 @@ k8s.io/kube-openapi/pkg/util/proto
 # k8s.io/kube-state-metrics v1.7.2
 k8s.io/kube-state-metrics/pkg/metric
 k8s.io/kube-state-metrics/pkg/metrics_store
-# k8s.io/utils v0.0.0-20191114184206-e782cd3c129f
+# k8s.io/utils v0.0.0-20200619165400-6e3d28b6ed19
 k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/net
@@ -838,5 +840,5 @@ sigs.k8s.io/controller-tools/pkg/genall
 sigs.k8s.io/controller-tools/pkg/loader
 sigs.k8s.io/controller-tools/pkg/markers
 sigs.k8s.io/controller-tools/pkg/version
-# sigs.k8s.io/yaml v1.1.0
+# sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
