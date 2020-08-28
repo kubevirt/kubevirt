@@ -39,9 +39,11 @@ import (
 )
 
 const (
-	mdevBasePath         = "/sys/bus/mdev/devices"
 	MDEV_RESOURCE_PREFIX = "MDEV_PCI_RESOURCE"
 )
+
+// Not a const for static test purposes
+var mdevBasePath string = "/sys/bus/mdev/devices"
 
 type MDEV struct {
 	UUID             string
@@ -299,15 +301,15 @@ func (dpi *MediatedDevicePlugin) PreStartContainer(ctx context.Context, in *plug
 func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) map[string][]*MDEV {
 
 	mdevsMap := make(map[string][]*MDEV)
-	err := filepath.Walk(mdevBasePath, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
+	files, err := ioutil.ReadDir(mdevBasePath)
+	for _, info := range files {
+		if info.Mode()&os.ModeSymlink == 0 {
+			continue
 		}
-
 		mdevTypeName, err := getMdevTypeName(info.Name())
 		if err != nil {
 			log.DefaultLogger().Reason(err).Errorf("failed read type name for mdev: %s", info.Name())
-			return nil
+			continue
 		}
 		if _, supported := supportedMdevsMap[mdevTypeName]; supported {
 
@@ -315,23 +317,23 @@ func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) m
 				typeName: mdevTypeName,
 				UUID:     info.Name(),
 			}
-			parentPCIAddr, err := getMdevParentPCIAddr(info.Name())
+			parentPCIAddr, err := Handler.GetMdevParentPCIAddr(info.Name())
 			if err != nil {
 				log.DefaultLogger().Reason(err).Errorf("failed parent PCI address for mdev: %s", info.Name())
-				return nil
+				continue
 			}
+			mdev.parentPciAddress = parentPCIAddr
 
 			mdev.numaNode = Handler.GetDeviceNumaNode(pciBasePath, parentPCIAddr)
 			iommuGroup, err := Handler.GetDeviceIOMMUGroup(mdevBasePath, info.Name())
 			if err != nil {
 				log.DefaultLogger().Reason(err).Errorf("failed to get iommu group of mdev: %s", info.Name())
-				return nil
+				continue
 			}
 			mdev.iommuGroup = iommuGroup
 			mdevsMap[mdevTypeName] = append(mdevsMap[mdevTypeName], mdev)
 		}
-		return nil
-	})
+	}
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("failed to discover mediated devices")
 	}
@@ -408,16 +410,6 @@ func (dpi *MediatedDevicePlugin) healthCheck() error {
 			}
 		}
 	}
-}
-
-// /sys/class/mdev_bus/0000:00:03.0/53764d0e-85a0-42b4-af5c-2046b460b1dc
-func getMdevParentPCIAddr(mdevUUID string) (string, error) {
-	mdevLink, err := os.Readlink(filepath.Join(mdevBasePath, mdevUUID))
-	if err != nil {
-		return "", err
-	}
-	linkParts := strings.Split(mdevLink, "/")
-	return linkParts[len(linkParts)-2], nil
 }
 
 func getMdevTypeName(mdevUUID string) (string, error) {

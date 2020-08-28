@@ -39,6 +39,7 @@ type DeviceHandler interface {
 	GetDeviceDriver(basepath string, pciAddress string) (string, error)
 	GetDeviceNumaNode(basepath string, pciAddress string) (numaNode int)
 	GetDevicePCIID(basepath string, pciAddress string) (string, error)
+	GetMdevParentPCIAddr(mdevUUID string) (string, error)
 }
 
 type DeviceUtilsHandler struct{}
@@ -103,6 +104,16 @@ func (h *DeviceUtilsHandler) GetDevicePCIID(basepath string, pciAddress string) 
 		}
 	}
 	return "", fmt.Errorf("no pci_id is found")
+}
+
+// /sys/class/mdev_bus/0000:00:03.0/53764d0e-85a0-42b4-af5c-2046b460b1dc
+func (h *DeviceUtilsHandler) GetMdevParentPCIAddr(mdevUUID string) (string, error) {
+	mdevLink, err := os.Readlink(filepath.Join(mdevBasePath, mdevUUID))
+	if err != nil {
+		return "", err
+	}
+	linkParts := strings.Split(mdevLink, "/")
+	return linkParts[len(linkParts)-2], nil
 }
 
 func initHandler() {
