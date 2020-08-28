@@ -322,7 +322,8 @@ func (KubeVirtSpec) SwaggerDoc() map[string]string {
 
 func (CustomizeComponents) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "+k8s:openapi-gen=true",
+		"":        "+k8s:openapi-gen=true",
+		"patches": "+listType=atomic",
 	}
 }
 
