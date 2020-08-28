@@ -118,9 +118,7 @@ pciDevices:
 		deviceController.devicePlugins[fakeName] = enabledDevicePlugins[fakeName]
 
 		By("deletting the device from the configmap")
-		fakePermittedHostDevicesConfig = `
-pciDevices:
-`
+		fakePermittedHostDevicesConfig = ""
 		configMapData[virtconfig.PermittedHostDevicesKey] = fakePermittedHostDevicesConfig
 		testutils.UpdateFakeClusterConfigByName(fakeHostDevInformer, &k8sv1.ConfigMap{
 			Data: configMapData,
