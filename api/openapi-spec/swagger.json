@@ -8854,6 +8854,12 @@
      "name": {
       "description": "Name of the GPU device as exposed by a device plugin",
       "type": "string"
+     },
+     "progressTimeout": {
+      "type": "string"
+     },
+     "unsafeMigrationOverride": {
+      "type": "string"
      }
     }
    },
@@ -10437,10 +10443,6 @@
      "livenessProbe": {
       "description": "Periodic probe of VirtualMachineInstance liveness. VirtualmachineInstances will be stopped if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
       "$ref": "#/definitions/v1.Probe"
-     },
-     "migrationConfiguration": {
-      "description": "Overwrite any system migration configuration",
-      "$ref": "#/definitions/v1.PerVMIMigrationConfiguration"
      },
      "networks": {
       "description": "List of networks that can be attached to a vm's virtual interface.",

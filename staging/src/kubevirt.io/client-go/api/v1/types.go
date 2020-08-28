@@ -150,10 +150,6 @@ type VirtualMachineInstanceSpec struct {
 	// configuration based on DNSPolicy.
 	// +optional
 	DNSConfig *k8sv1.PodDNSConfig `json:"dnsConfig,omitempty" protobuf:"bytes,26,opt,name=dnsConfig"`
-
-	// Overwrite any system migration configuration
-	// +optional
-	MigrationConfiguration *PerVMIMigrationConfiguration `json:"migrationConfiguration,omitempty"`
 }
 
 // VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual
@@ -1445,21 +1441,15 @@ type SMBiosConfiguration struct {
 // MigrationConfiguration holds migration options
 // +k8s:openapi-gen=true
 type MigrationConfiguration struct {
-	NodeDrainTaintKey                 *string `json:"nodeDrainTaintKey,omitempty"`
-	ParallelOutboundMigrationsPerNode *uint32 `json:"parallelOutboundMigrationsPerNode,string,omitempty"`
-	ParallelMigrationsPerCluster      *uint32 `json:"parallelMigrationsPerCluster,string,omitempty"`
-	*PerVMIMigrationConfiguration     `json:",inline"`
-}
-
-// PerVMIMigrationConfiguration holds migration options that can be configurated per vmi
-// +k8s:openapi-gen=true
-type PerVMIMigrationConfiguration struct {
-	AllowAutoConverge       *bool              `json:"allowAutoConverge,string,omitempty"`
-	BandwidthPerMigration   *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
-	CompletionTimeoutPerGiB *int64             `json:"completionTimeoutPerGiB,string,omitempty"`
-	ProgressTimeout         *int64             `json:"progressTimeout,string,omitempty"`
-	UnsafeMigrationOverride *bool              `json:"unsafeMigrationOverride,string,omitempty"`
-	MigrationMode           *MigrationMode     `json:"migrationMode,omitempty"`
+	NodeDrainTaintKey                 *string            `json:"nodeDrainTaintKey,omitempty"`
+	ParallelOutboundMigrationsPerNode *uint32            `json:"parallelOutboundMigrationsPerNode,string,omitempty"`
+	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,string,omitempty"`
+	AllowAutoConverge                 *bool              `json:"allowAutoConverge,string,omitempty"`
+	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
+	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,string,omitempty"`
+	ProgressTimeout                   *int64             `json:"progressTimeout,string,omitempty"`
+	UnsafeMigrationOverride           *bool              `json:"unsafeMigrationOverride,string,omitempty"`
+	MigrationMode                     *MigrationMode     `json:"migrationMode,omitempty"`
 }
 
 // DeveloperConfiguration holds developer options

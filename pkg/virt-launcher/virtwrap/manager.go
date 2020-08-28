@@ -403,43 +403,6 @@ func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstanc
 	return copyDisks
 }
 
-func mergeClusterMigrationOptionsWithVMIMigrationConfiguration(options *cmdclient.MigrationOptions, vmi *v1.VirtualMachineInstance) {
-	migrationConfig := vmi.Spec.MigrationConfiguration
-	if migrationConfig == nil {
-		return
-	}
-
-	if migrationConfig.MigrationMode != nil {
-		options.MigrationMode = *migrationConfig.MigrationMode
-	}
-
-	if migrationConfig.AllowAutoConverge != nil {
-		options.AllowAutoConverge = *migrationConfig.AllowAutoConverge
-	}
-
-	if migrationConfig.UnsafeMigrationOverride != nil {
-		options.UnsafeMigration = *migrationConfig.UnsafeMigrationOverride
-	}
-
-	if migrationConfig.BandwidthPerMigration != nil {
-		options.Bandwidth = *migrationConfig.BandwidthPerMigration
-	}
-
-	if migrationConfig.CompletionTimeoutPerGiB != nil {
-		options.CompletionTimeoutPerGiB = *migrationConfig.CompletionTimeoutPerGiB
-	}
-
-	if migrationConfig.ProgressTimeout != nil {
-		options.ProgressTimeout = *migrationConfig.ProgressTimeout
-	}
-
-	// TODO: if we use post copy we should ignore completiontimeoutpergib
-	// if options.UsePostCopy {
-	// 	options.CompletionTimeoutPerGiB = nil
-	// }
-
-}
-
 func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
 
 	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
@@ -451,8 +414,6 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		// to libvirt in order to trick libvirt into doing what we want.
 		// This also creates a tcp server for each additional direct migration connections
 		// that will be proxied to the destination pod
-
-		mergeClusterMigrationOptionsWithVMIMigrationConfiguration(options, vmi)
 
 		isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
 		migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration)
