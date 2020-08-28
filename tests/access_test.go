@@ -254,14 +254,18 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		const testUser = "testuser"
 
+		testAction := func(resource, verb string, right string) {
+			// AS A TEST USER
+			By(fmt.Sprintf("verifying user rights for verb %s", verb))
+			result, _, _ := tests.RunCommand(k8sClient, "auth", "can-i", "--as", testUser, verb, resource)
+			Expect(result).To(ContainSubstring(right))
+		}
+
 		testRights := func(resource, right string) {
 			verbsList := []string{"get", "list", "watch", "delete", "create", "update", "patch", "deletecollection"}
 
 			for _, verb := range verbsList {
-				// AS A TEST USER
-				By(fmt.Sprintf("verifying user rights for verb %s", verb))
-				result, _, _ := tests.RunCommand(k8sClient, "auth", "can-i", "--as", testUser, verb, resource)
-				Expect(result).To(ContainSubstring(right))
+				testAction(resource, verb, right)
 			}
 		}
 
@@ -291,6 +295,15 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				table.Entry("given a vmsnapshot", "virtualmachinesnapshots"),
 				table.Entry("given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
 				table.Entry("given a vmsrestore", "virtualmachinerestores"),
+			)
+
+			table.DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
+				testAction(resource, action, "no")
+			},
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/pause", "update"),
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/unpause", "update"),
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/console", "get"),
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/vnc", "get"),
 			)
 		})
 
@@ -325,6 +338,15 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				table.Entry("given a vmsnapshot", "virtualmachinesnapshots"),
 				table.Entry("given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
 				table.Entry("given a vmsrestore", "virtualmachinerestores"),
+			)
+
+			table.DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
+				testAction(resource, action, "yes")
+			},
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/pause", "update"),
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/unpause", "update"),
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/console", "get"),
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/vnc", "get"),
 			)
 		})
 	})
