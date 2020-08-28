@@ -1242,36 +1242,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
-			It("should migration still migrate with local storage as precopy", func() {
-				data := map[string]string{
-					"migrationMode": "PostCopy",
-				}
-				migrationData, err := json.Marshal(data)
-				Expect(err).ToNot(HaveOccurred())
-				tests.UpdateClusterConfigValueAndWait("migrations", string(migrationData))
-
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedora))
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-
-				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 240)
-
-				// execute a migration, wait for finalized state
-				By("Starting the Migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := runMigrationAndExpectCompletion(migration, 180)
-
-				// check VMI, confirm migration state
-				confirmVMIPostMigration(vmi, migrationUID)
-				confirmMigrationMode(vmi, v1.MigrationPreCopy)
-
-				// delete VMI
-				By("Deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-
-				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-			})
 
 			// It("postcopy migration should complete in less time understress than precopy", func() {
 			// 	data := map[string]string{
