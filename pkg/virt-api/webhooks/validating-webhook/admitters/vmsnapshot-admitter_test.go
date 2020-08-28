@@ -44,7 +44,7 @@ import (
 
 var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 	vmName := "vm"
-	apiGroup := "kubevirt.io/v1alpha3"
+	apiGroup := "kubevirt.io"
 
 	config, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 

@@ -27,7 +27,6 @@ import (
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -86,12 +85,7 @@ func (admitter *VMSnapshotAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.
 			break
 		}
 
-		gv, err := schema.ParseGroupVersion(*vmSnapshot.Spec.Source.APIGroup)
-		if err != nil {
-			return webhookutils.ToAdmissionResponseError(err)
-		}
-
-		switch gv.Group {
+		switch *vmSnapshot.Spec.Source.APIGroup {
 		case v1.GroupName:
 			switch vmSnapshot.Spec.Source.Kind {
 			case "VirtualMachine":
