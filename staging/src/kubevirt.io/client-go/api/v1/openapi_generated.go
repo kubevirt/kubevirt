@@ -13955,6 +13955,11 @@ func schema_kubevirtio_client_go_api_v1_CustomizeComponents(ref common.Reference
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
 					"patches": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
