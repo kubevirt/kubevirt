@@ -87,38 +87,6 @@ type VMSnapshotController struct {
 	vmStatusUpdater *status.VMStatusUpdater
 }
 
-// NewSnapshotController creates a new VMSnapshotController
-func NewSnapshotController(
-	client kubecli.KubevirtClient,
-	vmSnapshotInformer cache.SharedIndexInformer,
-	vmSnapshotContentInformer cache.SharedIndexInformer,
-	vmInformer cache.SharedIndexInformer,
-	storageClassInformer cache.SharedIndexInformer,
-	pvcInformer cache.SharedIndexInformer,
-	crdInformer cache.SharedIndexInformer,
-	recorder record.EventRecorder,
-	resyncPeriod time.Duration,
-) *VMSnapshotController {
-
-	ctrl := &VMSnapshotController{
-		Client:                    client,
-		vmSnapshotQueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-vmsnapshot"),
-		vmSnapshotContentQueue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-vmsnapshotcontent"),
-		crdQueue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-crd"),
-		VMSnapshotInformer:        vmSnapshotInformer,
-		VMSnapshotContentInformer: vmSnapshotContentInformer,
-		StorageClassInformer:      storageClassInformer,
-		PVCInformer:               pvcInformer,
-		VMInformer:                vmInformer,
-		CRDInformer:               crdInformer,
-		recorder:                  recorder,
-		resyncPeriod:              resyncPeriod,
-		vmStatusUpdater:           status.NewVMStatusUpdater(client),
-	}
-
-	return ctrl
-}
-
 var supportedCRDVersions = []string{"v1beta1"}
 
 // Init initializes the snapshot controller
@@ -172,6 +140,8 @@ func (ctrl *VMSnapshotController) Init() {
 		},
 		ctrl.ResyncPeriod,
 	)
+
+	ctrl.vmStatusUpdater = status.NewVMStatusUpdater(ctrl.Client)
 }
 
 // Run the controller

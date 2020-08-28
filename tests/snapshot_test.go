@@ -25,7 +25,7 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
-	groupName := "kubevirt.io/v1alpha3"
+	groupName := "kubevirt.io"
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()

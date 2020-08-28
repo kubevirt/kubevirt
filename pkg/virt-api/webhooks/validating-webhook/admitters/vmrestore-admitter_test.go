@@ -49,7 +49,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 		vmSnapshotName = "snapshot"
 	)
 
-	apiGroup := "kubevirt.io/v1alpha3"
+	apiGroup := "kubevirt.io"
 
 	t := true
 	f := false
