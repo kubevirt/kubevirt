@@ -897,7 +897,7 @@ func convertV1ToAPISyNICTimer(syNICTimer *v1.SyNICTimer) *api.SyNICTimer {
 	return result
 }
 
-func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *ConverterContext) {
+func Convert_v1_Ballooning_To_api_Balloning(source *v1.Devices, ballooning *api.MemBalloon, c *ConverterContext) {
 	if source != nil && source.AutoattachMemBalloon != nil && *source.AutoattachMemBalloon == false {
 		ballooning.Model = "none"
 		ballooning.Stats = nil
@@ -906,7 +906,6 @@ func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *
 		if c.MemBalloonStatsPeriod != 0 {
 			ballooning.Stats = &api.Stats{Period: c.MemBalloonStatsPeriod}
 		}
-
 	}
 }
 
@@ -1324,12 +1323,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	domain.Spec.Devices.Ballooning = &api.MemBalloon{}
-	ConvertV1ToAPIBalloning(&vmi.Spec.Domain.Devices, domain.Spec.Devices.Ballooning, c)
+	Convert_v1_Ballooning_To_api_Balloning(&vmi.Spec.Domain.Devices, domain.Spec.Devices.Ballooning, c)
 
 	//usb controller is turned on, only when user specify input device with usb bus,
 	//otherwise it is turned off
 	//In ppc64le usb devices like mouse / keyboard are set by default,
-	//so we can't disable the controller otherwise we run into the following error:
 	//"unsupported configuration: USB is disabled for this domain, but USB devices are present in the domain XML"
 	if !isUSBDevicePresent && c.Architecture != "ppc64le" {
 		// disable usb controller
