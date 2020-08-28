@@ -1186,13 +1186,15 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Starting our migration killer pods")
 				nodes := tests.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
-				for _, entry := range nodes.Items {
+				for idx, entry := range nodes.Items {
 					if entry.Name == vmi.Status.NodeName {
 						continue
 					}
 
+					podName := fmt.Sprintf("migration-killer-pod-%d", idx)
+
 					// kill the handler right as we detect the qemu target process come online
-					pod := tests.RenderPod(fmt.Sprintf("migration-killer-%s", entry.Name), []string{"/bin/bash", "-c"}, []string{"while true; do ps aux | grep \"[q]emu-kvm\" && pkill -9 virt-handler && exit 0; done"})
+					pod := tests.RenderPod(podName, []string{"/bin/bash", "-c"}, []string{"while true; do ps aux | grep \"[q]emu-kvm\" && pkill -9 virt-handler && exit 0; done"})
 					pod.Spec.NodeName = entry.Name
 					createdPod, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(pod)
 					Expect(err).ToNot(HaveOccurred(), "Should create helper pod")
