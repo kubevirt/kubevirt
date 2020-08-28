@@ -1,21 +1,17 @@
 ARG ARCH
-FROM ${ARCH}/fedora:31
+FROM ${ARCH}/fedora:32
 
 COPY qemu-ppc64le-static /usr/bin/qemu-ppc64le-static
 
-ENV LIBVIRT_VERSION 5.0.0
-
-ENV BAZEL_VERSION 1.2.1
+ENV BAZEL_VERSION 3.4.1
 
 ENV KUBEVIRT_CREATE_BAZELRCS false
 
 # Install packages
 RUN dnf install -y dnf-plugins-core && \
-    dnf copr enable -y vbatts/bazel && \
-    dnf copr enable -y @virtmaint-sig/for-kubevirt && \
     dnf -y install \
-        libvirt-devel-${LIBVIRT_VERSION} \
-        bazel-${BAZEL_VERSION} \
+        java-11-openjdk-devel \
+        libvirt-devel \
         cpio \
         patch \
         make \
@@ -44,7 +40,7 @@ RUN wget https://services.gradle.org/distributions/gradle-6.6-bin.zip && \
     unzip -d /opt/gradle gradle-6.6-bin.zip
 
 ENV PATH=$PATH:/opt/gradle/gradle-6.6/bin \
-    JAVA_HOME=/usr/lib/jvm/java-11-openjdk-11.0.8.10-2.fc31.x86_64
+    JAVA_HOME=/usr/lib/jvm/java-11
 
 ENV GIMME_GO_VERSION=1.13.14
 
@@ -92,7 +88,7 @@ RUN set -x && \
     rm -rf /test-infra && \
     rm -rf /go && mkdir /go
 
-RUN pip3 install j2cli operator-courier==1.3.0
+RUN pip3 install --upgrade j2cli operator-courier==1.3.0
 
 ENV SONOBUOY_VERSION=0.19.0
 RUN set -x && \
@@ -106,5 +102,7 @@ COPY rsyncd.conf /etc/rsyncd.conf
 COPY entrypoint.sh /entrypoint.sh
 
 COPY create_bazel_cache_rcs.sh /create_bazel_cache_rcs.sh
+
+RUN curl -L -o /usr/bin/bazel https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-x86_64 && chmod u+x /usr/bin/bazel
 
 ENTRYPOINT [ "/entrypoint.sh" ]
