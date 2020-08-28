@@ -123,9 +123,7 @@ mdevs:
 		deviceController.devicePlugins[fakeMdevResourceName] = enabledDevicePlugins[fakeMdevResourceName]
 
 		By("deletting the device from the configmap")
-		fakePermittedHostDevicesConfig = `
-mdevs:
-`
+		fakePermittedHostDevicesConfig = ""
 		configMapData[virtconfig.PermittedHostDevicesKey] = fakePermittedHostDevicesConfig
 		testutils.UpdateFakeClusterConfigByName(fakeHostDevInformer, &k8sv1.ConfigMap{
 			Data: configMapData,
