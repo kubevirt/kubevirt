@@ -41,7 +41,7 @@
 # to verify that it is updated to the new operator image from 
 # the local registry.
 
-MAX_STEPS=10
+MAX_STEPS=11
 CUR_STEP=1
 RELEASE_DELTA="${RELEASE_DELTA:-1}"
 HCO_DEPLOYMENT_NAME=hco-operator
@@ -244,6 +244,9 @@ Msg "verify the hyperconverged-cluster deployment is using the new image"
 
 ./hack/retry.sh 6 30 "${CMD} get deployments -n ${HCO_NAMESPACE} -o yaml | grep image | grep hyperconverged-cluster | grep ${REGISTRY_IMAGE_URL_PREFIX}"
 
+Msg "wait that cluster is operational after upgrade"
+timeout 20m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
+
 echo "----- Images after upgrade"
 ${CMD} get deployments -n ${HCO_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
 ${CMD} get pod $HCO_CATALOGSOURCE_POD -n ${HCO_CATALOG_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
@@ -251,9 +254,6 @@ ${CMD} get pod $HCO_CATALOGSOURCE_POD -n ${HCO_CATALOG_NAMESPACE} -o yaml | grep
 echo "----- Pod after upgrade"
 Msg "verify that the hyperconverged-cluster Pod is using the new image"
 ./hack/retry.sh 10 30 "CMD=${CMD} HCO_NAMESPACE=${HCO_NAMESPACE} ./hack/check_pod_upgrade.sh"
-
-Msg "wait that cluster is operational after upgrade"
-timeout 20m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
 
 Msg "verify new operator version reported after the upgrade"
 ./hack/retry.sh 10 30 "CMD=${CMD} HCO_RESOURCE_NAME=${HCO_RESOURCE_NAME} HCO_NAMESPACE=${HCO_NAMESPACE} TARGET_VERSION=${TARGET_VERSION} hack/check_hco_version.sh"
