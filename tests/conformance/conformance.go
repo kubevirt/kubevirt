@@ -41,7 +41,7 @@ func execute() error {
 	}
 	args = append(args, "--config", "/conformance-config.json")
 
-	cmd := exec.Command("/usr/bin/functest", args...)
+	cmd := exec.Command("/usr/bin/go_default_test", args...)
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "ARTIFACTS=/tmp/results/")
 	cmd.Stderr = os.Stderr
