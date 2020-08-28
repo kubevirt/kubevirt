@@ -282,6 +282,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"k8s.io/apimachinery/pkg/apis/meta/v1.WatchEvent":                                  schema_pkg_apis_meta_v1_WatchEvent(ref),
 		"kubevirt.io/client-go/api/v1.AccessCredential":                                    schema_kubevirtio_client_go_api_v1_AccessCredential(ref),
 		"kubevirt.io/client-go/api/v1.AccessCredentialSecretSource":                        schema_kubevirtio_client_go_api_v1_AccessCredentialSecretSource(ref),
+		"kubevirt.io/client-go/api/v1.AuthorizedKeysFile":                                  schema_kubevirtio_client_go_api_v1_AuthorizedKeysFile(ref),
 		"kubevirt.io/client-go/api/v1.BIOS":                                                schema_kubevirtio_client_go_api_v1_BIOS(ref),
 		"kubevirt.io/client-go/api/v1.Bootloader":                                          schema_kubevirtio_client_go_api_v1_Bootloader(ref),
 		"kubevirt.io/client-go/api/v1.CDRomTarget":                                         schema_kubevirtio_client_go_api_v1_CDRomTarget(ref),
@@ -13373,6 +13374,27 @@ func schema_kubevirtio_client_go_api_v1_AccessCredentialSecretSource(ref common.
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_AuthorizedKeysFile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AuthorizedKeysFile represents a path within the guest that ssh public keys should be propagated to",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"filePath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FilePath represents the place on the guest that the authorized_keys file should be writen to. This is expected to be a full path including both the base directory and file name.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"filePath"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_BIOS(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -16050,8 +16072,30 @@ func schema_kubevirtio_client_go_api_v1_QemuGuestAgentAccessCredentialPropagatio
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"authorizedKeysFiles": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "AuthorizedKeysFiles represents all the paths within the guest that ssh public keys should be propagated to",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/api/v1.AuthorizedKeysFile"),
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.AuthorizedKeysFile"},
 	}
 }
 

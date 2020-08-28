@@ -27,11 +27,9 @@ package virtwrap
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -65,6 +63,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	accesscredentials "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/access-credentials"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -110,9 +109,7 @@ type LibvirtDomainManager struct {
 	// mutex to control access to the guest time context
 	setGuestTimeLock sync.Mutex
 
-	// access credentail propagation log
-	accessCredentialsLock          sync.Mutex
-	accessCredentialsPollerStarted bool
+	credManager *accesscredentials.AccessCredentialManager
 
 	virtShareDir           string
 	notifier               *eventsclient.Notifier
@@ -161,138 +158,12 @@ func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 		paused: pausedVMIs{
 			paused: make(map[types.UID]bool, 0),
 		},
-		agentData: agentStore,
-		ovmfPath:  ovmfPath,
+		agentData:   agentStore,
+		ovmfPath:    ovmfPath,
+		credManager: accesscredentials.NewManager(connection),
 	}
 
 	return &manager, nil
-}
-
-func (l *LibvirtDomainManager) accessCredentialPoller(vmi *v1.VirtualMachineInstance) {
-	l.accessCredentialsLock.Lock()
-	defer l.accessCredentialsLock.Unlock()
-
-	if l.accessCredentialsPollerStarted {
-		// already started
-		return
-	}
-
-	var secretDirs []string
-
-	for _, accessCred := range vmi.Spec.AccessCredentials {
-		if accessCred.SSHPublicKey == nil || accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent == nil {
-			continue
-		}
-
-		secretName := ""
-		if accessCred.SSHPublicKey.Source.Secret != nil {
-			secretName = accessCred.SSHPublicKey.Source.Secret.SecretName
-		}
-
-		if secretName == "" {
-			continue
-		}
-
-		secretDirs = append(secretDirs, filepath.Join(config.SecretSourceDir, secretName+"-access-cred"))
-	}
-
-	if len(secretDirs) == 0 {
-		// not using the agent for ssh pub key propagation
-		return
-	}
-
-	// Poller!
-	go func(vmi *v1.VirtualMachineInstance, secretDirs []string, virConn cli.Connection) {
-
-		logger := log.Log.Object(vmi)
-
-		domName := util.VMINamespaceKeyFunc(vmi)
-
-		for {
-			time.Sleep(10 * time.Second)
-			logger.Infof("ITERATING EXPERIMENTAL COMMAND - VOSSEL")
-			authorizedKeys := ""
-			for _, baseDir := range secretDirs {
-				files, err := ioutil.ReadDir(baseDir)
-				if err != nil {
-					// TODO log error
-					logger.Infof("VOSSEL OUTPUT ERR: %v", err)
-					continue
-				}
-
-				for _, file := range files {
-					if file.IsDir() || strings.HasPrefix(file.Name(), "..") {
-						continue
-					}
-
-					pubKeyBytes, err := ioutil.ReadFile(filepath.Join(baseDir, file.Name()))
-					if err != nil {
-						// TODO log error
-						logger.Infof("VOSSEL OUTPUT ERR: %v", err)
-						continue
-					}
-
-					pubKey := string(pubKeyBytes)
-					if pubKey == "" {
-						continue
-					}
-					authorizedKeys = fmt.Sprintf("%s\n%s", authorizedKeys, pubKey)
-				}
-			}
-
-			//[root@agent /]# export domain=default_agent
-			//[root@agent /]# virsh qemu-agent-command $domain '{"execute": "guest-file-open", "arguments": { "path": "/home/fedora/.ssh/authorized_keys", "mode":"w" } }'
-			//{"return":1000}
-			//
-			//[root@agent /]# virsh qemu-agent-command $domain '{"execute": "guest-file-write", "arguments": { "handle": 1000, "buf-b64": "c3NoIHNvbWVrZXkxMjMgdGVzdC1rZXkK" } }'
-			//{"return":{"count":24,"eof":false}}
-			//
-			//[root@agent /]# virsh qemu-agent-command $domain '{"execute": "guest-file-close", "arguments": { "handle": 1000 } }'
-			//{"return":{}}
-			//
-			//[root@agent /]# virsh qemu-agent-command $domain '{"execute":"guest-exec", "arguments": {"path":"cat", "arg": [ "/home/fedora/.ssh/authorized_keys" ], "capture-output":true }}'
-			//{"return":{"pid":789}}
-			//
-			//[root@agent /]# virsh qemu-agent-command $domain '{"execute": "guest-exec-status", "arguments": { "pid": 789 } }'
-			//{"return":{"exitcode":0,"out-data":"c3NoIHNvbWVrZXkxMjMgdGVzdC1rZXkK","exited":true}}
-
-			type fileReturn struct {
-				Return int `json:"return"`
-			}
-
-			base64Str := base64.StdEncoding.EncodeToString([]byte(authorizedKeys))
-
-			logger.Infof("EXECUTING EXPERIMENTAL COMMAND - VOSSEL")
-			cmdOpenFile := `{"execute": "guest-file-open", "arguments": { "path": "/home/fedora/.ssh/authorized_keys", "mode":"w" } }`
-			output, err := virConn.QemuAgentCommand(cmdOpenFile, domName)
-			if err != nil {
-				logger.Infof("VOSSEL OUTPUT ERR: %v", err)
-				continue
-			}
-			logger.Infof("VOSSEL Open OUTPUT STR: %s", output)
-
-			ret := &fileReturn{}
-			err = json.Unmarshal([]byte(output), ret)
-
-			cmdWriteFile := fmt.Sprintf(`{"execute": "guest-file-write", "arguments": { "handle": %d, "buf-b64": "%s" } }`, ret.Return, base64Str)
-			output, err = virConn.QemuAgentCommand(cmdWriteFile, domName)
-			if err != nil {
-				logger.Infof("VOSSEL OUTPUT ERR: %v", err)
-				continue
-			}
-			logger.Infof("VOSSEL Write OUTPUT STR: %s", output)
-
-			cmdCloseFile := fmt.Sprintf(`{"execute": "guest-file-close", "arguments": { "handle": %d } }`, ret.Return)
-			output, err = virConn.QemuAgentCommand(cmdCloseFile, domName)
-			if err != nil {
-				logger.Infof("VOSSEL OUTPUT ERR: %v", err)
-				continue
-			}
-			logger.Infof("VOSSEL Close OUTPUT STR: %s", output)
-		}
-
-	}(vmi, secretDirs, l.virConn)
-
 }
 
 func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachineInstance) (bool, error) {
@@ -1140,7 +1011,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		}
 	}
 
-	l.accessCredentialPoller(vmi)
+	l.credManager.HandleQemuAgentAccessCredentials(vmi)
 
 	return domain, err
 }

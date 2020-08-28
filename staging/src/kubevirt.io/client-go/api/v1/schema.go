@@ -1084,9 +1084,26 @@ type AccessCredentialSecretSource struct {
 // +k8s:openapi-gen=true
 type ConfigDriveAccessCredentialPropagation struct{}
 
+// AuthorizedKeysFile represents a path within the guest
+// that ssh public keys should be propagated to
 //
 // +k8s:openapi-gen=true
-type QemuGuestAgentAccessCredentialPropagation struct{}
+type AuthorizedKeysFile struct {
+	// FilePath represents the place on the guest that the authorized_keys
+	// file should be writen to. This is expected to be a full path including
+	// both the base directory and file name.
+	FilePath string `json:"filePath"`
+}
+
+//
+// +k8s:openapi-gen=true
+type QemuGuestAgentAccessCredentialPropagation struct {
+	// AuthorizedKeysFiles represents all the paths within the guest
+	// that ssh public keys should be propagated to
+	// +optional
+	// +listType=set
+	AuthorizedKeysFiles []AuthorizedKeysFile `json:"authorizedKeysFiles,omitempty"`
+}
 
 // SSHPublicKeyAccessCredentialSource represents where to retrieve the ssh key
 // credentials
