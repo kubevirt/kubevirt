@@ -1031,15 +1031,22 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 	shouldAbort := false
 	// set to true when VirtualMachineInstance migration target needs to be prepared
 	shouldUpdate := false
+	// set true when the current migration target has exitted and needs to be cleaned up.
+	shouldCleanUp := false
 
 	if vmiExists && vmi.IsRunning() {
 		shouldUpdate = true
 	}
 
-	if !vmiExists && vmi.DeletionTimestamp != nil {
+	if !vmiExists || vmi.DeletionTimestamp != nil {
 		shouldAbort = true
 	} else if vmi.IsFinal() {
 		shouldAbort = true
+	} else if d.hasStaleClientConnections(vmi) {
+		// if stale client exists, force cleanup.
+		// This can happen as a result of a previously
+		// failed attempt to migrate the vmi to this node.
+		shouldCleanUp = true
 	}
 
 	if shouldAbort {
@@ -1054,16 +1061,21 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 		if err != nil {
 			return err
 		}
-	} else if shouldUpdate {
-		log.Log.Object(vmi).V(3).Info("Processing vmi migration target update")
-		vmiCopy := vmi.DeepCopy()
+	} else if shouldCleanUp {
+		log.Log.Object(vmi).Infof("Stale client for migration target found. Cleaning up.")
 
-		// if the vmi previous lived on this node, we need to make sure
-		// we aren't holding on to a previous client connection that is dead.
-		// THis function reaps the client connection if it is dead.
-		//
-		// A new client connection will be created on demand when needed
-		d.removeStaleClientConnections(vmi)
+		err := d.processVmCleanup(vmi)
+		if err != nil {
+			return err
+		}
+
+		// if we're still the migration target, we need to keep trying until the migration fails.
+		// it's possible we're simply waiting for another target pod to come online.
+		d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*1)
+
+	} else if shouldUpdate {
+		log.Log.Object(vmi).Info("Processing vmi migration target update")
+		vmiCopy := vmi.DeepCopy()
 
 		// prepare the POD for the migration
 		err := d.processVmUpdate(vmi)
@@ -1721,30 +1733,20 @@ func (d *VirtualMachineController) processVmDelete(vmi *v1.VirtualMachineInstanc
 
 }
 
-func (d *VirtualMachineController) removeStaleClientConnections(vmi *v1.VirtualMachineInstance) {
-
+func (d *VirtualMachineController) hasStaleClientConnections(vmi *v1.VirtualMachineInstance) bool {
 	_, err := d.getVerifiedLauncherClient(vmi)
 	if err == nil {
 		// current client connection is good.
-		return
+		return false
 	}
 
-	// remove old stale client connection
-
-	// maps require locks for concurrent access
-	d.launcherClientLock.Lock()
-	defer d.launcherClientLock.Unlock()
-
-	clientInfo, ok := d.launcherClients[vmi.UID]
-	if !ok {
-		// no client connection to reap
-		return
+	// no connection, but ghost file exists.
+	if virtcache.HasGhostRecord(vmi.Namespace, vmi.Name) {
+		return true
 	}
 
-	if clientInfo.client != nil {
-		clientInfo.client.Close()
-	}
-	delete(d.launcherClients, vmi.UID)
+	return false
+
 }
 
 func (d *VirtualMachineController) getVerifiedLauncherClient(vmi *v1.VirtualMachineInstance) (client cmdclient.LauncherClient, err error) {

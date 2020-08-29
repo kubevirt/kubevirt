@@ -249,6 +249,7 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 					return fmt.Errorf("failed to change permisions on %s", sourceFile)
 				}
 
+				log.DefaultLogger().Object(vmi).Infof("Bind mounting container disk at %s to %s", strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile)
 				out, err := exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "mount", "-o", "ro,bind", strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile).CombinedOutput()
 				if err != nil {
 					return fmt.Errorf("failed to bindmount containerDisk %v: %v : %v", volume.Name, string(out), err)
@@ -322,14 +323,19 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 			return err
 		} else if record == nil {
 			// no entries to unmount
+
+			log.DefaultLogger().Object(vmi).Infof("No container disk mount entries found to unmount")
 			return nil
 		}
 
+		log.DefaultLogger().Object(vmi).Infof("Found container disk mount entries")
 		for _, entry := range record.MountTargetEntries {
 			path := entry.TargetFile
+			log.DefaultLogger().Object(vmi).Infof("Looking to see if containerdisk is mounted at path %s", path)
 			if mounted, err := isolation.NodeIsolationResult().IsMounted(path); err != nil {
 				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", path, err)
 			} else if mounted {
+				log.DefaultLogger().Object(vmi).Infof("unmounting container disk at path %s", path)
 				out, err := exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "umount", path).CombinedOutput()
 				if err != nil {
 					return fmt.Errorf("failed to unmount containerDisk %v: %v : %v", path, string(out), err)

@@ -1080,6 +1080,99 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		}, 3)
 
+		It("should abort target prep if VMI is deleted", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Labels = make(map[string]string)
+			vmi.Status.NodeName = "othernode"
+			vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:   host,
+				SourceNode:   "othernode",
+				MigrationUID: "123",
+			}
+			now := metav1.Time{Time: time.Now()}
+			vmi.DeletionTimestamp = &now
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			mockWatchdog.CreateFile(vmi)
+			vmiFeeder.Add(vmi)
+
+			// something has to be listening to the cmd socket
+			// for the proxy to work.
+			os.MkdirAll(cmdclient.SocketDirectoryOnHost(string(podTestUUID)), os.ModePerm)
+
+			socketFile := cmdclient.SocketFilePathOnHost(string(podTestUUID))
+			os.RemoveAll(socketFile)
+			socket, err := net.Listen("unix", socketFile)
+			Expect(err).NotTo(HaveOccurred())
+			defer socket.Close()
+
+			// since a random port is generated, we have to create the proxy
+			// here in order to know what port will be in the update.
+			err = controller.handleMigrationProxy(vmi)
+			Expect(err).NotTo(HaveOccurred())
+			err = controller.handlePostSyncMigrationProxy(vmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			destSrcPorts := controller.migrationProxy.GetTargetListenerPorts(string(vmi.UID))
+			fmt.Println("destSrcPorts: ", destSrcPorts)
+			updatedVmi := vmi.DeepCopy()
+			updatedVmi.Status.MigrationState.TargetNodeAddress = controller.ipAddress
+			updatedVmi.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPorts
+
+			client.EXPECT().Close()
+			controller.Execute()
+		}, 3)
+
+		// handles case where a failed migration to this node has left overs still on local storage
+		It("should clean stale clients when preparing migration target", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Labels = make(map[string]string)
+			vmi.Status.NodeName = "othernode"
+			vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:   host,
+				SourceNode:   "othernode",
+				MigrationUID: "123",
+			}
+
+			stalePodUUID := uuid.NewUUID()
+			vmi = addActivePods(vmi, podTestUUID, host)
+			vmi = addActivePods(vmi, stalePodUUID, host)
+
+			mockWatchdog.CreateFile(vmi)
+			vmiFeeder.Add(vmi)
+
+			// Create stale socket ghost file
+			err := virtcache.AddGhostRecord(vmi.Namespace, vmi.Name, "made/up/path", vmi.UID)
+
+			exists := virtcache.HasGhostRecord(vmi.Namespace, vmi.Name)
+			Expect(exists).To(BeTrue())
+
+			// Create new socket
+			socketFile := cmdclient.SocketFilePathOnHost(string(podTestUUID))
+			os.RemoveAll(socketFile)
+			socket, err := net.Listen("unix", socketFile)
+			Expect(err).NotTo(HaveOccurred())
+			defer socket.Close()
+
+			client.EXPECT().Ping().Return(fmt.Errorf("disconnected"))
+			client.EXPECT().Close()
+
+			controller.Execute()
+
+			// ensure cleanup occurred of previous connection
+			exists = virtcache.HasGhostRecord(vmi.Namespace, vmi.Name)
+			Expect(exists).To(BeFalse())
+
+		}, 3)
+
 		It("should migrate vmi once target address is known", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
