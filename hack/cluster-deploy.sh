@@ -56,17 +56,24 @@ if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" ]]; then
     done
 fi
 
+# Remove cdi manifests for sriov-lane until kubevirt/kubevirt#3850 is fixed
+if [[ "$KUBEVIRT_PROVIDER" =~ sriov.* ]]; then
+    rm -f ${MANIFESTS_OUT_DIR}/testing/cdi-*
+fi
+
 # Deploy infra for testing first
 _kubectl create -f ${MANIFESTS_OUT_DIR}/testing
 
-# Deploy CDI with operator.
-_kubectl apply -f - <<EOF
+# Do not deploy cdi-operator for sriov-lane until kubevirt/kubevirt#3850 is fixed
+if [[ ! "$KUBEVIRT_PROVIDER" =~ sriov.* ]]; then
+    _kubectl apply -f - <<EOF
 ---
 apiVersion: cdi.kubevirt.io/v1alpha1
 kind: CDI
 metadata:
   name: cdi
 EOF
+fi
 
 # Deploy kubevirt operator
 _kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
