@@ -284,10 +284,22 @@ func validateStateChangeRequests(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMac
 		}
 
 		if getRenameRequest(existingVM) != nil {
-			return []metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Modifying a VM during a rename process is not allowed",
-			}}
+			allowed := webhooks.GetAllowedServiceAccounts()
+			if _, ok := allowed[ar.UserInfo.Username]; ok {
+				if !reflect.DeepEqual(existingVM.Spec, vm.Spec) {
+					return []metav1.StatusCause{{
+						Type:    metav1.CauseTypeFieldValueNotSupported,
+						Message: fmt.Sprint("Cannot update VM spec until rename process completes"),
+						Field:   k8sfield.NewPath("spec").String(),
+					}}
+
+				}
+			} else {
+				return []metav1.StatusCause{{
+					Type:    metav1.CauseTypeFieldValueNotSupported,
+					Message: fmt.Sprint("Modifying a VM during a rename process is restricted to Kubevirt core components"),
+				}}
+			}
 		}
 	}
 

@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -35,6 +37,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+
+	authv1 "k8s.io/api/authentication/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
@@ -374,7 +378,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(cause.Field).To(Equal("status.stateChangeRequests"))
 			})
 
-			It("should reject a running VM with rename request", func() {
+			It("should reject a rename request when the VM is running", func() {
 				vm.Spec.Running = &running
 
 				rawOldObject, err := json.Marshal(vm)
@@ -419,6 +423,124 @@ var _ = Describe("Validating VM Admitter", func() {
 
 				resp := vmsAdmitter.Admit(ar)
 				Expect(resp.Allowed).To(BeTrue())
+			})
+
+			It("should accept a VM metadata update during rename process from KV service accounts", func() {
+				ar.Request.UserInfo = authv1.UserInfo{Username: "system:serviceaccount:kubevirt:" + rbac.ControllerServiceAccountName}
+				annotations := make(map[string]string)
+				vm.Spec.Running = &notRunning
+				vm.Status = v1.VirtualMachineStatus{
+					StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
+						{
+							Action: v1.RenameRequest,
+							Data: map[string]string{
+								"newName": "new-name",
+							},
+						},
+					},
+				}
+				rawOldObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+				ar.Request.OldObject.Raw = rawOldObject
+
+				annotations["testKey"] = "testValue"
+				vm.ObjectMeta.Annotations = annotations
+
+				rawObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+				ar.Request.Object.Raw = rawObject
+
+				resp := vmsAdmitter.Admit(ar)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+
+			It("should accept a VM status update during rename process from KV service accounts", func() {
+				ar.Request.UserInfo = authv1.UserInfo{Username: "system:serviceaccount:kubevirt:" + rbac.ControllerServiceAccountName}
+				vm.Spec.Running = &notRunning
+				vm.Status = v1.VirtualMachineStatus{
+					StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
+						{
+							Action: v1.RenameRequest,
+							Data: map[string]string{
+								"newName": "new-name",
+							},
+						},
+					},
+				}
+				rawOldObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+				ar.Request.OldObject.Raw = rawOldObject
+
+				vm.Status.Ready = true
+
+				rawObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+				ar.Request.Object.Raw = rawObject
+
+				resp := vmsAdmitter.Admit(ar)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+
+			It("should reject a VM spec update during rename process from KV service accounts", func() {
+				ar.Request.UserInfo = authv1.UserInfo{Username: "system:serviceaccount:kubevirt:" + rbac.ControllerServiceAccountName}
+				vm.Spec.Running = &notRunning
+				nodeSelection := make(map[string]string)
+				vm.Status = v1.VirtualMachineStatus{
+					StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
+						{
+							Action: v1.RenameRequest,
+							Data: map[string]string{
+								"newName": "new-name",
+							},
+						},
+					},
+				}
+				rawOldObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+				ar.Request.OldObject.Raw = rawOldObject
+
+				nodeSelection["testKey"] = "testValue"
+				vm.Spec.Template.Spec.NodeSelector = nodeSelection
+
+				rawObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+				ar.Request.Object.Raw = rawObject
+
+				resp := vmsAdmitter.Admit(ar)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
+				Expect(resp.Result.Details.Causes[0].Message).To(Equal("Cannot update VM spec until rename process completes"))
+			})
+
+			It("should reject a VM modification during rename process from an arbitrary user", func() {
+				ar.Request.UserInfo = authv1.UserInfo{Username: "testuser"}
+				vm.Spec.Running = &notRunning
+				vm.Status = v1.VirtualMachineStatus{
+					StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
+						{
+							Action: v1.RenameRequest,
+							Data: map[string]string{
+								"newName": "new-name",
+							},
+						},
+					},
+				}
+				rawOldObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+				ar.Request.OldObject.Raw = rawOldObject
+
+				vm.Status.Ready = true
+
+				rawObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+				ar.Request.Object.Raw = rawObject
+
+				resp := vmsAdmitter.Admit(ar)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes[0].Message).To(Equal("Modifying a VM during a rename process is restricted to Kubevirt core components"))
+
 			})
 		})
 	})
