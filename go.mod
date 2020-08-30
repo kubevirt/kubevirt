@@ -110,7 +110,7 @@ replace (
 	k8s.io/node-api => k8s.io/node-api v0.16.4
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.16.4
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.16.4
-	k8s.io/sample-controller => k8s.io/sample-controller v0.16.4
+	k8s.io/sample-controller => github.com/kubernetes/sample-controller v0.16.4
 
 	kubevirt.io/client-go => ./staging/src/kubevirt.io/client-go
 )
