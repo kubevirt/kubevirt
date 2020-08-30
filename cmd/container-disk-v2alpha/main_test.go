@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -18,15 +17,11 @@ var containerDiskBinary string
 
 func init() {
 	flag.StringVar(&containerDiskBinary, "container-disk-binary", "_out/cmd/container-disk-v2alpha/container-disk", "path to container disk binary")
-
+	flag.Parse()
+	containerDiskBinary = filepath.Join("../../", containerDiskBinary)
 }
 
 var _ = Describe("the containerDisk binary", func() {
-	BeforeEach(func() {
-		if !strings.Contains(containerDiskBinary, "../../") {
-			containerDiskBinary = filepath.Join("../../", containerDiskBinary)
-		}
-	})
 
 	It("should be able to handle 200 connections in 5 seconds without rejecting one of them", func() {
 		dir, err := ioutil.TempDir("", "container-disk")

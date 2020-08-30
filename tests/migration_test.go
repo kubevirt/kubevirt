@@ -1090,11 +1090,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						stopChan := make(chan struct{})
 						defer close(stopChan)
 						Expect(tests.ForwardPorts(handler, []string{fmt.Sprintf("4321%d:%d", i, port)}, stopChan, 10*time.Second)).To(Succeed())
-						conn, err := tls.Dial("tcp", fmt.Sprintf("localhost:4321%d", i), tlsConfig)
-						if conn != nil {
-							b := make([]byte, 1)
-							_, err = conn.Read(b)
-						}
+						_, err = tls.Dial("tcp", fmt.Sprintf("localhost:4321%d", i), tlsConfig)
 						Expect(err).To(HaveOccurred())
 						errors <- err
 					}(i, portI)

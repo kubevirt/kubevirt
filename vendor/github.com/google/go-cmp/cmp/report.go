@@ -41,10 +41,7 @@ func (r *defaultReporter) String() string {
 	if r.root.NumDiff == 0 {
 		return ""
 	}
-	ptrs := new(pointerReferences)
-	text := formatOptions{}.FormatDiff(r.root, ptrs)
-	resolveReferences(text)
-	return text.String()
+	return formatOptions{}.FormatDiff(r.root).String()
 }
 
 func assert(ok bool) {

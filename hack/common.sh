@@ -4,8 +4,6 @@ if [ -f cluster-up/hack/common.sh ]; then
     source cluster-up/hack/common.sh
 fi
 
-export GOFLAGS=-mod=vendor
-
 KUBEVIRT_DIR="$(
     cd "$(dirname "$BASH_SOURCE[0]")/../"
     pwd

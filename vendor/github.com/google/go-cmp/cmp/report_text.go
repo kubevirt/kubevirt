@@ -10,14 +10,11 @@ import (
 	"math/rand"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/go-cmp/cmp/internal/flags"
 )
 
 var randBool = rand.New(rand.NewSource(time.Now().Unix())).Intn(2) == 0
-
-const maxColumnLength = 80
 
 type indentMode int
 
@@ -94,22 +91,21 @@ type textNode interface {
 // textWrap is a wrapper that concatenates a prefix and/or a suffix
 // to the underlying node.
 type textWrap struct {
-	Prefix   string      // e.g., "bytes.Buffer{"
-	Value    textNode    // textWrap | textList | textLine
-	Suffix   string      // e.g., "}"
-	Metadata interface{} // arbitrary metadata; has no effect on formatting
+	Prefix string   // e.g., "bytes.Buffer{"
+	Value  textNode // textWrap | textList | textLine
+	Suffix string   // e.g., "}"
 }
 
-func (s *textWrap) Len() int {
+func (s textWrap) Len() int {
 	return len(s.Prefix) + s.Value.Len() + len(s.Suffix)
 }
-func (s1 *textWrap) Equal(s2 textNode) bool {
-	if s2, ok := s2.(*textWrap); ok {
+func (s1 textWrap) Equal(s2 textNode) bool {
+	if s2, ok := s2.(textWrap); ok {
 		return s1.Prefix == s2.Prefix && s1.Value.Equal(s2.Value) && s1.Suffix == s2.Suffix
 	}
 	return false
 }
-func (s *textWrap) String() string {
+func (s textWrap) String() string {
 	var d diffMode
 	var n indentMode
 	_, s2 := s.formatCompactTo(nil, d)
@@ -118,7 +114,7 @@ func (s *textWrap) String() string {
 	b = append(b, '\n')              // Trailing newline
 	return string(b)
 }
-func (s *textWrap) formatCompactTo(b []byte, d diffMode) ([]byte, textNode) {
+func (s textWrap) formatCompactTo(b []byte, d diffMode) ([]byte, textNode) {
 	n0 := len(b) // Original buffer length
 	b = append(b, s.Prefix...)
 	b, s.Value = s.Value.formatCompactTo(b, d)
@@ -128,7 +124,7 @@ func (s *textWrap) formatCompactTo(b []byte, d diffMode) ([]byte, textNode) {
 	}
 	return b, s
 }
-func (s *textWrap) formatExpandedTo(b []byte, d diffMode, n indentMode) []byte {
+func (s textWrap) formatExpandedTo(b []byte, d diffMode, n indentMode) []byte {
 	b = append(b, s.Prefix...)
 	b = s.Value.formatExpandedTo(b, d, n)
 	b = append(b, s.Suffix...)
@@ -140,23 +136,22 @@ func (s *textWrap) formatExpandedTo(b []byte, d diffMode, n indentMode) []byte {
 // of the textList.formatCompactTo method.
 type textList []textRecord
 type textRecord struct {
-	Diff       diffMode     // e.g., 0 or '-' or '+'
-	Key        string       // e.g., "MyField"
-	Value      textNode     // textWrap | textLine
-	ElideComma bool         // avoid trailing comma
-	Comment    fmt.Stringer // e.g., "6 identical fields"
+	Diff    diffMode     // e.g., 0 or '-' or '+'
+	Key     string       // e.g., "MyField"
+	Value   textNode     // textWrap | textLine
+	Comment fmt.Stringer // e.g., "6 identical fields"
 }
 
 // AppendEllipsis appends a new ellipsis node to the list if none already
 // exists at the end. If cs is non-zero it coalesces the statistics with the
 // previous diffStats.
 func (s *textList) AppendEllipsis(ds diffStats) {
-	hasStats := !ds.IsZero()
+	hasStats := ds != diffStats{}
 	if len(*s) == 0 || !(*s)[len(*s)-1].Value.Equal(textEllipsis) {
 		if hasStats {
-			*s = append(*s, textRecord{Value: textEllipsis, ElideComma: true, Comment: ds})
+			*s = append(*s, textRecord{Value: textEllipsis, Comment: ds})
 		} else {
-			*s = append(*s, textRecord{Value: textEllipsis, ElideComma: true})
+			*s = append(*s, textRecord{Value: textEllipsis})
 		}
 		return
 	}
@@ -196,7 +191,7 @@ func (s1 textList) Equal(s2 textNode) bool {
 }
 
 func (s textList) String() string {
-	return (&textWrap{Prefix: "{", Value: s, Suffix: "}"}).String()
+	return textWrap{"{", s, "}"}.String()
 }
 
 func (s textList) formatCompactTo(b []byte, d diffMode) ([]byte, textNode) {
@@ -226,7 +221,7 @@ func (s textList) formatCompactTo(b []byte, d diffMode) ([]byte, textNode) {
 	}
 	// Force multi-lined output when printing a removed/inserted node that
 	// is sufficiently long.
-	if (d == diffInserted || d == diffRemoved) && len(b[n0:]) > maxColumnLength {
+	if (d == diffInserted || d == diffRemoved) && len(b[n0:]) > 80 {
 		multiLine = true
 	}
 	if !multiLine {
@@ -241,49 +236,15 @@ func (s textList) formatExpandedTo(b []byte, d diffMode, n indentMode) []byte {
 			_, isLine := r.Value.(textLine)
 			return r.Key == "" || !isLine
 		},
-		func(r textRecord) int { return utf8.RuneCountInString(r.Key) },
+		func(r textRecord) int { return len(r.Key) },
 	)
 	alignValueLens := s.alignLens(
 		func(r textRecord) bool {
 			_, isLine := r.Value.(textLine)
 			return !isLine || r.Value.Equal(textEllipsis) || r.Comment == nil
 		},
-		func(r textRecord) int { return utf8.RuneCount(r.Value.(textLine)) },
+		func(r textRecord) int { return len(r.Value.(textLine)) },
 	)
-
-	// Format lists of simple lists in a batched form.
-	// If the list is sequence of only textLine values,
-	// then batch multiple values on a single line.
-	var isSimple bool
-	for _, r := range s {
-		_, isLine := r.Value.(textLine)
-		isSimple = r.Diff == 0 && r.Key == "" && isLine && r.Comment == nil
-		if !isSimple {
-			break
-		}
-	}
-	if isSimple {
-		n++
-		var batch []byte
-		emitBatch := func() {
-			if len(batch) > 0 {
-				b = n.appendIndent(append(b, '\n'), d)
-				b = append(b, bytes.TrimRight(batch, " ")...)
-				batch = batch[:0]
-			}
-		}
-		for _, r := range s {
-			line := r.Value.(textLine)
-			if len(batch)+len(line)+len(", ") > maxColumnLength {
-				emitBatch()
-			}
-			batch = append(batch, line...)
-			batch = append(batch, ", "...)
-		}
-		emitBatch()
-		n--
-		return n.appendIndent(append(b, '\n'), d)
-	}
 
 	// Format the list as a multi-lined output.
 	n++
@@ -295,7 +256,7 @@ func (s textList) formatExpandedTo(b []byte, d diffMode, n indentMode) []byte {
 		b = alignKeyLens[i].appendChar(b, ' ')
 
 		b = r.Value.formatExpandedTo(b, d|r.Diff, n)
-		if !r.ElideComma {
+		if !r.Value.Equal(textEllipsis) {
 			b = append(b, ',')
 		}
 		b = alignValueLens[i].appendChar(b, ' ')
@@ -369,11 +330,6 @@ type diffStats struct {
 	NumRemoved   int
 	NumInserted  int
 	NumModified  int
-}
-
-func (s diffStats) IsZero() bool {
-	s.Name = ""
-	return s == diffStats{}
 }
 
 func (s diffStats) NumDiff() int {

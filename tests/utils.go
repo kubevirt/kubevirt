@@ -3621,7 +3621,7 @@ func CreateISCSITargetPOD(containerDiskName cd.ContainerDisk) (iscsiTargetIP str
 	image := fmt.Sprintf("%s/cdi-http-import-server:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag)
 	resources := k8sv1.ResourceRequirements{}
 	resources.Limits = make(k8sv1.ResourceList)
-	resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("512M")
+	resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("256M")
 	pod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: ISCSITargetName,

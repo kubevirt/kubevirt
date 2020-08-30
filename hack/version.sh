@@ -96,7 +96,7 @@ function kubevirt::version::ldflag() {
     local key=${1}
     local val=${2}
 
-    echo "-X kubevirt.io/client-go/version.${key}=${val}"
+    echo "-X kubevirt.io/kubevirt/vendor/kubevirt.io/client-go/version.${key}=${val}"
 }
 
 # Prints the value that needs to be passed to the -ldflags parameter of go build
