@@ -22,6 +22,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
 )
@@ -63,6 +64,9 @@ type VirtualMachineSnapshotSpec struct {
 
 // VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource
 type VirtualMachineSnapshotStatus struct {
+	// +optional
+	SourceUID *types.UID `json:"sourceUID,omitempty"`
+
 	// +optional
 	VirtualMachineSnapshotContentName *string `json:"virtualMachineSnapshotContentName,omitempty"`
 

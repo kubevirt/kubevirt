@@ -27,6 +27,7 @@ import (
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -72,6 +73,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 
 	switch ar.Request.Operation {
 	case v1beta1.Create:
+		var targetUID *types.UID
 		targetField := k8sfield.NewPath("spec", "target")
 
 		if vmRestore.Spec.Target.APIGroup == nil {
@@ -82,33 +84,32 @@ func (admitter *VMRestoreAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 					Field:   targetField.Child("apiGroup").String(),
 				},
 			}
-			break
-		}
-
-		switch *vmRestore.Spec.Target.APIGroup {
-		case v1.GroupName:
-			switch vmRestore.Spec.Target.Kind {
-			case "VirtualMachine":
-				causes, err = admitter.validateCreateVM(targetField.Child("name"), ar.Request.Namespace, vmRestore.Spec.Target.Name)
-				if err != nil {
-					return webhookutils.ToAdmissionResponseError(err)
+		} else {
+			switch *vmRestore.Spec.Target.APIGroup {
+			case v1.GroupName:
+				switch vmRestore.Spec.Target.Kind {
+				case "VirtualMachine":
+					causes, targetUID, err = admitter.validateCreateVM(targetField.Child("name"), ar.Request.Namespace, vmRestore.Spec.Target.Name)
+					if err != nil {
+						return webhookutils.ToAdmissionResponseError(err)
+					}
+				default:
+					causes = []metav1.StatusCause{
+						{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: "invalid kind",
+							Field:   targetField.Child("kind").String(),
+						},
+					}
 				}
 			default:
 				causes = []metav1.StatusCause{
 					{
 						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: "invalid kind",
-						Field:   targetField.Child("kind").String(),
+						Message: "invalid apiGroup",
+						Field:   targetField.Child("apiGroup").String(),
 					},
 				}
-			}
-		default:
-			causes = []metav1.StatusCause{
-				{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: "invalid apiGroup",
-					Field:   targetField.Child("apiGroup").String(),
-				},
 			}
 		}
 
@@ -116,6 +117,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 			k8sfield.NewPath("spec", "virtualMachineSnapshotName"),
 			ar.Request.Namespace,
 			vmRestore.Spec.VirtualMachineSnapshotName,
+			targetUID,
 		)
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
@@ -153,7 +155,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 	return &reviewResponse
 }
 
-func (admitter *VMRestoreAdmitter) validateCreateVM(field *k8sfield.Path, namespace, name string) ([]metav1.StatusCause, error) {
+func (admitter *VMRestoreAdmitter) validateCreateVM(field *k8sfield.Path, namespace, name string) ([]metav1.StatusCause, *types.UID, error) {
 	vm, err := admitter.Client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return []metav1.StatusCause{
@@ -162,11 +164,11 @@ func (admitter *VMRestoreAdmitter) validateCreateVM(field *k8sfield.Path, namesp
 				Message: fmt.Sprintf("VirtualMachine %q does not exist", name),
 				Field:   field.String(),
 			},
-		}, nil
+		}, nil, nil
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var causes []metav1.StatusCause
@@ -180,10 +182,10 @@ func (admitter *VMRestoreAdmitter) validateCreateVM(field *k8sfield.Path, namesp
 		causes = append(causes, cause)
 	}
 
-	return causes, nil
+	return causes, &vm.UID, nil
 }
 
-func (admitter *VMRestoreAdmitter) validateSnapshot(field *k8sfield.Path, namespace, name string) ([]metav1.StatusCause, error) {
+func (admitter *VMRestoreAdmitter) validateSnapshot(field *k8sfield.Path, namespace, name string, targetUID *types.UID) ([]metav1.StatusCause, error) {
 	snapshot, err := admitter.Client.VirtualMachineSnapshot(namespace).Get(name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return []metav1.StatusCause{
@@ -205,6 +207,15 @@ func (admitter *VMRestoreAdmitter) validateSnapshot(field *k8sfield.Path, namesp
 		cause := metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("VirtualMachineSnapshot %q is not ready to use", name),
+			Field:   field.String(),
+		}
+		causes = append(causes, cause)
+	}
+
+	if targetUID != nil && snapshot.Status != nil && snapshot.Status.SourceUID != nil && *targetUID != *snapshot.Status.SourceUID {
+		cause := metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("VirtualMachineSnapshot source UID is %q but target UID is %q", *snapshot.Status.SourceUID, *targetUID),
 			Field:   field.String(),
 		}
 		causes = append(causes, cause)

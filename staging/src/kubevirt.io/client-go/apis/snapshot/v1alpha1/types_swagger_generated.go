@@ -19,6 +19,7 @@ func (VirtualMachineSnapshotSpec) SwaggerDoc() map[string]string {
 func (VirtualMachineSnapshotStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                                  "VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource",
+		"sourceUID":                         "+optional",
 		"virtualMachineSnapshotContentName": "+optional",
 		"creationTime":                      "+optional",
 		"readyToUse":                        "+optional",

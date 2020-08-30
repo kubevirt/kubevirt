@@ -30,6 +30,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
@@ -57,6 +58,7 @@ const (
 )
 
 type snapshotSource interface {
+	UID() types.UID
 	Locked() bool
 	Lock() (bool, error)
 	Unlock() error
@@ -114,7 +116,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 
 	// Make sure status is initialized
 	if vmSnapshot.Status == nil {
-		return 0, ctrl.updateSnapshotStatus(vmSnapshot)
+		return 0, ctrl.updateSnapshotStatus(vmSnapshot, nil)
 	}
 
 	source, err := ctrl.getSnapshotSource(vmSnapshot)
@@ -167,7 +169,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 		}
 	}
 
-	if err = ctrl.updateSnapshotStatus(vmSnapshot); err != nil {
+	if err = ctrl.updateSnapshotStatus(vmSnapshot, source); err != nil {
 		return 0, err
 	}
 
@@ -388,7 +390,7 @@ func (ctrl *VMSnapshotController) cleanupVMSnapshot(vmSnapshot *snapshotv1.Virtu
 
 	if vmSnapshotProgressing(vmSnapshot) {
 		// will put the snapshot in error state
-		return ctrl.updateSnapshotStatus(vmSnapshot)
+		return ctrl.updateSnapshotStatus(vmSnapshot, nil)
 	}
 
 	content, err := ctrl.getContent(vmSnapshot)
@@ -563,13 +565,18 @@ func (ctrl *VMSnapshotController) getVolumeSnapshotClass(storageClassName string
 	return "", fmt.Errorf("%d matching VolumeSnapshotClasses for %s", len(matches), storageClassName)
 }
 
-func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.VirtualMachineSnapshot) error {
+func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.VirtualMachineSnapshot, source snapshotSource) error {
 	f := false
 	vmSnapshotCpy := vmSnapshot.DeepCopy()
 	if vmSnapshotCpy.Status == nil {
 		vmSnapshotCpy.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 			ReadyToUse: &f,
 		}
+	}
+
+	if source != nil {
+		uid := source.UID()
+		vmSnapshotCpy.Status.SourceUID = &uid
 	}
 
 	if vmSnapshotCpy.DeletionTimestamp != nil {
@@ -658,6 +665,10 @@ func (ctrl *VMSnapshotController) getContent(vmSnapshot *snapshotv1.VirtualMachi
 	}
 
 	return obj.(*snapshotv1.VirtualMachineSnapshotContent), nil
+}
+
+func (s *vmSnapshotSource) UID() types.UID {
+	return s.vm.UID
 }
 
 func (s *vmSnapshotSource) Locked() bool {
