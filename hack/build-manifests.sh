@@ -78,7 +78,7 @@ function gen_csv() {
 }
 
 function get-virt-operator-sha() {
-  local digest=$(get_image_digest "docker.io/kubevirt/virt-$1:${KUBEVIRT_VERSION}")
+  local digest=$(get_image_digest "${KUBEVIRT_IMAGE%/*}/virt-$1:${KUBEVIRT_IMAGE/*:}")
   echo "${digest/*@/}"
 }
 
