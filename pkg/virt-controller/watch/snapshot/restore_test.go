@@ -64,7 +64,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			{
 				VolumeName:                "disk1",
 				PersistentVolumeClaimName: "restore-uid-disk1",
-				VolumeSnapshotName:        "vmsnapshot-uid-volume-disk1",
+				VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-disk1",
 			},
 		}
 	}
@@ -303,23 +303,6 @@ var _ = Describe("Snapshot controlleer", func() {
 			})
 
 			It("should update restore status with condition and VolumeRestores", func() {
-				r := createRestore()
-				rc := r.DeepCopy()
-				rc.ResourceVersion = "1"
-				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
-					Complete: &f,
-					Conditions: []snapshotv1.Condition{
-						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
-						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
-					},
-				}
-				addVolumeRestores(rc)
-				expectVMRestoreUpdate(kubevirtClient, rc)
-				addVirtualMachineRestore(r)
-				controller.processVMRestoreWorkItem()
-			})
-
-			It("should go to error state when restore deleted", func() {
 				r := createRestore()
 				rc := r.DeepCopy()
 				rc.ResourceVersion = "1"

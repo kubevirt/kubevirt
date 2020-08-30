@@ -69,6 +69,9 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 				return snapshot.Status != nil && snapshot.Status.ReadyToUse != nil && *snapshot.Status.ReadyToUse
 			}, 180*time.Second, time.Second).Should(BeTrue())
 
+			Expect(snapshot.Status.SourceUID).ToNot(BeNil())
+			Expect(*snapshot.Status.SourceUID).To(Equal(vm.UID))
+
 			contentName := *snapshot.Status.VirtualMachineSnapshotContentName
 			content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(contentName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())

@@ -18815,6 +18815,12 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref co
 				Description: "VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"sourceUID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"virtualMachineSnapshotContentName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

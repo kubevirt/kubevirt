@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -35,14 +36,16 @@ import (
 
 const (
 	testNamespace = "default"
-	vmSnapshotUID = "uid"
+	vmSnapshotUID = "snapshot-uid"
+	contentUID    = "content-uid"
 )
 
 var (
-	vmAPIGroup       = "kubevirt.io"
-	storageClassName = "rook-ceph-block"
-	t                = true
-	f                = false
+	vmUID            types.UID = "vm-uid"
+	vmAPIGroup                 = "kubevirt.io"
+	storageClassName           = "rook-ceph-block"
+	t                          = true
+	f                          = false
 )
 
 var _ = Describe("Snapshot controlleer", func() {
@@ -641,6 +644,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
+				updatedSnapshot.Status.SourceUID = &vmUID
 				updatedSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name
 				updatedSnapshot.Status.CreationTime = timeFunc()
 				updatedSnapshot.Status.ReadyToUse = &t
@@ -663,7 +667,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				volumeSnapshotClass := &createVolumeSnapshotClasses()[0]
 				pvcs := createPersistentVolumeClaims()
 				vmSnapshotContent := createVMSnapshotContent()
-				vmSnapshotContent.UID = "uid"
+				vmSnapshotContent.UID = contentUID
 
 				updatedContent := vmSnapshotContent.DeepCopy()
 				updatedContent.ResourceVersion = "1"
@@ -697,7 +701,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				volumeSnapshotClasses := createVolumeSnapshotClasses()
 				pvcs := createPersistentVolumeClaims()
 				vmSnapshotContent := createVMSnapshotContent()
-				vmSnapshotContent.UID = "uid"
+				vmSnapshotContent.UID = contentUID
 
 				updatedContent := vmSnapshotContent.DeepCopy()
 				updatedContent.ResourceVersion = "1"
@@ -993,7 +997,7 @@ func createVirtualMachine(namespace, name string) *v1.VirtualMachine {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			UID:       "uid",
+			UID:       vmUID,
 			Labels: map[string]string{
 				"kubevirt.io/vm": "vm-alpine-datavolume",
 			},

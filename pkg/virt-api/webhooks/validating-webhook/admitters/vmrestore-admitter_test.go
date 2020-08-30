@@ -33,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
@@ -49,6 +50,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 		vmSnapshotName = "snapshot"
 	)
 
+	var vmUID types.UID = "vm-uid"
 	apiGroup := "kubevirt.io"
 
 	t := true
@@ -60,6 +62,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			Namespace: "default",
 		},
 		Status: &snapshotv1.VirtualMachineSnapshotStatus{
+			SourceUID:  &vmUID,
 			ReadyToUse: &t,
 		},
 	}
@@ -112,11 +115,17 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 		It("should reject missing apigroup", func() {
 			restore := &snapshotv1.VirtualMachineRestore{
-				Spec: snapshotv1.VirtualMachineRestoreSpec{},
+				Spec: snapshotv1.VirtualMachineRestoreSpec{
+					Target: corev1.TypedLocalObjectReference{
+						Kind: "VirtualMachine",
+						Name: vmName,
+					},
+					VirtualMachineSnapshotName: vmSnapshotName,
+				},
 			}
 
 			ar := createRestoreAdmissionReview(restore)
-			resp := createTestVMRestoreAdmitter(config, nil, nil).Admit(ar)
+			resp := createTestVMRestoreAdmitter(config, nil, snapshot).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.apiGroup"))
@@ -227,6 +236,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				vm = &v1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: vmName,
+						UID:  vmUID,
 					},
 				}
 			})
@@ -337,6 +347,27 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.apiGroup"))
+			})
+
+			It("should reject invalid source ID", func() {
+				restore := &snapshotv1.VirtualMachineRestore{
+					Spec: snapshotv1.VirtualMachineRestoreSpec{
+						Target: corev1.TypedLocalObjectReference{
+							APIGroup: &apiGroup,
+							Kind:     "VirtualMachine",
+							Name:     vmName,
+						},
+						VirtualMachineSnapshotName: vmSnapshotName,
+					},
+				}
+
+				vm.UID = "foo"
+
+				ar := createRestoreAdmissionReview(restore)
+				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(ar)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.virtualMachineSnapshotName"))
 			})
 
 			It("should accept when VM is not running", func() {

@@ -11196,6 +11196,9 @@
      "readyToUse": {
       "type": "boolean"
      },
+     "sourceUID": {
+      "type": "string"
+     },
      "virtualMachineSnapshotContentName": {
       "type": "string"
      }
