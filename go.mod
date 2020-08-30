@@ -112,5 +112,5 @@ replace (
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.16.4
 	k8s.io/sample-controller => k8s.io/sample-controller v0.16.4
 
-	kubevirt.io/client-go => ./staging/src/kubevirt.io/client-go
+	kubevirt.io/client-go => github.com/kubevirt/client-go
 )
