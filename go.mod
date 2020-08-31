@@ -110,6 +110,8 @@ replace (
 	k8s.io/sample-controller => k8s.io/sample-controller v0.16.4
 
 	kubevirt.io/client-go => ./staging/src/kubevirt.io/client-go
+
+	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.21.0
 )
 
 go 1.13
