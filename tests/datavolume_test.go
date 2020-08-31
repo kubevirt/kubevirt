@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -61,11 +63,9 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 		if !tests.HasCDI() {
 			Skip("Skip DataVolume tests when CDI is not present")
 		}
-
 	})
 
 	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-
 		By("Starting a VirtualMachineInstance with DataVolume")
 		var obj *v1.VirtualMachineInstance
 		var err error
@@ -80,7 +80,33 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 	}
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachineInstance with a DataVolume as a volume source", func() {
-		Context("using Alpine import", func() {
+
+		Context("using DV with Alpine import", func() {
+			BeforeEach(func() {
+				By("Enable featuregate=HonorWaitForFirstConsumer")
+				// in practice we might have HonorWaitForFirstConsumer twice in featureGates array, but this is not a problem
+				jsonpath := `-o=jsonpath="{.spec.featureGates}"`
+				out, _, err := tests.RunCommand("kubectl", "get", "cdiconfigs.cdi.kubevirt.io", "config", jsonpath)
+				Expect(err).ToNot(HaveOccurred())
+
+				// no feature Gates? we need to add the whole structure, else just add the flag
+				// Looks like the output might be quoted
+				if str, err := strconv.Unquote(strings.TrimSpace(out)); str == "" {
+					patch := `{"spec":{"featureGates":["HonorWaitForFirstConsumer"]}}`
+					_, _, err = tests.RunCommand("kubectl", "patch", "cdiconfigs.cdi.kubevirt.io", "config", "-o=json", "--type=merge", "-p", patch)
+					Expect(err).ToNot(HaveOccurred())
+				} else {
+					patch := `[{"op": "add" , "path": "/spec/featureGates/0", "value": "HonorWaitForFirstConsumer"}]`
+					_, _, err = tests.RunCommand("kubectl", "patch", "cdiconfigs.cdi.kubevirt.io", "config", "--type=json", "-p", patch)
+					Expect(err).ToNot(HaveOccurred())
+				}
+			})
+			AfterEach(func() {
+				By("Restore featuregates")
+				patch := `[{"op": "remove" , "path": "/spec/featureGates/0", "value": "HonorWaitForFirstConsumer"}]`
+				_, _, err = tests.RunCommand("kubectl", "patch", "cdiconfigs.cdi.kubevirt.io", "config", "--type=json", "-p", patch)
+				Expect(err).ToNot(HaveOccurred())
+			})
 			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
 
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
@@ -89,11 +115,15 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).To(BeNil())
 
+				// This will only work on storage with binding mode WaitForFirstConsumer,
+				if tests.HasBindingModeWaitForFirstConsumer() {
+					tests.WaitForDataVolumePhaseWFFC(vmi, 30)
+				}
 				num := 2
 				By("Starting and stopping the VirtualMachineInstance a number of times")
 				for i := 1; i <= num; i++ {
+					tests.WaitForDataVolumeReadyToStartVMI(vmi, 240)
 					vmi := runVMIAndExpectLaunch(vmi, 240)
-
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
 					if i == num {
@@ -108,7 +138,9 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
 				Expect(err).To(BeNil())
 			})
+		})
 
+		Context("using PVC with Alpine import", func() {
 			It("[test_id:5252]should be successfully started when using a PVC volume owned by a DataVolume", func() {
 
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
@@ -117,7 +149,8 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).To(BeNil())
 
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				tests.WaitForDataVolumeReady(dataVolume.Namespace, dataVolume.Name, 240)
+				vmi = runVMIAndExpectLaunch(vmi, 340)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -137,16 +170,6 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 			deleteDataVolume := func(dv *cdiv1.DataVolume) {
 				By("Deleting the DataVolume")
 				ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
-			}
-
-			waitForDv := func(dataVolume *cdiv1.DataVolume) {
-				Eventually(func() cdiv1.DataVolumePhase {
-					dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Get(dataVolume.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					return dv.Status.Phase
-				}, 30*time.Second, 1*time.Second).
-					Should(Equal(cdiv1.ImportInProgress), "Timed out waiting for DataVolume to enter ImportInProgress phase")
 			}
 
 			deleteDummyFile := func(fileName string) {
@@ -209,9 +232,8 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				defer deleteDataVolume(dataVolume)
 
 				By("Creating DataVolume with invalid URL")
-				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
+				dataVolume, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).To(BeNil())
-				waitForDv(dataVolume)
 
 				By("Creating a VM with an invalid DataVolume")
 				//  Add the invalid DataVolume to a VMI
@@ -712,6 +734,21 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 		})
 	})
 })
+
+func renderConsumerPod(claimName string) *k8sv1.Pod {
+	podTemplate := tests.RenderPod("dv-consumer", []string{"/bin/bash", "-c"}, []string{"echo bye"})
+	volume := &k8sv1.Volume{
+		Name: claimName,
+		VolumeSource: k8sv1.VolumeSource{
+			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				// FIXME: cdi #1210, brybacki, tomob this code assumes dvname = pvcname needs to be fixed,
+				ClaimName: claimName,
+			},
+		},
+	}
+	podTemplate.Spec.Volumes = append(podTemplate.Spec.Volumes, *volume)
+	return podTemplate
+}
 
 var explicitCloneRole = &rbacv1.Role{
 	ObjectMeta: metav1.ObjectMeta{

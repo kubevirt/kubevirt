@@ -2673,28 +2673,43 @@ func NewRandomVMIWithCustomMacAddress() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-// Block until DataVolume succeeds.
-func WaitForSuccessfulDataVolumeImportOfVMI(obj runtime.Object, seconds int) {
+// Block until DataVolume succeeds on storage with Immediate binding
+// or is in WaitForFirstConsumer state on storage with WaitForFirstConsumer binding.
+func WaitForDataVolumeReadyToStartVMI(obj runtime.Object, seconds int) {
 	vmi, ok := obj.(*v1.VirtualMachineInstance)
 	ExpectWithOffset(1, ok).To(BeTrue(), "Object is not of type *v1.VMI")
-	waitForSuccessfulDataVolumeImport(vmi.Namespace, vmi.Spec.Volumes[0].DataVolume.Name, seconds)
+	WaitForDataVolumeReady(vmi.Namespace, vmi.Spec.Volumes[0].DataVolume.Name, seconds)
+}
+
+func WaitForDataVolumeReady(namespace, name string, seconds int) {
+	waitForDataVolumePhase(namespace, name, seconds, cdiv1.WaitForFirstConsumer, cdiv1.Succeeded)
+}
+
+func WaitForDataVolumePhaseWFFC(obj runtime.Object, seconds int) {
+	vmi, ok := obj.(*v1.VirtualMachineInstance)
+	ExpectWithOffset(1, ok).To(BeTrue(), "Object is not of type *v1.VMI")
+	waitForDataVolumePhase(vmi.Namespace, vmi.Spec.Volumes[0].DataVolume.Name, seconds, cdiv1.WaitForFirstConsumer)
 }
 
 func WaitForSuccessfulDataVolumeImport(dv *cdiv1.DataVolume, seconds int) {
-	waitForSuccessfulDataVolumeImport(dv.Namespace, dv.Name, seconds)
+	waitForDataVolumePhase(dv.Namespace, dv.Name, seconds, cdiv1.WaitForFirstConsumer, cdiv1.Succeeded)
 }
 
-func waitForSuccessfulDataVolumeImport(namespace, name string, seconds int) {
+func waitForDataVolumePhase(namespace, name string, seconds int, phase ...cdiv1.DataVolumePhase) {
 	By("Checking that the DataVolume has succeeded")
 	virtClient, err := kubecli.GetKubevirtClient()
 	ExpectWithOffset(2, err).ToNot(HaveOccurred())
 
-	EventuallyWithOffset(2, func() cdiv1.DataVolumePhase {
-		dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(name, metav1.GetOptions{})
-		ExpectWithOffset(2, err).ToNot(HaveOccurred())
+	EventuallyWithOffset(2,
+		func() cdiv1.DataVolumePhase {
+			dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(name, metav1.GetOptions{})
+			ExpectWithOffset(2, err).ToNot(HaveOccurred())
 
-		return dv.Status.Phase
-	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded), "Timed out waiting for DataVolume to enter Succeeded phase")
+			return dv.Status.Phase
+		},
+		time.Duration(seconds)*time.Second, 1*time.Second).
+		Should(BeElementOf(phase),
+			"Timed out waiting for DataVolume to enter Succeeded phase")
 }
 
 // Block until the specified VirtualMachineInstance started and return the target node name.
@@ -4005,6 +4020,18 @@ func HasDataVolumeCRD() bool {
 
 func HasCDI() bool {
 	return HasDataVolumeCRD()
+}
+
+func HasBindingModeWaitForFirstConsumer() bool {
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	storageClass, err := virtClient.StorageV1().StorageClasses().Get(Config.StorageClassLocal, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	if err != nil {
+		return false
+	}
+	return storageClass.VolumeBindingMode != nil &&
+		*storageClass.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
 }
 
 func GetCephStorageClass() (string, bool) {
