@@ -61,7 +61,7 @@ type snapshotSource interface {
 	UID() types.UID
 	Locked() bool
 	Lock() (bool, error)
-	Unlock() error
+	Unlock() (bool, error)
 	Spec() snapshotv1.SourceSpec
 	PersistentVolumeClaims() map[string]string
 }
@@ -126,11 +126,9 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 
 	// unlock the source if done/error
 	if !vmSnapshotProgressing(vmSnapshot) && source != nil {
-		if err = source.Unlock(); err != nil {
+		if updated, err := source.Unlock(); updated || err != nil {
 			return 0, err
 		}
-
-		return 0, nil
 	}
 
 	// check deleted
@@ -740,9 +738,9 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 	return true, nil
 }
 
-func (s *vmSnapshotSource) Unlock() error {
+func (s *vmSnapshotSource) Unlock() (bool, error) {
 	if s.vm.Status.SnapshotInProgress == nil || *s.vm.Status.SnapshotInProgress != s.snapshot.Name {
-		return nil
+		return false, nil
 	}
 
 	var err error
@@ -752,17 +750,17 @@ func (s *vmSnapshotSource) Unlock() error {
 		controller.RemoveFinalizer(vmCopy, sourceFinalizer)
 		vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 
 	vmCopy.Status.SnapshotInProgress = nil
 	err = s.controller.vmStatusUpdater.UpdateStatus(vmCopy)
 	if err != nil {
-		return err
+		return true, err
 	}
 
-	return nil
+	return true, nil
 }
 
 func (s *vmSnapshotSource) Spec() snapshotv1.SourceSpec {

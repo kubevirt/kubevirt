@@ -300,6 +300,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectVMRestoreUpdate(kubevirtClient, rc)
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
+				testutils.ExpectEvent(recorder, "VirtualMachineRestoreError")
 			})
 
 			It("should update restore status with condition and VolumeRestores", func() {
@@ -483,6 +484,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				l, err := cdiClient.CdiV1alpha1().DataVolumes("").List(metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(l.Items)).To(BeZero())
+				testutils.ExpectEvent(recorder, "VirtualMachineRestoreComplete")
 			})
 		})
 	})
