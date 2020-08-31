@@ -76,6 +76,8 @@ type VMSnapshotController struct {
 	vmSnapshotQueue        workqueue.RateLimitingInterface
 	vmSnapshotContentQueue workqueue.RateLimitingInterface
 	crdQueue               workqueue.RateLimitingInterface
+	vmSnapshotStatusQueue  workqueue.RateLimitingInterface
+	vmQueue                workqueue.RateLimitingInterface
 
 	dynamicInformerMap map[string]*dynamicInformer
 	eventHandlerMap    map[string]cache.ResourceEventHandlerFuncs
@@ -90,6 +92,8 @@ func (ctrl *VMSnapshotController) Init() {
 	ctrl.vmSnapshotQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-vmsnapshot")
 	ctrl.vmSnapshotContentQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-vmsnapshotcontent")
 	ctrl.crdQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-crd")
+	ctrl.vmSnapshotStatusQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-vmsnashotstatus")
+	ctrl.vmQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-vm")
 
 	ctrl.dynamicInformerMap = map[string]*dynamicInformer{
 		volumeSnapshotCRD:      &dynamicInformer{informerFunc: controller.VolumeSnapshotInformer},
@@ -101,6 +105,11 @@ func (ctrl *VMSnapshotController) Init() {
 			AddFunc:    ctrl.handleVolumeSnapshot,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVolumeSnapshot(newObj) },
 			DeleteFunc: ctrl.handleVolumeSnapshot,
+		},
+		volumeSnapshotClassCRD: cache.ResourceEventHandlerFuncs{
+			AddFunc:    ctrl.handleVolumeSnapshotClass,
+			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVolumeSnapshotClass(newObj) },
+			DeleteFunc: ctrl.handleVolumeSnapshotClass,
 		},
 	}
 
@@ -146,6 +155,8 @@ func (ctrl *VMSnapshotController) Run(threadiness int, stopCh <-chan struct{}) e
 	defer ctrl.vmSnapshotQueue.ShutDown()
 	defer ctrl.vmSnapshotContentQueue.ShutDown()
 	defer ctrl.crdQueue.ShutDown()
+	defer ctrl.vmSnapshotStatusQueue.ShutDown()
+	defer ctrl.vmQueue.ShutDown()
 
 	log.Log.Info("Starting snapshot controller.")
 	defer log.Log.Info("Shutting down snapshot controller.")
@@ -168,6 +179,8 @@ func (ctrl *VMSnapshotController) Run(threadiness int, stopCh <-chan struct{}) e
 		go wait.Until(ctrl.vmSnapshotWorker, time.Second, stopCh)
 		go wait.Until(ctrl.vmSnapshotContentWorker, time.Second, stopCh)
 		go wait.Until(ctrl.crdWorker, time.Second, stopCh)
+		go wait.Until(ctrl.vmSnapshotStatusWorker, time.Second, stopCh)
+		go wait.Until(ctrl.vmWorker, time.Second, stopCh)
 	}
 
 	<-stopCh
@@ -191,6 +204,16 @@ func (ctrl *VMSnapshotController) vmSnapshotContentWorker() {
 
 func (ctrl *VMSnapshotController) crdWorker() {
 	for ctrl.processCRDWorkItem() {
+	}
+}
+
+func (ctrl *VMSnapshotController) vmSnapshotStatusWorker() {
+	for ctrl.processVMSnapshotStatusWorkItem() {
+	}
+}
+
+func (ctrl *VMSnapshotController) vmWorker() {
+	for ctrl.processVMWorkItem() {
 	}
 }
 
@@ -261,6 +284,52 @@ func (ctrl *VMSnapshotController) processCRDWorkItem() bool {
 	})
 }
 
+func (ctrl *VMSnapshotController) processVMSnapshotStatusWorkItem() bool {
+	return processWorkItem(ctrl.vmSnapshotStatusQueue, func(key string) (time.Duration, error) {
+		log.Log.V(3).Infof("vmSnapshotStatus worker processing VM [%s]", key)
+
+		storeObj, exists, err := ctrl.VMInformer.GetStore().GetByKey(key)
+		if err != nil {
+			return 0, err
+		}
+
+		if exists {
+			vm, ok := storeObj.(*kubevirtv1.VirtualMachine)
+			if !ok {
+				return 0, fmt.Errorf("unexpected resource %+v", storeObj)
+			}
+
+			if err = ctrl.updateVolumeSnapshotStatuses(vm); err != nil {
+				return 0, err
+			}
+		}
+
+		return 0, nil
+	})
+}
+
+func (ctrl *VMSnapshotController) processVMWorkItem() bool {
+	return processWorkItem(ctrl.vmQueue, func(key string) (time.Duration, error) {
+		log.Log.V(3).Infof("vm worker processing VM [%s]", key)
+
+		storeObj, exists, err := ctrl.VMInformer.GetStore().GetByKey(key)
+		if err != nil {
+			return 0, err
+		}
+
+		if exists {
+			vm, ok := storeObj.(*kubevirtv1.VirtualMachine)
+			if !ok {
+				return 0, fmt.Errorf("unexpected resource %+v", storeObj)
+			}
+
+			ctrl.handleVM(vm)
+		}
+
+		return 0, nil
+	})
+}
+
 func (ctrl *VMSnapshotController) handleVMSnapshot(obj interface{}) {
 	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
 		obj = unknown.Obj
@@ -314,6 +383,25 @@ func (ctrl *VMSnapshotController) handleVM(obj interface{}) {
 
 		for _, k := range keys {
 			ctrl.vmSnapshotQueue.Add(k)
+		}
+
+		key, err := controller.KeyFunc(vm)
+		if err != nil {
+			log.Log.Error("Failed to extract vmKey from VirtualMachine.")
+		} else {
+			ctrl.vmSnapshotStatusQueue.Add(key)
+		}
+	}
+}
+
+func (ctrl *VMSnapshotController) handleVolumeSnapshotClass(obj interface{}) {
+	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
+		obj = unknown.Obj
+	}
+
+	if _, ok := obj.(*vsv1beta1.VolumeSnapshotClass); ok {
+		for _, vmKey := range ctrl.VMInformer.GetStore().ListKeys() {
+			ctrl.vmQueue.Add(vmKey)
 		}
 	}
 }
