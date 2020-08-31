@@ -257,12 +257,22 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                    "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing\n\n+k8s:openapi-gen=true",
-		"snapshotInProgress":  "SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing",
-		"created":             "Created indicates if the virtual machine is created in the cluster",
-		"ready":               "Ready indicates if the virtual machine is running and ready",
-		"conditions":          "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
-		"stateChangeRequests": "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
+		"":                       "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing\n\n+k8s:openapi-gen=true",
+		"snapshotInProgress":     "SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing",
+		"created":                "Created indicates if the virtual machine is created in the cluster",
+		"ready":                  "Ready indicates if the virtual machine is running and ready",
+		"conditions":             "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
+		"stateChangeRequests":    "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
+		"volumeSnapshotStatuses": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.\n+listType=atomic",
+	}
+}
+
+func (VolumeSnapshotStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":        "+k8s:openapi-gen=true",
+		"name":    "Volume name",
+		"enabled": "True if the volume supports snapshotting",
+		"reason":  "Empty if snapshotting is enabled, contains reason otherwise",
 	}
 }
 

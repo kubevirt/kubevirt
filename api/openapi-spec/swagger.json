@@ -10684,6 +10684,14 @@
       "items": {
        "$ref": "#/definitions/v1.VirtualMachineStateChangeRequest"
       }
+     },
+     "volumeSnapshotStatuses": {
+      "description": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is supported by each volume.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VolumeSnapshotStatus"
+      },
+      "x-kubernetes-list-type": "atomic"
      }
     }
    },
@@ -10741,6 +10749,27 @@
      "serviceAccount": {
       "description": "ServiceAccountVolumeSource represents a reference to a service account. There can only be one volume of this type! More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/",
       "$ref": "#/definitions/v1.ServiceAccountVolumeSource"
+     }
+    }
+   },
+   "v1.VolumeSnapshotStatus": {
+    "type": "object",
+    "required": [
+     "name",
+     "enabled"
+    ],
+    "properties": {
+     "enabled": {
+      "description": "True if the volume supports snapshotting",
+      "type": "boolean"
+     },
+     "name": {
+      "description": "Volume name",
+      "type": "string"
+     },
+     "reason": {
+      "description": "Empty if snapshotting is enabled, contains reason otherwise",
+      "type": "string"
      }
     }
    },

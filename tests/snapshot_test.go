@@ -129,6 +129,22 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(ContainSubstring(fmt.Sprintf("VirtualMachine \"%s\" is running", vm.Name)))
 		})
+
+		It("VM should contain snapshot status for all volumes", func() {
+			patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() bool {
+				vm2, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By(fmt.Sprintf("VM Statuses: %+v", vm2.Status))
+				return len(vm2.Status.VolumeSnapshotStatuses) == 2 &&
+					vm2.Status.VolumeSnapshotStatuses[0].Name == "disk0" &&
+					vm2.Status.VolumeSnapshotStatuses[1].Name == "disk1"
+			}, 180*time.Second, time.Second).Should(BeTrue())
+		})
 	})
 
 	Context("rook-ceph", func() {
@@ -227,6 +243,42 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 					}
 					Expect(found).To(BeTrue())
 				}
+			})
+
+			It("VM should contain snapshot status for all volumes", func() {
+				running := true
+				vm.Spec.Running = &running
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				for _, dvt := range vm.Spec.DataVolumeTemplates {
+					Eventually(func() bool {
+						dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Get(dvt.Name, metav1.GetOptions{})
+						if errors.IsNotFound(err) {
+							return false
+						}
+						Expect(err).ToNot(HaveOccurred())
+						Expect(dv.Status.Phase).ShouldNot(Equal(cdiv1.Failed))
+						return dv.Status.Phase == cdiv1.Succeeded
+					}, 180*time.Second, time.Second).Should(BeTrue())
+				}
+
+				volumes := len(vm.Spec.Template.Spec.Volumes)
+				Eventually(func() int {
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					return len(vm.Status.VolumeSnapshotStatuses)
+				}, 180*time.Second, time.Second).Should(Equal(volumes))
+
+				Eventually(func() bool {
+					vm2, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					By(fmt.Sprintf("VM Statuses: %+v", vm2.Status))
+					return len(vm2.Status.VolumeSnapshotStatuses) == 1 &&
+						vm2.Status.VolumeSnapshotStatuses[0].Enabled == true
+				}, 180*time.Second, time.Second).Should(BeTrue())
 			})
 		})
 	})
