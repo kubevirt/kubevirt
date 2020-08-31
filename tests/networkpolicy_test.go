@@ -54,6 +54,7 @@ var _ = Describe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		tests.PanicOnError(err)
 
 		tests.SkipIfUseFlannel(virtClient)
+		skipNetworkPolicyRunningOnKindInfra()
 		tests.BeforeTestCleanup()
 		// Create three vmis, vmia and vmib are in same namespace, vmic is in different namespace
 		vmia = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
@@ -208,3 +209,9 @@ var _ = Describe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	})
 
 })
+
+func skipNetworkPolicyRunningOnKindInfra() {
+	if tests.IsRunningOnKindInfra() {
+		Skip("Skip Network Policy tests till issue https://github.com/kubevirt/kubevirt/issues/4081 is fixed")
+	}
+}
