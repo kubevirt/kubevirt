@@ -429,7 +429,7 @@ const VirtApiServiceName = "virt-api"
 
 const VirtControllerServiceName = "virt-controller"
 
-const VirtHandlerServiceName = "virt-controller"
+const VirtHandlerServiceName = "virt-handler"
 
 const VirtAPIValidatingWebhookName = "virt-api-validator"
 
