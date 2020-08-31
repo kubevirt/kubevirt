@@ -668,7 +668,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).ToNot(HaveOccurred())
 
-				tests.WaitForSuccessfulDataVolumeImportOfVMI(vmi, 340)
+				tests.WaitForDataVolumeReadyToStartVMI(vmi, 340)
 
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
@@ -710,7 +710,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).ToNot(HaveOccurred())
 
-				tests.WaitForSuccessfulDataVolumeImportOfVMI(vmi, 240)
+				tests.WaitForDataVolumeReadyToStartVMI(vmi, 240)
 
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 

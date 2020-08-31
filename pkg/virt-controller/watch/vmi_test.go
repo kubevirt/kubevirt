@@ -22,12 +22,14 @@ package watch
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	gomegaTypes "github.com/onsi/gomega/types"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,6 +75,17 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var dataVolumeInformer cache.SharedIndexInformer
 	var dataVolumeFeeder *testutils.DataVolumeFeeder
 	var qemuGid int64 = 107
+
+	shouldExpectMatchingPodCreation := func(uid types.UID, matchers ...gomegaTypes.GomegaMatcher) {
+		// Expect pod creation
+		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+			Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.CreatedByLabel]).To(Equal(string(uid)))
+			Expect(update.GetObject().(*k8sv1.Pod)).To(SatisfyAny(matchers...))
+			return true, update.GetObject(), nil
+		})
+	}
 
 	shouldExpectPodCreation := func(uid types.UID) {
 		// Expect pod creation
@@ -252,6 +265,210 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
+
+		It("should create a doppleganger Pod on VMI creation when DataVolume is in WaitForFirstConsumer state", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "test1",
+					},
+				},
+			})
+
+			dvPVC := &k8sv1.PersistentVolumeClaim{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "PersistentVolumeClaim",
+					APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: vmi.Namespace,
+					Name:      "test1"},
+			}
+			dvPVC.Status.Phase = k8sv1.ClaimPending
+			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
+			// be in available but in the Pending state.
+			pvcInformer.GetIndexer().Add(dvPVC)
+
+			dataVolume := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test1",
+					Namespace: vmi.Namespace,
+				},
+				Status: cdiv1.DataVolumeStatus{
+					Phase: cdiv1.WaitForFirstConsumer,
+				},
+			}
+
+			addVirtualMachine(vmi)
+			dataVolumeFeeder.Add(dataVolume)
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Type).To(Equal(v1.VirtualMachineInstanceProvisioning))
+			}).Return(vmi, nil)
+
+			IsPodWithoutVmPayload := WithTransform(
+				func(pod *k8sv1.Pod) string {
+					for _, c := range pod.Spec.Containers {
+						if c.Name == "compute" {
+							return strings.Join(c.Command, " ")
+						}
+					}
+
+					return ""
+				},
+				Equal("/bin/bash -c echo bound PVCs"))
+			shouldExpectMatchingPodCreation(vmi.UID, IsPodWithoutVmPayload)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+		})
+
+		It("should not delete a doppleganger Pod on VMI creation when DataVolume is in WaitForFirstConsumer state", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Annotations[v1.EphemeralProvisioningObject] = "true"
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "test1",
+					},
+				},
+			})
+
+			dvPVC := &k8sv1.PersistentVolumeClaim{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "PersistentVolumeClaim",
+					APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: vmi.Namespace,
+					Name:      "test1"},
+			}
+			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
+			// be in available but in the Pending state.
+			pvcInformer.GetIndexer().Add(dvPVC)
+
+			dataVolume := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test1",
+					Namespace: vmi.Namespace,
+				},
+				Status: cdiv1.DataVolumeStatus{
+					Phase: cdiv1.WaitForFirstConsumer,
+				},
+			}
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
+			dataVolumeFeeder.Add(dataVolume)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Pending))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).
+					To(ContainElement(v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceProvisioning,
+						Status: k8sv1.ConditionTrue,
+					}))
+			}).Return(vmi, nil)
+			controller.Execute()
+		})
+		It("should delete a doppleganger Pod on VMI creation when DataVolume is no longer in WaitForFirstConsumer state", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Annotations[v1.EphemeralProvisioningObject] = "true"
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "test1",
+					},
+				},
+			})
+
+			dvPVC := &k8sv1.PersistentVolumeClaim{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "PersistentVolumeClaim",
+					APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: vmi.Namespace,
+					Name:      "test1"},
+			}
+			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
+			// be in available but in the Pending state.
+			pvcInformer.GetIndexer().Add(dvPVC)
+
+			dataVolume := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test1",
+					Namespace: vmi.Namespace,
+				},
+				Status: cdiv1.DataVolumeStatus{
+					Phase: cdiv1.Succeeded,
+				},
+			}
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
+			dataVolumeFeeder.Add(dataVolume)
+			shouldExpectPodDeletion(pod)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
+		})
+
+		table.DescribeTable("VMI should handle doppleganger Pod status while DV is in WaitForFirstConsumer phase",
+			func(phase k8sv1.PodPhase, conditions []k8sv1.PodCondition, expectedPhase v1.VirtualMachineInstancePhase) {
+				vmi := NewPendingVirtualMachine("testvmi")
+				pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				pod.Annotations[v1.EphemeralProvisioningObject] = "true"
+				pod.Status.Phase = phase
+				pod.Status.Conditions = conditions
+
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: "test1",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "test1",
+						},
+					},
+				})
+
+				dataVolume := &cdiv1.DataVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test1",
+						Namespace: vmi.Namespace,
+					},
+					Status: cdiv1.DataVolumeStatus{
+						Phase: cdiv1.WaitForFirstConsumer,
+					},
+				}
+
+				addVirtualMachine(vmi)
+				podFeeder.Add(pod)
+				addActivePods(vmi, pod.UID, "")
+				dataVolumeFeeder.Add(dataVolume)
+
+				vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+					Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(expectedPhase))
+				}).Return(vmi, nil)
+
+				controller.Execute()
+			},
+			table.Entry("fail if pod in failed state", k8sv1.PodFailed, nil, v1.Failed),
+			table.Entry("fail if pod in succeded state", k8sv1.PodSucceeded, nil, v1.Failed),
+			//The PodReasonUnschedulable is a transient condition. It can clear up if more resources are added to the cluster
+			table.Entry("do nothing if pod Pending Unschedulable",
+				k8sv1.PodPending,
+				[]k8sv1.PodCondition{{
+					Type:   k8sv1.PodScheduled,
+					Status: k8sv1.ConditionFalse,
+					Reason: k8sv1.PodReasonUnschedulable}}, v1.Pending),
+		)
 
 		It("should not create a corresponding Pod on VMI creation when DataVolume is pending", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
@@ -496,6 +713,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			if vmi.IsUnprocessed() {
 				shouldExpectVirtualMachineSchedulingState(vmi)
 			}
+
+			//shouldExpectVirtualMachineFailedState(vmi)
 
 			controller.Execute()
 

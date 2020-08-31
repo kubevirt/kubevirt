@@ -317,7 +317,7 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
 		})
 
-		It("should only start VMI once DataVolumes are complete", func() {
+		It("should start VMI once DataVolumes are complete", func() {
 
 			vm, vmi := DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
@@ -338,6 +338,43 @@ var _ = Describe("VirtualMachine", func() {
 
 			existingDataVolume.Namespace = "default"
 			existingDataVolume.Status.Phase = cdiv1.Succeeded
+			addVirtualMachine(vm)
+			dataVolumeFeeder.Add(existingDataVolume)
+			// expect creation called
+			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
+			}).Return(vmi, nil)
+			// expect update status is called
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
+				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
+			}).Return(nil, nil)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+		})
+
+		It("should start VMI once DataVolumes are complete or WaitForFirstConsumer", func() {
+			// WaitForFirstConsumer state can only be handled by VMI
+
+			vm, vmi := DefaultVirtualMachine(true)
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+			})
+
+			existingDataVolume := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+
+			existingDataVolume.Namespace = "default"
+			existingDataVolume.Status.Phase = cdiv1.WaitForFirstConsumer
 			addVirtualMachine(vm)
 			dataVolumeFeeder.Add(existingDataVolume)
 			// expect creation called
