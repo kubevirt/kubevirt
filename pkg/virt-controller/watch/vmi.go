@@ -25,6 +25,8 @@ import (
 	"reflect"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -306,6 +308,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	}
 
 	hasWffcDataVolume := false
+	// there is no reason to check for waitForFirstConsumer is there are failed DV's
 	if !hasFailedDataVolume {
 		for _, dataVolume := range dataVolumes {
 			if dataVolume.Status.Phase == cdiv1.WaitForFirstConsumer {
@@ -316,7 +319,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 	vmiCopy := vmi.DeepCopy()
-	podExists := podExists(pod)
+	vmiPodExists := podExists(pod) && !isTempPod(pod)
+	tempPodExists := podExists(pod) && isTempPod(pod)
 
 	vmiCopy, err := c.setActivePods(vmiCopy)
 	if err != nil {
@@ -324,36 +328,36 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	}
 
 	switch {
-	case vmi.IsProvisioning():
-		if hasFailedDataVolume {
-			vmiCopy.Status.Phase = virtv1.Failed
-		} else if vmi.DeletionTimestamp != nil {
-			vmiCopy.Status.Phase = virtv1.Failed
-		} else if !hasWffcDataVolume {
-			// should we check if this is actually the provisioning pod?
-			// can this be a problem when the pod still exists and the state moves to Pending, then to Scheduling
-			if podExists {
-				err := c.clientset.CoreV1().Pods(vmi.Namespace).Delete(pod.Name, &v1.DeleteOptions{})
-
-				if err != nil {
-					return fmt.Errorf("Error deleting vmi pod: %v", err)
-				}
-				vmiCopy.Status.Phase = virtv1.Pending
-			} else {
-				vmiCopy.Status.Phase = virtv1.Pending
-			}
-		}
 	case vmi.IsUnprocessed():
-		if podExists {
+		if vmiPodExists {
 			vmiCopy.Status.Phase = virtv1.Scheduling
 		} else if vmi.DeletionTimestamp != nil {
 			vmiCopy.Status.Phase = virtv1.Failed
 		} else if hasFailedDataVolume {
 			vmiCopy.Status.Phase = virtv1.Failed
-		} else if hasWffcDataVolume {
-			vmiCopy.Status.Phase = virtv1.Provisioning
 		} else {
 			vmiCopy.Status.Phase = virtv1.Pending
+			if hasWffcDataVolume {
+				condition := virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceProvisioning,
+					Status: k8sv1.ConditionTrue,
+				}
+				if !conditionManager.HasCondition(vmiCopy, condition.Type) {
+					vmiCopy.Status.Conditions = append(vmiCopy.Status.Conditions, condition)
+				}
+				if tempPodExists {
+					// Add PodScheduled False condition to the VM
+					if cond := conditionManager.GetPodConditionWithStatus(pod, k8sv1.PodScheduled, k8sv1.ConditionFalse); cond != nil {
+						conditionManager.AddPodCondition(vmiCopy, cond)
+					} else if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)) {
+						// Remove PodScheduling condition from the VM
+						conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
+					}
+					if isPodDownOrGoingDown(pod) {
+						vmiCopy.Status.Phase = virtv1.Failed
+					}
+				}
+			}
 			if syncErr != nil && syncErr.Reason() == FailedPvcNotFoundReason {
 				condition := virtv1.VirtualMachineInstanceCondition{
 					Type:    virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled),
@@ -369,8 +373,12 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			}
 		}
 	case vmi.IsScheduling():
+		// Remove InstanceProvisioning condition from the VM
+		if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceProvisioning) {
+			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceProvisioning)
+		}
 		switch {
-		case podExists:
+		case vmiPodExists:
 			// ensure that the QOS class on the VMI matches to Pods QOS class
 			if pod.Status.QOSClass == "" {
 				vmiCopy.Status.QOSClass = nil
@@ -405,7 +413,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			} else if isPodDownOrGoingDown(pod) {
 				vmiCopy.Status.Phase = virtv1.Failed
 			}
-		case !podExists:
+		case !vmiPodExists:
 			// someone other than the controller deleted the pod unexpectedly
 			vmiCopy.Status.Phase = virtv1.Failed
 		}
@@ -424,7 +432,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 
 	case vmi.IsRunning():
 		// Keep PodReady condition in sync with the VMI
-		if !podExists {
+		if !vmiPodExists {
 			// Remove PodScheduling condition from the VM
 			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
 		} else if isPodDownOrGoingDown(pod) {
@@ -594,6 +602,10 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		return nil
 	}
 
+	dataVolumesReady, isWaitForFirstConsumer, syncErr := c.handleSyncDataVolumes(vmi, dataVolumes)
+	if syncErr != nil {
+		return syncErr
+	}
 	if !podExists(pod) {
 		// If we came ever that far to detect that we already created a pod, we don't create it again
 		if !vmi.IsUnprocessed() {
@@ -601,19 +613,14 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		}
 
 		// ensure that all dataVolumes associated with the VMI are ready before creating the pod
-		dataVolumesReady, wffc, syncErr := c.handleSyncDataVolumes(vmi, dataVolumes)
-		if syncErr != nil {
-			return syncErr
-		} else if !dataVolumesReady {
+		if !dataVolumesReady {
 			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while DataVolume populates")
 			return nil
 		}
 		var templatePod *k8sv1.Pod
 		var err error
-		if wffc {
-			//TODO: BR 4215 handle pod template here!
-			// need to ensure pod is not scheduled more than once!
-			log.Log.V(3).Object(vmi).Infof("WFFC")
+		if isWaitForFirstConsumer {
+			log.Log.V(3).Object(vmi).Infof("Scheduling temporary pod for WaitForFirstConsumer DV")
 			templatePod, err = c.templateService.RenderLaunchManifestNoVm(vmi)
 		} else {
 			templatePod, err = c.templateService.RenderLaunchManifest(vmi)
@@ -635,6 +642,20 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		}
 		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created virtual machine pod %s", pod.Name)
 		return nil
+	} else {
+		if isTempPod(pod) && !isWaitForFirstConsumer {
+			// DV is no longer in WaitForFirstConsumer phase, means that tempPod has done its job and should be deleted
+			vmiKey := controller.VirtualMachineKey(vmi)
+			c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(pod)})
+			err := c.clientset.CoreV1().Pods(vmi.Namespace).Delete(pod.Name, &v1.DeleteOptions{})
+			if err != nil && !k8serrors.IsNotFound(err) {
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDeletePodReason, "Failed to delete temporary pod %s", pod.Name)
+				c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
+				return &syncErrorImpl{fmt.Errorf("Failed to delete temporary pod: %v", err), FailedDeletePodReason}
+			}
+			c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, "Deleted temporary pod %s", pod.Name)
+			return nil
+		}
 	}
 	return nil
 }
@@ -1077,5 +1098,9 @@ func (c *VMIController) currentPod(vmi *virtv1.VirtualMachineInstance) (*k8sv1.P
 	}
 
 	return curPod, nil
+}
 
+func isTempPod(pod *k8sv1.Pod) bool {
+	_, ok := pod.Annotations[virtv1.EphemeralProvisioningObject]
+	return ok
 }

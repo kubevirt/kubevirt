@@ -227,10 +227,6 @@ func (v *VirtualMachineInstance) IsFinal() bool {
 	return v.Status.Phase == Failed || v.Status.Phase == Succeeded
 }
 
-func (v *VirtualMachineInstance) IsProvisioning() bool {
-	return v.Status.Phase == Provisioning
-}
-
 func (v *VirtualMachineInstance) IsUnknown() bool {
 	return v.Status.Phase == Unknown
 }
@@ -258,6 +254,10 @@ type VirtualMachineInstanceConditionType string
 
 // These are valid conditions of VMIs.
 const (
+	// Provisioning means, a VMI depends on DataVolumes which are in Pending/WaitForFirstConsumer status,
+	// and some actions are taken to provision the PVCs for the DataVolumes
+	VirtualMachineInstanceProvisioning VirtualMachineInstanceConditionType = "Provisioning"
+
 	// VMIReady means the pod is able to service requests and should be added to the
 	// load balancing pools of all matching services.
 	VirtualMachineInstanceReady VirtualMachineInstanceConditionType = "Ready"
@@ -468,8 +468,6 @@ type VirtualMachineInstancePhase string
 const (
 	//When a VirtualMachineInstance Object is first initialized and no phase, or Pending is present.
 	VmPhaseUnset VirtualMachineInstancePhase = ""
-	// A VMI depends on DataVolumes which are in Pending/WaitForFirstConsumer status.
-	Provisioning VirtualMachineInstancePhase = "Provisioning"
 	// Pending means the VirtualMachineInstance has been accepted by the system.
 	Pending VirtualMachineInstancePhase = "Pending"
 	// A target Pod exists but is not yet scheduled and in running state.
@@ -553,6 +551,8 @@ const (
 	KubeVirtGenerationAnnotation = "kubevirt.io/generation"
 	// This annotation represents that this object is for temporary use during updates
 	EphemeralBackupObject = "kubevirt.io/ephemeral-backup-object"
+	// This annotation represents that the annotated object is for temporary use during pod/volume provisioning
+	EphemeralProvisioningObject string = "kubevirt.io/ephemeral-provisioning"
 
 	// This label indicates the object is a part of the install strategy retrieval process.
 	InstallStrategyLabel = "kubevirt.io/install-strategy"
