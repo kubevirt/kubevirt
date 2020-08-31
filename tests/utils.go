@@ -2983,15 +2983,6 @@ func SkipIfUseFlannel(virtClient kubecli.KubevirtClient) {
 	}
 }
 
-func SkipIfNotUseNetworkPolicy(virtClient kubecli.KubevirtClient) {
-	expectedRes := "openshift-ovs-networkpolicy"
-	out, _, _ := RunCommand("kubectl", "get", "clusternetwork")
-	//we don't check the result here, because this cmd is openshift only and will be failed on k8s cluster
-	if !strings.Contains(out, expectedRes) {
-		Skip("Skip networkpolicy test that require openshift-ovs-networkpolicy plugin")
-	}
-}
-
 func GetHighestCPUNumberAmongNodes(virtClient kubecli.KubevirtClient) int {
 	var cpus int64
 

@@ -54,7 +54,6 @@ var _ = Describe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		tests.PanicOnError(err)
 
 		tests.SkipIfUseFlannel(virtClient)
-		tests.SkipIfNotUseNetworkPolicy(virtClient)
 		tests.BeforeTestCleanup()
 		// Create three vmis, vmia and vmib are in same namespace, vmic is in different namespace
 		vmia = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
