@@ -79,8 +79,7 @@ var _ = Describe("Infrastructure", func() {
 			tests.BeforeTestCleanup()
 		})
 
-		// Flaky, randomly fails with timeout
-		PIt("[test_id:4099] [flaky] should be rotated when a new CA is created", func() {
+		It("[test_id:4099] should be rotated when a new CA is created", func() {
 			By("checking that the config-map gets the new CA bundle attached")
 			Eventually(func() int {
 				_, crts := tests.GetBundleFromConfigMap(components.KubeVirtCASecretName)
@@ -144,8 +143,7 @@ var _ = Describe("Infrastructure", func() {
 			defer expecter.Close()
 		})
 
-		// Flaky, randomly fails with timeout
-		PIt("[test_id:4100] [flaky] should be valid during the whole rotation process", func() {
+		It("[test_id:4100] should be valid during the whole rotation process", func() {
 			oldAPICert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
 			oldHandlerCert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
 			Expect(err).ToNot(HaveOccurred())
