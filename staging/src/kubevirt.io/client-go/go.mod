@@ -29,6 +29,7 @@ require (
 )
 
 replace (
+	bitbucket.org/ww/goautoneg => github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v11.0.0+incompatible
 	github.com/go-kit/kit => github.com/go-kit/kit v0.3.0
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
