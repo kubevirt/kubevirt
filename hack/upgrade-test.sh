@@ -247,15 +247,17 @@ Msg "verify the hyperconverged-cluster deployment is using the new image"
 Msg "wait that cluster is operational after upgrade"
 timeout 20m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
 
-echo "----- Images after upgrade"
-${CMD} get deployments -n ${HCO_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
-${CMD} get pod $HCO_CATALOGSOURCE_POD -n ${HCO_CATALOG_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
-
 echo "----- Pod after upgrade"
 Msg "verify that the hyperconverged-cluster Pod is using the new image"
 ./hack/retry.sh 10 30 "CMD=${CMD} HCO_NAMESPACE=${HCO_NAMESPACE} ./hack/check_pod_upgrade.sh"
 
 Msg "verify new operator version reported after the upgrade"
 ./hack/retry.sh 10 30 "CMD=${CMD} HCO_RESOURCE_NAME=${HCO_RESOURCE_NAME} HCO_NAMESPACE=${HCO_NAMESPACE} TARGET_VERSION=${TARGET_VERSION} hack/check_hco_version.sh"
+
+echo "----- Images after upgrade"
+# TODO: compare all of them with the list of images in RelatedImages in the new CSV
+${CMD} get deployments -n ${HCO_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
+${CMD} get pod $HCO_CATALOGSOURCE_POD -n ${HCO_CATALOG_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
+
 dump_sccs_after
 echo "upgrade-test completed successfully."
