@@ -42,6 +42,10 @@ const (
 	populatedForPVCAnnotation = "cdi.kubevirt.io/storage.populatedFor"
 
 	lastRestoreAnnotation = "restore.kubevirt.io/lastRestoreUID"
+
+	restoreCompleteEvent = "VirtualMachineRestoreComplete"
+
+	restoreErrorEvent = "VirtualMachineRestoreError"
 )
 
 type restoreTarget interface {
@@ -128,6 +132,14 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 					return 0, ctrl.doUpdateError(vmRestoreIn, vmRestoreOut, err)
 				}
 
+				ctrl.Recorder.Eventf(
+					vmRestoreOut,
+					corev1.EventTypeNormal,
+					restoreCompleteEvent,
+					"Successfully completed VirtualMachineRestore %s",
+					vmRestoreOut.Name,
+				)
+
 				complete = true
 				vmRestoreOut.Status.RestoreTime = currentTime()
 				updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
@@ -152,6 +164,14 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 }
 
 func (ctrl *VMRestoreController) doUpdateError(original, updated *snapshotv1.VirtualMachineRestore, err error) error {
+	ctrl.Recorder.Eventf(
+		updated,
+		corev1.EventTypeWarning,
+		restoreErrorEvent,
+		"VirtualMachineRestore encountered error %s",
+		err.Error(),
+	)
+
 	updateRestoreCondition(updated, newProgressingCondition(corev1.ConditionFalse, err.Error()))
 	updateRestoreCondition(updated, newReadyCondition(corev1.ConditionFalse, err.Error()))
 	if err2 := ctrl.doUpdate(original, updated); err2 != nil {
