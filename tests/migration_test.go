@@ -901,7 +901,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
-			It("[test_id:1854]should migrate a VMI with postcopy migration shared and non-shared disks", func() {
+			It("should migrate a VMI with postcopy migration shared and non-shared disks", func() {
 				data := map[string]string{
 					"migrationMode": "PostCopy",
 				}
@@ -1242,52 +1242,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
-
-			// It("postcopy migration should complete in less time understress than precopy", func() {
-			// 	data := map[string]string{
-			// 		"usePostCopy": "false",
-			// 	}
-			// 	migrationData, err := json.Marshal(data)
-			// 	Expect(err).ToNot(HaveOccurred())
-			// 	tests.UpdateClusterConfigValueAndWait("migrations", string(migrationData))
-			//
-			// 	vmiPostCopy := tests.NewRandomFedoraVMIWitGuestAgent()
-			// 	vmiPostCopy.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-			//
-			// 	usePostCopy := true
-			// 	vmiPostCopy.Spec.MigrationConfiguration = &v1.PerVMIMigrationConfiguration{
-			// 		UsePostCopy: &usePostCopy,
-			// 	}
-			//
-			// 	By("Starting the VirtualMachineInstance")
-			// 	vmiPostCopy = runVMIAndExpectLaunch(vmiPostCopy, 240)
-			//
-			// 	By("Checking that the VirtualMachineInstance console has expected output")
-			// 	expecter, expecterErr := tests.LoggedInFedoraExpecter(vmiPostCopy)
-			// 	Expect(expecterErr).ToNot(HaveOccurred())
-			// 	defer expecter.Close()
-			//
-			// 	// Need to wait for cloud init to finish and start the agent inside the vmi.
-			// 	tests.WaitAgentConnected(virtClient, vmiPostCopy)
-			//
-			// 	runStressTest(expecter)
-			//
-			// 	// execute a migration, wait for finalized state
-			// 	By("Starting the Migration")
-			// 	migration := tests.NewRandomMigration(vmiPostCopy.Name, vmiPostCopy.Namespace)
-			// 	migrationUID := runMigrationAndExpectCompletion(migration, 180)
-			//
-			// 	// check VMI, confirm migration state
-			// 	confirmVMIPostMigration(vmiPostCopy, migrationUID)
-			// 	confirmMigrationMode(vmiPostCopy, v1.MigrationPostCopy)
-			//
-			// 	// delete VMI
-			// 	By("Deleting the VMI")
-			// 	Expect(virtClient.VirtualMachineInstance(vmiPostCopy.Namespace).Delete(vmiPostCopy.Name, &metav1.DeleteOptions{})).To(Succeed())
-			//
-			// 	By("Waiting for VMI to disappear")
-			// 	tests.WaitForVirtualMachineToDisappearWithTimeout(vmiPostCopy, 240)
-			// })
 		})
 
 		Context("migration monitor", func() {
@@ -1315,7 +1269,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Expect(err).ToNot(HaveOccurred())
 				tests.UpdateClusterConfigValueAndWait("migrations", string(migrationData))
 			})
-			It("[test_id:2227] should abort a vmi migration without progress", func() {
+			PIt("[test_id:2227] should abort a vmi migration without progress", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
