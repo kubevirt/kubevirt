@@ -49,10 +49,8 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 			By("Getting pod of the VMI")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 
-			By("Making sure IP reported on the VMI matches the one on the pod")
-			Expect(vmi.Status.Interfaces[0].IP).To(Equal(vmiPod.Status.PodIP))
-			Expect(vmi.Status.Interfaces[0].IPs).NotTo(BeEmpty())
-			Expect(vmi.Status.Interfaces[0].IPs[0]).To(Equal(vmiPod.Status.PodIP))
+			By("Making sure IP/s reported on the VMI matches the ones on the pod")
+			Expect(ValidateVMIandPodIPMatch(vmi, vmiPod)).To(Succeed(), "Should have matching IP/s between pod and vmi")
 		}
 
 		Context("VMI connected to the pod network using the default (implicit) binding", func() {

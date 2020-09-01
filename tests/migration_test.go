@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/network"
 )
 
 const (
@@ -486,13 +487,13 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// check VMI, confirm migration state
 					confirmVMIPostMigration(vmi, migrationUID)
 
-					By("Check if Migrated VMI has updated PodIP")
-					Eventually(func() bool {
+					By("Check if Migrated VMI has updated IP and IPs fields")
+					Eventually(func() error {
 						newvmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred(), "Should successfully get new VMI")
-						vmiPod := tests.GetRunningPodByVirtualMachineInstance(newvmi, tests.NamespaceTestDefault)
-						return newvmi.Status.Interfaces[0].IP == vmiPod.Status.PodIP
-					}, 180*time.Second, 1*time.Second).Should(BeTrue())
+						vmiPod := tests.GetRunningPodByVirtualMachineInstance(newvmi, newvmi.Namespace)
+						return network.ValidateVMIandPodIPMatch(newvmi, vmiPod)
+					}, 180*time.Second, time.Second).Should(Succeed(), "Should have updated IP and IPs fields")
 				}
 				// delete VMI
 				By("Deleting the VMI")
@@ -1862,14 +1863,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Eventually(func() error {
 						newvmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred(), "Should successfully get new VMI")
-						vmiPod := tests.GetRunningPodByVirtualMachineInstance(newvmi, tests.NamespaceTestDefault)
-
-						if newvmi.Status.Interfaces[0].IP == vmiPod.Status.PodIP {
-							return nil
-						}
-
-						return fmt.Errorf("interface not updated with latest IP")
-					}, 1*time.Minute, 1*time.Second).Should(BeNil(), "Should match PodIP with latest VMI Status after migration")
+						vmiPod := tests.GetRunningPodByVirtualMachineInstance(newvmi, newvmi.Namespace)
+						return network.ValidateVMIandPodIPMatch(newvmi, vmiPod)
+					}, time.Minute, time.Second).Should(Succeed(), "Should match PodIP with latest VMI Status after migration")
 				}
 			})
 		})
