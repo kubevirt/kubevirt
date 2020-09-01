@@ -1166,6 +1166,12 @@ type KubeVirtSpec struct {
 	// same as the virt-configMap
 	Configuration KubeVirtConfiguration `json:"configuration,omitempty"`
 
+	// selectors and tolerations that should apply to KubeVirt infrastructure components
+	Infra *NodePlacement `json:"infra,omitempty"`
+
+	// selectors and tolerations that should apply to KubeVirt workloads
+	Workloads *NodePlacement `json:"workloads,omitempty"`
+
 	CustomizeComponents CustomizeComponents `json:"customizeComponents,omitempty"`
 }
 
