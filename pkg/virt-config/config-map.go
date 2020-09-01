@@ -449,14 +449,15 @@ func setConfigFromKubeVirt(config *v1.KubeVirtConfiguration, kv *v1.KubeVirt) er
 // Default values in the provided config stay intact.
 func updateConfigFromHostDevConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.ConfigMap) error {
 	// Clear the list first, if whole categories get removed, we want the devices gone
-	config.PermittedHostDevices = &v1.PermittedHostDevices{}
+	newPermittedHostDevices := &v1.PermittedHostDevices{}
 	rawConfig := strings.TrimSpace(configMap.Data[PermittedHostDevicesKey])
 	if rawConfig != "" {
-		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(rawConfig), 1024).Decode(&config.PermittedHostDevices)
+		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(rawConfig), 1024).Decode(newPermittedHostDevices)
 		if err != nil {
 			return fmt.Errorf("failed to parse host devices config: %v", err)
 		}
 	}
+	config.PermittedHostDevices = newPermittedHostDevices
 	return nil
 }
 
