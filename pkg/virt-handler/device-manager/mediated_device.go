@@ -299,6 +299,7 @@ func (dpi *MediatedDevicePlugin) PreStartContainer(ctx context.Context, in *plug
 }
 
 func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) map[string][]*MDEV {
+	initHandler()
 
 	mdevsMap := make(map[string][]*MDEV)
 	files, err := ioutil.ReadDir(mdevBasePath)

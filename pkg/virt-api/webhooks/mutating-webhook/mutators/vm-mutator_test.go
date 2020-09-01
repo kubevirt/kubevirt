@@ -81,7 +81,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
 
 		mutator = &VMsMutator{}
-		mutator.ClusterConfig, configMapInformer, _, _ = testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+		mutator.ClusterConfig, configMapInformer, _, _, _ = testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 	})
 
 	It("should apply defaults on VM create", func() {

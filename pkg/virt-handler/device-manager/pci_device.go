@@ -375,6 +375,7 @@ func (dpi *PCIDevicePlugin) PreStartContainer(ctx context.Context, in *pluginapi
 }
 
 func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) map[string][]*PCIDevice {
+	initHandler()
 
 	pciDevicesMap := make(map[string][]*PCIDevice)
 	err := filepath.Walk(pciBasePath, func(path string, info os.FileInfo, err error) error {
