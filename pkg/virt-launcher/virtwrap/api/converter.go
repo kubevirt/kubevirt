@@ -1219,7 +1219,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 	err = Convert_HostDevices_And_GPU(vmi.Spec.Domain.Devices, domain, c)
 	if err != nil {
-		return err
+		log.Log.Reason(err).Error("Unable to prepare host devices, fall back to legacy")
 	}
 
 	// This is needed to support a legacy approach to device assignment
