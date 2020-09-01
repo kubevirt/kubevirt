@@ -356,6 +356,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.Network":                                                    schema_kubevirtio_client_go_api_v1_Network(ref),
 		"kubevirt.io/client-go/api/v1.NetworkConfiguration":                                       schema_kubevirtio_client_go_api_v1_NetworkConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.NetworkSource":                                              schema_kubevirtio_client_go_api_v1_NetworkSource(ref),
+		"kubevirt.io/client-go/api/v1.NodePlacement":                                              schema_kubevirtio_client_go_api_v1_NodePlacement(ref),
 		"kubevirt.io/client-go/api/v1.PITTimer":                                                   schema_kubevirtio_client_go_api_v1_PITTimer(ref),
 		"kubevirt.io/client-go/api/v1.PodNetwork":                                                 schema_kubevirtio_client_go_api_v1_PodNetwork(ref),
 		"kubevirt.io/client-go/api/v1.Port":                                                       schema_kubevirtio_client_go_api_v1_Port(ref),
@@ -15719,6 +15720,18 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref common.ReferenceCallbac
 							Ref:         ref("kubevirt.io/client-go/api/v1.KubeVirtConfiguration"),
 						},
 					},
+					"infra": {
+						SchemaProps: spec.SchemaProps{
+							Description: "selectors and tolerations that should apply to KubeVirt infrastructure components",
+							Ref:         ref("kubevirt.io/client-go/api/v1.NodePlacement"),
+						},
+					},
+					"workloads": {
+						SchemaProps: spec.SchemaProps{
+							Description: "selectors and tolerations that should apply to KubeVirt workloads",
+							Ref:         ref("kubevirt.io/client-go/api/v1.NodePlacement"),
+						},
+					},
 					"customizeComponents": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/client-go/api/v1.CustomizeComponents"),
@@ -15728,7 +15741,7 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.CustomizeComponents", "kubevirt.io/client-go/api/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/client-go/api/v1.KubeVirtConfiguration"},
+			"kubevirt.io/client-go/api/v1.CustomizeComponents", "kubevirt.io/client-go/api/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/client-go/api/v1.KubeVirtConfiguration", "kubevirt.io/client-go/api/v1.NodePlacement"},
 	}
 }
 
@@ -16069,6 +16082,60 @@ func schema_kubevirtio_client_go_api_v1_NetworkSource(ref common.ReferenceCallba
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/api/v1.MultusNetwork", "kubevirt.io/client-go/api/v1.PodNetwork"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_NodePlacement(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NodePlacement describes node scheduling configuration.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "nodeSelector is the node selector applied to the relevant kind of pods It specifies a map of key-value pairs: for the pod to be eligible to run on a node, the node must have each of the indicated key-value pairs as labels (it can have additional labels as well). See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"affinity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "affinity enables pod affinity/anti-affinity placement expanding the types of constraints that can be expressed with nodeSelector. affinity is going to be applied to the relevant kind of pods in parallel with nodeSelector See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity",
+							Ref:         ref("k8s.io/api/core/v1.Affinity"),
+						},
+					},
+					"tolerations": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "tolerations is a list of tolerations applied to the relevant kind of pods See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info. These are additional tolerations other than default ones.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/api/core/v1.Toleration"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Toleration"},
 	}
 }
 
