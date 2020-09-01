@@ -6,6 +6,7 @@ go_library(
         "deepcopy_generated.go",
         "defaults.go",
         "doc.go",
+        "nodeplacement.go",
         "openapi_generated.go",
         "register.go",
         "schema.go",
