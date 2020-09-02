@@ -124,6 +124,7 @@ go_test(
         "pausing_test.go",
         "probes_test.go",
         "replicaset_test.go",
+        "restore_test.go",
         "security_features_test.go",
         "snapshot_test.go",
         "stability_test.go",
