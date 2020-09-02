@@ -709,25 +709,20 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				clientVMI = masqueradeVMI([]v1.Port{}, ipv4NetworkCIDR)
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(clientVMI, tests.LoggedInCirrosExpecter)
+				clientVMI = tests.WaitUntilVMIReady(clientVMI, tests.LoggedInCirrosExpecter)
 			}
 
 			serverVMI = masqueradeVMI(ports, ipv4NetworkCIDR)
 			serverVMI.Labels = map[string]string{"expose": "server"}
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
 			Expect(err).ToNot(HaveOccurred())
-
-			tests.WaitUntilVMIReady(serverVMI, tests.LoggedInCirrosExpecter)
-
-			serverVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(serverVMI.Name, &v13.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(serverVMI.Status.Interfaces)).To(Equal(1))
+			serverVMI = tests.WaitUntilVMIReady(serverVMI, tests.LoggedInCirrosExpecter)
+			Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
 			Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 
 			By("starting a tcp server")
-			tcpPort := "8080"
-			err = tests.CheckForTextExpecter(serverVMI, createExpectStartTcpServer(tcpPort), 30)
-			Expect(err).ToNot(HaveOccurred())
+			tcpPort := 8080
+			tests.StartTCPServer(serverVMI, tcpPort)
 
 			for _, serverIP := range serverVMI.Status.Interfaces[0].IPs {
 				if netutils.IsIPv6String(serverIP) {
@@ -749,12 +744,14 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					Expect(tests.PingFromVMConsole(clientVMI, "google.com")).To(Succeed())
 				}
 
+				Expect(tests.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
+
 				By("Connecting from the client vm")
 				err = tests.CheckForTextExpecter(clientVMI, createExpectConnectToServer(serverIP, tcpPort, true), 30)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Rejecting the connection from the client to unregistered port")
-				err = tests.CheckForTextExpecter(clientVMI, createExpectConnectToServer(serverIP, "8081", false), 30)
+				err = tests.CheckForTextExpecter(clientVMI, createExpectConnectToServer(serverIP, tcpPort+1, false), 30)
 				Expect(err).ToNot(HaveOccurred())
 			}
 
@@ -944,18 +941,7 @@ func NewRandomVMIWithInvalidNetworkInterface() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func createExpectStartTcpServer(port string) []expect.Batcher {
-	return []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: "screen -d -m sudo nc -klp " + port + " -e echo -e 'Hello World!'\n"},
-		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: tests.RetValue("0")},
-	}
-}
-
-func createExpectConnectToServer(serverIP, tcpPort string, expectSuccess bool) []expect.Batcher {
+func createExpectConnectToServer(serverIP string, tcpPort int, expectSuccess bool) []expect.Batcher {
 	expectResult := "1"
 	if expectSuccess {
 		expectResult = "0"
@@ -963,7 +949,7 @@ func createExpectConnectToServer(serverIP, tcpPort string, expectSuccess bool) [
 	return []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: fmt.Sprintf("echo test | nc %s %s -i 1 -w 1 1> /dev/null\n", serverIP, tcpPort)},
+		&expect.BSnd{S: fmt.Sprintf("echo test | nc %s %d -i 1 -w 1 1> /dev/null\n", serverIP, tcpPort)},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: tests.RetValue(expectResult)},
