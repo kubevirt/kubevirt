@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component]IgnitionData", func() {
@@ -58,7 +59,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		VerifyIgnitionDataVMI = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
 			By("Expecting the VirtualMachineInstance console")
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+			expecter, _, err := libvmi.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 

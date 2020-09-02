@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component]Config", func() {
@@ -97,7 +98,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(podOutput).To(Equal(expectedOutput))
 
 				By("Checking mounted iso image")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -105,7 +106,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					// mount iso ConfigMap image
 					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: libvmi.RetValue("0")},
 					&expect.BSnd{S: "cat /mnt/option1 /mnt/option2 /mnt/option3\n"},
 					&expect.BExp{R: expectedOutput},
 				}, 200*time.Second)
@@ -191,7 +192,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(podOutput).To(Equal(expectedOutput))
 
 				By("Checking mounted iso image")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -199,7 +200,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					// mount iso Secret image
 					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: libvmi.RetValue("0")},
 					&expect.BSnd{S: "cat /mnt/user /mnt/password\n"},
 					&expect.BExp{R: expectedOutput},
 				}, 200*time.Second)
@@ -274,7 +275,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			)
 
 			By("Checking mounted iso image")
-			expecter, err := tests.LoggedInAlpineExpecter(vmi)
+			expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 
@@ -282,7 +283,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				// mount service account iso image
 				&expect.BSnd{S: "mount /dev/sda /mnt\n"},
 				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0")},
+				&expect.BExp{R: libvmi.RetValue("0")},
 				&expect.BSnd{S: "cat /mnt/namespace\n"},
 				&expect.BExp{R: tests.NamespaceTestDefault},
 				&expect.BSnd{S: "tail -c 20 /mnt/token\n"},
@@ -367,7 +368,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(podOutputCfgMap).To(Equal(expectedOutputCfgMap), "Expected %s to Equal value1value2value3", podOutputCfgMap)
 
 				By("Checking mounted ConfigMap image")
-				expecter, err := tests.LoggedInFedoraExpecter(vmi)
+				expecter, err := libvmi.LoggedInFedoraExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -377,7 +378,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					&expect.BExp{R: "#"},
 					&expect.BSnd{S: "mount /dev/vdc /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: libvmi.RetValue("0")},
 					&expect.BSnd{S: "cat /mnt/config1 /mnt/config2 /mnt/config3\n"},
 					&expect.BExp{R: expectedOutputCfgMap},
 				}, 200*time.Second)
@@ -403,7 +404,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					// mount Secret image
 					&expect.BSnd{S: "mount /dev/vdd /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: libvmi.RetValue("0")},
 					&expect.BSnd{S: "cat /mnt/user /mnt/password\n"},
 					&expect.BExp{R: expectedOutputSecret},
 				}, 200*time.Second)
@@ -491,7 +492,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(podOutput2).To(Equal(expectedPublicKey), "Expected pod output of public key to match genereated one.")
 
 				By("Checking mounted secrets sshkeys image")
-				expecter, err := tests.LoggedInFedoraExpecter(vmi)
+				expecter, err := libvmi.LoggedInFedoraExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -501,13 +502,13 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					&expect.BExp{R: "\\#"},
 					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: libvmi.RetValue("0")},
 					&expect.BSnd{S: "grep \"PRIVATE KEY\" /mnt/ssh-privatekey\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: libvmi.RetValue("0")},
 					&expect.BSnd{S: "grep ssh-rsa /mnt/ssh-publickey\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: libvmi.RetValue("0")},
 				}, 200*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())

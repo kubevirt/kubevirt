@@ -13,14 +13,15 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 func assertPingSucceed(ip string, vmi *v1.VirtualMachineInstance) {
-	expecter, err := tests.LoggedInCirrosExpecter(vmi)
+	expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 	Expect(err).ToNot(HaveOccurred())
 	defer expecter.Close()
 
-	err = tests.CheckForTextExpecter(vmi, []expect.Batcher{
+	err = libvmi.CheckForTextExpecter(vmi, []expect.Batcher{
 		&expect.BSnd{S: fmt.Sprintf("ping -w 3 %s \n", ip)},
 		&expect.BExp{R: "0% packet loss"},
 	}, 60)
@@ -28,11 +29,11 @@ func assertPingSucceed(ip string, vmi *v1.VirtualMachineInstance) {
 }
 
 func assertPingFail(ip string, vmi *v1.VirtualMachineInstance) {
-	expecter, err := tests.LoggedInCirrosExpecter(vmi)
+	expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 	Expect(err).ToNot(HaveOccurred())
 	defer expecter.Close()
 
-	err = tests.CheckForTextExpecter(vmi, []expect.Batcher{
+	err = libvmi.CheckForTextExpecter(vmi, []expect.Batcher{
 		&expect.BSnd{S: fmt.Sprintf("ping -w 3 %s \n", ip)},
 		&expect.BExp{R: "100% packet loss"},
 	}, 60)

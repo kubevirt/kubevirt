@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = SIGDescribe("Primary Pod Network", func() {
@@ -104,7 +105,7 @@ func setupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance)
 	Expect(err).NotTo(HaveOccurred(), "VMI should be successfully created")
 
 	By("Waiting until the VMI gets ready")
-	vmi = tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
+	vmi = tests.WaitUntilVMIReady(vmi, libvmi.LoggedInAlpineExpecter)
 
 	return vmi
 }

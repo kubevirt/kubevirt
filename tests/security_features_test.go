@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("SecurityFeatures", func() {
@@ -144,10 +145,10 @@ var _ = Describe("SecurityFeatures", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Ensuring VMI is running by logging in")
-				tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
+				tests.WaitUntilVMIReady(vmi, libvmi.LoggedInAlpineExpecter)
 
 				By("Fetching virt-launcher Pod")
-				pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				pod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 
 				By("Verifying SELinux context contains custom type")
 				Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal(superPrivilegedType))
@@ -177,10 +178,10 @@ var _ = Describe("SecurityFeatures", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Ensuring VMI is running by logging in")
-				tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
+				tests.WaitUntilVMIReady(vmi, libvmi.LoggedInAlpineExpecter)
 
 				By("Fetching virt-launcher Pod")
-				pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				pod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 
 				qemuProcessSelinuxContext, err := tests.ExecuteCommandOnPod(
 					virtClient,
@@ -216,10 +217,10 @@ var _ = Describe("SecurityFeatures", func() {
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			By("Ensuring VMI is running by logging in")
-			tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
+			tests.WaitUntilVMIReady(vmi, libvmi.LoggedInAlpineExpecter)
 
 			By("Fetching virt-launcher Pod")
-			pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+			pod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 
 			for _, containerSpec := range pod.Spec.Containers {
 				if containerSpec.Name == "compute" {

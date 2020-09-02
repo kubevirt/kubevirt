@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("Slirp Networking", func() {
@@ -125,7 +126,7 @@ var _ = Describe("Slirp Networking", func() {
 		Expect(err).To(HaveOccurred())
 
 		By("communicate with the outside world")
-		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+		expecter, _, err := libvmi.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 		defer expecter.Close()
 		Expect(err).ToNot(HaveOccurred())
 

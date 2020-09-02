@@ -52,6 +52,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("Infrastructure", func() {
@@ -139,7 +140,7 @@ var _ = Describe("Infrastructure", func() {
 			By("checking that we can still start virtual machines and connect to the VMI")
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmi = tests.RunVMI(vmi, 60)
-			expecter, err := tests.LoggedInAlpineExpecter(vmi)
+			expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 		})
@@ -158,7 +159,7 @@ var _ = Describe("Infrastructure", func() {
 			Eventually(func() (rotated bool) {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi = tests.RunVMI(vmi, 60)
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
@@ -485,7 +486,7 @@ var _ = Describe("Infrastructure", func() {
 			By("Expecting the VirtualMachineInstance console")
 			// This also serves as a sync point to make sure the VM completed the boot
 			// (and reduce the risk of false negatives)
-			expecter, err := tests.LoggedInAlpineExpecter(vmi)
+			expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 

@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 const (
@@ -122,7 +123,7 @@ var _ = Describe("Storage", func() {
 				tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 120, ignoreWarnings)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 			},
@@ -145,7 +146,7 @@ var _ = Describe("Storage", func() {
 					// after being restarted multiple times
 					if i == num {
 						By("Checking that the VirtualMachineInstance console has expected output")
-						expecter, err := tests.LoggedInAlpineExpecter(vmi)
+						expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 						Expect(err).ToNot(HaveOccurred())
 						expecter.Close()
 					}
@@ -184,7 +185,7 @@ var _ = Describe("Storage", func() {
 				})
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -201,7 +202,7 @@ var _ = Describe("Storage", func() {
 					&expect.BSnd{S: "sudo mkfs.ext4 /dev/vdc\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: libvmi.RetValue("0")},
 				}, 20*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -234,7 +235,7 @@ var _ = Describe("Storage", func() {
 				})
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -271,7 +272,7 @@ var _ = Describe("Storage", func() {
 				vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 120, ignoreWarnings)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 			},
@@ -294,7 +295,7 @@ var _ = Describe("Storage", func() {
 				}
 
 				By("Writing an arbitrary file to it's EFI partition")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -302,7 +303,7 @@ var _ = Describe("Storage", func() {
 					// Because "/" is mounted on tmpfs, we need something that normally persists writes - /dev/sda2 is the EFI partition formatted as vFAT.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: libvmi.RetValue("0")},
 					&expect.BSnd{S: "echo content > /mnt/checkpoint\n"},
 					// The QEMU process will be killed, therefore the write must be flushed to the disk.
 					&expect.BSnd{S: "sync\n"},
@@ -322,7 +323,7 @@ var _ = Describe("Storage", func() {
 				}
 
 				By("Making sure that the previously written file is not present")
-				expecter, err = tests.LoggedInAlpineExpecter(vmi)
+				expecter, err = libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -330,10 +331,10 @@ var _ = Describe("Storage", func() {
 					// Same story as when first starting the VirtualMachineInstance - the checkpoint, if persisted, is located at /dev/sda2.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: libvmi.RetValue("0")},
 					&expect.BSnd{S: "cat /mnt/checkpoint &> /dev/null\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("1")},
+					&expect.BExp{R: libvmi.RetValue("1")},
 				}, 200*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -362,7 +363,7 @@ var _ = Describe("Storage", func() {
 					// after being restarted multiple times
 					if i == num {
 						By("Checking that the second disk is present")
-						expecter, err := tests.LoggedInAlpineExpecter(vmi)
+						expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 						Expect(err).ToNot(HaveOccurred())
 						defer expecter.Close()
 
@@ -717,7 +718,7 @@ var _ = Describe("Storage", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Cirros login successfully")
 				expecter.Close()
 			})
@@ -751,7 +752,7 @@ var _ = Describe("Storage", func() {
 				tests.RunVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Alpine login successfully")
 				expecter.Close()
 			})

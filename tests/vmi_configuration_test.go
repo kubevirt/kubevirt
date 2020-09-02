@@ -51,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("Configurations", func() {
@@ -75,7 +76,7 @@ var _ = Describe("Configurations", func() {
 			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: "virtio", Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
 			vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "watchdog", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionPoweroff}}}
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
-			expecter, err := tests.LoggedInCirrosExpecter(vmi)
+			expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
@@ -201,7 +202,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should start console")
 				defer expecter.Close()
 
@@ -266,7 +267,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should start console")
 				defer expecter.Close()
 
@@ -293,7 +294,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should start console")
 				defer expecter.Close()
 
@@ -322,7 +323,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should start console")
 				defer expecter.Close()
 
@@ -352,7 +353,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should start console")
 				defer expecter.Close()
 
@@ -466,7 +467,7 @@ var _ = Describe("Configurations", func() {
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
+				tests.WaitUntilVMIReady(vmi, libvmi.LoggedInAlpineExpecter)
 
 				By("Checking if UEFI is enabled")
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
@@ -482,7 +483,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking if SecureBoot is enabled in Linux")
-				tests.WaitUntilVMIReady(vmi, tests.SecureBootExpecter)
+				tests.WaitUntilVMIReady(vmi, libvmi.SecureBootExpecter)
 
 				By("Checking if SecureBoot is enabled in the libvirt XML")
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
@@ -504,7 +505,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -529,7 +530,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -557,17 +558,17 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
-				res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				res, err := libvmi.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 200 ] && echo 'pass'\n"},
-					&expect.BExp{R: tests.RetValue("pass")},
+					&expect.BExp{R: libvmi.RetValue("pass")},
 					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: libvmi.RetValue("0")},
 				}, 15*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -614,14 +615,14 @@ var _ = Describe("Configurations", func() {
 			})
 			It("[test_id:732]Check Free memory on the VMI", func() {
 				By("Expecting console")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
 				// Check on the VM, if the Free memory is roughly what we expected
-				res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				res, err := libvmi.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 95 ] && echo 'pass'\n"},
-					&expect.BExp{R: tests.RetValue("pass")},
+					&expect.BExp{R: libvmi.RetValue("pass")},
 				}, 15*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -644,7 +645,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should get console")
 				defer expecter.Close()
 
@@ -670,7 +671,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should get console")
 				defer expecter.Close()
 
@@ -691,7 +692,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should start console")
 				defer expecter.Close()
 				By("Checking the number of usb under guest OS")
@@ -747,7 +748,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should start console")
 				defer expecter.Close()
 
@@ -774,7 +775,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should start console")
 				defer expecter.Close()
 
@@ -1063,7 +1064,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(rngVmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(rngVmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(rngVmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1082,7 +1083,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(rngVmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(rngVmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(rngVmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1167,7 +1168,7 @@ var _ = Describe("Configurations", func() {
 				getOptions := metav1.GetOptions{}
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInFedoraExpecter(agentVMI)
+				expecter, err := libvmi.LoggedInFedoraExpecter(agentVMI)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1263,7 +1264,7 @@ var _ = Describe("Configurations", func() {
 				agentVMI := prepareAgentVM()
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInFedoraExpecter(agentVMI)
+				expecter, err := libvmi.LoggedInFedoraExpecter(agentVMI)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1287,7 +1288,7 @@ var _ = Describe("Configurations", func() {
 			It("[test_id:4629]should return user list", func() {
 				agentVMI := prepareAgentVM()
 
-				expecter, err := tests.LoggedInFedoraExpecter(agentVMI)
+				expecter, err := libvmi.LoggedInFedoraExpecter(agentVMI)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1394,7 +1395,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Logging to VMI")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1501,7 +1502,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(cpuVmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1525,7 +1526,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(cpuVmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1545,7 +1546,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(cpuVmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1573,7 +1574,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(cpuVmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1634,7 +1635,7 @@ var _ = Describe("Configurations", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.SchedulerName = "my-custom-scheduler"
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
-			launcherPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
+			launcherPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
 			Expect(launcherPod.Spec.SchedulerName).To(Equal("my-custom-scheduler"))
 		})
 	})
@@ -1647,7 +1648,7 @@ var _ = Describe("Configurations", func() {
 			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceCPU] = resource.MustParse("500m")
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
-			readyPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
+			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
 			computeContainer := tests.GetComputeContainerOfPod(readyPod)
 			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("500m"))
@@ -1662,7 +1663,7 @@ var _ = Describe("Configurations", func() {
 			}
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
-			readyPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
+			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
 			computeContainer := tests.GetComputeContainerOfPod(readyPod)
 			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("100m"))
@@ -1679,7 +1680,7 @@ var _ = Describe("Configurations", func() {
 			}
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
-			readyPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
+			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
 			computeContainer := tests.GetComputeContainerOfPod(readyPod)
 			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("800m"))
@@ -1787,7 +1788,7 @@ var _ = Describe("Configurations", func() {
 			// NOTE: we have one disk per bus, so we expect vda, sda
 		})
 		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string, prompt string) {
-			err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+			err := libvmi.CheckForTextExpecter(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: prompt},
 				&expect.BSnd{S: "grep DEVNAME /sys/bus/pci/devices/" + expectedPciAddress + "/*/block/vda/uevent|awk -F= '{ print $2 }'\n"},
@@ -1801,7 +1802,7 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
-			expecter, err := tests.LoggedInCirrosExpecter(vmi)
+			expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 
@@ -1821,7 +1822,7 @@ var _ = Describe("Configurations", func() {
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "virtio"
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+			tests.WaitUntilVMIReady(vmi, libvmi.LoggedInCirrosExpecter)
 
 			checkPciAddress(vmi, vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress, "\\$")
 		})
@@ -1974,7 +1975,7 @@ var _ = Describe("Configurations", func() {
 				Expect(len(pinnedCPUsList)).To(Equal(int(cpuVmi.Spec.Domain.CPU.Cores)))
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -2021,17 +2022,17 @@ var _ = Describe("Configurations", func() {
 				Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
 
 				//-------------------------------------------------------------------
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
-				res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				res, err := libvmi.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pass'\n"},
-					&expect.BExp{R: tests.RetValue("pass")},
+					&expect.BExp{R: libvmi.RetValue("pass")},
 					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: libvmi.RetValue("0")},
 				}, 15*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -2108,7 +2109,7 @@ var _ = Describe("Configurations", func() {
 				Expect(len(pinnedCPUsList)).To(Equal(int(cpuVmi.Spec.Domain.CPU.Cores) + 1))
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -2156,7 +2157,7 @@ var _ = Describe("Configurations", func() {
 				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -2302,7 +2303,7 @@ var _ = Describe("Configurations", func() {
 				Expect(node1).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter1, err := tests.LoggedInFedoraExpecter(cpuvmi)
+				expecter1, err := libvmi.LoggedInFedoraExpecter(cpuvmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter1.Close()
 
@@ -2314,7 +2315,7 @@ var _ = Describe("Configurations", func() {
 				Expect(node2).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter2, err := tests.LoggedInFedoraExpecter(vmi)
+				expecter2, err := libvmi.LoggedInFedoraExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter2.Close()
 			})
@@ -2329,7 +2330,7 @@ var _ = Describe("Configurations", func() {
 				Expect(node2).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter1, err := tests.LoggedInFedoraExpecter(vmi)
+				expecter1, err := libvmi.LoggedInFedoraExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter1.Close()
 
@@ -2341,7 +2342,7 @@ var _ = Describe("Configurations", func() {
 				Expect(node1).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter2, err := tests.LoggedInFedoraExpecter(cpuvmi)
+				expecter2, err := libvmi.LoggedInFedoraExpecter(cpuvmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter2.Close()
 			})
@@ -2368,15 +2369,15 @@ var _ = Describe("Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<entry name='asset'>Test-123</entry>"))
 
 			By("Expecting console")
-			expecter, err := tests.LoggedInFedoraExpecter(vmi)
+			expecter, err := libvmi.LoggedInFedoraExpecter(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 
 			By("Check value in VM with dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
-			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			res, err := libvmi.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: "[ $(sudo dmidecode -s chassis-asset-tag | tr -s ' ') = Test-123 ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: libvmi.RetValue("pass")},
 			}, 1*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
 			Expect(err).ToNot(HaveOccurred())
@@ -2412,19 +2413,19 @@ var _ = Describe("Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<entry name='manufacturer'>KubeVirt</entry>"))
 
 			By("Expecting console")
-			expecter, err := tests.LoggedInFedoraExpecter(vmi)
+			expecter, err := libvmi.LoggedInFedoraExpecter(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 
 			By("Check values in dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
-			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			res, err := libvmi.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') = KubeVirt ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: libvmi.RetValue("pass")},
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') = None ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: libvmi.RetValue("pass")},
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') = KubeVirt ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: libvmi.RetValue("pass")},
 			}, 1*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
 			Expect(err).ToNot(HaveOccurred())
@@ -2451,20 +2452,20 @@ var _ = Describe("Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<entry name='version'>1.0</entry>"))
 
 			By("Expecting console")
-			expecter, err := tests.LoggedInFedoraExpecter(vmi)
+			expecter, err := libvmi.LoggedInFedoraExpecter(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 
 			By("Check values in dmidecode")
 
 			// Check on the VM, if expected values are there with dmidecode
-			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			res, err := libvmi.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') = test ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: libvmi.RetValue("pass")},
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') = test ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: libvmi.RetValue("pass")},
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') = None ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: libvmi.RetValue("pass")},
 			}, 1*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
 			Expect(err).ToNot(HaveOccurred())
@@ -2554,12 +2555,12 @@ var _ = Describe("Configurations", func() {
 
 			vmi1, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi1)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi1, tests.LoggedInFedoraExpecter)
+			tests.WaitUntilVMIReady(vmi1, libvmi.LoggedInFedoraExpecter)
 			Expect(len(vmi1.Spec.Domain.Devices.Disks)).Should(BeNumerically("==", 14))
 
 			vmi2, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi2)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi2, tests.LoggedInFedoraExpecter)
+			tests.WaitUntilVMIReady(vmi2, libvmi.LoggedInFedoraExpecter)
 			Expect(len(vmi2.Spec.Domain.Devices.Disks)).Should(BeNumerically("==", 15))
 
 			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi1.Name, &metav1.DeleteOptions{})
@@ -2596,7 +2597,7 @@ var _ = Describe("Configurations", func() {
 
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
+			tests.WaitUntilVMIReady(vmi, libvmi.LoggedInFedoraExpecter)
 			Expect(len(vmi.Spec.Domain.Devices.Disks)).Should(BeNumerically("==", 9))
 
 			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})

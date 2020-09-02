@@ -53,6 +53,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 type vmYamlDefinition struct {
@@ -835,7 +836,7 @@ spec:
 				Eventually(func() error {
 					vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					expecter, err := tests.LoggedInCirrosExpecter(vmi)
+					expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 					if err != nil {
 						return err
 					}

@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]ContainerDisk", func() {
@@ -94,7 +95,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		vmi.Spec.Volumes[0].ContainerDisk.ImagePullPolicy = policy
 		vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 		Expect(vmi.Spec.Volumes[0].ContainerDisk.ImagePullPolicy).To(Equal(expectedPolicy))
-		pod := tests.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		pod := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 		container := tests.GetContainerDiskContainerOfPod(pod, vmi.Spec.Volumes[0].Name)
 		Expect(container.ImagePullPolicy).To(Equal(expectedPolicy))
 	},
@@ -203,7 +204,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				tests.WaitForSuccessfulVMIStart(obj)
 
 				By("Checking whether the second disk really contains virtio drivers")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "expected alpine to login properly")
 				defer expecter.Close()
 
@@ -211,11 +212,11 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					// mount virtio cdrom and check files are there
 					&expect.BSnd{S: "mount -t iso9600 /dev/cdrom\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: libvmi.RetValue("0")},
 					&expect.BSnd{S: "cd /media/cdrom\n"},
 					&expect.BSnd{S: "ls virtio-win_license.txt guest-agent\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: libvmi.RetValue("0")},
 				}, 200*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "expected virtio files to be mounted properly")
 			})
@@ -233,10 +234,10 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Ensuring VMI is running by logging in")
-				tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
+				tests.WaitUntilVMIReady(vmi, libvmi.LoggedInAlpineExpecter)
 
 				By("Fetching virt-launcher Pod")
-				pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				pod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 
 				writableImagePath := fmt.Sprintf("/var/run/kubevirt-ephemeral-disks/disk-data/%v/disk.qcow2", vmi.Spec.Domain.Devices.Disks[0].Name)
 

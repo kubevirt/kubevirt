@@ -32,11 +32,12 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var (
-	shellSuccess = regexp.MustCompile(RetValue("0"))
-	shellFail    = regexp.MustCompile(RetValue("[1-9].*"))
+	shellSuccess = regexp.MustCompile(libvmi.RetValue("0"))
+	shellFail    = regexp.MustCompile(libvmi.RetValue("[1-9].*"))
 )
 
 // PingFromVMConsole performs a ping through the provided VMI console.
@@ -59,9 +60,9 @@ func PingFromVMConsole(vmi *v1.VirtualMachineInstance, ipAddr string, args ...st
 
 	err := vmiConsoleExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: PromptExpression},
+		&expect.BExp{R: libvmi.PromptExpression},
 		&expect.BSnd{S: cmdCheck},
-		&expect.BExp{R: PromptExpression},
+		&expect.BExp{R: libvmi.PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BCas{C: []expect.Caser{
 			&expect.Case{
@@ -86,7 +87,7 @@ func vmiConsoleExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Bat
 		return err
 	}
 
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 30*time.Second)
+	expecter, _, err := libvmi.NewConsoleExpecter(virtClient, vmi, 30*time.Second)
 	if err != nil {
 		return err
 	}

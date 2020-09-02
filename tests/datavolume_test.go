@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 const InvalidDataVolumeUrl = "http://127.0.0.1/invalid"
@@ -97,7 +98,7 @@ var _ = Describe("DataVolume Integration", func() {
 					// after being restarted multiple times
 					if i == num {
 						By("Checking that the VirtualMachineInstance console has expected output")
-						expecter, err := tests.LoggedInAlpineExpecter(vmi)
+						expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 						Expect(err).To(BeNil())
 						expecter.Close()
 					}
@@ -519,7 +520,7 @@ var _ = Describe("DataVolume Integration", func() {
 						By("Checking that the VirtualMachineInstance console has expected output")
 						vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
-						expecter, err := tests.LoggedInAlpineExpecter(vmi)
+						expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 						Expect(err).To(BeNil())
 						expecter.Close()
 					}

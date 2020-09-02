@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachine", func() {
@@ -691,7 +692,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Obtaining the serial console")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -945,7 +946,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
 
-					expecter, err := tests.LoggedInCirrosExpecter(vmi)
+					expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 					Expect(err).ToNot(HaveOccurred())
 					defer expecter.Close()
 
@@ -1098,7 +1099,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
 
-					expecter, err := tests.LoggedInCirrosExpecter(vmi)
+					expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 					Expect(err).ToNot(HaveOccurred())
 					defer expecter.Close()
 
@@ -1338,7 +1339,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					expecter, err := tests.LoggedInCirrosExpecter(vmi)
+					expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 					Expect(err).ToNot(HaveOccurred())
 					defer expecter.Close()
 

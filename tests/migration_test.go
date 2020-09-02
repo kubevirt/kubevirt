@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/network"
 )
 
@@ -395,7 +396,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 				// after being restarted multiple times
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 
@@ -433,7 +434,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 
@@ -472,7 +473,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 
@@ -518,7 +519,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 
@@ -581,7 +582,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				expecter, expecterErr := libvmi.LoggedInFedoraExpecter(vmi)
 				Expect(expecterErr).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -616,7 +617,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				expecter, expecterErr := libvmi.LoggedInFedoraExpecter(vmi)
 				Expect(expecterErr).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -639,11 +640,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the migrated VirtualMachineInstance has an updated time")
-				expecterNew, err := tests.ReLoggedInFedoraExpecter(vmi, 60)
+				expecterNew, err := libvmi.ReLoggedInFedoraExpecter(vmi, 60)
 				defer expecterNew.Close()
 				if err != nil {
 					// session was probably disconnected, try to login
-					expecterNew, expecterErr = tests.LoggedInFedoraExpecter(vmi)
+					expecterNew, expecterErr = libvmi.LoggedInFedoraExpecter(vmi)
 					Expect(expecterErr).ToNot(HaveOccurred())
 				}
 
@@ -709,7 +710,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 				// after being restarted multiple times
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 
@@ -752,7 +753,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 				// after being restarted multiple times
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 
@@ -787,7 +788,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 300)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 
@@ -835,7 +836,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 
@@ -859,7 +860,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 
@@ -905,7 +906,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				expecter.Close()
@@ -973,7 +974,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInFedoraExpecter(vmi)
+				expecter, err := libvmi.LoggedInFedoraExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should be able to login to the Fedora VM")
 				expecter.Close()
 
@@ -989,7 +990,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the migrated VirtualMachineInstance console has expected output")
-				expecter, err = tests.ReLoggedInFedoraExpecter(vmi, 60)
+				expecter, err = libvmi.ReLoggedInFedoraExpecter(vmi, 60)
 				defer expecter.Close()
 				Expect(err).ToNot(HaveOccurred(), "Should stay logged in to the migrated VM")
 
@@ -1029,7 +1030,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				// Run
-				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				expecter, expecterErr := libvmi.LoggedInFedoraExpecter(vmi)
 				Expect(expecterErr).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1150,7 +1151,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				expecter, expecterErr := libvmi.LoggedInFedoraExpecter(vmi)
 				Expect(expecterErr).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1185,7 +1186,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				expecter, expecterErr := libvmi.LoggedInFedoraExpecter(vmi)
 				Expect(expecterErr).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1284,7 +1285,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				expecter, err := libvmi.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 
@@ -1356,7 +1357,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				expecter, expecterErr := libvmi.LoggedInFedoraExpecter(vmi)
 				Expect(expecterErr).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1396,7 +1397,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				expecter, expecterErr := libvmi.LoggedInFedoraExpecter(vmi)
 				Expect(expecterErr).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1521,7 +1522,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				expecter, expecterErr := libvmi.LoggedInFedoraExpecter(vmi)
 				Expect(expecterErr).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1578,7 +1579,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					vmi = runVMIAndExpectLaunch(vmi, 180)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
-					expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+					expecter, expecterErr := libvmi.LoggedInFedoraExpecter(vmi)
 					Expect(expecterErr).ToNot(HaveOccurred())
 					defer expecter.Close()
 

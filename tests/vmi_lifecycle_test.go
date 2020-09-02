@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 const kubevirtConfig = "kubevirt-config"
@@ -279,7 +280,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred(), "cannot fetch VirtualMachineInstance %q: %v", vmi.Name, err)
 
 				By("Obtaining serial console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := libvmi.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "VirtualMachineInstance %q console is not accessible: %v", vmi.Name, err)
 				expecter.Close()
 			})
@@ -320,7 +321,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Checking console text")
-				err = tests.CheckForTextExpecter(vmi, []expect.Batcher{
+				err = libvmi.CheckForTextExpecter(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: consoleText},
 				}, wait)
@@ -1417,7 +1418,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				// wait until booted
-				vmi = tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+				vmi = tests.WaitUntilVMIReady(vmi, libvmi.LoggedInCirrosExpecter)
 
 				By("Deleting the VirtualMachineInstance")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
@@ -1446,7 +1447,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				// wait until booted
-				vmi = tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+				vmi = tests.WaitUntilVMIReady(vmi, libvmi.LoggedInCirrosExpecter)
 
 				By("Deleting the VirtualMachineInstance")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")

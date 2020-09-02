@@ -19,6 +19,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 func parseDeviceAddress(addrString string) []string {
@@ -38,13 +39,13 @@ func parseDeviceAddress(addrString string) []string {
 
 func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName string, prompt string) {
 	cmdCheck := fmt.Sprintf("lspci -m %s\n", gpuName)
-	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+	err := libvmi.CheckForTextExpecter(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: tests.RetValue("0")},
+		&expect.BExp{R: libvmi.RetValue("0")},
 	}, 15)
 	Expect(err).ToNot(HaveOccurred(), "GPU device %q was not found in the VMI %s within the given timeout", gpuName, vmi.Name)
 }
@@ -72,7 +73,7 @@ var _ = Describe("GPU", func() {
 			vmi, apiErr := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(randomVMI)
 			Expect(apiErr).ToNot(HaveOccurred())
 
-			pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+			pod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 			Expect(pod.Status.Phase).To(Equal(k8sv1.PodPending))
 			Expect(pod.Status.Conditions[0].Type).To(Equal(k8sv1.PodScheduled))
 			Expect(strings.Contains(pod.Status.Conditions[0].Message, "Insufficient "+gpuName)).To(Equal(true))

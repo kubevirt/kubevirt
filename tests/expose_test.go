@@ -16,6 +16,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 func newLabeledVMI(label string, virtClient kubecli.KubevirtClient, createVMI bool) (vmi *v1.VirtualMachineInstance) {
@@ -33,7 +34,7 @@ func newLabeledVMI(label string, virtClient kubecli.KubevirtClient, createVMI bo
 		tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 		vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.ObjectMeta.Name, &k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+		tests.WaitUntilVMIReady(vmi, libvmi.LoggedInCirrosExpecter)
 	}
 	return
 }

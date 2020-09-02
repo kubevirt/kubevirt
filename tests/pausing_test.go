@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:component]Pausing", func() {
@@ -365,9 +366,9 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	Context("A long running process", func() {
 
 		grepSleepPid := func(expecter expect.Expecter) string {
-			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			res, err := libvmi.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: `pgrep -f "sleep 5"` + "\n"},
-				&expect.BExp{R: tests.RetValue("[0-9]+")}, // pid
+				&expect.BExp{R: libvmi.RetValue("[0-9]+")}, // pid
 			}, 15*time.Second)
 			log.DefaultLogger().Infof("a:%+v\n", res)
 			Expect(err).ToNot(HaveOccurred())
@@ -377,7 +378,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		startProcess := func(expecter expect.Expecter) string {
 			By("Start a long running process")
-			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			res, err := libvmi.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: "sleep 5&\n"},
 				&expect.BExp{R: "\\# "}, // prompt
 			}, 15*time.Second)
@@ -399,7 +400,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
 			tests.WaitAgentConnected(virtClient, vmi)
 
-			expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+			expecter, expecterErr := libvmi.LoggedInFedoraExpecter(vmi)
 			Expect(expecterErr).ToNot(HaveOccurred())
 			defer expecter.Close()
 

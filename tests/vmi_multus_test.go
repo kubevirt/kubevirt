@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 const (
@@ -166,7 +167,7 @@ var _ = Describe("Multus", func() {
 
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
+				tests.WaitUntilVMIReady(detachedVMI, libvmi.LoggedInCirrosExpecter)
 
 				Expect(tests.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
 			})
@@ -184,7 +185,7 @@ var _ = Describe("Multus", func() {
 
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
+				tests.WaitUntilVMIReady(detachedVMI, libvmi.LoggedInCirrosExpecter)
 
 				Expect(tests.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
 			})
@@ -205,16 +206,16 @@ var _ = Describe("Multus", func() {
 
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
+				tests.WaitUntilVMIReady(detachedVMI, libvmi.LoggedInCirrosExpecter)
 
 				cmdCheck := "sudo /sbin/cirros-dhcpc up eth1 > /dev/null\n"
-				err = tests.CheckForTextExpecter(detachedVMI, []expect.Batcher{
+				err = libvmi.CheckForTextExpecter(detachedVMI, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: cmdCheck},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: "ip addr show eth1 | grep 10.1.1 | wc -l\n"},
-					&expect.BExp{R: tests.RetValue("1")},
+					&expect.BExp{R: libvmi.RetValue("1")},
 				}, 15)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -241,14 +242,14 @@ var _ = Describe("Multus", func() {
 
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
+				tests.WaitUntilVMIReady(detachedVMI, libvmi.LoggedInCirrosExpecter)
 
 				By("checking virtual machine instance can ping 10.1.1.1 using ptp cni plugin")
 				Expect(tests.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
 
 				By("checking virtual machine instance only has one interface")
 				// lo0, eth0
-				err = tests.CheckForTextExpecter(detachedVMI, []expect.Batcher{
+				err = libvmi.CheckForTextExpecter(detachedVMI, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: "ip link show | grep -c UP\n"},
@@ -288,14 +289,14 @@ var _ = Describe("Multus", func() {
 				By("Creating a VM with custom MAC address on its ptp interface.")
 				interfaces[0].MacAddress = customMacAddress
 				vmiOne := createVMIOnNode(interfaces, networks)
-				tests.WaitUntilVMIReady(vmiOne, tests.LoggedInAlpineExpecter)
+				tests.WaitUntilVMIReady(vmiOne, libvmi.LoggedInAlpineExpecter)
 
 				By("Configuring static IP address to ptp interface.")
 				configInterface(vmiOne, "eth0", "10.1.1.1/24", "localhost:~#")
 
 				By("Verifying the desired custom MAC is the one that was actually configured on the interface.")
 				ipLinkShow := fmt.Sprintf("ip link show eth0 | grep -i \"%s\" | wc -l\n", customMacAddress)
-				err = tests.CheckForTextExpecter(vmiOne, []expect.Batcher{
+				err = libvmi.CheckForTextExpecter(vmiOne, []expect.Batcher{
 					&expect.BSnd{S: ipLinkShow},
 					&expect.BExp{R: "1"},
 				}, 15)
@@ -324,8 +325,8 @@ var _ = Describe("Multus", func() {
 				vmiOne := createVMIOnNode(interfaces, networks)
 				vmiTwo := createVMIOnNode(interfaces, networks)
 
-				tests.WaitUntilVMIReady(vmiOne, tests.LoggedInAlpineExpecter)
-				tests.WaitUntilVMIReady(vmiTwo, tests.LoggedInAlpineExpecter)
+				tests.WaitUntilVMIReady(vmiOne, libvmi.LoggedInAlpineExpecter)
+				tests.WaitUntilVMIReady(vmiTwo, libvmi.LoggedInAlpineExpecter)
 
 				configInterface(vmiOne, "eth0", "10.1.1.1/24", "localhost:~#")
 				By("checking virtual machine interface eth0 state")
@@ -353,8 +354,8 @@ var _ = Describe("Multus", func() {
 				vmiOne := createVMIOnNode(interfaces, networks)
 				vmiTwo := createVMIOnNode(interfaces, networks)
 
-				tests.WaitUntilVMIReady(vmiOne, tests.LoggedInAlpineExpecter)
-				tests.WaitUntilVMIReady(vmiTwo, tests.LoggedInAlpineExpecter)
+				tests.WaitUntilVMIReady(vmiOne, libvmi.LoggedInAlpineExpecter)
+				tests.WaitUntilVMIReady(vmiTwo, libvmi.LoggedInAlpineExpecter)
 
 				configInterface(vmiOne, "eth1", "10.1.1.1/24", "localhost:~#")
 				By("checking virtual machine interface eth1 state")
@@ -378,12 +379,12 @@ var _ = Describe("Multus", func() {
 			It("[test_id:676]should configure valid custom MAC address on Linux bridge CNI interface.", func() {
 				By("Creating a VM with Linux bridge CNI network interface and default MAC address.")
 				vmiTwo := createVMIOnNode(interfaces, networks)
-				tests.WaitUntilVMIReady(vmiTwo, tests.LoggedInAlpineExpecter)
+				tests.WaitUntilVMIReady(vmiTwo, libvmi.LoggedInAlpineExpecter)
 
 				By("Creating another VM with custom MAC address on its Linux bridge CNI interface.")
 				interfaces[linuxBridgeIfIdx].MacAddress = customMacAddress
 				vmiOne := createVMIOnNode(interfaces, networks)
-				tests.WaitUntilVMIReady(vmiOne, tests.LoggedInAlpineExpecter)
+				tests.WaitUntilVMIReady(vmiOne, libvmi.LoggedInAlpineExpecter)
 
 				By("Configuring static IP address to the Linux bridge interface.")
 				configInterface(vmiOne, "eth0", "10.1.1.1/24", "localhost:~#")
@@ -391,7 +392,7 @@ var _ = Describe("Multus", func() {
 
 				By("Verifying the desired custom MAC is the one that were actually configured on the interface.")
 				ipLinkShow := fmt.Sprintf("ip link show eth0 | grep -i \"%s\" | wc -l\n", customMacAddress)
-				err = tests.CheckForTextExpecter(vmiOne, []expect.Batcher{
+				err = libvmi.CheckForTextExpecter(vmiOne, []expect.Batcher{
 					&expect.BSnd{S: ipLinkShow},
 					&expect.BExp{R: "1"},
 				}, 15)
@@ -426,7 +427,7 @@ var _ = Describe("Multus", func() {
 
 				vmiOne := createVMIOnNode(interfaces, networks)
 
-				tests.WaitUntilVMIReady(vmiOne, tests.LoggedInAlpineExpecter)
+				tests.WaitUntilVMIReady(vmiOne, libvmi.LoggedInAlpineExpecter)
 
 				updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmiOne.ObjectMeta.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -444,11 +445,11 @@ var _ = Describe("Multus", func() {
 				}
 				Expect(interfacesByName["default"].MAC).To(Not(Equal(interfacesByName["linux-bridge"].MAC)))
 
-				err = tests.CheckForTextExpecter(updatedVmi, []expect.Batcher{
+				err = libvmi.CheckForTextExpecter(updatedVmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("ip addr show eth0 | grep %s | wc -l", interfacesByName["default"].MAC)},
 					&expect.BExp{R: "1"},
 				}, 15)
-				err = tests.CheckForTextExpecter(updatedVmi, []expect.Batcher{
+				err = libvmi.CheckForTextExpecter(updatedVmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("ip addr show eth1 | grep %s | wc -l", interfacesByName["linux-bridge"].MAC)},
 					&expect.BExp{R: "1"},
 				}, 15)
@@ -656,7 +657,7 @@ var _ = Describe("SRIOV", func() {
 		waitVmi := func(vmi *v1.VirtualMachineInstance) {
 			// Need to wait for cloud init to finish and start the agent inside the vmi.
 			tests.WaitAgentConnected(virtClient, vmi)
-			tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
+			tests.WaitUntilVMIReady(vmi, libvmi.LoggedInFedoraExpecter)
 			return
 		}
 
@@ -881,50 +882,50 @@ func cidrToIP(cidr string) string {
 
 func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAddress, prompt string) {
 	cmdCheck := fmt.Sprintf("ip addr add %s dev %s\n", interfaceAddress, interfaceName)
-	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+	err := libvmi.CheckForTextExpecter(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: tests.RetValue("0")},
+		&expect.BExp{R: libvmi.RetValue("0")},
 	}, 15)
 	Expect(err).ToNot(HaveOccurred(), "Failed to configure address %s for interface %s on VMI %s", interfaceAddress, interfaceName, vmi.Name)
 
 	cmdCheck = fmt.Sprintf("ip link set %s up\n", interfaceName)
-	err = tests.CheckForTextExpecter(vmi, []expect.Batcher{
+	err = libvmi.CheckForTextExpecter(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: tests.RetValue("0")},
+		&expect.BExp{R: libvmi.RetValue("0")},
 	}, 15)
 	Expect(err).ToNot(HaveOccurred(), "Failed to set interface %s up on VMI %s", interfaceName, vmi.Name)
 }
 
 func checkInterface(vmi *v1.VirtualMachineInstance, interfaceName, prompt string) {
 	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
-	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+	err := libvmi.CheckForTextExpecter(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: tests.RetValue("0")},
+		&expect.BExp{R: libvmi.RetValue("0")},
 	}, 15)
 	Expect(err).ToNot(HaveOccurred(), "Interface %q was not found in the VMI %s within the given timeout", interfaceName, vmi.Name)
 }
 
 func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress string) {
 	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
-	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+	err := libvmi.CheckForTextExpecter(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: tests.PromptExpression},
+		&expect.BExp{R: libvmi.PromptExpression},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: macAddress},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: tests.RetValue("0")},
+		&expect.BExp{R: libvmi.RetValue("0")},
 	}, 15)
 	Expect(err).ToNot(HaveOccurred(), "MAC %q was not found in the VMI %s within the given timeout", macAddress, vmi.Name)
 }
