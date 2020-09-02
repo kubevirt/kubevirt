@@ -25,7 +25,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -137,33 +136,4 @@ func handlePVCMisuse(pvcInformer cache.SharedIndexInformer, recorder record.Even
 	}
 
 	return nil, nil
-}
-
-func podsUsingPVCs(podInformer cache.SharedIndexInformer, namespace string, pvcNames sets.String) ([]k8sv1.Pod, error) {
-	var pods []k8sv1.Pod
-
-	if pvcNames.Len() < 1 {
-		return pods, nil
-	}
-
-	objs, err := podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, obj := range objs {
-		pod, ok := obj.(*k8sv1.Pod)
-		if !ok {
-			return nil, fmt.Errorf("expected Pod, got %T", obj)
-		}
-
-		for _, volume := range pod.Spec.Volumes {
-			if volume.VolumeSource.PersistentVolumeClaim != nil &&
-				pvcNames.Has(volume.PersistentVolumeClaim.ClaimName) {
-				pods = append(pods, *pod)
-			}
-		}
-	}
-
-	return pods, nil
 }
