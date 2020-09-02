@@ -30,16 +30,6 @@ func (l *LibvirtDomainManager) registerIterationEventForPostCopy(vmi *v1.Virtual
 	})
 }
 
-func vmiHasLocalStorage(vmi *v1.VirtualMachineInstance) bool {
-	for _, volume := range vmi.Spec.Volumes {
-		if volume.EmptyDisk != nil || volume.VolumeSource.Ephemeral != nil {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (l *LibvirtDomainManager) updateVMIMigrationMode(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, mode v1.MigrationMode) error {
 	domainSpec, err := l.getDomainSpec(dom)
 	if err != nil {
