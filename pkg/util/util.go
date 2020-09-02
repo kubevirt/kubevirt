@@ -50,6 +50,23 @@ func IsVMIVirtiofsEnabled(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+// Check if a VMI spec requests a HostDevice
+func IsHostDevVMI(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.Devices.HostDevices != nil && len(vmi.Spec.Domain.Devices.HostDevices) != 0 {
+		return true
+	}
+	return false
+}
+
+// Check if a VMI spec requests GPU
+func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
+
+	if IsHostDevVMI(vmi) || IsGPUVMI(vmi) || IsSRIOVVmi(vmi) {
+		return true
+	}
+	return false
+}
+
 func ResourceNameToEnvvar(prefix string, resourceName string) string {
 	varName := strings.ToUpper(resourceName)
 	varName = strings.Replace(varName, "/", "_", -1)

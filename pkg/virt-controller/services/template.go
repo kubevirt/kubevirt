@@ -277,8 +277,7 @@ func SetNodeAffinityForForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, po
 // ```
 //
 // Which suggests that, for resources managed by device plugins, 1) limits
-// should be equal to requests; and 2) QoS rules do not apply.
-//
+// should be equal to requests; and 2) QoS rules do not apVFIO//
 // Hence we don't copy Limits value to Requests if the latter is missing.
 func requestResource(resources *k8sv1.ResourceRequirements, resourceName string) {
 	name := k8sv1.ResourceName(resourceName)
@@ -357,7 +356,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		},
 	})
 
-	if util.IsGPUVMI(vmi) {
+	if util.IsVFIOVMI(vmi) && !util.IsSRIOVVmi(vmi) {
 		// libvirt needs this volume to access PCI device config;
 		// note that the volume should not be read-only because libvirt
 		// opens the config for writing
@@ -839,6 +838,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	}
 
+	if util.IsHostDevVMI(vmi) {
+		for _, hostDev := range vmi.Spec.Domain.Devices.HostDevices {
+			requestResource(&resources, hostDev.DeviceName)
+		}
+	}
+
 	// VirtualMachineInstance target container
 	compute := k8sv1.Container{
 		Name:            "compute",
@@ -1248,7 +1253,7 @@ func getMemoryOverhead(vmi *v1.VirtualMachineInstance) *resource.Quantity {
 	// Additional overhead of 1G for VFIO devices. VFIO requires all guest RAM to be locked
 	// in addition to MMIO memory space to allow DMA. 1G is often the size of reserved MMIO space on x86 systems.
 	// Additial information can be found here: https://www.redhat.com/archives/libvir-list/2015-November/msg00329.html
-	if util.IsSRIOVVmi(vmi) || util.IsGPUVMI(vmi) {
+	if util.IsVFIOVMI(vmi) {
 		overhead.Add(resource.MustParse("1Gi"))
 	}
 
