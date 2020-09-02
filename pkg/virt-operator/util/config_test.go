@@ -181,7 +181,7 @@ var _ = Describe("Operator Config", func() {
 
 	Describe("Config json from env var", func() {
 		It("should be parsed", func() {
-			json := `{"id":"9ca7273e4d5f1bee842f64a8baabc15cbbf1ce59","namespace":"kubevirt","registry":"registry:5000/kubevirt","imagePrefix":"somePrefix","kubeVirtVersion":"devel","additionalProperties":{"ImagePullPolicy":"IfNotPresent"}}`
+			json := `{"id":"9ca7273e4d5f1bee842f64a8baabc15cbbf1ce59","namespace":"kubevirt","registry":"registry:5000/kubevirt","imagePrefix":"somePrefix","kubeVirtVersion":"devel","additionalProperties":{"ImagePullPolicy":"IfNotPresent", "MonitorNamespace":"non-default-monitor-namespace", "MonitorAccount":"non-default-prometheus-k8s"}}`
 			os.Setenv(TargetDeploymentConfig, json)
 			parsedConfig, err := GetConfigFromEnv()
 			Expect(err).ToNot(HaveOccurred())
@@ -191,6 +191,19 @@ var _ = Describe("Operator Config", func() {
 			Expect(parsedConfig.GetImagePrefix()).To(Equal("somePrefix"))
 			Expect(parsedConfig.GetKubeVirtVersion()).To(Equal("devel"))
 			Expect(parsedConfig.GetImagePullPolicy()).To(Equal(k8sv1.PullIfNotPresent))
+			Expect(parsedConfig.GetMonitorNamespace()).To(Equal("non-default-monitor-namespace"))
+			Expect(parsedConfig.GetMonitorServiceAccount()).To(Equal("non-default-prometheus-k8s"))
+		})
+	})
+
+	Describe("Config json with default value", func() {
+		It("should be parsed", func() {
+			json := `{"id":"9ca7273e4d5f1bee842f64a8baabc15cbbf1ce59","additionalProperties":{"ImagePullPolicy":"IfNotPresent"}}`
+			os.Setenv(TargetDeploymentConfig, json)
+			parsedConfig, err := GetConfigFromEnv()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(parsedConfig.GetMonitorNamespace()).To(Equal("openshift-monitoring"))
+			Expect(parsedConfig.GetMonitorServiceAccount()).To(Equal("prometheus-k8s"))
 		})
 	})
 
