@@ -682,6 +682,28 @@ var _ = Describe("HyperConverged Components", func() {
 			}))
 		})
 
+		It("should find reconcile to default", func() {
+			existingResource := hco.NewNetworkAddons()
+			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
+			existingResource.Spec.ImagePullPolicy = corev1.PullAlways // set non-default value
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureNetworkAddons(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &networkaddonsv1alpha1.NetworkAddonsConfig{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+			Expect(foundResource.Spec.ImagePullPolicy).To(BeEmpty())
+
+			Expect(req.conditions).To(BeEmpty())
+		})
+
 		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
 
 		It("should handle conditions", func() {
@@ -790,6 +812,27 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(err).To(BeNil())
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
+		})
+
+		It("should reconcile to default", func() {
+			existingResource := hco.NewKubeVirtCommonTemplateBundle()
+			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
+
+			existingResource.Spec.Version = "Non default value"
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureKubeVirtCommonTemplateBundle(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &sspv1.KubevirtCommonTemplatesBundle{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+			Expect(foundResource.Spec.Version).To(BeEmpty())
 		})
 
 		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
@@ -904,6 +947,26 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
 
+		It("should reconcile to default", func() {
+			existingResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
+			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
+
+			existingResource.Spec.Version = "Non default value"
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureKubeVirtNodeLabellerBundle(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+			Expect(foundResource.Spec.Version).To(BeEmpty())
+		})
 		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
 
 		// TODO: temporary avoid checking conditions on KubevirtNodeLabellerBundle because it's currently
@@ -1041,6 +1104,158 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
 
+		It("should reconcile to default", func() {
+			existingResource := newKubeVirtTemplateValidatorForCR(hco, namespace)
+			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
+
+			existingResource.Spec.TemplateValidatorReplicas = 5 // set non-default value
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureKubeVirtTemplateValidator(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &sspv1.KubevirtTemplateValidator{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+			Expect(foundResource.Spec.TemplateValidatorReplicas).To(BeZero())
+		})
+
+		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
+
+		// TODO: temporary avoid checking conditions on KubevirtTemplateValidator because it's currently
+		// broken on k8s. Revert this when we will be able to fix it
+		/*It("should handle conditions", func() {
+			expectedResource := newKubeVirtTemplateValidatorForCR(hco, namespace)
+			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+			expectedResource.Status.Conditions = []conditionsv1.Condition{
+				conditionsv1.Condition{
+					Type:    conditionsv1.ConditionAvailable,
+					Status:  corev1.ConditionFalse,
+					Reason:  "Foo",
+					Message: "Bar",
+				},
+				conditionsv1.Condition{
+					Type:    conditionsv1.ConditionProgressing,
+					Status:  corev1.ConditionTrue,
+					Reason:  "Foo",
+					Message: "Bar",
+				},
+				conditionsv1.Condition{
+					Type:    conditionsv1.ConditionDegraded,
+					Status:  corev1.ConditionTrue,
+					Reason:  "Foo",
+					Message: "Bar",
+				},
+			}
+			cl := initClient([]runtime.Object{hco, expectedResource})
+			r := initReconciler(cl)
+			Expect(r.ensureKubeVirtTemplateValidator(req)).To(BeNil())
+
+			// Check HCO's status
+			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+			objectRef, err := reference.GetReference(r.scheme, expectedResource)
+			Expect(err).To(BeNil())
+			// ObjectReference should have been added
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
+			// Check conditions
+			Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+				Type:    conditionsv1.ConditionAvailable,
+				Status:  corev1.ConditionFalse,
+				Reason:  "KubevirtTemplateValidatorNotAvailable",
+				Message: "KubevirtTemplateValidator is not available: Bar",
+			})))
+			Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+				Type:    conditionsv1.ConditionProgressing,
+				Status:  corev1.ConditionTrue,
+				Reason:  "KubevirtTemplateValidatorProgressing",
+				Message: "KubevirtTemplateValidator is progressing: Bar",
+			})))
+			Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+				Type:    conditionsv1.ConditionUpgradeable,
+				Status:  corev1.ConditionFalse,
+				Reason:  "KubevirtTemplateValidatorProgressing",
+				Message: "KubevirtTemplateValidator is progressing: Bar",
+			})))
+			Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+				Type:    conditionsv1.ConditionDegraded,
+				Status:  corev1.ConditionTrue,
+				Reason:  "KubevirtTemplateValidatorDegraded",
+				Message: "KubevirtTemplateValidator is degraded: Bar",
+			})))
+		})*/
+	})
+
+	Context("KubeVirtMetricsAggregation", func() {
+		var hco *hcov1beta1.HyperConverged
+		var req *hcoRequest
+
+		BeforeEach(func() {
+			hco = newHco()
+			req = newReq(hco)
+		})
+
+		It("should create if not present", func() {
+			expectedResource := newKubeVirtMetricsAggregationForCR(hco, namespace)
+			cl := initClient([]runtime.Object{})
+			r := initReconciler(cl)
+			res := r.ensureKubeVirtMetricsAggregation(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &sspv1.KubevirtMetricsAggregation{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					foundResource),
+			).To(BeNil())
+			Expect(foundResource.Name).To(Equal(expectedResource.Name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, name))
+			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
+		})
+
+		It("should find if present", func() {
+			expectedResource := newKubeVirtMetricsAggregationForCR(hco, namespace)
+			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+			cl := initClient([]runtime.Object{hco, expectedResource})
+			r := initReconciler(cl)
+			res := r.ensureKubeVirtMetricsAggregation(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			// Check HCO's status
+			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+			objectRef, err := reference.GetReference(r.scheme, expectedResource)
+			Expect(err).To(BeNil())
+			// ObjectReference should have been added
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
+		})
+
+		It("should reconcile to default", func() {
+			existingResource := newKubeVirtMetricsAggregationForCR(hco, namespace)
+			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
+
+			existingResource.Spec.Version = "non-default value"
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureKubeVirtMetricsAggregation(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &sspv1.KubevirtMetricsAggregation{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+			Expect(foundResource.Spec.Version).To(BeEmpty())
+		})
+
 		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
 
 		// TODO: temporary avoid checking conditions on KubevirtTemplateValidator because it's currently
@@ -1167,6 +1382,26 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
 
+		It("should reconcile to default", func() {
+			existingResource := newVMImportForCR(hco, namespace)
+			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
+
+			existingResource.Spec.ImagePullPolicy = corev1.PullAlways // set non-default value
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureVMImport(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &vmimportv1beta1.VMImportConfig{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+			Expect(foundResource.Spec.ImagePullPolicy).To(BeEmpty())
+		})
 		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
 
 	})

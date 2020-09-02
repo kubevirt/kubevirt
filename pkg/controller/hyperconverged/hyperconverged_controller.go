@@ -955,10 +955,8 @@ func (r *ReconcileHyperConverged) ensureKubeVirt(req *hcoRequest) *EnsureResult 
 	req.logger.Info("KubeVirt already exists", "KubeVirt.Namespace", found.Namespace, "KubeVirt.Name", found.Name)
 
 	if !reflect.DeepEqual(found.Spec, virt.Spec) {
-		if found.Spec.UninstallStrategy == "" {
-			req.logger.Info("Updating UninstallStrategy on existing KubeVirt to its default value")
-			found.Spec.UninstallStrategy = virt.Spec.UninstallStrategy
-		}
+		found.Spec = virt.Spec
+		req.logger.Info("Updating existing KubeVirt's Spec to its default value")
 		err = r.client.Update(req.ctx, found)
 		if err != nil {
 			return res.Error(err)
@@ -1037,11 +1035,8 @@ func (r *ReconcileHyperConverged) ensureCDI(req *hcoRequest) *EnsureResult {
 	}
 
 	if !reflect.DeepEqual(found.Spec, cdi.Spec) {
-		if found.Spec.UninstallStrategy == nil {
-			req.logger.Info("Updating UninstallStrategy on existing CDI to its default value")
-			defaultUninstallStrategy := cdiv1alpha1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist
-			found.Spec.UninstallStrategy = &defaultUninstallStrategy
-		}
+		req.logger.Info("Updating existing CDI' Spec to its default value")
+		found.Spec = cdi.Spec
 		err = r.client.Update(req.ctx, found)
 		if err != nil {
 			return res.Error(err)
@@ -1267,6 +1262,16 @@ func (r *ReconcileHyperConverged) ensureKubeVirtCommonTemplateBundle(req *hcoReq
 
 	req.logger.Info("KubeVirt Common Templates Bundle already exists", "bundle.Namespace", found.Namespace, "bundle.Name", found.Name)
 
+	if !reflect.DeepEqual(kvCTB.Spec, found.Spec) {
+		req.logger.Info("Updating existing KubeVirt Common Templates Bundle")
+		found.Spec = kvCTB.Spec
+		err = r.client.Update(req.ctx, found)
+		if err != nil {
+			return res.Error(err)
+		}
+		return res.SetUpdated()
+	}
+
 	// Add it to the list of RelatedObjects if found
 	objectRef, err := reference.GetReference(r.scheme, found)
 	if err != nil {
@@ -1338,6 +1343,16 @@ func (r *ReconcileHyperConverged) ensureKubeVirtNodeLabellerBundle(req *hcoReque
 	}
 
 	req.logger.Info("KubeVirt Node Labeller Bundle already exists", "bundle.Namespace", found.Namespace, "bundle.Name", found.Name)
+
+	if !reflect.DeepEqual(kvNLB.Spec, found.Spec) {
+		req.logger.Info("Updating existing KubeVirt Node Labeller Bundle")
+		found.Spec = kvNLB.Spec
+		err = r.client.Update(req.ctx, found)
+		if err != nil {
+			return res.Error(err)
+		}
+		return res.SetUpdated()
+	}
 
 	// Add it to the list of RelatedObjects if found
 	objectRef, err := reference.GetReference(r.scheme, found)
@@ -1452,6 +1467,15 @@ func (r *ReconcileHyperConverged) ensureVMImport(req *hcoRequest) *EnsureResult 
 	}
 
 	req.logger.Info("VM import exists", "vmImport.Namespace", found.Namespace, "vmImport.Name", found.Name)
+	if !reflect.DeepEqual(vmImport.Spec, found.Spec) {
+		req.logger.Info("Updating existing VM import")
+		found.Spec = vmImport.Spec
+		err = r.client.Update(req.ctx, found)
+		if err != nil {
+			return res.Error(err)
+		}
+		return res.SetUpdated()
+	}
 
 	// Add it to the list of RelatedObjects if found
 	objectRef, err := reference.GetReference(r.scheme, found)
@@ -1562,6 +1586,15 @@ func (r *ReconcileHyperConverged) ensureKubeVirtTemplateValidator(req *hcoReques
 
 	req.logger.Info("KubeVirt Template Validator already exists", "validator.Namespace", found.Namespace, "validator.Name", found.Name)
 
+	if !reflect.DeepEqual(kvTV.Spec, found.Spec) {
+		req.logger.Info("Updating existing KubeVirt Template Validator")
+		found.Spec = kvTV.Spec
+		err = r.client.Update(req.ctx, found)
+		if err != nil {
+			return res.Error(err)
+		}
+		return res.SetUpdated()
+	}
 	// Add it to the list of RelatedObjects if found
 	objectRef, err := reference.GetReference(r.scheme, found)
 	if err != nil {
@@ -1801,6 +1834,15 @@ func (r *ReconcileHyperConverged) ensureKubeVirtMetricsAggregation(req *hcoReque
 
 	req.logger.Info("KubeVirt Metrics Aggregation already exists", "metrics.Namespace", found.Namespace, "metrics.Name", found.Name)
 
+	if !reflect.DeepEqual(kubevirtMetricsAggregation.Spec, found.Spec) {
+		req.logger.Info("Updating existing KubeVirt Metrics Aggregation")
+		found.Spec = kubevirtMetricsAggregation.Spec
+		err = r.client.Update(req.ctx, found)
+		if err != nil {
+			return res.Error(err)
+		}
+		return res.SetUpdated()
+	}
 	// Add it to the list of RelatedObjects if found
 	objectRef, err := reference.GetReference(r.scheme, found)
 	if err != nil {
