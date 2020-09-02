@@ -4870,6 +4870,12 @@ func SkipSELinuxTestIfRunnigOnKindInfra() {
 	}
 }
 
+func SkipMigrationFailTestIfRunningOnKindInfraIPv6() {
+	if IsRunningOnKindInfraIPv6() {
+		Skip("Skip Migration fail test till issue https://github.com/kubevirt/kubevirt/issues/4086 is fixed")
+	}
+}
+
 func SkipDmidecodeTestIfRunningOnKindInfraIPv6() {
 	if IsRunningOnKindInfraIPv6() {
 		Skip("Skip dmidecode tests till issue https://github.com/kubevirt/kubevirt/issues/3901 is fixed")
