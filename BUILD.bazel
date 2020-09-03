@@ -310,6 +310,16 @@ container_push(
     tag = "$(container_tag)",
 )
 
+container_push(
+    name = "push-conformance",
+    testonly = True,
+    format = "Docker",
+    image = "//tests:conformance_image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)conformance",
+    tag = "$(container_tag)",
+)
+
 go_library(
     name = "go_default_library",
     srcs = [

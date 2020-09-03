@@ -665,7 +665,7 @@ var _ = Describe("Infrastructure", func() {
 
 			errors := make(chan error)
 			for ix := 0; ix < concurrency; ix++ {
-				go func() {
+				go func(ix int) {
 					req, _ := http.NewRequest("GET", metricsURL, nil)
 					resp, err := client.Do(req)
 					if err != nil {
@@ -674,7 +674,7 @@ var _ = Describe("Infrastructure", func() {
 						resp.Body.Close()
 					}
 					errors <- err
-				}()
+				}(ix)
 			}
 
 			errorCount := 0
