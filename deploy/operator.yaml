@@ -22,7 +22,7 @@ spec:
         env:
         - name: KVM_EMULATION
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:4df494494edb282bf0d781392a83cf42107d8d28be88822c8e6cb45e116425bc
+          value: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:d015b58b0ed77fb20eab5cf5c4d530b3eebcba03fc75e571b1ec56dace9cb254
         - name: OPERATOR_NAME
           value: hyperconverged-cluster-operator
         - name: OPERATOR_NAMESPACE
@@ -58,7 +58,7 @@ spec:
           value: v0.5.2
         - name: VM_IMPORT_VERSION
           value: v0.2.0
-        image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:4df494494edb282bf0d781392a83cf42107d8d28be88822c8e6cb45e116425bc
+        image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:d015b58b0ed77fb20eab5cf5c4d530b3eebcba03fc75e571b1ec56dace9cb254
         imagePullPolicy: IfNotPresent
         name: hyperconverged-cluster-operator
         readinessProbe:
