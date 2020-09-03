@@ -510,7 +510,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			// Previously, we'd stop getting events after libvirt reconnect, which
 			// prevented things like migration. This test verifies we can migrate after
 			// resetting libvirt
-			It("should migrate even if libvirt has restarted at some point.", func() {
+			It("[test_id:4746]should migrate even if libvirt has restarted at some point.", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
