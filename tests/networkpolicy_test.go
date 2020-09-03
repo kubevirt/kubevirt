@@ -69,12 +69,12 @@ var _ = Describe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		It("[test_id:1511] should be failed to reach vmia from vmib", func() {
 			By("Connect vmia from vmib")
-			assertPingFail(vmib, vmia.Status.Interfaces[0].IP)
+			assertPingFail(vmib, vmia)
 		})
 
 		It("[test_id:1512] should be failed to reach vmib from vmia", func() {
 			By("Connect vmib from vmia")
-			assertPingFail(vmia, vmib.Status.Interfaces[0].IP)
+			assertPingFail(vmia, vmib)
 		})
 
 	})
@@ -113,12 +113,12 @@ var _ = Describe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		It("[test_id:1513] should be successful to reach vmia from vmib", func() {
 			By("Connect vmia from vmib in same namespace")
-			assertPingSucceed(vmib, vmia.Status.Interfaces[0].IP)
+			assertPingSucceed(vmib, vmia)
 		})
 
 		It("[test_id:1514] should be failed to reach vmia from vmic", func() {
 			By("Connect vmia from vmic in differnet namespace")
-			assertPingFail(vmic, vmia.Status.Interfaces[0].IP)
+			assertPingFail(vmic, vmia)
 		})
 
 	})
@@ -153,17 +153,17 @@ var _ = Describe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		It("[test_id:1515] should be failed to reach vmia from vmic", func() {
 			By("Connect vmia from vmic")
-			assertPingFail(vmic, vmia.Status.Interfaces[0].IP)
+			assertPingFail(vmic, vmia)
 		})
 
 		It("[test_id:1516] should be failed to reach vmia from vmib", func() {
 			By("Connect vmia from vmib")
-			assertPingFail(vmib, vmia.Status.Interfaces[0].IP)
+			assertPingFail(vmib, vmia)
 		})
 
 		It("[test_id:1517] should be successful to reach vmib from vmic", func() {
 			By("Connect vmib from vmic")
-			assertPingSucceed(vmic, vmib.Status.Interfaces[0].IP)
+			assertPingSucceed(vmic, vmib)
 		})
 
 	})
@@ -187,19 +187,39 @@ func createVMICirros(virtClient kubecli.KubevirtClient, namespace string, labels
 	return vmi
 }
 
-func assertPingSucceed(fromVmi *v1.VirtualMachineInstance, toIp string) {
+func assertPingSucceed(fromVmi, toVmi *v1.VirtualMachineInstance) {
+	ExpectWithOffset(1, toVmi.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 	ConsistentlyWithOffset(1, func() error {
-		return tests.PingFromVMConsole(fromVmi, toIp)
+		for _, toIp := range toVmi.Status.Interfaces[0].IPs {
+			if err := tests.PingFromVMConsole(fromVmi, toIp); err != nil {
+				return err
+			}
+		}
+		return nil
 	}, 15*time.Second, 1*time.Second).Should(Succeed())
 }
 
-func assertPingFail(fromVmi *v1.VirtualMachineInstance, toIp string) {
+func assertPingFail(fromVmi, toVmi *v1.VirtualMachineInstance) {
+	ExpectWithOffset(1, toVmi.Status.Interfaces[0].IPs).NotTo(BeEmpty())
+
 	EventuallyWithOffset(1, func() error {
-		return tests.PingFromVMConsole(fromVmi, toIp)
+		var err error
+		for _, toIp := range toVmi.Status.Interfaces[0].IPs {
+			if err = tests.PingFromVMConsole(fromVmi, toIp); err == nil {
+				return nil
+			}
+		}
+		return err
 	}, 15*time.Second, time.Second).ShouldNot(Succeed())
 
 	ConsistentlyWithOffset(1, func() error {
-		return tests.PingFromVMConsole(fromVmi, toIp)
+		var err error
+		for _, toIp := range toVmi.Status.Interfaces[0].IPs {
+			if err = tests.PingFromVMConsole(fromVmi, toIp); err == nil {
+				return nil
+			}
+		}
+		return err
 	}, 5*time.Second, 1*time.Second).ShouldNot(Succeed())
 }
 
