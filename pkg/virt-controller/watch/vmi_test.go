@@ -550,6 +550,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						),
 					),
 				)
+
+				testutils.ExpectEvent(recorder, FailedPvcNotFoundReason)
 			}
 
 			vmi := NewPendingVirtualMachine("testvmi")
