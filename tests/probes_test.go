@@ -12,7 +12,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("[ref_id:1182]Probes", func() {
@@ -55,18 +54,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			},
 		}
 		table.DescribeTable("should succeed", func(c ProbeCase) {
-			// nc is used to create the HTTP server. The one shipped in CirrOS has a bug where it throws a
-			// 'connection reset by peer' when bound to IPv6 addresses. On those scenarios, we fallback to using a
-			// Fedora VM.
-			useFedoraVM := tests.IsIPv6Cluster(virtClient) && c.probe == httpProbe
-
-			By("Specifying a VMI with a readiness probe")
-			var vmi *v12.VirtualMachineInstance
-			if useFedoraVM {
-				vmi = libvmi.NewFedora()
-			} else {
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			}
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 
 			vmi.Spec.ReadinessProbe = c.probe
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -80,7 +68,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			Expect(vmiReady(vmi)).To(Equal(v1.ConditionFalse))
 
 			By("Starting the server inside the VMI")
-			c.serverStarter(vmi, 1500, useFedoraVM)
+			c.serverStarter(vmi, 1500, false /* isFedoraVM */)
 
 			By("Checking that the VMI and the pod will be marked as ready to receive traffic")
 			Eventually(func() v1.ConditionStatus {
