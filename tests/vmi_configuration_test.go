@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/util/cluster"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -974,6 +976,14 @@ var _ = Describe("Configurations", func() {
 
 			table.DescribeTable("should consume hugepages ", func(hugepageSize string, memory string, guestMemory string) {
 				hugepageType := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + hugepageSize)
+				v, err := cluster.GetKubernetesVersion(virtClient)
+				Expect(err).ShouldNot(HaveOccurred())
+				if strings.Contains(v, "1.16") {
+					hugepagesVmi.Annotations = map[string]string{
+						v1.MemfdMemoryBackend: "false",
+					}
+					log.DefaultLogger().Object(hugepagesVmi).Infof("Fall back to use hugepages source file. Libvirt in the 1.16 provider version doesn't support memfd as memory backend")
+				}
 
 				nodeWithHugepages := tests.GetNodeWithHugepages(virtClient, hugepageType)
 				if nodeWithHugepages == nil {
