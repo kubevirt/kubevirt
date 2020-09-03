@@ -19,8 +19,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 	var virtClient kubecli.KubevirtClient
 
 	type ProbeCase struct {
-		probe         *v12.Probe
-		serverStarter func(vmi *v12.VirtualMachineInstance, port int, isFedoraVM bool)
+		probe *v12.Probe
 	}
 
 	BeforeEach(func() {
@@ -62,13 +61,12 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 
+			selectAndStartServer(vmi, c.probe)
+
 			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmiReady(vmi)).To(Equal(v1.ConditionFalse))
-
-			By("Starting the server inside the VMI")
-			c.serverStarter(vmi, 1500, false /* isFedoraVM */)
 
 			By("Checking that the VMI and the pod will be marked as ready to receive traffic")
 			Eventually(func() v1.ConditionStatus {
@@ -79,12 +77,10 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionTrue))
 		},
 			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server", ProbeCase{
-				probe:         tcpProbe,
-				serverStarter: startTCPServer,
+				probe: tcpProbe,
 			}),
 			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server", ProbeCase{
-				probe:         httpProbe,
-				serverStarter: tests.StartHTTPServer,
+				probe: httpProbe,
 			}),
 		)
 
@@ -151,8 +147,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 
-			By("Starting the server inside the VMI")
-			c.serverStarter(vmi, 1500, false)
+			selectAndStartServer(vmi, c.probe)
 
 			By("Checking that the VMI is still running after a minute")
 			Consistently(func() bool {
@@ -162,12 +157,10 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			}, 120, 1).Should(Not(BeTrue()))
 		},
 			table.Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server", ProbeCase{
-				probe:         tcpProbe,
-				serverStarter: startTCPServer,
+				probe: tcpProbe,
 			}),
 			table.Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server", ProbeCase{
-				probe:         httpProbe,
-				serverStarter: tests.StartHTTPServer,
+				probe: httpProbe,
 			}),
 		)
 
@@ -206,6 +199,11 @@ func vmiReady(vmi *v12.VirtualMachineInstance) v1.ConditionStatus {
 	return v1.ConditionFalse
 }
 
-func startTCPServer(vmi *v12.VirtualMachineInstance, port int, useFedoraImg bool) {
-	tests.StartTCPServer(vmi, port)
+func selectAndStartServer(vmi *v12.VirtualMachineInstance, probe *v12.Probe) {
+	By("Starting the server inside the VMI")
+	if probe.Handler.HTTPGet != nil {
+		tests.StartHTTPServer(vmi, 1500, false /* isFedoraVM */)
+	} else if probe.TCPSocket != nil {
+		tests.StartTCPServer(vmi, 1500)
+	}
 }
