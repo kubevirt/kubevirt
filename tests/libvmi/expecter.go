@@ -244,8 +244,13 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		&expect.BSnd{S: "cirros\n"},
 		&expect.BExp{R: "Password:"},
 		&expect.BSnd{S: "gocubsgo\n"},
-		&expect.BExp{R: "\\$"}})
-	resp, err := expecter.ExpectBatch(b, 180*time.Second)
+		&expect.BExp{R: "\\$"},
+		&expect.BSnd{S: "export PS1='PROMPT '\n"},
+		&expect.BExp{R: CRLF + "PROMPT "},
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: CRLF + "PROMPT "},
+	})
+	resp, err := expecter.ExpectBatch(b, 60*time.Second)
 
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", resp)
@@ -253,13 +258,13 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		return nil, err
 	}
 
-	err = configureConsole(expecter, "\\$ ", true)
+	err = configureConsole(expecter, "PROMPT ", true)
 	if err != nil {
 		expecter.Close()
 		return nil, err
 	}
 
-	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient, "\\$ ")
+	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient, "PROMPT")
 }
 
 func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
@@ -397,5 +402,5 @@ func SecureBootExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error)
 type VMIExpecterFactory func(*v1.VirtualMachineInstance) (expect.Expecter, error)
 
 func RetValue(retcode string) string {
-	return "\n" + retcode + CRLF + ".*" + PromptExpression
+	return "\n" + retcode + CRLF + ".*" + "PROMPT "
 }
