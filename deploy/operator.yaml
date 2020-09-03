@@ -52,6 +52,8 @@ spec:
           value: 0.41.0
         - name: SSP_VERSION
           value: v1.0.41
+        - name: NMO_VERSION
+          value: v0.6.0
         - name: HPPO_VERSION
           value: v0.5.2
         - name: VM_IMPORT_VERSION
@@ -321,6 +323,51 @@ spec:
       securityContext:
         runAsNonRoot: true
       serviceAccountName: cdi-operator
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    name: node-maintenance-operator
+  name: node-maintenance-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: node-maintenance-operator
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        name: node-maintenance-operator
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/master
+                operator: Exists
+      containers:
+      - env:
+        - name: WATCH_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: OPERATOR_NAME
+          value: node-maintenance-operator
+        image: quay.io/kubevirt/node-maintenance-operator:v0.6.0
+        imagePullPolicy: Always
+        name: node-maintenance-operator
+        resources: {}
+      serviceAccountName: node-maintenance-operator
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
 ---
 apiVersion: apps/v1
 kind: Deployment

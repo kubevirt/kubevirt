@@ -142,6 +142,21 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels:
+    name: node-maintenance-operator
+  name: node-maintenance-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: node-maintenance-operator
+subjects:
+- kind: ServiceAccount
+  name: node-maintenance-operator
+  namespace: kubevirt-hyperconverged
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
     name: hostpath-provisioner-operator
   name: hostpath-provisioner-operator
 roleRef:

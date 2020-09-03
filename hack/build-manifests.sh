@@ -39,6 +39,7 @@ KUBEVIRT_IMAGE="${KUBEVIRT_IMAGE:-docker.io/kubevirt/virt-operator:${KUBEVIRT_VE
 CNA_IMAGE="${CNA_IMAGE:-quay.io/kubevirt/cluster-network-addons-operator:${NETWORK_ADDONS_VERSION}}"
 SSP_IMAGE="${SSP_IMAGE:-quay.io/fromani/kubevirt-ssp-operator-container:${SSP_VERSION}}"
 CDI_IMAGE="${CDI_IMAGE:-docker.io/kubevirt/cdi-operator:${CDI_VERSION}}"
+NMO_IMAGE="${NMO_IMAGE:-quay.io/kubevirt/node-maintenance-operator:${NMO_VERSION}}"
 HPPO_IMAGE="${HPP_IMAGE:-quay.io/kubevirt/hostpath-provisioner-operator:${HPPO_VERSION}}"
 HPP_IMAGE="${HPP_IMAGE:-quay.io/kubevirt/hostpath-provisioner:${HPP_VERSION}}"
 CONVERSION_CONTAINER="${CONVERSION_CONTAINER:-quay.io/kubevirt/kubevirt-v2v-conversion:${CONVERSION_CONTAINER_VERSION}}"
@@ -177,6 +178,20 @@ function create_cdi_csv() {
   echo "${operatorName}"
 }
 
+function create_nmo_csv() {
+  local operatorName="node-maintenance"
+  local imagePullUrl="${NMO_IMAGE}"
+  local dumpCRDsArg="--dump-crds"
+  local operatorArgs=" \
+    --namespace=${OPERATOR_NAMESPACE} \
+    --csv-version=${CSV_VERSION} \
+    --operator-image=${NMO_IMAGE} \
+  "
+
+  gen_csv ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
+  echo "${operatorName}"
+}
+
 function create_hpp_csv() {
   local operatorName="hostpath-provisioner"
   local imagePullUrl="${HPPO_IMAGE}"
@@ -230,6 +245,7 @@ virtCsv="${TEMPDIR}/$(create_virt_csv).${CSV_EXT}"
 cnaCsv="${TEMPDIR}/$(create_cna_csv).${CSV_EXT}"
 sspCsv="${TEMPDIR}/$(create_ssp_csv).${CSV_EXT}"
 cdiCsv="${TEMPDIR}/$(create_cdi_csv).${CSV_EXT}"
+nmoCsv="${TEMPDIR}/$(create_nmo_csv).${CSV_EXT}"
 hppCsv="${TEMPDIR}/$(create_hpp_csv).${CSV_EXT}"
 importCsv="${TEMPDIR}/$(create_vm_import_csv).${CSV_EXT}"
 csvOverrides="${TEMPDIR}/csv_overrides.${CSV_EXT}"
@@ -296,6 +312,7 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --virt-csv="$(<${virtCsv})" \
   --ssp-csv="$(<${sspCsv})" \
   --cdi-csv="$(<${cdiCsv})" \
+  --nmo-csv="$(<${nmoCsv})" \
   --hpp-csv="$(<${hppCsv})" \
   --vmimport-csv="$(<${importCsv})" \
   --ims-conversion-image-name="${conversionContainer}" \
@@ -307,6 +324,7 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --cdi-version="${CDI_VERSION}" \
   --cnao-version="${NETWORK_ADDONS_VERSION}" \
   --ssp-version="${SSP_VERSION}" \
+  --nmo-version="${NMO_VERSION}" \
   --hppo-version="${HPPO_VERSION}" \
   --vm-import-version="${VM_IMPORT_VERSION}" \
   --operator-image="${IMAGE_NAME}"
@@ -318,6 +336,7 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --virt-csv="$(<${virtCsv})" \
   --ssp-csv="$(<${sspCsv})" \
   --cdi-csv="$(<${cdiCsv})" \
+  --nmo-csv="$(<${nmoCsv})" \
   --hpp-csv="$(<${hppCsv})" \
   --vmimport-csv="$(<${importCsv})" \
   --ims-conversion-image-name="${conversionContainer}" \
@@ -334,6 +353,7 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --cdi-version="${CDI_VERSION}" \
   --cnao-version="${NETWORK_ADDONS_VERSION}" \
   --ssp-version="${SSP_VERSION}" \
+  --nmo-version="${NMO_VERSION}" \
   --hppo-version="${HPPO_VERSION}" \
   --vm-import-version="${VM_IMPORT_VERSION}" \
   --related-images-list="${IMAGE_LIST}" \

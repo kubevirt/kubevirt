@@ -128,9 +128,8 @@ sleep 20
 "${CMD}" wait deployment/hyperconverged-cluster-operator --for=condition=Available --timeout="1080s" || CONTAINER_ERRORED+="${op}"
 
 # avoid checking the availability of virt-operator here because it will become available only when
-# HCO will create its priorityClass and this will happen only when wi will have HCO cr.
-# No dependency model for node-maintenance-operator on plain k8s without OLM
-for op in cdi-operator cluster-network-addons-operator kubevirt-ssp-operator vm-import-operator; do
+# HCO will create its priorityClass and this will happen only when wi will have HCO cr
+for op in cdi-operator cluster-network-addons-operator kubevirt-ssp-operator node-maintenance-operator vm-import-operator; do
     "${CMD}" wait deployment/"${op}" --for=condition=Available --timeout="540s" || CONTAINER_ERRORED+="${op} "
 done
 

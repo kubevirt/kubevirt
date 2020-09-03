@@ -97,6 +97,7 @@ var (
 	virtCsv             = flag.String("virt-csv", "", "KubeVirt CSV string")
 	sspCsv              = flag.String("ssp-csv", "", "Scheduling Scale Performance CSV string")
 	cdiCsv              = flag.String("cdi-csv", "", "Containerized Data Importer CSV String")
+	nmoCsv              = flag.String("nmo-csv", "", "Node Maintenance Operator CSV String")
 	hppCsv              = flag.String("hpp-csv", "", "HostPath Provisioner Operator CSV String")
 	vmImportCsv         = flag.String("vmimport-csv", "", "Virtual Machine Import Operator CSV String")
 	operatorImage       = flag.String("operator-image-name", "", "HyperConverged Cluster Operator image")
@@ -122,6 +123,7 @@ var (
 	cdiVersion      = flag.String("cdi-version", "", "CDI operator version")
 	cnaoVersion     = flag.String("cnao-version", "", "CNA operator version")
 	sspVersion      = flag.String("ssp-version", "", "SSP operator version")
+	nmoVersion      = flag.String("nmo-version", "", "NM operator version")
 	hppoVersion     = flag.String("hppo-version", "", "HPP operator version")
 	vmImportVersion = flag.String("vm-import-version", "", "VM-Import operator version")
 	apiSources      = flag.String("api-sources", cwd+"/...", "Project sources")
@@ -258,6 +260,7 @@ func main() {
 			*virtCsv,
 			*sspCsv,
 			*cdiCsv,
+			*nmoCsv,
 			*hppCsv,
 			*vmImportCsv,
 		}
@@ -299,6 +302,7 @@ func main() {
 			*cdiVersion,
 			*cnaoVersion,
 			*sspVersion,
+			*nmoVersion,
 			*hppoVersion,
 			*vmImportVersion,
 			envVars,
