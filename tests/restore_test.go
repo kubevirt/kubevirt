@@ -14,11 +14,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
@@ -110,6 +112,26 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 		Expect(r.Status.Conditions[1].Type).To(Equal(snapshotv1.ConditionReady))
 		Expect(r.Status.Conditions[1].Status).To(Equal(corev1.ConditionTrue))
 		return r
+	}
+
+	waitDVReady := func(dv *cdiv1.DataVolume) *cdiv1.DataVolume {
+		Eventually(func() bool {
+			var err error
+			dv, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Get(dv.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return dv.Status.Phase == cdiv1.Succeeded
+		}, 180*time.Second, time.Second).Should(BeTrue())
+		return dv
+	}
+
+	waitPVCReady := func(pvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
+		Eventually(func() bool {
+			var err error
+			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Get(pvc.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return pvc.Annotations["cdi.kubevirt.io/storage.pod.phase"] == string(corev1.PodSucceeded)
+		}, 180*time.Second, time.Second).Should(BeTrue())
+		return pvc
 	}
 
 	waitDeleted := func(deleteFunc func() error) {
@@ -263,15 +285,17 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 		})
 
 		doRestore := func() {
-			By("creating 'hello.txt with initial value")
+			By("creating 'message with initial value")
 			expecter, err := tests.LoggedInCirrosExpecter(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			res, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "echo 'hello' > /home/cirros/hello.txt\n"},
+				&expect.BSnd{S: fmt.Sprintf("echo '%s' > /home/cirros/message\n", vm.UID)},
 				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "cat /home/cirros/hello.txt\n"},
-				&expect.BExp{R: "hello"},
+				&expect.BSnd{S: "cat /home/cirros/message\n"},
+				&expect.BExp{R: string(vm.UID)},
+				&expect.BSnd{S: "sync\n"},
+				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "sync\n"},
 				&expect.BExp{R: "\\$ "},
 			}, 20*time.Second)
@@ -290,17 +314,19 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			By("updating hello.txt")
+			By("updating message")
 			expecter, err = tests.LoggedInCirrosExpecter(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			res, err = expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "cat /home/cirros/hello.txt\n"},
-				&expect.BExp{R: "hello"},
-				&expect.BSnd{S: "echo 'goodbye' > /home/cirros/hello.txt\n"},
+				&expect.BSnd{S: "cat /home/cirros/message\n"},
+				&expect.BExp{R: string(vm.UID)},
+				&expect.BSnd{S: fmt.Sprintf("echo '%s' > /home/cirros/message\n", snapshot.UID)},
 				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "cat /home/cirros/hello.txt\n"},
-				&expect.BExp{R: "goodbye"},
+				&expect.BSnd{S: "cat /home/cirros/message\n"},
+				&expect.BExp{R: string(snapshot.UID)},
+				&expect.BSnd{S: "sync\n"},
+				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "sync\n"},
 				&expect.BExp{R: "\\$ "},
 			}, 20*time.Second)
@@ -319,7 +345,6 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 
 			restore = waitRestoreComplete(restore)
 			Expect(restore.Status.Restores).To(HaveLen(1))
-			Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 
 			vm = tests.StartVirtualMachine(vm)
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -330,15 +355,15 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			res, err = expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "cat /home/cirros/hello.txt\n"},
-				&expect.BExp{R: "hello"},
+				&expect.BSnd{S: "cat /home/cirros/message\n"},
+				&expect.BExp{R: string(vm.UID)},
 			}, 20*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
 			expecter.Close()
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		It("should restore a vm that boots from a datavolume", func() {
+		It("should restore a vm that boots from a datavolumetemplate", func() {
 			vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 				tests.GetUrl(tests.CirrosHttpUrl),
 				tests.NamespaceTestDefault,
@@ -350,11 +375,98 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 
 			doRestore()
 
+			Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 			Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
 			dvs, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).List(metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(dvs.Items).To(HaveLen(1))
 			Expect(dvs.Items[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
+		})
+
+		It("should restore a vm that boots from a datavolume (not template)", func() {
+			vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
+				tests.GetUrl(tests.CirrosHttpUrl),
+				tests.NamespaceTestDefault,
+				"#!/bin/bash\necho 'hello'\n",
+				snapshotStorageClass,
+			)
+
+			var err error
+			dv := &vm.Spec.DataVolumeTemplates[0]
+			originalPVCName := dv.Name
+			vm.Spec.DataVolumeTemplates = nil
+
+			dv, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Create(dv)
+			Expect(err).ToNot(HaveOccurred())
+			dv = waitDVReady(dv)
+
+			vm, vmi = createAndStartVM(vm)
+
+			doRestore()
+
+			Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
+			dvs, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).List(metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(dvs.Items).To(HaveLen(1))
+			_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(originalPVCName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, v := range vm.Spec.Template.Spec.Volumes {
+				if v.PersistentVolumeClaim != nil {
+					Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
+				} else if v.DataVolume != nil {
+					Expect(v.DataVolume.Name).ToNot(Equal(originalPVCName))
+				}
+			}
+		})
+
+		It("should restore a vm that boots from a PVC", func() {
+			quantity, err := resource.ParseQuantity("1Gi")
+			Expect(err).ToNot(HaveOccurred())
+			pvc := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "restore-pvc-" + rand.String(12),
+					Namespace: tests.NamespaceTestDefault,
+					Annotations: map[string]string{
+						"cdi.kubevirt.io/storage.import.source":   "http",
+						"cdi.kubevirt.io/storage.import.endpoint": tests.GetUrl(tests.CirrosHttpUrl),
+					},
+				},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []k8sv1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					Resources: k8sv1.ResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							"storage": quantity,
+						},
+					},
+					StorageClassName: &snapshotStorageClass,
+				},
+			}
+
+			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(pvc)
+			Expect(err).ToNot(HaveOccurred())
+			pvc = waitPVCReady(pvc)
+
+			originalPVCName := pvc.Name
+
+			vmi = tests.NewRandomVMIWithPVCAndUserData(pvc.Name, "#!/bin/bash\necho 'hello'\n")
+			vm = tests.NewRandomVirtualMachine(vmi, false)
+
+			vm, vmi = createAndStartVM(vm)
+
+			doRestore()
+
+			Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
+			_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(originalPVCName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, v := range vm.Spec.Template.Spec.Volumes {
+				if v.PersistentVolumeClaim != nil {
+					Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
+				} else if v.DataVolume != nil {
+					Expect(v.DataVolume.Name).ToNot(Equal(originalPVCName))
+				}
+			}
 		})
 	})
 })

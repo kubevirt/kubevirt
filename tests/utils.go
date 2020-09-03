@@ -2233,6 +2233,14 @@ func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
 	return vmi
 }
 
+func NewRandomVMIWithPVCAndUserData(claimName, userData string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMI()
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vmi = AddPVCDisk(vmi, "disk0", "virtio", claimName)
+	AddUserData(vmi, "disk1", userData)
+	return vmi
+}
+
 func CreateBlockVolumePvAndPvc(size string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)

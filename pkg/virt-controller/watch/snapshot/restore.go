@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
@@ -52,6 +53,7 @@ type restoreTarget interface {
 	Ready() (bool, error)
 	Reconcile() (bool, error)
 	Cleanup() error
+	Own(obj metav1.Object)
 }
 
 type vmRestoreTarget struct {
@@ -97,22 +99,21 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 	vmRestoreOut.Status.Complete = &complete
 	vmRestoreOut.Status.RestoreTime = nil
 
+	target, err := ctrl.getTarget(vmRestoreOut)
+	if err != nil {
+		logger.Reason(err).Error("Error getting restore target")
+		return 0, ctrl.doUpdateError(vmRestoreIn, vmRestoreOut, err)
+	}
+
 	var updated bool
-	updated, err := ctrl.reconcileVolumeRestores(vmRestoreOut)
+	updated, err = ctrl.reconcileVolumeRestores(vmRestoreOut, target)
 	if err != nil {
 		logger.Reason(err).Error("Error reconciling VolumeRestores")
 		return 0, ctrl.doUpdateError(vmRestoreIn, vmRestoreOut, err)
 	}
 
 	if !updated {
-		var target restoreTarget
 		var ready bool
-		target, err = ctrl.getTarget(vmRestoreOut)
-		if err != nil {
-			logger.Reason(err).Error("Error getting restore target")
-			return 0, ctrl.doUpdateError(vmRestoreIn, vmRestoreOut, err)
-		}
-
 		ready, err = target.Ready()
 		if err != nil {
 			logger.Reason(err).Error("Error checking target ready")
@@ -191,7 +192,7 @@ func (ctrl *VMRestoreController) doUpdate(original, updated *snapshotv1.VirtualM
 	return nil
 }
 
-func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.VirtualMachineRestore) (bool, error) {
+func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) (bool, error) {
 	content, err := ctrl.getSnapshotContent(vmRestore)
 	if err != nil {
 		return false, err
@@ -240,7 +241,7 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 
 		if pvc == nil {
 			backup := content.Spec.VolumeBackups[i]
-			if err = ctrl.createRestorePVC(vmRestore, backup, restore); err != nil {
+			if err = ctrl.createRestorePVC(vmRestore, target, backup, restore); err != nil {
 				return false, err
 			}
 			createdPVC = true
@@ -293,11 +294,8 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	copy(newTemplates, snapshotVM.Spec.DataVolumeTemplates)
 	copy(newVolumes, snapshotVM.Spec.Template.Spec.Volumes)
 
-	for i, dvt := range snapshotVM.Spec.DataVolumeTemplates {
-		for j, v := range snapshotVM.Spec.Template.Spec.Volumes {
-			if v.DataVolume == nil || v.DataVolume.Name != dvt.Name {
-				continue
-			}
+	for j, v := range snapshotVM.Spec.Template.Spec.Volumes {
+		if v.DataVolume != nil || v.PersistentVolumeClaim != nil {
 			for k := range t.vmRestore.Status.Restores {
 				vr := &t.vmRestore.Status.Restores[k]
 				if vr.VolumeName != v.Name {
@@ -313,31 +311,61 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 					return false, fmt.Errorf("pvc %s/%s does not exist and should", t.vmRestore.Namespace, vr.PersistentVolumeClaimName)
 				}
 
-				if vr.DataVolumeName == nil {
-					dvName := restoreDVName(t.vmRestore, vr.VolumeName)
-
-					if pvc.Annotations[populatedForPVCAnnotation] != dvName {
-						if pvc.Annotations == nil {
-							pvc.Annotations = make(map[string]string)
-						}
-						pvc.Annotations[populatedForPVCAnnotation] = dvName
-						_, err := t.controller.Client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(pvc)
-						if err != nil {
-							return false, err
+				if v.DataVolume != nil {
+					templateIndex := -1
+					for i, dvt := range snapshotVM.Spec.DataVolumeTemplates {
+						if v.DataVolume.Name == dvt.Name {
+							templateIndex = i
+							break
 						}
 					}
 
-					vr.DataVolumeName = &dvName
-					updatedStatus = true
+					if templateIndex >= 0 {
+						if vr.DataVolumeName == nil {
+							updatePVC := pvc.DeepCopy()
+							dvName := restoreDVName(t.vmRestore, vr.VolumeName)
+
+							if updatePVC.Annotations[populatedForPVCAnnotation] != dvName {
+								if updatePVC.Annotations == nil {
+									updatePVC.Annotations = make(map[string]string)
+								}
+								updatePVC.Annotations[populatedForPVCAnnotation] = dvName
+								// datavolume will take ownership
+								updatePVC.OwnerReferences = nil
+								pvc, err = t.controller.Client.CoreV1().PersistentVolumeClaims(updatePVC.Namespace).Update(updatePVC)
+								if err != nil {
+									return false, err
+								}
+							}
+
+							vr.DataVolumeName = &dvName
+							updatedStatus = true
+						}
+
+						dv := snapshotVM.Spec.DataVolumeTemplates[templateIndex].DeepCopy()
+						dv.Name = *vr.DataVolumeName
+						newTemplates[templateIndex] = *dv
+
+						nv := v.DeepCopy()
+						nv.DataVolume.Name = *vr.DataVolumeName
+						newVolumes[j] = *nv
+					} else {
+						// convert to PersistentVolumeClaim volume
+						nv := v1.Volume{
+							Name: v.Name,
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: vr.PersistentVolumeClaimName,
+								},
+							},
+						}
+						newVolumes[j] = nv
+					}
+				} else {
+					nv := v.DeepCopy()
+					nv.PersistentVolumeClaim.ClaimName = vr.PersistentVolumeClaimName
+					newVolumes[j] = *nv
 				}
-
-				dv := dvt.DeepCopy()
-				dv.Name = *vr.DataVolumeName
-				newTemplates[i] = *dv
-
-				nv := v.DeepCopy()
-				nv.DataVolume.Name = *vr.DataVolumeName
-				newVolumes[j] = *nv
 			}
 		}
 	}
@@ -376,6 +404,20 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	}
 
 	return true, nil
+}
+
+func (t *vmRestoreTarget) Own(obj metav1.Object) {
+	b := true
+	obj.SetOwnerReferences([]metav1.OwnerReference{
+		{
+			APIVersion:         snapshotv1.SchemeGroupVersion.String(),
+			Kind:               "VirtualMachine",
+			Name:               t.vm.Name,
+			UID:                t.vm.UID,
+			Controller:         &b,
+			BlockOwnerDeletion: &b,
+		},
+	})
 }
 
 func (t *vmRestoreTarget) Cleanup() error {
@@ -485,6 +527,7 @@ func (ctrl *VMRestoreController) getTarget(vmRestore *snapshotv1.VirtualMachineR
 
 func (ctrl *VMRestoreController) createRestorePVC(
 	vmRestore *snapshotv1.VirtualMachineRestore,
+	target restoreTarget,
 	volumeBackup snapshotv1.VolumeBackup,
 	volumeRestore snapshotv1.VolumeRestore,
 ) error {
@@ -523,6 +566,8 @@ func (ctrl *VMRestoreController) createRestorePVC(
 		Name:     *volumeBackup.VolumeSnapshotName,
 	}
 	pvc.Spec.VolumeName = ""
+
+	target.Own(pvc)
 
 	_, err := ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).Create(pvc)
 	if err != nil {

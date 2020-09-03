@@ -287,6 +287,7 @@ var _ = Describe("Snapshot controlleer", func() {
 
 			It("should error if snapshot does not exist", func() {
 				r := createRestore()
+				vm := createModifiedVM()
 				rc := r.DeepCopy()
 				rc.ResourceVersion = "1"
 				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
@@ -297,6 +298,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					},
 				}
 				vmSnapshotSource.Delete(createSnapshot())
+				vmSource.Add(vm)
 				expectVMRestoreUpdate(kubevirtClient, rc)
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
@@ -305,6 +307,7 @@ var _ = Describe("Snapshot controlleer", func() {
 
 			It("should update restore status with condition and VolumeRestores", func() {
 				r := createRestore()
+				vm := createModifiedVM()
 				rc := r.DeepCopy()
 				rc.ResourceVersion = "1"
 				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
@@ -314,6 +317,7 @@ var _ = Describe("Snapshot controlleer", func() {
 						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
 					},
 				}
+				vmSource.Add(vm)
 				addVolumeRestores(rc)
 				expectVMRestoreUpdate(kubevirtClient, rc)
 				addVirtualMachineRestore(r)
@@ -322,6 +326,7 @@ var _ = Describe("Snapshot controlleer", func() {
 
 			It("should create restore PVCs", func() {
 				r := createRestore()
+				vm := createModifiedVM()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
 					Complete: &f,
 					Conditions: []snapshotv1.Condition{
@@ -329,6 +334,7 @@ var _ = Describe("Snapshot controlleer", func() {
 						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
 					},
 				}
+				vmSource.Add(vm)
 				addVolumeRestores(r)
 				expectPVCCreates(k8sClient, r)
 				addVirtualMachineRestore(r)
