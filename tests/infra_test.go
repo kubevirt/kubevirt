@@ -212,66 +212,57 @@ var _ = Describe("Infrastructure", func() {
 
 	Describe("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com][level:component]Taints and toleration", func() {
 
-		It("[test_id:4134]should tolerate CriticalAddonsOnly toleration", func() {
+		Context("CriticalAddonsOnly taint set on a node", func() {
 
-			var kvPods *k8sv1.PodList
-			By("finding all nodes that are running kubevirt components", func() {
-				kvPods, err = virtClient.CoreV1().
-					Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred(), "failed listing kubevirt pods")
-				Expect(len(kvPods.Items)).
-					To(BeNumerically(">", 0), "no kubevirt pods found")
+			var selectedNode *k8sv1.Node
+
+			BeforeEach(func() {
+				selectedNode = nil
 			})
 
-			// nodes that run kubevirt components.
-			kvTaintedNodes := make(map[string]*k8sv1.Node)
-			By("adding taints to any node that runs kubevirt component", func() {
-				criticalPodTaint := k8sv1.Taint{
-					Key:    "CriticalAddonsOnly",
-					Value:  "",
-					Effect: k8sv1.TaintEffectNoExecute,
+			AfterEach(func() {
+				By("removing the taint from the tainted node")
+				var taints []k8sv1.Taint
+
+				for _, taint := range selectedNode.Spec.Taints {
+					if taint.Key != "CriticalAddonsOnly" {
+						taints = append(taints, taint)
+					}
 				}
 
-				for _, kvPod := range kvPods.Items {
-					if _, exists := kvTaintedNodes[kvPod.Spec.NodeName]; exists {
-						continue
-					}
-					kvNode, err := virtClient.CoreV1().Nodes().Get(kvPod.Spec.NodeName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "failed retrieving node")
-					hasTaint := false
-					// check if node already has the taint
-					for _, taint := range kvNode.Spec.Taints {
-						if reflect.DeepEqual(taint, criticalPodTaint) {
-							// node already have the taint set
-							hasTaint = true
-							break
-						}
-					}
-					if hasTaint {
-						continue
-					}
-					kvNode.ResourceVersion = ""
-					kvTaintedNodes[kvPod.Spec.NodeName] = kvNode
-					kvNodeCopy := kvNode.DeepCopy()
-					kvNodeCopy.Spec.Taints = append(kvNodeCopy.Spec.Taints, criticalPodTaint)
-					_, err = virtClient.CoreV1().Nodes().Update(kvNodeCopy)
-					Expect(err).ToNot(HaveOccurred(), "failed setting taint on node")
-				}
+				nodeCopy := selectedNode.DeepCopy()
+				nodeCopy.ResourceVersion = ""
+				_, err = virtClient.CoreV1().Nodes().Update(nodeCopy)
+				Expect(err).ShouldNot(HaveOccurred())
 			})
 
-			defer func() {
-				var errors []error
-				By("restoring nodes")
-				for _, nodeSpec := range kvTaintedNodes {
-					_, err = virtClient.CoreV1().Nodes().Update(nodeSpec)
-					if err != nil {
-						errors = append(errors, err)
-					}
-				}
-				Expect(errors).Should(BeEmpty(), "failed restoring one or more nodes")
-			}()
+			It("[test_id:4134] kubevirt components on that node should not evict", func() {
 
-			By("watching for terminated kubevirt pods", func() {
+				By("finding all kubevirt pods")
+				pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{})
+				Expect(err).ShouldNot(HaveOccurred(), "failed listing kubevirt pods")
+				Expect(len(pods.Items)).To(BeNumerically(">", 0), "no kubevirt pods found")
+
+				By("finding all schedulable nodes")
+				schedulableNodesList := tests.GetAllSchedulableNodes(virtClient)
+				schedulableNodes := map[string]*k8sv1.Node{}
+				for _, node := range schedulableNodesList.Items {
+					schedulableNodes[node.Name] = node.DeepCopy()
+				}
+
+				By("selecting one compute only node that runs kubevirt components")
+				// master nodes should never have the CriticalAddonsOnly taint because core components might not
+				// tolerate this taint because it is meant to be used on compute nodes only. If we set this taint
+				// on a master node, we risk in breaking the test cluster.
+				for _, pod := range pods.Items {
+					node := schedulableNodes[pod.Spec.NodeName]
+					if _, isMaster := node.Labels["node-role.kubernetes.io/master"]; isMaster {
+						continue
+					}
+					selectedNode = node.DeepCopy()
+				}
+
+				By("setting up a watch for terminated pods")
 				lw, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Watch(metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				// in the test env, we also deploy non core-kubevirt apps
@@ -281,6 +272,7 @@ var _ = Describe("Infrastructure", func() {
 					"virt-api":        "",
 					"virt-operator":   "",
 				}
+
 				signalTerminatedPods := func(stopCn <-chan bool, eventsCn <-chan watch.Event, terminatedPodsCn chan<- bool) {
 					for {
 						select {
@@ -303,12 +295,22 @@ var _ = Describe("Infrastructure", func() {
 				stopCn := make(chan bool, 1)
 				terminatedPodsCn := make(chan bool, 1)
 				go signalTerminatedPods(stopCn, lw.ResultChan(), terminatedPodsCn)
-				Consistently(terminatedPodsCn, 5*time.Second).
-					ShouldNot(Receive(), "pods should not terminate")
+
+				By("tainting the selected node")
+				selectedNodeCopy := selectedNode.DeepCopy()
+				selectedNodeCopy.Spec.Taints = append(selectedNodeCopy.Spec.Taints, k8sv1.Taint{
+					Key:    "CriticalAddonsOnly",
+					Value:  "",
+					Effect: k8sv1.TaintEffectNoExecute,
+				})
+				_, err = virtClient.CoreV1().Nodes().Update(selectedNodeCopy)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				Consistently(terminatedPodsCn, 5*time.Second).ShouldNot(Receive(), "pods should not terminate")
 				stopCn <- true
 			})
-		})
 
+		})
 	})
 
 	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus scraped metrics", func() {
