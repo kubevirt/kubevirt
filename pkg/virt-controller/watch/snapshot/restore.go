@@ -254,6 +254,16 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 func (t *vmRestoreTarget) Ready() (bool, error) {
 	log.Log.Object(t.vmRestore).V(3).Info("Checking VM ready")
 
+	rs, err := t.vm.RunStrategy()
+	if err != nil {
+		return false, err
+	}
+
+	switch rs {
+	case v1.RunStrategyAlways, v1.RunStrategyUnknown:
+		return false, fmt.Errorf("invalid RunStrategy %q", rs)
+	}
+
 	vmiKey, err := controller.KeyFunc(t.vm)
 	if err != nil {
 		return false, err
