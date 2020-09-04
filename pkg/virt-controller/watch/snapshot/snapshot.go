@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -680,7 +681,12 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 		return true, nil
 	}
 
-	if s.vm.Spec.Running == nil || *s.vm.Spec.Running {
+	rs, err := s.vm.RunStrategy()
+	if err != nil {
+		return false, err
+	}
+
+	if rs != v1.RunStrategyHalted {
 		log.Log.V(3).Infof("Snapshottting a running VM is not supported yet")
 		return false, nil
 	}

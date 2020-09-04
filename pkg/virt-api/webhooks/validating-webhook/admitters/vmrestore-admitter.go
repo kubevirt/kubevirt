@@ -173,7 +173,12 @@ func (admitter *VMRestoreAdmitter) validateCreateVM(field *k8sfield.Path, namesp
 
 	var causes []metav1.StatusCause
 
-	if vm.Spec.Running != nil && *vm.Spec.Running {
+	rs, err := vm.RunStrategy()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if rs != v1.RunStrategyHalted {
 		cause := metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("VirtualMachine %q is running", name),
