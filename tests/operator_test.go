@@ -84,6 +84,7 @@ var _ = Describe("Operator", func() {
 		sanityCheckDeploymentsExist       func()
 		sanityCheckDeploymentsDeleted     func()
 		allPodsAreReady                   func(*v1.KubeVirt)
+		allPodsAreTerminated              func(*v1.KubeVirt)
 		waitForUpdateCondition            func(*v1.KubeVirt)
 		waitForKvWithTimeout              func(*v1.KubeVirt, int)
 		waitForKv                         func(*v1.KubeVirt)
@@ -185,6 +186,27 @@ var _ = Describe("Operator", func() {
 				}
 				return nil
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}
+
+		allPodsAreTerminated = func(kv *v1.KubeVirt) {
+			Eventually(func() error {
+				pods, err := virtClient.CoreV1().Pods(kv.Namespace).List(metav1.ListOptions{LabelSelector: "kubevirt.io"})
+				if err != nil {
+					return err
+				}
+
+				for _, pod := range pods.Items {
+					managed, ok := pod.Labels[v1.ManagedByLabel]
+					if !ok || managed != v1.ManagedByLabelOperatorValue {
+						continue
+					}
+
+					if pod.Status.Phase != k8sv1.PodFailed && pod.Status.Phase != k8sv1.PodSucceeded {
+						return fmt.Errorf("Waiting for pod %s with phase %s to reach final phase", pod.Name, pod.Status.Phase)
+					}
+				}
+				return nil
+			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		}
 
 		allPodsAreReady = func(kv *v1.KubeVirt) {
@@ -727,6 +749,9 @@ spec:
 			// Delete current KubeVirt install so we can install previous release.
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
+
+			By("Verifying all infra pods have terminated")
+			allPodsAreTerminated(originalKv)
 
 			By("Sanity Checking Deployments infrastructure is deleted")
 			sanityCheckDeploymentsDeleted()
