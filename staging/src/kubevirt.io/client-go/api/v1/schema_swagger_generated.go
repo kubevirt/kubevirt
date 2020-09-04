@@ -351,7 +351,7 @@ func (ClockOffsetUTC) SwaggerDoc() map[string]string {
 
 func (Clock) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":      "Represents the clock and timers of a vmi.\n\n+k8s:openapi-gen=true",
+		"":      "Represents the clock and timers of a vmi.\n\n+k8s:openapi-gen=true\n+kubebuilder:pruning:PreserveUnknownFields",
 		"timer": "Timer specifies whih timers are attached to the vmi.\n+optional",
 	}
 }

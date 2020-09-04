@@ -23,9 +23,229 @@ spec:
     - kv
     - kvs
     singular: kubevirt
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     status: {}
+  validation:
+    openAPIV3Schema:
+      description: KubeVirt represents the object deploying all KubeVirt resources
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: '---'
+          properties:
+            certificateRotateStrategy:
+              description: '---'
+              properties:
+                selfSigned:
+                  description: '---'
+                  properties:
+                    caOverlapInterval:
+                      type: string
+                    caRotateInterval:
+                      type: string
+                    certRotateInterval:
+                      type: string
+                  type: object
+              type: object
+            configuration:
+              description: holds kubevirt configurations. same as the virt-configMap
+              properties:
+                cpuModel:
+                  type: string
+                cpuRequest:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+                developerConfiguration:
+                  description: DeveloperConfiguration holds developer options
+                  properties:
+                    featureGates:
+                      items:
+                        type: string
+                      type: array
+                    memoryOvercommit:
+                      type: integer
+                    nodeSelectors:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    pvcTolerateLessSpaceUpToPercent:
+                      type: integer
+                    useEmulation:
+                      type: boolean
+                  type: object
+                emulatedMachines:
+                  items:
+                    type: string
+                  type: array
+                imagePullPolicy:
+                  description: PullPolicy describes a policy for if/when to pull a
+                    container image
+                  type: string
+                machineType:
+                  type: string
+                memBalloonStatsPeriod:
+                  type: integer
+                migrations:
+                  description: MigrationConfiguration holds migration options
+                  properties:
+                    allowAutoConverge:
+                      type: boolean
+                    bandwidthPerMigration:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    completionTimeoutPerGiB:
+                      format: int64
+                      type: integer
+                    nodeDrainTaintKey:
+                      type: string
+                    parallelMigrationsPerCluster:
+                      format: int32
+                      type: integer
+                    parallelOutboundMigrationsPerNode:
+                      format: int32
+                      type: integer
+                    progressTimeout:
+                      format: int64
+                      type: integer
+                    unsafeMigrationOverride:
+                      type: boolean
+                  type: object
+                network:
+                  description: NetworkConfiguration holds network options
+                  properties:
+                    defaultNetworkInterface:
+                      type: string
+                    permitBridgeInterfaceOnPodNetwork:
+                      type: boolean
+                    permitSlirpInterface:
+                      type: boolean
+                  type: object
+                ovmfPath:
+                  type: string
+                selinuxLauncherType:
+                  type: string
+                smbios:
+                  description: '---'
+                  properties:
+                    family:
+                      type: string
+                    manufacturer:
+                      type: string
+                    product:
+                      type: string
+                    sku:
+                      type: string
+                    version:
+                      type: string
+                  type: object
+                supportedGuestAgentVersions:
+                  items:
+                    type: string
+                  type: array
+              type: object
+            imagePullPolicy:
+              description: The ImagePullPolicy to use.
+              type: string
+            imageRegistry:
+              description: The image registry to pull the container images from Defaults
+                to the same registry the operator's container image is pulled from.
+              type: string
+            imageTag:
+              description: The image tag to use for the continer images installed.
+                Defaults to the same tag as the operator's container image.
+              type: string
+            monitorAccount:
+              description: The name of the Prometheus service account that needs read-access
+                to KubeVirt endpoints Defaults to prometheus-k8s
+              type: string
+            monitorNamespace:
+              description: The namespace Prometheus is deployed in Defaults to openshift-monitor
+              type: string
+            productName:
+              description: Designate the apps.kubevirt.io/part-of label for KubeVirt
+                components. Useful if KubeVirt is included as part of a product. If
+                ProductName is not specified, the part-of label will be omitted.
+              type: string
+            productVersion:
+              description: Designate the apps.kubevirt.io/version label for KubeVirt
+                components. Useful if KubeVirt is included as part of a product. If
+                ProductVersion is not specified, KubeVirt's version will be used.
+              type: string
+            uninstallStrategy:
+              description: Specifies if kubevirt can be deleted if workloads are still
+                present. This is mainly a precaution to avoid accidental data loss
+              type: string
+          type: object
+        status:
+          description: KubeVirtStatus represents information pertaining to a KubeVirt
+            deployment.
+          properties:
+            conditions:
+              items:
+                description: KubeVirtCondition represents a condition of a KubeVirt
+                  deployment
+                properties:
+                  lastProbeTime:
+                    format: date-time
+                    nullable: true
+                    type: string
+                  lastTransitionTime:
+                    format: date-time
+                    nullable: true
+                    type: string
+                  message:
+                    type: string
+                  reason:
+                    type: string
+                  status:
+                    type: string
+                  type:
+                    type: string
+                type: object
+              type: array
+            observedDeploymentConfig:
+              type: string
+            observedDeploymentID:
+              type: string
+            observedKubeVirtRegistry:
+              type: string
+            observedKubeVirtVersion:
+              type: string
+            operatorVersion:
+              type: string
+            phase:
+              description: KubeVirtPhase is a label for the phase of a KubeVirt deployment
+                at the current time.
+              type: string
+            targetDeploymentConfig:
+              type: string
+            targetDeploymentID:
+              type: string
+            targetKubeVirtRegistry:
+              type: string
+            targetKubeVirtVersion:
+              type: string
+          type: object
+      type: object
   version: v1alpha3
   versions:
   - name: v1alpha3
