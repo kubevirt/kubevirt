@@ -645,10 +645,15 @@ func (c *KubeVirtController) execute(key string) error {
 	operatorutil.SetConditionTimestamps(kv, kvCopy)
 
 	// If we detect a change on KubeVirt we update it
-	if !reflect.DeepEqual(kv.Status, kvCopy.Status) ||
-		!reflect.DeepEqual(kv.Finalizers, kvCopy.Finalizers) {
-
+	if !reflect.DeepEqual(kv.Status, kvCopy.Status) {
 		if err := c.statusUpdater.UpdateStatus(kvCopy); err != nil {
+			logger.Reason(err).Errorf("Could not update the KubeVirt resource status.")
+			return err
+		}
+	}
+
+	if !reflect.DeepEqual(kv.Finalizers, kvCopy.Finalizers) {
+		if _, err := c.clientset.KubeVirt(kvCopy.ObjectMeta.Namespace).Update(kvCopy); err != nil {
 			logger.Reason(err).Errorf("Could not update the KubeVirt resource.")
 			return err
 		}
