@@ -259,8 +259,7 @@ func (t *vmRestoreTarget) Ready() (bool, error) {
 		return false, err
 	}
 
-	switch rs {
-	case v1.RunStrategyAlways, v1.RunStrategyUnknown:
+	if rs != v1.RunStrategyHalted {
 		return false, fmt.Errorf("invalid RunStrategy %q", rs)
 	}
 
