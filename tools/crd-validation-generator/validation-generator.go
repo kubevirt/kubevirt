@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -15,7 +16,7 @@ import (
 func main() {
 
 	dirname := flag.String("crdDir", "./manifests/generated/", "path to directory with crds from where validation field will be parsed")
-	outputdir := flag.String("outputDir", "./pkg/virt-operator/install-strategy/", "path to dir where go file will be generated")
+	outputdir := flag.String("outputDir", "./pkg/virt-operator/creation/components/", "path to dir where go file will be generated")
 
 	flag.Parse()
 
@@ -29,7 +30,7 @@ func main() {
 			continue
 		}
 		filename := file.Name()
-		if strings.HasSuffix(filename, "-resource.yaml") {
+		if strings.HasSuffix(filename, ".yaml") {
 			crdname, validation := getValidation(*dirname + filename)
 			if validation != nil {
 				validations[crdname] = validation
@@ -37,12 +38,12 @@ func main() {
 		}
 
 	}
-	generateGoFile(*outputdir, &validations)
+	generateGoFile(*outputdir, validations)
 }
 
 var variable = " \"%s\" : `%s`,\n"
 
-func generateGoFile(outputDir string, validations *map[string]*extv1beta1.CustomResourceValidation) {
+func generateGoFile(outputDir string, validations map[string]*extv1beta1.CustomResourceValidation) {
 	filepath := fmt.Sprintf("%svalidations_generated.go", outputDir)
 	os.Remove(filepath)
 	file, err := os.OpenFile(filepath, os.O_CREATE|os.O_WRONLY, 0644)
@@ -51,11 +52,20 @@ func generateGoFile(outputDir string, validations *map[string]*extv1beta1.Custom
 		panic(fmt.Errorf("Failed to create go file %v, %v", filepath, err))
 	}
 	// w := bufio.NewWriter(file)
-	file.WriteString("package installstrategy\n\n")
-	file.WriteString("var resources map[string]string = map[string]string{\n")
-	for k, v := range *validations {
-		b, _ := yaml.Marshal(v)
-		file.WriteString(fmt.Sprintf(variable, k, string(b)))
+	file.WriteString("package components\n\n")
+	file.WriteString("var CRDsValidation map[string]string = map[string]string{\n")
+
+	crds := make([]string, 0, 0)
+	for k := range validations {
+		crds = append(crds, k)
+	}
+
+	sort.Strings(crds)
+
+	for _, crdname := range crds {
+		crd := validations[crdname]
+		b, _ := yaml.Marshal(crd)
+		file.WriteString(fmt.Sprintf(variable, crdname, string(b)))
 	}
 	file.WriteString("}\n")
 
@@ -73,5 +83,5 @@ func getValidation(filename string) (string, *extv1beta1.CustomResourceValidatio
 	if err != nil {
 		panic(fmt.Errorf("Failed to parse crd from file %v, %v", filename, err))
 	}
-	return crd.Spec.Names.ShortNames[0], crd.Spec.Validation
+	return crd.Spec.Names.Singular, crd.Spec.Validation
 }

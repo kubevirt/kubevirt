@@ -180,7 +180,7 @@ func (DataVolumeTemplateSpec) SwaggerDoc() map[string]string {
 func (VirtualMachineInstanceTemplateSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "+k8s:openapi-gen=true",
-		"metadata": "+nullable",
+		"metadata": "+kubebuilder:pruning:PreserveUnknownFields\n+nullable",
 		"spec":     "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
 	}
 }
