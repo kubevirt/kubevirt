@@ -20,7 +20,7 @@ sanity:
 	go fmt ./...
 	go mod vendor
 	./hack/build-manifests.sh
-	git diff -G'^[^    createdAt: ]' --exit-code
+	git difftool -y --trust-exit-code --extcmd=./hack/diff-csv.sh
 
 build: $(SOURCES) ## Build binary from source
 	go build -i -ldflags="-s -w" -o _out/hyperconverged-cluster-operator ./cmd/hyperconverged-cluster-operator
