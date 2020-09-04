@@ -345,6 +345,8 @@ func main() {
 				installStrategyBase.ClusterPermissions = append(installStrategyBase.ClusterPermissions, strategySpec.ClusterPermissions...)
 				installStrategyBase.Permissions = append(installStrategyBase.Permissions, strategySpec.Permissions...)
 
+				csvExtended.Spec.WebhookDefinitions = append(csvExtended.Spec.WebhookDefinitions, csvStruct.Spec.WebhookDefinitions...)
+
 				for _, owned := range csvStruct.Spec.CustomResourceDefinitions.Owned {
 					csvExtended.Spec.CustomResourceDefinitions.Owned = append(
 						csvExtended.Spec.CustomResourceDefinitions.Owned,

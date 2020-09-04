@@ -28,6 +28,7 @@ source "${PROJECT_ROOT}"/hack/config
 DEPLOY_DIR="${PROJECT_ROOT}/deploy"
 CRD_DIR="${DEPLOY_DIR}/crds"
 CSV_DIR="${DEPLOY_DIR}/olm-catalog/kubevirt-hyperconverged/${CSV_VERSION}"
+DEFAULT_CSV_GENERATOR="/usr/bin/csv-generator"
 
 OPERATOR_NAME="${NAME:-kubevirt-hyperconverged-operator}"
 OPERATOR_NAMESPACE="${NAMESPACE:-kubevirt-hyperconverged}"
@@ -53,6 +54,7 @@ CRD_EXT="crd.yaml"
 
 function gen_csv() {
   # Handle arguments
+  local csvGeneratorPath="$1" && shift
   local operatorName="$1" && shift
   local imagePullUrl="$1" && shift
   local dumpCRDsArg="$1" && shift
@@ -64,7 +66,7 @@ function gen_csv() {
   local crds="${operatorName}.crds.yaml"
 
   # TODO: Use oc to run if cluster is available
-  local dockerArgs="docker run --rm --entrypoint=/usr/bin/csv-generator ${imagePullUrl} ${operatorArgs}"
+  local dockerArgs="docker run --rm --entrypoint=${csvGeneratorPath} ${imagePullUrl} ${operatorArgs}"
 
   eval $dockerArgs > $csv
   eval $dockerArgs $dumpCRDsArg > $csvWithCRDs
@@ -104,7 +106,7 @@ function create_virt_csv() {
     --launcherSha=${launcherSha} \
   "
 
-  gen_csv ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
+  gen_csv ${DEFAULT_CSV_GENERATOR} ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
   echo "${operatorName}"
 }
 
@@ -127,7 +129,7 @@ function create_cna_csv() {
     --image-name=${imageName/:*/}
   "
 
-  gen_csv ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
+  gen_csv ${DEFAULT_CSV_GENERATOR} ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
   echo "${operatorName}"
 }
 
@@ -143,7 +145,7 @@ function create_ssp_csv() {
     --operator-version=${SSP_VERSION} \
   "
 
-  gen_csv ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
+  gen_csv ${DEFAULT_CSV_GENERATOR} ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
   echo "${operatorName}"
 }
 
@@ -174,7 +176,7 @@ function create_cdi_csv() {
     --uploadserver-image=${uploadserverDigest} \
     --operator-version=${CDI_VERSION} \
   "
-  gen_csv ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
+  gen_csv ${DEFAULT_CSV_GENERATOR} ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
   echo "${operatorName}"
 }
 
@@ -187,8 +189,9 @@ function create_nmo_csv() {
     --csv-version=${CSV_VERSION} \
     --operator-image=${NMO_IMAGE} \
   "
+  local csvGeneratorPath="/usr/local/bin/csv-generator"
 
-  gen_csv ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
+  gen_csv ${csvGeneratorPath} ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
   echo "${operatorName}"
 }
 
@@ -206,7 +209,7 @@ function create_hpp_csv() {
     --pull-policy=IfNotPresent \
   "
 
-  gen_csv ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
+  gen_csv ${DEFAULT_CSV_GENERATOR} ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
   echo "${operatorName}"
 }
 
@@ -227,7 +230,7 @@ function create_vm_import_csv() {
     --pull-policy=IfNotPresent \
   "
 
-  gen_csv ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
+  gen_csv ${DEFAULT_CSV_GENERATOR} ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
   echo "${operatorName}"
 }
 
