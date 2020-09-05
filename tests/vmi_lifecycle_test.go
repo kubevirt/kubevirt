@@ -1057,14 +1057,14 @@ var _ = Describe("[Serial][rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][leve
 		})
 
 		Context("with non default namespace", func() {
-			table.DescribeTable("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]should log libvirt start and stop lifecycle events of the domain", func(namespace string) {
+			table.DescribeTable("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]should log libvirt start and stop lifecycle events of the domain", func(namespace *string) {
 
 				nodes := tests.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				node := nodes.Items[0].Name
 
 				By("Creating a VirtualMachineInstance with different namespace")
-				vmi = tests.NewRandomVMIWithNS(namespace)
+				vmi = tests.NewRandomVMIWithNS(*namespace)
 				virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
 				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client for node")
 
@@ -1089,7 +1089,7 @@ var _ = Describe("[Serial][rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][leve
 					return string(data)
 				}, 30, 0.5).Should(MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Running reason Unknown","name":"%s"`, vmi.GetObjectMeta().GetName()), "Should verify from logs that domain is running")
 				// Check the VirtualMachineInstance Namespace
-				Expect(vmi.GetObjectMeta().GetNamespace()).To(Equal(namespace), "VMI should run in the right namespace")
+				Expect(vmi.GetObjectMeta().GetNamespace()).To(Equal(*namespace), "VMI should run in the right namespace")
 
 				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
 				By("Deleting the VirtualMachineInstance")
@@ -1119,8 +1119,8 @@ var _ = Describe("[Serial][rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][leve
 					MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Shutoff reason Destroyed","name":"%s"`, vmi.GetObjectMeta().GetName()), // Domain was destroyed because the launcher pod is gone
 				), "Logs should confirm pod deletion")
 			},
-				table.Entry("[test_id:1641]"+tests.NamespaceTestDefault, tests.NamespaceTestDefault),
-				table.Entry("[test_id:1642]"+tests.NamespaceTestAlternative, tests.NamespaceTestAlternative),
+				table.Entry("[test_id:1641]"+tests.NamespaceTestDefault, &tests.NamespaceTestDefault),
+				table.Entry("[test_id:1642]"+tests.NamespaceTestAlternative, &tests.NamespaceTestAlternative),
 			)
 		})
 
