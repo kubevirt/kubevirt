@@ -72,6 +72,7 @@ require (
 	kubevirt.io/containerized-data-importer v1.23.5
 	kubevirt.io/qe-tools v0.1.6
 	libvirt.org/libvirt-go v6.5.0+incompatible
+	sigs.k8s.io/yaml v1.2.0
 )
 
 replace (
