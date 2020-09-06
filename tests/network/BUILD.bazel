@@ -7,7 +7,6 @@ go_library(
         "framework.go",
         "primary_pod_network.go",
         "services.go",
-        "validation.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/network",
     visibility = ["//visibility:public"],

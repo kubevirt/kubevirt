@@ -17,7 +17,7 @@
  *
  */
 
-package network
+package libnet
 
 import (
 	"fmt"
