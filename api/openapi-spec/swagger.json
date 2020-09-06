@@ -9923,7 +9923,7 @@
     }
    },
    "v1alpha1.DataVolume": {
-    "description": "DataVolume provides a representation of our data volume",
+    "description": "DataVolume is an abstraction on top of PersistentVolumeClaims to allow easy population of those PersistentVolumeClaims with relation to VirtualMachines",
     "type": "object",
     "required": [
      "spec"
@@ -9952,8 +9952,45 @@
     "description": "DataVolumeBlankImage provides the parameters to create a new raw blank image for the PVC",
     "type": "object"
    },
+   "v1alpha1.DataVolumeCondition": {
+    "description": "DataVolumeCondition represents the state of a data volume condition.",
+    "type": "object",
+    "required": [
+     "type",
+     "status"
+    ],
+    "properties": {
+     "lastHeartbeatTime": {
+      "$ref": "#/definitions/v1.Time"
+     },
+     "lastProbeTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "lastTransitionTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "message": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
+     }
+    }
+   },
    "v1alpha1.DataVolumeSource": {
-    "description": "DataVolumeSource represents the source for our Data Volume, this can be HTTP, S3, Registry or an existing PVC",
+    "description": "DataVolumeSource represents the source for our Data Volume, this can be HTTP, Imageio, S3, Registry or an existing PVC",
     "type": "object",
     "properties": {
      "blank": {
@@ -9961,6 +9998,9 @@
      },
      "http": {
       "$ref": "#/definitions/v1alpha1.DataVolumeSourceHTTP"
+     },
+     "imageio": {
+      "$ref": "#/definitions/v1alpha1.DataVolumeSourceImageIO"
      },
      "pvc": {
       "$ref": "#/definitions/v1alpha1.DataVolumeSourcePVC"
@@ -9977,19 +10017,48 @@
     }
    },
    "v1alpha1.DataVolumeSourceHTTP": {
-    "description": "DataVolumeSourceHTTP provides the parameters to create a Data Volume from an HTTP source",
+    "description": "DataVolumeSourceHTTP can be either an http or https endpoint, with an optional basic auth user name and password, and an optional configmap containing additional CAs",
     "type": "object",
+    "required": [
+     "url"
+    ],
     "properties": {
      "certConfigMap": {
-      "description": "CertConfigMap provides a reference to the Registry certs",
+      "description": "CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate",
       "type": "string"
      },
      "secretRef": {
-      "description": "SecretRef provides the secret reference needed to access the HTTP source",
+      "description": "SecretRef A Secret reference, the secret should contain accessKeyId (user name) base64 encoded, and secretKey (password) also base64 encoded",
       "type": "string"
      },
      "url": {
-      "description": "URL is the URL of the http source",
+      "description": "URL is the URL of the http(s) endpoint",
+      "type": "string"
+     }
+    }
+   },
+   "v1alpha1.DataVolumeSourceImageIO": {
+    "description": "DataVolumeSourceImageIO provides the parameters to create a Data Volume from an imageio source",
+    "type": "object",
+    "required": [
+     "url",
+     "diskId"
+    ],
+    "properties": {
+     "certConfigMap": {
+      "description": "CertConfigMap provides a reference to the CA cert",
+      "type": "string"
+     },
+     "diskId": {
+      "description": "DiskID provides id of a disk to be imported",
+      "type": "string"
+     },
+     "secretRef": {
+      "description": "SecretRef provides the secret reference needed to access the ovirt-engine",
+      "type": "string"
+     },
+     "url": {
+      "description": "URL is the URL of the ovirt-engine",
       "type": "string"
      }
     }
@@ -9997,11 +10066,17 @@
    "v1alpha1.DataVolumeSourcePVC": {
     "description": "DataVolumeSourcePVC provides the parameters to create a Data Volume from an existing PVC",
     "type": "object",
+    "required": [
+     "namespace",
+     "name"
+    ],
     "properties": {
      "name": {
+      "description": "The name of the source PVC",
       "type": "string"
      },
      "namespace": {
+      "description": "The namespace of the source PVC",
       "type": "string"
      }
     }
@@ -10009,6 +10084,9 @@
    "v1alpha1.DataVolumeSourceRegistry": {
     "description": "DataVolumeSourceRegistry provides the parameters to create a Data Volume from an registry source",
     "type": "object",
+    "required": [
+     "url"
+    ],
     "properties": {
      "certConfigMap": {
       "description": "CertConfigMap provides a reference to the Registry certs",
@@ -10019,7 +10097,7 @@
       "type": "string"
      },
      "url": {
-      "description": "URL is the url of the Registry source",
+      "description": "URL is the url of the Docker registry source",
       "type": "string"
      }
     }
@@ -10027,6 +10105,9 @@
    "v1alpha1.DataVolumeSourceS3": {
     "description": "DataVolumeSourceS3 provides the parameters to create a Data Volume from an S3 source",
     "type": "object",
+    "required": [
+     "url"
+    ],
     "properties": {
      "secretRef": {
       "description": "SecretRef provides the secret reference needed to access the S3 source",
@@ -10043,7 +10124,7 @@
     "type": "object"
    },
    "v1alpha1.DataVolumeSpec": {
-    "description": "DataVolumeSpec defines our specification for a DataVolume type",
+    "description": "DataVolumeSpec defines the DataVolume type specification",
     "type": "object",
     "required": [
      "source",
@@ -10055,7 +10136,7 @@
       "type": "string"
      },
      "pvc": {
-      "description": "PVC is a pointer to the PVC Spec we want to use",
+      "description": "PVC is the PVC specification",
       "$ref": "#/definitions/v1.PersistentVolumeClaimSpec"
      },
      "source": {
@@ -10065,16 +10146,27 @@
     }
    },
    "v1alpha1.DataVolumeStatus": {
-    "description": "DataVolumeStatus provides the parameters to store the phase of the Data Volume",
+    "description": "DataVolumeStatus contains the current status of the DataVolume",
     "type": "object",
     "nullable": true,
     "properties": {
+     "conditions": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1alpha1.DataVolumeCondition"
+      }
+     },
      "phase": {
       "description": "Phase is the current phase of the data volume",
       "type": "string"
      },
      "progress": {
       "type": "string"
+     },
+     "restartCount": {
+      "description": "RestartCount is the number of times the pod populating the DataVolume has restarted",
+      "type": "integer",
+      "format": "int32"
      }
     }
    },
