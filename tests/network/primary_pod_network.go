@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
@@ -50,7 +51,7 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 
 			By("Making sure IP/s reported on the VMI matches the ones on the pod")
-			Expect(ValidateVMIandPodIPMatch(vmi, vmiPod)).To(Succeed(), "Should have matching IP/s between pod and vmi")
+			Expect(libnet.ValidateVMIandPodIPMatch(vmi, vmiPod)).To(Succeed(), "Should have matching IP/s between pod and vmi")
 		}
 
 		Context("VMI connected to the pod network using the default (implicit) binding", func() {

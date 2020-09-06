@@ -6,6 +6,7 @@ go_library(
         "cloudinit.go",
         "cluster.go",
         "dns.go",
+        "validation.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/libnet",
     visibility = ["//visibility:public"],
