@@ -32,6 +32,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//tests/containerdisk:go_default_library",
         "//tests/flags:go_default_library",
+        "//tests/libnet:go_default_library",
         "//tests/libvmi:go_default_library",
         "//tools/vms-generator/utils:go_default_library",
         "//vendor/github.com/Masterminds/semver:go_default_library",
