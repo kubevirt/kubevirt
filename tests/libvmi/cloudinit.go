@@ -41,6 +41,22 @@ func WithCloudInitNoCloudUserData(data string, b64Encoding bool) Option {
 	}
 }
 
+// WithCloudInitNoCloudNetworkData adds cloud-init no-cloud network data.
+func WithCloudInitNoCloudNetworkData(data string, b64Encoding bool) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		diskName, bus := "disk1", "virtio"
+		addDiskVolumeWithCloudInitNoCloud(vmi, diskName, bus)
+
+		volume := getVolume(vmi, diskName)
+		if b64Encoding {
+			encodedData := base64.StdEncoding.EncodeToString([]byte(data))
+			volume.CloudInitNoCloud.NetworkDataBase64 = encodedData
+		} else {
+			volume.CloudInitNoCloud.NetworkData = data
+		}
+	}
+}
+
 func addDiskVolumeWithCloudInitNoCloud(vmi *kvirtv1.VirtualMachineInstance, diskName, bus string) {
 	addDisk(vmi, newDisk(diskName, bus))
 	v := newVolume(diskName)
