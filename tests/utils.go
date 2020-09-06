@@ -102,6 +102,7 @@ import (
 
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libvmi"
 
 	"github.com/Masterminds/semver"
 	"github.com/google/go-github/v32/github"
@@ -2140,9 +2141,10 @@ func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
 	searchDomains := getVMISeachDomains()
 	networkData := GetCloudInitNetworkData(ipv6MasqueradeAddress, ipv6MasqueradeGateway, dnsServerIP, searchDomains)
 
-	agentVMI := NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(cd.ContainerDiskFor(cd.ContainerDiskFedora), GetGuestAgentUserData(), networkData, false)
-	agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
-	return agentVMI
+	return libvmi.NewFedora(
+		libvmi.WithCloudInitNoCloudUserData(GetGuestAgentUserData(), false),
+		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
+	)
 }
 
 func AddPVCFS(vmi *v1.VirtualMachineInstance, name string, claimName string) *v1.VirtualMachineInstance {

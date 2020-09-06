@@ -44,7 +44,7 @@ func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithResourceMemory("512M"),
 		WithRng(),
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedora)),
-		WithCloudInitNoCloudUserData(configurePassword, true),
+		WithCloudInitNoCloudUserData(configurePassword, false),
 	)
 	opts = append(fedoraOptions, opts...)
 	return New(RandName(DefaultVmiName), opts...)
