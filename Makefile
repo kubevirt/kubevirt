@@ -79,6 +79,9 @@ functest-image-build: manifests build-functests
 functest-image-push: functest-image-build
 	hack/func-tests-image.sh push
 
+conformance:
+	hack/dockerized "hack/conformance.sh"
+
 clean:
 	hack/dockerized "./hack/build-go.sh clean ${WHAT} && rm _out/* -rf"
 	hack/dockerized "bazel clean --expunge"
@@ -148,6 +151,7 @@ bump-kubevirtci:
 
 .PHONY: \
 	build-verify \
+	conformance \
 	go-build \
 	go-test \
 	go-all \

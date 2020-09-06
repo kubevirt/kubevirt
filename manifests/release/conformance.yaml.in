@@ -1,0 +1,13 @@
+sonobuoy-config:
+  driver: Job
+  plugin-name: kubevirt-conformance
+  result-format: junit
+spec:
+  command:
+  - /usr/bin/conformance
+  image: {{.DockerPrefix}}/conformance:{{.DockerTag}}
+  name: plugin
+  resources: {}
+  volumeMounts:
+  - mountPath: /tmp/results
+    name: results

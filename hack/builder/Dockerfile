@@ -92,6 +92,13 @@ RUN set -x && \
 
 RUN pip3 install j2cli operator-courier==1.3.0
 
+ENV SONOBUOY_VERSION=0.19.0
+RUN set -x && \
+    wget https://github.com/vmware-tanzu/sonobuoy/releases/download/v${SONOBUOY_VERSION}/sonobuoy_${SONOBUOY_VERSION}_linux_amd64.tar.gz && \
+    tar xvf sonobuoy_${SONOBUOY_VERSION}_linux_amd64.tar.gz && \
+    chmod +x sonobuoy && \
+    mv sonobuoy /usr/bin
+
 COPY rsyncd.conf /etc/rsyncd.conf
 
 COPY entrypoint.sh /entrypoint.sh
