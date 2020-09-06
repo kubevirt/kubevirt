@@ -2679,7 +2679,7 @@ func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory VMIExpect
 
 	// Fetch the new VirtualMachineInstance with updated status
 	virtClient, err := kubecli.GetKubevirtClient()
-	vmi, err = virtClient.VirtualMachineInstance(NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	// Lets make sure that the OS is up by waiting until we can login
@@ -2980,15 +2980,6 @@ func SkipIfUseFlannel(virtClient kubecli.KubevirtClient) {
 	Expect(err).ToNot(HaveOccurred())
 	if len(flannelpod.Items) > 0 {
 		Skip("Skip networkpolicy test for flannel network")
-	}
-}
-
-func SkipIfNotUseNetworkPolicy(virtClient kubecli.KubevirtClient) {
-	expectedRes := "openshift-ovs-networkpolicy"
-	out, _, _ := RunCommand("kubectl", "get", "clusternetwork")
-	//we don't check the result here, because this cmd is openshift only and will be failed on k8s cluster
-	if !strings.Contains(out, expectedRes) {
-		Skip("Skip networkpolicy test that require openshift-ovs-networkpolicy plugin")
 	}
 }
 
