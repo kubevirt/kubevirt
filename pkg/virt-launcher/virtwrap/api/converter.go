@@ -192,9 +192,6 @@ func SetDriverCacheMode(disk *Disk) error {
 }
 
 func makeDeviceName(bus string, devicePerBus map[string]int) string {
-	index := devicePerBus[bus]
-	devicePerBus[bus] += 1
-
 	prefix := ""
 	switch bus {
 	case "virtio":
@@ -207,6 +204,10 @@ func makeDeviceName(bus string, devicePerBus map[string]int) string {
 		log.Log.Errorf("Unrecognized bus '%s'", bus)
 		return ""
 	}
+
+	index := devicePerBus[prefix]
+	devicePerBus[prefix] += 1
+
 	return formatDeviceName(prefix, index)
 }
 
