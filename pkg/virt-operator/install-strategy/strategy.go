@@ -158,7 +158,10 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 		marshalutil.MarshallObject(entry, writer)
 	}
 	for _, entry := range strategy.crds {
-		marshalutil.MarshallObject(entry, writer)
+		b, _ := yaml.Marshal(entry)
+		writer.Write([]byte("---\n"))
+		writer.Write(b)
+		// marshalutil.MarshallObject(entry, writer)
 	}
 	for _, entry := range strategy.services {
 		marshalutil.MarshallObject(entry, writer)
