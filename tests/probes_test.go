@@ -89,6 +89,64 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server", httpProbe, tests.StartHTTPServer),
 		)
 
+		table.DescribeTable("should succeed with 'Host' field", func(readinessProbe *v12.Probe) {
+
+			isHTTPProbe := readinessProbe.Handler.HTTPGet != nil
+			isDualStack := tests.IsIPv6Cluster(virtClient)
+
+			By("Create a pod with the readiness probe backend")
+			var probeBackendPod *v1.Pod
+			if isHTTPProbe {
+				probeBackendPod = tests.StartHTTPServerPod(1500)
+			} else {
+				probeBackendPod = tests.StartTCPServerPod(1500)
+			}
+			defer func() {
+				err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(probeBackendPod.Name, &v13.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}()
+
+			By("Specifying a VMI with a readiness probe with 'Host' field")
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			vmi.Spec.ReadinessProbe = readinessProbe
+			ipIndex := 0
+
+			// Select the ipv6 address if we are at dual stack
+			if isDualStack {
+				ipIndex = 1
+			}
+			selectedIP := probeBackendPod.Status.PodIPs[ipIndex].IP
+
+			// Configure 'Host' field
+			if isHTTPProbe {
+				vmi.Spec.ReadinessProbe.HTTPGet.Host = selectedIP
+			} else {
+				vmi.Spec.ReadinessProbe.TCPSocket.Host = selectedIP
+			}
+
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
+			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+
+			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmiReady(vmi)).To(Equal(v1.ConditionFalse))
+
+			By("Checking that the VMI and the pod will be marked as ready to receive traffic")
+			Eventually(func() v1.ConditionStatus {
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vmiReady(vmi)
+			}, 60, 1).Should(Equal(v1.ConditionTrue))
+			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionTrue))
+
+		},
+			table.Entry("[test_id:TODO][posneg:positive]with working TCP probe and tcp server", tcpProbe),
+			table.Entry("[test_id:TODO][posneg:positive]with working HTTP probe and http server", httpProbe),
+		)
+
 		table.DescribeTable("should fail", func(readinessProbe *v12.Probe) {
 			By("Specifying a VMI with a readiness probe")
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
