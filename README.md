@@ -153,6 +153,7 @@ $ make cluster-sync
 ```
 ### Command-Line Tool
 Use `./cluster/kubectl.sh` as the command-line tool.
+
 For example:
 ```bash
 $ ./cluster/kubectl.sh get pods --all-namespaces

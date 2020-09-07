@@ -14,7 +14,7 @@ script:
 - make build
 # Unit tests
 - make test
-- $GOPATH/bin/goveralls -service=travis-ci -coverprofile=pkg/controller/hyperconverged/hyperconverged.coverprofile
+- $GOPATH/bin/goveralls -service=travis-ci -coverprofile=pkg/controller/hyperconverged/hyperconverged.coverprofile || true
 # Verify the current manifests pass validation
 - make container-build-operator-courier
 
