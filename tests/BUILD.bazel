@@ -8,6 +8,7 @@ go_library(
         "job.go",
         "login.go",
         "ping.go",
+        "pod_servers.go",
         "test.go",
         "utils.go",
         "vmi_servers.go",
