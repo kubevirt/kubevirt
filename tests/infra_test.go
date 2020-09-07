@@ -43,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	"k8s.io/client-go/util/retry"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -173,12 +174,18 @@ var _ = Describe("Infrastructure", func() {
 
 		table.DescribeTable("should be rotated when deleted for ", func(secretName string) {
 			By("destroying the certificate")
-			secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(secretName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			secret.Data = map[string][]byte{
-				"random": []byte("nonsense"),
-			}
-			_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Update(secret)
+			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(secretName, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				secret.Data = map[string][]byte{
+					"random": []byte("nonsense"),
+				}
+				_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Update(secret)
+
+				return err
+			})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("checking that the secret gets restored with a new certificate")
