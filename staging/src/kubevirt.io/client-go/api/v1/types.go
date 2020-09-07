@@ -492,6 +492,10 @@ const (
 	InstallStrategyRegistryAnnotation = "kubevirt.io/install-strategy-registry"
 	// This annotation represents the kubevirt deployment identifier used for an install strategy configmap.
 	InstallStrategyIdentifierAnnotation = "kubevirt.io/install-strategy-identifier"
+	// This annotation is a hash of all customizations that live under spec.CustomizeComponents
+	KubeVirtCustomizeComponentAnnotationHash = "kubevirt.io/customizer-identifier"
+	// This annotation represents the kubevirt generation that was used to create a resource
+	KubeVirtGenerationAnnotation = "kubevirt.io/generation"
 	// This annotation represents that this object is for temporary use during updates
 	EphemeralBackupObject = "kubevirt.io/ephemeral-backup-object"
 
@@ -1160,7 +1164,31 @@ type KubeVirtSpec struct {
 	// holds kubevirt configurations.
 	// same as the virt-configMap
 	Configuration KubeVirtConfiguration `json:"configuration,omitempty"`
+
+	CustomizeComponents CustomizeComponents `json:"customizeComponents,omitempty"`
 }
+
+// +k8s:openapi-gen=true
+type CustomizeComponents struct {
+	// +listType=atomic
+	Patches []Patch `json:"patches,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type Patch struct {
+	ResourceName string    `json:"resourceName,omitempty"`
+	ResourceType string    `json:"resourceType,omitempty"`
+	Patch        string    `json:"patch,omitempty"`
+	Type         PatchType `json:"type,omitempty"`
+}
+
+type PatchType string
+
+const (
+	JSONPatchType           PatchType = "json"
+	MergePatchType          PatchType = "merge"
+	StrategicMergePatchType PatchType = "strategic"
+)
 
 type KubeVirtUninstallStrategy string
 

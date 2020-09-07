@@ -701,6 +701,60 @@ spec:
 		})
 	})
 
+	Describe("[test_id:4744]should apply component customization", func() {
+
+		It("test appling and removing a patch", func() {
+			annotationPatchValue := "new-annotation-value"
+			annotationPatchKey := "applied-patch"
+
+			By("Updating KubeVirt Object")
+			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			kv.Spec.CustomizeComponents = v1.CustomizeComponents{
+				Patches: []v1.Patch{
+					{
+
+						ResourceName: "virt-controller",
+						ResourceType: "Deployment",
+						Patch:        fmt.Sprintf(`{"spec":{"template": {"metadata": { "annotations": {"%s":"%s"}}}}}`, annotationPatchKey, annotationPatchValue),
+						Type:         v1.StrategicMergePatchType,
+					},
+				},
+			}
+
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+			Expect(err).ToNot(HaveOccurred())
+			generation := kv.GetGeneration()
+
+			By("Test that patch was applied to deployment")
+			Eventually(func() string {
+				vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get("virt-controller", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				return vc.Spec.Template.ObjectMeta.Annotations[annotationPatchKey]
+			}, 60*time.Second, 5*time.Second).Should(Equal(annotationPatchValue))
+
+			By("Deleting patch from KubeVirt object")
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Check that KubeVirt CR generation does not get updated when applying patch")
+			Expect(kv.GetGeneration()).To(Equal(generation))
+
+			kv.Spec.CustomizeComponents = v1.CustomizeComponents{}
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Test that patch was removed from deployment")
+			Eventually(func() string {
+				vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get("virt-controller", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				return vc.Spec.Template.ObjectMeta.Annotations[annotationPatchKey]
+			}, 60*time.Second, 5*time.Second).Should(Equal(""))
+		})
+	})
+
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should update kubevirt", func() {
 
 		// This test is installing a previous release of KubeVirt

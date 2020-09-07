@@ -320,6 +320,19 @@ func (KubeVirtSpec) SwaggerDoc() map[string]string {
 	}
 }
 
+func (CustomizeComponents) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":        "+k8s:openapi-gen=true",
+		"patches": "+listType=atomic",
+	}
+}
+
+func (Patch) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
 func (KubeVirtStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "KubeVirtStatus represents information pertaining to a KubeVirt deployment.\n\n+k8s:openapi-gen=true",
