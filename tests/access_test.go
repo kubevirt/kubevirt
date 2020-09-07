@@ -33,17 +33,22 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[Serial][rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:component]User Access", func() {
+var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:component]User Access", func() {
 
 	view := tests.ViewServiceAccountName
 	edit := tests.EditServiceAccountName
 	admin := tests.AdminServiceAccountName
 
 	var k8sClient string
+	var authClient *authClientV1.AuthorizationV1Client
 
 	BeforeEach(func() {
 		k8sClient = tests.GetK8sCmdClient()
 		tests.SkipIfNoCmd(k8sClient)
+		virtClient, err := kubecli.GetKubevirtClient()
+		Expect(err).ToNot(HaveOccurred())
+		authClient, err = authClientV1.NewForConfig(virtClient.Config())
+		Expect(err).ToNot(HaveOccurred())
 
 		tests.BeforeTestCleanup()
 	})
@@ -138,14 +143,6 @@ var _ = Describe("[Serial][rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][leve
 			table.Entry("given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
 			table.Entry("given a vmsrestore", "virtualmachinerestores"),
 		)
-
-		var authClient *authClientV1.AuthorizationV1Client
-		It("[test_id:3231]Prepare auth client", func() {
-			virtClient, err := kubecli.GetKubevirtClient()
-			Expect(err).ToNot(HaveOccurred())
-			authClient, err = authClientV1.NewForConfig(virtClient.Config())
-			Expect(err).ToNot(HaveOccurred())
-		})
 
 		table.DescribeTable("should verify permissions on subresources are correct for view, edit, and admin", func(resource string, subresource string) {
 
@@ -247,9 +244,12 @@ var _ = Describe("[Serial][rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][leve
 		)
 	})
 
-	Describe("[rfe_id:2919][crit:high][vendor:cnv-qe@redhat.com][level:component] With regular OpenShift user", func() {
+	Describe("[Serial][rfe_id:2919][crit:high][vendor:cnv-qe@redhat.com][level:component] With regular OpenShift user", func() {
 		BeforeEach(func() {
 			tests.SkipIfNoCmd("oc")
+			if !tests.IsOpenShift() {
+				Skip("Skip tests which require an openshift managed test user if not running on openshift")
+			}
 		})
 
 		const testUser = "testuser"
