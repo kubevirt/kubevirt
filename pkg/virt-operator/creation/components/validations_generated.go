@@ -135,6 +135,23 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
               type: array
           type: object
+        customizeComponents:
+          properties:
+            patches:
+              items:
+                properties:
+                  patch:
+                    type: string
+                  resourceName:
+                    type: string
+                  resourceType:
+                    type: string
+                  type:
+                    type: string
+                type: object
+              type: array
+              x-kubernetes-list-type: atomic
+          type: object
         imagePullPolicy:
           description: The ImagePullPolicy to use.
           type: string
