@@ -4,7 +4,5 @@ kind: HyperConverged
 metadata:
   name: kubevirt-hyperconverged
 spec:
-  infra:
-    affinity: {}
-  workloads:
-    affinity: {}
+  infra: {}
+  workloads: {}

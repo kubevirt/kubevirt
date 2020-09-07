@@ -32,13 +32,14 @@ type HyperConvergedConfig struct {
 	// See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
 	// +kubebuilder:validation:Optional
 	// +optional
-	Affinity corev1.Affinity `json:"affinity,omitempty"`
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 
 	// tolerations is a list of tolerations applied to the relevant kind of pods
 	// See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info.
 	// These are additional tolerations other than default ones.
 	// +kubebuilder:validation:Optional
 	// +optional
+	// +listType=set
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
