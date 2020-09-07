@@ -194,3 +194,19 @@ func createProbeSpecification(period int32, initialSeconds int32, handler v12.Ha
 		Handler:             handler,
 	}
 }
+
+func isHTTPProbe(probe v12.Probe) bool {
+	return probe.Handler.HTTPGet != nil
+}
+
+func buildProbeBackendPodSpec(probe *v12.Probe) *v1.Pod {
+	var probeBackendPod *v1.Pod
+	if isHTTPProbe(*probe) {
+		port := probe.HTTPGet.Port.IntVal
+		probeBackendPod = tests.StartHTTPServerPod(int(port))
+	} else {
+		port := probe.TCPSocket.Port.IntVal
+		probeBackendPod = tests.StartTCPServerPod(int(port))
+	}
+	return probeBackendPod
+}
