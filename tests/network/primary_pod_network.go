@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
@@ -83,17 +84,50 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 		})
 
 		Context("VMI connected to the pod network using masquerade binding", func() {
-			var vmi *v1.VirtualMachineInstance
+			When("Guest Agent exists", func() {
+				var vmi *v1.VirtualMachineInstance
 
-			BeforeEach(func() {
-				vmi = setupVMI(virtClient, vmiWithMasqueradeBinding())
+				BeforeEach(func() {
+					tmpVmi, err := newFedoraWithGuestAgent()
+					Expect(err).NotTo(HaveOccurred())
+
+					tmpVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(tmpVmi)
+					Expect(err).NotTo(HaveOccurred())
+					vmi = tests.WaitUntilVMIReady(tmpVmi, tests.LoggedInFedoraExpecter)
+
+					tests.WaitAgentConnected(virtClient, vmi)
+				})
+
+				AfterEach(func() {
+					cleanupVMI(virtClient, vmi)
+				})
+
+				It("[test_id:4153]should report PodIP/s as its own on interface status", func() {
+					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+					Consistently(func() error {
+						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						if err != nil {
+							return err
+						}
+						return libnet.ValidateVMIandPodIPMatch(vmi, vmiPod)
+					}, 5*time.Second, time.Second).Should(Succeed())
+				})
+
 			})
 
-			AfterEach(func() {
-				cleanupVMI(virtClient, vmi)
-			})
+			When("no Guest Agent exists", func() {
+				var vmi *v1.VirtualMachineInstance
 
-			It("[Conformance] should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
+				BeforeEach(func() {
+					vmi = setupVMI(virtClient, vmiWithMasqueradeBinding())
+				})
+
+				AfterEach(func() {
+					cleanupVMI(virtClient, vmi)
+				})
+
+				It("[Conformance] should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
+			})
 		})
 	})
 })
@@ -142,4 +176,17 @@ func vmiWithMasqueradeBinding() *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	return vmi
+}
+
+func newFedoraWithGuestAgent() (*v1.VirtualMachineInstance, error) {
+	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
+	if err != nil {
+		return nil, err
+	}
+
+	tmpVmi := libvmi.NewFedora(
+		libvmi.WithCloudInitNoCloudUserData(tests.GetGuestAgentUserData(), false),
+		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
+	)
+	return tmpVmi, nil
 }
