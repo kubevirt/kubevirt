@@ -86,7 +86,7 @@ var _ = SIGDescribe("Services", func() {
 		}, 2*time.Minute, time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), "The VMI should be gone within the given timeout")
 	}
 
-	assertConnectivityToService := func(serviceName, namespace string, servicePort int) {
+	assertConnectivityToService := func(serviceName, namespace string, servicePort int) func() error {
 		serviceFQDN := fmt.Sprintf("%s.%s", serviceName, namespace)
 
 		By(fmt.Sprintf("starting a job which tries to reach the vmi via service %s", serviceFQDN))
@@ -94,9 +94,12 @@ var _ = SIGDescribe("Services", func() {
 
 		By(fmt.Sprintf("waiting for the job to report a SUCCESSFUL connection attempt to service %s on port %d", serviceFQDN, servicePort))
 		tests.WaitForJobToSucceed(job, 90)
+		return func() error {
+			return virtClient.BatchV1().Jobs(tests.NamespaceTestDefault).Delete(job.Name, &k8smetav1.DeleteOptions{})
+		}
 	}
 
-	assertNoConnectivityToService := func(serviceName, namespace string, servicePort int) {
+	assertNoConnectivityToService := func(serviceName, namespace string, servicePort int) func() error {
 		serviceFQDN := fmt.Sprintf("%s.%s", serviceName, namespace)
 
 		By(fmt.Sprintf("starting a job which tries to reach the vmi via service %s", serviceFQDN))
@@ -104,6 +107,9 @@ var _ = SIGDescribe("Services", func() {
 
 		By(fmt.Sprintf("waiting for the job to report a FAILED connection attempt to service %s on port %d", serviceFQDN, servicePort))
 		tests.WaitForJobToFail(job, 90)
+		return func() error {
+			return virtClient.BatchV1().Jobs(tests.NamespaceTestDefault).Delete(job.Name, &k8smetav1.DeleteOptions{})
+		}
 	}
 
 	BeforeEach(func() {
@@ -148,43 +154,64 @@ var _ = SIGDescribe("Services", func() {
 		})
 
 		Context("with a service matching the vmi exposed", func() {
+			var jobsToCleanup []func() error
+
 			BeforeEach(func() {
 				serviceName = "myservice"
 
 				service := buildServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(service)
 				Expect(err).ToNot(HaveOccurred())
+
+				// reset the job cleanup functions list
+				jobsToCleanup = nil
 			})
 
 			AfterEach(func() {
 				Expect(virtClient.CoreV1().Services(inboundVMI.Namespace).Delete(serviceName, &k8smetav1.DeleteOptions{})).To(Succeed())
 			})
 
+			AfterEach(func() {
+				cleanupJobs(jobsToCleanup)
+			})
+
 			It("[test_id:1547] should be able to reach the vmi based on labels specified on the vmi", func() {
-				assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
+				jobCleanupFunction := assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
+				jobsToCleanup = append(jobsToCleanup, jobCleanupFunction)
 			})
 
 			It("[test_id:1548] should fail to reach the vmi if an invalid servicename is used", func() {
-				assertNoConnectivityToService("wrongservice", inboundVMI.Namespace, servicePort)
+				jobCleanupFunction := assertNoConnectivityToService("wrongservice", inboundVMI.Namespace, servicePort)
+				jobsToCleanup = append(jobsToCleanup, jobCleanupFunction)
 			})
 		})
 
 		Context("with a subdomain and a headless service given", func() {
+			var jobsToCleanup []func() error
+
 			BeforeEach(func() {
 				serviceName = inboundVMI.Spec.Subdomain
 
 				service := buildHeadlessServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(service)
 				Expect(err).ToNot(HaveOccurred())
+
+				// reset the job cleanup functions list
+				jobsToCleanup = nil
 			})
 
 			AfterEach(func() {
 				Expect(virtClient.CoreV1().Services(inboundVMI.Namespace).Delete(serviceName, &k8smetav1.DeleteOptions{})).To(Succeed())
 			})
 
+			AfterEach(func() {
+				cleanupJobs(jobsToCleanup)
+			})
+
 			It("[test_id:1549]should be able to reach the vmi via its unique fully qualified domain name", func() {
 				serviceHostnameWithSubdomain := fmt.Sprintf("%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain)
-				assertConnectivityToService(serviceHostnameWithSubdomain, inboundVMI.Namespace, servicePort)
+				jobCleanupFunction := assertConnectivityToService(serviceHostnameWithSubdomain, inboundVMI.Namespace, servicePort)
+				jobsToCleanup = append(jobsToCleanup, jobCleanupFunction)
 			})
 		})
 	})
@@ -220,6 +247,7 @@ var _ = SIGDescribe("Services", func() {
 		})
 
 		Context("with a service matching the vmi exposed", func() {
+			var jobsToCleanup []func() error
 			var serviceManager *vmiServiceManager
 			var serviceNamePrefix string
 
@@ -234,6 +262,9 @@ var _ = SIGDescribe("Services", func() {
 					_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(&exposedService)
 					Expect(err).NotTo(HaveOccurred())
 				}
+
+				// reset the job cleanup functions list
+				jobsToCleanup = nil
 			})
 
 			AfterEach(func() {
@@ -247,18 +278,35 @@ var _ = SIGDescribe("Services", func() {
 				}
 			})
 
+			AfterEach(func() {
+				cleanupJobs(jobsToCleanup)
+			})
+
 			It("should be able to reach the vmi based on labels specified on the vmi", func() {
 				for _, exposedService := range serviceManager.services {
-					assertConnectivityToService(exposedService.Name, inboundVMI.Namespace, servicePort)
+					jobCleanupFunc := assertConnectivityToService(exposedService.Name, inboundVMI.Namespace, servicePort)
+					jobsToCleanup = append(jobsToCleanup, jobCleanupFunc)
 				}
 			})
 
 			It("should fail to reach the vmi if an invalid servicename is used", func() {
-				assertNoConnectivityToService("wrongservice", inboundVMI.Namespace, servicePort)
+				jobCleanupFunc := assertNoConnectivityToService("wrongservice", inboundVMI.Namespace, servicePort)
+				jobsToCleanup = append(jobsToCleanup, jobCleanupFunc)
 			})
 		})
 	})
 })
+
+func cleanupJobs(jobsCleanupFunctions []func() error) {
+	var errorBucket []error
+	for _, jobCleanupFunc := range jobsCleanupFunctions {
+		err := jobCleanupFunc()
+		if err != nil {
+			errorBucket = append(errorBucket, err)
+		}
+	}
+	Expect(errorBucket).To(BeEmpty(), "Removing the `Job`s should be successful.")
+}
 
 func buildHeadlessServiceSpec(serviceName string, exposedPort int, portToExpose int, selectorKey string, selectorValue string) *k8sv1.Service {
 	service := buildServiceSpec(serviceName, exposedPort, portToExpose, selectorKey, selectorValue)
