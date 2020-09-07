@@ -22,4 +22,54 @@ var _ = Describe("CRDs", func() {
 		table.Entry("for VMSNAPSHOT", NewVirtualMachineSnapshotCrd()),
 		table.Entry("for VMSNAPSHOTCONTENT", NewVirtualMachineSnapshotContentCrd()),
 	)
+
+	It("DataVolumeTemplates should have nullable a XPreserveUnknownFields on metadata", func() {
+		crd := NewVirtualMachineCrd()
+		patchValidation(crd)
+		spec := crd.Spec.Validation.OpenAPIV3Schema.Properties["spec"]
+		dataVolumeTemplates := spec.Properties["dataVolumeTemplates"]
+		items := dataVolumeTemplates.Items
+		metadata := items.Schema.Properties["metadata"]
+		Expect(metadata.Nullable).To(BeTrue())
+		Expect(metadata.XPreserveUnknownFields).NotTo(BeNil())
+		Expect(*metadata.XPreserveUnknownFields).To(BeTrue())
+
+	})
+
+	It("Template in VM should have nullable a XPreserveUnknownFields on metadata", func() {
+		crd := NewVirtualMachineCrd()
+		patchValidation(crd)
+		spec := crd.Spec.Validation.OpenAPIV3Schema.Properties["spec"]
+		template := spec.Properties["template"]
+		metadata := template.Properties["metadata"]
+		Expect(metadata.Nullable).To(BeTrue())
+		Expect(metadata.XPreserveUnknownFields).NotTo(BeNil())
+		Expect(*metadata.XPreserveUnknownFields).To(BeTrue())
+	})
+
+	It("Template in VMRS should have nullable a XPreserveUnknownFields on metadata", func() {
+		crd := NewReplicaSetCrd()
+		patchValidation(crd)
+		spec := crd.Spec.Validation.OpenAPIV3Schema.Properties["spec"]
+		template := spec.Properties["template"]
+		metadata := template.Properties["metadata"]
+		Expect(metadata.Nullable).To(BeTrue())
+		Expect(metadata.XPreserveUnknownFields).NotTo(BeNil())
+		Expect(*metadata.XPreserveUnknownFields).To(BeTrue())
+	})
+
+	It("Template in VMSnapshotContent should have nullable a XPreserveUnknownFields on metadata", func() {
+		crd := NewVirtualMachineSnapshotContentCrd()
+		patchValidation(crd)
+		spec := crd.Spec.Validation.OpenAPIV3Schema.Properties["spec"]
+		source := spec.Properties["source"]
+		vm := source.Properties["virtualMachine"]
+		vmspec := vm.Properties["spec"]
+		template := vmspec.Properties["template"]
+		metadata := template.Properties["metadata"]
+
+		Expect(metadata.Nullable).To(BeTrue())
+		Expect(metadata.XPreserveUnknownFields).NotTo(BeNil())
+		Expect(*metadata.XPreserveUnknownFields).To(BeTrue())
+	})
 })
