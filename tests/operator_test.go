@@ -91,6 +91,9 @@ var _ = Describe("Operator", func() {
 		patchKvProductNameAndVersion      func(string, string, string)
 		patchKvVersionAndRegistry         func(string, string, string)
 		patchKvVersion                    func(string, string)
+		patchKvNodePlacement              func(string, string, string, *v1.NodePlacement)
+		patchKvInfra                      func(string, *v1.NodePlacement)
+		patchKvWorkloads                  func(string, *v1.NodePlacement)
 		parseDaemonset                    func(string) (*v12.DaemonSet, string, string, string, string)
 		parseImage                        func(string, string) (string, string, string)
 		parseDeployment                   func(string) (*v12.Deployment, string, string, string, string)
@@ -354,6 +357,40 @@ var _ = Describe("Operator", func() {
 
 				return err
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}
+
+		patchKvNodePlacement = func(name string, path string, verb string, nodePlacement *v1.NodePlacement) {
+			var data []byte
+			nodePlacementData, _ := json.Marshal(nodePlacement)
+
+			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/%s", "value": %s}]`, verb, path, string(nodePlacementData)))
+			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
+			Eventually(func() error {
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
+
+				return err
+			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+		}
+
+		patchKvInfra = func(name string, infra *v1.NodePlacement) {
+			kv := copyOriginalKv()
+			verb := "add"
+			if kv.Spec.Infra != nil {
+				verb = "replace"
+			}
+
+			patchKvNodePlacement(name, "infra", verb, infra)
+		}
+
+		patchKvWorkloads = func(name string, workloads *v1.NodePlacement) {
+			kv := copyOriginalKv()
+			verb := "add"
+			if kv.Spec.Workloads != nil {
+				verb = "replace"
+			}
+
+			patchKvNodePlacement(name, "workloads", verb, workloads)
 		}
 
 		parseDaemonset = func(name string) (daemonSet *v12.DaemonSet, image, registry, imagePrefix, version string) {
@@ -695,7 +732,7 @@ spec:
 	It("[test_id:1746]should have created and available condition", func() {
 		kv := tests.GetCurrentKv(virtClient)
 
-		By("vyrifying that created and available condition is present")
+		By("verifying that created and available condition is present")
 		waitForKv(kv)
 	})
 
@@ -1572,6 +1609,55 @@ spec:
 			Expect(err).ToNot(HaveOccurred())
 			return mutatingWebhook.Labels
 		}, 20*time.Second, 1*time.Second).Should(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))
+	})
+
+	Context("Node Placement", func() {
+		It("should dynamically update infra config", func() {
+			// This label shouldn't exist, but this isn't harmful
+			// existing/running deployments will not be torn down until
+			// new ones are stood up (and the new ones will get stuck in scheduling)
+			labelKey := "kubevirt-test"
+			labelValue := "test-label"
+			kv := copyOriginalKv()
+			infra := v1.NodePlacement{
+				NodeSelector: map[string]string{labelKey: labelValue},
+			}
+			patchKvInfra(kv.Name, &infra)
+
+			Eventually(func() bool {
+				for _, name := range []string{"virt-controller", "virt-api"} {
+					deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					if deployment.Spec.Template.Spec.NodeSelector == nil || deployment.Spec.Template.Spec.NodeSelector[labelKey] != labelValue {
+						return false
+					}
+				}
+				return true
+			}, 60*time.Second, 1*time.Second).Should(BeTrue())
+
+			patchKvInfra(kv.Name, nil)
+		})
+
+		It("should dynamically update workloads config", func() {
+			labelKey := "kubevirt-test"
+			labelValue := "test-label"
+			kv := copyOriginalKv()
+			workloads := v1.NodePlacement{
+				NodeSelector: map[string]string{labelKey: labelValue},
+			}
+			patchKvWorkloads(kv.Name, &workloads)
+
+			Eventually(func() bool {
+				daemonset, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if daemonset.Spec.Template.Spec.NodeSelector == nil || daemonset.Spec.Template.Spec.NodeSelector[labelKey] != labelValue {
+					return false
+				}
+				return true
+			}, 60*time.Second, 1*time.Second).Should(BeTrue())
+
+			patchKvWorkloads(kv.Name, nil)
+		})
 	})
 })
 
