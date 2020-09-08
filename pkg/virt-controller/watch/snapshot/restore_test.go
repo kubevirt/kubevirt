@@ -6,9 +6,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -24,7 +26,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
-var _ = Describe("Snapshot controlleer", func() {
+var _ = Describe("Restore controlleer", func() {
 	const (
 		testNamespace  = "default"
 		uid            = "uid"
@@ -33,8 +35,9 @@ var _ = Describe("Snapshot controlleer", func() {
 	)
 
 	var (
-		vmAPIGroup = "kubevirt.io"
-		timeStamp  = metav1.Now()
+		vmAPIGroup       = "kubevirt.io"
+		timeStamp        = metav1.Now()
+		storageClassName = "sc"
 	)
 
 	timeFunc := func() *metav1.Time {
@@ -78,6 +81,9 @@ var _ = Describe("Snapshot controlleer", func() {
 					Name:        r.PersistentVolumeClaimName,
 					Annotations: map[string]string{"restore.kubevirt.io/name": vmr.Name},
 				},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					StorageClassName: &storageClassName,
+				},
 			}
 			pvcs = append(pvcs, pvc)
 		}
@@ -90,6 +96,7 @@ var _ = Describe("Snapshot controlleer", func() {
 		s.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 			ReadyToUse:   &t,
 			CreationTime: timeFunc(),
+			SourceUID:    &vmUID,
 		}
 		return s
 	}
@@ -121,6 +128,16 @@ var _ = Describe("Snapshot controlleer", func() {
 		return names
 	}
 
+	createStorageClass := func() *storagev1.StorageClass {
+		bm := storagev1.VolumeBindingImmediate
+		return &storagev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: storageClassName,
+			},
+			VolumeBindingMode: &bm,
+		}
+	}
+
 	Context("One valid Restore controller given", func() {
 
 		var ctrl *gomock.Controller
@@ -148,6 +165,9 @@ var _ = Describe("Snapshot controlleer", func() {
 		var pvcInformer cache.SharedIndexInformer
 		var pvcSource *framework.FakeControllerSource
 
+		var storageClassInformer cache.SharedIndexInformer
+		var storageClassSource *framework.FakeControllerSource
+
 		var stop chan struct{}
 		var controller *VMRestoreController
 		var recorder *record.FakeRecorder
@@ -165,6 +185,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			go pvcInformer.Run(stop)
 			go vmiInformer.Run(stop)
 			go dataVolumeInformer.Run(stop)
+			go storageClassInformer.Run(stop)
 			Expect(cache.WaitForCacheSync(
 				stop,
 				vmRestoreInformer.HasSynced,
@@ -174,6 +195,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				pvcInformer.HasSynced,
 				vmiInformer.HasSynced,
 				dataVolumeInformer.HasSynced,
+				storageClassInformer.HasSynced,
 			)).To(BeTrue())
 		}
 
@@ -200,6 +222,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 			dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			pvcInformer, pvcSource = testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
+			storageClassInformer, storageClassSource = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 
 			recorder = record.NewFakeRecorder(100)
 
@@ -211,6 +234,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				VMInformer:                vmInformer,
 				VMIInformer:               vmiInformer,
 				PVCInformer:               pvcInformer,
+				StorageClassInformer:      storageClassInformer,
 				DataVolumeInformer:        dataVolumeInformer,
 				Recorder:                  recorder,
 			}
@@ -276,6 +300,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				s := createSnapshot()
 				vm := createSnapshotVM()
 				sc := createVirtualMachineSnapshotContent(s, vm)
+				storageClass := createStorageClass()
 				s.Status.VirtualMachineSnapshotContentName = &sc.Name
 				sc.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					CreationTime: timeFunc(),
@@ -283,6 +308,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 				vmSnapshotSource.Add(s)
 				vmSnapshotContentSource.Add(sc)
+				storageClassSource.Add(storageClass)
 			})
 
 			It("should error if snapshot does not exist", func() {
@@ -298,6 +324,26 @@ var _ = Describe("Snapshot controlleer", func() {
 					},
 				}
 				vmSnapshotSource.Delete(createSnapshot())
+				vmSource.Add(vm)
+				expectVMRestoreUpdate(kubevirtClient, rc)
+				addVirtualMachineRestore(r)
+				controller.processVMRestoreWorkItem()
+				testutils.ExpectEvent(recorder, "VirtualMachineRestoreError")
+			})
+
+			It("should error if different source UID", func() {
+				r := createRestore()
+				vm := createModifiedVM()
+				vm.UID = types.UID("foobar")
+				rc := r.DeepCopy()
+				rc.ResourceVersion = "1"
+				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: &f,
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionFalse, "VMSnapshot source and restore target differ"),
+						newReadyCondition(corev1.ConditionFalse, "VMSnapshot source and restore target differ"),
+					},
+				}
 				vmSource.Add(vm)
 				expectVMRestoreUpdate(kubevirtClient, rc)
 				addVirtualMachineRestore(r)
@@ -341,6 +387,29 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.processVMRestoreWorkItem()
 			})
 
+			It("should wait for bound", func() {
+				r := createRestore()
+				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: &f,
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Creating new PVCs"),
+						newReadyCondition(corev1.ConditionFalse, "Waiting for new PVCs"),
+					},
+				}
+				addVolumeRestores(r)
+
+				vm := createModifiedVM()
+				vmi := createVMI(vm)
+				vmSource.Add(vm)
+				vmiSource.Add(vmi)
+				vmRestoreSource.Add(r)
+				for _, pvc := range getRestorePVCs(r) {
+					pvc.Status.Phase = corev1.ClaimPending
+					addPVC(&pvc)
+				}
+				controller.processVMRestoreWorkItem()
+			})
+
 			It("should update restore status with datavolume", func() {
 				r := createRestore()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
@@ -365,6 +434,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmRestoreSource.Add(r)
 				expectVMRestoreUpdate(kubevirtClient, ur)
 				for _, pvc := range getRestorePVCs(r) {
+					pvc.Status.Phase = corev1.ClaimBound
 					addPVC(&pvc)
 				}
 				controller.processVMRestoreWorkItem()
@@ -397,6 +467,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				expectPVCUpdates(k8sClient, ur)
 				expectVMRestoreUpdate(kubevirtClient, ur)
 				for _, pvc := range getRestorePVCs(r) {
+					pvc.Status.Phase = corev1.ClaimBound
 					addPVC(&pvc)
 				}
 				controller.processVMRestoreWorkItem()
@@ -426,6 +497,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmInterface.EXPECT().Update(updatedVM).Return(updatedVM, nil)
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Annotations["cdi.kubevirt.io/storage.populatedFor"] = pvc.Name
+					pvc.Status.Phase = corev1.ClaimBound
 					pvcSource.Add(&pvc)
 				}
 				addVirtualMachineRestore(r)
@@ -451,6 +523,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      vmName,
 						Namespace: testNamespace,
+						UID:       vmUID,
 						Annotations: map[string]string{
 							"restore.kubevirt.io/lastRestoreUID": "restore-uid",
 						},
@@ -480,6 +553,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Annotations["cdi.kubevirt.io/storage.populatedFor"] = pvc.Name
+					pvc.Status.Phase = corev1.ClaimBound
 					pvcSource.Add(&pvc)
 				}
 

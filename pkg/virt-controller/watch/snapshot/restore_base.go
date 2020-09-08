@@ -46,8 +46,8 @@ type VMRestoreController struct {
 	VMInformer                cache.SharedIndexInformer
 	VMIInformer               cache.SharedIndexInformer
 	DataVolumeInformer        cache.SharedIndexInformer
-
-	PVCInformer cache.SharedIndexInformer
+	PVCInformer               cache.SharedIndexInformer
+	StorageClassInformer      cache.SharedIndexInformer
 
 	Recorder record.EventRecorder
 
