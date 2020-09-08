@@ -764,7 +764,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		When("performing migration", func() {
 			var vmi *v1.VirtualMachineInstance
-			var virtHandlerIP string
+			var virtHandlerIPs []k8sv1.PodIP
 
 			ping := func(ipAddr string) error {
 				return tests.PingFromVMConsole(vmi, ipAddr, "-c 1", "-w 2")
@@ -813,10 +813,12 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				virtHandlerPod, err := getVirtHandlerPod()
 				Expect(err).ToNot(HaveOccurred())
-				virtHandlerIP = virtHandlerPod.Status.PodIPs[0].IP
+				virtHandlerIPs = virtHandlerPod.Status.PodIPs
 
 				By("Check connectivity")
-				Expect(ping(virtHandlerIP)).To(Succeed())
+				for _, podIP := range virtHandlerIPs {
+					Expect(ping(podIP.IP)).To(Succeed())
+				}
 
 				By("Execute migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -844,7 +846,13 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			It("preserves connectivity", func() {
 				Eventually(func() error {
-					return ping(virtHandlerIP)
+					for _, podIP := range virtHandlerIPs {
+						err := ping(podIP.IP)
+						if err != nil {
+							return err
+						}
+					}
+					return nil
 				}, 120*time.Second).Should(Succeed())
 			})
 		})
