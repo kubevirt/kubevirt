@@ -123,6 +123,23 @@ func (admitter *VMRestoreAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 			return webhookutils.ToAdmissionResponseError(err)
 		}
 
+		restores, err := admitter.Client.VirtualMachineRestore(ar.Request.Namespace).List(metav1.ListOptions{})
+		if err != nil {
+			return webhookutils.ToAdmissionResponseError(err)
+		}
+
+		for _, r := range restores.Items {
+			if reflect.DeepEqual(r.Spec.Target, vmRestore.Spec.Target) &&
+				(r.Status == nil || r.Status.Complete == nil || *r.Status.Complete == false) {
+				cause := metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("VirtualMachineRestore %q in progress", r.Name),
+					Field:   targetField.Child("name").String(),
+				}
+				causes = append(causes, cause)
+			}
+		}
+
 		causes = append(causes, snapshotCauses...)
 
 	case v1beta1.Update:

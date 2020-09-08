@@ -178,6 +178,7 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"virtualmachinesnapshots",
+					"virtualmachinerestores",
 				},
 				Verbs: []string{
 					"get", "list", "watch",

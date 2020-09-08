@@ -315,6 +315,7 @@ rules:
   - snapshot.kubevirt.io
   resources:
   - virtualmachinesnapshots
+  - virtualmachinerestores
   verbs:
   - get
   - list

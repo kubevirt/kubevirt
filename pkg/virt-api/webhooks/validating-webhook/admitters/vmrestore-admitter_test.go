@@ -72,11 +72,15 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 	Context("Without feature gate enabled", func() {
 		It("should reject anything", func() {
 			restore := &snapshotv1.VirtualMachineRestore{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "restore",
+					Namespace: "default",
+				},
 				Spec: snapshotv1.VirtualMachineRestoreSpec{},
 			}
 
 			ar := createRestoreAdmissionReview(restore)
-			resp := createTestVMRestoreAdmitter(config, nil, nil).Admit(ar)
+			resp := createTestVMRestoreAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(Equal("Snapshot/Restore feature gate not enabled"))
 		})
@@ -108,13 +112,17 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				},
 			}
 
-			resp := createTestVMRestoreAdmitter(config, nil, nil).Admit(ar)
+			resp := createTestVMRestoreAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).Should(ContainSubstring("Unexpected Resource"))
 		})
 
 		It("should reject missing apigroup", func() {
 			restore := &snapshotv1.VirtualMachineRestore{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "restore",
+					Namespace: "default",
+				},
 				Spec: snapshotv1.VirtualMachineRestoreSpec{
 					Target: corev1.TypedLocalObjectReference{
 						Kind: "VirtualMachine",
@@ -133,6 +141,10 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 		It("should reject when VM does not exist", func() {
 			restore := &snapshotv1.VirtualMachineRestore{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "restore",
+					Namespace: "default",
+				},
 				Spec: snapshotv1.VirtualMachineRestoreSpec{
 					Target: corev1.TypedLocalObjectReference{
 						APIGroup: &apiGroup,
@@ -152,6 +164,10 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 		It("should reject when VM and snapshot do not exist", func() {
 			restore := &snapshotv1.VirtualMachineRestore{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "restore",
+					Namespace: "default",
+				},
 				Spec: snapshotv1.VirtualMachineRestoreSpec{
 					Target: corev1.TypedLocalObjectReference{
 						APIGroup: &apiGroup,
@@ -163,7 +179,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			}
 
 			ar := createRestoreAdmissionReview(restore)
-			resp := createTestVMRestoreAdmitter(config, nil, nil).Admit(ar)
+			resp := createTestVMRestoreAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(len(resp.Result.Details.Causes)).To(Equal(2))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.name"))
@@ -172,6 +188,10 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 		It("should reject spec update", func() {
 			restore := &snapshotv1.VirtualMachineRestore{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "restore",
+					Namespace: "default",
+				},
 				Spec: snapshotv1.VirtualMachineRestoreSpec{
 					Target: corev1.TypedLocalObjectReference{
 						APIGroup: &apiGroup,
@@ -183,6 +203,10 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			}
 
 			oldRestore := &snapshotv1.VirtualMachineRestore{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "restore",
+					Namespace: "default",
+				},
 				Spec: snapshotv1.VirtualMachineRestoreSpec{
 					Target: corev1.TypedLocalObjectReference{
 						APIGroup: &apiGroup,
@@ -194,7 +218,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			}
 
 			ar := createRestoreUpdateAdmissionReview(oldRestore, restore)
-			resp := createTestVMRestoreAdmitter(config, nil, nil).Admit(ar)
+			resp := createTestVMRestoreAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
@@ -202,6 +226,10 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 		It("should allow metadata update", func() {
 			oldRestore := &snapshotv1.VirtualMachineRestore{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "restore",
+					Namespace: "default",
+				},
 				Spec: snapshotv1.VirtualMachineRestoreSpec{
 					Target: corev1.TypedLocalObjectReference{
 						APIGroup: &apiGroup,
@@ -213,6 +241,8 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 			restore := &snapshotv1.VirtualMachineRestore{
 				ObjectMeta: metav1.ObjectMeta{
+					Name:       "restore",
+					Namespace:  "default",
 					Finalizers: []string{"finalizer"},
 				},
 				Spec: snapshotv1.VirtualMachineRestoreSpec{
@@ -225,7 +255,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			}
 
 			ar := createRestoreUpdateAdmissionReview(oldRestore, restore)
-			resp := createTestVMRestoreAdmitter(config, nil, nil).Admit(ar)
+			resp := createTestVMRestoreAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -243,6 +273,10 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 			It("should reject when VM is running", func() {
 				restore := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore",
+						Namespace: "default",
+					},
 					Spec: snapshotv1.VirtualMachineRestoreSpec{
 						Target: corev1.TypedLocalObjectReference{
 							APIGroup: &apiGroup,
@@ -264,6 +298,10 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 			It("should reject when snapshot does not exist", func() {
 				restore := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore",
+						Namespace: "default",
+					},
 					Spec: snapshotv1.VirtualMachineRestoreSpec{
 						Target: corev1.TypedLocalObjectReference{
 							APIGroup: &apiGroup,
@@ -277,7 +315,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				vm.Spec.Running = &f
 
 				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, nil).Admit(ar)
+				resp := createTestVMRestoreAdmitter(config, vm).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.virtualMachineSnapshotName"))
@@ -285,6 +323,10 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 			It("should reject when snapshot not ready", func() {
 				restore := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore",
+						Namespace: "default",
+					},
 					Spec: snapshotv1.VirtualMachineRestoreSpec{
 						Target: corev1.TypedLocalObjectReference{
 							APIGroup: &apiGroup,
@@ -308,6 +350,10 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 			It("should reject invalid kind", func() {
 				restore := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore",
+						Namespace: "default",
+					},
 					Spec: snapshotv1.VirtualMachineRestoreSpec{
 						Target: corev1.TypedLocalObjectReference{
 							APIGroup: &apiGroup,
@@ -330,6 +376,10 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			It("should reject invalid apiGroup", func() {
 				g := "foo.bar"
 				restore := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore",
+						Namespace: "default",
+					},
 					Spec: snapshotv1.VirtualMachineRestoreSpec{
 						Target: corev1.TypedLocalObjectReference{
 							APIGroup: &g,
@@ -351,6 +401,10 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 			It("should reject invalid source ID", func() {
 				restore := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore",
+						Namespace: "default",
+					},
 					Spec: snapshotv1.VirtualMachineRestoreSpec{
 						Target: corev1.TypedLocalObjectReference{
 							APIGroup: &apiGroup,
@@ -368,6 +422,47 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.virtualMachineSnapshotName"))
+			})
+
+			It("should reject if restore in progress", func() {
+				restore := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore-in-process",
+						Namespace: "default",
+					},
+					Spec: snapshotv1.VirtualMachineRestoreSpec{
+						Target: corev1.TypedLocalObjectReference{
+							APIGroup: &apiGroup,
+							Kind:     "VirtualMachine",
+							Name:     vmName,
+						},
+						VirtualMachineSnapshotName: vmSnapshotName,
+					},
+				}
+
+				f := false
+				vm.Spec.Running = &f
+
+				restoreInProcess := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore-in-process",
+						Namespace: "default",
+					},
+					Spec: snapshotv1.VirtualMachineRestoreSpec{
+						Target: corev1.TypedLocalObjectReference{
+							APIGroup: &apiGroup,
+							Kind:     "VirtualMachine",
+							Name:     vmName,
+						},
+						VirtualMachineSnapshotName: vmSnapshotName,
+					},
+				}
+
+				ar := createRestoreAdmissionReview(restore)
+				resp := createTestVMRestoreAdmitter(config, vm, snapshot, restoreInProcess).Admit(ar)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.name"))
 			})
 
 			It("should accept when VM is not running", func() {
@@ -437,17 +532,19 @@ func createRestoreUpdateAdmissionReview(old, current *snapshotv1.VirtualMachineR
 	return ar
 }
 
-func createTestVMRestoreAdmitter(config *virtconfig.ClusterConfig, vm *v1.VirtualMachine, s *snapshotv1.VirtualMachineSnapshot) *VMRestoreAdmitter {
+func createTestVMRestoreAdmitter(
+	config *virtconfig.ClusterConfig,
+	vm *v1.VirtualMachine,
+	objs ...runtime.Object,
+) *VMRestoreAdmitter {
 	ctrl := gomock.NewController(GinkgoT())
 	virtClient := kubecli.NewMockKubevirtClient(ctrl)
 	vmInterface := kubecli.NewMockVirtualMachineInterface(ctrl)
-	var objs []runtime.Object
-	if s != nil {
-		objs = append(objs, s)
-	}
 	kubevirtClient := kubevirtfake.NewSimpleClientset(objs...)
 	virtClient.EXPECT().VirtualMachineSnapshot("default").
 		Return(kubevirtClient.SnapshotV1alpha1().VirtualMachineSnapshots("default"))
+	virtClient.EXPECT().VirtualMachineRestore("default").
+		Return(kubevirtClient.SnapshotV1alpha1().VirtualMachineRestores("default"))
 	virtClient.EXPECT().VirtualMachine(gomock.Any()).Return(vmInterface).AnyTimes()
 	if vm == nil {
 		err := errors.NewNotFound(schema.GroupResource{Group: "kubevirt.io", Resource: "virtualmachines"}, "foo")
