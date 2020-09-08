@@ -395,7 +395,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		objectMeta.Annotations[v1.InstallStrategyVersionAnnotation] = config.GetKubeVirtVersion()
 		objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation] = config.GetImageRegistry()
 		objectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation] = config.GetDeploymentID()
-		objectMeta.Annotations[v1.KubeVirtGenerationAnnotation] = "1"
 	}
 
 	addKubeVirt := func(kv *v1.KubeVirt) {
@@ -1461,9 +1460,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(err).To(Not(HaveOccurred()), "could not add fake namespace to the store")
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:       "test-install",
-					Namespace:  NAMESPACE,
-					Generation: int64(1),
+					Name:      "test-install",
+					Namespace: NAMESPACE,
 				},
 				Status: v1.KubeVirtStatus{
 					Phase: v1.KubeVirtPhaseDeleted,
@@ -1518,7 +1516,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					Name:       "test-install",
 					Namespace:  NAMESPACE,
 					Finalizers: []string{util.KubeVirtFinalizer},
-					Generation: int64(1),
 				},
 				Spec: v1.KubeVirtSpec{
 					ImageTag: "custom.tag",
@@ -1559,7 +1556,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					Name:       "test-install",
 					Namespace:  NAMESPACE,
 					Finalizers: []string{util.KubeVirtFinalizer},
-					Generation: int64(1),
 				},
 				Status: v1.KubeVirtStatus{
 					Phase:           v1.KubeVirtPhaseDeployed,
@@ -1599,7 +1595,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					Name:       "test-install",
 					Namespace:  NAMESPACE,
 					Finalizers: []string{util.KubeVirtFinalizer},
-					Generation: int64(1),
 				},
 				Status: v1.KubeVirtStatus{
 					Phase:           v1.KubeVirtPhaseDeployed,
@@ -1633,7 +1628,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					Name:       "test-install",
 					Namespace:  NAMESPACE,
 					Finalizers: []string{util.KubeVirtFinalizer},
-					Generation: int64(1),
 				},
 				Status: v1.KubeVirtStatus{
 					Phase:           v1.KubeVirtPhaseDeployed,

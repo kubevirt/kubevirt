@@ -47,8 +47,7 @@ import (
 )
 
 const (
-	virtOperatorJobAppLabel    = "virt-operator-strategy-dumper"
-	installStrategyKeyTemplate = "%s-%d"
+	virtOperatorJobAppLabel = "virt-operator-strategy-dumper"
 )
 
 type KubeVirtController struct {
@@ -767,19 +766,20 @@ func (c *KubeVirtController) garbageCollectInstallStrategyJobs() error {
 	return nil
 }
 
-func (c *KubeVirtController) getInstallStrategyFromMap(config *operatorutil.KubeVirtDeploymentConfig, generation int64) (*installstrategy.InstallStrategy, bool) {
+func (c *KubeVirtController) getInstallStrategyFromMap(config *operatorutil.KubeVirtDeploymentConfig) (*installstrategy.InstallStrategy, bool) {
 	c.installStrategyMutex.Lock()
 	defer c.installStrategyMutex.Unlock()
 
-	strategy, ok := c.installStrategyMap[fmt.Sprintf(installStrategyKeyTemplate, config.GetDeploymentID(), generation)]
+	strategy, ok := c.installStrategyMap[config.GetDeploymentID()]
 	return strategy, ok
 }
 
-func (c *KubeVirtController) cacheInstallStrategyInMap(strategy *installstrategy.InstallStrategy, config *operatorutil.KubeVirtDeploymentConfig, generation int64) {
+func (c *KubeVirtController) cacheInstallStrategyInMap(strategy *installstrategy.InstallStrategy, config *operatorutil.KubeVirtDeploymentConfig) {
 
 	c.installStrategyMutex.Lock()
 	defer c.installStrategyMutex.Unlock()
-	c.installStrategyMap[fmt.Sprintf(installStrategyKeyTemplate, config.GetDeploymentID(), generation)] = strategy
+	c.installStrategyMap[config.GetDeploymentID()] = strategy
+
 }
 
 func (c *KubeVirtController) deleteAllInstallStrategy() error {
@@ -838,7 +838,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, loadObservedVe
 	}
 
 	// 1. see if we already loaded the install strategy
-	strategy, ok := c.getInstallStrategyFromMap(config, kv.Generation)
+	strategy, ok := c.getInstallStrategyFromMap(config)
 	if ok {
 		// we already loaded this strategy into memory
 		return strategy, false, nil
@@ -847,7 +847,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, loadObservedVe
 	// 2. look for install strategy config map in cache.
 	strategy, err = installstrategy.LoadInstallStrategyFromCache(c.stores, config)
 	if err == nil {
-		c.cacheInstallStrategyInMap(strategy, config, kv.Generation)
+		c.cacheInstallStrategyInMap(strategy, config)
 		log.Log.Infof("Loaded install strategy for kubevirt version %s into cache", config.GetKubeVirtVersion())
 		return strategy, false, nil
 	}

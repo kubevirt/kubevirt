@@ -161,7 +161,7 @@ var _ = Describe("Create", func() {
 			kv.Status.TargetDeploymentID = Id
 
 			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
-			injectOperatorMetadata(kv, &cachedPodDisruptionBudget.ObjectMeta, Version, Registry, Id, true)
+			injectOperatorMetadata(kv, &cachedPodDisruptionBudget.ObjectMeta, Version, Registry, Id)
 
 			err = syncPodDisruptionBudgetForDeployment(deployment, clientset, kv, expectations, stores)
 

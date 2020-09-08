@@ -7,5 +7,4 @@ metadata:
 spec:
   certificateRotateStrategy: {}
   configuration: {}
-  customizeComponents: {}
   imagePullPolicy: {{.ImagePullPolicy}}

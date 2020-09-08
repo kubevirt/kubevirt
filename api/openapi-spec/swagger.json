@@ -6626,18 +6626,6 @@
      }
     }
    },
-   "v1.CustomizeComponents": {
-    "type": "object",
-    "properties": {
-     "patches": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Patch"
-      },
-      "x-kubernetes-list-type": "atomic"
-     }
-    }
-   },
    "v1.DHCPOptions": {
     "description": "Extra DHCP options to use in the interface.",
     "type": "object",
@@ -7570,9 +7558,6 @@
      "configuration": {
       "description": "holds kubevirt configurations. same as the virt-configMap",
       "$ref": "#/definitions/v1.KubeVirtConfiguration"
-     },
-     "customizeComponents": {
-      "$ref": "#/definitions/v1.CustomizeComponents"
      },
      "imagePullPolicy": {
       "description": "The ImagePullPolicy to use.",
