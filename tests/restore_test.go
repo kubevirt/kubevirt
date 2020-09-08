@@ -98,13 +98,16 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 		return vm, vmi
 	}
 
-	waitRestoreComplete := func(r *snapshotv1.VirtualMachineRestore) *snapshotv1.VirtualMachineRestore {
+	waitRestoreComplete := func(r *snapshotv1.VirtualMachineRestore, vm *v1.VirtualMachine) *snapshotv1.VirtualMachineRestore {
 		var err error
 		Eventually(func() bool {
 			r, err = virtClient.VirtualMachineRestore(r.Namespace).Get(r.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return r.Status != nil && r.Status.Complete != nil && *r.Status.Complete
 		}, 180*time.Second, time.Second).Should(BeTrue())
+		Expect(r.OwnerReferences).To(HaveLen(1))
+		Expect(r.OwnerReferences[0].Name).To(Equal(vm.Name))
+		Expect(r.OwnerReferences[0].UID).To(Equal(vm.UID))
 		Expect(r.Status.RestoreTime).ToNot(BeNil())
 		Expect(r.Status.Conditions).To(HaveLen(2))
 		Expect(r.Status.Conditions[0].Type).To(Equal(snapshotv1.ConditionProgressing))
@@ -228,7 +231,7 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(restore)
 				Expect(err).ToNot(HaveOccurred())
 
-				restore = waitRestoreComplete(restore)
+				restore = waitRestoreComplete(restore, vm)
 				Expect(restore.Status.Restores).To(HaveLen(0))
 				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
 
@@ -384,7 +387,7 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 			restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(restore)
 			Expect(err).ToNot(HaveOccurred())
 
-			restore = waitRestoreComplete(restore)
+			restore = waitRestoreComplete(restore, vm)
 			Expect(restore.Status.Restores).To(HaveLen(1))
 
 			vm = tests.StartVirtualMachine(vm)

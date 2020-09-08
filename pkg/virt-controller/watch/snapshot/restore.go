@@ -108,6 +108,13 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 		return 0, ctrl.doUpdateError(vmRestoreIn, vmRestoreOut, err)
 	}
 
+	if len(vmRestoreOut.OwnerReferences) == 0 {
+		target.Own(vmRestoreOut)
+		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"))
+		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"))
+		return 0, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
+	}
+
 	var updated bool
 	updated, err = ctrl.reconcileVolumeRestores(vmRestoreOut, target)
 	if err != nil {

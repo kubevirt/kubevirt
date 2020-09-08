@@ -50,6 +50,16 @@ var _ = Describe("Restore controlleer", func() {
 				Name:      "restore",
 				Namespace: testNamespace,
 				UID:       uid,
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion:         snapshotv1.SchemeGroupVersion.String(),
+						Kind:               "VirtualMachine",
+						Name:               vmName,
+						UID:                vmUID,
+						Controller:         &t,
+						BlockOwnerDeletion: &t,
+					},
+				},
 			},
 			Spec: snapshotv1.VirtualMachineRestoreSpec{
 				Target: corev1.TypedLocalObjectReference{
@@ -349,6 +359,27 @@ var _ = Describe("Restore controlleer", func() {
 				addVirtualMachineRestore(r)
 				controller.processVMRestoreWorkItem()
 				testutils.ExpectEvent(recorder, "VirtualMachineRestoreError")
+			})
+
+			It("should update restore status, initializing conditions and add owner", func() {
+				r := createRestore()
+				refs := r.OwnerReferences
+				r.OwnerReferences = nil
+				vm := createModifiedVM()
+				rc := r.DeepCopy()
+				rc.OwnerReferences = refs
+				rc.ResourceVersion = "1"
+				rc.Status = &snapshotv1.VirtualMachineRestoreStatus{
+					Complete: &f,
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"),
+						newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"),
+					},
+				}
+				vmSource.Add(vm)
+				expectVMRestoreUpdate(kubevirtClient, rc)
+				addVirtualMachineRestore(r)
+				controller.processVMRestoreWorkItem()
 			})
 
 			It("should update restore status with condition and VolumeRestores", func() {
