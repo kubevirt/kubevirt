@@ -494,7 +494,7 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 	return nil
 }
 
-func (ctrl *VMSnapshotController) getSnapshotPVC(namespace string, volumeName string) (*corev1.PersistentVolumeClaim, error) {
+func (ctrl *VMSnapshotController) getSnapshotPVC(namespace, volumeName string) (*corev1.PersistentVolumeClaim, error) {
 	obj, exists, err := ctrl.PVCInformer.GetStore().GetByKey(cacheKeyFunc(namespace, volumeName))
 	if err != nil {
 		return nil, err

@@ -27,7 +27,9 @@ import (
 
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	v1 "kubevirt.io/client-go/api/v1"
@@ -50,6 +52,7 @@ const (
 )
 
 type restoreTarget interface {
+	UID() types.UID
 	Ready() (bool, error)
 	Reconcile() (bool, error)
 	Cleanup() error
@@ -193,7 +196,7 @@ func (ctrl *VMRestoreController) doUpdate(original, updated *snapshotv1.VirtualM
 }
 
 func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) (bool, error) {
-	content, err := ctrl.getSnapshotContent(vmRestore)
+	content, err := ctrl.getSnapshotContent(vmRestore, target.UID())
 	if err != nil {
 		return false, err
 	}
@@ -233,6 +236,7 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 	}
 
 	createdPVC := false
+	waitingPVC := false
 	for i, restore := range restores {
 		pvc, err := ctrl.getPVC(vmRestore.Namespace, restore.PersistentVolumeClaimName)
 		if err != nil {
@@ -245,10 +249,44 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 				return false, err
 			}
 			createdPVC = true
+		} else if pvc.Status.Phase == corev1.ClaimPending {
+			bindingMode, err := ctrl.getBindingMode(pvc)
+			if err != nil {
+				return false, err
+			}
+
+			if bindingMode == nil || *bindingMode == storagev1.VolumeBindingImmediate {
+				waitingPVC = true
+			}
+		} else if pvc.Status.Phase != corev1.ClaimBound {
+			return false, fmt.Errorf("PVC %s/%s in status %q", pvc.Namespace, pvc.Name, pvc.Status.Phase)
 		}
 	}
 
-	return createdPVC, nil
+	return createdPVC || waitingPVC, nil
+}
+
+func (ctrl *VMRestoreController) getBindingMode(pvc *corev1.PersistentVolumeClaim) (*storagev1.VolumeBindingMode, error) {
+	if pvc.Spec.StorageClassName == nil {
+		return nil, nil
+	}
+
+	obj, exists, err := ctrl.StorageClassInformer.GetStore().GetByKey(*pvc.Spec.StorageClassName)
+	if err != nil {
+		return nil, err
+	}
+
+	if !exists {
+		return nil, fmt.Errorf("StorageClass %s does not exist", *pvc.Spec.StorageClassName)
+	}
+
+	sc := obj.(*storagev1.StorageClass)
+
+	return sc.VolumeBindingMode, nil
+}
+
+func (t *vmRestoreTarget) UID() types.UID {
+	return t.vm.UID
 }
 
 func (t *vmRestoreTarget) Ready() (bool, error) {
@@ -285,7 +323,7 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 		return false, nil
 	}
 
-	content, err := t.controller.getSnapshotContent(t.vmRestore)
+	content, err := t.controller.getSnapshotContent(t.vmRestore, t.UID())
 	if err != nil {
 		return false, err
 	}
@@ -449,7 +487,7 @@ func (t *vmRestoreTarget) Cleanup() error {
 	return nil
 }
 
-func (ctrl *VMRestoreController) getSnapshotContent(vmRestore *snapshotv1.VirtualMachineRestore) (*snapshotv1.VirtualMachineSnapshotContent, error) {
+func (ctrl *VMRestoreController) getSnapshotContent(vmRestore *snapshotv1.VirtualMachineRestore, targetUID types.UID) (*snapshotv1.VirtualMachineSnapshotContent, error) {
 	objKey := cacheKeyFunc(vmRestore.Namespace, vmRestore.Spec.VirtualMachineSnapshotName)
 	obj, exists, err := ctrl.VMSnapshotInformer.GetStore().GetByKey(objKey)
 	if err != nil {
@@ -463,6 +501,10 @@ func (ctrl *VMRestoreController) getSnapshotContent(vmRestore *snapshotv1.Virtua
 	vms := obj.(*snapshotv1.VirtualMachineSnapshot)
 	if !vmSnapshotReady(vms) {
 		return nil, fmt.Errorf("VMSnapshot %s not ready", objKey)
+	}
+
+	if vms.Status.SourceUID == nil || *vms.Status.SourceUID != targetUID {
+		return nil, fmt.Errorf("VMSnapshot source and restore target differ")
 	}
 
 	if vms.Status.VirtualMachineSnapshotContentName == nil {
