@@ -2,12 +2,14 @@ package tests_test
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	expect "github.com/google/goexpect"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -166,6 +168,12 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 		})
 	}
 
+	deleteWebhook := func(wh *admissionregistrationv1beta1.ValidatingWebhookConfiguration) {
+		waitDeleted(func() error {
+			return virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(wh.Name, &metav1.DeleteOptions{})
+		})
+	}
+
 	Context("With simple VM", func() {
 		var vm *v1.VirtualMachine
 
@@ -195,6 +203,7 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 		Context("and good snapshot exists", func() {
 			var err error
 			var snapshot *snapshotv1.VirtualMachineSnapshot
+			var webhook *admissionregistrationv1beta1.ValidatingWebhookConfiguration
 
 			BeforeEach(func() {
 				snapshot = createSnapshot(vm)
@@ -202,6 +211,9 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 
 			AfterEach(func() {
 				deleteSnapshot(snapshot)
+				if webhook != nil {
+					deleteWebhook(webhook)
+				}
 			})
 
 			It("should successfully restore", func() {
@@ -251,6 +263,81 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(restore)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q is running", vm.Name)))
+			})
+
+			It("should reject restore if another in progress", func() {
+				fp := admissionregistrationv1beta1.Fail
+				whPath := "/foobar"
+				whName := "dummy-webhook-deny-vm-update.kubevirt.io"
+				wh := &admissionregistrationv1beta1.ValidatingWebhookConfiguration{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "temp-webhook-deny-vm-update",
+					},
+					Webhooks: []admissionregistrationv1beta1.ValidatingWebhook{
+						{
+							Name:          whName,
+							FailurePolicy: &fp,
+							Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+								Operations: []admissionregistrationv1beta1.OperationType{
+									admissionregistrationv1beta1.Update,
+								},
+								Rule: admissionregistrationv1beta1.Rule{
+									APIGroups:   []string{"kubevirt.io"},
+									APIVersions: []string{"v1alpha3", "v1"},
+									Resources:   []string{"virtualmachines"},
+								},
+							}},
+							ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+								Service: &admissionregistrationv1beta1.ServiceReference{
+									Namespace: tests.NamespaceTestDefault,
+									Name:      "nonexistant",
+									Path:      &whPath,
+								},
+							},
+						},
+					},
+				}
+				wh, err := virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(wh)
+				Expect(err).ToNot(HaveOccurred())
+				webhook = wh
+
+				restore := createRestoreDef(vm, snapshot.Name)
+
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(restore)
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() bool {
+					restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(restore.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return restore.Status != nil &&
+						len(restore.Status.Conditions) == 2 &&
+						restore.Status.Conditions[0].Status == corev1.ConditionFalse &&
+						restore.Status.Conditions[1].Status == corev1.ConditionFalse &&
+						strings.Contains(restore.Status.Conditions[0].Reason, whName) &&
+						strings.Contains(restore.Status.Conditions[1].Reason, whName)
+				}, 180*time.Second, time.Second).Should(BeTrue())
+
+				r2 := restore.DeepCopy()
+				r2.ObjectMeta = metav1.ObjectMeta{
+					Name: "dummy",
+				}
+
+				_, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(r2)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachineRestore %q in progress", restore.Name)))
+
+				deleteWebhook(webhook)
+				webhook = nil
+
+				restore = waitRestoreComplete(restore, vm)
+
+				r2, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(r2)
+				Expect(err).ToNot(HaveOccurred())
+
+				r2 = waitRestoreComplete(r2, vm)
+
+				deleteRestore(r2)
+				deleteRestore(restore)
 			})
 		})
 	})
