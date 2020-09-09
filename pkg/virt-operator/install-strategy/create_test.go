@@ -15,6 +15,7 @@ import (
 	"k8s.io/api/policy/v1beta1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
@@ -275,6 +276,83 @@ var _ = Describe("Create", func() {
 			})
 
 			Expect(rolloutNonCompatibleCRDChanges(kv, targetStrategy, stores, clientset, expectations)).To(Succeed())
+		})
+	})
+
+	Context("Services", func() {
+
+		It("should patch if ClusterIp == \"\" during update", func() {
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "somenamespace",
+				},
+				Spec: v1.KubeVirtSpec{
+					ImageRegistry: "someregistery",
+					ImageTag:      "v1",
+				},
+			}
+
+			cachedService := &corev1.Service{}
+			cachedService.Spec.Type = corev1.ServiceTypeClusterIP
+			cachedService.Spec.ClusterIP = "10.10.10.10"
+
+			service := &corev1.Service{}
+			service.Spec.Type = corev1.ServiceTypeClusterIP
+			service.Spec.ClusterIP = ""
+
+			ops, deleteAndReplace, err := generateServicePatch(kv, cachedService, service)
+			Expect(err).To(BeNil())
+			Expect(deleteAndReplace).To(BeFalse())
+			Expect(ops).ToNot(Equal(""))
+		})
+
+		It("should replace if ClusterIp != \"\" during update and ip changes", func() {
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "somenamespace",
+				},
+				Spec: v1.KubeVirtSpec{
+					ImageRegistry: "someregistery",
+					ImageTag:      "v1",
+				},
+			}
+
+			cachedService := &corev1.Service{}
+			cachedService.Spec.Type = corev1.ServiceTypeClusterIP
+			cachedService.Spec.ClusterIP = "10.10.10.10"
+
+			service := &corev1.Service{}
+			service.Spec.Type = corev1.ServiceTypeClusterIP
+			service.Spec.ClusterIP = "10.10.10.11"
+
+			_, deleteAndReplace, err := generateServicePatch(kv, cachedService, service)
+			Expect(err).To(BeNil())
+			Expect(deleteAndReplace).To(BeTrue())
+		})
+
+		It("should replace if not a ClusterIP service", func() {
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "somenamespace",
+				},
+				Spec: v1.KubeVirtSpec{
+					ImageRegistry: "someregistery",
+					ImageTag:      "v1",
+				},
+			}
+
+			cachedService := &corev1.Service{}
+			cachedService.Spec.Type = corev1.ServiceTypeNodePort
+
+			service := &corev1.Service{}
+			service.Spec.Type = corev1.ServiceTypeNodePort
+
+			_, deleteAndReplace, err := generateServicePatch(kv, cachedService, service)
+			Expect(err).To(BeNil())
+			Expect(deleteAndReplace).To(BeTrue())
 		})
 	})
 
