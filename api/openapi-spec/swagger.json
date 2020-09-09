@@ -6632,9 +6632,26 @@
      "patches": {
       "type": "array",
       "items": {
-       "$ref": "#/definitions/v1.Patch"
+       "$ref": "#/definitions/v1.CustomizeComponentsPatch"
       },
       "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
+   "v1.CustomizeComponentsPatch": {
+    "type": "object",
+    "properties": {
+     "patch": {
+      "type": "string"
+     },
+     "resourceName": {
+      "type": "string"
+     },
+     "resourceType": {
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
      }
     }
    },
