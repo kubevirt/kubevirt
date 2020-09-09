@@ -132,6 +132,9 @@ charts:
 local:
 	./hack/make_local.sh
 
+deploy_cr:
+	./hack/deploy_only_cr.sh
+
 .PHONY: start \
 		clean \
 		build \
@@ -160,3 +163,4 @@ local:
 		charts \
 		kubevirt-nightly-test \
 		local \
+		deploy_cr \
