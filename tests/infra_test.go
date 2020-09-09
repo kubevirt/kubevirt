@@ -23,6 +23,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	netURL "net/url"
 	"reflect"
@@ -45,6 +46,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/util/retry"
+	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -429,7 +431,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", func() {
 		var preparedVMIs []*v1.VirtualMachineInstance
 		var pod *k8sv1.Pod
-		var metricsURL string
+		var metricsURLs []string
 
 		pinVMIOnNode := func(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualMachineInstance {
 			if vmi == nil {
@@ -443,7 +445,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 		}
 
 		// returns metrics from the node the VMI(s) runs on
-		getKubevirtVMMetrics := func() string {
+		getKubevirtVMMetrics := func(url string) string {
 			stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
 				pod,
 				"virt-handler",
@@ -451,20 +453,20 @@ var _ = Describe("[Serial]Infrastructure", func() {
 					"curl",
 					"-L",
 					"-k",
-					metricsURL,
+					url,
 				})
 			Expect(err).ToNot(HaveOccurred())
 			return stdout
 		}
 
 		// collect metrics whose key contains the given string, expects non-empty result
-		collectMetrics := func(metricSubstring string) map[string]float64 {
+		collectMetrics := func(url, metricSubstring string) map[string]float64 {
 			By("Scraping the Prometheus endpoint")
 			var metrics map[string]float64
 			var lines []string
 
 			Eventually(func() map[string]float64 {
-				out := getKubevirtVMMetrics()
+				out := getKubevirtVMMetrics(url)
 				lines = takeMetricsWithPrefix(out, metricSubstring)
 				metrics, err = parseMetricsToMap(lines)
 				Expect(err).ToNot(HaveOccurred())
@@ -534,7 +536,9 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			By("Finding the prometheus endpoint")
 			pod, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
-			metricsURL = fmt.Sprintf("https://%s:%d/metrics", tests.FormatIPForURL(pod.Status.PodIP), 8443)
+			for _, ip := range pod.Status.PodIPs {
+				metricsURLs = append(metricsURLs, fmt.Sprintf("https://%s:%d/metrics", tests.FormatIPForURL(ip.IP), 8443))
+			}
 		})
 
 		PIt("[test_id:4136][flaky] should find one leading virt-controller and two ready", func() {
@@ -664,7 +668,6 @@ var _ = Describe("[Serial]Infrastructure", func() {
 		})
 
 		It("[test_id:4140]should throttle the Prometheus metrics access", func() {
-			By("Scraping the Prometheus endpoint")
 			concurrency := 100 // random value "much higher" than maxRequestsInFlight
 
 			tr := &http.Transport{
@@ -679,120 +682,142 @@ var _ = Describe("[Serial]Infrastructure", func() {
 				Transport: tr,
 			}
 
-			errors := make(chan error)
-			for ix := 0; ix < concurrency; ix++ {
-				go func(ix int) {
-					req, _ := http.NewRequest("GET", metricsURL, nil)
-					resp, err := client.Do(req)
-					if err != nil {
-						fmt.Fprintf(GinkgoWriter, "client: request: %v #%d: %v\n", req, ix, err) // troubleshooting helper
-					} else {
-						resp.Body.Close()
-					}
-					errors <- err
-				}(ix)
-			}
-
-			errorCount := 0
-			for ix := 0; ix < concurrency; ix++ {
-				err := <-errors
-				if err != nil {
-					urlErr, ok := err.(*netURL.Error)
-					Expect(ok).To(BeTrue())
-					Expect(urlErr.Err.Error()).To(ContainSubstring("Client.Timeout exceeded while awaiting headers"))
-					errorCount += 1
+			for _, url := range metricsURLs {
+				if urlIsIPv6(url) {
+					By("Skip Scraping the Prometheus endpoint (IPv6) until issue https://github.com/kubevirt/kubevirt/issues/4145 is fixed")
+					continue
 				}
-			}
 
-			fmt.Fprintf(GinkgoWriter, "client: total errors #%d\n", errorCount) // troubleshooting helper
-			Expect(errorCount).To(BeNumerically(">", 0))
+				By(fmt.Sprintf("Scraping the Prometheus endpoint %s", url))
+				errors := make(chan error)
+				for ix := 0; ix < concurrency; ix++ {
+					go func(ix int) {
+						req, _ := http.NewRequest("GET", url, nil)
+						resp, err := client.Do(req)
+						if err != nil {
+							fmt.Fprintf(GinkgoWriter, "client: request: %v #%d: %v\n", req, ix, err) // troubleshooting helper
+						} else {
+							resp.Body.Close()
+						}
+						errors <- err
+					}(ix)
+				}
+
+				errorCount := 0
+				for ix := 0; ix < concurrency; ix++ {
+					err := <-errors
+					if err != nil {
+						urlErr, ok := err.(*netURL.Error)
+						Expect(ok).To(BeTrue())
+						Expect(urlErr.Err.Error()).To(ContainSubstring("Client.Timeout exceeded while awaiting headers"))
+						errorCount += 1
+					}
+				}
+
+				fmt.Fprintf(GinkgoWriter, "client: total errors #%d\n", errorCount) // troubleshooting helper
+				Expect(errorCount).To(BeNumerically(">", 0))
+			}
 		})
 
 		It("[test_id:4141]should include the metrics for a running VM", func() {
 			By("Scraping the Prometheus endpoint")
-			Eventually(func() string {
-				out := getKubevirtVMMetrics()
-				lines := takeMetricsWithPrefix(out, "kubevirt")
-				return strings.Join(lines, "\n")
-			}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
+			for _, url := range metricsURLs {
+				Eventually(func() string {
+					out := getKubevirtVMMetrics(url)
+					lines := takeMetricsWithPrefix(out, "kubevirt")
+					return strings.Join(lines, "\n")
+				}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
+			}
 		})
 
 		It("[test_id:4142]should include the storage metrics for a running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_storage_")
-			By("Checking the collected metrics")
-			keys := getKeysFromMetrics(metrics)
-			for _, key := range keys {
-				if strings.Contains(key, `drive="vdb"`) {
-					value := metrics[key]
-					Expect(value).To(BeNumerically(">", float64(0.0)))
+			for _, url := range metricsURLs {
+				metrics := collectMetrics(url, "kubevirt_vmi_storage_")
+				By("Checking the collected metrics")
+				keys := getKeysFromMetrics(metrics)
+				for _, key := range keys {
+					if strings.Contains(key, `drive="vdb"`) {
+						value := metrics[key]
+						Expect(value).To(BeNumerically(">", float64(0.0)))
+					}
 				}
 			}
 		})
 
 		It("[test_id:4143]should include the network metrics for a running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_network_")
-			By("Checking the collected metrics")
-			keys := getKeysFromMetrics(metrics)
-			for _, key := range keys {
-				value := metrics[key]
-				Expect(value).To(BeNumerically(">=", float64(0.0)))
+			for _, url := range metricsURLs {
+				metrics := collectMetrics(url, "kubevirt_vmi_network_")
+				By("Checking the collected metrics")
+				keys := getKeysFromMetrics(metrics)
+				for _, key := range keys {
+					value := metrics[key]
+					Expect(value).To(BeNumerically(">=", float64(0.0)))
+				}
 			}
 		})
 
 		It("[test_id:4144]should include the memory metrics for a running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_memory")
-			By("Checking the collected metrics")
-			keys := getKeysFromMetrics(metrics)
-			for _, key := range keys {
-				value := metrics[key]
-				// swap metrics may (and should) be actually zero
-				Expect(value).To(BeNumerically(">=", float64(0.0)))
+			for _, url := range metricsURLs {
+				metrics := collectMetrics(url, "kubevirt_vmi_memory")
+				By("Checking the collected metrics")
+				keys := getKeysFromMetrics(metrics)
+				for _, key := range keys {
+					value := metrics[key]
+					// swap metrics may (and should) be actually zero
+					Expect(value).To(BeNumerically(">=", float64(0.0)))
+				}
 			}
 		})
 
 		It("[test_id:4553]should include the vcpu wait metrics for running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_vcpu_wait")
-			for _, v := range metrics {
-				fmt.Fprintf(GinkgoWriter, "vcpu wait was %f", v)
-				Expect(v).To(BeNumerically("==", float64(0.0)))
+			for _, url := range metricsURLs {
+				metrics := collectMetrics(url, "kubevirt_vmi_vcpu_wait")
+				for _, v := range metrics {
+					fmt.Fprintf(GinkgoWriter, "vcpu wait was %f", v)
+					Expect(v).To(BeNumerically("==", float64(0.0)))
+				}
 			}
 		})
 
 		It("[test_id:4554]should include the vcpu seconds metrics for running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_vcpu_seconds")
-			for _, v := range metrics {
-				fmt.Fprintf(GinkgoWriter, "vcpu seconds was %f", v)
-				Expect(v).To(BeNumerically(">=", float64(0.0)))
+			for _, url := range metricsURLs {
+				metrics := collectMetrics(url, "kubevirt_vmi_vcpu_seconds")
+				for _, v := range metrics {
+					fmt.Fprintf(GinkgoWriter, "vcpu seconds was %f", v)
+					Expect(v).To(BeNumerically(">=", float64(0.0)))
+				}
 			}
 		})
 
 		It("[test_id:4145]should include VMI infos for a running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_")
-			By("Checking the collected metrics")
-			keys := getKeysFromMetrics(metrics)
-			nodeName := pod.Spec.NodeName
+			for _, url := range metricsURLs {
+				metrics := collectMetrics(url, "kubevirt_vmi_")
+				By("Checking the collected metrics")
+				keys := getKeysFromMetrics(metrics)
+				nodeName := pod.Spec.NodeName
 
-			nameMatchers := []gomegatypes.GomegaMatcher{}
-			for _, vmi := range preparedVMIs {
-				nameMatchers = append(nameMatchers, ContainSubstring(`name="%s"`, vmi.Name))
-			}
-
-			for _, key := range keys {
-				// we don't care about the ordering of the labels
-				if strings.HasPrefix(key, "kubevirt_vmi_phase_count") {
-					// special case: namespace and name don't make sense for this metric
-					Expect(key).To(ContainSubstring(`node="%s"`, nodeName))
-					continue
+				nameMatchers := []gomegatypes.GomegaMatcher{}
+				for _, vmi := range preparedVMIs {
+					nameMatchers = append(nameMatchers, ContainSubstring(`name="%s"`, vmi.Name))
 				}
 
-				Expect(key).To(SatisfyAll(
-					ContainSubstring(`node="%s"`, nodeName),
-					// all testing VMIs are on the same node and namespace,
-					// so checking the namespace of any random VMI is fine
-					ContainSubstring(`namespace="%s"`, preparedVMIs[0].Namespace),
-					// otherwise, each key must refer to exactly one the prepared VMIs.
-					SatisfyAny(nameMatchers...),
-				))
+				for _, key := range keys {
+					// we don't care about the ordering of the labels
+					if strings.HasPrefix(key, "kubevirt_vmi_phase_count") {
+						// special case: namespace and name don't make sense for this metric
+						Expect(key).To(ContainSubstring(`node="%s"`, nodeName))
+						continue
+					}
+
+					Expect(key).To(SatisfyAll(
+						ContainSubstring(`node="%s"`, nodeName),
+						// all testing VMIs are on the same node and namespace,
+						// so checking the namespace of any random VMI is fine
+						ContainSubstring(`namespace="%s"`, preparedVMIs[0].Namespace),
+						// otherwise, each key must refer to exactly one the prepared VMIs.
+						SatisfyAny(nameMatchers...),
+					))
+				}
 			}
 		})
 
@@ -809,13 +834,15 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			nodeName := startVMI(vmi)
 			Expect(nodeName).To(Equal(preferredNodeName), "Should run VMIs on the same node")
 
-			metrics := collectMetrics("kubevirt_vmi_")
-			By("Checking the collected metrics")
-			keys := getKeysFromMetrics(metrics)
-			for _, key := range keys {
-				if strings.Contains(key, `phase="running"`) {
-					value := metrics[key]
-					Expect(value).To(Equal(float64(len(preparedVMIs) + 1)))
+			for _, url := range metricsURLs {
+				metrics := collectMetrics(url, "kubevirt_vmi_")
+				By("Checking the collected metrics")
+				keys := getKeysFromMetrics(metrics)
+				for _, key := range keys {
+					if strings.Contains(key, `phase="running"`) {
+						value := metrics[key]
+						Expect(value).To(Equal(float64(len(preparedVMIs) + 1)))
+					}
 				}
 			}
 		})
@@ -823,36 +850,40 @@ var _ = Describe("[Serial]Infrastructure", func() {
 		It("[test_id:4147]should include kubernetes labels to VMI metrics", func() {
 			// Every VMI is labeled with kubevirt.io/nodeName, so just creating a VMI should
 			// be enough to its metrics to contain a kubernetes label
-			containK8sLabel := false
-			metrics := collectMetrics("kubevirt_vmi_vcpu_seconds")
-			By("Checking collected metrics")
-			keys := getKeysFromMetrics(metrics)
-			for _, key := range keys {
-				if strings.Contains(key, "kubernetes_vmi_label_") {
-					containK8sLabel = true
+			for _, url := range metricsURLs {
+				containK8sLabel := false
+				metrics := collectMetrics(url, "kubevirt_vmi_vcpu_seconds")
+				By("Checking collected metrics")
+				keys := getKeysFromMetrics(metrics)
+				for _, key := range keys {
+					if strings.Contains(key, "kubernetes_vmi_label_") {
+						containK8sLabel = true
+					}
 				}
+				Expect(containK8sLabel).To(Equal(true))
 			}
-			Expect(containK8sLabel).To(Equal(true))
 		})
 
 		// explicit test fo swap metrics as test_id:4144 doesn't catch if they are missing
 		It("[test_id:4555]should include swap metrics", func() {
-			metrics := collectMetrics("kubevirt_vmi_memory_swap_")
-			var in, out bool
-			for k, _ := range metrics {
-				if in && out {
-					break
+			for _, url := range metricsURLs {
+				metrics := collectMetrics(url, "kubevirt_vmi_memory_swap_")
+				var in, out bool
+				for k, _ := range metrics {
+					if in && out {
+						break
+					}
+					if strings.Contains(k, `type="in"`) {
+						in = true
+					}
+					if strings.Contains(k, `type="out"`) {
+						out = true
+					}
 				}
-				if strings.Contains(k, `type="in"`) {
-					in = true
-				}
-				if strings.Contains(k, `type="out"`) {
-					out = true
-				}
-			}
 
-			Expect(in).To(BeTrue())
-			Expect(out).To(BeTrue())
+				Expect(in).To(BeTrue())
+				Expect(out).To(BeTrue())
+			}
 		})
 
 		It("[test_id:4556]should include unused memory metric for running VM", func() {
@@ -978,4 +1009,14 @@ func getKeysFromMetrics(metrics map[string]float64) []string {
 	// we sort keys only to make debug of test failures easier
 	sort.Strings(keys)
 	return keys
+}
+
+func urlIsIPv6(url string) bool {
+	splittedUrl, err := netURL.Parse(url)
+	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
+
+	host, _, err := net.SplitHostPort(splittedUrl.Host)
+	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
+
+	return netutils.IsIPv6String(host)
 }
