@@ -744,50 +744,23 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			}
 		})
 
-		It("[test_id:4143]should include the network metrics for a running VM", func() {
+		table.DescribeTable("should include metrics for a running VM", func(metricSubstring, operator string) {
 			for _, url := range metricsURLs {
-				metrics := collectMetrics(url, "kubevirt_vmi_network_")
+				metrics := collectMetrics(url, metricSubstring)
 				By("Checking the collected metrics")
 				keys := getKeysFromMetrics(metrics)
 				for _, key := range keys {
 					value := metrics[key]
-					Expect(value).To(BeNumerically(">=", float64(0.0)))
+					fmt.Fprintf(GinkgoWriter, "metric value was %f\n", value)
+					Expect(value).To(BeNumerically(operator, float64(0.0)))
 				}
 			}
-		})
-
-		It("[test_id:4144]should include the memory metrics for a running VM", func() {
-			for _, url := range metricsURLs {
-				metrics := collectMetrics(url, "kubevirt_vmi_memory")
-				By("Checking the collected metrics")
-				keys := getKeysFromMetrics(metrics)
-				for _, key := range keys {
-					value := metrics[key]
-					// swap metrics may (and should) be actually zero
-					Expect(value).To(BeNumerically(">=", float64(0.0)))
-				}
-			}
-		})
-
-		It("[test_id:4553]should include the vcpu wait metrics for running VM", func() {
-			for _, url := range metricsURLs {
-				metrics := collectMetrics(url, "kubevirt_vmi_vcpu_wait")
-				for _, v := range metrics {
-					fmt.Fprintf(GinkgoWriter, "vcpu wait was %f", v)
-					Expect(v).To(BeNumerically("==", float64(0.0)))
-				}
-			}
-		})
-
-		It("[test_id:4554]should include the vcpu seconds metrics for running VM", func() {
-			for _, url := range metricsURLs {
-				metrics := collectMetrics(url, "kubevirt_vmi_vcpu_seconds")
-				for _, v := range metrics {
-					fmt.Fprintf(GinkgoWriter, "vcpu seconds was %f", v)
-					Expect(v).To(BeNumerically(">=", float64(0.0)))
-				}
-			}
-		})
+		},
+			table.Entry("[test_id:4143] network metrics", "kubevirt_vmi_network_", ">="),
+			table.Entry("[test_id:4144] memory metrics", "kubevirt_vmi_memory", ">="),
+			table.Entry("[test_id:4553] vcpu wait", "kubevirt_vmi_vcpu_wait", "=="),
+			table.Entry("[test_id:4554] vcpu seconds", "kubevirt_vmi_vcpu_seconds", ">="),
+		)
 
 		It("[test_id:4145]should include VMI infos for a running VM", func() {
 			for _, url := range metricsURLs {
