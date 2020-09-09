@@ -4754,11 +4754,6 @@ func RandTmpDir() string {
 	return tmpPath + "/" + rand.String(10)
 }
 
-func IsIPv6Cluster(virtClient kubecli.KubevirtClient) bool {
-	clusterDnsIP, _ := getClusterDnsServiceIP(virtClient)
-	return netutils.IsIPv6String(clusterDnsIP)
-}
-
 func getTagHint() string {
 	//git describe --tags --abbrev=0 "$(git rev-parse HEAD)"
 	cmd := exec.Command("git", "rev-parse", "HEAD")
