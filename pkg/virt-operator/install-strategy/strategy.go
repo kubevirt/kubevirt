@@ -321,6 +321,14 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.certificateSecrets = append(strategy.certificateSecrets, components.NewCACertSecret(operatorNamespace))
 	strategy.configMaps = append(strategy.configMaps, components.NewKubeVirtCAConfigMap(operatorNamespace))
 
+	strategy.customSCCPrivileges = append(strategy.customSCCPrivileges, &customSCCPrivilegedAccounts{
+		TypeMeta: metav1.TypeMeta{
+			Kind: customSCCPrivilegedAccountsType,
+		},
+		TargetSCC:       "privileged",
+		ServiceAccounts: []string{},
+	})
+
 	return strategy, nil
 }
 
