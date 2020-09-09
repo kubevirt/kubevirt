@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	netURL "net/url"
 	"reflect"
 	"sort"
 	"strconv"
@@ -696,6 +697,9 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			for ix := 0; ix < concurrency; ix++ {
 				err := <-errors
 				if err != nil {
+					urlErr, ok := err.(*netURL.Error)
+					Expect(ok).To(BeTrue())
+					Expect(urlErr.Err.Error()).To(ContainSubstring("Client.Timeout exceeded while awaiting headers"))
 					errorCount += 1
 				}
 			}
