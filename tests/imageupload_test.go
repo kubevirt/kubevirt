@@ -123,8 +123,9 @@ var _ = Describe("ImageUpload", func() {
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 
 		By("Get PVC")
-		_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(targetName, metav1.GetOptions{})
+		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
+		Expect(*pvc.Spec.StorageClassName).To(Equal(tests.Config.StorageClassLocal))
 	}
 
 	Context("Upload an image and start a VMI with PVC", func() {

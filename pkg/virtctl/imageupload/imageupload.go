@@ -535,6 +535,10 @@ func createPVCSpec(size, storageClass, accessMode string, blockVolume bool) (*v1
 		},
 	}
 
+	if storageClass != "" {
+		spec.StorageClassName = &storageClass
+	}
+
 	if accessMode != "" {
 		spec.AccessModes = []v1.PersistentVolumeAccessMode{v1.PersistentVolumeAccessMode(accessMode)}
 	}
