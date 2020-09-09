@@ -366,24 +366,63 @@ type HugePage struct {
 }
 
 type MemoryBackingAccess struct {
-       Mode string `xml:"mode,attr"`
+	Mode string `xml:"mode,attr"`
 }
 
 type Devices struct {
-	Emulator    string       `xml:"emulator,omitempty"`
-	Interfaces  []Interface  `xml:"interface"`
-	Channels    []Channel    `xml:"channel"`
-	HostDevices []HostDevice `xml:"hostdev,omitempty"`
-	Controllers []Controller `xml:"controller,omitempty"`
-	Video       []Video      `xml:"video"`
-	Graphics    []Graphics   `xml:"graphics"`
-	Ballooning  *MemBalloon  `xml:"memballoon,omitempty"`
-	Disks       []Disk       `xml:"disk"`
-	Inputs      []Input      `xml:"input"`
-	Serials     []Serial     `xml:"serial"`
-	Consoles    []Console    `xml:"console"`
-	Watchdog    *Watchdog    `xml:"watchdog,omitempty"`
-	Rng         *Rng         `xml:"rng,omitempty"`
+	Emulator    string             `xml:"emulator,omitempty"`
+	Interfaces  []Interface        `xml:"interface"`
+	Channels    []Channel          `xml:"channel"`
+	HostDevices []HostDevice       `xml:"hostdev,omitempty"`
+	Controllers []Controller       `xml:"controller,omitempty"`
+	Video       []Video            `xml:"video"`
+	Graphics    []Graphics         `xml:"graphics"`
+	Ballooning  *MemBalloon        `xml:"memballoon,omitempty"`
+	Disks       []Disk             `xml:"disk"`
+	Inputs      []Input            `xml:"input"`
+	Serials     []Serial           `xml:"serial"`
+	Consoles    []Console          `xml:"console"`
+	Watchdog    *Watchdog          `xml:"watchdog,omitempty"`
+	Rng         *Rng               `xml:"rng,omitempty"`
+	Filesystems []FilesystemDevice `xml:"filesystem,omitempty"`
+}
+
+type FilesystemDevice struct {
+	Type       string            `xml:"type,attr"`
+	AccessMode string            `xml:"accessMode,attr"`
+	Source     *FilesystemSource `xml:"source,omitempty"`
+	Target     *FilesystemTarget `xml:"target,omitempty"`
+	Driver     *FilesystemDriver `xml:"driver,omitempty"`
+	Binary     *FilesystemBinary `xml:"binary,omitempty"`
+}
+
+type FilesystemTarget struct {
+	Dir string `xml:"dir,attr,omitempty"`
+}
+
+type FilesystemSource struct {
+	Dir string `xml:"dir,attr"`
+}
+
+type FilesystemDriver struct {
+	Type  string `xml:"type,attr"`
+	Queue string `xml:"queue,attr,omitempty"`
+}
+
+type FilesystemBinary struct {
+	Path  string                 `xml:"path,attr,omitempty"`
+	Xattr string                 `xml:"xattr,attr,omitempty"`
+	Cache *FilesystemBinaryCache `xml:"cache,omitempty"`
+	Lock  *FilesystemBinaryLock  `xml:"lock,omitempty"`
+}
+
+type FilesystemBinaryCache struct {
+	Mode string `xml:"mode,attr,omitempty"`
+}
+
+type FilesystemBinaryLock struct {
+	Posix string `xml:"posix,attr,omitempty"`
+	Flock string `xml:"flock,attr,omitempty"`
 }
 
 // Input represents input device, e.g. tablet
