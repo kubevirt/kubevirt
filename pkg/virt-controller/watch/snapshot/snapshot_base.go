@@ -80,10 +80,6 @@ type VMSnapshotController struct {
 	dynamicInformerMap map[string]*dynamicInformer
 	eventHandlerMap    map[string]cache.ResourceEventHandlerFuncs
 
-	recorder record.EventRecorder
-
-	resyncPeriod time.Duration
-
 	vmStatusUpdater *status.VMStatusUpdater
 }
 

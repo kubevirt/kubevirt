@@ -24,7 +24,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -130,8 +129,8 @@ func processWorkItem(queue workqueue.RateLimitingInterface, handler func(string)
 	return true
 }
 
-func podsUsingPVCs(podInformer cache.SharedIndexInformer, namespace string, pvcNames sets.String) ([]k8sv1.Pod, error) {
-	var pods []k8sv1.Pod
+func podsUsingPVCs(podInformer cache.SharedIndexInformer, namespace string, pvcNames sets.String) ([]corev1.Pod, error) {
+	var pods []corev1.Pod
 
 	if pvcNames.Len() < 1 {
 		return pods, nil
@@ -143,7 +142,7 @@ func podsUsingPVCs(podInformer cache.SharedIndexInformer, namespace string, pvcN
 	}
 
 	for _, obj := range objs {
-		pod, ok := obj.(*k8sv1.Pod)
+		pod, ok := obj.(*corev1.Pod)
 		if !ok {
 			return nil, fmt.Errorf("expected Pod, got %T", obj)
 		}

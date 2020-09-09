@@ -28,7 +28,6 @@ import (
 
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -67,7 +66,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 		},
 	}
 
-	config, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&corev1.ConfigMap{})
 
 	Context("Without feature gate enabled", func() {
 		It("should reject anything", func() {
@@ -88,13 +87,13 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 	Context("With feature gate enabled", func() {
 		enableFeatureGate := func(featureGate string) {
-			testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
+			testutils.UpdateFakeClusterConfig(configMapInformer, &corev1.ConfigMap{
 				Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
 			})
 		}
 
 		disableFeatureGates := func() {
-			testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{})
+			testutils.UpdateFakeClusterConfig(configMapInformer, &corev1.ConfigMap{})
 		}
 
 		BeforeEach(func() {

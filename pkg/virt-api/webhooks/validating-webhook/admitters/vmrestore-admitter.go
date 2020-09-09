@@ -55,7 +55,7 @@ func NewVMRestoreAdmitter(config *virtconfig.ClusterConfig, client kubecli.Kubev
 func (admitter *VMRestoreAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	if ar.Request.Resource.Group != snapshotv1.SchemeGroupVersion.Group ||
 		ar.Request.Resource.Resource != "virtualmachinerestores" {
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("Unexpected Resource %+v", ar.Request.Resource))
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
 	}
 
 	if ar.Request.Operation == v1beta1.Create && !admitter.Config.SnapshotEnabled() {
@@ -130,7 +130,7 @@ func (admitter *VMRestoreAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 
 		for _, r := range restores.Items {
 			if reflect.DeepEqual(r.Spec.Target, vmRestore.Spec.Target) &&
-				(r.Status == nil || r.Status.Complete == nil || *r.Status.Complete == false) {
+				(r.Status == nil || r.Status.Complete == nil || !*r.Status.Complete) {
 				cause := metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("VirtualMachineRestore %q in progress", r.Name),
@@ -225,7 +225,7 @@ func (admitter *VMRestoreAdmitter) validateSnapshot(field *k8sfield.Path, namesp
 
 	var causes []metav1.StatusCause
 
-	if snapshot.Status == nil || snapshot.Status.ReadyToUse == nil || *snapshot.Status.ReadyToUse == false {
+	if snapshot.Status == nil || snapshot.Status.ReadyToUse == nil || !*snapshot.Status.ReadyToUse {
 		cause := metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("VirtualMachineSnapshot %q is not ready to use", name),
