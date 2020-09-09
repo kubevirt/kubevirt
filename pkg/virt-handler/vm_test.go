@@ -607,9 +607,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		It("should update from Scheduled to Running, if it sees a running Domain", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
-			vmi.Spec.Domain.CPU = &v1.CPU{
-				Model: "Conroe",
-			}
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
 			vmi = addActivePods(vmi, podTestUUID, host)
@@ -923,9 +920,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
-			vmi.Spec.Domain.CPU = &v1.CPU{
-				Model: "Conroe",
-			}
 			vmi.Status.Phase = v1.Scheduled
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
@@ -1731,54 +1725,66 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 		})
 
-		Context("with CPU configuration", func() {
+		Context("With specific CPU modes", func() {
+			var featuresBeforeTest []string
+			var vmi *v1.VirtualMachineInstance
 
-			table.DescribeTable("should block migration for", func(cpu *v1.CPU) {
-				vmi := v1.NewMinimalVMI("testvmi")
-				if cpu != nil {
-					vmi.Spec.Domain.CPU = cpu
-				}
+			setFeatureGates := func(featureGates []string) {
+				config := controller.clusterConfig.GetConfig()
+				featuresBeforeTest = config.DeveloperConfiguration.FeatureGates
+				config.DeveloperConfiguration.FeatureGates = featureGates
+			}
 
+			executeTest := func(model string, positive bool) {
+				vmi.Spec.Domain.CPU = &v1.CPU{Model: model}
 				err := controller.checkCPUForMigration(vmi)
-				Expect(err).To(HaveOccurred(), "should block migration for CPU config")
-			},
-				table.Entry("empty CPU", nil),
-				table.Entry("host-passthough", &v1.CPU{Model: "host-passthrough"}),
-			)
-
-			table.DescribeTable("should not block migration for", func(cpu *v1.CPU) {
-				vmi := v1.NewMinimalVMI("testvmi")
-				if cpu != nil {
-					vmi.Spec.Domain.CPU = cpu
+				if positive {
+					Expect(err).NotTo(HaveOccurred())
+				} else {
+					Expect(err).To(HaveOccurred())
 				}
+			}
 
-				err := controller.checkCPUForMigrationFeatureGated(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should Not block migration for CPU config if feature gate is not enabled")
-			},
-				table.Entry("undefined CPU", &v1.CPU{Model: ""}),
-				table.Entry("host-model CPU", &v1.CPU{Model: "host-model"}),
-			)
+			Context("with CPU host-passthrough mode enabled", func() {
 
-			It("should not block migrate for defined CPU", func() {
-				vmi := v1.NewMinimalVMI("testvmi")
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Model: "Conroe",
-				}
+				BeforeEach(func() {
+					setFeatureGates([]string{"MigratableHostPassthrough"})
+					vmi = v1.NewMinimalVMI("testvmi")
+				})
 
-				err := controller.checkCPUForMigration(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should not block migration for defined CPU")
+				AfterEach(func() {
+					setFeatureGates(featuresBeforeTest)
+				})
+
+				table.DescribeTable("migration", func(model string, positive bool) {
+					executeTest(model, positive)
+				},
+					table.Entry("allowed with host-passthrough", v1.CPUModeHostPassthrough, true),
+					table.Entry("allowed with user-defined CPU model", "Conroe", true),
+					table.Entry("allowed with undefined CPU model", "", true),
+					table.Entry("not allowed with host-model", v1.CPUModeHostModel, false),
+				)
 			})
 
-			It("should not block migrate for defined CPU", func() {
-				vmi := v1.NewMinimalVMI("testvmi")
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Model: "Conroe",
-				}
+			Context("with CPU host-model mode enabled", func() {
 
-				err := controller.checkCPUForMigrationFeatureGated(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should not block migration for defined CPU")
+				BeforeEach(func() {
+					setFeatureGates([]string{"MigratableHostModel"})
+				})
+
+				AfterEach(func() {
+					setFeatureGates(featuresBeforeTest)
+				})
+
+				table.DescribeTable("migration", func(model string, positive bool) {
+					executeTest(model, positive)
+				},
+					table.Entry("allowed with host-model", v1.CPUModeHostModel, true),
+					table.Entry("allowed with user-defined CPU model", "Conroe", true),
+					table.Entry("allowed with undefined CPU model", "", true),
+					table.Entry("not allowed with host-passthrough", v1.CPUModeHostPassthrough, false),
+				)
 			})
-
 		})
 
 	})

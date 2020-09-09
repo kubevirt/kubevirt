@@ -728,72 +728,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 
 	// Cacluate whether the VM is migratable
 	if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceIsMigratable) {
-		migrate := true
-
-		// Hot fix of https://bugzilla.redhat.com/show_bug.cgi?id=1760028
-		err := d.checkCPUForMigration(vmi)
-		if err != nil {
-			liveMigrationCondition := v1.VirtualMachineInstanceCondition{
-				Type:    v1.VirtualMachineInstanceIsMigratable,
-				Status:  k8sv1.ConditionFalse,
-				Message: err.Error(),
-				Reason:  v1.VirtualMachineInstanceReasonCPUNotMigratable,
-			}
-			vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
-			migrate = false
-		} else if d.clusterConfig.CPUMigrationCompatibilityEnabled() {
-			// Hot fix of https://bugzilla.redhat.com/show_bug.cgi?id=1760028
-			// Host-model check is behind feature-gate to allow user to decided whether to check or not
-			err := d.checkCPUForMigrationFeatureGated(vmi)
-			if err != nil {
-				liveMigrationCondition := v1.VirtualMachineInstanceCondition{
-					Type:    v1.VirtualMachineInstanceIsMigratable,
-					Status:  k8sv1.ConditionFalse,
-					Message: err.Error(),
-					Reason:  v1.VirtualMachineInstanceReasonCPUNotMigratable,
-				}
-				vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
-				migrate = false
-			}
-		}
-
-		isBlockMigration, err := d.checkVolumesForMigration(vmi)
-		if err != nil {
-			liveMigrationCondition := v1.VirtualMachineInstanceCondition{
-				Type:    v1.VirtualMachineInstanceIsMigratable,
-				Status:  k8sv1.ConditionFalse,
-				Message: err.Error(),
-				Reason:  v1.VirtualMachineInstanceReasonDisksNotMigratable,
-			}
-			vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
-			migrate = false
-		}
-
-		err = d.checkNetworkInterfacesForMigration(vmi)
-		if err != nil {
-			liveMigrationCondition := v1.VirtualMachineInstanceCondition{
-				Type:    v1.VirtualMachineInstanceIsMigratable,
-				Status:  k8sv1.ConditionFalse,
-				Message: err.Error(),
-				Reason:  v1.VirtualMachineInstanceReasonInterfaceNotMigratable,
-			}
-			vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
-			migrate = false
-		}
-
-		if migrate {
-			liveMigrationCondition := v1.VirtualMachineInstanceCondition{
-				Type:   v1.VirtualMachineInstanceIsMigratable,
-				Status: k8sv1.ConditionTrue,
-			}
-			vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
-			// Set VMI Migration Method
-			if isBlockMigration {
-				vmi.Status.MigrationMethod = v1.BlockMigration
-			} else {
-				vmi.Status.MigrationMethod = v1.LiveMigration
-			}
-		}
+		d.isMigratable(vmi)
 	}
 	// Update the condition when GA is connected
 	channelConnected := false
@@ -1821,37 +1756,6 @@ func (d *VirtualMachineController) isPreMigrationTarget(vmi *v1.VirtualMachineIn
 	return false
 }
 
-// checkCPUForMigration is a hotfix for bugzilla: https://bugzilla.redhat.com/show_bug.cgi?id=1760028
-// to disable migration when cpu-pass-through is used.
-// For cpu-pass-through migration is always blocked
-func (d *VirtualMachineController) checkCPUForMigration(vmi *v1.VirtualMachineInstance) error {
-	if vmi.Spec.Domain.CPU == nil {
-		return fmt.Errorf("cannot migrate VMI with null CPU configuration")
-	}
-	if vmi.Spec.Domain.CPU.Model == v1.CPUModeHostPassthrough {
-		return fmt.Errorf("cannot migrate VMI with current CPU configuration: %s", vmi.Spec.Domain.CPU.Model)
-	}
-	return nil
-}
-
-// checkCPUForMigrationFeatureGated is a hotfix for bugzilla: https://bugzilla.redhat.com/show_bug.cgi?id=1760028
-// to disable migration when host-model is used.
-// The check here relies on the fact the first defaulting is done in mutating webhook
-// where the default is set based on cluster-wide config, which still can be empty.
-// If no CPU is set on VMI and the empty CPU gets here it is passed over to virt-launcher.
-// For empty CPU the default host-model is used when converting VMI to libvirt domain as CPU
-//
-// Therefore the fix checks if the CPU here is either empty, or set to host-model or pass-through
-// and marks VMI as non-migratable if so.
-func (d *VirtualMachineController) checkCPUForMigrationFeatureGated(vmi *v1.VirtualMachineInstance) error {
-	if d.clusterConfig.CPUMigrationCompatibilityEnabled() {
-		if vmi.Spec.Domain.CPU.Model == "" || vmi.Spec.Domain.CPU.Model == v1.CPUModeHostModel {
-			return fmt.Errorf("cannot migrate VMI with current CPU configuration: %s", vmi.Spec.Domain.CPU.Model)
-		}
-	}
-	return nil
-}
-
 func (d *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.VirtualMachineInstance) error {
 	networks := map[string]*v1.Network{}
 	for _, network := range vmi.Spec.Networks {
@@ -2347,6 +2251,79 @@ func (d *VirtualMachineController) setVMIGuestTime(vmi *v1.VirtualMachineInstanc
 		return err
 	}
 	return nil
+}
+
+func (d *VirtualMachineController) checkCPUForMigration(vmi *v1.VirtualMachineInstance) error {
+	if vmi.Spec.Domain.CPU == nil {
+		return nil
+	}
+
+	model := vmi.Spec.Domain.CPU.Model
+	switch model {
+	case v1.CPUModeHostModel:
+		if !d.clusterConfig.MigrationOfHostModelEnabled() {
+			return fmt.Errorf("cannot migrate VMI with current CPU model: %s", model)
+		}
+	case v1.CPUModeHostPassthrough:
+		if !d.clusterConfig.MigrationOfHostPassthroughEnabled() {
+			return fmt.Errorf("cannot migrate VMI with current CPU model: %s", model)
+		}
+	}
+
+	return nil
+}
+
+func (d *VirtualMachineController) isMigratable(vmi *v1.VirtualMachineInstance) {
+	liveMigrationPossible := true
+
+	if err := d.checkCPUForMigration(vmi); err != nil {
+		liveMigrationCondition := v1.VirtualMachineInstanceCondition{
+			Type:    v1.VirtualMachineInstanceIsMigratable,
+			Status:  k8sv1.ConditionFalse,
+			Message: err.Error(),
+			Reason:  v1.VirtualMachineInstanceReasonCPUNotMigratable,
+		}
+		vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
+		liveMigrationPossible = false
+	}
+
+	isBlockMigration, err := d.checkVolumesForMigration(vmi)
+	if err != nil {
+		liveMigrationCondition := v1.VirtualMachineInstanceCondition{
+			Type:    v1.VirtualMachineInstanceIsMigratable,
+			Status:  k8sv1.ConditionFalse,
+			Message: err.Error(),
+			Reason:  v1.VirtualMachineInstanceReasonDisksNotMigratable,
+		}
+		vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
+		liveMigrationPossible = false
+	}
+
+	err = d.checkNetworkInterfacesForMigration(vmi)
+	if err != nil {
+		liveMigrationCondition := v1.VirtualMachineInstanceCondition{
+			Type:    v1.VirtualMachineInstanceIsMigratable,
+			Status:  k8sv1.ConditionFalse,
+			Message: err.Error(),
+			Reason:  v1.VirtualMachineInstanceReasonInterfaceNotMigratable,
+		}
+		vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
+		liveMigrationPossible = false
+	}
+
+	if liveMigrationPossible {
+		liveMigrationCondition := v1.VirtualMachineInstanceCondition{
+			Type:   v1.VirtualMachineInstanceIsMigratable,
+			Status: k8sv1.ConditionTrue,
+		}
+		vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
+		// Set VMI Migration Method
+		if isBlockMigration {
+			vmi.Status.MigrationMethod = v1.BlockMigration
+		} else {
+			vmi.Status.MigrationMethod = v1.LiveMigration
+		}
+	}
 }
 
 func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {

@@ -175,24 +175,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 	})
 
-	newMigratableVMI := func(name cd.ContainerDisk) *v1.VirtualMachineInstance {
-		vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(name))
-		vmi.Spec.Domain.CPU = &v1.CPU{
-			Model: "Penryn",
-		}
-
-		return vmi
-	}
-
-	makeMigratableVMI := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-
-		vmi.Spec.Domain.CPU = &v1.CPU{
-			Model: "Penryn",
-		}
-
-		return vmi
-	}
-
 	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 		return tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, timeout, false)
 	}
@@ -426,7 +408,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 	Describe("Starting a VirtualMachineInstance ", func() {
 		Context("with a bridge network interface", func() {
 			It("[test_id:3226]should reject a migration of a vmi with a bridge interface", func() {
-				vmi := newMigratableVMI(cd.ContainerDiskAlpine)
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					{
 						Name: "default",
@@ -510,7 +492,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 
 			It("[test_id:1783]should be successfully migrated multiple times with cloud-init disk", func() {
-				vmi := newMigratableVMI(cd.ContainerDiskCirros)
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
 				By("Starting the VirtualMachineInstance")
@@ -623,8 +605,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 			It("[test_id:3237]should complete a migration", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
-				vmi = makeMigratableVMI(vmi)
-
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
@@ -752,7 +732,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				volMode := k8sv1.PersistentVolumeFilesystem
 				dataVolume.Spec.PVC.VolumeMode = &volMode
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
-				vmi = makeMigratableVMI(vmi)
 
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).ToNot(HaveOccurred())
@@ -797,7 +776,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			It("[test_id:3239]should reject a migration of a vmi with a non-shared data volume", func() {
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
-				vmi = makeMigratableVMI(vmi)
 
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).ToNot(HaveOccurred())
@@ -839,7 +817,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			It("[test_id:1479] should migrate a vmi with a shared OCS disk", func() {
 				vmi, dv := tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
 				defer deleteDataVolume(dv)
-				vmi = makeMigratableVMI(vmi)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 300)
@@ -888,7 +865,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 				image := cd.ContainerDiskFor(cd.ContainerDiskAlpine)
 				tests.AddEphemeralDisk(vmi, "myephemeral", "virtio", image)
-				vmi = makeMigratableVMI(vmi)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 180)
@@ -915,7 +891,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			It("[test_id:1377]should be successfully migrated multiple times", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(pvName)
-				vmi = makeMigratableVMI(vmi)
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
@@ -962,8 +937,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Hostname = fmt.Sprintf("%s", cd.ContainerDiskCirros)
-				vmi = makeMigratableVMI(vmi)
-
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
@@ -1023,7 +996,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = tests.NewRandomVMIWithPVC(pvName)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-				vmi = makeMigratableVMI(vmi)
 
 				// add userdata for guest agent and service account mount
 				mountSvcAccCommands := fmt.Sprintf(`
@@ -1101,7 +1073,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			It("[test_id:2303][posneg:negative] should secure migrations with TLS", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
-				vmi = makeMigratableVMI(vmi)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
@@ -1267,7 +1238,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			PIt("[test_id:2227] should abort a vmi migration without progress", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-				vmi = makeMigratableVMI(vmi)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
@@ -1308,7 +1278,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, expecterErr := tests.LoggedInFedoraExpecterWithTimeout(vmi, 240)
+				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
 				Expect(expecterErr).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1404,8 +1374,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Hostname = fmt.Sprintf("%s", cd.ContainerDiskCirros)
-				vmi = makeMigratableVMI(vmi)
-
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
@@ -1435,15 +1403,15 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
-		
+
 		Context("rook-ceph", func() {
 			Context("live migration cancelation", func() {
 				type vmiBuilder func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume)
+
 				newVirtualMachineInstanceWithFedoraContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-					vmi := tests.NewRandomFedoraVMIWitGuestAgent()
-					vmi = makeMigratableVMI(vmi)
-					return vmi, nil
+					return tests.NewRandomFedoraVMIWitGuestAgent(), nil
 				}
+
 				newVirtualMachineInstanceWithFedoraOCSDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 					// It could have been cleaner to import cd.ContainerDiskFedora from cdi-http-server but that does
 					// not work so as a temporary workaround the following imports the image from an ISCSI target pod
@@ -1469,7 +1437,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					tests.WaitForSuccessfulDataVolumeImport(dv, 600)
 					vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
 					tests.AddUserData(vmi, "disk1", tests.GetGuestAgentUserData())
-					vmi = makeMigratableVMI(vmi)
 					return vmi, dv
 				}
 
@@ -1549,10 +1516,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 		})
 
-		Context("without CPU properly set", func() {
+		Context("with restricted CPU models", func() {
+			var vmi *v1.VirtualMachineInstance
 
-			prepareMigration := func(cpuModel string) (*v1.VirtualMachineInstance, *v1.VirtualMachineInstanceMigration) {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			prepareMigration := func(cpuModel string) *v1.VirtualMachineInstanceMigration {
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Model: cpuModel,
 				}
@@ -1569,7 +1536,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// execute a migration, wait for finalized state
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 
-				return vmi, migration
+				return migration
 			}
 
 			disposeVMI := func(vmi *v1.VirtualMachineInstance) {
@@ -1581,53 +1548,47 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			}
 
-			table.DescribeTable("should block migration with feature-gate CPUMigrationGate enabled", func(cpuModel string) {
-				tests.EnableFeatureGate("MigrationCPU")
-
-				vmi, migration := prepareMigration(cpuModel)
+			executeTest := func(cpuModel, featureName string, enable, positive bool) {
+				if enable {
+					tests.EnableFeatureGate(featureName)
+				} else {
+					tests.DisableFeatureGate(featureName)
+				}
 
 				By("Starting a Migration")
+				migration := prepareMigration(cpuModel)
 				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("CPUNotMigratable"))
+				if positive {
+					Expect(err).NotTo(HaveOccurred())
+				} else {
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("CPUNotMigratable"))
+				}
+			}
 
-				disposeVMI(vmi)
-			},
-				table.Entry("with empty cpu", ""),
-				table.Entry("with host-model cpu", "host-model"),
-				table.Entry("with cpu-passthrough", "host-passthrough"),
-			)
+			BeforeEach(func() {
+				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			})
 
-			table.DescribeTable("should not block migration", func(cpuModel string) {
-				tests.DisableFeatureGate("MigrationCPU")
-
-				vmi, migration := prepareMigration(cpuModel)
-
-				By("Starting a Migration")
-				migrationUID := runMigrationAndExpectCompletion(migration, migrationWaitTime)
-
-				// check VMI, confirm migration state
-				confirmVMIPostMigration(vmi, migrationUID)
-
-				disposeVMI(vmi)
-			},
-				table.Entry("with empty cpu", ""),
-				table.Entry("with host-model cpu", "host-model"),
-			)
-
-			It("should always block migration with cpu-passthrough", func() {
-				tests.DisableFeatureGate("MigrationCPU")
-
-				vmi, migration := prepareMigration("host-passthrough")
-
-				By("Starting a Migration")
-				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("CPUNotMigratable"))
-
+			AfterEach(func() {
 				disposeVMI(vmi)
 			})
 
+			table.DescribeTable("should block migration for restricted CPU modes",
+				func(cpuModel, featureName string, enable, positive bool) {
+					executeTest(cpuModel, featureName, enable, positive)
+				},
+				table.Entry("with host-model cpu", "host-model", "MigratableHostModel", false, false),
+				table.Entry("with cpu-passthrough", "host-passthrough", "MigratableHostPassthrough", false, false),
+			)
+
+			table.DescribeTable("should not block migration when CPU modes permitted in feature gate",
+				func(cpuModel, featureName string, enable, positive bool) {
+					executeTest(cpuModel, featureName, enable, positive)
+				},
+				table.Entry("with host-model cpu", "host-model", "MigratableHostModel", true, true),
+				table.Entry("with cpu-passthrough", "host-passthrough", "MigratableHostPassthrough", true, true),
+			)
 		})
 	})
 
@@ -1659,7 +1620,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			vmi.Spec.Domain.Devices = v1.Devices{Interfaces: []v1.Interface{{Name: "default", Tag: "testnic",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Masquerade: &v1.InterfaceMasquerade{}}}}}
-			vmi = makeMigratableVMI(vmi)
 
 			vmi = runVMIAndExpectLaunch(vmi, 180)
 
@@ -1687,7 +1647,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 			BeforeEach(func() {
 				vmi = cirrosVMIWithEvictionStrategy()
-				vmi = makeMigratableVMI(vmi)
 			})
 
 			It("[test_id:3242]should block the eviction api and migrate", func() {
@@ -1752,7 +1711,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 			It("[test_id:3244]should block the eviction api while a slow migration is in progress", func() {
 				vmi = fedoraVMIWithEvictionStrategy()
-				vmi = makeMigratableVMI(vmi)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
@@ -1819,7 +1777,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
 					vmi = fedoraVMIWithEvictionStrategy()
-					vmi = makeMigratableVMI(vmi)
 
 					By("Starting the VirtualMachineInstance")
 					vmi = runVMIAndExpectLaunch(vmi, 180)
@@ -1867,7 +1824,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
 					vmi = cirrosVMIWithEvictionStrategy()
-					vmi = makeMigratableVMI(vmi)
 
 					By("Configuring a custom nodeDrainTaintKey in kubevirt configuration")
 					cfg := defaultKVConfig()
@@ -1906,11 +1862,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
 					vmi_evict1 := cirrosVMIWithEvictionStrategy()
-					vmi_evict1 = makeMigratableVMI(vmi_evict1)
 					vmi_evict2 := cirrosVMIWithEvictionStrategy()
-					vmi_evict2 = makeMigratableVMI(vmi_evict2)
 					vmi_noevict := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-					vmi_noevict = makeMigratableVMI(vmi_noevict)
 
 					labelKey := "testkey"
 					labels := map[string]string{
@@ -2029,7 +1982,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				for i := 0; i < 4; i++ {
 					vmi := cirrosVMIWithEvictionStrategy()
 					vmi.Spec.NodeSelector = map[string]string{"tests.kubevirt.io": "target"}
-					vmi = makeMigratableVMI(vmi)
 					vmis = append(vmis, vmi)
 				}
 
