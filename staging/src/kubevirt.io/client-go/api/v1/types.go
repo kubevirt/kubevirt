@@ -1172,11 +1172,11 @@ type KubeVirtSpec struct {
 // +k8s:openapi-gen=true
 type CustomizeComponents struct {
 	// +listType=atomic
-	Patches []Patch `json:"patches,omitempty"`
+	Patches []CustomizeComponentsPatch `json:"patches,omitempty"`
 }
 
 // +k8s:openapi-gen=true
-type Patch struct {
+type CustomizeComponentsPatch struct {
 	ResourceName string    `json:"resourceName,omitempty"`
 	ResourceType string    `json:"resourceType,omitempty"`
 	Patch        string    `json:"patch,omitempty"`

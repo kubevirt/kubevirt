@@ -327,7 +327,7 @@ func (CustomizeComponents) SwaggerDoc() map[string]string {
 	}
 }
 
-func (Patch) SwaggerDoc() map[string]string {
+func (CustomizeComponentsPatch) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "+k8s:openapi-gen=true",
 	}
