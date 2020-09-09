@@ -8,8 +8,8 @@ USER root
 
 # Initialize the database
 RUN ["initializer", "--manifests", "/registry/kubevirt-hyperconverged", "--output", "bundles.db"]
-
 RUN ["chown", "1001", "bundles.db"]
+RUN ["chmod", "-R", "g+rwx", "."]
 
 USER 1001
 
