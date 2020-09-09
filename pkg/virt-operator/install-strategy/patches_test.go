@@ -50,7 +50,7 @@ var _ = Describe("Patches", func() {
 
 	getCustomizer := func() *Customizer {
 		c, _ := NewCustomizer(v1.CustomizeComponents{
-			Patches: []v1.Patch{
+			Patches: []v1.CustomizeComponentsPatch{
 				{
 					ResourceName: "virt-controller",
 					ResourceType: "Deployment",
@@ -84,7 +84,7 @@ var _ = Describe("Patches", func() {
 	Context("apply patch", func() {
 
 		It("should not error on empty patch", func() {
-			err := applyPatch(nil, v1.Patch{})
+			err := applyPatch(nil, v1.CustomizeComponentsPatch{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
@@ -93,7 +93,7 @@ var _ = Describe("Patches", func() {
 
 		It("should be equal", func() {
 			c1 := v1.CustomizeComponents{
-				Patches: []v1.Patch{
+				Patches: []v1.CustomizeComponentsPatch{
 					{
 						ResourceName: "virt-controller",
 						ResourceType: "Deployment",
@@ -116,7 +116,7 @@ var _ = Describe("Patches", func() {
 			}
 
 			c2 := v1.CustomizeComponents{
-				Patches: []v1.Patch{
+				Patches: []v1.CustomizeComponentsPatch{
 					{
 						ResourceName: "virt-api",
 						ResourceType: "Deployment",
