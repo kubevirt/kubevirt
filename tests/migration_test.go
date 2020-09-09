@@ -691,9 +691,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				pvName := "test-iscsi-dv" + rand.String(48)
 				// Start a ISCSI POD and service
 				By("Starting an iSCSI POD")
-				iscsiIP := tests.CreateISCSITargetPOD(cd.ContainerDiskEmpty)
-				_, err = virtClient.CoreV1().PersistentVolumes().Create(tests.NewISCSIPV(pvName, "2Gi", iscsiIP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem))
+				iscsiTarget := tests.CreateISCSITargetPOD(cd.ContainerDiskEmpty, true)
+				_, err = virtClient.CoreV1().PersistentVolumes().Create(tests.NewISCSIPV(pvName, "2Gi", iscsiTarget.Status.PodIPs[1].IP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem))
 				Expect(err).ToNot(HaveOccurred())
+
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteMany)
 				volMode := k8sv1.PersistentVolumeFilesystem
 				dataVolume.Spec.PVC.VolumeMode = &volMode
@@ -815,10 +816,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				pvName = "test-iscsi-lun" + rand.String(48)
 				// Start a ISCSI POD and service
 				By("Starting an iSCSI POD")
-				iscsiIP := tests.CreateISCSITargetPOD(cd.ContainerDiskAlpine)
+				iscsiTarget := tests.CreateISCSITargetPOD(cd.ContainerDiskAlpine, true)
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTarget.Status.PodIPs[1].IP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
 			})
 
 			AfterEach(func() {
@@ -887,10 +888,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				pvName = "test-iscsi-lun" + rand.String(48)
 				// Start a ISCSI POD and service
 				By("Starting an iSCSI POD")
-				iscsiIP := tests.CreateISCSITargetPOD(cd.ContainerDiskCirros)
+				iscsiTarget := tests.CreateISCSITargetPOD(cd.ContainerDiskCirros, true)
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTarget.Status.PodIPs[1].IP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
 			})
 
 			AfterEach(func() {
@@ -1266,10 +1267,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				pvName = "test-iscsi-lun" + rand.String(48)
 				// Start a ISCSI POD and service
 				By("Starting an iSCSI POD")
-				iscsiIP := tests.CreateISCSITargetPOD(cd.ContainerDiskCirros)
+				iscsiTarget := tests.CreateISCSITargetPOD(cd.ContainerDiskCirros, true)
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTarget.Status.PodIPs[1].IP, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
 			})
 
 			AfterEach(func() {
@@ -1329,11 +1330,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				By("Starting an iSCSI POD")
-				iscsiIP := tests.CreateISCSITargetPOD(cd.ContainerDiskFedora)
+				iscsiTarget := tests.CreateISCSITargetPOD(cd.ContainerDiskFedora, true)
 				volMode := k8sv1.PersistentVolumeBlock
 				// create a new PV and PVC (PVs can't be reused)
 				pvName := "test-iscsi-lun" + rand.String(48)
-				tests.CreateISCSIPvAndPvc(pvName, "5Gi", iscsiIP, k8sv1.ReadWriteMany, volMode)
+				tests.CreateISCSIPvAndPvc(pvName, "5Gi", iscsiTarget.Status.PodIPs[1].IP, k8sv1.ReadWriteMany, volMode)
 				Expect(err).ToNot(HaveOccurred())
 				defer tests.DeletePvAndPvc(pvName)
 
