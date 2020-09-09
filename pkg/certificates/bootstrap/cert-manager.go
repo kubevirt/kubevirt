@@ -107,13 +107,13 @@ func (f *FileCertificateManager) Start() {
 	certDir := filepath.Dir(f.certBytesPath)
 	err = watcher.Add(certDir)
 	if err != nil {
-		log.DefaultLogger().Reason(err).Criticalf("Failed to establish a watch on %s", certDir)
+		log.DefaultLogger().Reason(err).Criticalf("Failed to establish a watch on %s", f.certBytesPath)
 	}
 	keyDir := filepath.Dir(f.keyBytesPath)
 	if keyDir != certDir {
 		err = watcher.Add(keyDir)
 		if err != nil {
-			log.DefaultLogger().Reason(err).Criticalf("Failed to establish a watch on %s", keyDir)
+			log.DefaultLogger().Reason(err).Criticalf("Failed to establish a watch on %s", f.keyBytesPath)
 		}
 	}
 
