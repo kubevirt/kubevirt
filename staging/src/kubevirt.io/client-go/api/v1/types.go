@@ -510,7 +510,8 @@ const (
 	IgnitionAnnotation           string = "kubevirt.io/ignitiondata"
 	PlacePCIDevicesOnRootComplex string = "kubevirt.io/placePCIDevicesOnRootComplex"
 
-	VirtualMachineLabel = AppLabel + "/vm"
+	VirtualMachineLabel        = AppLabel + "/vm"
+	MemfdMemoryBackend  string = "kubevirt.io/memfd"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

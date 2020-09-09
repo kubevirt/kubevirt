@@ -1418,6 +1418,8 @@ var _ = Describe("Converter", func() {
 			}
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 			Expect(domainSpec.MemoryBacking.HugePages).ToNot(BeNil())
+			Expect(domainSpec.MemoryBacking.Source).ToNot(BeNil())
+			Expect(domainSpec.MemoryBacking.Source.Type).To(Equal("memfd"))
 
 			Expect(domainSpec.Memory.Value).To(Equal(uint64(8388608)))
 			Expect(domainSpec.Memory.Unit).To(Equal("b"))

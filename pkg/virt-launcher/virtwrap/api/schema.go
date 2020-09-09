@@ -220,6 +220,19 @@ type CPU struct {
 	Model    string       `xml:"model,omitempty"`
 	Features []CPUFeature `xml:"feature"`
 	Topology *CPUTopology `xml:"topology"`
+	NUMA     *NUMA        `xml:"numa,omitempty"`
+}
+
+type NUMA struct {
+	Cells []NUMACell `xml:"cell"`
+}
+
+type NUMACell struct {
+	ID           string `xml:"id,attr"`
+	CPUs         string `xml:"cpus,attr"`
+	Memory       string `xml:"memory,attr,omitempty"`
+	Unit         string `xml:"unit,attr,omitempty"`
+	MemoryAccess string `xml:"memAccess,attr,omitempty"`
 }
 
 type CPUFeature struct {
@@ -327,7 +340,12 @@ type Memory struct {
 
 // MemoryBacking mirroring libvirt XML under https://libvirt.org/formatdomain.html#elementsMemoryBacking
 type MemoryBacking struct {
-	HugePages *HugePages `xml:"hugepages,omitempty"`
+	HugePages *HugePages           `xml:"hugepages,omitempty"`
+	Source    *MemoryBackingSource `xml:"source,omitempty"`
+}
+
+type MemoryBackingSource struct {
+	Type string `xml:"type,attr"`
 }
 
 // HugePages mirroring libvirt XML under memoryBacking
