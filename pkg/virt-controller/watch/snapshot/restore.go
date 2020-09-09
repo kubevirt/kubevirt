@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	v1 "kubevirt.io/client-go/api/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
@@ -80,7 +79,7 @@ func restoreDVName(vmRestore *snapshotv1.VirtualMachineRestore, name string) str
 }
 
 func vmRestoreProgressing(vmRestore *snapshotv1.VirtualMachineRestore) bool {
-	return vmRestore.Status == nil || vmRestore.Status.Complete == nil || *vmRestore.Status.Complete == false
+	return vmRestore.Status == nil || vmRestore.Status.Complete == nil || !*vmRestore.Status.Complete
 }
 
 func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.VirtualMachineRestore) (time.Duration, error) {
@@ -304,7 +303,7 @@ func (t *vmRestoreTarget) Ready() (bool, error) {
 		return false, err
 	}
 
-	if rs != v1.RunStrategyHalted {
+	if rs != kubevirtv1.RunStrategyHalted {
 		return false, fmt.Errorf("invalid RunStrategy %q", rs)
 	}
 
@@ -386,7 +385,7 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 								updatePVC.Annotations[populatedForPVCAnnotation] = dvName
 								// datavolume will take ownership
 								updatePVC.OwnerReferences = nil
-								pvc, err = t.controller.Client.CoreV1().PersistentVolumeClaims(updatePVC.Namespace).Update(updatePVC)
+								_, err = t.controller.Client.CoreV1().PersistentVolumeClaims(updatePVC.Namespace).Update(updatePVC)
 								if err != nil {
 									return false, err
 								}
@@ -405,9 +404,9 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 						newVolumes[j] = *nv
 					} else {
 						// convert to PersistentVolumeClaim volume
-						nv := v1.Volume{
+						nv := kubevirtv1.Volume{
 							Name: v.Name,
-							VolumeSource: v1.VolumeSource{
+							VolumeSource: kubevirtv1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: vr.PersistentVolumeClaimName,
 								},
@@ -452,7 +451,7 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	}
 	newVM.Annotations[lastRestoreAnnotation] = restoreID
 
-	newVM, err = t.controller.Client.VirtualMachine(newVM.Namespace).Update(newVM)
+	_, err = t.controller.Client.VirtualMachine(newVM.Namespace).Update(newVM)
 	if err != nil {
 		return false, err
 	}

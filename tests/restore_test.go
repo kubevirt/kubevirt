@@ -11,7 +11,6 @@ import (
 	expect "github.com/google/goexpect"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -225,16 +224,16 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					origSpec = vm.Spec.DeepCopy()
-					Expect(origSpec.Template.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]).To(Equal(resource.MustParse("64M")))
+					Expect(origSpec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("64M")))
 
-					vm.Spec.Template.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128M")
+					vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory] = resource.MustParse("128M")
 					updatedVM, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
 					if errors.IsConflict(err) {
 						return false
 					}
 					vm = updatedVM
 					Expect(err).ToNot(HaveOccurred())
-					Expect(vm.Spec.Template.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]).To(Equal(resource.MustParse("128M")))
+					Expect(vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("128M")))
 					return true
 				}, 180*time.Second, time.Second).Should(BeTrue())
 
@@ -386,7 +385,7 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: tests.RetValue("0")},
-					&expect.BSnd{S: fmt.Sprintf("sudo mkdir -p /test\n")},
+					&expect.BSnd{S: "sudo mkdir -p /test\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: fmt.Sprintf("sudo mount %s /test \n", device)},
 					&expect.BExp{R: "\\$ "},
@@ -434,7 +433,7 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 
 			if device != "" {
 				batch = append(batch, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("sudo mkdir -p /test\n")},
+					&expect.BSnd{S: "sudo mkdir -p /test\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: fmt.Sprintf("sudo mount %s /test \n", device)},
 					&expect.BExp{R: "\\$ "},
@@ -489,7 +488,7 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 
 			if device != "" {
 				batch = append(batch, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("sudo mkdir -p /test\n")},
+					&expect.BSnd{S: "sudo mkdir -p /test\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: fmt.Sprintf("sudo mount %s /test \n", device)},
 					&expect.BExp{R: "\\$ "},
@@ -585,9 +584,9 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 					},
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
-					AccessModes: []k8sv1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-					Resources: k8sv1.ResourceRequirements{
-						Requests: k8sv1.ResourceList{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
 							"storage": quantity,
 						},
 					},
@@ -641,10 +640,10 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 						Source: cdiv1.DataVolumeSource{
 							Blank: &cdiv1.DataVolumeBlankImage{},
 						},
-						PVC: &k8sv1.PersistentVolumeClaimSpec{
-							AccessModes: []k8sv1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-							Resources: k8sv1.ResourceRequirements{
-								Requests: k8sv1.ResourceList{
+						PVC: &corev1.PersistentVolumeClaimSpec{
+							AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
 									"storage": quantity,
 								},
 							},

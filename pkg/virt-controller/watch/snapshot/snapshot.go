@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	v1 "kubevirt.io/client-go/api/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -90,7 +89,7 @@ func vmSnapshotError(vmSnapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.
 
 func vmSnapshotProgressing(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
 	return vmSnapshotError(vmSnapshot) == nil &&
-		(vmSnapshot.Status == nil || vmSnapshot.Status.ReadyToUse == nil || *vmSnapshot.Status.ReadyToUse == false)
+		(vmSnapshot.Status == nil || vmSnapshot.Status.ReadyToUse == nil || !*vmSnapshot.Status.ReadyToUse)
 }
 
 func getVMSnapshotContentName(vmSnapshot *snapshotv1.VirtualMachineSnapshot) string {
@@ -251,7 +250,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		errorMessage = fmt.Sprintf("VolumeSnapshots (%s) skipped because in error state", strings.Join(skippedSnapshots, ","))
 	} else {
 		for _, vss := range volueSnapshotStatus {
-			if vss.ReadyToUse == nil || *vss.ReadyToUse == false {
+			if vss.ReadyToUse == nil || !*vss.ReadyToUse {
 				ready = false
 			}
 
@@ -262,7 +261,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		}
 	}
 
-	if ready && (contentCpy.Status.ReadyToUse == nil || *contentCpy.Status.ReadyToUse == false) {
+	if ready && (contentCpy.Status.ReadyToUse == nil || !*contentCpy.Status.ReadyToUse) {
 		contentCpy.Status.CreationTime = currentTime()
 	}
 
@@ -686,7 +685,7 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 		return false, err
 	}
 
-	if rs != v1.RunStrategyHalted {
+	if rs != kubevirtv1.RunStrategyHalted {
 		log.Log.V(3).Infof("Snapshottting a running VM is not supported yet")
 		return false, nil
 	}
