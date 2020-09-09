@@ -15,7 +15,7 @@
  *
  * Copyright 2017, 2018 Red Hat, Inc.
  *
- */
+*/
 
 package api
 
@@ -822,25 +822,25 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		return err
 	}
 
-    var isMemfdRequired = false
+	var isMemfdRequired = false
 	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
 		domain.Spec.MemoryBacking = &MemoryBacking{
 			HugePages: &HugePages{},
 		}
 		if val := vmi.Annotations[v1.MemfdMemoryBackend]; val != "false" {
-            isMemfdRequired = true
-        }
-    }
-    // virtiofs require shared access
-    if utils.IsVMIVirtiofsEnabled {
-        if domain.Spec.MemoryBacking == nil {
-            domain.Spec.MemoryBacking = &MemoryBacking{}
-        }
-        domain.Spec.MemoryBacking.Access = &MemoryBackingAccess{
-            Mode: "shared",
-        }
-        isMemfdRequired = true
-    }
+			isMemfdRequired = true
+		}
+	}
+	// virtiofs require shared access
+	if util.IsVMIVirtiofsEnabled(vmi) {
+		if domain.Spec.MemoryBacking == nil {
+			domain.Spec.MemoryBacking = &MemoryBacking{}
+		}
+		domain.Spec.MemoryBacking.Access = &MemoryBackingAccess{
+			Mode: "shared",
+		}
+		isMemfdRequired = true
+	}
 
 	if isMemfdRequired {
 		// Set memfd as memory backend to solve SELinux restrictions
@@ -976,6 +976,40 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 
 		domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
+	}
+	// Handle virtioFS
+	for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
+		newFS := FilesystemDevice{}
+
+		newFS.Type = "mount"
+		newFS.AccessMode = "passthrough"
+		newFS.Driver = &FilesystemDriver{
+			Type:  "virtiofs",
+			Queue: "1024",
+		}
+		newFS.Binary = &FilesystemBinary{
+			Path:  "/usr/libexec/virtiofsd",
+			Xattr: "on",
+			Cache: &FilesystemBinaryCache{
+				Mode: "always",
+			},
+			Lock: &FilesystemBinaryLock{
+				Posix: "on",
+				Flock: "on",
+			},
+		}
+		newFS.Target = &FilesystemTarget{
+			Dir: fs.Name,
+		}
+
+		volume := volumes[fs.Name]
+		if volume == nil {
+			return fmt.Errorf("No matching volume with name %s found", fs.Name)
+		}
+		volDir, _ := filepath.Split(GetFilesystemVolumePath(volume.Name))
+		newFS.Source = &FilesystemSource{}
+		newFS.Source.Dir = volDir
+		domain.Spec.Devices.Filesystems = append(domain.Spec.Devices.Filesystems, newFS)
 	}
 
 	if vmi.Spec.Domain.Devices.Watchdog != nil {

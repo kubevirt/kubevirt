@@ -1103,7 +1103,7 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 	res = append(res, CAP_SYS_NICE)
 
 	// add CAP_SYS_ADMIN capability to allow virtiofs
-	if utils.IsVMIVirtiofsEnabled(vmi) {
+	if util.IsVMIVirtiofsEnabled(vmi) {
 		res = append(res, CAP_SYS_ADMIN)
 	}
 	return res
