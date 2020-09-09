@@ -110,6 +110,10 @@ func createConfig() *common.Config {
 			}
 			return m
 		},
+
+		GetDefinitionName: func(name string) (string, spec.Extensions) {
+			return name, nil
+		},
 	}
 }
 
