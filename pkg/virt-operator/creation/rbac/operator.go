@@ -19,6 +19,7 @@
 package rbac
 
 import (
+	"fmt"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -485,5 +486,14 @@ func NewOperatorRole(namespace string) *rbacv1.Role {
 				},
 			},
 		},
+	}
+}
+
+func GetKubevirtComponentsServiceAccounts(namespace string) []string {
+	prefix := "system:serviceaccount"
+	return []string{
+		fmt.Sprintf("%s:%s:%s", prefix, namespace, HandlerServiceAccountName),
+		fmt.Sprintf("%s:%s:%s", prefix, namespace, ApiServiceAccountName),
+		fmt.Sprintf("%s:%s:%s", prefix, namespace, ControllerServiceAccountName),
 	}
 }
