@@ -7,6 +7,7 @@ go_library(
         "cluster.go",
         "dns.go",
         "validation.go",
+        "ipaddress.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/libnet",
     visibility = ["//visibility:public"],

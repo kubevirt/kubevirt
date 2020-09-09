@@ -46,6 +46,8 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 const (
@@ -76,15 +78,20 @@ var _ = Describe("[Serial]Storage", func() {
 		var vmi *v1.VirtualMachineInstance
 		var nfsInitialized bool
 
-		initNFS := func() string {
+		initNFS := func(isIpv6 bool) string {
 			if !nfsInitialized {
 				_pvName = "test-nfs" + rand.String(48)
 				// Prepare a NFS backed PV
 				By("Starting an NFS POD")
 				os := string(cd.ContainerDiskAlpine)
-				nfsIP := tests.CreateNFSTargetPOD(os)
+				nfsIPs := tests.CreateNFSTargetPOD(os)
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new NFS PV and PVC")
+				nfsIP := libnet.GetIp(libnet.GetPodIpsStrings(nfsIPs), isIpv6)
+				if nfsIP == "" && isIpv6 {
+					Skip("skipping ipv6 nfs test on a single stack cluster")
+				}
+				Expect(nfsIP).NotTo(BeEmpty())
 				tests.CreateNFSPvAndPvc(_pvName, "5Gi", nfsIP, os)
 
 				nfsInitialized = true
@@ -113,14 +120,14 @@ var _ = Describe("[Serial]Storage", func() {
 			}
 		})
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]with Alpine PVC", func() {
-			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc, storageEngine string) {
+			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc, storageEngine string, isIpv6 bool) {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
 
 				var ignoreWarnings bool
 				var pvName string
 				// Start the VirtualMachineInstance with the PVC attached
 				if storageEngine == "nfs" {
-					pvName = initNFS()
+					pvName = initNFS(isIpv6)
 					ignoreWarnings = true
 				} else {
 					pvName = tests.DiskAlpineHostPath
@@ -133,9 +140,10 @@ var _ = Describe("[Serial]Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 			},
-				table.Entry("[test_id:3130]with Disk PVC", tests.NewRandomVMIWithPVC, ""),
-				table.Entry("[test_id:3131]with CDRom PVC", tests.NewRandomVMIWithCDRom, ""),
-				table.Entry("[test_id:4618]with NFS Disk PVC", tests.NewRandomVMIWithPVC, "nfs"),
+				table.Entry("[test_id:3130]with Disk PVC", tests.NewRandomVMIWithPVC, "", false),
+				table.Entry("[test_id:3131]with CDRom PVC", tests.NewRandomVMIWithCDRom, "", false),
+				table.Entry("[test_id:4618]with NFS Disk PVC using ipv4 address of the NFS pod", tests.NewRandomVMIWithPVC, "nfs", false),
+				table.Entry("with NFS Disk PVC using ipv6 address of the NFS pod", tests.NewRandomVMIWithPVC, "nfs", true),
 			)
 
 			table.DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc) {
@@ -339,13 +347,13 @@ var _ = Describe("[Serial]Storage", func() {
 			})
 
 			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
-			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc, storageEngine string) {
+			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc, storageEngine string, isIpv6 bool) {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
 				var ignoreWarnings bool
 				var pvName string
 				// Start the VirtualMachineInstance with the PVC attached
 				if storageEngine == "nfs" {
-					pvName = initNFS()
+					pvName = initNFS(isIpv6)
 					ignoreWarnings = true
 				} else {
 					pvName = tests.DiskAlpineHostPath
@@ -358,8 +366,9 @@ var _ = Describe("[Serial]Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 			},
-				table.Entry("[test_id:3136]with Ephemeral PVC", tests.NewRandomVMIWithEphemeralPVC, ""),
-				table.Entry("[test_id:4619]with Ephemeral PVC from NFS", tests.NewRandomVMIWithEphemeralPVC, "nfs"),
+				table.Entry("[test_id:3136]with Ephemeral PVC", tests.NewRandomVMIWithEphemeralPVC, "", false),
+				table.Entry("[test_id:4619]with Ephemeral PVC from NFS using ipv4 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", false),
+				table.Entry("with Ephemeral PVC from NFS using ipv6 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", true),
 			)
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
