@@ -2219,93 +2219,6 @@ func createOrUpdatePrometheusRules(kv *v1.KubeVirt,
 	return nil
 }
 
-// deprecated, keep it for backwards compatibility
-func addOrRemoveSSC(targetStrategy *InstallStrategy,
-	prevStrategy *InstallStrategy,
-	clientset kubecli.KubevirtClient,
-	stores util.Stores,
-	addOnly bool) error {
-
-	scc := clientset.SecClient()
-	for _, sccPriv := range targetStrategy.customSCCPrivileges {
-		var curSccPriv *customSCCPrivilegedAccounts
-		if prevStrategy != nil {
-			for _, entry := range prevStrategy.customSCCPrivileges {
-				if sccPriv.TargetSCC == entry.TargetSCC {
-					curSccPriv = entry
-					break
-				}
-			}
-		}
-
-		privSCCObj, exists, err := stores.SCCCache.GetByKey(sccPriv.TargetSCC)
-		if !exists {
-			continue
-		} else if err != nil {
-			return err
-		}
-
-		privSCC, ok := privSCCObj.(*secv1.SecurityContextConstraints)
-		if !ok {
-			return fmt.Errorf("couldn't cast object to SecurityContextConstraints: %+v", privSCCObj)
-		}
-
-		oldUsers := privSCC.Users
-		privSCCCopy := privSCC.DeepCopy()
-		users := privSCCCopy.Users
-
-		modified := false
-
-		// remove users from previous
-		if curSccPriv != nil && !addOnly {
-			for _, acc := range curSccPriv.ServiceAccounts {
-				shouldRemove := true
-				// only remove if the target doesn't contain the same
-				// rule, otherwise leave as is.
-				for _, targetAcc := range sccPriv.ServiceAccounts {
-					if acc == targetAcc {
-						shouldRemove = false
-						break
-					}
-				}
-				if shouldRemove {
-					removed := false
-					users, removed = remove(users, acc)
-					modified = modified || removed
-				}
-			}
-		}
-
-		// add any users from target that don't already exist
-		for _, acc := range sccPriv.ServiceAccounts {
-			if !contains(users, acc) {
-				users = append(users, acc)
-				modified = true
-			}
-		}
-
-		if modified {
-			oldUserBytes, err := json.Marshal(oldUsers)
-			if err != nil {
-				return err
-			}
-			userBytes, err := json.Marshal(users)
-			if err != nil {
-				return err
-			}
-
-			test := fmt.Sprintf(`{ "op": "test", "path": "/users", "value": %s }`, string(oldUserBytes))
-			patch := fmt.Sprintf(`{ "op": "replace", "path": "/users", "value": %s }`, string(userBytes))
-
-			_, err = scc.SecurityContextConstraints().Patch(sccPriv.TargetSCC, types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)))
-			if err != nil {
-				return fmt.Errorf("unable to patch scc: %v", err)
-			}
-		}
-	}
-	return nil
-}
-
 func syncKubevirtNamespaceLabels(kv *v1.KubeVirt, stores util.Stores, clientset kubecli.KubevirtClient) error {
 
 	targetNamespace := kv.ObjectMeta.Namespace
@@ -2472,7 +2385,7 @@ func syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment, clients
 	return nil
 }
 
-func SyncAll(queue workqueue.RateLimitingInterface, kv *v1.KubeVirt, prevStrategy *InstallStrategy, targetStrategy *InstallStrategy, stores util.Stores, clientset kubecli.KubevirtClient, aggregatorclient APIServiceInterface, expectations *util.Expectations) (bool, error) {
+func SyncAll(queue workqueue.RateLimitingInterface, kv *v1.KubeVirt, targetStrategy *InstallStrategy, stores util.Stores, clientset kubecli.KubevirtClient, aggregatorclient APIServiceInterface, expectations *util.Expectations) (bool, error) {
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
 		return false, err
@@ -2685,15 +2598,8 @@ func SyncAll(queue workqueue.RateLimitingInterface, kv *v1.KubeVirt, prevStrateg
 		return false, nil
 	}
 
-	// Add new SCC Privileges and remove unsed SCC Privileges
 	if infrastructureRolledOver {
-		err := addOrRemoveSSC(targetStrategy, prevStrategy, clientset, stores, false)
-		if err != nil {
-			return false, err
-		}
-
-	} else {
-		err := addOrRemoveSSC(targetStrategy, prevStrategy, clientset, stores, true)
+		err = removeKvServiceAccountsFromDefaultSCC(kv.Namespace, clientset, stores)
 		if err != nil {
 			return false, err
 		}
@@ -3357,4 +3263,53 @@ func createOrUpdateKubeVirtCAConfigMap(
 		return []byte(configMap.Data[components.CABundleKey]), nil
 	}
 	return nil, nil
+}
+
+func removeKvServiceAccountsFromDefaultSCC(targetNamespace string,
+	clientset kubecli.KubevirtClient,
+	stores util.Stores) error {
+	var remainedUsersList []string
+
+	SCCObj, exists, err := stores.SCCCache.GetByKey("privileged")
+	if err != nil {
+		return err
+	} else if !exists {
+		return nil
+	}
+
+	SCC, ok := SCCObj.(*secv1.SecurityContextConstraints)
+	if !ok {
+		return fmt.Errorf("couldn't cast object to SecurityContextConstraints: %+v", SCCObj)
+	}
+
+	modified := false
+	kvServiceAccounts := rbac.GetKubevirtComponentsServiceAccounts(targetNamespace)
+	for _, acc := range SCC.Users {
+		if _, ok := kvServiceAccounts[acc]; !ok {
+			remainedUsersList = append(remainedUsersList, acc)
+		} else {
+			modified = true
+		}
+	}
+
+	if modified {
+		oldUserBytes, err := json.Marshal(SCC.Users)
+		if err != nil {
+			return err
+		}
+		userBytes, err := json.Marshal(remainedUsersList)
+		if err != nil {
+			return err
+		}
+
+		test := fmt.Sprintf(`{ "op": "test", "path": "/users", "value": %s }`, string(oldUserBytes))
+		patch := fmt.Sprintf(`{ "op": "replace", "path": "/users", "value": %s }`, string(userBytes))
+
+		_, err = clientset.SecClient().SecurityContextConstraints().Patch("privileged", types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)))
+		if err != nil {
+			return fmt.Errorf("unable to patch scc: %v", err)
+		}
+	}
+
+	return nil
 }

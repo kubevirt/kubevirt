@@ -1,3 +1,22 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2019 Red Hat, Inc.
+ *
+ */
+
 package installstrategy
 
 import (
@@ -6,9 +25,8 @@ import (
 	"reflect"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
-
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
@@ -747,7 +765,6 @@ var _ = Describe("Create", func() {
 		var informers util.Informers
 		var virtClient *kubecli.MockKubevirtClient
 		var secClient *secv1fake.FakeSecurityV1
-		var prevStrategy, targetStrategy *InstallStrategy
 		var err error
 
 		namespace := "kubevirt-test"
@@ -758,16 +775,6 @@ var _ = Describe("Create", func() {
 					Name: sccName,
 				},
 				Users: usersList,
-			}
-		}
-
-		generateCustomSCCpriv := func(sccName string, usersList []string) *customSCCPrivilegedAccounts {
-			return &customSCCPrivilegedAccounts{
-				TypeMeta: v12.TypeMeta{
-					Kind: customSCCPrivilegedAccountsType,
-				},
-				TargetSCC:       sccName,
-				ServiceAccounts: usersList,
 			}
 		}
 
@@ -782,41 +789,6 @@ var _ = Describe("Create", func() {
 				})
 		}
 
-		setupStrategies := func(prevCustomScc, currCustomScc *customSCCPrivilegedAccounts) {
-			config := util.GetTargetConfigFromKV(&v1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-				},
-				Spec: v1.KubeVirtSpec{
-					ImageRegistry: "fake-registry",
-					ImageTag:      "v1.0.0",
-				},
-			})
-
-			prevStrategy, err = GenerateCurrentInstallStrategy(config, true, namespace)
-			Expect(err).ToNot(HaveOccurred(), "Should gnenerate previous strategy object")
-			targetStrategy, err = GenerateCurrentInstallStrategy(config, true, namespace)
-			Expect(err).ToNot(HaveOccurred(), "Should gnenerate target strategy object")
-			if prevCustomScc != nil {
-				prevStrategy.customSCCPrivileges = append(prevStrategy.customSCCPrivileges, prevCustomScc)
-			}
-			if currCustomScc != nil {
-				targetStrategy.customSCCPrivileges = append(targetStrategy.customSCCPrivileges, currCustomScc)
-			}
-		}
-
-		executeTest := func(prevCustomScc *customSCCPrivilegedAccounts,
-			currCustomScc *customSCCPrivilegedAccounts,
-			scc *secv1.SecurityContextConstraints,
-			expectedPatch string,
-			addOnly bool) {
-
-			setupPrependReactor(scc.ObjectMeta.Name, []byte(expectedPatch))
-			stores.SCCCache.Add(scc)
-			err = addOrRemoveSSC(targetStrategy, prevStrategy, virtClient, stores, addOnly)
-			Expect(err).ToNot(HaveOccurred(), "Should successfully update users in relevant security context constraints")
-		}
-
 		BeforeEach(func() {
 			stop = make(chan struct{})
 			ctrl = gomock.NewController(GinkgoT())
@@ -829,46 +801,36 @@ var _ = Describe("Create", func() {
 			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
 		})
 
+		executeTest := func(scc *secv1.SecurityContextConstraints, expectedPatch string) {
+			setupPrependReactor(scc.ObjectMeta.Name, []byte(expectedPatch))
+			stores.SCCCache.Add(scc)
+			err = removeKvServiceAccountsFromDefaultSCC(namespace, virtClient, stores)
+			Expect(err).ToNot(HaveOccurred(), "Should successfully remove only the kubevirt service accounts")
+		}
+
 		AfterEach(func() {
 			close(stop)
 			ctrl.Finish()
 		})
 
-		It("Should remove users that appear in previous strategy but no longer appear in target strategy", func() {
-			existingCustomSCCPriv := generateCustomSCCpriv("test-scc", []string{"someUser2", "someUser3"})
-			targetCustomSCCPriv := generateCustomSCCpriv("test-scc", []string{})
-			scc := generateSCC("test-scc", []string{"someUser1", "someUser2", "someUser3"})
-			expectedJsonPatch := `[ { "op": "test", "path": "/users", "value": ["someUser1","someUser2","someUser3"] }, { "op": "replace", "path": "/users", "value": ["someUser1"] } ]`
-
-			setupStrategies(existingCustomSCCPriv, targetCustomSCCPriv)
-			executeTest(existingCustomSCCPriv, targetCustomSCCPriv, scc, expectedJsonPatch, false)
-		})
-
-		It("Should add users that appear in target strategy but not appeared in previous strategy", func() {
-			existingCustomSCCPriv := generateCustomSCCpriv("test-scc", []string{})
-			targetCustomSCCPriv := generateCustomSCCpriv("test-scc", []string{"someUser2", "someUser3"})
-			scc := generateSCC("test-scc", []string{"someUser1"})
-			expectedJsonPatch := `[ { "op": "test", "path": "/users", "value": ["someUser1"] }, { "op": "replace", "path": "/users", "value": ["someUser1","someUser2","someUser3"] } ]`
-
-			setupStrategies(existingCustomSCCPriv, targetCustomSCCPriv)
-			executeTest(existingCustomSCCPriv, targetCustomSCCPriv, scc, expectedJsonPatch, false)
-		})
-
-		It("Should remove only kubevirt service accounts from default privileged SCC and", func() {
-			prefix := "system:serviceaccount"
-			serviceaccounts := []string{
-				"someUser",
-				fmt.Sprintf("%s:%s:%s", prefix, namespace, rbac.HandlerServiceAccountName),
-				fmt.Sprintf("%s:%s:%s", prefix, namespace, rbac.ApiServiceAccountName),
-				fmt.Sprintf("%s:%s:%s", prefix, namespace, rbac.ControllerServiceAccountName),
+		table.DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {
+			var expectedJsonPatch string
+			var serviceAccounts []string
+			saMap := rbac.GetKubevirtComponentsServiceAccounts(namespace)
+			for key, _ := range saMap {
+				serviceAccounts = append(serviceAccounts, key)
 			}
-			scc := generateSCC("privileged", serviceaccounts)
-			expectedJsonPatch := fmt.Sprintf(`[ { "op": "test", "path": "/users", "value": ["%s"] }, { "op": "replace", "path": "/users", "value": ["someUser"] } ]`, strings.Join(serviceaccounts, `","`))
-
-			setupStrategies(nil, nil)
-			serviceaccounts = serviceaccounts[1:]
-			prevStrategy.customSCCPrivileges[0].ServiceAccounts = serviceaccounts
-			executeTest(prevStrategy.customSCCPrivileges[0], targetStrategy.customSCCPrivileges[0], scc, expectedJsonPatch, false)
-		})
+			serviceAccounts = append(serviceAccounts, additionalUserlist...)
+			scc := generateSCC("privileged", serviceAccounts)
+			if len(additionalUserlist) != 0 {
+				expectedJsonPatch = fmt.Sprintf(`[ { "op": "test", "path": "/users", "value": ["%s"] }, { "op": "replace", "path": "/users", "value": ["%s"] } ]`, strings.Join(serviceAccounts, `","`), strings.Join(additionalUserlist, `","`))
+			} else {
+				expectedJsonPatch = fmt.Sprintf(`[ { "op": "test", "path": "/users", "value": ["%s"] }, { "op": "replace", "path": "/users", "value": null } ]`, strings.Join(serviceAccounts, `","`))
+			}
+			executeTest(scc, expectedJsonPatch)
+		},
+			table.Entry("Without custom users", []string{}),
+			table.Entry("With custom users", []string{"someuser"}),
+		)
 	})
 })

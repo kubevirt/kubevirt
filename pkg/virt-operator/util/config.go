@@ -138,25 +138,6 @@ func GetTargetConfigFromKV(kv *v1.KubeVirt) *KubeVirtDeploymentConfig {
 	return getConfig(kv.Spec.ImageRegistry, kv.Spec.ImageTag, kv.Namespace, getKVMapFromSpec(kv.Spec))
 }
 
-func GetObservedConfigFromKV(kv *v1.KubeVirt) (*KubeVirtDeploymentConfig, error) {
-	additionalProperties := getKVMapFromSpec(kv.Spec)
-
-	imagePrefix, _, err := getImagePrefixFromDeploymentConfig(kv.Status.ObservedDeploymentConfig)
-
-	if err != nil {
-		return nil, fmt.Errorf("unable to load observed config from kubevirt custom resource: %v", err)
-	}
-	additionalProperties[ImagePrefixKey] = imagePrefix
-	if kv.Spec.ProductName != "" {
-		additionalProperties[ProductNameKey] = kv.Spec.ProductName
-	}
-	if kv.Spec.ProductVersion != "" {
-		additionalProperties[ProductVersionKey] = kv.Spec.ProductVersion
-	}
-
-	return getConfig(kv.Status.ObservedKubeVirtRegistry, kv.Status.ObservedKubeVirtVersion, kv.Namespace, additionalProperties), nil
-}
-
 // retrieve imagePrefix from an existing deployment config (which is stored as JSON)
 func getImagePrefixFromDeploymentConfig(deploymentConfig string) (string, bool, error) {
 	var obj interface{}
