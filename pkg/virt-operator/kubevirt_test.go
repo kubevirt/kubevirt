@@ -910,15 +910,6 @@ var _ = Describe("KubeVirt Operator", func() {
 				Fail("could not cast to runtime.Object")
 			}
 		}
-
-		// update SCC
-		scc := getSCC()
-		prefix := "system:serviceaccount"
-		scc.Users = append(scc.Users,
-			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, rbac.HandlerServiceAccountName),
-			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, rbac.ApiServiceAccountName),
-			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, rbac.ControllerServiceAccountName))
-		sccSource.Modify(&scc)
 	}
 
 	makePodDisruptionBudgetsReady := func() {
@@ -1236,16 +1227,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		return true, nil, nil
 	}
 
-	expectUsersDeleted := func(userBytes []byte) {
-		deletePatch := `[ { "op": "test", "path": "/users", "value": ["someUser","system:serviceaccount:kubevirt-test:kubevirt-handler","system:serviceaccount:kubevirt-test:kubevirt-apiserver","system:serviceaccount:kubevirt-test:kubevirt-controller"] }, { "op": "replace", "path": "/users", "value": ["someUser"] } ]`
-		Expect(userBytes).To(Equal([]byte(deletePatch)))
-	}
-
-	expectUsersAdded := func(userBytes []byte) {
-		addPatch := `[ { "op": "test", "path": "/users", "value": ["someUser"] }, { "op": "replace", "path": "/users", "value": ["someUser","system:serviceaccount:kubevirt-test:kubevirt-handler","system:serviceaccount:kubevirt-test:kubevirt-apiserver","system:serviceaccount:kubevirt-test:kubevirt-controller"] } ]`
-		Expect(userBytes).To(Equal([]byte(addPatch)))
-	}
-
 	shouldExpectInstallStrategyDeletion := func() {
 		kubeClient.Fake.PrependReactor("delete", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 
@@ -1270,14 +1251,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("delete", "clusterrolebindings", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "roles", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "rolebindings", genericDeleteFunc)
-
-		secClient.Fake.PrependReactor("patch", "securitycontextconstraints", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			patch, _ := action.(testing.PatchAction)
-			expectUsersDeleted(patch.GetPatch())
-			return true, nil, nil
-		})
 		extClient.Fake.PrependReactor("delete", "customresourcedefinitions", genericDeleteFunc)
-
 		kubeClient.Fake.PrependReactor("delete", "services", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "deployments", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "daemonsets", genericDeleteFunc)
@@ -1339,14 +1313,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "clusterrolebindings", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "roles", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "rolebindings", genericCreateFunc)
-
-		secClient.Fake.PrependReactor("patch", "securitycontextconstraints", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			patch, _ := action.(testing.PatchAction)
-			expectUsersAdded(patch.GetPatch())
-			return true, nil, nil
-		})
 		extClient.Fake.PrependReactor("create", "customresourcedefinitions", genericCreateFunc)
-
 		kubeClient.Fake.PrependReactor("create", "services", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "deployments", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "daemonsets", genericCreateFunc)
