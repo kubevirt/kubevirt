@@ -28,6 +28,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -50,7 +52,13 @@ var _ = Describe("[Serial]Subresource Api", func() {
 	})
 
 	Describe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac Authorization", func() {
-		resource := "virtualmachineinstances"
+		var resource string
+		BeforeEach(func() {
+			vm := tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			resource = vm.Name
+			vm, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+		})
 
 		Context("with correct permissions", func() {
 			It("[test_id:3170]should be allowed to access subresource endpoint", func() {
@@ -241,7 +249,7 @@ func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool, reso
 				{
 					Name:    name,
 					Image:   fmt.Sprintf("%s/subresource-access-test:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
-					Command: []string{"/subresource-access-test", resource},
+					Command: []string{"/subresource-access-test", "-n", namespace, resource},
 				},
 			},
 		},
