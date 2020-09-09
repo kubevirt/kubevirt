@@ -296,4 +296,42 @@ var _ = Describe("Create", func() {
 			table.Entry("should allow empty strings", "", true),
 		)
 	})
+
+	Context("Injecting Metadata", func() {
+
+		It("should set expected values", func() {
+
+			kv := &v1.KubeVirt{}
+			kv.Status.TargetKubeVirtRegistry = Registry
+			kv.Status.TargetKubeVirtVersion = Version
+			kv.Status.TargetDeploymentID = Id
+
+			deployment := appsv1.Deployment{}
+			injectOperatorMetadata(kv, &deployment.ObjectMeta, "fakeversion", "fakeregistry", "fakeid", false)
+
+			// NOTE we are purposfully not using the defined constant values
+			// in types.go here. This test is explicitly verifying that those
+			// values in types.go that we depend on for virt-operator updates
+			// do not change. This is meant to preserve backwards and forwards
+			// compatibility
+
+			managedBy, ok := deployment.Labels["app.kubernetes.io/managed-by"]
+
+			Expect(ok).To(BeTrue())
+			Expect(managedBy).To(Equal("kubevirt-operator"))
+
+			version, ok := deployment.Annotations["kubevirt.io/install-strategy-version"]
+			Expect(ok).To(BeTrue())
+			Expect(version).To(Equal("fakeversion"))
+
+			registry, ok := deployment.Annotations["kubevirt.io/install-strategy-registry"]
+			Expect(ok).To(BeTrue())
+			Expect(registry).To(Equal("fakeregistry"))
+
+			id, ok := deployment.Annotations["kubevirt.io/install-strategy-identifier"]
+			Expect(ok).To(BeTrue())
+			Expect(id).To(Equal("fakeid"))
+
+		})
+	})
 })

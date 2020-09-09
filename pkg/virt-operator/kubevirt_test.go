@@ -1363,6 +1363,14 @@ var _ = Describe("KubeVirt Operator", func() {
 	}
 
 	shouldExpectKubeVirtUpdate := func(times int) {
+		update := kvInterface.EXPECT().Update(gomock.Any())
+		update.Do(func(kv *v1.KubeVirt) {
+			kvInformer.GetStore().Update(kv)
+			update.Return(kv, nil)
+		}).Times(times)
+	}
+
+	shouldExpectKubeVirtUpdateStatus := func(times int) {
 		update := kvInterface.EXPECT().UpdateStatus(gomock.Any())
 		update.Do(func(kv *v1.KubeVirt) {
 			kvInformer.GetStore().Update(kv)
@@ -1370,7 +1378,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		}).Times(times)
 	}
 
-	shouldExpectKubeVirtUpdateVersion := func(times int, config *util.KubeVirtDeploymentConfig) {
+	shouldExpectKubeVirtUpdateStatusVersion := func(times int, config *util.KubeVirtDeploymentConfig) {
 		update := kvInterface.EXPECT().UpdateStatus(gomock.Any())
 		update.Do(func(kv *v1.KubeVirt) {
 
@@ -1381,7 +1389,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		}).Times(times)
 	}
 
-	shouldExpectKubeVirtUpdateFailureCondition := func(reason string) {
+	shouldExpectKubeVirtUpdateStatusFailureCondition := func(reason string) {
 		update := kvInterface.EXPECT().UpdateStatus(gomock.Any())
 		update.Do(func(kv *v1.KubeVirt) {
 			Expect(len(kv.Status.Conditions)).To(Equal(1))
@@ -1464,6 +1472,7 @@ var _ = Describe("KubeVirt Operator", func() {
 					Name:       "test-install",
 					Namespace:  NAMESPACE,
 					Generation: int64(1),
+					Finalizers: []string{util.KubeVirtFinalizer},
 				},
 				Status: v1.KubeVirtStatus{
 					Phase: v1.KubeVirtPhaseDeleted,
@@ -1472,7 +1481,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// Add kubevirt deployment and mark everything as ready
 			addKubeVirt(kv)
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
-			shouldExpectKubeVirtUpdate(1)
+			shouldExpectKubeVirtUpdateStatus(1)
 			shouldExpectCreations()
 			addInstallStrategy(defaultConfig)
 			addAll(defaultConfig)
@@ -1491,8 +1500,9 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-install",
-					Namespace: NAMESPACE,
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
 				},
 				Status: v1.KubeVirtStatus{
 					Phase: v1.KubeVirtPhaseDeleted,
@@ -1506,7 +1516,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			addInstallStrategy(defaultConfig)
+			shouldExpectKubeVirtUpdate(1)
 			controller.Execute()
+			kv = getLatestKubeVirt(kv)
+			Expect(len(kv.ObjectMeta.Finalizers)).To(Equal(0))
 		}, 15)
 
 		It("should observe custom image tag in status during deploy", func(done Done) {
@@ -1544,7 +1557,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			makeApiAndControllerReady()
 			makeHandlerReady()
 
-			shouldExpectKubeVirtUpdateVersion(1, customConfig)
+			shouldExpectKubeVirtUpdateStatusVersion(1, customConfig)
 			controller.Execute()
 			kv = getLatestKubeVirt(kv)
 			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
@@ -1696,7 +1709,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kubecontroller.SetLatestApiVersionAnnotation(kv2)
 			addKubeVirt(kv2)
 
-			shouldExpectKubeVirtUpdateFailureCondition(util.ConditionReasonDeploymentFailedExisting)
+			shouldExpectKubeVirtUpdateStatusFailureCondition(util.ConditionReasonDeploymentFailedExisting)
 
 			controller.execute(fmt.Sprintf("%s/%s", kv2.Namespace, kv2.Name))
 
@@ -1733,7 +1746,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addKubeVirt(kv)
 			addInstallStrategy(defaultConfig)
 
-			shouldExpectKubeVirtUpdate(1)
+			shouldExpectKubeVirtUpdateStatus(1)
 			shouldExpectJobCreation()
 			controller.Execute()
 
@@ -1805,7 +1818,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// create all resources which should already exist
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
-			shouldExpectKubeVirtUpdate(1)
+			shouldExpectKubeVirtUpdateStatus(1)
 			shouldExpectJobCreation()
 			controller.Execute()
 
@@ -1856,7 +1869,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addInstallStrategyJob(job)
 
 			shouldExpectJobDeletion()
-			shouldExpectKubeVirtUpdate(1)
+			shouldExpectKubeVirtUpdateStatus(1)
 
 			controller.Execute()
 
@@ -1885,7 +1898,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addKubeVirt(kv)
 			addInstallStrategyJob(job)
 
-			shouldExpectKubeVirtUpdate(1)
+			shouldExpectKubeVirtUpdateStatus(1)
 
 			controller.Execute()
 
@@ -1913,6 +1926,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			deleteFromCache = false
 			shouldExpectJobDeletion()
 			shouldExpectKubeVirtUpdate(1)
+			shouldExpectKubeVirtUpdateStatus(1)
 			shouldExpectCreations()
 
 			controller.Execute()
@@ -1920,6 +1934,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kv = getLatestKubeVirt(kv)
 			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeploying))
 			Expect(len(kv.Status.Conditions)).To(Equal(3))
+			Expect(len(kv.ObjectMeta.Finalizers)).To(Equal(1))
 			shouldExpectHCOConditions(kv, k8sv1.ConditionFalse, k8sv1.ConditionTrue, k8sv1.ConditionFalse)
 
 			// 3 in total are yet missing at this point
@@ -1954,8 +1969,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			It("should not create ServiceMonitor resources", func() {
 				kv := &v1.KubeVirt{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-install",
-						Namespace: NAMESPACE,
+						Name:       "test-install",
+						Namespace:  NAMESPACE,
+						Finalizers: []string{util.KubeVirtFinalizer},
 					},
 				}
 				kubecontroller.SetLatestApiVersionAnnotation(kv)
@@ -1976,7 +1992,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				// is loaded
 				deleteFromCache = false
 				shouldExpectJobDeletion()
-				shouldExpectKubeVirtUpdate(1)
+				shouldExpectKubeVirtUpdateStatus(1)
 				shouldExpectCreations()
 
 				controller.Execute()
@@ -2028,7 +2044,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addToCache = false
 			shouldExpectRbacBackupCreations()
 			shouldExpectPatchesAndUpdates()
-			shouldExpectKubeVirtUpdate(1)
+			shouldExpectKubeVirtUpdateStatus(1)
 
 			controller.Execute()
 
@@ -2091,7 +2107,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addToCache = false
 			shouldExpectRbacBackupCreations()
 			shouldExpectPatchesAndUpdates()
-			shouldExpectKubeVirtUpdate(1)
+			shouldExpectKubeVirtUpdateStatus(1)
 
 			controller.Execute()
 
@@ -2157,7 +2173,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addToCache = false
 			shouldExpectRbacBackupCreations()
 			shouldExpectPatchesAndUpdates()
-			shouldExpectKubeVirtUpdate(1)
+			shouldExpectKubeVirtUpdateStatus(1)
 
 			controller.Execute()
 
@@ -2218,7 +2234,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			makeHandlerReady()
 
 			shouldExpectPatchesAndUpdates()
-			shouldExpectKubeVirtUpdate(1)
+			shouldExpectKubeVirtUpdateStatus(1)
 			fakeNamespaceModificationEvent()
 			shouldExpectNamespacePatch()
 
@@ -2280,7 +2296,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			makeHandlerReady()
 
 			shouldExpectPatchesAndUpdates()
-			shouldExpectKubeVirtUpdate(1)
+			shouldExpectKubeVirtUpdateStatus(1)
 			fakeNamespaceModificationEvent()
 			shouldExpectNamespacePatch()
 
@@ -2352,7 +2368,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			makeHandlerReady()
 
 			shouldExpectPatchesAndUpdates()
-			shouldExpectKubeVirtUpdate(1)
+			shouldExpectKubeVirtUpdateStatus(1)
 
 			controller.Execute()
 
@@ -2375,7 +2391,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addInstallStrategy(defaultConfig)
 			addAll(defaultConfig)
 
-			shouldExpectKubeVirtUpdate(1)
+			shouldExpectKubeVirtUpdateStatus(1)
 			shouldExpectDeletions()
 			shouldExpectInstallStrategyDeletion()
 
@@ -2407,7 +2423,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addInstallStrategy(defaultConfig)
 			addAll(defaultConfig)
 
-			shouldExpectKubeVirtUpdate(1)
+			shouldExpectKubeVirtUpdateStatus(1)
 			shouldExpectDeletions()
 			shouldExpectInstallStrategyDeletion()
 
