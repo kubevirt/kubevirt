@@ -377,8 +377,10 @@ type VirtualMachineInstanceGuestOSInfo struct {
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationState struct {
 	// The time the migration action began
+	// +nullable
 	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
 	// The time the migration action ended
+	// +nullable
 	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
 	// The Target Node has seen the Domain Start Event
 	TargetNodeDomainDetected bool `json:"targetNodeDomainDetected,omitempty"`
