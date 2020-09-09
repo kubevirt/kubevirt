@@ -22,8 +22,10 @@ package tests_test
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	neturl "net/url"
 	"reflect"
 	"sort"
 	"strconv"
@@ -704,7 +706,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 				Transport: tr,
 			}
 
-			errors := make(chan error)
+			errorsChan := make(chan error)
 			for ix := 0; ix < concurrency; ix++ {
 				go func(ix int) {
 					req, _ := http.NewRequest("GET", metricsURL, nil)
@@ -714,20 +716,12 @@ var _ = Describe("[Serial]Infrastructure", func() {
 					} else {
 						resp.Body.Close()
 					}
-					errors <- err
+					errorsChan <- err
 				}(ix)
 			}
 
-			errorCount := 0
-			for ix := 0; ix < concurrency; ix++ {
-				err := <-errors
-				if err != nil {
-					errorCount += 1
-				}
-			}
-
-			fmt.Fprintf(GinkgoWriter, "client: total errors #%d\n", errorCount) // troubleshooting helper
-			Expect(errorCount).To(BeNumerically(">", 0))
+			err := validatedHTTPResponses(errorsChan, concurrency)
+			Expect(err).ToNot(HaveOccurred(), "Should throttle HTTP access without unexpected errors")
 		})
 
 		It("[test_id:4141]should include the metrics for a running VM", func() {
@@ -1000,4 +994,31 @@ func getKeysFromMetrics(metrics map[string]float64) []string {
 	// we sort keys only to make debug of test failures easier
 	sort.Strings(keys)
 	return keys
+}
+
+// validatedHTTPResponses checks the HTTP responses.
+// It expects timeout errors, due to the throttling on the producer side.
+// In case of unexpected errors or no errors at all it would fail,
+// returning the first unexpected error if any, or a custom error in case
+// there were no errors at all.
+func validatedHTTPResponses(errorsChan chan error, concurrency int) error {
+	var expectedErrorsCount int = 0
+	var unexpectedError error
+	for ix := 0; ix < concurrency; ix++ {
+		err := <-errorsChan
+		if unexpectedError == nil && err != nil {
+			var e *neturl.Error
+			if errors.As(err, &e) && e.Timeout() {
+				expectedErrorsCount++
+			} else {
+				unexpectedError = err
+			}
+		}
+	}
+
+	if unexpectedError == nil && expectedErrorsCount == 0 {
+		return fmt.Errorf("timeout errors were expected due to throttling")
+	}
+
+	return unexpectedError
 }
