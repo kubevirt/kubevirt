@@ -3316,7 +3316,7 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 	Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodSucceeded))
 }
 
-func CreateISCSITargetPOD(containerDiskName cd.ContainerDisk) string {
+func CreateISCSITargetPOD(containerDiskName cd.ContainerDisk, IPV6 bool) *k8sv1.Pod {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	image := fmt.Sprintf("%s/cdi-http-import-server:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag)
@@ -3334,13 +3334,16 @@ func CreateISCSITargetPOD(containerDiskName cd.ContainerDisk) string {
 			RestartPolicy: k8sv1.RestartPolicyNever,
 			Containers: []k8sv1.Container{
 				{
-					Name:      ISCSITargetName,
-					Image:     image,
-					Resources: resources,
+					Name:            ISCSITargetName,
+					Image:           image,
+					ImagePullPolicy: k8sv1.PullAlways,
+					Resources:       resources,
 				},
 			},
 		},
 	}
+
+	var environmentVariables []k8sv1.EnvVar
 	if containerDiskName == cd.ContainerDiskEmpty {
 		asEmpty := []k8sv1.EnvVar{
 			{
@@ -3348,7 +3351,7 @@ func CreateISCSITargetPOD(containerDiskName cd.ContainerDisk) string {
 				Value: "true",
 			},
 		}
-		pod.Spec.Containers[0].Env = asEmpty
+		environmentVariables = asEmpty
 	} else {
 		imageEnv := []k8sv1.EnvVar{
 			{
@@ -3360,8 +3363,17 @@ func CreateISCSITargetPOD(containerDiskName cd.ContainerDisk) string {
 				Value: fmt.Sprintf("%s", containerDiskName),
 			},
 		}
-		pod.Spec.Containers[0].Env = imageEnv
+		environmentVariables = imageEnv
 	}
+
+	if IPV6 {
+		environmentVariables = append(environmentVariables, k8sv1.EnvVar{
+			Name:  "IPV6",
+			Value: "true",
+		})
+	}
+
+	pod.Spec.Containers[0].Env = environmentVariables
 
 	pod, err = virtClient.CoreV1().Pods(NamespaceTestDefault).Create(pod)
 	Expect(err).ToNot(HaveOccurred(), "should successfully create ISCSI target pod")
@@ -3383,7 +3395,7 @@ func CreateISCSITargetPOD(containerDiskName cd.ContainerDisk) string {
 		fmt.Printf("pod.Status.podIPs[%d] = %s \n", idx, address.IP)
 	}
 
-	return pod.Status.PodIP
+	return pod
 }
 
 func CreateISCSIPvAndPvc(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) {
