@@ -71,6 +71,7 @@ type VirtualMachineSnapshotStatus struct {
 	VirtualMachineSnapshotContentName *string `json:"virtualMachineSnapshotContentName,omitempty"`
 
 	// +optional
+	// +nullable
 	CreationTime *metav1.Time `json:"creationTime,omitempty"`
 
 	// +optional
@@ -110,9 +111,11 @@ type Condition struct {
 	Status corev1.ConditionStatus `json:"status"`
 
 	// +optional
+	// +nullable
 	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty"`
 
 	// +optional
+	// +nullable
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
 
 	// +optional
@@ -173,6 +176,7 @@ type VolumeBackup struct {
 // VirtualMachineSnapshotContentStatus is the status for a VirtualMachineSnapshotStatus resource
 type VirtualMachineSnapshotContentStatus struct {
 	// +optional
+	// +nullable
 	CreationTime *metav1.Time `json:"creationTime,omitempty"`
 
 	// +optional
@@ -199,6 +203,7 @@ type VolumeSnapshotStatus struct {
 	VolumeSnapshotName string `json:"volumeSnapshotName"`
 
 	// +optional
+	// +nullable
 	CreationTime *metav1.Time `json:"creationTime,omitempty"`
 
 	// +optional
