@@ -3377,6 +3377,12 @@ func CreateISCSITargetPOD(containerDiskName cd.ContainerDisk) string {
 	pod, err = virtClient.CoreV1().Pods(NamespaceTestDefault).Get(pod.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("should sucessfully get pod %s after phase changed to Running", pod.Name))
 
+	// DEBUG: print ISCSI target pod IP addresses
+	fmt.Println("\nISCSI POD ips:")
+	for idx, address := range pod.Status.PodIPs {
+		fmt.Printf("pod.Status.podIPs[%d] = %s \n", idx, address.IP)
+	}
+
 	return pod.Status.PodIP
 }
 
