@@ -27,6 +27,7 @@ CIRROS_IMAGE_PATH=/usr/share/nginx/html/images/cirros.img
 FEDORA_IMAGE_PATH=/usr/share/nginx/html/images/fedora.img
 IMAGE_PATH=/images
 IMAGE_NAME=${IMAGE_NAME:-cirros}
+IPV6=${IPV6:-false}
 
 case "$IMAGE_NAME" in
 cirros) CONVERT_PATH=$CIRROS_IMAGE_PATH ;;
@@ -36,6 +37,12 @@ fedora-cloud) CONVERT_PATH=$FEDORA_IMAGE_PATH ;;
     echo "failed to find image $IMAGE_NAME"
     ;;
 esac
+
+if [ $IPV6 == "true" ]; then
+    address="[::]"
+else
+    address="0.0.0.0"
+fi
 
 # use as ISCSI target
 if [ -n "$AS_ISCSI" ]; then
@@ -47,7 +54,7 @@ if [ -n "$AS_ISCSI" ]; then
     fi
 
     touch /tmp/healthy
-    bash expose-as-iscsi.sh "${IMAGE_PATH}/disk.raw"
+    bash expose-as-iscsi.sh "${IMAGE_PATH}/disk.raw" "${address}"
     # use as nginx server
 elif [ -n "$AS_EMPTY" ]; then
     mkdir -p $IMAGE_PATH
@@ -55,7 +62,7 @@ elif [ -n "$AS_EMPTY" ]; then
     /usr/sbin/mkfs.ext4 $IMAGE_PATH/disk.raw
     sleep 20
     touch /tmp/healthy
-    bash expose-as-iscsi.sh "${IMAGE_PATH}/disk.raw"
+    bash expose-as-iscsi.sh "${IMAGE_PATH}/disk.raw" "${address}"
 else
     # Expose binaries via nginx server
     for executable in qemu-ga stress dmidecode; do

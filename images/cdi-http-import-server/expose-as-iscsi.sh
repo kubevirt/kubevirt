@@ -1,6 +1,7 @@
 #!/usr/bin/bash
 
 IMAGE_PATH="$1"
+ADDRESS="$2"
 
 if [ ! -f "$IMAGE_PATH" ]; then
     echo "vm image '$IMAGE_PATH' not found"
@@ -15,7 +16,7 @@ WWN=${WWN:-iqn.2018-01.io.kubevirt:wrapper}
 LUNID=1
 
 echo "Starting tgtd at port $PORT"
-tgtd -f --iscsi portal="0.0.0.0:${PORT}" &
+tgtd -f --iscsi portal="${ADDRESS}:${PORT}" &
 sleep 5
 
 echo "Adding target and exposing it"
