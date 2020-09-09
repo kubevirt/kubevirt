@@ -325,5 +325,7 @@ EOF
 fi
 
 
+ginko_params="$ginko_params --ginkgo.focus=ISCSI"
+
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params make functest
