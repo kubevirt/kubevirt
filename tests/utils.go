@@ -3383,7 +3383,7 @@ func CreateISCSITargetPOD(containerDiskName cd.ContainerDisk) string {
 		fmt.Printf("pod.Status.podIPs[%d] = %s \n", idx, address.IP)
 	}
 
-	return pod.Status.PodIP
+	return pod.Status.PodIPs[1].IP
 }
 
 func CreateISCSIPvAndPvc(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) {
