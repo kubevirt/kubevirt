@@ -77,11 +77,15 @@ func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry,
 	foundVersion := objectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
 	foundImageRegistry := objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
 	foundID := objectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation]
-	foundGeneration := objectMeta.Annotations[v1.KubeVirtGenerationAnnotation]
+	foundGeneration, generationExists := objectMeta.Annotations[v1.KubeVirtGenerationAnnotation]
 	foundLabels := objectMeta.Labels[v1.ManagedByLabel] == v1.ManagedByLabelOperatorValue
 	sGeneration := strconv.FormatInt(generation, 10)
 
-	if foundVersion == version && foundImageRegistry == imageRegistry && foundID == id && foundGeneration == sGeneration && foundLabels {
+	if generationExists && foundGeneration != sGeneration {
+		return false
+	}
+
+	if foundVersion == version && foundImageRegistry == imageRegistry && foundID == id && foundLabels {
 		return true
 	}
 
@@ -1415,10 +1419,18 @@ func generateServicePatch(kv *v1.KubeVirt,
 		deleteAndReplace = true
 	} else if cachedService.Spec.ClusterIP != service.Spec.ClusterIP {
 
-		// clusterIP is not mutable. A ClusterIP == "" will mean one is dynamically assigned.
-		// It is okay if the cached service has a ClusterIP and the target one is empty. We just
-		// ensure the cached ClusterIP is carried over in the Patch.
-		deleteAndReplace = true
+		if service.Spec.ClusterIP == "" {
+			// clusterIP is not mutable. A ClusterIP == "" will mean one is dynamically assigned.
+			// It is okay if the cached service has a ClusterIP and the target one is empty. We just
+			// ensure the cached ClusterIP is carried over in the Patch.
+			service.Spec.ClusterIP = cachedService.Spec.ClusterIP
+		} else {
+
+			// If both the cached service and the desired service have ClusterIPs set
+			// that are not equal, our only option is to delete/replace because ClusterIPs
+			// are not mutable
+			deleteAndReplace = true
+		}
 	}
 
 	if deleteAndReplace {
