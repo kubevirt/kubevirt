@@ -54,8 +54,11 @@ var _ = Describe("cert-manager", func() {
 
 		var err error
 		newCertDir, err := ioutil.TempDir("", "certs")
+		Expect(err).ToNot(HaveOccurred())
 		newKeyDir, err := ioutil.TempDir("", "keys")
+		Expect(err).ToNot(HaveOccurred())
 		crt, err := ioutil.ReadFile(certFilePath)
+		Expect(err).ToNot(HaveOccurred())
 		key, err := ioutil.ReadFile(keyFilePath)
 		Expect(err).ToNot(HaveOccurred())
 
