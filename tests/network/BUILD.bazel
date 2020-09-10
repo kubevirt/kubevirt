@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "dual_stack_cluster.go",
         "framework.go",
         "primary_pod_network.go",
         "validation.go",
@@ -14,6 +15,8 @@ go_library(
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests:go_default_library",
         "//tests/containerdisk:go_default_library",
+        "//tests/flags:go_default_library",
+        "//tests/libnet:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
