@@ -248,6 +248,60 @@ var _ = Describe("Storage", func() {
 			})
 
 		})
+		Context("with an Fedora shared NFS PVC, cloud init and service account", func() {
+			BeforeEach(func() {
+				_pvName = "test-nfs" + rand.String(48)
+				// Prepare a NFS backed PV
+				By("Starting an NFS POD")
+				os := string(cd.ContainerDiskFedora)
+				nfsIP := tests.CreateNFSTargetPOD(os)
+				// create a new PV and PVC (PVs can't be reused)
+				By("create a new NFS PV and PVC")
+				tests.CreateNFSPvAndPvc(_pvName, "5Gi", nfsIP, os)
+				nfsInitialized = true
+				tests.EnableFeatureGate(virtconfig.VirtIOFSGate)
+			})
+
+			AfterEach(func() {
+				tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
+			})
+			It("should start a VMI with virtiofs", func() {
+				// Start the VirtualMachineInstance with the PVC attached
+				By("Creating the  VMI")
+				vmi = tests.NewRandomVMIWithPVCFS(_pvName)
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
+
+				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+
+				// add userdata for guest agent and mount virtio-fs
+				fs := vmi.Spec.Domain.Devices.Filesystems[0]
+				virtiofsMountPath := fmt.Sprintf("/mnt/virtiof_%s", fs.Name)
+				mountVirtiofsCommands := fmt.Sprintf(`
+                                       mkdir %s
+                                       mount -t virtiofs %s %s
+                               `, virtiofsMountPath, fs.Name, virtiofsMountPath)
+				userData := fmt.Sprintf("%s\n%s", tests.GetGuestAgentUserData(), mountVirtiofsCommands)
+				tests.AddUserData(vmi, "cloud-init", userData)
+
+				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+
+				// Wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInFedoraExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "Should be able to login to the Fedora VM")
+				defer expecter.Close()
+
+				By("Checking that virtio-fs is mounted")
+				listVirtioFSDisk := fmt.Sprintf("ls -l %s/*disk* | wc -l\n", virtiofsMountPath)
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: listVirtioFSDisk},
+					&expect.BExp{R: tests.RetValue("1")},
+				}, 30*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "Should be able to access the mounted virtiofs file")
+			})
+		})
 
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ephemeral alpine PVC", func() {
 			var isRunOnKindInfra bool
