@@ -322,6 +322,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.FeatureState":                                               schema_kubevirtio_client_go_api_v1_FeatureState(ref),
 		"kubevirt.io/client-go/api/v1.FeatureVendorID":                                            schema_kubevirtio_client_go_api_v1_FeatureVendorID(ref),
 		"kubevirt.io/client-go/api/v1.Features":                                                   schema_kubevirtio_client_go_api_v1_Features(ref),
+		"kubevirt.io/client-go/api/v1.Filesystem":                                                 schema_kubevirtio_client_go_api_v1_Filesystem(ref),
+		"kubevirt.io/client-go/api/v1.FilesystemVirtiofs":                                         schema_kubevirtio_client_go_api_v1_FilesystemVirtiofs(ref),
 		"kubevirt.io/client-go/api/v1.Firmware":                                                   schema_kubevirtio_client_go_api_v1_Firmware(ref),
 		"kubevirt.io/client-go/api/v1.FloppyTarget":                                               schema_kubevirtio_client_go_api_v1_FloppyTarget(ref),
 		"kubevirt.io/client-go/api/v1.GPU":                                                        schema_kubevirtio_client_go_api_v1_GPU(ref),
@@ -14292,11 +14294,24 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 							},
 						},
 					},
+					"filesystems": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Filesystems describes filesystem which is connected to the vmi.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/api/v1.Filesystem"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.Disk", "kubevirt.io/client-go/api/v1.GPU", "kubevirt.io/client-go/api/v1.Input", "kubevirt.io/client-go/api/v1.Interface", "kubevirt.io/client-go/api/v1.Rng", "kubevirt.io/client-go/api/v1.Watchdog"},
+			"kubevirt.io/client-go/api/v1.Disk", "kubevirt.io/client-go/api/v1.Filesystem", "kubevirt.io/client-go/api/v1.GPU", "kubevirt.io/client-go/api/v1.Input", "kubevirt.io/client-go/api/v1.Interface", "kubevirt.io/client-go/api/v1.Rng", "kubevirt.io/client-go/api/v1.Watchdog"},
 	}
 }
 
@@ -14855,6 +14870,43 @@ func schema_kubevirtio_client_go_api_v1_Features(ref common.ReferenceCallback) c
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/api/v1.FeatureAPIC", "kubevirt.io/client-go/api/v1.FeatureHyperv", "kubevirt.io/client-go/api/v1.FeatureKVM", "kubevirt.io/client-go/api/v1.FeatureState"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_Filesystem(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the device name",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"virtiofs": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.FilesystemVirtiofs"),
+						},
+					},
+				},
+				Required: []string{"name", "virtiofs"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.FilesystemVirtiofs"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_FilesystemVirtiofs(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
 	}
 }
 
