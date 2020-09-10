@@ -38,6 +38,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -248,30 +250,37 @@ var _ = Describe("Storage", func() {
 			})
 
 		})
-		Context("with an Fedora shared NFS PVC, cloud init and service account", func() {
+		Context("Run a VMI wiht VirtIO-FS and a datavolume", func() {
+			var dataVolume *cdiv1.DataVolume
 			BeforeEach(func() {
-				_pvName = "test-nfs" + rand.String(48)
-				// Prepare a NFS backed PV
-				By("Starting an NFS POD")
-				os := string(cd.ContainerDiskFedora)
-				nfsIP := tests.CreateNFSTargetPOD(os)
-				// create a new PV and PVC (PVs can't be reused)
-				By("create a new NFS PV and PVC")
-				tests.CreateNFSPvAndPvc(_pvName, "5Gi", nfsIP, os)
-				nfsInitialized = true
+				if !tests.HasCDI() {
+					Skip("Skip DataVolume tests when CDI is not present")
+				}
+				dataVolume = tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				tests.EnableFeatureGate(virtconfig.VirtIOFSGate)
 			})
 
 			AfterEach(func() {
+				err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
 				tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
 			})
-			It("should start a VMI with virtiofs", func() {
-				// Start the VirtualMachineInstance with the PVC attached
-				By("Creating the  VMI")
-				vmi = tests.NewRandomVMIWithPVCFS(_pvName)
-				gracePeriod := int64(1)
-				// Give the VirtualMachineInstance a custom grace period
-				vmi.Spec.TerminationGracePeriodSeconds = &gracePeriod
+			It("should be successfully started and viriofs could be accessed", func() {
+				tests.SkipPVCTestIfRunnigOnKindInfra()
+				waitForDataVolume := func(dataVolume *cdiv1.DataVolume) {
+					Eventually(func() cdiv1.DataVolumePhase {
+						dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Get(dataVolume.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+
+						return dv.Status.Phase
+					}, 160*time.Second, 1*time.Second).
+						Should(Equal(cdiv1.Succeeded), "Timed out waiting for DataVolume to complete")
+				}
+
+				vmi := tests.NewRandomVMIWithFSFromDataVolume(dataVolume.Name)
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
+				Expect(err).To(BeNil())
+				waitForDataVolume(dataVolume)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
 
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
@@ -306,7 +315,7 @@ var _ = Describe("Storage", func() {
 				}, 30*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "Should be able to access the mounted virtiofs file")
 
-                virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", fs.Name)
+				virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", fs.Name)
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 				podVirtioFsFileExist, err := tests.ExecuteCommandOnPod(
 					virtClient,
@@ -318,7 +327,6 @@ var _ = Describe("Storage", func() {
 				Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
 			})
 		})
-
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ephemeral alpine PVC", func() {
 			var isRunOnKindInfra bool
 			tests.BeforeAll(func() {

@@ -8426,6 +8426,14 @@
        "$ref": "#/definitions/v1.Disk"
       }
      },
+     "filesystems": {
+      "description": "Filesystems describes filesystem which is connected to the vmi.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Filesystem"
+      },
+      "x-kubernetes-list-type": "set"
+     },
      "gpus": {
       "description": "Whether to attach a GPU device to the vmi.",
       "type": "array",
@@ -8756,6 +8764,25 @@
       "$ref": "#/definitions/v1.FeatureState"
      }
     }
+   },
+   "v1.Filesystem": {
+    "type": "object",
+    "required": [
+     "name",
+     "virtiofs"
+    ],
+    "properties": {
+     "name": {
+      "description": "Name is the device name",
+      "type": "string"
+     },
+     "virtiofs": {
+      "$ref": "#/definitions/v1.FilesystemVirtiofs"
+     }
+    }
+   },
+   "v1.FilesystemVirtiofs": {
+    "type": "object"
    },
    "v1.Firmware": {
     "type": "object",

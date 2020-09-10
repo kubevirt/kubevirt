@@ -2122,6 +2122,25 @@ func AddPVCFS(vmi *v1.VirtualMachineInstance, name string, claimName string) *v1
 	return vmi
 }
 
+func NewRandomVMIWithFSFromDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMI()
+	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedora)
+	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
+	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+		Name:     "disk1",
+		Virtiofs: &v1.FilesystemVirtiofs{},
+	})
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: "disk1",
+		VolumeSource: v1.VolumeSource{
+			DataVolume: &v1.DataVolumeSource{
+				Name: dataVolumeName,
+			},
+		},
+	})
+	return vmi
+}
+
 func NewRandomVMIWithPVCFS(claimName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")

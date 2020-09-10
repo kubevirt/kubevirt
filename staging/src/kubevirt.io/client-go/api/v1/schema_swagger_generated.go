@@ -179,7 +179,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"blockMultiQueue":            "Whether or not to enable virtio multi-queue for block devices\n+optional",
 		"networkInterfaceMultiqueue": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature\n+optional",
 		"gpus":                       "Whether to attach a GPU device to the vmi.\n+optional",
-		"filesystems":                "Filesystems describes filesystem which is connected to the vmi.\n+optional",
+		"filesystems":                "Filesystems describes filesystem which is connected to the vmi.\n+optional\n+listType=set",
 	}
 }
 
