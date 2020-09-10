@@ -269,6 +269,9 @@ var _ = Describe("Storage", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				By("Creating the  VMI")
 				vmi = tests.NewRandomVMIWithPVCFS(_pvName)
+				gracePeriod := int64(1)
+				// Give the VirtualMachineInstance a custom grace period
+				vmi.Spec.TerminationGracePeriodSeconds = &gracePeriod
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
 
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
@@ -276,10 +279,12 @@ var _ = Describe("Storage", func() {
 				// add userdata for guest agent and mount virtio-fs
 				fs := vmi.Spec.Domain.Devices.Filesystems[0]
 				virtiofsMountPath := fmt.Sprintf("/mnt/virtiof_%s", fs.Name)
+				virtiofsTestFile := fmt.Sprintf("%s/virtiofs_test", virtiofsMountPath)
 				mountVirtiofsCommands := fmt.Sprintf(`
                                        mkdir %s
                                        mount -t virtiofs %s %s
-                               `, virtiofsMountPath, fs.Name, virtiofsMountPath)
+                                       touch %s
+                               `, virtiofsMountPath, fs.Name, virtiofsMountPath, virtiofsTestFile)
 				userData := fmt.Sprintf("%s\n%s", tests.GetGuestAgentUserData(), mountVirtiofsCommands)
 				tests.AddUserData(vmi, "cloud-init", userData)
 
@@ -300,6 +305,17 @@ var _ = Describe("Storage", func() {
 					&expect.BExp{R: tests.RetValue("1")},
 				}, 30*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "Should be able to access the mounted virtiofs file")
+
+                virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", fs.Name)
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				podVirtioFsFileExist, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					pod,
+					"compute",
+					[]string{"/usr/bin/bash", "-c", virtioFsFileTestCmd},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
 			})
 		})
 
