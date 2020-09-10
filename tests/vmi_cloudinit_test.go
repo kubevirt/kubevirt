@@ -50,7 +50,7 @@ const (
 	testUserData     = "#cloud-config"
 )
 
-var _ = Describe("[Serial][rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component]CloudInit UserData", func() {
+var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component]CloudInit UserData", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -158,7 +158,7 @@ var _ = Describe("[Serial][rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 
 			Context("with injected ssh-key", func() {
-				It("[test_id:1616]should have ssh-key under authorized keys", func() {
+				It("[Serial][test_id:1616]should have ssh-key under authorized keys", func() {
 					userData := fmt.Sprintf(
 						"#cloud-config\npassword: %s\nchpasswd: { expire: False }\nssh_authorized_keys:\n  - %s",
 						fedoraPassword,
@@ -196,7 +196,7 @@ var _ = Describe("[Serial][rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 
 			Context("with injected ssh-key", func() {
-				It("[test_id:3178]should have ssh-key under authorized keys", func() {
+				It("[Serial][test_id:3178]should have ssh-key under authorized keys", func() {
 					userData := fmt.Sprintf(
 						"#cloud-config\npassword: %s\nchpasswd: { expire: False }\nssh_authorized_keys:\n  - %s",
 						fedoraPassword,
