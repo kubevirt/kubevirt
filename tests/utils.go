@@ -2105,6 +2105,32 @@ func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
 	return agentVMI
 }
 
+func AddPVCFS(vmi *v1.VirtualMachineInstance, name string, claimName string) *v1.VirtualMachineInstance {
+	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+		Name:     name,
+		Virtiofs: &v1.FilesystemVirtiofs{},
+	})
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: claimName,
+			},
+		},
+	})
+
+	return vmi
+}
+
+func NewRandomVMIWithPVCFS(claimName string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMI()
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedora)
+	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
+	vmi = AddPVCFS(vmi, "disk1", claimName)
+	return vmi
+}
+
 func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
 	dmidecodeUserData := fmt.Sprintf(`#!/bin/bash
 	    echo "fedora" |passwd fedora --stdin
