@@ -29,11 +29,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -123,12 +125,14 @@ func (admitter *VMRestoreAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 			return webhookutils.ToAdmissionResponseError(err)
 		}
 
-		restores, err := admitter.Client.VirtualMachineRestore(ar.Request.Namespace).List(metav1.ListOptions{})
+		informers := webhooks.GetInformers()
+		objects, err := informers.VMRestoreInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ar.Request.Namespace)
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
 
-		for _, r := range restores.Items {
+		for _, obj := range objects {
+			r := obj.(*snapshotv1.VirtualMachineRestore)
 			if reflect.DeepEqual(r.Spec.Target, vmRestore.Spec.Target) &&
 				(r.Status == nil || r.Status.Complete == nil || !*r.Status.Complete) {
 				cause := metav1.StatusCause{
