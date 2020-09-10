@@ -7,6 +7,8 @@ ENV LIBVIRT_VERSION 5.0.0
 
 ENV BAZEL_VERSION 1.2.1
 
+ENV KUBEVIRT_CREATE_BAZELRCS false
+
 # Install packages
 RUN dnf install -y dnf-plugins-core && \
     dnf copr enable -y vbatts/bazel && \
@@ -102,5 +104,7 @@ RUN set -x && \
 COPY rsyncd.conf /etc/rsyncd.conf
 
 COPY entrypoint.sh /entrypoint.sh
+
+COPY create_bazel_cache_rcs.sh /create_bazel_cache_rcs.sh
 
 ENTRYPOINT [ "/entrypoint.sh" ]
