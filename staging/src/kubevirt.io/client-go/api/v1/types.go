@@ -1415,6 +1415,7 @@ type DeveloperConfiguration struct {
 	MemoryOvercommit       int               `json:"memoryOvercommit,string,omitempty"`
 	NodeSelectors          map[string]string `json:"nodeSelectors,omitempty"`
 	UseEmulation           bool              `json:"useEmulation,string,omitempty"`
+	CPUAllocationRatio     float64           `json:"cpuAllocationRatio,string,omitempty"`
 }
 
 // NetworkConfiguration holds network options
