@@ -20,10 +20,15 @@
 package tests_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"os"
 	"time"
+
+	"github.com/mitchellh/go-vnc"
 
 	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"
@@ -155,6 +160,81 @@ var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			req, err := kubecli.RequestFromConfig(config, vmi.Name, vmi.Namespace, "vnc")
 			_, err = wrappedRoundTripper.RoundTrip(req)
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should connect to vnc with --proxy-only flag", func() {
+
+			By("Invoking virtctl vnc with --proxy-only")
+			proxyOnlyCommand := tests.NewVirtctlCommand("vnc", "--proxy-only", "--namespace", vmi.Namespace, vmi.Name)
+
+			r, w, _ := os.Pipe()
+			proxyOnlyCommand.SetOut(w)
+
+			// Run this as go routine to keep proxy open in the background
+			go func() {
+				defer GinkgoRecover()
+				Expect(proxyOnlyCommand.Execute()).ToNot(HaveOccurred())
+			}()
+
+			var result map[string]interface{}
+			Eventually(func() error {
+				return json.NewDecoder(r).Decode(&result)
+			}, 60*time.Second).ShouldNot(HaveOccurred())
+
+			port := result["port"]
+			addr := fmt.Sprintf("127.0.0.1:%v", port)
+
+			nc, err := net.Dial("tcp", addr)
+			Expect(err).ToNot(HaveOccurred())
+			defer nc.Close()
+
+			ch := make(chan vnc.ServerMessage)
+
+			c, err := vnc.Client(nc, &vnc.ClientConfig{
+				Exclusive:       false,
+				ServerMessageCh: ch,
+				ServerMessages:  []vnc.ServerMessage{new(vnc.FramebufferUpdateMessage)},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			defer c.Close()
+			Expect(c.DesktopName).To(ContainSubstring(vmi.Name))
+		})
+
+		It("should connect to vnc with --proxy-only flag to the specified port", func() {
+			testPort := "33333"
+
+			By("Invoking virtctl vnc with --proxy-only")
+			proxyOnlyCommand := tests.NewVirtctlCommand("vnc", "--proxy-only", "--port", testPort, "--namespace", vmi.Namespace, vmi.Name)
+
+			// Run this as go routine to keep proxy open in the background
+			go func() {
+				defer GinkgoRecover()
+				Expect(proxyOnlyCommand.Execute()).ToNot(HaveOccurred())
+			}()
+
+			addr := fmt.Sprintf("127.0.0.1:%s", testPort)
+
+			// Run this under Eventually so we don't dial connection before proxy has started
+			Eventually(func() error {
+				nc, err := net.Dial("tcp", addr)
+				if err != nil {
+					return err
+				}
+				defer nc.Close()
+
+				ch := make(chan vnc.ServerMessage)
+
+				c, err := vnc.Client(nc, &vnc.ClientConfig{
+					Exclusive:       false,
+					ServerMessageCh: ch,
+					ServerMessages:  []vnc.ServerMessage{new(vnc.FramebufferUpdateMessage)},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				defer c.Close()
+				Expect(c.DesktopName).To(ContainSubstring(vmi.Name))
+
+				return nil
+			}, 60*time.Second).ShouldNot(HaveOccurred())
 		})
 	})
 })
