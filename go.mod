@@ -97,3 +97,7 @@ replace github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503
 
 // Pinned for compatibility with kubernetes-1.16.4
 replace sigs.k8s.io/controller-tools => sigs.k8s.io/controller-tools v0.2.4
+
+replace vbom.ml/util => github.com/fvbommel/util v0.0.0-20180919145318-efcd4e0f9787
+
+replace bitbucket.org/ww/goautoneg => github.com/munnerz/goautoneg v0.0.0-20120707110453-a547fc61f48d
