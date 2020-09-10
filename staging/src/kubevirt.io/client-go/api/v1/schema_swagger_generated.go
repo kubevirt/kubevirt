@@ -179,6 +179,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"blockMultiQueue":            "Whether or not to enable virtio multi-queue for block devices\n+optional",
 		"networkInterfaceMultiqueue": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature\n+optional",
 		"gpus":                       "Whether to attach a GPU device to the vmi.\n+optional",
+		"filesystems":                "Filesystems describes filesystem which is connected to the vmi.\n+optional",
 	}
 }
 
@@ -188,6 +189,19 @@ func (Input) SwaggerDoc() map[string]string {
 		"bus":  "Bus indicates the bus of input device to emulate.\nSupported values: virtio, usb.",
 		"type": "Type indicated the type of input device.\nSupported values: tablet.",
 		"name": "Name is the device name",
+	}
+}
+
+func (Filesystem) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "+k8s:openapi-gen=true",
+		"name": "Name is the device name",
+	}
+}
+
+func (FilesystemVirtiofs) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
 	}
 }
 

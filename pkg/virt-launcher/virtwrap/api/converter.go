@@ -979,37 +979,39 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 	// Handle virtioFS
 	for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
-		newFS := FilesystemDevice{}
+		if fs.Virtiofs != nil {
+			newFS := FilesystemDevice{}
 
-		newFS.Type = "mount"
-		newFS.AccessMode = "passthrough"
-		newFS.Driver = &FilesystemDriver{
-			Type:  "virtiofs",
-			Queue: "1024",
-		}
-		newFS.Binary = &FilesystemBinary{
-			Path:  "/usr/libexec/virtiofsd",
-			Xattr: "on",
-			Cache: &FilesystemBinaryCache{
-				Mode: "always",
-			},
-			Lock: &FilesystemBinaryLock{
-				Posix: "on",
-				Flock: "on",
-			},
-		}
-		newFS.Target = &FilesystemTarget{
-			Dir: fs.Name,
-		}
+			newFS.Type = "mount"
+			newFS.AccessMode = "passthrough"
+			newFS.Driver = &FilesystemDriver{
+				Type:  "virtiofs",
+				Queue: "1024",
+			}
+			newFS.Binary = &FilesystemBinary{
+				Path:  "/usr/libexec/virtiofsd",
+				Xattr: "on",
+				Cache: &FilesystemBinaryCache{
+					Mode: "always",
+				},
+				Lock: &FilesystemBinaryLock{
+					Posix: "on",
+					Flock: "on",
+				},
+			}
+			newFS.Target = &FilesystemTarget{
+				Dir: fs.Name,
+			}
 
-		volume := volumes[fs.Name]
-		if volume == nil {
-			return fmt.Errorf("No matching volume with name %s found", fs.Name)
+			volume := volumes[fs.Name]
+			if volume == nil {
+				return fmt.Errorf("No matching volume with name %s found", fs.Name)
+			}
+			volDir, _ := filepath.Split(GetFilesystemVolumePath(volume.Name))
+			newFS.Source = &FilesystemSource{}
+			newFS.Source.Dir = volDir
+			domain.Spec.Devices.Filesystems = append(domain.Spec.Devices.Filesystems, newFS)
 		}
-		volDir, _ := filepath.Split(GetFilesystemVolumePath(volume.Name))
-		newFS.Source = &FilesystemSource{}
-		newFS.Source.Dir = volDir
-		domain.Spec.Devices.Filesystems = append(domain.Spec.Devices.Filesystems, newFS)
 	}
 
 	if vmi.Spec.Domain.Devices.Watchdog != nil {
