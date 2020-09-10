@@ -117,17 +117,7 @@ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certifi
 						return fmt.Errorf("failed to parse peer certificate: %v", err)
 					}
 
-					var intermediatePool *x509.CertPool = nil
-					if externallyManaged {
-						intermediatePool = x509.NewCertPool()
-						for _, rawIntermediate := range rawIntermediates {
-							if ic, err := x509.ParseCertificate(rawIntermediate); err != nil {
-								log.Log.Warningf("failed to parse peer intermediate certificate: %v", err)
-							} else {
-								intermediatePool.AddCert(ic)
-							}
-						}
-					}
+					intermediatePool := createIntermediatePool(externallyManaged, rawIntermediates)
 
 					_, err = c.Verify(x509.VerifyOptions{
 						Roots:         certPool,
@@ -186,17 +176,7 @@ func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certif
 				return fmt.Errorf("failed to parse peer certificate: %v", err)
 			}
 
-			var intermediatePool *x509.CertPool = nil
-			if externallyManaged {
-				intermediatePool = x509.NewCertPool()
-				for _, rawIntermediate := range rawIntermediates {
-					if ic, err := x509.ParseCertificate(rawIntermediate); err != nil {
-						log.Log.Warningf("failed to parse peer intermediate certificate: %v", err)
-					} else {
-						intermediatePool.AddCert(ic)
-					}
-				}
-			}
+			intermediatePool := createIntermediatePool(externallyManaged, rawIntermediates)
 
 			_, err = c.Verify(x509.VerifyOptions{
 				Roots:         certPool,
@@ -214,4 +194,19 @@ func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certif
 			return nil
 		},
 	}
+}
+
+func createIntermediatePool(externallyManaged bool, rawIntermediates [][]byte) *x509.CertPool {
+	var intermediatePool *x509.CertPool = nil
+	if externallyManaged {
+		intermediatePool = x509.NewCertPool()
+		for _, rawIntermediate := range rawIntermediates {
+			if c, err := x509.ParseCertificate(rawIntermediate); err != nil {
+				log.Log.Warningf("failed to parse peer intermediate certificate: %v", err)
+			} else {
+				intermediatePool.AddCert(c)
+			}
+		}
+	}
+	return intermediatePool
 }
