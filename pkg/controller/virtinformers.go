@@ -401,6 +401,7 @@ func (f *kubeInformerFactory) VirtualMachineRestore() cache.SharedIndexInformer 
 	return f.getInformer("vmRestoreInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().SnapshotV1alpha1().RESTClient(), "virtualmachinerestores", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &snapshotv1.VirtualMachineRestore{}, f.defaultResync, cache.Indexers{
+			cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 			"vm": func(obj interface{}) ([]string, error) {
 				vmr, ok := obj.(*snapshotv1.VirtualMachineRestore)
 				if !ok {

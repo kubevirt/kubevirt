@@ -56,7 +56,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 			ar := createSnapshotAdmissionReview(snapshot)
 			resp := createTestVMSnapshotAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).Should(Equal("Snapshot feature gate not enabled"))
+			Expect(resp.Result.Message).Should(Equal("snapshot feature gate not enabled"))
 		})
 	})
 
@@ -88,7 +88,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 
 			resp := createTestVMSnapshotAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).Should(ContainSubstring("Unexpected Resource"))
+			Expect(resp.Result.Message).Should(ContainSubstring("unexpected resource"))
 		})
 
 		It("should reject missing apigroup", func() {

@@ -8779,21 +8779,8 @@
     }
    },
    "v1.Patch": {
-    "type": "object",
-    "properties": {
-     "patch": {
-      "type": "string"
-     },
-     "resourceName": {
-      "type": "string"
-     },
-     "resourceType": {
-      "type": "string"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
+    "description": "Patch is provided to give a concrete name and type to the Kubernetes PATCH request body.",
+    "type": "object"
    },
    "v1.PersistentVolumeClaim": {
     "description": "PersistentVolumeClaim is a user's request for and claim to a persistent volume",

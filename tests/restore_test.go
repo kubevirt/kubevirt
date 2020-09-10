@@ -281,8 +281,8 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 									admissionregistrationv1beta1.Update,
 								},
 								Rule: admissionregistrationv1beta1.Rule{
-									APIGroups:   []string{"kubevirt.io"},
-									APIVersions: []string{"v1alpha3", "v1"},
+									APIGroups:   []string{v1.GroupName},
+									APIVersions: v1.ApiSupportedWebhookVersions,
 									Resources:   []string{"virtualmachines"},
 								},
 							}},

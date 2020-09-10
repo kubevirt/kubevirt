@@ -669,6 +669,7 @@ func (app *virtAPIApp) Run() {
 	go webhookInformers.VMIInformer.Run(stopChan)
 	go webhookInformers.VMIPresetInformer.Run(stopChan)
 	go webhookInformers.NamespaceLimitsInformer.Run(stopChan)
+	go webhookInformers.VMRestoreInformer.Run(stopChan)
 	go kubeVirtInformer.Run(stopChan)
 	go configMapInformer.Run(stopChan)
 	go crdInformer.Run(stopChan)

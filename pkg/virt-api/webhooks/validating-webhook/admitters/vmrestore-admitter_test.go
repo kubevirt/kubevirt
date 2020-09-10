@@ -113,7 +113,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 			resp := createTestVMRestoreAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).Should(ContainSubstring("Unexpected Resource"))
+			Expect(resp.Result.Message).Should(ContainSubstring("unexpected resource"))
 		})
 
 		It("should reject missing apigroup", func() {
@@ -540,11 +540,20 @@ func createTestVMRestoreAdmitter(
 	virtClient := kubecli.NewMockKubevirtClient(ctrl)
 	vmInterface := kubecli.NewMockVirtualMachineInterface(ctrl)
 	kubevirtClient := kubevirtfake.NewSimpleClientset(objs...)
+
 	virtClient.EXPECT().VirtualMachineSnapshot("default").
 		Return(kubevirtClient.SnapshotV1alpha1().VirtualMachineSnapshots("default"))
-	virtClient.EXPECT().VirtualMachineRestore("default").
-		Return(kubevirtClient.SnapshotV1alpha1().VirtualMachineRestores("default"))
 	virtClient.EXPECT().VirtualMachine(gomock.Any()).Return(vmInterface).AnyTimes()
+
+	restoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
+	webhooks.GetInformers().VMRestoreInformer = restoreInformer
+	for _, obj := range objs {
+		r, ok := obj.(*snapshotv1.VirtualMachineRestore)
+		if ok {
+			restoreInformer.GetIndexer().Add(r)
+		}
+	}
+
 	if vm == nil {
 		err := errors.NewNotFound(schema.GroupResource{Group: "kubevirt.io", Resource: "virtualmachines"}, "foo")
 		vmInterface.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, err)
