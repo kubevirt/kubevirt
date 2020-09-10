@@ -374,6 +374,7 @@ type Devices struct {
 	GPUs []GPU `json:"gpus,omitempty"`
 	// Filesystems describes filesystem which is connected to the vmi.
 	// +optional
+	// +listType=set
 	Filesystems []Filesystem `json:"filesystems,omitempty"`
 }
 

@@ -1799,7 +1799,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
 			}
-			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 			vmi.Spec.Domain.Memory = &v1.Memory{
 				Hugepages: &v1.Hugepages{},
 				Guest:     &guestMemory,
