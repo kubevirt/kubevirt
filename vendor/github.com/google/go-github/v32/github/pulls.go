@@ -165,7 +165,7 @@ func (s *PullRequestsService) List(ctx context.Context, owner string, repo strin
 //
 // The results will include open and closed pull requests.
 //
-// GitHub API docs: https://developer.github.com/v3/repos/commits/#list-pull-requests-associated-with-commit
+// GitHub API docs: https://developer.github.com/v3/repos/commits/#list-pull-requests-associated-with-a-commit
 func (s *PullRequestsService) ListPullRequestsWithCommit(ctx context.Context, owner, repo, sha string, opts *PullRequestListOptions) ([]*PullRequest, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/commits/%v/pulls", owner, repo, sha)
 	u, err := addOptions(u, opts)
@@ -192,7 +192,7 @@ func (s *PullRequestsService) ListPullRequestsWithCommit(ctx context.Context, ow
 
 // Get a single pull request.
 //
-// GitHub API docs: https://developer.github.com/v3/pulls/#get-a-single-pull-request
+// GitHub API docs: https://developer.github.com/v3/pulls/#get-a-pull-request
 func (s *PullRequestsService) Get(ctx context.Context, owner string, repo string, number int) (*PullRequest, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/pulls/%d", owner, repo, number)
 	req, err := s.client.NewRequest("GET", u, nil)
@@ -215,7 +215,7 @@ func (s *PullRequestsService) Get(ctx context.Context, owner string, repo string
 
 // GetRaw gets a single pull request in raw (diff or patch) format.
 //
-// GitHub API docs: https://developer.github.com/v3/pulls/#get-a-single-pull-request
+// GitHub API docs: https://developer.github.com/v3/pulls/#get-a-pull-request
 func (s *PullRequestsService) GetRaw(ctx context.Context, owner string, repo string, number int, opts RawOptions) (string, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/pulls/%d", owner, repo, number)
 	req, err := s.client.NewRequest("GET", u, nil)
@@ -417,7 +417,7 @@ func (s *PullRequestsService) ListFiles(ctx context.Context, owner string, repo 
 
 // IsMerged checks if a pull request has been merged.
 //
-// GitHub API docs: https://developer.github.com/v3/pulls/#get-if-a-pull-request-has-been-merged
+// GitHub API docs: https://developer.github.com/v3/pulls/#check-if-a-pull-request-has-been-merged
 func (s *PullRequestsService) IsMerged(ctx context.Context, owner string, repo string, number int) (bool, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/pulls/%d/merge", owner, repo, number)
 	req, err := s.client.NewRequest("GET", u, nil)
@@ -439,7 +439,7 @@ type PullRequestMergeResult struct {
 
 // PullRequestOptions lets you define how a pull request will be merged.
 type PullRequestOptions struct {
-	CommitTitle string // Extra detail to append to automatic commit message. (Optional.)
+	CommitTitle string // Title for the automatic commit message. (Optional.)
 	SHA         string // SHA that pull request head must match to allow merge. (Optional.)
 
 	// The merge method to use. Possible values include: "merge", "squash", and "rebase" with the default being merge. (Optional.)
@@ -453,10 +453,10 @@ type pullRequestMergeRequest struct {
 	SHA           string `json:"sha,omitempty"`
 }
 
-// Merge a pull request (Merge Button™).
-// commitMessage is the title for the automatic commit message.
+// Merge a pull request.
+// commitMessage is an extra detail to append to automatic commit message.
 //
-// GitHub API docs: https://developer.github.com/v3/pulls/#merge-a-pull-request-merge-button
+// GitHub API docs: https://developer.github.com/v3/pulls/#merge-a-pull-request
 func (s *PullRequestsService) Merge(ctx context.Context, owner string, repo string, number int, commitMessage string, options *PullRequestOptions) (*PullRequestMergeResult, *Response, error) {
 	u := fmt.Sprintf("repos/%v/%v/pulls/%d/merge", owner, repo, number)
 

@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	networkaddonsv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
+	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	version "github.com/kubevirt/hyperconverged-cluster-operator/version"
@@ -138,7 +138,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	for _, resource := range []runtime.Object{
 		&kubevirtv1.KubeVirt{},
 		&cdiv1alpha1.CDI{},
-		&networkaddonsv1alpha1.NetworkAddonsConfig{},
+		&networkaddonsv1.NetworkAddonsConfig{},
 		&sspv1.KubevirtCommonTemplatesBundle{},
 		&sspv1.KubevirtNodeLabellerBundle{},
 		&sspv1.KubevirtTemplateValidator{},
@@ -1069,7 +1069,7 @@ func (r *ReconcileHyperConverged) ensureNetworkAddons(req *hcoRequest) *EnsureRe
 	}
 
 	res.SetName(key.Name)
-	found := &networkaddonsv1alpha1.NetworkAddonsConfig{}
+	found := &networkaddonsv1.NetworkAddonsConfig{}
 	err = r.client.Get(req.ctx, key, found)
 
 	if err != nil {

@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	networkaddonsshared "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared"
 	networkaddonsv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
 	networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
@@ -64,12 +65,12 @@ func (r *HyperConverged) NewNetworkAddons(opts ...string) *networkaddonsv1alpha1
 			Labels:    r.getLabels(),
 			Namespace: r.getNamespace(hcoutil.UndefinedNamespace, opts),
 		},
-		Spec: networkaddonsv1alpha1.NetworkAddonsConfigSpec{
-			Multus:      &networkaddonsv1alpha1.Multus{},
-			LinuxBridge: &networkaddonsv1alpha1.LinuxBridge{},
-			Ovs:         &networkaddonsv1alpha1.Ovs{},
-			NMState:     &networkaddonsv1alpha1.NMState{},
-			KubeMacPool: &networkaddonsv1alpha1.KubeMacPool{},
+		Spec: networkaddonsshared.NetworkAddonsConfigSpec{
+			Multus:      &networkaddonsshared.Multus{},
+			LinuxBridge: &networkaddonsshared.LinuxBridge{},
+			Ovs:         &networkaddonsshared.Ovs{},
+			NMState:     &networkaddonsshared.NMState{},
+			KubeMacPool: &networkaddonsshared.KubeMacPool{},
 		},
 	}
 }

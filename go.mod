@@ -4,22 +4,24 @@ go 1.13
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/evanphx/json-patch v4.9.0+incompatible // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.7
 	github.com/imdario/mergo v0.3.9
-	github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200811112905-01995b8729bc
+	github.com/kubevirt/cluster-network-addons-operator v0.42.0
 	github.com/kubevirt/kubevirt-ssp-operator v1.0.41
 	github.com/kubevirt/vm-import-operator v0.2.0
-	github.com/onsi/ginkgo v1.12.1
-	github.com/onsi/gomega v1.10.1
+	github.com/mattn/goveralls v0.0.7 // indirect
+	github.com/onsi/ginkgo v1.14.1
+	github.com/onsi/gomega v1.10.2
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/openshift/custom-resource-status v0.0.0-20200602122900-c002fd1547ca
 	github.com/operator-framework/api v0.3.5
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20200321030439-57b580e57e88
 	github.com/operator-framework/operator-sdk v0.18.0
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/tools v0.0.0-20200403190813-44a64ad78b9b
+	golang.org/x/tools v0.0.0-20200522201501-cb1345f3a375
 	k8s.io/api v0.18.6
 	k8s.io/apiextensions-apiserver v0.18.6
 	k8s.io/apimachinery v0.18.6

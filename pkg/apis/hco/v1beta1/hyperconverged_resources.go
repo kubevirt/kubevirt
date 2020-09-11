@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	networkaddonsv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
+	networkaddonsshared "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared"
+	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
@@ -63,19 +64,19 @@ func (r *HyperConverged) NewCDI(opts ...string) *cdiv1alpha1.CDI {
 	}
 }
 
-func (r *HyperConverged) NewNetworkAddons(opts ...string) *networkaddonsv1alpha1.NetworkAddonsConfig {
-	return &networkaddonsv1alpha1.NetworkAddonsConfig{
+func (r *HyperConverged) NewNetworkAddons(opts ...string) *networkaddonsv1.NetworkAddonsConfig {
+	return &networkaddonsv1.NetworkAddonsConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      networkaddonsnames.OPERATOR_CONFIG,
 			Labels:    r.getLabels(),
 			Namespace: r.getNamespace(hcoutil.UndefinedNamespace, opts),
 		},
-		Spec: networkaddonsv1alpha1.NetworkAddonsConfigSpec{
-			Multus:      &networkaddonsv1alpha1.Multus{},
-			LinuxBridge: &networkaddonsv1alpha1.LinuxBridge{},
-			Ovs:         &networkaddonsv1alpha1.Ovs{},
-			NMState:     &networkaddonsv1alpha1.NMState{},
-			KubeMacPool: &networkaddonsv1alpha1.KubeMacPool{},
+		Spec: networkaddonsshared.NetworkAddonsConfigSpec{
+			Multus:      &networkaddonsshared.Multus{},
+			LinuxBridge: &networkaddonsshared.LinuxBridge{},
+			Ovs:         &networkaddonsshared.Ovs{},
+			NMState:     &networkaddonsshared.NMState{},
+			KubeMacPool: &networkaddonsshared.KubeMacPool{},
 		},
 		// TODO: propagate NodePlacement
 	}

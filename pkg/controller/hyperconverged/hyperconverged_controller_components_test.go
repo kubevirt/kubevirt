@@ -3,7 +3,8 @@ package hyperconverged
 import (
 	"os"
 
-	networkaddonsv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
+	networkaddonsshared "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared"
+	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
@@ -632,7 +633,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
-			foundResource := &networkaddonsv1alpha1.NetworkAddonsConfig{}
+			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
@@ -641,9 +642,9 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
-			Expect(foundResource.Spec.Multus).To(Equal(&networkaddonsv1alpha1.Multus{}))
-			Expect(foundResource.Spec.LinuxBridge).To(Equal(&networkaddonsv1alpha1.LinuxBridge{}))
-			Expect(foundResource.Spec.KubeMacPool).To(Equal(&networkaddonsv1alpha1.KubeMacPool{}))
+			Expect(foundResource.Spec.Multus).To(Equal(&networkaddonsshared.Multus{}))
+			Expect(foundResource.Spec.LinuxBridge).To(Equal(&networkaddonsshared.LinuxBridge{}))
+			Expect(foundResource.Spec.KubeMacPool).To(Equal(&networkaddonsshared.KubeMacPool{}))
 		})
 
 		It("should find if present", func() {
@@ -693,7 +694,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
-			foundResource := &networkaddonsv1alpha1.NetworkAddonsConfig{}
+			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},

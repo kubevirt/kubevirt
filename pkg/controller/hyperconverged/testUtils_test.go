@@ -3,13 +3,14 @@ package hyperconverged
 import (
 	"context"
 	"fmt"
-	"github.com/operator-framework/operator-sdk/pkg/ready"
 	"os"
+
+	"github.com/operator-framework/operator-sdk/pkg/ready"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/go-logr/logr"
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
-	networkaddonsv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
+	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
@@ -43,7 +44,7 @@ type basicExpected struct {
 	kvStorageRoleBinding *rbacv1.RoleBinding
 	kv                   *kubevirtv1.KubeVirt
 	cdi                  *cdiv1alpha1.CDI
-	cna                  *networkaddonsv1alpha1.NetworkAddonsConfig
+	cna                  *networkaddonsv1.NetworkAddonsConfig
 	kvCtb                *sspv1.KubevirtCommonTemplatesBundle
 	kvNlb                *sspv1.KubevirtNodeLabellerBundle
 	kvTv                 *sspv1.KubevirtTemplateValidator

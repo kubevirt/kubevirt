@@ -29,6 +29,7 @@ type Organization struct {
 	Blog                        *string    `json:"blog,omitempty"`
 	Location                    *string    `json:"location,omitempty"`
 	Email                       *string    `json:"email,omitempty"`
+	TwitterUsername             *string    `json:"twitter_username,omitempty"`
 	Description                 *string    `json:"description,omitempty"`
 	PublicRepos                 *int       `json:"public_repos,omitempty"`
 	PublicGists                 *int       `json:"public_gists,omitempty"`
@@ -45,6 +46,9 @@ type Organization struct {
 	Type                        *string    `json:"type,omitempty"`
 	Plan                        *Plan      `json:"plan,omitempty"`
 	TwoFactorRequirementEnabled *bool      `json:"two_factor_requirement_enabled,omitempty"`
+	IsVerified                  *bool      `json:"is_verified,omitempty"`
+	HasOrganizationProjects     *bool      `json:"has_organization_projects,omitempty"`
+	HasRepositoryProjects       *bool      `json:"has_repository_projects,omitempty"`
 
 	// DefaultRepoPermission can be one of: "read", "write", "admin", or "none". (Default: "read").
 	// It is only used in OrganizationsService.Edit.
@@ -121,7 +125,7 @@ type OrganizationsListOptions struct {
 // listing the next set of organizations, use the ID of the last-returned organization
 // as the opts.Since parameter for the next call.
 //
-// GitHub API docs: https://developer.github.com/v3/orgs/#list-all-organizations
+// GitHub API docs: https://developer.github.com/v3/orgs/#list-organizations
 func (s *OrganizationsService) ListAll(ctx context.Context, opts *OrganizationsListOptions) ([]*Organization, *Response, error) {
 	u, err := addOptions("organizations", opts)
 	if err != nil {
@@ -144,8 +148,8 @@ func (s *OrganizationsService) ListAll(ctx context.Context, opts *OrganizationsL
 // List the organizations for a user. Passing the empty string will list
 // organizations for the authenticated user.
 //
-// GitHub API docs: https://developer.github.com/v3/orgs/#list-user-organizations
 // GitHub API docs: https://developer.github.com/v3/orgs/#oauth-scope-requirements
+// GitHub API docs: https://developer.github.com/v3/orgs/#list-organizations-for-a-user
 func (s *OrganizationsService) List(ctx context.Context, user string, opts *ListOptions) ([]*Organization, *Response, error) {
 	var u string
 	if user != "" {
@@ -237,7 +241,7 @@ func (s *OrganizationsService) Edit(ctx context.Context, name string, org *Organ
 
 // ListInstallations lists installations for an organization.
 //
-// GitHub API docs: https://developer.github.com/v3/orgs/#list-installations-for-an-organization
+// GitHub API docs: https://developer.github.com/v3/orgs/#list-app-installations-for-an-organization
 func (s *OrganizationsService) ListInstallations(ctx context.Context, org string, opts *ListOptions) (*OrganizationInstallations, *Response, error) {
 	u := fmt.Sprintf("orgs/%v/installations", org)
 
