@@ -13,6 +13,7 @@ aliases:
       - dhiller
       - jean-edouard
       - ashleyschuett
+      - mhenriks
   emeritus_approvers:
       - cynepco3hahue
       - slintes
@@ -32,6 +33,7 @@ aliases:
       - AlonaKaplan
       - omeryahud
       - ashleyschuett
+      - mhenriks
   ux-reviewers:
       - matthewcarleton
   test-reviewers:
