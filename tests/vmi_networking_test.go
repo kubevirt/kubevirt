@@ -764,8 +764,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		When("performing migration", func() {
 			var vmi *v1.VirtualMachineInstance
-			var virtHandlerIP string
-			var jobCleanup func() error
+			var virtHandlerIPs []k8sv1.PodIP
 
 			ping := func(ipAddr string) error {
 				return tests.PingFromVMConsole(vmi, ipAddr, "-c 1", "-w 2")
@@ -814,10 +813,12 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				virtHandlerPod, err := getVirtHandlerPod()
 				Expect(err).ToNot(HaveOccurred())
-				virtHandlerIP = virtHandlerPod.Status.PodIPs[0].IP
+				virtHandlerIPs = virtHandlerPod.Status.PodIPs
 
 				By("Check connectivity")
-				Expect(ping(virtHandlerIP)).To(Succeed())
+				for _, podIP := range virtHandlerIPs {
+					Expect(ping(podIP.IP)).To(Succeed())
+				}
 
 				By("Execute migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -843,21 +844,16 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				}
 			})
 
-			AfterEach(func() {
-				if jobCleanup != nil {
-					Expect(jobCleanup()).To(Succeed())
-				}
-			})
-
 			It("preserves connectivity", func() {
-				// Workaround a live-migration limitation:
-				// Post migration, the gateway mac points to the old pod bridge and not to the new one.
-				// Initiate ingress traffic in order to refresh the VM arp table.
-				vmiPodIP := vmi.Status.Interfaces[0].IPs[0]
-				jobCleanup, err = tests.PingAppJob(vmiPodIP, "8080")
 				Eventually(func() error {
-					return ping(virtHandlerIP)
-				}, 10*time.Second).Should(Succeed(), "application ping resulted with error: %v", err)
+					for _, podIP := range virtHandlerIPs {
+						err := ping(podIP.IP)
+						if err != nil {
+							return err
+						}
+					}
+					return nil
+				}, 120*time.Second).Should(Succeed())
 			})
 		})
 	})
