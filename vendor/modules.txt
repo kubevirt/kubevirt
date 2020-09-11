@@ -171,6 +171,8 @@ github.com/mfranczy/crd-rest-coverage/pkg/report
 github.com/mfranczy/crd-rest-coverage/pkg/stats
 # github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
 github.com/mitchellh/go-ps
+# github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
+github.com/mitchellh/go-vnc
 # github.com/mitchellh/mapstructure v1.1.2
 github.com/mitchellh/mapstructure
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
@@ -826,6 +828,7 @@ kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1
 kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1
 kubevirt.io/containerized-data-importer/pkg/apis/upload
 kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1
+kubevirt.io/containerized-data-importer/pkg/apis/upload/v1beta1
 kubevirt.io/containerized-data-importer/pkg/clone
 # kubevirt.io/qe-tools v0.1.6
 kubevirt.io/qe-tools/pkg/ginkgo-reporters

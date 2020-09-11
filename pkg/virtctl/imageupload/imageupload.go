@@ -44,8 +44,8 @@ import (
 
 	cdiClientset "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	uploadcdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	uploadcdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/upload/v1beta1"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -408,7 +408,7 @@ func getUploadToken(client cdiClientset.Interface, namespace, name string) (stri
 		},
 	}
 
-	response, err := client.UploadV1alpha1().UploadTokenRequests(namespace).Create(request)
+	response, err := client.UploadV1beta1().UploadTokenRequests(namespace).Create(request)
 	if err != nil {
 		return "", err
 	}
@@ -488,7 +488,7 @@ func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size
 		},
 	}
 
-	dv, err = client.CdiClient().CdiV1alpha1().DataVolumes(namespace).Create(dv)
+	dv, err = client.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(dv)
 	if err != nil {
 		return nil, err
 	}
@@ -591,7 +591,7 @@ func getAndValidateUploadPVC(client kubernetes.Interface, namespace, name string
 }
 
 func getUploadProxyURL(client cdiClientset.Interface) (string, error) {
-	cdiConfig, err := client.CdiV1alpha1().CDIConfigs().Get(configName, metav1.GetOptions{})
+	cdiConfig, err := client.CdiV1beta1().CDIConfigs().Get(configName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}

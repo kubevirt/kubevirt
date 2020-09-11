@@ -17897,7 +17897,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref common.ReferenceC
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolume"),
+										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolume"),
 									},
 								},
 							},
@@ -17908,7 +17908,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.VirtualMachineInstanceTemplateSpec", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolume"},
+			"kubevirt.io/client-go/api/v1.VirtualMachineInstanceTemplateSpec", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolume"},
 	}
 }
 

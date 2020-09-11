@@ -18041,7 +18041,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref common.ReferenceC
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolume"),
+										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolume"),
 									},
 								},
 							},
@@ -18052,7 +18052,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.VirtualMachineInstanceTemplateSpec", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolume"},
+			"kubevirt.io/client-go/api/v1.VirtualMachineInstanceTemplateSpec", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolume"},
 	}
 }
 
@@ -18380,7 +18380,7 @@ func schema_kubevirtio_client_go_api_v1_WatchdogDevice(ref common.ReferenceCallb
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_CDI(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_CDI(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -18408,12 +18408,12 @@ func schema_pkg_apis_core_v1alpha1_CDI(ref common.ReferenceCallback) common.Open
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.CDISpec"),
+							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.CDISpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.CDIStatus"),
+							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.CDIStatus"),
 						},
 					},
 				},
@@ -18421,11 +18421,11 @@ func schema_pkg_apis_core_v1alpha1_CDI(ref common.ReferenceCallback) common.Open
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.CDISpec", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.CDIStatus"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.CDISpec", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.CDIStatus"},
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_CDIConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_CDIConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -18453,12 +18453,12 @@ func schema_pkg_apis_core_v1alpha1_CDIConfig(ref common.ReferenceCallback) commo
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.CDIConfigSpec"),
+							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.CDIConfigSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.CDIConfigStatus"),
+							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.CDIConfigStatus"),
 						},
 					},
 				},
@@ -18466,11 +18466,11 @@ func schema_pkg_apis_core_v1alpha1_CDIConfig(ref common.ReferenceCallback) commo
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.CDIConfigSpec", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.CDIConfigStatus"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.CDIConfigSpec", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.CDIConfigStatus"},
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_CDIConfigList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_CDIConfigList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -18503,7 +18503,7 @@ func schema_pkg_apis_core_v1alpha1_CDIConfigList(ref common.ReferenceCallback) c
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.CDIConfig"),
+										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.CDIConfig"),
 									},
 								},
 							},
@@ -18514,11 +18514,11 @@ func schema_pkg_apis_core_v1alpha1_CDIConfigList(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.CDIConfig"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.CDIConfig"},
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_CDIConfigSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_CDIConfigSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -18544,6 +18544,20 @@ func schema_pkg_apis_core_v1alpha1_CDIConfigSpec(ref common.ReferenceCallback) c
 							Ref: ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
+					"featureGates": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FeatureGates are a list of specific enabled feature gates",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -18552,7 +18566,7 @@ func schema_pkg_apis_core_v1alpha1_CDIConfigSpec(ref common.ReferenceCallback) c
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_CDIConfigStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_CDIConfigStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -18586,7 +18600,7 @@ func schema_pkg_apis_core_v1alpha1_CDIConfigStatus(ref common.ReferenceCallback)
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_CDIList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_CDIList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -18619,7 +18633,7 @@ func schema_pkg_apis_core_v1alpha1_CDIList(ref common.ReferenceCallback) common.
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.CDI"),
+										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.CDI"),
 									},
 								},
 							},
@@ -18630,11 +18644,11 @@ func schema_pkg_apis_core_v1alpha1_CDIList(ref common.ReferenceCallback) common.
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.CDI"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.CDI"},
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_CDISpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_CDISpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -18660,7 +18674,7 @@ func schema_pkg_apis_core_v1alpha1_CDISpec(ref common.ReferenceCallback) common.
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_CDIStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_CDIStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -18715,7 +18729,7 @@ func schema_pkg_apis_core_v1alpha1_CDIStatus(ref common.ReferenceCallback) commo
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_DataVolume(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_DataVolume(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -18743,12 +18757,12 @@ func schema_pkg_apis_core_v1alpha1_DataVolume(ref common.ReferenceCallback) comm
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSpec"),
+							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeStatus"),
+							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeStatus"),
 						},
 					},
 				},
@@ -18756,11 +18770,11 @@ func schema_pkg_apis_core_v1alpha1_DataVolume(ref common.ReferenceCallback) comm
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSpec", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeStatus"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSpec", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeStatus"},
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_DataVolumeBlankImage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_DataVolumeBlankImage(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -18771,7 +18785,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeBlankImage(ref common.ReferenceCall
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_DataVolumeCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_DataVolumeCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -18821,7 +18835,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeCondition(ref common.ReferenceCallb
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_DataVolumeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_DataVolumeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -18854,7 +18868,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeList(ref common.ReferenceCallback) 
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolume"),
+										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolume"),
 									},
 								},
 							},
@@ -18865,11 +18879,11 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeList(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolume"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolume"},
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_DataVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_DataVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -18878,48 +18892,48 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSource(ref common.ReferenceCallback
 				Properties: map[string]spec.Schema{
 					"http": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceHTTP"),
+							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSourceHTTP"),
 						},
 					},
 					"s3": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceS3"),
+							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSourceS3"),
 						},
 					},
 					"registry": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceRegistry"),
+							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSourceRegistry"),
 						},
 					},
 					"pvc": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourcePVC"),
+							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSourcePVC"),
 						},
 					},
 					"upload": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceUpload"),
+							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSourceUpload"),
 						},
 					},
 					"blank": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeBlankImage"),
+							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeBlankImage"),
 						},
 					},
 					"imageio": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceImageIO"),
+							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSourceImageIO"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeBlankImage", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceHTTP", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceImageIO", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourcePVC", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceRegistry", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceS3", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceUpload"},
+			"kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeBlankImage", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSourceHTTP", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSourceImageIO", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSourcePVC", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSourceRegistry", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSourceS3", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSourceUpload"},
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_DataVolumeSourceHTTP(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_DataVolumeSourceHTTP(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -18954,7 +18968,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSourceHTTP(ref common.ReferenceCall
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_DataVolumeSourceImageIO(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_DataVolumeSourceImageIO(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -18996,7 +19010,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSourceImageIO(ref common.ReferenceC
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_DataVolumeSourcePVC(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_DataVolumeSourcePVC(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -19024,7 +19038,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSourcePVC(ref common.ReferenceCallb
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_DataVolumeSourceRegistry(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_DataVolumeSourceRegistry(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -19059,7 +19073,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSourceRegistry(ref common.Reference
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_DataVolumeSourceS3(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_DataVolumeSourceS3(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -19087,7 +19101,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSourceS3(ref common.ReferenceCallba
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_DataVolumeSourceUpload(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_DataVolumeSourceUpload(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -19098,7 +19112,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSourceUpload(ref common.ReferenceCa
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_DataVolumeSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_DataVolumeSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -19108,7 +19122,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSpec(ref common.ReferenceCallback) 
 					"source": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Source is the src of the data for the requested DataVolume",
-							Ref:         ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSource"),
+							Ref:         ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSource"),
 						},
 					},
 					"pvc": {
@@ -19129,11 +19143,11 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSpec(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaimSpec", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSource"},
+			"k8s.io/api/core/v1.PersistentVolumeClaimSpec", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSource"},
 	}
 }
 
-func schema_pkg_apis_core_v1alpha1_DataVolumeStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_DataVolumeStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -19166,7 +19180,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeStatus(ref common.ReferenceCallback
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeCondition"),
+										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeCondition"),
 									},
 								},
 							},
@@ -19176,6 +19190,6 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeStatus(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeCondition"},
+			"kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeCondition"},
 	}
 }
