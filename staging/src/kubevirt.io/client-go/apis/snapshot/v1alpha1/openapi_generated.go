@@ -294,6 +294,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.ConfigMapVolumeSource":                               schema_kubevirtio_client_go_api_v1_ConfigMapVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.ContainerDiskSource":                                 schema_kubevirtio_client_go_api_v1_ContainerDiskSource(ref),
 		"kubevirt.io/client-go/api/v1.CustomizeComponents":                                 schema_kubevirtio_client_go_api_v1_CustomizeComponents(ref),
+		"kubevirt.io/client-go/api/v1.CustomizeComponentsPatch":                            schema_kubevirtio_client_go_api_v1_CustomizeComponentsPatch(ref),
 		"kubevirt.io/client-go/api/v1.DHCPOptions":                                         schema_kubevirtio_client_go_api_v1_DHCPOptions(ref),
 		"kubevirt.io/client-go/api/v1.DHCPPrivateOptions":                                  schema_kubevirtio_client_go_api_v1_DHCPPrivateOptions(ref),
 		"kubevirt.io/client-go/api/v1.DataVolumeSource":                                    schema_kubevirtio_client_go_api_v1_DataVolumeSource(ref),
@@ -345,7 +346,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.NetworkConfiguration":                                schema_kubevirtio_client_go_api_v1_NetworkConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.NetworkSource":                                       schema_kubevirtio_client_go_api_v1_NetworkSource(ref),
 		"kubevirt.io/client-go/api/v1.PITTimer":                                            schema_kubevirtio_client_go_api_v1_PITTimer(ref),
-		"kubevirt.io/client-go/api/v1.Patch":                                               schema_kubevirtio_client_go_api_v1_Patch(ref),
 		"kubevirt.io/client-go/api/v1.PodNetwork":                                          schema_kubevirtio_client_go_api_v1_PodNetwork(ref),
 		"kubevirt.io/client-go/api/v1.Port":                                                schema_kubevirtio_client_go_api_v1_Port(ref),
 		"kubevirt.io/client-go/api/v1.Probe":                                               schema_kubevirtio_client_go_api_v1_Probe(ref),
@@ -13818,7 +13818,7 @@ func schema_kubevirtio_client_go_api_v1_CustomizeComponents(ref common.Reference
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/client-go/api/v1.Patch"),
+										Ref: ref("kubevirt.io/client-go/api/v1.CustomizeComponentsPatch"),
 									},
 								},
 							},
@@ -13828,7 +13828,43 @@ func schema_kubevirtio_client_go_api_v1_CustomizeComponents(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.Patch"},
+			"kubevirt.io/client-go/api/v1.CustomizeComponentsPatch"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_CustomizeComponentsPatch(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"resourceName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"resourceType": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"patch": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -15822,42 +15858,6 @@ func schema_kubevirtio_client_go_api_v1_PITTimer(ref common.ReferenceCallback) c
 							Description: "Enabled set to false makes sure that the machine type or a preset can't add the timer. Defaults to true.",
 							Type:        []string{"boolean"},
 							Format:      "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func schema_kubevirtio_client_go_api_v1_Patch(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"resourceName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"resourceType": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"patch": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"type": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
 						},
 					},
 				},

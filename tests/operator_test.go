@@ -733,7 +733,7 @@ spec:
 			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			kv.Spec.CustomizeComponents = v1.CustomizeComponents{
-				Patches: []v1.Patch{
+				Patches: []v1.CustomizeComponentsPatch{
 					{
 
 						ResourceName: "virt-controller",

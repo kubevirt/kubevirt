@@ -18,7 +18,7 @@ import (
 )
 
 type Customizer struct {
-	Patches []v1.Patch
+	Patches []v1.CustomizeComponentsPatch
 
 	hash string
 }
@@ -53,7 +53,7 @@ func (c *Customizer) GenericApplyPatches(objects interface{}) error {
 
 			patches := c.GetPatchesForResource(kind, name)
 
-			patches = append(patches, v1.Patch{
+			patches = append(patches, v1.CustomizeComponentsPatch{
 				Patch: fmt.Sprintf(`{"metadata":{"annotations":{"%s":"%s"}}}`, v1.KubeVirtCustomizeComponentAnnotationHash, c.hash),
 				Type:  v1.StrategicMergePatchType,
 			})
@@ -68,7 +68,7 @@ func (c *Customizer) GenericApplyPatches(objects interface{}) error {
 	return nil
 }
 
-func applyPatches(obj runtime.Object, patches []v1.Patch) error {
+func applyPatches(obj runtime.Object, patches []v1.CustomizeComponentsPatch) error {
 	if len(patches) == 0 {
 		return nil
 	}
@@ -83,7 +83,7 @@ func applyPatches(obj runtime.Object, patches []v1.Patch) error {
 	return nil
 }
 
-func applyPatch(obj runtime.Object, patch v1.Patch) error {
+func applyPatch(obj runtime.Object, patch v1.CustomizeComponentsPatch) error {
 	if obj == nil {
 		return nil
 	}
@@ -137,13 +137,13 @@ func applyPatch(obj runtime.Object, patch v1.Patch) error {
 	return nil
 }
 
-func (c *Customizer) GetPatches() []v1.Patch {
+func (c *Customizer) GetPatches() []v1.CustomizeComponentsPatch {
 	return c.Patches
 }
 
-func (c *Customizer) GetPatchesForResource(resourceType, name string) []v1.Patch {
+func (c *Customizer) GetPatchesForResource(resourceType, name string) []v1.CustomizeComponentsPatch {
 	allPatches := c.Patches
-	patches := make([]v1.Patch, 0)
+	patches := make([]v1.CustomizeComponentsPatch, 0)
 
 	for _, p := range allPatches {
 		if strings.EqualFold(p.ResourceType, resourceType) && strings.EqualFold(p.ResourceName, name) {
