@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 
 	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/spf13/cobra"
@@ -14,17 +16,13 @@ func NewGetEnforceCommand() *cobra.Command {
 		Short: "determine if selinux is present",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if selinux.GetEnabled() {
-				mode := selinux.EnforceMode()
-				if mode == selinux.Enforcing {
-					fmt.Println("enforcing")
-				} else if mode == selinux.Permissive {
-					fmt.Println("permissive")
-				} else {
-					fmt.Println("disabled")
-				}
-			} else {
+			enforcing, err := ioutil.ReadFile("/sys/fs/selinux/enforce")
+			if err != nil {
 				fmt.Println("disabled")
+			} else if bytes.Compare(enforcing, []byte("1")) == 0 {
+				fmt.Println("enforcing")
+			} else {
+				fmt.Println("permissive")
 			}
 			return nil
 		},
