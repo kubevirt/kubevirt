@@ -1231,6 +1231,73 @@ var _ = Describe("Template", func() {
 				socketsMemVal := pod.Spec.Containers[0].Resources.Requests.Memory()
 				Expect(coresMemVal.Cmp(*socketsMemVal)).To(Equal(0))
 			})
+			It("should calculate vmipod cpu request based on vcpus and cpu_allocation_ratio", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{Cores: 3},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("300m"))
+			})
+			It("should allocate equal amount of cpus to vmipod as vcpus with allocation_ratio set to 1", func() {
+				allocationRatio := "1"
+				testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{
+					Data: map[string]string{virtconfig.CPUAllocationRatio: allocationRatio},
+				})
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{Cores: 3},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("3"))
+			})
+			It("should override the calculated amount of cpus if the user has explicitly specified cpu request", func() {
+				allocationRatio := "16"
+				testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{
+					Data: map[string]string{virtconfig.CPUAllocationRatio: allocationRatio},
+				})
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{Cores: 5},
+							Resources: v1.ResourceRequirements{
+								Requests: kubev1.ResourceList{
+									kubev1.ResourceCPU: resource.MustParse("150m"),
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("150m"))
+			})
 		})
 
 		Context("with hugepages constraints", func() {

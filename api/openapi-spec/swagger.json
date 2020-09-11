@@ -8382,6 +8382,9 @@
     "description": "DeveloperConfiguration holds developer options",
     "type": "object",
     "properties": {
+     "cpuAllocationRatio": {
+      "type": "string"
+     },
      "featureGates": {
       "type": "array",
       "items": {
