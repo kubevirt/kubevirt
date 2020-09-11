@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	virtConfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -64,6 +65,7 @@ type KubeVirtController struct {
 	operatorNamespace    string
 	aggregatorClient     installstrategy.APIServiceInterface
 	statusUpdater        *status.KVStatusUpdater
+	clusterConfig        *virtConfig.ClusterConfig
 }
 
 func NewKubeVirtController(
@@ -377,6 +379,7 @@ func NewKubeVirtController(
 		},
 	})
 
+	c.clusterConfig = virtConfig.NewClusterConfig(c.informers.ConfigMap, c.informers.CDICrd, c.kubeVirtInformer, c.operatorNamespace)
 	return &c
 }
 
@@ -1032,6 +1035,8 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 		logger.Errorf("Failed to create all resources: %v", err)
 		return err
 	}
+
+	util.UpdateConditionsCDIEnabled(kv, c.clusterConfig.HasDataVolumeAPI())
 
 	// the entire sync can't always occur within a single control loop execution.
 	// when synced==true that means SyncAll() has completed and has nothing left to wait on.

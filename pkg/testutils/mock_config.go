@@ -53,6 +53,15 @@ func AddDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
 			Names: extv1beta1.CustomResourceDefinitionNames{
 				Kind: "DataVolume",
 			},
+			// Update this if we add a new API for CDI, or change what we check to ensure the right version is there.
+			Versions: []extv1beta1.CustomResourceDefinitionVersion{
+				{
+					Name: "v1alpha1",
+				},
+				{
+					Name: "v1beta1",
+				},
+			},
 		},
 	})
 }

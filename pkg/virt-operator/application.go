@@ -178,6 +178,7 @@ func Execute() {
 		Role:                     app.informerFactory.OperatorRole(),
 		RoleBinding:              app.informerFactory.OperatorRoleBinding(),
 		Crd:                      app.informerFactory.OperatorCRD(),
+		CDICrd:                   app.informerFactory.CDICRD(),
 		Service:                  app.informerFactory.OperatorService(),
 		Deployment:               app.informerFactory.OperatorDeployment(),
 		DaemonSet:                app.informerFactory.OperatorDaemonSet(),

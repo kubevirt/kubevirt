@@ -21,7 +21,7 @@ import (
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
@@ -121,7 +121,7 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 	waitDVReady := func(dv *cdiv1.DataVolume) *cdiv1.DataVolume {
 		Eventually(func() bool {
 			var err error
-			dv, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Get(dv.Name, metav1.GetOptions{})
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Get(dv.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return dv.Status.Phase == cdiv1.Succeeded
 		}, 180*time.Second, time.Second).Should(BeTrue())
@@ -526,7 +526,7 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 
 			Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 			Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
-			dvs, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).List(metav1.ListOptions{})
+			dvs, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).List(metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(dvs.Items).To(HaveLen(1))
 			Expect(dvs.Items[0].Name).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
@@ -545,7 +545,7 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 			originalPVCName := dv.Name
 			vm.Spec.DataVolumeTemplates = nil
 
-			dv, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Create(dv)
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(dv)
 			Expect(err).ToNot(HaveOccurred())
 			dv = waitDVReady(dv)
 
@@ -554,7 +554,7 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 			doRestore("")
 
 			Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
-			dvs, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).List(metav1.ListOptions{})
+			dvs, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).List(metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(dvs.Items).To(HaveLen(1))
 			_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(originalPVCName, metav1.GetOptions{})
@@ -675,7 +675,7 @@ var _ = Describe("VirtualMachineRestore Tests", func() {
 
 			Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 			Expect(restore.Status.DeletedDataVolumes).To(ContainElement(dvName))
-			_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Get(dvName, metav1.GetOptions{})
+			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(dvName, metav1.GetOptions{})
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 		})
 	})

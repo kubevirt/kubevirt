@@ -1266,6 +1266,8 @@ const (
 	KubeVirtConditionProgressing KubeVirtConditionType = "Progressing"
 	// Whether KubeVirt is not functioning completely
 	KubeVirtConditionDegraded KubeVirtConditionType = "Degraded"
+	// Whether CDI is found and enabled
+	KubeVirtConditionCDIEnabled = "CDIEnabled"
 )
 
 const (

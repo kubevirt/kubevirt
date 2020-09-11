@@ -58,6 +58,7 @@ import (
 
 const (
 	OperatorLabel = kubev1.ManagedByLabel + "=" + kubev1.ManagedByLabelOperatorValue
+	CDILabel      = "cdi.kubevirt.io"
 )
 
 type newSharedInformer func() cache.SharedIndexInformer
@@ -144,6 +145,9 @@ type KubeInformerFactory interface {
 
 	// CRD
 	OperatorCRD() cache.SharedIndexInformer
+
+	// CDI CRD
+	CDICRD() cache.SharedIndexInformer
 
 	// Service
 	OperatorService() cache.SharedIndexInformer
@@ -570,6 +574,23 @@ func (f *kubeInformerFactory) OperatorRoleBinding() cache.SharedIndexInformer {
 func (f *kubeInformerFactory) OperatorCRD() cache.SharedIndexInformer {
 	return f.getInformer("OperatorCRDInformer", func() cache.SharedIndexInformer {
 		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		ext, err := extclient.NewForConfig(f.clientSet.Config())
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(ext.ApiextensionsV1beta1().RESTClient(), "customresourcedefinitions", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &extv1beta1.CustomResourceDefinition{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) CDICRD() cache.SharedIndexInformer {
+	return f.getInformer("CDICRDInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(CDILabel)
 		if err != nil {
 			panic(err)
 		}

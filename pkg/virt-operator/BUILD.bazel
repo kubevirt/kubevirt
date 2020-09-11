@@ -16,6 +16,7 @@ go_library(
         "//pkg/util/status:go_default_library",
         "//pkg/util/webhooks:go_default_library",
         "//pkg/util/webhooks/validating-webhooks:go_default_library",
+        "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/leaderelectionconfig:go_default_library",
         "//pkg/virt-operator/creation/components:go_default_library",
         "//pkg/virt-operator/install-strategy:go_default_library",

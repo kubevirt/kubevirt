@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    cdi.kubevirt.io: ""
+  name: {{.CDINamespace}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cdi-operator-old
+  namespace: {{.CDINamespace}}
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      name: cdi-operator
+      operator.cdi.kubevirt.io: ""
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        name: cdi-operator
+        operator.cdi.kubevirt.io: ""
+    spec:
+      containers:
+        - env:
+            - name: DEPLOY_CLUSTER_RESOURCES
+              value: "true"
+            - name: OPERATOR_VERSION
+              value: v1.17.0
+            - name: CONTROLLER_IMAGE
+              value: kubevirt/cdi-controller:v1.17.0
+            - name: IMPORTER_IMAGE
+              value: kubevirt/cdi-importer:v1.17.0
+            - name: CLONER_IMAGE
+              value: kubevirt/cdi-cloner:v1.17.0
+            - name: APISERVER_IMAGE
+              value: kubevirt/cdi-apiserver:v1.17.0
+            - name: UPLOAD_SERVER_IMAGE
+              value: kubevirt/cdi-uploadserver:v1.17.0
+            - name: UPLOAD_PROXY_IMAGE
+              value: kubevirt/cdi-uploadproxy:v1.17.0
+            - name: VERBOSITY
+              value: "3"
+            - name: PULL_POLICY
+              value: IfNotPresent
+          image: kubevirt/cdi-operator:v1.17.0
+          imagePullPolicy: IfNotPresent
+          name: cdi-operator
+          ports:
+            - containerPort: 60000
+              name: metrics
+              protocol: TCP
+          resources: {}
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: cdi-operator

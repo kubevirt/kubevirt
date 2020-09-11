@@ -10612,6 +10612,52 @@
      }
     }
    },
+   "v1alpha1.Condition": {
+    "description": "Condition defines conditions",
+    "type": "object",
+    "required": [
+     "type",
+     "status"
+    ],
+    "properties": {
+     "lastProbeTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "lastTransitionTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "message": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
+     }
+    }
+   },
+   "v1alpha1.Error": {
+    "description": "Error is the last error encountered during the snapshot/restore",
+    "type": "object",
+    "properties": {
+     "message": {
+      "type": "string"
+     },
+     "time": {
+      "$ref": "#/definitions/v1.Time"
+     }
+    }
+   },
    "v1alpha1.SourceSpec": {
     "description": "SourceSpec contains the appropriate spec for the resource being snapshotted",
     "type": "object",

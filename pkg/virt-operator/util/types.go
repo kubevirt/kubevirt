@@ -129,6 +129,7 @@ type Informers struct {
 	Role                     cache.SharedIndexInformer
 	RoleBinding              cache.SharedIndexInformer
 	Crd                      cache.SharedIndexInformer
+	CDICrd                   cache.SharedIndexInformer
 	Service                  cache.SharedIndexInformer
 	Deployment               cache.SharedIndexInformer
 	DaemonSet                cache.SharedIndexInformer

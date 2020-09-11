@@ -45,6 +45,8 @@ const (
 	ConditionReasonDeploying                = "DeploymentInProgress"
 	ConditionReasonUpdating                 = "UpdateInProgress"
 	ConditionReasonDeleting                 = "DeletionInProgress"
+	ConditionReasonCDINotFound              = "CDINotFound"
+	ConditionReasonCDIFound                 = "CDIFound"
 )
 
 func UpdateConditionsDeploying(kv *virtv1.KubeVirt) {
@@ -105,6 +107,16 @@ func UpdateConditionsDeleting(kv *virtv1.KubeVirt) {
 
 func UpdateConditionsDeletionFailed(kv *virtv1.KubeVirt, err error) {
 	updateCondition(kv, virtv1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
+}
+
+func UpdateConditionsCDIEnabled(kv *virtv1.KubeVirt, enabled bool) {
+	msg := "CDI found and compatible"
+	msgErr := "CDI not found, or not compatible"
+	if enabled {
+		updateCondition(kv, virtv1.KubeVirtConditionCDIEnabled, k8sv1.ConditionTrue, ConditionReasonCDIFound, msg)
+	} else {
+		updateCondition(kv, virtv1.KubeVirtConditionCDIEnabled, k8sv1.ConditionFalse, ConditionReasonCDINotFound, msgErr)
+	}
 }
 
 func updateCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType, status k8sv1.ConditionStatus, reason string, message string) {

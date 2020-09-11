@@ -34,6 +34,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	v12 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -100,6 +101,8 @@ var _ = Describe("Operator", func() {
 		usesSha                           func(string) bool
 		ensureShasums                     func()
 		generatePreviousVersionVmYamls    func(string, string)
+		removeCDI                         func(bool)
+		cdiEnabledReported                func(*v1.KubeVirt) (bool, bool)
 	)
 
 	tests.BeforeAll(func() {
@@ -490,6 +493,31 @@ var _ = Describe("Operator", func() {
 			Expect(usesSha(handler.Spec.Template.Spec.Containers[0].Image)).To(BeTrue(), "virt-handler should use sha")
 		}
 
+		removeCDI = func(removeNewOperator bool) {
+			err := virtClient.CdiClient().CdiV1beta1().CDIs().Delete("cdi", &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			By("Waiting for CDI operator to remove its objects")
+			Eventually(func() bool {
+				pods, _ := virtClient.CoreV1().Pods("cdi").List(metav1.ListOptions{LabelSelector: "cdi.kubevirt.io"})
+				return len(pods.Items) == 0
+			}, 240*time.Second, 1*time.Second).Should(BeTrue(), "CDI not removed in time.")
+			operatorDeploymentName := "cdi-operator"
+			if !removeNewOperator {
+				operatorDeploymentName = "cdi-operator-old"
+			}
+			noReplicas := int32(0)
+			operatorDeployment, err := virtClient.AppsV1().Deployments("cdi").Get(operatorDeploymentName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			operatorDeployment.Spec.Replicas = &noReplicas
+			_, err = virtClient.AppsV1().Deployments("cdi").Update(operatorDeployment)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				operatorDeployment, err := virtClient.AppsV1().Deployments("cdi").Get(operatorDeploymentName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return operatorDeployment.Status.Replicas == int32(0) && operatorDeployment.Status.ReadyReplicas == int32(0)
+			}, 240*time.Second, 1*time.Second).Should(BeTrue(), "CDI operator not removed in time.")
+		}
+
 		// make sure virt deployments use shasums before we start
 		ensureShasums()
 
@@ -601,6 +629,21 @@ spec:
 			}
 
 		}
+
+		cdiEnabledReported = func(kv *v1.KubeVirt) (bool, bool) {
+			cdiStatusReported := false
+			cdiStatusAvailable := false
+			for _, condition := range kv.Status.Conditions {
+				if condition.Type == v1.KubeVirtConditionCDIEnabled {
+					cdiStatusReported = true
+					if condition.Status == corev1.ConditionTrue {
+						cdiStatusAvailable = true
+					}
+					break
+				}
+			}
+			return cdiStatusReported, cdiStatusAvailable
+		}
 	})
 
 	BeforeEach(func() {
@@ -659,6 +702,21 @@ spec:
 		// in order to restore original environment
 		if originalCDI != nil {
 			cdiExists := false
+			oneReplica := int32(1)
+			operatorDeploymentOld, err := virtClient.AppsV1().Deployments("cdi").Get("cdi-operator-old", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			if *operatorDeploymentOld.Spec.Replicas == oneReplica {
+				By("Removing alpha api CDI")
+				// Need to remove the old CDI before restoring.
+				removeCDI(false)
+			}
+
+			By("Restoring operator deployment to 1 replica")
+			operatorDeployment, err := virtClient.AppsV1().Deployments("cdi").Get("cdi-operator", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			operatorDeployment.Spec.Replicas = &oneReplica
+			_, err = virtClient.AppsV1().Deployments("cdi").Update(operatorDeployment)
+			Expect(err).ToNot(HaveOccurred())
 
 			// ensure we wait for cdi to finish deleting before restoring it
 			// in the event that cdi has the deletionTimestamp set.
@@ -1365,6 +1423,75 @@ spec:
 					Equal("kubevirt-controller"), "Should virt-launcher be assigned to kubevirt-controller SCC",
 				)
 			})
+		})
+
+		Context("Correct CDI version", func() {
+			BeforeEach(func() {
+				var err error
+				_, err = virtClient.CdiClient().CdiV1beta1().CDIs().Get("cdi", metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					Skip("CDI CR 'cdi' does not exist.  Probably managed by another operator so skipping.")
+				}
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("Should display true in CDIEnabled condition, if CDI is available and correct version", func() {
+				kv := tests.GetCurrentKv(virtClient)
+
+				By("verifying kubevirt is up and running")
+				waitForKv(kv)
+
+				By("verifying CDI present condition is availabe")
+				cdiStatusReported, cdiStatusAvailable := cdiEnabledReported(kv)
+				Expect(cdiStatusReported).To(BeTrue())
+				Expect(cdiStatusAvailable).To(BeTrue())
+			})
+
+			It("Should display false in CDIEnabled condition, if CDI is not available at all", func() {
+				kv := tests.GetCurrentKv(virtClient)
+
+				By("verifying kubevirt is up and running")
+				waitForKv(kv)
+
+				By("Removing CDI")
+				removeCDI(false)
+
+				By("verifying CDI present condition is availabe")
+				kv = tests.GetCurrentKv(virtClient)
+				cdiStatusReported, cdiStatusAvailable := cdiEnabledReported(kv)
+				Expect(cdiStatusReported).To(BeTrue())
+				Expect(cdiStatusAvailable).To(BeFalse())
+			})
+
+			It("Should display false in CDIEnabled condition, if CDI is available but older version", func() {
+				kv := tests.GetCurrentKv(virtClient)
+
+				By("verifying kubevirt is up and running")
+				waitForKv(kv)
+
+				By("Removing CDI, including operator")
+				removeCDI(true)
+
+				By("Installing older version of CDI with just alpha api")
+				oneReplica := int32(1)
+				alphaOperatorDeployment, err := virtClient.AppsV1().Deployments("cdi").Get("cdi-operator-old", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				alphaOperatorDeployment.Spec.Replicas = &oneReplica
+				_, err = virtClient.AppsV1().Deployments("cdi").Update(alphaOperatorDeployment)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() bool {
+					alphaOperatorDeployment, err = virtClient.AppsV1().Deployments("cdi").Get("cdi-operator-old", metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return alphaOperatorDeployment.Status.ReadyReplicas == 1
+				}, 240*time.Second, 1*time.Second).Should(BeTrue(), "CDI operator with alpha not started in time.")
+				createCdi()
+				By("verifying CDI present condition is availabe")
+				kv = tests.GetCurrentKv(virtClient)
+				cdiStatusReported, cdiStatusAvailable := cdiEnabledReported(kv)
+				Expect(cdiStatusReported).To(BeTrue())
+				Expect(cdiStatusAvailable).To(BeFalse())
+			})
+
 		})
 	})
 

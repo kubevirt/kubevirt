@@ -124,7 +124,11 @@ func (c *ClusterConfig) configUpdated(old, cur interface{}) {
 
 func isDataVolumeCrd(crd *extv1beta1.CustomResourceDefinition) bool {
 	if crd.Spec.Names.Kind == "DataVolume" {
-		return true
+		for _, version := range crd.Spec.Versions {
+			if version.Name == "v1beta1" {
+				return true
+			}
+		}
 	}
 
 	return false

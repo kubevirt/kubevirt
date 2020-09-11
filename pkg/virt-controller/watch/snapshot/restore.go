@@ -34,7 +34,7 @@ import (
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
@@ -482,7 +482,7 @@ func (t *vmRestoreTarget) Cleanup() error {
 		}
 
 		if exists {
-			err = t.controller.Client.CdiClient().CdiV1alpha1().DataVolumes(t.vmRestore.Namespace).
+			err = t.controller.Client.CdiClient().CdiV1beta1().DataVolumes(t.vmRestore.Namespace).
 				Delete(dvName, &metav1.DeleteOptions{})
 			if err != nil {
 				return err
