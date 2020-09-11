@@ -393,7 +393,7 @@ func buildTapDeviceMaker(tapName string, isMultiqueue bool, virtLauncherPID int)
 	virtHandlerSELinuxLabel := "system_u:system_r:spc_t:s0"
 	virtLauncherSELinuxLabel, err := getProcessCurrentSELinuxLabel(virtLauncherPID)
 	if err != nil {
-		return nil, fmt.Errorf("error reading virt-launcher %d selinux label", virtLauncherPID)
+		return nil, fmt.Errorf("error reading virt-launcher %d selinux label. Reason: %v", virtLauncherPID, err)
 	}
 
 	createTapDeviceArgs := []string{
