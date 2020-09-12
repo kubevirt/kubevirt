@@ -172,6 +172,10 @@ API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,VirtualMachin
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,VirtualMachineSpec,DataVolumeTemplates
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,VirtualMachineStatus,Conditions
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,VirtualMachineStatus,StateChangeRequests
+API rule violation: list_type_missing,kubevirt.io/client-go/apis/snapshot/v1alpha1,VirtualMachineRestoreList,Items
+API rule violation: list_type_missing,kubevirt.io/client-go/apis/snapshot/v1alpha1,VirtualMachineRestoreStatus,Conditions
+API rule violation: list_type_missing,kubevirt.io/client-go/apis/snapshot/v1alpha1,VirtualMachineRestoreStatus,DeletedDataVolumes
+API rule violation: list_type_missing,kubevirt.io/client-go/apis/snapshot/v1alpha1,VirtualMachineRestoreStatus,Restores
 API rule violation: list_type_missing,kubevirt.io/client-go/apis/snapshot/v1alpha1,VirtualMachineSnapshotContentList,Items
 API rule violation: list_type_missing,kubevirt.io/client-go/apis/snapshot/v1alpha1,VirtualMachineSnapshotContentSpec,VolumeBackups
 API rule violation: list_type_missing,kubevirt.io/client-go/apis/snapshot/v1alpha1,VirtualMachineSnapshotContentStatus,VolumeSnapshotStatus
@@ -246,3 +250,4 @@ API rule violation: names_match,kubevirt.io/client-go/api/v1,VirtualMachineInsta
 API rule violation: names_match,kubevirt.io/client-go/api/v1,VirtualMachineInstanceNetworkInterface,IP
 API rule violation: names_match,kubevirt.io/client-go/api/v1,VirtualMachineInstanceNetworkInterface,IPs
 API rule violation: names_match,kubevirt.io/client-go/api/v1,WatchdogDevice,I6300ESB
+API rule violation: names_match,kubevirt.io/client-go/apis/snapshot/v1alpha1,VolumeRestore,PersistentVolumeClaimName

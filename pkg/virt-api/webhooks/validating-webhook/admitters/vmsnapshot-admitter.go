@@ -27,7 +27,6 @@ import (
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -55,11 +54,11 @@ func NewVMSnapshotAdmitter(config *virtconfig.ClusterConfig, client kubecli.Kube
 func (admitter *VMSnapshotAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	if ar.Request.Resource.Group != snapshotv1.SchemeGroupVersion.Group ||
 		ar.Request.Resource.Resource != "virtualmachinesnapshots" {
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("Unexpected Resource %+v", ar.Request.Resource))
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
 	}
 
 	if ar.Request.Operation == v1beta1.Create && !admitter.Config.SnapshotEnabled() {
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("Snapshot feature gate not enabled"))
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("snapshot feature gate not enabled"))
 	}
 
 	vmSnapshot := &snapshotv1.VirtualMachineSnapshot{}
@@ -86,12 +85,7 @@ func (admitter *VMSnapshotAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.
 			break
 		}
 
-		gv, err := schema.ParseGroupVersion(*vmSnapshot.Spec.Source.APIGroup)
-		if err != nil {
-			return webhookutils.ToAdmissionResponseError(err)
-		}
-
-		switch gv.Group {
+		switch *vmSnapshot.Spec.Source.APIGroup {
 		case v1.GroupName:
 			switch vmSnapshot.Spec.Source.Kind {
 			case "VirtualMachine":
@@ -166,7 +160,12 @@ func (admitter *VMSnapshotAdmitter) validateCreateVM(field *k8sfield.Path, names
 
 	var causes []metav1.StatusCause
 
-	if vm.Spec.Running != nil && *vm.Spec.Running {
+	rs, err := vm.RunStrategy()
+	if err != nil {
+		return nil, err
+	}
+
+	if rs != v1.RunStrategyHalted {
 		cause := metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("VirtualMachine %q is running", name),

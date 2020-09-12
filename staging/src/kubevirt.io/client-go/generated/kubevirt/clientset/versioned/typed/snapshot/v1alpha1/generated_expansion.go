@@ -18,6 +18,8 @@ limitations under the License.
 
 package v1alpha1
 
+type VirtualMachineRestoreExpansion interface{}
+
 type VirtualMachineSnapshotExpansion interface{}
 
 type VirtualMachineSnapshotContentExpansion interface{}

@@ -122,6 +122,7 @@ const (
 	StressHttpUrl
 	DmidecodeHttpUrl
 	DummyFileHttpUrl
+	CirrosHttpUrl
 )
 
 const (
@@ -1910,6 +1911,16 @@ func NewRandomVMWithDataVolumeInStorageClass(imageUrl, namespace, storageClass s
 	return vm
 }
 
+func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
+	dataVolume := NewRandomDataVolumeWithHttpImportInStorageClass(imageUrl, namespace, storageClass, k8sv1.ReadWriteOnce)
+	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
+	AddUserData(vmi, "cloud-init", userData)
+	vm := NewRandomVirtualMachine(vmi, false)
+
+	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dataVolume)
+	return vm
+}
+
 func NewRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace string) *v1.VirtualMachine {
 	dataVolume := NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace, k8sv1.ReadWriteOnce)
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -2219,6 +2230,14 @@ func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vmi = AddPVCDisk(vmi, "disk0", "virtio", claimName)
+	return vmi
+}
+
+func NewRandomVMIWithPVCAndUserData(claimName, userData string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMI()
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vmi = AddPVCDisk(vmi, "disk0", "virtio", claimName)
+	AddUserData(vmi, "disk1", userData)
 	return vmi
 }
 
@@ -4325,6 +4344,8 @@ func GetUrl(urlIndex int) string {
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/dmidecode", flags.KubeVirtInstallNamespace)
 	case DummyFileHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/dummy.file", flags.KubeVirtInstallNamespace)
+	case CirrosHttpUrl:
+		str = fmt.Sprintf("http://cdi-http-import-server.%s/images/cirros.img", flags.KubeVirtInstallNamespace)
 	default:
 		str = ""
 	}

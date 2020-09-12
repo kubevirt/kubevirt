@@ -142,8 +142,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalDeletions int
 	var resourceChanges map[string]map[string]int
 
-	resourceCount := 51
-	patchCount := 32
+	resourceCount := 52
+	patchCount := 33
 	updateCount := 20
 
 	deleteFromCache := true
@@ -845,6 +845,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, components.NewVirtualMachineInstanceMigrationCrd())
 		all = append(all, components.NewVirtualMachineSnapshotCrd())
 		all = append(all, components.NewVirtualMachineSnapshotContentCrd())
+		all = append(all, components.NewVirtualMachineRestoreCrd())
 		all = append(all, components.NewPrometheusRuleCR(config.GetNamespace()))
 		// sccs
 		all = append(all, components.NewKubeVirtControllerSCC(NAMESPACE))
@@ -1951,7 +1952,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(controller.stores.ClusterRoleBindingCache.List())).To(Equal(5))
 			Expect(len(controller.stores.RoleCache.List())).To(Equal(3))
 			Expect(len(controller.stores.RoleBindingCache.List())).To(Equal(3))
-			Expect(len(controller.stores.CrdCache.List())).To(Equal(7))
+			Expect(len(controller.stores.CrdCache.List())).To(Equal(8))
 			Expect(len(controller.stores.ServiceCache.List())).To(Equal(3))
 			Expect(len(controller.stores.DeploymentCache.List())).To(Equal(1))
 			Expect(len(controller.stores.DaemonSetCache.List())).To(Equal(0))

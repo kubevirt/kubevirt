@@ -1,14 +1,13 @@
-package watch
+package snapshot
 
 import (
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/onsi/ginkgo/extensions/table"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
@@ -18,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -31,25 +31,30 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util/status"
+)
+
+const (
+	testNamespace = "default"
+	vmSnapshotUID = "snapshot-uid"
+	contentUID    = "content-uid"
+)
+
+var (
+	vmUID            types.UID = "vm-uid"
+	vmAPIGroup                 = "kubevirt.io"
+	storageClassName           = "rook-ceph-block"
+	t                          = true
+	f                          = false
 )
 
 var _ = Describe("Snapshot controlleer", func() {
-	const (
-		testNamespace = "default"
-		vnSnapshotUID = "uid"
-	)
-
 	var (
-		vmAPIGroup              = "kubevirt.io"
 		timeStamp               = metav1.Now()
 		vmName                  = "testvm"
 		vmSnapshotName          = "test-snapshot"
 		retain                  = snapshotv1.VirtualMachineSnapshotContentRetain
-		storageClassName        = "rook-ceph-block"
 		volumeSnapshotClassName = "csi-rbdplugin-snapclass"
-
-		t = true
-		f = false
 	)
 
 	timeFunc := func() *metav1.Time {
@@ -57,20 +62,7 @@ var _ = Describe("Snapshot controlleer", func() {
 	}
 
 	createVMSnapshot := func() *snapshotv1.VirtualMachineSnapshot {
-		return &snapshotv1.VirtualMachineSnapshot{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      vmSnapshotName,
-				Namespace: testNamespace,
-				UID:       vnSnapshotUID,
-			},
-			Spec: snapshotv1.VirtualMachineSnapshotSpec{
-				Source: corev1.TypedLocalObjectReference{
-					APIGroup: &vmAPIGroup,
-					Kind:     "VirtualMachine",
-					Name:     vmName,
-				},
-			},
-		}
+		return createVirtualMachineSnapshot(testNamespace, vmSnapshotName, vmName)
 	}
 
 	createVMSnapshotSuccess := func() *snapshotv1.VirtualMachineSnapshot {
@@ -95,80 +87,7 @@ var _ = Describe("Snapshot controlleer", func() {
 	}
 
 	createVM := func() *v1.VirtualMachine {
-		return &v1.VirtualMachine{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      vmName,
-				Namespace: testNamespace,
-				UID:       "uid",
-				Labels: map[string]string{
-					"kubevirt.io/vm": "vm-alpine-datavolume",
-				},
-			},
-			Spec: v1.VirtualMachineSpec{
-				Running: &f,
-				Template: &v1.VirtualMachineInstanceTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{
-							"kubevirt.io/vm": "vm-alpine-datavolume",
-						},
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
-							Devices: v1.Devices{
-								Disks: []v1.Disk{
-									{
-										Name: "disk1",
-										DiskDevice: v1.DiskDevice{
-											Disk: &v1.DiskTarget{
-												Bus: "virtio",
-											},
-										},
-									},
-								},
-							},
-							Resources: v1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceName(corev1.ResourceRequestsMemory): resource.MustParse("64M"),
-								},
-							},
-						},
-						Volumes: []v1.Volume{
-							{
-								Name: "disk1",
-								VolumeSource: v1.VolumeSource{
-									DataVolume: &v1.DataVolumeSource{
-										Name: "alpine-dv",
-									},
-								},
-							},
-						},
-					},
-				},
-				DataVolumeTemplates: []cdiv1alpha1.DataVolume{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "alpine-dv",
-						},
-						Spec: cdiv1alpha1.DataVolumeSpec{
-							Source: cdiv1alpha1.DataVolumeSource{
-								HTTP: &cdiv1alpha1.DataVolumeSourceHTTP{
-									URL: "http://cdi-http-import-server.kubevirt/images/alpine.iso",
-								},
-							},
-							PVC: &corev1.PersistentVolumeClaimSpec{
-								Resources: corev1.ResourceRequirements{
-									Requests: corev1.ResourceList{
-										corev1.ResourceName(corev1.ResourceStorage): resource.MustParse("2Gi"),
-									},
-								},
-								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-								StorageClassName: &storageClassName,
-							},
-						},
-					},
-				},
-			},
-		}
+		return createVirtualMachine(testNamespace, vmName)
 	}
 
 	createLockedVM := func() *v1.VirtualMachine {
@@ -178,56 +97,23 @@ var _ = Describe("Snapshot controlleer", func() {
 		return vm
 	}
 
-	createPersistentVolumeClaims := func() []corev1.PersistentVolumeClaim {
-		vm := createLockedVM()
-		var pvcs []corev1.PersistentVolumeClaim
-		for i, dv := range vm.Spec.DataVolumeTemplates {
-			pvc := corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vm.Namespace,
-					Name:      dv.Name,
-				},
-				Spec: *dv.Spec.PVC,
-			}
-			pvc.Spec.VolumeName = fmt.Sprintf("volume%d", i+1)
-			pvc.ResourceVersion = "1"
-			pvcs = append(pvcs, pvc)
+	createVMI := func(vm *v1.VirtualMachine) *v1.VirtualMachineInstance {
+		return &v1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: vm.Namespace,
+				Name:      vm.Name,
+			},
 		}
-		return pvcs
+	}
+
+	createPersistentVolumeClaims := func() []corev1.PersistentVolumeClaim {
+		return createPVCsForVM(createLockedVM())
 	}
 
 	createVMSnapshotContent := func() *snapshotv1.VirtualMachineSnapshotContent {
 		vmSnapshot := createVMSnapshotInProgress()
-		var volumeBackups []snapshotv1.VolumeBackup
 		vm := createLockedVM()
-		vm.ResourceVersion = "1"
-		vm.Status = v1.VirtualMachineStatus{}
-
-		for i, pvc := range createPersistentVolumeClaims() {
-			diskName := fmt.Sprintf("disk%d", i+1)
-			volumeSnapshotName := fmt.Sprintf("vmsnapshot-%s-disk-%s", vmSnapshot.UID, diskName)
-			vb := snapshotv1.VolumeBackup{
-				DiskName:              diskName,
-				PersistentVolumeClaim: pvc,
-				VolumeSnapshotName:    &volumeSnapshotName,
-			}
-			volumeBackups = append(volumeBackups, vb)
-		}
-
-		return &snapshotv1.VirtualMachineSnapshotContent{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:       "vmsnapshot-content-" + vnSnapshotUID,
-				Namespace:  testNamespace,
-				Finalizers: []string{"snapshot.kubevirt.io/vmsnapshotcontent-protection"},
-			},
-			Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
-				VirtualMachineSnapshotName: &vmSnapshotName,
-				Source: snapshotv1.SourceSpec{
-					VirtualMachine: vm,
-				},
-				VolumeBackups: volumeBackups,
-			},
-		}
+		return createVirtualMachineSnapshotContent(vmSnapshot, vm)
 	}
 
 	createStorageClass := func() *storagev1.StorageClass {
@@ -294,6 +180,10 @@ var _ = Describe("Snapshot controlleer", func() {
 		var vmSnapshotContentInformer cache.SharedIndexInformer
 		var vmInformer cache.SharedIndexInformer
 		var vmSource *framework.FakeControllerSource
+		var vmiInformer cache.SharedIndexInformer
+		var vmiSource *framework.FakeControllerSource
+		var podInformer cache.SharedIndexInformer
+		var podSource *framework.FakeControllerSource
 		var volumeSnapshotInformer cache.SharedIndexInformer
 		var volumeSnapshotSource *framework.FakeControllerSource
 		var volumeSnapshotClassInformer cache.SharedIndexInformer
@@ -305,7 +195,7 @@ var _ = Describe("Snapshot controlleer", func() {
 		var crdInformer cache.SharedIndexInformer
 		var crdSource *framework.FakeControllerSource
 		var stop chan struct{}
-		var controller *SnapshotController
+		var controller *VMSnapshotController
 		var recorder *record.FakeRecorder
 		var mockVMSnapshotQueue *testutils.MockWorkQueue
 		var mockVMSnapshotContentQueue *testutils.MockWorkQueue
@@ -322,6 +212,8 @@ var _ = Describe("Snapshot controlleer", func() {
 			go storageClassInformer.Run(stop)
 			go pvcInformer.Run(stop)
 			go crdInformer.Run(stop)
+			go vmiInformer.Run(stop)
+			go podInformer.Run(stop)
 			Expect(cache.WaitForCacheSync(
 				stop,
 				vmSnapshotInformer.HasSynced,
@@ -330,6 +222,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				storageClassInformer.HasSynced,
 				pvcInformer.HasSynced,
 				crdInformer.HasSynced,
+				vmiInformer.HasSynced,
+				podInformer.HasSynced,
 			)).To(BeTrue())
 		}
 
@@ -363,6 +257,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				},
 			})
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
+			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+			podInformer, podSource = testutils.NewFakeInformerFor(&corev1.Pod{})
 			volumeSnapshotInformer, volumeSnapshotSource = testutils.NewFakeInformerFor(&vsv1beta1.VolumeSnapshot{})
 			volumeSnapshotClassInformer, volumeSnapshotClassSource = testutils.NewFakeInformerFor(&vsv1beta1.VolumeSnapshotClass{})
 			storageClassInformer, storageClassSource = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
@@ -371,17 +267,21 @@ var _ = Describe("Snapshot controlleer", func() {
 
 			recorder = record.NewFakeRecorder(100)
 
-			controller = NewSnapshotController(
-				virtClient,
-				vmSnapshotInformer,
-				vmSnapshotContentInformer,
-				vmInformer,
-				storageClassInformer,
-				pvcInformer,
-				crdInformer,
-				recorder,
-				60*time.Second,
-			)
+			controller = &VMSnapshotController{
+				Client:                    virtClient,
+				VMSnapshotInformer:        vmSnapshotInformer,
+				VMSnapshotContentInformer: vmSnapshotContentInformer,
+				VMInformer:                vmInformer,
+				VMIInformer:               vmiInformer,
+				PodInformer:               podInformer,
+				StorageClassInformer:      storageClassInformer,
+				PVCInformer:               pvcInformer,
+				CRDInformer:               crdInformer,
+				Recorder:                  recorder,
+				ResyncPeriod:              60 * time.Second,
+				vmStatusUpdater:           status.NewVMStatusUpdater(virtClient),
+			}
+			controller.Init()
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates
 			mockVMSnapshotQueue = testutils.NewMockWorkQueue(controller.vmSnapshotQueue)
@@ -479,9 +379,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 					ReadyToUse: &f,
-					Conditions: []snapshotv1.VirtualMachineSnapshotCondition{
-						newSnapshotProgressingCondition(corev1.ConditionFalse, "Source not locked"),
-						newSnapshotReadyCondition(corev1.ConditionFalse, "Not ready"),
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
+						newReadyCondition(corev1.ConditionFalse, "Not ready"),
 					},
 				}
 				vmSource.Add(vm)
@@ -496,9 +396,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 					ReadyToUse: &f,
-					Conditions: []snapshotv1.VirtualMachineSnapshotCondition{
-						newSnapshotProgressingCondition(corev1.ConditionFalse, "Source does not exist"),
-						newSnapshotReadyCondition(corev1.ConditionFalse, "Not ready"),
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionFalse, "Source does not exist"),
+						newReadyCondition(corev1.ConditionFalse, "Not ready"),
 					},
 				}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
@@ -513,9 +413,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 					ReadyToUse: &f,
-					Conditions: []snapshotv1.VirtualMachineSnapshotCondition{
-						newSnapshotProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
-						newSnapshotReadyCondition(corev1.ConditionFalse, "Not ready"),
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
+						newReadyCondition(corev1.ConditionFalse, "Not ready"),
 					},
 				}
 				vmSource.Add(vm)
@@ -557,11 +457,11 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshot.DeletionTimestamp = timeFunc()
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
-				updatedSnapshot.Status.Conditions = []snapshotv1.VirtualMachineSnapshotCondition{
-					newSnapshotProgressingCondition(corev1.ConditionFalse, "Snapshot cancelled"),
-					newSnapshotReadyCondition(corev1.ConditionFalse, "Snapshot cancelled"),
+				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionFalse, "Snapshot cancelled"),
+					newReadyCondition(corev1.ConditionFalse, "Snapshot cancelled"),
 				}
-				updatedSnapshot.Status.Error = &snapshotv1.VirtualMachineSnapshotError{
+				updatedSnapshot.Status.Error = &snapshotv1.Error{
 					Time:    timeFunc(),
 					Message: &[]string{"Snapshot cancelled"}[0],
 				}
@@ -666,6 +566,29 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.processVMSnapshotWorkItem()
 			})
 
+			It("should not lock source if VMI exists", func() {
+				vmSnapshot := createVMSnapshotInProgress()
+				vm := createVM()
+				vm.Spec.Running = &f
+
+				vmiSource.Add(createVMI(vm))
+				vmSource.Add(vm)
+				addVirtualMachineSnapshot(vmSnapshot)
+				controller.processVMSnapshotWorkItem()
+			})
+
+			It("should not lock source if pods using PVCs", func() {
+				vmSnapshot := createVMSnapshotInProgress()
+				vm := createVM()
+				vm.Spec.Running = &f
+
+				pods := createPodsUsingPVCs(vm)
+				podSource.Add(&pods[0])
+				vmSource.Add(vm)
+				addVirtualMachineSnapshot(vmSnapshot)
+				controller.processVMSnapshotWorkItem()
+			})
+
 			It("should not lock source if another snapshot in progress", func() {
 				n := "otherSnapshot"
 				vmSnapshot := createVMSnapshotInProgress()
@@ -721,12 +644,13 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
+				updatedSnapshot.Status.SourceUID = &vmUID
 				updatedSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name
 				updatedSnapshot.Status.CreationTime = timeFunc()
 				updatedSnapshot.Status.ReadyToUse = &t
-				updatedSnapshot.Status.Conditions = []snapshotv1.VirtualMachineSnapshotCondition{
-					newSnapshotProgressingCondition(corev1.ConditionFalse, "Operation complete"),
-					newSnapshotReadyCondition(corev1.ConditionTrue, "Operation complete"),
+				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
+					newReadyCondition(corev1.ConditionTrue, "Operation complete"),
 				}
 
 				vm := createLockedVM()
@@ -743,7 +667,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				volumeSnapshotClass := &createVolumeSnapshotClasses()[0]
 				pvcs := createPersistentVolumeClaims()
 				vmSnapshotContent := createVMSnapshotContent()
-				vmSnapshotContent.UID = "uid"
+				vmSnapshotContent.UID = contentUID
 
 				updatedContent := vmSnapshotContent.DeepCopy()
 				updatedContent.ResourceVersion = "1"
@@ -777,7 +701,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				volumeSnapshotClasses := createVolumeSnapshotClasses()
 				pvcs := createPersistentVolumeClaims()
 				vmSnapshotContent := createVMSnapshotContent()
-				vmSnapshotContent.UID = "uid"
+				vmSnapshotContent.UID = contentUID
 
 				updatedContent := vmSnapshotContent.DeepCopy()
 				updatedContent.ResourceVersion = "1"
@@ -863,7 +787,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedContent.ResourceVersion = "1"
 				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					ReadyToUse: &f,
-					Error: &snapshotv1.VirtualMachineSnapshotError{
+					Error: &snapshotv1.Error{
 						Message: &message,
 						Time:    timeFunc(),
 					},
@@ -915,7 +839,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					ReadyToUse:   &f,
 					CreationTime: timeFunc(),
-					Error: &snapshotv1.VirtualMachineSnapshotError{
+					Error: &snapshotv1.Error{
 						Message: &errorMessage,
 						Time:    timeFunc(),
 					},
@@ -1066,4 +990,175 @@ func expectVolumeSnapshotCreates(
 
 		return true, createObj, nil
 	})
+}
+
+func createVirtualMachine(namespace, name string) *v1.VirtualMachine {
+	return &v1.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			UID:       vmUID,
+			Labels: map[string]string{
+				"kubevirt.io/vm": "vm-alpine-datavolume",
+			},
+		},
+		Spec: v1.VirtualMachineSpec{
+			Running: &f,
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"kubevirt.io/vm": "vm-alpine-datavolume",
+					},
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							Disks: []v1.Disk{
+								{
+									Name: "disk1",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: "virtio",
+										},
+									},
+								},
+							},
+						},
+						Resources: v1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceName(corev1.ResourceRequestsMemory): resource.MustParse("64M"),
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "disk1",
+							VolumeSource: v1.VolumeSource{
+								DataVolume: &v1.DataVolumeSource{
+									Name: "alpine-dv",
+								},
+							},
+						},
+					},
+				},
+			},
+			DataVolumeTemplates: []cdiv1alpha1.DataVolume{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "alpine-dv",
+					},
+					Spec: cdiv1alpha1.DataVolumeSpec{
+						Source: cdiv1alpha1.DataVolumeSource{
+							HTTP: &cdiv1alpha1.DataVolumeSourceHTTP{
+								URL: "http://cdi-http-import-server.kubevirt/images/alpine.iso",
+							},
+						},
+						PVC: &corev1.PersistentVolumeClaimSpec{
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceName(corev1.ResourceStorage): resource.MustParse("2Gi"),
+								},
+							},
+							AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+							StorageClassName: &storageClassName,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func createVirtualMachineSnapshot(namespace, name, vmName string) *snapshotv1.VirtualMachineSnapshot {
+	return &snapshotv1.VirtualMachineSnapshot{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			UID:       vmSnapshotUID,
+		},
+		Spec: snapshotv1.VirtualMachineSnapshotSpec{
+			Source: corev1.TypedLocalObjectReference{
+				APIGroup: &vmAPIGroup,
+				Kind:     "VirtualMachine",
+				Name:     vmName,
+			},
+		},
+	}
+}
+
+func createVirtualMachineSnapshotContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot, vm *v1.VirtualMachine) *snapshotv1.VirtualMachineSnapshotContent {
+	var volumeBackups []snapshotv1.VolumeBackup
+	vm.ResourceVersion = "1"
+	vm.Status = v1.VirtualMachineStatus{}
+
+	for i, pvc := range createPVCsForVM(vm) {
+		diskName := fmt.Sprintf("disk%d", i+1)
+		volumeSnapshotName := fmt.Sprintf("vmsnapshot-%s-volume-%s", vmSnapshot.UID, diskName)
+		vb := snapshotv1.VolumeBackup{
+			VolumeName:            diskName,
+			PersistentVolumeClaim: pvc,
+			VolumeSnapshotName:    &volumeSnapshotName,
+		}
+		volumeBackups = append(volumeBackups, vb)
+	}
+
+	return &snapshotv1.VirtualMachineSnapshotContent{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "vmsnapshot-content-" + vmSnapshotUID,
+			Namespace:  testNamespace,
+			Finalizers: []string{"snapshot.kubevirt.io/vmsnapshotcontent-protection"},
+		},
+		Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
+			VirtualMachineSnapshotName: &vmSnapshot.Name,
+			Source: snapshotv1.SourceSpec{
+				VirtualMachine: vm,
+			},
+			VolumeBackups: volumeBackups,
+		},
+	}
+}
+
+func createPVCsForVM(vm *v1.VirtualMachine) []corev1.PersistentVolumeClaim {
+	var pvcs []corev1.PersistentVolumeClaim
+	for i, dv := range vm.Spec.DataVolumeTemplates {
+		pvc := corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: vm.Namespace,
+				Name:      dv.Name,
+			},
+			Spec: *dv.Spec.PVC,
+		}
+		pvc.Spec.VolumeName = fmt.Sprintf("volume%d", i+1)
+		pvc.ResourceVersion = "1"
+		pvcs = append(pvcs, pvc)
+	}
+	return pvcs
+}
+
+func createPodsUsingPVCs(vm *v1.VirtualMachine) []corev1.Pod {
+	var pods []corev1.Pod
+
+	for _, dv := range vm.Spec.DataVolumeTemplates {
+		pod := corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: vm.Namespace,
+				Name:      "pod-" + dv.Name,
+			},
+			Spec: corev1.PodSpec{
+				Volumes: []corev1.Volume{
+					{
+						Name: "vol-" + dv.Name,
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+								ClaimName: dv.Name,
+							},
+						},
+					},
+				},
+			},
+		}
+		pods = append(pods, pod)
+	}
+
+	return pods
 }

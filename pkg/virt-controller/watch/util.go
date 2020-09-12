@@ -21,14 +21,58 @@ package watch
 
 import (
 	"fmt"
+	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 )
+
+func processWorkItem(queue workqueue.RateLimitingInterface, handler func(string) (time.Duration, error)) bool {
+	obj, shutdown := queue.Get()
+	if shutdown {
+		return false
+	}
+
+	err := func(obj interface{}) error {
+		defer queue.Done(obj)
+		key, ok := obj.(string)
+		if !ok {
+			queue.Forget(obj)
+			utilruntime.HandleError(fmt.Errorf("expected string in workqueue but got %#v", obj))
+			return nil
+		}
+
+		log.Log.V(3).Infof("processing key [%s]", key)
+
+		if requeueAfter, err := handler(key); requeueAfter > 0 || err != nil {
+			if requeueAfter > 0 {
+				queue.AddAfter(key, requeueAfter)
+			} else {
+				queue.AddRateLimited(key)
+			}
+
+			return err
+		}
+
+		queue.Forget(obj)
+
+		return nil
+
+	}(obj)
+
+	if err != nil {
+		utilruntime.HandleError(err)
+		return true
+	}
+
+	return true
+}
 
 func handlePVCMisuseInVM(pvcInformer cache.SharedIndexInformer, recorder record.EventRecorder, vm *v1.VirtualMachine) error {
 	logger := log.Log.Object(vm)

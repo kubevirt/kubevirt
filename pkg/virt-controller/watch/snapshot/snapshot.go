@@ -17,25 +17,26 @@
  *
  */
 
-package watch
+package snapshot
 
 import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
 const (
@@ -52,32 +53,34 @@ const (
 	volumeSnapshotCreateEvent = "SuccessfulVolumeSnapshotCreate"
 
 	volumeSnapshotMissingEvent = "VolumeSnapshotMissing"
+
+	snapshotRetryInterval = 5 * time.Second
 )
 
 type snapshotSource interface {
+	UID() types.UID
 	Locked() bool
 	Lock() (bool, error)
-	Unlock() error
+	Unlock() (bool, error)
 	Spec() snapshotv1.SourceSpec
 	PersistentVolumeClaims() map[string]string
 }
 
 type vmSnapshotSource struct {
-	client          kubecli.KubevirtClient
-	vmStatusUpdater *status.VMStatusUpdater
-	vm              *kubevirtv1.VirtualMachine
-	snapshot        *snapshotv1.VirtualMachineSnapshot
-}
-
-func cacheKeyFunc(namespace, name string) string {
-	return fmt.Sprintf("%s/%s", namespace, name)
+	vm         *kubevirtv1.VirtualMachine
+	snapshot   *snapshotv1.VirtualMachineSnapshot
+	controller *VMSnapshotController
 }
 
 func vmSnapshotReady(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
 	return vmSnapshot.Status != nil && vmSnapshot.Status.ReadyToUse != nil && *vmSnapshot.Status.ReadyToUse
 }
 
-func vmSnapshotError(vmSnapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshotError {
+func vmSnapshotContentReady(vmSnapshotContent *snapshotv1.VirtualMachineSnapshotContent) bool {
+	return vmSnapshotContent.Status != nil && vmSnapshotContent.Status.ReadyToUse != nil && *vmSnapshotContent.Status.ReadyToUse
+}
+
+func vmSnapshotError(vmSnapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.Error {
 	if vmSnapshot.Status != nil && vmSnapshot.Status.Error != nil {
 		return vmSnapshot.Status.Error
 	}
@@ -86,7 +89,7 @@ func vmSnapshotError(vmSnapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.
 
 func vmSnapshotProgressing(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
 	return vmSnapshotError(vmSnapshot) == nil &&
-		(vmSnapshot.Status == nil || vmSnapshot.Status.ReadyToUse == nil || *vmSnapshot.Status.ReadyToUse == false)
+		(vmSnapshot.Status == nil || vmSnapshot.Status.ReadyToUse == nil || !*vmSnapshot.Status.ReadyToUse)
 }
 
 func getVMSnapshotContentName(vmSnapshot *snapshotv1.VirtualMachineSnapshot) string {
@@ -97,48 +100,40 @@ func getVMSnapshotContentName(vmSnapshot *snapshotv1.VirtualMachineSnapshot) str
 	return fmt.Sprintf("%s-%s", "vmsnapshot-content", vmSnapshot.UID)
 }
 
-func translateError(e *vsv1beta1.VolumeSnapshotError) *snapshotv1.VirtualMachineSnapshotError {
+func translateError(e *vsv1beta1.VolumeSnapshotError) *snapshotv1.Error {
 	if e == nil {
 		return nil
 	}
 
-	return &snapshotv1.VirtualMachineSnapshotError{
+	return &snapshotv1.Error{
 		Message: e.Message,
 		Time:    e.Time,
 	}
 }
 
-// variable so can be overridden in tests
-var currentTime = func() *metav1.Time {
-	t := metav1.Now()
-	return &t
-}
-
-func (ctrl *SnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.VirtualMachineSnapshot) error {
+func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (time.Duration, error) {
 	log.Log.V(3).Infof("Updating VirtualMachineSnapshot %s/%s", vmSnapshot.Namespace, vmSnapshot.Name)
 
 	// Make sure status is initialized
 	if vmSnapshot.Status == nil {
-		return ctrl.updateSnapshotStatus(vmSnapshot)
+		return 0, ctrl.updateSnapshotStatus(vmSnapshot, nil)
 	}
 
 	source, err := ctrl.getSnapshotSource(vmSnapshot)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// unlock the source if done/error
 	if !vmSnapshotProgressing(vmSnapshot) && source != nil {
-		if err = source.Unlock(); err != nil {
-			return err
+		if updated, err := source.Unlock(); updated || err != nil {
+			return 0, err
 		}
-
-		return nil
 	}
 
 	// check deleted
 	if vmSnapshot.DeletionTimestamp != nil {
-		return ctrl.cleanupVMSnapshot(vmSnapshot)
+		return 0, ctrl.cleanupVMSnapshot(vmSnapshot)
 	}
 
 	if source != nil && vmSnapshotProgressing(vmSnapshot) {
@@ -147,39 +142,39 @@ func (ctrl *SnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.VirtualM
 		if !source.Locked() {
 			locked, err := source.Lock()
 			if err != nil {
-				return err
+				return 0, err
 			}
 
 			log.Log.V(3).Infof("Attempt to lock source returned: %t", locked)
 
-			return nil
+			return snapshotRetryInterval, nil
 		}
 
 		// add source finalizer and maybe other stuff
 		updated, err := ctrl.initVMSnapshot(vmSnapshot)
 		if updated || err != nil {
-			return err
+			return 0, err
 		}
 
 		content, err := ctrl.getContent(vmSnapshot)
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		// create content if does not exist
 		if content == nil {
-			return ctrl.createContent(vmSnapshot)
+			return 0, ctrl.createContent(vmSnapshot)
 		}
 	}
 
-	if err = ctrl.updateSnapshotStatus(vmSnapshot); err != nil {
-		return err
+	if err = ctrl.updateSnapshotStatus(vmSnapshot, source); err != nil {
+		return 0, err
 	}
 
-	return nil
+	return 0, nil
 }
 
-func (ctrl *SnapshotController) updateVMSnapshotContent(content *snapshotv1.VirtualMachineSnapshotContent) error {
+func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.VirtualMachineSnapshotContent) (time.Duration, error) {
 	log.Log.V(3).Infof("Updating VirtualMachineSnapshotContent %s/%s", content.Namespace, content.Name)
 
 	var volueSnapshotStatus []snapshotv1.VolumeSnapshotStatus
@@ -197,14 +192,14 @@ func (ctrl *SnapshotController) updateVMSnapshotContent(content *snapshotv1.Virt
 
 		volumeSnapshot, err := ctrl.getVolumeSnapshot(content.Namespace, vsName)
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		if volumeSnapshot == nil {
 			// check if snapshot was deleted
 			if currentlyReady {
 				log.Log.Warningf("VolumeSnapshot %s no longer exists", vsName)
-				ctrl.recorder.Eventf(
+				ctrl.Recorder.Eventf(
 					content,
 					corev1.EventTypeWarning,
 					volumeSnapshotMissingEvent,
@@ -223,7 +218,7 @@ func (ctrl *SnapshotController) updateVMSnapshotContent(content *snapshotv1.Virt
 
 			volumeSnapshot, err = ctrl.createVolumeSnapshot(content, volumeBackup)
 			if err != nil {
-				return err
+				return 0, err
 			}
 		}
 
@@ -255,7 +250,7 @@ func (ctrl *SnapshotController) updateVMSnapshotContent(content *snapshotv1.Virt
 		errorMessage = fmt.Sprintf("VolumeSnapshots (%s) skipped because in error state", strings.Join(skippedSnapshots, ","))
 	} else {
 		for _, vss := range volueSnapshotStatus {
-			if vss.ReadyToUse == nil || *vss.ReadyToUse == false {
+			if vss.ReadyToUse == nil || !*vss.ReadyToUse {
 				ready = false
 			}
 
@@ -266,7 +261,7 @@ func (ctrl *SnapshotController) updateVMSnapshotContent(content *snapshotv1.Virt
 		}
 	}
 
-	if ready && (contentCpy.Status.ReadyToUse == nil || *contentCpy.Status.ReadyToUse == false) {
+	if ready && (contentCpy.Status.ReadyToUse == nil || !*contentCpy.Status.ReadyToUse) {
 		contentCpy.Status.CreationTime = currentTime()
 	}
 
@@ -274,7 +269,7 @@ func (ctrl *SnapshotController) updateVMSnapshotContent(content *snapshotv1.Virt
 		(contentCpy.Status.Error == nil ||
 			contentCpy.Status.Error.Message == nil ||
 			*contentCpy.Status.Error.Message != errorMessage) {
-		contentCpy.Status.Error = &snapshotv1.VirtualMachineSnapshotError{
+		contentCpy.Status.Error = &snapshotv1.Error{
 			Time:    currentTime(),
 			Message: &errorMessage,
 		}
@@ -284,15 +279,15 @@ func (ctrl *SnapshotController) updateVMSnapshotContent(content *snapshotv1.Virt
 	contentCpy.Status.VolumeSnapshotStatus = volueSnapshotStatus
 
 	if !reflect.DeepEqual(content, contentCpy) {
-		if _, err := ctrl.client.VirtualMachineSnapshotContent(contentCpy.Namespace).Update(contentCpy); err != nil {
-			return err
+		if _, err := ctrl.Client.VirtualMachineSnapshotContent(contentCpy.Namespace).Update(contentCpy); err != nil {
+			return 0, err
 		}
 	}
 
-	return nil
+	return 0, nil
 }
 
-func (ctrl *SnapshotController) createVolumeSnapshot(
+func (ctrl *VMSnapshotController) createVolumeSnapshot(
 	content *snapshotv1.VirtualMachineSnapshotContent,
 	volumeBackup snapshotv1.VolumeBackup,
 ) (*vsv1beta1.VolumeSnapshot, error) {
@@ -333,14 +328,14 @@ func (ctrl *SnapshotController) createVolumeSnapshot(
 		},
 	}
 
-	volumeSnapshot, err := ctrl.client.KubernetesSnapshotClient().SnapshotV1beta1().
+	volumeSnapshot, err := ctrl.Client.KubernetesSnapshotClient().SnapshotV1beta1().
 		VolumeSnapshots(content.Namespace).
 		Create(snapshot)
 	if err != nil {
 		return nil, err
 	}
 
-	ctrl.recorder.Eventf(
+	ctrl.Recorder.Eventf(
 		content,
 		corev1.EventTypeNormal,
 		volumeSnapshotCreateEvent,
@@ -351,7 +346,7 @@ func (ctrl *SnapshotController) createVolumeSnapshot(
 	return volumeSnapshot, nil
 }
 
-func (ctrl *SnapshotController) getSnapshotSource(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (snapshotSource, error) {
+func (ctrl *VMSnapshotController) getSnapshotSource(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (snapshotSource, error) {
 	switch vmSnapshot.Spec.Source.Kind {
 	case "VirtualMachine":
 		vm, err := ctrl.getVM(vmSnapshot)
@@ -364,17 +359,16 @@ func (ctrl *SnapshotController) getSnapshotSource(vmSnapshot *snapshotv1.Virtual
 		}
 
 		return &vmSnapshotSource{
-			client:          ctrl.client,
-			vmStatusUpdater: ctrl.vmStatusUpdater,
-			vm:              vm,
-			snapshot:        vmSnapshot,
+			vm:         vm,
+			snapshot:   vmSnapshot,
+			controller: ctrl,
 		}, nil
 	}
 
 	return nil, fmt.Errorf("unknown source %+v", vmSnapshot.Spec.Source)
 }
 
-func (ctrl *SnapshotController) initVMSnapshot(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (bool, error) {
+func (ctrl *VMSnapshotController) initVMSnapshot(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (bool, error) {
 	if controller.HasFinalizer(vmSnapshot, vmSnapshotFinalizer) {
 		return false, nil
 	}
@@ -382,19 +376,19 @@ func (ctrl *SnapshotController) initVMSnapshot(vmSnapshot *snapshotv1.VirtualMac
 	vmSnapshotCpy := vmSnapshot.DeepCopy()
 	controller.AddFinalizer(vmSnapshotCpy, vmSnapshotFinalizer)
 
-	if _, err := ctrl.client.VirtualMachineSnapshot(vmSnapshot.Namespace).Update(vmSnapshotCpy); err != nil {
+	if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshot.Namespace).Update(vmSnapshotCpy); err != nil {
 		return false, err
 	}
 
 	return true, nil
 }
 
-func (ctrl *SnapshotController) cleanupVMSnapshot(vmSnapshot *snapshotv1.VirtualMachineSnapshot) error {
+func (ctrl *VMSnapshotController) cleanupVMSnapshot(vmSnapshot *snapshotv1.VirtualMachineSnapshot) error {
 	// TODO check restore in progress
 
 	if vmSnapshotProgressing(vmSnapshot) {
 		// will put the snapshot in error state
-		return ctrl.updateSnapshotStatus(vmSnapshot)
+		return ctrl.updateSnapshotStatus(vmSnapshot, nil)
 	}
 
 	content, err := ctrl.getContent(vmSnapshot)
@@ -407,7 +401,7 @@ func (ctrl *SnapshotController) cleanupVMSnapshot(vmSnapshot *snapshotv1.Virtual
 			cpy := content.DeepCopy()
 			controller.RemoveFinalizer(cpy, vmSnapshotContentFinalizer)
 
-			_, err := ctrl.client.VirtualMachineSnapshotContent(cpy.Namespace).Update(cpy)
+			_, err := ctrl.Client.VirtualMachineSnapshotContent(cpy.Namespace).Update(cpy)
 			if err != nil {
 				return err
 			}
@@ -417,7 +411,7 @@ func (ctrl *SnapshotController) cleanupVMSnapshot(vmSnapshot *snapshotv1.Virtual
 			*vmSnapshot.Spec.DeletionPolicy == snapshotv1.VirtualMachineSnapshotContentDelete {
 			log.Log.V(2).Infof("Deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
 
-			err = ctrl.client.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Delete(content.Name, &metav1.DeleteOptions{})
+			err = ctrl.Client.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Delete(content.Name, &metav1.DeleteOptions{})
 			if err != nil && !errors.IsNotFound(err) {
 				return err
 			}
@@ -430,7 +424,7 @@ func (ctrl *SnapshotController) cleanupVMSnapshot(vmSnapshot *snapshotv1.Virtual
 		vmSnapshotCpy := vmSnapshot.DeepCopy()
 		controller.RemoveFinalizer(vmSnapshotCpy, vmSnapshotFinalizer)
 
-		_, err := ctrl.client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).Update(vmSnapshotCpy)
+		_, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).Update(vmSnapshotCpy)
 		if err != nil {
 			return err
 		}
@@ -439,14 +433,14 @@ func (ctrl *SnapshotController) cleanupVMSnapshot(vmSnapshot *snapshotv1.Virtual
 	return nil
 }
 
-func (ctrl *SnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot) error {
+func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot) error {
 	source, err := ctrl.getSnapshotSource(vmSnapshot)
 	if err != nil {
 		return err
 	}
 
 	var volumeBackups []snapshotv1.VolumeBackup
-	for diskName, pvcName := range source.PersistentVolumeClaims() {
+	for volumeName, pvcName := range source.PersistentVolumeClaims() {
 		pvc, err := ctrl.getSnapshotPVC(vmSnapshot.Namespace, pvcName)
 		if err != nil {
 			return err
@@ -459,10 +453,10 @@ func (ctrl *SnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMach
 
 		pvcCpy := pvc.DeepCopy()
 		pvcCpy.Status = corev1.PersistentVolumeClaimStatus{}
-		volumeSnapshotName := fmt.Sprintf("vmsnapshot-%s-disk-%s", vmSnapshot.UID, diskName)
+		volumeSnapshotName := fmt.Sprintf("vmsnapshot-%s-volume-%s", vmSnapshot.UID, volumeName)
 
 		vb := snapshotv1.VolumeBackup{
-			DiskName:              diskName,
+			VolumeName:            volumeName,
 			PersistentVolumeClaim: *pvcCpy,
 			VolumeSnapshotName:    &volumeSnapshotName,
 		}
@@ -483,12 +477,12 @@ func (ctrl *SnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMach
 		},
 	}
 
-	_, err = ctrl.client.VirtualMachineSnapshotContent(content.Namespace).Create(content)
+	_, err = ctrl.Client.VirtualMachineSnapshotContent(content.Namespace).Create(content)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
 
-	ctrl.recorder.Eventf(
+	ctrl.Recorder.Eventf(
 		vmSnapshot,
 		corev1.EventTypeNormal,
 		vmSnapshotContentCreateEvent,
@@ -499,8 +493,8 @@ func (ctrl *SnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMach
 	return nil
 }
 
-func (ctrl *SnapshotController) getSnapshotPVC(namespace string, volumeName string) (*corev1.PersistentVolumeClaim, error) {
-	obj, exists, err := ctrl.pvcInformer.GetStore().GetByKey(cacheKeyFunc(namespace, volumeName))
+func (ctrl *VMSnapshotController) getSnapshotPVC(namespace, volumeName string) (*corev1.PersistentVolumeClaim, error) {
+	obj, exists, err := ctrl.PVCInformer.GetStore().GetByKey(cacheKeyFunc(namespace, volumeName))
 	if err != nil {
 		return nil, err
 	}
@@ -533,8 +527,8 @@ func (ctrl *SnapshotController) getSnapshotPVC(namespace string, volumeName stri
 	return nil, nil
 }
 
-func (ctrl *SnapshotController) getVolumeSnapshotClass(storageClassName string) (string, error) {
-	obj, exists, err := ctrl.storageClassInformer.GetStore().GetByKey(storageClassName)
+func (ctrl *VMSnapshotController) getVolumeSnapshotClass(storageClassName string) (string, error) {
+	obj, exists, err := ctrl.StorageClassInformer.GetStore().GetByKey(storageClassName)
 	if !exists || err != nil {
 		return "", err
 	}
@@ -569,7 +563,7 @@ func (ctrl *SnapshotController) getVolumeSnapshotClass(storageClassName string) 
 	return "", fmt.Errorf("%d matching VolumeSnapshotClasses for %s", len(matches), storageClassName)
 }
 
-func (ctrl *SnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.VirtualMachineSnapshot) error {
+func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.VirtualMachineSnapshot, source snapshotSource) error {
 	f := false
 	vmSnapshotCpy := vmSnapshot.DeepCopy()
 	if vmSnapshotCpy.Status == nil {
@@ -578,13 +572,18 @@ func (ctrl *SnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Virt
 		}
 	}
 
+	if source != nil {
+		uid := source.UID()
+		vmSnapshotCpy.Status.SourceUID = &uid
+	}
+
 	if vmSnapshotCpy.DeletionTimestamp != nil {
 		// go into error state
-		if vmSnapshotProgressing(vmSnapshot) {
+		if vmSnapshotProgressing(vmSnapshotCpy) {
 			reason := "Snapshot cancelled"
-			vmSnapshotCpy.Status.Error = newVirtualMachineSnapshotError(reason)
-			updateSnapshotCondition(vmSnapshotCpy, newSnapshotProgressingCondition(corev1.ConditionFalse, reason))
-			updateSnapshotCondition(vmSnapshotCpy, newSnapshotReadyCondition(corev1.ConditionFalse, reason))
+			vmSnapshotCpy.Status.Error = newError(reason)
+			updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, reason))
+			updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, reason))
 		}
 	} else {
 		content, err := ctrl.getContent(vmSnapshot)
@@ -609,27 +608,27 @@ func (ctrl *SnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Virt
 
 		if source != nil {
 			if source.Locked() {
-				updateSnapshotCondition(vmSnapshotCpy, newSnapshotProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"))
+				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"))
 			} else {
-				updateSnapshotCondition(vmSnapshotCpy, newSnapshotProgressingCondition(corev1.ConditionFalse, "Source not locked"))
+				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Source not locked"))
 			}
 		} else {
-			updateSnapshotCondition(vmSnapshotCpy, newSnapshotProgressingCondition(corev1.ConditionFalse, "Source does not exist"))
+			updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Source does not exist"))
 		}
-		updateSnapshotCondition(vmSnapshotCpy, newSnapshotReadyCondition(corev1.ConditionFalse, "Not ready"))
+		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, "Not ready"))
 	} else if vmSnapshotError(vmSnapshotCpy) != nil {
-		updateSnapshotCondition(vmSnapshotCpy, newSnapshotProgressingCondition(corev1.ConditionFalse, "In error state"))
-		updateSnapshotCondition(vmSnapshotCpy, newSnapshotReadyCondition(corev1.ConditionFalse, "Error"))
+		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "In error state"))
+		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, "Error"))
 	} else if vmSnapshotReady(vmSnapshotCpy) {
-		updateSnapshotCondition(vmSnapshotCpy, newSnapshotProgressingCondition(corev1.ConditionFalse, "Operation complete"))
-		updateSnapshotCondition(vmSnapshotCpy, newSnapshotReadyCondition(corev1.ConditionTrue, "Operation complete"))
+		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
+		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
 	} else {
-		updateSnapshotCondition(vmSnapshotCpy, newSnapshotProgressingCondition(corev1.ConditionUnknown, "Unknown state"))
-		updateSnapshotCondition(vmSnapshotCpy, newSnapshotReadyCondition(corev1.ConditionUnknown, "Unknown state"))
+		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionUnknown, "Unknown state"))
+		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionUnknown, "Unknown state"))
 	}
 
 	if !reflect.DeepEqual(vmSnapshot, vmSnapshotCpy) {
-		if _, err := ctrl.client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).Update(vmSnapshotCpy); err != nil {
+		if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).Update(vmSnapshotCpy); err != nil {
 			return err
 		}
 	}
@@ -637,10 +636,10 @@ func (ctrl *SnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Virt
 	return nil
 }
 
-func (ctrl *SnapshotController) getVM(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (*kubevirtv1.VirtualMachine, error) {
+func (ctrl *VMSnapshotController) getVM(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (*kubevirtv1.VirtualMachine, error) {
 	vmName := vmSnapshot.Spec.Source.Name
 
-	obj, exists, err := ctrl.vmInformer.GetStore().GetByKey(cacheKeyFunc(vmSnapshot.Namespace, vmName))
+	obj, exists, err := ctrl.VMInformer.GetStore().GetByKey(cacheKeyFunc(vmSnapshot.Namespace, vmName))
 	if err != nil {
 		return nil, err
 	}
@@ -652,9 +651,9 @@ func (ctrl *SnapshotController) getVM(vmSnapshot *snapshotv1.VirtualMachineSnaps
 	return obj.(*kubevirtv1.VirtualMachine), nil
 }
 
-func (ctrl *SnapshotController) getContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (*snapshotv1.VirtualMachineSnapshotContent, error) {
+func (ctrl *VMSnapshotController) getContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (*snapshotv1.VirtualMachineSnapshotContent, error) {
 	contentName := getVMSnapshotContentName(vmSnapshot)
-	obj, exists, err := ctrl.vmSnapshotContentInformer.GetStore().GetByKey(cacheKeyFunc(vmSnapshot.Namespace, contentName))
+	obj, exists, err := ctrl.VMSnapshotContentInformer.GetStore().GetByKey(cacheKeyFunc(vmSnapshot.Namespace, contentName))
 	if err != nil {
 		return nil, err
 	}
@@ -664,6 +663,10 @@ func (ctrl *SnapshotController) getContent(vmSnapshot *snapshotv1.VirtualMachine
 	}
 
 	return obj.(*snapshotv1.VirtualMachineSnapshotContent), nil
+}
+
+func (s *vmSnapshotSource) UID() types.UID {
+	return s.vm.UID
 }
 
 func (s *vmSnapshotSource) Locked() bool {
@@ -677,8 +680,39 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 		return true, nil
 	}
 
-	if s.vm.Spec.Running == nil || *s.vm.Spec.Running {
+	rs, err := s.vm.RunStrategy()
+	if err != nil {
+		return false, err
+	}
+
+	if rs != kubevirtv1.RunStrategyHalted {
 		log.Log.V(3).Infof("Snapshottting a running VM is not supported yet")
+		return false, nil
+	}
+
+	key, err := controller.KeyFunc(s.vm)
+	if err != nil {
+		return false, err
+	}
+
+	_, exists, err := s.controller.VMIInformer.GetStore().GetByKey(key)
+	if err != nil {
+		return false, err
+	}
+
+	if exists {
+		log.Log.V(3).Infof("VMI still runing")
+		return false, nil
+	}
+
+	pvcNames := s.pvcNames()
+	pods, err := podsUsingPVCs(s.controller.PodInformer, s.vm.Namespace, pvcNames)
+	if err != nil {
+		return false, err
+	}
+
+	if len(pods) > 0 {
+		log.Log.V(3).Infof("%d pods using PVCs %+v", len(pods), pvcNames)
 		return false, nil
 	}
 
@@ -689,19 +723,18 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 
 	log.Log.Infof("Adding VM snapshot finalizer to %s", s.vm.Name)
 
-	var err error
 	vmCopy := s.vm.DeepCopy()
 
 	if vmCopy.Status.SnapshotInProgress == nil {
 		vmCopy.Status.SnapshotInProgress = &s.snapshot.Name
 		// unfortunately, status updater does not return the updated resource
 		// but the controller is watching VMs so will get notified
-		return false, s.vmStatusUpdater.UpdateStatus(vmCopy)
+		return false, s.controller.vmStatusUpdater.UpdateStatus(vmCopy)
 	}
 
 	if !controller.HasFinalizer(vmCopy, sourceFinalizer) {
 		controller.AddFinalizer(vmCopy, sourceFinalizer)
-		_, err = s.client.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
+		_, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
 		if err != nil {
 			return false, err
 		}
@@ -710,9 +743,9 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 	return true, nil
 }
 
-func (s *vmSnapshotSource) Unlock() error {
+func (s *vmSnapshotSource) Unlock() (bool, error) {
 	if s.vm.Status.SnapshotInProgress == nil || *s.vm.Status.SnapshotInProgress != s.snapshot.Name {
-		return nil
+		return false, nil
 	}
 
 	var err error
@@ -720,19 +753,19 @@ func (s *vmSnapshotSource) Unlock() error {
 
 	if controller.HasFinalizer(vmCopy, sourceFinalizer) {
 		controller.RemoveFinalizer(vmCopy, sourceFinalizer)
-		vmCopy, err = s.client.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
+		vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 
 	vmCopy.Status.SnapshotInProgress = nil
-	err = s.vmStatusUpdater.UpdateStatus(vmCopy)
+	err = s.controller.vmStatusUpdater.UpdateStatus(vmCopy)
 	if err != nil {
-		return err
+		return true, err
 	}
 
-	return nil
+	return true, nil
 }
 
 func (s *vmSnapshotSource) Spec() snapshotv1.SourceSpec {
@@ -745,6 +778,15 @@ func (s *vmSnapshotSource) Spec() snapshotv1.SourceSpec {
 
 func (s *vmSnapshotSource) PersistentVolumeClaims() map[string]string {
 	return getPVCsFromVolumes(s.vm.Spec.Template.Spec.Volumes)
+}
+
+func (s *vmSnapshotSource) pvcNames() sets.String {
+	pvcs := s.PersistentVolumeClaims()
+	ss := sets.NewString()
+	for _, pvc := range pvcs {
+		ss.Insert(pvc)
+	}
+	return ss
 }
 
 func getPVCsFromVolumes(volumes []kubevirtv1.Volume) map[string]string {
@@ -767,44 +809,6 @@ func getPVCsFromVolumes(volumes []kubevirtv1.Volume) map[string]string {
 	return pvcs
 }
 
-func newVirtualMachineSnapshotError(message string) *snapshotv1.VirtualMachineSnapshotError {
-	return &snapshotv1.VirtualMachineSnapshotError{
-		Message: &message,
-		Time:    currentTime(),
-	}
-}
-
-func newSnapshotReadyCondition(status corev1.ConditionStatus, reason string) snapshotv1.VirtualMachineSnapshotCondition {
-	return snapshotv1.VirtualMachineSnapshotCondition{
-		Type:               snapshotv1.VirtualMachineSnapshotConditionReady,
-		Status:             status,
-		Reason:             reason,
-		LastTransitionTime: *currentTime(),
-	}
-}
-
-func newSnapshotProgressingCondition(status corev1.ConditionStatus, reason string) snapshotv1.VirtualMachineSnapshotCondition {
-	return snapshotv1.VirtualMachineSnapshotCondition{
-		Type:               snapshotv1.VirtualMachineSnapshotConditionProgressing,
-		Status:             status,
-		Reason:             reason,
-		LastTransitionTime: *currentTime(),
-	}
-}
-
-func updateSnapshotCondition(ss *snapshotv1.VirtualMachineSnapshot, c snapshotv1.VirtualMachineSnapshotCondition) {
-	found := false
-	for i := range ss.Status.Conditions {
-		if ss.Status.Conditions[i].Type == c.Type {
-			if ss.Status.Conditions[i].Status != c.Status {
-				ss.Status.Conditions[i] = c
-			}
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		ss.Status.Conditions = append(ss.Status.Conditions, c)
-	}
+func updateSnapshotCondition(ss *snapshotv1.VirtualMachineSnapshot, c snapshotv1.Condition) {
+	ss.Status.Conditions = updateCondition(ss.Status.Conditions, c, false)
 }

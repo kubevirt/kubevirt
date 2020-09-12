@@ -25,7 +25,7 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
-	groupName := "kubevirt.io/v1alpha3"
+	groupName := "kubevirt.io"
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
@@ -38,7 +38,7 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 		BeforeEach(func() {
 			var err error
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "#!/bin/bash\necho 'hello'\n")
 			vm = tests.NewRandomVirtualMachine(vmi, false)
 			vm, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
@@ -68,6 +68,9 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				return snapshot.Status != nil && snapshot.Status.ReadyToUse != nil && *snapshot.Status.ReadyToUse
 			}, 180*time.Second, time.Second).Should(BeTrue())
+
+			Expect(snapshot.Status.SourceUID).ToNot(BeNil())
+			Expect(*snapshot.Status.SourceUID).To(Equal(vm.UID))
 
 			contentName := *snapshot.Status.VirtualMachineSnapshotContentName
 			content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(contentName, metav1.GetOptions{})
@@ -181,7 +184,7 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 				for _, vb := range content.Spec.VolumeBackups {
 					if vol.DataVolume.Name == vb.PersistentVolumeClaim.Name {
 						found = true
-						Expect(vol.Name).To(Equal(vb.DiskName))
+						Expect(vol.Name).To(Equal(vb.VolumeName))
 
 						pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(vol.DataVolume.Name, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
