@@ -4187,6 +4187,9 @@ func waitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 			return false
 		}
 		for _, pod := range pods.Items {
+			if pod.DeletionTimestamp != nil {
+				continue
+			}
 			body, err := CallUrlOnPod(&pod, "8443", "/healthz")
 			if err != nil {
 				log.DefaultLogger().Reason(err).Errorf("Failed to call healthz endpoint on %s", pod.Name)
