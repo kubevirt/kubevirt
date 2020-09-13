@@ -39,8 +39,10 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
@@ -606,30 +608,48 @@ var _ = Describe("Infrastructure", func() {
 		})
 
 		It("[test_id:4138]should be exposed and registered on the metrics endpoint", func() {
-			endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			l, err := labels.Parse("prometheus.kubevirt.io")
-			Expect(err).ToNot(HaveOccurred())
-			pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: l.String()})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(endpoint.Subsets).To(HaveLen(1))
 
-			By("checking if the endpoint contains the metrics port and only one matching subset")
-			Expect(endpoint.Subsets[0].Ports).To(HaveLen(1))
-			Expect(endpoint.Subsets[0].Ports[0].Name).To(Equal("metrics"))
-			Expect(endpoint.Subsets[0].Ports[0].Port).To(Equal(int32(8443)))
+			checkEndpoints := func(epName string, index int) {
+				var service *k8sv1.Service
+				if index == 1 {
+					service = createIPv6PrometheusService()
+					time.Sleep(10 * time.Second) //// ZZZ
+				}
 
-			By("checking if  the IPs in the subset match the KubeVirt system Pod count")
-			Expect(len(pods.Items)).To(BeNumerically(">=", 3), "At least one api, controller and handler need to be present")
-			Expect(endpoint.Subsets[0].Addresses).To(HaveLen(len(pods.Items)))
+				defer func() {
+					if service != nil {
+						Expect(virtClient.CoreV1().Services(flags.KubeVirtInstallNamespace).Delete(service.Name, &v13.DeleteOptions{})).To(Succeed())
+					}
+				}()
 
-			ips := map[string]string{}
-			for _, ep := range endpoint.Subsets[0].Addresses {
-				ips[ep.IP] = ""
+				endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(epName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				l, err := labels.Parse("prometheus.kubevirt.io")
+				Expect(err).ToNot(HaveOccurred())
+				pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: l.String()})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(endpoint.Subsets).To(HaveLen(1))
+
+				By("checking if the endpoint contains the metrics port and only one matching subset")
+				Expect(endpoint.Subsets[0].Ports).To(HaveLen(1))
+				Expect(endpoint.Subsets[0].Ports[0].Name).To(Equal("metrics"))
+				Expect(endpoint.Subsets[0].Ports[0].Port).To(Equal(int32(8443)))
+
+				By("checking if  the IPs in the subset match the KubeVirt system Pod count")
+				Expect(len(pods.Items)).To(BeNumerically(">=", 3), "At least one api, controller and handler need to be present")
+				Expect(endpoint.Subsets[0].Addresses).To(HaveLen(len(pods.Items)))
+
+				ips := map[string]string{}
+				for _, ep := range endpoint.Subsets[0].Addresses {
+					ips[ep.IP] = ""
+				}
+				for _, pod := range pods.Items {
+					Expect(ips).To(HaveKey(pod.Status.PodIPs[index].IP), fmt.Sprintf("IP of Pod %s not found in metrics endpoint", pod.Name))
+				}
 			}
-			for _, pod := range pods.Items {
-				Expect(ips).To(HaveKey(pod.Status.PodIP), fmt.Sprintf("IP of Pod %s not found in metrics endpoint", pod.Name))
-			}
+
+			checkEndpoints("kubevirt-prometheus-metrics", 0)
+			checkEndpoints("kubevirt-prometheus-metrics-ipv6", 1)
 		})
 		It("[test_id:4139]should return Prometheus metrics", func() {
 			endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
@@ -954,4 +974,36 @@ func getKeysFromMetrics(metrics map[string]float64) []string {
 	// we sort keys only to make debug of test failures easier
 	sort.Strings(keys)
 	return keys
+}
+
+func createIPv6PrometheusService() *k8sv1.Service {
+	virtClient, err := kubecli.GetKubevirtClient()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	ipv6Family := k8sv1.IPv6Protocol
+	serviceScheme := &k8sv1.Service{
+		ObjectMeta: v13.ObjectMeta{
+			Name:      "kubevirt-prometheus-metrics-ipv6",
+			Namespace: flags.KubeVirtInstallNamespace,
+		},
+		Spec: k8sv1.ServiceSpec{
+			IPFamily: &ipv6Family,
+			Ports: []k8sv1.ServicePort{
+				{
+					Name:       "metrics",
+					Port:       443,
+					Protocol:   k8sv1.ProtocolTCP,
+					TargetPort: intstr.FromString("metrics"),
+				},
+			},
+			Selector: map[string]string{
+				"prometheus.kubevirt.io": "",
+			},
+		},
+	}
+
+	service, err := virtClient.CoreV1().Services(flags.KubeVirtInstallNamespace).Create(serviceScheme)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	return service
 }
