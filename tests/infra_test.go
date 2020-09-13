@@ -226,50 +226,53 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			})
 
 			AfterEach(func() {
-				By("removing the taint from the tainted node")
-				var taints []k8sv1.Taint
-
-				for _, taint := range selectedNode.Spec.Taints {
-					if taint.Key != "CriticalAddonsOnly" {
-						taints = append(taints, taint)
+				if selectedNode != nil {
+					By("removing the taint from the tainted node")
+					var taints []k8sv1.Taint
+					for _, taint := range selectedNode.Spec.Taints {
+						if taint.Key != "CriticalAddonsOnly" {
+							taints = append(taints, taint)
+						}
 					}
+
+					nodeCopy := selectedNode.DeepCopy()
+					nodeCopy.ResourceVersion = ""
+
+					err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+						_, err := virtClient.CoreV1().Nodes().Update(nodeCopy)
+						return err
+					})
+					Expect(err).ShouldNot(HaveOccurred())
 				}
-
-				nodeCopy := selectedNode.DeepCopy()
-				nodeCopy.ResourceVersion = ""
-
-				err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					_, err := virtClient.CoreV1().Nodes().Update(nodeCopy)
-					return err
-				})
-				Expect(err).ShouldNot(HaveOccurred())
 			})
 
 			It("[test_id:4134] kubevirt components on that node should not evict", func() {
 
 				By("finding all kubevirt pods")
-				pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{})
+				kubevirtPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{})
 				Expect(err).ShouldNot(HaveOccurred(), "failed listing kubevirt pods")
-				Expect(len(pods.Items)).To(BeNumerically(">", 0), "no kubevirt pods found")
-
-				By("finding all schedulable nodes")
-				schedulableNodesList := tests.GetAllSchedulableNodes(virtClient)
-				schedulableNodes := map[string]*k8sv1.Node{}
-				for _, node := range schedulableNodesList.Items {
-					schedulableNodes[node.Name] = node.DeepCopy()
-				}
+				Expect(len(kubevirtPods.Items)).To(BeNumerically(">", 0), "no kubevirt pods found")
 
 				By("selecting one compute only node that runs kubevirt components")
 				// master nodes should never have the CriticalAddonsOnly taint because core components might not
 				// tolerate this taint because it is meant to be used on compute nodes only. If we set this taint
 				// on a master node, we risk in breaking the test cluster.
-				for _, pod := range pods.Items {
-					node := schedulableNodes[pod.Spec.NodeName]
-					if _, isMaster := node.Labels["node-role.kubernetes.io/master"]; isMaster {
-						continue
+				Eventually(func() *k8sv1.Node {
+					schedulableNodesList := tests.GetAllSchedulableNodes(virtClient)
+					for _, schedulableNode := range schedulableNodesList.Items {
+						if _, isMaster := schedulableNode.Labels["node-role.kubernetes.io/master"]; isMaster {
+							continue
+						}
+						for _, kubevirtPod := range kubevirtPods.Items {
+							if kubevirtPod.Spec.NodeName == schedulableNode.Name {
+								selectedNode = schedulableNode.DeepCopy()
+								return selectedNode
+							}
+						}
 					}
-					selectedNode = node.DeepCopy()
-				}
+
+					return nil
+				}, 10*time.Second, time.Second).ShouldNot(BeNil())
 
 				By("setting up a watch for terminated pods")
 				lw, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Watch(metav1.ListOptions{})
