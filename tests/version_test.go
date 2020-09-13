@@ -30,7 +30,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[Serial]Version", func() {
+var _ = Describe("Version", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
