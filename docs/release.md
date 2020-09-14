@@ -19,11 +19,12 @@
 
 
 # Overview
-- Release process is automated by ```hack/release.sh``` script
+- Release process is automated by [hack/release.sh](https://github.com/kubevirt/kubevirt/blob/master/hack/release.sh) script
 - KubeVirt uses [semantic versioning](http://semver.org)
 - Primary artifact is the source tree in form of signed git tag
 - Binary artifacts are built using automation
 - The releases appear on a time based release schedule
+- Releases can be blocked using the ```release-blocker``` github comment
 
 The primary artifact of a release is the source tree itself. The trust on the
 tree is established by using a signed git tag.
@@ -45,20 +46,21 @@ If no blocker issues are discovered the release candidate is **promoted to a ful
 release after 5 business days.**
 
 If blockers are detected, a new release candidate is generated and will be
-promoted after 5 business days.
+promoted after giving the impacted parties enough time to validate the blocker is
+addressed.
 
 **Timeline Example: No blockers detected, release is cut from the first rc**
 ```
-July 1st  - release-v0.31 branch and v0.31.0-rc.1 tag are cut
-July 8th  - promotion of v0.31.0-rc.1 to be the official v0.31.0 release
+July 1st  - release-v0.31 branch and v0.31.0-rc.0 tag are cut
+July 8th  - promotion of v0.31.0-rc.0 to be the official v0.31.0 release
 ```
 
 **Example: blocker is detected for release branch**
 ```
-July 1st  - release-v0.31 branch and v0.31.0-rc.1 tag are cut
+July 1st  - release-v0.31 branch and v0.31.0-rc.0 tag are cut
 July 2nd  - blocker is detected and marked using ‘/release-block release-31` in a comment on an issue.
-July 6th  - blocker issue is closed, new rc v0.31.0-rc.2 is allowed to be created
-July 13th - promotion of v0.31.0-rc.2 to be the official v0.31.0 release
+July 6th  - blocker issue is closed, new rc v0.31.0-rc.1 is allowed to be created
+July 13th - promotion of v0.31.0-rc.1 to be the official v0.31.0 release
 ```
 
 # Versioning
@@ -68,15 +70,15 @@ For example, the release branch for an upcoming v0.30.0 release will be
 
 **Releases are cut from release branches must adhere to** [semantic versioning conventions](http://semver.org).
 For example, the initial release candidate for branch `release-0.30` is called
-`v0.30.1-rc.1`
+`v0.30.1-rc.0`
 
 The determined version is then prefixed with a `v` (mostly for consistency,
 because we started this way) and used as the tag name (`$TAG` below).
 
 **RC Version Examples:**
 ```
+v0.31.1-rc.0
 v0.31.1-rc.1
-v0.31.1-rc.2
 ```
 
 **Official Release Version Examples**
@@ -91,13 +93,15 @@ Every official release must be announced on the `kubevirt-dev` mailinglist
 
 You can retrieve the auto generated release notes from the git tag's commit message.
 
-Below is an example of getting the release notes for v0.31.0-rc.1
+Below is an example of getting the release notes for v0.31.0-rc.0
 
-```git show v0.31.0-rc.1```
+```
+git show v0.31.0-rc.0
+```
 
 # Handling Release Blockers
 
-Release blockers can be set on issues and PRs by approvers of the project. A PR or
+Release blockers can be set on issues and PRs by [approvers](https://github.com/kubevirt/kubevirt/blob/master/OWNERS_ALIASES) of the project. A PR or
 issue can be flaged as a blocker through the use of the `/release-blocker <branch>`
 in a github comment.
 
@@ -110,7 +114,7 @@ for closed issues!**
 
 A release blocker is a critial bug, regression, or backwards incompatible change
 that must be addressed before the next official release is made. Only KubeVirt
-approvers can set this label on a PR or Issue.
+[approvers](https://github.com/kubevirt/kubevirt/blob/master/OWNERS_ALIASES) can set this label on a PR or Issue.
 
 ## Setting a Release Blocker
 
@@ -193,14 +197,14 @@ export GITHUB_API_TOKEN_FILE="${HOME}/github-api-token"
 Now you can use the release tool to do whatever you'd like. Note that you can
 use the ```--dry-run=true``` argument to test a change before executing it.
 
-**Example: creating a new release branch with the initial release candidate v0.31.0-rc.1**
+**Example: creating a new release branch with the initial release candidate v0.31.0-rc.0**
 ```
-hack/release.sh --new-branch release-0.31 --new-release v0.31.0-rc.1 --dry-run=false
+hack/release.sh --new-branch release-0.31 --new-release v0.31.0-rc.0 --dry-run=false
 ```
 
-**Example: Creating a new rc v0.31.0-rc.1**
+**Example: Creating a new rc v0.31.0-rc.0**
 ```
-hack/release.sh --new-release v0.31.0-rc.1 --dry-run=false
+hack/release.sh --new-release v0.31.0-rc.0 --dry-run=false
 ```
 
 **Example: Promoting a release candidate v0.31.0-rc-1 to official v0.30.0 release.**
@@ -218,13 +222,13 @@ The release process is mostly automatic and consists of the following steps:
 
 1. Create the branch and initial RC.
 
-   ```hack/release.sh --new-branch $RELEASE_BRANCH --new-tag ${TAG}.rc.1```
+   ```hack/release.sh --new-branch $RELEASE_BRANCH --new-tag ${TAG}.rc.0```
 
 2. Wait 5 business days
 
 3. Promote RC to official release if no blockers exist.
 
-   ```hack/release.sh --promote-release-candidate ${TAG}.rc.1```
+   ```hack/release.sh --promote-release-candidate ${TAG}.rc.0```
 
 4. Wait for [travis](https://travis-ci.org/kubevirt/kubevirt/) to finish, and
    check that the binary artifacts got attached to the release at
@@ -297,7 +301,9 @@ sourced from the delta of PRs merged since the last official release. The text
 from those PRs are sourced directly from the ```release-notes``` section in
 each PRs description.
 
-Below is an example of getting the release notes for v0.31.0-rc.1
+Below is an example of getting the release notes for v0.31.0-rc.0
 
-```git show v0.31.0-rc.1```
+```
+git show v0.31.0-rc.0
+```
 
