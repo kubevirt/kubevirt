@@ -8,7 +8,13 @@ if [ "${KUBEVIRTCI_RUNTIME}" = "podman" ]; then
     _cli="pack8s"
 else
     _cli_container="${KUBEVIRTCI_GOCLI_CONTAINER:-kubevirtci/${IMAGES[gocli]}}"
-    _cli="docker run --privileged --net=host --rm ${USE_TTY} -v /var/run/docker.sock:/var/run/docker.sock ${_cli_container}"
+    _cli="docker run --privileged --net=host --rm ${USE_TTY} -v /var/run/docker.sock:/var/run/docker.sock"
+    # gocli will try to mount /lib/modules to make it accessible to dnsmasq in
+    # in case it exists
+    if [ -d /lib/modules ]; then
+        _cli="${_cli} -v /lib/modules/:/lib/modules/"
+    fi
+    _cli="${_cli} ${_cli_container}"
 fi
 
 function _main_ip() {
