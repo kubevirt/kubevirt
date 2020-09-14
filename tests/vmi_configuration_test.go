@@ -1023,9 +1023,9 @@ var _ = Describe("Configurations", func() {
 				By("Checking that the VM memory equals to a number of consumed hugepages")
 				Eventually(func() bool { return verifyHugepagesConsumption() }, 30*time.Second, 5*time.Second).Should(BeTrue())
 			},
-				table.Entry("[test_id:1671]hugepages-2Mi", "2Mi", "64Mi", "None"),
-				table.Entry("[test_id:1672]hugepages-1Gi", "1Gi", "1Gi", "None"),
-				table.Entry("[test_id:1672]hugepages-1Gi", "2Mi", "70Mi", "64Mi"),
+				table.Entry("[Serial][test_id:1671]hugepages-2Mi", "2Mi", "64Mi", "None"),
+				table.Entry("[Serial][test_id:1672]hugepages-1Gi", "1Gi", "1Gi", "None"),
+				table.Entry("[Serial][test_id:1672]hugepages-1Gi", "2Mi", "70Mi", "64Mi"),
 			)
 
 			Context("with unsupported page size", func() {
