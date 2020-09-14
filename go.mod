@@ -38,6 +38,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.0-20181218000649-703b5e6b11ae // indirect
 	github.com/mfranczy/crd-rest-coverage v0.1.0
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
+	github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
 	github.com/opencontainers/selinux v1.6.0

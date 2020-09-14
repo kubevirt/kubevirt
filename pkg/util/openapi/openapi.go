@@ -110,6 +110,15 @@ func createConfig() *common.Config {
 			}
 			return m
 		},
+
+		GetDefinitionName: func(name string) (string, spec.Extensions) {
+			if strings.Contains(name, "kubevirt.io") {
+				// keeping for validation
+				return name[strings.LastIndex(name, "/")+1:], nil
+			}
+			//adpting k8s style
+			return strings.ReplaceAll(name, "/", "."), nil
+		},
 	}
 }
 
@@ -125,7 +134,15 @@ func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 	// https://github.com/kubernetes/kubernetes/issues/66899 is ready
 	// Otherwise CRDs can't use templates which contain metadata and controllers
 	// can't set conditions without timestamps
-	objectMeta, exists := openapispec.Definitions["v1.ObjectMeta"]
+
+	objectmeta := ""
+	for k, _ := range openapispec.Definitions {
+		if strings.Contains(k, "v1.ObjectMeta") {
+			objectmeta = k
+			break
+		}
+	}
+	objectMeta, exists := openapispec.Definitions[objectmeta]
 	if exists {
 		prop := objectMeta.Properties["creationTimestamp"]
 		prop.Type = spec.StringOrArray{"string", "null"}
@@ -156,21 +173,21 @@ func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 			prop.Ref = spec.Ref{}
 			s.Properties["lastTransitionTime"] = prop
 		}
-		if k == "v1.HTTPGetAction" {
+		if strings.Contains(k, "v1.HTTPGetAction") {
 			prop := s.Properties["port"]
 			prop.Type = spec.StringOrArray{"string", "number"}
 			// As intstr.IntOrString, the ref for that must be masked
 			prop.Ref = spec.Ref{}
 			s.Properties["port"] = prop
 		}
-		if k == "v1.TCPSocketAction" {
+		if strings.Contains(k, "v1.TCPSocketAction") {
 			prop := s.Properties["port"]
 			prop.Type = spec.StringOrArray{"string", "number"}
 			// As intstr.IntOrString, the ref for that must be masked
 			prop.Ref = spec.Ref{}
 			s.Properties["port"] = prop
 		}
-		if k == "v1.PersistentVolumeClaimSpec" {
+		if strings.Contains(k, "v1.PersistentVolumeClaimSpec") {
 			for i, r := range s.Required {
 				if r == "dataSource" {
 					s.Required = append(s.Required[:i], s.Required[i+1:]...)
