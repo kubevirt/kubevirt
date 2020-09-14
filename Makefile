@@ -152,6 +152,9 @@ olm-push:
 bump-kubevirtci:
 	./hack/bump-kubevirtci.sh
 
+ctestid:
+	@./hack/ctestid.sh
+
 .PHONY: \
 	build-verify \
 	go-build \
@@ -178,4 +181,5 @@ bump-kubevirtci:
 	cluster-sync \
 	olm-verify \
 	olm-push \
-	build-functests
+	build-functests \
+	ctestid
