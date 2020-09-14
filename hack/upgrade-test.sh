@@ -232,7 +232,7 @@ Msg "verify that the hyperconverged-cluster Pod is using the new image"
 ./hack/retry.sh 10 30 "CMD=${CMD} HCO_NAMESPACE=${HCO_NAMESPACE} ./hack/check_pod_upgrade.sh"
 
 Msg "verify new operator version reported after the upgrade"
-./hack/retry.sh 10 30 "CMD=${CMD} HCO_RESOURCE_NAME=${HCO_RESOURCE_NAME} HCO_NAMESPACE=${HCO_NAMESPACE} TARGET_VERSION=${TARGET_VERSION} hack/check_hco_version.sh"
+./hack/retry.sh 15 30 "CMD=${CMD} HCO_RESOURCE_NAME=${HCO_RESOURCE_NAME} HCO_NAMESPACE=${HCO_NAMESPACE} TARGET_VERSION=${TARGET_VERSION} hack/check_hco_version.sh"
 
 echo "----- Images after upgrade"
 # TODO: compare all of them with the list of images in RelatedImages in the new CSV
