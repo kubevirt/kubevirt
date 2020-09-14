@@ -42,6 +42,8 @@ var podsBaseDir = util.KubeletPodsDir
 
 var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
 
+type SocketPathGetter func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error)
+
 func GetLegacyVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) string {
 	return filepath.Join(mountBaseDir, string(vmi.UID))
 }
@@ -51,14 +53,26 @@ func GetVolumeMountDirOnGuest(vmi *v1.VirtualMachineInstance) string {
 }
 
 func GetVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) (string, bool, error) {
+	basepath := ""
+	foundEntries := 0
+	foundBasepath := ""
 	for podUID, _ := range vmi.Status.ActivePods {
-		basepath := fmt.Sprintf("%s/%s/volumes/kubernetes.io~empty-dir/container-disks", podsBaseDir, string(podUID))
+		basepath = fmt.Sprintf("%s/%s/volumes/kubernetes.io~empty-dir/container-disks", podsBaseDir, string(podUID))
 		exists, err := diskutils.FileExists(basepath)
 		if err != nil {
 			return "", false, err
 		} else if exists {
-			return basepath, true, nil
+			foundEntries++
+			foundBasepath = basepath
 		}
+	}
+
+	if foundEntries == 1 {
+		return foundBasepath, true, nil
+	} else if foundEntries > 1 {
+		// Don't mount until outdated pod environments are removed
+		// otherwise we might stomp on a previous cleanup
+		return "", false, fmt.Errorf("Found multiple pods active for vmi %s/%s. Waiting on outdated pod directories to be removed", vmi.Namespace, vmi.Name)
 	}
 	return "", false, nil
 }
@@ -112,15 +126,20 @@ func GetDiskTargetPartFromLauncherView(volumeIndex int) (string, error) {
 	return "", fmt.Errorf("no supported file disk found for volume with index %d", volumeIndex)
 }
 
-func GetSocketPathFromHostView(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
-	for podUID, _ := range vmi.Status.ActivePods {
-		basepath := fmt.Sprintf("/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", string(podUID))
-		exists, _ := diskutils.FileExists(basepath)
-		if exists {
-			return filepath.Join(basepath, fmt.Sprintf("disk_%d.sock", volumeIndex)), nil
+// NewSocketPathGetter get the socket pat of a containerDisk. For testing a baseDir
+// can be provided which can for instance point to /tmp.
+func NewSocketPathGetter(baseDir string) SocketPathGetter {
+	return func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
+		for podUID, _ := range vmi.Status.ActivePods {
+			basepath := fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", baseDir, string(podUID))
+			socketPath := filepath.Join(basepath, fmt.Sprintf("disk_%d.sock", volumeIndex))
+			exists, _ := diskutils.FileExists(socketPath)
+			if exists {
+				return socketPath, nil
+			}
 		}
+		return "", fmt.Errorf("container disk socket path not found for vmi")
 	}
-	return "", fmt.Errorf("container disk socket path not found for vmi")
 }
 
 func GetImage(root string, imagePath string) (string, error) {
@@ -151,12 +170,6 @@ func GetImage(root string, imagePath string) (string, error) {
 // specs for hosting the container registry disks.
 func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) []kubev1.Container {
 	var containers []kubev1.Container
-
-	initialDelaySeconds := 1
-	timeoutSeconds := 1
-	periodSeconds := 1
-	successThreshold := 1
-	failureThreshold := 5
 
 	// Make VirtualMachineInstance Image Wrapper Containers
 	for index, volume := range vmi.Spec.Volumes {
@@ -198,24 +211,6 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, bi
 					},
 				},
 				Resources: resources,
-
-				// The readiness probes ensure the volume coversion and copy finished
-				// before the container is marked as "Ready: True"
-				ReadinessProbe: &kubev1.Probe{
-					Handler: kubev1.Handler{
-						Exec: &kubev1.ExecAction{
-							Command: []string{
-								"/usr/bin/container-disk",
-								"--health-check",
-							},
-						},
-					},
-					InitialDelaySeconds: int32(initialDelaySeconds),
-					PeriodSeconds:       int32(periodSeconds),
-					TimeoutSeconds:      int32(timeoutSeconds),
-					SuccessThreshold:    int32(successThreshold),
-					FailureThreshold:    int32(failureThreshold),
-				},
 			}
 
 			containers = append(containers, container)

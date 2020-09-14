@@ -8,6 +8,7 @@ import (
 	"k8s.io/client-go/rest"
 	"kubevirt.io/client-go/kubecli"
 	testscore "kubevirt.io/kubevirt/tests"
+	flags "kubevirt.io/kubevirt/tests/flags"
 )
 
 var _ = Describe("Unprivileged tests", func() {
@@ -27,10 +28,10 @@ var _ = Describe("Unprivileged tests", func() {
 	It("should be able to read kubevirt-storage-class-defaults ConfigMap", func() {
 
 		// Sanity check: can't read an arbitrary configmap (nonexistent)
-		_, err = unprivClient.CoreV1().ConfigMaps(testscore.KubeVirtInstallNamespace).Get("non-existent-configmap", metav1.GetOptions{})
+		_, err = unprivClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get("non-existent-configmap", metav1.GetOptions{})
 		Expect(apierrors.IsForbidden(err)).To(BeTrue())
 
-		configmap, err := unprivClient.CoreV1().ConfigMaps(testscore.KubeVirtInstallNamespace).Get("kubevirt-storage-class-defaults", metav1.GetOptions{})
+		configmap, err := unprivClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get("kubevirt-storage-class-defaults", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(configmap.Data["local-sc.volumeMode"]).To(Equal("Filesystem"))

@@ -21,6 +21,8 @@ package tests
 
 import (
 	"fmt"
+
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 type ContainerDisk string
@@ -30,6 +32,7 @@ const (
 	ContainerDiskCirros               ContainerDisk = "cirros"
 	ContainerDiskAlpine               ContainerDisk = "alpine"
 	ContainerDiskFedora               ContainerDisk = "fedora-cloud"
+	ContainerDiskFedoraSRIOVLane      ContainerDisk = "fedora-sriov-lane"
 	ContainerDiskMicroLiveCD          ContainerDisk = "microlivecd"
 	ContainerDiskVirtio               ContainerDisk = "virtio-container-disk"
 	ContainerDiskEmpty                ContainerDisk = "empty"
@@ -41,9 +44,11 @@ const (
 func ContainerDiskFor(name ContainerDisk) string {
 	switch name {
 	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskFedora, ContainerDiskMicroLiveCD, ContainerDiskCirrosCustomLocation:
-		return fmt.Sprintf("%s/%s-container-disk-demo:%s", KubeVirtUtilityRepoPrefix, name, KubeVirtUtilityVersionTag)
+		return fmt.Sprintf("%s/%s-container-disk-demo:%s", flags.KubeVirtUtilityRepoPrefix, name, flags.KubeVirtUtilityVersionTag)
 	case ContainerDiskVirtio:
-		return fmt.Sprintf("%s/virtio-container-disk:%s", KubeVirtUtilityRepoPrefix, KubeVirtUtilityVersionTag)
+		return fmt.Sprintf("%s/virtio-container-disk:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag)
+	case ContainerDiskFedoraSRIOVLane:
+		return fmt.Sprintf("%s/%s-container-disk:%s", flags.KubeVirtUtilityRepoPrefix, name, flags.KubeVirtUtilityVersionTag)
 	}
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))
 }

@@ -581,6 +581,12 @@ rules:
 - apiGroups:
   - kubevirt.io
   resources:
+  - virtualmachines/status
+  verbs:
+  - patch
+- apiGroups:
+  - kubevirt.io
+  resources:
   - virtualmachineinstancemigrations
   verbs:
   - create

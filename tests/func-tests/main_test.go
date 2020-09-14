@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kubevirt.io/client-go/kubecli"
 	testscore "kubevirt.io/kubevirt/tests"
+	flags "kubevirt.io/kubevirt/tests/flags"
 )
 
 func TestTests(t *testing.T) {
@@ -37,10 +38,10 @@ var _ = BeforeSuite(func() {
 
 	jobType := tests.GetJobTypeEnvVar()
 	if jobType == "prow" {
-		kubevirtCfg, err := virtCli.CoreV1().ConfigMaps(testscore.KubeVirtInstallNamespace).Get(tests.KubevirtCfgMap, metav1.GetOptions{})
+		kubevirtCfg, err := virtCli.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(tests.KubevirtCfgMap, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		kubevirtCfg.Data["debug.useEmulation"] = "true"
-		_, err = virtCli.CoreV1().ConfigMaps(testscore.KubeVirtInstallNamespace).Update(kubevirtCfg)
+		_, err = virtCli.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Update(kubevirtCfg)
 		Expect(err).ToNot(HaveOccurred())
 	}
 })

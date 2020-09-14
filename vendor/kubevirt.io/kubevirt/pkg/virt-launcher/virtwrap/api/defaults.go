@@ -17,10 +17,7 @@ type Defaulter struct {
 }
 
 func (d *Defaulter) SetDefaults_Devices(devices *Devices) {
-	// Set default memballoon, "none" means that controller disabled
-	devices.Ballooning = &Ballooning{
-		Model: "none",
-	}
+
 }
 
 func (d *Defaulter) SetDefaults_OSType(ostype *OSType) {

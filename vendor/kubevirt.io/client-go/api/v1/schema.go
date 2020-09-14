@@ -355,6 +355,11 @@ type Devices struct {
 	// Whether to attach the default serial console or not.
 	// Serial console access will not be available if set to false. Defaults to true.
 	AutoattachSerialConsole *bool `json:"autoattachSerialConsole,omitempty"`
+	// Whether to attach the Memory balloon device with default period.
+	// Period can be adjusted in virt-config.
+	// Defaults to true.
+	// +optional
+	AutoattachMemBalloon *bool `json:"autoattachMemBalloon,omitempty"`
 	// Whether to have random number generator from host
 	// +optional
 	Rng *Rng `json:"rng,omitempty"`
@@ -415,6 +420,10 @@ type Disk struct {
 	// Cache specifies which kvm disk cache mode should be used.
 	// +optional
 	Cache DriverCache `json:"cache,omitempty"`
+	// IO specifies which QEMU disk IO mode should be used.
+	// Supported values are: native, default, threads.
+	// +optional
+	IO DriverIO `json:"io,omitempty"`
 	// If specified, disk address and its tag will be provided to the guest via config drive metadata
 	// +optional
 	Tag string `json:"tag,omitempty"`

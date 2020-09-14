@@ -314,6 +314,8 @@ func (KubeVirtSpec) SwaggerDoc() map[string]string {
 		"monitorNamespace":  "The namespace Prometheus is deployed in\nDefaults to openshift-monitor",
 		"monitorAccount":    "The name of the Prometheus service account that needs read-access to KubeVirt endpoints\nDefaults to prometheus-k8s",
 		"uninstallStrategy": "Specifies if kubevirt can be deleted if workloads are still present.\nThis is mainly a precaution to avoid accidental data loss",
+		"productVersion":    "Designate the apps.kubevirt.io/version label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductVersion is not specified, KubeVirt's version will be used.",
+		"productName":       "Designate the apps.kubevirt.io/part-of label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductName is not specified, the part-of label will be omitted.",
 		"configuration":     "holds kubevirt configurations.\nsame as the virt-configMap",
 	}
 }

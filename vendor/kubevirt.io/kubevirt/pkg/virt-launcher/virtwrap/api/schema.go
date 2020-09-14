@@ -349,7 +349,7 @@ type Devices struct {
 	Controllers []Controller `xml:"controller,omitempty"`
 	Video       []Video      `xml:"video"`
 	Graphics    []Graphics   `xml:"graphics"`
-	Ballooning  *Ballooning  `xml:"memballoon,omitempty"`
+	Ballooning  *MemBalloon  `xml:"memballoon,omitempty"`
 	Disks       []Disk       `xml:"disk"`
 	Inputs      []Input      `xml:"input"`
 	Serials     []Serial     `xml:"serial"`
@@ -578,7 +578,8 @@ type Model struct {
 }
 
 type InterfaceTarget struct {
-	Device string `xml:"dev,attr"`
+	Device  string `xml:"dev,attr"`
+	Managed string `xml:"managed,attr,omitempty"`
 }
 
 type Alias struct {
@@ -675,6 +676,7 @@ type Entry struct {
 
 type Clock struct {
 	Offset     string  `xml:"offset,attr,omitempty"`
+	Timezone   string  `xml:"timezone,attr,omitempty"`
 	Adjustment string  `xml:"adjustment,attr,omitempty"`
 	Timer      []Timer `xml:"timer,omitempty"`
 }
@@ -759,8 +761,14 @@ type Address struct {
 
 //END Video -------------------
 
-type Ballooning struct {
-	Model string `xml:"model,attr"`
+type Stats struct {
+	Period uint `xml:"period,attr"`
+}
+
+type MemBalloon struct {
+	Model   string   `xml:"model,attr"`
+	Stats   *Stats   `xml:"stats,omitempty"`
+	Address *Address `xml:"address,emitempty"`
 }
 
 type Watchdog struct {

@@ -57,6 +57,7 @@ const (
 	SELinuxLauncherTypeKey            = "selinuxLauncherType"
 	SupportedGuestAgentVersionsKey    = "supported-guest-agent"
 	OVMFPathKey                       = "ovmfPath"
+	MemBalloonStatsPeriod             = "memBalloonStatsPeriod"
 )
 
 type ConfigModifiedFn func()
@@ -196,6 +197,7 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 		SELinuxLauncherType:         DefaultSELinuxLauncherType,
 		SupportedGuestAgentVersions: supportedQEMUGuestAgentVersions,
 		OVMFPath:                    DefaultOVMFPath,
+		MemBalloonStatsPeriod:       DefaultMemBalloonStatsPeriod,
 	}
 }
 
@@ -366,6 +368,18 @@ func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.C
 
 	if ovmfPath := strings.TrimSpace(configMap.Data[OVMFPathKey]); ovmfPath != "" {
 		config.OVMFPath = ovmfPath
+	}
+
+	if memBalloonStatsPeriod := strings.TrimSpace(configMap.Data[MemBalloonStatsPeriod]); memBalloonStatsPeriod != "" {
+		i, err := strconv.Atoi(memBalloonStatsPeriod)
+		if err != nil {
+			return fmt.Errorf("invalid memBalloonStatsPeriod in config, %s", memBalloonStatsPeriod)
+		}
+		if i >= 0 {
+			config.MemBalloonStatsPeriod = i
+		} else {
+			return fmt.Errorf("invalid memBalloonStatsPeriod (negative) in config, %d", i)
+		}
 	}
 
 	return nil
