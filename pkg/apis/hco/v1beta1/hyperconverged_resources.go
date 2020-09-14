@@ -2,6 +2,7 @@ package v1beta1
 
 import (
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	"os"
 
 	networkaddonsshared "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared"
@@ -65,21 +66,61 @@ func (r *HyperConverged) NewCDI(opts ...string) *cdiv1alpha1.CDI {
 }
 
 func (r *HyperConverged) NewNetworkAddons(opts ...string) *networkaddonsv1.NetworkAddonsConfig {
+
+	cnaoSpec := networkaddonsshared.NetworkAddonsConfigSpec{
+		Multus:      &networkaddonsshared.Multus{},
+		LinuxBridge: &networkaddonsshared.LinuxBridge{},
+		Ovs:         &networkaddonsshared.Ovs{},
+		NMState:     &networkaddonsshared.NMState{},
+		KubeMacPool: &networkaddonsshared.KubeMacPool{},
+	}
+
+	cnaoInfra := hcoConfig2CnaoPlacement(r.Spec.Infra)
+	cnaoWorkloads := hcoConfig2CnaoPlacement(r.Spec.Workloads)
+	if cnaoInfra != nil || cnaoWorkloads != nil {
+		cnaoSpec.PlacementConfiguration = &networkaddonsshared.PlacementConfiguration{
+			Infra:     cnaoInfra,
+			Workloads: cnaoWorkloads,
+		}
+	}
+
 	return &networkaddonsv1.NetworkAddonsConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      networkaddonsnames.OPERATOR_CONFIG,
 			Labels:    r.getLabels(),
 			Namespace: r.getNamespace(hcoutil.UndefinedNamespace, opts),
 		},
-		Spec: networkaddonsshared.NetworkAddonsConfigSpec{
-			Multus:      &networkaddonsshared.Multus{},
-			LinuxBridge: &networkaddonsshared.LinuxBridge{},
-			Ovs:         &networkaddonsshared.Ovs{},
-			NMState:     &networkaddonsshared.NMState{},
-			KubeMacPool: &networkaddonsshared.KubeMacPool{},
-		},
-		// TODO: propagate NodePlacement
+		Spec: cnaoSpec,
 	}
+}
+
+func hcoConfig2CnaoPlacement(hcoConf HyperConvergedConfig) *networkaddonsshared.Placement {
+	empty := true
+	cnaoPlacement := &networkaddonsshared.Placement{}
+	if hcoConf.Affinity != nil {
+		empty = false
+		hcoConf.Affinity.DeepCopyInto(&cnaoPlacement.Affinity)
+	}
+
+	for _, hcoTol := range hcoConf.Tolerations {
+		empty = false
+		cnaoTol := corev1.Toleration{}
+		hcoTol.DeepCopyInto(&cnaoTol)
+		cnaoPlacement.Tolerations = append(cnaoPlacement.Tolerations, cnaoTol)
+	}
+
+	if len(hcoConf.NodeSelector) > 0 {
+		empty = false
+		cnaoPlacement.NodeSelector = make(map[string]string)
+		for k, v := range hcoConf.NodeSelector {
+			cnaoPlacement.NodeSelector[k] = v
+		}
+	}
+
+	if empty {
+		return nil
+	}
+	return cnaoPlacement
 }
 
 func (r *HyperConverged) NewKubeVirtCommonTemplateBundle(opts ...string) *sspv1.KubevirtCommonTemplatesBundle {

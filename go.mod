@@ -10,9 +10,9 @@ require (
 	github.com/go-openapi/spec v0.19.7
 	github.com/imdario/mergo v0.3.9
 	github.com/kubevirt/cluster-network-addons-operator v0.42.0
+	github.com/kubevirt/controller-lifecycle-operator-sdk v0.0.5
 	github.com/kubevirt/kubevirt-ssp-operator v1.0.41
-	github.com/kubevirt/vm-import-operator v0.2.0
-	github.com/mattn/goveralls v0.0.7 // indirect
+	github.com/kubevirt/vm-import-operator v0.2.1
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
@@ -21,7 +21,7 @@ require (
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20200321030439-57b580e57e88
 	github.com/operator-framework/operator-sdk v0.18.0
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/tools v0.0.0-20200522201501-cb1345f3a375
+	golang.org/x/tools v0.0.0-20200616195046-dc31b401abb5
 	k8s.io/api v0.18.6
 	k8s.io/apiextensions-apiserver v0.18.6
 	k8s.io/apimachinery v0.18.6
@@ -31,7 +31,7 @@ require (
 	kubevirt.io/containerized-data-importer v1.22.0
 	kubevirt.io/kubevirt v0.32.0
 	sigs.k8s.io/controller-runtime v0.6.2
-	sigs.k8s.io/controller-tools v0.3.0
+	sigs.k8s.io/controller-tools v0.4.0
 )
 
 // Pinned to kubernetes-1.16.4 to kubevirt.io/kubevirt v0.32.0-rc.2
