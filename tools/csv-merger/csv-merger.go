@@ -29,6 +29,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -50,13 +51,6 @@ const CSVMode = "CSV"
 const CRDMode = "CRDs"
 
 var validOutputModes = []string{CSVMode, CRDMode}
-
-// TODO: get rid of this once RelatedImages officially
-// appears in github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators
-type relatedImage struct {
-	Name string `json:"name"`
-	Ref  string `json:"image"`
-}
 
 type ClusterServiceVersionSpecExtended struct {
 	csvv1alpha1.ClusterServiceVersionSpec
@@ -308,23 +302,11 @@ func main() {
 			envVars,
 		)
 
+		relatedImageSet := newRelatedImageSet()
+
 		for _, image := range strings.Split(*relatedImagesList, ",") {
 			if image != "" {
-				name := ""
-				if strings.Contains(image, "|") {
-					image_s := strings.Split(image, "|")
-					image = image_s[0]
-					name = image_s[1]
-				} else {
-					names := strings.Split(strings.Split(image, "@")[0], "/")
-					name = names[len(names)-1]
-				}
-				csvExtended.Spec.RelatedImages = append(
-					csvExtended.Spec.RelatedImages,
-					relatedImage{
-						Name: name,
-						Ref:  image,
-					})
+				relatedImageSet.add(image)
 			}
 		}
 
@@ -332,7 +314,7 @@ func main() {
 			if csvStr != "" {
 				csvBytes := []byte(csvStr)
 
-				csvStruct := &csvv1alpha1.ClusterServiceVersion{}
+				csvStruct := &ClusterServiceVersionExtended{}
 
 				err := yaml.Unmarshal(csvBytes, csvStruct)
 				if err != nil {
@@ -382,8 +364,13 @@ func main() {
 				}
 				csvExtended.Annotations["alm-examples"] = string(alm_b)
 
+				for _, image := range csvStruct.Spec.RelatedImages {
+					relatedImageSet.add(image.Ref)
+				}
 			}
 		}
+
+		csvExtended.Spec.RelatedImages = relatedImageSet.dump()
 
 		hidden_crds := []string{}
 		visible_crds := strings.Split(*visibleCRDList, ",")
@@ -445,4 +432,61 @@ func main() {
 		panic("Unsupported output mode: " + *outputMode)
 	}
 
+}
+
+// TODO: get rid of this once RelatedImageSet officially
+// appears in github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators
+type relatedImage struct {
+	Name string `json:"name"`
+	Ref  string `json:"image"`
+}
+
+// RelatedImageSet is a set that makes sure that each image appears only once.
+type RelatedImageSet map[string]string
+
+// constructor
+func newRelatedImageSet() RelatedImageSet {
+	return make(map[string]string)
+}
+
+// add image to the set. Ignore if the image already exists in the set
+func (ri *RelatedImageSet) add(image string) {
+	name := ""
+	if strings.Contains(image, "|") {
+		image_s := strings.Split(image, "|")
+		image = image_s[0]
+		name = image_s[1]
+	} else {
+		names := strings.Split(strings.Split(image, "@")[0], "/")
+		name = names[len(names)-1]
+	}
+
+	(*ri)[name] = image
+}
+
+// return the related image set as a sorted slice
+func (ri RelatedImageSet) dump() []relatedImage {
+	images := []relatedImage{}
+
+	for name, image := range ri {
+		images = append(images, relatedImage{Name: name, Ref: image})
+	}
+
+	sort.Sort(relatedImageSortable(images))
+	return images
+}
+
+// implement sort.Interface for relatedImage slice. Sort by RelatedImage.Name
+type relatedImageSortable []relatedImage
+
+func (ris relatedImageSortable) Len() int {
+	return len(ris)
+}
+
+func (ris relatedImageSortable) Less(i, j int) bool {
+	return ris[i].Name < ris[j].Name
+}
+
+func (ris relatedImageSortable) Swap(i, j int) {
+	ris[i], ris[j] = ris[j], ris[i]
 }
