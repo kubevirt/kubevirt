@@ -51,7 +51,7 @@ spec:
         - name: NETWORK_ADDONS_VERSION
           value: v0.42.0
         - name: SSP_VERSION
-          value: v1.0.41
+          value: v1.2.1
         - name: NMO_VERSION
           value: v0.7.0
         - name: HPPO_VERSION
@@ -252,7 +252,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: IMAGE_REFERENCE
-          value: quay.io/fromani/kubevirt-ssp-operator-container@sha256:38ac2f7140ef94c0e41ceac0786f09926d8642055193c75b60cb13b1ccc209a0
+          value: quay.io/fromani/kubevirt-ssp-operator-container@sha256:a8f8bd3c02db4c76a80b00288e4f9bf8e0f9885db1f303202771e44051d9127a
         - name: WATCH_NAMESPACE
         - name: KVM_INFO_TAG
         - name: VALIDATOR_TAG
@@ -263,9 +263,9 @@ spec:
         - name: OPERATOR_NAME
           value: kubevirt-ssp-operator
         - name: OPERATOR_VERSION
-          value: v1.0.41
-        image: quay.io/fromani/kubevirt-ssp-operator-container@sha256:38ac2f7140ef94c0e41ceac0786f09926d8642055193c75b60cb13b1ccc209a0
-        imagePullPolicy: Always
+          value: v1.2.1
+        image: quay.io/fromani/kubevirt-ssp-operator-container@sha256:a8f8bd3c02db4c76a80b00288e4f9bf8e0f9885db1f303202771e44051d9127a
+        imagePullPolicy: IfNotPresent
         name: kubevirt-ssp-operator
         ports:
         - containerPort: 60000

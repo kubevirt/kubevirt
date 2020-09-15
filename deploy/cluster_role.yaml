@@ -935,6 +935,19 @@ rules:
   - watch
   - delete
 - apiGroups:
+  - cdi.kubevirt.io
+  resources:
+  - datavolumes
+  - datavolumes/source
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+  - delete
+- apiGroups:
   - monitoring.coreos.com
   resources:
   - prometheusrules
@@ -958,6 +971,7 @@ rules:
   - clusterroles
   verbs:
   - create
+  - get
   - list
   - watch
   - patch
@@ -965,6 +979,26 @@ rules:
   - rbac.authorization.k8s.io
   resources:
   - clusterrolebindings
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - patch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - patch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
   verbs:
   - create
   - get
@@ -992,6 +1026,7 @@ rules:
   resources:
   - serviceaccounts
   - configmaps
+  - persistentvolumeclaims
   - services
   - services/finalizers
   verbs:
@@ -1014,6 +1049,7 @@ rules:
   - ""
   resources:
   - pods
+  - persistentvolumeclaims/status
   verbs:
   - get
   - list
@@ -1023,8 +1059,10 @@ rules:
   resources:
   - namespaces
   verbs:
+  - create
   - get
   - list
+  - patch
   - watch
 - apiGroups:
   - admissionregistration.k8s.io

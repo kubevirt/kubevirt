@@ -1,6 +1,6 @@
 // Package v1 contains API Schema definitions for the kubevirt v1 API group
 // +k8s:deepcopy-gen=package,register
-// +groupName=kubevirt.io
+// +groupName=ssp.kubevirt.io
 package v1
 
 import (

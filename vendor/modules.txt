@@ -130,7 +130,7 @@ github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperat
 github.com/kubevirt/cluster-network-addons-operator/pkg/names
 # github.com/kubevirt/controller-lifecycle-operator-sdk v0.0.5
 github.com/kubevirt/controller-lifecycle-operator-sdk/pkg/sdk/api
-# github.com/kubevirt/kubevirt-ssp-operator v1.0.41
+# github.com/kubevirt/kubevirt-ssp-operator v1.2.1
 github.com/kubevirt/kubevirt-ssp-operator/pkg/apis
 github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1
 # github.com/kubevirt/vm-import-operator v0.2.1
