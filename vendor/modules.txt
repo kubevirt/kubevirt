@@ -171,6 +171,8 @@ github.com/mfranczy/crd-rest-coverage/pkg/report
 github.com/mfranczy/crd-rest-coverage/pkg/stats
 # github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
 github.com/mitchellh/go-ps
+# github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
+github.com/mitchellh/go-vnc
 # github.com/mitchellh/mapstructure v1.1.2
 github.com/mitchellh/mapstructure
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
@@ -263,18 +265,16 @@ github.com/prometheus/common/model
 # github.com/prometheus/procfs v0.0.3
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
-# github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
-github.com/songgao/water
 # github.com/spf13/cobra v0.0.5
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
 # github.com/subgraph/libmacouflage v0.0.1
 github.com/subgraph/libmacouflage
-# github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf
+# github.com/vishvananda/netlink v1.1.1-0.20200914145417-7484f55b2263
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
-# github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc
+# github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae
 github.com/vishvananda/netns
 # github.com/willf/bitset v1.1.11-0.20200630133818-d5bec3311243
 github.com/willf/bitset
@@ -316,11 +316,11 @@ golang.org/x/oauth2/google
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
+# golang.org/x/sys v0.0.0-20200915050820-6d893a6b696e
 golang.org/x/sys/cpu
+golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-golang.org/x/sys/windows/registry
 # golang.org/x/text v0.3.2
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
