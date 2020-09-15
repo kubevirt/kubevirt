@@ -69,10 +69,10 @@ var _ = SIGDescribe("[Serial]Services", func() {
 	}
 
 	readyVMI := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-		_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+		createdVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 		Expect(err).ToNot(HaveOccurred())
 
-		return tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+		return tests.WaitUntilVMIReady(createdVMI, tests.LoggedInCirrosExpecter)
 	}
 
 	cleanupVMI := func(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
