@@ -53,10 +53,10 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	github.com/subgraph/libmacouflage v0.0.1
-	github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf
+	github.com/vishvananda/netlink v1.1.1-0.20200914145417-7484f55b2263
 	golang.org/x/crypto v0.0.0-20191002192127-34f69633bfdc
 	golang.org/x/net v0.0.0-20200520004742-59133d7f0dd7
-	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
+	golang.org/x/sys v0.0.0-20200915050820-6d893a6b696e
 	google.golang.org/grpc v1.30.0
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
