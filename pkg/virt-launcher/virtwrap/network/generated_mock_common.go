@@ -315,8 +315,8 @@ func (_mr *_MockNetworkHandlerRecorder) GetNFTIPString(arg0 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetNFTIPString", arg0)
 }
 
-func (_m *MockNetworkHandler) CreateTapDevice(tapName string, isMultiqueue bool, launcherPID int) error {
-	ret := _m.ctrl.Call(_m, "CreateTapDevice", tapName, isMultiqueue, launcherPID)
+func (_m *MockNetworkHandler) CreateTapDevice(tapName string, queueNumber uint32, launcherPID int) error {
+	ret := _m.ctrl.Call(_m, "CreateTapDevice", tapName, queueNumber, launcherPID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
