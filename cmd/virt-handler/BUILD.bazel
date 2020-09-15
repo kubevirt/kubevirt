@@ -68,7 +68,6 @@ container_image(
     }),
     directory = "/",
     files = [
-        ":base_container.cil",
         ":virt_launcher.cil",
         "//:get-version",
     ],
