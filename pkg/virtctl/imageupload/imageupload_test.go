@@ -262,6 +262,14 @@ var _ = Describe("ImageUpload", func() {
 		validateDataVolumeArgs(v1.PersistentVolumeBlock)
 	}
 
+	expectedStorageClassMatchesActual := func(storageClass string) {
+		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Get(targetName, metav1.GetOptions{})
+		Expect(err).To(BeNil())
+		_, ok := pvc.Annotations[uploadRequestAnnotation]
+		Expect(ok).To(BeTrue())
+		Expect(storageClass).To(Equal(*pvc.Spec.StorageClassName))
+	}
+
 	createCDIConfig := func() *cdiv1.CDIConfig {
 		return &cdiv1.CDIConfig{
 			ObjectMeta: metav1.ObjectMeta{
@@ -402,6 +410,16 @@ var _ = Describe("ImageUpload", func() {
 			Expect(dvCreateCalled).To(BeTrue())
 			validateBlockPVC()
 			validateBlockDataVolume()
+		})
+
+		It("Create a non-default storage class PVC", func() {
+			testInit(http.StatusOK)
+			expectedStorageClass := "non-default-sc"
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
+				"--insecure", "--image-path", imagePath, "--storage-class", expectedStorageClass)
+			Expect(cmd()).To(BeNil())
+			Expect(dvCreateCalled).To(BeTrue())
+			expectedStorageClassMatchesActual(expectedStorageClass)
 		})
 
 		DescribeTable("PVC does not exist", func(async bool) {
