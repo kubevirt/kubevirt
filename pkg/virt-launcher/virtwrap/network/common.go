@@ -112,7 +112,7 @@ type NetworkHandler interface {
 	NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
 	NftablesLoad(fnName string) error
 	GetNFTIPString(proto iptables.Protocol) string
-	CreateTapDevice(tapName string, isMultiqueue bool, launcherPID int) error
+	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
 }
 
@@ -120,7 +120,7 @@ type NetworkUtilsHandler struct{}
 
 type tapDeviceMaker struct {
 	tapName         string
-	isMultiqueue    bool
+	queueNumber     uint32
 	virtLauncherPID int
 	tapMakingCmd    *exec.Cmd
 }
@@ -375,8 +375,8 @@ func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
 	return net.HardwareAddr(append(prefix, suffix...)), nil
 }
 
-func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, isMultiqueue bool, launcherPID int) error {
-	tapDeviceMaker, err := buildTapDeviceMaker(tapName, isMultiqueue, launcherPID)
+func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, queueNumber uint32, launcherPID int) error {
+	tapDeviceMaker, err := buildTapDeviceMaker(tapName, queueNumber, launcherPID)
 	if err != nil {
 		return fmt.Errorf("error creating tap device named %s; %v", tapName, err)
 	}
@@ -389,22 +389,20 @@ func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, isMultiqueue bool,
 	return nil
 }
 
-func buildTapDeviceMaker(tapName string, isMultiqueue bool, virtLauncherPID int) (*tapDeviceMaker, error) {
+func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int) (*tapDeviceMaker, error) {
 	createTapDeviceArgs := []string{
 		"create-tap",
 		"--tap-name", tapName,
 		"--uid", qemuUID,
 		"--gid", qemuGID,
-	}
-	if isMultiqueue {
-		createTapDeviceArgs = append(createTapDeviceArgs, "--multiqueue")
+		"--queue-number", fmt.Sprintf("%d", queueNumber),
 	}
 	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
 
 	return &tapDeviceMaker{
 		tapMakingCmd:    cmd,
 		tapName:         tapName,
-		isMultiqueue:    isMultiqueue,
+		queueNumber:     queueNumber,
 		virtLauncherPID: virtLauncherPID,
 	}, nil
 }

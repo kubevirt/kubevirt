@@ -674,10 +674,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	// CPU topology will be created everytime, because user can specify
 	// number of cores in vmi.Spec.Domain.Resources.Requests/Limits, not only
 	// in vmi.Spec.Domain.CPU
-	domain.Spec.CPU.Topology = getCPUTopology(vmi)
+	queueNumber, cpuTopology := CalculateNetworkQueueNumberAndGetCPUTopology(vmi)
+	domain.Spec.CPU.Topology = cpuTopology
 	domain.Spec.VCPU = &VCPU{
 		Placement: "static",
-		CPUs:      calculateRequestedVCPUs(domain.Spec.CPU.Topology),
+		CPUs:      queueNumber,
 	}
 
 	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
@@ -928,7 +929,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	var numBlkQueues *uint
 	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
 	virtioNetMQRequested := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
-	vcpus := uint(calculateRequestedVCPUs(domain.Spec.CPU.Topology))
+	vcpus := uint(queueNumber)
 	if vcpus == 0 {
 		vcpus = uint(1)
 	}
@@ -1426,6 +1427,11 @@ func getCPUTopology(vmi *v1.VirtualMachineInstance) *CPUTopology {
 
 func calculateRequestedVCPUs(cpuTopology *CPUTopology) uint32 {
 	return cpuTopology.Cores * cpuTopology.Sockets * cpuTopology.Threads
+}
+
+func CalculateNetworkQueueNumberAndGetCPUTopology(vmi *v1.VirtualMachineInstance) (uint32, *CPUTopology) {
+	cpuTopology := getCPUTopology(vmi)
+	return calculateRequestedVCPUs(cpuTopology), cpuTopology
 }
 
 func formatDomainCPUTune(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) error {

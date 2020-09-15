@@ -40,8 +40,8 @@ func (_mr *_MockBindMechanismRecorder) discoverPodNetworkInterface() *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "discoverPodNetworkInterface")
 }
 
-func (_m *MockBindMechanism) preparePodNetworkInterfaces(isMultiqueue bool, launcherPID int) error {
-	ret := _m.ctrl.Call(_m, "preparePodNetworkInterfaces", isMultiqueue, launcherPID)
+func (_m *MockBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
+	ret := _m.ctrl.Call(_m, "preparePodNetworkInterfaces", queueNumber, launcherPID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
