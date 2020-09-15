@@ -10,4 +10,5 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/vishvananda/netns",
     importpath = "github.com/vishvananda/netns",
     visibility = ["//visibility:public"],
+    deps = ["//vendor/golang.org/x/sys/unix:go_default_library"],
 )
