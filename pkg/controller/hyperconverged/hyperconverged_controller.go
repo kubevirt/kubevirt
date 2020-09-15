@@ -33,7 +33,6 @@ import (
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
-	sdkapi "github.com/kubevirt/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -1531,39 +1530,18 @@ func newVMImportForCR(cr *hcov1beta1.HyperConverged, namespace string) *vmimport
 		hcoutil.AppLabel: cr.Name,
 	}
 
+	spec := vmimportv1beta1.VMImportConfigSpec{}
+	if cr.Spec.Infra.NodePlacement != nil {
+		cr.Spec.Infra.NodePlacement.DeepCopyInto(&spec.Infra)
+	}
 	return &vmimportv1beta1.VMImportConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "vmimport-" + cr.Name,
 			Labels:    labels,
 			Namespace: namespace,
 		},
-		Spec: vmimportv1beta1.VMImportConfigSpec{
-			Infra: hcoConf2VmImportInfra(cr),
-		},
+		Spec: spec,
 	}
-}
-
-func hcoConf2VmImportInfra(cr *hcov1beta1.HyperConverged) sdkapi.NodePlacement {
-	vmImportInfra := sdkapi.NodePlacement{}
-
-	if cr.Spec.Infra.Affinity != nil {
-		cr.Spec.Infra.Affinity.DeepCopyInto(&vmImportInfra.Affinity)
-	}
-
-	if len(cr.Spec.Infra.NodeSelector) > 0 {
-		vmImportInfra.NodeSelector = make(map[string]string)
-		for k, v := range cr.Spec.Infra.NodeSelector {
-			vmImportInfra.NodeSelector[k] = v
-		}
-	}
-
-	for _, hcoTol := range cr.Spec.Infra.Tolerations {
-		vmImportTolr := corev1.Toleration{}
-		hcoTol.DeepCopyInto(&vmImportTolr)
-		vmImportInfra.Tolerations = append(vmImportInfra.Tolerations, vmImportTolr)
-	}
-
-	return vmImportInfra
 }
 
 func newKubeVirtTemplateValidatorForCR(cr *hcov1beta1.HyperConverged, namespace string) *sspv1.KubevirtTemplateValidator {

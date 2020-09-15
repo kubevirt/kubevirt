@@ -10,7 +10,7 @@ require (
 	github.com/go-openapi/spec v0.19.7
 	github.com/imdario/mergo v0.3.9
 	github.com/kubevirt/cluster-network-addons-operator v0.42.0
-	github.com/kubevirt/controller-lifecycle-operator-sdk v0.0.5
+	github.com/kubevirt/controller-lifecycle-operator-sdk v0.0.6
 	github.com/kubevirt/kubevirt-ssp-operator v1.2.1
 	github.com/kubevirt/vm-import-operator v0.2.1
 	github.com/onsi/ginkgo v1.14.1

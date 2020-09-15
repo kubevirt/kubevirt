@@ -1,6 +1,7 @@
 package v1beta1
 
 import (
+	sdkapi "github.com/kubevirt/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -17,11 +18,11 @@ var _ = Describe("HyperconvergedResources", func() {
 		}
 
 		It("Should return nil if HCO's input is empty", func() {
-			Expect(hcoConfig2CnaoPlacement(HyperConvergedConfig{})).To(BeNil())
+			Expect(hcoConfig2CnaoPlacement(&sdkapi.NodePlacement{})).To(BeNil())
 		})
 
 		It("Should return only NodeSelector", func() {
-			hcoConf := HyperConvergedConfig{
+			hcoConf := &sdkapi.NodePlacement{
 				NodeSelector: map[string]string{
 					"key1": "value1",
 					"key2": "value2",
@@ -41,7 +42,7 @@ var _ = Describe("HyperconvergedResources", func() {
 		})
 
 		It("Should return only Tolerations", func() {
-			hcoConf := HyperConvergedConfig{
+			hcoConf := &sdkapi.NodePlacement{
 				Tolerations: []corev1.Toleration{tolr1, tolr2},
 			}
 			cnaoPlacement := hcoConfig2CnaoPlacement(hcoConf)
@@ -76,7 +77,7 @@ var _ = Describe("HyperconvergedResources", func() {
 					},
 				},
 			}
-			hcoConf := HyperConvergedConfig{
+			hcoConf := &sdkapi.NodePlacement{
 				Affinity: affinity,
 			}
 			cnaoPlacement := hcoConfig2CnaoPlacement(hcoConf)
@@ -92,7 +93,7 @@ var _ = Describe("HyperconvergedResources", func() {
 		})
 
 		It("Should return the whole object", func() {
-			hcoConf := HyperConvergedConfig{
+			hcoConf := &sdkapi.NodePlacement{
 
 				NodeSelector: map[string]string{
 					"key1": "value1",

@@ -3,6 +3,7 @@ package hyperconverged
 import (
 	"context"
 	"fmt"
+	sdkapi "github.com/kubevirt/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	"os"
 
 	"github.com/operator-framework/operator-sdk/pkg/ready"
@@ -208,9 +209,9 @@ func getBasicDeployment() *basicExpected {
 	return res
 }
 
-func NewHyperConvergedConfig() hcov1beta1.HyperConvergedConfig {
+func NewHyperConvergedConfig() *sdkapi.NodePlacement {
 	seconds1, seconds2 := int64(1), int64(2)
-	return hcov1beta1.HyperConvergedConfig{
+	return &sdkapi.NodePlacement{
 		NodeSelector: map[string]string{
 			"key1": "value1",
 			"key2": "value2",

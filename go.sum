@@ -759,6 +759,8 @@ github.com/kubevirt/cluster-network-addons-operator v0.42.0 h1:4N4UGLgAHfFwOdBHI
 github.com/kubevirt/cluster-network-addons-operator v0.42.0/go.mod h1:qtYFyYlmjk8egulFv39Sy2Bji2igdM2U2SdRxZFTMss=
 github.com/kubevirt/controller-lifecycle-operator-sdk v0.0.5 h1:mQU8UpzE2TXVdgohmyHj/FCV1n/Dz2/HJc/HRrgZGHE=
 github.com/kubevirt/controller-lifecycle-operator-sdk v0.0.5/go.mod h1:yHLw/tNrW1Z7lXdXv8jJO9M+gwMg6+gz8RdQmipxm2E=
+github.com/kubevirt/controller-lifecycle-operator-sdk v0.0.6 h1:jEF/SKPhz7o9E7FDw0hge3ts6RGM3bbx8DAummtptkA=
+github.com/kubevirt/controller-lifecycle-operator-sdk v0.0.6/go.mod h1:EZt2SMCCMzuwI9sCjF6LTyiRiimikXvxeZJDVOoWqjI=
 github.com/kubevirt/kubevirt-ssp-operator v1.0.41 h1:E9O1Uuo9rZD8wfA8aV4yU9UYp1hbfrKf+2dHiwRNYhM=
 github.com/kubevirt/kubevirt-ssp-operator v1.0.41/go.mod h1:/aggUNYkO08YfTybBoJ2HT2+sg8FVeUl3tPswPBkPgQ=
 github.com/kubevirt/kubevirt-ssp-operator v1.2.0 h1:wuv3t3imWoEpEB4PVqBIBq8YdK4eVSvy8+SAQpzbya4=

@@ -2,6 +2,7 @@ package v1beta1
 
 import (
 	"fmt"
+	sdkapi "github.com/kubevirt/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	corev1 "k8s.io/api/core/v1"
 	"os"
 
@@ -75,8 +76,8 @@ func (r *HyperConverged) NewNetworkAddons(opts ...string) *networkaddonsv1.Netwo
 		KubeMacPool: &networkaddonsshared.KubeMacPool{},
 	}
 
-	cnaoInfra := hcoConfig2CnaoPlacement(r.Spec.Infra)
-	cnaoWorkloads := hcoConfig2CnaoPlacement(r.Spec.Workloads)
+	cnaoInfra := hcoConfig2CnaoPlacement(r.Spec.Infra.NodePlacement)
+	cnaoWorkloads := hcoConfig2CnaoPlacement(r.Spec.Workloads.NodePlacement)
 	if cnaoInfra != nil || cnaoWorkloads != nil {
 		cnaoSpec.PlacementConfiguration = &networkaddonsshared.PlacementConfiguration{
 			Infra:     cnaoInfra,
@@ -94,7 +95,10 @@ func (r *HyperConverged) NewNetworkAddons(opts ...string) *networkaddonsv1.Netwo
 	}
 }
 
-func hcoConfig2CnaoPlacement(hcoConf HyperConvergedConfig) *networkaddonsshared.Placement {
+func hcoConfig2CnaoPlacement(hcoConf *sdkapi.NodePlacement) *networkaddonsshared.Placement {
+	if hcoConf == nil {
+		return nil
+	}
 	empty := true
 	cnaoPlacement := &networkaddonsshared.Placement{}
 	if hcoConf.Affinity != nil {

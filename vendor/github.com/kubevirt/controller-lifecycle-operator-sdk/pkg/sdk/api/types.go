@@ -45,12 +45,14 @@ type Status struct {
 }
 
 // NodePlacement describes node scheduling configuration.
+// +k8s:openapi-gen=true
 type NodePlacement struct {
 	// nodeSelector is the node selector applied to the relevant kind of pods
 	// It specifies a map of key-value pairs: for the pod to be eligible to run on a node,
 	// the node must have each of the indicated key-value pairs as labels
 	// (it can have additional labels as well).
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	// +kubebuilder:validation:Optional
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
@@ -58,12 +60,14 @@ type NodePlacement struct {
 	// that can be expressed with nodeSelector.
 	// affinity is going to be applied to the relevant kind of pods in parallel with nodeSelector
 	// See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
+	// +kubebuilder:validation:Optional
 	// +optional
-	Affinity corev1.Affinity `json:"affinity,omitempty"`
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 
 	// tolerations is a list of tolerations applied to the relevant kind of pods
 	// See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info.
 	// These are additional tolerations other than default ones.
+	// +kubebuilder:validation:Optional
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
@@ -90,7 +94,11 @@ func (in *NodePlacement) DeepCopyInto(out *NodePlacement) {
 			(*out)[key] = val
 		}
 	}
-	in.Affinity.DeepCopyInto(&out.Affinity)
+	if in.Affinity != nil {
+		in, out := &in.Affinity, &out.Affinity
+		*out = new(corev1.Affinity)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Tolerations != nil {
 		in, out := &in.Tolerations, &out.Tolerations
 		*out = make([]corev1.Toleration, len(*in))
@@ -111,11 +119,12 @@ func (in *NodePlacement) DeepCopy() *NodePlacement {
 	return out
 }
 
+// SwaggerDoc provides documentation for NodePlacement
 func (NodePlacement) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":             "NodePlacement describes  node scheduling configuration.",
-		"nodeSelector": "nodeSelector is the node selector applied to the relevant kind of pods\nIt specifies a map of key-value pairs: for the pod to be eligible to run on a node,\nthe node must have each of the indicated key-value pairs as labels\n(it can have additional labels as well).\nSee https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector\n+optional",
-		"affinity":     "affinity enables pod affinity/anti-affinity placement expanding the types of constraints\nthat can be expressed with nodeSelector.\naffinity is going to be applied to the relevant kind of pods in parallel with nodeSelector\nSee https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity\n+optional",
-		"tolerations":  "tolerations is a list of tolerations applied to the relevant kind of pods\nSee https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info.\nThese are additional tolerations other than default ones.\n+optional",
+		"nodeSelector": "nodeSelector is the node selector applied to the relevant kind of pods\nIt specifies a map of key-value pairs: for the pod to be eligible to run on a node,\nthe node must have each of the indicated key-value pairs as labels\n(it can have additional labels as well).\nSee https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector\n+kubebuilder:validation:Optional\n+optional",
+		"affinity":     "affinity enables pod affinity/anti-affinity placement expanding the types of constraints\nthat can be expressed with nodeSelector.\naffinity is going to be applied to the relevant kind of pods in parallel with nodeSelector\nSee https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity\n+kubebuilder:validation:Optional\n+optional",
+		"tolerations":  "tolerations is a list of tolerations applied to the relevant kind of pods\nSee https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info.\nThese are additional tolerations other than default ones.\n+kubebuilder:validation:Optional\n+optional",
 	}
 }

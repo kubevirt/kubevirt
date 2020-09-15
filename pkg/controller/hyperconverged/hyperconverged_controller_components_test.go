@@ -709,8 +709,8 @@ var _ = Describe("HyperConverged Components", func() {
 		It("should add node placement if missing in CNAO", func() {
 			existingResource := hco.NewNetworkAddons()
 
-			hco.Spec.Infra = NewHyperConvergedConfig()
-			hco.Spec.Workloads = NewHyperConvergedConfig()
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NewHyperConvergedConfig()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NewHyperConvergedConfig()}
 
 			cl := initClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
@@ -733,7 +733,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(placementConfig.Infra.NodeSelector["key2"]).Should(Equal("value2"))
 
 			Expect(placementConfig.Workloads).ToNot(BeNil())
-			reflect.DeepEqual(placementConfig.Workloads.Tolerations, hco.Spec.Workloads.Tolerations)
+			reflect.DeepEqual(placementConfig.Workloads.Tolerations, hco.Spec.Workloads.NodePlacement.Tolerations)
 
 			Expect(req.conditions).To(BeEmpty())
 		})
@@ -741,8 +741,8 @@ var _ = Describe("HyperConverged Components", func() {
 		It("should remove node placement if missing in HCO CR", func() {
 
 			hcoNodePlacement := newHco()
-			hcoNodePlacement.Spec.Infra = NewHyperConvergedConfig()
-			hcoNodePlacement.Spec.Workloads = NewHyperConvergedConfig()
+			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
 			existingResource := hcoNodePlacement.NewNetworkAddons()
 
 			cl := initClient([]runtime.Object{hco, existingResource})
@@ -766,17 +766,17 @@ var _ = Describe("HyperConverged Components", func() {
 
 		It("should modify node placement according to HCO CR", func() {
 
-			hco.Spec.Infra = NewHyperConvergedConfig()
-			hco.Spec.Workloads = NewHyperConvergedConfig()
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
 			existingResource := hco.NewNetworkAddons()
 
 			// now, modify HCO's node placement
 			seconds3 := int64(3)
-			hco.Spec.Infra.Tolerations = append(hco.Spec.Infra.Tolerations, corev1.Toleration{
+			hco.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
 				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
 			})
 
-			hco.Spec.Workloads.NodeSelector["key1"] = "something else"
+			hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
 
 			cl := initClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
@@ -1502,8 +1502,8 @@ var _ = Describe("HyperConverged Components", func() {
 		It("should add node placement if missing in VM-Import", func() {
 			existingResource := newVMImportForCR(hco, namespace)
 
-			hco.Spec.Infra = NewHyperConvergedConfig()
-			hco.Spec.Workloads = NewHyperConvergedConfig()
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
 
 			cl := initClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
@@ -1518,9 +1518,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 
-			Expect(existingResource.Spec.Infra.Affinity.NodeAffinity).To(BeNil())
-			Expect(existingResource.Spec.Infra.Affinity.PodAffinity).To(BeNil())
-			Expect(existingResource.Spec.Infra.Affinity.PodAntiAffinity).To(BeNil())
+			Expect(existingResource.Spec.Infra.Affinity).To(BeNil())
 			Expect(existingResource.Spec.Infra.NodeSelector).To(BeEmpty())
 			Expect(existingResource.Spec.Infra.Tolerations).To(BeEmpty())
 
@@ -1532,8 +1530,8 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(infra.NodeSelector["key1"]).Should(Equal("value1"))
 			Expect(infra.NodeSelector["key2"]).Should(Equal("value2"))
 
-			reflect.DeepEqual(infra.Tolerations, hco.Spec.Infra.Tolerations)
-			reflect.DeepEqual(infra.Affinity, hco.Spec.Infra.Affinity)
+			reflect.DeepEqual(infra.Tolerations, hco.Spec.Infra.NodePlacement.Tolerations)
+			reflect.DeepEqual(infra.Affinity, hco.Spec.Infra.NodePlacement.Affinity)
 
 			Expect(req.conditions).To(BeEmpty())
 		})
@@ -1541,8 +1539,8 @@ var _ = Describe("HyperConverged Components", func() {
 		It("should remove node placement if missing in HCO CR", func() {
 
 			hcoNodePlacement := newHco()
-			hcoNodePlacement.Spec.Infra = NewHyperConvergedConfig()
-			hcoNodePlacement.Spec.Workloads = NewHyperConvergedConfig()
+			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
 			existingResource := newVMImportForCR(hcoNodePlacement, namespace)
 
 			cl := initClient([]runtime.Object{hco, existingResource})
@@ -1562,9 +1560,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(existingResource.Spec.Infra.NodeSelector).ToNot(BeEmpty())
 			Expect(existingResource.Spec.Infra.Tolerations).ToNot(BeEmpty())
 
-			Expect(foundResource.Spec.Infra.Affinity.NodeAffinity).To(BeNil())
-			Expect(foundResource.Spec.Infra.Affinity.PodAffinity).To(BeNil())
-			Expect(foundResource.Spec.Infra.Affinity.PodAntiAffinity).To(BeNil())
+			Expect(foundResource.Spec.Infra.Affinity).To(BeNil())
 			Expect(foundResource.Spec.Infra.NodeSelector).To(BeEmpty())
 			Expect(foundResource.Spec.Infra.Tolerations).To(BeEmpty())
 
@@ -1573,17 +1569,17 @@ var _ = Describe("HyperConverged Components", func() {
 
 		It("should modify node placement according to HCO CR", func() {
 
-			hco.Spec.Infra = NewHyperConvergedConfig()
-			hco.Spec.Workloads = NewHyperConvergedConfig()
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
 			existingResource := newVMImportForCR(hco, namespace)
 
 			// now, modify HCO's node placement
 			seconds3 := int64(3)
-			hco.Spec.Infra.Tolerations = append(hco.Spec.Infra.Tolerations, corev1.Toleration{
+			hco.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
 				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
 			})
 
-			hco.Spec.Infra.NodeSelector["key1"] = "something else"
+			hco.Spec.Infra.NodePlacement.NodeSelector["key1"] = "something else"
 
 			cl := initClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
