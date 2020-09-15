@@ -39,9 +39,29 @@ import (
 type openReturn struct {
 	Return int `json:"return"`
 }
-type readReturn struct {
+
+type readReturnData struct {
 	Count  int    `json:"count"`
 	BufB64 string `json:"buf-b64"`
+}
+type readReturn struct {
+	Return readReturnData `json:"return"`
+}
+
+type execReturn struct {
+	Return execReturnData `json:"return"`
+}
+type execReturnData struct {
+	Pid int `json:"pid"`
+}
+
+type execStatusReturn struct {
+	Return execStatusReturnData `json:"return"`
+}
+type execStatusReturnData struct {
+	Exited   bool   `json:"exited"`
+	ExitCode int    `json:"exitcode"`
+	OutData  string `json:"out-data"`
 }
 
 type AccessCredentialManager struct {
@@ -61,8 +81,14 @@ func NewManager(connection cli.Connection) *AccessCredentialManager {
 
 func (l *AccessCredentialManager) writeGuestFile(contents string, domName string, filePath string) error {
 
-	base64Str := base64.StdEncoding.EncodeToString([]byte(contents))
+	// ensure the directory exists with the correct permissions
+	err := l.agentCreateDirectory(domName, filepath.Dir(filePath), "700")
+	if err != nil {
+		return err
+	}
 
+	// write the file
+	base64Str := base64.StdEncoding.EncodeToString([]byte(contents))
 	cmdOpenFile := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s", "mode":"w" } }`, filePath)
 	output, err := l.virConn.QemuAgentCommand(cmdOpenFile, domName)
 	if err != nil {
@@ -87,6 +113,9 @@ func (l *AccessCredentialManager) writeGuestFile(contents string, domName string
 		return err
 	}
 
+	// ensure the file has the correct permissions and ownership
+	l.agentSetFilePermissions(domName, filePath, "600")
+
 	return nil
 }
 
@@ -108,7 +137,6 @@ func (l *AccessCredentialManager) readGuestFile(domName string, filePath string)
 	cmdReadFile := fmt.Sprintf(`{"execute": "guest-file-read", "arguments": { "handle": %d } }`, openRes.Return)
 	readOutput, err := l.virConn.QemuAgentCommand(cmdReadFile, domName)
 
-	log.Log.Infof("VOSSEL -DEBUG- READOUTPUT: %s", readOutput)
 	if err != nil {
 		return contents, err
 	}
@@ -119,8 +147,8 @@ func (l *AccessCredentialManager) readGuestFile(domName string, filePath string)
 		return contents, err
 	}
 
-	if readRes.Count > 0 {
-		readBytes, err := base64.StdEncoding.DecodeString(readRes.BufB64)
+	if readRes.Return.Count > 0 {
+		readBytes, err := base64.StdEncoding.DecodeString(readRes.Return.BufB64)
 		if err != nil {
 			return contents, err
 		}
@@ -136,21 +164,130 @@ func (l *AccessCredentialManager) readGuestFile(domName string, filePath string)
 	return contents, nil
 }
 
+func (l *AccessCredentialManager) agentGuestExec(domName string, command string, args []string) (string, error) {
+	stdOut := ""
+	argsStr := ""
+	for _, arg := range args {
+		if argsStr == "" {
+			argsStr = fmt.Sprintf("\"%s\"", arg)
+		} else {
+			argsStr = argsStr + fmt.Sprintf(", \"%s\"", arg)
+		}
+	}
+
+	cmdExec := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "%s", "arg": [ %s ], "capture-output":true } }`, command, argsStr)
+	output, err := l.virConn.QemuAgentCommand(cmdExec, domName)
+	execRes := &execReturn{}
+	err = json.Unmarshal([]byte(output), execRes)
+	if err != nil {
+		return "", err
+	}
+
+	if execRes.Return.Pid <= 0 {
+		return "", fmt.Errorf("Invalid pid [%d] returned from qemu agent during access credential injection: %s", execRes.Return.Pid, output)
+	}
+
+	exited := false
+	exitCode := 0
+	for i := 10; i > 0; i-- {
+		cmdExecStatus := fmt.Sprintf(`{"execute": "guest-exec-status", "arguments": { "pid": %d } }`, execRes.Return.Pid)
+		output, err := l.virConn.QemuAgentCommand(cmdExecStatus, domName)
+		execStatusRes := &execStatusReturn{}
+		err = json.Unmarshal([]byte(output), execStatusRes)
+		if err != nil {
+			return "", err
+		}
+
+		if execStatusRes.Return.Exited {
+			stdOutBytes, err := base64.StdEncoding.DecodeString(execStatusRes.Return.OutData)
+			if err != nil {
+				return "", err
+			}
+			stdOut = string(stdOutBytes)
+			exitCode = execStatusRes.Return.ExitCode
+			exited = true
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	if !exited {
+		return "", fmt.Errorf("Timed out waiting for guest pid [%d] for command [%s] to exit", execRes.Return.Pid, command)
+	} else if exitCode != 0 {
+		return stdOut, fmt.Errorf("Non-zero exit code [%d] for guest command [%s] with args [%v]: %s", exitCode, command, args, stdOut)
+	}
+
+	return stdOut, nil
+}
+
+// Requires usage of mkdir, chown, chmod, stat
+func (l *AccessCredentialManager) agentCreateDirectory(domName string, dir string, permissions string) error {
+	// Get parent directory ownership and use that for nested directory
+	parentDir := filepath.Dir(dir)
+	ownerStr, err := l.agentGuestExec(domName, "stat", []string{"-c", "%U:%G", parentDir})
+	if err != nil {
+		return fmt.Errorf("Unable to detect ownership of access credential parent directory %s: %s", parentDir, err.Error())
+	}
+	ownerStr = strings.TrimSpace(ownerStr)
+	if ownerStr == "" {
+		return fmt.Errorf("Unable to detect ownership of access credential parent directory %s", parentDir)
+	}
+
+	// Ensure the directory exists
+	_, err = l.agentGuestExec(domName, "mkdir", []string{"-p", dir})
+	if err != nil {
+		return err
+	}
+
+	// set ownership/permissions of directory using parent directory owner
+	_, err = l.agentGuestExec(domName, "chown", []string{ownerStr, dir})
+	if err != nil {
+		return err
+	}
+	_, err = l.agentGuestExec(domName, "chmod", []string{permissions, dir})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Requires usage of chown, chmod, stat
+func (l *AccessCredentialManager) agentSetFilePermissions(domName string, filePath string, permissions string) error {
+	// Get parent directory ownership and use that for nested directory
+	parentDir := filepath.Dir(filePath)
+	ownerStr, err := l.agentGuestExec(domName, "stat", []string{"-c", "%U:%G", parentDir})
+	if err != nil {
+		return fmt.Errorf("Unable to detect ownership of access credential file directory %s: %s", parentDir, err.Error())
+	}
+	ownerStr = strings.TrimSpace(ownerStr)
+	if ownerStr == "" {
+		return fmt.Errorf("Unable to detect ownership of access credential file directory %s", parentDir)
+	}
+
+	// set ownership/permissions of directory using parent directory owner
+	_, err = l.agentGuestExec(domName, "chown", []string{ownerStr, filePath})
+	if err != nil {
+		return err
+	}
+	_, err = l.agentGuestExec(domName, "chmod", []string{permissions, filePath})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (l *AccessCredentialManager) agentWriteAuthorizedKeys(domName string, filePath string, authorizedKeys string) error {
 
-	separator := "### AUTO PROPAGATED BY KUBEVIRT BELOW THIS LINE ###\n"
+	separator := "\n### AUTO PROPAGATED BY KUBEVIRT BELOW THIS LINE ###\n"
 	curAuthorizedKeys := ""
 
 	// ######
 	// Step 1. Read file on guest
 	// ######
-
 	curAuthorizedKeys, err := l.readGuestFile(domName, filePath)
-	if err != nil {
-		if strings.Contains(err.Error(), "No such file or directory") {
-			err = fmt.Errorf("Unable to update authorized_keys file because file does not exist on the guest at path %s. Error: %v", filePath, err.Error())
-		}
-
+	if err != nil && !strings.Contains(err.Error(), "No such file or directory") {
 		return err
 	}
 
@@ -167,7 +304,7 @@ func (l *AccessCredentialManager) agentWriteAuthorizedKeys(domName string, fileP
 	} else {
 		curAuthorizedKeys = ""
 	}
-	authorizedKeys = fmt.Sprintf("%s\n%s\n%s", curAuthorizedKeys, separator, authorizedKeys)
+	authorizedKeys = fmt.Sprintf("%s%s%s", curAuthorizedKeys, separator, authorizedKeys)
 
 	// ######
 	// Step 3. Write merged file
