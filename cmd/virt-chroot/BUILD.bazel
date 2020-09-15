@@ -11,8 +11,8 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//vendor/github.com/opencontainers/selinux/go-selinux:go_default_library",
-        "//vendor/github.com/songgao/water:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
+        "//vendor/github.com/vishvananda/netlink:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
     ],
 )

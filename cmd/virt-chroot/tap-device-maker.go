@@ -4,26 +4,26 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/songgao/water"
 	"github.com/spf13/cobra"
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 )
 
 func createTapDevice(name string, owner uint, group uint, isMultiqueue bool) error {
 	var err error = nil
-	config := water.Config{
-		DeviceType: water.TAP,
-		PlatformSpecificParams: water.PlatformSpecificParams{
-			Name:    name,
-			Persist: true,
-			Permissions: &water.DevicePermissions{
-				Owner: owner,
-				Group: group,
-			},
-			MultiQueue: isMultiqueue,
-		},
+	tapDevice := &netlink.Tuntap{
+		LinkAttrs:  netlink.LinkAttrs{Name: name},
+		Mode:       unix.IFF_TAP,
+		NonPersist: false,
+		Queues:     0,
+		Owner:      uint32(owner),
+		Group:      uint32(group),
 	}
 
-	_, err = water.New(config)
+	if err := netlink.LinkAdd(tapDevice); err != nil {
+		return fmt.Errorf("failed to create tap device named %s. Reason: %v", name, err)
+	}
+
 	return err
 }
 
