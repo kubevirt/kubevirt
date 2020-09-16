@@ -1210,6 +1210,41 @@ type SSHPublicKeyAccessCredential struct {
 	PropagationMethod SSHPublicKeyAccessCredentialPropagationMethod `json:"propagationMethod"`
 }
 
+// UserPasswordAccessCredentialSource represents where to retrieve the user password
+// credentials
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type UserPasswordAccessCredentialSource struct {
+	// Secret means that the access credential is pulled from a kubernetes secret
+	Secret *AccessCredentialSecretSource `json:"secret,omitempty"`
+}
+
+// UserPasswordAccessCredentialPropagationMethod represents the method used to
+// inject a user passwords into the vm guest.
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type UserPasswordAccessCredentialPropagationMethod struct {
+	// QemuGuestAgentAccessCredentailPropagation means passwords are
+	// dynamically injected into the vm at runtime via the qemu guest agent.
+	// This feature requires the qemu guest agent to be running within the guest.
+	QemuGuestAgent *QemuGuestAgentAccessCredentialPropagation `json:"qemuGuestAgent,omitempty"`
+}
+
+// UserPasswordAccessCredential represents a source and propagation method for
+// injecting user passwords into a vm guest
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type UserPasswordAccessCredential struct {
+	// Source represents where the user passwords are pulled from
+	Source UserPasswordAccessCredentialSource `json:"source"`
+
+	// propagationMethod represents how the user passwords are injected into the vm guest.
+	PropagationMethod UserPasswordAccessCredentialPropagationMethod `json:"propagationMethod"`
+}
+
 // AccessCredential represents a credential source that can be used to
 // authorize remote access to the vm guest
 // Only one of its members may be specified.
@@ -1217,6 +1252,7 @@ type SSHPublicKeyAccessCredential struct {
 // +k8s:openapi-gen=true
 type AccessCredential struct {
 	SSHPublicKey *SSHPublicKeyAccessCredential `json:"sshPublicKey,omitempty"`
+	UserPassword *UserPasswordAccessCredential `json:"userPassword,omitempty"`
 }
 
 // Network represents a network type and a resource that should be connected to the vm.

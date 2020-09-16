@@ -378,6 +378,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.SecretVolumeSource":                                  schema_kubevirtio_client_go_api_v1_SecretVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource":                          schema_kubevirtio_client_go_api_v1_ServiceAccountVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.Timer":                                               schema_kubevirtio_client_go_api_v1_Timer(ref),
+		"kubevirt.io/client-go/api/v1.UserPasswordAccessCredential":                        schema_kubevirtio_client_go_api_v1_UserPasswordAccessCredential(ref),
+		"kubevirt.io/client-go/api/v1.UserPasswordAccessCredentialPropagationMethod":       schema_kubevirtio_client_go_api_v1_UserPasswordAccessCredentialPropagationMethod(ref),
+		"kubevirt.io/client-go/api/v1.UserPasswordAccessCredentialSource":                  schema_kubevirtio_client_go_api_v1_UserPasswordAccessCredentialSource(ref),
 		"kubevirt.io/client-go/api/v1.VirtualMachine":                                      schema_kubevirtio_client_go_api_v1_VirtualMachine(ref),
 		"kubevirt.io/client-go/api/v1.VirtualMachineCondition":                             schema_kubevirtio_client_go_api_v1_VirtualMachineCondition(ref),
 		"kubevirt.io/client-go/api/v1.VirtualMachineInstance":                              schema_kubevirtio_client_go_api_v1_VirtualMachineInstance(ref),
@@ -13361,11 +13364,16 @@ func schema_kubevirtio_client_go_api_v1_AccessCredential(ref common.ReferenceCal
 							Ref: ref("kubevirt.io/client-go/api/v1.SSHPublicKeyAccessCredential"),
 						},
 					},
+					"userPassword": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.UserPasswordAccessCredential"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.SSHPublicKeyAccessCredential"},
+			"kubevirt.io/client-go/api/v1.SSHPublicKeyAccessCredential", "kubevirt.io/client-go/api/v1.UserPasswordAccessCredential"},
 	}
 }
 
@@ -16914,6 +16922,76 @@ func schema_kubevirtio_client_go_api_v1_Timer(ref common.ReferenceCallback) comm
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/api/v1.HPETTimer", "kubevirt.io/client-go/api/v1.HypervTimer", "kubevirt.io/client-go/api/v1.KVMTimer", "kubevirt.io/client-go/api/v1.PITTimer", "kubevirt.io/client-go/api/v1.RTCTimer"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_UserPasswordAccessCredential(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "UserPasswordAccessCredential represents a source and propagation method for injecting user passwords into a vm guest Only one of its members may be specified.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Source represents where the user passwords are pulled from",
+							Ref:         ref("kubevirt.io/client-go/api/v1.UserPasswordAccessCredentialSource"),
+						},
+					},
+					"propagationMethod": {
+						SchemaProps: spec.SchemaProps{
+							Description: "propagationMethod represents how the user passwords are injected into the vm guest.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.UserPasswordAccessCredentialPropagationMethod"),
+						},
+					},
+				},
+				Required: []string{"source", "propagationMethod"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.UserPasswordAccessCredentialPropagationMethod", "kubevirt.io/client-go/api/v1.UserPasswordAccessCredentialSource"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_UserPasswordAccessCredentialPropagationMethod(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "UserPasswordAccessCredentialPropagationMethod represents the method used to inject a user passwords into the vm guest. Only one of its members may be specified.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"qemuGuestAgent": {
+						SchemaProps: spec.SchemaProps{
+							Description: "QemuGuestAgentAccessCredentailPropagation means passwords are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.QemuGuestAgentAccessCredentialPropagation"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.QemuGuestAgentAccessCredentialPropagation"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_UserPasswordAccessCredentialSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "UserPasswordAccessCredentialSource represents where to retrieve the user password credentials Only one of its members may be specified.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"secret": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Secret means that the access credential is pulled from a kubernetes secret",
+							Ref:         ref("kubevirt.io/client-go/api/v1.AccessCredentialSecretSource"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.AccessCredentialSecretSource"},
 	}
 }
 
