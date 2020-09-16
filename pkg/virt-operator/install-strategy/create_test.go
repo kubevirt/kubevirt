@@ -683,5 +683,53 @@ var _ = Describe("Create", func() {
 			Expect(len(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(Equal(2))
 			Expect(reflect.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeFalse())
 		})
+
+		It("It should copy Required NodeAffinity", func() {
+			nodePlacement.Affinity = &corev1.Affinity{}
+			nodePlacement.Affinity.NodeAffinity = &corev1.NodeAffinity{}
+			nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.DeepCopy()
+			injectPlacementMetadata(componentConfig, podSpec)
+			Expect(len(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms)).To(Equal(1))
+		})
+
+		It("It should copy Preferred NodeAffinity", func() {
+			nodePlacement.Affinity = &corev1.Affinity{}
+			nodePlacement.Affinity.NodeAffinity = &corev1.NodeAffinity{}
+			nodePlacement.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			injectPlacementMetadata(componentConfig, podSpec)
+			Expect(len(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(Equal(1))
+		})
+
+		It("It should copy Required PodAffinity", func() {
+			nodePlacement.Affinity = &corev1.Affinity{}
+			nodePlacement.Affinity.PodAffinity = &corev1.PodAffinity{}
+			nodePlacement.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			injectPlacementMetadata(componentConfig, podSpec)
+			Expect(len(podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution)).To(Equal(1))
+		})
+
+		It("It should copy Preferred PodAffinity", func() {
+			nodePlacement.Affinity = &corev1.Affinity{}
+			nodePlacement.Affinity.PodAffinity = &corev1.PodAffinity{}
+			nodePlacement.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			injectPlacementMetadata(componentConfig, podSpec)
+			Expect(len(podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(Equal(1))
+		})
+
+		It("It should copy Required PodAntiAffinity", func() {
+			nodePlacement.Affinity = &corev1.Affinity{}
+			nodePlacement.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
+			nodePlacement.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			injectPlacementMetadata(componentConfig, podSpec)
+			Expect(len(podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution)).To(Equal(1))
+		})
+
+		It("It should copy Preferred PodAntiAffinity", func() {
+			nodePlacement.Affinity = &corev1.Affinity{}
+			nodePlacement.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
+			nodePlacement.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+			injectPlacementMetadata(componentConfig, podSpec)
+			Expect(len(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(Equal(1))
+		})
 	})
 })

@@ -194,13 +194,13 @@ func injectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 								podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, term)
 							}
 						}
-
-						//PreferredDuringSchedulingIgnoredDuringExecution
-						for _, term := range nodePlacement.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
-							podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term)
-						}
-
 					}
+
+					//PreferredDuringSchedulingIgnoredDuringExecution
+					for _, term := range nodePlacement.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
+						podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term)
+					}
+
 				}
 			}
 			// podSpec.Affinity.PodAffinity
