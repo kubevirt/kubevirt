@@ -37,3 +37,11 @@ type NodePlacement struct {
 	//+listType=map
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
+
+// ---
+// +k8s:openapi-gen=true
+type ComponentConfig struct {
+	// nodePlacement decsribes scheduling confiuguration for specific
+	// KubeVirt components
+	NodePlacement *NodePlacement `json:"nodePlacement,omitempty"`
+}
