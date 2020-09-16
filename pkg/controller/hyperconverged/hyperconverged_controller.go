@@ -1298,16 +1298,37 @@ func newKubeVirtNodeLabellerBundleForCR(cr *hcov1beta1.HyperConverged, namespace
 	labels := map[string]string{
 		hcoutil.AppLabel: cr.Name,
 	}
+
+	spec := sspv1.ComponentSpec{
+		// UseKVM: isKVMAvailable(),
+	}
+
+	if cr.Spec.Workloads.NodePlacement != nil {
+		if cr.Spec.Workloads.NodePlacement.Affinity != nil {
+			cr.Spec.Workloads.NodePlacement.Affinity.DeepCopyInto(&spec.Affinity)
+		}
+
+		if cr.Spec.Workloads.NodePlacement.NodeSelector != nil {
+			spec.NodeSelector = make(map[string]string)
+			for k, v := range cr.Spec.Workloads.NodePlacement.NodeSelector {
+				spec.NodeSelector[k] = v
+			}
+		}
+
+		for _, hcoTolr := range cr.Spec.Workloads.NodePlacement.Tolerations {
+			nlbTolr := corev1.Toleration{}
+			hcoTolr.DeepCopyInto(&nlbTolr)
+			spec.Tolerations = append(spec.Tolerations, nlbTolr)
+		}
+	}
+
 	return &sspv1.KubevirtNodeLabellerBundle{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "node-labeller-" + cr.Name,
 			Labels:    labels,
 			Namespace: namespace,
 		},
-		Spec: sspv1.ComponentSpec{
-			// UseKVM: isKVMAvailable(),
-		},
-		// TODO: propagate NodePlacement
+		Spec: spec,
 	}
 }
 
@@ -1548,13 +1569,34 @@ func newKubeVirtTemplateValidatorForCR(cr *hcov1beta1.HyperConverged, namespace 
 	labels := map[string]string{
 		hcoutil.AppLabel: cr.Name,
 	}
+
+	spec := sspv1.TemplateValidatorSpec{}
+	if cr.Spec.Infra.NodePlacement != nil {
+		if cr.Spec.Infra.NodePlacement.Affinity != nil {
+			cr.Spec.Infra.NodePlacement.Affinity.DeepCopyInto(&spec.Affinity)
+		}
+
+		if cr.Spec.Infra.NodePlacement.NodeSelector != nil {
+			spec.NodeSelector = make(map[string]string)
+			for k, v := range cr.Spec.Infra.NodePlacement.NodeSelector {
+				spec.NodeSelector[k] = v
+			}
+		}
+
+		for _, hcoTolr := range cr.Spec.Infra.NodePlacement.Tolerations {
+			tvTolr := corev1.Toleration{}
+			hcoTolr.DeepCopyInto(&tvTolr)
+			spec.Tolerations = append(spec.Tolerations, tvTolr)
+		}
+	}
+
 	return &sspv1.KubevirtTemplateValidator{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "template-validator-" + cr.Name,
 			Labels:    labels,
 			Namespace: namespace,
 		},
-		// TODO: propagate NodePlacement
+		Spec: spec,
 	}
 }
 
@@ -1800,7 +1842,6 @@ func newKubeVirtMetricsAggregationForCR(cr *hcov1beta1.HyperConverged, namespace
 			Labels:    labels,
 			Namespace: namespace,
 		},
-		// TODO: propagate NodePlacement
 	}
 }
 

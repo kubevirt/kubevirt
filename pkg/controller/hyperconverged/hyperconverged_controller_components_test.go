@@ -1063,7 +1063,98 @@ var _ = Describe("HyperConverged Components", func() {
 			).To(BeNil())
 			Expect(foundResource.Spec.Version).To(BeEmpty())
 		})
-		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
+
+		It("should add node placement if missing in KubeVirtNodeLabellerBundle", func() {
+			existingResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
+
+			hco.Spec.Workloads.NodePlacement = NewHyperConvergedConfig()
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureKubeVirtNodeLabellerBundle(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.Affinity.NodeAffinity).To(BeNil())
+			Expect(existingResource.Spec.Affinity.PodAffinity).To(BeNil())
+			Expect(existingResource.Spec.Affinity.PodAntiAffinity).To(BeNil())
+			Expect(foundResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
+			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("value1"))
+			Expect(foundResource.Spec.NodeSelector["key2"]).Should(Equal("value2"))
+
+			reflect.DeepEqual(foundResource.Spec.Tolerations, hco.Spec.Workloads.NodePlacement.Tolerations)
+
+			Expect(req.conditions).To(BeEmpty())
+		})
+
+		It("should remove node placement if missing in HCO CR", func() {
+
+			hcoNodePlacement := newHco()
+			hcoNodePlacement.Spec.Workloads.NodePlacement = NewHyperConvergedConfig()
+			existingResource := newKubeVirtNodeLabellerBundleForCR(hcoNodePlacement, namespace)
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureKubeVirtNodeLabellerBundle(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
+			Expect(foundResource.Spec.Affinity.NodeAffinity).To(BeNil())
+
+			Expect(req.conditions).To(BeEmpty())
+		})
+
+		It("should modify node placement according to HCO CR", func() {
+
+			hco.Spec.Workloads.NodePlacement = NewHyperConvergedConfig()
+			existingResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
+
+			// now, modify HCO's node placement
+			seconds3 := int64(3)
+			hco.Spec.Workloads.NodePlacement.Tolerations = append(hco.Spec.Workloads.NodePlacement.Tolerations, corev1.Toleration{
+				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+			})
+
+			hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureKubeVirtNodeLabellerBundle(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
+			Expect(existingResource.Spec.Tolerations).To(HaveLen(2))
+			Expect(existingResource.Spec.NodeSelector["key1"]).Should(Equal("value1"))
+
+			Expect(foundResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
+			Expect(foundResource.Spec.Tolerations).To(HaveLen(3))
+			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("something else"))
+
+			Expect(req.conditions).To(BeEmpty())
+		})
 
 		// TODO: temporary avoid checking conditions on KubevirtNodeLabellerBundle because it's currently
 		// broken on k8s. Revert this when we will be able to fix it
@@ -1221,7 +1312,97 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Spec.TemplateValidatorReplicas).To(BeZero())
 		})
 
-		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
+		It("should add node placement if missing in KubeVirtTemplateValidator", func() {
+			existingResource := newKubeVirtTemplateValidatorForCR(hco, namespace)
+
+			hco.Spec.Infra.NodePlacement = NewHyperConvergedConfig()
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureKubeVirtTemplateValidator(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &sspv1.KubevirtTemplateValidator{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.Affinity.NodeAffinity).To(BeNil())
+			Expect(existingResource.Spec.Affinity.PodAffinity).To(BeNil())
+			Expect(existingResource.Spec.Affinity.PodAntiAffinity).To(BeNil())
+			Expect(foundResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
+			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("value1"))
+			Expect(foundResource.Spec.NodeSelector["key2"]).Should(Equal("value2"))
+
+			reflect.DeepEqual(foundResource.Spec.Tolerations, hco.Spec.Infra.NodePlacement.Tolerations)
+
+			Expect(req.conditions).To(BeEmpty())
+		})
+
+		It("should remove node placement if missing in HCO CR", func() {
+
+			hcoNodePlacement := newHco()
+			hcoNodePlacement.Spec.Infra.NodePlacement = NewHyperConvergedConfig()
+			existingResource := newKubeVirtTemplateValidatorForCR(hcoNodePlacement, namespace)
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureKubeVirtTemplateValidator(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &sspv1.KubevirtTemplateValidator{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
+			Expect(foundResource.Spec.Affinity.NodeAffinity).To(BeNil())
+
+			Expect(req.conditions).To(BeEmpty())
+		})
+
+		It("should modify node placement according to HCO CR", func() {
+
+			hco.Spec.Infra.NodePlacement = NewHyperConvergedConfig()
+			existingResource := newKubeVirtTemplateValidatorForCR(hco, namespace)
+
+			// now, modify HCO's node placement
+			seconds3 := int64(3)
+			hco.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
+				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+			})
+
+			hco.Spec.Infra.NodePlacement.NodeSelector["key1"] = "something else"
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureKubeVirtTemplateValidator(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &sspv1.KubevirtTemplateValidator{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
+			Expect(existingResource.Spec.Tolerations).To(HaveLen(2))
+			Expect(existingResource.Spec.NodeSelector["key1"]).Should(Equal("value1"))
+
+			Expect(foundResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
+			Expect(foundResource.Spec.Tolerations).To(HaveLen(3))
+			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("something else"))
+
+			Expect(req.conditions).To(BeEmpty())
+		})
 
 		// TODO: temporary avoid checking conditions on KubevirtTemplateValidator because it's currently
 		// broken on k8s. Revert this when we will be able to fix it

@@ -134,7 +134,6 @@ func (r *HyperConverged) NewKubeVirtCommonTemplateBundle(opts ...string) *sspv1.
 			Labels:    r.getLabels(),
 			Namespace: r.getNamespace(hcoutil.OpenshiftNamespace, opts),
 		},
-		// TODO: propagate NodePlacement
 	}
 }
 
