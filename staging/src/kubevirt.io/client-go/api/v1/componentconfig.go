@@ -43,5 +43,6 @@ type NodePlacement struct {
 type ComponentConfig struct {
 	// nodePlacement decsribes scheduling confiuguration for specific
 	// KubeVirt components
+	//+optional
 	NodePlacement *NodePlacement `json:"nodePlacement,omitempty"`
 }
