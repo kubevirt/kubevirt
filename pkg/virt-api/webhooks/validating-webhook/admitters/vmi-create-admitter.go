@@ -1284,6 +1284,10 @@ func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.Acce
 			}
 		}
 
+		if accessCred.UserPassword != nil {
+			count++
+		}
+
 		if count != 1 {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,

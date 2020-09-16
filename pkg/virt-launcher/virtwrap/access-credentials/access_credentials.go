@@ -288,6 +288,19 @@ func (l *AccessCredentialManager) agentSetFilePermissions(domName string, filePa
 	return nil
 }
 
+func (l *AccessCredentialManager) agentSetUserPassword(domName string, user string, password string) error {
+
+	base64Str := base64.StdEncoding.EncodeToString([]byte(password))
+
+	cmdSetPassword := fmt.Sprintf(`{"execute":"guest-set-user-password", "arguments": {"username":"%s", "password": "%s", "crypted": false }}`, user, base64Str)
+
+	_, err := l.virConn.QemuAgentCommand(cmdSetPassword, domName)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (l *AccessCredentialManager) agentWriteAuthorizedKeys(domName string, filePath string, authorizedKeys string) error {
 
 	separator := "\n### AUTO PROPAGATED BY KUBEVIRT BELOW THIS LINE ###\n"
@@ -327,6 +340,38 @@ func (l *AccessCredentialManager) agentWriteAuthorizedKeys(domName string, fileP
 		}
 	}
 	return nil
+}
+
+func isSSHPublicKey(accessCred *v1.AccessCredential) bool {
+	if accessCred.SSHPublicKey != nil && accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent != nil {
+		return true
+	}
+
+	return false
+}
+
+func isUserPassword(accessCred *v1.AccessCredential) bool {
+
+	if accessCred.UserPassword != nil && accessCred.UserPassword.PropagationMethod.QemuGuestAgent != nil {
+		return true
+	}
+
+	return false
+}
+
+func getSecret(accessCred *v1.AccessCredential) string {
+	secretName := ""
+	if accessCred.SSHPublicKey != nil && accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent != nil {
+		if accessCred.SSHPublicKey.Source.Secret != nil {
+			secretName = accessCred.SSHPublicKey.Source.Secret.SecretName
+		}
+	} else if accessCred.UserPassword != nil && accessCred.UserPassword.PropagationMethod.QemuGuestAgent != nil {
+		if accessCred.UserPassword.Source.Secret != nil {
+			secretName = accessCred.UserPassword.Source.Secret.SecretName
+		}
+	}
+
+	return secretName
 }
 
 func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
@@ -375,29 +420,14 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 		secretMap := make(map[string]string)
 		// filepath mapped to secretNames
 		filePathMap := make(map[string][]string)
+		// maps users to passwords
+		userPasswordMap := make(map[string]string)
 
 		// Step 1. Populate Secrets and filepath Map
 		for _, accessCred := range vmi.Spec.AccessCredentials {
-			if accessCred.SSHPublicKey == nil || accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent == nil {
-				continue
-			}
-
-			secretName := ""
-			if accessCred.SSHPublicKey.Source.Secret != nil {
-				secretName = accessCred.SSHPublicKey.Source.Secret.SecretName
-			}
-
+			secretName := getSecret(&accessCred)
 			if secretName == "" {
 				continue
-			}
-
-			for _, entry := range accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent.AuthorizedKeysFiles {
-				secrets, ok := filePathMap[entry.FilePath]
-				if !ok {
-					filePathMap[entry.FilePath] = []string{secretName}
-				} else {
-					filePathMap[entry.FilePath] = append(secrets, secretName)
-				}
 			}
 
 			secretDir := filepath.Join(config.SecretSourceDir, secretName+"-access-cred")
@@ -409,29 +439,59 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 				continue
 			}
 
-			authorizedKeys := ""
-			for _, file := range files {
-				if file.IsDir() || strings.HasPrefix(file.Name(), "..") {
-					continue
+			if isSSHPublicKey(&accessCred) {
+				for _, entry := range accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent.AuthorizedKeysFiles {
+					secrets, ok := filePathMap[entry.FilePath]
+					if !ok {
+						filePathMap[entry.FilePath] = []string{secretName}
+					} else {
+						filePathMap[entry.FilePath] = append(secrets, secretName)
+					}
 				}
 
-				pubKeyBytes, err := ioutil.ReadFile(filepath.Join(secretDir, file.Name()))
-				if err != nil {
-					// if reading failed, reset reload to true so this change will be retried again
-					reload = true
-					logger.Reason(err).Errorf("Error encountered reading secret file %s", filepath.Join(secretDir, file.Name()))
-					continue
+				authorizedKeys := ""
+				for _, file := range files {
+					if file.IsDir() || strings.HasPrefix(file.Name(), "..") {
+						continue
+					}
+
+					pubKeyBytes, err := ioutil.ReadFile(filepath.Join(secretDir, file.Name()))
+					if err != nil {
+						// if reading failed, reset reload to true so this change will be retried again
+						reload = true
+						logger.Reason(err).Errorf("Error encountered reading secret file %s", filepath.Join(secretDir, file.Name()))
+						continue
+					}
+
+					pubKey := string(pubKeyBytes)
+					if pubKey == "" {
+						continue
+					}
+					authorizedKeys = fmt.Sprintf("%s\n%s", authorizedKeys, pubKey)
 				}
 
-				pubKey := string(pubKeyBytes)
-				if pubKey == "" {
-					continue
+				secretMap[secretName] = authorizedKeys
+			} else if isUserPassword(&accessCred) {
+				for _, file := range files {
+					if file.IsDir() || strings.HasPrefix(file.Name(), "..") {
+						continue
+					}
+
+					passwordBytes, err := ioutil.ReadFile(filepath.Join(secretDir, file.Name()))
+					if err != nil {
+						// if reading failed, reset reload to true so this change will be retried again
+						reload = true
+						logger.Reason(err).Errorf("Error encountered reading secret file %s", filepath.Join(secretDir, file.Name()))
+						continue
+					}
+
+					password := strings.TrimSpace(string(passwordBytes))
+					if password == "" {
+						continue
+					}
+					userPasswordMap[file.Name()] = password
 				}
-				authorizedKeys = fmt.Sprintf("%s\n%s", authorizedKeys, pubKey)
 			}
-
-			secretMap[secretName] = authorizedKeys
-
 		}
 
 		// Step 2. Update Authorized keys file
@@ -453,6 +513,17 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 				continue
 			}
 		}
+
+		// Step 3. update UserPasswords
+		for user, password := range userPasswordMap {
+			err := l.agentSetUserPassword(domName, user, password)
+			if err != nil {
+				// if setting password failed, reset reload to true so this will be tried again
+				reload = true
+				logger.Reason(err).Errorf("Error encountered setting password for user [%s]", user)
+				continue
+			}
+		}
 	}
 }
 
@@ -467,11 +538,13 @@ func (l *AccessCredentialManager) HandleQemuAgentAccessCredentials(vmi *v1.Virtu
 
 	found := false
 	for _, accessCred := range vmi.Spec.AccessCredentials {
-		if accessCred.SSHPublicKey == nil || accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent == nil {
-			continue
+		if accessCred.SSHPublicKey != nil && accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent != nil {
+			found = true
+			break
+		} else if accessCred.UserPassword != nil && accessCred.UserPassword.PropagationMethod.QemuGuestAgent != nil {
+			found = true
+			break
 		}
-		found = true
-		break
 	}
 
 	if !found {
@@ -486,13 +559,15 @@ func (l *AccessCredentialManager) HandleQemuAgentAccessCredentials(vmi *v1.Virtu
 	}
 
 	for _, accessCred := range vmi.Spec.AccessCredentials {
-		if accessCred.SSHPublicKey == nil || accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent == nil {
-			continue
-		}
-
 		secretName := ""
-		if accessCred.SSHPublicKey.Source.Secret != nil {
-			secretName = accessCred.SSHPublicKey.Source.Secret.SecretName
+		if accessCred.SSHPublicKey != nil && accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent != nil {
+			if accessCred.SSHPublicKey.Source.Secret != nil {
+				secretName = accessCred.SSHPublicKey.Source.Secret.SecretName
+			}
+		} else if accessCred.UserPassword != nil && accessCred.UserPassword.PropagationMethod.QemuGuestAgent != nil {
+			if accessCred.UserPassword.Source.Secret != nil {
+				secretName = accessCred.UserPassword.Source.Secret.SecretName
+			}
 		}
 
 		if secretName == "" {

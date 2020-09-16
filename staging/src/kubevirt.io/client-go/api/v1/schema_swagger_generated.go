@@ -632,6 +632,28 @@ func (SSHPublicKeyAccessCredential) SwaggerDoc() map[string]string {
 	}
 }
 
+func (UserPasswordAccessCredentialSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "UserPasswordAccessCredentialSource represents where to retrieve the user password\ncredentials\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
+		"secret": "Secret means that the access credential is pulled from a kubernetes secret",
+	}
+}
+
+func (UserPasswordAccessCredentialPropagationMethod) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":               "UserPasswordAccessCredentialPropagationMethod represents the method used to\ninject a user passwords into the vm guest.\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
+		"qemuGuestAgent": "QemuGuestAgentAccessCredentailPropagation means passwords are\ndynamically injected into the vm at runtime via the qemu guest agent.\nThis feature requires the qemu guest agent to be running within the guest.",
+	}
+}
+
+func (UserPasswordAccessCredential) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                  "UserPasswordAccessCredential represents a source and propagation method for\ninjecting user passwords into a vm guest\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
+		"source":            "Source represents where the user passwords are pulled from",
+		"propagationMethod": "propagationMethod represents how the user passwords are injected into the vm guest.",
+	}
+}
+
 func (AccessCredential) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "AccessCredential represents a credential source that can be used to\nauthorize remote access to the vm guest\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
