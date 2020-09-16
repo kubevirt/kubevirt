@@ -1,0 +1,225 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2018 Red Hat, Inc.
+ *
+ */
+
+package tests_test
+
+import (
+	"fmt"
+	"time"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
+	expect "github.com/google/goexpect"
+	kubev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
+)
+
+var _ = Describe("Guest Access Credentials", func() {
+
+	var err error
+	var virtClient kubecli.KubevirtClient
+
+	var (
+		LaunchVMI         func(*v1.VirtualMachineInstance) *v1.VirtualMachineInstance
+		ExecutingBatchCmd func(*v1.VirtualMachineInstance, []expect.Batcher, time.Duration)
+	)
+
+	tests.BeforeAll(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
+		LaunchVMI = func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
+			By("Starting a VirtualMachineInstance")
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+			Expect(err).To(BeNil())
+
+			By("Waiting the VirtualMachineInstance start")
+			vmi, ok := obj.(*v1.VirtualMachineInstance)
+			Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
+			Expect(tests.WaitForSuccessfulVMIStart(obj)).ToNot(BeEmpty())
+			return vmi
+		}
+
+		ExecutingBatchCmd = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
+			By("Expecting the VirtualMachineInstance console")
+			expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
+			By("Checking that the VirtualMachineInstance serial console output equals to expected one")
+			resp, err := expecter.ExpectBatch(commands, timeout)
+			log.DefaultLogger().Object(vmi).Infof("%v", resp)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+	})
+
+	BeforeEach(func() {
+		tests.BeforeTestCleanup()
+	})
+
+	Context("with qemu guest agent", func() {
+		It("should propagate public ssh keys", func() {
+			secretID := "my-pub-key"
+			vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+
+			vmi.Spec.AccessCredentials = []v1.AccessCredential{
+				{
+					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+						Source: v1.SSHPublicKeyAccessCredentialSource{
+							Secret: &v1.AccessCredentialSecretSource{
+								SecretName: secretID,
+							},
+						},
+						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+							QemuGuestAgent: &v1.QemuGuestAgentAccessCredentialPropagation{
+								AuthorizedKeysFiles: []v1.AuthorizedKeysFile{
+									{
+										FilePath: "/home/fedora/.ssh/authorized_keys",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			key1 := "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"
+			key2 := "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key2"
+			key3 := "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key3"
+
+			By("Creating a secret with three ssh keys")
+			secret := kubev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretID,
+					Namespace: vmi.Namespace,
+					Labels: map[string]string{
+						tests.SecretLabel: secretID,
+					},
+				},
+				Type: "Opaque",
+				Data: map[string][]byte{
+					"my-key1": []byte(key1),
+					"my-key2": []byte(key2),
+					"my-key3": []byte(key3),
+				},
+			}
+			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(&secret)
+			Expect(err).To(BeNil())
+
+			LaunchVMI(vmi)
+
+			By("Waiting for agent to connect")
+			tests.WaitAgentConnected(virtClient, vmi)
+
+			By("Verifying all three pub ssh keys in secret are in VMI guest")
+
+			// this ensures the keys have propagated before we attempt to read
+			time.Sleep(20 * time.Second)
+			ExecutingBatchCmd(vmi, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "login:"},
+				&expect.BSnd{S: "fedora\n"},
+				&expect.BExp{R: "Password:"},
+				&expect.BSnd{S: fedoraPassword + "\n"},
+				&expect.BExp{R: "\\$"},
+				&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+				&expect.BExp{R: "test-ssh-key1"},
+				&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+				&expect.BExp{R: "test-ssh-key2"},
+				&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+				&expect.BExp{R: "test-ssh-key3"},
+			}, time.Second*180)
+		})
+	})
+	Context("with secret and configDrive propagation", func() {
+		It("should have ssh-key under authorized keys", func() {
+			secretID := "my-pub-key"
+			userData := fmt.Sprintf(
+				"#cloud-config\npassword: %s\nchpasswd: { expire: False }\n",
+				fedoraPassword,
+			)
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), userData)
+			vmi.Spec.AccessCredentials = []v1.AccessCredential{
+				{
+					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+						Source: v1.SSHPublicKeyAccessCredentialSource{
+							Secret: &v1.AccessCredentialSecretSource{
+								SecretName: secretID,
+							},
+						},
+						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+							ConfigDrive: &v1.ConfigDriveAccessCredentialPropagation{},
+						},
+					},
+				},
+			}
+
+			key1 := "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"
+			key2 := "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key2"
+			key3 := "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key3"
+
+			By("Creating a secret with three ssh keys")
+			secret := kubev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretID,
+					Namespace: vmi.Namespace,
+					Labels: map[string]string{
+						tests.SecretLabel: secretID,
+					},
+				},
+				Type: "Opaque",
+				Data: map[string][]byte{
+					"my-key1": []byte(key1),
+					"my-key2": []byte(key2),
+					"my-key3": []byte(key3),
+				},
+			}
+			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(&secret)
+			Expect(err).To(BeNil())
+
+			LaunchVMI(vmi)
+
+			By("Verifying all three pub ssh keys in secret are in VMI guest")
+			ExecutingBatchCmd(vmi, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "login:"},
+				&expect.BSnd{S: "fedora\n"},
+				&expect.BExp{R: "Password:"},
+				&expect.BSnd{S: fedoraPassword + "\n"},
+				&expect.BExp{R: "\\$"},
+				&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+				&expect.BExp{R: "test-ssh-key1"},
+				&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+				&expect.BExp{R: "test-ssh-key2"},
+				&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+				&expect.BExp{R: "test-ssh-key3"},
+			}, time.Second*180)
+		})
+	})
+})
