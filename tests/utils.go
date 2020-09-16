@@ -3945,54 +3945,6 @@ func HasLiveMigration() bool {
 	return HasFeature("LiveMigration")
 }
 
-func StartTCPServer(vmi *v1.VirtualMachineInstance, port int) {
-	expecter, err := LoggedInCirrosExpecter(vmi)
-	Expect(err).ToNot(HaveOccurred())
-	defer expecter.Close()
-
-	resp, err := ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\n", port)},
-		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0")},
-	}, 60*time.Second)
-	log.DefaultLogger().Infof("%v", resp)
-	Expect(err).ToNot(HaveOccurred())
-}
-
-func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, isFedoraVM bool) {
-	var err error
-	var expecter expect.Expecter
-	var httpServerMaker string
-	var prompt string
-
-	if isFedoraVM {
-		expecter, err = LoggedInFedoraExpecter(vmi)
-		Expect(err).NotTo(HaveOccurred())
-		httpServerMaker = fmt.Sprintf("python3 -m http.server %d --bind ::0 &\n", port)
-		prompt = "\\#"
-	} else {
-		expecter, err = LoggedInCirrosExpecter(vmi)
-		Expect(err).NotTo(HaveOccurred())
-		httpServerMaker = fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"HTTP/1.1 200 OK\\nContent-Length: 11\\n\\nHello World!\"\n", port)
-		prompt = "\\$"
-	}
-	defer expecter.Close()
-
-	resp, err := ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: prompt},
-		&expect.BSnd{S: httpServerMaker},
-		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0")},
-	}, 60*time.Second)
-	log.DefaultLogger().Infof("%v", resp)
-	Expect(err).ToNot(HaveOccurred())
-}
-
 func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()
 	uid := vmi.GetObjectMeta().GetUID()
