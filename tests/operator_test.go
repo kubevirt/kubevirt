@@ -91,9 +91,9 @@ var _ = Describe("Operator", func() {
 		patchKvProductNameAndVersion      func(string, string, string)
 		patchKvVersionAndRegistry         func(string, string, string)
 		patchKvVersion                    func(string, string)
-		patchKvNodePlacement              func(string, string, string, *v1.NodePlacement)
-		patchKvInfra                      func(string, *v1.NodePlacement)
-		patchKvWorkloads                  func(string, *v1.NodePlacement)
+		patchKvNodePlacement              func(string, string, string, *v1.ComponentConfig)
+		patchKvInfra                      func(string, *v1.ComponentConfig)
+		patchKvWorkloads                  func(string, *v1.ComponentConfig)
 		parseDaemonset                    func(string) (*v12.DaemonSet, string, string, string, string)
 		parseImage                        func(string, string) (string, string, string)
 		parseDeployment                   func(string) (*v12.Deployment, string, string, string, string)
@@ -359,11 +359,11 @@ var _ = Describe("Operator", func() {
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		}
 
-		patchKvNodePlacement = func(name string, path string, verb string, nodePlacement *v1.NodePlacement) {
+		patchKvNodePlacement = func(name string, path string, verb string, componentConfig *v1.ComponentConfig) {
 			var data []byte
-			nodePlacementData, _ := json.Marshal(nodePlacement)
+			componentConfigData, _ := json.Marshal(componentConfig)
 
-			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/%s", "value": %s}]`, verb, path, string(nodePlacementData)))
+			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/%s", "value": %s}]`, verb, path, string(componentConfigData)))
 			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
 			Eventually(func() error {
 				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
@@ -373,7 +373,7 @@ var _ = Describe("Operator", func() {
 
 		}
 
-		patchKvInfra = func(name string, infra *v1.NodePlacement) {
+		patchKvInfra = func(name string, infra *v1.ComponentConfig) {
 			kv := copyOriginalKv()
 			verb := "add"
 			if kv.Spec.Infra != nil {
@@ -383,7 +383,7 @@ var _ = Describe("Operator", func() {
 			patchKvNodePlacement(name, "infra", verb, infra)
 		}
 
-		patchKvWorkloads = func(name string, workloads *v1.NodePlacement) {
+		patchKvWorkloads = func(name string, workloads *v1.ComponentConfig) {
 			kv := copyOriginalKv()
 			verb := "add"
 			if kv.Spec.Workloads != nil {
@@ -1619,8 +1619,10 @@ spec:
 			labelKey := "kubevirt-test"
 			labelValue := "test-label"
 			kv := copyOriginalKv()
-			infra := v1.NodePlacement{
-				NodeSelector: map[string]string{labelKey: labelValue},
+			infra := v1.ComponentConfig{
+				NodePlacement: &v1.NodePlacement{
+					NodeSelector: map[string]string{labelKey: labelValue},
+				},
 			}
 			patchKvInfra(kv.Name, &infra)
 
@@ -1642,8 +1644,10 @@ spec:
 			labelKey := "kubevirt-test"
 			labelValue := "test-label"
 			kv := copyOriginalKv()
-			workloads := v1.NodePlacement{
-				NodeSelector: map[string]string{labelKey: labelValue},
+			workloads := v1.ComponentConfig{
+				NodePlacement: &v1.NodePlacement{
+					NodeSelector: map[string]string{labelKey: labelValue},
+				},
 			}
 			patchKvWorkloads(kv.Name, &workloads)
 
