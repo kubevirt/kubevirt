@@ -103,12 +103,6 @@ manifests:
 	  IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} PACKAGE_NAME=${PACKAGE_NAME} \
 	  KUBEVIRT_INSTALLED_NAMESPACE=${KUBEVIRT_INSTALLED_NAMESPACE} ./hack/build-manifests.sh"
 
-.release-functest:
-	make functest > .release-functest 2>&1
-
-release-announce: .release-functest
-	./hack/release-announce.sh $(RELREF) $(PREREF)
-
 cluster-up:
 	./cluster-up/up.sh
 
@@ -170,7 +164,6 @@ bump-kubevirtci:
 	sync \
 	manifests \
 	functest \
-	release-announce \
 	cluster-up \
 	cluster-down \
 	cluster-clean \
