@@ -116,6 +116,7 @@ go_test(
         "config_test.go",
         "console_test.go",
         "container_disk_test.go",
+        "credentials_test.go",
         "datavolume_test.go",
         "expose_test.go",
         "imageupload_test.go",

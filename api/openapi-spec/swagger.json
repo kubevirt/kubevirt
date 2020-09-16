@@ -8008,6 +8008,9 @@
     "properties": {
      "sshPublicKey": {
       "$ref": "#/definitions/v1.SSHPublicKeyAccessCredential"
+     },
+     "userPassword": {
+      "$ref": "#/definitions/v1.UserPasswordAccessCredential"
      }
     }
    },
@@ -9843,6 +9846,44 @@
      "rtc": {
       "description": "RTC (Real Time Clock) - a continuously running timer with periodic interrupts.",
       "$ref": "#/definitions/v1.RTCTimer"
+     }
+    }
+   },
+   "v1.UserPasswordAccessCredential": {
+    "description": "UserPasswordAccessCredential represents a source and propagation method for injecting user passwords into a vm guest Only one of its members may be specified.",
+    "type": "object",
+    "required": [
+     "source",
+     "propagationMethod"
+    ],
+    "properties": {
+     "propagationMethod": {
+      "description": "propagationMethod represents how the user passwords are injected into the vm guest.",
+      "$ref": "#/definitions/v1.UserPasswordAccessCredentialPropagationMethod"
+     },
+     "source": {
+      "description": "Source represents where the user passwords are pulled from",
+      "$ref": "#/definitions/v1.UserPasswordAccessCredentialSource"
+     }
+    }
+   },
+   "v1.UserPasswordAccessCredentialPropagationMethod": {
+    "description": "UserPasswordAccessCredentialPropagationMethod represents the method used to inject a user passwords into the vm guest. Only one of its members may be specified.",
+    "type": "object",
+    "properties": {
+     "qemuGuestAgent": {
+      "description": "QemuGuestAgentAccessCredentailPropagation means passwords are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.",
+      "$ref": "#/definitions/v1.QemuGuestAgentAccessCredentialPropagation"
+     }
+    }
+   },
+   "v1.UserPasswordAccessCredentialSource": {
+    "description": "UserPasswordAccessCredentialSource represents where to retrieve the user password credentials Only one of its members may be specified.",
+    "type": "object",
+    "properties": {
+     "secret": {
+      "description": "Secret means that the access credential is pulled from a kubernetes secret",
+      "$ref": "#/definitions/v1.AccessCredentialSecretSource"
      }
     }
    },
