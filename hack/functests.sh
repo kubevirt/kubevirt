@@ -21,6 +21,7 @@ set -e
 
 DOCKER_TAG=${DOCKER_TAG:-devel}
 DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
+KUBEVIRT_E2E_PARALLEL_NODES=${KUBEVIRT_E2E_PARALLEL_NODES:-3}
 
 source hack/common.sh
 source hack/config.sh
@@ -46,8 +47,6 @@ function functest() {
     _out/tests/ginkgo -r --slowSpecThreshold 60 $@ _out/tests/tests.test -- ${extra_args} -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS}
 }
 
-set -x
-
 if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
     parallel_test_args=""
     serial_test_args=""
@@ -66,7 +65,7 @@ if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
         serial_test_args="${serial_test_args} --focus=\\[Serial\\]"
     fi
 
-    functest --nodes=3 ${parallel_test_args} ${FUNC_TEST_ARGS}
+    functest --nodes=${KUBEVIRT_E2E_PARALLEL_NODES} ${parallel_test_args} ${FUNC_TEST_ARGS}
     functest ${serial_test_args} ${FUNC_TEST_ARGS}
 else
     additional_test_args=""
