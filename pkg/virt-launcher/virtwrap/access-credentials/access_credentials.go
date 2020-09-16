@@ -29,6 +29,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/config"
@@ -70,6 +72,8 @@ type AccessCredentialManager struct {
 	// access credentail propagation lock
 	lock                 sync.Mutex
 	secretWatcherStarted bool
+
+	watcher *fsnotify.Watcher
 }
 
 func NewManager(connection cli.Connection) *AccessCredentialManager {
@@ -258,6 +262,7 @@ func (l *AccessCredentialManager) agentGetFileOwnership(domName string, filePath
 		return "", fmt.Errorf("Unable to detect ownership of access credential at %s", filePath)
 	}
 
+	log.Log.Infof("Detected owner %s for quest path %s", ownerStr, filePath)
 	return ownerStr, nil
 }
 
@@ -327,15 +332,49 @@ func (l *AccessCredentialManager) agentWriteAuthorizedKeys(domName string, fileP
 func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 	logger := log.Log.Object(vmi)
 
+	reload := true
+	fileChangeDetected := true
+
 	domName := util.VMINamespaceKeyFunc(vmi)
+
+	// guest agent will force a resync of changes every 'x' minutes
+	forceResyncTicker := time.NewTicker(5 * time.Minute)
+	defer forceResyncTicker.Stop()
+
+	// guest agent will aggregate all changes to secrets and apply them
+	// every 'x' seconds. This could help prevent making multiple qemu
+	// execution calls in the event multiple secret changes are landing within
+	// a small timeframe.
+	handleChangesTicker := time.NewTicker(15 * time.Second)
+	defer handleChangesTicker.Stop()
+
 	for {
+		select {
+		case <-l.watcher.Events:
+			fileChangeDetected = true
+		case err := <-l.watcher.Errors:
+			logger.Reason(err).Errorf("Error encountered while watching downward api secret")
+		case <-forceResyncTicker.C:
+			reload = true
+			logger.Info("Resyncing access credentials due to recurring resync period")
+		case <-handleChangesTicker.C:
+			if fileChangeDetected {
+				reload = true
+				logger.Info("Reloading access credentials because secret changed")
+			}
+		}
+
+		if !reload {
+			continue
+		}
+
+		fileChangeDetected = false
+		reload = false
+
 		// secret name mapped to authorized_keys in that secret
 		secretMap := make(map[string]string)
 		// filepath mapped to secretNames
 		filePathMap := make(map[string][]string)
-
-		// TODO make this inotify based
-		time.Sleep(10 * time.Second)
 
 		// Step 1. Populate Secrets and filepath Map
 		for _, accessCred := range vmi.Spec.AccessCredentials {
@@ -364,6 +403,8 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 			secretDir := filepath.Join(config.SecretSourceDir, secretName+"-access-cred")
 			files, err := ioutil.ReadDir(secretDir)
 			if err != nil {
+				// if reading failed, reset reload to true so this change will be retried again
+				reload = true
 				logger.Reason(err).Errorf("Error encountered reading secrets file list from base directory %s", secretDir)
 				continue
 			}
@@ -376,6 +417,8 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 
 				pubKeyBytes, err := ioutil.ReadFile(filepath.Join(secretDir, file.Name()))
 				if err != nil {
+					// if reading failed, reset reload to true so this change will be retried again
+					reload = true
 					logger.Reason(err).Errorf("Error encountered reading secret file %s", filepath.Join(secretDir, file.Name()))
 					continue
 				}
@@ -404,6 +447,8 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 
 			err := l.agentWriteAuthorizedKeys(domName, filePath, authorizedKeys)
 			if err != nil {
+				// if writing failed, reset reload to true so this change will be retried again
+				reload = true
 				logger.Reason(err).Errorf("Error encountered writing access credentials using guest agent")
 				continue
 			}
@@ -411,13 +456,13 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 	}
 }
 
-func (l *AccessCredentialManager) HandleQemuAgentAccessCredentials(vmi *v1.VirtualMachineInstance) {
+func (l *AccessCredentialManager) HandleQemuAgentAccessCredentials(vmi *v1.VirtualMachineInstance) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
 	if l.secretWatcherStarted {
 		// already started
-		return
+		return nil
 	}
 
 	found := false
@@ -431,9 +476,37 @@ func (l *AccessCredentialManager) HandleQemuAgentAccessCredentials(vmi *v1.Virtu
 
 	if !found {
 		// not using the agent for ssh pub key propagation
-		return
+		return nil
+	}
+
+	var err error
+	l.watcher, err = fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+
+	for _, accessCred := range vmi.Spec.AccessCredentials {
+		if accessCred.SSHPublicKey == nil || accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent == nil {
+			continue
+		}
+
+		secretName := ""
+		if accessCred.SSHPublicKey.Source.Secret != nil {
+			secretName = accessCred.SSHPublicKey.Source.Secret.SecretName
+		}
+
+		if secretName == "" {
+			continue
+		}
+		secretDir := filepath.Join(config.SecretSourceDir, secretName+"-access-cred")
+		err = l.watcher.Add(secretDir)
+		if err != nil {
+			return err
+		}
 	}
 
 	go l.watchSecrets(vmi)
 	l.secretWatcherStarted = true
+
+	return nil
 }
