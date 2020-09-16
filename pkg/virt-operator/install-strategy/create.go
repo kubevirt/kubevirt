@@ -152,13 +152,14 @@ func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, vers
 }
 
 // Merge all Tolerations, Affinity and NodeSelectos from NodePlacement into pod spec
-func injectPlacementMetadata(nodePlacement *v1.NodePlacement, podSpec *corev1.PodSpec) {
-	if nodePlacement == nil {
+func injectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev1.PodSpec) {
+	if componentConfig == nil || componentConfig.NodePlacement == nil {
 		return
 	}
 	if podSpec == nil {
 		podSpec = &corev1.PodSpec{}
 	}
+	nodePlacement := componentConfig.NodePlacement
 	if len(nodePlacement.NodeSelector) != 0 {
 		if len(podSpec.NodeSelector) == 0 {
 			podSpec.NodeSelector = make(map[string]string)
