@@ -1331,6 +1331,17 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(ok).To(BeTrue(), "No Capacity for KVM devices on node: %s", node.Name)
 			})
 		})
+
+		FIt("with DriverIO set to native should fail", func() {
+			vmi := tests.NewRandomVMI()
+
+			By("adding disks to a VMI with CacheWriteThrough")
+			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheWriteThrough
+			vmi.Spec.Domain.Devices.Disks[0].IO = v1.IONative
+
+			tests.RunVMIAndExpectLaunch(vmi, 60)
+		})
 	})
 
 	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Get a VirtualMachineInstance", func() {
