@@ -1167,10 +1167,10 @@ type KubeVirtSpec struct {
 	Configuration KubeVirtConfiguration `json:"configuration,omitempty"`
 
 	// selectors and tolerations that should apply to KubeVirt infrastructure components
-	Infra *NodePlacement `json:"infra,omitempty"`
+	Infra *ComponentConfig `json:"infra,omitempty"`
 
 	// selectors and tolerations that should apply to KubeVirt workloads
-	Workloads *NodePlacement `json:"workloads,omitempty"`
+	Workloads *ComponentConfig `json:"workloads,omitempty"`
 
 	CustomizeComponents CustomizeComponents `json:"customizeComponents,omitempty"`
 }
