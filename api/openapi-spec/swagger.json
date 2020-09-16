@@ -8238,6 +8238,15 @@
      }
     }
    },
+   "v1.ComponentConfig": {
+    "type": "object",
+    "properties": {
+     "nodePlacement": {
+      "description": "nodePlacement decsribes scheduling confiuguration for specific KubeVirt components",
+      "$ref": "#/definitions/v1.NodePlacement"
+     }
+    }
+   },
    "v1.ConfigMapVolumeSource": {
     "description": "ConfigMapVolumeSource adapts a ConfigMap into a volume. More info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap",
     "type": "object",
@@ -9183,7 +9192,7 @@
      },
      "infra": {
       "description": "selectors and tolerations that should apply to KubeVirt infrastructure components",
-      "$ref": "#/definitions/v1.NodePlacement"
+      "$ref": "#/definitions/v1.ComponentConfig"
      },
      "monitorAccount": {
       "description": "The name of the Prometheus service account that needs read-access to KubeVirt endpoints Defaults to prometheus-k8s",
@@ -9207,7 +9216,7 @@
      },
      "workloads": {
       "description": "selectors and tolerations that should apply to KubeVirt workloads",
-      "$ref": "#/definitions/v1.NodePlacement"
+      "$ref": "#/definitions/v1.ComponentConfig"
      }
     }
    },

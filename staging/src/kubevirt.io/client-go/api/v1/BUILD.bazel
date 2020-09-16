@@ -3,10 +3,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "componentconfig.go",
         "deepcopy_generated.go",
         "defaults.go",
         "doc.go",
-        "nodeplacement.go",
         "openapi_generated.go",
         "register.go",
         "schema.go",

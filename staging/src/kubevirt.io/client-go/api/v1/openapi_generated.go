@@ -299,6 +299,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.ClockOffsetUTC":                                             schema_kubevirtio_client_go_api_v1_ClockOffsetUTC(ref),
 		"kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource":                                 schema_kubevirtio_client_go_api_v1_CloudInitConfigDriveSource(ref),
 		"kubevirt.io/client-go/api/v1.CloudInitNoCloudSource":                                     schema_kubevirtio_client_go_api_v1_CloudInitNoCloudSource(ref),
+		"kubevirt.io/client-go/api/v1.ComponentConfig":                                            schema_kubevirtio_client_go_api_v1_ComponentConfig(ref),
 		"kubevirt.io/client-go/api/v1.ConfigMapVolumeSource":                                      schema_kubevirtio_client_go_api_v1_ConfigMapVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.ContainerDiskSource":                                        schema_kubevirtio_client_go_api_v1_ContainerDiskSource(ref),
 		"kubevirt.io/client-go/api/v1.CustomizeComponents":                                        schema_kubevirtio_client_go_api_v1_CustomizeComponents(ref),
@@ -13878,6 +13879,26 @@ func schema_kubevirtio_client_go_api_v1_CloudInitNoCloudSource(ref common.Refere
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_ComponentConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodePlacement": {
+						SchemaProps: spec.SchemaProps{
+							Description: "nodePlacement decsribes scheduling confiuguration for specific KubeVirt components",
+							Ref:         ref("kubevirt.io/client-go/api/v1.NodePlacement"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.NodePlacement"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_ConfigMapVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -15723,13 +15744,13 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref common.ReferenceCallbac
 					"infra": {
 						SchemaProps: spec.SchemaProps{
 							Description: "selectors and tolerations that should apply to KubeVirt infrastructure components",
-							Ref:         ref("kubevirt.io/client-go/api/v1.NodePlacement"),
+							Ref:         ref("kubevirt.io/client-go/api/v1.ComponentConfig"),
 						},
 					},
 					"workloads": {
 						SchemaProps: spec.SchemaProps{
 							Description: "selectors and tolerations that should apply to KubeVirt workloads",
-							Ref:         ref("kubevirt.io/client-go/api/v1.NodePlacement"),
+							Ref:         ref("kubevirt.io/client-go/api/v1.ComponentConfig"),
 						},
 					},
 					"customizeComponents": {
@@ -15741,7 +15762,7 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.CustomizeComponents", "kubevirt.io/client-go/api/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/client-go/api/v1.KubeVirtConfiguration", "kubevirt.io/client-go/api/v1.NodePlacement"},
+			"kubevirt.io/client-go/api/v1.ComponentConfig", "kubevirt.io/client-go/api/v1.CustomizeComponents", "kubevirt.io/client-go/api/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/client-go/api/v1.KubeVirtConfiguration"},
 	}
 }
 
