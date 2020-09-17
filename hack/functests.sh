@@ -42,12 +42,13 @@ mkdir -p $ARTIFACTS
 function functest() {
     if [[ ${KUBEVIRT_PROVIDER} =~ .*(k8s-1\.16)|(k8s-1\.17)|k8s-sriov.* ]]; then
         echo "Will skip test asserting the cluster is in dual-stack mode."
-        extra_args="-skip-dual-stack-test"
+        extra_args="${extra_args} -skip-dual-stack-test"
     fi
     _out/tests/ginkgo -r --slowSpecThreshold 60 $@ _out/tests/tests.test -- ${extra_args} -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS}
 }
 
 if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
+    trap "_out/tests/junit-merger -o ${ARTIFACTS}/junit.functest.xml '${ARTIFACTS}/partial.*.xml'" EXIT
     parallel_test_args=""
     serial_test_args=""
 
@@ -66,6 +67,7 @@ if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
     fi
 
     functest --nodes=${KUBEVIRT_E2E_PARALLEL_NODES} ${parallel_test_args} ${FUNC_TEST_ARGS}
+    extra_args="-junit-output ${ARTIFACTS}/partial.junit.functest.xml"
     functest ${serial_test_args} ${FUNC_TEST_ARGS}
 else
     additional_test_args=""

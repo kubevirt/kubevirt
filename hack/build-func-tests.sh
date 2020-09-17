@@ -29,3 +29,6 @@ bazel run \
 bazel run \
     --stamp \
     :build-functests -- ${TESTS_OUT_DIR}/tests.test
+bazel run \
+    --stamp \
+    :build-junit-merger -- ${TESTS_OUT_DIR}/junit-merger

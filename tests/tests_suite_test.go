@@ -51,7 +51,7 @@ func TestTests(t *testing.T) {
 	}
 	if config.GinkgoConfig.ParallelTotal > 1 {
 		artifactsPath = path.Join(artifactsPath, strconv.Itoa(config.GinkgoConfig.ParallelNode))
-		junitOutput = path.Join(flags.ArtifactsDir, fmt.Sprintf("junit.functest.%d.xml", config.GinkgoConfig.ParallelNode))
+		junitOutput = path.Join(flags.ArtifactsDir, fmt.Sprintf("partial.junit.functest.%d.xml", config.GinkgoConfig.ParallelNode))
 	}
 	reporters := []Reporter{
 		ginkgo_reporters.NewJUnitReporter(junitOutput),
