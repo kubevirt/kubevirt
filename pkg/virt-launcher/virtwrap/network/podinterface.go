@@ -924,8 +924,19 @@ func (p *MasqueradePodInterface) createNatRulesUsingIptables(protocol iptables.P
 			"-j",
 			"DNAT",
 			"--to-destination", p.getVifIpByProtocol(protocol))
+		if err != nil {
+			return err
+		}
 
-		return err
+		err = Handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_POSTINBOUND",
+			"-j",
+			"SNAT",
+			"--to", p.getGatewayByProtocol(protocol))
+		if err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	for _, port := range p.iface.Ports {
@@ -1028,8 +1039,17 @@ func (p *MasqueradePodInterface) createNatRulesUsingNftables(proto iptables.Prot
 	if len(p.iface.Ports) == 0 {
 		err = Handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
 			"counter", "dnat", "to", p.getVifIpByProtocol(proto))
+		if err != nil {
+			return err
+		}
 
-		return err
+		err = Handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_POSTINBOUND",
+			"counter", "snat", "to", p.getGatewayByProtocol(proto))
+		if err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	for _, port := range p.iface.Ports {
