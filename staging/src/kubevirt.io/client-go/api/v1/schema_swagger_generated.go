@@ -385,7 +385,7 @@ func (HypervTimer) SwaggerDoc() map[string]string {
 func (Features) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "+k8s:openapi-gen=true",
-		"acpi":   "ACPI enables/disables ACPI insidejsondata guest.\nDefaults to enabled.\n+optional",
+		"acpi":   "ACPI enables/disables ACPI inside the guest.\nDefaults to enabled.\n+optional",
 		"apic":   "Defaults to the machine type setting.\n+optional",
 		"hyperv": "Defaults to the machine type setting.\n+optional",
 		"smm":    "SMM enables/disables System Management Mode.\nTSEG not yet implemented.\n+optional",

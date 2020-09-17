@@ -8727,7 +8727,7 @@
     "type": "object",
     "properties": {
      "acpi": {
-      "description": "ACPI enables/disables ACPI insidejsondata guest. Defaults to enabled.",
+      "description": "ACPI enables/disables ACPI inside the guest. Defaults to enabled.",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "apic": {
