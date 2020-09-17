@@ -420,6 +420,94 @@ var _ = Describe("Template", func() {
 				}
 				Expect(volumeMountFound).To(BeTrue(), "could not find ssh key secret volume mount")
 			})
+			It("should add volume with secret referenced by qemu agent access cred", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						AccessCredentials: []v1.AccessCredential{
+							{
+								SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+									Source: v1.SSHPublicKeyAccessCredentialSource{
+										Secret: &v1.AccessCredentialSecretSource{
+											SecretName: "my-pkey",
+										},
+									},
+									PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+										QemuGuestAgent: &v1.QemuGuestAgentAccessCredentialPropagation{},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				volumeFound := false
+				for _, volume := range pod.Spec.Volumes {
+					if volume.Name == "my-pkey-access-cred" {
+						volumeFound = true
+					}
+				}
+				Expect(volumeFound).To(BeTrue(), "could not find ssh key secret volume")
+
+				volumeMountFound := false
+				for _, volumeMount := range pod.Spec.Containers[0].VolumeMounts {
+					if volumeMount.Name == "my-pkey-access-cred" {
+						volumeMountFound = true
+					}
+				}
+				Expect(volumeMountFound).To(BeTrue(), "could not find ssh key secret volume mount")
+			})
+			It("should add volume with secret referenced by user/password", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						AccessCredentials: []v1.AccessCredential{
+							{
+								UserPassword: &v1.UserPasswordAccessCredential{
+									Source: v1.UserPasswordAccessCredentialSource{
+										Secret: &v1.AccessCredentialSecretSource{
+											SecretName: "my-pkey",
+										},
+									},
+									PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
+										QemuGuestAgent: &v1.QemuGuestAgentAccessCredentialPropagation{},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				volumeFound := false
+				for _, volume := range pod.Spec.Volumes {
+					if volume.Name == "my-pkey-access-cred" {
+						volumeFound = true
+					}
+				}
+				Expect(volumeFound).To(BeTrue(), "could not find ssh key secret volume")
+
+				volumeMountFound := false
+				for _, volumeMount := range pod.Spec.Containers[0].VolumeMounts {
+					if volumeMount.Name == "my-pkey-access-cred" {
+						volumeMountFound = true
+					}
+				}
+				Expect(volumeMountFound).To(BeTrue(), "could not find ssh key secret volume mount")
+			})
 		})
 
 		Context("with cloud-init user secret", func() {
