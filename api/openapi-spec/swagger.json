@@ -8854,12 +8854,6 @@
      "name": {
       "description": "Name of the GPU device as exposed by a device plugin",
       "type": "string"
-     },
-     "progressTimeout": {
-      "type": "string"
-     },
-     "unsafeMigrationOverride": {
-      "type": "string"
      }
     }
    },
@@ -9330,6 +9324,18 @@
     "description": "MigrationConfiguration holds migration options",
     "type": "object",
     "properties": {
+     "allowAutoConverge": {
+      "type": "string"
+     },
+     "bandwidthPerMigration": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     },
+     "completionTimeoutPerGiB": {
+      "type": "string"
+     },
+     "migrationMode": {
+      "type": "string"
+     },
      "nodeDrainTaintKey": {
       "type": "string"
      },
@@ -9337,6 +9343,12 @@
       "type": "string"
      },
      "parallelOutboundMigrationsPerNode": {
+      "type": "string"
+     },
+     "progressTimeout": {
+      "type": "string"
+     },
+     "unsafeMigrationOverride": {
       "type": "string"
      }
     }
@@ -9426,30 +9438,6 @@
      },
      "tickPolicy": {
       "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest. One of \"delay\", \"catchup\", \"discard\".",
-      "type": "string"
-     }
-    }
-   },
-   "v1.PerVMIMigrationConfiguration": {
-    "description": "PerVMIMigrationConfiguration holds migration options that can be configurated per vmi",
-    "type": "object",
-    "properties": {
-     "allowAutoConverge": {
-      "type": "string"
-     },
-     "bandwidthPerMigration": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
-     },
-     "completionTimeoutPerGiB": {
-      "type": "string"
-     },
-     "migrationMode": {
-      "type": "string"
-     },
-     "progressTimeout": {
-      "type": "string"
-     },
-     "unsafeMigrationOverride": {
       "type": "string"
      }
     }
