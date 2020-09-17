@@ -62,6 +62,7 @@ RUN set -x && \
     go get -v github.com/golang/protobuf/protoc-gen-go@1643683 && \
     go get -v k8s.io/code-generator/cmd/client-gen@v0.16.4 && \
     go get -v sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0 && \
+    go get -v github.com/securego/gosec/v2/cmd/gosec@0ce48a5 && \
     go clean -cache -modcache
 
 RUN set -x && \

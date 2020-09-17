@@ -53,6 +53,9 @@ client-python:
 go-build:
 	hack/dockerized "KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT}" && ./hack/build-copy-artifacts.sh ${WHAT}
 
+gosec:
+	hack/dockerized "./hack/gosec.sh"
+
 coverage:
 	hack/dockerized "./hack/coverage.sh ${WHAT}"
 
