@@ -155,6 +155,64 @@ var _ = Describe("Guest Access Credentials", func() {
 				&expect.BExp{R: "test-ssh-key3"},
 			}, time.Second*180)
 		})
+
+		It("should propagate user password", func() {
+			secretID := "my-user-pass"
+			vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+
+			vmi.Spec.AccessCredentials = []v1.AccessCredential{
+				{
+					UserPassword: &v1.UserPasswordAccessCredential{
+						Source: v1.UserPasswordAccessCredentialSource{
+							Secret: &v1.AccessCredentialSecretSource{
+								SecretName: secretID,
+							},
+						},
+						PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
+							QemuGuestAgent: &v1.QemuGuestAgentAccessCredentialPropagation{},
+						},
+					},
+				},
+			}
+
+			customPassword := "imadethisup"
+
+			By("Creating a secret with custom password")
+			secret := kubev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretID,
+					Namespace: vmi.Namespace,
+					Labels: map[string]string{
+						tests.SecretLabel: secretID,
+					},
+				},
+				Type: "Opaque",
+				Data: map[string][]byte{
+					"fedora": []byte(customPassword),
+				},
+			}
+			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(&secret)
+			Expect(err).To(BeNil())
+
+			LaunchVMI(vmi)
+
+			By("Waiting for agent to connect")
+			tests.WaitAgentConnected(virtClient, vmi)
+
+			By("Verifying signin with custom password works")
+
+			// this ensures the passwords have propagated now that agent has connected before we attempt to read
+			time.Sleep(20 * time.Second)
+			ExecutingBatchCmd(vmi, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "login:"},
+				&expect.BSnd{S: "fedora\n"},
+				&expect.BExp{R: "Password:"},
+				&expect.BSnd{S: customPassword + "\n"},
+				&expect.BExp{R: "\\$"},
+			}, time.Second*180)
+		})
 	})
 	Context("with secret and configDrive propagation", func() {
 		It("should have ssh-key under authorized keys", func() {
