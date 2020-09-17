@@ -790,10 +790,13 @@ func newKubeVirtConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *co
 			Labels:    labels,
 			Namespace: namespace,
 		},
-		// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey and
-		// virtconfig.UseEmulationKey are going to be manipulated and only on HCO upgrades
+		// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey,
+		// virtconfig.FeatureGatesKey and virtconfig.UseEmulationKey are going to be manipulated
+		// and only on HCO upgrades.
+		// TODO: This is going to change in the next HCO release where the whole configMap is going
+		// to be continuously reconciled
 		Data: map[string]string{
-			virtconfig.FeatureGatesKey:        "DataVolumes,SRIOV,LiveMigration,CPUManager,CPUNodeDiscovery,Sidecar",
+			virtconfig.FeatureGatesKey:        "DataVolumes,SRIOV,LiveMigration,CPUManager,CPUNodeDiscovery,Sidecar,Snapshot",
 			virtconfig.MigrationsConfigKey:    `{"nodeDrainTaintKey" : "node.kubernetes.io/unschedulable"}`,
 			virtconfig.SELinuxLauncherTypeKey: "virt_launcher.process",
 			virtconfig.NetworkInterfaceKey:    kubevirtDefaultNetworkInterfaceValue,
@@ -850,9 +853,13 @@ func (r *ReconcileHyperConverged) ensureKubeVirtConfig(req *hcoRequest) *EnsureR
 	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
 	if r.upgradeMode {
-		// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey and
-		// virtconfig.UseEmulationKey are going to be manipulated and only on HCO upgrades
+		// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey,
+		// virtconfig.FeatureGatesKey and virtconfig.UseEmulationKey are going to be manipulated
+		// and only on HCO upgrades.
+		// TODO: This is going to change in the next HCO release where the whole configMap is going
+		// to be continuously reconciled
 		for _, k := range []string{
+			virtconfig.FeatureGatesKey,
 			virtconfig.SmbiosConfigKey,
 			virtconfig.MachineTypeKey,
 			virtconfig.SELinuxLauncherTypeKey,
