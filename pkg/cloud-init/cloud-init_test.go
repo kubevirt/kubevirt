@@ -383,7 +383,7 @@ var _ = Describe("CloudInit", func() {
 							"userData":    "secret-userdata",
 							"networkData": "secret-networkdata",
 						})
-						err := ResolveNoCloudSecrets(vmi, tmpDir)
+						err := resolveNoCloudSecrets(vmi, tmpDir)
 						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
 						Expect(testVolume.CloudInitNoCloud.UserData).To(Equal("secret-userdata"))
 						Expect(testVolume.CloudInitNoCloud.NetworkData).To(Equal("secret-networkdata"))

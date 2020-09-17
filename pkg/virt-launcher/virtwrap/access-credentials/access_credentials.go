@@ -83,6 +83,19 @@ func NewManager(connection cli.Connection) *AccessCredentialManager {
 	}
 }
 
+// only set during unit tests
+var unitTestSecretDir string
+
+func getSecretBaseDir() string {
+
+	if unitTestSecretDir != "" {
+		return unitTestSecretDir
+	}
+
+	return config.SecretSourceDir
+
+}
+
 func (l *AccessCredentialManager) writeGuestFile(contents string, domName string, filePath string) error {
 
 	// ensure the directory exists with the correct permissions
@@ -430,7 +443,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 				continue
 			}
 
-			secretDir := filepath.Join(config.SecretSourceDir, secretName+"-access-cred")
+			secretDir := filepath.Join(getSecretBaseDir(), secretName+"-access-cred")
 			files, err := ioutil.ReadDir(secretDir)
 			if err != nil {
 				// if reading failed, reset reload to true so this change will be retried again
@@ -573,7 +586,7 @@ func (l *AccessCredentialManager) HandleQemuAgentAccessCredentials(vmi *v1.Virtu
 		if secretName == "" {
 			continue
 		}
-		secretDir := filepath.Join(config.SecretSourceDir, secretName+"-access-cred")
+		secretDir := filepath.Join(getSecretBaseDir(), secretName+"-access-cred")
 		err = l.watcher.Add(secretDir)
 		if err != nil {
 			return err
