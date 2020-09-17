@@ -14864,7 +14864,7 @@ func schema_kubevirtio_client_go_api_v1_Features(ref common.ReferenceCallback) c
 				Properties: map[string]spec.Schema{
 					"acpi": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ACPI enables/disables ACPI insidejsondata guest. Defaults to enabled.",
+							Description: "ACPI enables/disables ACPI inside the guest. Defaults to enabled.",
 							Ref:         ref("kubevirt.io/client-go/api/v1.FeatureState"),
 						},
 					},
