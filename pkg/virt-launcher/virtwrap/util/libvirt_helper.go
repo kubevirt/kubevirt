@@ -183,6 +183,33 @@ func StartLibvirt(stopChan chan struct{}) {
 	// container.
 
 	go func() {
+		// libvirtd needs access to /dev/null and /dev/urandom
+		// Ensure both are there and ready to be used, panic if they are still not after 1 second
+		devNodes := []string{"/dev/null", "/dev/urandom"}
+		for i := 1; i <= 10; i++ {
+			var err error
+			var fd *os.File
+			for _, node := range devNodes {
+				fd, err = os.Open(node)
+				if err == nil {
+					fd.Close()
+				} else {
+					break
+				}
+			}
+			if err == nil {
+				break
+			} else {
+				log.Log.Reason(err).Warningf("one or more dev nodes were not ready (attempt %d/10)", i)
+				if i < 10 {
+					time.Sleep(100 * time.Millisecond)
+				} else {
+					log.Log.Reason(err).Error("failed to open required /dev nodes")
+					panic(err)
+				}
+			}
+		}
+
 		for {
 			exitChan := make(chan struct{})
 			cmd := exec.Command("/usr/sbin/libvirtd")
