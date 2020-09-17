@@ -109,6 +109,15 @@ type hvFeatureLabel struct {
 	Label   string
 }
 
+type multusInterfaceMap struct {
+	Name         string   `json:"name"`
+	Namespace    string   `json:"namespace"`
+	IfaceName    string   `json:"interface"`
+	DefaultRoute []string `json:"default-route,omitempty"`
+	Mac          string   `json:"mac,omitempty"`
+}
+
+
 // makeHVFeatureLabelTable creates the mapping table between the VMI hyperv state and the label names.
 // The table needs pointers to v1.FeatureHyperv struct, so it has to be generated and can't be a
 // static var
@@ -1259,7 +1268,7 @@ func getIfaceByName(vmi *v1.VirtualMachineInstance, name string) *v1.Interface {
 }
 
 func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[string]string, err error) {
-	ifaceListMap := make([]map[string]string, 0)
+	ifaceListMap := make([]multusInterfaceMap, 0)
 	cniAnnotations = make(map[string]string, 0)
 
 	next_idx := 0
@@ -1270,11 +1279,16 @@ func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[strin
 				continue
 			}
 			namespace, networkName := getNamespaceAndNetworkName(vmi, network.Multus.NetworkName)
-			ifaceMap := map[string]string{
-				"name":      networkName,
-				"namespace": namespace,
-				"interface": fmt.Sprintf("net%d", next_idx+1),
+			ifaceMap := multusInterfaceMap{
+				Name:         networkName,
+				Namespace:    namespace,
+				IfaceName:    fmt.Sprintf("net%d", next_idx+1),
 			}
+			if network.Multus.Gateway != "" {
+				defRoute := []string{network.Multus.Gateway}
+				ifaceMap.DefaultRoute = defRoute
+			}
+
 			iface := getIfaceByName(vmi, network.Name)
 			if iface != nil && iface.MacAddress != "" {
 				// De-facto Standard doesn't define exact string format for
@@ -1282,7 +1296,7 @@ func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[strin
 				// whatever the value our API layer accepted as legit.
 				// Note: while standard allows for 20-byte InfiniBand addresses,
 				// we forbid them in API.
-				ifaceMap["mac"] = iface.MacAddress
+				ifaceMap.Mac = iface.MacAddress
 			}
 			next_idx = next_idx + 1
 			ifaceListMap = append(ifaceListMap, ifaceMap)
