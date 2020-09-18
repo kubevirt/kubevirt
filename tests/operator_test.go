@@ -651,9 +651,7 @@ spec:
 	})
 
 	AfterEach(func() {
-		ignoreDeleteOriginalKV := true
-
-		deleteAllKvAndWait(ignoreDeleteOriginalKV)
+		deleteAllKvAndWait(true)
 
 		kvs := tests.GetKvList(virtClient)
 		if len(kvs) == 0 {

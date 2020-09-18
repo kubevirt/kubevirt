@@ -720,7 +720,6 @@ func CalculateNamespaces() {
 	testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator}
 }
 
-// CHECK THIS
 func SynchronizedBeforeTestSetup() []byte {
 	var err error
 	Config, err = loadConfig()
