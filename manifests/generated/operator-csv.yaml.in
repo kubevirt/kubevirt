@@ -646,6 +646,21 @@ spec:
           - watch
           - deletecollection
         - apiGroups:
+          - snapshot.kubevirt.io
+          resources:
+          - virtualmachinesnapshots
+          - virtualmachinesnapshotcontents
+          - virtualmachinerestores
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
           - subresources.kubevirt.io
           resources:
           - virtualmachineinstances/console
@@ -679,6 +694,20 @@ spec:
           - list
           - watch
         - apiGroups:
+          - snapshot.kubevirt.io
+          resources:
+          - virtualmachinesnapshots
+          - virtualmachinesnapshotcontents
+          - virtualmachinerestores
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+        - apiGroups:
           - kubevirt.io
           resources:
           - virtualmachines
@@ -686,6 +715,16 @@ spec:
           - virtualmachineinstancepresets
           - virtualmachineinstancereplicasets
           - virtualmachineinstancemigrations
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - snapshot.kubevirt.io
+          resources:
+          - virtualmachinesnapshots
+          - virtualmachinesnapshotcontents
+          - virtualmachinerestores
           verbs:
           - get
           - list

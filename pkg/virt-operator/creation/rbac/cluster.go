@@ -158,6 +158,19 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
 				},
 			},
+			{
+				APIGroups: []string{
+					"snapshot.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachinesnapshots",
+					"virtualmachinesnapshotcontents",
+					"virtualmachinerestores",
+				},
+				Verbs: []string{
+					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
+				},
+			},
 		},
 	}
 }
@@ -218,6 +231,19 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					"get", "delete", "create", "update", "patch", "list", "watch",
 				},
 			},
+			{
+				APIGroups: []string{
+					"snapshot.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachinesnapshots",
+					"virtualmachinesnapshotcontents",
+					"virtualmachinerestores",
+				},
+				Verbs: []string{
+					"get", "delete", "create", "update", "patch", "list", "watch",
+				},
+			},
 		},
 	}
 }
@@ -246,6 +272,19 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstancepresets",
 					"virtualmachineinstancereplicasets",
 					"virtualmachineinstancemigrations",
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"snapshot.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachinesnapshots",
+					"virtualmachinesnapshotcontents",
+					"virtualmachinerestores",
 				},
 				Verbs: []string{
 					"get", "list", "watch",

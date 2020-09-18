@@ -134,6 +134,9 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			table.Entry("[test_id:528]given a vmi preset", "virtualmachineinstancepresets"),
 			table.Entry("[test_id:529][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
 			table.Entry("[test_id:3230]given a vmi migration", "virtualmachineinstancemigrations"),
+			table.Entry("given a vmsnapshot", "virtualmachinesnapshots"),
+			table.Entry("given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
+			table.Entry("given a vmsrestore", "virtualmachinerestores"),
 		)
 
 		var authClient *authClientV1.AuthorizationV1Client
@@ -285,6 +288,9 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				table.Entry("[test_id:2917]given a vmi preset", "virtualmachineinstancepresets"),
 				table.Entry("[test_id:2919]given a vmi replica set", "virtualmachineinstancereplicasets"),
 				table.Entry("[test_id:3235]given a vmi migration", "virtualmachineinstancemigrations"),
+				table.Entry("given a vmsnapshot", "virtualmachinesnapshots"),
+				table.Entry("given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
+				table.Entry("given a vmsrestore", "virtualmachinerestores"),
 			)
 		})
 
@@ -316,6 +322,9 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				table.Entry("[test_id:2916]given a vmi preset", "virtualmachineinstancepresets"),
 				table.Entry("[test_id:2918][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
 				table.Entry("[test_id:2837]given a vmi migration", "virtualmachineinstancemigrations"),
+				table.Entry("given a vmsnapshot", "virtualmachinesnapshots"),
+				table.Entry("given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
+				table.Entry("given a vmsrestore", "virtualmachinerestores"),
 			)
 		})
 	})
