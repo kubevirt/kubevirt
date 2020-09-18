@@ -4821,6 +4821,9 @@ func SkipTestIfNoCPUManager() {
 		}
 	}
 	Skip("no node with CPUManager detected")
+	if !HasFeature(virtconfig.CPUManager) {
+		Skip("the CPUManager feature gate is not enabled.")
+	}
 }
 
 func SkipPVCTestIfRunnigOnKindInfra() {

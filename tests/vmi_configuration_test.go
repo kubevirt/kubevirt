@@ -1920,26 +1920,15 @@ var _ = Describe("Configurations", func() {
 
 			nodeObject, err := virtClient.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			nodeHaveCpuManagerLabel := false
-			nodeLabels := nodeObject.GetLabels()
-
-			for label, val := range nodeLabels {
-				if label == v1.CPUManager && val == "true" {
-					nodeHaveCpuManagerLabel = true
-					break
-				}
-			}
-			return nodeHaveCpuManagerLabel
+			return tests.IsCPUManagerPresent(nodeObject)
 		}
 
 		BeforeEach(func() {
+			tests.SkipTestIfNoCPUManager()
 			nodes, err = virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
 			tests.PanicOnError(err)
 			if len(nodes.Items) == 1 {
 				Skip("Skip cpu pinning test that requires multiple nodes when only one node is present.")
-			}
-			if !tests.HasFeature(virtconfig.CPUManager) {
-				Skip("Skip tests requiring CPUManager if feature gate is not enabled.")
 			}
 		})
 
@@ -2299,7 +2288,6 @@ var _ = Describe("Configurations", func() {
 			var node string
 
 			BeforeEach(func() {
-
 				nodes := tests.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
 				node = nodes.Items[1].Name
