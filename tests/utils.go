@@ -3135,8 +3135,7 @@ func SkipIfUseFlannel(virtClient kubecli.KubevirtClient) {
 func GetHighestCPUNumberAmongNodes(virtClient kubecli.KubevirtClient) int {
 	var cpus int64
 
-	nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	nodes := GetAllSchedulableNodes(virtClient)
 
 	for _, node := range nodes.Items {
 		if v, ok := node.Status.Capacity[k8sv1.ResourceCPU]; ok && v.Value() > cpus {
@@ -4791,6 +4790,37 @@ func getClusterDnsServiceIP(virtClient kubecli.KubevirtClient) (string, error) {
 func IsRunningOnKindInfra() bool {
 	provider := os.Getenv("KUBEVIRT_PROVIDER")
 	return strings.HasPrefix(provider, "kind")
+}
+
+func IsRunningOnKindInfraIPv6() bool {
+	provider := os.Getenv("KUBEVIRT_PROVIDER")
+	return strings.HasPrefix(provider, "kind-k8s-1.17.0-ipv6")
+}
+
+func IsCPUManagerPresent(node *k8sv1.Node) bool {
+	Expect(node).ToNot(BeNil())
+	nodeHaveCpuManagerLabel := false
+
+	for label, val := range node.Labels {
+		if label == v1.CPUManager && val == "true" {
+			nodeHaveCpuManagerLabel = true
+			break
+		}
+	}
+	return nodeHaveCpuManagerLabel
+}
+
+func SkipTestIfNoCPUManager() {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	nodes := GetAllSchedulableNodes(virtClient)
+
+	for _, node := range nodes.Items {
+		if IsCPUManagerPresent(&node) {
+			return
+		}
+	}
+	Skip("no node with CPUManager detected")
 }
 
 func SkipPVCTestIfRunnigOnKindInfra() {
