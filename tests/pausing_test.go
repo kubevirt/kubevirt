@@ -366,7 +366,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		grepSleepPid := func(expecter expect.Expecter) string {
 			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
-				&expect.BSnd{S: `pgrep -f "sleep 5"` + "\n"},
+				&expect.BSnd{S: `pgrep -f "sleep 8"` + "\n"},
 				&expect.BExp{R: tests.RetValue("[0-9]+")}, // pid
 			}, 15*time.Second)
 			log.DefaultLogger().Infof("a:%+v\n", res)
@@ -378,8 +378,10 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		startProcess := func(expecter expect.Expecter) string {
 			By("Start a long running process")
 			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
-				&expect.BSnd{S: "sleep 5&\n"},
-				&expect.BExp{R: "\\# "}, // prompt
+				&expect.BSnd{S: "sleep 8&\n"},
+				&expect.BExp{R: "\\# "},     // prompt
+				&expect.BSnd{S: "disown\n"}, // avoid "garbage" print in terminal on completion
+				&expect.BExp{R: "\\# "},     // prompt
 			}, 15*time.Second)
 			log.DefaultLogger().Infof("a:%+v\n", res)
 			Expect(err).ToNot(HaveOccurred())
@@ -413,7 +415,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
 
 			By("Waiting longer than the process normally runs")
-			time.Sleep(7 * time.Second)
+			time.Sleep(10 * time.Second)
 
 			By("Unpausing the VMI")
 			command = tests.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", tests.NamespaceTestDefault, vmi.Name)
