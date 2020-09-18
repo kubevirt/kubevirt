@@ -250,17 +250,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Checking the writable Image Octal mode")
 				Expect(strings.Trim(writableImageOctalMode, "\n")).To(Equal("640"), "Octal Mode of writable Image should be 640")
-
-				readonlyImageOctalMode, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					pod,
-					"compute",
-					[]string{"/usr/bin/bash", "-c", "stat -c %a /var/run/kubevirt/container-disks/disk_0.img"},
-				)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Checking the read-only Image Octal mode")
-				Expect(strings.Trim(readonlyImageOctalMode, "\n")).To(Equal("444"), "Octal Mode of read-only Image should be 444")
 			})
 		})
 	})

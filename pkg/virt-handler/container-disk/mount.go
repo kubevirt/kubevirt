@@ -245,10 +245,6 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 				}
 				f.Close()
 
-				if err = os.Chmod(sourceFile, 0444); err != nil {
-					return fmt.Errorf("failed to change permisions on %s", sourceFile)
-				}
-
 				log.DefaultLogger().Object(vmi).Infof("Bind mounting container disk at %s to %s", strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile)
 				out, err := exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "mount", "-o", "ro,bind", strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile).CombinedOutput()
 				if err != nil {
