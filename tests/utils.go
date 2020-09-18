@@ -123,6 +123,7 @@ const (
 	DmidecodeHttpUrl
 	DummyFileHttpUrl
 	CirrosHttpUrl
+	VirtWhatCpuidHelperHttpUrl
 )
 
 const (
@@ -2112,6 +2113,17 @@ func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
 	    chmod +x /usr/local/bin/dmidecode
 	`, GetUrl(DmidecodeHttpUrl))
 	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), dmidecodeUserData)
+	return vmi
+}
+
+func NewRandomFedoraVMIWithVirtWhatCpuidHelper() *v1.VirtualMachineInstance {
+	userData := fmt.Sprintf(`#!/bin/bash
+	    echo "fedora" |passwd fedora --stdin
+	    mkdir -p /usr/local/bin
+	    curl %s > /usr/local/bin/virt-what-cpuid-helper
+	    chmod +x /usr/local/bin/virt-what-cpuid-helper
+	`, GetUrl(VirtWhatCpuidHelperHttpUrl))
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), userData)
 	return vmi
 }
 
@@ -4298,6 +4310,8 @@ func GetUrl(urlIndex int) string {
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/dummy.file", flags.KubeVirtInstallNamespace)
 	case CirrosHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/images/cirros.img", flags.KubeVirtInstallNamespace)
+	case VirtWhatCpuidHelperHttpUrl:
+		str = fmt.Sprintf("http://cdi-http-import-server.%s/virt-what-cpuid-helper", flags.KubeVirtInstallNamespace)
 	default:
 		str = ""
 	}

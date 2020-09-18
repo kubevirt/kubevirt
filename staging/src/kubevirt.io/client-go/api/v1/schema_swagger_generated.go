@@ -389,6 +389,7 @@ func (Features) SwaggerDoc() map[string]string {
 		"apic":   "Defaults to the machine type setting.\n+optional",
 		"hyperv": "Defaults to the machine type setting.\n+optional",
 		"smm":    "SMM enables/disables System Management Mode.\nTSEG not yet implemented.\n+optional",
+		"kvm":    "Configure how KVM presence is exposed to the guest.\n+optional",
 	}
 }
 
@@ -440,6 +441,13 @@ func (FeatureHyperv) SwaggerDoc() map[string]string {
 		"tlbflush":        "TLBFlush improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.\n+optional",
 		"ipi":             "IPI improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.\n+optional",
 		"evmcs":           "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.\nDefaults to the machine type setting.\n+optional",
+	}
+}
+
+func (FeatureKVM) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "+k8s:openapi-gen=true",
+		"hidden": "Hide the KVM hypervisor from standard MSR based discovery.\nDefaults to false",
 	}
 }
 

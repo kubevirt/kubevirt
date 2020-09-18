@@ -251,6 +251,7 @@ type Features struct {
 	APIC   *FeatureEnabled `xml:"apic,omitempty"`
 	Hyperv *FeatureHyperv  `xml:"hyperv,omitempty"`
 	SMM    *FeatureEnabled `xml:"smm,omitempty"`
+	KVM    *FeatureKVM     `xml:"kvm,omitempty"`
 }
 
 type FeatureHyperv struct {
@@ -285,6 +286,10 @@ type FeatureEnabled struct {
 
 type FeatureState struct {
 	State string `xml:"state,attr,omitempty"`
+}
+
+type FeatureKVM struct {
+	Hidden *FeatureState `xml:"hidden,omitempty"`
 }
 
 type Metadata struct {

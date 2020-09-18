@@ -554,6 +554,13 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *Features
 			return nil
 		}
 	}
+	if source.KVM != nil {
+		features.KVM = &FeatureKVM{
+			Hidden: &FeatureState{
+				State: boolToOnOff(&source.KVM.Hidden, false),
+			},
+		}
+	}
 	return nil
 }
 
