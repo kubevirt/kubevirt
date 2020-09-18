@@ -9,11 +9,11 @@ import (
 	v12 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/util/cluster"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -171,5 +171,14 @@ func SkipMigrationFailTestIfRunningOnKindInfraIPv6() {
 func SkipDmidecodeTestIfRunningOnKindInfraIPv6() {
 	if IsRunningOnKindInfraIPv6() {
 		ginkgo.Skip("Skip dmidecode tests till issue https://github.com/kubevirt/kubevirt/issues/3901 is fixed")
+	}
+}
+
+func SkipIfNotDualStack() {
+	virtClient, err := kubecli.GetKubevirtClient()
+	util.PanicOnError(err)
+	dualStack, err := libnet.IsClusterDualStack(virtClient)
+	if !dualStack {
+		ginkgo.Skip("Skip tests which require a dual stack network config")
 	}
 }

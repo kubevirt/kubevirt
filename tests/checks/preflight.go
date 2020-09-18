@@ -71,10 +71,6 @@ func IntrospectCluster() {
 	isKind := IsRunningOnKindInfra() || IsRunningOnKindInfraIPv6()
 	DiscoveredClusterProfile.IsKind = &isKind
 
-	encoder := json.NewEncoder(os.Stdout)
-	encoder.SetIndent("", "  ")
-	err = encoder.Encode(&DiscoveredClusterProfile)
-	util.PanicOnError(err)
 }
 
 type DiscoveryError struct {
@@ -86,18 +82,27 @@ func (d *DiscoveryError) Error() string {
 }
 
 func VerifyClusterExpectations() error {
+	expected := &ClusterProfile{}
+
+	// XXX this flags needs to go
+	// it makes dual stack the default assumption if no profile file is provided
 	if len(flags.ClusterProfilePath) == 0 {
-		return nil
+		deprecatedIsDualStack := !flags.SkipDualStackTests
+		expected.DualNetworkStack = &deprecatedIsDualStack
 	}
 
-	expected := &ClusterProfile{}
-	reader, err := os.Open(flags.ClusterProfilePath)
-	if err != nil {
-		log.DefaultLogger().Reason(err).Critical("Could not find the provided cluster profile file.")
+	if len(flags.ClusterProfilePath) > 0 {
+		reader, err := os.Open(flags.ClusterProfilePath)
+		if err != nil {
+			log.DefaultLogger().Reason(err).Critical("Could not find the provided cluster profile file.")
+		}
+		if err := yaml.NewYAMLOrJSONDecoder(reader, 1024).Decode(expected); err != nil {
+			log.DefaultLogger().Reason(err).Critical("Could not decode the provided cluster profile file.")
+		}
 	}
-	if err := yaml.NewYAMLOrJSONDecoder(reader, 1024).Decode(expected); err != nil {
-		log.DefaultLogger().Reason(err).Critical("Could not decode the provided cluster profile file.")
-	}
+
+	printProfile("Discovered cluster:", &DiscoveredClusterProfile)
+	printProfile("Expected cluster:", expected)
 
 	errors := &DiscoveryError{}
 	if expected.OpenShiftMajorVersion != nil {
@@ -135,4 +140,12 @@ func VerifyClusterExpectations() error {
 		return errors
 	}
 	return nil
+}
+
+func printProfile(title string, profile *ClusterProfile) {
+	fmt.Println(title)
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	err := encoder.Encode(profile)
+	util.PanicOnError(err)
 }

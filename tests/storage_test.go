@@ -143,7 +143,7 @@ var _ = Describe("[Serial]Storage", func() {
 				table.DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily) {
 					checks.SkipPVCTestIfRunnigOnKindInfra()
 					if family == k8sv1.IPv6Protocol {
-						libnet.SkipWhenNotDualStackCluster(virtClient)
+						checks.SkipIfNotDualStack()
 					}
 
 					var ignoreWarnings bool
@@ -385,7 +385,7 @@ var _ = Describe("[Serial]Storage", func() {
 				table.DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily) {
 					checks.SkipPVCTestIfRunnigOnKindInfra()
 					if family == k8sv1.IPv6Protocol {
-						libnet.SkipWhenNotDualStackCluster(virtClient)
+						checks.SkipIfNotDualStack()
 					}
 					var ignoreWarnings bool
 					// Start the VirtualMachineInstance with the PVC attached

@@ -16,6 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/net"
 
+	"kubevirt.io/kubevirt/tests/checks"
+
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -110,7 +112,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a Cluster IP service on a VMI and connect to it", func(ipFamily k8sv1.IPFamily) {
 				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
+					checks.SkipIfNotDualStack()
 					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
 				}
 
@@ -153,7 +155,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			table.DescribeTable("Should expose a ClusterIP service and connect to the vm on port 80", func(ipFamily k8sv1.IPFamily) {
 				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
+					checks.SkipIfNotDualStack()
 					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
 				}
 
@@ -199,7 +201,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			table.DescribeTable("Should expose a ClusterIP service and connect to all ports defined on the vmi", func(ipFamily k8sv1.IPFamily) {
 				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
+					checks.SkipIfNotDualStack()
 					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
 				}
 
@@ -249,7 +251,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func(ipFamily k8sv1.IPFamily) {
 				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
+					checks.SkipIfNotDualStack()
 					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
 				}
 
@@ -323,7 +325,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a ClusterIP service on a VMI and connect to it", func(ipFamily k8sv1.IPFamily) {
 				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
+					checks.SkipIfNotDualStack()
 					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
 				}
 
@@ -367,7 +369,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func(ipFamily k8sv1.IPFamily) {
 				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
+					checks.SkipIfNotDualStack()
 					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
 				}
 
@@ -474,7 +476,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			table.DescribeTable("[label:masquerade_binding_connectivity]Should create a ClusterIP service on VMRS and connect to it", func(ipFamily k8sv1.IPFamily) {
 				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
+					checks.SkipIfNotDualStack()
 					vmirsExposeArgs = append(vmirsExposeArgs, "--ip-family", "ipv6")
 				}
 
@@ -572,7 +574,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			table.DescribeTable("[label:masquerade_binding_connectivity]Connect to ClusterIP service that was set when VM was offline.", func(ipFamily k8sv1.IPFamily) {
 				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
+					checks.SkipIfNotDualStack()
 					vmExposeArgs = append(vmExposeArgs, "--ip-family", "ipv6")
 				}
 
@@ -608,7 +610,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			table.DescribeTable("[label:masquerade_binding_connectivity]Should verify the exposed service is functional before and after VM restart.", func(ipFamily k8sv1.IPFamily) {
 				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
+					checks.SkipIfNotDualStack()
 				}
 
 				vmObj := vm
@@ -673,7 +675,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			table.DescribeTable("[label:masquerade_binding_connectivity]Should Verify an exposed service of a VM is not functional after VM deletion.", func(ipFamily k8sv1.IPFamily) {
 				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
+					checks.SkipIfNotDualStack()
 					vmExposeArgs = append(vmExposeArgs, "--ip-family", "ipv6")
 				}
 

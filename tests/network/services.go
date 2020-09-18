@@ -28,6 +28,8 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/checks"
+
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -265,7 +267,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 				serviceName := "myservice"
 				By("setting up resources to expose the VMI via a service", func() {
 					if ipFamily == k8sv1.IPv6Protocol {
-						libnet.SkipWhenNotDualStackCluster(virtClient)
+						checks.SkipIfNotDualStack()
 
 						serviceName = serviceName + "v6"
 						service = buildIPv6ServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)

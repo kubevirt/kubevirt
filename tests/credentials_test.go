@@ -25,6 +25,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	"kubevirt.io/kubevirt/tests/util"
 
 	expect "github.com/google/goexpect"

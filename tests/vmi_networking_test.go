@@ -744,7 +744,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			)
 
 			table.DescribeTable("IPv6", func(ports []v1.Port) {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
+				checks.SkipIfNotDualStack()
 
 				var clientVMI *v1.VirtualMachineInstance
 
@@ -848,7 +848,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 			table.DescribeTable("[Conformance] preserves connectivity", func(ipFamily k8sv1.IPFamily) {
 				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
+					checks.SkipIfNotDualStack()
 				}
 
 				var err error
@@ -972,7 +972,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 			table.DescribeTable("should have the correct MTU", func(ipFamily k8sv1.IPFamily) {
 				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
+					checks.SkipIfNotDualStack()
 				}
 
 				By("checking k6t-eth0 MTU inside the pod")

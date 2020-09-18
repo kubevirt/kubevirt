@@ -10,13 +10,15 @@ import (
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"kubevirt.io/kubevirt/tests/checks"
+	"kubevirt.io/kubevirt/tests/libnet"
+
 	"kubevirt.io/kubevirt/tests/util"
 
 	v12 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 var _ = Describe("[ref_id:1182]Probes", func() {
@@ -68,7 +70,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 		table.DescribeTable("should succeed", func(readinessProbe *v12.Probe, IPFamily v1.IPFamily) {
 
 			if IPFamily == v1.IPv6Protocol {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
+				checks.SkipIfNotDualStack()
 				By("Create a support pod which will reply to kubelet's probes ...")
 				probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(readinessProbe)
 				defer func() {
@@ -133,7 +135,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 		table.DescribeTable("should not fail the VMI", func(livenessProbe *v12.Probe, IPFamily v1.IPFamily) {
 
 			if IPFamily == v1.IPv6Protocol {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
+				checks.SkipIfNotDualStack()
 
 				By("Create a support pod which will reply to kubelet's probes ...")
 				probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(livenessProbe)

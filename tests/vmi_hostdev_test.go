@@ -6,6 +6,7 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/client-go/api/v1"
