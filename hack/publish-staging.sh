@@ -51,7 +51,7 @@ if [ -n "$(git status --porcelain)" ]; then
 
     # we only push branch changes on master
     if [ "${TARGET_BRANCH}" == "master" ]; then
-        git push origin ${TARGET_BRANCH}
+        git push origin ${TARGET_BRANCH}-local:${TARGET_BRANCH}
         echo "client-go updated for ${TARGET_BRANCH}."
     fi
 else
