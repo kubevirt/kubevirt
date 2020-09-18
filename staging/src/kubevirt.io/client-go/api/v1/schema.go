@@ -1122,4 +1122,9 @@ type MultusNetwork struct {
 	// Select the default network and add it to the
 	// multus-cni.io/default-network annotation.
 	Default bool `json:"default,omitempty"`
+
+	// Specify the gateway for this multus network.
+	// This will compute the default route for this interface and add it to the
+	// k8s.v1.cni.cncf.io/networks annotation
+	Gateway string `json:"gateway,omitempty"`
 }

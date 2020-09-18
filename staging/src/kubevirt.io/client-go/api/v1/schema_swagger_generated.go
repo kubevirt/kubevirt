@@ -566,5 +566,6 @@ func (MultusNetwork) SwaggerDoc() map[string]string {
 		"":            "Represents the multus cni network.\n\n+k8s:openapi-gen=true",
 		"networkName": "References to a NetworkAttachmentDefinition CRD object. Format:\n<networkName>, <namespace>/<networkName>. If namespace is not\nspecified, VMI namespace is assumed.",
 		"default":     "Select the default network and add it to the\nmultus-cni.io/default-network annotation.",
+		"gateway":     "Specify the gateway for this multus network.\nThis will compute the default route for this interface and add it to the\nk8s.v1.cni.cncf.io/networks annotation",
 	}
 }

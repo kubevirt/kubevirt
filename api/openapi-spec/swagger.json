@@ -9290,6 +9290,10 @@
       "description": "Select the default network and add it to the multus-cni.io/default-network annotation.",
       "type": "boolean"
      },
+     "gateway": {
+      "description": "Specify the gateway for this multus network. This will compute the default route for this interface and add it to the k8s.v1.cni.cncf.io/networks annotation",
+      "type": "string"
+     },
      "networkName": {
       "description": "References to a NetworkAttachmentDefinition CRD object. Format: \u003cnetworkName\u003e, \u003cnamespace\u003e/\u003cnetworkName\u003e. If namespace is not specified, VMI namespace is assumed.",
       "type": "string"

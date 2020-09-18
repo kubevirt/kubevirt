@@ -15893,6 +15893,13 @@ func schema_kubevirtio_client_go_api_v1_MultusNetwork(ref common.ReferenceCallba
 							Format:      "",
 						},
 					},
+					"gateway": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specify the gateway for this multus network. This will compute the default route for this interface and add it to the k8s.v1.cni.cncf.io/networks annotation",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"networkName"},
 			},
