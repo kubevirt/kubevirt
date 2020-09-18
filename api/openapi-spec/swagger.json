@@ -9107,7 +9107,7 @@
       "type": "string"
      },
      "cpuRequest": {
-      "type": "string"
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      },
      "developerConfiguration": {
       "$ref": "#/definitions/v1.DeveloperConfiguration"
@@ -9126,7 +9126,7 @@
      },
      "memBalloonStatsPeriod": {
       "type": "integer",
-      "format": "int32"
+      "format": "int64"
      },
      "migrations": {
       "$ref": "#/definitions/v1.MigrationConfiguration"
