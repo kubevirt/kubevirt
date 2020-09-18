@@ -25,6 +25,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"kubevirt.io/kubevirt/tests/util"
 
 	expect "github.com/google/goexpect"
 	kubev1 "k8s.io/api/core/v1"
@@ -49,7 +50,7 @@ var _ = Describe("Guest Access Credentials", func() {
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		LaunchVMI = func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 			By("Starting a VirtualMachineInstance")

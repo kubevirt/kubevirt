@@ -6,6 +6,10 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	"kubevirt.io/kubevirt/tests/util"
+
+	"kubevirt.io/kubevirt/tests/checks"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -21,7 +25,7 @@ var _ = Describe("oc/kubectl integration", func() {
 	BeforeEach(func() {
 
 		k8sClient = tests.GetK8sCmdClient()
-		tests.SkipIfNoCmd(k8sClient)
+		checks.SkipIfNoCmd(k8sClient)
 		tests.BeforeTestCleanup()
 	})
 
@@ -78,7 +82,7 @@ var _ = Describe("oc/kubectl integration", func() {
 
 		BeforeEach(func() {
 			virtCli, err = kubecli.GetKubevirtClient()
-			tests.PanicOnError(err)
+			util.PanicOnError(err)
 
 			vm = tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
 			vm, err = virtCli.VirtualMachine(tests.NamespaceTestDefault).Create(vm)

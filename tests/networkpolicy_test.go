@@ -16,6 +16,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"kubevirt.io/kubevirt/tests/checks"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -36,7 +38,7 @@ var _ = Describe("[Serial][rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][leve
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred(), "should succeed retrieving the kubevirt client")
 
-		tests.SkipIfUseFlannel(virtClient)
+		checks.SkipIfUseFlannel(virtClient)
 		skipNetworkPolicyRunningOnKindInfra()
 
 	})
@@ -240,7 +242,7 @@ var _ = Describe("[Serial][rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][leve
 })
 
 func skipNetworkPolicyRunningOnKindInfra() {
-	if tests.IsRunningOnKindInfra() {
+	if checks.IsRunningOnKindInfra() {
 		Skip("Skip Network Policy tests till issue https://github.com/kubevirt/kubevirt/issues/4081 is fixed")
 	}
 }

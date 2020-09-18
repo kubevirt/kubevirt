@@ -28,6 +28,9 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/checks"
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -42,7 +45,7 @@ var _ = Describe("[Serial]SecurityFeatures", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 	})
@@ -51,10 +54,10 @@ var _ = Describe("[Serial]SecurityFeatures", func() {
 		var kubevirtConfiguration *v1.KubeVirtConfiguration
 
 		tests.BeforeAll(func() {
-			kv := tests.GetCurrentKv(virtClient)
+			kv := util.GetCurrentKv(virtClient)
 			kubevirtConfiguration = &kv.Spec.Configuration
 
-			tests.SkipSELinuxTestIfRunnigOnKindInfra()
+			checks.SkipSELinuxTestIfRunnigOnKindInfra()
 		})
 
 		var container k8sv1.Container

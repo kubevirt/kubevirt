@@ -45,6 +45,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
+	"kubevirt.io/kubevirt/tests/checks"
+	"kubevirt.io/kubevirt/tests/util"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -120,9 +123,9 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
-		originalKubeVirtConfig = tests.GetCurrentKv(virtClient)
+		originalKubeVirtConfig = util.GetCurrentKv(virtClient)
 	})
 
 	defaultKVConfig := func() v1.KubeVirtConfiguration {
@@ -150,7 +153,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			Skip("LiveMigration feature gate is not enabled in kubevirt-config")
 		}
 
-		nodes := tests.GetAllSchedulableNodes(virtClient)
+		nodes := util.GetAllSchedulableNodes(virtClient)
 		Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 		if len(nodes.Items) < 2 {
@@ -168,7 +171,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 	})
 
 	AfterEach(func() {
-		currKubeVirt := tests.GetCurrentKv(virtClient)
+		currKubeVirt := util.GetCurrentKv(virtClient)
 
 		// if revision changed, patch data and reload everything
 		if currKubeVirt.ResourceVersion != originalKubeVirtConfig.ResourceVersion {
@@ -887,7 +890,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			var pvName string
 			var vmi *v1.VirtualMachineInstance
 			BeforeEach(func() {
-				tests.SkipNFSTestIfRunnigOnKindInfra()
+				checks.SkipNFSTestIfRunnigOnKindInfra()
 				pvName = "test-nfs" + rand.String(48)
 				// Prepare a NFS backed PV
 				By("Starting an NFS POD")
@@ -1179,6 +1182,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 
 			It(" Should detect a failed migration", func() {
+				checks.SkipMigrationFailTestIfRunningOnKindInfraIPv6()
+
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
@@ -1196,7 +1201,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				// launch killer pod on every node that isn't the vmi's node
 				By("Starting our migration killer pods")
-				nodes := tests.GetAllSchedulableNodes(virtClient)
+				nodes := util.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				for idx, entry := range nodes.Items {
 					if entry.Name == vmi.Status.NodeName {
@@ -1624,7 +1629,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				})
 
 				It("should migrate a VMI only one time", func() {
-					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
+					checks.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
 					vmi = fedoraVMIWithEvictionStrategy()
 
@@ -1674,7 +1679,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				})
 
 				It("[test_id:2221] should migrate a VMI under load to another node", func() {
-					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
+					checks.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
 					vmi = fedoraVMIWithEvictionStrategy()
 
@@ -1719,7 +1724,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				})
 
 				It("[test_id:2222] should migrate a VMI when custom taint key is configured", func() {
-					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
+					checks.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
 					vmi = cirrosVMIWithEvictionStrategy()
 
@@ -1757,7 +1762,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}, 400)
 
 				It("[test_id:2224] should handle mixture of VMs with different eviction strategies.", func() {
-					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
+					checks.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
 					vmi_evict1 := cirrosVMIWithEvictionStrategy()
 					vmi_evict2 := cirrosVMIWithEvictionStrategy()
@@ -1884,7 +1889,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 
 				By("selecting a node as the source")
-				sourceNode := tests.GetAllSchedulableNodes(virtClient).Items[0]
+				sourceNode := util.GetAllSchedulableNodes(virtClient).Items[0]
 				tests.AddLabelToNode(sourceNode.Name, "tests.kubevirt.io", "target")
 
 				By("starting four VMIs on that node")
@@ -1899,7 +1904,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 
 				By("selecting a node as the target")
-				targetNode := tests.GetAllSchedulableNodes(virtClient).Items[1]
+				targetNode := util.GetAllSchedulableNodes(virtClient).Items[1]
 				tests.AddLabelToNode(targetNode.Name, "tests.kubevirt.io", "target")
 
 				By("tainting the source node as non-schedulabele")

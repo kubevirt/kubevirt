@@ -28,6 +28,8 @@ import (
 	"time"
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/tests/checks"
+	"kubevirt.io/kubevirt/tests/util"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
@@ -63,9 +65,9 @@ var _ = Describe("[Serial]Storage", func() {
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
-		kv := tests.GetCurrentKv(virtClient)
+		kv := util.GetCurrentKv(virtClient)
 		originalKVConfiguration = kv.Spec.Configuration
 	})
 
@@ -77,7 +79,7 @@ var _ = Describe("[Serial]Storage", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		initNFS := func() *k8sv1.Pod {
-			tests.SkipNFSTestIfRunnigOnKindInfra()
+			checks.SkipNFSTestIfRunnigOnKindInfra()
 
 			// Prepare a NFS backed PV
 			By("Starting an NFS POD")
@@ -139,7 +141,7 @@ var _ = Describe("[Serial]Storage", func() {
 				})
 
 				table.DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily) {
-					tests.SkipPVCTestIfRunnigOnKindInfra()
+					checks.SkipPVCTestIfRunnigOnKindInfra()
 					if family == k8sv1.IPv6Protocol {
 						libnet.SkipWhenNotDualStackCluster(virtClient)
 					}
@@ -167,7 +169,7 @@ var _ = Describe("[Serial]Storage", func() {
 			})
 
 			table.DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc) {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
+				checks.SkipPVCTestIfRunnigOnKindInfra()
 
 				vmi = newVMI(tests.DiskAlpineHostPath)
 
@@ -287,7 +289,7 @@ var _ = Describe("[Serial]Storage", func() {
 				tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
 			})
 			It("should be successfully started and viriofs could be accessed", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
+				checks.SkipPVCTestIfRunnigOnKindInfra()
 
 				vmi := tests.NewRandomVMIWithFSFromDataVolume(dataVolume.Name)
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
@@ -339,7 +341,7 @@ var _ = Describe("[Serial]Storage", func() {
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ephemeral alpine PVC", func() {
 			var isRunOnKindInfra bool
 			tests.BeforeAll(func() {
-				isRunOnKindInfra = tests.IsRunningOnKindInfra()
+				isRunOnKindInfra = checks.IsRunningOnKindInfra()
 			})
 
 			Context("should be successfully", func() {
@@ -381,7 +383,7 @@ var _ = Describe("[Serial]Storage", func() {
 
 				// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
 				table.DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily) {
-					tests.SkipPVCTestIfRunnigOnKindInfra()
+					checks.SkipPVCTestIfRunnigOnKindInfra()
 					if family == k8sv1.IPv6Protocol {
 						libnet.SkipWhenNotDualStackCluster(virtClient)
 					}
@@ -408,7 +410,7 @@ var _ = Describe("[Serial]Storage", func() {
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
 			It("[test_id:3137]should not persist data", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
+				checks.SkipPVCTestIfRunnigOnKindInfra()
 
 				vmi = tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
 
@@ -474,7 +476,7 @@ var _ = Describe("[Serial]Storage", func() {
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
 			It("[test_id:3138]should start vmi multiple times", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
+				checks.SkipPVCTestIfRunnigOnKindInfra()
 
 				vmi = tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
 				tests.AddPVCDisk(vmi, "disk1", "virtio", tests.DiskCustomHostPath)
@@ -514,7 +516,7 @@ var _ = Describe("[Serial]Storage", func() {
 
 				BeforeEach(func() {
 					nodeName = ""
-					kv := tests.GetCurrentKv(virtClient)
+					kv := util.GetCurrentKv(virtClient)
 					currentKvConfiguration = kv.Spec.Configuration
 
 					tests.EnableFeatureGate(virtconfig.HostDiskGate)
@@ -834,7 +836,7 @@ var _ = Describe("[Serial]Storage", func() {
 
 			// Not a candidate for NFS because local volumes are used in test
 			It("[test_id:1015] should be successfully started", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
+				checks.SkipPVCTestIfRunnigOnKindInfra()
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi = tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
 				// Without userdata the hostname isn't set correctly and the login expecter fails...

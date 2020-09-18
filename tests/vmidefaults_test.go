@@ -27,6 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -41,7 +43,7 @@ var _ = Describe("[Serial]VMIDefaults", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 	})
 
 	Context("Disk defaults", func() {
@@ -99,7 +101,7 @@ var _ = Describe("[Serial]VMIDefaults", func() {
 			// create VMI with missing disk target
 			vmi = tests.NewRandomVMI()
 
-			kv := tests.GetCurrentKv(virtClient)
+			kv := util.GetCurrentKv(virtClient)
 			kvConfiguration = kv.Spec.Configuration
 		})
 

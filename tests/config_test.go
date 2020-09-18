@@ -26,6 +26,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
 
+	"kubevirt.io/kubevirt/tests/checks"
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 
 	"kubevirt.io/client-go/kubecli"
@@ -44,7 +47,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 		var err error
 
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 	})
@@ -74,7 +77,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			})
 
 			It("[test_id:782]Should be the fs layout the same for a pod and vmi", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
+				checks.SkipPVCTestIfRunnigOnKindInfra()
 
 				expectedOutput := "value1value2value3"
 
@@ -167,7 +170,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			})
 
 			It("[test_id:779]Should be the fs layout the same for a pod and vmi", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
+				checks.SkipPVCTestIfRunnigOnKindInfra()
 
 				expectedOutput := "adminredhat"
 
@@ -241,7 +244,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 		serviceAccountPath := config.ServiceAccountSourceDir
 
 		It("[test_id:998]Should be the namespace and token the same for a pod and vmi", func() {
-			tests.SkipPVCTestIfRunnigOnKindInfra()
+			checks.SkipPVCTestIfRunnigOnKindInfra()
 
 			By("Running VMI")
 			vmi := tests.NewRandomVMIWithServiceAccount("default")
@@ -509,7 +512,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 		expectedOutput := testLabelKey + "=" + "\"" + testLabelVal + "\""
 
 		It("[test_id:790]Should be the namespace and token the same for a pod and vmi", func() {
-			tests.SkipPVCTestIfRunnigOnKindInfra()
+			checks.SkipPVCTestIfRunnigOnKindInfra()
 
 			By("Running VMI")
 			vmi := tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)

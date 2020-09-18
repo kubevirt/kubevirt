@@ -26,6 +26,11 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
+const (
+	DiskWindows = "disk-windows"
+	DiskRhel    = "disk-rhel"
+)
+
 var KubeVirtUtilityVersionTag = ""
 var KubeVirtVersionTag = "latest"
 var KubeVirtVersionTagAlt = ""

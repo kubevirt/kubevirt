@@ -38,6 +38,9 @@ import (
 	netutils "k8s.io/utils/net"
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/tests/checks"
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -66,9 +69,9 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
-		kv := tests.GetCurrentKv(virtClient)
+		kv := util.GetCurrentKv(virtClient)
 		currentConfiguration = kv.Spec.Configuration
 	})
 
@@ -161,7 +164,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			var cmdCheck, addrShow, addr string
 
 			if destination == "InboundVMIWithCustomMacAddress" {
-				tests.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
+				checks.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
 			}
 
 			switch destination {

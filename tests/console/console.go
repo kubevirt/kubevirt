@@ -28,6 +28,8 @@ import (
 
 	. "github.com/onsi/ginkgo"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	expect "github.com/google/goexpect"
 	"google.golang.org/grpc/codes"
 
@@ -85,9 +87,7 @@ func SafeExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, 
 // NOTE: This functions inherits limitations from `ExpectBatchWithValidatedSend`, refer to it for more information.
 func SafeExpectBatchWithResponse(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) ([]expect.BatchRes, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		panic(err)
-	}
+	util.PanicOnError(err)
 	expecter, _, err := NewExpecter(virtClient, vmi, 30*time.Second)
 	if err != nil {
 		return nil, err

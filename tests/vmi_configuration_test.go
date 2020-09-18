@@ -28,6 +28,8 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/util/cluster"
+	"kubevirt.io/kubevirt/tests/checks"
+	"kubevirt.io/kubevirt/tests/util"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
@@ -64,7 +66,7 @@ var _ = Describe("Configurations", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 	})
@@ -224,7 +226,7 @@ var _ = Describe("Configurations", func() {
 					}
 				}
 				if computeContainer == nil {
-					tests.PanicOnError(fmt.Errorf("could not find the compute container"))
+					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(260)))
 
@@ -433,7 +435,7 @@ var _ = Describe("Configurations", func() {
 
 		Context("[Serial][rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]with cluster memory overcommit being applied", func() {
 			BeforeEach(func() {
-				kv := tests.GetCurrentKv(virtClient)
+				kv := util.GetCurrentKv(virtClient)
 
 				config := kv.Spec.Configuration
 				config.DeveloperConfiguration.MemoryOvercommit = 200
@@ -1220,7 +1222,7 @@ var _ = Describe("Configurations", func() {
 
 			Context("[Serial]with cluster config changes", func() {
 				BeforeEach(func() {
-					kv := tests.GetCurrentKv(virtClient)
+					kv := util.GetCurrentKv(virtClient)
 
 					config := kv.Spec.Configuration
 					config.SupportedGuestAgentVersions = []string{"X.*"}
@@ -1599,7 +1601,7 @@ var _ = Describe("Configurations", func() {
 
 	Context("[Serial][rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", func() {
 		BeforeEach(func() {
-			kv := tests.GetCurrentKv(virtClient)
+			kv := util.GetCurrentKv(virtClient)
 
 			config := kv.Spec.Configuration
 			config.EmulatedMachines = []string{"q35*", "pc-q35*", "pc*"}
@@ -1627,7 +1629,7 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("[Serial][test_id:3126]should set machine type from kubevirt-config", func() {
-			kv := tests.GetCurrentKv(virtClient)
+			kv := util.GetCurrentKv(virtClient)
 
 			config := kv.Spec.Configuration
 			config.MachineType = "pc"
@@ -1682,7 +1684,7 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("[Serial][test_id:3129]should set CPU request from kubevirt-config", func() {
-			kv := tests.GetCurrentKv(virtClient)
+			kv := util.GetCurrentKv(virtClient)
 
 			config := kv.Spec.Configuration
 			configureCPURequest := resource.MustParse("800m")
@@ -1708,7 +1710,7 @@ var _ = Describe("Configurations", func() {
 		var originalConfig v1.KubeVirtConfiguration
 
 		BeforeEach(func() {
-			kv := tests.GetCurrentKv(virtClient)
+			kv := util.GetCurrentKv(virtClient)
 			originalConfig = kv.Spec.Configuration
 
 			tests.EnableFeatureGate(virtconfig.HostDiskGate)
@@ -1721,7 +1723,7 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
-			tests.SkipPVCTestIfRunnigOnKindInfra()
+			checks.SkipPVCTestIfRunnigOnKindInfra()
 
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64M")
@@ -1772,7 +1774,7 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("[test_id:5360]should set appropriate IO modes", func() {
-			tests.SkipPVCTestIfRunnigOnKindInfra()
+			checks.SkipPVCTestIfRunnigOnKindInfra()
 
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64M")
@@ -1817,7 +1819,7 @@ var _ = Describe("Configurations", func() {
 			Expect(disks[2].Alias.Name).To(Equal("hostpath-pvc"))
 			// PVC is mounted as tmpfs on kind, which does not support direct I/O.
 			// As such, it behaves as plugging in a hostDisk - check disks[6].
-			if tests.IsRunningOnKindInfra() {
+			if checks.IsRunningOnKindInfra() {
 				// The chache mode is set to cacheWritethrough
 				Expect(disks[2].Driver.IO).To(Equal(ioNone))
 			} else {
@@ -1920,13 +1922,13 @@ var _ = Describe("Configurations", func() {
 
 			nodeObject, err := virtClient.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			return tests.IsCPUManagerPresent(nodeObject)
+			return checks.IsCPUManagerPresent(nodeObject)
 		}
 
 		BeforeEach(func() {
-			tests.SkipTestIfNoCPUManager()
+			checks.SkipTestIfNoCPUManager()
 			nodes, err = virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
-			tests.PanicOnError(err)
+			util.PanicOnError(err)
 			if len(nodes.Items) == 1 {
 				Skip("Skip cpu pinning test that requires multiple nodes when only one node is present.")
 			}
@@ -2002,7 +2004,7 @@ var _ = Describe("Configurations", func() {
 					}
 				}
 				if computeContainer == nil {
-					tests.PanicOnError(fmt.Errorf("could not find the compute container"))
+					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 
 				output, err := tests.ExecuteCommandOnPod(
@@ -2127,7 +2129,7 @@ var _ = Describe("Configurations", func() {
 					}
 				}
 				if computeContainer == nil {
-					tests.PanicOnError(fmt.Errorf("could not find the compute container"))
+					util.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 
 				output, err := tests.ExecuteCommandOnPod(
@@ -2288,7 +2290,7 @@ var _ = Describe("Configurations", func() {
 			var node string
 
 			BeforeEach(func() {
-				nodes := tests.GetAllSchedulableNodes(virtClient)
+				nodes := util.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
 				node = nodes.Items[1].Name
 
@@ -2408,7 +2410,7 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("[test_id:2751]test default SMBios", func() {
-			kv := tests.GetCurrentKv(virtClient)
+			kv := util.GetCurrentKv(virtClient)
 
 			config := kv.Spec.Configuration
 			// Clear SMBios values if already set in kubevirt-config, for testing default values.
@@ -2444,7 +2446,7 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("[test_id:2752]test custom SMBios values", func() {
-			kv := tests.GetCurrentKv(virtClient)
+			kv := util.GetCurrentKv(virtClient)
 			config := kv.Spec.Configuration
 			// Set a custom test SMBios
 			test_smbios := &v1.SMBiosConfiguration{Family: "test", Product: "test", Manufacturer: "None", Sku: "1.0", Version: "1.0"}
@@ -2593,7 +2595,7 @@ var _ = Describe("Configurations", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			if tests.IsRunningOnKindInfra() {
+			if checks.IsRunningOnKindInfra() {
 				Skip("Skip KVM MSR prescence test on kind")
 			}
 

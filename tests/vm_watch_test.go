@@ -9,6 +9,8 @@ import (
 	"time"
 
 	v12 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/tests/checks"
+	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -163,21 +165,21 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 	BeforeEach(func() {
 		virtCli, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
-		tests.SkipIfVersionBelow("Printing format for `kubectl get -w` on custom resources is only relevant for 1.16.2+", relevantk8sVer)
+		checks.SkipIfVersionBelow("Printing format for `kubectl get -w` on custom resources is only relevant for 1.16.2+", relevantk8sVer)
 		tests.BeforeTestCleanup()
 
 		vm = tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 		vm, err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Create(vm)
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		By("Making sure kubectl cache is updated to contain vm/vmi resources")
 		Eventually(func() bool {
 			_, getVM, err := tests.CreateCommandWithNS(tests.NamespaceTestDefault, tests.GetK8sCmdClient(), "get", "vm")
-			tests.PanicOnError(err)
+			util.PanicOnError(err)
 			_, getVMI, err := tests.CreateCommandWithNS(tests.NamespaceTestDefault, tests.GetK8sCmdClient(), "get", "vmi")
-			tests.PanicOnError(err)
+			util.PanicOnError(err)
 
 			return getVM.Run() == nil && getVMI.Run() == nil
 		}, vmCreationTimeout, 1*time.Millisecond).Should(BeTrue())
@@ -185,7 +187,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 	AfterEach(func() {
 		err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Delete(vm.Name, &v1.DeleteOptions{})
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 	})
 
 	It("[test_id:3468]Should update vm status with the proper columns using 'kubectl get vm -w'", func() {

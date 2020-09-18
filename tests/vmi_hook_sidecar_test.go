@@ -25,6 +25,8 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/tests/checks"
+	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -54,7 +56,7 @@ var _ = Describe("HookSidecars", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
@@ -106,7 +108,7 @@ var _ = Describe("HookSidecars", func() {
 
 			It("[test_id:3158]should update domain XML with SM BIOS properties", func() {
 				By("Reading domain XML using virsh")
-				tests.SkipIfNoCmd("kubectl")
+				checks.SkipIfNoCmd("kubectl")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				tests.WaitForSuccessfulVMIStart(vmi)
 				domainXml := getVmDomainXml(virtClient, vmi)

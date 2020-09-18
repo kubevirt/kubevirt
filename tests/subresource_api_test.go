@@ -28,6 +28,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -46,7 +48,7 @@ var _ = Describe("Subresource Api", func() {
 
 	BeforeEach(func() {
 		virtCli, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 	})

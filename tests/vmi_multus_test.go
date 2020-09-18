@@ -38,6 +38,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/tests/checks"
+	"kubevirt.io/kubevirt/tests/util"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
@@ -107,7 +110,7 @@ var _ = Describe("[Serial]Multus", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		// Multus tests need to ensure that old VMIs are gone
 		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
@@ -137,7 +140,7 @@ var _ = Describe("[Serial]Multus", func() {
 	tests.BeforeAll(func() {
 		tests.BeforeTestCleanup()
 
-		nodes = tests.GetAllSchedulableNodes(virtClient)
+		nodes = util.GetAllSchedulableNodes(virtClient)
 		Expect(len(nodes.Items) > 0).To(BeTrue())
 
 		configureNodeNetwork(virtClient)
@@ -185,7 +188,7 @@ var _ = Describe("[Serial]Multus", func() {
 			})
 
 			It("[test_id:1752]should create a virtual machine with one interface with network definition from different namespace", func() {
-				tests.SkipIfOpenShift4("OpenShift 4 does not support usage of the network definition from the different namespace")
+				checks.SkipIfOpenShift4("OpenShift 4 does not support usage of the network definition from the different namespace")
 				By("checking virtual machine instance can ping 10.1.1.1 using ptp cni plugin")
 				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
@@ -608,7 +611,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 		// Check if the hardware supports SRIOV
@@ -746,7 +749,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 		})
 
 		It("[test_id:3959]should create a virtual machine with sriov interface and dedicatedCPUs", func() {
-			tests.SkipTestIfNoCPUManager()
+			checks.SkipTestIfNoCPUManager()
 			// In addition to verifying that we can start a VMI with CPU pinning
 			// this also tests if we've correctly calculated the overhead for VFIO devices.
 			vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
@@ -920,7 +923,7 @@ var _ = Describe("[Serial]Macvtap", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		macvtapLowerDevice = "eth0"
 		macvtapNetworkName = "net1"
@@ -1013,7 +1016,7 @@ var _ = Describe("[Serial]Macvtap", func() {
 		var nodeName string
 
 		BeforeEach(func() {
-			nodeList = tests.GetAllSchedulableNodes(virtClient)
+			nodeList = util.GetAllSchedulableNodes(virtClient)
 			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
 			nodeName = nodeList.Items[0].Name
 			chosenMAC = "de:ad:00:00:be:af"
@@ -1043,14 +1046,14 @@ var _ = Describe("[Serial]Macvtap", func() {
 		var clientVMI *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			nodes := tests.GetAllSchedulableNodes(virtClient)
+			nodes := util.GetAllSchedulableNodes(virtClient)
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 			if len(nodes.Items) < 2 {
 				Skip("Migration tests require at least 2 nodes")
 			}
 
-			if !tests.HasLiveMigration() {
+			if !checks.HasLiveMigration() {
 				Skip("Migration tests require the 'LiveMigration' feature gate")
 			}
 		})
@@ -1312,7 +1315,7 @@ func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 	}
 
 	// Make sure that all pods in the Daemon Set finished the configuration
-	nodes := tests.GetAllSchedulableNodes(virtClient)
+	nodes := util.GetAllSchedulableNodes(virtClient)
 	Eventually(func() int {
 		daemonSet := getNetworkConfigDaemonSet()
 		return int(daemonSet.Status.NumberAvailable)
@@ -1320,7 +1323,7 @@ func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 }
 
 func checkSriovEnabled(virtClient kubecli.KubevirtClient, sriovResourceName string) bool {
-	nodes := tests.GetAllSchedulableNodes(virtClient)
+	nodes := util.GetAllSchedulableNodes(virtClient)
 	Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 	for _, node := range nodes.Items {
