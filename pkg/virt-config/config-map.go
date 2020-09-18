@@ -413,10 +413,6 @@ func setConfigFromKubeVirt(config *v1.KubeVirtConfiguration, kv *v1.KubeVirt) er
 		return err
 	}
 
-	// if copy.NetworkConfiguration != nil {
-	// 	config.NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork = copy.NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork
-	// }
-
 	return nil
 }
 

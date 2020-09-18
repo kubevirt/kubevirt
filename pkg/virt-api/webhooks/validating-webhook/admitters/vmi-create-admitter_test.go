@@ -58,7 +58,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Spec: v1.KubeVirtSpec{
 			Configuration: v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{},
-				// NetworkConfiguration:   &v1.NetworkConfiguration{},
 			},
 		},
 		Status: v1.KubeVirtStatus{
