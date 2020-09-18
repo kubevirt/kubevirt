@@ -51,6 +51,18 @@ func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	return New(NamespaceTestDefault, RandName(DefaultVmiName), opts...)
 }
 
+// NewCirros instantiates a new CirrOS based VMI configuration
+func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	cirrosOpts := []Option{
+		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+		WithCloudInitNoCloudUserData("#!/bin/bash\necho 'hello'\n", true),
+		WithResourceMemory("64M"),
+		WithTerminationGracePeriod(DefaultTestGracePeriod),
+	}
+	cirrosOpts = append(cirrosOpts, opts...)
+	return New(NamespaceTestDefault, RandName(DefaultVmiName), cirrosOpts...)
+}
+
 // defaultOptions returns a list of "default" options.
 func defaultOptions() []Option {
 	return []Option{
