@@ -36,7 +36,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -178,7 +178,7 @@ func main() {
 	// Setup Scheme for all resources
 	for _, f := range []func(*apiruntime.Scheme) error{
 		apis.AddToScheme,
-		cdiv1alpha1.AddToScheme,
+		cdiv1beta1.AddToScheme,
 		networkaddons.AddToScheme,
 		sspopv1.AddToScheme,
 		csvv1alpha1.AddToScheme,

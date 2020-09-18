@@ -126,6 +126,7 @@ github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496/go.mod h1:o
 github.com/auth0/go-jwt-middleware v0.0.0-20170425171159-5493cabe49f7/go.mod h1:LWMyo4iOLWXHGdBki7NIht1kHru/0wM179h+d3g8ATM=
 github.com/aws/aws-sdk-go v0.0.0-20180507225419-00862f899353/go.mod h1:ZRmQr0FajVIyZ4ZzBYKG5P3ZqPz9IHG41ZoMu1ADI3k=
 github.com/aws/aws-sdk-go v1.15.11/go.mod h1:mFuSZ37Z9YOHbQEwBWztmVzqXrEkub65tZoCYDt7FT0=
+github.com/aws/aws-sdk-go v1.15.77/go.mod h1:E3/ieXAlvM0XWO57iftYVDLLvQ824smPP3ATZkfNZeM=
 github.com/aws/aws-sdk-go v1.16.26/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
 github.com/aws/aws-sdk-go v1.17.7/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
 github.com/bazelbuild/bazel-gazelle v0.0.0-20181012220611-c728ce9f663e/go.mod h1:uHBSeeATKpVazAACZBDPL/Nk/UhQDDsJWDlqYJo8/Us=
@@ -1213,6 +1214,7 @@ github.com/vishvananda/netns v0.0.0-20171111001504-be1fbeda1936/go.mod h1:ZjcWmF
 github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc/go.mod h1:ZjcWmFBXmLKZu9Nxj3WKYEafiSqer2rnvPr0en9UNpI=
 github.com/vmware/govmomi v0.20.1/go.mod h1:URlwyTFZX72RmxtxuaFL2Uj3fD1JTvZdx59bHWk6aFU=
 github.com/vmware/govmomi v0.23.0/go.mod h1:Y+Wq4lst78L85Ge/F8+ORXIWiKYqaro1vhAulACy9Lc=
+github.com/vmware/govmomi v0.23.1/go.mod h1:Y+Wq4lst78L85Ge/F8+ORXIWiKYqaro1vhAulACy9Lc=
 github.com/vmware/vmw-guestinfo v0.0.0-20170707015358-25eff159a728/go.mod h1:x9oS4Wk2s2u4tS29nEaDLdzvuHdB19CvSGJjPgkZJNk=
 github.com/voxelbrain/goptions v0.0.0-20180630082107-58cddc247ea2 h1:txplJASvd6b/hrE0s/Ixfpp2cuwH9IO9oZBAN9iYa4A=
 github.com/voxelbrain/goptions v0.0.0-20180630082107-58cddc247ea2/go.mod h1:DGCIhurYgnLz8J9ga1fMV/fbLDyUvTyrWXVWUIyJon4=
@@ -1779,8 +1781,8 @@ kubevirt.io/client-go v0.33.0/go.mod h1:0JNxRKjIQX0ptZNHhsj325kSgJWSiOHOUbZmJ1/a
 kubevirt.io/containerized-data-importer v1.10.6/go.mod h1:qF594BtRRkruyrqLwt3zbLCWdPIQNs1qWh4LR1cOzy0=
 kubevirt.io/containerized-data-importer v1.10.9/go.mod h1:qF594BtRRkruyrqLwt3zbLCWdPIQNs1qWh4LR1cOzy0=
 kubevirt.io/containerized-data-importer v1.15.0/go.mod h1:Sl6HMDIzQZ/psSKj/CjjgVWlQHFVLfHXIxeoQEGqshk=
-kubevirt.io/containerized-data-importer v1.22.0 h1:AJv7J58nu83CM4oVjHVyqe6x/log5InyJd4VSeoO4U4=
-kubevirt.io/containerized-data-importer v1.22.0/go.mod h1:Hnbukverlc58oDkYVL2vUTZscbTI2dRK7WuFZTIkEWs=
+kubevirt.io/containerized-data-importer v1.23.2 h1:CLINKmnGTXkES9mJclFrXbiY1kKovE9i6rxoSPMPbGA=
+kubevirt.io/containerized-data-importer v1.23.2/go.mod h1:kPTghbPZ9KoaXLlNyUdpQSsy0SkrOASrG2BuDantLe4=
 kubevirt.io/kubevirt v0.33.0 h1:n4CuPmL1foR6Jd4/ZpFPSkmdrDRop37+6eMx6CK11k0=
 kubevirt.io/kubevirt v0.33.0/go.mod h1:GnpDh+UCjkNxgu2SHQjvKLuXXZJnghfjTdF/DtmQDmE=
 kubevirt.io/qe-tools v0.1.3 h1:ZDDolkD2IsHuPW8PNyty5fWO6wpI2BXcQpC65en/9FU=

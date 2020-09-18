@@ -47,7 +47,7 @@ spec:
         - name: KUBEVIRT_VERSION
           value: v0.33.0
         - name: CDI_VERSION
-          value: v1.22.0
+          value: v1.23.2
         - name: NETWORK_ADDONS_VERSION
           value: v0.42.0
         - name: SSP_VERSION
@@ -297,24 +297,24 @@ spec:
         - name: DEPLOY_CLUSTER_RESOURCES
           value: "true"
         - name: OPERATOR_VERSION
-          value: v1.22.0
+          value: v1.23.2
         - name: CONTROLLER_IMAGE
-          value: docker.io/kubevirt/cdi-controller@sha256:89937377c6e851ee9ba85d861b87d49b87084ef2b7e05257ceed779529552d30
+          value: docker.io/kubevirt/cdi-controller@sha256:88ef0fc272367a2891ca3d9200ef9153dc5b60cbb19603289808da1598a1b63c
         - name: IMPORTER_IMAGE
-          value: docker.io/kubevirt/cdi-importer@sha256:a5d9743e30a097969d5905ea1bcb5eefb0b7e22b43313a30cc51dc5d43316a91
+          value: docker.io/kubevirt/cdi-importer@sha256:e641c2d0da397c44ef11634a7bc5984999e55c08ba42cf8159c346b6625f59f4
         - name: CLONER_IMAGE
-          value: docker.io/kubevirt/cdi-cloner@sha256:69eefb735597d79efd4bc7abb4c7f415ac5bd3a2b19636a435d60b6e6fba428a
+          value: docker.io/kubevirt/cdi-cloner@sha256:56094b99d0096a299fe85700ecd46682faf4bc8aa74ec0622ba9e90cb9f5d68a
         - name: APISERVER_IMAGE
-          value: docker.io/kubevirt/cdi-apiserver@sha256:de5d46cdfd09b7c3cbfd1b33007c8185750e8d30617cc7919f4f7507d0cb55ef
+          value: docker.io/kubevirt/cdi-apiserver@sha256:16347da77efc169dbce9fa13ce6fc70083b7aa5d6a4de714518441e0bc2d136b
         - name: UPLOAD_SERVER_IMAGE
-          value: docker.io/kubevirt/cdi-uploadserver@sha256:c00d7abee0b605a1d827f803dc8522e61717d4c6382a5c2308fad9ab4b473ddf
+          value: docker.io/kubevirt/cdi-uploadserver@sha256:23198e3bbbf0ddeb72c0533dcd467196a66e56fc4d5b5898a59695f8508f8f76
         - name: UPLOAD_PROXY_IMAGE
-          value: docker.io/kubevirt/cdi-uploadproxy@sha256:b7397d4adfedefbba8de7a51f437af4f44a233d0323bcc0c93c9ad044afa011b
+          value: docker.io/kubevirt/cdi-uploadproxy@sha256:f0551aaba027ad85d45879652dcd07d8cf7fdb73b70c2c46e2f0fa63f32ff489
         - name: VERBOSITY
           value: "1"
         - name: PULL_POLICY
           value: IfNotPresent
-        image: docker.io/kubevirt/cdi-operator@sha256:f74a9235b813160b577bae4d513d53b5ae25ea768134d6ccb801183e6a78cc51
+        image: docker.io/kubevirt/cdi-operator@sha256:5fa3aa725819ef18cb4c034e5bac9f9ea8a2649dc3197677159190f773cb4842
         imagePullPolicy: IfNotPresent
         name: cdi-operator
         ports:

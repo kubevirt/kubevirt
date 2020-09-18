@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1beta1
 
 import (
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +27,7 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=dv;dvs,categories=all
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="The phase the data volume is in"
 // +kubebuilder:printcolumn:name="Progress",type="string",JSONPath=".status.progress",description="Transfer progress in percentage if known, N/A otherwise"
@@ -245,6 +246,7 @@ const DataVolumeCloneSourceSubresource = "source"
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=cdi;cdis,scope=Cluster
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
@@ -328,6 +330,7 @@ type NodePlacement struct {
 	// the node must have each of the indicated key-value pairs as labels
 	// (it can have additional labels as well).
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	// +kubebuilder:validation:Optional
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
@@ -335,12 +338,14 @@ type NodePlacement struct {
 	// that can be expressed with nodeSelector.
 	// affinity is going to be applied to the relevant kind of pods in parallel with nodeSelector
 	// See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
+	// +kubebuilder:validation:Optional
 	// +optional
-	Affinity corev1.Affinity `json:"affinity,omitempty"`
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 
 	// tolerations is a list of tolerations applied to the relevant kind of pods
 	// See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info.
 	// These are additional tolerations other than default ones.
+	// +kubebuilder:validation:Optional
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
@@ -363,6 +368,7 @@ type CDIList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Cluster
 type CDIConfig struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -380,6 +386,8 @@ type CDIConfigSpec struct {
 	ScratchSpaceStorageClass *string `json:"scratchSpaceStorageClass,omitempty"`
 	// ResourceRequirements describes the compute resource requirements.
 	PodResourceRequirements *corev1.ResourceRequirements `json:"podResourceRequirements,omitempty"`
+	// FeatureGates are a list of specific enabled feature gates
+	FeatureGates []string `json:"featureGates,omitempty"`
 }
 
 //CDIConfigStatus provides the most recently observed status of the CDI Config resource

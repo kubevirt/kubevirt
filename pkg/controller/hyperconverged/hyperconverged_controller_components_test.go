@@ -19,7 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -483,7 +483,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
-			foundResource := &cdiv1alpha1.CDI{}
+			foundResource := &cdiv1beta1.CDI{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
@@ -543,7 +543,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
-			foundResource := &cdiv1alpha1.CDI{}
+			foundResource := &cdiv1beta1.CDI{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},

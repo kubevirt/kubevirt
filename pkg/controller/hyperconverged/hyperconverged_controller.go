@@ -41,7 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/scheme"
-	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
@@ -137,7 +137,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Watch secondary resources
 	for _, resource := range []runtime.Object{
 		&kubevirtv1.KubeVirt{},
-		&cdiv1alpha1.CDI{},
+		&cdiv1beta1.CDI{},
 		&networkaddonsv1.NetworkAddonsConfig{},
 		&sspv1.KubevirtCommonTemplatesBundle{},
 		&sspv1.KubevirtNodeLabellerBundle{},
@@ -451,7 +451,7 @@ func (r *ReconcileHyperConverged) ensureHcoDeleted(req *hcoRequest) (reconcile.R
 			case *kubevirtv1.KubeVirt:
 				errT = ErrVirtUninstall
 				errMsg = uninstallVirtErrorMsg + err.Error()
-			case *cdiv1alpha1.CDI:
+			case *cdiv1beta1.CDI:
 				errT = ErrCDIUninstall
 				errMsg = uninstallCDIErrorMsg + err.Error()
 			}
@@ -996,7 +996,7 @@ func (r *ReconcileHyperConverged) ensureCDI(req *hcoRequest) *EnsureResult {
 	}
 
 	res.SetName(key.Name)
-	found := &cdiv1alpha1.CDI{}
+	found := &cdiv1beta1.CDI{}
 	err = r.client.Get(req.ctx, key, found)
 
 	if err != nil {

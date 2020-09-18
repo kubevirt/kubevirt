@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -44,7 +44,7 @@ type basicExpected struct {
 	kvStorageRole        *rbacv1.Role
 	kvStorageRoleBinding *rbacv1.RoleBinding
 	kv                   *kubevirtv1.KubeVirt
-	cdi                  *cdiv1alpha1.CDI
+	cdi                  *cdiv1beta1.CDI
 	cna                  *networkaddonsv1.NetworkAddonsConfig
 	kvCtb                *sspv1.KubevirtCommonTemplatesBundle
 	kvNlb                *sspv1.KubevirtNodeLabellerBundle
@@ -317,7 +317,7 @@ func initReconciler(client client.Client) *ReconcileHyperConverged {
 	s := scheme.Scheme
 	for _, f := range []func(*runtime.Scheme) error{
 		apis.AddToScheme,
-		cdiv1alpha1.AddToScheme,
+		cdiv1beta1.AddToScheme,
 		networkaddons.AddToScheme,
 		sspopv1.AddToScheme,
 		vmimportv1beta1.AddToScheme,

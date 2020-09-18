@@ -15,7 +15,7 @@ import (
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 )
 
 func (r *HyperConverged) getNamespace(defaultNamespace string, opts []string) string {
@@ -51,15 +51,15 @@ func (r *HyperConverged) NewKubeVirt(opts ...string) *kubevirtv1.KubeVirt {
 	}
 }
 
-func (r *HyperConverged) NewCDI(opts ...string) *cdiv1alpha1.CDI {
-	uninstallStrategy := cdiv1alpha1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist
-	return &cdiv1alpha1.CDI{
+func (r *HyperConverged) NewCDI(opts ...string) *cdiv1beta1.CDI {
+	uninstallStrategy := cdiv1beta1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist
+	return &cdiv1beta1.CDI{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cdi-" + r.Name,
 			Labels:    r.getLabels(),
 			Namespace: r.getNamespace(hcoutil.UndefinedNamespace, opts),
 		},
-		Spec: cdiv1alpha1.CDISpec{
+		Spec: cdiv1beta1.CDISpec{
 			UninstallStrategy: &uninstallStrategy,
 		},
 		// TODO: propagate NodePlacement
