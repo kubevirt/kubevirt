@@ -9,9 +9,10 @@ import (
 	v12 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/util/cluster"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/util"
 )
@@ -124,6 +125,10 @@ func SkipIfOpenShift4(message string) {
 }
 
 func SkipTestIfNoCPUManager() {
+	if !HasFeature(virtconfig.CPUManager) {
+		ginkgo.Skip("the CPUManager feature gate is not enabled.")
+	}
+
 	virtClient, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
 	nodes := util.GetAllSchedulableNodes(virtClient)
@@ -133,10 +138,10 @@ func SkipTestIfNoCPUManager() {
 			return
 		}
 	}
-	ginkgo.Skip("no node with CPUManager detected")
-	if !HasFeature(virtconfig.CPUManager) {
-		ginkgo.Skip("the CPUManager feature gate is not enabled.")
+	if *DiscoveredClusterProfile.MinimumNodesWithCPUManager > 0 {
+		ginkgo.Fail("No nodes with CPU manager present, although initially discovered", 1)
 	}
+	ginkgo.Skip("no node with CPUManager detected", 1)
 }
 
 func SkipPVCTestIfRunnigOnKindInfra() {

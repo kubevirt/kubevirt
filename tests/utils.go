@@ -740,12 +740,17 @@ func SynchronizedBeforeTestSetup() []byte {
 	Expect(err).ToNot(HaveOccurred())
 
 	if flags.KubeVirtInstallNamespace == "" {
-		detectInstallNamespace()
+		util2.DetectInstallNamespace()
 	}
 
 	if flags.DeployTestingInfrastructureFlag {
 		WipeTestingInfrastructure()
 		DeployTestingInfrastructure()
+	}
+	checks.IntrospectCluster()
+	err = checks.VerifyClusterExpectations()
+	if err != nil {
+		Fail(fmt.Sprintf("%v", err))
 	}
 
 	if Config.ManageStorageClasses {
@@ -1686,20 +1691,6 @@ func removeNamespaces() {
 			return virtCli.CoreV1().Namespaces().Delete(namespace, nil)
 		}, 240*time.Second, 1*time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), fmt.Sprintf("should successfully delete namespace '%s'", namespace))
 	}
-}
-
-func detectInstallNamespace() {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util2.PanicOnError(err)
-	kvs, err := virtCli.KubeVirt("").List(&metav1.ListOptions{})
-	util2.PanicOnError(err)
-	if len(kvs.Items) == 0 {
-		util2.PanicOnError(fmt.Errorf("Could not detect a kubevirt installation"))
-	}
-	if len(kvs.Items) > 1 {
-		util2.PanicOnError(fmt.Errorf("Invalid kubevirt installation, more than one KubeVirt resource found"))
-	}
-	flags.KubeVirtInstallNamespace = kvs.Items[0].Namespace
 }
 
 func createNamespaces() {

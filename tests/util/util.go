@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/onsi/gomega"
@@ -23,6 +24,20 @@ func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *v1.NodeList {
 	nodes, err := virtClient.CoreV1().Nodes().List(v12.ListOptions{LabelSelector: v13.NodeSchedulable + "=" + "true"})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "Should list compute nodes")
 	return nodes
+}
+
+func DetectInstallNamespace() {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	kvs, err := virtCli.KubeVirt("").List(&v12.ListOptions{})
+	PanicOnError(err)
+	if len(kvs.Items) == 0 {
+		PanicOnError(fmt.Errorf("Could not detect a kubevirt installation"))
+	}
+	if len(kvs.Items) > 1 {
+		PanicOnError(fmt.Errorf("Invalid kubevirt installation, more than one KubeVirt resource found"))
+	}
+	flags.KubeVirtInstallNamespace = kvs.Items[0].Namespace
 }
 
 func GetCurrentKv(virtClient kubecli.KubevirtClient) *v13.KubeVirt {

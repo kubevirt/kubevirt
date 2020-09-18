@@ -49,6 +49,7 @@ var ConfigFile = ""
 var SkipShasumCheck bool
 var SkipDualStackTests bool
 var ArtifactsDir string
+var ClusterProfilePath string
 
 var DeployTestingInfrastructureFlag = false
 var PathToTestingInfrastrucureManifests = ""
@@ -75,6 +76,7 @@ func init() {
 	flag.StringVar(&ArtifactsDir, "artifacts", os.Getenv("ARTIFACTS"), "Directory for storing reporter artifacts like junit files or logs")
 	flag.BoolVar(&SkipShasumCheck, "skip-shasums-check", false, "Skip tests with sha sums.")
 	flag.BoolVar(&SkipDualStackTests, "skip-dual-stack-test", false, "Skip test that actively checks for the presence of IPv6 address in the cluster pods.")
+	flag.StringVar(&ClusterProfilePath, "cluster-profile", "", "Minimum expectations of the cluster. Specified expectations will cause tests to be failed instead of skipped if the expectation should be met for a test")
 }
 
 func NormalizeFlags() {
