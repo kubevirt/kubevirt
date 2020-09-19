@@ -38,6 +38,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -248,7 +250,83 @@ var _ = Describe("Storage", func() {
 			})
 
 		})
+		Context("Run a VMI wiht VirtIO-FS and a datavolume", func() {
+			var dataVolume *cdiv1.DataVolume
+			BeforeEach(func() {
+				if !tests.HasCDI() {
+					Skip("Skip DataVolume tests when CDI is not present")
+				}
+				dataVolume = tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				tests.EnableFeatureGate(virtconfig.VirtIOFSGate)
+			})
 
+			AfterEach(func() {
+				err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+				tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
+			})
+			It("should be successfully started and viriofs could be accessed", func() {
+				tests.SkipPVCTestIfRunnigOnKindInfra()
+				waitForDataVolume := func(dataVolume *cdiv1.DataVolume) {
+					Eventually(func() cdiv1.DataVolumePhase {
+						dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Get(dataVolume.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+
+						return dv.Status.Phase
+					}, 160*time.Second, 1*time.Second).
+						Should(Equal(cdiv1.Succeeded), "Timed out waiting for DataVolume to complete")
+				}
+
+				vmi := tests.NewRandomVMIWithFSFromDataVolume(dataVolume.Name)
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
+				Expect(err).To(BeNil())
+				waitForDataVolume(dataVolume)
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
+
+				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+
+				// add userdata for guest agent and mount virtio-fs
+				fs := vmi.Spec.Domain.Devices.Filesystems[0]
+				virtiofsMountPath := fmt.Sprintf("/mnt/virtiof_%s", fs.Name)
+				virtiofsTestFile := fmt.Sprintf("%s/virtiofs_test", virtiofsMountPath)
+				mountVirtiofsCommands := fmt.Sprintf(`
+                                       mkdir %s
+                                       mount -t virtiofs %s %s
+                                       touch %s
+                               `, virtiofsMountPath, fs.Name, virtiofsMountPath, virtiofsTestFile)
+				userData := fmt.Sprintf("%s\n%s", tests.GetGuestAgentUserData(), mountVirtiofsCommands)
+				tests.AddUserData(vmi, "cloud-init", userData)
+
+				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+
+				// Wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInFedoraExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "Should be able to login to the Fedora VM")
+				defer expecter.Close()
+
+				By("Checking that virtio-fs is mounted")
+				listVirtioFSDisk := fmt.Sprintf("ls -l %s/*disk* | wc -l\n", virtiofsMountPath)
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: listVirtioFSDisk},
+					&expect.BExp{R: tests.RetValue("1")},
+				}, 30*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "Should be able to access the mounted virtiofs file")
+
+				virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", fs.Name)
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				podVirtioFsFileExist, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					pod,
+					"compute",
+					[]string{"/usr/bin/bash", "-c", virtioFsFileTestCmd},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
+			})
+		})
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ephemeral alpine PVC", func() {
 			var isRunOnKindInfra bool
 			tests.BeforeAll(func() {

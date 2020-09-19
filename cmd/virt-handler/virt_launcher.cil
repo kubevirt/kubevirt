@@ -49,6 +49,11 @@
     (allow process hugetlbfs_t (dir (add_name create write remove_name rmdir setattr)))
     (allow process hugetlbfs_t (file (create unlink)))
     ;
+    ; This is needed to allow virtiofs to mount filesystem and access NFS
+    (allow process nfs_t (dir (mounton)))
+    (allow process proc_t (dir (mounton)))
+    (allow process proc_t (filesystem (mount unmount)))
+    ;
     ; Allowing libvirtd to write to /sys files.
     ; This permission is necessary when using SR-IOV, but is not needed for anything else.
     (allow process sysfs_t (file (write)))

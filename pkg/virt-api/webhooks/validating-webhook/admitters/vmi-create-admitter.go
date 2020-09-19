@@ -935,6 +935,14 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		})
 	}
 
+	if spec.Domain.Devices.Filesystems != nil && !config.VirtiofsEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("virtiofs feature gate is not enabled in kubevirt-config"),
+			Field:   field.Child("Filesystems").String(),
+		})
+	}
+
 	return causes
 }
 
