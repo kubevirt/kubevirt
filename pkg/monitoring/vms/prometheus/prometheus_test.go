@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/prometheus/client_golang/prometheus"
+	io_prometheus_client "github.com/prometheus/client_model/go"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -93,15 +94,44 @@ var _ = Describe("Prometheus", func() {
 				Cpu: &stats.DomainStatsCPU{},
 				Memory: &stats.DomainStatsMemory{
 					AvailableSet: true,
-					Available:    2048,
+					Available:    1,
 				},
 			}
 			vmi := k6tv1.VirtualMachineInstance{}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
+			dto := &io_prometheus_client.Metric{}
+			result.Write(dto)
+
 			Expect(result).ToNot(BeNil())
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_available_bytes"))
+			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
+		})
+
+		It("should send unused memory", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu: &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{
+					UnusedSet: true,
+					Unused:    1,
+				},
+			}
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			result := <-ch
+			dto := &io_prometheus_client.Metric{}
+			result.Write(dto)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_unused_bytes"))
+			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
 		It("should handle swapin", func() {
@@ -114,15 +144,19 @@ var _ = Describe("Prometheus", func() {
 				Cpu: &stats.DomainStatsCPU{},
 				Memory: &stats.DomainStatsMemory{
 					SwapInSet: true,
-					SwapIn:    4096,
+					SwapIn:    1,
 				},
 			}
 			vmi := k6tv1.VirtualMachineInstance{}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
+			dto := &io_prometheus_client.Metric{}
+			result.Write(dto)
+
 			Expect(result).ToNot(BeNil())
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_swap_traffic_bytes_total"))
+			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
 		It("should handle swapout", func() {
@@ -135,15 +169,19 @@ var _ = Describe("Prometheus", func() {
 				Cpu: &stats.DomainStatsCPU{},
 				Memory: &stats.DomainStatsMemory{
 					SwapOutSet: true,
-					SwapOut:    4096,
+					SwapOut:    1,
 				},
 			}
 			vmi := k6tv1.VirtualMachineInstance{}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
+			dto := &io_prometheus_client.Metric{}
+			result.Write(dto)
+
 			Expect(result).ToNot(BeNil())
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_swap_traffic_bytes_total"))
+			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
 		It("should handle vcpu metrics", func() {

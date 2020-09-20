@@ -38,6 +38,10 @@ Total resident memory of the process running the VMI.
 
 The total amount of usable memory.
 
+#### kubevirt_vmi_memory_unused_bytes
+
+The total amount of unused memory as seen by the domain.
+
 #### kubevirt_vmi_memory_swap_traffic_bytes_total
 
 The amount of traffic that is being read and written in swap memory.
