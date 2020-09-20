@@ -41,6 +41,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	kvselinux "kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp"
 )
@@ -118,11 +119,10 @@ type NetworkHandler interface {
 type NetworkUtilsHandler struct{}
 
 type tapDeviceMaker struct {
-	tapName                  string
-	isMultiqueue             bool
-	virtLauncherSELinuxLabel string
-	virtHandlerSELinuxLabel  string
-	tapMakingCmd             *exec.Cmd
+	tapName         string
+	isMultiqueue    bool
+	virtLauncherPID int
+	tapMakingCmd    *exec.Cmd
 }
 
 var Handler NetworkHandler
@@ -385,17 +385,11 @@ func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, isMultiqueue bool,
 		return fmt.Errorf("error creating tap device named %s; %v", tapName, err)
 	}
 
-	log.Log.Infof("Created tap device: %s in PID: %d using selinux label: %s", tapName, launcherPID, tapDeviceMaker.virtLauncherSELinuxLabel)
+	log.Log.Infof("Created tap device: %s in PID: %d", tapName, launcherPID)
 	return nil
 }
 
 func buildTapDeviceMaker(tapName string, isMultiqueue bool, virtLauncherPID int) (*tapDeviceMaker, error) {
-	virtHandlerSELinuxLabel := "system_u:system_r:spc_t:s0"
-	virtLauncherSELinuxLabel, err := getProcessCurrentSELinuxLabel(virtLauncherPID)
-	if err != nil {
-		return nil, fmt.Errorf("error reading virt-launcher %d selinux label", virtLauncherPID)
-	}
-
 	createTapDeviceArgs := []string{
 		"create-tap",
 		"--tap-name", tapName,
@@ -406,24 +400,24 @@ func buildTapDeviceMaker(tapName string, isMultiqueue bool, virtLauncherPID int)
 		createTapDeviceArgs = append(createTapDeviceArgs, "--multiqueue")
 	}
 	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
+
 	return &tapDeviceMaker{
-		virtLauncherSELinuxLabel: virtLauncherSELinuxLabel,
-		virtHandlerSELinuxLabel:  virtHandlerSELinuxLabel,
-		tapMakingCmd:             cmd,
-		tapName:                  tapName,
-		isMultiqueue:             isMultiqueue,
+		tapMakingCmd:    cmd,
+		tapName:         tapName,
+		isMultiqueue:    isMultiqueue,
+		virtLauncherPID: virtLauncherPID,
 	}, nil
 }
 
 func (tmc *tapDeviceMaker) makeTapDevice() error {
-	runtime.LockOSThread()
-	defer func() {
-		_ = selinux.SetExecLabel(tmc.virtHandlerSELinuxLabel)
-		runtime.UnlockOSThread()
-	}()
+	if isSELinuxEnabled() {
+		defer func() {
+			_ = resetVirtHandlerSELinuxContext()
+		}()
 
-	if err := selinux.SetExecLabel(tmc.virtLauncherSELinuxLabel); err != nil {
-		return fmt.Errorf("failed to switch selinux context to %s. Reason: %v", tmc.virtLauncherSELinuxLabel, err)
+		if err := setVirtLauncherSELinuxContext(tmc.virtLauncherPID); err != nil {
+			return err
+		}
 	}
 
 	preventFDLeakOntoChild()
@@ -431,6 +425,31 @@ func (tmc *tapDeviceMaker) makeTapDevice() error {
 		return fmt.Errorf("failed to create tap device %s: %v", tmc.tapName, err)
 	}
 	return nil
+}
+
+func isSELinuxEnabled() bool {
+	_, selinuxEnabled, err := kvselinux.NewSELinux()
+	return err == nil && selinuxEnabled
+}
+
+func setVirtLauncherSELinuxContext(virtLauncherPID int) error {
+	virtLauncherSELinuxLabel, err := getProcessCurrentSELinuxLabel(virtLauncherPID)
+	if err != nil {
+		return fmt.Errorf("error reading virt-launcher %d selinux label. Reason: %v", virtLauncherPID, err)
+	}
+
+	runtime.LockOSThread()
+	if err := selinux.SetExecLabel(virtLauncherSELinuxLabel); err != nil {
+		return fmt.Errorf("failed to switch selinux context to %s. Reason: %v", virtLauncherSELinuxLabel, err)
+	}
+	return nil
+}
+
+func resetVirtHandlerSELinuxContext() error {
+	virtHandlerSELinuxLabel := "system_u:system_r:spc_t:s0"
+	err := selinux.SetExecLabel(virtHandlerSELinuxLabel)
+	runtime.UnlockOSThread()
+	return err
 }
 
 func getProcessCurrentSELinuxLabel(pid int) (string, error) {
