@@ -103,11 +103,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 		)
 
 		table.DescribeTable("should succeed when probing an IPv6 IP on dual stack clusters", func(readinessProbe *v12.Probe) {
-			isClusterDualStack, err := libnet.IsClusterDualStack(virtClient)
-			Expect(err).NotTo(HaveOccurred(), "should have been able to infer if the cluster is dual stack")
-			if !isClusterDualStack {
-				Skip("This test requires a dual stack network config.")
-			}
+			libnet.SkipWhenNotDualStackCluster(virtClient)
 
 			By("Create a support pod which will reply to kubelet's probes ...")
 			probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(readinessProbe)
@@ -178,11 +174,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 		)
 
 		table.DescribeTable("should not fail the VMI when probing with an IPv6 address", func(livenessProbe *v12.Probe) {
-			isClusterDualStack, err := libnet.IsClusterDualStack(virtClient)
-			Expect(err).NotTo(HaveOccurred(), "should have been able to infer if the cluster is dual stack")
-			if !isClusterDualStack {
-				Skip("This test requires a dual stack network config.")
-			}
+			libnet.SkipWhenNotDualStackCluster(virtClient)
 
 			By("Create a support pod which will reply to kubelet's probes ...")
 			probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(livenessProbe)

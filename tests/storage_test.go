@@ -88,9 +88,6 @@ var _ = Describe("[Serial]Storage", func() {
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new NFS PV and PVC")
 				nfsIP := libnet.GetIp(libnet.GetPodIpsStrings(nfsIPs), isIpv6)
-				if nfsIP == "" && isIpv6 {
-					Skip("skipping ipv6 nfs test on a single stack cluster")
-				}
 				Expect(nfsIP).NotTo(BeEmpty())
 				tests.CreateNFSPvAndPvc(_pvName, "5Gi", nfsIP, os)
 
@@ -122,6 +119,9 @@ var _ = Describe("[Serial]Storage", func() {
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]with Alpine PVC", func() {
 			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc, storageEngine string, isIpv6 bool) {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
+				if isIpv6 {
+					libnet.SkipWhenNotDualStackCluster(virtClient)
+				}
 
 				var ignoreWarnings bool
 				var pvName string
@@ -349,6 +349,9 @@ var _ = Describe("[Serial]Storage", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
 			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc, storageEngine string, isIpv6 bool) {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
+				if isIpv6 {
+					libnet.SkipWhenNotDualStackCluster(virtClient)
+				}
 				var ignoreWarnings bool
 				var pvName string
 				// Start the VirtualMachineInstance with the PVC attached
