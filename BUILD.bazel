@@ -329,6 +329,7 @@ go_library(
         "libvirt-admin.h",
         "libvirt-common.h",
         "libvirt-domain.h",
+        "libvirt-domain-checkpoint.h",
         "libvirt-domain-snapshot.h",
         "libvirt-event.h",
         "libvirt-host.h",
