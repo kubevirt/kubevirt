@@ -53,16 +53,48 @@ func (r *HyperConverged) NewKubeVirt(opts ...string) *kubevirtv1.KubeVirt {
 
 func (r *HyperConverged) NewCDI(opts ...string) *cdiv1beta1.CDI {
 	uninstallStrategy := cdiv1beta1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist
+
+	spec := cdiv1beta1.CDISpec{
+		UninstallStrategy: &uninstallStrategy,
+	}
+
+	if r.Spec.Infra.NodePlacement != nil {
+		hcoConfig2CdiPlacement(r.Spec.Infra.NodePlacement, &spec.Infra)
+	}
+	if r.Spec.Workloads.NodePlacement != nil {
+		hcoConfig2CdiPlacement(r.Spec.Workloads.NodePlacement, &spec.Workloads)
+	}
+
 	return &cdiv1beta1.CDI{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cdi-" + r.Name,
 			Labels:    r.getLabels(),
 			Namespace: r.getNamespace(hcoutil.UndefinedNamespace, opts),
 		},
-		Spec: cdiv1beta1.CDISpec{
-			UninstallStrategy: &uninstallStrategy,
-		},
+		Spec: spec,
 		// TODO: propagate NodePlacement
+	}
+}
+
+func hcoConfig2CdiPlacement(hcoPlacement *sdkapi.NodePlacement, cdiPlacement *cdiv1beta1.NodePlacement) {
+	if hcoPlacement != nil {
+		if hcoPlacement.Affinity != nil {
+			cdiPlacement.Affinity = &corev1.Affinity{}
+			hcoPlacement.Affinity.DeepCopyInto(cdiPlacement.Affinity)
+		}
+
+		if hcoPlacement.NodeSelector != nil {
+			cdiPlacement.NodeSelector = make(map[string]string)
+			for k, v := range hcoPlacement.NodeSelector {
+				cdiPlacement.NodeSelector[k] = v
+			}
+		}
+
+		for _, hcoTolr := range hcoPlacement.Tolerations {
+			cdiTolr := corev1.Toleration{}
+			hcoTolr.DeepCopyInto(&cdiTolr)
+			cdiPlacement.Tolerations = append(cdiPlacement.Tolerations, cdiTolr)
+		}
 	}
 }
 

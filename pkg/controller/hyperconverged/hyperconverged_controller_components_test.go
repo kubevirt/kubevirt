@@ -552,7 +552,113 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(*foundResource.Spec.UninstallStrategy).To(Equal(*expectedResource.Spec.UninstallStrategy))
 		})
 
-		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
+		It("should add node placement if missing in CDI", func() {
+			existingResource := hco.NewCDI()
+
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureCDI(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &cdiv1beta1.CDI{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.Infra.Affinity).To(BeNil())
+			Expect(existingResource.Spec.Infra.Tolerations).To(BeEmpty())
+			Expect(existingResource.Spec.Infra.NodeSelector).To(BeNil())
+			Expect(existingResource.Spec.Workloads.Affinity).To(BeNil())
+			Expect(existingResource.Spec.Workloads.Tolerations).To(BeEmpty())
+			Expect(existingResource.Spec.Workloads.NodeSelector).To(BeNil())
+
+			Expect(foundResource.Spec.Infra.Affinity).ToNot(BeNil())
+			Expect(foundResource.Spec.Infra.NodeSelector["key1"]).Should(Equal("value1"))
+			Expect(foundResource.Spec.Infra.NodeSelector["key2"]).Should(Equal("value2"))
+
+			Expect(foundResource.Spec.Workloads).ToNot(BeNil())
+			reflect.DeepEqual(foundResource.Spec.Workloads.Tolerations, hco.Spec.Workloads.NodePlacement.Tolerations)
+
+			Expect(req.conditions).To(BeEmpty())
+		})
+
+		It("should remove node placement if missing in HCO CR", func() {
+
+			hcoNodePlacement := newHco()
+			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			existingResource := hcoNodePlacement.NewCDI()
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureCDI(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &cdiv1beta1.CDI{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.Infra.Affinity).ToNot(BeNil())
+			Expect(existingResource.Spec.Infra.Tolerations).ToNot(BeEmpty())
+			Expect(existingResource.Spec.Infra.NodeSelector).ToNot(BeNil())
+			Expect(existingResource.Spec.Workloads.Affinity).ToNot(BeNil())
+			Expect(existingResource.Spec.Workloads.Tolerations).ToNot(BeEmpty())
+			Expect(existingResource.Spec.Workloads.NodeSelector).ToNot(BeNil())
+
+			Expect(foundResource.Spec.Infra.Affinity).To(BeNil())
+			Expect(foundResource.Spec.Infra.Tolerations).To(BeEmpty())
+			Expect(foundResource.Spec.Infra.NodeSelector).To(BeNil())
+			Expect(foundResource.Spec.Workloads.Affinity).To(BeNil())
+			Expect(foundResource.Spec.Workloads.Tolerations).To(BeEmpty())
+			Expect(foundResource.Spec.Workloads.NodeSelector).To(BeNil())
+
+			Expect(req.conditions).To(BeEmpty())
+		})
+
+		It("should modify node placement according to HCO CR", func() {
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			existingResource := hco.NewCDI()
+
+			// now, modify HCO's node placement
+			seconds3 := int64(3)
+			hco.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
+				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+			})
+
+			hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureCDI(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &cdiv1beta1.CDI{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.Infra.Tolerations).To(HaveLen(2))
+			Expect(existingResource.Spec.Workloads.NodeSelector["key1"]).Should(Equal("value1"))
+
+			Expect(foundResource.Spec.Infra.Tolerations).To(HaveLen(3))
+			Expect(foundResource.Spec.Workloads.NodeSelector["key1"]).Should(Equal("something else"))
+
+			Expect(req.conditions).To(BeEmpty())
+		})
 
 		It("should handle conditions", func() {
 			expectedResource := hco.NewCDI()
