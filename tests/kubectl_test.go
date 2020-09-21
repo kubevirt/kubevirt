@@ -80,7 +80,7 @@ var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kub
 		// Verify one of the wide column output field
 		Expect(resultFields[len(resultFields)-verifyPos]).To(Equal(expectedData))
 	},
-		table.Entry("[test_id:3468]virtualmachine", "get", "vm", "wide", []string{"NAME", "AGE", "VOLUME", "CREATED"}, 1, "true"),
-		table.Entry("[test_id:3466]virtualmachineinstance", "get", "vmi", "wide", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "LIVE-MIGRATABLE", "PAUSED"}, 1, "True"),
+		table.Entry("[test_id:4423]virtualmachine", "get", "vm", "wide", []string{"NAME", "AGE", "VOLUME", "CREATED"}, 1, "true"),
+		table.Entry("[test_id:4422]virtualmachineinstance", "get", "vmi", "wide", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "LIVE-MIGRATABLE", "PAUSED"}, 1, "True"),
 	)
 })
