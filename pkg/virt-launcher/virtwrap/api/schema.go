@@ -718,7 +718,6 @@ type BootMenu struct {
 	Timeout *uint `xml:"timeout,attr,omitempty"`
 }
 
-// TODO <loader readonly='yes' secure='no' type='rom'>/usr/lib/xen/boot/hvmloader</loader>
 type Loader struct {
 	ReadOnly string `xml:"readonly,attr,omitempty"`
 	Secure   string `xml:"secure,attr,omitempty"`
@@ -726,8 +725,9 @@ type Loader struct {
 	Path     string `xml:",chardata"`
 }
 
-// TODO <bios useserial='yes' rebootTimeout='0'/>
+// TODO <bios rebootTimeout='0'/>
 type BIOS struct {
+	UseSerial string `xml:"useserial,attr,omitempty"`
 }
 
 type SysInfo struct {
