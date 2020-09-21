@@ -1256,95 +1256,87 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			return fmt.Errorf("failed to find network %s", iface.Name)
 		}
 
-		if iface.SRIOV != nil {
+		ifaceType := getInterfaceType(&iface)
+		domainIface := Interface{
+			Model: &Model{
+				Type: ifaceType,
+			},
+			Alias: &Alias{
+				Name: iface.Name,
+			},
+		}
+
+		// if UseEmulation unset and at least one NIC model is virtio,
+		// /dev/vhost-net must be present as we should have asked for it.
+		if ifaceType == "virtio" && virtioNetProhibited {
+			return fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
+		} else if ifaceType == "virtio" && virtioNetMQRequested {
+			domainIface.Driver = &InterfaceDriver{Name: "vhost", Queues: numQueues}
+		}
+
+		// Add a pciAddress if specifed
+		if iface.PciAddress != "" {
+			addr, err := decoratePciAddressField(iface.PciAddress)
+			if err != nil {
+				return fmt.Errorf("failed to configure interface %s: %v", iface.Name, err)
+			}
+			domainIface.Address = addr
+		}
+
+		switch {
+		case iface.SRIOV != nil:
+			domainIface.Type = "hostdev"
+
+			var err error
 			var pciAddr string
 			pciAddr, sriovPciAddresses, err = popSRIOVPCIAddress(iface.Name, sriovPciAddresses)
 			if err != nil {
 				return err
 			}
-
-			dbsfFields, err := util.ParsePciAddress(pciAddr)
+			addr, err := decoratePciAddressField(pciAddr)
 			if err != nil {
 				return err
 			}
-
-			hostDev := HostDevice{
-				Source: HostDeviceSource{
-					Address: &Address{
-						Type:     "pci",
-						Domain:   "0x" + dbsfFields[0],
-						Bus:      "0x" + dbsfFields[1],
-						Slot:     "0x" + dbsfFields[2],
-						Function: "0x" + dbsfFields[3],
-					},
-				},
-				Type:    "pci",
-				Managed: "yes",
+			domainIface.Source = InterfaceSource{
+				Address: addr,
 			}
+
+			domainIface.Driver = &InterfaceDriver{Name: "vfio"}
+
 			if iface.BootOrder != nil {
-				hostDev.BootOrder = &BootOrder{Order: *iface.BootOrder}
+				domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
 			}
 			log.Log.Infof("SR-IOV PCI device allocated: %s", pciAddr)
-			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDev)
-		} else {
-			ifaceType := getInterfaceType(&iface)
-			domainIface := Interface{
-				Model: &Model{
-					Type: ifaceType,
-				},
-				Alias: &Alias{
-					Name: iface.Name,
-				},
+		case iface.Bridge != nil || iface.Masquerade != nil:
+			// TODO:(ihar) consider abstracting interface type conversion /
+			// detection into drivers
+
+			// use "ethernet" interface type, since we're using pre-configured tap devices
+			// https://libvirt.org/formatdomain.html#elementsNICSEthernet
+			domainIface.Type = "ethernet"
+			if iface.BootOrder != nil {
+				domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
+			}
+		case iface.Slirp != nil:
+			domainIface.Type = "user"
+
+			// Create network interface
+			if domain.Spec.QEMUCmd == nil {
+				domain.Spec.QEMUCmd = &Commandline{}
 			}
 
-			// if UseEmulation unset and at least one NIC model is virtio,
-			// /dev/vhost-net must be present as we should have asked for it.
-			if ifaceType == "virtio" && virtioNetProhibited {
-				return fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
-			} else if ifaceType == "virtio" && virtioNetMQRequested {
-				domainIface.Driver = &InterfaceDriver{Name: "vhost", Queues: numQueues}
+			if domain.Spec.QEMUCmd.QEMUArg == nil {
+				domain.Spec.QEMUCmd.QEMUArg = make([]Arg, 0)
 			}
 
-			// Add a pciAddress if specifed
-			if iface.PciAddress != "" {
-				addr, err := decoratePciAddressField(iface.PciAddress)
-				if err != nil {
-					return fmt.Errorf("failed to configure interface %s: %v", iface.Name, err)
-				}
-				domainIface.Address = addr
+			// TODO: (seba) Need to change this if multiple interface can be connected to the same network
+			// append the ports from all the interfaces connected to the same network
+			err := createSlirpNetwork(iface, *net, domain)
+			if err != nil {
+				return err
 			}
-
-			if iface.Bridge != nil || iface.Masquerade != nil {
-				// TODO:(ihar) consider abstracting interface type conversion /
-				// detection into drivers
-
-				// use "ethernet" interface type, since we're using pre-configured tap devices
-				// https://libvirt.org/formatdomain.html#elementsNICSEthernet
-				domainIface.Type = "ethernet"
-				if iface.BootOrder != nil {
-					domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
-				}
-			} else if iface.Slirp != nil {
-				domainIface.Type = "user"
-
-				// Create network interface
-				if domain.Spec.QEMUCmd == nil {
-					domain.Spec.QEMUCmd = &Commandline{}
-				}
-
-				if domain.Spec.QEMUCmd.QEMUArg == nil {
-					domain.Spec.QEMUCmd.QEMUArg = make([]Arg, 0)
-				}
-
-				// TODO: (seba) Need to change this if multiple interface can be connected to the same network
-				// append the ports from all the interfaces connected to the same network
-				err := createSlirpNetwork(iface, *net, domain)
-				if err != nil {
-					return err
-				}
-			}
-			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 		}
+		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 	}
 
 	// Add Ignition Command Line if present
