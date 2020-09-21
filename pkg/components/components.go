@@ -744,8 +744,18 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 	})
 
 	sideEffect := admissionregistrationv1.SideEffectClassNone
-	failurePolicy := admissionregistrationv1.Ignore
+	// Explicitly fail on unvalidated (for any reason) requests:
+	// this can make removing HCO CR harder if HCO webhook is not able
+	// to really validate the requests.
+	// In that case the user can only directly remove the
+	// ValidatingWebhookConfiguration object first (eventually bypassing the OLM if needed).
+	failurePolicy := admissionregistrationv1.Fail
 	webhookPath := hcoWebhookPath
+	// TODO: temporary workaround for https://bugzilla.redhat.com/1868712
+	// currently OLM is going to periodically kill HCO, due to that some request can got lost with a timeout error
+	// using a really high timeout can mitigate it giving more time to a new HCO instance.
+	// Please remove this once https://bugzilla.redhat.com/1868712 is not biting us anymore
+	var webhookTimeout int32 = 30
 
 	validating_webhook := csvv1alpha1.WebhookDescription{
 		GenerateName:            util.HcoValidatingWebhook,
@@ -755,6 +765,7 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 		AdmissionReviewVersions: []string{"v1beta1", "v1"},
 		SideEffects:             &sideEffect,
 		FailurePolicy:           &failurePolicy,
+		TimeoutSeconds:          &webhookTimeout,
 		Rules: []admissionregistrationv1.RuleWithOperations{
 			admissionregistrationv1.RuleWithOperations{
 				Operations: []admissionregistrationv1.OperationType{

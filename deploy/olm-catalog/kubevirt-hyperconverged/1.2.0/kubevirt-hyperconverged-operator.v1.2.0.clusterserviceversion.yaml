@@ -2209,7 +2209,7 @@ spec:
     - v1
     containerPort: 4343
     deploymentName: hco-operator
-    failurePolicy: Ignore
+    failurePolicy: Fail
     generateName: validate-hco.kubevirt.io
     rules:
     - apiGroups:
@@ -2223,6 +2223,7 @@ spec:
       resources:
       - hyperconvergeds
     sideEffects: None
+    timeoutSeconds: 30
     type: ValidatingAdmissionWebhook
     webhookPath: /validate-hco-kubevirt-io-v1beta1-hyperconverged
   - admissionReviewVersions:
