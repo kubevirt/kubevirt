@@ -162,7 +162,7 @@ var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should connect to vnc with --proxy-only flag", func() {
+		It("[test_id:4272]should connect to vnc with --proxy-only flag", func() {
 
 			By("Invoking virtctl vnc with --proxy-only")
 			proxyOnlyCommand := tests.NewVirtctlCommand("vnc", "--proxy-only", "--namespace", vmi.Namespace, vmi.Name)
