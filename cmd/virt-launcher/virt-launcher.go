@@ -194,6 +194,11 @@ func initializeDirs(virtShareDir string,
 		panic(err)
 	}
 
+	err = virtlauncher.InitializeDisksDirectories(config.DownwardAPIDisksDir)
+	if err != nil {
+		panic(err)
+	}
+
 	err = virtlauncher.InitializeDisksDirectories(config.ServiceAccountDiskDir)
 	if err != nil {
 		panic(err)

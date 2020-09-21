@@ -512,6 +512,23 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			})
 		}
 
+		if volume.DownwardAPI != nil {
+			// attach a Secret to the pod
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: filepath.Join(config.DownwardAPISourceDir, volume.Name),
+				ReadOnly:  true,
+			})
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					DownwardAPI: &k8sv1.DownwardAPIVolumeSource{
+						Items: volume.DownwardAPI.Fields,
+					},
+				},
+			})
+		}
+
 		if volume.ServiceAccount != nil {
 			serviceAccountName = volume.ServiceAccount.ServiceAccountName
 		}
