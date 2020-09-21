@@ -1611,8 +1611,8 @@ spec:
 		}, 20*time.Second, 1*time.Second).Should(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))
 	})
 
-	Context("Node Placement", func() {
-		It("should dynamically update infra config", func() {
+	Context("[rfe_id:4356]Node Placement", func() {
+		It("[test_id:4927]should dynamically update infra config", func() {
 			// This label shouldn't exist, but this isn't harmful
 			// existing/running deployments will not be torn down until
 			// new ones are stood up (and the new ones will get stuck in scheduling)
@@ -1640,7 +1640,7 @@ spec:
 			patchKvInfra(kv.Name, nil)
 		})
 
-		It("should dynamically update workloads config", func() {
+		It("[test_id:4928]should dynamically update workloads config", func() {
 			labelKey := "kubevirt-test"
 			labelValue := "test-label"
 			kv := copyOriginalKv()
