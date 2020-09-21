@@ -460,6 +460,62 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
+		Context("with BIOS bootloader method and no disk", func() {
+			It("should find no bootable device by default", func() {
+				By("Creating a VMI with no disk and an explicit network interface")
+				vmi := tests.NewRandomVMI()
+				tests.AddExplicitPodNetworkInterface(vmi)
+
+				By("Enabling BIOS serial output")
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						BIOS: &v1.BIOS{
+							UseSerial: tests.NewBool(true),
+						},
+					},
+				}
+
+				By("Ensuring network boot is disabled on the network interface")
+				Expect(vmi.Spec.Domain.Devices.Interfaces[0].BootOrder).To(BeNil())
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Expecting no bootable NIC")
+				_, err = tests.NetBootExpecter(vmi)
+				// The expecter *should* have error-ed since the network interface is not marked bootable
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("should boot to NIC rom if a boot order was set on a network interface", func() {
+				By("Creating a VMI with no disk and an explicit network interface")
+				vmi := tests.NewRandomVMI()
+				tests.AddExplicitPodNetworkInterface(vmi)
+
+				By("Enabling BIOS serial output")
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						BIOS: &v1.BIOS{
+							UseSerial: tests.NewBool(true),
+						},
+					},
+				}
+
+				By("Enabling network boot")
+				var bootOrder uint = 1
+				vmi.Spec.Domain.Devices.Interfaces[0].BootOrder = &bootOrder
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Expecting a bootable NIC")
+				_, err = tests.NetBootExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
 		Context("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func() {
 
 			It("[test_id:1668]should use EFI", func() {

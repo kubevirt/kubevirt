@@ -8038,7 +8038,13 @@
    },
    "v1.BIOS": {
     "description": "If set (default), BIOS will be used.",
-    "type": "object"
+    "type": "object",
+    "properties": {
+     "useSerial": {
+      "description": "If set, the BIOS output will be transmitted over serial",
+      "type": "boolean"
+     }
+    }
    },
    "v1.Bootloader": {
     "description": "Represents the firmware blob used to assist in the domain creation process. Used for setting the QEMU BIOS file path for the libvirt domain.",

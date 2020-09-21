@@ -92,7 +92,8 @@ func (Bootloader) SwaggerDoc() map[string]string {
 
 func (BIOS) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "If set (default), BIOS will be used.\n\n+k8s:openapi-gen=true",
+		"":          "If set (default), BIOS will be used.\n\n+k8s:openapi-gen=true",
+		"useSerial": "If set, the BIOS output will be transmitted over serial\n+optional",
 	}
 }
 

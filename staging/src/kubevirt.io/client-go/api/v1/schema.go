@@ -213,6 +213,9 @@ type Bootloader struct {
 //
 // +k8s:openapi-gen=true
 type BIOS struct {
+	// If set, the BIOS output will be transmitted over serial
+	// +optional
+	UseSerial *bool `json:"useSerial,omitempty"`
 }
 
 // If set, EFI will be used instead of BIOS.
