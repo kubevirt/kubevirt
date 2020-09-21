@@ -1246,6 +1246,9 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 		if volume.Secret != nil {
 			volumeSourceSetCount++
 		}
+		if volume.DownwardAPI != nil {
+			volumeSourceSetCount++
+		}
 		if volume.ServiceAccount != nil {
 			volumeSourceSetCount++
 			serviceAccountVolumeCount++

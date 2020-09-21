@@ -279,6 +279,9 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	if source.Secret != nil {
 		return Convert_v1_Config_To_api_Disk(source.Name, disk, config.Secret)
 	}
+	if source.DownwardAPI != nil {
+		return Convert_v1_Config_To_api_Disk(source.Name, disk, config.DownwardAPI)
+	}
 	if source.ServiceAccount != nil {
 		return Convert_v1_Config_To_api_Disk(source.Name, disk, config.ServiceAccount)
 	}
@@ -295,6 +298,9 @@ func Convert_v1_Config_To_api_Disk(volumeName string, disk *Disk, configType con
 		break
 	case config.Secret:
 		disk.Source.File = config.GetSecretDiskPath(volumeName)
+		break
+	case config.DownwardAPI:
+		disk.Source.File = config.GetDownwardAPIDiskPath(volumeName)
 		break
 	case config.ServiceAccount:
 		disk.Source.File = config.GetServiceAccountDiskPath()

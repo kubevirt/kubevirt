@@ -6886,6 +6886,32 @@
      }
     }
    },
+   "k8s.io.api.core.v1.DownwardAPIVolumeFile": {
+    "description": "DownwardAPIVolumeFile represents information to create the file containing the pod field",
+    "type": "object",
+    "required": [
+     "path"
+    ],
+    "properties": {
+     "fieldRef": {
+      "description": "Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.",
+      "$ref": "#/definitions/k8s.io.api.core.v1.ObjectFieldSelector"
+     },
+     "mode": {
+      "description": "Optional: mode bits to use on this file, must be a value between 0 and 0777. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.",
+      "type": "integer",
+      "format": "int32"
+     },
+     "path": {
+      "description": "Required: Path is  the relative path name of the file to be created. Must not be absolute or contain the '..' path. Must be utf-8 encoded. The first item of the relative path must not start with '..'",
+      "type": "string"
+     },
+     "resourceFieldRef": {
+      "description": "Selects a resource of the container: only resources limits and requests (limits.cpu, limits.memory, requests.cpu and requests.memory) are currently supported.",
+      "$ref": "#/definitions/k8s.io.api.core.v1.ResourceFieldSelector"
+     }
+    }
+   },
    "k8s.io.api.core.v1.HTTPGetAction": {
     "description": "HTTPGetAction describes an action based on HTTP Get requests.",
     "type": "object",
@@ -7024,6 +7050,23 @@
       "items": {
        "$ref": "#/definitions/k8s.io.api.core.v1.NodeSelectorRequirement"
       }
+     }
+    }
+   },
+   "k8s.io.api.core.v1.ObjectFieldSelector": {
+    "description": "ObjectFieldSelector selects an APIVersioned field of an object.",
+    "type": "object",
+    "required": [
+     "fieldPath"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "Version of the schema the FieldPath is written in terms of, defaults to \"v1\".",
+      "type": "string"
+     },
+     "fieldPath": {
+      "description": "Path of the field to select in the specified API version.",
+      "type": "string"
      }
     }
    },
@@ -7299,6 +7342,27 @@
       "description": "Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.",
       "type": "integer",
       "format": "int32"
+     }
+    }
+   },
+   "k8s.io.api.core.v1.ResourceFieldSelector": {
+    "description": "ResourceFieldSelector represents container resources (cpu, memory) and their output format",
+    "type": "object",
+    "required": [
+     "resource"
+    ],
+    "properties": {
+     "containerName": {
+      "description": "Container name: required for volumes, optional for env vars",
+      "type": "string"
+     },
+     "divisor": {
+      "description": "Specifies the output format of the exposed resources, defaults to \"1\"",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     },
+     "resource": {
+      "description": "Required: resource to select",
+      "type": "string"
      }
     }
    },
@@ -8633,6 +8697,23 @@
      "resources": {
       "description": "Resources describes the Compute Resources required by this vmi.",
       "$ref": "#/definitions/v1.ResourceRequirements"
+     }
+    }
+   },
+   "v1.DownwardAPIVolumeSource": {
+    "description": "DownwardAPIVolumeSource represents a volume containing downward API info.",
+    "type": "object",
+    "properties": {
+     "fields": {
+      "description": "Fields is a list of downward API volume file",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/k8s.io.api.core.v1.DownwardAPIVolumeFile"
+      }
+     },
+     "volumeLabel": {
+      "description": "The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).",
+      "type": "string"
      }
     }
    },
@@ -10713,6 +10794,10 @@
      "dataVolume": {
       "description": "DataVolume represents the dynamic creation a PVC for this volume as well as the process of populating that PVC with a disk image.",
       "$ref": "#/definitions/v1.DataVolumeSource"
+     },
+     "downwardAPI": {
+      "description": "DownwardAPI represents downward API about the pod that should populate this volume",
+      "$ref": "#/definitions/v1.DownwardAPIVolumeSource"
      },
      "emptyDisk": {
       "description": "EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",
