@@ -151,6 +151,102 @@ func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, vers
 	}
 }
 
+// Merge all Tolerations, Affinity and NodeSelectos from NodePlacement into pod spec
+func injectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev1.PodSpec) {
+	if componentConfig == nil || componentConfig.NodePlacement == nil {
+		return
+	}
+	if podSpec == nil {
+		podSpec = &corev1.PodSpec{}
+	}
+	nodePlacement := componentConfig.NodePlacement
+	if len(nodePlacement.NodeSelector) != 0 {
+		if len(podSpec.NodeSelector) == 0 {
+			podSpec.NodeSelector = make(map[string]string)
+		}
+		// podSpec.NodeSelector
+		for nsKey, nsVal := range nodePlacement.NodeSelector {
+			// Favor podSpec over NodePlacement. This prevents cluster admin from clobbering
+			// node selectors that KubeVirt intentionally set.
+			if _, ok := podSpec.NodeSelector[nsKey]; !ok {
+				podSpec.NodeSelector[nsKey] = nsVal
+			}
+		}
+	}
+
+	// podSpec.Affinity
+	if nodePlacement.Affinity != nil {
+		if podSpec.Affinity == nil {
+			podSpec.Affinity = nodePlacement.Affinity.DeepCopy()
+		} else {
+			// podSpec.Affinity.NodeAffinity
+			if nodePlacement.Affinity.NodeAffinity != nil {
+				if podSpec.Affinity.NodeAffinity == nil {
+					podSpec.Affinity.NodeAffinity = nodePlacement.Affinity.NodeAffinity.DeepCopy()
+				} else {
+					// need to copy all affinity terms one by one
+					if nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+						if podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+							podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.DeepCopy()
+						} else {
+							// merge the list of terms from NodePlacement into podSpec
+							for _, term := range nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
+								podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, term)
+							}
+						}
+					}
+
+					//PreferredDuringSchedulingIgnoredDuringExecution
+					for _, term := range nodePlacement.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
+						podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term)
+					}
+
+				}
+			}
+			// podSpec.Affinity.PodAffinity
+			if nodePlacement.Affinity.PodAffinity != nil {
+				if podSpec.Affinity.PodAffinity == nil {
+					podSpec.Affinity.PodAffinity = nodePlacement.Affinity.PodAffinity.DeepCopy()
+				} else {
+					//RequiredDuringSchedulingIgnoredDuringExecution
+					for _, term := range nodePlacement.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
+						podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution, term)
+					}
+					//PreferredDuringSchedulingIgnoredDuringExecution
+					for _, term := range nodePlacement.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
+						podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term)
+					}
+				}
+			}
+			// podSpec.Affinity.PodAntiAffinity
+			if nodePlacement.Affinity.PodAntiAffinity != nil {
+				if podSpec.Affinity.PodAntiAffinity == nil {
+					podSpec.Affinity.PodAntiAffinity = nodePlacement.Affinity.PodAntiAffinity.DeepCopy()
+				} else {
+					//RequiredDuringSchedulingIgnoredDuringExecution
+					for _, term := range nodePlacement.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
+						podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution, term)
+					}
+					//PreferredDuringSchedulingIgnoredDuringExecution
+					for _, term := range nodePlacement.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
+						podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term)
+					}
+				}
+			}
+		}
+	}
+
+	//podSpec.Tolerations
+	if len(nodePlacement.Tolerations) != 0 {
+		if len(podSpec.Tolerations) == 0 {
+			podSpec.Tolerations = []corev1.Toleration{}
+		}
+		for _, toleration := range nodePlacement.Tolerations {
+			podSpec.Tolerations = append(podSpec.Tolerations, toleration)
+		}
+	}
+}
+
 func generatePatchBytes(ops []string) []byte {
 	opsStr := "["
 	for idx, entry := range ops {
@@ -199,6 +295,7 @@ func syncDaemonSet(kv *v1.KubeVirt,
 
 	injectOperatorMetadata(kv, &daemonSet.ObjectMeta, imageTag, imageRegistry, id, true)
 	injectOperatorMetadata(kv, &daemonSet.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
+	injectPlacementMetadata(kv.Spec.Workloads, &daemonSet.Spec.Template.Spec)
 
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
@@ -262,6 +359,7 @@ func syncDeployment(kv *v1.KubeVirt,
 
 	injectOperatorMetadata(kv, &deployment.ObjectMeta, imageTag, imageRegistry, id, true)
 	injectOperatorMetadata(kv, &deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
+	injectPlacementMetadata(kv.Spec.Infra, &deployment.Spec.Template.Spec)
 
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
