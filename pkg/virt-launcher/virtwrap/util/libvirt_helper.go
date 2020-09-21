@@ -185,7 +185,7 @@ func StartLibvirt(stopChan chan struct{}) {
 	go func() {
 		// libvirtd needs access to /dev/null and /dev/urandom
 		// Ensure both are there and ready to be used, panic if they are still not after 1 second
-		devNodes := []string{"/dev/null", "/dev/urandom"}
+		devNodes := []string{"/dev/null", "/dev/urandom", "/dev/kvm"}
 		for i := 1; i <= 10; i++ {
 			var err error
 			var fd *os.File
