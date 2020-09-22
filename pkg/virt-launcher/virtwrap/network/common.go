@@ -115,6 +115,7 @@ type NetworkHandler interface {
 	CreateTapDevice(tapName string, isMultiqueue bool, launcherPID int) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
 	DelBridgeFdb(link netlink.Link) error
+	LinkSetHardwareAddr(link netlink.Link, mac net.HardwareAddr) error
 }
 
 type NetworkUtilsHandler struct{}
@@ -346,6 +347,10 @@ func (h *NetworkUtilsHandler) DelBridgeFdb(link netlink.Link) error {
 	}
 
 	return nil
+}
+
+func (h *NetworkUtilsHandler) LinkSetHardwareAddr(link netlink.Link, mac net.HardwareAddr) error {
+	return netlink.LinkSetHardwareAddr(link, mac)
 }
 
 func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {
