@@ -273,6 +273,10 @@ const (
 	VirtualMachineInstanceReasonDisksNotMigratable = "DisksNotLiveMigratable"
 	// Reason means that VMI is not live migratioable because of it's network interfaces collection
 	VirtualMachineInstanceReasonInterfaceNotMigratable = "InterfaceNotLiveMigratable"
+
+	// VirtualMachineInstanceMigrationIsProtected indicates that both the current VMI pod and the target migration pod
+	// are protected by a PDB.
+	VirtualMachineInstanceMigrationIsProtected VirtualMachineInstanceConditionType = "LiveMigrationIsProtected"
 )
 
 // +k8s:openapi-gen=true
@@ -392,6 +396,8 @@ type VirtualMachineInstanceMigrationState struct {
 	TargetPod string `json:"targetPod,omitempty"`
 	// The source node that the VMI originated on
 	SourceNode string `json:"sourceNode,omitempty"`
+	// Indicates that the migration was accepted to the system and is now being processed
+	Pending bool `json:"pending,omitempty"`
 	// Indicates the migration completed
 	Completed bool `json:"completed,omitempty"`
 	// Indicates that the migration failed

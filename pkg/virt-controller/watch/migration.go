@@ -485,6 +485,12 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 			// nothing to do if the target pod already exists
 			return nil
 		}
+
+		err = c.setVmiMigrationPending(vmi)
+		if err != nil {
+			return err
+		}
+
 		return func() error {
 			c.migrationStartLock.Lock()
 			defer c.migrationStartLock.Unlock()
@@ -523,9 +529,16 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 
 			// migration was accepted into the system, now see if we
 			// should create the target pod
-			if vmi.IsRunning() {
+
+			if !vmi.IsRunning() {
+				return nil
+			}
+
+			mgr := controller.NewVirtualMachineInstanceConditionManager()
+			if !waitForProtectedMigration(vmi) || mgr.HasCondition(vmi, virtv1.VirtualMachineInstanceMigrationIsProtected) {
 				return c.createTargetPod(migration, vmi)
 			}
+
 			return nil
 		}()
 	case virtv1.MigrationScheduled:
@@ -556,6 +569,33 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 		}
 	}
 	return nil
+}
+
+func waitForProtectedMigration(vmi *virtv1.VirtualMachineInstance) bool {
+	return vmi.Spec.EvictionStrategy != nil && *vmi.Spec.EvictionStrategy == virtv1.EvictionStrategyLiveMigrate
+}
+
+func (c *MigrationController) setVmiMigrationPending(vmi *virtv1.VirtualMachineInstance) error {
+	var vmiCopy *virtv1.VirtualMachineInstance
+	modified := false
+
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Pending != true {
+		vmiCopy = vmi.DeepCopy()
+		vmiCopy.Status.MigrationState.Pending = true
+		modified = true
+	} else if vmi.Status.MigrationState == nil {
+		vmiCopy = vmi.DeepCopy()
+		vmiCopy.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+			Pending: true,
+		}
+		modified = true
+	}
+
+	if !modified {
+		return nil
+	}
+	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmiCopy)
+	return err
 }
 
 func (c *MigrationController) listMatchingTargetPods(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) ([]*k8sv1.Pod, error) {

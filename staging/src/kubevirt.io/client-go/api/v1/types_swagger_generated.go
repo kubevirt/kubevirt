@@ -107,6 +107,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"targetNode":                     "The target node that the VMI is moving to",
 		"targetPod":                      "The target pod that the VMI is moving to",
 		"sourceNode":                     "The source node that the VMI originated on",
+		"pending":                        "Indicates that the migration was accepted to the system and is now being processed",
 		"completed":                      "Indicates the migration completed",
 		"failed":                         "Indicates that the migration failed",
 		"abortRequested":                 "Indicates that the migration has been requested to abort",

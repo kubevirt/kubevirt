@@ -10140,6 +10140,10 @@
       "description": "Lets us know if the vmi is currenly running pre or post copy migration",
       "type": "string"
      },
+     "pending": {
+      "description": "Indicates that the migration was accepted to the system and is now being processed",
+      "type": "boolean"
+     },
      "sourceNode": {
       "description": "The source node that the VMI originated on",
       "type": "string"

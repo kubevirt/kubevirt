@@ -325,71 +325,132 @@ func (c *DisruptionBudgetController) execute(key string) error {
 }
 
 func (c *DisruptionBudgetController) sync(key string, vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisruptionBudget) error {
-	delete := false
-	create := false
-	// delete if there is no VMI
 	if vmi == nil && pdb != nil {
-		delete = true
+		c.deletePDB(key, vmi, pdb)
 	} else if vmi != nil {
 		wantsToMigrate := wantsToMigrateOnDrain(vmi)
-		if vmi.DeletionTimestamp != nil && pdb != nil {
+		if vmi.DeletionTimestamp != nil && pdb != nil && pdb.DeletionTimestamp == nil {
 			// pdb can already be deleted, shutdown already in process
-			delete = true
+			return c.deletePDB(key, vmi, pdb)
 		} else if !wantsToMigrate && pdb != nil {
 			// We don't want migrations on evictions, if there is a pdb, remove it
-			delete = true
+			c.deletePDB(key, vmi, pdb)
 		} else if wantsToMigrate && vmi.DeletionTimestamp == nil && pdb == nil {
 			// No pdb and we want migrations on evictions
-			create = true
+			minAvailable := intstr.FromInt(1)
+			c.createPDB(key, vmi, minAvailable)
+		} else if wantsToMigrate && vmi.DeletionTimestamp == nil && pdb != nil && migrationIsPending(vmi) {
+			// We have a migration in progress - protect both of the VMI pods
+			return c.protectVmiMigration(key, vmi, pdb)
+		} else if wantsToMigrate && vmi.DeletionTimestamp == nil && pdb != nil && migrationCompleted(vmi) {
+			// A migration completed, shrink down back to 1 so we won't trigger any alerts
+			return c.endMigrationProtection(key, vmi, pdb)
 		} else if wantsToMigrate && pdb != nil {
 			if ownerRef := v1.GetControllerOf(pdb); ownerRef != nil && ownerRef.UID != vmi.UID {
 				// The pdb is from an old vmi with a different uid, delete and later create the correct one
 				// The VMI always has a minimum grace period, so normally this should not happen, therefore no optimizations
-				delete = true
+				return c.deletePDB(key, vmi, pdb)
 			}
 		}
 	}
 
-	if delete && pdb != nil && pdb.DeletionTimestamp == nil {
-		pdbKey, err := cache.MetaNamespaceKeyFunc(pdb)
-		if err != nil {
-			return err
-		}
-		c.podDisruptionBudgetExpectations.ExpectDeletions(key, []string{pdbKey})
-		err = c.clientset.PolicyV1beta1().PodDisruptionBudgets(pdb.Namespace).Delete(pdb.Name, &v1.DeleteOptions{})
-		if err != nil {
-			c.podDisruptionBudgetExpectations.DeletionObserved(key, pdbKey)
-			c.recorder.Eventf(vmi, v12.EventTypeWarning, FailedDeletePodDisruptionBudgetReason, "Error deleting the PodDisruptionBudget %s: %v", pdb.Name, err)
-			return err
-		}
-		c.recorder.Eventf(vmi, v12.EventTypeNormal, SuccessfulDeletePodDisruptionBudgetReason, "Deleted PodDisruptionBudget %s", pdb.Name)
+	return nil
+}
+
+func (c *DisruptionBudgetController) endMigrationProtection(key string, vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisruptionBudget) error {
+	minAvailable := intstr.FromInt(1)
+	isNotProtected := !controller.NewVirtualMachineInstanceConditionManager().HasCondition(vmi, virtv1.VirtualMachineInstanceMigrationIsProtected)
+	if pdb.Spec.MinAvailable.IntVal == minAvailable.IntVal || isNotProtected {
 		return nil
-	} else if create {
-		two := intstr.FromInt(2)
-		c.podDisruptionBudgetExpectations.ExpectCreations(key, 1)
-		createdPDB, err := c.clientset.PolicyV1beta1().PodDisruptionBudgets(vmi.Namespace).Create(&v1beta1.PodDisruptionBudget{
-			ObjectMeta: v1.ObjectMeta{
-				OwnerReferences: []v1.OwnerReference{
-					*v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
-				},
-				GenerateName: "kubevirt-disruption-budget-",
-			},
-			Spec: v1beta1.PodDisruptionBudgetSpec{
-				MinAvailable: &two,
-				Selector: &v1.LabelSelector{
-					MatchLabels: map[string]string{
-						virtv1.CreatedByLabel: string(vmi.UID),
-					},
-				},
-			},
-		})
-		if err != nil {
-			c.podDisruptionBudgetExpectations.CreationObserved(key)
-			c.recorder.Eventf(vmi, v12.EventTypeWarning, FailedCreatePodDisruptionBudgetReason, "Error creating a PodDisruptionBudget: %v", err)
-			return err
-		}
-		c.recorder.Eventf(vmi, v12.EventTypeNormal, SuccessfulCreatePodDisruptionBudgetReason, "Created PodDisruptionBudget %s", createdPDB.Name)
 	}
+	err := c.createPDB(key, vmi, minAvailable)
+	if err != nil {
+		return err
+	}
+	err = c.deletePDB(key, vmi, pdb)
+	if err != nil {
+		return err
+	}
+	return c.unsetVmiMigrationProtectedCondition(vmi)
+}
+
+func (c *DisruptionBudgetController) protectVmiMigration(key string, vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisruptionBudget) error {
+	minAvailable := intstr.FromInt(2)
+	isAlreadyProtected := controller.NewVirtualMachineInstanceConditionManager().HasCondition(vmi, virtv1.VirtualMachineInstanceMigrationIsProtected)
+	if pdb.Spec.MinAvailable.IntVal == minAvailable.IntVal || isAlreadyProtected {
+		return nil
+	}
+
+	err := c.createPDB(key, vmi, minAvailable)
+	if err != nil {
+		return err
+	}
+	err = c.deletePDB(key, vmi, pdb)
+	if err != nil {
+		return err
+	}
+	return c.setVmiMigrationProtectedCondition(vmi)
+}
+
+func (c *DisruptionBudgetController) setVmiMigrationProtectedCondition(vmi *virtv1.VirtualMachineInstance) error {
+	mgr := controller.NewVirtualMachineInstanceConditionManager()
+	mgr.AddCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
+		Type:               virtv1.VirtualMachineInstanceMigrationIsProtected,
+		LastProbeTime:      v1.Now(),
+		LastTransitionTime: v1.Now(),
+		Status:             v12.ConditionTrue,
+	})
+	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmi)
+	return err
+}
+
+func (c *DisruptionBudgetController) unsetVmiMigrationProtectedCondition(vmi *virtv1.VirtualMachineInstance) error {
+	mgr := controller.NewVirtualMachineInstanceConditionManager()
+	mgr.RemoveCondition(vmi, virtv1.VirtualMachineInstanceMigrationIsProtected)
+	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmi)
+	return err
+}
+
+func (c *DisruptionBudgetController) createPDB(key string, vmi *virtv1.VirtualMachineInstance, minAvailable intstr.IntOrString) error {
+	c.podDisruptionBudgetExpectations.ExpectCreations(key, 1)
+	createdPDB, err := c.clientset.PolicyV1beta1().PodDisruptionBudgets(vmi.Namespace).Create(&v1beta1.PodDisruptionBudget{
+		ObjectMeta: v1.ObjectMeta{
+			OwnerReferences: []v1.OwnerReference{
+				*v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
+			},
+			GenerateName: "kubevirt-disruption-budget-",
+		},
+		Spec: v1beta1.PodDisruptionBudgetSpec{
+			MinAvailable: &minAvailable,
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{
+					virtv1.CreatedByLabel: string(vmi.UID),
+				},
+			},
+		},
+	})
+	if err != nil {
+		c.podDisruptionBudgetExpectations.CreationObserved(key)
+		c.recorder.Eventf(vmi, v12.EventTypeWarning, FailedCreatePodDisruptionBudgetReason, "Error creating a PodDisruptionBudget: %v", err)
+		return err
+	}
+	c.recorder.Eventf(vmi, v12.EventTypeNormal, SuccessfulCreatePodDisruptionBudgetReason, "Created PodDisruptionBudget %s", createdPDB.Name)
+	return nil
+}
+
+func (c *DisruptionBudgetController) deletePDB(key string, vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisruptionBudget) error {
+	pdbKey, err := cache.MetaNamespaceKeyFunc(pdb)
+	if err != nil {
+		return err
+	}
+	c.podDisruptionBudgetExpectations.ExpectDeletions(key, []string{pdbKey})
+	err = c.clientset.PolicyV1beta1().PodDisruptionBudgets(pdb.Namespace).Delete(pdb.Name, &v1.DeleteOptions{})
+	if err != nil {
+		c.podDisruptionBudgetExpectations.DeletionObserved(key, pdbKey)
+		c.recorder.Eventf(vmi, v12.EventTypeWarning, FailedDeletePodDisruptionBudgetReason, "Error deleting the PodDisruptionBudget %s: %v", pdb.Name, err)
+		return err
+	}
+	c.recorder.Eventf(vmi, v12.EventTypeNormal, SuccessfulDeletePodDisruptionBudgetReason, "Deleted PodDisruptionBudget %s", pdb.Name)
 	return nil
 }
 
@@ -407,6 +468,14 @@ func (c *DisruptionBudgetController) pdbForVMI(namespace, name string) (*v1beta1
 		}
 	}
 	return nil, nil
+}
+
+func migrationIsPending(vmi *virtv1.VirtualMachineInstance) bool {
+	return vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Pending
+}
+
+func migrationCompleted(vmi *virtv1.VirtualMachineInstance) bool {
+	return vmi.Status.MigrationState != nil && (vmi.Status.MigrationState.Completed || vmi.Status.MigrationState.Failed)
 }
 
 func wantsToMigrateOnDrain(vmi *virtv1.VirtualMachineInstance) bool {

@@ -17313,6 +17313,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceMigrationState(ref
 							Format:      "",
 						},
 					},
+					"pending": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Indicates that the migration was accepted to the system and is now being processed",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"completed": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Indicates the migration completed",

@@ -1611,6 +1611,39 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Expect(resVMI.Status.EvacuationNodeName).To(Equal(""), "vmi evacuation state should be clean")
 			})
 
+			It("should grow the PDB availability during a migration, and shrink it back afterwards", func() {
+
+				waitForPDBAvailability := func(minAvailable int) {
+					Eventually(func() error {
+						pdbs, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(tests.NamespaceTestDefault).List(metav1.ListOptions{})
+						Expect(err).ShouldNot(HaveOccurred())
+						if len(pdbs.Items) != 1 {
+							return fmt.Errorf("previous PDB was not deleted yet")
+						}
+						if int(pdbs.Items[0].Spec.MinAvailable.IntVal) != minAvailable {
+							return fmt.Errorf("PDB was not yet updated")
+						}
+						return nil
+					}, 180*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+				}
+				By("creating the VMI")
+				vmi = runVMIAndExpectLaunch(vmi, 180)
+
+				By("waiting for PDB to be created")
+				waitForPDBAvailability(1)
+
+				By("creating a migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				_, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(migration)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				By("waiting for PDB availability to extend")
+				waitForPDBAvailability(2)
+
+				By("waiting for PDB availability to shrink")
+				waitForPDBAvailability(1)
+			})
+
 			It("[test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
 				for x := 0; x < 3; x++ {
 					By("creating the VMI")
@@ -1622,7 +1655,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 						pdbs, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(tests.NamespaceTestDefault).List(metav1.ListOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						return pdbs.Items
-					}, 3*time.Second, 500*time.Millisecond).Should(HaveLen(1))
+					}, 5*time.Second, 500*time.Millisecond).Should(HaveLen(1))
 					By("deleting the VMI")
 					Expect(virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 					By("checking that the PDB disappeared")
@@ -1630,7 +1663,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 						pdbs, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(tests.NamespaceTestDefault).List(metav1.ListOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						return pdbs.Items
-					}, 3*time.Second, 500*time.Millisecond).Should(HaveLen(0))
+					}, 5*time.Second, 500*time.Millisecond).Should(HaveLen(0))
 					Eventually(func() bool {
 						_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 						return errors.IsNotFound(err)

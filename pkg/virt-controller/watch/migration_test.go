@@ -228,6 +228,7 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
+			vmiInterface.EXPECT().Update(gomock.Any())
 
 			controller.Execute()
 
@@ -263,6 +264,7 @@ var _ = Describe("Migration watcher", func() {
 			}
 
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
+			vmiInterface.EXPECT().Update(gomock.Any())
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
@@ -284,6 +286,7 @@ var _ = Describe("Migration watcher", func() {
 				addMigration(migration)
 				addVirtualMachineInstance(vmi)
 			}
+			vmiInterface.EXPECT().Update(gomock.Any())
 
 			controller.Execute()
 		})
@@ -317,6 +320,7 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 				podInformer.GetStore().Add(pod)
 			}
+			vmiInterface.EXPECT().Update(gomock.Any())
 
 			controller.Execute()
 		})
@@ -339,6 +343,8 @@ var _ = Describe("Migration watcher", func() {
 			}
 
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
+			vmiInterface.EXPECT().Update(gomock.Any())
+
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
@@ -359,6 +365,7 @@ var _ = Describe("Migration watcher", func() {
 				addMigration(migration)
 				addVirtualMachineInstance(vmi)
 			}
+			vmiInterface.EXPECT().Update(gomock.Any())
 
 			controller.Execute()
 		})
@@ -415,6 +422,7 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			shouldExpectPodCreation(vmi.UID, migration.UID, 2, 1, 1)
+			vmiInterface.EXPECT().Update(gomock.Any())
 
 			controller.Execute()
 

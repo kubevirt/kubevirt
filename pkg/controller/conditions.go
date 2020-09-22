@@ -125,6 +125,12 @@ func (d *VirtualMachineInstanceConditionManager) AddPodCondition(vmi *v1.Virtual
 	}
 }
 
+func (d *VirtualMachineInstanceConditionManager) AddCondition(vmi *v1.VirtualMachineInstance, cond *v1.VirtualMachineInstanceCondition) {
+	if !d.HasCondition(vmi, cond.Type) {
+		vmi.Status.Conditions = append(vmi.Status.Conditions, *cond)
+	}
+}
+
 func (d *VirtualMachineInstanceConditionManager) PodHasCondition(pod *k8sv1.Pod, conditionType k8sv1.PodConditionType, status k8sv1.ConditionStatus) bool {
 	for _, cond := range pod.Status.Conditions {
 		if cond.Type == conditionType {
