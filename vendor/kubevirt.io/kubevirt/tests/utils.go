@@ -41,7 +41,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -56,7 +55,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
-	"google.golang.org/grpc/codes"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -92,7 +90,6 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/cluster"
-	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -125,6 +122,8 @@ const (
 	StressHttpUrl
 	DmidecodeHttpUrl
 	DummyFileHttpUrl
+	CirrosHttpUrl
+	VirtWhatCpuidHelperHttpUrl
 )
 
 const (
@@ -218,7 +217,7 @@ const (
 	osAuditLogPath  = "/var/lib/origin/audit-ocp.log"
 	swaggerPath     = "api/openapi-spec/swagger.json"
 	artifactsEnv    = "ARTIFACTS"
-	tmpPath         = "/provision/kubevirt.io/tests"
+	tmpPath         = "/var/provision/kubevirt.io/tests"
 )
 
 const (
@@ -242,11 +241,6 @@ type ObjectEventWatcher struct {
 	startType              startType
 	dontFailOnMissingEvent bool
 }
-
-const (
-	PromptExpression = `(\$ |\# )`
-	CRLF             = "\r\n"
-)
 
 func NewObjectEventWatcher(object runtime.Object) *ObjectEventWatcher {
 	return &ObjectEventWatcher{object: object, startType: invalidWatch}
@@ -710,6 +704,10 @@ func BeforeTestSuitSetup() {
 	var err error
 	Config, err = loadConfig()
 	Expect(err).ToNot(HaveOccurred())
+
+	if flags.KubeVirtInstallNamespace == "" {
+		detectInstallNamespace()
+	}
 
 	createNamespaces()
 	createServiceAccounts()
@@ -1700,6 +1698,20 @@ func removeNamespaces() {
 	}
 }
 
+func detectInstallNamespace() {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	kvs, err := virtCli.KubeVirt("").List(&metav1.ListOptions{})
+	PanicOnError(err)
+	if len(kvs.Items) == 0 {
+		PanicOnError(fmt.Errorf("Could not detect a kubevirt installation"))
+	}
+	if len(kvs.Items) > 1 {
+		PanicOnError(fmt.Errorf("Invalid kubevirt installation, more than one KubeVirt resource found"))
+	}
+	flags.KubeVirtInstallNamespace = kvs.Items[0].Namespace
+}
+
 func createNamespaces() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -1900,6 +1912,16 @@ func NewRandomVMWithDataVolumeInStorageClass(imageUrl, namespace, storageClass s
 	return vm
 }
 
+func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, userData, storageClass string) *v1.VirtualMachine {
+	dataVolume := NewRandomDataVolumeWithHttpImportInStorageClass(imageUrl, namespace, storageClass, k8sv1.ReadWriteOnce)
+	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
+	AddUserData(vmi, "cloud-init", userData)
+	vm := NewRandomVirtualMachine(vmi, false)
+
+	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dataVolume)
+	return vm
+}
+
 func NewRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace string) *v1.VirtualMachine {
 	dataVolume := NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace, k8sv1.ReadWriteOnce)
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -2083,6 +2105,51 @@ func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
 	return agentVMI
 }
 
+func AddPVCFS(vmi *v1.VirtualMachineInstance, name string, claimName string) *v1.VirtualMachineInstance {
+	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+		Name:     name,
+		Virtiofs: &v1.FilesystemVirtiofs{},
+	})
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: claimName,
+			},
+		},
+	})
+
+	return vmi
+}
+
+func NewRandomVMIWithFSFromDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMI()
+	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedora)
+	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
+	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+		Name:     "disk1",
+		Virtiofs: &v1.FilesystemVirtiofs{},
+	})
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: "disk1",
+		VolumeSource: v1.VolumeSource{
+			DataVolume: &v1.DataVolumeSource{
+				Name: dataVolumeName,
+			},
+		},
+	})
+	return vmi
+}
+
+func NewRandomVMIWithPVCFS(claimName string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMI()
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedora)
+	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
+	vmi = AddPVCFS(vmi, "disk1", claimName)
+	return vmi
+}
+
 func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
 	dmidecodeUserData := fmt.Sprintf(`#!/bin/bash
 	    echo "fedora" |passwd fedora --stdin
@@ -2091,6 +2158,17 @@ func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
 	    chmod +x /usr/local/bin/dmidecode
 	`, GetUrl(DmidecodeHttpUrl))
 	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), dmidecodeUserData)
+	return vmi
+}
+
+func NewRandomFedoraVMIWithVirtWhatCpuidHelper() *v1.VirtualMachineInstance {
+	userData := fmt.Sprintf(`#!/bin/bash
+	    echo "fedora" |passwd fedora --stdin
+	    mkdir -p /usr/local/bin
+	    curl %s > /usr/local/bin/virt-what-cpuid-helper
+	    chmod +x /usr/local/bin/virt-what-cpuid-helper
+	`, GetUrl(VirtWhatCpuidHelperHttpUrl))
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), userData)
 	return vmi
 }
 
@@ -2209,6 +2287,14 @@ func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vmi = AddPVCDisk(vmi, "disk0", "virtio", claimName)
+	return vmi
+}
+
+func NewRandomVMIWithPVCAndUserData(claimName, userData string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMI()
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vmi = AddPVCDisk(vmi, "disk0", "virtio", claimName)
+	AddUserData(vmi, "disk1", userData)
 	return vmi
 }
 
@@ -2669,23 +2755,7 @@ func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory VMIExpect
 
 	// Fetch the new VirtualMachineInstance with updated status
 	virtClient, err := kubecli.GetKubevirtClient()
-	vmi, err = virtClient.VirtualMachineInstance(NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	// Lets make sure that the OS is up by waiting until we can login
-	expecter, err := expecterFactory(vmi)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	expecter.Close()
-	return vmi
-}
-
-func WaitUntilVMIReadyWithNamespace(namespace string, vmi *v1.VirtualMachineInstance, expecterFactory VMIExpecterFactory) *v1.VirtualMachineInstance {
-	// Wait for VirtualMachineInstance start
-	WaitForSuccessfulVMIStart(vmi)
-
-	// Fetch the new VirtualMachineInstance with updated status
-	virtClient, err := kubecli.GetKubevirtClient()
-	vmi, err = virtClient.VirtualMachineInstance(namespace).Get(vmi.Name, &metav1.GetOptions{})
+	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	// Lets make sure that the OS is up by waiting until we can login
@@ -2760,124 +2830,6 @@ func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
 	return &pod
 }
 
-func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, timeout time.Duration, opts ...expect.Option) (expect.Expecter, <-chan error, error) {
-	vmiReader, vmiWriter := io.Pipe()
-	expecterReader, expecterWriter := io.Pipe()
-	resCh := make(chan error)
-
-	startTime := time.Now()
-	con, err := virtCli.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: timeout})
-	if err != nil {
-		return nil, nil, err
-	}
-	timeout = timeout - time.Now().Sub(startTime)
-
-	go func() {
-		resCh <- con.Stream(kubecli.StreamOptions{
-			In:  vmiReader,
-			Out: expecterWriter,
-		})
-	}()
-
-	opts = append(opts, expect.SendTimeout(timeout))
-	opts = append(opts, expect.Verbose(true))
-	opts = append(opts, expect.VerboseWriter(GinkgoWriter))
-	return expect.SpawnGeneric(&expect.GenOptions{
-		In:  vmiWriter,
-		Out: expecterReader,
-		Wait: func() error {
-			return <-resCh
-		},
-		Close: func() error {
-			expecterWriter.Close()
-			vmiReader.Close()
-			return nil
-		},
-		Check: func() bool { return true },
-	}, timeout, opts...)
-}
-
-// ExpectBatchWithValidatedSend adds the expect.BSnd command to the exect.BExp expression.
-// It is done to make sure the match was found in the result of the expect.BSnd
-// command and not in a leftover that wasn't removed from the buffer.
-// NOTE: the method doesn't support multiline commands in the sent value.
-func ExpectBatchWithValidatedSend(expecter expect.Expecter, batch []expect.Batcher, timeout time.Duration) ([]expect.BatchRes, error) {
-	sendFlag := false
-	expectFlag := false
-	previousSend := ""
-	for i, batcher := range batch {
-		switch batcher.Cmd() {
-		case expect.BatchExpect:
-			if expectFlag == true {
-				return nil, fmt.Errorf("Two sequential expect.BExp are not allowed")
-			}
-			expectFlag = true
-			sendFlag = false
-			if _, ok := batch[i].(*expect.BExp); !ok {
-				return nil, fmt.Errorf("ExpectBatchWithValidatedSend support only expect of type BExp")
-			}
-			bExp, _ := batch[i].(*expect.BExp)
-			previousSend := regexp.QuoteMeta(previousSend)
-
-			// Remove the \n since it is translated by the console to \r\n.
-			previousSend = strings.TrimSuffix(previousSend, "\n")
-			bExp.R = fmt.Sprintf("%s%s%s", previousSend, "((?s).*)", bExp.R)
-			previousSend = ""
-		case expect.BatchSend:
-			if sendFlag == true {
-				return nil, fmt.Errorf("Two sequential expect.BSend are not allowed")
-			}
-			sendFlag = true
-			expectFlag = false
-			previousSend = batcher.Arg()
-		case expect.BatchSwitchCase:
-			return nil, fmt.Errorf("ExpectBatchWithValidatedSend doesn't support BatchSwitchCase")
-		default:
-			return nil, fmt.Errorf("Unkown command: ExpectBatchWithValidatedSend supports only BatchExpect and BatchSend")
-		}
-	}
-
-	res, err := expecter.ExpectBatch(batch, timeout)
-	return res, err
-}
-
-func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) error {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 30*time.Second)
-	if err != nil {
-		return err
-	}
-	defer expecter.Close()
-
-	resp, err := ExpectBatchWithValidatedSend(expecter, expected, time.Second*time.Duration(wait))
-	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("%v", resp)
-	}
-	return err
-}
-
-func configureConsole(expecter expect.Expecter, prompt string, shouldSudo bool) error {
-	sudoString := ""
-	if shouldSudo {
-		sudoString = "sudo "
-	}
-	batch := append([]expect.Batcher{
-		&expect.BSnd{S: "stty cols 500 rows 500\n"},
-		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0")},
-		&expect.BSnd{S: fmt.Sprintf("%sdmesg -n 1\n", sudoString)},
-		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0")}})
-	resp, err := expecter.ExpectBatch(batch, 30*time.Second)
-	if err != nil {
-		log.DefaultLogger().Infof("%v", resp)
-	}
-	return err
-}
-
 func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter, virtClient kubecli.KubevirtClient, prompt string) error {
 	hasEth0Iface := func() bool {
 		hasNetEth0Batch := append([]expect.Batcher{
@@ -2943,188 +2895,6 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 
 	return nil
 }
-
-func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-	if err != nil {
-		return nil, err
-	}
-	hostName := dns.SanitizeHostname(vmi)
-
-	// Do not login, if we already logged in
-	err = expecter.Send("\n")
-	if err != nil {
-		expecter.Close()
-		return nil, err
-	}
-	_, _, err = expecter.Expect(regexp.MustCompile(`\$`), 10*time.Second)
-	if err == nil {
-		return expecter, nil
-	}
-
-	b := append([]expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: "login as 'cirros' user. default password: 'gocubsgo'. use 'sudo' for root."},
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: hostName + " login:"},
-		&expect.BSnd{S: "cirros\n"},
-		&expect.BExp{R: "Password:"},
-		&expect.BSnd{S: "gocubsgo\n"},
-		&expect.BExp{R: "\\$"}})
-	resp, err := expecter.ExpectBatch(b, 180*time.Second)
-
-	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("Login: %v", resp)
-		expecter.Close()
-		return nil, err
-	}
-
-	err = configureConsole(expecter, "\\$ ", true)
-	if err != nil {
-		expecter.Close()
-		return nil, err
-	}
-
-	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient, "\\$ ")
-}
-
-func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-	if err != nil {
-		return nil, err
-	}
-
-	b := append([]expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: "localhost login:"},
-		&expect.BSnd{S: "root\n"},
-		&expect.BExp{R: "localhost:~\\#"}})
-	res, err := expecter.ExpectBatch(b, 180*time.Second)
-	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
-		expecter.Close()
-		return nil, err
-	}
-
-	err = configureConsole(expecter, "localhost:~\\#", false)
-	if err != nil {
-		expecter.Close()
-		return nil, err
-	}
-	return expecter, err
-}
-
-// LoggedInFedoraExpecter return prepared and ready to use console expecter for
-// Fedora test VM
-func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-	if err != nil {
-		return nil, err
-	}
-	b := append([]expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BSnd{S: "\n"},
-		&expect.BCas{C: []expect.Caser{
-			&expect.Case{
-				// In case the VM's did not get hostname form DHCP server try the default hostname
-				R:  regexp.MustCompile(`localhost login: `),
-				S:  "fedora\n",
-				T:  expect.Next(),
-				Rt: 10,
-			},
-			&expect.Case{
-				// Using only "login: " would match things like "Last failed login: Tue Jun  9 22:25:30 UTC 2020 on ttyS0"
-				R:  regexp.MustCompile(vmi.Name + ` login: `),
-				S:  "fedora\n",
-				T:  expect.Next(),
-				Rt: 10,
-			},
-			&expect.Case{
-				R:  regexp.MustCompile(`Password:`),
-				S:  "fedora\n",
-				T:  expect.Next(),
-				Rt: 10,
-			},
-			&expect.Case{
-				R:  regexp.MustCompile(`Login incorrect`),
-				T:  expect.LogContinue("Failed to log in", expect.NewStatus(codes.PermissionDenied, "login failed")),
-				Rt: 10,
-			},
-			&expect.Case{
-				R: regexp.MustCompile(`\$ `),
-				T: expect.OK(),
-			},
-		}},
-		&expect.BSnd{S: "sudo su\n"},
-		&expect.BExp{R: "\\#"},
-	})
-	res, err := expecter.ExpectBatch(b, 3*time.Minute)
-	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
-		expecter.Close()
-		return expecter, err
-	}
-
-	err = configureConsole(expecter, "\\#", false)
-	if err != nil {
-		expecter.Close()
-		return nil, err
-	}
-
-	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient, "\\#")
-}
-
-// ReLoggedInFedoraExpecter return prepared and ready to use console expecter for
-// Fedora test VM, when you are reconnecting (no login needed)
-func ReLoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance, timeout int) (expect.Expecter, error) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-	if err != nil {
-		return nil, err
-	}
-	b := append([]expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: "#"}})
-	res, err := expecter.ExpectBatch(b, time.Duration(timeout)*time.Second)
-	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
-		expecter.Close()
-		return expecter, err
-	}
-	return expecter, err
-}
-
-func SecureBootExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-	if err != nil {
-		return nil, err
-	}
-	b := append([]expect.Batcher{
-		&expect.BExp{R: "secureboot: Secure boot enabled"},
-	})
-	res, err := expecter.ExpectBatch(b, 180*time.Second)
-	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
-		expecter.Close()
-		return expecter, err
-	}
-
-	return expecter, err
-}
-
-type VMIExpecterFactory func(*v1.VirtualMachineInstance) (expect.Expecter, error)
-
 func NewVirtctlCommand(args ...string) *cobra.Command {
 	commandline := []string{}
 	master := flag.Lookup("master").Value
@@ -3270,15 +3040,6 @@ func SkipIfUseFlannel(virtClient kubecli.KubevirtClient) {
 	Expect(err).ToNot(HaveOccurred())
 	if len(flannelpod.Items) > 0 {
 		Skip("Skip networkpolicy test for flannel network")
-	}
-}
-
-func SkipIfNotUseNetworkPolicy(virtClient kubecli.KubevirtClient) {
-	expectedRes := "openshift-ovs-networkpolicy"
-	out, _, _ := RunCommand("kubectl", "get", "clusternetwork")
-	//we don't check the result here, because this cmd is openshift only and will be failed on k8s cluster
-	if !strings.Contains(out, expectedRes) {
-		Skip("Skip networkpolicy test that require openshift-ovs-networkpolicy plugin")
 	}
 }
 
@@ -4225,54 +3986,6 @@ func HasLiveMigration() bool {
 	return HasFeature("LiveMigration")
 }
 
-func StartTCPServer(vmi *v1.VirtualMachineInstance, port int) {
-	expecter, err := LoggedInCirrosExpecter(vmi)
-	Expect(err).ToNot(HaveOccurred())
-	defer expecter.Close()
-
-	resp, err := ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\n", port)},
-		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0")},
-	}, 60*time.Second)
-	log.DefaultLogger().Infof("%v", resp)
-	Expect(err).ToNot(HaveOccurred())
-}
-
-func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, isFedoraVM bool) {
-	var err error
-	var expecter expect.Expecter
-	var httpServerMaker string
-	var prompt string
-
-	if isFedoraVM {
-		expecter, err = LoggedInFedoraExpecter(vmi)
-		Expect(err).NotTo(HaveOccurred())
-		httpServerMaker = fmt.Sprintf("python3 -m http.server %d --bind ::0 &\n", port)
-		prompt = "\\#"
-	} else {
-		expecter, err = LoggedInCirrosExpecter(vmi)
-		Expect(err).NotTo(HaveOccurred())
-		httpServerMaker = fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"HTTP/1.1 200 OK\\nContent-Length: 11\\n\\nHello World!\"\n", port)
-		prompt = "\\$"
-	}
-	defer expecter.Close()
-
-	resp, err := ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: prompt},
-		&expect.BSnd{S: httpServerMaker},
-		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0")},
-	}, 60*time.Second)
-	log.DefaultLogger().Infof("%v", resp)
-	Expect(err).ToNot(HaveOccurred())
-}
-
 func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()
 	uid := vmi.GetObjectMeta().GetUID()
@@ -4624,6 +4337,10 @@ func GetUrl(urlIndex int) string {
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/dmidecode", flags.KubeVirtInstallNamespace)
 	case DummyFileHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/dummy.file", flags.KubeVirtInstallNamespace)
+	case CirrosHttpUrl:
+		str = fmt.Sprintf("http://cdi-http-import-server.%s/images/cirros.img", flags.KubeVirtInstallNamespace)
+	case VirtWhatCpuidHelperHttpUrl:
+		str = fmt.Sprintf("http://cdi-http-import-server.%s/virt-what-cpuid-helper", flags.KubeVirtInstallNamespace)
 	default:
 		str = ""
 	}
@@ -4870,6 +4587,12 @@ func SkipSELinuxTestIfRunnigOnKindInfra() {
 	}
 }
 
+func SkipMigrationFailTestIfRunningOnKindInfraIPv6() {
+	if IsRunningOnKindInfraIPv6() {
+		Skip("Skip Migration fail test till issue https://github.com/kubevirt/kubevirt/issues/4086 is fixed")
+	}
+}
+
 func SkipDmidecodeTestIfRunningOnKindInfraIPv6() {
 	if IsRunningOnKindInfraIPv6() {
 		Skip("Skip dmidecode tests till issue https://github.com/kubevirt/kubevirt/issues/3901 is fixed")
@@ -5006,8 +4729,4 @@ func IsLauncherCapabilityValid(capability k8sv1.Capability) bool {
 		return true
 	}
 	return false
-}
-
-func RetValue(retcode string) string {
-	return "\n" + retcode + CRLF + ".*" + PromptExpression
 }

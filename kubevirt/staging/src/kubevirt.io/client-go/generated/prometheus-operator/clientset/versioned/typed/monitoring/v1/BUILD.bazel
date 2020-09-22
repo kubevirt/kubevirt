@@ -1,0 +1,25 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "alertmanager.go",
+        "doc.go",
+        "generated_expansion.go",
+        "monitoring_client.go",
+        "podmonitor.go",
+        "prometheus.go",
+        "prometheusrule.go",
+        "servicemonitor.go",
+    ],
+    importpath = "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/typed/monitoring/v1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/scheme:go_default_library",
+        "//vendor/github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+    ],
+)

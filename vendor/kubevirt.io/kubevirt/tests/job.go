@@ -8,46 +8,72 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/client-go/kubecli"
-
-	. "github.com/onsi/gomega"
 )
 
-func WaitForJobToSucceed(virtClient *kubecli.KubevirtClient, job *batchv1.Job, timeoutSec time.Duration) {
-	EventuallyWithOffset(1, func() bool {
-		job, err := (*virtClient).BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
-		ExpectWithOffset(2, err).ToNot(HaveOccurred())
-		for _, c := range job.Status.Conditions {
-			switch c.Type {
-			case batchv1.JobComplete:
-				if c.Status == k8sv1.ConditionTrue {
-					return true
-				}
-			case batchv1.JobFailed:
-				ExpectWithOffset(2, c.Status).NotTo(Equal(k8sv1.ConditionTrue), "Job should succeed")
-			}
-		}
-		return false
-	}, timeoutSec*time.Second, 1*time.Second).Should(BeTrue(), "Job should succeed")
+const (
+	toSucceed = true
+	toFail    = false
+)
+
+// WaitForJobToSucceed blocks until the given job finishes.
+// On success, it returns with a nil error, on failure or timeout it returns with an error.
+func WaitForJobToSucceed(job *batchv1.Job, timeout time.Duration) error {
+	return waitForJob(job, toSucceed, timeout)
 }
 
-func WaitForJobToFail(virtClient *kubecli.KubevirtClient, job *batchv1.Job, timeoutSec time.Duration) {
-	EventuallyWithOffset(1, func() bool {
-		job, err := (*virtClient).BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
-		ExpectWithOffset(2, err).ToNot(HaveOccurred())
+// WaitForJobToFail blocks until the given job finishes.
+// On failure, it returns with a nil error, on success or timeout it returns with an error.
+func WaitForJobToFail(job *batchv1.Job, timeout time.Duration) error {
+	return waitForJob(job, toFail, timeout)
+}
+
+func waitForJob(job *batchv1.Job, toSucceed bool, timeout time.Duration) error {
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return err
+	}
+
+	jobFailedError := func(job *batchv1.Job) error {
+		if toSucceed {
+			return fmt.Errorf("Job %s finished with failure, status: %+v", job.Name, job.Status)
+		}
+		return nil
+	}
+	jobCompleteError := func(job *batchv1.Job) error {
+		if toSucceed {
+			return nil
+		}
+		return fmt.Errorf("Job %s finished with success, status: %+v", job.Name, job.Status)
+	}
+
+	const finish = true
+	err = wait.PollImmediate(time.Second, timeout, func() (bool, error) {
+		job, err = virtClient.BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
+		if err != nil {
+			return finish, err
+		}
 		for _, c := range job.Status.Conditions {
 			switch c.Type {
+			case batchv1.JobComplete:
+				if c.Status == k8sv1.ConditionTrue {
+					return finish, jobCompleteError(job)
+				}
 			case batchv1.JobFailed:
 				if c.Status == k8sv1.ConditionTrue {
-					return true
+					return finish, jobFailedError(job)
 				}
-			case batchv1.JobComplete:
-				ExpectWithOffset(2, c.Status).NotTo(Equal(k8sv1.ConditionTrue), "Job should fail")
 			}
 		}
-		return false
-	}, timeoutSec*time.Second, 1*time.Second).Should(BeTrue(), "Job should fail")
+		return !finish, nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("Job %s timeout reached, status: %+v, err: %v", job.Name, job.Status, err)
+	}
+	return nil
 }
 
 // Default Job arguments to be used with NewJob.
@@ -85,7 +111,7 @@ func NewJob(name string, cmd, args []string, retry, ttlAfterFinished int32, time
 // which tries to contact the host on the provided port.
 // It expects to receive "Hello World!" to succeed.
 func NewHelloWorldJob(host string, port string) *batchv1.Job {
-	check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(nc %s %s -i 3 -w 3))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, port)}
+	check := []string{fmt.Sprintf(`set -x; ping -c 1 %s; x="$(head -n 1 < <(nc %s %s -i 3 -w 3))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, host, port)}
 	job := NewJob("netcat", []string{"/bin/bash", "-c"}, check, JobRetry, JobTTL, JobTimeout)
 	return job
 }

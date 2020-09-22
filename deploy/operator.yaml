@@ -45,7 +45,7 @@ spec:
         - name: HCO_KV_IO_VERSION
           value: 1.2.0
         - name: KUBEVIRT_VERSION
-          value: v0.33.0
+          value: 20200922_3653b1f1b
         - name: CDI_VERSION
           value: v1.23.2
         - name: NETWORK_ADDONS_VERSION
@@ -178,22 +178,22 @@ spec:
         - "2"
         env:
         - name: OPERATOR_IMAGE
-          value: docker.io/kubevirt/virt-operator@sha256:288cc081df8d81487db08db3c60b95b372718c118a8bc61eb8a06e7c81ee8ac0
+          value: kubevirtnightlybuilds/virt-operator@sha256:5589b57b4cb566726eb137cc2fc37190e10f5985ce20796b435efe5ba7946ed3
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.annotations['olm.targetNamespaces']
         - name: KUBEVIRT_VERSION
-          value: v0.33.0
+          value: 20200922_3653b1f1b
         - name: VIRT_API_SHASUM
-          value: sha256:d4e93b98111f3ee5a52bc8408dfff7ce928dcf49e2f01f587f42e261d5f40270
+          value: sha256:b2d5a8e8f973add6ac20aca85836cfd1b7cdc6f58a6e3d824894d1cdd29b37d3
         - name: VIRT_CONTROLLER_SHASUM
-          value: sha256:d2be804f60f503dbe6864c37ccd3b57064dbe981dd3929f335ce87c2dc2e6b32
+          value: sha256:46e32cc50b37897f20a43eccaaf243108187a5bcbfd9147f1c8663b1f2f79ce7
         - name: VIRT_HANDLER_SHASUM
-          value: sha256:65da881f84ea254b2342a6ac659950364c74274af518a47e7d4a723efcce98a9
+          value: sha256:1f01778e58ce42543c7cf8d52540c27829a426daba5efea89b85d3b7a16247e4
         - name: VIRT_LAUNCHER_SHASUM
-          value: sha256:c82e420fb4220c1f945a51dbf459813e86301784f71eb8cd797faf23e9dca295
-        image: docker.io/kubevirt/virt-operator@sha256:288cc081df8d81487db08db3c60b95b372718c118a8bc61eb8a06e7c81ee8ac0
+          value: sha256:deb37123dea7585de52907be08e4a1b3ebbd43095019c695144af875d1e055b4
+        image: kubevirtnightlybuilds/virt-operator@sha256:5589b57b4cb566726eb137cc2fc37190e10f5985ce20796b435efe5ba7946ed3
         imagePullPolicy: IfNotPresent
         name: virt-operator
         ports:

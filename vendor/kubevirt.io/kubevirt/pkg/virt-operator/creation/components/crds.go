@@ -324,6 +324,42 @@ func NewVirtualMachineSnapshotContentCrd() *extv1beta1.CustomResourceDefinition 
 	return crd
 }
 
+func NewVirtualMachineRestoreCrd() *extv1beta1.CustomResourceDefinition {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = "virtualmachinerestores." + snapshotv1.SchemeGroupVersion.Group
+	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
+		Group:   snapshotv1.SchemeGroupVersion.Group,
+		Version: snapshotv1.SchemeGroupVersion.Version,
+		Versions: []extv1beta1.CustomResourceDefinitionVersion{
+			{
+				Name:    snapshotv1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+		},
+		Scope: "Namespaced",
+		Names: extv1beta1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachinerestores",
+			Singular:   "virtualmachinerestore",
+			Kind:       "VirtualMachineRestore",
+			ShortNames: []string{"vmrestore", "vmrestores"},
+			Categories: []string{
+				"all",
+			},
+		},
+		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
+			{Name: "TargetKind", Type: "string", JSONPath: ".spec.target.kind"},
+			{Name: "TargetName", Type: "string", JSONPath: ".spec.target.name"},
+			{Name: "Complete", Type: "boolean", JSONPath: ".status.complete"},
+			{Name: "RestoreTime", Type: "date", JSONPath: ".status.restoreTime"},
+			{Name: "Error", Type: "string", JSONPath: ".status.error.message"},
+		},
+	}
+
+	return crd
+}
+
 func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkipVerify bool) *promv1.ServiceMonitor {
 	return &promv1.ServiceMonitor{
 		TypeMeta: metav1.TypeMeta{

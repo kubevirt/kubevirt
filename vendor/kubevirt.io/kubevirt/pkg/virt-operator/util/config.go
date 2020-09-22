@@ -55,10 +55,10 @@ const (
 	AdditionalPropertiesNamePullPolicy = "ImagePullPolicy"
 
 	// lookup key in AdditionalProperties
-	AdditionalPropertiesMonitorNamespace = "monitorNamespace"
+	AdditionalPropertiesMonitorNamespace = "MonitorNamespace"
 
 	// lookup key in AdditionalProperties
-	AdditionalPropertiesMonitorServiceAccount = "monitorAccount"
+	AdditionalPropertiesMonitorServiceAccount = "MonitorAccount"
 
 	// account to use if one is not explicitly named
 	DefaultMonitorNamespace = "openshift-monitoring"
@@ -404,16 +404,16 @@ func (c *KubeVirtDeploymentConfig) GetImagePullPolicy() k8sv1.PullPolicy {
 }
 
 func (c *KubeVirtDeploymentConfig) GetMonitorNamespace() string {
-	p, ok := c.AdditionalProperties[AdditionalPropertiesMonitorNamespace]
-	if !ok {
+	p := c.AdditionalProperties[AdditionalPropertiesMonitorNamespace]
+	if p == "" {
 		return DefaultMonitorNamespace
 	}
 	return p
 }
 
 func (c *KubeVirtDeploymentConfig) GetMonitorServiceAccount() string {
-	p, ok := c.AdditionalProperties[AdditionalPropertiesMonitorServiceAccount]
-	if !ok {
+	p := c.AdditionalProperties[AdditionalPropertiesMonitorServiceAccount]
+	if p == "" {
 		return DefaultMonitorAccount
 	}
 	return p

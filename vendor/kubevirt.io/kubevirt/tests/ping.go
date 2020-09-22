@@ -21,22 +21,12 @@ package tests
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
-	expect "github.com/google/goexpect"
-	"google.golang.org/grpc/codes"
 	"k8s.io/utils/net"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
-)
-
-var (
-	shellSuccess = regexp.MustCompile(RetValue("0"))
-	shellFail    = regexp.MustCompile(RetValue("[1-9].*"))
 )
 
 // PingFromVMConsole performs a ping through the provided VMI console.
@@ -55,46 +45,11 @@ func PingFromVMConsole(vmi *v1.VirtualMachineInstance, ipAddr string, args ...st
 		args = []string{"-c 1", "-w 5"}
 	}
 	args = append([]string{pingString, ipAddr}, args...)
-	cmdCheck := strings.Join(args, " ") + "\n"
+	cmdCheck := strings.Join(args, " ")
 
-	err := vmiConsoleExpectBatch(vmi, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: PromptExpression},
-		&expect.BSnd{S: cmdCheck},
-		&expect.BExp{R: PromptExpression},
-		&expect.BSnd{S: "echo $?\n"},
-		&expect.BCas{C: []expect.Caser{
-			&expect.Case{
-				R: shellSuccess,
-				T: expect.OK(),
-			},
-			&expect.Case{
-				R: shellFail,
-				T: expect.Fail(expect.NewStatus(codes.Unavailable, "ping failed")),
-			},
-		}},
-	}, maxCommandTimeout)
+	err := VmiConsoleRunCommand(vmi, cmdCheck, maxCommandTimeout)
 	if err != nil {
 		return fmt.Errorf("Failed to ping VMI %s, error: %v", vmi.Name, err)
 	}
 	return nil
-}
-
-func vmiConsoleExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, timeout time.Duration) error {
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return err
-	}
-
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 30*time.Second)
-	if err != nil {
-		return err
-	}
-	defer expecter.Close()
-
-	resp, err := expecter.ExpectBatch(expected, timeout)
-	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("%v", resp)
-	}
-	return err
 }

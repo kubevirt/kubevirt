@@ -4,10 +4,14 @@ go_library(
     name = "go_default_library",
     srcs = [
         "config.go",
+        "expecter.go",
         "job.go",
+        "login.go",
         "ping.go",
+        "pod_servers.go",
         "test.go",
         "utils.go",
+        "vmi_servers.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests",
     visibility = ["//visibility:public"],
@@ -56,6 +60,7 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/rand:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/strategicpatch:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/yaml:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/scheme:go_default_library",
         "//vendor/k8s.io/client-go/tools/portforward:go_default_library",
@@ -65,6 +70,42 @@ go_library(
         "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",
     ],
+)
+
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+
+container_image(
+    name = "conformance_image_base",
+    testonly = True,
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "//conditions:default": "amd64",
+    }),
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "@fedora_ppc64le//image",
+        "//conditions:default": "@fedora//image",
+    }),
+    directory = "/",
+    files = [
+        ":conformance-config.json",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+container_image(
+    name = "conformance_image",
+    testonly = True,
+    base = ":conformance_image_base",
+    directory = "/usr/bin",
+    entrypoint = ["/usr/bin/conformance"],
+    files = [
+        ":go_default_test",
+        "//tests/conformance",
+    ],
+    visibility = ["//visibility:public"],
 )
 
 go_test(
@@ -85,6 +126,7 @@ go_test(
         "pausing_test.go",
         "probes_test.go",
         "replicaset_test.go",
+        "restore_test.go",
         "security_features_test.go",
         "snapshot_test.go",
         "stability_test.go",
@@ -150,6 +192,7 @@ go_test(
         "//staging/src/kubevirt.io/client-go/subresources:go_default_library",
         "//tests/containerdisk:go_default_library",
         "//tests/flags:go_default_library",
+        "//tests/libnet:go_default_library",
         "//tests/libvmi:go_default_library",
         "//tests/network:go_default_library",
         "//tests/reporter:go_default_library",
@@ -157,12 +200,14 @@ go_test(
         "//vendor/github.com/evanphx/json-patch:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",
         "//vendor/github.com/gorilla/websocket:go_default_library",
+        "//vendor/github.com/mitchellh/go-vnc:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/onsi/gomega/gstruct:go_default_library",
         "//vendor/github.com/onsi/gomega/types:go_default_library",
         "//vendor/github.com/pborman/uuid:go_default_library",
+        "//vendor/k8s.io/api/admissionregistration/v1beta1:go_default_library",
         "//vendor/k8s.io/api/apps/v1:go_default_library",
         "//vendor/k8s.io/api/authorization/v1:go_default_library",
         "//vendor/k8s.io/api/autoscaling/v1:go_default_library",
