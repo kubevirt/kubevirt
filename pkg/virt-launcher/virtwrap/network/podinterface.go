@@ -452,6 +452,11 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces(isMultiqueue bool, laun
 		Managed: "no",
 	}
 
+	if err := Handler.LinkSetHardwareAddr(b.podNicLink, b.vif.MAC); err != nil {
+		log.Log.Reason(err).Errorf("failed to change macaddr %s for requested pod interface %s", b.vif.MAC.String(), b.podInterfaceName)
+		return err
+	}
+
 	if err := Handler.DelBridgeFdb(b.podNicLink); err != nil {
 		log.Log.Reason(err).Errorf("failed to delete fdb for requested pod interface %s", b.podInterfaceName)
 		return err
