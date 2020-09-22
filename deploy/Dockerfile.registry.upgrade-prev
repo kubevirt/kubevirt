@@ -24,7 +24,7 @@ USER root
 # OCP 4.5:
 # ARG CI_REGISTRY=registry.svc.ci.openshift.org
 # OCP 4.6:
-ARG CI_REGISTRY=default-route-openshift-image-registry.apps.build01.ci.devcluster.openshift.com
+ARG CI_REGISTRY=registry.build01.ci.openshift.org
 
 RUN if [ -n "$KUBEVIRT_PROVIDER" ]; then \
       sed -r -i "s|quay.io/kubevirt/hyperconverged-cluster-operator(@sha256)?:.*$|registry:5000/kubevirt/hyperconverged-cluster-operator:latest|g" /registry/kubevirt-hyperconverged/${UPGRADE_VERSION}/kubevirt-hyperconverged-operator.v${UPGRADE_VERSION}.clusterserviceversion.yaml; \
