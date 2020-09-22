@@ -21,7 +21,7 @@ jobs:
         run: rm -f updated_component.txt updated_version.txt
       - uses: peter-evans/create-pull-request@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.HCO_BOT_TOKEN }}
           commit-message: |
             Bump ${{ env.UPDATED_COMPONENT }} to ${{ env.UPDATED_VERSION }}
 
@@ -34,7 +34,7 @@ jobs:
             ```release-note
             Bump ${{ env.UPDATED_COMPONENT }} to ${{ env.UPDATED_VERSION }}
             ```
-          assignees: tiraboschi,orenc1
-          reviewers: tiraboschi,orenc1
+          assignees: tiraboschi,orenc1,nunnatsa
+          reviewers: tiraboschi,orenc1,nunnatsa
           team-reviewers: owners, maintainers
           branch: bump_${{ env.UPDATED_COMPONENT }}_${{ env.UPDATED_VERSION }}

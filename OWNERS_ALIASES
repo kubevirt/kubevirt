@@ -2,18 +2,14 @@
 
 aliases:
   approvers:
-      - djzager
       - nunnatsa
       - orenc1
-      - rthallisey
-      - rwsu
       - tiraboschi
       - yuvalturg
+      - sradco
   code-reviewers:
-      - djzager
       - nunnatsa
       - orenc1
-      - rthallisey
-      - rwsu
       - tiraboschi
       - yuvalturg
+      - sradco

@@ -15,4 +15,4 @@ jobs:
       - name: Build Manifests and Rebase
         run: ./automation/rebase-bot/rebase-bot.sh
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.HCO_BOT_TOKEN }}

@@ -66,7 +66,7 @@ class PullRequest:
             provider = splitted[-1]
             test_name = '-'.join(splitted[:-1])
             state = status['state']
-            overridden = True if status['description'] and 'Overridden' in status['description'] else False
+            overridden = status['description'] and 'Overridden' in status['description']
             testObj = self.get_test_obj(test_name)
             if not testObj:
                 testObj = CI_Test(test_name, [])
@@ -105,7 +105,7 @@ class PullRequest:
             comment = comment[:-2] # removing comma at the end
             plural = 's' if len(override[1]) > 1 else ''
             comment += f' lane{plural} succeeded.\n'
-            comment += f'/override {override[0].name}'
+            comment += f'/override {override[0].name}\n'
 
         print (f'comment for PR #{self.number} is:\n{comment}')
         gh_pr.create_issue_comment(comment)
