@@ -148,7 +148,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 		})
 
 		Context("with a service matching the vmi exposed", func() {
-			var jobsToCleanup []func() error
+			var jobCleanup func() error
 
 			BeforeEach(func() {
 				serviceName = "myservice"
@@ -156,32 +156,29 @@ var _ = SIGDescribe("[Serial]Services", func() {
 				service := buildServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(service)
 				Expect(err).ToNot(HaveOccurred())
-
-				// reset the job cleanup functions list
-				jobsToCleanup = nil
 			})
 
 			AfterEach(func() {
-				Expect(virtClient.CoreV1().Services(inboundVMI.Namespace).Delete(serviceName, &k8smetav1.DeleteOptions{})).To(Succeed())
+				Expect(cleanupService(inboundVMI.GetNamespace(), serviceName)).To(Succeed(), "cleaning up the k8sv1.Service entity should have succeeded.")
 			})
 
 			AfterEach(func() {
-				cleanupJobs(jobsToCleanup)
+				Expect(jobCleanup).NotTo(BeNil(), "a k8sv1.Job cleaning up function should exist")
+				Expect(jobCleanup()).To(Succeed(), "cleaning up the k8sv1.Job entity should have succeeded.")
+				jobCleanup = nil
 			})
 
 			It("[test_id:1547] should be able to reach the vmi based on labels specified on the vmi", func() {
-				jobCleanupFunction := assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
-				jobsToCleanup = append(jobsToCleanup, jobCleanupFunction)
+				jobCleanup = assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
 			})
 
 			It("[test_id:1548] should fail to reach the vmi if an invalid servicename is used", func() {
-				jobCleanupFunction := assertNoConnectivityToService("wrongservice", inboundVMI.Namespace, servicePort)
-				jobsToCleanup = append(jobsToCleanup, jobCleanupFunction)
+				jobCleanup = assertNoConnectivityToService("wrongservice", inboundVMI.Namespace, servicePort)
 			})
 		})
 
 		Context("with a subdomain and a headless service given", func() {
-			var jobsToCleanup []func() error
+			var jobCleanup func() error
 
 			BeforeEach(func() {
 				serviceName = inboundVMI.Spec.Subdomain
@@ -189,9 +186,6 @@ var _ = SIGDescribe("[Serial]Services", func() {
 				service := buildHeadlessServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(service)
 				Expect(err).ToNot(HaveOccurred())
-
-				// reset the job cleanup functions list
-				jobsToCleanup = nil
 			})
 
 			AfterEach(func() {
@@ -199,13 +193,12 @@ var _ = SIGDescribe("[Serial]Services", func() {
 			})
 
 			AfterEach(func() {
-				cleanupJobs(jobsToCleanup)
+				Expect(jobCleanup()).To(Succeed(), "cleaning up the k8sv1.Service entity should have succeeded.")
 			})
 
 			It("[test_id:1549]should be able to reach the vmi via its unique fully qualified domain name", func() {
 				serviceHostnameWithSubdomain := fmt.Sprintf("%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain)
-				jobCleanupFunction := assertConnectivityToService(serviceHostnameWithSubdomain, inboundVMI.Namespace, servicePort)
-				jobsToCleanup = append(jobsToCleanup, jobCleanupFunction)
+				jobCleanup = assertConnectivityToService(serviceHostnameWithSubdomain, inboundVMI.Namespace, servicePort)
 			})
 		})
 	})
@@ -241,17 +234,17 @@ var _ = SIGDescribe("[Serial]Services", func() {
 		})
 
 		Context("with a service matching the vmi exposed", func() {
-			var jobToCleanup func() error
+			var jobCleanup func() error
 			var service *k8sv1.Service
 
 			AfterEach(func() {
-				Expect(jobToCleanup).NotTo(BeNil(), "a k8sv1.Job cleaning up function should exist")
-				Expect(jobToCleanup()).To(Succeed(), "cleaning up the k8sv1.Job entity should have succeeded.")
-				jobToCleanup = nil
+				Expect(jobCleanup).NotTo(BeNil(), "a k8sv1.Job cleaning up function should exist")
+				Expect(jobCleanup()).To(Succeed(), "cleaning up the k8sv1.Job entity should have succeeded.")
+				jobCleanup = nil
 			})
 
 			AfterEach(func() {
-				Expect(cleanupService(inboundVMI.Namespace, service.Name)).To(Succeed(), "cleaning up the k8sv1.Service entity should have succeeded.")
+				Expect(cleanupService(inboundVMI.GetNamespace(), service.Name)).To(Succeed(), "cleaning up the k8sv1.Service entity should have succeeded.")
 			})
 
 			table.DescribeTable("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func(ipFamily k8sv1.IPFamily) {
@@ -266,7 +259,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(service)
 				Expect(err).NotTo(HaveOccurred(), "the k8sv1.Service entity should have been created.")
 
-				jobToCleanup = assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
+				jobCleanup = assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
 			},
 				table.Entry("when the service is exposed by an IPv4 address.", k8sv1.IPv4Protocol),
 				table.Entry("when the service is exposed by an IPv6 address.", k8sv1.IPv6Protocol),
@@ -274,33 +267,22 @@ var _ = SIGDescribe("[Serial]Services", func() {
 		})
 
 		Context("*without* a service matching the vmi exposed", func() {
-			var jobToCleanup func() error
+			var jobCleanup func() error
 			var serviceName string
 
 			AfterEach(func() {
-				Expect(jobToCleanup).NotTo(BeNil(), "a k8sv1.Job cleaning up function should exist")
-				Expect(jobToCleanup()).To(Succeed(), "cleaning up the k8sv1.Job entity should have succeeded.")
-				jobToCleanup = nil
+				Expect(jobCleanup).NotTo(BeNil(), "a k8sv1.Job cleaning up function should exist")
+				Expect(jobCleanup()).To(Succeed(), "cleaning up the k8sv1.Job entity should have succeeded.")
+				jobCleanup = nil
 			})
 
 			It("should fail to reach the vmi", func() {
 				serviceName = "missingservice"
-				jobToCleanup = assertNoConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
+				jobCleanup = assertNoConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
 			})
 		})
 	})
 })
-
-func cleanupJobs(jobsCleanupFunctions []func() error) {
-	var errorBucket []error
-	for _, jobCleanupFunc := range jobsCleanupFunctions {
-		err := jobCleanupFunc()
-		if err != nil {
-			errorBucket = append(errorBucket, err)
-		}
-	}
-	Expect(errorBucket).To(BeEmpty(), "Removing the `Job`s should be successful.")
-}
 
 func buildHeadlessServiceSpec(serviceName string, exposedPort int, portToExpose int, selectorKey string, selectorValue string) *k8sv1.Service {
 	service := buildServiceSpec(serviceName, exposedPort, portToExpose, selectorKey, selectorValue)
