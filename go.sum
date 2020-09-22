@@ -752,8 +752,8 @@ github.com/kubernetes-csi/csi-test v2.0.0+incompatible/go.mod h1:YxJ4UiuPWIhMBkx
 github.com/kubernetes-csi/external-snapshotter/v2 v2.0.1/go.mod h1:vUEcwbrEpsQ/rDgaO8WTe1gVIY/4CCj0S4Q+UuOq5wA=
 github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1 h1:t5bmB3Y8nCaLA4aFrIpX0zjHEF/HUkJp6f5rm7BsVzM=
 github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1/go.mod h1:dV5oB3U62KBdlf9ADWkMmjGd3USauqQtwIm2OZb5mqI=
-github.com/kubevirt/cluster-network-addons-operator v0.42.0 h1:4N4UGLgAHfFwOdBHICyxt90Ql+WxKYABCaT8r457WB0=
-github.com/kubevirt/cluster-network-addons-operator v0.42.0/go.mod h1:qtYFyYlmjk8egulFv39Sy2Bji2igdM2U2SdRxZFTMss=
+github.com/kubevirt/cluster-network-addons-operator v0.42.1 h1:zHrDGre7ZqXo8h6b8EELw7rSKE2L/dJMTAodB7THDcI=
+github.com/kubevirt/cluster-network-addons-operator v0.42.1/go.mod h1:qtYFyYlmjk8egulFv39Sy2Bji2igdM2U2SdRxZFTMss=
 github.com/kubevirt/controller-lifecycle-operator-sdk v0.0.6 h1:jEF/SKPhz7o9E7FDw0hge3ts6RGM3bbx8DAummtptkA=
 github.com/kubevirt/controller-lifecycle-operator-sdk v0.0.6/go.mod h1:EZt2SMCCMzuwI9sCjF6LTyiRiimikXvxeZJDVOoWqjI=
 github.com/kubevirt/kubevirt-ssp-operator v1.2.1 h1:rwMm1eR0RUKvXLF4F9www1XinD3BsroB7cw84fsNbAQ=
