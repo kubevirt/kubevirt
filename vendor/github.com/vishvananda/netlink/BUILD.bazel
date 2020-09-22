@@ -11,6 +11,7 @@ go_library(
         "class_linux.go",
         "conntrack_linux.go",
         "conntrack_unspecified.go",
+        "devlink_linux.go",
         "filter.go",
         "filter_linux.go",
         "fou.go",

@@ -179,7 +179,7 @@ func main() {
 	createTapCmd.Flags().String("tap-name", "tap0", "the name of the tap device")
 	createTapCmd.Flags().Uint("uid", 0, "the owner of the tap device")
 	createTapCmd.Flags().Uint("gid", 0, "the group of the owner of the tap device")
-	createTapCmd.Flags().Bool("multiqueue", false, "if the tap device is multi-queued")
+	createTapCmd.Flags().Uint32("queue-number", 0, "the number of queues to use on multi-queued devices")
 
 	rootCmd.AddCommand(
 		execCmd,

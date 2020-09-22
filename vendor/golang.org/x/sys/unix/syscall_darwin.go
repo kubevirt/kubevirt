@@ -49,6 +49,11 @@ type SockaddrDatalink struct {
 	raw    RawSockaddrDatalink
 }
 
+// Some external packages rely on SYS___SYSCTL being defined to implement their
+// own sysctl wrappers. Provide it here, even though direct syscalls are no
+// longer supported on darwin.
+const SYS___SYSCTL = 202
+
 // Translate "kern.hostname" to []_C_int{0,1,2,3}.
 func nametomib(name string) (mib []_C_int, err error) {
 	const siz = unsafe.Sizeof(mib[0])
@@ -423,6 +428,7 @@ func Sendfile(outfd int, infd int, offset *int64, count int) (written int, err e
 //sysnb	Getrlimit(which int, lim *Rlimit) (err error)
 //sysnb	Getrusage(who int, rusage *Rusage) (err error)
 //sysnb	Getsid(pid int) (sid int, err error)
+//sysnb	Gettimeofday(tp *Timeval) (err error)
 //sysnb	Getuid() (uid int)
 //sysnb	Issetugid() (tainted bool)
 //sys	Kqueue() (fd int, err error)
