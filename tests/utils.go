@@ -122,6 +122,7 @@ const (
 const (
 	AlpineHttpUrl = iota
 	GuestAgentHttpUrl
+	PixmanUrl
 	StressHttpUrl
 	DmidecodeHttpUrl
 	DummyFileHttpUrl
@@ -2220,11 +2221,12 @@ func GetGuestAgentUserData() string {
                 for i in {1..20}; do curl -I %s | grep "200 OK" && break || sleep 0.1; done
                 curl %s > /usr/local/bin/qemu-ga
                 chmod +x /usr/local/bin/qemu-ga
+                curl %s > /lib64/libpixman-1.so.0
                 curl %s > /usr/local/bin/stress
                 chmod +x /usr/local/bin/stress
                 setenforce 0
                 systemd-run --unit=guestagent /usr/local/bin/qemu-ga
-                `, guestAgentUrl, guestAgentUrl, GetUrl(StressHttpUrl))
+                `, guestAgentUrl, guestAgentUrl, GetUrl(PixmanUrl), GetUrl(StressHttpUrl))
 }
 
 // Returns NetworkData for configuring a dynamic IPv4 address, and a static
@@ -4383,6 +4385,8 @@ func GetUrl(urlIndex int) string {
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/images/alpine.iso", flags.KubeVirtInstallNamespace)
 	case GuestAgentHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/qemu-ga", flags.KubeVirtInstallNamespace)
+	case PixmanUrl:
+		str = fmt.Sprintf("http://cdi-http-import-server.%s/libpixman-1.so.0", flags.KubeVirtInstallNamespace)
 	case StressHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/stress", flags.KubeVirtInstallNamespace)
 	case DmidecodeHttpUrl:
