@@ -364,12 +364,12 @@ var _ = Describe("Manager", func() {
 				notifier:               nil,
 				lessPVCSpaceToleration: 0,
 			}
-			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetJobInfo().AnyTimes().Return(fake_jobinfo, nil)
 			mockDomain.EXPECT().AbortJob()
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(xml), nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(xml), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).AnyTimes().Return(string(xml), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).AnyTimes().Return(string(xml), nil)
 
 			liveMigrationMonitor(vmi, mockDomain, manager, options, migrationErrorChan)
 		})
@@ -406,12 +406,80 @@ var _ = Describe("Manager", func() {
 				notifier:               nil,
 				lessPVCSpaceToleration: 0,
 			}
-			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetJobInfo().AnyTimes().Return(fake_jobinfo, nil)
 			mockDomain.EXPECT().AbortJob()
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(xml), nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(xml), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).AnyTimes().Return(string(xml), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).AnyTimes().Return(string(xml), nil)
+
+			liveMigrationMonitor(vmi, mockDomain, manager, options, migrationErrorChan)
+		})
+		It("migration should switch to PostCopy", func() {
+			migrationErrorChan := make(chan error)
+			defer close(migrationErrorChan)
+			// Make sure that we always free the domain after use
+			var migrationData = 32479827394
+			mockDomain.EXPECT().Free().AnyTimes()
+			fake_jobinfo := func() *libvirt.DomainJobInfo {
+				// stop decreasing data remaing to fail job on progress timeout
+				if migrationData > 32479826519 {
+					migrationData -= 125
+				}
+
+				return &libvirt.DomainJobInfo{
+					Type:          libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemaining: uint64(migrationData),
+				}
+			}
+
+			options := &cmdclient.MigrationOptions{
+				Bandwidth:               resource.MustParse("64Mi"),
+				ProgressTimeout:         3,
+				CompletionTimeoutPerGiB: 1,
+				MigrationMode:           v1.MigrationPostCopy,
+			}
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+			}
+
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+			manager := &LibvirtDomainManager{
+				virConn:                mockConn,
+				virtShareDir:           "fake",
+				notifier:               nil,
+				lessPVCSpaceToleration: 0,
+			}
+			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetJobInfo().AnyTimes().DoAndReturn(func() (*libvirt.DomainJobInfo, error) {
+				return fake_jobinfo(), nil
+			})
+			mockDomain.EXPECT().AbortJob()
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).AnyTimes().DoAndReturn(func(_ libvirt.DomainXMLFlags) (string, error) {
+				fmt.Println(domainSpec.Metadata.KubeVirt.Migration)
+				xmlOriginal, err := xml.MarshalIndent(domainSpec, "", "\t")
+				Expect(err).To(BeNil())
+				return string(xmlOriginal), nil
+			})
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).AnyTimes().DoAndReturn(func(_ libvirt.DomainXMLFlags) (string, error) {
+				xmlOriginal, err := xml.MarshalIndent(domainSpec, "", "\t")
+				Expect(err).To(BeNil())
+				return string(xmlOriginal), nil
+			})
+			mockDomain.EXPECT().MigrateStartPostCopy(gomock.Eq(uint32(0))).Return(nil)
+
+			mockConn.EXPECT().DomainDefineXML(gomock.Any()).AnyTimes().DoAndReturn(func(xml string) (cli.VirDomain, error) {
+				Expect(strings.Contains(xml, "<mode>PostCopy</mode>")).To(BeTrue())
+
+				if domainSpec.Metadata.KubeVirt.Migration == nil {
+					domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{}
+				}
+				domainSpec.Metadata.KubeVirt.Migration.Mode = v1.MigrationPostCopy
+
+				return mockDomain, nil
+			})
 
 			liveMigrationMonitor(vmi, mockDomain, manager, options, migrationErrorChan)
 		})

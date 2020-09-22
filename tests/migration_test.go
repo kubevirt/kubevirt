@@ -901,42 +901,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
-			It("should migrate a VMI with postcopy migration shared and non-shared disks", func() {
-				data := map[string]string{
-					"migrationMode": "PostCopy",
-				}
-				migrationData, err := json.Marshal(data)
-				Expect(err).ToNot(HaveOccurred())
-				tests.UpdateClusterConfigValueAndWait("migrations", string(migrationData))
-
-				// Start the VirtualMachineInstance with PVC and Ephemeral Disks
-				vmi := tests.NewRandomVMIWithPVC(pvName)
-				image := cd.ContainerDiskFor(cd.ContainerDiskAlpine)
-				tests.AddEphemeralDisk(vmi, "myephemeral", "virtio", image)
-
-				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 180)
-
-				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				expecter.Close()
-
-				By("Starting a Migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := runMigrationAndExpectCompletion(migration, migrationWaitTime)
-
-				// check VMI, confirm migration state
-				confirmVMIPostMigration(vmi, migrationUID)
-				confirmMigrationMode(vmi, v1.MigrationPostCopy)
-
-				// delete VMI
-				By("Deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-
-				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-			})
 			It("[test_id:1377]should be successfully migrated multiple times", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(pvName)
@@ -1098,7 +1062,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 			It(" should be migrated successfully, using guest agent on VM w/ postcopy", func() {
 				data := map[string]string{
-					"migrationMode": "PostCopy",
+					"migrationMode":           "PostCopy",
+					"completionTimeoutPerGiB": "1",
 				}
 				migrationData, err := json.Marshal(data)
 				Expect(err).ToNot(HaveOccurred())
@@ -1275,7 +1240,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		Context("migration postcopy", func() {
 			It("[test_id:4747] should migrate using cluster level config for postcopy", func() {
 				data := map[string]string{
-					"migrationMode": "PostCopy",
+					"migrationMode":           "PostCopy",
+					"completionTimeoutPerGiB": "1",
 				}
 				migrationData, err := json.Marshal(data)
 				Expect(err).ToNot(HaveOccurred())
