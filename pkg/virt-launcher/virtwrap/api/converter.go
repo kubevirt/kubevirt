@@ -1290,6 +1290,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				Type:    "pci",
 				Managed: "yes",
 			}
+
+			if iface.PciAddress != "" {
+				addr, err := decoratePciAddressField(iface.PciAddress)
+				if err != nil {
+					return fmt.Errorf("failed to configure SRIOV %s: %v", iface.Name, err)
+				}
+				hostDev.Address = addr
+			}
+
 			if iface.BootOrder != nil {
 				hostDev.BootOrder = &BootOrder{Order: *iface.BootOrder}
 			}
