@@ -334,3 +334,13 @@ func (_m *MockNetworkHandler) BindTapDeviceToBridge(tapName string, bridgeName s
 func (_mr *_MockNetworkHandlerRecorder) BindTapDeviceToBridge(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "BindTapDeviceToBridge", arg0, arg1)
 }
+
+func (_m *MockNetworkHandler) DelBridgeFdb(link netlink.Link) error {
+	ret := _m.ctrl.Call(_m, "DelBridgeFdb", link)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) DelBridgeFdb(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DelBridgeFdb", arg0)
+}
