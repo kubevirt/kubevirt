@@ -419,21 +419,6 @@ func (b *BridgePodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error {
 }
 
 func (b *BridgePodInterface) preparePodNetworkInterfaces(isMultiqueue bool, launcherPID int) error {
-	// Set interface link to down to change its MAC address
-	if err := Handler.LinkSetDown(b.podNicLink); err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", b.podInterfaceName)
-		return err
-	}
-
-	if _, err := Handler.SetRandomMac(b.podInterfaceName); err != nil {
-		return err
-	}
-
-	if err := Handler.LinkSetUp(b.podNicLink); err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.podInterfaceName)
-		return err
-	}
-
 	if err := b.createBridge(); err != nil {
 		return err
 	}
