@@ -452,6 +452,11 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces(isMultiqueue bool, laun
 		Managed: "no",
 	}
 
+	if err := Handler.DelBridgeFdb(b.podNicLink); err != nil {
+		log.Log.Reason(err).Errorf("failed to delete fdb for requested pod interface %s", b.podInterfaceName)
+		return err
+	}
+
 	return nil
 }
 
