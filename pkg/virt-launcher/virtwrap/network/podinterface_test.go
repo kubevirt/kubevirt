@@ -51,6 +51,7 @@ var _ = Describe("Pod Network", func() {
 	var routeAddr netlink.Route
 	var fakeMac net.HardwareAddr
 	var fakeAddr netlink.Addr
+	var customMac net.HardwareAddr
 	var bridgeTest *netlink.Bridge
 	var bridgeAddr *netlink.Addr
 	var testNic *VIF
@@ -85,10 +86,12 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork = NewMockNetworkHandler(ctrl)
 		Handler = mockNetwork
 		testMac := "12:34:56:78:9A:BC"
+		customTestMac := "AF:B3:1F:78:2A:CA"
 		dummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 1, MTU: 1410}}
 		address := &net.IPNet{IP: net.IPv4(10, 35, 0, 6), Mask: net.CIDRMask(24, 32)}
 		gw := net.IPv4(10, 35, 0, 1)
 		fakeMac, _ = net.ParseMAC(testMac)
+		customMac, _ = net.ParseMAC(customTestMac)
 		fakeAddr = netlink.Addr{IPNet: address}
 		addrList = []netlink.Addr{fakeAddr}
 		routeAddr = netlink.Route{Gw: gw}
@@ -186,6 +189,8 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, isTapDeviceMultiqueued, pid).Return(nil)
 		mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)
 		mockNetwork.EXPECT().DelBridgeFdb(dummy).Return(nil)
+		mockNetwork.EXPECT().LinkSetHardwareAddr(dummy, fakeMac).Return(nil)
+		mockNetwork.EXPECT().LinkSetHardwareAddr(dummy, customMac).Return(nil)
 
 		// For masquerade tests
 		mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
@@ -309,6 +314,8 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)
 			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 			mockNetwork.EXPECT().DelBridgeFdb(dummy).Return(nil)
+			mockNetwork.EXPECT().LinkSetHardwareAddr(dummy, fakeMac).Return(nil)
+			mockNetwork.EXPECT().LinkSetHardwareAddr(dummy, customMac).Return(nil)
 
 			err := SetupPodNetworkPhase1(vm, pid)
 			Expect(err).To(HaveOccurred(), "SetupPodNetworkPhase1 should return an error")
