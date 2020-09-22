@@ -281,18 +281,16 @@ Cherry picking can be used to pick a merge commit from the master branch
 to a stable branch. An example:
 
 ```bash
-git checkout release-0.6
-git cherry-pick $THE_MERGE_COMMIT_ID -m 1 -sx
-[release-0.6 acd756040] Merge pull request #1234 from great_person
- Author: Bob Builder <builder@bob.com>
- Date: Thu Jun 28 17:50:05 2018 +0300
- 5 files changed, 55 insertions(+), 22 deletions(-)
-git push $YOUR_REMOTE release-0.6:release-0.6-aParticularFix
+PR_NUMBER=3993
+git checkout release-0.33
+curl -L -s https://patch-diff.githubusercontent.com/raw/kubevirt/kubevirt/pull/$PR_NUMBER.patch | git am -3
+Applying: Fix virtctl build for linux-amd64
+git push $YOUR_REMOTE release-0.33:release-0.33-aParticularFix
 ```
 
 After pushing the branch, you'll need to make sure to create a pull request
 against the correct target branch in GitHub (in this case the target branch
-is `release-0.6`).
+is `release-0.33`).
 
 # Understanding Release Notes
 
@@ -306,4 +304,3 @@ Below is an example of getting the release notes for v0.31.0-rc.0
 ```
 git show v0.31.0-rc.0
 ```
-
