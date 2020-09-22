@@ -5,14 +5,14 @@ import (
 	netutils "k8s.io/utils/net"
 )
 
-func GetIp(ips []string, ipv6 bool) string {
+func GetIp(ips []string, family v1.IPFamily) string {
 	for _, ip := range ips {
 		if netutils.IsIPv6String(ip) {
-			if ipv6 {
+			if family == v1.IPv6Protocol {
 				return ip
 			}
 		} else {
-			if !ipv6 {
+			if family == v1.IPv4Protocol {
 				return ip
 			}
 		}
