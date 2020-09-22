@@ -104,6 +104,7 @@ int main(int argc, char **argv) {
             /* These options don’t set a flag.
                 We distinguish them by their indices. */
             {"copy-path",    required_argument, 0, 'c'},
+            {"no-op", 0, 0, 'n'},
             {0, 0, 0, 0}
         };
         /* getopt_long stores the option index here. */
@@ -128,6 +129,8 @@ int main(int argc, char **argv) {
                 copy_path_tmp = strndup(copy_path, strlen(copy_path));
                 copy_path_dir = dirname(copy_path_tmp);
                 break;
+            case 'n':
+		exit(0);
             case '?':
                 exit(1);
             default:
