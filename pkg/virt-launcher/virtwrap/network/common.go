@@ -114,6 +114,7 @@ type NetworkHandler interface {
 	GetNFTIPString(proto iptables.Protocol) string
 	CreateTapDevice(tapName string, isMultiqueue bool, launcherPID int) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
+	DelBridgeFdb(link netlink.Link) error
 }
 
 type NetworkUtilsHandler struct{}
@@ -330,6 +331,21 @@ func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, erro
 		return nil, err
 	}
 	return currentMac, nil
+}
+
+func (h *NetworkUtilsHandler) DelBridgeFdb(link netlink.Link) error {
+	bridgeForwardList, err := netlink.NeighList(link.Attrs().Index, syscall.AF_BRIDGE)
+	if err != nil {
+		return err
+	}
+
+	for _, bridgeForward := range bridgeForwardList {
+		if err := netlink.NeighDel(&bridgeForward); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {
