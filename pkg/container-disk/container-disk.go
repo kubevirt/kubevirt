@@ -166,9 +166,17 @@ func GetImage(root string, imagePath string) (string, error) {
 	return imagePath, nil
 }
 
+func GenerateInitContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) []kubev1.Container {
+	return generateContainersHelper(vmi, podVolumeName, binVolumeName, true)
+}
+
+func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) []kubev1.Container {
+	return generateContainersHelper(vmi, podVolumeName, binVolumeName, false)
+}
+
 // The controller uses this function to generate the container
 // specs for hosting the container registry disks.
-func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) []kubev1.Container {
+func generateContainersHelper(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string, isInit bool) []kubev1.Container {
 	var containers []kubev1.Container
 
 	// Make VirtualMachineInstance Image Wrapper Containers
@@ -194,12 +202,21 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, bi
 				resources.Requests[kubev1.ResourceCPU] = resource.MustParse("10m")
 				resources.Requests[kubev1.ResourceMemory] = resource.MustParse("1M")
 			}
+			var args []string
+			var name string
+			if isInit {
+				name = diskContainerName + "-init"
+				args = []string{"--no-op"}
+			} else {
+				name = diskContainerName
+				args = []string{"--copy-path", volumeMountDir + "/disk_" + strconv.Itoa(index)}
+			}
 			container := kubev1.Container{
-				Name:            diskContainerName,
+				Name:            name,
 				Image:           diskContainerImage,
 				ImagePullPolicy: volume.ContainerDisk.ImagePullPolicy,
 				Command:         []string{"/usr/bin/container-disk"},
-				Args:            []string{"--copy-path", volumeMountDir + "/disk_" + strconv.Itoa(index)},
+				Args:            args,
 				VolumeMounts: []kubev1.VolumeMount{
 					{
 						Name:      podVolumeName,
