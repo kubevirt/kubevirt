@@ -344,3 +344,13 @@ func (_m *MockNetworkHandler) DelBridgeFdb(link netlink.Link) error {
 func (_mr *_MockNetworkHandlerRecorder) DelBridgeFdb(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DelBridgeFdb", arg0)
 }
+
+func (_m *MockNetworkHandler) LinkSetHardwareAddr(link netlink.Link, mac net.HardwareAddr) error {
+	ret := _m.ctrl.Call(_m, "LinkSetHardwareAddr", link, mac)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) LinkSetHardwareAddr(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "LinkSetHardwareAddr", arg0, arg1)
+}
