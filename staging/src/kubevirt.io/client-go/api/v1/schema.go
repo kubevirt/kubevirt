@@ -807,7 +807,7 @@ type HypervTimer struct {
 //
 // +k8s:openapi-gen=true
 type Features struct {
-	// ACPI enables/disables ACPI insidejsondata guest.
+	// ACPI enables/disables ACPI inside the guest.
 	// Defaults to enabled.
 	// +optional
 	ACPI FeatureState `json:"acpi,omitempty"`
