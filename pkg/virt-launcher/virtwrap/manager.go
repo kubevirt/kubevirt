@@ -479,10 +479,6 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		defer close(migrationErrorChan)
 		go liveMigrationMonitor(vmi, dom, l, options, migrationErrorChan)
 
-		if options.MigrationMode == v1.MigrationPostCopy {
-			l.registerIterationEventForPostCopy(vmi, dom, options, migrationErrorChan)
-		}
-
 		err = dom.MigrateToURI3(dstURI, params, migrateFlags)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
@@ -614,6 +610,7 @@ func getVMIMigrationDataSize(vmi *v1.VirtualMachineInstance) int64 {
 }
 
 func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationErr chan error) {
+
 	logger := log.Log.Object(vmi)
 	start := time.Now().UTC().Unix()
 	lastProgressUpdate := start
@@ -646,6 +643,7 @@ monitorLoop:
 			logger.Reason(err).Error("failed to get domain job info")
 			break
 		}
+
 		remainingData := int64(stats.DataRemaining)
 		switch stats.Type {
 		case libvirt.DOMAIN_JOB_UNBOUNDED:
@@ -658,6 +656,7 @@ monitorLoop:
 				progressWatermark = remainingData
 				lastProgressUpdate = now
 			}
+
 			// check if the migration is progressing
 			progressDelay := now - lastProgressUpdate
 			if progressTimeout != 0 &&
@@ -671,11 +670,32 @@ monitorLoop:
 				break monitorLoop
 			}
 
+			domainSpec, err := l.getDomainSpec(dom)
+			if err != nil {
+				logger.Reason(err).Error("failed to get domain spec info")
+				break
+			}
+
 			// check the overall migration time
-			if acceptableCompletionTime != 0 &&
-				elapsed > acceptableCompletionTime {
+			if shouldTriggerTimeout(acceptableCompletionTime, elapsed, domainSpec) {
+
+				if options.MigrationMode == v1.MigrationPostCopy {
+					err = dom.MigrateStartPostCopy(uint32(0))
+					if err != nil {
+						logger.Reason(err).Error("failed to start post migration")
+					}
+
+					err = l.updateVMIMigrationMode(dom, vmi, v1.MigrationPostCopy)
+					if err != nil {
+						log.Log.Object(vmi).Reason(err).Error("Unable to update migration mode on domain xml")
+					}
+
+					break
+				}
+
 				logger.Warningf("Live migration is not completed after %d sec",
 					acceptableCompletionTime)
+
 				err := dom.AbortJob()
 				if err != nil {
 					logger.Reason(err).Error("failed to abort migration")
@@ -701,6 +721,22 @@ monitorLoop:
 		}
 		time.Sleep(400 * time.Millisecond)
 	}
+}
+
+func shouldTriggerTimeout(acceptableCompletionTime, elapsed int64, domSpec *api.DomainSpec) bool {
+	if acceptableCompletionTime == 0 {
+		return false
+	}
+
+	if domSpec.Metadata.KubeVirt.Migration != nil && domSpec.Metadata.KubeVirt.Migration.Mode == v1.MigrationPostCopy {
+		return false
+	}
+
+	if elapsed > acceptableCompletionTime {
+		return true
+	}
+
+	return false
 }
 
 func (l *LibvirtDomainManager) CancelVMIMigration(vmi *v1.VirtualMachineInstance) error {

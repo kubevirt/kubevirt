@@ -74,16 +74,6 @@ func (_mr *_MockConnectionRecorder) DomainEventLifecycleRegister(arg0 interface{
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventLifecycleRegister", arg0)
 }
 
-func (_m *MockConnection) DomainEventMigrationIterationRegister(callback libvirt_go.DomainEventMigrationIterationCallback) error {
-	ret := _m.ctrl.Call(_m, "DomainEventMigrationIterationRegister", callback)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockConnectionRecorder) DomainEventMigrationIterationRegister(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventMigrationIterationRegister", arg0)
-}
-
 func (_m *MockConnection) AgentEventLifecycleRegister(callback libvirt_go.DomainEventAgentLifecycleCallback) error {
 	ret := _m.ctrl.Call(_m, "AgentEventLifecycleRegister", callback)
 	ret0, _ := ret[0].(error)

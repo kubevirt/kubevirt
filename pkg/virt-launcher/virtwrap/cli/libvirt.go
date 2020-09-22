@@ -45,7 +45,6 @@ type Connection interface {
 	DomainDefineXML(xml string) (VirDomain, error)
 	Close() (int, error)
 	DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) error
-	DomainEventMigrationIterationRegister(callback libvirt.DomainEventMigrationIterationCallback) error
 	AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) error
 	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
 	NewStream(flags libvirt.StreamFlags) (Stream, error)
@@ -141,17 +140,6 @@ func (l *LibvirtConnection) DomainEventLifecycleRegister(callback libvirt.Domain
 
 	l.domainEventCallbacks = append(l.domainEventCallbacks, callback)
 	_, err = l.Connect.DomainEventLifecycleRegister(nil, callback)
-	l.checkConnectionLost(err)
-	return
-}
-
-func (l *LibvirtConnection) DomainEventMigrationIterationRegister(callback libvirt.DomainEventMigrationIterationCallback) (err error) {
-	if err = l.reconnectIfNecessary(); err != nil {
-		return
-	}
-
-	l.domainEventMigrationIterationCallbacks = append(l.domainEventMigrationIterationCallbacks, callback)
-	_, err = l.Connect.DomainEventMigrationIterationRegister(nil, callback)
 	l.checkConnectionLost(err)
 	return
 }
