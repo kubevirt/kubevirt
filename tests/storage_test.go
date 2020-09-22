@@ -101,21 +101,32 @@ var _ = Describe("[Serial]Storage", func() {
 		})
 
 		AfterEach(func() {
-			if nfsInitialized {
+			if nfsInitialized && vmi != nil {
 				By("Deleting the VMI")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-				// PVs can't be reused
-				tests.DeletePvAndPvc(_pvName)
+			}
+		})
 
+		AfterEach(func() {
+			if nfsInitialized {
 				By("Deleting NFS pod")
 				Expect(virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(tests.NFSTargetName, &metav1.DeleteOptions{})).To(Succeed())
+
 				By("Waiting for NFS pod to disappear")
 				tests.WaitForPodToDisappearWithTimeout(tests.NFSTargetName, 120)
 			}
 		})
+
+		AfterEach(func() {
+			if nfsInitialized {
+				// PVs can't be reused
+				By("Deleting PV and PVC")
+				tests.DeletePvAndPvc(_pvName)
+			}
+		})
+
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]with Alpine PVC", func() {
 			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily) {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
