@@ -512,8 +512,9 @@ var _ = Describe("[Serial]Multus", func() {
                     mkdir -p /usr/local/bin
                     curl %s > /usr/local/bin/qemu-ga
                     chmod +x /usr/local/bin/qemu-ga
+		    curl %s > /lib64/libpixman-1.so.0
                     systemd-run --unit=guestagent /usr/local/bin/qemu-ga
-                `, ep1Ip, ep2Ip, ep1IpV6, ep2IpV6, tests.GetUrl(tests.GuestAgentHttpUrl))
+                `, ep1Ip, ep2Ip, ep1IpV6, ep2IpV6, tests.GetUrl(tests.GuestAgentHttpUrl), tests.GetUrl(tests.PixmanUrl))
 				agentVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedora), userdata)
 
 				agentVMI.Spec.Domain.Devices.Interfaces = interfaces

@@ -297,21 +297,22 @@ http_file(
     ],
 )
 
-# Pull base image fedora28
+# Pull base image fedora31
 container_pull(
     name = "fedora",
-    digest = "sha256:f4ca3e9814bef8468b59cc3dea90ab52bcb3747057731f7ab7645d923731fed6",
+    digest = "sha256:5e2b864cfe165fa7da6606b29a9e60549eb7cc9ae7fb574614110d1494b0f0c2",
     registry = "index.docker.io",
     repository = "library/fedora",
-    #tag = "30",
+    tag = "31",
 )
 
 container_pull(
     name = "fedora_ppc64le",
-    digest = "sha256:de1e23d807365800621d10efe27fa7eea865ee0bf9f1beca316f919972312695",
+    digest = "sha256:50ab81a4619f7e94793aba65f3a40505bdfb9b59dcf6ae6deb8f974723e966d9",
     puller_linux = "@go_puller_linux_ppc64le//file:downloaded",
     registry = "index.docker.io",
     repository = "library/fedora",
+    tag = "31",
 )
 
 # Pull fedora 32 customize container-disk
@@ -395,171 +396,203 @@ http_archive(
 # Get container-disk-v1alpha RPM's
 http_file(
     name = "qemu-img",
-    sha256 = "eadbd81fe25827a9d7712d0d96b134ab834bfab9e7332a8e9cf54dedd3c02581",
+    sha256 = "669250ad47aad5939cf4d1b88036fd95a94845d8e0bbdb05e933f3d2fe262fea",
     urls = [
-        "https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/28/Everything/x86_64/Packages/q/qemu-img-2.11.2-5.fc28.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/eadbd81fe25827a9d7712d0d96b134ab834bfab9e7332a8e9cf54dedd3c02581",
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/q/qemu-img-4.1.0-2.fc31.x86_64.rpm",
     ],
 )
 
 http_file(
     name = "qemu-img_ppc64le",
-    sha256 = "ce725a0eb493657380ff2d7bb207820d57acdb810c965a47d05e642c4c730984",
+    sha256 = "c6629cb5b44a7adbedf5f84324933d02f6ecfaf931b90d034354cdc9516e7adb",
     urls = [
-        "https://archives.fedoraproject.org/pub/archive/fedora-secondary/updates/28/Everything/ppc64le/Packages/q/qemu-img-2.11.2-5.fc28.ppc64le.rpm",
-        "https://storage.googleapis.com/builddeps/ce725a0eb493657380ff2d7bb207820d57acdb810c965a47d05e642c4c730984",
+        "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/q/qemu-img-4.1.0-2.fc31.ppc64le.rpm",
+    ],
+)
+
+# qemu-img library dependencies
+http_file(
+    name = "nettle",
+    sha256 = "429d5b9a845285710b7baad1cdc96be74addbf878011642cfc7c14b5636e9bcc",
+    urls = [
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/n/nettle-3.5.1-3.fc31.x86_64.rpm",
+    ],
+)
+
+http_file(
+    name = "nettle_ppc64le",
+    sha256 = "ae530f297a7159653ee26eacec17052b8a3e628b24ff256447ee4383c963be50",
+    urls = [
+        "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/n/nettle-3.5.1-3.fc31.ppc64le.rpm",
+    ],
+)
+
+http_file(
+    name = "glibc",
+    sha256 = "33e0ad9b92d40c4e09d6407df1c8549b3d4d3d64fdd482439e66d12af6004f13",
+    urls = [
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/g/glibc-2.30-5.fc31.x86_64.rpm",
+    ],
+)
+
+http_file(
+    name = "glibc_ppc64le",
+    sha256 = "7761a68e16aafe728b8a45187903010001b5cb086f2f5fe929703f0c7fe8a43b",
+    urls = [
+        "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/g/glibc-2.30-5.fc31.ppc64le.rpm",
     ],
 )
 
 http_file(
     name = "bzip2",
-    sha256 = "5248b7b85e58319c6c16e9b545dc04f1b25ba236e0507a7c923d74b00fe8741c",
+    sha256 = "d334fe6e150349148b9cb77e32523029311ce8cb10d222d11c951b66637bbd3a",
     urls = [
-        "https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/28/Everything/x86_64/os/Packages/b/bzip2-1.0.6-26.fc28.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/5248b7b85e58319c6c16e9b545dc04f1b25ba236e0507a7c923d74b00fe8741c",
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/b/bzip2-1.0.8-1.fc31.x86_64.rpm",
     ],
 )
 
 http_file(
     name = "bzip2_ppc64le",
-    sha256 = "e593e694a232829765969e7270cc355d2353436cd2f950029cfa4c0549125f7f",
+    sha256 = "a3c696a53507cb5d6e45c1d84b874ed030de8416e4da86e8b6eb21ea5d0f0d81",
     urls = [
-        "https://archives.fedoraproject.org/pub/archive/fedora-secondary/releases/28/Everything/ppc64le/os/Packages/b/bzip2-1.0.6-26.fc28.ppc64le.rpm",
-        "https://storage.googleapis.com/builddeps/e593e694a232829765969e7270cc355d2353436cd2f950029cfa4c0549125f7f",
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/b/bzip2-1.0.8-1.fc31.ppc64le.rpm",
     ],
 )
 
 http_file(
     name = "capstone",
-    sha256 = "847ebb3a852f82cfe932230d1700cb8b90f602acbe9f9dcf5de7129a1d222c6b",
+    sha256 = "4d2671bc78b11650e8ccf75926e34295c641433759eab8f8932b8403bfa15319",
     urls = [
-        "https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/28/Everything/x86_64/Packages/c/capstone-3.0.5-1.fc28.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/847ebb3a852f82cfe932230d1700cb8b90f602acbe9f9dcf5de7129a1d222c6b",
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/c/capstone-4.0.1-4.fc31.x86_64.rpm",
     ],
 )
 
 http_file(
     name = "capstone_ppc64le",
-    sha256 = "3bca5e7fe2045e064032572ed58026a21262198a4590b5b8cde5aefcb89b071e",
+    sha256 = "d835db14b1dda9601cd208edeed76cffd3b14de37330684e9ec751e67b0827cf",
     urls = [
-        "https://archives.fedoraproject.org/pub/archive/fedora-secondary/updates/28/Everything/ppc64le/Packages/c/capstone-3.0.5-1.fc28.ppc64le.rpm",
-        "https://storage.googleapis.com/builddeps/3bca5e7fe2045e064032572ed58026a21262198a4590b5b8cde5aefcb89b071e",
+        "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/c/capstone-4.0.1-11.fc31.ppc64le.rpm",
     ],
 )
 
 http_file(
     name = "libaio",
-    sha256 = "da731218ec1a8e8f690c880d7a45d09722ea01090caba0ae25d9202e0d521404",
+    sha256 = "ee6596a5010c2b4a038861828ecca240aa03c592dacd83c3a70d44cb8ee50408",
     urls = [
-        "https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/28/Everything/x86_64/os/Packages/l/libaio-0.3.110-11.fc28.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/da731218ec1a8e8f690c880d7a45d09722ea01090caba0ae25d9202e0d521404",
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/l/libaio-0.3.111-6.fc31.x86_64.rpm",
     ],
 )
 
 http_file(
     name = "libaio_ppc64le",
-    sha256 = "2bad2d833f2a572c41dc5e71f03029f697e42a05bf729d9957479e9bd9ee3342",
+    sha256 = "cf0889003cdc23fa251553e96f294b253416641ddd638533c1da328deb82ec9e",
     urls = [
-        "https://archives.fedoraproject.org/pub/archive/fedora-secondary/releases/28/Everything/ppc64le/os/Packages/l/libaio-0.3.110-11.fc28.ppc64le.rpm",
-        "https://storage.googleapis.com/builddeps/2bad2d833f2a572c41dc5e71f03029f697e42a05bf729d9957479e9bd9ee3342",
+        "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/l/libaio-0.3.111-6.fc31.ppc64le.rpm",
     ],
 )
 
 http_file(
     name = "libstdc",
-    sha256 = "61743bc70033f02604fc18991f2a06efebd3b0f55abcbf5b1f7bd3e3cdca6293",
+    sha256 = "2a89e768507364310d03fe54362b30fb90c6bb7d1b558ab52f74a596548c234f",
     urls = [
-        "https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/28/Everything/x86_64/Packages/l/libstdc++-8.3.1-2.fc28.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/61743bc70033f02604fc18991f2a06efebd3b0f55abcbf5b1f7bd3e3cdca6293",
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/l/libstdc++-9.2.1-1.fc31.x86_64.rpm",
     ],
 )
 
 http_file(
     name = "libstdc_ppc64le",
-    sha256 = "bfe7fc768dbbb23263c3641485d07c374858a1f853fe1261bffa92051790762c",
+    sha256 = "9cda89750c2d01be49024fd0c57253cb2bbe5682fbad37e366c11c2fa802c68b",
     urls = [
-        "https://archives.fedoraproject.org/pub/archive/fedora-secondary/updates/28/Everything/ppc64le/Packages/l/libstdc++-8.3.1-2.fc28.ppc64le.rpm",
-        "https://storage.googleapis.com/builddeps/bfe7fc768dbbb23263c3641485d07c374858a1f853fe1261bffa92051790762c",
+        "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/l/libstdc++-9.2.1-1.fc31.ppc64le.rpm",
     ],
 )
 
 http_file(
     name = "qemu-guest-agent",
-    sha256 = "d9c5072ab2476fbf9e50dd374b2bc680d3accadd2e70d52cae4eb515b6a893f4",
+    sha256 = "41edf2ba208309eb1cde80d5d227c4fdf43906ef47ed76aa37a51c344dfed3ee",
     urls = [
-        "https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/28/Everything/x86_64/Packages/q/qemu-guest-agent-2.11.2-5.fc28.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/d9c5072ab2476fbf9e50dd374b2bc680d3accadd2e70d52cae4eb515b6a893f4",
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/q/qemu-guest-agent-4.1.0-2.fc31.x86_64.rpm",
     ],
 )
 
 http_file(
     name = "qemu-guest-agent_ppc64le",
-    sha256 = "8bc1ec56aa9d9426b31a5cbf6971a5b01456e3ac717456c5b681b8769a8c12da",
+    sha256 = "cb352f4f5de837d6ab954f34c9b65f590c76547d5f59ba4c1f63343fce8d13c8",
     urls = [
-        "https://archives.fedoraproject.org/pub/archive/fedora-secondary/updates/28/Everything/ppc64le/Packages/q/qemu-guest-agent-2.11.2-5.fc28.ppc64le.rpm",
-        "https://storage.googleapis.com/builddeps/8bc1ec56aa9d9426b31a5cbf6971a5b01456e3ac717456c5b681b8769a8c12da",
+        "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/q/qemu-guest-agent-4.1.0-2.fc31.ppc64le.rpm",
+    ],
+)
+
+# qemu-ga links against libpixman-1.so
+http_file(
+    name = "pixman-1",
+    sha256 = "913aa9517093ce768a0fab78c9ef4012efdf8364af52e8c8b27cd043517616ba",
+    urls = [
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/p/pixman-0.38.4-1.fc31.x86_64.rpm",
+    ],
+)
+
+http_file(
+    name = "pixman-1_ppc64le",
+    sha256 = "f29e86dcaeadaeb5ecb12e5a4f2d447e711f4bf1513b8923a63e69fa1d4f0f66",
+    urls = [
+        "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/p/pixman-0.38.4-1.fc31.x86_64.rpm",
     ],
 )
 
 http_file(
     name = "stress",
-    sha256 = "bd93021d826c98cbec15b4bf7e0800f723f986e7ed89357c56284a7efa6394b5",
+    sha256 = "fe1037e4dca31eabf013e48a0cbc08a10bafa7fb77e3adcdd0ce376fafc21218",
     urls = [
-        "https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/28/Everything/x86_64/os/Packages/s/stress-1.0.4-20.fc28.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/bd93021d826c98cbec15b4bf7e0800f723f986e7ed89357c56284a7efa6394b5",
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/s/stress-1.0.4-23.fc31.x86_64.rpm",
     ],
 )
 
 http_file(
     name = "stress_ppc64le",
-    sha256 = "09a33a7a8571bb09519ed01bd98cb71b84bd0a2ad8c21907d80e955bc542a962",
+    sha256 = "07b0cd6cce8ef6fc28f2187e128872e4a64054ddc24563c04c103abedb7c3ebd",
     urls = [
-        "https://archives.fedoraproject.org/pub/archive/fedora-secondary/releases/28/Everything/ppc64le/os/Packages/s/stress-1.0.4-20.fc28.ppc64le.rpm",
-        "https://storage.googleapis.com/builddeps/09a33a7a8571bb09519ed01bd98cb71b84bd0a2ad8c21907d80e955bc542a962",
+        "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/s/stress-1.0.4-23.fc31.ppc64le.rpm",
     ],
 )
 
 http_file(
     name = "e2fsprogs",
-    sha256 = "d6db37d587a2a0f7cd19e42aea8bd3e5e7c3a9c39c324d40be7514624f9f8f5f",
+    sha256 = "71c02de0e50e07999d0f4f40bce06ca4904e0ab786220bd7ffebc4a60a4d3cd7",
     urls = [
-        "https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/28/Everything/x86_64/Packages/e/e2fsprogs-1.44.2-0.fc28.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/d6db37d587a2a0f7cd19e42aea8bd3e5e7c3a9c39c324d40be7514624f9f8f5f",
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/e/e2fsprogs-1.45.3-1.fc31.x86_64.rpm",
     ],
 )
 
 http_file(
     name = "e2fsprogs_ppc64le",
-    sha256 = "08ebdd9925968fe8dc0655d0a9e98cb410fa68c04349d53c06ccd3ddaae3e3d8",
+    sha256 = "9d47c2d29dd8cff1c2b646c068fbf080b4e974b6140ca184f1799e819525694c",
     urls = [
-        "https://archives.fedoraproject.org/pub/archive/fedora-secondary/updates/28/Everything/ppc64le/Packages/e/e2fsprogs-1.44.2-0.fc28.ppc64le.rpm",
-        "https://storage.googleapis.com/builddeps/08ebdd9925968fe8dc0655d0a9e98cb410fa68c04349d53c06ccd3ddaae3e3d8",
+        "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/e/e2fsprogs-1.45.3-1.fc31.ppc64le.rpm",
     ],
 )
 
 http_file(
     name = "dmidecode",
-    sha256 = "5694c041bcebc273cbf9a67f7210b2dd93c517aba55d93d20980b5bdf4be3751",
+    sha256 = "254a243b2d6b4246d675742f4467665b6d1c639af64dae6ee60bd6c01f2f6084",
     urls = [
-        "https://dl.fedoraproject.org/pub/archive/fedora/linux/releases/28/Everything/x86_64/os/Packages/d/dmidecode-3.1-5.fc28.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/5694c041bcebc273cbf9a67f7210b2dd93c517aba55d93d20980b5bdf4be3751",
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/d/dmidecode-3.2-3.fc31.x86_64.rpm",
     ],
 )
 
 http_file(
     name = "which",
-    sha256 = "a7557e0f91d7d710bb7cd939d4263ebbc84aeec9594d7dc4e062ace4b090e3b6",
+    sha256 = "ed94cc657a0cca686fcea9274f24053e13dc17f770e269cab0b151f18212ddaa",
     urls = [
-        "https://dl.fedoraproject.org/pub/archive/fedora/linux/releases/28/Everything/x86_64/os/Packages/w/which-2.21-8.fc28.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/a7557e0f91d7d710bb7cd939d4263ebbc84aeec9594d7dc4e062ace4b090e3b6",
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/w/which-2.21-15.fc31.x86_64.rpm",
     ],
 )
 
 http_file(
     name = "virt-what",
-    sha256 = "a6972c67cf99537503d0517e99782ff6ed1ae7c93aea168da81dadbb836f9ae0",
+    sha256 = "4c3b6e527de5c72ba44c7e10ec7bceba1a7922aefbd3ea34f99e378885729928",
     urls = [
-        "https://dl.fedoraproject.org/pub/archive/fedora/linux/releases/30/Everything/x86_64/os/Packages/v/virt-what-1.19-2.fc30.x86_64.rpm",
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/v/virt-what-1.19-3.fc31.x86_64.rpm",
     ],
 )
 
