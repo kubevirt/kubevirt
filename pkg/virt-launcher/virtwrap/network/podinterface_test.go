@@ -51,7 +51,6 @@ var _ = Describe("Pod Network", func() {
 	var routeAddr netlink.Route
 	var fakeMac net.HardwareAddr
 	var fakeAddr netlink.Addr
-	var updateFakeMac net.HardwareAddr
 	var bridgeTest *netlink.Bridge
 	var bridgeAddr *netlink.Addr
 	var testNic *VIF
@@ -86,12 +85,10 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork = NewMockNetworkHandler(ctrl)
 		Handler = mockNetwork
 		testMac := "12:34:56:78:9A:BC"
-		updateTestMac := "AF:B3:1F:78:2A:CA"
 		dummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 1, MTU: 1410}}
 		address := &net.IPNet{IP: net.IPv4(10, 35, 0, 6), Mask: net.CIDRMask(24, 32)}
 		gw := net.IPv4(10, 35, 0, 1)
 		fakeMac, _ = net.ParseMAC(testMac)
-		updateFakeMac, _ = net.ParseMAC(updateTestMac)
 		fakeAddr = netlink.Addr{IPNet: address}
 		addrList = []netlink.Addr{fakeAddr}
 		routeAddr = netlink.Route{Gw: gw}
@@ -177,7 +174,6 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
 		mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(nil)
 		mockNetwork.EXPECT().LinkSetDown(dummy).Return(nil)
-		mockNetwork.EXPECT().SetRandomMac(podInterface).Return(updateFakeMac, nil)
 		mockNetwork.EXPECT().LinkSetUp(dummy).Return(nil)
 		mockNetwork.EXPECT().LinkSetLearningOff(dummy).Return(nil)
 		mockNetwork.EXPECT().LinkAdd(bridgeTest).Return(nil)
@@ -297,7 +293,6 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_ALL).Return(addrList, nil)
 			mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
 			mockNetwork.EXPECT().LinkSetDown(dummy).Return(nil)
-			mockNetwork.EXPECT().SetRandomMac(podInterface).Return(updateFakeMac, nil)
 			mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
 			mockNetwork.EXPECT().LinkAdd(bridgeTest).Return(nil)
 			mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(bridgeTest, nil)
