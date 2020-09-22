@@ -133,7 +133,7 @@ github.com/kubevirt/controller-lifecycle-operator-sdk/pkg/sdk/api
 # github.com/kubevirt/kubevirt-ssp-operator v1.2.1
 github.com/kubevirt/kubevirt-ssp-operator/pkg/apis
 github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1
-# github.com/kubevirt/vm-import-operator v0.2.1
+# github.com/kubevirt/vm-import-operator v0.2.2
 github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1
 # github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e
 github.com/mailru/easyjson/buffer

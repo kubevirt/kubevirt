@@ -8,7 +8,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:d015b58b0ed77fb20eab5cf5c4d530b3eebcba03fc75e571b1ec56dace9cb254
-    createdAt: "2020-09-18 05:11:21"
+    createdAt: "2020-09-21 14:07:38"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -1619,7 +1619,7 @@ spec:
                 - name: HPPO_VERSION
                   value: v0.5.2
                 - name: VM_IMPORT_VERSION
-                  value: v0.2.1
+                  value: v0.2.2
                 image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:d015b58b0ed77fb20eab5cf5c4d530b3eebcba03fc75e571b1ec56dace9cb254
                 imagePullPolicy: IfNotPresent
                 name: hyperconverged-cluster-operator
@@ -1956,9 +1956,9 @@ spec:
                 - name: DEPLOY_CLUSTER_RESOURCES
                   value: "true"
                 - name: OPERATOR_VERSION
-                  value: v0.2.1
+                  value: v0.2.2
                 - name: CONTROLLER_IMAGE
-                  value: quay.io/kubevirt/vm-import-controller@sha256:1d0b536354eda43b439c8897147b7610f25a64324a67cc707c000cdff8e8cf7a
+                  value: quay.io/kubevirt/vm-import-controller@sha256:bee1d7820fe7803d08aeb81314737e9c380e10e4a6c2226f72074fcac3d777f9
                 - name: PULL_POLICY
                   value: IfNotPresent
                 - name: WATCH_NAMESPACE
@@ -1968,7 +1968,8 @@ spec:
                       fieldPath: metadata.name
                 - name: MONITORING_NAMESPACE
                   value: openshift-monitoring
-                image: quay.io/kubevirt/vm-import-operator@sha256:69a4cf0b4de5115e02aaf244325a5a6c61080bd5a8dd1095d78bcc9024b648ad
+                - name: VIRTV2V_IMAGE
+                image: quay.io/kubevirt/vm-import-operator@sha256:d223cfeb93bc95dd1929347eaef56f15ef7288ddea98f1fa32cf37b665753a50
                 imagePullPolicy: IfNotPresent
                 name: vm-import-operator
                 resources: {}
@@ -2193,9 +2194,9 @@ spec:
     name: virt-launcher
   - image: docker.io/kubevirt/virt-operator@sha256:288cc081df8d81487db08db3c60b95b372718c118a8bc61eb8a06e7c81ee8ac0
     name: virt-operator
-  - image: quay.io/kubevirt/vm-import-controller@sha256:1d0b536354eda43b439c8897147b7610f25a64324a67cc707c000cdff8e8cf7a
+  - image: quay.io/kubevirt/vm-import-controller@sha256:bee1d7820fe7803d08aeb81314737e9c380e10e4a6c2226f72074fcac3d777f9
     name: vm-import-controller
-  - image: quay.io/kubevirt/vm-import-operator@sha256:69a4cf0b4de5115e02aaf244325a5a6c61080bd5a8dd1095d78bcc9024b648ad
+  - image: quay.io/kubevirt/vm-import-operator@sha256:d223cfeb93bc95dd1929347eaef56f15ef7288ddea98f1fa32cf37b665753a50
     name: vm-import-operator
   replaces: kubevirt-hyperconverged-operator.v1.1.0
   selector:
