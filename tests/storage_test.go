@@ -74,26 +74,24 @@ var _ = Describe("[Serial]Storage", func() {
 	})
 
 	Describe("Starting a VirtualMachineInstance", func() {
-		var _pvName string
 		var vmi *v1.VirtualMachineInstance
 		var nfsInitialized bool
 
 		initNFS := func(family k8sv1.IPFamily) string {
-			if !nfsInitialized {
-				_pvName = "test-nfs" + rand.String(48)
-				// Prepare a NFS backed PV
-				By("Starting an NFS POD")
-				os := string(cd.ContainerDiskAlpine)
-				nfsIPs := tests.CreateNFSTargetPOD(os)
-				// create a new PV and PVC (PVs can't be reused)
-				By("create a new NFS PV and PVC")
-				nfsIP := libnet.GetIp(libnet.GetPodIpsStrings(nfsIPs), family)
-				Expect(nfsIP).NotTo(BeEmpty())
-				tests.CreateNFSPvAndPvc(_pvName, "5Gi", nfsIP, os)
+			pvName := "test-nfs" + rand.String(48)
+			// Prepare a NFS backed PV
+			By("Starting an NFS POD")
+			os := string(cd.ContainerDiskAlpine)
+			nfsPod := tests.CreateNFSTargetPOD(os)
 
-				nfsInitialized = true
-			}
-			return _pvName
+			// create a new PV and PVC (PVs can't be reused)
+			By("create a new NFS PV and PVC")
+			nfsIP := libnet.GetPodIpByFamily(nfsPod, family)
+			ExpectWithOffset(1, nfsIP).NotTo(BeEmpty())
+			tests.CreateNFSPvAndPvc(pvName, "5Gi", nfsIP, os)
+
+			nfsInitialized = true
+			return pvName
 		}
 
 		BeforeEach(func() {
@@ -123,7 +121,7 @@ var _ = Describe("[Serial]Storage", func() {
 			if nfsInitialized {
 				// PVs can't be reused
 				By("Deleting PV and PVC")
-				tests.DeletePvAndPvc(_pvName)
+				tests.DeletePvAndPvc(pvName)
 			}
 		})
 
@@ -365,7 +363,7 @@ var _ = Describe("[Serial]Storage", func() {
 				}
 				var ignoreWarnings bool
 				var pvName string
-				// Start the VirtualMachineInstance with the PVC attached
+					// Start the VirtualMachineInstance with the PVC attached
 				if storageEngine == "nfs" {
 					pvName = initNFS(family)
 					ignoreWarnings = true

@@ -3516,7 +3516,7 @@ func newISCSIPVC(name string, size string, accessMode k8sv1.PersistentVolumeAcce
 	}
 }
 
-func CreateNFSTargetPOD(os string) (podIPs []k8sv1.PodIP) {
+func CreateNFSTargetPOD(os string) *k8sv1.Pod {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	image := fmt.Sprintf("%s/nfs-server:%s", flags.KubeVirtRepoPrefix, flags.KubeVirtVersionTag)
@@ -3568,13 +3568,12 @@ func CreateNFSTargetPOD(os string) (podIPs []k8sv1.PodIP) {
 	PanicOnError(err)
 
 	getStatus := func() k8sv1.PodPhase {
-		pod, err := virtClient.CoreV1().Pods(NamespaceTestDefault).Get(pod.Name, metav1.GetOptions{})
+		pod, err = virtClient.CoreV1().Pods(NamespaceTestDefault).Get(pod.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		podIPs = pod.Status.PodIPs
 		return pod.Status.Phase
 	}
 	Eventually(getStatus, 120, 1).Should(Equal(k8sv1.PodRunning))
-	return
+	return pod
 }
 
 func CreateNFSPvAndPvc(name string, size string, nfsTargetIP string, os string) {
