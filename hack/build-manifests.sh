@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
-set -ex
+set -ex -o pipefail -o errtrace -o functrace
+
+function catch() {
+    echo "error $1 on line $2"
+    exit 255
+}
+
+trap 'catch $? $LINENO' ERR TERM INT
 
 # build-manifests is designed to populate the deploy directory
 # with all of the manifests necessary for use in development
@@ -22,6 +29,19 @@ set -ex
 #
 # Lastly, we take give the component CSVs to the csv-merger that combines all
 # of the manifests into a single, unified, ClusterServiceVersion.
+
+function get_image_digest() {
+  local inspect
+  local digest
+  local image
+
+  inspect=$(docker run --rm quay.io/skopeo/stable:latest inspect "docker://$1")
+  digest=$(echo "${inspect}" | jq -r '.Digest')
+  image="${1/:*/}@${digest}"
+  echo "${image}" >> ${IMAGES_FILE}
+  echo "${image}"
+}
+
 PROJECT_ROOT="$(readlink -e $(dirname "${BASH_SOURCE[0]}")/../)"
 source "${PROJECT_ROOT}"/hack/config
 
@@ -73,7 +93,8 @@ function gen_csv() {
   eval $dockerArgs > $csv
   eval $dockerArgs $dumpCRDsArg > $csvWithCRDs
 
-  diff -u $csv $csvWithCRDs | grep -E "^\+" | sed -E 's/^\+//' | tail -n+2 > $crds
+  # diff returns 1 when there is a diff, and there is always diff here. Added `|| :` to cancel trap here.
+  diff -u $csv $csvWithCRDs | grep -E "^\+" | sed -E 's/^\+//' | tail -n+2 > $crds || :
 
   csplit --digits=2 --quiet --elide-empty-files \
     --prefix="${operatorName}" \
@@ -83,7 +104,10 @@ function gen_csv() {
 }
 
 function get-virt-operator-sha() {
-  local digest=$(get_image_digest "${KUBEVIRT_IMAGE%/*}/virt-$1:${KUBEVIRT_IMAGE/*:}")
+  local digest
+  local image="${KUBEVIRT_IMAGE%/*}/virt-$1:${KUBEVIRT_IMAGE/*:}"
+  digest=$(get_image_digest "${image}")
+  if [[ $? != 0 ]]; then return $?; fi
   echo "${digest/*@/}"
 }
 
@@ -91,12 +115,19 @@ function create_virt_csv() {
   local operatorName="kubevirt"
   local imagePullUrl="${KUBEVIRT_IMAGE}"
   local dumpCRDsArg="--dumpCRDs"
-  local virtDigest=$(get_image_digest "${KUBEVIRT_IMAGE}")
-  local apiSha=$(get-virt-operator-sha "api")
-  local controllerSha=$(get-virt-operator-sha "controller")
-  local launcherSha=$(get-virt-operator-sha "launcher")
-  local handlerSha=$(get-virt-operator-sha "handler")
-  local operatorArgs=" \
+  local virtDigest
+  virtDigest=$(get_image_digest "${KUBEVIRT_IMAGE}")
+  if [[ $? != 0 ]]; then exit $?;fi
+  local apiSha
+  apiSha=$(get-virt-operator-sha "api")
+  local controllerSha
+  controllerSha=$(get-virt-operator-sha "controller")
+  local launcherSha
+  launcherSha=$(get-virt-operator-sha "launcher")
+  local handlerSha
+  handlerSha=$(get-virt-operator-sha "handler")
+  local operatorArgs
+  operatorArgs=" \
     --namespace=${OPERATOR_NAMESPACE} \
     --csvVersion=${CSV_VERSION} \
     --operatorImageVersion=${virtDigest/*@/} \
@@ -108,7 +139,7 @@ function create_virt_csv() {
     --launcherSha=${launcherSha} \
   "
 
-  gen_csv ${DEFAULT_CSV_GENERATOR} ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
+  gen_csv "${DEFAULT_CSV_GENERATOR}" "${operatorName}" "${imagePullUrl}" "${dumpCRDsArg}" "${operatorArgs}"
   echo "${operatorName}"
 }
 
@@ -116,7 +147,8 @@ function create_cna_csv() {
   local operatorName="cluster-network-addons"
   local imagePullUrl="${CNA_IMAGE}"
   local dumpCRDsArg="--dump-crds"
-  local cnaDigest=$(get_image_digest "${CNA_IMAGE}")
+  local cnaDigest
+  cnaDigest=$(get_image_digest "${CNA_IMAGE}")
   local containerPrefix="${cnaDigest%/*}"
   local imageName="${cnaDigest#${containerPrefix}/}"
   local tag="${CNA_IMAGE/*:/}"
@@ -139,7 +171,8 @@ function create_ssp_csv() {
   local operatorName="scheduling-scale-performance"
   local imagePullUrl="${SSP_IMAGE}"
   local dumpCRDsArg="--dump-crds"
-  local sspDigest=$(get_image_digest "${SSP_IMAGE}")
+  local sspDigest
+  sspDigest=$(get_image_digest "${SSP_IMAGE}")
   local operatorArgs=" \
     --namespace=${OPERATOR_NAMESPACE} \
     --csv-version=${CSV_VERSION} \
@@ -157,13 +190,20 @@ function create_cdi_csv() {
   local containerPrefix="${CDI_IMAGE%/*}"
   local tag="${CDI_IMAGE/*:/}"
 
-  local cdiDigest=$(get_image_digest "${CDI_IMAGE}")
-  local controllerDigest=$(get_image_digest "${containerPrefix}/cdi-controller:${tag}")
-  local apiserverDigest=$(get_image_digest "${containerPrefix}/cdi-apiserver:${tag}")
-  local clonerDigest=$(get_image_digest "${containerPrefix}/cdi-cloner:${tag}")
-  local importerDigest=$(get_image_digest "${containerPrefix}/cdi-importer:${tag}")
-  local uploadproxyDigest=$(get_image_digest "${containerPrefix}/cdi-uploadproxy:${tag}")
-  local uploadserverDigest=$(get_image_digest "${containerPrefix}/cdi-uploadserver:${tag}")
+  local cdiDigest
+  cdiDigest=$(get_image_digest "${CDI_IMAGE}")
+  local controllerDigest
+  controllerDigest=$(get_image_digest "${containerPrefix}/cdi-controller:${tag}")
+  local apiserverDigest
+  apiserverDigest=$(get_image_digest "${containerPrefix}/cdi-apiserver:${tag}")
+  local clonerDigest
+  clonerDigest=$(get_image_digest "${containerPrefix}/cdi-cloner:${tag}")
+  local importerDigest
+  importerDigest=$(get_image_digest "${containerPrefix}/cdi-importer:${tag}")
+  local uploadproxyDigest
+  uploadproxyDigest=$(get_image_digest "${containerPrefix}/cdi-uploadproxy:${tag}")
+  local uploadserverDigest
+  uploadserverDigest=$(get_image_digest "${containerPrefix}/cdi-uploadserver:${tag}")
   local dumpCRDsArg="--dump-crds"
   local operatorArgs=" \
     --namespace=${OPERATOR_NAMESPACE} \
@@ -201,8 +241,10 @@ function create_hpp_csv() {
   local operatorName="hostpath-provisioner"
   local imagePullUrl="${HPPO_IMAGE}"
   local dumpCRDsArg="--dump-crds"
-  local hppoDigest=$(get_image_digest "${HPPO_IMAGE}")
-  local hppDigest=$(get_image_digest "${HPP_IMAGE}")
+  local hppoDigest
+  hppoDigest=$(get_image_digest "${HPPO_IMAGE}")
+  local hppDigest
+  hppDigest=$(get_image_digest "${HPP_IMAGE}")
   local operatorArgs=" \
     --csv-version=${CSV_VERSION} \
     --operator-image-name=${hppoDigest} \
@@ -219,9 +261,11 @@ function create_vm_import_csv() {
   local operatorName="vm-import-operator"
   local imagePullUrl="${VM_IMPORT_IMAGE}"
   local containerPrefix="${VM_IMPORT_IMAGE%/*}"
-  local operatorDigest=$(get_image_digest "${VM_IMPORT_IMAGE}")
+  local operatorDigest
+  operatorDigest=$(get_image_digest "${VM_IMPORT_IMAGE}")
   local tag="${VM_IMPORT_IMAGE/*:/}"
-  local controllerDigest=$(get_image_digest "${containerPrefix}/vm-import-controller:${tag}")
+  local controllerDigest
+  controllerDigest=$(get_image_digest "${containerPrefix}/vm-import-controller:${tag}")
   local dumpCRDsArg="--dump-crds"
   local operatorArgs=" \
     --csv-version=${CSV_VERSION} \
@@ -236,23 +280,24 @@ function create_vm_import_csv() {
   echo "${operatorName}"
 }
 
-function get_image_digest() {
-  local image="${1/:*/}@$(docker run --rm quay.io/skopeo/stable:latest inspect "docker://$1" | jq -r '.Digest')"
-  echo "${image}" >> ${IMAGES_FILE}
-  echo "${image}"
-}
-
 TEMPDIR=$(mktemp -d) || (echo "Failed to create temp directory" && exit 1)
 pushd $TEMPDIR
 export IMAGES_FILE="${TEMPDIR}/images.txt"
 touch ${IMAGES_FILE}
-virtCsv="${TEMPDIR}/$(create_virt_csv).${CSV_EXT}"
-cnaCsv="${TEMPDIR}/$(create_cna_csv).${CSV_EXT}"
-sspCsv="${TEMPDIR}/$(create_ssp_csv).${CSV_EXT}"
-cdiCsv="${TEMPDIR}/$(create_cdi_csv).${CSV_EXT}"
-nmoCsv="${TEMPDIR}/$(create_nmo_csv).${CSV_EXT}"
-hppCsv="${TEMPDIR}/$(create_hpp_csv).${CSV_EXT}"
-importCsv="${TEMPDIR}/$(create_vm_import_csv).${CSV_EXT}"
+virtFile=$(create_virt_csv)
+virtCsv="${TEMPDIR}/${virtFile}.${CSV_EXT}"
+cnaFile=$(create_cna_csv)
+cnaCsv="${TEMPDIR}/${cnaFile}.${CSV_EXT}"
+sspFile=$(create_ssp_csv)
+sspCsv="${TEMPDIR}/${sspFile}.${CSV_EXT}"
+cdiFile=$(create_cdi_csv)
+cdiCsv="${TEMPDIR}/${cdiFile}.${CSV_EXT}"
+nmoFile=$(create_nmo_csv)
+nmoCsv="${TEMPDIR}/${nmoFile}.${CSV_EXT}"
+hhpFile=$(create_hpp_csv)
+hppCsv="${TEMPDIR}/${hhpFile}.${CSV_EXT}"
+vmImportFile=$(create_vm_import_csv)
+importCsv="${TEMPDIR}/${vmImportFile}.${CSV_EXT}"
 csvOverrides="${TEMPDIR}/csv_overrides.${CSV_EXT}"
 
 cat > ${csvOverrides} <<- EOM
@@ -308,6 +353,12 @@ conversionContainer=$(get_image_digest "${CONVERSION_CONTAINER}")
 vmwareContainer=$(get_image_digest "${VMWARE_CONTAINER}")
 
 IMAGE_LIST=$(cat ${IMAGES_FILE} | tr '\n' ',')
+
+# validate CSVs. Make sure each one of them contain an image (and so, also not empty):
+csvs=("${cnaCsv}" "${virtCsv}" "${sspCsv}" "${cdiCsv}" "${nmoCsv}" "${hppCsv}" "${importCsv}")
+for csv in "${csvs[@]}"; do
+  grep -E "^ *image: [a-zA-Z0-9/\.:@\-]+$" ${csv}
+done
 
 # Build and write deploy dir
 (cd ${PROJECT_ROOT}/tools/manifest-templator/ && go build)

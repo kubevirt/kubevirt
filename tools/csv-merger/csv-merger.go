@@ -310,63 +310,65 @@ func main() {
 			}
 		}
 
-		for _, csvStr := range csvs {
-			if csvStr != "" {
-				csvBytes := []byte(csvStr)
+		for i, csvStr := range csvs {
+			if csvStr == "" {
+				csvNames := []string{"CNA", "KubeVirt", "SSP", "CDI", "NMO", "HPP", "VM Import"}
+				log.Panicf("ERROR: the %s CSV was empty", csvNames[i])
+			}
+			csvBytes := []byte(csvStr)
 
-				csvStruct := &ClusterServiceVersionExtended{}
+			csvStruct := &ClusterServiceVersionExtended{}
 
-				err := yaml.Unmarshal(csvBytes, csvStruct)
-				if err != nil {
-					panic(err)
-				}
+			err := yaml.Unmarshal(csvBytes, csvStruct)
+			if err != nil {
+				panic(err)
+			}
 
-				strategySpec := csvStruct.Spec.InstallStrategy.StrategySpec
+			strategySpec := csvStruct.Spec.InstallStrategy.StrategySpec
 
-				installStrategyBase.DeploymentSpecs = append(installStrategyBase.DeploymentSpecs, strategySpec.DeploymentSpecs...)
-				installStrategyBase.ClusterPermissions = append(installStrategyBase.ClusterPermissions, strategySpec.ClusterPermissions...)
-				installStrategyBase.Permissions = append(installStrategyBase.Permissions, strategySpec.Permissions...)
+			installStrategyBase.DeploymentSpecs = append(installStrategyBase.DeploymentSpecs, strategySpec.DeploymentSpecs...)
+			installStrategyBase.ClusterPermissions = append(installStrategyBase.ClusterPermissions, strategySpec.ClusterPermissions...)
+			installStrategyBase.Permissions = append(installStrategyBase.Permissions, strategySpec.Permissions...)
 
-				csvExtended.Spec.WebhookDefinitions = append(csvExtended.Spec.WebhookDefinitions, csvStruct.Spec.WebhookDefinitions...)
+			csvExtended.Spec.WebhookDefinitions = append(csvExtended.Spec.WebhookDefinitions, csvStruct.Spec.WebhookDefinitions...)
 
-				for _, owned := range csvStruct.Spec.CustomResourceDefinitions.Owned {
-					csvExtended.Spec.CustomResourceDefinitions.Owned = append(
-						csvExtended.Spec.CustomResourceDefinitions.Owned,
-						csvv1alpha1.CRDDescription{
-							Name:        owned.Name,
-							Version:     owned.Version,
-							Kind:        owned.Kind,
-							Description: owned.Description,
-							DisplayName: owned.DisplayName,
-						},
-					)
-				}
+			for _, owned := range csvStruct.Spec.CustomResourceDefinitions.Owned {
+				csvExtended.Spec.CustomResourceDefinitions.Owned = append(
+					csvExtended.Spec.CustomResourceDefinitions.Owned,
+					csvv1alpha1.CRDDescription{
+						Name:        owned.Name,
+						Version:     owned.Version,
+						Kind:        owned.Kind,
+						Description: owned.Description,
+						DisplayName: owned.DisplayName,
+					},
+				)
+			}
 
-				csv_base_alm_string := csvExtended.Annotations["alm-examples"]
-				csv_struct_alm_string := csvStruct.Annotations["alm-examples"]
-				var base_almcrs []interface{}
-				var struct_almcrs []interface{}
-				if err = json.Unmarshal([]byte(csv_base_alm_string), &base_almcrs); err != nil {
-					panic(err)
-				}
-				if err = json.Unmarshal([]byte(csv_struct_alm_string), &struct_almcrs); err != nil {
-					panic(err)
-				}
-				for _, cr := range struct_almcrs {
-					base_almcrs = append(
-						base_almcrs,
-						cr,
-					)
-				}
-				alm_b, err := json.Marshal(base_almcrs)
-				if err != nil {
-					panic(err)
-				}
-				csvExtended.Annotations["alm-examples"] = string(alm_b)
+			csv_base_alm_string := csvExtended.Annotations["alm-examples"]
+			csv_struct_alm_string := csvStruct.Annotations["alm-examples"]
+			var base_almcrs []interface{}
+			var struct_almcrs []interface{}
+			if err = json.Unmarshal([]byte(csv_base_alm_string), &base_almcrs); err != nil {
+				panic(err)
+			}
+			if err = json.Unmarshal([]byte(csv_struct_alm_string), &struct_almcrs); err != nil {
+				panic(err)
+			}
+			for _, cr := range struct_almcrs {
+				base_almcrs = append(
+					base_almcrs,
+					cr,
+				)
+			}
+			alm_b, err := json.Marshal(base_almcrs)
+			if err != nil {
+				panic(err)
+			}
+			csvExtended.Annotations["alm-examples"] = string(alm_b)
 
-				for _, image := range csvStruct.Spec.RelatedImages {
-					relatedImageSet.add(image.Ref)
-				}
+			for _, image := range csvStruct.Spec.RelatedImages {
+				relatedImageSet.add(image.Ref)
 			}
 		}
 
