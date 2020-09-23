@@ -78,6 +78,9 @@ const (
 
 	defaultLauncherSubGid                 = 107
 	defaultSnapshotControllerResyncPeriod = 5 * time.Minute
+
+	defaultPromCertFilePath = "/etc/virt-controller/certificates/tls.crt"
+	defaultPromKeyFilePath  = "/etc/virt-controller/certificates/tls.key"
 )
 
 var (
@@ -175,6 +178,10 @@ type VirtControllerApp struct {
 	snapshotControllerThreads         int
 	restoreControllerThreads          int
 	snapshotControllerResyncPeriod    time.Duration
+
+	caConfigMapName  string
+	promCertFilePath string
+	promKeyFilePath  string
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -306,7 +313,7 @@ func (vca *VirtControllerApp) Run() {
 
 	stop := vca.ctx.Done()
 
-	promCertManager := bootstrap.NewFileCertificateManager("/etc/virt-controller/certificates")
+	promCertManager := bootstrap.NewFileCertificateManager(vca.promCertFilePath, vca.promKeyFilePath)
 	go promCertManager.Start()
 	promTLSConfig := webhooks.SetupPromTLS(promCertManager)
 
@@ -574,4 +581,10 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.DurationVar(&vca.snapshotControllerResyncPeriod, "snapshot-controller-resync-period", defaultSnapshotControllerResyncPeriod,
 		"Number of goroutines to run for snapshot controller")
+
+	flag.StringVar(&vca.promCertFilePath, "prom-cert-file", defaultPromCertFilePath,
+		"Client certificate used to prove the identity of the virt-controller when it must call out Promethus during a request")
+
+	flag.StringVar(&vca.promKeyFilePath, "prom-key-file", defaultPromKeyFilePath,
+		"Private key for the client certificate used to prove the identity of the virt-controller when it must call out Promethus during a request")
 }
