@@ -771,6 +771,7 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 				Operations: []admissionregistrationv1.OperationType{
 					admissionregistrationv1.Create,
 					admissionregistrationv1.Delete,
+					admissionregistrationv1.Update,
 				},
 				Rule: admissionregistrationv1.Rule{
 					APIGroups:   []string{util.APIVersionGroup},

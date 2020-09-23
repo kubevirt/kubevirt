@@ -3,6 +3,8 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -115,22 +117,47 @@ func (r *HyperConverged) ValidateUpdate(old runtime.Object) error {
 	if !reflect.DeepEqual(
 		oldR.Spec.Workloads,
 		r.Spec.Workloads) {
-		for _, obj := range []runtime.Object{
-			r.NewKubeVirt(),
-			r.NewCDI(),
-		} {
 
-			// TODO: try a dry-run update KubeVirt and CDI CR and refuse the update
-			// if one of them refuses the update due to existing workloads
-			err := hcoutil.EnsureDeleted(ctx, cli, obj, r.Name, hcolog, true)
-			if err != nil {
-				msg := "updating HCO nodeselectors is not allowed due to existing workload"
-				hcolog.Error(err, msg, "GVK", obj.GetObjectKind().GroupVersionKind())
-				return fmt.Errorf(msg)
+		opts := &client.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
+		for _, obj := range []runtime.Object{
+			&kubevirtv1.KubeVirt{},
+			&cdiv1beta1.CDI{},
+		} {
+			if err := r.UpdateOperatorCr(ctx, obj, opts); err != nil {
+				return err
 			}
 		}
-
 	}
+
+	return nil
+}
+
+// currently only supports KV and CDI
+func (r *HyperConverged) UpdateOperatorCr(ctx context.Context, exists runtime.Object, opts *client.UpdateOptions) error {
+	err := hcoutil.GetRuntimeObject(ctx, cli, exists, hcolog)
+	if err != nil {
+		hcolog.Error(err, "failed to get object from kubernetes", "kind", exists.GetObjectKind())
+		return err
+	}
+
+	switch exists.(type) {
+	case *kubevirtv1.KubeVirt:
+		existingKv := exists.(*kubevirtv1.KubeVirt)
+		required := r.NewKubeVirt()
+		existingKv.Spec = required.Spec
+
+	case *cdiv1beta1.CDI:
+		existingCdi := exists.(*cdiv1beta1.CDI)
+		required := r.NewCDI()
+		existingCdi.Spec = required.Spec
+	}
+
+	if err = cli.Update(ctx, exists, opts); err != nil {
+		hcolog.Error(err, "failed to dry-run update the object", "kind", exists.GetObjectKind())
+		return err
+	}
+
+	hcolog.Info("dry-run update the object passed", "kind", exists.GetObjectKind())
 	return nil
 }
 
