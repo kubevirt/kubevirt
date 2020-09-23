@@ -441,13 +441,15 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				nodeName := tests.WaitForSuccessfulVMIStart(vmi)
 
-				By("Crashing the virt-launcher")
-				err = pkillAllLaunchers(virtClient, nodeName)
-				Expect(err).To(BeNil(), "Should kill virt-launcher successfully")
-
-				By("Waiting for the vm to be stopped")
 				stopChan := make(chan struct{})
 				defer close(stopChan)
+
+				By("Crashing the virt-launcher")
+				vmiKiller, err := pkillAllLaunchers(virtClient, nodeName)
+				Expect(err).To(BeNil(), "Should create vmi-killer pod to kill virt-launcher successfully")
+				tests.NewObjectEventWatcher(vmiKiller).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).WaitFor(stopChan, tests.NormalEvent, v1.Started)
+
+				By("Waiting for the vm to be stopped")
 				tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).WaitFor(stopChan, tests.WarningEvent, v1.Stopped)
 
 				By("Checking that VirtualMachineInstance has 'Failed' phase")
@@ -1671,12 +1673,10 @@ func pkillHandler(virtCli kubecli.KubevirtClient, node string) error {
 	return err
 }
 
-func pkillAllLaunchers(virtCli kubecli.KubevirtClient, node string) error {
+func pkillAllLaunchers(virtCli kubecli.KubevirtClient, node string) (*k8sv1.Pod, error) {
 	pod := renderPkillAllPod("virt-launcher")
 	pod.Spec.NodeName = node
-	_, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Create(pod)
-
-	return err
+	return virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Create(pod)
 }
 
 func pkillAllVMIs(virtCli kubecli.KubevirtClient, node string) error {
