@@ -47,7 +47,7 @@ spec:
         - name: KUBEVIRT_VERSION
           value: 20200922_3653b1f1b
         - name: CDI_VERSION
-          value: v1.23.2
+          value: v1.23.3
         - name: NETWORK_ADDONS_VERSION
           value: v0.42.1
         - name: SSP_VERSION
@@ -297,19 +297,19 @@ spec:
         - name: DEPLOY_CLUSTER_RESOURCES
           value: "true"
         - name: OPERATOR_VERSION
-          value: v1.23.2
+          value: v1.23.3
         - name: CONTROLLER_IMAGE
-          value: docker.io/kubevirt/cdi-controller@sha256:88ef0fc272367a2891ca3d9200ef9153dc5b60cbb19603289808da1598a1b63c
+          value: docker.io/kubevirt/cdi-controller@sha256:288d09477af3237ad0d178e98f243281a072e3bec2978253c161dddb5f2cc742
         - name: IMPORTER_IMAGE
-          value: docker.io/kubevirt/cdi-importer@sha256:e641c2d0da397c44ef11634a7bc5984999e55c08ba42cf8159c346b6625f59f4
+          value: docker.io/kubevirt/cdi-importer@sha256:bf9ecfdd64441643136af993361f3be54bbbc5f693d3697dad95001ab99c4d41
         - name: CLONER_IMAGE
-          value: docker.io/kubevirt/cdi-cloner@sha256:56094b99d0096a299fe85700ecd46682faf4bc8aa74ec0622ba9e90cb9f5d68a
+          value: docker.io/kubevirt/cdi-cloner@sha256:8fba2a3ad8c3840881bcc4d7cd46d0992eae386b61a32a3602e8d8145b0234df
         - name: APISERVER_IMAGE
-          value: docker.io/kubevirt/cdi-apiserver@sha256:16347da77efc169dbce9fa13ce6fc70083b7aa5d6a4de714518441e0bc2d136b
+          value: docker.io/kubevirt/cdi-apiserver@sha256:260f481b13eff398235b95bfcf6679213582bde6f111475a50834545fd2ecf7b
         - name: UPLOAD_SERVER_IMAGE
-          value: docker.io/kubevirt/cdi-uploadserver@sha256:23198e3bbbf0ddeb72c0533dcd467196a66e56fc4d5b5898a59695f8508f8f76
+          value: docker.io/kubevirt/cdi-uploadserver@sha256:5cc77eceebdae1017b62b662e83559f074d4277757431a1d805fe2cc3d0a9b6f
         - name: UPLOAD_PROXY_IMAGE
-          value: docker.io/kubevirt/cdi-uploadproxy@sha256:f0551aaba027ad85d45879652dcd07d8cf7fdb73b70c2c46e2f0fa63f32ff489
+          value: docker.io/kubevirt/cdi-uploadproxy@sha256:4b29d0592bbf45b32ae67efda633a47cfa8809ff87b6ea16849e2eb6df722921
         - name: VERBOSITY
           value: "1"
         - name: PULL_POLICY
