@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 source hack/common.sh
 export ARTIFACTS=$KUBEVIRT_DIR/${ARTIFACTS:-_out/artifacts}
 if ${GENERATE:-"false"} == "true"; then

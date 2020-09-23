@@ -6,6 +6,7 @@ tools/csv-generator/csv-generator
 tools/doc-generator/doc-generator
 tools/resource-generator/resource-generator
 tools/marketplace/marketplace
+tools/gosec/gosec
 **/bin
 bin/*
 .vagrant
