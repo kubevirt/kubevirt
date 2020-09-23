@@ -5,6 +5,7 @@ tools/crd-generator/crd-generator
 tools/csv-generator/csv-generator
 tools/resource-generator/resource-generator
 tools/marketplace/marketplace
+tools/gosec/gosec
 **/bin
 bin/*
 .vagrant
