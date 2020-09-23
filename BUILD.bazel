@@ -427,3 +427,18 @@ genrule(
     cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
+
+filegroup(
+    name = "coverage_files",
+    srcs = glob(["bazel-out/k8-fastbuild/testlogs/**/coverage.dat"]),
+)
+
+genrule(
+    name = "goveralls",
+    srcs = [
+        ":coverage_files",
+    ],
+    outs = ["bazel-goveralls"],
+    cmd = "echo '#!/bin/sh\n\necho $(SRCS) | hack/goveralls.sh'  > \"$@\"",
+    executable = 1,
+)
