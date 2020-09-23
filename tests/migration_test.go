@@ -1062,7 +1062,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 			It(" should be migrated successfully, using guest agent on VM w/ postcopy", func() {
 				data := map[string]string{
-					"migrationMode":           "PostCopy",
+					"allowPostCopy":           "true",
 					"completionTimeoutPerGiB": "1",
 				}
 				migrationData, err := json.Marshal(data)
@@ -1240,7 +1240,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		Context("migration postcopy", func() {
 			It("[test_id:4747] should migrate using cluster level config for postcopy", func() {
 				data := map[string]string{
-					"migrationMode":           "PostCopy",
+					"allowPostCopy":           "true",
 					"completionTimeoutPerGiB": "1",
 				}
 				migrationData, err := json.Marshal(data)
