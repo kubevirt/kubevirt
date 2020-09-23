@@ -437,7 +437,7 @@ var _ = Describe("Manager", func() {
 				Bandwidth:               resource.MustParse("64Mi"),
 				ProgressTimeout:         3,
 				CompletionTimeoutPerGiB: 1,
-				MigrationMode:           v1.MigrationPostCopy,
+				AllowPostCopy:           true,
 			}
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
@@ -775,10 +775,8 @@ var _ = Describe("Manager", func() {
 			isBlockMigration := migrationType == "block"
 			isUnsafeMigration := migrationType == "unsafe"
 			allowAutoConverge := migrationType == "autoConverge"
-			migrationMode := v1.MigrationPreCopy
-			if migrationType == "postCopy" {
-				migrationMode = v1.MigrationPostCopy
-			}
+			migrationMode := migrationType == "postCopy"
+
 			flags := prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, migrationMode)
 			expectedMigrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
 

@@ -1449,7 +1449,7 @@ type MigrationConfiguration struct {
 	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,string,omitempty"`
 	ProgressTimeout                   *int64             `json:"progressTimeout,string,omitempty"`
 	UnsafeMigrationOverride           *bool              `json:"unsafeMigrationOverride,string,omitempty"`
-	MigrationMode                     *MigrationMode     `json:"migrationMode,omitempty"`
+	AllowPostCopy                     *bool              `json:"allowPostCopy,string,omitempty"`
 }
 
 // DeveloperConfiguration holds developer options

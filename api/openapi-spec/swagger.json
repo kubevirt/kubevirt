@@ -9327,13 +9327,13 @@
      "allowAutoConverge": {
       "type": "string"
      },
+     "allowPostCopy": {
+      "type": "string"
+     },
      "bandwidthPerMigration": {
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      },
      "completionTimeoutPerGiB": {
-      "type": "string"
-     },
-     "migrationMode": {
       "type": "string"
      },
      "nodeDrainTaintKey": {

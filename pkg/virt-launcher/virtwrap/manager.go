@@ -301,7 +301,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 
 }
 
-func prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge bool, migrationMode v1.MigrationMode) libvirt.DomainMigrateFlags {
+func prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, allowPostyCopy bool) libvirt.DomainMigrateFlags {
 	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
 
 	if isBlockMigration {
@@ -313,7 +313,7 @@ func prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverg
 	if allowAutoConverge {
 		migrateFlags |= libvirt.MIGRATE_AUTO_CONVERGE
 	}
-	if migrationMode == v1.MigrationPostCopy {
+	if allowPostyCopy {
 		migrateFlags |= libvirt.MIGRATE_POSTCOPY
 	}
 
@@ -452,7 +452,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 			return
 		}
 
-		migrateFlags := prepareMigrationFlags(isBlockMigration, options.UnsafeMigration, options.AllowAutoConverge, options.MigrationMode)
+		migrateFlags := prepareMigrationFlags(isBlockMigration, options.UnsafeMigration, options.AllowAutoConverge, options.AllowPostCopy)
 		if options.UnsafeMigration {
 			log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
 		}
@@ -679,7 +679,7 @@ monitorLoop:
 			// check the overall migration time
 			if shouldTriggerTimeout(acceptableCompletionTime, elapsed, domainSpec) {
 
-				if options.MigrationMode == v1.MigrationPostCopy {
+				if options.AllowPostCopy {
 					err = dom.MigrateStartPostCopy(uint32(0))
 					if err != nil {
 						logger.Reason(err).Error("failed to start post migration")

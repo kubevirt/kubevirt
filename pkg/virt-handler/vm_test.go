@@ -1207,7 +1207,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				ProgressTimeout:         150,
 				CompletionTimeoutPerGiB: 800,
 				UnsafeMigration:         false,
-				MigrationMode:           v1.MigrationPreCopy,
+				AllowPostCopy:           false,
 			}
 			client.EXPECT().MigrateVirtualMachine(vmi, options)
 			controller.Execute()

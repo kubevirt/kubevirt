@@ -1687,9 +1687,9 @@ func (in *MigrationConfiguration) DeepCopyInto(out *MigrationConfiguration) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.MigrationMode != nil {
-		in, out := &in.MigrationMode, &out.MigrationMode
-		*out = new(MigrationMode)
+	if in.AllowPostCopy != nil {
+		in, out := &in.AllowPostCopy, &out.AllowPostCopy
+		*out = new(bool)
 		**out = **in
 	}
 	return
