@@ -60,6 +60,7 @@ const (
 	SupportedGuestAgentVersions                     = "3.*,4.*"
 	DefaultOVMFPath                                 = "/usr/share/OVMF"
 	DefaultMemBalloonStatsPeriod                    = 10
+	DefaultCPUAllocationRatio                       = 10.0
 )
 
 // Set default machine type and supported emulated machines based on architecture
@@ -152,4 +153,8 @@ func (c *ClusterConfig) GetSupportedAgentVersions() []string {
 
 func (c *ClusterConfig) GetOVMFPath() string {
 	return c.GetConfig().OVMFPath
+}
+
+func (c *ClusterConfig) GetCPUAllocationRatio() float64 {
+	return float64(c.GetConfig().DeveloperConfiguration.CPUAllocationRatio)
 }

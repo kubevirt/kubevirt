@@ -58,6 +58,7 @@ const (
 	SupportedGuestAgentVersionsKey    = "supported-guest-agent"
 	OVMFPathKey                       = "ovmfPath"
 	MemBalloonStatsPeriod             = "memBalloonStatsPeriod"
+	CPUAllocationRatio                = "cpu-allocation-ratio"
 )
 
 type ConfigModifiedFn func()
@@ -174,6 +175,7 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 			MemoryOvercommit:       DefaultMemoryOvercommit,
 			LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
 			NodeSelectors:          nodeSelectorsDefault,
+			CPUAllocationRatio:     DefaultCPUAllocationRatio,
 		},
 		MigrationConfiguration: &v1.MigrationConfiguration{
 			ParallelMigrationsPerCluster:      &parallelMigrationsPerClusterDefault,
@@ -290,6 +292,14 @@ func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.C
 			config.DeveloperConfiguration.MemoryOvercommit = value
 		} else {
 			return fmt.Errorf("Invalid memoryOvercommit in ConfigMap: %s", memoryOvercommit)
+		}
+	}
+
+	if cpuOvercommit := strings.TrimSpace(configMap.Data[CPUAllocationRatio]); cpuOvercommit != "" {
+		if value, err := strconv.ParseFloat(cpuOvercommit, 64); err == nil && value > 0 {
+			config.DeveloperConfiguration.CPUAllocationRatio = value
+		} else {
+			return fmt.Errorf("Invalid cpu allocation ratio in ConfigMap: %s", cpuOvercommit)
 		}
 	}
 
