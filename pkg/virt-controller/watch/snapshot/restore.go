@@ -462,7 +462,7 @@ func (t *vmRestoreTarget) Own(obj metav1.Object) {
 	b := true
 	obj.SetOwnerReferences([]metav1.OwnerReference{
 		{
-			APIVersion:         snapshotv1.SchemeGroupVersion.String(),
+			APIVersion:         kubevirtv1.GroupVersion.String(),
 			Kind:               "VirtualMachine",
 			Name:               t.vm.Name,
 			UID:                t.vm.UID,

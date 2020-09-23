@@ -107,6 +107,8 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 			return r.Status != nil && r.Status.Complete != nil && *r.Status.Complete
 		}, 180*time.Second, time.Second).Should(BeTrue())
 		Expect(r.OwnerReferences).To(HaveLen(1))
+		Expect(r.OwnerReferences[0].APIVersion).To(Equal(v1.GroupVersion.String()))
+		Expect(r.OwnerReferences[0].Kind).To(Equal("VirtualMachine"))
 		Expect(r.OwnerReferences[0].Name).To(Equal(vm.Name))
 		Expect(r.OwnerReferences[0].UID).To(Equal(vm.UID))
 		Expect(r.Status.RestoreTime).ToNot(BeNil())
@@ -570,6 +572,8 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 						Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
 						pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
+						Expect(pvc.OwnerReferences[0].APIVersion).To(Equal(v1.GroupVersion.String()))
+						Expect(pvc.OwnerReferences[0].Kind).To(Equal("VirtualMachine"))
 						Expect(pvc.OwnerReferences[0].Name).To(Equal(vm.Name))
 						Expect(pvc.OwnerReferences[0].UID).To(Equal(vm.UID))
 					}
@@ -621,6 +625,8 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 						Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
 						pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
+						Expect(pvc.OwnerReferences[0].APIVersion).To(Equal(v1.GroupVersion.String()))
+						Expect(pvc.OwnerReferences[0].Kind).To(Equal("VirtualMachine"))
 						Expect(pvc.OwnerReferences[0].Name).To(Equal(vm.Name))
 						Expect(pvc.OwnerReferences[0].UID).To(Equal(vm.UID))
 					}
