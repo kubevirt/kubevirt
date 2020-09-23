@@ -401,7 +401,114 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Spec.UninstallStrategy).To(Equal(expectedResource.Spec.UninstallStrategy))
 		})
 
-		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
+		It("should add node placement if missing in KubeVirt", func() {
+			existingResource := hco.NewKubeVirt()
+
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureKubeVirt(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &kubevirtv1.KubeVirt{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.Infra).To(BeNil())
+			Expect(existingResource.Spec.Workloads).To(BeNil())
+
+			Expect(foundResource.Spec.Infra).ToNot(BeNil())
+			Expect(foundResource.Spec.Infra.NodePlacement).ToNot(BeNil())
+			Expect(foundResource.Spec.Infra.NodePlacement.Affinity).ToNot(BeNil())
+			Expect(foundResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).Should(Equal("value1"))
+			Expect(foundResource.Spec.Infra.NodePlacement.NodeSelector["key2"]).Should(Equal("value2"))
+
+			Expect(foundResource.Spec.Workloads).ToNot(BeNil())
+			Expect(foundResource.Spec.Workloads.NodePlacement).ToNot(BeNil())
+			reflect.DeepEqual(foundResource.Spec.Workloads.NodePlacement.Tolerations, hco.Spec.Workloads.NodePlacement.Tolerations)
+
+			Expect(req.conditions).To(BeEmpty())
+		})
+
+		It("should remove node placement if missing in HCO CR", func() {
+
+			hcoNodePlacement := newHco()
+			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			existingResource := hcoNodePlacement.NewKubeVirt()
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureKubeVirt(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &kubevirtv1.KubeVirt{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.Infra).ToNot(BeNil())
+			Expect(existingResource.Spec.Workloads).ToNot(BeNil())
+
+			Expect(foundResource.Spec.Infra).To(BeNil())
+			Expect(foundResource.Spec.Workloads).To(BeNil())
+
+			Expect(req.conditions).To(BeEmpty())
+		})
+
+		It("should modify node placement according to HCO CR", func() {
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			existingResource := hco.NewKubeVirt()
+
+			// now, modify HCO's node placement
+			seconds3 := int64(3)
+			hco.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
+				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+			})
+
+			hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
+
+			cl := initClient([]runtime.Object{hco, existingResource})
+			r := initReconciler(cl)
+			res := r.ensureKubeVirt(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &kubevirtv1.KubeVirt{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.Infra).ToNot(BeNil())
+			Expect(existingResource.Spec.Infra.NodePlacement).ToNot(BeNil())
+			Expect(existingResource.Spec.Infra.NodePlacement.Tolerations).To(HaveLen(2))
+			Expect(existingResource.Spec.Workloads).ToNot(BeNil())
+
+			Expect(existingResource.Spec.Workloads.NodePlacement).ToNot(BeNil())
+			Expect(existingResource.Spec.Workloads.NodePlacement.NodeSelector["key1"]).Should(Equal("value1"))
+
+			Expect(foundResource.Spec.Infra).ToNot(BeNil())
+			Expect(foundResource.Spec.Infra.NodePlacement).ToNot(BeNil())
+			Expect(foundResource.Spec.Infra.NodePlacement.Tolerations).To(HaveLen(3))
+
+			Expect(foundResource.Spec.Workloads).ToNot(BeNil())
+			Expect(foundResource.Spec.Workloads.NodePlacement).ToNot(BeNil())
+			Expect(foundResource.Spec.Workloads.NodePlacement.NodeSelector["key1"]).Should(Equal("something else"))
+
+			Expect(req.conditions).To(BeEmpty())
+		})
 
 		It("should handle conditions", func() {
 			expectedResource := hco.NewKubeVirt(namespace)

@@ -38,17 +38,48 @@ func (r *HyperConverged) getLabels() map[string]string {
 }
 
 func (r *HyperConverged) NewKubeVirt(opts ...string) *kubevirtv1.KubeVirt {
+	spec := kubevirtv1.KubeVirtSpec{
+		UninstallStrategy: kubevirtv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist,
+		Infra:             hcoConfig2KvConfig(r.Spec.Infra),
+		Workloads:         hcoConfig2KvConfig(r.Spec.Workloads),
+	}
+
 	return &kubevirtv1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kubevirt-" + r.Name,
 			Labels:    r.getLabels(),
 			Namespace: r.getNamespace(r.Namespace, opts),
 		},
-		Spec: kubevirtv1.KubeVirtSpec{
-			UninstallStrategy: kubevirtv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist,
-		},
-		// TODO: propagate NodePlacement
+		Spec: spec,
 	}
+}
+
+func hcoConfig2KvConfig(hcoConfig HyperConvergedConfig) *kubevirtv1.ComponentConfig {
+	if hcoConfig.NodePlacement != nil {
+		kvConfig := &kubevirtv1.ComponentConfig{}
+		kvConfig.NodePlacement = &kubevirtv1.NodePlacement{}
+
+		if hcoConfig.NodePlacement.Affinity != nil {
+			kvConfig.NodePlacement.Affinity = &corev1.Affinity{}
+			hcoConfig.NodePlacement.Affinity.DeepCopyInto(kvConfig.NodePlacement.Affinity)
+		}
+
+		if hcoConfig.NodePlacement.NodeSelector != nil {
+			kvConfig.NodePlacement.NodeSelector = make(map[string]string)
+			for k, v := range hcoConfig.NodePlacement.NodeSelector {
+				kvConfig.NodePlacement.NodeSelector[k] = v
+			}
+		}
+
+		for _, hcoTolr := range hcoConfig.NodePlacement.Tolerations {
+			kvTolr := corev1.Toleration{}
+			hcoTolr.DeepCopyInto(&kvTolr)
+			kvConfig.NodePlacement.Tolerations = append(kvConfig.NodePlacement.Tolerations, kvTolr)
+		}
+
+		return kvConfig
+	}
+	return nil
 }
 
 func (r *HyperConverged) NewCDI(opts ...string) *cdiv1beta1.CDI {
