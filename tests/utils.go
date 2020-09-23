@@ -63,6 +63,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,6 +76,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/tools/remotecommand"
@@ -355,10 +357,15 @@ func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessF
 
 	go func() {
 		defer GinkgoRecover()
-		for obj := range eventWatcher.ResultChan() {
-			if f(obj.Object.(*k8sv1.Event)) {
-				close(done)
-				break
+		for watchEvent := range eventWatcher.ResultChan() {
+			if watchEvent.Type != watch.Error {
+				event := watchEvent.Object.(*k8sv1.Event)
+				if f(event) {
+					close(done)
+					break
+				}
+			} else {
+				Fail(fmt.Sprintf("unexpected error event: %v", apierrors.FromObject(watchEvent.Object)))
 			}
 		}
 	}()
