@@ -43,7 +43,7 @@ deploy:
   script: make build-functests
   skip_cleanup: true
   on:
-    branch: master
+    tags: true
     condition: $TRAVIS_CPU_ARCH = amd64
 - provider: releases
   skip_cleanup: true
