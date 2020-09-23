@@ -485,7 +485,7 @@ var _ = Describe("Multus", func() {
 	})
 
 	Describe("[rfe_id:1758][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance definition", func() {
-		Context("with quemu guest agent", func() {
+		Context("with qemu guest agent", func() {
 
 			It("[test_id:1757] should report guest interfaces in VMI status", func() {
 				interfaces := []v1.Interface{
