@@ -783,10 +783,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		Context("[Serial]with default cpu model", func() {
-			var cfgMap *k8sv1.ConfigMap
-			var originalData map[string]string
-			var options metav1.GetOptions
-			var defaultCPUModelKey = "default-cpu-model"
 			var originalConfig v1.KubeVirtConfiguration
 			var defaultCPUModel = "Nehalem"
 			var vmiCPUModel = "SandyBridge"
