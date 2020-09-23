@@ -304,6 +304,10 @@ else
   export KUBEVIRT_E2E_SKIP="Multus|SRIOV|GPU"
 fi
 
+if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" ]]; then
+  export KUBEVIRT_E2E_FOCUS=rook-ceph
+fi
+
 # Prepare RHEL PV for Template testing
 if [[ $TARGET =~ os-.* ]]; then
   ginko_params="$ginko_params|Networkpolicy"
@@ -328,9 +332,6 @@ spec:
 EOF
 fi
 
-if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" ]]; then
-  ginko_params="$ginko_params --ginkgo.focus=rook-ceph"
-fi
 
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params make functest
