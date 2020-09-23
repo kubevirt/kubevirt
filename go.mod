@@ -1,6 +1,6 @@
 module github.com/kubevirt/hyperconverged-cluster-operator
 
-go 1.13
+go 1.15
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
@@ -13,6 +13,7 @@ require (
 	github.com/kubevirt/controller-lifecycle-operator-sdk v0.0.6
 	github.com/kubevirt/kubevirt-ssp-operator v1.2.1
 	github.com/kubevirt/vm-import-operator v0.2.2
+	github.com/mattn/goveralls v0.0.7 // indirect
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible

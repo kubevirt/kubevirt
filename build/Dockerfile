@@ -1,4 +1,4 @@
-FROM golang:1.13.8 AS builder
+FROM golang:1.15.2 AS builder
 
 WORKDIR /go/src/github.com/kubevirt/hyperconverged-cluster-operator/
 COPY . .
