@@ -270,7 +270,6 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 		if interfaceStatus != nil || osInfo != nil {
 			event := watch.Event{Type: watch.Modified, Object: domain}
 			client.SendDomainEvent(event)
-			events <- event
 		}
 		err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
 		if err != nil {
