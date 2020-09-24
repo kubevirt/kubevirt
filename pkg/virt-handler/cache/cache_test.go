@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -52,6 +53,7 @@ var _ = Describe("Domain informer", func() {
 	var ghostCacheDir string
 	var informer cache.SharedInformer
 	var stopChan chan struct{}
+	var wg *sync.WaitGroup
 	var ctrl *gomock.Controller
 	var domainManager *virtwrap.MockDomainManager
 	var socketPath string
@@ -62,6 +64,7 @@ var _ = Describe("Domain informer", func() {
 	BeforeEach(func() {
 		resyncPeriod = 5
 		stopChan = make(chan struct{})
+		wg = &sync.WaitGroup{}
 
 		shareDir, err = ioutil.TempDir("", "kubevirt-share")
 		Expect(err).ToNot(HaveOccurred())
@@ -93,6 +96,7 @@ var _ = Describe("Domain informer", func() {
 
 	AfterEach(func() {
 		close(stopChan)
+		wg.Wait()
 		os.RemoveAll(shareDir)
 		os.RemoveAll(podsDir)
 		os.RemoveAll(ghostCacheDir)
@@ -210,7 +214,7 @@ var _ = Describe("Domain informer", func() {
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 
-			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
+			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
 
 			// ensure we can connect to the server first.
 			client, err := cmdclient.NewClient(socketPath)
@@ -236,7 +240,7 @@ var _ = Describe("Domain informer", func() {
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 
 			err := AddGhostRecord("test1-namespace", "test1", "somefile1", "1234-1")
-			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
+			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
 
 			// ensure we can connect to the server first.
 			client, err := cmdclient.NewClient(socketPath)
@@ -262,14 +266,14 @@ var _ = Describe("Domain informer", func() {
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 
-			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
+			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
 
 			// ensure we can connect to the server first.
 			client, err := cmdclient.NewClient(socketPath)
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
-			go informer.Run(stopChan)
+			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
 			verifyObj("default/test", domain)
@@ -279,24 +283,25 @@ var _ = Describe("Domain informer", func() {
 
 			domain := api.NewMinimalDomain("test")
 			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{domain}, nil)
+			// now prove if we make a change, like adding a label, that the resync
+			// will pick that change up automatically
+			newDomain := domain.DeepCopy()
+			newDomain.ObjectMeta.Labels = make(map[string]string)
+			newDomain.ObjectMeta.Labels["some-label"] = "some-value"
+			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{newDomain}, nil)
 
-			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
+			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
 
 			// ensure we can connect to the server first.
 			client, err := cmdclient.NewClient(socketPath)
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
-			go informer.Run(stopChan)
+			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
 			verifyObj("default/test", domain)
 
-			// now prove if we make a change, like adding a label, that the resync
-			// will pick that change up automatically
-			domain.ObjectMeta.Labels = make(map[string]string)
-			domain.ObjectMeta.Labels["some-label"] = "some-value"
-			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{domain}, nil)
 			time.Sleep(time.Duration(resyncPeriod+1) * time.Second)
 
 			obj, exists, err := informer.GetStore().GetByKey("default/test")
@@ -435,14 +440,13 @@ var _ = Describe("Domain informer", func() {
 			// verify list still completes regardless
 			f, err := os.Create(filepath.Join(socketsDir, "default_fakevm_sock"))
 			f.Close()
-			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
-
+			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
 			// ensure we can connect to the server first.
 			client, err := cmdclient.NewClient(socketPath)
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
-			go informer.Run(stopChan)
+			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
 			verifyObj("default/test", domain)
@@ -450,7 +454,7 @@ var _ = Describe("Domain informer", func() {
 		It("should watch for domain events.", func() {
 			domain := api.NewMinimalDomain("test")
 
-			go informer.Run(stopChan)
+			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
 			client := notifyclient.NewNotifier(shareDir)
@@ -476,3 +480,20 @@ var _ = Describe("Domain informer", func() {
 		})
 	})
 })
+
+func runCMDServer(wg *sync.WaitGroup, socketPath string,
+	domainManager virtwrap.DomainManager,
+	stopChan chan struct{},
+	options *cmdserver.ServerOptions) {
+	wg.Add(1)
+	done, _ := cmdserver.RunServer(socketPath, domainManager, stopChan, options)
+	go func() {
+		<-done
+		wg.Done()
+	}()
+}
+
+func runInformer(wg *sync.WaitGroup, stopChan chan struct{}, informer cache.SharedInformer) {
+	wg.Add(1)
+	go func() { informer.Run(stopChan); wg.Done() }()
+}
