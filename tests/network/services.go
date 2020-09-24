@@ -37,6 +37,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -250,6 +251,8 @@ var _ = SIGDescribe("[Serial]Services", func() {
 			table.DescribeTable("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func(ipFamily k8sv1.IPFamily) {
 				serviceName := "myservice"
 				if ipFamily == k8sv1.IPv6Protocol {
+					libnet.SkipWhenNotDualStackCluster(virtClient)
+
 					serviceName = serviceName + "v6"
 					service = buildIPv6ServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 				} else {
