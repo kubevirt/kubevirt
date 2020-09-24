@@ -92,12 +92,8 @@ go_library(
         "typedparams_wrapper.go",
         "typedparams_wrapper.h",
     ],
-    cdeps = [
-        "//:libvirt-headers",
-        "//:libvirt-libs",
-    ],
+    cdeps = ["//:libvirt-libs"],
     cgo = True,
-    copts = ["-Ibazel-out/k8-fastbuild/bin"],
     importmap = "kubevirt.io/kubevirt/vendor/libvirt.org/libvirt-go",
     importpath = "libvirt.org/libvirt-go",
     visibility = ["//visibility:public"],
