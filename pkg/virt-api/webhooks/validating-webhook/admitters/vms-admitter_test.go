@@ -159,7 +159,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		}
 
-		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "dv1",
 			},
@@ -207,7 +207,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		}
 
-		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "dv1",
 			},
@@ -941,7 +941,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				},
 				Spec: v1.VirtualMachineSpec{
 					Template: &v1.VirtualMachineInstanceTemplateSpec{},
-					DataVolumeTemplates: []cdiv1.DataVolume{
+					DataVolumeTemplates: []v1.DataVolumeTemplateSpec{
 						{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "whatever",
@@ -993,7 +993,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			vm := &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
 					Template: &v1.VirtualMachineInstanceTemplateSpec{},
-					DataVolumeTemplates: []cdiv1.DataVolume{
+					DataVolumeTemplates: []v1.DataVolumeTemplateSpec{
 						{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "whatever",

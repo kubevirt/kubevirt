@@ -34,7 +34,6 @@ import (
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
@@ -339,7 +338,7 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 		return false, fmt.Errorf("unexpected snapshot source")
 	}
 
-	var newTemplates = make([]cdiv1.DataVolume, len(snapshotVM.Spec.DataVolumeTemplates))
+	var newTemplates = make([]kubevirtv1.DataVolumeTemplateSpec, len(snapshotVM.Spec.DataVolumeTemplates))
 	var newVolumes = make([]kubevirtv1.Volume, len(snapshotVM.Spec.Template.Spec.Volumes))
 	var deletedDataVolumes []string
 	updatedStatus := false

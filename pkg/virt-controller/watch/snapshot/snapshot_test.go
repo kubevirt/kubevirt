@@ -1042,7 +1042,7 @@ func createVirtualMachine(namespace, name string) *v1.VirtualMachine {
 					},
 				},
 			},
-			DataVolumeTemplates: []cdiv1alpha1.DataVolume{
+			DataVolumeTemplates: []v1.DataVolumeTemplateSpec{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "alpine-dv",

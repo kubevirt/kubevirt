@@ -139,14 +139,14 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      map[string]string{"my": "label"},
 					Annotations: map[string]string{"my": "annotation"},
 					Name:        "dv1",
 				},
 			})
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv2",
 				},
@@ -182,12 +182,12 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
 			})
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv2",
 				},
@@ -235,12 +235,12 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
 			})
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv2",
 				},
@@ -284,12 +284,12 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
 			})
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv2",
 				},
@@ -328,7 +328,7 @@ var _ = Describe("VirtualMachine", func() {
 					},
 				},
 			})
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
@@ -364,7 +364,7 @@ var _ = Describe("VirtualMachine", func() {
 					},
 				},
 			})
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
@@ -403,12 +403,12 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
 			})
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv2",
 				},
@@ -423,7 +423,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		Context("clone authorization tests", func() {
-			dv1 := &cdiv1.DataVolume{
+			dv1 := &v1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv1",
 				},
@@ -437,7 +437,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			}
 
-			dv2 := &cdiv1.DataVolume{
+			dv2 := &v1.DataVolumeTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dv2",
 				},
@@ -459,7 +459,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			}
 
-			table.DescribeTable("create clone DataVolume for VirtualMachineInstance", func(dv *cdiv1.DataVolume, saVol *v1.Volume, fail bool) {
+			table.DescribeTable("create clone DataVolume for VirtualMachineInstance", func(dv *v1.DataVolumeTemplateSpec, saVol *v1.Volume, fail bool) {
 				vm, _ := DefaultVirtualMachine(true)
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
 					v1.Volume{

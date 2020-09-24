@@ -1911,12 +1911,21 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	return vm
 }
 
+func addDataVolumeTemplate(vm *v1.VirtualMachine, dataVolume *cdiv1.DataVolume) {
+	dvt := &v1.DataVolumeTemplateSpec{}
+
+	dvt.Spec = *dataVolume.Spec.DeepCopy()
+	dvt.ObjectMeta = *dataVolume.ObjectMeta.DeepCopy()
+
+	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dvt)
+}
+
 func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
 	dataVolume := NewRandomDataVolumeWithHttpImport(imageUrl, namespace, k8sv1.ReadWriteOnce)
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
 
-	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dataVolume)
+	addDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
@@ -1925,7 +1934,7 @@ func NewRandomVMWithDataVolumeInStorageClass(imageUrl, namespace, storageClass s
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
 
-	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dataVolume)
+	addDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
@@ -1935,7 +1944,7 @@ func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, use
 	AddUserData(vmi, "cloud-init", userData)
 	vm := NewRandomVirtualMachine(vmi, false)
 
-	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dataVolume)
+	addDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
@@ -1945,7 +1954,7 @@ func NewRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace
 	vmi.Namespace = targetNamespace
 	vm := NewRandomVirtualMachine(vmi, false)
 
-	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dataVolume)
+	addDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 

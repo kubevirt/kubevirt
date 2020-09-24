@@ -718,6 +718,15 @@ const (
 
 //
 // +k8s:openapi-gen=true
+type DataVolumeTemplateSpec struct {
+	// +nullable
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	// DataVolumeSpec contains the DataVolume specification.
+	Spec cdiv1.DataVolumeSpec `json:"spec"`
+}
+
+//
+// +k8s:openapi-gen=true
 type VirtualMachineInstanceTemplateSpec struct {
 	// +nullable
 	ObjectMeta metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -920,7 +929,7 @@ type VirtualMachineSpec struct {
 
 	// dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.
 	// DataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.
-	DataVolumeTemplates []cdiv1.DataVolume `json:"dataVolumeTemplates,omitempty"`
+	DataVolumeTemplates []DataVolumeTemplateSpec `json:"dataVolumeTemplates,omitempty"`
 }
 
 // StateChangeRequestType represents the existing state change requests that are possible
