@@ -180,6 +180,11 @@ type VirtualMachineInstanceStatus struct {
 	// +optional
 	QOSClass *k8sv1.PodQOSClass `json:"qosClass,omitempty"`
 
+	// EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want
+	// to evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.
+	// +optional
+	EvacuationNodeName string `json:"evacuationNodeName,omitempty"`
+
 	// ActivePods is a mapping of pod UID to node name.
 	// It is possible for multiple pods to be running for a single VMI during migration.
 	ActivePods map[types.UID]string `json:"activePods,omitempty"`
@@ -195,6 +200,23 @@ func (v *VirtualMachineInstance) IsScheduled() bool {
 
 func (v *VirtualMachineInstance) IsRunning() bool {
 	return v.Status.Phase == Running
+}
+
+func (v *VirtualMachineInstance) IsMarkedForEviction() bool {
+	return v.Status.EvacuationNodeName != ""
+}
+
+func (v *VirtualMachineInstance) IsMigratable() bool {
+	for _, cond := range v.Status.Conditions {
+		if cond.Type == VirtualMachineInstanceIsMigratable && cond.Status == k8sv1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
+func (v *VirtualMachineInstance) IsEvictable() bool {
+	return v.Spec.EvictionStrategy != nil && *v.Spec.EvictionStrategy == EvictionStrategyLiveMigrate
 }
 
 func (v *VirtualMachineInstance) IsFinal() bool {

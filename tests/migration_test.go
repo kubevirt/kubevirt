@@ -41,6 +41,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -68,6 +70,43 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 	var originalKubeVirtConfig *k8sv1.ConfigMap
 	var err error
+
+	setMastersUnschedulable := func(mode bool) {
+		masters, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: `node-role.kubernetes.io/master`})
+		Expect(err).ShouldNot(HaveOccurred(), "could not list master nodes")
+		Expect(len(masters.Items)).Should(BeNumerically(">=", 1))
+
+		for _, node := range masters.Items {
+			nodeCopy := node.DeepCopy()
+			nodeCopy.Spec.Unschedulable = mode
+
+			oldData, err := json.Marshal(node)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			newData, err := json.Marshal(nodeCopy)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			patch, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, node)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			_, err = virtClient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, patch)
+			Expect(err).ShouldNot(HaveOccurred())
+		}
+	}
+
+	drainNode := func(node string) {
+		By(fmt.Sprintf("Draining node %s", node))
+		// we can't really expect an error during node drain because vms with eviction strategy can be migrated by the
+		// time that we call it.
+		k8sClient := tests.GetK8sCmdClient()
+		if k8sClient == "oc" {
+			tests.RunCommandWithNS("", k8sClient, "adm", "drain", node, "--delete-local-data",
+				"--ignore-daemonsets=true", "--force", "--timeout=180s")
+		} else {
+			tests.RunCommandWithNS("", k8sClient, "drain", node, "--delete-local-data",
+				"--ignore-daemonsets=true", "--force", "--timeout=180s")
+		}
+	}
 
 	tests.BeforeAll(func() {
 
@@ -1483,11 +1522,37 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = cirrosVMIWithEvictionStrategy()
 			})
 
-			It("[test_id:3242]should block the eviction api", func() {
+			It("[test_id:3242]should block the eviction api and migrate", func() {
 				vmi = runVMIAndExpectLaunch(vmi, 180)
+				vmiNodeOrig := vmi.Status.NodeName
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				err := virtClient.CoreV1().Pods(vmi.Namespace).Evict(&v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 				Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+
+				By("Ensuring the VMI has migrated and lives on another node")
+				Eventually(func() error {
+					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+
+					if vmi.Status.NodeName == vmiNodeOrig {
+						return fmt.Errorf("VMI is still on the same node")
+					}
+
+					if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceNode != vmiNodeOrig {
+						return fmt.Errorf("VMI did not migrate yet")
+					}
+
+					if vmi.Status.EvacuationNodeName != "" {
+						return fmt.Errorf("VMI is still evacuating: %v", vmi.Status.EvacuationNodeName)
+					}
+
+					return nil
+				}, 360*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+				resVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(resVMI.Status.EvacuationNodeName).To(Equal(""), "vmi evacuation state should be clean")
 			})
 
 			It("[test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
@@ -1572,6 +1637,15 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 
 			Context("with node tainted during node drain", func() {
+
+				BeforeEach(func() {
+					setMastersUnschedulable(true)
+				})
+
+				AfterEach(func() {
+					tests.CleanNodes()
+				})
+
 				It("[test_id:2221] should migrate a VMI under load to another node", func() {
 					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
@@ -1590,20 +1664,15 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					// Put VMI under load
 					runStressTest(expecter)
 
+					// Mark the masters as schedulable so we can migrate there
+					setMastersUnschedulable(false)
+
 					// Taint Node.
 					By("Tainting node with node drain key")
 					node := vmi.Status.NodeName
 					tests.Taint(node, tests.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
 
-					// Drain Node using cli client
-					k8sClient := tests.GetK8sCmdClient()
-					if k8sClient == "oc" {
-						_, _, err = tests.RunCommandWithNS("", k8sClient, "adm", "drain", node, "--delete-local-data", "--ignore-daemonsets=true", "--force", "--timeout=180s")
-						Expect(err).ToNot(HaveOccurred(), "Draining node")
-					} else {
-						_, _, err = tests.RunCommandWithNS("", k8sClient, "drain", node, "--delete-local-data", "--ignore-daemonsets=true", "--force", "--timeout=180s")
-						Expect(err).ToNot(HaveOccurred(), "Draining node")
-					}
+					drainNode(node)
 
 					// verify VMI migrated and lives on another node now.
 					Eventually(func() error {
@@ -1649,20 +1718,15 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					By("Starting the VirtualMachineInstance")
 					vmi = runVMIAndExpectLaunch(vmi, 180)
 
+					// Mark the masters as schedulable so we can migrate there
+					setMastersUnschedulable(false)
+
 					// Taint Node.
 					By("Tainting node with kubevirt.io/alt-drain=NoSchedule")
 					node := vmi.Status.NodeName
 					tests.Taint(node, "kubevirt.io/alt-drain", k8sv1.TaintEffectNoSchedule)
 
-					// Drain Node using cli client
-					k8sClient := tests.GetK8sCmdClient()
-					if k8sClient == "oc" {
-						_, _, err = tests.RunCommandWithNS("", k8sClient, "adm", "drain", node, "--delete-local-data", "--ignore-daemonsets=true", "--force", "--timeout=180s")
-						Expect(err).ToNot(HaveOccurred(), "Draining node")
-					} else {
-						_, _, err = tests.RunCommandWithNS("", k8sClient, "drain", node, "--delete-local-data", "--ignore-daemonsets=true", "--force", "--timeout=180s")
-						Expect(err).ToNot(HaveOccurred(), "Draining node")
-					}
+					drainNode(node)
 
 					// verify VMI migrated and lives on another node now.
 					Eventually(func() error {
@@ -1747,6 +1811,9 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					Expect(vmi_evict1.Status.NodeName).To(Equal(vmi_evict2.Status.NodeName))
 					Expect(vmi_evict1.Status.NodeName).To(Equal(vmi_noevict.Status.NodeName))
 
+					// Mark the masters as schedulable so we can migrate there
+					setMastersUnschedulable(false)
+
 					// Taint Node.
 					By("Tainting node with the node drain key")
 					node := vmi_evict1.Status.NodeName
@@ -1754,14 +1821,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 					// Drain Node using cli client
 					By("Draining using kubectl drain")
-					k8sClient := tests.GetK8sCmdClient()
-					if k8sClient == "oc" {
-						_, _, err = tests.RunCommandWithNS("", k8sClient, "adm", "drain", node, "--delete-local-data", "--pod-selector=kubevirt.io/created-by", "--ignore-daemonsets=true", "--force", "--timeout=180s")
-						Expect(err).ToNot(HaveOccurred(), "Draining node")
-					} else {
-						_, _, err = tests.RunCommandWithNS("", k8sClient, "drain", node, "--delete-local-data", "--pod-selector=kubevirt.io/created-by", "--ignore-daemonsets=true", "--force", "--timeout=180s")
-						Expect(err).ToNot(HaveOccurred(), "Draining node")
-					}
+					drainNode(node)
 
 					By("Verify expected vmis migrated after node drain completes")
 					// verify migrated where expected to migrate.

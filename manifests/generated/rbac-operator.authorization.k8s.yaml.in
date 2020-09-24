@@ -257,6 +257,7 @@ rules:
   - list
   - watch
   - patch
+  - update
 - apiGroups:
   - kubevirt.io
   resources:

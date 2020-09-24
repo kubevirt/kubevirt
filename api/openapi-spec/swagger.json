@@ -10484,6 +10484,10 @@
        "$ref": "#/definitions/v1.VirtualMachineInstanceCondition"
       }
      },
+     "evacuationNodeName": {
+      "description": "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want to evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.",
+      "type": "string"
+     },
      "guestOSInfo": {
       "description": "Guest OS Information",
       "$ref": "#/definitions/v1.VirtualMachineInstanceGuestOSInfo"
