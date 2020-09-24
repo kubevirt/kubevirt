@@ -694,6 +694,57 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 					},
 				},
 			},
+			{
+				Name: "kubevirt-VMI.rules",
+				Rules: []promv1.Rule{
+					{
+						Record: "kubevirt_vmi:memory_utilisation:ratio",
+						Expr: intstr.FromString("1 - (kubevirt_vmi_memory_unused_bytes  / kubevirt_vmi_memory_available_bytes)"),
+					},
+					{
+						Record: "kubevirt_vmi_drive:storage_io_time_ms:rate1m",
+						Expr: intstr.FromString("sum without (type) (rate(kubevirt_vmi_storage_times_ms_total[1m]))"),
+					},
+					{
+						Record: "kubevirt_vmi:network_receive_bytes:rate1m",
+						Expr: intstr.FromString("sum without(interface) (rate(kubevirt_vmi_network_traffic_bytes_total{type='rx'}))"),
+					},
+					{
+						Record: "kubevirt_vmi:network_transmit_bytes:rate1m",
+						Expr: intstr.FromString("sum without(interface) (rate(kubevirt_vmi_network_traffic_bytes_total{type='tx'}))"),
+					},
+					{
+						Record: "kubevirt_vmi:num_cpu:sum",
+						Expr: intstr.FromString("count without(id) (count without (state) (kubevirt_vmi_vcpu_seconds))"),
+					},
+					{
+						Alert: "VMINetworkReceiveErrs",
+						Expr: intstr.FromString("increase(kubevirt_vmi_network_errors_total{type='rx'}[2m]) > 10")
+						For: "1h",
+						Labels: map[string]string{
+							"severity": "warning"
+						},
+						Annotations: map[string]string{
+							"summary": "Network interface is reporting many receive errors",
+							"description": '{{ $labels.namespace }}/{{ $labels.name }} interface {{ $labels.interface }} has encountered 
+							{{ printf "%.0f" $value }} receive errors in the last two minutes'
+						},
+					},
+					{
+						Alert: "VMINetworkTransmitErrs",
+						Expr: intstr.FromString("increase(kubevirt_vmi_network_errors_total{type='tx'}[2m]) > 10")
+						For: "1h",
+						Labels: map[string]string{
+							"severity": "warning"
+						},
+						Annotations: map[string]string{
+							"summary": "Network interface is reporting many transmit errors",
+							"description": '{{ $labels.namespace }}/{{ $labels.name }} interface {{ $labels.interface }} has encountered 
+							{{ printf "%.0f" $value }} transmit errors in the last two minutes'
+						},
+					},
+				},
+			}
 		},
 	}
 }
