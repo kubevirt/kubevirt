@@ -10,8 +10,8 @@ go_library(
     importpath = "github.com/onsi/gomega/ghttp",
     visibility = ["//visibility:public"],
     deps = [
+        "//vendor/github.com/golang/protobuf/proto:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/onsi/gomega/types:go_default_library",
-        "@com_github_golang_protobuf//proto:go_default_library",
     ],
 )

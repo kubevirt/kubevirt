@@ -102,20 +102,20 @@ genrule(
         "//conditions:default": ["@libvirt_libs//file"],
     }),
     outs = [
-        "libvirt.so.0.5000.0",
-        "libvirt-lxc.so.0.5000.0",
-        "libvirt-qemu.so.0.5000.0",
+        "libvirt.so.0.6001.0",
+        "libvirt-lxc.so.0.6001.0",
+        "libvirt-qemu.so.0.6001.0",
     ],
     cmd = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "\n".join([
             "rpm2archive $(location @libvirt_libs_ppc64le//file)",
             "tar -xzf $(location @libvirt_libs_ppc64le//file).tgz",
-            "cp -R usr/lib64/*.so.0.5000.0 $(@D)",
+            "cp -R usr/lib64/*.so.0.6001.0 $(@D)",
         ]),
         "//conditions:default": "\n".join([
             "rpm2archive $(location @libvirt_libs//file)",
             "tar -xzf $(location @libvirt_libs//file).tgz",
-            "cp -R usr/lib64/*.so.0.5000.0 $(@D)",
+            "cp -R usr/lib64/*.so.0.6001.0 $(@D)",
         ]),
     }),
 )
@@ -139,6 +139,7 @@ genrule(
         "libvirt/libvirt-admin.h",
         "libvirt/libvirt-common.h",
         "libvirt/libvirt-domain.h",
+        "libvirt/libvirt-domain-checkpoint.h",
         "libvirt/libvirt-domain-snapshot.h",
         "libvirt/libvirt-event.h",
         "libvirt/libvirt.h",
@@ -328,6 +329,7 @@ go_library(
         "libvirt-admin.h",
         "libvirt-common.h",
         "libvirt-domain.h",
+        "libvirt-domain-checkpoint.h",
         "libvirt-domain-snapshot.h",
         "libvirt-event.h",
         "libvirt-host.h",

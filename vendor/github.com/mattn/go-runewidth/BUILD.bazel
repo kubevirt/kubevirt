@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "runewidth.go",
+        "runewidth_js.go",
         "runewidth_posix.go",
         "runewidth_windows.go",
     ],

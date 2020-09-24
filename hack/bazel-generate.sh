@@ -17,10 +17,10 @@ bazel run \
     -- @com_github_bazelbuild_buildtools//buildozer 'add cdeps //:libvirt-libs //:libvirt-headers' //vendor/libvirt.org/libvirt-go:go_default_library
 bazel run \
     --config=${ARCHITECTURE} \
-    -- @com_github_bazelbuild_buildtools//buildozer 'add copts -Ibazel-out/k8-fastbuild/genfiles' //vendor/libvirt.org/libvirt-go:go_default_library
+    -- @com_github_bazelbuild_buildtools//buildozer 'add copts -Ibazel-out/k8-fastbuild/bin' //vendor/libvirt.org/libvirt-go:go_default_library
 bazel run \
     --config=${ARCHITECTURE} \
-    -- @com_github_bazelbuild_buildtools//buildozer 'add copts -Ibazel-out/k8-fastbuild/genfiles' //vendor/libvirt.org/libvirt-go:go_default_library
+    -- @com_github_bazelbuild_buildtools//buildozer 'add copts -Ibazel-out/k8-fastbuild/bin' //vendor/libvirt.org/libvirt-go:go_default_library
 # allign BAZEL files to a single format
 bazel run \
     --config=${ARCHITECTURE} \
