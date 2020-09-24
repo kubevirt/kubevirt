@@ -43,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]VNC", func() {
+var _ = Describe("[Serial][rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]VNC", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

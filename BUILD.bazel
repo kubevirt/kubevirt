@@ -357,6 +357,37 @@ genrule(
 )
 
 genrule(
+    name = "build-ginkgo",
+    srcs = [
+        "//vendor/github.com/onsi/ginkgo/ginkgo",
+    ],
+    outs = ["ginkgo-copier"],
+    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "build-junit-merger",
+    srcs = [
+        "//tools/junit-merger",
+    ],
+    outs = ["junit-merger-copier"],
+    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "build-functests",
+    testonly = True,
+    srcs = [
+        "//tests:go_default_test",
+    ],
+    outs = ["functests-copier"],
+    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
     name = "build-dump",
     srcs = [
         "//cmd/dump",

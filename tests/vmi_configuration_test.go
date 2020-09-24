@@ -172,7 +172,7 @@ var _ = Describe("Configurations", func() {
 	})
 
 	Describe("VirtualMachineInstance definition", func() {
-		Context("[rfe_id:2065][crit:medium][vendor:cnv-qe@redhat.com][level:component]with 3 CPU cores", func() {
+		Context("[Serial][rfe_id:2065][crit:medium][vendor:cnv-qe@redhat.com][level:component]with 3 CPU cores", func() {
 			var availableNumberOfCPUs int
 			var vmi *v1.VirtualMachineInstance
 
@@ -235,10 +235,10 @@ var _ = Describe("Configurations", func() {
 			It("[test_id:4624]should set a correct memory units", func() {
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("512Mi"),
+						kubev1.ResourceMemory: resource.MustParse("64Mi"),
 					},
 				}
-				expectedMemoryInKiB := 512 * 1024
+				expectedMemoryInKiB := 64 * 1024
 				expectedMemoryXMLStr := fmt.Sprintf("unit='KiB'>%d", expectedMemoryInKiB)
 
 				By("Starting a VirtualMachineInstance")
@@ -366,7 +366,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred(), "should report number of threads")
 			})
 
-			It("[test_id:1664]should map cores to virtio block queues", func() {
+			It("[Serial][test_id:1664]should map cores to virtio block queues", func() {
 				_true := true
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
@@ -445,7 +445,7 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]with cluster memory overcommit being applied", func() {
+		Context("[Serial][rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]with cluster memory overcommit being applied", func() {
 			BeforeEach(func() {
 				tests.UpdateClusterConfigValueAndWait("memory-overcommit", "200")
 			})
@@ -462,7 +462,7 @@ var _ = Describe("Configurations", func() {
 
 		Context("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func() {
 
-			It("[test_id:1668]should use EFI", func() {
+			It("[Serial][test_id:1668]should use EFI", func() {
 				vmi := tests.NewRandomVMIWithEFIBootloader()
 
 				By("Starting a VirtualMachineInstance")
@@ -476,7 +476,7 @@ var _ = Describe("Configurations", func() {
 				Expect(domXml).To(ContainSubstring("OVMF_CODE.fd"))
 			})
 
-			It("[test_id:4437]should enable EFI secure boot", func() {
+			It("[Serial][test_id:4437]should enable EFI secure boot", func() {
 				vmi := tests.NewRandomVMIWithSecureBoot()
 
 				By("Starting a VirtualMachineInstance")
@@ -707,7 +707,7 @@ var _ = Describe("Configurations", func() {
 
 		Context("[rfe_id:3077][crit:medium][vendor:cnv-qe@redhat.com][level:component]with input devices", func() {
 			It("[test_id:2642]should failed to start the VMI with wrong type of input device", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedora))
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
 						Name: "tablet0",
@@ -721,7 +721,7 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("[test_id:3074]should failed to start the VMI with wrong bus of input device", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedora))
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
 						Name: "tablet0",
@@ -734,7 +734,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).To(HaveOccurred(), "should not start vmi")
 			})
 
-			It("[test_id:3072]should start the VMI with tablet input device with virtio bus", func() {
+			It("[Serial][test_id:3072]should start the VMI with tablet input device with virtio bus", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
@@ -1023,9 +1023,9 @@ var _ = Describe("Configurations", func() {
 				By("Checking that the VM memory equals to a number of consumed hugepages")
 				Eventually(func() bool { return verifyHugepagesConsumption() }, 30*time.Second, 5*time.Second).Should(BeTrue())
 			},
-				table.Entry("[test_id:1671]hugepages-2Mi", "2Mi", "64Mi", "None"),
-				table.Entry("[test_id:1672]hugepages-1Gi", "1Gi", "1Gi", "None"),
-				table.Entry("[test_id:1672]hugepages-1Gi", "2Mi", "70Mi", "64Mi"),
+				table.Entry("[Serial][test_id:1671]hugepages-2Mi", "2Mi", "64Mi", "None"),
+				table.Entry("[Serial][test_id:1672]hugepages-1Gi", "1Gi", "1Gi", "None"),
+				table.Entry("[Serial][test_id:1672]hugepages-1Gi", "2Mi", "70Mi", "64Mi"),
 			)
 
 			Context("with unsupported page size", func() {
@@ -1119,7 +1119,7 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with guestAgent", func() {
+		Context("[Serial][rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with guestAgent", func() {
 			var agentVMI *v1.VirtualMachineInstance
 
 			prepareAgentVM := func() *v1.VirtualMachineInstance {
@@ -1215,7 +1215,7 @@ var _ = Describe("Configurations", func() {
 					"Agent condition should be gone")
 			})
 
-			Context("with cluster config changes", func() {
+			Context("[Serial]with cluster config changes", func() {
 				supportedGuestAgentKey := "supported-guest-agent"
 
 				BeforeEach(func() {
@@ -1612,7 +1612,7 @@ var _ = Describe("Configurations", func() {
 		})
 	})
 
-	Context("[rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", func() {
+	Context("[Serial][rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", func() {
 		defaultMachineTypeKey := "machine-type"
 		defaultEmulatedMachineType := "emulated-machines"
 
@@ -1640,7 +1640,7 @@ var _ = Describe("Configurations", func() {
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
 		})
 
-		It("[test_id:3126]should set machine type from kubevirt-config", func() {
+		It("[Serial][test_id:3126]should set machine type from kubevirt-config", func() {
 			tests.UpdateClusterConfigValueAndWait(defaultMachineTypeKey, "pc")
 
 			vmi := tests.NewRandomVMI()
@@ -1692,7 +1692,7 @@ var _ = Describe("Configurations", func() {
 			Expect(cpuRequest.String()).To(Equal("100m"))
 		})
 
-		It("[test_id:3129]should set CPU request from kubevirt-config", func() {
+		It("[Serial][test_id:3129]should set CPU request from kubevirt-config", func() {
 			tests.UpdateClusterConfigValueAndWait(defaultCPURequestKey, "800m")
 
 			vmi := tests.NewRandomVMI()
@@ -1710,7 +1710,7 @@ var _ = Describe("Configurations", func() {
 		})
 	})
 
-	Context("[rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache settings and PVC", func() {
+	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache settings and PVC", func() {
 		var cfgMap *kubev1.ConfigMap
 		var originalFeatureGates string
 
@@ -1910,7 +1910,7 @@ var _ = Describe("Configurations", func() {
 			}
 		})
 
-		Context("with cpu pinning enabled", func() {
+		Context("[Serial]with cpu pinning enabled", func() {
 			It("[test_id:1684]should set the cpumanager label to false when it's not running", func() {
 
 				By("adding a cpumanger=true label to a node")
@@ -2276,7 +2276,7 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("cpu pinning with fedora images, dedicated and non dedicated cpu should be possible on same node via spec.domain.cpu.cores", func() {
+		Context("[Serial]cpu pinning with fedora images, dedicated and non dedicated cpu should be possible on same node via spec.domain.cpu.cores", func() {
 
 			var cpuvmi, vmi *v1.VirtualMachineInstance
 			var node string
@@ -2374,7 +2374,7 @@ var _ = Describe("Configurations", func() {
 
 	Context("[rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check Chassis value", func() {
 
-		It("[test_id:2927]Test Chassis value in a newly created VM", func() {
+		It("[Serial][test_id:2927]Test Chassis value in a newly created VM", func() {
 			tests.SkipDmidecodeTestIfRunningOnKindInfraIPv6()
 			vmi := tests.NewRandomFedoraVMIWithDmidecode()
 			vmi.Spec.Domain.Chassis = &v1.Chassis{
@@ -2407,7 +2407,7 @@ var _ = Describe("Configurations", func() {
 		})
 	})
 
-	Context("[rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check SMBios with default and custom values", func() {
+	Context("[Serial][rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check SMBios with default and custom values", func() {
 
 		var vmi *v1.VirtualMachineInstance
 
@@ -2495,7 +2495,7 @@ var _ = Describe("Configurations", func() {
 		})
 	})
 
-	Context("With ephemeral CD-ROM", func() {
+	Context("[Serial]With ephemeral CD-ROM", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {

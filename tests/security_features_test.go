@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-var _ = Describe("SecurityFeatures", func() {
+var _ = Describe("[Serial]SecurityFeatures", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

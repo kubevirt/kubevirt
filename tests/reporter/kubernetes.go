@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
 	"github.com/onsi/ginkgo/types"
 	v1 "k8s.io/api/core/v1"
@@ -60,6 +61,7 @@ func (r *KubernetesReporter) BeforeSuiteDidRun(setupSummary *types.SetupSummary)
 }
 
 func (r *KubernetesReporter) SpecWillRun(specSummary *types.SpecSummary) {
+	fmt.Fprintf(ginkgo.GinkgoWriter, "On failure, artifacts will be collected in %s/%d_*\n", r.artifactsDir, r.failureCount+1)
 }
 
 func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {

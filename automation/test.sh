@@ -261,8 +261,12 @@ done
 kubectl version
 
 mkdir -p "$ARTIFACTS_PATH"
+export KUBEVIRT_E2E_PARALLEL=true
+if [[ $TARGET =~ .*kind.* ]]; then
+  export KUBEVIRT_E2E_PARALLEL=false
+fi
 
-ginko_params="--ginkgo.noColor --junit-output=$ARTIFACTS_PATH/junit.functest.xml --ginkgo.seed=42"
+ginko_params="--noColor --seed=42"
 
 # Prepare PV for Windows testing
 if [[ $TARGET =~ windows.* ]]; then
@@ -285,19 +289,23 @@ spec:
   storageClassName: windows
 EOF
   # Run only Windows tests
-  ginko_params="$ginko_params --ginkgo.focus=Windows"
+  export KUBEVIRT_E2E_FOCUS=Windows
 elif [[ $TARGET =~ (cnao|multus) ]]; then
-  ginko_params="$ginko_params --ginkgo.focus=Multus|Networking|VMIlifecycle|Expose"
+  export KUBEVIRT_E2E_FOCUS="Multus|Networking|VMIlifecycle|Expose"
 elif [[ $TARGET =~ sriov.* ]]; then
-  ginko_params="$ginko_params --ginkgo.focus=SRIOV"
+  export KUBEVIRT_E2E_FOCUS=SRIOV
 elif [[ $TARGET =~ gpu.* ]]; then
-  ginko_params="$ginko_params --ginkgo.focus=GPU"
+  export KUBEVIRT_E2E_FOCUS=GPU
 elif [[ $TARGET =~ (okd|ocp).* ]]; then
-  ginko_params="$ginko_params --ginkgo.skip=SRIOV|GPU"
+  export KUBEVIRT_E2E_SKIP="SRIOV|GPU"
 elif [[ $TARGET =~ ipv6.* ]]; then
-  ginko_params="$ginko_params --ginkgo.skip=Multus|SRIOV|GPU|.*slirp.*|.*bridge.*"
+  export KUBEVIRT_E2E_SKIP="Multus|SRIOV|GPU|.*slirp.*|.*bridge.*"
 else
-  ginko_params="$ginko_params --ginkgo.skip=Multus|SRIOV|GPU"
+  export KUBEVIRT_E2E_SKIP="Multus|SRIOV|GPU"
+fi
+
+if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" ]]; then
+  export KUBEVIRT_E2E_FOCUS=rook-ceph
 fi
 
 # Prepare RHEL PV for Template testing
@@ -324,9 +332,6 @@ spec:
 EOF
 fi
 
-if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" ]]; then
-  ginko_params="$ginko_params --ginkgo.focus=rook-ceph"
-fi
 
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params make functest

@@ -54,7 +54,7 @@ const (
 	sriovLinkEnableConfCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"link_state\": \"enable\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 )
 
-var _ = Describe("Multus", func() {
+var _ = Describe("[Serial]Multus", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -565,7 +565,7 @@ var _ = Describe("Multus", func() {
 	})
 })
 
-var _ = Describe("SRIOV", func() {
+var _ = Describe("[Serial]SRIOV", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

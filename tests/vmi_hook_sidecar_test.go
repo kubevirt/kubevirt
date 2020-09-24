@@ -104,13 +104,9 @@ var _ = Describe("HookSidecars", func() {
 			}, 300)
 		})
 
-		Context("with sidecar feature gate disabled", func() {
+		Context("[Serial]with sidecar feature gate disabled", func() {
 			BeforeEach(func() {
 				tests.DisableFeatureGate(virtconfig.SidecarGate)
-			})
-
-			AfterEach(func() {
-				tests.EnableFeatureGate(virtconfig.SidecarGate)
 			})
 
 			It("[test_id:2666]should not start with hook sidecar annotation", func() {

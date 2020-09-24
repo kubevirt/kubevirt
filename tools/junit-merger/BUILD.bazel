@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["junit-merger.go"],
+    importpath = "kubevirt.io/kubevirt/tools/junit-merger",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/reporters:go_default_library",
+        "//vendor/github.com/spf13/pflag:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "junit-merger",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

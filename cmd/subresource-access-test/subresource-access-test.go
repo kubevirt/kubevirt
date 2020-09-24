@@ -22,7 +22,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 
 	"k8s.io/client-go/rest"
 
@@ -31,32 +30,39 @@ import (
 
 func main() {
 	var statusCode int
+	var namespace string
+	var resource string
+	flag.StringVar(&namespace, "n", "", "namespace to use")
 	flag.Parse()
 
-	// creates the connection
-	client, err := kubecli.GetKubevirtSubresourceClient()
-	if err != nil {
-		panic(err)
-	}
+	resource = flag.Arg(0)
 
-	restClient := client.RestClient()
-	var result rest.Result
+	if resource == "version" {
+		client, err := kubecli.GetKubevirtSubresourceClient()
+		if err != nil {
+			panic(err)
+		}
+		restClient := client.RestClient()
+		var result rest.Result
+		result = restClient.Get().Resource(resource).Do()
+		err = result.Error()
+		if err != nil {
+			panic(err)
+		}
 
-	if os.Args[1] == "version" {
-		result = restClient.Get().Resource("version").Do()
-	} else {
-		result = restClient.Get().Resource("virtualmachineinstances").Namespace("default").Name("fake").SubResource("test").Do()
-	}
-
-	err = result.Error()
-	if err != nil {
-		panic(err)
-	}
-
-	result.StatusCode(&statusCode)
-	if statusCode != 200 {
-		panic(fmt.Errorf("http status code is %d", statusCode))
-	} else {
+		result.StatusCode(&statusCode)
+		if statusCode != 200 {
+			panic(fmt.Errorf("http status code is %d", statusCode))
+		}
 		fmt.Println("Subresource Test Endpoint returned 200 OK")
+	} else {
+		client, err := kubecli.GetKubevirtClient()
+		if err != nil {
+			panic(err)
+		}
+		err = client.VirtualMachine(namespace).Start(resource)
+		if err != nil {
+			panic(err)
+		}
 	}
 }

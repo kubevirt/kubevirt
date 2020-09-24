@@ -97,7 +97,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	})
 
 	Context("when virt-handler is deleted", func() {
-		It("[test_id:4716]should label the node with kubevirt.io/schedulable=false", func() {
+		It("[Serial][test_id:4716]should label the node with kubevirt.io/schedulable=false", func() {
 			pods, err := virtClient.CoreV1().Pods("").List(metav1.ListOptions{
 				LabelSelector: fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"),
 			})
@@ -333,23 +333,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		Context("with user-data", func() {
 
-			findLauncherForVMI := func(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
-				By("Finding a launcher for VMI: " + vmi.Name)
-				launchers, err := virtClient.
-					CoreV1().
-					Pods(tests.NamespaceTestDefault).
-					List(metav1.ListOptions{LabelSelector: "kubevirt.io=virt-launcher"})
-				Expect(err).To(BeNil(), "Should list virt-launchers")
-				var found bool
-				for _, launcherPod := range launchers.Items {
-					if domain, ok := launcherPod.ObjectMeta.Annotations[v1.DomainAnnotation]; ok && domain == vmi.Name {
-						return &launcherPod
-					}
-				}
-				Expect(found).To(BeTrue(), fmt.Sprintf("Could not find virt-launcher pod for VMI: %s", vmi.GetName()))
-				return nil
-			}
-
 			Context("without k8s secret", func() {
 				It("[test_id:1629][posneg:negative]should not be able to start virt-launcher pod", func() {
 					userData := fmt.Sprintf("#!/bin/sh\n\necho 'hi'\n")
@@ -364,11 +347,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						}
 					}
 					By("Starting a VirtualMachineInstance")
-					_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-					Expect(err).To(BeNil(), "Should create VMI successfully")
+					vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
 					stopChan := make(chan struct{})
 					defer close(stopChan)
-					launcher := findLauncherForVMI(vmi)
+					launcher := tests.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					tests.NewObjectEventWatcher(launcher).
 						SinceWatchedObjectResourceVersion().
 						Timeout(60*time.Second).
@@ -396,9 +378,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						}
 					}
 					By("Starting a VirtualMachineInstance")
-					createdVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-					Expect(err).To(BeNil(), "Should create VMI successfully")
-					launcher := findLauncherForVMI(vmi)
+					createdVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+					launcher := tests.GetPodByVirtualMachineInstance(createdVMI, createdVMI.Namespace)
 					// Wait until we see that starting the VirtualMachineInstance is failing
 					By("Checking that VirtualMachineInstance start failed")
 					stopChan := make(chan struct{})
@@ -435,7 +416,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		Context("when virt-launcher crashes", func() {
-			It("[test_id:1631]should be stopped and have Failed phase", func() {
+			It("[Serial][test_id:1631]should be stopped and have Failed phase", func() {
 				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(BeNil(), "Should create VMI successfully")
 
@@ -459,7 +440,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("when virt-handler crashes", func() {
+		Context("[Serial]when virt-handler crashes", func() {
 			// FIXME: This test has the issues that it tests a lot of different timing scenarios in an intransparent way:
 			// e.g. virt-handler can die before or after virt-launcher. If we wait until virt-handler is dead before we
 			// kill virt-launcher then we don't know if virt-handler already restarted.
@@ -506,7 +487,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("when virt-handler is responsive", func() {
+		Context("[Serial]when virt-handler is responsive", func() {
 			It("[test_id:1633]should indicate that a node is ready for vmis", func() {
 
 				By("adding a heartbeat annotation and a schedulable label to the node")
@@ -592,7 +573,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("when virt-handler is not responsive", func() {
+		Context("[Serial]when virt-handler is not responsive", func() {
 
 			var vmi *v1.VirtualMachineInstance
 			var nodeName string
@@ -690,7 +671,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("with node tainted", func() {
+		Context("[Serial]with node tainted", func() {
 			var nodes *k8sv1.NodeList
 			var err error
 			BeforeEach(func() {
@@ -801,7 +782,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		})
 
-		Context("with default cpu model", func() {
+		Context("[Serial]with default cpu model", func() {
 			var cfgMap *k8sv1.ConfigMap
 			var originalData map[string]string
 			var options metav1.GetOptions
@@ -870,7 +851,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("with node feature discovery", func() {
+		Context("[Serial]with node feature discovery", func() {
 
 			var node *k8sv1.Node
 			var originalLabels map[string]string
@@ -1076,14 +1057,14 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		Context("with non default namespace", func() {
-			table.DescribeTable("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]should log libvirt start and stop lifecycle events of the domain", func(namespace string) {
+			table.DescribeTable("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]should log libvirt start and stop lifecycle events of the domain", func(namespace *string) {
 
 				nodes := tests.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				node := nodes.Items[0].Name
 
 				By("Creating a VirtualMachineInstance with different namespace")
-				vmi = tests.NewRandomVMIWithNS(namespace)
+				vmi = tests.NewRandomVMIWithNS(*namespace)
 				virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
 				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client for node")
 
@@ -1108,7 +1089,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					return string(data)
 				}, 30, 0.5).Should(MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Running reason Unknown","name":"%s"`, vmi.GetObjectMeta().GetName()), "Should verify from logs that domain is running")
 				// Check the VirtualMachineInstance Namespace
-				Expect(vmi.GetObjectMeta().GetNamespace()).To(Equal(namespace), "VMI should run in the right namespace")
+				Expect(vmi.GetObjectMeta().GetNamespace()).To(Equal(*namespace), "VMI should run in the right namespace")
 
 				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
 				By("Deleting the VirtualMachineInstance")
@@ -1138,8 +1119,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Shutoff reason Destroyed","name":"%s"`, vmi.GetObjectMeta().GetName()), // Domain was destroyed because the launcher pod is gone
 				), "Logs should confirm pod deletion")
 			},
-				table.Entry("[test_id:1641]"+tests.NamespaceTestDefault, tests.NamespaceTestDefault),
-				table.Entry("[test_id:1642]"+tests.NamespaceTestAlternative, tests.NamespaceTestAlternative),
+				table.Entry("[test_id:1641]"+tests.NamespaceTestDefault, &tests.NamespaceTestDefault),
+				table.Entry("[test_id:1642]"+tests.NamespaceTestAlternative, &tests.NamespaceTestAlternative),
 			)
 		})
 
@@ -1516,7 +1497,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 	})
 
-	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Killed VirtualMachineInstance", func() {
+	Describe("[Serial][rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Killed VirtualMachineInstance", func() {
 		It("[test_id:1656]should be in Failed phase", func() {
 			By("Starting a VirtualMachineInstance")
 			obj, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
