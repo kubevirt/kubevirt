@@ -267,10 +267,7 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 		if osInfo != nil {
 			domain.Status.OSInfo = *osInfo
 		}
-		if interfaceStatus != nil || osInfo != nil {
-			event := watch.Event{Type: watch.Modified, Object: domain}
-			client.SendDomainEvent(event)
-		}
+
 		err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
 		if err != nil {
 			log.Log.Reason(err).Error("Could not send domain notify event.")
