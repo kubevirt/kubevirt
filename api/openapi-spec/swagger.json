@@ -8378,6 +8378,21 @@
      }
     }
    },
+   "v1.DataVolumeTemplateSpec": {
+    "type": "object",
+    "required": [
+     "spec"
+    ],
+    "properties": {
+     "metadata": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "description": "DataVolumeSpec contains the DataVolume specification.",
+      "$ref": "#/definitions/v1alpha1.DataVolumeSpec"
+     }
+    }
+   },
    "v1.DeveloperConfiguration": {
     "description": "DeveloperConfiguration holds developer options",
     "type": "object",
@@ -10574,7 +10589,7 @@
       "description": "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference. DataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
       "type": "array",
       "items": {
-       "$ref": "#/definitions/v1alpha1.DataVolume"
+       "$ref": "#/definitions/v1.DataVolumeTemplateSpec"
       }
      },
      "runStrategy": {
@@ -10755,72 +10770,9 @@
      }
     }
    },
-   "v1alpha1.DataVolume": {
-    "description": "DataVolume is an abstraction on top of PersistentVolumeClaims to allow easy population of those PersistentVolumeClaims with relation to VirtualMachines",
-    "type": "object",
-    "required": [
-     "spec"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
-     },
-     "spec": {
-      "$ref": "#/definitions/v1alpha1.DataVolumeSpec"
-     },
-     "status": {
-      "$ref": "#/definitions/v1alpha1.DataVolumeStatus"
-     }
-    }
-   },
    "v1alpha1.DataVolumeBlankImage": {
     "description": "DataVolumeBlankImage provides the parameters to create a new raw blank image for the PVC",
     "type": "object"
-   },
-   "v1alpha1.DataVolumeCondition": {
-    "description": "DataVolumeCondition represents the state of a data volume condition.",
-    "type": "object",
-    "required": [
-     "type",
-     "status"
-    ],
-    "properties": {
-     "lastHeartbeatTime": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
-     },
-     "lastProbeTime": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "lastTransitionTime": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "message": {
-      "type": "string"
-     },
-     "reason": {
-      "type": "string"
-     },
-     "status": {
-      "type": "string"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
    },
    "v1alpha1.DataVolumeSource": {
     "description": "DataVolumeSource represents the source for our Data Volume, this can be HTTP, Imageio, S3, Registry or an existing PVC",
@@ -10975,31 +10927,6 @@
      "source": {
       "description": "Source is the src of the data for the requested DataVolume",
       "$ref": "#/definitions/v1alpha1.DataVolumeSource"
-     }
-    }
-   },
-   "v1alpha1.DataVolumeStatus": {
-    "description": "DataVolumeStatus contains the current status of the DataVolume",
-    "type": "object",
-    "nullable": true,
-    "properties": {
-     "conditions": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1alpha1.DataVolumeCondition"
-      }
-     },
-     "phase": {
-      "description": "Phase is the current phase of the data volume",
-      "type": "string"
-     },
-     "progress": {
-      "type": "string"
-     },
-     "restartCount": {
-      "description": "RestartCount is the number of times the pod populating the DataVolume has restarted",
-      "type": "integer",
-      "format": "int32"
      }
     }
    },
