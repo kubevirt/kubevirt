@@ -260,7 +260,6 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 				events <- event
 			}
 		}
-		log.Log.Infof("7) OSINFO IN EVENT CALLBACK: %v", osInfo)
 		if interfaceStatus != nil {
 			domain.Status.Interfaces = interfaceStatus
 		}
