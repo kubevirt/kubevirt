@@ -288,6 +288,8 @@ github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae
 github.com/vishvananda/netns
+# github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad
+github.com/wadey/gocovmerge
 # github.com/willf/bitset v1.1.11-0.20200630133818-d5bec3311243
 github.com/willf/bitset
 # golang.org/x/crypto v0.0.0-20200423211502-4bdfaf469ed5
@@ -359,6 +361,8 @@ golang.org/x/text/unicode/norm
 golang.org/x/text/width
 # golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 golang.org/x/time/rate
+# golang.org/x/tools v0.0.0-20200616195046-dc31b401abb5
+golang.org/x/tools/cover
 # golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
