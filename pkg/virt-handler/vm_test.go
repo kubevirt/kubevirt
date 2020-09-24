@@ -27,6 +27,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/util"
@@ -102,6 +103,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var vmiTestUUID types.UID
 	var podTestUUID types.UID
 	var stop chan struct{}
+	var wg *sync.WaitGroup
 	var eventChan chan watch.Event
 
 	var host string
@@ -111,6 +113,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var certDir string
 
 	BeforeEach(func() {
+		wg = &sync.WaitGroup{}
 		stop = make(chan struct{})
 		eventChan = make(chan watch.Event, 100)
 		shareDir, err = ioutil.TempDir("", "")
@@ -205,14 +208,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 		domainFeeder = testutils.NewDomainFeeder(mockQueue, domainSource)
 
-		go vmiSourceInformer.Run(stop)
-		go vmiTargetInformer.Run(stop)
-		go domainInformer.Run(stop)
-		go gracefulShutdownInformer.Run(stop)
+		wg.Add(5)
+		go func() { vmiSourceInformer.Run(stop); wg.Done() }()
+		go func() { vmiTargetInformer.Run(stop); wg.Done() }()
+		go func() { domainInformer.Run(stop); wg.Done() }()
+		go func() { gracefulShutdownInformer.Run(stop); wg.Done() }()
 		Expect(cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, vmiTargetInformer.HasSynced, domainInformer.HasSynced, gracefulShutdownInformer.HasSynced)).To(BeTrue())
 
 		go func() {
 			notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
+			wg.Done()
 		}()
 		time.Sleep(1 * time.Second)
 
@@ -229,6 +234,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	AfterEach(func() {
 		close(stop)
+		wg.Wait()
 		ctrl.Finish()
 		os.RemoveAll(shareDir)
 		os.RemoveAll(privateDir)
