@@ -422,11 +422,15 @@ var _ = Describe("Manager", func() {
 			var migrationData = 32479827394
 			mockDomain.EXPECT().Free().AnyTimes()
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
-				// stop decreasing data remaing to fail job on progress timeout
-				if migrationData > 32479826519 {
-					migrationData -= 125
+				// stop decreasing data and send a different event otherwise this
+				// job will run indefinitely until timeout
+				if migrationData <= 32479826519 {
+					return &libvirt.DomainJobInfo{
+						Type: libvirt.DOMAIN_JOB_COMPLETED,
+					}
 				}
 
+				migrationData -= 125
 				return &libvirt.DomainJobInfo{
 					Type:          libvirt.DOMAIN_JOB_UNBOUNDED,
 					DataRemaining: uint64(migrationData),
@@ -456,9 +460,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetJobInfo().AnyTimes().DoAndReturn(func() (*libvirt.DomainJobInfo, error) {
 				return fake_jobinfo(), nil
 			})
-			mockDomain.EXPECT().AbortJob()
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).AnyTimes().DoAndReturn(func(_ libvirt.DomainXMLFlags) (string, error) {
-				fmt.Println(domainSpec.Metadata.KubeVirt.Migration)
 				xmlOriginal, err := xml.MarshalIndent(domainSpec, "", "\t")
 				Expect(err).To(BeNil())
 				return string(xmlOriginal), nil

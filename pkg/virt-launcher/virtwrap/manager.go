@@ -657,23 +657,29 @@ monitorLoop:
 				lastProgressUpdate = now
 			}
 
+			domainSpec, err := l.getDomainSpec(dom)
+			if err != nil {
+				logger.Reason(err).Error("failed to get domain spec info")
+				break
+			}
+
 			// check if the migration is progressing
 			progressDelay := now - lastProgressUpdate
 			if progressTimeout != 0 &&
 				progressDelay > progressTimeout {
 				logger.Warningf("Live migration stuck for %d sec", progressDelay)
+
+				// If the migration is in post copy mode we should not abort the job as the migration would lose state
+				if domainSpec.Metadata.KubeVirt.Migration != nil && domainSpec.Metadata.KubeVirt.Migration.Mode == v1.MigrationPostCopy {
+					break
+				}
+
 				err := dom.AbortJob()
 				if err != nil {
 					logger.Reason(err).Error("failed to abort migration")
 				}
 				l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration stuck for %d sec and has been aborted", progressDelay), v1.MigrationAbortSucceeded)
 				break monitorLoop
-			}
-
-			domainSpec, err := l.getDomainSpec(dom)
-			if err != nil {
-				logger.Reason(err).Error("failed to get domain spec info")
-				break
 			}
 
 			// check the overall migration time
