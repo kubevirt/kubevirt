@@ -86,7 +86,7 @@ ${KUBEVIRT_DIR}/hack/build-go.sh generate ${WHAT}
     cd ${KUBEVIRT_DIR}/tools/crd-validation-generator/ && go_build
 
     cd ${KUBEVIRT_DIR}
-    ${KUBEVIRT_DIR}/tools/crd-validation-generator/crd-validation-generator -crdDir=${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/config/crd/
+    ${KUBEVIRT_DIR}/tools/crd-validation-generator/crd-validation-generator 
 )
 rm -rf ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/config
 

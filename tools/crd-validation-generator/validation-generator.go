@@ -15,8 +15,8 @@ import (
 
 func main() {
 
-	dirname := flag.String("crdDir", "./manifests/generated/", "path to directory with crds from where validation field will be parsed")
-	outputdir := flag.String("outputDir", "./pkg/virt-operator/creation/components/", "path to dir where go file will be generated")
+	dirname := flag.String("crdDir", "staging/src/kubevirt.io/client-go/config/crd/", "path to directory with crds from where validation field will be parsed")
+	outputdir := flag.String("outputDir", "pkg/virt-operator/creation/components/", "path to dir where go file will be generated")
 
 	flag.Parse()
 
