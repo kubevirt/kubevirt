@@ -70,7 +70,7 @@ dockerizied environment, clone the KubeVirt repository, `cd` into it, and:
 
 ```bash
 # Build and deploy KubeVirt on Kubernetes in our vms inside containers
-export KUBEVIRT_PROVIDER=k8s-1.15 # this is also the default if no KUBEVIRT_PROVIDER is set
+export KUBEVIRT_PROVIDER=k8s-1.18 # this is also the default if no KUBEVIRT_PROVIDER is set
 make cluster-up
 make cluster-sync
 ```
@@ -121,8 +121,8 @@ You can get the names from following command:
 
 ```bash
 # cluster-up/kubectl.sh get nodes
-NAME    STATUS   ROLES    AGE   VERSION
-node01  Ready    master   11h   v1.15.1
+NAME     STATUS   ROLES           AGE   VERSION
+node01   Ready    master,worker   13s   v1.18.3
 ```
 
 Then you can execute the following command to access the node:
