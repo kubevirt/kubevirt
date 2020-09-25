@@ -6,6 +6,7 @@ go_library(
         "config.go",
         "job.go",
         "login.go",
+        "migration.go",
         "pod_servers.go",
         "test.go",
         "utils.go",

@@ -918,6 +918,13 @@ var _ = Describe("[Serial]Macvtap", func() {
 			libvmi.WithNetwork(&macvtapMultusNetwork))
 	}
 
+	createCirrosVMIWithMacvtapDefinedMAC := func(virtClient kubecli.KubevirtClient, networkName string, mac string) *v1.VirtualMachineInstance {
+		vmi := newCirrosVMIWithMacvtapNetwork(networkName)
+		vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = mac
+
+		return tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 180, false)
+	}
+
 	createCirrosVMIWithMacvtapStaticIP := func(virtClient kubecli.KubevirtClient, nodeName string, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
 		vmi := newCirrosVMIWithMacvtapNetwork(networkName)
 		if mac != nil {
@@ -962,6 +969,37 @@ var _ = Describe("[Serial]Macvtap", func() {
 			It("can communicate with the virtual machine in the same network", func() {
 				Expect(libnet.PingFromVMConsole(clientVMI, cidrToIP(serverCIDR))).To(Succeed())
 			})
+		})
+	})
+
+	Context("VMI migration", func() {
+		var macvtapVMI *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			nodes := tests.GetAllSchedulableNodes(virtClient)
+			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
+
+			if len(nodes.Items) < 2 {
+				Skip("Migration tests require at least 2 nodes")
+			}
+
+			if !tests.HasLiveMigration() {
+				Skip("Migration tests require the 'LiveMigration' feature gate")
+			}
+		})
+
+		BeforeEach(func() {
+			macAddress := "02:03:04:05:06:07"
+			macvtapVMI = createCirrosVMIWithMacvtapDefinedMAC(virtClient, macvtapNetworkName, macAddress)
+		})
+
+		It("should be successful when the VMI MAC address is defined in its spec", func() {
+			By("starting the migration")
+			migration := tests.NewRandomMigration(macvtapVMI.GetName(), macvtapVMI.GetNamespace())
+			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, migrationWaitTime)
+
+			// check VMI, confirm migration state
+			tests.ConfirmVMIPostMigration(virtClient, macvtapVMI, migrationUID)
 		})
 	})
 })
