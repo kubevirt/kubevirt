@@ -92,7 +92,7 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 				cleanupVMI(virtClient, vmi)
 			})
 
-			It("should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
+			It("[Conformance] should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
 		})
 	})
 })
