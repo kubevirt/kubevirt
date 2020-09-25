@@ -47,6 +47,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 const (
@@ -909,22 +910,16 @@ var _ = Describe("[Serial]Macvtap", func() {
 		tests.DisableFeatureGate(virtconfig.MacvtapGate)
 	})
 
-	newRandomVMIWithMacvtapInterfaceEphemeralDiskAndUserdata := func(containerImage string, userData string, macvtapNetworkName string) *v1.VirtualMachineInstance {
-		vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
-		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMacvtapNetworkInterface(macvtapNetworkName)}
-		vmi.Spec.Networks = []v1.Network{{
-			Name: macvtapNetworkName,
-			NetworkSource: v1.NetworkSource{
-				Multus: &v1.MultusNetwork{
-					NetworkName: macvtapNetworkName,
-				},
-			},
-		}}
-		return vmi
+	newCirrosVMIWithMacvtapNetwork := func(macvtapNetworkName string) *v1.VirtualMachineInstance {
+		macvtapMultusNetwork := libvmi.MultusNetwork(macvtapNetworkName)
+
+		return libvmi.NewCirros(
+			libvmi.WithInterface(*v1.DefaultMacvtapNetworkInterface(macvtapNetworkName)),
+			libvmi.WithNetwork(&macvtapMultusNetwork))
 	}
 
 	createCirrosVMIWithMacvtapStaticIP := func(virtClient kubecli.KubevirtClient, nodeName string, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
-		vmi := newRandomVMIWithMacvtapInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", networkName)
+		vmi := newCirrosVMIWithMacvtapNetwork(networkName)
 		if mac != nil {
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = *mac
 		}
