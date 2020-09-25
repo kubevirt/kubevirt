@@ -72,7 +72,6 @@ func patchValidation(crd *extv1beta1.CustomResourceDefinition) {
 		metadata.XPreserveUnknownFields = &t
 
 		items.Schema.Properties["metadata"] = metadata
-		// dataVolumeTemplates.Items = items
 
 	}
 }
