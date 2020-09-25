@@ -149,7 +149,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 
 			vm := tests.NewRandomVirtualMachine(vmi, true)
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dv)
+			dvt := &v1.DataVolumeTemplateSpec{
+				ObjectMeta: dv.ObjectMeta,
+				Spec:       dv.Spec,
+			}
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dvt)
 			_, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).Should(HaveOccurred())
 		})

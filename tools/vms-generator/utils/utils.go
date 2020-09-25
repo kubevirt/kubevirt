@@ -852,7 +852,7 @@ func GetVMDataVolume() *v1.VirtualMachine {
 		panic(err)
 	}
 	storageClassName := "local"
-	dataVolume := cdiv1.DataVolume{
+	dataVolumeSpec := v1.DataVolumeTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "alpine-dv",
 		},
@@ -874,7 +874,7 @@ func GetVMDataVolume() *v1.VirtualMachine {
 		},
 	}
 
-	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, dataVolume)
+	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, dataVolumeSpec)
 	addDataVolumeDisk(&vm.Spec.Template.Spec, "alpine-dv", busVirtio, "datavolumedisk1")
 
 	return vm

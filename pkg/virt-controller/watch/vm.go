@@ -409,19 +409,22 @@ func (c *VMController) orphanDataVolumes(cm *controller.VirtualMachineController
 	return nil
 }
 
-func createDataVolumeManifest(dataVolume *cdiv1.DataVolume, vm *virtv1.VirtualMachine) *cdiv1.DataVolume {
+func createDataVolumeManifest(dataVolumeTemplate *virtv1.DataVolumeTemplateSpec, vm *virtv1.VirtualMachine) *cdiv1.DataVolume {
 
-	newDataVolume := dataVolume.DeepCopy()
+	newDataVolume := &cdiv1.DataVolume{}
+
+	newDataVolume.Spec = *dataVolumeTemplate.Spec.DeepCopy()
+	newDataVolume.ObjectMeta = *dataVolumeTemplate.ObjectMeta.DeepCopy()
 
 	labels := map[string]string{}
 	annotations := map[string]string{}
 
 	labels[virtv1.CreatedByLabel] = string(vm.UID)
 
-	for k, v := range dataVolume.Annotations {
+	for k, v := range dataVolumeTemplate.Annotations {
 		annotations[k] = v
 	}
-	for k, v := range dataVolume.Labels {
+	for k, v := range dataVolumeTemplate.Labels {
 		labels[k] = v
 	}
 	newDataVolume.ObjectMeta.Labels = labels

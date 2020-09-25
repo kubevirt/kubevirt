@@ -162,6 +162,13 @@ func (VirtualMachineInstanceReplicaSetCondition) SwaggerDoc() map[string]string 
 	}
 }
 
+func (DataVolumeTemplateSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "+k8s:openapi-gen=true",
+		"spec": "DataVolumeSpec contains the DataVolume specification.",
+	}
+}
+
 func (VirtualMachineInstanceTemplateSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "+k8s:openapi-gen=true",
