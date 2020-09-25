@@ -1114,6 +1114,30 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.networks[1].name"))
 			Expect(causes[0].Message).To(Equal("Network with name \"default\" already exists, every network must have a unique name"))
 		})
+		It("should reject interface named with unsupported characters", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				{
+					Name: "d.efault",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						Bridge: &v1.InterfaceBridge{},
+					},
+				},
+			}
+			vmi.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "d.efault",
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{},
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].name"))
+			Expect(causes[0].Message).To(Equal("Network interface name can only contain alphabetical characters, numbers, dashes (-) or underscores (_)"))
+		})
 		It("should reject unassign multus network", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
@@ -2560,6 +2584,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 				Pod:    &v1.PodNetwork{},
 				Multus: &v1.MultusNetwork{NetworkName: "testnet1"},
 			},
+			Name: "testnet",
 		}
 		iface1 := v1.Interface{Name: net1.Name}
 		spec.Networks = []v1.Network{net1}
