@@ -611,7 +611,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				}
 			})
 
-			table.DescribeTable("deny then allow clone request", func(role *rbacv1.Role) {
+			table.DescribeTable("deny then allow clone request", func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool) {
 				vm := tests.NewRandomVMWithCloneDataVolume(dataVolume.Namespace, dataVolume.Name, tests.NamespaceTestDefault)
 				saVol := v1.Volume{
 					Name: "sa",
@@ -635,8 +635,18 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				}
 				Expect(stdErr).Should(ContainSubstring("Authorization failed, message is:"))
 
+				saName := tests.AdminServiceAccountName
+				saNamespace := tests.NamespaceTestDefault
+
+				if allServiceAccounts {
+					saName = ""
+					saNamespace = ""
+				} else if allServiceAccountsInNamespace {
+					saName = ""
+				}
+
 				// add permission
-				cloneRole, cloneRoleBinding = addClonePermission(virtClient, role, tests.AdminServiceAccountName, tests.NamespaceTestDefault, tests.NamespaceTestAlternative)
+				cloneRole, cloneRoleBinding = addClonePermission(virtClient, role, saName, saNamespace, tests.NamespaceTestAlternative)
 
 				// sometimes it takes a bit for permission to actually be applied so eventually
 				Eventually(func() bool {
@@ -666,8 +676,10 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				createdVirtualMachine = tests.StartVirtualMachine(createdVirtualMachine)
 				createdVirtualMachine = tests.StopVirtualMachine(createdVirtualMachine)
 			},
-				table.Entry("[test_id:3193]with explicit role", explicitCloneRole),
-				table.Entry("[test_id:3194]with implicit role", implicitCloneRole),
+				table.Entry("[test_id:3193]with explicit role", explicitCloneRole, false, false),
+				table.Entry("[test_id:3194]with implicit role", implicitCloneRole, false, false),
+				table.Entry("with explicit role (all namespaces)", explicitCloneRole, true, false),
+				table.Entry("with explicit role (one namespace)", explicitCloneRole, false, true),
 			)
 		})
 	})
@@ -724,13 +736,28 @@ func addClonePermission(client kubecli.KubevirtClient, role *rbacv1.Role, sa, sa
 			Name:     role.Name,
 			APIGroup: "rbac.authorization.k8s.io",
 		},
-		Subjects: []rbacv1.Subject{
+	}
+
+	if sa != "" {
+		rb.Subjects = []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
 				Name:      sa,
 				Namespace: saNamespace,
 			},
-		},
+		}
+	} else {
+		g := "system:serviceaccounts"
+		if saNamespace != "" {
+			g += ":" + saNamespace
+		}
+		rb.Subjects = []rbacv1.Subject{
+			{
+				Kind:     "Group",
+				Name:     g,
+				APIGroup: "rbac.authorization.k8s.io",
+			},
+		}
 	}
 
 	rb, err = client.RbacV1().RoleBindings(targetNamesace).Create(rb)

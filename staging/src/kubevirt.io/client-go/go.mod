@@ -17,21 +17,22 @@ require (
 	github.com/openshift/client-go v0.0.0
 	github.com/pborman/uuid v1.2.0
 	github.com/spf13/pflag v1.0.5
-	k8s.io/api v0.18.2
-	k8s.io/apiextensions-apiserver v0.18.2
-	k8s.io/apimachinery v0.18.2
+	k8s.io/api v0.19.0-rc.2
+	k8s.io/apiextensions-apiserver v0.19.0-rc.2
+	k8s.io/apimachinery v0.19.0-rc.2
 	k8s.io/client-go v12.0.0+incompatible
-	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a
-	k8s.io/utils v0.0.0-20190801114015-581e00157fb1
-	kubevirt.io/containerized-data-importer v1.21.0
+	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
+	k8s.io/utils v0.0.0-20200720150651-0bdb4ca86cbc
+	kubevirt.io/containerized-data-importer v1.23.5
 )
 
 replace (
-	bitbucket.org/ww/goautoneg => github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v11.0.0+incompatible
 	github.com/go-kit/kit => github.com/go-kit/kit v0.3.0
+	github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.3.1
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
+	github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
 	gopkg.in/yaml.v2 => gopkg.in/yaml.v2 v2.2.4
 
 	k8s.io/api => k8s.io/api v0.16.4
@@ -61,6 +62,6 @@ replace (
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.16.4
 	k8s.io/sample-controller => k8s.io/sample-controller v0.16.4
 
-	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.21.0
+	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.23.5
 	sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v0.0.0-20190302045857-e85c7b244fd2
 )
