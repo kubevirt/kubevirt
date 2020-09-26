@@ -452,13 +452,21 @@ var _ = Describe("Template", func() {
 		})
 		Context("with container disk", func() {
 
-			It("should add init container to inject binary", func() {
+			It("should add init containers to inject binary and pre-pull container disks", func() {
 				volumes := []v1.Volume{
 					{
 						Name: "containerdisk1",
 						VolumeSource: v1.VolumeSource{
 							ContainerDisk: &v1.ContainerDiskSource{
 								Image: "my-image-1",
+							},
+						},
+					},
+					{
+						Name: "containerdisk2",
+						VolumeSource: v1.VolumeSource{
+							ContainerDisk: &v1.ContainerDiskSource{
+								Image: "my-image-2",
 							},
 						},
 					},
@@ -474,7 +482,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(pod.Spec.InitContainers)).To(Equal(1))
+				Expect(len(pod.Spec.InitContainers)).To(Equal(3))
 				Expect(pod.Spec.InitContainers[0].VolumeMounts[0].MountPath).To(Equal("/init/usr/bin"))
 				Expect(pod.Spec.InitContainers[0].VolumeMounts[0].Name).To(Equal("virt-bin-share-dir"))
 				Expect(pod.Spec.InitContainers[0].Command).To(Equal([]string{"/usr/bin/cp",
@@ -482,6 +490,12 @@ var _ = Describe("Template", func() {
 					"/init/usr/bin/container-disk",
 				}))
 				Expect(pod.Spec.InitContainers[0].Image).To(Equal("kubevirt/virt-launcher"))
+
+				Expect(pod.Spec.InitContainers[1].Args).To(Equal([]string{"--no-op"}))
+				Expect(pod.Spec.InitContainers[1].Image).To(Equal("my-image-1"))
+				Expect(pod.Spec.InitContainers[2].Args).To(Equal([]string{"--no-op"}))
+				Expect(pod.Spec.InitContainers[2].Image).To(Equal("my-image-2"))
+
 			})
 
 		})
