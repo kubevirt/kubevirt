@@ -70,6 +70,7 @@ type DataVolumeSource struct {
 	Upload   *DataVolumeSourceUpload   `json:"upload,omitempty"`
 	Blank    *DataVolumeBlankImage     `json:"blank,omitempty"`
 	Imageio  *DataVolumeSourceImageIO  `json:"imageio,omitempty"`
+	VDDK     *DataVolumeSourceVDDK     `json:"vddk,omitempty"`
 }
 
 // DataVolumeSourcePVC provides the parameters to create a Data Volume from an existing PVC
@@ -127,6 +128,20 @@ type DataVolumeSourceImageIO struct {
 	SecretRef string `json:"secretRef,omitempty"`
 	//CertConfigMap provides a reference to the CA cert
 	CertConfigMap string `json:"certConfigMap,omitempty"`
+}
+
+// DataVolumeSourceVDDK provides the parameters to create a Data Volume from a Vmware source
+type DataVolumeSourceVDDK struct {
+	// URL is the URL of the vCenter or ESXi host with the VM to migrate
+	URL string `json:"url,omitempty"`
+	// UUID is the UUID of the virtual machine that the backing file is attached to in vCenter/ESXi
+	UUID string `json:"uuid,omitempty"`
+	// BackingFile is the path to the virtual hard disk to migrate from vCenter/ESXi
+	BackingFile string `json:"backingFile,omitempty"`
+	// Thumbprint is the certificate thumbprint of the vCenter or ESXi host
+	Thumbprint string `json:"thumbprint,omitempty"`
+	// SecretRef provides a reference to a secret containing the username and password needed to access the vCenter or ESXi host
+	SecretRef string `json:"secretRef,omitempty"`
 }
 
 // DataVolumeStatus contains the current status of the DataVolume
@@ -248,7 +263,12 @@ type CDISpec struct {
 	// PullPolicy describes a policy for if/when to pull a container image
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
 	// +kubebuilder:validation:Enum=RemoveWorkloads;BlockUninstallIfWorkloadsExist
+	// CDIUninstallStrategy defines the state to leave CDI on uninstall
 	UninstallStrategy *CDIUninstallStrategy `json:"uninstallStrategy,omitempty"`
+	// Rules on which nodes CDI infrastructure pods will be scheduled
+	Infra NodePlacement `json:"infra,omitempty"`
+	// Restrict on which nodes CDI workload pods will be scheduled
+	Workloads NodePlacement `json:"workload,omitempty"`
 }
 
 // CDIUninstallStrategy defines the state to leave CDI on uninstall
@@ -301,6 +321,30 @@ const (
 	CDIPhaseEmpty CDIPhase = ""
 )
 
+// NodePlacement describes CDI node scheduling configuration.
+type NodePlacement struct {
+	// nodeSelector is the node selector applied to the relevant kind of pods
+	// It specifies a map of key-value pairs: for the pod to be eligible to run on a node,
+	// the node must have each of the indicated key-value pairs as labels
+	// (it can have additional labels as well).
+	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// affinity enables pod affinity/anti-affinity placement expanding the types of constraints
+	// that can be expressed with nodeSelector.
+	// affinity is going to be applied to the relevant kind of pods in parallel with nodeSelector
+	// See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
+	// +optional
+	Affinity corev1.Affinity `json:"affinity,omitempty"`
+
+	// tolerations is a list of tolerations applied to the relevant kind of pods
+	// See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info.
+	// These are additional tolerations other than default ones.
+	// +optional
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+}
+
 //CDIList provides the needed parameters to do request a list of CDIs from the system
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type CDIList struct {
@@ -333,8 +377,9 @@ type CDIConfigSpec struct {
 	// Override the URL used when uploading to a DataVolume
 	UploadProxyURLOverride *string `json:"uploadProxyURLOverride,omitempty"`
 	// Override the storage class to used for scratch space during transfer operations. The scratch space storage class is determined in the following order: 1. value of scratchSpaceStorageClass, if that doesn't exist, use the default storage class, if there is no default storage class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space
-	ScratchSpaceStorageClass *string                      `json:"scratchSpaceStorageClass,omitempty"`
-	PodResourceRequirements  *corev1.ResourceRequirements `json:"podResourceRequirements,omitempty"`
+	ScratchSpaceStorageClass *string `json:"scratchSpaceStorageClass,omitempty"`
+	// ResourceRequirements describes the compute resource requirements.
+	PodResourceRequirements *corev1.ResourceRequirements `json:"podResourceRequirements,omitempty"`
 }
 
 //CDIConfigStatus provides the most recently observed status of the CDI Config resource
@@ -342,7 +387,8 @@ type CDIConfigStatus struct {
 	// The calculated upload proxy URL
 	UploadProxyURL *string `json:"uploadProxyURL,omitempty"`
 	// The calculated storage class to be used for scratch space
-	ScratchSpaceStorageClass       string                       `json:"scratchSpaceStorageClass,omitempty"`
+	ScratchSpaceStorageClass string `json:"scratchSpaceStorageClass,omitempty"`
+	// ResourceRequirements describes the compute resource requirements.
 	DefaultPodResourceRequirements *corev1.ResourceRequirements `json:"defaultPodResourceRequirements,omitempty"`
 }
 
