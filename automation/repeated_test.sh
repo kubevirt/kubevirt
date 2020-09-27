@@ -117,7 +117,7 @@ for lane in "${TEST_LANES[@]}"; do
     for i in $(seq 1 "$NUM_TESTS"); do
         echo "test lane: $lane, run: $i"
         make cluster-sync
-        ginko_params="--ginkgo.noColor --ginkgo.succinct -ginkgo.slowSpecThreshold=30 --ginkgo.focus=${NEW_TESTS} --ginkgo.regexScansFilePath=true"
+        ginko_params="-noColor -succinct -slowSpecThreshold=30 -focus=${NEW_TESTS} -regexScansFilePath=true"
         FUNC_TEST_ARGS="$ginko_params" make functest
         if [[ $? -ne 0 ]]; then
             echo "test lane: $lane, run: $i, tests failed!"
