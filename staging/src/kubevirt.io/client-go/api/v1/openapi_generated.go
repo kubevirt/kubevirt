@@ -307,6 +307,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.DHCPOptions":                                                schema_kubevirtio_client_go_api_v1_DHCPOptions(ref),
 		"kubevirt.io/client-go/api/v1.DHCPPrivateOptions":                                         schema_kubevirtio_client_go_api_v1_DHCPPrivateOptions(ref),
 		"kubevirt.io/client-go/api/v1.DataVolumeSource":                                           schema_kubevirtio_client_go_api_v1_DataVolumeSource(ref),
+		"kubevirt.io/client-go/api/v1.DataVolumeTemplateDummyStatus":                              schema_kubevirtio_client_go_api_v1_DataVolumeTemplateDummyStatus(ref),
 		"kubevirt.io/client-go/api/v1.DataVolumeTemplateSpec":                                     schema_kubevirtio_client_go_api_v1_DataVolumeTemplateSpec(ref),
 		"kubevirt.io/client-go/api/v1.DeveloperConfiguration":                                     schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.Devices":                                                    schema_kubevirtio_client_go_api_v1_Devices(ref),
@@ -14149,6 +14150,16 @@ func schema_kubevirtio_client_go_api_v1_DataVolumeSource(ref common.ReferenceCal
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_DataVolumeTemplateDummyStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_DataVolumeTemplateSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -14166,12 +14177,18 @@ func schema_kubevirtio_client_go_api_v1_DataVolumeTemplateSpec(ref common.Refere
 							Ref:         ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSpec"),
 						},
 					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataVolumeTemplateDummyStatus is here simply for backwards compatibility with a previous API.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.DataVolumeTemplateDummyStatus"),
+						},
+					},
 				},
 				Required: []string{"spec"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSpec"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/client-go/api/v1.DataVolumeTemplateDummyStatus", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSpec"},
 	}
 }
 

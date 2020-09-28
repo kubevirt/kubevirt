@@ -8378,6 +8378,10 @@
      }
     }
    },
+   "v1.DataVolumeTemplateDummyStatus": {
+    "type": "object",
+    "nullable": true
+   },
    "v1.DataVolumeTemplateSpec": {
     "type": "object",
     "required": [
@@ -8390,6 +8394,10 @@
      "spec": {
       "description": "DataVolumeSpec contains the DataVolume specification.",
       "$ref": "#/definitions/v1alpha1.DataVolumeSpec"
+     },
+     "status": {
+      "description": "DataVolumeTemplateDummyStatus is here simply for backwards compatibility with a previous API.",
+      "$ref": "#/definitions/v1.DataVolumeTemplateDummyStatus"
      }
     }
    },
