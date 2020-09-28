@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"k8s.io/api/admission/v1beta1"
+	authv1 "k8s.io/api/authorization/v1"
 	k8svalidation "k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -47,11 +48,21 @@ type VMsAdmitter struct {
 	cloneAuthFunc CloneAuthFunc
 }
 
+type sarProxy struct {
+	client kubecli.KubevirtClient
+}
+
+func (p *sarProxy) Create(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
+	return p.client.AuthorizationV1().SubjectAccessReviews().Create(sar)
+}
+
 func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *VMsAdmitter {
+	proxy := &sarProxy{client: client}
+
 	return &VMsAdmitter{
 		ClusterConfig: clusterConfig,
 		cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
-			return cdiclone.CanServiceAccountClonePVC(client, pvcNamespace, pvcName, saNamespace, saName)
+			return cdiclone.CanServiceAccountClonePVC(proxy, pvcNamespace, pvcName, saNamespace, saName)
 		},
 	}
 }
