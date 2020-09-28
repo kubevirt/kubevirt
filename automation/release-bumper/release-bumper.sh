@@ -30,11 +30,14 @@ function main {
   echo INFO: Updating go.mod...
   update_go_mod
 
+  echo INFO: Checking go version
+  go version
+
   echo INFO: Executing "go mod vendor"
   go mod vendor
 
   echo INFO: Executing "go mod tidy"
-  go mod tidy
+  go mod tidy -v
 }
 
 function get_current_versions {
