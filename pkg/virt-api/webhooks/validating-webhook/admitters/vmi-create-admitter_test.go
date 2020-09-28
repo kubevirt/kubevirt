@@ -2220,7 +2220,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	})
 
 	Context("with AccessCredentials", func() {
-		It("should accept a valid ssh access credential", func() {
+		It("should accept a valid ssh access credential with configdrive propagation", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
@@ -2242,6 +2242,66 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 						},
 						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
 							ConfigDrive: &v1.ConfigDriveAccessCredentialPropagation{},
+						},
+					},
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(0))
+		})
+
+		It("should accept a valid ssh access credential with qemu agent propagation", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk",
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testdisk",
+				VolumeSource: v1.VolumeSource{
+					CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{UserData: " "},
+				},
+			})
+
+			vmi.Spec.AccessCredentials = []v1.AccessCredential{
+				{
+					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+						Source: v1.SSHPublicKeyAccessCredentialSource{
+							Secret: &v1.AccessCredentialSecretSource{
+								SecretName: "my-pkey",
+							},
+						},
+						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+							QemuGuestAgent: &v1.QemuGuestAgentAccessCredentialPropagation{},
+						},
+					},
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(0))
+		})
+
+		It("should accept a valid user password access credential with qemu agent propagation", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk",
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testdisk",
+				VolumeSource: v1.VolumeSource{
+					CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{UserData: " "},
+				},
+			})
+
+			vmi.Spec.AccessCredentials = []v1.AccessCredential{
+				{
+					UserPassword: &v1.UserPasswordAccessCredential{
+						Source: v1.UserPasswordAccessCredentialSource{
+							Secret: &v1.AccessCredentialSecretSource{
+								SecretName: "my-pkey",
+							},
+						},
+						PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
+							QemuGuestAgent: &v1.QemuGuestAgentAccessCredentialPropagation{},
 						},
 					},
 				},
@@ -2304,6 +2364,25 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 		})
+
+		It("should reject a userpassword access credential without a source", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.AccessCredentials = []v1.AccessCredential{
+				{
+					UserPassword: &v1.UserPasswordAccessCredential{
+						PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
+							QemuGuestAgent: &v1.QemuGuestAgentAccessCredentialPropagation{},
+						},
+					},
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+
+			fmt.Printf("%v\n", causes)
+
+			Expect(len(causes)).To(Equal(1))
+		})
+
 		It("should reject a ssh access credential without a propagationMethod", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -2320,6 +2399,23 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				{
 					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
 						Source: v1.SSHPublicKeyAccessCredentialSource{
+							Secret: &v1.AccessCredentialSecretSource{
+								SecretName: "my-pkey",
+							},
+						},
+					},
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+		})
+
+		It("should reject a userpassword credential without a propagationMethod", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.AccessCredentials = []v1.AccessCredential{
+				{
+					UserPassword: &v1.UserPasswordAccessCredential{
+						Source: v1.UserPasswordAccessCredentialSource{
 							Secret: &v1.AccessCredentialSecretSource{
 								SecretName: "my-pkey",
 							},
