@@ -17,7 +17,9 @@ export JOB_TYPE=prow
 endif
 
 sanity:
+	go version
 	go fmt ./...
+	go mod tidy -v
 	go mod vendor
 	./hack/build-manifests.sh
 	git difftool -y --trust-exit-code --extcmd=./hack/diff-csv.sh

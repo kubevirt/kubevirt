@@ -11,6 +11,7 @@ if [ "${JOB_TYPE}" == "travis" ]; then
     go get -v github.com/onsi/ginkgo/ginkgo
     go get -v github.com/onsi/gomega
     go get -u github.com/evanphx/json-patch
+    go mod vendor
     PACKAGE_PATH="pkg/"
     ginkgo -r -cover ${PACKAGE_PATH}
 else
