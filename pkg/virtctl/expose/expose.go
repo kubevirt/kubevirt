@@ -36,6 +36,7 @@ var strTargetPort string
 var strServiceType string
 var portName string
 var namespace string
+var strIPFamily string
 
 // NewExposeCommand generates a new "expose" command
 func NewExposeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -69,6 +70,7 @@ virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplica
 	cmd.Flags().StringVar(&strTargetPort, "target-port", "", "Name or number for the port on the VM that the service should direct traffic to. Optional.")
 	cmd.Flags().StringVar(&strServiceType, "type", "ClusterIP", "Type for this service: ClusterIP, NodePort, or LoadBalancer.")
 	cmd.Flags().StringVar(&portName, "port-name", "", "Name of the port. Optional.")
+	cmd.Flags().StringVar(&strIPFamily, "ip-family", "IPv4", "IP family over which the service will be exposed. Valid values are 'IPv4' or 'IPv6'.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
@@ -97,6 +99,7 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 	var protocol v1.Protocol
 	var targetPort intstr.IntOrString
 	var serviceType v1.ServiceType
+	var ipFamily v1.IPFamily
 
 	// convert from integer to the IntOrString type
 	targetPort = intstr.Parse(strTargetPort)
@@ -123,6 +126,11 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("type: %s not supported", strServiceType)
 	default:
 		return fmt.Errorf("unknown service type: %s", strServiceType)
+	}
+
+	ipFamily, err := convertIPFamily(strIPFamily)
+	if err != nil {
+		return err
 	}
 
 	// get the namespace
@@ -202,6 +210,7 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 			ClusterIP:      clusterIP,
 			Type:           serviceType,
 			LoadBalancerIP: loadBalancerIP,
+			IPFamily:       &ipFamily,
 		},
 	}
 
@@ -217,6 +226,17 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Printf("Service %s successfully exposed for %s %s\n", serviceName, vmType, vmName)
 	return nil
+}
+
+func convertIPFamily(strIPFamily string) (v1.IPFamily, error) {
+	switch strings.ToLower(strIPFamily) {
+	case "ipv4":
+		return v1.IPv4Protocol, nil
+	case "ipv6":
+		return v1.IPv6Protocol, nil
+	default:
+		return "", fmt.Errorf("unknown IPFamily: %s", strIPFamily)
+	}
 }
 
 func podNetworkPorts(vmiSpec *v12.VirtualMachineInstanceSpec) []v1.ServicePort {

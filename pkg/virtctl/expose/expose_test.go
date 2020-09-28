@@ -238,6 +238,25 @@ var _ = Describe("Expose", func() {
 				Expect(err()).To(BeNil())
 			})
 		})
+		Context("With parametrized IPFamily", func() {
+			It("should succeed with IPv4", func() {
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
+					"--port", "9999", "--target-port", "http", "--ip-family", "ipv4")
+				Expect(cmd()).To(Succeed(), "should succeed on an valid IP family - ipv4 is valid")
+			})
+
+			It("should succeed with IPv6", func() {
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
+					"--port", "9999", "--target-port", "http", "--ip-family", "ipv6")
+				Expect(cmd()).To(Succeed(), "should succeed on an valid IP family - ipv6 is valid")
+			})
+
+			It("should fail with an invalid IPFamily", func() {
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
+					"--port", "9999", "--target-port", "http", "--ip-family", "ipv14")
+				Expect(cmd()).To(HaveOccurred(), "should fail on an invalid IP family")
+			})
+		})
 	})
 })
 
