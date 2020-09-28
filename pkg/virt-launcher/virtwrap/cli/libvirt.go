@@ -77,8 +77,9 @@ type LibvirtConnection struct {
 	reconnect     chan bool
 	reconnectLock *sync.Mutex
 
-	domainEventCallbacks []libvirt.DomainEventLifecycleCallback
-	agentEventCallbacks  []libvirt.DomainEventAgentLifecycleCallback
+	domainEventCallbacks                   []libvirt.DomainEventLifecycleCallback
+	domainEventMigrationIterationCallbacks []libvirt.DomainEventMigrationIterationCallback
+	agentEventCallbacks                    []libvirt.DomainEventAgentLifecycleCallback
 }
 
 func (s *VirStream) Write(p []byte) (n int, err error) {
@@ -303,6 +304,10 @@ func (l *LibvirtConnection) reconnectIfNecessary() (err error) {
 			log.Log.Info("Re-registered domain callback")
 			_, err = l.Connect.DomainEventLifecycleRegister(nil, callback)
 		}
+		for _, callback := range l.domainEventMigrationIterationCallbacks {
+			log.Log.Info("Re-registered iteration callback")
+			_, err = l.Connect.DomainEventMigrationIterationRegister(nil, callback)
+		}
 		for _, callback := range l.agentEventCallbacks {
 			log.Log.Info("Re-registered agent callback")
 			_, err = l.Connect.DomainEventAgentLifecycleRegister(nil, callback)
@@ -361,6 +366,7 @@ type VirDomain interface {
 	GetMetadata(tipus libvirt.DomainMetadataType, uri string, flags libvirt.DomainModificationImpact) (string, error)
 	OpenConsole(devname string, stream *libvirt.Stream, flags libvirt.DomainConsoleFlags) error
 	MigrateToURI3(string, *libvirt.DomainMigrateParameters, libvirt.DomainMigrateFlags) error
+	MigrateStartPostCopy(flags uint32) error
 	MemoryStats(nrStats uint32, flags uint32) ([]libvirt.DomainMemoryStat, error)
 	GetJobStats(flags libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error)
 	GetJobInfo() (*libvirt.DomainJobInfo, error)

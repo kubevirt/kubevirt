@@ -652,6 +652,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortStatus(migrationMetadata.AbortStatus)
 			vmi.Status.MigrationState.Completed = migrationMetadata.Completed
 			vmi.Status.MigrationState.Failed = migrationMetadata.Failed
+			vmi.Status.MigrationState.Mode = migrationMetadata.Mode
 		}
 	}
 
@@ -1996,13 +1997,17 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is aborting migration.")
 			}
 		} else {
+			migrationConfiguration := d.clusterConfig.GetMigrationConfiguration()
+
 			options := &cmdclient.MigrationOptions{
-				Bandwidth:               *d.clusterConfig.GetMigrationConfiguration().BandwidthPerMigration,
-				ProgressTimeout:         *d.clusterConfig.GetMigrationConfiguration().ProgressTimeout,
-				CompletionTimeoutPerGiB: *d.clusterConfig.GetMigrationConfiguration().CompletionTimeoutPerGiB,
-				UnsafeMigration:         d.clusterConfig.GetMigrationConfiguration().UnsafeMigrationOverride,
-				AllowAutoConverge:       d.clusterConfig.GetMigrationConfiguration().AllowAutoConverge,
+				Bandwidth:               *migrationConfiguration.BandwidthPerMigration,
+				ProgressTimeout:         *migrationConfiguration.ProgressTimeout,
+				CompletionTimeoutPerGiB: *migrationConfiguration.CompletionTimeoutPerGiB,
+				UnsafeMigration:         *migrationConfiguration.UnsafeMigrationOverride,
+				AllowAutoConverge:       *migrationConfiguration.AllowAutoConverge,
+				AllowPostCopy:           *migrationConfiguration.AllowPostCopy,
 			}
+
 			err = client.MigrateVirtualMachine(vmi, options)
 			if err != nil {
 				return err

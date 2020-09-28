@@ -108,6 +108,15 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		}
 	}
 
+	confirmMigrationMode := func(vmi *v1.VirtualMachineInstance, expectedMode v1.MigrationMode) {
+		By("Retrieving the VMI post migration")
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Verifying the VMI's migration mode")
+		Expect(vmi.Status.MigrationState.Mode).To(Equal(expectedMode))
+	}
+
 	tests.BeforeAll(func() {
 
 		virtClient, err = kubecli.GetKubevirtClient()
@@ -987,7 +996,14 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// PVs can't be reused
 				tests.DeletePvAndPvc(pvName)
 			})
-			It("[test_id:2653]  should be migrated successfully, using guest agent on VM", func() {
+
+			table.DescribeTable("should be migrated successfully, using guest agent on VM", func(configData map[string]string, mode v1.MigrationMode) {
+				if len(configData) > 0 {
+					migrationData, err := json.Marshal(configData)
+					Expect(err).ToNot(HaveOccurred())
+					tests.UpdateClusterConfigValueAndWait("migrations", string(migrationData))
+				}
+
 				// Start the VirtualMachineInstance with the PVC attached
 				By("Creating the  VMI")
 				vmi = tests.NewRandomVMIWithPVC(pvName)
@@ -1023,6 +1039,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				// check VMI, confirm migration state
 				confirmVMIPostMigration(vmi, migrationUID)
+				confirmMigrationMode(vmi, mode)
 
 				// Is agent connected after migration
 				tests.WaitAgentConnected(virtClient, vmi)
@@ -1049,7 +1066,14 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Expect(virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(tests.NFSTargetName, &metav1.DeleteOptions{})).To(Succeed())
 				By("Waiting for NFS pod to disappear")
 				tests.WaitForPodToDisappearWithTimeout(tests.NFSTargetName, 120)
-			})
+
+			},
+				table.Entry("[test_id:2653] with default migration configuration", map[string]string{}, v1.MigrationPreCopy),
+				table.Entry("with postcopy", map[string]string{
+					"allowPostCopy":           "true",
+					"completionTimeoutPerGiB": "1",
+				}, v1.MigrationPostCopy),
+			)
 		})
 
 		Context("migration security", func() {
@@ -1153,6 +1177,50 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 
 				Expect(tlsErrorFound).To(BeTrue())
+			})
+		})
+
+		Context("migration postcopy", func() {
+			It("[test_id:4747] should migrate using cluster level config for postcopy", func() {
+				data := map[string]string{
+					"allowPostCopy":           "true",
+					"completionTimeoutPerGiB": "1",
+				}
+				migrationData, err := json.Marshal(data)
+				Expect(err).ToNot(HaveOccurred())
+				tests.UpdateClusterConfigValueAndWait("migrations", string(migrationData))
+
+				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				Expect(expecterErr).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				// Need to wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				runStressTest(expecter)
+
+				// execute a migration, wait for finalized state
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := runMigrationAndExpectCompletion(migration, 180)
+
+				// check VMI, confirm migration state
+				confirmVMIPostMigration(vmi, migrationUID)
+				confirmMigrationMode(vmi, v1.MigrationPostCopy)
+
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 		})
 

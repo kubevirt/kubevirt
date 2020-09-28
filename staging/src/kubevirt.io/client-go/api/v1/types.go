@@ -402,6 +402,8 @@ type VirtualMachineInstanceMigrationState struct {
 	AbortStatus MigrationAbortStatus `json:"abortStatus,omitempty"`
 	// The VirtualMachineInstanceMigration object associated with this migration
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
+	// Lets us know if the vmi is currenly running pre or post copy migration
+	Mode MigrationMode `json:"mode,omitempty"`
 }
 
 //
@@ -415,6 +417,17 @@ const (
 	MigrationAbortFailed MigrationAbortStatus = "Failed"
 	// MigrationAbortInProgress mean that the vmi live migration is aborting
 	MigrationAbortInProgress MigrationAbortStatus = "Aborting"
+)
+
+//
+// +k8s:openapi-gen=true
+type MigrationMode string
+
+const (
+	// MigrationPreCopy means the VMI migrations that is currenly running is in pre copy mode
+	MigrationPreCopy MigrationMode = "PreCopy"
+	// MigrationPostCopy means the VMI migrations that is currenly running is in post copy mode
+	MigrationPostCopy MigrationMode = "PostCopy"
 )
 
 //
@@ -1428,14 +1441,15 @@ type SMBiosConfiguration struct {
 // MigrationConfiguration holds migration options
 // +k8s:openapi-gen=true
 type MigrationConfiguration struct {
-	AllowAutoConverge                 bool               `json:"allowAutoConverge,string"`
-	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
-	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,string,omitempty"`
 	NodeDrainTaintKey                 *string            `json:"nodeDrainTaintKey,omitempty"`
 	ParallelOutboundMigrationsPerNode *uint32            `json:"parallelOutboundMigrationsPerNode,string,omitempty"`
 	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,string,omitempty"`
+	AllowAutoConverge                 *bool              `json:"allowAutoConverge,string,omitempty"`
+	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
+	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,string,omitempty"`
 	ProgressTimeout                   *int64             `json:"progressTimeout,string,omitempty"`
-	UnsafeMigrationOverride           bool               `json:"unsafeMigrationOverride,string"`
+	UnsafeMigrationOverride           *bool              `json:"unsafeMigrationOverride,string,omitempty"`
+	AllowPostCopy                     *bool              `json:"allowPostCopy,string,omitempty"`
 }
 
 // DeveloperConfiguration holds developer options

@@ -9323,12 +9323,11 @@
    "v1.MigrationConfiguration": {
     "description": "MigrationConfiguration holds migration options",
     "type": "object",
-    "required": [
-     "allowAutoConverge",
-     "unsafeMigrationOverride"
-    ],
     "properties": {
      "allowAutoConverge": {
+      "type": "string"
+     },
+     "allowPostCopy": {
       "type": "string"
      },
      "bandwidthPerMigration": {
@@ -10113,6 +10112,10 @@
      },
      "migrationUid": {
       "description": "The VirtualMachineInstanceMigration object associated with this migration",
+      "type": "string"
+     },
+     "mode": {
+      "description": "Lets us know if the vmi is currenly running pre or post copy migration",
       "type": "string"
      },
      "sourceNode": {

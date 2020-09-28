@@ -367,6 +367,16 @@ func (_mr *_MockVirDomainRecorder) MigrateToURI3(arg0, arg1, arg2 interface{}) *
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrateToURI3", arg0, arg1, arg2)
 }
 
+func (_m *MockVirDomain) MigrateStartPostCopy(flags uint32) error {
+	ret := _m.ctrl.Call(_m, "MigrateStartPostCopy", flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) MigrateStartPostCopy(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrateStartPostCopy", arg0)
+}
+
 func (_m *MockVirDomain) MemoryStats(nrStats uint32, flags uint32) ([]libvirt_go.DomainMemoryStat, error) {
 	ret := _m.ctrl.Call(_m, "MemoryStats", nrStats, flags)
 	ret0, _ := ret[0].([]libvirt_go.DomainMemoryStat)

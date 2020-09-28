@@ -205,11 +205,12 @@ var _ = Describe("ConfigMap", func() {
 		result := clusterConfig.GetMigrationConfiguration()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
 		Expect(*result.ParallelMigrationsPerCluster).To(BeNumerically("==", 20))
-		Expect(result.BandwidthPerMigration.String()).To(Equal("110Mi"))
+		bandwidth := *result.BandwidthPerMigration
+		Expect(bandwidth.String()).To(Equal("110Mi"))
 		Expect(*result.ProgressTimeout).To(BeNumerically("==", 5))
 		Expect(*result.CompletionTimeoutPerGiB).To(BeNumerically("==", 5))
-		Expect(result.UnsafeMigrationOverride).To(BeTrue())
-		Expect(result.AllowAutoConverge).To(BeTrue())
+		Expect(*result.UnsafeMigrationOverride).To(BeTrue())
+		Expect(*result.AllowAutoConverge).To(BeTrue())
 	})
 
 	It("Should return migration config values if specified as yaml", func() {

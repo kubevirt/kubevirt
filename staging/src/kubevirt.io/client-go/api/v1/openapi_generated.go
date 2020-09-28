@@ -15968,23 +15968,6 @@ func schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref common.Refere
 				Description: "MigrationConfiguration holds migration options",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"allowAutoConverge": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"bandwidthPerMigration": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
-						},
-					},
-					"completionTimeoutPerGiB": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"nodeDrainTaintKey": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -16003,6 +15986,23 @@ func schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref common.Refere
 							Format: "",
 						},
 					},
+					"allowAutoConverge": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"bandwidthPerMigration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"completionTimeoutPerGiB": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"progressTimeout": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -16015,8 +16015,13 @@ func schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref common.Refere
 							Format: "",
 						},
 					},
+					"allowPostCopy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
-				Required: []string{"allowAutoConverge", "unsafeMigrationOverride"},
 			},
 		},
 		Dependencies: []string{
@@ -17446,6 +17451,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceMigrationState(ref
 					"migrationUid": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The VirtualMachineInstanceMigration object associated with this migration",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Lets us know if the vmi is currenly running pre or post copy migration",
 							Type:        []string{"string"},
 							Format:      "",
 						},
