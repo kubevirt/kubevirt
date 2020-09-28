@@ -591,6 +591,18 @@ metadata:
     kubevirt.io/vm: vm-%s
   name: vm-%s
 spec:
+  dataVolumeTemplates:
+  - metadata:
+      name: test-dv
+    spec:
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+      source:
+        blank: {}
   runStrategy: Manual
   template:
     metadata:
@@ -606,6 +618,9 @@ spec:
           - disk:
               bus: virtio
             name: cloudinitdisk
+          - disk:
+              bus: virtio
+            name: datavolumedisk1
         machine:
           type: ""
         resources:
@@ -613,6 +628,9 @@ spec:
             memory: 64M
       terminationGracePeriodSeconds: 0
       volumes:
+      - dataVolume:
+          name: test-dv
+        name: datavolumedisk1
       - containerDisk:
           image: %s/%s-container-disk-demo:%s
         name: containerdisk
@@ -821,6 +839,11 @@ spec:
 		// Updating KubeVirt to the target tested code
 		// Ensuring VM/VMI is still operational after the update from previous release.
 		It("[test_id:3145]from previous release to target tested release", func() {
+
+			if !tests.HasCDI() {
+				Skip("Skip Update test when CDI is not present")
+			}
+
 			previousImageTag := flags.PreviousReleaseTag
 			previousImageRegistry := flags.PreviousReleaseRegistry
 			if previousImageTag == "" {
@@ -979,6 +1002,26 @@ spec:
 					// can't dial the event notify socket. This impacts the timing for when
 					// the vmi is shutdown. Once that is resolved, reduce the timeout
 				}, 160*time.Second, 1*time.Second).Should(BeTrue())
+
+				By("Ensuring we can Modify the VM Spec")
+				Eventually(func() error {
+					vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+
+					// by making a change to the VM, we ensure that writing the object is possible.
+					// This ensures VMs created previously before the update are still compatible with our validation webhooks
+					vm.Annotations["some-annotation"] = "some-val"
+
+					annotationBytes, err := json.Marshal(vm.Annotations)
+					if err != nil {
+						return err
+					}
+					ops := fmt.Sprintf(`[{ "op": "add", "path": "/metadata/annotations", "value": %s }]`, string(annotationBytes))
+					_, err = virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, []byte(ops))
+					return err
+				}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 				By(fmt.Sprintf("Deleting VM with %s api", vmYaml.apiVersion))
 				_, _, err = tests.RunCommand(k8sClient, "delete", "-f", vmYaml.yamlFile, "--cache-dir", newClientCacheDir)
