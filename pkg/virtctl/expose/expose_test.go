@@ -238,6 +238,27 @@ var _ = Describe("Expose", func() {
 				Expect(err()).To(BeNil())
 			})
 		})
+		Context("With IPv4 IPFamily", func() {
+			It("should succeed", func() {
+				err := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
+					"--port", "9999", "--target-port", "http", "--ip-family", "ipv4")
+				Expect(err()).To(BeNil())
+			})
+		})
+		Context("With IPv6 IPFamily", func() {
+			It("should succeed", func() {
+				err := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
+					"--port", "9999", "--target-port", "http", "--ip-family", "ipv6")
+				Expect(err()).To(BeNil())
+			})
+		})
+		Context("With invalid IPFamily", func() {
+			It("should fail", func() {
+				err := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
+					"--port", "9999", "--target-port", "http", "--ip-family", "ipv14")
+				Expect(err()).NotTo(BeNil())
+			})
+		})
 	})
 })
 
