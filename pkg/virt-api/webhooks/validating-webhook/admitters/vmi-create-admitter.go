@@ -1286,6 +1286,31 @@ func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.Acce
 
 		if accessCred.UserPassword != nil {
 			count++
+
+			sourceCount := 0
+			methodCount := 0
+			if accessCred.UserPassword.Source.Secret != nil {
+				sourceCount++
+			}
+
+			if accessCred.UserPassword.PropagationMethod.QemuGuestAgent != nil {
+				methodCount++
+			}
+
+			if sourceCount != 1 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s must have exactly one source set", field.Index(idx).String()),
+					Field:   field.Index(idx).Child("userPassword", "source").String(),
+				})
+			}
+			if methodCount != 1 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s must have exactly one propagationMethod set", field.Index(idx).String()),
+					Field:   field.Index(idx).Child("userPassword", "propagationMethod").String(),
+				})
+			}
 		}
 
 		if count != 1 {
