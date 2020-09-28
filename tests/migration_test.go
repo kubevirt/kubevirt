@@ -621,7 +621,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migration.ObjectMeta.Namespace = "kubevirt-test-default"
 				migrationUID := runMigrationAndExpectCompletion(migration, migrationWaitTime)
 
 				// check VMI, confirm migration state
