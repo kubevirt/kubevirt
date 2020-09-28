@@ -30,7 +30,7 @@ require (
 	// TODO: Move to v0.34.0 once available
 	// kubevirt.io/client-go v0.34.0
 	kubevirt.io/client-go v0.33.0
-	kubevirt.io/containerized-data-importer v1.23.3
+	kubevirt.io/containerized-data-importer v1.23.5
 	// TODO: Move to v0.34.0 once available
 	// kubevirt.io/kubevirt v0.34.0
 	kubevirt.io/kubevirt v0.0.0-20200921031326-e3610ed19782
@@ -80,7 +80,7 @@ replace (
 	kubevirt.io/client-go => ./kubevirt/staging/src/kubevirt.io/client-go
 )
 
-// Aligning with https://github.com/kubevirt/containerized-data-importer/blob/release-v1.23.3
+// Aligning with https://github.com/kubevirt/containerized-data-importer/blob/release-v1.23.5
 replace (
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
