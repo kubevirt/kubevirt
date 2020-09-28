@@ -996,7 +996,14 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// PVs can't be reused
 				tests.DeletePvAndPvc(pvName)
 			})
-			It("[test_id:2653]  should be migrated successfully, using guest agent on VM", func() {
+
+			table.DescribeTable("should be migrated successfully, using guest agent on VM", func(configData map[string]string, mode v1.MigrationMode) {
+				if len(configData) > 0 {
+					migrationData, err := json.Marshal(configData)
+					Expect(err).ToNot(HaveOccurred())
+					tests.UpdateClusterConfigValueAndWait("migrations", string(migrationData))
+				}
+
 				// Start the VirtualMachineInstance with the PVC attached
 				By("Creating the  VMI")
 				vmi = tests.NewRandomVMIWithPVC(pvName)
@@ -1032,6 +1039,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				// check VMI, confirm migration state
 				confirmVMIPostMigration(vmi, migrationUID)
+				confirmMigrationMode(vmi, mode)
 
 				// Is agent connected after migration
 				tests.WaitAgentConnected(virtClient, vmi)
@@ -1058,79 +1066,14 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Expect(virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(tests.NFSTargetName, &metav1.DeleteOptions{})).To(Succeed())
 				By("Waiting for NFS pod to disappear")
 				tests.WaitForPodToDisappearWithTimeout(tests.NFSTargetName, 120)
-			})
 
-			It(" should be migrated successfully, using guest agent on VM w/ postcopy", func() {
-				data := map[string]string{
+			},
+				table.Entry("[test_id:2653] with default migration configuration", map[string]string{}, v1.MigrationPreCopy),
+				table.Entry("with postcopy", map[string]string{
 					"allowPostCopy":           "true",
 					"completionTimeoutPerGiB": "1",
-				}
-				migrationData, err := json.Marshal(data)
-				Expect(err).ToNot(HaveOccurred())
-				tests.UpdateClusterConfigValueAndWait("migrations", string(migrationData))
-				// Start the VirtualMachineInstance with the PVC attached
-				By("Creating the  VMI")
-				vmi = tests.NewRandomVMIWithPVC(pvName)
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
-				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-
-				// add userdata for guest agent and service account mount
-				mountSvcAccCommands := fmt.Sprintf(`
-					mkdir /mnt/servacc
-					mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
-				`, secretDiskSerial)
-				userData := fmt.Sprintf("%s\n%s", tests.GetGuestAgentUserData(), mountSvcAccCommands)
-				tests.AddUserData(vmi, "cloud-init", userData)
-
-				tests.AddServiceAccountDisk(vmi, "default")
-				disks := vmi.Spec.Domain.Devices.Disks
-				disks[len(disks)-1].Serial = secretDiskSerial
-
-				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
-
-				// Wait for cloud init to finish and start the agent inside the vmi.
-				tests.WaitAgentConnected(virtClient, vmi)
-
-				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInFedoraExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred(), "Should be able to login to the Fedora VM")
-				expecter.Close()
-
-				// execute a migration, wait for finalized state
-				By("Starting the Migration for iteration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := runMigrationAndExpectCompletion(migration, migrationWaitTime)
-
-				// check VMI, confirm migration state
-				confirmVMIPostMigration(vmi, migrationUID)
-				confirmMigrationMode(vmi, v1.MigrationPostCopy)
-
-				// Is agent connected after migration
-				tests.WaitAgentConnected(virtClient, vmi)
-
-				By("Checking that the migrated VirtualMachineInstance console has expected output")
-				expecter, err = tests.ReLoggedInFedoraExpecter(vmi, 60)
-				defer expecter.Close()
-				Expect(err).ToNot(HaveOccurred(), "Should stay logged in to the migrated VM")
-
-				By("Checking that the service account is mounted")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "cat /mnt/servacc/namespace\n"},
-					&expect.BExp{R: tests.NamespaceTestDefault},
-				}, 30*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "Should be able to access the mounted service account file")
-
-				By("Deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-
-				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-
-				By("Deleting NFS pod")
-				Expect(virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(tests.NFSTargetName, &metav1.DeleteOptions{})).To(Succeed())
-				By("Waiting for NFS pod to disappear")
-				tests.WaitForPodToDisappearWithTimeout(tests.NFSTargetName, 120)
-			})
+				}, v1.MigrationPostCopy),
+			)
 		})
 
 		Context("migration security", func() {
