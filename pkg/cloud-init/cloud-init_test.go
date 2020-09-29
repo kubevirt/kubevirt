@@ -499,7 +499,7 @@ var _ = Describe("CloudInit", func() {
 										},
 									},
 									PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
-										ConfigDrive: &v1.ConfigDriveAccessCredentialPropagation{},
+										ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
 									},
 								},
 							},

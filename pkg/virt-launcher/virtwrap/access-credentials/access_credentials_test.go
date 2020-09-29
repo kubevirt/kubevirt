@@ -195,7 +195,7 @@ var _ = Describe("AccessCredentials", func() {
 						},
 					},
 					PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
-						QemuGuestAgent: &v1.QemuGuestAgentAccessCredentialPropagation{},
+						QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
 					},
 				},
 			},

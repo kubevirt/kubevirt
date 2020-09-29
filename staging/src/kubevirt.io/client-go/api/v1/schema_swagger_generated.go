@@ -589,7 +589,7 @@ func (AccessCredentialSecretSource) SwaggerDoc() map[string]string {
 	}
 }
 
-func (ConfigDriveAccessCredentialPropagation) SwaggerDoc() map[string]string {
+func (ConfigDriveSSHPublicKeyAccessCredentialPropagation) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "+k8s:openapi-gen=true",
 	}
@@ -602,10 +602,16 @@ func (AuthorizedKeysFile) SwaggerDoc() map[string]string {
 	}
 }
 
-func (QemuGuestAgentAccessCredentialPropagation) SwaggerDoc() map[string]string {
+func (QemuGuestAgentUserPasswordAccessCredentialPropagation) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
+func (QemuGuestAgentSSHPublicKeyAccessCredentialPropagation) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                    "+k8s:openapi-gen=true",
-		"authorizedKeysFiles": "AuthorizedKeysFiles represents all the paths within the guest\nthat ssh public keys should be propagated to\n+optional\n+listType=set",
+		"authorizedKeysFiles": "AuthorizedKeysFiles represents all the paths within the guest\nthat ssh public keys should be propagated to\n+listType=set",
 	}
 }
 

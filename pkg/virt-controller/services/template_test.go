@@ -393,7 +393,7 @@ var _ = Describe("Template", func() {
 										},
 									},
 									PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
-										ConfigDrive: &v1.ConfigDriveAccessCredentialPropagation{},
+										ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
 									},
 								},
 							},
@@ -437,7 +437,7 @@ var _ = Describe("Template", func() {
 										},
 									},
 									PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
-										QemuGuestAgent: &v1.QemuGuestAgentAccessCredentialPropagation{},
+										QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{},
 									},
 								},
 							},
@@ -481,7 +481,7 @@ var _ = Describe("Template", func() {
 										},
 									},
 									PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
-										QemuGuestAgent: &v1.QemuGuestAgentAccessCredentialPropagation{},
+										QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
 									},
 								},
 							},

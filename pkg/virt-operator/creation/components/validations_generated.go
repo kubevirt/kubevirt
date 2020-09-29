@@ -1499,6 +1499,87 @@ var CRDsValidation map[string]string = map[string]string{
             spec:
               description: VirtualMachineInstance Spec contains the VirtualMachineInstance specification.
               properties:
+                accessCredentials:
+                  description: Specifies a set of public keys to inject into the vm guest
+                  items:
+                    description: AccessCredential represents a credential source that can be used to authorize remote access to the vm guest Only one of its members may be specified.
+                    properties:
+                      sshPublicKey:
+                        description: SSHPublicKeyAccessCredential represents a source and propagation method for injecting ssh public keys into a vm guest Only one of its members may be specified.
+                        properties:
+                          propagationMethod:
+                            description: propagationMethod represents how the public key is injected into the vm guest.
+                            properties:
+                              configDrive:
+                                description: ConfigDrivePropagation means that the ssh public keys are injected into the VM using metadata using the configDrive cloud-init provider
+                                type: object
+                              qemuGuestAgent:
+                                description: QemuGuestAgentAccessCredentailPropagation means ssh public keys are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.
+                                properties:
+                                  authorizedKeysFiles:
+                                    description: AuthorizedKeysFiles represents all the paths within the guest that ssh public keys should be propagated to
+                                    items:
+                                      description: AuthorizedKeysFile represents a path within the guest that ssh public keys should be propagated to
+                                      properties:
+                                        filePath:
+                                          description: FilePath represents the place on the guest that the authorized_keys file should be writen to. This is expected to be a full path including both the base directory and file name.
+                                          type: string
+                                      required:
+                                      - filePath
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: set
+                                required:
+                                - authorizedKeysFiles
+                                type: object
+                            type: object
+                          source:
+                            description: Source represents where the public keys are pulled from
+                            properties:
+                              secret:
+                                description: Secret means that the access credential is pulled from a kubernetes secret
+                                properties:
+                                  secretName:
+                                    description: SecretName represents the name of the secret in the VMI's namespace
+                                    type: string
+                                required:
+                                - secretName
+                                type: object
+                            type: object
+                        required:
+                        - propagationMethod
+                        - source
+                        type: object
+                      userPassword:
+                        description: UserPasswordAccessCredential represents a source and propagation method for injecting user passwords into a vm guest Only one of its members may be specified.
+                        properties:
+                          propagationMethod:
+                            description: propagationMethod represents how the user passwords are injected into the vm guest.
+                            properties:
+                              qemuGuestAgent:
+                                description: QemuGuestAgentAccessCredentailPropagation means passwords are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.
+                                type: object
+                            type: object
+                          source:
+                            description: Source represents where the user passwords are pulled from
+                            properties:
+                              secret:
+                                description: Secret means that the access credential is pulled from a kubernetes secret
+                                properties:
+                                  secretName:
+                                    description: SecretName represents the name of the secret in the VMI's namespace
+                                    type: string
+                                required:
+                                - secretName
+                                type: object
+                            type: object
+                        required:
+                        - propagationMethod
+                        - source
+                        type: object
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: set
                 affinity:
                   description: If affinity is specifies, obey all the affinity rules
                   properties:
@@ -3068,6 +3149,87 @@ var CRDsValidation map[string]string = map[string]string{
     spec:
       description: VirtualMachineInstance Spec contains the VirtualMachineInstance specification.
       properties:
+        accessCredentials:
+          description: Specifies a set of public keys to inject into the vm guest
+          items:
+            description: AccessCredential represents a credential source that can be used to authorize remote access to the vm guest Only one of its members may be specified.
+            properties:
+              sshPublicKey:
+                description: SSHPublicKeyAccessCredential represents a source and propagation method for injecting ssh public keys into a vm guest Only one of its members may be specified.
+                properties:
+                  propagationMethod:
+                    description: propagationMethod represents how the public key is injected into the vm guest.
+                    properties:
+                      configDrive:
+                        description: ConfigDrivePropagation means that the ssh public keys are injected into the VM using metadata using the configDrive cloud-init provider
+                        type: object
+                      qemuGuestAgent:
+                        description: QemuGuestAgentAccessCredentailPropagation means ssh public keys are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.
+                        properties:
+                          authorizedKeysFiles:
+                            description: AuthorizedKeysFiles represents all the paths within the guest that ssh public keys should be propagated to
+                            items:
+                              description: AuthorizedKeysFile represents a path within the guest that ssh public keys should be propagated to
+                              properties:
+                                filePath:
+                                  description: FilePath represents the place on the guest that the authorized_keys file should be writen to. This is expected to be a full path including both the base directory and file name.
+                                  type: string
+                              required:
+                              - filePath
+                              type: object
+                            type: array
+                            x-kubernetes-list-type: set
+                        required:
+                        - authorizedKeysFiles
+                        type: object
+                    type: object
+                  source:
+                    description: Source represents where the public keys are pulled from
+                    properties:
+                      secret:
+                        description: Secret means that the access credential is pulled from a kubernetes secret
+                        properties:
+                          secretName:
+                            description: SecretName represents the name of the secret in the VMI's namespace
+                            type: string
+                        required:
+                        - secretName
+                        type: object
+                    type: object
+                required:
+                - propagationMethod
+                - source
+                type: object
+              userPassword:
+                description: UserPasswordAccessCredential represents a source and propagation method for injecting user passwords into a vm guest Only one of its members may be specified.
+                properties:
+                  propagationMethod:
+                    description: propagationMethod represents how the user passwords are injected into the vm guest.
+                    properties:
+                      qemuGuestAgent:
+                        description: QemuGuestAgentAccessCredentailPropagation means passwords are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.
+                        type: object
+                    type: object
+                  source:
+                    description: Source represents where the user passwords are pulled from
+                    properties:
+                      secret:
+                        description: Secret means that the access credential is pulled from a kubernetes secret
+                        properties:
+                          secretName:
+                            description: SecretName represents the name of the secret in the VMI's namespace
+                            type: string
+                        required:
+                        - secretName
+                        type: object
+                    type: object
+                required:
+                - propagationMethod
+                - source
+                type: object
+            type: object
+          type: array
+          x-kubernetes-list-type: set
         affinity:
           description: If affinity is specifies, obey all the affinity rules
           properties:
@@ -5477,6 +5639,87 @@ var CRDsValidation map[string]string = map[string]string{
             spec:
               description: VirtualMachineInstance Spec contains the VirtualMachineInstance specification.
               properties:
+                accessCredentials:
+                  description: Specifies a set of public keys to inject into the vm guest
+                  items:
+                    description: AccessCredential represents a credential source that can be used to authorize remote access to the vm guest Only one of its members may be specified.
+                    properties:
+                      sshPublicKey:
+                        description: SSHPublicKeyAccessCredential represents a source and propagation method for injecting ssh public keys into a vm guest Only one of its members may be specified.
+                        properties:
+                          propagationMethod:
+                            description: propagationMethod represents how the public key is injected into the vm guest.
+                            properties:
+                              configDrive:
+                                description: ConfigDrivePropagation means that the ssh public keys are injected into the VM using metadata using the configDrive cloud-init provider
+                                type: object
+                              qemuGuestAgent:
+                                description: QemuGuestAgentAccessCredentailPropagation means ssh public keys are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.
+                                properties:
+                                  authorizedKeysFiles:
+                                    description: AuthorizedKeysFiles represents all the paths within the guest that ssh public keys should be propagated to
+                                    items:
+                                      description: AuthorizedKeysFile represents a path within the guest that ssh public keys should be propagated to
+                                      properties:
+                                        filePath:
+                                          description: FilePath represents the place on the guest that the authorized_keys file should be writen to. This is expected to be a full path including both the base directory and file name.
+                                          type: string
+                                      required:
+                                      - filePath
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: set
+                                required:
+                                - authorizedKeysFiles
+                                type: object
+                            type: object
+                          source:
+                            description: Source represents where the public keys are pulled from
+                            properties:
+                              secret:
+                                description: Secret means that the access credential is pulled from a kubernetes secret
+                                properties:
+                                  secretName:
+                                    description: SecretName represents the name of the secret in the VMI's namespace
+                                    type: string
+                                required:
+                                - secretName
+                                type: object
+                            type: object
+                        required:
+                        - propagationMethod
+                        - source
+                        type: object
+                      userPassword:
+                        description: UserPasswordAccessCredential represents a source and propagation method for injecting user passwords into a vm guest Only one of its members may be specified.
+                        properties:
+                          propagationMethod:
+                            description: propagationMethod represents how the user passwords are injected into the vm guest.
+                            properties:
+                              qemuGuestAgent:
+                                description: QemuGuestAgentAccessCredentailPropagation means passwords are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.
+                                type: object
+                            type: object
+                          source:
+                            description: Source represents where the user passwords are pulled from
+                            properties:
+                              secret:
+                                description: Secret means that the access credential is pulled from a kubernetes secret
+                                properties:
+                                  secretName:
+                                    description: SecretName represents the name of the secret in the VMI's namespace
+                                    type: string
+                                required:
+                                - secretName
+                                type: object
+                            type: object
+                        required:
+                        - propagationMethod
+                        - source
+                        type: object
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: set
                 affinity:
                   description: If affinity is specifies, obey all the affinity rules
                   properties:
@@ -7456,6 +7699,87 @@ var CRDsValidation map[string]string = map[string]string{
                         spec:
                           description: VirtualMachineInstance Spec contains the VirtualMachineInstance specification.
                           properties:
+                            accessCredentials:
+                              description: Specifies a set of public keys to inject into the vm guest
+                              items:
+                                description: AccessCredential represents a credential source that can be used to authorize remote access to the vm guest Only one of its members may be specified.
+                                properties:
+                                  sshPublicKey:
+                                    description: SSHPublicKeyAccessCredential represents a source and propagation method for injecting ssh public keys into a vm guest Only one of its members may be specified.
+                                    properties:
+                                      propagationMethod:
+                                        description: propagationMethod represents how the public key is injected into the vm guest.
+                                        properties:
+                                          configDrive:
+                                            description: ConfigDrivePropagation means that the ssh public keys are injected into the VM using metadata using the configDrive cloud-init provider
+                                            type: object
+                                          qemuGuestAgent:
+                                            description: QemuGuestAgentAccessCredentailPropagation means ssh public keys are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.
+                                            properties:
+                                              authorizedKeysFiles:
+                                                description: AuthorizedKeysFiles represents all the paths within the guest that ssh public keys should be propagated to
+                                                items:
+                                                  description: AuthorizedKeysFile represents a path within the guest that ssh public keys should be propagated to
+                                                  properties:
+                                                    filePath:
+                                                      description: FilePath represents the place on the guest that the authorized_keys file should be writen to. This is expected to be a full path including both the base directory and file name.
+                                                      type: string
+                                                  required:
+                                                  - filePath
+                                                  type: object
+                                                type: array
+                                                x-kubernetes-list-type: set
+                                            required:
+                                            - authorizedKeysFiles
+                                            type: object
+                                        type: object
+                                      source:
+                                        description: Source represents where the public keys are pulled from
+                                        properties:
+                                          secret:
+                                            description: Secret means that the access credential is pulled from a kubernetes secret
+                                            properties:
+                                              secretName:
+                                                description: SecretName represents the name of the secret in the VMI's namespace
+                                                type: string
+                                            required:
+                                            - secretName
+                                            type: object
+                                        type: object
+                                    required:
+                                    - propagationMethod
+                                    - source
+                                    type: object
+                                  userPassword:
+                                    description: UserPasswordAccessCredential represents a source and propagation method for injecting user passwords into a vm guest Only one of its members may be specified.
+                                    properties:
+                                      propagationMethod:
+                                        description: propagationMethod represents how the user passwords are injected into the vm guest.
+                                        properties:
+                                          qemuGuestAgent:
+                                            description: QemuGuestAgentAccessCredentailPropagation means passwords are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.
+                                            type: object
+                                        type: object
+                                      source:
+                                        description: Source represents where the user passwords are pulled from
+                                        properties:
+                                          secret:
+                                            description: Secret means that the access credential is pulled from a kubernetes secret
+                                            properties:
+                                              secretName:
+                                                description: SecretName represents the name of the secret in the VMI's namespace
+                                                type: string
+                                            required:
+                                            - secretName
+                                            type: object
+                                        type: object
+                                    required:
+                                    - propagationMethod
+                                    - source
+                                    type: object
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: set
                             affinity:
                               description: If affinity is specifies, obey all the affinity rules
                               properties:
