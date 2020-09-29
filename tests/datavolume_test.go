@@ -63,7 +63,6 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 	})
 
 	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-		tests.WaitForSuccessfulDataVolumeImportOfVMI(vmi, timeout)
 
 		By("Starting a VirtualMachineInstance with DataVolume")
 		var obj *v1.VirtualMachineInstance
@@ -106,6 +105,29 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 					Expect(err).To(BeNil())
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
+				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+			})
+
+			It("should be successfully started when using a PVC volume owned by a DataVolume", func() {
+
+				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
+
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
+				Expect(err).To(BeNil())
+
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).To(BeNil())
+				expecter.Close()
+
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+
 				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
 				Expect(err).To(BeNil())
 			})
