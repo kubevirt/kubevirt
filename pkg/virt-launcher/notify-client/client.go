@@ -247,17 +247,17 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 		domain.ObjectMeta.DeletionTimestamp = &now
 		watchEvent := watch.Event{Type: watch.Modified, Object: domain}
 		client.SendDomainEvent(watchEvent)
-		events <- watchEvent
+		updateEvents(watchEvent, domain, events)
 	default:
 		if libvirtEvent.Event != nil {
 			if libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_DEFINED && libvirt.DomainEventDefinedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
 				event := watch.Event{Type: watch.Added, Object: domain}
 				client.SendDomainEvent(event)
-				events <- event
+				updateEvents(event, domain, events)
 			} else if libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_STARTED && libvirt.DomainEventStartedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_STARTED_MIGRATED {
 				event := watch.Event{Type: watch.Added, Object: domain}
 				client.SendDomainEvent(event)
-				events <- event
+				updateEvents(event, domain, events)
 			}
 		}
 		if interfaceStatus != nil {
@@ -270,6 +270,23 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 		err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
 		if err != nil {
 			log.Log.Reason(err).Error("Could not send domain notify event.")
+		}
+	}
+}
+
+var updateEvents = updateEventsClosure()
+
+func updateEventsClosure() func(event watch.Event, domain *api.Domain, events chan watch.Event) {
+	firstAddEvent := true
+	firstDeleteEvent := true
+
+	return func(event watch.Event, domain *api.Domain, events chan watch.Event) {
+		if event.Type == watch.Added && firstAddEvent {
+			firstAddEvent = false
+			events <- event
+		} else if event.Type == watch.Modified && domain.ObjectMeta.DeletionTimestamp != nil && firstDeleteEvent {
+			firstDeleteEvent = false
+			events <- event
 		}
 	}
 }
