@@ -95,7 +95,7 @@ var _ = Describe("Guest Access Credentials", func() {
 							},
 						},
 						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
-							QemuGuestAgent: &v1.QemuGuestAgentAccessCredentialPropagation{
+							QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
 								AuthorizedKeysFiles: []v1.AuthorizedKeysFile{
 									{
 										FilePath: "/home/fedora/.ssh/authorized_keys",
@@ -169,7 +169,7 @@ var _ = Describe("Guest Access Credentials", func() {
 							},
 						},
 						PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
-							QemuGuestAgent: &v1.QemuGuestAgentAccessCredentialPropagation{},
+							QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
 						},
 					},
 				},
@@ -231,7 +231,7 @@ var _ = Describe("Guest Access Credentials", func() {
 							},
 						},
 						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
-							ConfigDrive: &v1.ConfigDriveAccessCredentialPropagation{},
+							ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
 						},
 					},
 				},

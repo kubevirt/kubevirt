@@ -2241,7 +2241,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 							},
 						},
 						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
-							ConfigDrive: &v1.ConfigDriveAccessCredentialPropagation{},
+							ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
 						},
 					},
 				},
@@ -2252,15 +2252,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should accept a valid ssh access credential with qemu agent propagation", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: "testdisk",
-			})
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "testdisk",
-				VolumeSource: v1.VolumeSource{
-					CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{UserData: " "},
-				},
-			})
 
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{
@@ -2271,7 +2262,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 							},
 						},
 						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
-							QemuGuestAgent: &v1.QemuGuestAgentAccessCredentialPropagation{},
+							QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
+								AuthorizedKeysFiles: []v1.AuthorizedKeysFile{
+									{
+										FilePath: "madeup",
+									},
+								},
+							},
 						},
 					},
 				},
@@ -2282,15 +2279,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should accept a valid user password access credential with qemu agent propagation", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: "testdisk",
-			})
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "testdisk",
-				VolumeSource: v1.VolumeSource{
-					CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{UserData: " "},
-				},
-			})
 
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{
@@ -2301,7 +2289,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 							},
 						},
 						PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
-							QemuGuestAgent: &v1.QemuGuestAgentAccessCredentialPropagation{},
+							QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
 						},
 					},
 				},
@@ -2332,7 +2320,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 							},
 						},
 						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
-							ConfigDrive: &v1.ConfigDriveAccessCredentialPropagation{},
+							ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
 						},
 					},
 				},
@@ -2356,7 +2344,27 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				{
 					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
 						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
-							ConfigDrive: &v1.ConfigDriveAccessCredentialPropagation{},
+							ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
+						},
+					},
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+		})
+
+		It("should reject a ssh access credential with qemu agent propagation with no authorized key files listed", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.AccessCredentials = []v1.AccessCredential{
+				{
+					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+						Source: v1.SSHPublicKeyAccessCredentialSource{
+							Secret: &v1.AccessCredentialSecretSource{
+								SecretName: "my-pkey",
+							},
+						},
+						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+							QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{},
 						},
 					},
 				},
@@ -2371,7 +2379,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				{
 					UserPassword: &v1.UserPasswordAccessCredential{
 						PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
-							QemuGuestAgent: &v1.QemuGuestAgentAccessCredentialPropagation{},
+							QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
 						},
 					},
 				},

@@ -1265,6 +1265,15 @@ func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.Acce
 				}
 			}
 			if accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent != nil {
+
+				if len(accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent.AuthorizedKeysFiles) == 0 {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("%s requires at least one file path to be present in the authorizedKeysFiles list", field.Index(idx).String()),
+						Field:   field.Index(idx).Child("sshPublicKey", "propagationMethod", "qemuGuestAgent", "authorizedKeysFiles").String(),
+					})
+				}
+
 				methodCount++
 			}
 

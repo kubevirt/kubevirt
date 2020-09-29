@@ -8256,7 +8256,7 @@
      }
     }
    },
-   "v1.ConfigDriveAccessCredentialPropagation": {
+   "v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation": {
     "type": "object"
    },
    "v1.ConfigMapVolumeSource": {
@@ -9657,8 +9657,11 @@
      }
     }
    },
-   "v1.QemuGuestAgentAccessCredentialPropagation": {
+   "v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation": {
     "type": "object",
+    "required": [
+     "authorizedKeysFiles"
+    ],
     "properties": {
      "authorizedKeysFiles": {
       "description": "AuthorizedKeysFiles represents all the paths within the guest that ssh public keys should be propagated to",
@@ -9669,6 +9672,9 @@
       "x-kubernetes-list-type": "set"
      }
     }
+   },
+   "v1.QemuGuestAgentUserPasswordAccessCredentialPropagation": {
+    "type": "object"
    },
    "v1.RTCTimer": {
     "type": "object",
@@ -9777,11 +9783,11 @@
     "properties": {
      "configDrive": {
       "description": "ConfigDrivePropagation means that the ssh public keys are injected into the VM using metadata using the configDrive cloud-init provider",
-      "$ref": "#/definitions/v1.ConfigDriveAccessCredentialPropagation"
+      "$ref": "#/definitions/v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation"
      },
      "qemuGuestAgent": {
       "description": "QemuGuestAgentAccessCredentailPropagation means ssh public keys are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.",
-      "$ref": "#/definitions/v1.QemuGuestAgentAccessCredentialPropagation"
+      "$ref": "#/definitions/v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation"
      }
     }
    },
@@ -9873,7 +9879,7 @@
     "properties": {
      "qemuGuestAgent": {
       "description": "QemuGuestAgentAccessCredentailPropagation means passwords are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.",
-      "$ref": "#/definitions/v1.QemuGuestAgentAccessCredentialPropagation"
+      "$ref": "#/definitions/v1.QemuGuestAgentUserPasswordAccessCredentialPropagation"
      }
     }
    },

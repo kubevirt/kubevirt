@@ -1148,7 +1148,7 @@ type AccessCredentialSecretSource struct {
 
 //
 // +k8s:openapi-gen=true
-type ConfigDriveAccessCredentialPropagation struct{}
+type ConfigDriveSSHPublicKeyAccessCredentialPropagation struct{}
 
 // AuthorizedKeysFile represents a path within the guest
 // that ssh public keys should be propagated to
@@ -1163,12 +1163,15 @@ type AuthorizedKeysFile struct {
 
 //
 // +k8s:openapi-gen=true
-type QemuGuestAgentAccessCredentialPropagation struct {
+type QemuGuestAgentUserPasswordAccessCredentialPropagation struct{}
+
+//
+// +k8s:openapi-gen=true
+type QemuGuestAgentSSHPublicKeyAccessCredentialPropagation struct {
 	// AuthorizedKeysFiles represents all the paths within the guest
 	// that ssh public keys should be propagated to
-	// +optional
 	// +listType=set
-	AuthorizedKeysFiles []AuthorizedKeysFile `json:"authorizedKeysFiles,omitempty"`
+	AuthorizedKeysFiles []AuthorizedKeysFile `json:"authorizedKeysFiles"`
 }
 
 // SSHPublicKeyAccessCredentialSource represents where to retrieve the ssh key
@@ -1189,12 +1192,12 @@ type SSHPublicKeyAccessCredentialSource struct {
 type SSHPublicKeyAccessCredentialPropagationMethod struct {
 	// ConfigDrivePropagation means that the ssh public keys are injected
 	// into the VM using metadata using the configDrive cloud-init provider
-	ConfigDrive *ConfigDriveAccessCredentialPropagation `json:"configDrive,omitempty"`
+	ConfigDrive *ConfigDriveSSHPublicKeyAccessCredentialPropagation `json:"configDrive,omitempty"`
 
 	// QemuGuestAgentAccessCredentailPropagation means ssh public keys are
 	// dynamically injected into the vm at runtime via the qemu guest agent.
 	// This feature requires the qemu guest agent to be running within the guest.
-	QemuGuestAgent *QemuGuestAgentAccessCredentialPropagation `json:"qemuGuestAgent,omitempty"`
+	QemuGuestAgent *QemuGuestAgentSSHPublicKeyAccessCredentialPropagation `json:"qemuGuestAgent,omitempty"`
 }
 
 // SSHPublicKeyAccessCredential represents a source and propagation method for
@@ -1229,7 +1232,7 @@ type UserPasswordAccessCredentialPropagationMethod struct {
 	// QemuGuestAgentAccessCredentailPropagation means passwords are
 	// dynamically injected into the vm at runtime via the qemu guest agent.
 	// This feature requires the qemu guest agent to be running within the guest.
-	QemuGuestAgent *QemuGuestAgentAccessCredentialPropagation `json:"qemuGuestAgent,omitempty"`
+	QemuGuestAgent *QemuGuestAgentUserPasswordAccessCredentialPropagation `json:"qemuGuestAgent,omitempty"`
 }
 
 // UserPasswordAccessCredential represents a source and propagation method for
