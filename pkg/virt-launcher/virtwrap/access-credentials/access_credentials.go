@@ -73,18 +73,50 @@ type AccessCredentialManager struct {
 	lock                 sync.Mutex
 	secretWatcherStarted bool
 
+	stopCh                     chan struct{}
+	resyncCheckIntervalSeconds int
+
 	watcher *fsnotify.Watcher
 }
 
 func NewManager(connection cli.Connection) *AccessCredentialManager {
 
 	return &AccessCredentialManager{
-		virConn: connection,
+		virConn:                    connection,
+		stopCh:                     make(chan struct{}),
+		resyncCheckIntervalSeconds: 15,
 	}
 }
 
 // only set during unit tests
 var unitTestSecretDir string
+
+func getSecretDirs(vmi *v1.VirtualMachineInstance) []string {
+	var dirs []string
+	for _, accessCred := range vmi.Spec.AccessCredentials {
+		secretName := ""
+		if accessCred.SSHPublicKey != nil && accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent != nil {
+			if accessCred.SSHPublicKey.Source.Secret != nil {
+				secretName = accessCred.SSHPublicKey.Source.Secret.SecretName
+			}
+		} else if accessCred.UserPassword != nil && accessCred.UserPassword.PropagationMethod.QemuGuestAgent != nil {
+			if accessCred.UserPassword.Source.Secret != nil {
+				secretName = accessCred.UserPassword.Source.Secret.SecretName
+			}
+		}
+
+		if secretName == "" {
+			continue
+		}
+		dirs = append(dirs, getSecretDir(secretName))
+	}
+
+	return dirs
+}
+
+func getSecretDir(secretName string) string {
+	return filepath.Join(getSecretBaseDir(), secretName+"-access-cred")
+}
 
 func getSecretBaseDir() string {
 
@@ -403,7 +435,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 	// every 'x' seconds. This could help prevent making multiple qemu
 	// execution calls in the event multiple secret changes are landing within
 	// a small timeframe.
-	handleChangesTicker := time.NewTicker(15 * time.Second)
+	handleChangesTicker := time.NewTicker(time.Duration(l.resyncCheckIntervalSeconds) * time.Second)
 	defer handleChangesTicker.Stop()
 
 	for {
@@ -420,6 +452,9 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 				reload = true
 				logger.Info("Reloading access credentials because secret changed")
 			}
+		case <-l.stopCh:
+			logger.Info("Signalled to stop watching access credential secrets")
+			return
 		}
 
 		if !reload {
@@ -443,7 +478,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 				continue
 			}
 
-			secretDir := filepath.Join(getSecretBaseDir(), secretName+"-access-cred")
+			secretDir := getSecretDir(secretName)
 			files, err := ioutil.ReadDir(secretDir)
 			if err != nil {
 				// if reading failed, reset reload to true so this change will be retried again
@@ -549,19 +584,9 @@ func (l *AccessCredentialManager) HandleQemuAgentAccessCredentials(vmi *v1.Virtu
 		return nil
 	}
 
-	found := false
-	for _, accessCred := range vmi.Spec.AccessCredentials {
-		if accessCred.SSHPublicKey != nil && accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent != nil {
-			found = true
-			break
-		} else if accessCred.UserPassword != nil && accessCred.UserPassword.PropagationMethod.QemuGuestAgent != nil {
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		// not using the agent for ssh pub key propagation
+	secretDirs := getSecretDirs(vmi)
+	if len(secretDirs) == 0 {
+		// nothing to watch
 		return nil
 	}
 
@@ -571,23 +596,8 @@ func (l *AccessCredentialManager) HandleQemuAgentAccessCredentials(vmi *v1.Virtu
 		return err
 	}
 
-	for _, accessCred := range vmi.Spec.AccessCredentials {
-		secretName := ""
-		if accessCred.SSHPublicKey != nil && accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent != nil {
-			if accessCred.SSHPublicKey.Source.Secret != nil {
-				secretName = accessCred.SSHPublicKey.Source.Secret.SecretName
-			}
-		} else if accessCred.UserPassword != nil && accessCred.UserPassword.PropagationMethod.QemuGuestAgent != nil {
-			if accessCred.UserPassword.Source.Secret != nil {
-				secretName = accessCred.UserPassword.Source.Secret.SecretName
-			}
-		}
-
-		if secretName == "" {
-			continue
-		}
-		secretDir := filepath.Join(getSecretBaseDir(), secretName+"-access-cred")
-		err = l.watcher.Add(secretDir)
+	for _, dir := range secretDirs {
+		err = l.watcher.Add(dir)
 		if err != nil {
 			return err
 		}
