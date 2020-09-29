@@ -8,6 +8,9 @@ function main {
   declare -A COMPONENTS_REPOS
   declare SHOULD_UPDATED
 
+  echo "INFO: Checking go version"
+  go version
+
   echo "INFO: Getting Components current versions..."
   get_current_versions
 
@@ -29,9 +32,6 @@ function main {
 
   echo INFO: Updating go.mod...
   update_go_mod
-
-  echo INFO: Checking go version
-  go version
 
   echo INFO: Executing "go mod vendor"
   go mod vendor
