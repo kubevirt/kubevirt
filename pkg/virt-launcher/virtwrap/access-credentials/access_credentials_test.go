@@ -22,24 +22,37 @@ package accesscredentials
 import (
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/golang/mock/gomock"
 
+	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
 var _ = Describe("AccessCredentials", func() {
 	var mockConn *cli.MockConnection
 	var ctrl *gomock.Controller
 	var manager *AccessCredentialManager
+	var tmpDir string
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockConn = cli.NewMockConnection(ctrl)
 		manager = NewManager(mockConn)
+		manager.resyncCheckIntervalSeconds = 1
+		tmpDir, _ = ioutil.TempDir("", "credential-test")
+		unitTestSecretDir = tmpDir
+	})
+	AfterEach(func() {
+		os.RemoveAll(tmpDir)
 	})
 
 	It("should handle qemu agent exec", func() {
@@ -163,6 +176,91 @@ var _ = Describe("AccessCredentials", func() {
 
 		err := manager.agentWriteAuthorizedKeys(domName, filePath, authorizedKeys)
 		Expect(err).To(BeNil())
-
 	})
+
+	It("should trigger updating a credential when secret propagation change occurs.", func() {
+		var err error
+
+		secretID := "some-secret"
+		password := "fakepassword"
+		user := "fakeuser"
+
+		vmi := &v1.VirtualMachineInstance{}
+		vmi.Spec.AccessCredentials = []v1.AccessCredential{
+			{
+				UserPassword: &v1.UserPasswordAccessCredential{
+					Source: v1.UserPasswordAccessCredentialSource{
+						Secret: &v1.AccessCredentialSecretSource{
+							SecretName: secretID,
+						},
+					},
+					PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
+						QemuGuestAgent: &v1.QemuGuestAgentAccessCredentialPropagation{},
+					},
+				},
+			},
+		}
+		domName := util.VMINamespaceKeyFunc(vmi)
+
+		manager.watcher, err = fsnotify.NewWatcher()
+		Expect(err).To(BeNil())
+
+		secretDirs := getSecretDirs(vmi)
+		Expect(len(secretDirs)).To(Equal(1))
+		Expect(secretDirs[0]).To(Equal(fmt.Sprintf("%s/%s-access-cred", tmpDir, secretID)))
+
+		for _, dir := range secretDirs {
+			os.Mkdir(dir, 0755)
+			err = manager.watcher.Add(dir)
+			Expect(err).To(BeNil())
+		}
+
+		// Write the file
+		err = ioutil.WriteFile(secretDirs[0]+"/"+user, []byte(password), 0644)
+		Expect(err).To(BeNil())
+
+		// set the expected command
+		base64Str := base64.StdEncoding.EncodeToString([]byte(password))
+		cmdSetPassword := fmt.Sprintf(`{"execute":"guest-set-user-password", "arguments": {"username":"%s", "password": "%s", "crypted": false }}`, user, base64Str)
+
+		matched := false
+		mockConn.EXPECT().QemuAgentCommand(cmdSetPassword, domName).MinTimes(1).DoAndReturn(func(funcCmd string, funcDomName string) (string, error) {
+			if funcCmd == cmdSetPassword {
+				matched = true
+			}
+			return "", nil
+		})
+
+		// and wait
+		go func() {
+			watchTimeout := time.NewTicker(2 * time.Second)
+			defer watchTimeout.Stop()
+			<-watchTimeout.C
+			close(manager.stopCh)
+		}()
+
+		manager.watchSecrets(vmi)
+		Expect(matched).To(Equal(true))
+
+		// And wait again after modifying file
+		// Another execute command should occur with the updated password
+		matched = false
+		manager.stopCh = make(chan struct{})
+		password = password + "morefake"
+		err = ioutil.WriteFile(secretDirs[0]+"/"+user, []byte(password), 0644)
+		Expect(err).To(BeNil())
+		base64Str = base64.StdEncoding.EncodeToString([]byte(password))
+		cmdSetPassword = fmt.Sprintf(`{"execute":"guest-set-user-password", "arguments": {"username":"%s", "password": "%s", "crypted": false }}`, user, base64Str)
+		mockConn.EXPECT().QemuAgentCommand(cmdSetPassword, domName).MinTimes(1).Return("", nil)
+
+		go func() {
+			watchTimeout := time.NewTicker(2 * time.Second)
+			defer watchTimeout.Stop()
+			<-watchTimeout.C
+			close(manager.stopCh)
+		}()
+
+		manager.watchSecrets(vmi)
+	})
+
 })
