@@ -395,7 +395,7 @@ func main() {
 		}
 	}
 
-	events := make(chan watch.Event, 10)
+	events := make(chan watch.Event, 2)
 	// Send domain notifications to virt-handler
 	startDomainEventMonitoring(notifier, *virtShareDir, domainConn, events, vm.UID, domainName, &agentStore, *qemuAgentSysInterval, *qemuAgentFileInterval, *qemuAgentUserInterval, *qemuAgentVersionInterval)
 
