@@ -669,11 +669,6 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 		return nil
 	}
 
-	// Check that PVCs are not used when DataVolmes should
-	if err := handlePVCMisuseInVM(c.pvcInformer, c.recorder, vm); err != nil {
-		return err
-	}
-
 	// start it
 	vmi := c.setupVMIFromVM(vm)
 

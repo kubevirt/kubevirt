@@ -111,7 +111,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
 			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].name"))
 		})
-		It("[test_id:4643]should be rejected when VM template lists a DataVolume, but VM lists PVC VolumeSource", func() {
+		It("[test_id:4643]should NOT be rejected when VM template lists a DataVolume, but VM lists PVC VolumeSource", func() {
 			dv := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 			_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
 			Expect(err).To(BeNil())
@@ -154,7 +154,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dvt)
 			_, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
-			Expect(err).Should(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 		})
 		It("[Serial][test_id:4644]should fail to start when a volume is backed by PVC created by DataVolume instead of the DataVolume itself", func() {
 			dv := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
