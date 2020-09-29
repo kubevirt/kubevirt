@@ -1812,10 +1812,20 @@ var _ = Describe("HyperConverged Components", func() {
 	})
 
 	Context("Manage IMS Config", func() {
+
+		var hco *hcov1beta1.HyperConverged
+		var req *hcoRequest
+
+		BeforeEach(func() {
+			os.Setenv("CONVERSION_CONTAINER", "new-conversion-container-value")
+			os.Setenv("VMWARE_CONTAINER", "new-vmware-container-value")
+			hco = newHco()
+			req = newReq(hco)
+		})
+
 		It("should error if environment vars not specified", func() {
 			os.Unsetenv("CONVERSION_CONTAINER")
 			os.Unsetenv("VMWARE_CONTAINER")
-			req := newReq(newHco())
 
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
@@ -1823,6 +1833,77 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(BeNil())
 		})
+
+		It("should create if not present", func() {
+			expectedResource := newIMSConfigForCR(hco, namespace)
+			cl := initClient([]runtime.Object{})
+			r := initReconciler(cl)
+			res := r.ensureIMSConfig(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &corev1.ConfigMap{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					foundResource),
+			).To(BeNil())
+			Expect(foundResource.Name).To(Equal(expectedResource.Name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, name))
+			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
+		})
+
+		It("should find if present", func() {
+			expectedResource := newIMSConfigForCR(hco, namespace)
+			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+			cl := initClient([]runtime.Object{hco, expectedResource})
+			r := initReconciler(cl)
+			res := r.ensureIMSConfig(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			// Check HCO's status
+			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+			objectRef, err := reference.GetReference(r.scheme, expectedResource)
+			Expect(err).To(BeNil())
+			// ObjectReference should have been added
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
+		})
+
+		It("should reconcile according to env values", func() {
+			convk := "v2v-conversion-image"
+			vmwarek := "kubevirt-vmware-image"
+			updatableKeys := [...]string{convk, vmwarek}
+
+			expectedResource := newIMSConfigForCR(hco, namespace)
+			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+			outdatedResource := newIMSConfigForCR(hco, namespace)
+			outdatedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", outdatedResource.Namespace, outdatedResource.Name)
+			// values we should update
+			outdatedResource.Data[convk] = "old-conversion-container-value-we-have-to-update"
+			outdatedResource.Data[vmwarek] = "old-vmware-container-value-we-have-to-update"
+
+			cl := initClient([]runtime.Object{hco, outdatedResource})
+			r := initReconciler(cl)
+
+			res := r.ensureIMSConfig(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &corev1.ConfigMap{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			for _, k := range updatableKeys {
+				Expect(foundResource.Data[k]).To(Not(Equal(outdatedResource.Data[k])))
+				Expect(foundResource.Data[k]).To(Equal(expectedResource.Data[k]))
+			}
+
+		})
+
 	})
 
 	Context("Vm Import", func() {

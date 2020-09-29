@@ -86,6 +86,8 @@ var (
 			Namespace: namespace,
 		},
 	}
+	conversion_image = "quay.io/kubevirt/kubevirt-v2v-conversion:v2.0.0"
+	vmware_image     = "quay.io/kubevirt/kubevirt-vmware:v2.0.0"
 )
 
 func newHco() *hcov1beta1.HyperConverged {
@@ -205,6 +207,8 @@ func getBasicDeployment() *basicExpected {
 	res.kvMtAg = kvMtAg
 
 	res.imsConfig = newIMSConfigForCR(hco, namespace)
+	res.imsConfig.Data["v2v-conversion-image"] = conversion_image
+	res.imsConfig.Data["kubevirt-vmware-image"] = vmware_image
 
 	return res
 }

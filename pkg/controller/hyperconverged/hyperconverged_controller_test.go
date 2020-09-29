@@ -46,8 +46,8 @@ var _ = Describe("HyperconvergedController", func() {
 		Context("HCO Lifecycle", func() {
 
 			BeforeEach(func() {
-				os.Setenv("CONVERSION_CONTAINER", "registry.redhat.io/container-native-virtualization/kubevirt-v2v-conversion:v2.0.0")
-				os.Setenv("VMWARE_CONTAINER", "registry.redhat.io/container-native-virtualization/kubevirt-vmware:v2.0.0}")
+				os.Setenv("CONVERSION_CONTAINER", conversion_image)
+				os.Setenv("VMWARE_CONTAINER", vmware_image)
 				os.Setenv("OPERATOR_NAMESPACE", namespace)
 			})
 
@@ -503,8 +503,8 @@ var _ = Describe("HyperconvergedController", func() {
 			origConds := expected.hco.Status.Conditions
 
 			BeforeEach(func() {
-				os.Setenv("CONVERSION_CONTAINER", "registry.redhat.io/container-native-virtualization/kubevirt-v2v-conversion:v2.0.0")
-				os.Setenv("VMWARE_CONTAINER", "registry.redhat.io/container-native-virtualization/kubevirt-vmware:v2.0.0}")
+				os.Setenv("CONVERSION_CONTAINER", conversion_image)
+				os.Setenv("VMWARE_CONTAINER", vmware_image)
 				os.Setenv("OPERATOR_NAMESPACE", namespace)
 				os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
 			})
@@ -543,8 +543,8 @@ var _ = Describe("HyperconvergedController", func() {
 			)
 
 			BeforeEach(func() {
-				os.Setenv("CONVERSION_CONTAINER", "registry.redhat.io/container-native-virtualization/kubevirt-v2v-conversion:v2.0.0")
-				os.Setenv("VMWARE_CONTAINER", "registry.redhat.io/container-native-virtualization/kubevirt-vmware:v2.0.0}")
+				os.Setenv("CONVERSION_CONTAINER", conversion_image)
+				os.Setenv("VMWARE_CONTAINER", vmware_image)
 				os.Setenv("OPERATOR_NAMESPACE", namespace)
 
 				expected.kv.Status.ObservedKubeVirtVersion = newComponentVersion

@@ -1467,6 +1467,16 @@ func (r *ReconcileHyperConverged) ensureIMSConfig(req *hcoRequest) *EnsureResult
 	}
 	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
+	if !reflect.DeepEqual(found.Data, imsConfig.Data) {
+		found.Data = imsConfig.Data
+		req.logger.Info("Updating existing IMS Configmap to its default value")
+		err = r.client.Update(req.ctx, found)
+		if err != nil {
+			return res.Error(err)
+		}
+		return res.SetUpdated()
+	}
+
 	return res.SetUpgradeDone(req.componentUpgradeInProgress)
 }
 
