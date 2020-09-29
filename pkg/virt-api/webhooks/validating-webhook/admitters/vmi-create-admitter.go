@@ -623,6 +623,16 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			})
 		}
 
+		// Check if the interface name has correct format
+		isValid := regexp.MustCompile(`^[A-Za-z0-9-_]+$`).MatchString
+		if !isValid(iface.Name) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Network interface name can only contain alphabetical characters, numbers, dashes (-) or underscores (_)",
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+			})
+		}
+
 		networkInterfaceMap[iface.Name] = struct{}{}
 
 		// Check only ports configured on interfaces connected to a pod network
