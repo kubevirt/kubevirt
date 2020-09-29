@@ -362,7 +362,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: "stress --vm 1 --vm-bytes 800M --vm-keep --timeout 1600s&\n\n"},
+			&expect.BSnd{S: "stress --vm 1 --vm-bytes 800M --vm-keep --timeout 1600s&\n"},
 			&expect.BExp{R: console.PromptExpression},
 		}, 15*time.Second)
 		Expect(err).ToNot(HaveOccurred(), "should run a stress test")
