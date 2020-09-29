@@ -163,10 +163,17 @@ func (VirtualMachineInstanceReplicaSetCondition) SwaggerDoc() map[string]string 
 	}
 }
 
+func (DataVolumeTemplateDummyStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
 func (DataVolumeTemplateSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "+k8s:openapi-gen=true",
-		"spec": "DataVolumeSpec contains the DataVolume specification.",
+		"":       "+k8s:openapi-gen=true",
+		"spec":   "DataVolumeSpec contains the DataVolume specification.",
+		"status": "DataVolumeTemplateDummyStatus is here simply for backwards compatibility with\na previous API.\n+nullable\n+optional",
 	}
 }
 

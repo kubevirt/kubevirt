@@ -753,11 +753,21 @@ const (
 
 //
 // +k8s:openapi-gen=true
+type DataVolumeTemplateDummyStatus struct{}
+
+//
+// +k8s:openapi-gen=true
 type DataVolumeTemplateSpec struct {
 	// +nullable
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// DataVolumeSpec contains the DataVolume specification.
 	Spec cdiv1.DataVolumeSpec `json:"spec"`
+
+	// DataVolumeTemplateDummyStatus is here simply for backwards compatibility with
+	// a previous API.
+	// +nullable
+	// +optional
+	Status *DataVolumeTemplateDummyStatus `json:"status,omitempty"`
 }
 
 //
