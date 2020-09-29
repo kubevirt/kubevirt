@@ -303,7 +303,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource":                                 schema_kubevirtio_client_go_api_v1_CloudInitConfigDriveSource(ref),
 		"kubevirt.io/client-go/api/v1.CloudInitNoCloudSource":                                     schema_kubevirtio_client_go_api_v1_CloudInitNoCloudSource(ref),
 		"kubevirt.io/client-go/api/v1.ComponentConfig":                                            schema_kubevirtio_client_go_api_v1_ComponentConfig(ref),
-		"kubevirt.io/client-go/api/v1.ConfigDriveAccessCredentialPropagation":                     schema_kubevirtio_client_go_api_v1_ConfigDriveAccessCredentialPropagation(ref),
+		"kubevirt.io/client-go/api/v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation":         schema_kubevirtio_client_go_api_v1_ConfigDriveSSHPublicKeyAccessCredentialPropagation(ref),
 		"kubevirt.io/client-go/api/v1.ConfigMapVolumeSource":                                      schema_kubevirtio_client_go_api_v1_ConfigMapVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.ContainerDiskSource":                                        schema_kubevirtio_client_go_api_v1_ContainerDiskSource(ref),
 		"kubevirt.io/client-go/api/v1.CustomizeComponents":                                        schema_kubevirtio_client_go_api_v1_CustomizeComponents(ref),
@@ -374,7 +374,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.PodNetwork":                                                 schema_kubevirtio_client_go_api_v1_PodNetwork(ref),
 		"kubevirt.io/client-go/api/v1.Port":                                                       schema_kubevirtio_client_go_api_v1_Port(ref),
 		"kubevirt.io/client-go/api/v1.Probe":                                                      schema_kubevirtio_client_go_api_v1_Probe(ref),
-		"kubevirt.io/client-go/api/v1.QemuGuestAgentAccessCredentialPropagation":                  schema_kubevirtio_client_go_api_v1_QemuGuestAgentAccessCredentialPropagation(ref),
+		"kubevirt.io/client-go/api/v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation":      schema_kubevirtio_client_go_api_v1_QemuGuestAgentSSHPublicKeyAccessCredentialPropagation(ref),
+		"kubevirt.io/client-go/api/v1.QemuGuestAgentUserPasswordAccessCredentialPropagation":      schema_kubevirtio_client_go_api_v1_QemuGuestAgentUserPasswordAccessCredentialPropagation(ref),
 		"kubevirt.io/client-go/api/v1.RTCTimer":                                                   schema_kubevirtio_client_go_api_v1_RTCTimer(ref),
 		"kubevirt.io/client-go/api/v1.ResourceRequirements":                                       schema_kubevirtio_client_go_api_v1_ResourceRequirements(ref),
 		"kubevirt.io/client-go/api/v1.RestartOptions":                                             schema_kubevirtio_client_go_api_v1_RestartOptions(ref),
@@ -13996,7 +13997,7 @@ func schema_kubevirtio_client_go_api_v1_ComponentConfig(ref common.ReferenceCall
 	}
 }
 
-func schema_kubevirtio_client_go_api_v1_ConfigDriveAccessCredentialPropagation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_client_go_api_v1_ConfigDriveSSHPublicKeyAccessCredentialPropagation(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -16694,7 +16695,7 @@ func schema_kubevirtio_client_go_api_v1_Probe(ref common.ReferenceCallback) comm
 	}
 }
 
-func schema_kubevirtio_client_go_api_v1_QemuGuestAgentAccessCredentialPropagation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_client_go_api_v1_QemuGuestAgentSSHPublicKeyAccessCredentialPropagation(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -16719,10 +16720,21 @@ func schema_kubevirtio_client_go_api_v1_QemuGuestAgentAccessCredentialPropagatio
 						},
 					},
 				},
+				Required: []string{"authorizedKeysFiles"},
 			},
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/api/v1.AuthorizedKeysFile"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_QemuGuestAgentUserPasswordAccessCredentialPropagation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
 	}
 }
 
@@ -16933,20 +16945,20 @@ func schema_kubevirtio_client_go_api_v1_SSHPublicKeyAccessCredentialPropagationM
 					"configDrive": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ConfigDrivePropagation means that the ssh public keys are injected into the VM using metadata using the configDrive cloud-init provider",
-							Ref:         ref("kubevirt.io/client-go/api/v1.ConfigDriveAccessCredentialPropagation"),
+							Ref:         ref("kubevirt.io/client-go/api/v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation"),
 						},
 					},
 					"qemuGuestAgent": {
 						SchemaProps: spec.SchemaProps{
 							Description: "QemuGuestAgentAccessCredentailPropagation means ssh public keys are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.",
-							Ref:         ref("kubevirt.io/client-go/api/v1.QemuGuestAgentAccessCredentialPropagation"),
+							Ref:         ref("kubevirt.io/client-go/api/v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.ConfigDriveAccessCredentialPropagation", "kubevirt.io/client-go/api/v1.QemuGuestAgentAccessCredentialPropagation"},
+			"kubevirt.io/client-go/api/v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation", "kubevirt.io/client-go/api/v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation"},
 	}
 }
 
@@ -17108,14 +17120,14 @@ func schema_kubevirtio_client_go_api_v1_UserPasswordAccessCredentialPropagationM
 					"qemuGuestAgent": {
 						SchemaProps: spec.SchemaProps{
 							Description: "QemuGuestAgentAccessCredentailPropagation means passwords are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.",
-							Ref:         ref("kubevirt.io/client-go/api/v1.QemuGuestAgentAccessCredentialPropagation"),
+							Ref:         ref("kubevirt.io/client-go/api/v1.QemuGuestAgentUserPasswordAccessCredentialPropagation"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.QemuGuestAgentAccessCredentialPropagation"},
+			"kubevirt.io/client-go/api/v1.QemuGuestAgentUserPasswordAccessCredentialPropagation"},
 	}
 }
 
