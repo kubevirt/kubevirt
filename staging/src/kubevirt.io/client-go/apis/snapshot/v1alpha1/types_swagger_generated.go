@@ -38,7 +38,7 @@ func (Error) SwaggerDoc() map[string]string {
 
 func (Condition) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                   "VirtualMachineSnapshotCondition defines snapshot conditions",
+		"":                   "Condition defines conditions",
 		"lastProbeTime":      "+optional\n+nullable",
 		"lastTransitionTime": "+optional\n+nullable",
 		"reason":             "+optional",
