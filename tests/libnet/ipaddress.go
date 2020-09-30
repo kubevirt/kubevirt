@@ -1,11 +1,13 @@
 package libnet
 
 import (
-	v1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	netutils "k8s.io/utils/net"
+
+	v1 "kubevirt.io/client-go/api/v1"
 )
 
-func GetPodIpByFamily(pod *v1.Pod, family v1.IPFamily) string {
+func GetPodIpByFamily(pod *k8sv1.Pod, family k8sv1.IPFamily) string {
 	var ips []string
 	for _, ip := range pod.Status.PodIPs {
 		ips = append(ips, ip.IP)
@@ -13,7 +15,11 @@ func GetPodIpByFamily(pod *v1.Pod, family v1.IPFamily) string {
 	return getIp(ips, family)
 }
 
-func getIp(ips []string, family v1.IPFamily) string {
+func GetVmiPrimaryIpByFamily(vmi *v1.VirtualMachineInstance, family k8sv1.IPFamily) string {
+	return getIp(vmi.Status.Interfaces[0].IPs, family)
+}
+
+func getIp(ips []string, family k8sv1.IPFamily) string {
 	for _, ip := range ips {
 		if family == getFamily(ip) {
 			return ip
@@ -22,9 +28,9 @@ func getIp(ips []string, family v1.IPFamily) string {
 	return ""
 }
 
-func getFamily(ip string) v1.IPFamily {
+func getFamily(ip string) k8sv1.IPFamily {
 	if netutils.IsIPv6String(ip) {
-		return v1.IPv6Protocol
+		return k8sv1.IPv6Protocol
 	}
-	return v1.IPv4Protocol
+	return k8sv1.IPv4Protocol
 }
