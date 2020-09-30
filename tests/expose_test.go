@@ -536,24 +536,61 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			const servicePort = "27017"
 			const serviceName = "cluster-ip-vmirs"
 
-			It("[test_id:1537][label:masquerade_binding_connectivity]Should create a ClusterIP service on VMRS and connect to it", func() {
+			var vmirsExposeArgs []string
+
+			var jobCleanupFunc func() error
+			var serviceCleanupFunc func() error
+
+			BeforeEach(func() {
+				vmirsExposeArgs = []string{
+					expose.COMMAND_EXPOSE,
+					"vmirs", "--namespace", vmrs.GetNamespace(), vmrs.GetName(),
+					"--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
+				}
+			})
+
+			BeforeEach(func() {
+				jobCleanupFunc = nil
+			})
+
+			BeforeEach(func() {
+				serviceCleanupFunc = nil
+			})
+
+			AfterEach(func() {
+				Expect(jobCleanupFunc).NotTo(BeNil(), "a successful test must have stored a way to delete the batchv1.Job entity")
+				Expect(jobCleanupFunc()).To(Succeed(), "should be able to delete the batchv1.Job entity")
+			})
+
+			AfterEach(func() {
+				Expect(serviceCleanupFunc).NotTo(BeNil(), "a successful test must have stored a way to delete the k8sv1.Service entity")
+				Expect(serviceCleanupFunc()).To(Succeed(), "should be able to delete the k8sv1.Service entity")
+			})
+
+			table.DescribeTable("[test_id:1537][label:masquerade_binding_connectivity]Should create a ClusterIP service on VMRS and connect to it", func(ipFamily k8sv1.IPFamily) {
+				if ipFamily == k8sv1.IPv6Protocol {
+					vmirsExposeArgs = append(vmirsExposeArgs, "--ip-family", "ipv6")
+				}
 				By("Expose a service on the VMRS using virtctl")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmirs", "--namespace",
-					vmrs.Namespace, vmrs.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
-				err = virtctl()
-				Expect(err).ToNot(HaveOccurred())
+				virtctl := tests.NewRepeatableVirtctlCommand(vmirsExposeArgs...)
+				Expect(virtctl()).To(Succeed(), "should succeed exposing a service via `virtctl expose ...`")
 
 				By("Getting back the cluster IP given for the service")
 				svc, err := virtClient.CoreV1().Services(vmrs.Namespace).Get(serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				serviceCleanupFunc = cleanupService(svc.GetName(), svc.GetNamespace())
 				serviceIP := svc.Spec.ClusterIP
 
 				By("Starting a job which tries to reach the VMI via ClusterIP")
 				job := runHelloWorldJob(serviceIP, servicePort, vmrs.Namespace)
+				jobCleanupFunc = cleanupJob(job.GetName(), job.GetNamespace())
 
 				By("Waiting for the job to report a successful connection attempt")
 				Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
-			})
+			},
+				table.Entry("over default IPv4 IP family", k8sv1.IPv4Protocol),
+				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+			)
 		})
 	})
 
