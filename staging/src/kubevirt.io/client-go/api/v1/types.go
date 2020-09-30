@@ -1503,7 +1503,9 @@ type DeveloperConfiguration struct {
 // PermittedHostDevices holds inforamtion about devices allowed for passthrough
 // +k8s:openapi-gen=true
 type PermittedHostDevices struct {
-	PciHostDevices  []PciHostDevice      `json:"pciDevices,omitempty"`
+	// +listType=set
+	PciHostDevices []PciHostDevice `json:"pciDevices,omitempty"`
+	// +listType=set
 	MediatedDevices []MediatedHostDevice `json:"mdevs,omitempty"`
 }
 

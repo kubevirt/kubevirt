@@ -12,11 +12,12 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/client-go/api/v1"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/yaml"
+
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
-	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 const (
@@ -98,18 +99,38 @@ mdevs:
 
 	It("Should update the device list according to the configmap", func() {
 		By("creating a cluster config")
-		configMapData := make(map[string]string)
-		configMapData[virtconfig.PermittedHostDevicesKey] = fakePermittedHostDevicesConfig
-		fakeClusterConfig, fakeInformer, _, _, fakeHostDevInformer := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+		kv := &v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{},
+				},
+			},
+			Status: v1.KubeVirtStatus{
+				Phase: v1.KubeVirtPhaseDeploying,
+			},
+		}
+		fakeClusterConfig, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 
 		By("creating an empty device controller")
-		deviceController := NewDeviceController("master", 10, fakeClusterConfig, fakeInformer)
+		deviceController := NewDeviceController("master", 10, fakeClusterConfig)
 		deviceController.devicePlugins = make(map[string]ControlledDevice)
 
 		By("adding a host device to the cluster config")
-		testutils.UpdateFakeClusterConfigByName(fakeHostDevInformer, &k8sv1.ConfigMap{
-			Data: configMapData,
-		}, testutils.HostDevicesConfigMapName)
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.HostDevicesGate}
+		kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
+			MediatedDevices: []v1.MediatedHostDevice{
+				{
+					Selector:     fakeMdevNameSelector,
+					ResourceName: fakeMdevResourceName,
+				},
+			},
+		}
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 		permittedDevices := fakeClusterConfig.GetPermittedHostDevices()
 		Expect(permittedDevices).ToNot(BeNil(), "something went wrong while parsing the configmap(s)")
 		Expect(len(permittedDevices.MediatedDevices)).To(Equal(1), "the fake device was not found")
@@ -123,11 +144,8 @@ mdevs:
 		deviceController.devicePlugins[fakeMdevResourceName] = enabledDevicePlugins[fakeMdevResourceName]
 
 		By("deletting the device from the configmap")
-		fakePermittedHostDevicesConfig = ""
-		configMapData[virtconfig.PermittedHostDevicesKey] = fakePermittedHostDevicesConfig
-		testutils.UpdateFakeClusterConfigByName(fakeHostDevInformer, &k8sv1.ConfigMap{
-			Data: configMapData,
-		}, testutils.HostDevicesConfigMapName)
+		kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{}
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 		permittedDevices = fakeClusterConfig.GetPermittedHostDevices()
 		Expect(permittedDevices).ToNot(BeNil(), "something went wrong while parsing the configmap(s)")
 		Expect(len(permittedDevices.MediatedDevices)).To(Equal(0), "the fake device was not deleted")

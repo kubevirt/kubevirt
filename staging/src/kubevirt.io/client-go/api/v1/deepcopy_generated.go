@@ -1554,6 +1554,11 @@ func (in *KubeVirtConfiguration) DeepCopyInto(out *KubeVirtConfiguration) {
 		*out = new(uint32)
 		**out = **in
 	}
+	if in.PermittedHostDevices != nil {
+		in, out := &in.PermittedHostDevices, &out.PermittedHostDevices
+		*out = new(PermittedHostDevices)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

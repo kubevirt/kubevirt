@@ -154,7 +154,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		vmiSourceInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		vmiTargetInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
-		hostDevConfigMapInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		domainInformer, domainSource = testutils.NewFakeInformerFor(&api.Domain{})
 		gracefulShutdownInformer, _ = testutils.NewFakeInformerFor(&api.Domain{})
 		recorder = record.NewFakeRecorder(100)
@@ -166,7 +165,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		mockWatchdog = &MockWatchdog{shareDir}
 		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
-		config, _, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+		config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 		mockIsolationResult = isolation.NewMockIsolationResult(ctrl)
 		mockIsolationResult.EXPECT().Pid().Return(1).AnyTimes()
@@ -187,7 +186,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiTargetInformer,
 			domainInformer,
 			gracefulShutdownInformer,
-			hostDevConfigMapInformer,
 			1,
 			10,
 			config,

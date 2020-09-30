@@ -388,12 +388,14 @@ type Devices struct {
 	NetworkInterfaceMultiQueue *bool `json:"networkInterfaceMultiqueue,omitempty"`
 	//Whether to attach a GPU device to the vmi.
 	// +optional
+	// +listType=set
 	GPUs []GPU `json:"gpus,omitempty"`
 	// Filesystems describes filesystem which is connected to the vmi.
 	// +optional
 	Filesystems []Filesystem `json:"filesystems,omitempty"`
 	//Whether to attach a host device to the vmi.
 	// +optional
+	// +listType=set
 	HostDevices []HostDevice `json:"hostDevices,omitempty"`
 }
 

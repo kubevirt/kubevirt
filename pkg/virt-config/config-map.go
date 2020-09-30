@@ -78,13 +78,13 @@ func NewClusterConfig(configMapInformer cache.SharedIndexInformer,
 	defaultConfig := defaultClusterConfig()
 
 	c := &ClusterConfig{
-		configMapInformer:        configMapInformer,
-		crdInformer:              crdInformer,
-		kubeVirtInformer:         kubeVirtInformer,
-		lock:                     &sync.Mutex{},
-		namespace:                namespace,
-		lastValidConfig:          defaultConfig,
-		defaultConfig:            defaultConfig,
+		configMapInformer: configMapInformer,
+		crdInformer:       crdInformer,
+		kubeVirtInformer:  kubeVirtInformer,
+		lock:              &sync.Mutex{},
+		namespace:         namespace,
+		lastValidConfig:   defaultConfig,
+		defaultConfig:     defaultConfig,
 	}
 
 	c.configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -269,10 +269,10 @@ func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.C
 			return fmt.Errorf("failed to parse SMBIOS config: %v", err)
 		}
 	}
-    // updates host devices in the config.
+	// updates host devices in the config.
 	// Clear the list first, if whole categories get removed, we want the devices gone
 	newPermittedHostDevices := &v1.PermittedHostDevices{}
-	rawConfig := strings.TrimSpace(configMap.Data[PermittedHostDevicesKey])
+	rawConfig = strings.TrimSpace(configMap.Data[PermittedHostDevicesKey])
 	if rawConfig != "" {
 		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(rawConfig), 1024).Decode(newPermittedHostDevices)
 		if err != nil {
@@ -280,9 +280,6 @@ func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.C
 		}
 	}
 	config.PermittedHostDevices = newPermittedHostDevices
-	return nil
-}
-
 
 	// set image pull policy
 	policy := strings.TrimSpace(configMap.Data[ImagePullPolicyKey])

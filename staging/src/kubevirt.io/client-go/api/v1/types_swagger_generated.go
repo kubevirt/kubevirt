@@ -454,7 +454,9 @@ func (DeveloperConfiguration) SwaggerDoc() map[string]string {
 
 func (PermittedHostDevices) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "PermittedHostDevices holds inforamtion about devices allowed for passthrough\n+k8s:openapi-gen=true",
+		"":           "PermittedHostDevices holds inforamtion about devices allowed for passthrough\n+k8s:openapi-gen=true",
+		"pciDevices": "+listType=set",
+		"mdevs":      "+listType=set",
 	}
 }
 
