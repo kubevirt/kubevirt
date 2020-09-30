@@ -40,6 +40,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/utils/pointer"
 
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
@@ -52,7 +53,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	migrations "kubevirt.io/kubevirt/pkg/util/migrations"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -67,8 +67,7 @@ const (
 
 var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system] VM Live Migration", func() {
 	var virtClient kubecli.KubevirtClient
-
-	var originalKubeVirtConfig *k8sv1.ConfigMap
+	var originalKubeVirtConfig *v1.KubeVirt
 	var err error
 
 	setMastersUnschedulable := func(mode bool) {
@@ -118,34 +117,33 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 	}
 
 	tests.BeforeAll(func() {
-
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
 
-		originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
-		if err != nil && !errors.IsNotFound(err) {
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		if errors.IsNotFound(err) {
-			// create an empty kubevirt-config configmap if none exists.
-			cfgMap := &k8sv1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Name: virtconfig.ConfigMapName},
-				Data: map[string]string{
-					"feature-gates": "",
-				},
-			}
-
-			originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Create(cfgMap)
-			if err != nil {
-				Expect(err).ToNot(HaveOccurred())
-			}
-
-		}
+		originalKubeVirtConfig = tests.GetCurrentKv(virtClient)
 	})
+
+	defaultKVConfig := func() v1.KubeVirtConfiguration {
+		kvc := originalKubeVirtConfig.DeepCopy()
+
+		if kvc.Spec.Configuration.MigrationConfiguration == nil {
+			kvc.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{}
+		}
+
+		if kvc.Spec.Configuration.DeveloperConfiguration == nil {
+			kvc.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+		}
+
+		if kvc.Spec.Configuration.NetworkConfiguration == nil {
+			kvc.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{}
+		}
+
+		return kvc.Spec.Configuration
+	}
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
+
 		if !tests.HasLiveMigration() {
 			Skip("LiveMigration feature gate is not enabled in kubevirt-config")
 		}
@@ -160,38 +158,19 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		// Taints defined by k8s are special and can't be applied manually.
 		// Temporarily configure KubeVirt to use something else for the duration of these tests.
 		if tests.IsUsingBuiltinNodeDrainKey() {
-			var data map[string]string
-
-			cfgMap, err := tests.GetKubeVirtConfigMap()
-			Expect(err).ToNot(HaveOccurred())
-			if val, ok := cfgMap.Data[virtconfig.MigrationsConfigKey]; ok {
-				json.Unmarshal([]byte(val), &data)
-			}
-			data["nodeDrainTaintKey"] = "kubevirt.io/drain"
-			migrationData, err := json.Marshal(data)
-
-			tests.UpdateClusterConfigValueAndWait(virtconfig.MigrationsConfigKey, string(migrationData))
+			drain := "kubevirt.io/drain"
+			cfg := defaultKVConfig()
+			cfg.MigrationConfiguration.NodeDrainTaintKey = &drain
+			tests.UpdateKubeVirtConfigValueAndWait(cfg)
 		}
 	})
 
 	AfterEach(func() {
-		curKubeVirtConfig, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
-		if err != nil {
-			Expect(err).ToNot(HaveOccurred())
-		}
+		currKubeVirt := tests.GetCurrentKv(virtClient)
 
 		// if revision changed, patch data and reload everything
-		if curKubeVirtConfig.ResourceVersion != originalKubeVirtConfig.ResourceVersion {
-			// Add  Patch
-			newData, err := json.Marshal(originalKubeVirtConfig.Data)
-			Expect(err).ToNot(HaveOccurred())
-			data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
-
-			newConfig, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Patch(virtconfig.ConfigMapName, types.JSONPatchType, []byte(data))
-			Expect(err).ToNot(HaveOccurred())
-
-			// update the restored originalKubeVirtConfig
-			originalKubeVirtConfig = newConfig
+		if currKubeVirt.ResourceVersion != originalKubeVirtConfig.ResourceVersion {
+			originalKubeVirtConfig = tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirtConfig.Spec.Configuration)
 		}
 
 	})
@@ -288,7 +267,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		uid := ""
 		Eventually(func() error {
-			migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+			migration, err := virtClient.VirtualMachineInstanceMigration(migrationCreated.Namespace).Get(migrationCreated.Name, &metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -618,7 +597,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.BeforeTestCleanup()
 
 				// set autoconverge flag
-				tests.UpdateClusterConfigValueAndWait("migrations", `{"allowAutoConverge": "true"}`)
+				config := defaultKVConfig()
+				allowAutoConverage := true
+				config.MigrationConfiguration.AllowAutoConverge = &allowAutoConverage
+				tests.UpdateKubeVirtConfigValueAndWait(config)
 			})
 
 			It("[test_id:3237]should complete a migration", func() {
@@ -718,6 +700,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		Context("with a shared ISCSI Filesystem PVC", func() {
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
+
 				if !tests.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
@@ -727,7 +710,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 
 				// set unsafe migration flag
-				tests.UpdateClusterConfigValueAndWait("migrations", `{"unsafeMigrationOverride": "true"}`)
+				cfg := defaultKVConfig()
+				unsafeMigrationOverride := true
+				cfg.MigrationConfiguration.UnsafeMigrationOverride = &unsafeMigrationOverride
+				tests.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
 
 			It("[test_id:3238]should migrate a vmi with UNSAFE_MIGRATION flag set", func() {
@@ -782,6 +768,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		Context("with an Alpine DataVolume", func() {
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
+
 				if !tests.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
@@ -997,11 +984,11 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.DeletePvAndPvc(pvName)
 			})
 
-			table.DescribeTable("should be migrated successfully, using guest agent on VM", func(configData map[string]string, mode v1.MigrationMode) {
-				if len(configData) > 0 {
-					migrationData, err := json.Marshal(configData)
-					Expect(err).ToNot(HaveOccurred())
-					tests.UpdateClusterConfigValueAndWait("migrations", string(migrationData))
+			table.DescribeTable("should be migrated successfully, using guest agent on VM", func(migrationConfiguration *v1.MigrationConfiguration, mode v1.MigrationMode) {
+				if migrationConfiguration != nil {
+					config := defaultKVConfig()
+					config.MigrationConfiguration = migrationConfiguration
+					tests.UpdateKubeVirtConfigValueAndWait(config)
 				}
 
 				// Start the VirtualMachineInstance with the PVC attached
@@ -1068,17 +1055,19 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForPodToDisappearWithTimeout(tests.NFSTargetName, 120)
 
 			},
-				table.Entry("[test_id:2653] with default migration configuration", map[string]string{}, v1.MigrationPreCopy),
-				table.Entry("with postcopy", map[string]string{
-					"allowPostCopy":           "true",
-					"completionTimeoutPerGiB": "1",
+				table.Entry("[test_id:2653] with default migration configuration", nil, v1.MigrationPreCopy),
+				table.Entry("with postcopy", &v1.MigrationConfiguration{
+					AllowPostCopy:           pointer.BoolPtr(true),
+					CompletionTimeoutPerGiB: pointer.Int64Ptr(1),
 				}, v1.MigrationPostCopy),
 			)
 		})
 
 		Context("migration security", func() {
 			BeforeEach(func() {
-				tests.UpdateClusterConfigValueAndWait("migrations", `{"bandwidthPerMigration" : "1Mi"}`)
+				cfg := defaultKVConfig()
+				cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewMilliQuantity(1, resource.BinarySI)
+				tests.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
 
 			It("[test_id:2303][posneg:negative] should secure migrations with TLS", func() {
@@ -1182,13 +1171,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		Context("migration postcopy", func() {
 			It("[test_id:4747] should migrate using cluster level config for postcopy", func() {
-				data := map[string]string{
-					"allowPostCopy":           "true",
-					"completionTimeoutPerGiB": "1",
-				}
-				migrationData, err := json.Marshal(data)
-				Expect(err).ToNot(HaveOccurred())
-				tests.UpdateClusterConfigValueAndWait("migrations", string(migrationData))
+				config := defaultKVConfig()
+				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
+				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
+				tests.UpdateKubeVirtConfigValueAndWait(config)
 
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
@@ -1240,14 +1226,14 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 			BeforeEach(func() {
 				createdPods = []string{}
-				data := map[string]string{
-					"progressTimeout":         "5",
-					"completionTimeoutPerGiB": "5",
-					"bandwidthPerMigration":   "1Mi",
+				cfg := defaultKVConfig()
+				var timeout int64 = 5
+				cfg.MigrationConfiguration = &v1.MigrationConfiguration{
+					ProgressTimeout:         &timeout,
+					CompletionTimeoutPerGiB: &timeout,
+					BandwidthPerMigration:   resource.NewMilliQuantity(1, resource.BinarySI),
 				}
-				migrationData, err := json.Marshal(data)
-				Expect(err).ToNot(HaveOccurred())
-				tests.UpdateClusterConfigValueAndWait("migrations", string(migrationData))
+				tests.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
 			PIt("[test_id:2227] should abort a vmi migration without progress", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
@@ -1766,22 +1752,11 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 					vmi = cirrosVMIWithEvictionStrategy()
 
-					By("Configuring a custom nodeDrainTaintKey in kubevirt-config")
-					cfg, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					// set a custom taint value
-					cfg.Data["migrations"] = "nodeDrainTaintKey: kubevirt.io/alt-drain"
-
-					newData, err := json.Marshal(cfg.Data)
-					Expect(err).ToNot(HaveOccurred())
-					data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
-
-					_, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Patch(virtconfig.ConfigMapName, types.JSONPatchType, []byte(data))
-					Expect(err).ToNot(HaveOccurred())
-					// this sleep is to allow the config to stick. The informers on virt-controller have to
-					// be notified of the config change.
-					time.Sleep(3)
+					By("Configuring a custom nodeDrainTaintKey in kubevirt configuration")
+					cfg := defaultKVConfig()
+					drainKey := "kubevirt.io/alt-drain"
+					cfg.MigrationConfiguration.NodeDrainTaintKey = &drainKey
+					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 
 					By("Starting the VirtualMachineInstance")
 					vmi = runVMIAndExpectLaunch(vmi, 180)

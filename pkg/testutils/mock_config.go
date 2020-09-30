@@ -32,6 +32,7 @@ func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cach
 }
 
 func NewFakeClusterConfigUsingKV(kv *KVv1.KubeVirt) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
+	kv.ResourceVersion = rand.String(10)
 	configMapInformer, _ := NewFakeInformerFor(&v1.ConfigMap{})
 	crdInformer, _ := NewFakeInformerFor(&extv1beta1.CustomResourceDefinition{})
 	kubeVirtInformer, _ := NewFakeInformerFor(&KVv1.KubeVirt{})
@@ -60,6 +61,15 @@ func AddDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
 func UpdateFakeClusterConfig(configMapInformer cache.SharedIndexInformer, cfgMap *v1.ConfigMap) {
 	copy := copy(cfgMap)
 	configMapInformer.GetStore().Update(copy)
+}
+
+func UpdateFakeKubeVirtClusterConfig(kubeVirtInformer cache.SharedIndexInformer, kv *KVv1.KubeVirt) {
+	copy := kv.DeepCopy()
+	copy.ResourceVersion = rand.String(10)
+	copy.Name = "kubevirt"
+	copy.Namespace = "kubevirt"
+
+	kubeVirtInformer.GetStore().Update(copy)
 }
 
 func copy(cfgMap *v1.ConfigMap) *v1.ConfigMap {

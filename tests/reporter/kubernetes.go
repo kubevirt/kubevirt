@@ -121,6 +121,7 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	r.logLogs(virtCli, since)
 	r.logSRIOVInfo(virtCli)
 	r.logNetworkAttachmentDefinitionInfo(virtCli)
+	r.logKubeVirtCR(virtCli)
 }
 
 // Cleanup cleans up the current content of the artifactsDir
@@ -490,6 +491,29 @@ func (r *KubernetesReporter) logConfigMaps(virtCli kubecli.KubevirtClient) {
 	j, err := json.MarshalIndent(configmaps, "", "    ")
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to marshal configmaps")
+		return
+	}
+	fmt.Fprintln(f, string(j))
+}
+
+func (r *KubernetesReporter) logKubeVirtCR(virtCli kubecli.KubevirtClient) {
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_kubevirtCR.log", r.failureCount)),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		return
+	}
+	defer f.Close()
+
+	kvs, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).List(&metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch kubevirts: %v\n", err)
+		return
+	}
+
+	j, err := json.MarshalIndent(kvs, "", "    ")
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Failed to marshal kubevirt custom resource")
 		return
 	}
 	fmt.Fprintln(f, string(j))

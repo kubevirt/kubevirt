@@ -46,7 +46,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/flags"
 )
 
 const (
@@ -58,11 +57,17 @@ type VMICreationFunc func(string) *v1.VirtualMachineInstance
 var _ = Describe("[Serial]Storage", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
+	var originalKVConfiguration v1.KubeVirtConfiguration
 
-	BeforeEach(func() {
+	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
 
+		kv := tests.GetCurrentKv(virtClient)
+		originalKVConfiguration = kv.Spec.Configuration
+	})
+
+	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 	})
 
@@ -465,19 +470,20 @@ var _ = Describe("[Serial]Storage", func() {
 
 				hostDiskDir := tests.RandTmpDir()
 				var nodeName string
-				var cfgMap *k8sv1.ConfigMap
-				var originalFeatureGates string
+				var currentKvConfiguration v1.KubeVirtConfiguration
 
 				BeforeEach(func() {
 					nodeName = ""
-					cfgMap, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					originalFeatureGates = cfgMap.Data[virtconfig.FeatureGatesKey]
+					kv := tests.GetCurrentKv(virtClient)
+					currentKvConfiguration = kv.Spec.Configuration
+
 					tests.EnableFeatureGate(virtconfig.HostDiskGate)
 				})
 
 				AfterEach(func() {
-					tests.UpdateClusterConfigValueAndWait(virtconfig.FeatureGatesKey, originalFeatureGates)
+					currentKvConfiguration.DeveloperConfiguration.FeatureGates = originalKVConfiguration.DeveloperConfiguration.FeatureGates
+					kv := tests.UpdateKubeVirtConfigValueAndWait(currentKvConfiguration)
+					currentKvConfiguration = kv.Spec.Configuration
 
 					// Delete all VMIs and wait until they disappear to ensure that no disk is in use and that we can delete the whole folder
 					Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do().Error()).ToNot(HaveOccurred())
@@ -683,15 +689,12 @@ var _ = Describe("[Serial]Storage", func() {
 				var diskPath string
 				var pod *k8sv1.Pod
 				var diskSize int
-				var cfgMap *k8sv1.ConfigMap
-				var originalFeatureGates string
+				var currentKvConfiguration v1.KubeVirtConfiguration
 
 				BeforeEach(func() {
 					By("Enabling the HostDisk feature gate")
-					cfgMap, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					originalFeatureGates = cfgMap.Data[virtconfig.FeatureGatesKey]
-					tests.EnableFeatureGate(virtconfig.HostDiskGate)
+					kv := tests.EnableFeatureGate(virtconfig.HostDiskGate)
+					currentKvConfiguration = kv.Spec.Configuration
 
 					By("Creating a hostPath pod which prepares a mounted directory which goes away when the pod dies")
 					tmpDir := tests.RandTmpDir()
@@ -732,12 +735,17 @@ var _ = Describe("[Serial]Storage", func() {
 				})
 
 				AfterEach(func() {
-					tests.UpdateClusterConfigValueAndWait(virtconfig.FeatureGatesKey, originalFeatureGates)
+					config := originalKVConfiguration.DeepCopy()
+					currentKvConfiguration.DeveloperConfiguration.FeatureGates = config.DeveloperConfiguration.FeatureGates
+					kv := tests.UpdateKubeVirtConfigValueAndWait(currentKvConfiguration)
+					currentKvConfiguration = kv.Spec.Configuration
 				})
 
 				configureToleration := func(toleration int) {
 					By("By configuring toleration")
-					tests.UpdateClusterConfigValueAndWait(virtconfig.LessPVCSpaceTolerationKey, strconv.Itoa(toleration))
+					currentKvConfiguration.DeveloperConfiguration.LessPVCSpaceToleration = toleration
+					kv := tests.UpdateKubeVirtConfigValueAndWait(currentKvConfiguration)
+					currentKvConfiguration = kv.Spec.Configuration
 				}
 
 				// Not a candidate for NFS test due to usage of host disk

@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -46,13 +45,11 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	kubevirt_hooks_v1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/flags"
 )
 
 var _ = Describe("Configurations", func() {
@@ -387,7 +384,7 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("[test_id:1665]should map cores to virtio net queues", func() {
-				if shouldUseEmulation(virtClient) {
+				if tests.ShouldUseEmulation(virtClient) {
 					Skip("Software emulation should not be enabled for this test to run")
 				}
 
@@ -447,7 +444,11 @@ var _ = Describe("Configurations", func() {
 
 		Context("[Serial][rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]with cluster memory overcommit being applied", func() {
 			BeforeEach(func() {
-				tests.UpdateClusterConfigValueAndWait("memory-overcommit", "200")
+				kv := tests.GetCurrentKv(virtClient)
+
+				config := kv.Spec.Configuration
+				config.DeveloperConfiguration.MemoryOvercommit = 200
+				tests.UpdateKubeVirtConfigValueAndWait(config)
 			})
 
 			It("[test_id:3114]should set requested amount of memory according to the specified virtual memory", func() {
@@ -1216,10 +1217,12 @@ var _ = Describe("Configurations", func() {
 			})
 
 			Context("[Serial]with cluster config changes", func() {
-				supportedGuestAgentKey := "supported-guest-agent"
-
 				BeforeEach(func() {
-					tests.UpdateClusterConfigValueAndWait(supportedGuestAgentKey, "X.*")
+					kv := tests.GetCurrentKv(virtClient)
+
+					config := kv.Spec.Configuration
+					config.SupportedGuestAgentVersions = []string{"X.*"}
+					tests.UpdateKubeVirtConfigValueAndWait(config)
 				})
 
 				It("VMI condition should signal unsupported agent presence", func() {
@@ -1431,7 +1434,7 @@ var _ = Describe("Configurations", func() {
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "sudo hwclock --localtime \n"},
 					&expect.BExp{R: expected},
-				}, 15*time.Second)
+				}, 20*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 
 			})
@@ -1613,11 +1616,12 @@ var _ = Describe("Configurations", func() {
 	})
 
 	Context("[Serial][rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", func() {
-		defaultMachineTypeKey := "machine-type"
-		defaultEmulatedMachineType := "emulated-machines"
-
 		BeforeEach(func() {
-			tests.UpdateClusterConfigValueAndWait(defaultEmulatedMachineType, "q35*,pc-q35*,pc*")
+			kv := tests.GetCurrentKv(virtClient)
+
+			config := kv.Spec.Configuration
+			config.EmulatedMachines = []string{"q35*", "pc-q35*", "pc*"}
+			tests.UpdateKubeVirtConfigValueAndWait(config)
 		})
 
 		It("[test_id:3124]should set machine type from VMI spec", func() {
@@ -1641,7 +1645,11 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("[Serial][test_id:3126]should set machine type from kubevirt-config", func() {
-			tests.UpdateClusterConfigValueAndWait(defaultMachineTypeKey, "pc")
+			kv := tests.GetCurrentKv(virtClient)
+
+			config := kv.Spec.Configuration
+			config.MachineType = "pc"
+			tests.UpdateKubeVirtConfigValueAndWait(config)
 
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine.Type = ""
@@ -1664,7 +1672,6 @@ var _ = Describe("Configurations", func() {
 	})
 
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU request settings", func() {
-		defaultCPURequestKey := "cpu-request"
 
 		It("[test_id:3127]should set CPU request from VMI spec", func() {
 			vmi := tests.NewRandomVMI()
@@ -1693,7 +1700,12 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("[Serial][test_id:3129]should set CPU request from kubevirt-config", func() {
-			tests.UpdateClusterConfigValueAndWait(defaultCPURequestKey, "800m")
+			kv := tests.GetCurrentKv(virtClient)
+
+			config := kv.Spec.Configuration
+			configureCPURequest := resource.MustParse("800m")
+			config.CPURequest = &configureCPURequest
+			tests.UpdateKubeVirtConfigValueAndWait(config)
 
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
@@ -1711,20 +1723,19 @@ var _ = Describe("Configurations", func() {
 	})
 
 	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache settings and PVC", func() {
-		var cfgMap *kubev1.ConfigMap
-		var originalFeatureGates string
+		var originalConfig v1.KubeVirtConfiguration
 
 		BeforeEach(func() {
-			cfgMap, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			originalFeatureGates = cfgMap.Data[virtconfig.FeatureGatesKey]
+			kv := tests.GetCurrentKv(virtClient)
+			originalConfig = kv.Spec.Configuration
+
 			tests.EnableFeatureGate(virtconfig.HostDiskGate)
 			// create a new PV and PVC (PVs can't be reused)
 			tests.CreateBlockVolumePvAndPvc("1Gi")
 		}, 60)
 
 		AfterEach(func() {
-			tests.UpdateClusterConfigValueAndWait(virtconfig.FeatureGatesKey, originalFeatureGates)
+			tests.UpdateKubeVirtConfigValueAndWait(originalConfig)
 		})
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
@@ -2417,11 +2428,13 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("[test_id:2751]test default SMBios", func() {
-			// Clear up SMBios values if already set in kubevirt-config, for testing default values.
-			test_smbios := &cmdv1.SMBios{Family: "", Product: "", Manufacturer: ""}
-			smbiosJson, err := json.Marshal(test_smbios)
-			Expect(err).ToNot(HaveOccurred())
-			tests.UpdateClusterConfigValueAndWait(virtconfig.SmbiosConfigKey, string(smbiosJson))
+			kv := tests.GetCurrentKv(virtClient)
+
+			config := kv.Spec.Configuration
+			// Clear SMBios values if already set in kubevirt-config, for testing default values.
+			test_smbios := &v1.SMBiosConfiguration{Family: "", Product: "", Manufacturer: ""}
+			config.SMBIOSConfig = test_smbios
+			tests.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Starting a VirtualMachineInstance")
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -2455,11 +2468,12 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("[test_id:2752]test custom SMBios values", func() {
+			kv := tests.GetCurrentKv(virtClient)
+			config := kv.Spec.Configuration
 			// Set a custom test SMBios
-			test_smbios := &cmdv1.SMBios{Family: "test", Product: "test", Manufacturer: "None", Sku: "1.0", Version: "1.0"}
-			smbiosJson, err := json.Marshal(test_smbios)
-			Expect(err).ToNot(HaveOccurred())
-			tests.UpdateClusterConfigValueAndWait(virtconfig.SmbiosConfigKey, string(smbiosJson))
+			test_smbios := &v1.SMBiosConfiguration{Family: "test", Product: "test", Manufacturer: "None", Sku: "1.0", Version: "1.0"}
+			config.SMBIOSConfig = test_smbios
+			tests.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Starting a VirtualMachineInstance")
 			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)

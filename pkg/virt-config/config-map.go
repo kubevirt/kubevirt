@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -163,6 +164,7 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 	emulatedMachinesDefault := strings.Split(DefaultEmulatedMachines, ",")
 	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
 	defaultNetworkInterface := DefaultNetworkInterface
+	defaultMemBalloonStatsPeriod := DefaultMemBalloonStatsPeriod
 	SmbiosDefaultConfig := &v1.SMBiosConfiguration{
 		Family:       SmbiosConfigDefaultFamily,
 		Manufacturer: SmbiosConfigDefaultManufacturer,
@@ -195,14 +197,14 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 		EmulatedMachines: emulatedMachinesDefault,
 		NetworkConfiguration: &v1.NetworkConfiguration{
 			NetworkInterface:                  defaultNetworkInterface,
-			PermitSlirpInterface:              DefaultPermitSlirpInterface,
-			PermitBridgeInterfaceOnPodNetwork: DefaultPermitBridgeInterfaceOnPodNetwork,
+			PermitSlirpInterface:              pointer.BoolPtr(DefaultPermitSlirpInterface),
+			PermitBridgeInterfaceOnPodNetwork: pointer.BoolPtr(DefaultPermitBridgeInterfaceOnPodNetwork),
 		},
 		SMBIOSConfig:                SmbiosDefaultConfig,
 		SELinuxLauncherType:         DefaultSELinuxLauncherType,
 		SupportedGuestAgentVersions: supportedQEMUGuestAgentVersions,
 		OVMFPath:                    DefaultOVMFPath,
-		MemBalloonStatsPeriod:       DefaultMemBalloonStatsPeriod,
+		MemBalloonStatsPeriod:       &defaultMemBalloonStatsPeriod,
 	}
 }
 
@@ -336,9 +338,9 @@ func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.C
 	case "":
 		// keep the default
 	case "true":
-		config.NetworkConfiguration.PermitSlirpInterface = true
+		config.NetworkConfiguration.PermitSlirpInterface = pointer.BoolPtr(true)
 	case "false":
-		config.NetworkConfiguration.PermitSlirpInterface = false
+		config.NetworkConfiguration.PermitSlirpInterface = pointer.BoolPtr(false)
 	default:
 		return fmt.Errorf("invalid value for permitSlirpInterfaces in config: %v", permitSlirp)
 	}
@@ -349,9 +351,9 @@ func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.C
 	case "":
 		// keep the default
 	case "false":
-		config.NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork = false
+		config.NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork = pointer.BoolPtr(false)
 	case "true":
-		config.NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork = true
+		config.NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork = pointer.BoolPtr(true)
 	default:
 		return fmt.Errorf("invalid value for permitBridgeInterfaceOnPodNetwork in config: %v", permitBridge)
 	}
@@ -389,7 +391,8 @@ func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.C
 			return fmt.Errorf("invalid memBalloonStatsPeriod in config, %s", memBalloonStatsPeriod)
 		}
 		if i >= 0 {
-			config.MemBalloonStatsPeriod = i
+			mem := uint32(i)
+			config.MemBalloonStatsPeriod = &mem
 		} else {
 			return fmt.Errorf("invalid memBalloonStatsPeriod (negative) in config, %d", i)
 		}
@@ -400,7 +403,6 @@ func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.C
 
 func setConfigFromKubeVirt(config *v1.KubeVirtConfiguration, kv *v1.KubeVirt) error {
 	kvConfig := &kv.Spec.Configuration
-
 	overrides, err := json.Marshal(kvConfig)
 	if err != nil {
 		return err
@@ -467,7 +469,7 @@ func (c *ClusterConfig) GetConfig() (config *v1.KubeVirtConfiguration) {
 		return c.lastValidConfig
 	}
 
-	log.DefaultLogger().Infof("Updating cluster config to resource version '%s'", resourceVersion)
+	log.DefaultLogger().Infof("Updating cluster config from %s to resource version '%s'", resourceType, resourceVersion)
 	c.lastValidConfigResourceVersion = resourceVersion
 	c.lastValidConfig = config
 	return c.lastValidConfig

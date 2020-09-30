@@ -40,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
@@ -49,27 +50,46 @@ import (
 )
 
 var _ = Describe("Validating VMICreate Admitter", func() {
-	config, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	kv := &v1.KubeVirt{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubevirt",
+			Namespace: "kubevirt",
+		},
+		Spec: v1.KubeVirtSpec{
+			Configuration: v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{},
+			},
+		},
+		Status: v1.KubeVirtStatus{
+			Phase: v1.KubeVirtPhaseDeploying,
+		},
+	}
+	config, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 	vmiCreateAdmitter := &VMICreateAdmitter{ClusterConfig: config}
 
 	dnsConfigTestOption := "test"
 	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
-			Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
-		})
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 	}
 	disableFeatureGates := func() {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{})
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
 	}
 	enableSlirpInterface := func() {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
-			Data: map[string]string{virtconfig.PermitSlirpInterface: "true"},
-		})
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
+			PermitSlirpInterface: pointer.BoolPtr(true),
+		}
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 	}
 	disableBridgeOnPodNetwork := func() {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
-			Data: map[string]string{virtconfig.PermitBridgeInterfaceOnPodNetwork: "false"},
-		})
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
+			PermitBridgeInterfaceOnPodNetwork: pointer.BoolPtr(false),
+		}
+
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 	}
 
 	AfterEach(func() {

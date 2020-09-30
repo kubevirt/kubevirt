@@ -1424,7 +1424,7 @@ type RenameOptions struct {
 // +k8s:openapi-gen=true
 type KubeVirtConfiguration struct {
 	CPUModel                    string                  `json:"cpuModel,omitempty"`
-	CPURequest                  *resource.Quantity      `json:"cpuRequest,string,omitempty"`
+	CPURequest                  *resource.Quantity      `json:"cpuRequest,omitempty"`
 	DeveloperConfiguration      *DeveloperConfiguration `json:"developerConfiguration,omitempty"`
 	EmulatedMachines            []string                `json:"emulatedMachines,omitempty"`
 	ImagePullPolicy             k8sv1.PullPolicy        `json:"imagePullPolicy,omitempty"`
@@ -1435,7 +1435,7 @@ type KubeVirtConfiguration struct {
 	SELinuxLauncherType         string                  `json:"selinuxLauncherType,omitempty"`
 	SMBIOSConfig                *SMBiosConfiguration    `json:"smbios,omitempty"`
 	SupportedGuestAgentVersions []string                `json:"supportedGuestAgentVersions,omitempty"`
-	MemBalloonStatsPeriod       int                     `json:"memBalloonStatsPeriod,omitempty"`
+	MemBalloonStatsPeriod       *uint32                 `json:"memBalloonStatsPeriod,omitempty"`
 }
 
 // ---
@@ -1477,6 +1477,6 @@ type DeveloperConfiguration struct {
 // +k8s:openapi-gen=true
 type NetworkConfiguration struct {
 	NetworkInterface                  string `json:"defaultNetworkInterface,omitempty"`
-	PermitSlirpInterface              bool   `json:"permitSlirpInterface,string,omitempty"`
-	PermitBridgeInterfaceOnPodNetwork bool   `json:"permitBridgeInterfaceOnPodNetwork,string,omitempty"`
+	PermitSlirpInterface              *bool  `json:"permitSlirpInterface,string,omitempty"`
+	PermitBridgeInterfaceOnPodNetwork *bool  `json:"permitBridgeInterfaceOnPodNetwork,string,omitempty"`
 }

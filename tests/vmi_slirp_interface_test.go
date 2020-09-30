@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -31,6 +30,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -43,21 +43,37 @@ var _ = Describe("[Serial]Slirp Networking", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
+	var currentConfiguration v1.KubeVirtConfiguration
 
 	var genericVmi *v1.VirtualMachineInstance
 	var deadbeafVmi *v1.VirtualMachineInstance
 	var container k8sv1.Container
 	setSlirpEnabled := func(enable bool) {
-		tests.UpdateClusterConfigValueAndWait("permitSlirpInterface", fmt.Sprintf("%t", enable))
+		if currentConfiguration.NetworkConfiguration == nil {
+			currentConfiguration.NetworkConfiguration = &v1.NetworkConfiguration{}
+		}
+
+		currentConfiguration.NetworkConfiguration.PermitSlirpInterface = pointer.BoolPtr(enable)
+		kv := tests.UpdateKubeVirtConfigValueAndWait(currentConfiguration)
+		currentConfiguration = kv.Spec.Configuration
 	}
 
 	setDefaultNetworkInterface := func(iface string) {
-		tests.UpdateClusterConfigValueAndWait("default-network-interface", fmt.Sprintf("%s", iface))
+		if currentConfiguration.NetworkConfiguration == nil {
+			currentConfiguration.NetworkConfiguration = &v1.NetworkConfiguration{}
+		}
+
+		currentConfiguration.NetworkConfiguration.NetworkInterface = iface
+		kv := tests.UpdateKubeVirtConfigValueAndWait(currentConfiguration)
+		currentConfiguration = kv.Spec.Configuration
 	}
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
+
+		kv := tests.GetCurrentKv(virtClient)
+		currentConfiguration = kv.Spec.Configuration
 
 		setSlirpEnabled(true)
 		ports := []v1.Port{{Name: "http", Port: 80}}
