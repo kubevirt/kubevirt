@@ -6,7 +6,7 @@ allowing people to easily run a K8s cluster.
 The target audience is developers of kubevirtci, who want to create a new provider, or to update an existing one.
 
 Please refer first to the following documents on how to run k8s-1.17.0:\
-[k8s-1.17.0 cluster-up](https://github.com/kubevirt/kubevirtci/blob/master/cluster-up/cluster/k8s-1.17.0/README.md)
+[k8s-1.17.0 cluster-up](https://github.com/kubevirt/kubevirtci/blob/master/cluster-up/cluster/k8s-1.17/README.md)
 
 In this doc, we will go on what kubevirtci provider image consist of, what its inner architecture,
 flow of start a pre-provisioned cluster, flow of creating a new provider, and how to create a new provider.
