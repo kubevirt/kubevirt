@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/onsi/ginkgo"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"kubevirt.io/client-go/kubecli"
@@ -15,7 +16,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var DiscoveredClusterProfile = ClusterProfile{}
+var ClusterIntrospector = clusterIntrospector{}
 
 // ClusterProfile holds cluster-configuration expectations. If tests are skipped although the expectations should be met, the test suite is
 // supposed to fail the test to highlight the mismatch.
@@ -38,27 +39,49 @@ type ClusterProfile struct {
 	IsKind *bool `json:"isKind,omitempty"`
 }
 
-func IntrospectCluster() {
+type clusterIntrospector struct {
+	DiscoveredClusterProfile ClusterProfile
+	ExpectedClusterProfile   ClusterProfile
+}
+
+func (c *clusterIntrospector) BeforeSuiteVerification() {
+	c.DiscoveredClusterProfile = c.introspectCluster()
+	c.ExpectedClusterProfile = c.loadExpectedClusterProfile()
+	// XXX this flags needs to go
+	// it makes dual stack the default assumption if no profile file is provided
+	if len(flags.ClusterProfilePath) == 0 {
+		deprecatedIsDualStack := !flags.SkipDualStackTests
+		c.ExpectedClusterProfile.DualNetworkStack = &deprecatedIsDualStack
+	}
+	printProfile("Discovered cluster:", &c.DiscoveredClusterProfile)
+	printProfile("Expected cluster:", &c.ExpectedClusterProfile)
+	if err := c.verifyClusterExpectations(c.ExpectedClusterProfile, c.DiscoveredClusterProfile); err != nil {
+		ginkgo.Fail(fmt.Sprintf("%v", err))
+	}
+}
+
+func (c *clusterIntrospector) introspectCluster() ClusterProfile {
+	discovered := ClusterProfile{}
 	virtClient, err := kubecli.GetKubevirtClient()
 	util.PanicOnError(err)
 	nodes := util.GetAllSchedulableNodes(virtClient).Items
 	nodeCount := len(nodes)
-	DiscoveredClusterProfile.MinimumSchedulableNodes = &nodeCount
+	discovered.MinimumSchedulableNodes = &nodeCount
 	if IsOpenShift() {
 		majorVersion := cluster.GetOpenShiftMajorVersion(virtClient)
-		DiscoveredClusterProfile.OpenShiftMajorVersion = &majorVersion
+		discovered.OpenShiftMajorVersion = &majorVersion
 	}
 	kubernetesVersion, err := cluster.GetKubernetesVersion(virtClient)
 	if err != nil {
 		util.PanicOnError(err)
 	}
-	DiscoveredClusterProfile.KubernetesVersion = &kubernetesVersion
+	discovered.KubernetesVersion = &kubernetesVersion
 
 	dualStack, err := libnet.IsClusterDualStack(virtClient)
 	if err != nil {
 		util.PanicOnError(err)
 	}
-	DiscoveredClusterProfile.DualNetworkStack = &dualStack
+	discovered.DualNetworkStack = &dualStack
 
 	withCPUManager := 0
 	for _, node := range nodes {
@@ -66,11 +89,25 @@ func IntrospectCluster() {
 			withCPUManager++
 		}
 	}
-	DiscoveredClusterProfile.MinimumNodesWithCPUManager = &withCPUManager
+	discovered.MinimumNodesWithCPUManager = &withCPUManager
 
 	isKind := IsRunningOnKindInfra() || IsRunningOnKindInfraIPv6()
-	DiscoveredClusterProfile.IsKind = &isKind
+	discovered.IsKind = &isKind
+	return discovered
+}
 
+func (c *clusterIntrospector) loadExpectedClusterProfile() ClusterProfile {
+	expected := &ClusterProfile{}
+	if len(flags.ClusterProfilePath) > 0 {
+		reader, err := os.Open(flags.ClusterProfilePath)
+		if err != nil {
+			log.DefaultLogger().Reason(err).Critical("Could not find the provided cluster profile file.")
+		}
+		if err := yaml.NewYAMLOrJSONDecoder(reader, 1024).Decode(expected); err != nil {
+			log.DefaultLogger().Reason(err).Critical("Could not decode the provided cluster profile file.")
+		}
+	}
+	return *expected
 }
 
 type DiscoveryError struct {
@@ -81,15 +118,7 @@ func (d *DiscoveryError) Error() string {
 	return fmt.Sprintf("%v", d.errors)
 }
 
-func VerifyClusterExpectations() error {
-	expected := &ClusterProfile{}
-
-	// XXX this flags needs to go
-	// it makes dual stack the default assumption if no profile file is provided
-	if len(flags.ClusterProfilePath) == 0 {
-		deprecatedIsDualStack := !flags.SkipDualStackTests
-		expected.DualNetworkStack = &deprecatedIsDualStack
-	}
+func (c *clusterIntrospector) verifyClusterExpectations(expected ClusterProfile, DiscoveredClusterProfile ClusterProfile) error {
 
 	if len(flags.ClusterProfilePath) > 0 {
 		reader, err := os.Open(flags.ClusterProfilePath)
@@ -100,9 +129,6 @@ func VerifyClusterExpectations() error {
 			log.DefaultLogger().Reason(err).Critical("Could not decode the provided cluster profile file.")
 		}
 	}
-
-	printProfile("Discovered cluster:", &DiscoveredClusterProfile)
-	printProfile("Expected cluster:", expected)
 
 	errors := &DiscoveryError{}
 	if expected.OpenShiftMajorVersion != nil {
@@ -121,12 +147,12 @@ func VerifyClusterExpectations() error {
 		}
 	}
 	if expected.MinimumSchedulableNodes != nil {
-		if *expected.MinimumSchedulableNodes >= *DiscoveredClusterProfile.MinimumSchedulableNodes {
+		if *expected.MinimumSchedulableNodes > *DiscoveredClusterProfile.MinimumSchedulableNodes {
 			errors.errors = append(errors.errors, fmt.Errorf("Got a schedulable node count of %v, expected at least %v", *DiscoveredClusterProfile.MinimumSchedulableNodes, *expected.MinimumSchedulableNodes))
 		}
 	}
 	if expected.MinimumNodesWithCPUManager != nil {
-		if *expected.MinimumNodesWithCPUManager >= *DiscoveredClusterProfile.MinimumNodesWithCPUManager {
+		if *expected.MinimumNodesWithCPUManager > *DiscoveredClusterProfile.MinimumNodesWithCPUManager {
 			errors.errors = append(errors.errors, fmt.Errorf("Got a schedulable node count with CPU manager of %v, expected at least %v", *DiscoveredClusterProfile.MinimumNodesWithCPUManager, *expected.MinimumNodesWithCPUManager))
 		}
 	}

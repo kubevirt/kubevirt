@@ -747,11 +747,7 @@ func SynchronizedBeforeTestSetup() []byte {
 		WipeTestingInfrastructure()
 		DeployTestingInfrastructure()
 	}
-	checks.IntrospectCluster()
-	err = checks.VerifyClusterExpectations()
-	if err != nil {
-		Fail(fmt.Sprintf("%v", err))
-	}
+	checks.ClusterIntrospector.BeforeSuiteVerification()
 
 	if Config.ManageStorageClasses {
 		createStorageClass(Config.StorageClassHostPath)
