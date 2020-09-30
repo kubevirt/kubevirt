@@ -587,6 +587,7 @@ func BeforeTestCleanup() {
 	cleanNamespaces()
 	CleanNodes()
 	resetToDefaultConfig()
+	checks.ClusterIntrospector.BeforeSpecWillRun()
 }
 
 func CleanNodes() {

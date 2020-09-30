@@ -60,6 +60,12 @@ func (c *clusterIntrospector) BeforeSuiteVerification() {
 	}
 }
 
+func (c *clusterIntrospector) BeforeSpecWillRun() {
+	if err := c.verifyClusterExpectations(c.DiscoveredClusterProfile, c.introspectCluster()); err != nil {
+		ginkgo.Fail(fmt.Sprintf("Either a parallel tests modified the test environment or a serial test did not clean up its modifications properly: %v", err))
+	}
+}
+
 func (c *clusterIntrospector) introspectCluster() ClusterProfile {
 	discovered := ClusterProfile{}
 	virtClient, err := kubecli.GetKubevirtClient()
