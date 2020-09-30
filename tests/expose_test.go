@@ -314,15 +314,30 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		Context("Expose ClusterIP UDP service", func() {
 			const servicePort = "28017"
-			const serviceName = "cluster-ip-udp-vmi"
+			const serviceNamePrefix = "cluster-ip-udp-vmi"
 
-			It("[test_id:1535][label:masquerade_binding_connectivity]Should expose a ClusterIP service on a VMI and connect to it", func() {
+			var serviceName string
+			var vmiExposeArgs []string
+
+			BeforeEach(func() {
+				serviceName = randomizeName(serviceNamePrefix)
+
+				vmiExposeArgs = []string{
+					expose.COMMAND_EXPOSE,
+					"virtualmachineinstance", "--namespace", udpVM.GetNamespace(), udpVM.GetName(),
+					"--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
+					"--protocol", "UDP",
+				}
+			})
+
+			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a ClusterIP service on a VMI and connect to it", func(ipFamily k8sv1.IPFamily) {
+				if ipFamily == k8sv1.IPv6Protocol {
+					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
+				}
+
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
-					udpVM.Namespace, udpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
-					"--protocol", "UDP")
-				err := virtctl()
-				Expect(err).ToNot(HaveOccurred())
+				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
+				Expect(virtctl()).To(Succeed(), "should succeed exposing a service via `virtctl expose ...`")
 
 				By("Getting back the cluster IP given for the service")
 				svc, err := virtClient.CoreV1().Services(udpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
@@ -334,20 +349,38 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Waiting for the job to report a successful connection attempt")
 				Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
-			})
+			},
+				table.Entry("[test_id:1535] over default IPv4 IP family", k8sv1.IPv4Protocol),
+				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+			)
 		})
 
 		Context("Expose NodePort UDP service", func() {
 			const servicePort = "29017"
-			const serviceName = "node-port-udp-vmi"
+			const serviceNamePrefix = "node-port-udp-vmi"
 
-			It("[test_id:1536][label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func() {
+			var serviceName string
+			var vmiExposeArgs []string
+
+			BeforeEach(func() {
+				serviceName = randomizeName(serviceNamePrefix)
+
+				vmiExposeArgs = []string{
+					expose.COMMAND_EXPOSE,
+					"virtualmachineinstance", "--namespace", udpVM.GetNamespace(), udpVM.GetName(),
+					"--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
+					"--type", "NodePort", "--protocol", "UDP",
+				}
+			})
+
+			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func(ipFamily k8sv1.IPFamily) {
+				if ipFamily == k8sv1.IPv6Protocol {
+					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
+				}
+
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
-					udpVM.Namespace, udpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
-					"--type", "NodePort", "--protocol", "UDP")
-				err := virtctl()
-				Expect(err).ToNot(HaveOccurred())
+				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
+				Expect(virtctl()).ToNot(HaveOccurred())
 
 				By("Getting back the cluster IP given for the service")
 				svc, err := virtClient.CoreV1().Services(udpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
@@ -370,13 +403,27 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					Expect(node.Status.Addresses).ToNot(BeEmpty())
 					nodeIP := node.Status.Addresses[0].Address
 
+					if ipFamily == k8sv1.IPv6Protocol {
+						ipv6NodeIP, err := resolveNodeIPAddrByFamily(
+							virtClient,
+							tests.GetPodByVirtualMachineInstance(udpVM, udpVM.GetNamespace()),
+							node,
+							ipFamily)
+						Expect(err).NotTo(HaveOccurred(), "must have been able to resolve an IP address from the node name")
+						Expect(ipv6NodeIP).NotTo(BeEmpty(), "must have been able to resolve the IPv6 address of the node")
+						nodeIP = ipv6NodeIP
+					}
+
 					By("Starting a job which tries to reach the VMI via NodePort")
 					job := runHelloWorldJobUDP(nodeIP, strconv.Itoa(int(nodePort)), udpVM.Namespace)
 
 					By("Waiting for the job to report a successful connection attempt")
 					Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
 				}
-			})
+			},
+				table.Entry("[test_id:1536] over default IPv4 IP family", k8sv1.IPv4Protocol),
+				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+			)
 		})
 	})
 
