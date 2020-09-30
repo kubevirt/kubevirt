@@ -69,3 +69,7 @@ func IsOpenShift() bool {
 
 	return isOpenShift
 }
+
+func HasLiveMigration() bool {
+	return HasFeature("LiveMigration")
+}

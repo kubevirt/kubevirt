@@ -148,17 +148,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
-
-		if !tests.HasLiveMigration() {
-			Skip("LiveMigration feature gate is not enabled in kubevirt-config")
-		}
-
-		nodes := util.GetAllSchedulableNodes(virtClient)
-		Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
-
-		if len(nodes.Items) < 2 {
-			Skip("Migration tests require at least 2 nodes")
-		}
+		checks.SkipMigrationTestIfNotPossible()
 
 		// Taints defined by k8s are special and can't be applied manually.
 		// Temporarily configure KubeVirt to use something else for the duration of these tests.

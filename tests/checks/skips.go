@@ -138,9 +138,6 @@ func SkipTestIfNoCPUManager() {
 			return
 		}
 	}
-	if *DiscoveredClusterProfile.MinimumNodesWithCPUManager > 0 {
-		ginkgo.Fail("No nodes with CPU manager present, although initially discovered", 1)
-	}
 	ginkgo.Skip("no node with CPUManager detected", 1)
 }
 
@@ -180,5 +177,18 @@ func SkipIfNotDualStack() {
 	dualStack, err := libnet.IsClusterDualStack(virtClient)
 	if !dualStack {
 		ginkgo.Skip("Skip tests which require a dual stack network config")
+	}
+}
+
+func SkipMigrationTestIfNotPossible() {
+	if !HasLiveMigration() {
+		ginkgo.Skip("LiveMigration feature gate is not enabled in kubevirt-config")
+	}
+	virtClient, err := kubecli.GetKubevirtClient()
+	util.PanicOnError(err)
+
+	nodes := util.GetAllSchedulableNodes(virtClient)
+	if len(nodes.Items) < 2 {
+		ginkgo.Skip("Migration tests require at least 2 nodes", 1)
 	}
 }

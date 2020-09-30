@@ -826,9 +826,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			}
 
 			BeforeEach(func() {
-				if !tests.HasLiveMigration() {
-					Skip("LiveMigration feature gate is not enabled in kubevirt-config")
-				}
+				checks.SkipMigrationTestIfNotPossible()
 			})
 
 			AfterEach(func() {

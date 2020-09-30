@@ -3955,10 +3955,6 @@ func HasExperimentalIgnitionSupport() bool {
 	return checks.HasFeature("ExperimentalIgnitionSupport")
 }
 
-func HasLiveMigration() bool {
-	return checks.HasFeature("LiveMigration")
-}
-
 func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()
 	uid := vmi.GetObjectMeta().GetUID()
