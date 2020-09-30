@@ -7,11 +7,13 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -51,6 +53,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
 	})
+
 	runHelloWorldJob := func(host, port, namespace string) *batchv1.Job {
 		job := tests.NewHelloWorldJob(host, port)
 		job, err := virtClient.BatchV1().Jobs(namespace).Create(job)
@@ -72,6 +75,10 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		return job
 	}
 
+	randomizeName := func(currentName string) string {
+		return currentName + rand.String(5)
+	}
+
 	Context("Expose service on a VM", func() {
 		var tcpVM *v1.VirtualMachineInstance
 		tests.BeforeAll(func() {
@@ -82,13 +89,30 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		Context("Expose ClusterIP service", func() {
 			const servicePort = "27017"
-			const serviceName = "cluster-ip-vmi"
-			It("[test_id:1531][label:masquerade_binding_connectivity]Should expose a Cluster IP service on a VMI and connect to it", func() {
+			const serviceNamePrefix = "cluster-ip-vmi"
+
+			var serviceName string
+			var vmiExposeArgs []string
+
+			BeforeEach(func() {
+				serviceName = randomizeName(serviceNamePrefix)
+
+				vmiExposeArgs = []string{
+					expose.COMMAND_EXPOSE,
+					"virtualmachineinstance", "--namespace", tcpVM.GetNamespace(), tcpVM.GetName(),
+					"--port", servicePort, "--name", serviceName,
+					"--target-port", strconv.Itoa(testPort),
+				}
+			})
+
+			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a Cluster IP service on a VMI and connect to it", func(ipFamily k8sv1.IPFamily) {
+				if ipFamily == k8sv1.IPv6Protocol {
+					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
+				}
+
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
-					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
-				err := virtctl()
-				Expect(err).ToNot(HaveOccurred())
+				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
+				Expect(virtctl()).To(Succeed(), "should expose a service via `virtctl expose ...`")
 
 				By("Getting back the cluster IP given for the service")
 				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
@@ -100,17 +124,37 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Waiting for the job to report a successful connection attempt")
 				Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
-			})
+			},
+				table.Entry("[test_id:1531] over default IPv4 IP family", k8sv1.IPv4Protocol),
+				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+			)
 		})
 
 		Context("Expose ClusterIP service with string target-port", func() {
 			const servicePort = "27017"
-			const serviceName = "cluster-ip-target-vmi"
-			It("[test_id:1532]Should expose a ClusterIP service and connect to the vm on port 80", func() {
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
-					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", "http")
-				err := virtctl()
-				Expect(err).ToNot(HaveOccurred())
+			const serviceNamePrefix = "cluster-ip-target-vmi"
+
+			var serviceName string
+			var vmiExposeArgs []string
+
+			BeforeEach(func() {
+				serviceName = randomizeName(serviceNamePrefix)
+
+				vmiExposeArgs = []string{
+					expose.COMMAND_EXPOSE,
+					"virtualmachineinstance", "--namespace", tcpVM.GetNamespace(), tcpVM.GetName(),
+					"--port", servicePort, "--name", serviceName, "--target-port", "http",
+				}
+			})
+
+			table.DescribeTable("Should expose a ClusterIP service and connect to the vm on port 80", func(ipFamily k8sv1.IPFamily) {
+				if ipFamily == k8sv1.IPv6Protocol {
+					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
+				}
+
+				By("Exposing the service via virtctl command")
+				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
+				Expect(virtctl()).To(Succeed(), "should expose a service via `virtctl expose ...`")
 
 				By("Waiting for kubernetes to create the relevant endpoint")
 				getEndpoint := func() error {
@@ -126,16 +170,36 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				endpoint := endpoints.Subsets[0]
 				Expect(len(endpoint.Ports)).To(Equal(1))
 				Expect(endpoint.Ports[0].Port).To(Equal(int32(80)))
-			})
+			},
+				table.Entry("[test_id:1532] over default IPv4 IP family", k8sv1.IPv4Protocol),
+				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+			)
 		})
 
-		Context("Expose ClusterIP service wiht ports on the vmi defined", func() {
-			const serviceName = "cluster-ip-target-multiple-ports-vmi"
-			It("[test_id:1533]Should expose a ClusterIP service and connect to all ports defined on the vmi", func() {
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
-					tcpVM.Namespace, tcpVM.Name, "--name", serviceName)
-				err := virtctl()
-				Expect(err).ToNot(HaveOccurred())
+		Context("Expose ClusterIP service with ports on the vmi defined", func() {
+			const serviceNamePrefix = "cluster-ip-target-multiple-ports-vmi"
+
+			var serviceName string
+			var vmiExposeArgs []string
+
+			BeforeEach(func() {
+				serviceName = randomizeName(serviceNamePrefix)
+
+				vmiExposeArgs = []string{
+					expose.COMMAND_EXPOSE,
+					"virtualmachineinstance", "--namespace", tcpVM.GetNamespace(), tcpVM.GetName(),
+					"--name", serviceName,
+				}
+			})
+
+			table.DescribeTable("Should expose a ClusterIP service and connect to all ports defined on the vmi", func(ipFamily k8sv1.IPFamily) {
+				if ipFamily == k8sv1.IPv6Protocol {
+					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
+				}
+
+				By("Exposing the service via virtctl command")
+				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
+				Expect(virtctl()).To(Succeed(), "should expose a service via `virtctl expose ...`")
 
 				By("Waiting for kubernetes to create the relevant endpoint")
 				getEndpoint := func() error {
@@ -154,20 +218,37 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(endpoint.Ports).To(ContainElement(k8sv1.EndpointPort{Name: "port-2", Port: 1500, Protocol: "TCP"}))
 				Expect(endpoint.Ports).To(ContainElement(k8sv1.EndpointPort{Name: "port-3", Port: 82, Protocol: "UDP"}))
 				Expect(endpoint.Ports).To(ContainElement(k8sv1.EndpointPort{Name: "port-4", Port: 1500, Protocol: "UDP"}))
-			})
+			},
+				table.Entry("[test_id:1533] over default IPv4 IP family", k8sv1.IPv4Protocol),
+				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+			)
 		})
 
 		Context("Expose NodePort service", func() {
 			const servicePort = "27017"
-			const serviceName = "node-port-vmi"
+			const serviceNamePrefix = "node-port-vmi"
 
-			It("[test_id:1534[label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func() {
+			var serviceName string
+			var vmiExposeArgs []string
+
+			BeforeEach(func() {
+				serviceName = randomizeName(serviceNamePrefix)
+				vmiExposeArgs = []string{
+					expose.COMMAND_EXPOSE,
+					"virtualmachineinstance", "--namespace", tcpVM.GetNamespace(), tcpVM.GetName(),
+					"--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
+					"--type", "NodePort",
+				}
+			})
+
+			table.DescribeTable("[label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func(ipFamily k8sv1.IPFamily) {
+				if ipFamily == k8sv1.IPv6Protocol {
+					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
+				}
+
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
-					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
-					"--type", "NodePort")
-				err := virtctl()
-				Expect(err).ToNot(HaveOccurred())
+				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
+				Expect(virtctl()).To(Succeed(), "should expose a service via `virtctl expose ...`")
 
 				By("Getting back the service")
 				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
@@ -183,13 +264,27 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					Expect(node.Status.Addresses).ToNot(BeEmpty())
 					nodeIP := node.Status.Addresses[0].Address
 
+					if ipFamily == k8sv1.IPv6Protocol {
+						ipv6NodeIP, err := resolveNodeIPAddrByFamily(
+							virtClient,
+							tests.GetPodByVirtualMachineInstance(tcpVM, tcpVM.GetNamespace()),
+							node,
+							ipFamily)
+						Expect(err).NotTo(HaveOccurred(), "must have been able to resolve an IP address from the node name")
+						Expect(ipv6NodeIP).NotTo(BeEmpty(), "must have been able to resolve the IPv6 address of the node")
+						nodeIP = ipv6NodeIP
+					}
+
 					By("Starting a job which tries to reach the VMI via NodePort")
 					job := runHelloWorldJob(nodeIP, strconv.Itoa(int(nodePort)), tcpVM.Namespace)
 
 					By("Waiting for the job to report a successful connection attempt")
 					Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
 				}
-			})
+			},
+				table.Entry("[test_id:1534] over default IPv4 IP family", k8sv1.IPv4Protocol),
+				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+			)
 		})
 	})
 
