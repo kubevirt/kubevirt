@@ -47,6 +47,8 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", func() {
@@ -790,6 +792,107 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 					return nil
 				}, 120*time.Second).Should(Succeed())
 			})
+		})
+
+		Context("MTU verification", func() {
+			var vmi *v1.VirtualMachineInstance
+			var anotherVmi *v1.VirtualMachineInstance
+
+			getMtu := func(pod *k8sv1.Pod, ifaceName string) int {
+				output, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					pod,
+					"compute",
+					[]string{"cat", fmt.Sprintf("/sys/class/net/%s/mtu", ifaceName)},
+				)
+				ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+				output = strings.TrimSuffix(output, "\n")
+				mtu, err := strconv.Atoi(output)
+				ExpectWithOffset(1, err).ToNot(HaveOccurred())
+				return mtu
+			}
+
+			BeforeEach(func() {
+				var err error
+
+				By("Create VMI")
+				vmi = libvmi.NewFedora()
+
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Create another VMI")
+				anotherVmi = masqueradeVMI([]v1.Port{}, "")
+				anotherVmi, err = virtClient.VirtualMachineInstance(anotherVmi.Namespace).Create(anotherVmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Wait for VMIs to be ready")
+				tests.WaitUntilVMIReady(anotherVmi, tests.LoggedInCirrosExpecter)
+				anotherVmi, err = virtClient.VirtualMachineInstance(anotherVmi.Namespace).Get(anotherVmi.Name, &v13.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				if vmi != nil {
+					By("Delete VMI")
+					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &v13.DeleteOptions{})).To(Succeed())
+				}
+			})
+
+			AfterEach(func() {
+				if anotherVmi != nil {
+					By("Delete another VMI")
+					Expect(virtClient.VirtualMachineInstance(anotherVmi.Namespace).Delete(anotherVmi.Name, &v13.DeleteOptions{})).To(Succeed())
+				}
+			})
+
+			table.DescribeTable("should have the correct MTU", func(ipFamily k8sv1.IPFamily) {
+				if ipFamily == k8sv1.IPv6Protocol {
+					libnet.SkipWhenNotDualStackCluster(virtClient)
+				}
+
+				By("checking k6t-eth0 MTU inside the pod")
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				bridgeMtu := getMtu(vmiPod, "k6t-eth0")
+				primaryIfaceMtu := getMtu(vmiPod, "eth0")
+
+				Expect(bridgeMtu).To(Equal(primaryIfaceMtu), "k6t-eth0 bridge mtu should equal eth0 interface mtu")
+
+				By("checking k6t-eth0-nic MTU inside the pod")
+				bridgePrimaryNicMtu := getMtu(vmiPod, "k6t-eth0-nic")
+				Expect(bridgePrimaryNicMtu).To(Equal(primaryIfaceMtu), "k6t-eth0-nic mtu should equal eth0 interface mtu")
+
+				By("checking eth0 MTU inside the VirtualMachineInstance")
+				showMtu := "cat /sys/class/net/eth0/mtu\n"
+				err = tests.CheckForTextExpecter(vmi, []expect.Batcher{
+					&expect.BSnd{S: showMtu},
+					&expect.BExp{R: tests.RetValue(strconv.Itoa(bridgeMtu))},
+				}, 180)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("checking the VirtualMachineInstance can send MTU sized frames to another VirtualMachineInstance")
+				icmpHeaderSize := 8
+				var ipHeaderSize int
+				if ipFamily == k8sv1.IPv4Protocol {
+					ipHeaderSize = 20
+				} else {
+					ipHeaderSize = 40
+				}
+				payloadSize := primaryIfaceMtu - ipHeaderSize - icmpHeaderSize
+				addr := libnet.GetVmiPrimaryIpByFamily(anotherVmi, ipFamily)
+				Expect(tests.PingFromVMConsole(vmi, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize), "-M do")).To(Succeed())
+
+				By("checking the VirtualMachineInstance cannot send bigger than MTU sized frames to another VirtualMachineInstance")
+				Expect(tests.PingFromVMConsole(vmi, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize+1), "-M do")).ToNot(Succeed())
+			},
+				table.Entry("IPv4", k8sv1.IPv4Protocol),
+				table.Entry("IPv6", k8sv1.IPv6Protocol),
+			)
 		})
 	})
 
