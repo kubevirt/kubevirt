@@ -764,6 +764,7 @@ type DataVolumeTemplateSpec struct {
 	// this field is not used by our controllers and is a no-op.
 	// +nullable
 	metav1.TypeMeta `json:",inline"`
+	// +kubebuilder:pruning:PreserveUnknownFields
 	// +nullable
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// DataVolumeSpec contains the DataVolume specification.

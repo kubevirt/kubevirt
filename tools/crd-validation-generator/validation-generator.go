@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -24,7 +24,12 @@ func main() {
 	if err != nil {
 		panic(fmt.Errorf("Error occured reading directory, %v", err))
 	}
-	validations := make(map[string]*extv1beta1.CustomResourceValidation)
+
+	if len(files) == 0 {
+		panic("Povided crdDir is empty")
+	}
+
+	validations := make(map[string]*extv1.CustomResourceValidation)
 	for _, file := range files {
 		if file.IsDir() {
 			continue
@@ -43,7 +48,7 @@ func main() {
 
 var variable = " \"%s\" : `%s`,\n"
 
-func generateGoFile(outputDir string, validations map[string]*extv1beta1.CustomResourceValidation) {
+func generateGoFile(outputDir string, validations map[string]*extv1.CustomResourceValidation) {
 	filepath := fmt.Sprintf("%svalidations_generated.go", outputDir)
 	os.Remove(filepath)
 	file, err := os.OpenFile(filepath, os.O_CREATE|os.O_WRONLY, 0644)
@@ -71,17 +76,17 @@ func generateGoFile(outputDir string, validations map[string]*extv1beta1.CustomR
 
 }
 
-func getValidation(filename string) (string, *extv1beta1.CustomResourceValidation) {
+func getValidation(filename string) (string, *extv1.CustomResourceValidation) {
 	file, err := os.Open(filename)
 	if err != nil {
 		panic(fmt.Errorf("Failed to read file %v, %v", filename, err))
 	}
 	defer file.Close()
 
-	crd := extv1beta1.CustomResourceDefinition{}
+	crd := extv1.CustomResourceDefinition{}
 	err = k8syaml.NewYAMLToJSONDecoder(file).Decode(&crd)
 	if err != nil {
 		panic(fmt.Errorf("Failed to parse crd from file %v, %v", filename, err))
 	}
-	return crd.Spec.Names.Singular, crd.Spec.Validation
+	return crd.Spec.Names.Singular, crd.Spec.Versions[0].Schema
 }

@@ -73,12 +73,12 @@ ${KUBEVIRT_DIR}/hack/build-go.sh generate ${WHAT}
 (
     cd ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go &&
         # supress -mod=vendor
-        GOFLAGS= controller-gen crd paths=./api/v1/
+        GOFLAGS= controller-gen crd:allowDangerousTypes=true paths=./api/v1/
     #include snapshot
     GOFLAGS= controller-gen crd paths=./apis/snapshot/v1alpha1/
 
+    #remove some weird stuff from controller-gen
     cd config/crd
-    # tail -n +3 kubevirt.io_kubevirts.yaml > kubevirt.io_kubevirts_new.yaml
     for file in *; do
         tail -n +3 $file >$file"new"
         mv $file"new" $file
@@ -86,7 +86,7 @@ ${KUBEVIRT_DIR}/hack/build-go.sh generate ${WHAT}
     cd ${KUBEVIRT_DIR}/tools/crd-validation-generator/ && go_build
 
     cd ${KUBEVIRT_DIR}
-    ${KUBEVIRT_DIR}/tools/crd-validation-generator/crd-validation-generator 
+    ${KUBEVIRT_DIR}/tools/crd-validation-generator/crd-validation-generator
 )
 rm -rf ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/config
 
