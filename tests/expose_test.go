@@ -21,6 +21,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 func newLabeledVMI(label string, virtClient kubecli.KubevirtClient, createVMI bool) (vmi *v1.VirtualMachineInstance) {
@@ -507,33 +508,19 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Context("Expose a VM as a service.", func() {
 		const servicePort = "27017"
-		const serviceName = "cluster-ip-vm"
+		const serviceNamePrefix = "cluster-ip-vm"
 		var vm *v1.VirtualMachine
 
-		tests.BeforeAll(func() {
-			tests.BeforeTestCleanup()
-			By("Creating an VM object")
-			template := newLabeledVMI("vm", virtClient, false)
-			vm = tests.NewRandomVirtualMachine(template, false)
+		var vmExposeArgs []string
 
-			By("Creating the VM")
-			_, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Exposing a service to the VM using virtctl")
-			virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachine", "--namespace",
-				vm.Namespace, vm.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
-			err = virtctl()
-			Expect(err).ToNot(HaveOccurred())
-
+		startVMIFromVMTemplate := func(virtClient kubecli.KubevirtClient, name string, namespace string) *v1.VirtualMachineInstance {
 			By("Calling the start command")
-			virtctl = tests.NewRepeatableVirtctlCommand("start", "--namespace", vm.Namespace, vm.Name)
-			err = virtctl()
-			Expect(err).ToNot(HaveOccurred())
+			virtctl := tests.NewRepeatableVirtctlCommand("start", "--namespace", namespace, name)
+			Expect(virtctl()).To(Succeed(), "should succeed starting a VMI via `virtctl start ...`")
 
 			By("Getting the status of the VMI")
 			Eventually(func() bool {
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(namespace).Get(name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 120*time.Second, 1*time.Second).Should(BeTrue())
@@ -541,16 +528,66 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			By("Getting the running VMI")
 			var vmi *v1.VirtualMachineInstance
 			Eventually(func() bool {
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.Status.Phase == v1.Running
 			}, 120*time.Second, 1*time.Second).Should(BeTrue())
 
-			tests.GenerateHelloWorldServer(vmi, testPort, "tcp")
-		})
+			return vmi
+		}
+
+		createStoppedVM := func(virtClient kubecli.KubevirtClient, namespace string) (*v1.VirtualMachine, error) {
+			By("Creating an VM object")
+			template := newLabeledVMI("vm", virtClient, false)
+			vm := tests.NewRandomVirtualMachine(template, false)
+
+			By("Creating the VM")
+			vm, err = virtClient.VirtualMachine(namespace).Create(vm)
+			return vm, err
+		}
+
+		startVMWithServer := func(virtClient kubecli.KubevirtClient, protocol string, port int) *v1.VirtualMachineInstance {
+			By("Calling the start command on the stopped VM")
+			vmi := startVMIFromVMTemplate(virtClient, vm.GetName(), vm.GetNamespace())
+			if vmi == nil {
+				return nil
+			}
+			tests.GenerateHelloWorldServer(vmi, port, protocol)
+			return vmi
+		}
 
 		Context("Expose a VM as a ClusterIP service.", func() {
-			It("[test_id:1538][label:masquerade_binding_connectivity]Connect to ClusterIP service that was set when VM was offline.", func() {
+			var serviceName string
+
+			BeforeEach(tests.BeforeTestCleanup)
+
+			BeforeEach(func() {
+				vm, err = createStoppedVM(virtClient, tests.NamespaceTestDefault)
+				Expect(err).NotTo(HaveOccurred(), "should create a stopped VM.")
+			})
+
+			BeforeEach(func() {
+				serviceName = randomizeName(serviceNamePrefix)
+
+				vmExposeArgs = []string{
+					expose.COMMAND_EXPOSE,
+					"virtualmachine", "--namespace", vm.GetNamespace(), vm.GetName(),
+					"--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
+				}
+			})
+
+			table.DescribeTable("[label:masquerade_binding_connectivity]Connect to ClusterIP service that was set when VM was offline.", func(ipFamily k8sv1.IPFamily) {
+				if ipFamily == k8sv1.IPv6Protocol {
+					vmExposeArgs = append(vmExposeArgs, "--ip-family", "ipv6")
+				}
+
+				By("Exposing a service to the VM using virtctl")
+				virtctl := tests.NewRepeatableVirtctlCommand(vmExposeArgs...)
+				Expect(virtctl()).ToNot(HaveOccurred(), "should succeed exposing a service via `virtctl expose ...`")
+
+				vmi := startVMWithServer(virtClient, "tcp", testPort)
+				Expect(vmi).NotTo(BeNil(), "should have been able to start the VM")
+
 				// This TC also covers:
 				// [test_id:1795] Exposed VM (as a service) can be reconnected multiple times.
 				By("Getting back the cluster IP given for the service")
@@ -569,10 +606,24 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Waiting for the HTTP job to report a successful connection attempt.")
 				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
-			})
+			},
+				table.Entry("[test_id:1538] over default IPv4 IP family", k8sv1.IPv4Protocol),
+				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+			)
 
-			It("[test_id:345][label:masquerade_binding_connectivity]Should verify the exposed service is functional before and after VM restart.", func() {
+			table.DescribeTable("[label:masquerade_binding_connectivity]Should verify the exposed service is functional before and after VM restart.", func(ipFamily k8sv1.IPFamily) {
 				vmObj := vm
+
+				if ipFamily == k8sv1.IPv6Protocol {
+					vmExposeArgs = append(vmExposeArgs, "--ip-family", "ipv6")
+				}
+
+				By("Exposing a service to the VM using virtctl")
+				virtctl := tests.NewRepeatableVirtctlCommand(vmExposeArgs...)
+				Expect(virtctl()).ToNot(HaveOccurred(), "should succeed exposing a service via `virtctl expose ...`")
+
+				vmi := startVMWithServer(virtClient, "tcp", testPort)
+				Expect(vmi).NotTo(BeNil(), "should have been able to start the VM")
 
 				By("Getting back the service's allocated cluster IP.")
 				svc, err := virtClient.CoreV1().Services(vmObj.Namespace).Get(serviceName, k8smetav1.GetOptions{})
@@ -586,13 +637,12 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
 
 				// Retrieve the current VMI UID, to be compared with the new UID after restart.
-				var vmi *v1.VirtualMachineInstance
 				vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(vmObj.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vmiUIdBeforeRestart := vmi.GetObjectMeta().GetUID()
 
 				By("Restarting the running VM.")
-				virtctl := tests.NewRepeatableVirtctlCommand("restart", "--namespace", vmObj.Namespace, vmObj.Name)
+				virtctl = tests.NewRepeatableVirtctlCommand("restart", "--namespace", vmObj.Namespace, vmObj.Name)
 				err = virtctl()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -604,8 +654,8 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					}
 					Expect(err).ToNot(HaveOccurred())
 					vmiUIdAfterRestart := vmi.GetObjectMeta().GetUID()
-					newUId := (vmiUIdAfterRestart != vmiUIdBeforeRestart)
-					return ((vmi.Status.Phase == v1.Running) && (newUId))
+					newUId := vmiUIdAfterRestart != vmiUIdBeforeRestart
+					return vmi.Status.Phase == v1.Running && newUId
 				}, 120*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Creating a TCP server on the VM.")
@@ -617,9 +667,23 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Waiting for the job to report a successful connection attempt.")
 				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
-			})
+			},
+				table.Entry("[test_id:345] over default IPv4 IP family", k8sv1.IPv4Protocol),
+				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+			)
 
-			It("[test_id:343][label:masquerade_binding_connectivity]Should Verify an exposed service of a VM is not functional after VM deletion.", func() {
+			table.DescribeTable("[label:masquerade_binding_connectivity]Should Verify an exposed service of a VM is not functional after VM deletion.", func(ipFamily k8sv1.IPFamily) {
+				if ipFamily == k8sv1.IPv6Protocol {
+					vmExposeArgs = append(vmExposeArgs, "--ip-family", "ipv6")
+				}
+
+				By("Exposing a service to the VM using virtctl")
+				virtctl := tests.NewRepeatableVirtctlCommand(vmExposeArgs...)
+				Expect(virtctl()).ToNot(HaveOccurred(), "should succeed exposing a service via `virtctl expose ...`")
+
+				vmi := startVMWithServer(virtClient, "tcp", testPort)
+				Expect(vmi).NotTo(BeNil(), "should have been able to start the VM")
+
 				By("Getting back the cluster IP given for the service")
 				svc, err := virtClient.CoreV1().Services(vm.Namespace).Get(serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -633,10 +697,10 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Comparing the service's endpoints IP address to the VM pod IP address.")
 				// Get the IP address of the VM pod.
-				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vmPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				vmPodIpAddress := vmPod.Status.PodIP
+				vmPodIpAddress := libnet.GetPodIpByFamily(vmPod, ipFamily)
 
 				// Get the IP address of the service's endpoint.
 				endpointsName := serviceName
@@ -666,7 +730,10 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Waiting for the job to report a failed connection attempt.")
 				Expect(tests.WaitForJobToFail(job, 120*time.Second)).To(Succeed())
-			})
+			},
+				table.Entry("[test_id:343] over default IPv4 IP family", k8sv1.IPv4Protocol),
+				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+			)
 		})
 	})
 })
