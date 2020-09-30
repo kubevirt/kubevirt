@@ -87,7 +87,6 @@ func NewController(
 	vmiTargetInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	gracefulShutdownInformer cache.SharedIndexInformer,
-	hostDevConfigMapInformer cache.SharedIndexInformer,
 	watchdogTimeoutSeconds int,
 	maxDevices int,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -109,7 +108,6 @@ func NewController(
 		vmiTargetInformer:        vmiTargetInformer,
 		domainInformer:           domainInformer,
 		gracefulShutdownInformer: gracefulShutdownInformer,
-		hostDevConfigMapInformer: hostDevConfigMapInformer,
 		heartBeatInterval:        1 * time.Minute,
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 		migrationProxy:           migrationproxy.NewMigrationProxyManager(serverTLSConfig, clientTLSConfig),
@@ -148,7 +146,7 @@ func NewController(
 
 	c.domainNotifyPipes = make(map[string]string)
 
-	c.deviceManagerController = device_manager.NewDeviceController(c.host, maxDevices, clusterConfig, hostDevConfigMapInformer)
+	c.deviceManagerController = device_manager.NewDeviceController(c.host, maxDevices, clusterConfig)
 
 	return c
 }
@@ -165,7 +163,6 @@ type VirtualMachineController struct {
 	vmiTargetInformer        cache.SharedIndexInformer
 	domainInformer           cache.SharedInformer
 	gracefulShutdownInformer cache.SharedIndexInformer
-	hostDevConfigMapInformer cache.SharedIndexInformer
 	launcherClients          map[types.UID]*launcherClientInfo
 	launcherClientLock       sync.Mutex
 	heartBeatInterval        time.Duration

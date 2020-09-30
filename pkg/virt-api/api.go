@@ -675,7 +675,6 @@ func (app *virtAPIApp) Run() {
 	webhookInformers := webhooks.GetInformers()
 	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.aggregatorClient, app.namespace)
 	configMapInformer := kubeInformerFactory.ConfigMap()
-	hostDevConfigMapInformer := kubeInformerFactory.HostDevicesConfigMap()
 	crdInformer := kubeInformerFactory.CRD()
 	authConfigMapInformer := kubeInformerFactory.ApiAuthConfigMap()
 	kubevirtCAConfigInformer := kubeInformerFactory.KubeVirtCAConfigMap()
@@ -689,7 +688,6 @@ func (app *virtAPIApp) Run() {
 	go webhookInformers.VMRestoreInformer.Run(stopChan)
 	go kubeVirtInformer.Run(stopChan)
 	go configMapInformer.Run(stopChan)
-	go hostDevConfigMapInformer.Run(stopChan)
 	go crdInformer.Run(stopChan)
 	go authConfigMapInformer.Run(stopChan)
 	go kubevirtCAConfigInformer.Run(stopChan)
@@ -701,10 +699,9 @@ func (app *virtAPIApp) Run() {
 		webhookInformers.VMIInformer.HasSynced,
 		webhookInformers.VMIPresetInformer.HasSynced,
 		webhookInformers.NamespaceLimitsInformer.HasSynced,
-		hostDevConfigMapInformer.HasSynced,
 		configMapInformer.HasSynced)
 
-	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, hostDevConfigMapInformer, app.namespace)
+	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, app.namespace)
 
 	go app.certmanager.Start()
 	go app.handlerCertManager.Start()
