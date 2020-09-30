@@ -428,11 +428,12 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Context("Expose service on a VMI replica set", func() {
+		const numberOfVMs = 2
+
 		var vmrs *v1.VirtualMachineInstanceReplicaSet
 		tests.BeforeAll(func() {
 			tests.BeforeTestCleanup()
 			By("Creating a VMRS object with 2 replicas")
-			const numberOfVMs = 2
 			template := newLabeledVMI("vmirs", virtClient, false)
 			vmrs = tests.NewRandomReplicaSetFromVMI(template, int32(numberOfVMs))
 			vmrs.Labels = map[string]string{"expose": "vmirs"}
@@ -463,14 +464,29 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		Context("Expose ClusterIP service", func() {
 			const servicePort = "27017"
-			const serviceName = "cluster-ip-vmirs"
+			const serviceNamePrefix = "cluster-ip-vmirs"
 
-			It("[test_id:1537][label:masquerade_binding_connectivity]Should create a ClusterIP service on VMRS and connect to it", func() {
-				By("Expose a service on the VMRS using virtctl")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmirs", "--namespace",
-					vmrs.Namespace, vmrs.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
-				err = virtctl()
-				Expect(err).ToNot(HaveOccurred())
+			var serviceName string
+			var vmirsExposeArgs []string
+
+			BeforeEach(func() {
+				serviceName = randomizeName(serviceNamePrefix)
+
+				vmirsExposeArgs = []string{
+					expose.COMMAND_EXPOSE,
+					"vmirs", "--namespace", vmrs.GetNamespace(), vmrs.GetName(),
+					"--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
+				}
+			})
+
+			table.DescribeTable("[label:masquerade_binding_connectivity]Should create a ClusterIP service on VMRS and connect to it", func(ipFamily k8sv1.IPFamily) {
+				if ipFamily == k8sv1.IPv6Protocol {
+					vmirsExposeArgs = append(vmirsExposeArgs, "--ip-family", "ipv6")
+				}
+
+				By("Exposing the service via virtctl command")
+				virtctl := tests.NewRepeatableVirtctlCommand(vmirsExposeArgs...)
+				Expect(virtctl()).To(Succeed(), "should succeed exposing a service via `virtctl expose ...`")
 
 				By("Getting back the cluster IP given for the service")
 				svc, err := virtClient.CoreV1().Services(vmrs.Namespace).Get(serviceName, k8smetav1.GetOptions{})
@@ -482,7 +498,10 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Waiting for the job to report a successful connection attempt")
 				Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
-			})
+			},
+				table.Entry("[test_id:1537] over default IPv4 IP family", k8sv1.IPv4Protocol),
+				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+			)
 		})
 	})
 
