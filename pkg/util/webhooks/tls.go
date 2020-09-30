@@ -75,9 +75,10 @@ func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.
 }
 
 func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool) *tls.Config {
-	// #nosec
+	// #nosec cause: InsecureSkipVerify: true
+	// resolution: Neither the client nor the server should validate anything itself, `VerifyPeerCertificate` is still executed
 	return &tls.Config{
-		// Neither the client nor the server should validate anything itself, `VerifyPeerCertificate` is still executed
+		//
 		InsecureSkipVerify: true,
 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
 			cert := certManager.Current()
@@ -100,7 +101,6 @@ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certifi
 				return nil, fmt.Errorf("No server certificate, server is not yet ready to receive traffic")
 			}
 
-			// #nosec
 			config = &tls.Config{
 				MinVersion: tls.VersionTLS12,
 				ClientCAs:  certPool,
@@ -148,7 +148,8 @@ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certifi
 }
 
 func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool) *tls.Config {
-	// #nosec
+	// #nosec cause: InsecureSkipVerify: true
+	// resolution: Neither the client nor the server should validate anything itself, `VerifyPeerCertificate` is still executed
 	return &tls.Config{
 		// Neither the client nor the server should validate anything itself, `VerifyPeerCertificate` is still executed
 		InsecureSkipVerify: true,

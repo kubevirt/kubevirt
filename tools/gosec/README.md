@@ -1,9 +1,6 @@
 # [GOSEC](https://github.com/securego/gosec)
 
-Junit containes all issues in project.
-New issues can be seen in logs(produced by git diff).
+Junit contains all issues in the project.
+Use `// #nosec` on top of reported line to mark issue as false positive. 
 
-### How to handle false possitive
- a. Use `// #nosec` on top of reported line. 
- b. Commit new junit to project.
 
