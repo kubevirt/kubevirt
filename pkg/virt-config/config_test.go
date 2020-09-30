@@ -36,7 +36,7 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	table.DescribeTable("when memBalloonStatsPeriod", func(value string, result uint32) {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{"memBalloonStatsPeriod": value},
 		})
 
@@ -48,7 +48,7 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when invalid, GetMemBalloonStatsPeriod should return 10", "invalid", uint32(10)))
 
 	table.DescribeTable(" when useEmulation", func(value string, result bool) {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{"debug.useEmulation": value},
 		})
 		Expect(clusterConfig.IsUseEmulation()).To(Equal(result))
@@ -60,7 +60,7 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	table.DescribeTable(" when permitSlirpInterface", func(value string, result bool) {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{"permitSlirpInterface": value},
 		})
 		Expect(clusterConfig.IsSlirpInterfaceEnabled()).To(Equal(result))
@@ -72,7 +72,7 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	table.DescribeTable(" when permitBridgeInterfaceOnPodNetwork", func(value string, result bool) {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{"permitBridgeInterfaceOnPodNetwork": value},
 		})
 		Expect(clusterConfig.IsBridgeInterfaceOnPodNetworkEnabled()).To(Equal(result))
@@ -84,7 +84,7 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	table.DescribeTable(" when imagePullPolicy", func(value string, result kubev1.PullPolicy) {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.ImagePullPolicyKey: value},
 		})
 		Expect(clusterConfig.GetImagePullPolicy()).To(Equal(result))
@@ -97,7 +97,7 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	table.DescribeTable(" when lessPVCSpaceToleration", func(value string, result int) {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.LessPVCSpaceTolerationKey: value},
 		})
 		Expect(clusterConfig.GetLessPVCSpaceToleration()).To(Equal(result))
@@ -108,7 +108,7 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	table.DescribeTable(" when defaultNetworkInterface", func(value string, result string) {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.NetworkInterfaceKey: value},
 		})
 		Expect(clusterConfig.GetDefaultNetworkInterface()).To(Equal(result))
@@ -126,7 +126,7 @@ var _ = Describe("ConfigMap", func() {
 		"node-role.kubernetes.io/compute": "true",
 	}
 	table.DescribeTable(" when nodeSelectors", func(value string, result map[string]string) {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.NodeSelectorsKey: value},
 		})
 		Expect(clusterConfig.GetNodeSelectors()).To(Equal(result))
@@ -137,7 +137,7 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	table.DescribeTable(" when machineType", func(value string, result string) {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.MachineTypeKey: value},
 		})
 		Expect(clusterConfig.GetMachineType()).To(Equal(result))
@@ -147,7 +147,7 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	table.DescribeTable(" when cpuModel", func(value string, result string) {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.CPUModelKey: value},
 		})
 		Expect(clusterConfig.GetCPUModel()).To(Equal(result))
@@ -157,7 +157,7 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	table.DescribeTable(" when cpuRequest", func(value string, result string) {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.CPURequestKey: value},
 		})
 		cpuRequest := clusterConfig.GetCPURequest()
@@ -168,7 +168,7 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	table.DescribeTable(" when memoryOvercommit", func(value string, result int) {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.MemoryOvercommitKey: value},
 		})
 		Expect(clusterConfig.GetMemoryOvercommit()).To(Equal(result))
@@ -178,7 +178,7 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	table.DescribeTable(" when emulatedMachines", func(value string, result []string) {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.EmulatedMachinesKey: value},
 		})
 		emulatedMachines := clusterConfig.GetEmulatedMachines()
@@ -189,7 +189,7 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	table.DescribeTable(" when supportedGuestAgentVersions", func(value string, result []string) {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.SupportedGuestAgentVersionsKey: value},
 		})
 		supportedGuestAgentVersions := clusterConfig.GetSupportedAgentVersions()
@@ -200,7 +200,7 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	It("Should return migration config values if specified as json", func() {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "10", "parallelMigrationsPerCluster": "20", "bandwidthPerMigration": "110Mi", "progressTimeout" : "5", "completionTimeoutPerGiB": "5", "unsafeMigrationOverride": "true", "allowAutoConverge": "true"}`},
 		})
 		result := clusterConfig.GetMigrationConfiguration()
@@ -215,7 +215,7 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should return migration config values if specified as yaml", func() {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.MigrationsConfigKey: `"parallelOutboundMigrationsPerNode" : "10"
 "parallelMigrationsPerCluster": "20"
 "bandwidthPerMigration": "110Mi"`},
@@ -227,7 +227,7 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should return defaults if parts of the config are not set", func() {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "10"}`},
 		})
 		result := clusterConfig.GetMigrationConfiguration()
@@ -237,7 +237,7 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should update the config if a newer version is available", func() {
-		clusterConfig, store, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, store, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "10"}`},
 		})
 		result := clusterConfig.GetMigrationConfiguration()
@@ -252,7 +252,7 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should stick with the last good config", func() {
-		clusterConfig, store, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, store, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "10"}`},
 		})
 		result := clusterConfig.GetMigrationConfiguration()
@@ -267,7 +267,7 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should pick up the latest config once it is fixed and parsable again", func() {
-		clusterConfig, store, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, store, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "10"}`},
 		})
 		result := clusterConfig.GetMigrationConfiguration()
@@ -291,13 +291,13 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("should return the default config if no config map exists", func() {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
 		result := clusterConfig.GetMigrationConfiguration()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 2))
 	})
 
 	It("should contain a default machine type that is supported by default", func() {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
 		Expect(clusterConfig.GetMachineType()).To(testutils.SatisfyAnyRegexp(clusterConfig.GetEmulatedMachines()))
 	})
 
@@ -320,7 +320,7 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	table.DescribeTable(" when SELinuxLauncherType", func(value string, result string) {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.SELinuxLauncherTypeKey: value},
 		})
 		selinuxLauncherType := clusterConfig.GetSELinuxLauncherType()
@@ -331,7 +331,7 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	table.DescribeTable(" when OVMFPath", func(value string, result string) {
-		clusterConfig, _, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.OVMFPathKey: value},
 		})
 		ovmfPath := clusterConfig.GetOVMFPath()
@@ -341,46 +341,17 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when unset, GetOVMFPath should return the default", "", virtconfig.DefaultOVMFPath),
 	)
 
-	It("Should get GetPermittedHostDevices", func() {
-		fakePermittedHostDevicesConfig := `
-pciDevices:
-  - pciVendorSelector: "10DE:1EB8"
-    resourceName: "nvidia.com/TU104GL_Tesla_T4"
-mdevs:
-  - mdevNameSelector: "GRID T4-1Q"
-    resourceName: "nvidia.com/GRID_T4-1Q"
-`
-		expectedDevices := `{"pciDevices":[{"pciVendorSelector":"10DE:1EB8","resourceName":"nvidia.com/TU104GL_Tesla_T4"}],"mdevs":[{"mdevNameSelector":"GRID T4-1Q","resourceName":"nvidia.com/GRID_T4-1Q"}]}`
-		clusterConfig, _, _, _, hostDevConfigMapInformer := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
-		testutils.UpdateFakeClusterConfigByName(hostDevConfigMapInformer, &kubev1.ConfigMap{
-			Data: map[string]string{virtconfig.PermittedHostDevicesKey: fakePermittedHostDevicesConfig},
-		}, testutils.HostDevicesConfigMapName)
-		hostdevs := clusterConfig.GetPermittedHostDevices()
-
-		hostdevsJson, err := json.Marshal(hostdevs)
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(string(hostdevsJson)).To(BeEquivalentTo(expectedDevices))
-	})
 	It("Should still get GetPermittedHostDevices after invalid update", func() {
-		fakePermittedHostDevicesConfig := `
-pciDevices:
-  - pciVendorSelector: "10DE:1EB8"
-    resourceName: "nvidia.com/TU104GL_Tesla_T4"
-mdevs:
-  - mdevNameSelector: "GRID T4-1Q"
-    resourceName: "nvidia.com/GRID_T4-1Q"
-`
 		expectedDevices := `{"pciDevices":[{"pciVendorSelector":"10DE:1EB8","resourceName":"nvidia.com/TU104GL_Tesla_T4"}],"mdevs":[{"mdevNameSelector":"GRID T4-1Q","resourceName":"nvidia.com/GRID_T4-1Q"}]}`
 		invalidPermittedHostDevicesConfig := "something wrong"
-		clusterConfig, _, _, _, hostDevConfigMapInformer := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
-		testutils.UpdateFakeClusterConfigByName(hostDevConfigMapInformer, &kubev1.ConfigMap{
-			Data: map[string]string{virtconfig.PermittedHostDevicesKey: fakePermittedHostDevicesConfig},
-		}, testutils.HostDevicesConfigMapName)
+		clusterConfig, store, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
+		testutils.UpdateFakeClusterConfig(store, &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.PermittedHostDevicesKey: expectedDevices},
+		})
 		clusterConfig.GetPermittedHostDevices()
-		testutils.UpdateFakeClusterConfigByName(hostDevConfigMapInformer, &kubev1.ConfigMap{
+		testutils.UpdateFakeClusterConfig(store, &kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.PermittedHostDevicesKey: invalidPermittedHostDevicesConfig},
-		}, testutils.HostDevicesConfigMapName)
+		})
 		hostdevs := clusterConfig.GetPermittedHostDevices()
 
 		hostdevsJson, err := json.Marshal(hostdevs)

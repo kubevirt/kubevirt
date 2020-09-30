@@ -48,7 +48,7 @@ import (
 )
 
 var _ = Describe("Validating VM Admitter", func() {
-	config, configMapInformer, crdInformer, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, configMapInformer, crdInformer, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 	var vmsAdmitter *VMsAdmitter
 
 	enableFeatureGate := func(featureGate string) {

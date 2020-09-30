@@ -7957,61 +7957,6 @@
       "items": {
        "type": "string"
       }
-     },
-     "autoattachGraphicsDevice": {
-      "description": "Whether to attach the default graphics device or not. VNC will not be available if set to false. Defaults to true.",
-      "type": "boolean"
-     },
-     "autoattachMemBalloon": {
-      "description": "Whether to attach the Memory balloon device with default period. Period can be adjusted in virt-config. Defaults to true.",
-      "type": "boolean"
-     },
-     "autoattachPodInterface": {
-      "description": "Whether to attach a pod network interface. Defaults to true.",
-      "type": "boolean"
-     },
-     "autoattachSerialConsole": {
-      "description": "Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.",
-      "type": "boolean"
-     },
-     "blockMultiQueue": {
-      "description": "Whether or not to enable virtio multi-queue for block devices",
-      "type": "boolean"
-     },
-     "disks": {
-      "description": "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Disk"
-      }
-     },
-     "gpus": {
-      "description": "Whether to attach a GPU device to the vmi.",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.GPU"
-      }
-     },
-     "hostDevices": {
-      "description": "Whether to attach a host device to the vmi.",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.HostDevice"
-      }
-     },
-     "inputs": {
-      "description": "Inputs describe input devices",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.Input"
-      }
-     },
-     "interfaces": {
-      "description": "Interfaces describe network interfaces which are added to the vmi.",
-      "type": "array",
-      "items": {
-       "type": "string"
-      }
      }
     }
    },
@@ -8428,24 +8373,6 @@
     }
    },
    "v1.CustomizeComponentsPatch": {
-   "v1.HostDevice": {
-    "type": "object",
-    "required": [
-     "name",
-     "deviceName"
-    ],
-    "properties": {
-     "deviceName": {
-      "type": "string"
-     },
-     "name": {
-      "description": "DeviceName is the resource name of the host device exposed by a device plugin",
-      "type": "string"
-     }
-    }
-   },
-   "v1.HostDisk": {
-    "description": "Represents a disk created on the cluster level",
     "type": "object",
     "properties": {
      "patch": {
@@ -8627,7 +8554,16 @@
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.GPU"
-      }
+      },
+      "x-kubernetes-list-type": "set"
+     },
+     "hostDevices": {
+      "description": "Whether to attach a host device to the vmi.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.HostDevice"
+      },
+      "x-kubernetes-list-type": "set"
      },
      "inputs": {
       "description": "Inputs describe input devices",
@@ -8764,12 +8700,6 @@
      "machine": {
       "description": "Machine type.",
       "$ref": "#/definitions/v1.Machine"
-     },
-     "permittedHostDevices": {
-      "$ref": "#/definitions/v1.PermittedHostDevices"
-     },
-     "selinuxLauncherType": {
-      "type": "string"
      },
      "memory": {
       "description": "Memory allow specifying the VMI memory features.",
@@ -9026,39 +8956,6 @@
      }
     }
    },
-   "v1.MediatedHostDevice": {
-    "description": "MediatedHostDevice represents a host mediated device allowed for passthrough",
-    "type": "object",
-    "required": [
-     "mdevNameSelector",
-     "resourceName"
-    ],
-    "properties": {
-     "externalResourceProvider": {
-      "type": "boolean"
-     },
-     "mdevNameSelector": {
-      "type": "string"
-     },
-     "resourceName": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.Memory": {
-    "description": "Memory allows specifying the VirtualMachineInstance memory features.",
-    "type": "object",
-    "properties": {
-     "readonly": {
-      "description": "ReadOnly. Defaults to false.",
-      "type": "boolean"
-     },
-     "tray": {
-      "description": "Tray indicates if the tray of the device is open or closed. Allowed values are \"open\" and \"closed\". Defaults to closed.",
-      "type": "string"
-     }
-    }
-   },
    "v1.GPU": {
     "type": "object",
     "required": [
@@ -9084,6 +8981,22 @@
      },
      "tickPolicy": {
       "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest. One of \"delay\", \"catchup\", \"merge\", \"discard\".",
+      "type": "string"
+     }
+    }
+   },
+   "v1.HostDevice": {
+    "type": "object",
+    "required": [
+     "name",
+     "deviceName"
+    ],
+    "properties": {
+     "deviceName": {
+      "type": "string"
+     },
+     "name": {
+      "description": "DeviceName is the resource name of the host device exposed by a device plugin",
       "type": "string"
      }
     }
@@ -9353,6 +9266,9 @@
      "ovmfPath": {
       "type": "string"
      },
+     "permittedHostDevices": {
+      "$ref": "#/definitions/v1.PermittedHostDevices"
+     },
      "selinuxLauncherType": {
       "type": "string"
      },
@@ -9394,49 +9310,6 @@
     }
    },
    "v1.KubeVirtSelfSignConfiguration": {
-   "v1.Patch": {
-    "description": "Patch is provided to give a concrete name and type to the Kubernetes PATCH request body.",
-    "type": "object"
-   },
-   "v1.PciHostDevice": {
-    "description": "PciHostDevice represents a host PCI device allowed for passthrough",
-    "type": "object",
-    "required": [
-     "pciVendorSelector",
-     "resourceName"
-    ],
-    "properties": {
-     "externalResourceProvider": {
-      "type": "boolean"
-     },
-     "pciVendorSelector": {
-      "type": "string"
-     },
-     "resourceName": {
-      "type": "string"
-     }
-    }
-   },
-   "v1.PermittedHostDevices": {
-    "description": "PermittedHostDevices holds inforamtion about devices allowed for passthrough",
-    "type": "object",
-    "properties": {
-     "mdevs": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.MediatedHostDevice"
-      }
-     },
-     "pciDevices": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.PciHostDevice"
-      }
-     }
-    }
-   },
-   "v1.PersistentVolumeClaim": {
-    "description": "PersistentVolumeClaim is a user's request for and claim to a persistent volume",
     "type": "object",
     "properties": {
      "caOverlapInterval": {
@@ -9569,6 +9442,25 @@
     "properties": {
      "type": {
       "description": "QEMU machine type is the actual chipset of the VirtualMachineInstance.",
+      "type": "string"
+     }
+    }
+   },
+   "v1.MediatedHostDevice": {
+    "description": "MediatedHostDevice represents a host mediated device allowed for passthrough",
+    "type": "object",
+    "required": [
+     "mdevNameSelector",
+     "resourceName"
+    ],
+    "properties": {
+     "externalResourceProvider": {
+      "type": "boolean"
+     },
+     "mdevNameSelector": {
+      "type": "string"
+     },
+     "resourceName": {
       "type": "string"
      }
     }
@@ -9709,6 +9601,45 @@
      "tickPolicy": {
       "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest. One of \"delay\", \"catchup\", \"discard\".",
       "type": "string"
+     }
+    }
+   },
+   "v1.PciHostDevice": {
+    "description": "PciHostDevice represents a host PCI device allowed for passthrough",
+    "type": "object",
+    "required": [
+     "pciVendorSelector",
+     "resourceName"
+    ],
+    "properties": {
+     "externalResourceProvider": {
+      "type": "boolean"
+     },
+     "pciVendorSelector": {
+      "type": "string"
+     },
+     "resourceName": {
+      "type": "string"
+     }
+    }
+   },
+   "v1.PermittedHostDevices": {
+    "description": "PermittedHostDevices holds inforamtion about devices allowed for passthrough",
+    "type": "object",
+    "properties": {
+     "mdevs": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.MediatedHostDevice"
+      },
+      "x-kubernetes-list-type": "set"
+     },
+     "pciDevices": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.PciHostDevice"
+      },
+      "x-kubernetes-list-type": "set"
      }
     }
    },

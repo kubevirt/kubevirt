@@ -26,8 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/client-go/tools/cache"
-
 	"kubevirt.io/client-go/log"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -39,13 +37,13 @@ var permanentDevicePluginPaths = map[string]string{
 }
 
 type DeviceController struct {
-	devicePlugins            map[string]ControlledDevice
-	devicePluginsMutex       sync.Mutex
-	host                     string
-	maxDevices               int
-	backoff                  []time.Duration
-	virtConfig               *virtconfig.ClusterConfig
-	stop                     chan struct{}
+	devicePlugins      map[string]ControlledDevice
+	devicePluginsMutex sync.Mutex
+	host               string
+	maxDevices         int
+	backoff            []time.Duration
+	virtConfig         *virtconfig.ClusterConfig
+	stop               chan struct{}
 }
 
 type ControlledDevice struct {
@@ -66,11 +64,11 @@ func getPermanentHostDevicePlugins(maxDevices int) map[string]ControlledDevice {
 
 func NewDeviceController(host string, maxDevices int, clusterConfig *virtconfig.ClusterConfig) *DeviceController {
 	controller := &DeviceController{
-		devicePlugins:            getPermanentHostDevicePlugins(maxDevices),
-		host:                     host,
-		maxDevices:               maxDevices,
-		backoff:                  []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
-		virtConfig:               clusterConfig,
+		devicePlugins: getPermanentHostDevicePlugins(maxDevices),
+		host:          host,
+		maxDevices:    maxDevices,
+		backoff:       []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
+		virtConfig:    clusterConfig,
 	}
 
 	return controller
@@ -189,7 +187,7 @@ func removeSelectorSpaces(selectorName string) string {
 	return typeNameStr
 
 }
-func (c *DeviceController) refreshPermittedDevices() error {
+func (c *DeviceController) refreshPermittedDevices() {
 	logger := log.DefaultLogger()
 	debugDevAdded := []string{}
 	debugDevRemoved := []string{}
@@ -221,7 +219,6 @@ func (c *DeviceController) refreshPermittedDevices() error {
 	logger.Info("refreshed device plugins for permitted/forbidden host devices")
 	logger.Infof("enabled device-pluings for: %v", debugDevAdded)
 	logger.Infof("disabled device-pluings for: %v", debugDevRemoved)
-	return nil
 }
 
 func (c *DeviceController) Run(stop chan struct{}) error {
@@ -230,7 +227,7 @@ func (c *DeviceController) Run(stop chan struct{}) error {
 	for _, dev := range c.devicePlugins {
 		go c.startDevicePlugin(dev)
 	}
-    c.virtConfig.SetConfigModifiedCallback(c.refreshPermittedDevices)
+	c.virtConfig.SetConfigModifiedCallback(c.refreshPermittedDevices)
 	c.refreshPermittedDevices()
 
 	// keep running until stop

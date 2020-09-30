@@ -64,7 +64,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Phase: v1.KubeVirtPhaseDeploying,
 		},
 	}
-	config, configMapInformer, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
+	config, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 	vmiCreateAdmitter := &VMICreateAdmitter{ClusterConfig: config}
 
 	dnsConfigTestOption := "test"
@@ -1948,15 +1948,18 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject GPU devices that are not permitted in the hostdev config", func() {
-			enableFeatureGate(virtconfig.GPUGate)
-			fakePermittedHostDevicesConfig := `
-  pciDevices:
-  - pciVendorSelector: "DEAD:BEEF"
-    resourceName: "example.org/deadbeef"`
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.GPUGate}
+			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
+				PciHostDevices: []v1.PciHostDevice{
+					{
+						Selector:     "DEAD:BEEF",
+						ResourceName: "example.org/deadbeef",
+					},
+				},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 
-			testutils.UpdateFakeClusterConfigByName(hostDevConfigMapInformer, &k8sv1.ConfigMap{
-				Data: map[string]string{virtconfig.PermittedHostDevicesKey: fakePermittedHostDevicesConfig},
-			}, testutils.HostDevicesConfigMapName)
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
 				v1.GPU{
@@ -1969,15 +1972,18 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.GPUs"))
 		})
 		It("should accept permitted GPU devices", func() {
-			enableFeatureGate(virtconfig.GPUGate)
-			fakePermittedHostDevicesConfig := `
-  pciDevices:
-  - pciVendorSelector: "DEAD:BEEF"
-    resourceName: "example.org/deadbeef"`
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.GPUGate}
+			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
+				PciHostDevices: []v1.PciHostDevice{
+					{
+						Selector:     "DEAD:BEEF",
+						ResourceName: "example.org/deadbeef",
+					},
+				},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 
-			testutils.UpdateFakeClusterConfigByName(hostDevConfigMapInformer, &k8sv1.ConfigMap{
-				Data: map[string]string{virtconfig.PermittedHostDevicesKey: fakePermittedHostDevicesConfig},
-			}, testutils.HostDevicesConfigMapName)
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
 				v1.GPU{
@@ -2002,17 +2008,17 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.HostDevices"))
 		})
 		It("should reject host devices that are not permitted in the hostdev config", func() {
-			enableFeatureGate(virtconfig.HostDevicesGate)
-			fakePermittedHostDevicesConfig := `
-  pciDevices:
-  - pciVendorSelector: "DEAD:BEEF"
-    resourceName: "example.org/deadbeef"`
-
-			configMapData := make(map[string]string)
-			configMapData["permittedHostDevices"] = fakePermittedHostDevicesConfig
-			testutils.UpdateFakeClusterConfigByName(hostDevConfigMapInformer, &k8sv1.ConfigMap{
-				Data: map[string]string{virtconfig.PermittedHostDevicesKey: fakePermittedHostDevicesConfig},
-			}, testutils.HostDevicesConfigMapName)
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.HostDevicesGate}
+			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
+				PciHostDevices: []v1.PciHostDevice{
+					{
+						Selector:     "DEAD:BEEF",
+						ResourceName: "example.org/deadbeef",
+					},
+				},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
 				v1.HostDevice{
@@ -2025,17 +2031,17 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.HostDevices"))
 		})
 		It("should accept permitted host devices", func() {
-			enableFeatureGate(virtconfig.HostDevicesGate)
-			fakePermittedHostDevicesConfig := `
-  pciDevices:
-  - pciVendorSelector: "DEAD:BEEF"
-    resourceName: "example.org/deadbeef"`
-
-			configMapData := make(map[string]string)
-			configMapData["permittedHostDevices"] = fakePermittedHostDevicesConfig
-			testutils.UpdateFakeClusterConfigByName(hostDevConfigMapInformer, &k8sv1.ConfigMap{
-				Data: map[string]string{virtconfig.PermittedHostDevicesKey: fakePermittedHostDevicesConfig},
-			}, testutils.HostDevicesConfigMapName)
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.HostDevicesGate}
+			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
+				PciHostDevices: []v1.PciHostDevice{
+					{
+						Selector:     "DEAD:BEEF",
+						ResourceName: "example.org/deadbeef",
+					},
+				},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
 				v1.HostDevice{
@@ -2735,7 +2741,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 })
 
 var _ = Describe("Function getNumberOfPodInterfaces()", func() {
-	config, _, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 	It("should work for empty network list", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
