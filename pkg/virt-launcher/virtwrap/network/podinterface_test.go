@@ -50,6 +50,7 @@ var _ = Describe("Pod Network", func() {
 	var fakeAddr netlink.Addr
 	var updateFakeMac net.HardwareAddr
 	var bridgeTest *netlink.Bridge
+	var masqueradeBridgeTest *netlink.Bridge
 	var bridgeAddr *netlink.Addr
 	var testNic *VIF
 	var tmpDir string
@@ -99,6 +100,13 @@ var _ = Describe("Pod Network", func() {
 			},
 		}
 
+		masqueradeBridgeTest = &netlink.Bridge{
+			LinkAttrs: netlink.LinkAttrs{
+				Name: api.DefaultBridgeName,
+				MTU:  1410,
+			},
+		}
+
 		bridgeAddr, _ = netlink.ParseAddr(fmt.Sprintf(bridgeFakeIP, 0))
 		testNic = &VIF{Name: podInterface,
 			IP:      fakeAddr,
@@ -119,7 +127,7 @@ var _ = Describe("Pod Network", func() {
 		masqueradeIpv6VmAddr, _ = netlink.ParseAddr(masqueradeIpv6VmStr)
 		masqueradeVmIpv6 = masqueradeIpv6VmAddr.IP.String()
 		masqueradeDummyName = fmt.Sprintf("%s-nic", api.DefaultBridgeName)
-		masqueradeDummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: masqueradeDummyName}}
+		masqueradeDummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: masqueradeDummyName, MTU: 1410}}
 		masqueradeTestNic = &VIF{Name: podInterface,
 			IP:          *masqueradeVmAddr,
 			IPv6:        *masqueradeIpv6VmAddr,
@@ -184,9 +192,11 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().LinkByName(masqueradeDummyName).Return(masqueradeDummy, nil)
 		mockNetwork.EXPECT().LinkSetUp(masqueradeDummy).Return(nil)
 		mockNetwork.EXPECT().GenerateRandomMac().Return(fakeMac, nil)
-		mockNetwork.EXPECT().LinkSetMaster(masqueradeDummy, bridgeTest).Return(nil)
-		mockNetwork.EXPECT().AddrAdd(bridgeTest, masqueradeGwAddr).Return(nil)
-		mockNetwork.EXPECT().AddrAdd(bridgeTest, masqueradeIpv6GwAddr).Return(nil)
+		mockNetwork.EXPECT().LinkAdd(masqueradeBridgeTest).Return(nil)
+		mockNetwork.EXPECT().LinkSetUp(masqueradeBridgeTest).Return(nil)
+		mockNetwork.EXPECT().LinkSetMaster(masqueradeDummy, masqueradeBridgeTest).Return(nil)
+		mockNetwork.EXPECT().AddrAdd(masqueradeBridgeTest, masqueradeGwAddr).Return(nil)
+		mockNetwork.EXPECT().AddrAdd(masqueradeBridgeTest, masqueradeIpv6GwAddr).Return(nil)
 		mockNetwork.EXPECT().StartDHCP(masqueradeTestNic, masqueradeGwAddr, api.DefaultBridgeName, nil)
 		mockNetwork.EXPECT().GetHostAndGwAddressesFromCIDR(api.DefaultVMCIDR).Return(masqueradeGwStr, masqueradeVmStr, nil)
 		mockNetwork.EXPECT().GetHostAndGwAddressesFromCIDR(api.DefaultVMIpv6CIDR).Return(masqueradeIpv6GwStr, masqueradeIpv6VmStr, nil)
