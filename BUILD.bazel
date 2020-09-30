@@ -359,6 +359,36 @@ genrule(
 )
 
 genrule(
+    name = "build-virtctl-amd64",
+    srcs = [
+        "//cmd/virtctl:virtctl-amd64",
+    ],
+    outs = ["virtctl-copier-amd64"],
+    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "build-virtctl-darwin",
+    srcs = [
+        "//cmd/virtctl:virtctl-darwin",
+    ],
+    outs = ["virtctl-copier-darwin"],
+    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "build-virtctl-windows",
+    srcs = [
+        "//cmd/virtctl:virtctl-windows",
+    ],
+    outs = ["virtctl-copier-windows"],
+    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
     name = "build-ginkgo",
     srcs = [
         "//vendor/github.com/onsi/ginkgo/ginkgo",

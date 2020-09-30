@@ -34,11 +34,13 @@ bazel build \
 
 # Copy dump binary to a reachable place outside of the build container
 bazel run \
+    --config=${ARCHITECTURE} \
     --stamp \
     :build-dump -- ${CMD_OUT_DIR}/dump/dump
 
 # build platform native virtctl explicitly
 bazel run \
+    --config=${ARCHITECTURE} \
     --stamp \
     :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl
 
@@ -46,18 +48,18 @@ bazel run \
 
 # linux
 bazel run \
-    --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
+    --config=${ARCHITECTURE} \
     --stamp \
-    :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-amd64
+    :build-virtctl-amd64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-amd64
 
 # darwin
 bazel run \
-    --platforms=@io_bazel_rules_go//go/toolchain:darwin_amd64 \
+    --config=${ARCHITECTURE} \
     --stamp \
-    :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-amd64
+    :build-virtctl-darwin -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-amd64
 
 # windows
 bazel run \
-    --platforms=@io_bazel_rules_go//go/toolchain:windows_amd64 \
+    --config=${ARCHITECTURE} \
     --stamp \
-    :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-windows-amd64.exe
+    :build-virtctl-windows -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-windows-amd64.exe
