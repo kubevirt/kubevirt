@@ -45,7 +45,6 @@ type DeviceController struct {
 	maxDevices               int
 	backoff                  []time.Duration
 	virtConfig               *virtconfig.ClusterConfig
-	hostDevConfigMapInformer cache.SharedIndexInformer
 	stop                     chan struct{}
 }
 
@@ -65,14 +64,13 @@ func getPermanentHostDevicePlugins(maxDevices int) map[string]ControlledDevice {
 	return ret
 }
 
-func NewDeviceController(host string, maxDevices int, clusterConfig *virtconfig.ClusterConfig, hostDevConfigMapInformer cache.SharedIndexInformer) *DeviceController {
+func NewDeviceController(host string, maxDevices int, clusterConfig *virtconfig.ClusterConfig) *DeviceController {
 	controller := &DeviceController{
 		devicePlugins:            getPermanentHostDevicePlugins(maxDevices),
 		host:                     host,
 		maxDevices:               maxDevices,
 		backoff:                  []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
 		virtConfig:               clusterConfig,
-		hostDevConfigMapInformer: hostDevConfigMapInformer,
 	}
 
 	return controller
@@ -203,7 +201,6 @@ func (c *DeviceController) refreshPermittedDevices() error {
 	//   c.updatePermittedHostDevicePlugins() and write to below.
 	c.devicePluginsMutex.Lock()
 
-	// Wait for the hostDevConfigMapInformer cache to be synced
 	enabledDevicePlugins, disabledDevicePlugins := c.updatePermittedHostDevicePlugins()
 
 	// start device plugin for newly permitted devices
@@ -233,14 +230,7 @@ func (c *DeviceController) Run(stop chan struct{}) error {
 	for _, dev := range c.devicePlugins {
 		go c.startDevicePlugin(dev)
 	}
-	c.hostDevConfigMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.hostDevAddDeleteFunc,
-		DeleteFunc: c.hostDevAddDeleteFunc,
-		UpdateFunc: c.hostDevUpdateFunc,
-	})
-	// Wait for the hostDevConfigMapInformer cache to be synced
-	go c.hostDevConfigMapInformer.Run(stop)
-	cache.WaitForCacheSync(stop, c.hostDevConfigMapInformer.HasSynced)
+    c.virtConfig.SetConfigModifiedCallback(c.refreshPermittedDevices)
 	c.refreshPermittedDevices()
 
 	// keep running until stop
