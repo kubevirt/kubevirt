@@ -5,6 +5,7 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -70,6 +71,18 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		return job
 	}
 
+	cleanupService := func(serviceName string, namespace string) func() error {
+		return func() error {
+			return virtClient.CoreV1().Services(namespace).Delete(serviceName, &k8smetav1.DeleteOptions{})
+		}
+	}
+
+	cleanupJob := func(jobName string, namespace string) func() error {
+		return func() error {
+			return virtClient.BatchV1().Jobs(namespace).Delete(jobName, &k8smetav1.DeleteOptions{})
+		}
+	}
+
 	Context("Expose service on a VM", func() {
 		var tcpVM *v1.VirtualMachineInstance
 		tests.BeforeAll(func() {
@@ -81,34 +94,103 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Context("Expose ClusterIP service", func() {
 			const servicePort = "27017"
 			const serviceName = "cluster-ip-vmi"
-			It("[test_id:1531][label:masquerade_binding_connectivity]Should expose a Cluster IP service on a VMI and connect to it", func() {
+
+			var vmiExposeArgs []string
+
+			var jobCleanupFunc func() error
+			var serviceCleanupFunc func() error
+
+			BeforeEach(func() {
+				vmiExposeArgs = []string{
+					expose.COMMAND_EXPOSE,
+					"virtualmachineinstance", "--namespace", tcpVM.GetNamespace(), tcpVM.GetName(),
+					"--port", servicePort, "--name", serviceName,
+					"--target-port", strconv.Itoa(testPort),
+				}
+			})
+
+			BeforeEach(func() {
+				jobCleanupFunc = nil
+			})
+
+			BeforeEach(func() {
+				serviceCleanupFunc = nil
+			})
+
+			AfterEach(func() {
+				Expect(jobCleanupFunc).NotTo(BeNil(), "a successful test must have stored a way to delete the batchv1.Job entity")
+				Expect(jobCleanupFunc()).To(Succeed(), "should be able to delete the batchv1.Job entity")
+			})
+
+			AfterEach(func() {
+				Expect(serviceCleanupFunc).NotTo(BeNil(), "a successful test must have stored a way to delete the k8sv1.Service entity")
+				Expect(serviceCleanupFunc()).To(Succeed(), "should be able to delete the k8sv1.Service entity")
+			})
+
+			table.DescribeTable("[test_id:1531][label:masquerade_binding_connectivity]Should expose a Cluster IP service on a VMI and connect to it", func(ipFamily k8sv1.IPFamily) {
+				if ipFamily == k8sv1.IPv6Protocol {
+					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
+				}
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
-					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
+				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
 				err := virtctl()
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Getting back the cluster IP given for the service")
 				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				serviceCleanupFunc = cleanupService(serviceName, tcpVM.GetNamespace())
 				serviceIP := svc.Spec.ClusterIP
 
 				By("Starting a job which tries to reach the VMI via ClusterIP")
 				job := runHelloWorldJob(serviceIP, servicePort, tcpVM.Namespace)
+				jobCleanupFunc = cleanupJob(job.GetName(), job.GetNamespace())
 
 				By("Waiting for the job to report a successful connection attempt")
 				Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
-			})
+			},
+				table.Entry("over default IPv4 IP family", k8sv1.IPv4Protocol),
+				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+			)
 		})
 
 		Context("Expose ClusterIP service with string target-port", func() {
 			const servicePort = "27017"
 			const serviceName = "cluster-ip-target-vmi"
-			It("[test_id:1532]Should expose a ClusterIP service and connect to the vm on port 80", func() {
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
-					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", "http")
+
+			var vmiExposeArgs []string
+
+			var serviceCleanupFunc func() error
+
+			BeforeEach(func() {
+				vmiExposeArgs = []string{
+					expose.COMMAND_EXPOSE,
+					"virtualmachineinstance", "--namespace", tcpVM.GetNamespace(), tcpVM.GetName(),
+					"--port", servicePort, "--name", serviceName, "--target-port", "http",
+				}
+			})
+
+			BeforeEach(func() {
+				serviceCleanupFunc = nil
+			})
+
+			AfterEach(func() {
+				Expect(serviceCleanupFunc).NotTo(BeNil(), "a successful test must have stored a way to delete the k8sv1.Service entity")
+				Expect(serviceCleanupFunc()).To(Succeed(), "should be able to delete the k8sv1.Service entity")
+			})
+
+			table.DescribeTable("[test_id:1532]Should expose a ClusterIP service and connect to the vm on port 80", func(ipFamily k8sv1.IPFamily) {
+				if ipFamily == k8sv1.IPv6Protocol {
+					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
+				}
+				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
 				err := virtctl()
 				Expect(err).ToNot(HaveOccurred())
+
+				By("Getting back the service so we can clean it up later on")
+				service, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				serviceCleanupFunc = cleanupService(service.GetName(), service.GetNamespace())
 
 				By("Waiting for kubernetes to create the relevant endpoint")
 				getEndpoint := func() error {
@@ -124,16 +206,47 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				endpoint := endpoints.Subsets[0]
 				Expect(len(endpoint.Ports)).To(Equal(1))
 				Expect(endpoint.Ports[0].Port).To(Equal(int32(80)))
-			})
+			},
+				table.Entry("over default IPv4 IP family", k8sv1.IPv4Protocol),
+				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+			)
 		})
 
-		Context("Expose ClusterIP service wiht ports on the vmi defined", func() {
+		Context("Expose ClusterIP service with ports on the vmi defined", func() {
 			const serviceName = "cluster-ip-target-multiple-ports-vmi"
-			It("[test_id:1533]Should expose a ClusterIP service and connect to all ports defined on the vmi", func() {
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
-					tcpVM.Namespace, tcpVM.Name, "--name", serviceName)
-				err := virtctl()
+
+			var vmiExposeArgs []string
+
+			var serviceCleanupFunc func() error
+
+			BeforeEach(func() {
+				vmiExposeArgs = []string{
+					expose.COMMAND_EXPOSE,
+					"virtualmachineinstance", "--namespace", tcpVM.GetNamespace(), tcpVM.GetName(),
+					"--name", serviceName,
+				}
+			})
+
+			BeforeEach(func() {
+				serviceCleanupFunc = nil
+			})
+
+			AfterEach(func() {
+				Expect(serviceCleanupFunc).NotTo(BeNil(), "a successful test must have stored a way to delete the k8sv1.Service entity")
+				Expect(serviceCleanupFunc()).To(Succeed(), "should be able to delete the k8sv1.Service entity")
+			})
+
+			table.DescribeTable("[test_id:1533]Should expose a ClusterIP service and connect to all ports defined on the vmi", func(ipFamily k8sv1.IPFamily) {
+				if ipFamily == k8sv1.IPv6Protocol {
+					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
+				}
+				virtctl := tests.NewRepeatableVirtctlCommand(vmiExposeArgs...)
+				Expect(virtctl()).To(Succeed(), "should expose a service via `virtctl expose ...`")
+
+				By("Getting back the service so we can clean it up later on")
+				service, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				serviceCleanupFunc = cleanupService(service.GetName(), service.GetNamespace())
 
 				By("Waiting for kubernetes to create the relevant endpoint")
 				getEndpoint := func() error {
@@ -152,14 +265,53 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(endpoint.Ports).To(ContainElement(k8sv1.EndpointPort{Name: "port-2", Port: 1500, Protocol: "TCP"}))
 				Expect(endpoint.Ports).To(ContainElement(k8sv1.EndpointPort{Name: "port-3", Port: 82, Protocol: "UDP"}))
 				Expect(endpoint.Ports).To(ContainElement(k8sv1.EndpointPort{Name: "port-4", Port: 1500, Protocol: "UDP"}))
-			})
+			},
+				table.Entry("over default IPv4 IP family", k8sv1.IPv4Protocol),
+				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+			)
 		})
 
 		Context("Expose NodePort service", func() {
 			const servicePort = "27017"
 			const serviceName = "node-port-vmi"
 
-			It("[test_id:1534[label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func() {
+			var vmiExposeArgs []string
+
+			var jobsCleanupFuncs []func() error
+			var serviceCleanupFunc func() error
+
+			BeforeEach(func() {
+				vmiExposeArgs = []string{
+					expose.COMMAND_EXPOSE,
+					"virtualmachineinstance", "--namespace", tcpVM.GetNamespace(), tcpVM.GetName(),
+					"--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
+					"--type", "NodePort",
+				}
+			})
+
+			BeforeEach(func() {
+				jobsCleanupFuncs = nil
+			})
+
+			BeforeEach(func() {
+				serviceCleanupFunc = nil
+			})
+
+			AfterEach(func() {
+				Expect(jobsCleanupFuncs).NotTo(BeNil(), "a successful test must have stored a way to delete the batchv1.Job entity")
+				Expect(cleanupJobs(jobsCleanupFuncs)).To(BeEmpty(), "should be able to delete the multiple k8sv1.`Job` entities")
+			})
+
+			AfterEach(func() {
+				Expect(serviceCleanupFunc).NotTo(BeNil(), "a successful test must have stored a way to delete the k8sv1.Service entity")
+				Expect(serviceCleanupFunc()).To(Succeed(), "should be able to delete the k8sv1.Service entity")
+			})
+
+			table.DescribeTable("[test_id:1534[label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func(ipFamily k8sv1.IPFamily) {
+				if ipFamily == k8sv1.IPv6Protocol {
+					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
+				}
+
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
@@ -170,6 +322,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				By("Getting back the service")
 				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				serviceCleanupFunc = cleanupService(svc.GetName(), svc.GetNamespace())
 				nodePort := svc.Spec.Ports[0].NodePort
 				Expect(nodePort).To(BeNumerically(">", 0))
 
@@ -183,11 +336,15 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 					By("Starting a job which tries to reach the VMI via NodePort")
 					job := runHelloWorldJob(nodeIP, strconv.Itoa(int(nodePort)), tcpVM.Namespace)
+					jobsCleanupFuncs = append(jobsCleanupFuncs, cleanupJob(job.GetName(), job.GetNamespace()))
 
 					By("Waiting for the job to report a successful connection attempt")
 					Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
 				}
-			})
+			},
+				table.Entry("over default IPv4 IP family", k8sv1.IPv4Protocol),
+				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
+			)
 		})
 	})
 
@@ -491,3 +648,14 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 })
+
+func cleanupJobs(jobsCleanupFunctions []func() error) []error {
+	var errorBucket []error
+	for _, jobCleanupFunc := range jobsCleanupFunctions {
+		err := jobCleanupFunc()
+		if err != nil {
+			errorBucket = append(errorBucket, err)
+		}
+	}
+	return errorBucket
+}
