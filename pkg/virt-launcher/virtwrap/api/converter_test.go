@@ -455,6 +455,7 @@ var _ = Describe("Converter", func() {
       <source></source>
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
+      <rom enabled="no"></rom>
     </interface>
     <channel type="unix">
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
@@ -654,6 +655,7 @@ var _ = Describe("Converter", func() {
       <source></source>
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
+      <rom enabled="no"></rom>
     </interface>
     <channel type="unix">
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
@@ -857,6 +859,7 @@ var _ = Describe("Converter", func() {
       <source></source>
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
+      <rom enabled="no"></rom>
     </interface>
     <channel type="unix">
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
@@ -1348,6 +1351,13 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 			domain := vmiToDomain(vmi, c)
 			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("e1000"))
+		})
+
+		It("should set rom to off when no boot order is specified", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Interfaces[0].BootOrder = nil
+			domain := vmiToDomain(vmi, c)
+			Expect(domain.Spec.Devices.Interfaces[0].Rom.Enabled).To(Equal("no"))
 		})
 
 		It("should set nic pci address when specified", func() {
