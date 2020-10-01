@@ -134,7 +134,7 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 				Rt: 10,
 			},
 			&expect.Case{
-				R: regexp.MustCompile(`\$ `),
+				R: regexp.MustCompile(fmt.Sprintf(`\[fedora@%s ~\]\$ `, vmi.Name)),
 				T: expect.OK(),
 			},
 		}},
