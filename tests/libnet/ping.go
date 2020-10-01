@@ -17,7 +17,7 @@
  *
  */
 
-package tests
+package libnet
 
 import (
 	"fmt"

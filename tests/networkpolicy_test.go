@@ -20,6 +20,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -263,7 +264,7 @@ func createVMICirros(virtClient kubecli.KubevirtClient, namespace string, labels
 func assertPingSucceed(fromVmi, toVmi *v1.VirtualMachineInstance) {
 	ConsistentlyWithOffset(1, func() error {
 		for _, toIp := range toVmi.Status.Interfaces[0].IPs {
-			if err := tests.PingFromVMConsole(fromVmi, toIp); err != nil {
+			if err := libnet.PingFromVMConsole(fromVmi, toIp); err != nil {
 				return err
 			}
 		}
@@ -276,7 +277,7 @@ func assertPingFail(fromVmi, toVmi *v1.VirtualMachineInstance) {
 	EventuallyWithOffset(1, func() error {
 		var err error
 		for _, toIp := range toVmi.Status.Interfaces[0].IPs {
-			if err = tests.PingFromVMConsole(fromVmi, toIp); err == nil {
+			if err = libnet.PingFromVMConsole(fromVmi, toIp); err == nil {
 				return nil
 			}
 		}
@@ -286,7 +287,7 @@ func assertPingFail(fromVmi, toVmi *v1.VirtualMachineInstance) {
 	ConsistentlyWithOffset(1, func() error {
 		var err error
 		for _, toIp := range toVmi.Status.Interfaces[0].IPs {
-			if err = tests.PingFromVMConsole(fromVmi, toIp); err == nil {
+			if err = libnet.PingFromVMConsole(fromVmi, toIp); err == nil {
 				return nil
 			}
 		}
