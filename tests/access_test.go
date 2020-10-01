@@ -38,6 +38,7 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	view := tests.ViewServiceAccountName
 	edit := tests.EditServiceAccountName
 	admin := tests.AdminServiceAccountName
+	controller := tests.ControllerServiceAccountName
 
 	var k8sClient string
 	var authClient *authClientV1.AuthorizationV1Client
@@ -51,6 +52,55 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		Expect(err).ToNot(HaveOccurred())
 
 		tests.BeforeTestCleanup()
+	})
+
+	Describe("With the kubevirt-controller service account", func() {
+		table.DescribeTable("should verify permissions on resources are correct for kubevirt-controller", func(resource string) {
+
+			controllerVerbs := make(map[string]string)
+			controllerVerbs["get"] = "yes"
+			controllerVerbs["list"] = "yes"
+			controllerVerbs["watch"] = "yes"
+			controllerVerbs["delete"] = "no"
+			controllerVerbs["create"] = "no"
+			controllerVerbs["update"] = "no"
+			controllerVerbs["patch"] = "yes"
+			controllerVerbs["deleteCollection"] = "no"
+
+			// Adjustment for the rule associated with kubevirt, vmipresets, vmim
+			if resource == "kubevirt" {
+				controllerVerbs["patch"] = "no"
+			}
+			if resource == "virtualmachineinstancepresets" {
+				controllerVerbs["get"] = "no"
+				controllerVerbs["patch"] = "no"
+			}
+			if resource == "virtualmachineinstancemigrations" {
+				controllerVerbs["create"] = "yes"
+			}
+
+			namespace := tests.NamespaceKubevirt // Is there an exported var defines kubevirt ns ?
+			verbs := []string{"get", "list", "watch", "delete", "create", "update", "patch", "deletecollection"}
+
+			for _, verb := range verbs {
+				By(fmt.Sprintf("verifying kubevirt-controller for verb %s", verb))
+				expectedRes, _ := controllerVerbs[verb]
+				as := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, controller)
+				result, _, _ := tests.RunCommand(k8sClient, "auth", "can-i", "--as", as, verb, resource)
+				Expect(result).To(ContainSubstring(expectedRes))
+			}
+		},
+			// The test id is temporary, appearing unique
+			table.Entry("[test_id:626]given a kv", "kubevirt"),
+			table.Entry("[test_id:627]given a vm", "virtualmachines"),
+			table.Entry("[test_id:626]given a vmi", "virtualmachineinstances"),
+			table.Entry("[test_id:629][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
+			table.Entry("[test_id:628]given a vmi preset", "virtualmachineinstancepresets"),
+			table.Entry("[test_id:3330]given a vmi migration", "virtualmachineinstancemigrations"),
+			// table.Entry("given a vmsnapshot", "virtualmachinesnapshots"),
+			// table.Entry("given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
+			// table.Entry("given a vmsrestore", "virtualmachinerestores"),
+		)
 	})
 
 	Describe("With default kubevirt service accounts", func() {
