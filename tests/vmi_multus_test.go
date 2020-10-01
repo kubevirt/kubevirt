@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 const (
@@ -169,7 +170,7 @@ var _ = Describe("[Serial]Multus", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
 
-				Expect(tests.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
+				Expect(libnet.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
 			})
 
 			It("[test_id:1752]should create a virtual machine with one interface with network definition from different namespace", func() {
@@ -187,7 +188,7 @@ var _ = Describe("[Serial]Multus", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
 
-				Expect(tests.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
+				Expect(libnet.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
 			})
 
 			It("[test_id:1753]should create a virtual machine with two interfaces", func() {
@@ -223,7 +224,7 @@ var _ = Describe("[Serial]Multus", func() {
 				checkInterface(detachedVMI, "eth0", "\\$ ")
 				checkInterface(detachedVMI, "eth1", "\\$ ")
 
-				Expect(tests.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
+				Expect(libnet.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
 			})
 		})
 
@@ -245,7 +246,7 @@ var _ = Describe("[Serial]Multus", func() {
 				tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
 
 				By("checking virtual machine instance can ping 10.1.1.1 using ptp cni plugin")
-				Expect(tests.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
+				Expect(libnet.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
 
 				By("checking virtual machine instance only has one interface")
 				// lo0, eth0
@@ -337,7 +338,7 @@ var _ = Describe("[Serial]Multus", func() {
 				checkInterface(vmiTwo, "eth0", "localhost:~#")
 
 				By("ping between virtual machines")
-				Expect(tests.PingFromVMConsole(vmiOne, "10.1.1.2")).To(Succeed())
+				Expect(libnet.PingFromVMConsole(vmiOne, "10.1.1.2")).To(Succeed())
 			})
 
 			It("[test_id:1578]should create two virtual machines with two interfaces", func() {
@@ -366,7 +367,7 @@ var _ = Describe("[Serial]Multus", func() {
 				checkInterface(vmiTwo, "eth1", "localhost:~#")
 
 				By("ping between virtual machines")
-				Expect(tests.PingFromVMConsole(vmiOne, "10.1.1.2")).To(Succeed())
+				Expect(libnet.PingFromVMConsole(vmiOne, "10.1.1.2")).To(Succeed())
 			})
 		})
 
@@ -410,7 +411,7 @@ var _ = Describe("[Serial]Multus", func() {
 				Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
 
 				By("Ping from the VM with the custom MAC to the other VM.")
-				Expect(tests.PingFromVMConsole(vmiOne, "10.1.1.2")).To(Succeed())
+				Expect(libnet.PingFromVMConsole(vmiOne, "10.1.1.2")).To(Succeed())
 			})
 		})
 		Context("Single VirtualMachineInstance with Linux bridge CNI plugin interface", func() {
@@ -861,8 +862,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 			configInterface(vmi2, "eth1", cidrB, "#")
 
 			// now check ICMP goes both ways
-			Expect(tests.PingFromVMConsole(vmi1, cidrToIP(cidrB))).To(Succeed())
-			Expect(tests.PingFromVMConsole(vmi2, cidrToIP(cidrA))).To(Succeed())
+			Expect(libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))).To(Succeed())
+			Expect(libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))).To(Succeed())
 		}
 
 		It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {

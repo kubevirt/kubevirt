@@ -664,21 +664,21 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 					// Cluster nodes subnet (docker network gateway)
 					// Docker network subnet cidr definition:
 					// https://github.com/kubevirt/project-infra/blob/master/github/ci/shared-deployments/files/docker-daemon-mirror.conf#L5
-					Expect(tests.PingFromVMConsole(serverVMI, "2001:db8:1::1")).To(Succeed())
+					Expect(libnet.PingFromVMConsole(serverVMI, "2001:db8:1::1")).To(Succeed())
 				} else {
 					if ipv4NetworkCIDR == "" {
 						ipv4NetworkCIDR = api.DefaultVMCIDR
 					}
 					By("Checking ping (IPv4) to gateway")
 					ipAddr := gatewayIPFromCIDR(ipv4NetworkCIDR)
-					Expect(tests.PingFromVMConsole(serverVMI, ipAddr)).To(Succeed())
+					Expect(libnet.PingFromVMConsole(serverVMI, ipAddr)).To(Succeed())
 
 					By("Checking ping (IPv4) to google")
-					Expect(tests.PingFromVMConsole(serverVMI, "8.8.8.8")).To(Succeed())
-					Expect(tests.PingFromVMConsole(clientVMI, "google.com")).To(Succeed())
+					Expect(libnet.PingFromVMConsole(serverVMI, "8.8.8.8")).To(Succeed())
+					Expect(libnet.PingFromVMConsole(clientVMI, "google.com")).To(Succeed())
 				}
 
-				Expect(tests.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
+				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
 
 				By("Connecting from the client vm")
 				err = console.CheckForTextExpecter(clientVMI, createExpectConnectToServer(serverIP, tcpPort, true), 30)
@@ -701,7 +701,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			var virtHandlerIPs []k8sv1.PodIP
 
 			ping := func(ipAddr string) error {
-				return tests.PingFromVMConsole(vmi, ipAddr, "-c 1", "-w 2")
+				return libnet.PingFromVMConsole(vmi, ipAddr, "-c 1", "-w 2")
 			}
 
 			getVirtHandlerPod := func() (*k8sv1.Pod, error) {
@@ -886,10 +886,10 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				}
 				payloadSize := primaryIfaceMtu - ipHeaderSize - icmpHeaderSize
 				addr := libnet.GetVmiPrimaryIpByFamily(anotherVmi, ipFamily)
-				Expect(tests.PingFromVMConsole(vmi, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize), "-M do")).To(Succeed())
+				Expect(libnet.PingFromVMConsole(vmi, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize), "-M do")).To(Succeed())
 
 				By("checking the VirtualMachineInstance cannot send bigger than MTU sized frames to another VirtualMachineInstance")
-				Expect(tests.PingFromVMConsole(vmi, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize+1), "-M do")).ToNot(Succeed())
+				Expect(libnet.PingFromVMConsole(vmi, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize+1), "-M do")).ToNot(Succeed())
 			},
 				table.Entry("IPv4", k8sv1.IPv4Protocol),
 				table.Entry("IPv6", k8sv1.IPv6Protocol),
