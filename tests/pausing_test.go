@@ -41,6 +41,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
@@ -371,9 +372,9 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	Context("A long running process", func() {
 
 		grepSleepPid := func(expecter expect.Expecter) string {
-			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: `pgrep -f "sleep 8"` + "\n"},
-				&expect.BExp{R: tests.RetValue("[0-9]+")}, // pid
+				&expect.BExp{R: console.RetValue("[0-9]+")}, // pid
 			}, 15*time.Second)
 			log.DefaultLogger().Infof("a:%+v\n", res)
 			Expect(err).ToNot(HaveOccurred())
@@ -383,7 +384,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		startProcess := func(expecter expect.Expecter) string {
 			By("Start a long running process")
-			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: "sleep 8&\n"},
 				&expect.BExp{R: "\\# "},     // prompt
 				&expect.BSnd{S: "disown\n"}, // avoid "garbage" print in terminal on completion

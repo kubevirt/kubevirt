@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
@@ -59,7 +60,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 	ExpectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {
 		By("Expecting the VirtualMachineInstance console")
-		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 30*time.Second)
+		expecter, _, err := console.NewConsoleExpecter(virtClient, vmi, 30*time.Second)
 		Expect(err).ToNot(HaveOccurred())
 		defer func() {
 			By("Closing the opened expecter")
@@ -67,7 +68,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 		}()
 
 		By("Checking that the console output equals to expected one")
-		_, err = tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+		_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: expected},
 		}, 120*time.Second)
@@ -76,7 +77,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 	OpenConsole := func(vmi *v1.VirtualMachineInstance) (expect.Expecter, <-chan error) {
 		By("Expecting the VirtualMachineInstance console")
-		expecter, errChan, err := tests.NewConsoleExpecter(virtClient, vmi, 30*time.Second)
+		expecter, errChan, err := console.NewConsoleExpecter(virtClient, vmi, 30*time.Second)
 		Expect(err).ToNot(HaveOccurred())
 		return expecter, errChan
 	}
@@ -229,7 +230,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
 
 				By("Expecting the VirtualMachineInstance console")
-				_, _, err := tests.NewConsoleExpecter(virtClient, vmi, 30*time.Second)
+				_, _, err := console.NewConsoleExpecter(virtClient, vmi, 30*time.Second)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("Timeout trying to connect to the virtual machine instance"))
 			})

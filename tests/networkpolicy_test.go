@@ -18,6 +18,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
@@ -367,7 +368,7 @@ func checkHTTPPing(vmi *v1.VirtualMachineInstance, ip string, port int) error {
 	const curlCheckCmd = "curl --head %s --connect-timeout 5\n"
 	url := fmt.Sprintf("http://%s", net.JoinHostPort(ip, strconv.Itoa(port)))
 	curlCheck := fmt.Sprintf(curlCheckCmd, url)
-	err := tests.VmiConsoleRunCommand(vmi, curlCheck, 10*time.Second)
+	err := console.VmiConsoleRunCommand(vmi, curlCheck, 10*time.Second)
 	if err != nil {
 		return fmt.Errorf("failed HTTP ping from vmi(%s/%s) to url(%s): %v", vmi.Namespace, vmi.Name, url, err)
 	}

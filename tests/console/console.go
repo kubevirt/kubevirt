@@ -17,7 +17,7 @@
  *
  */
 
-package tests
+package console
 
 import (
 	"fmt"
@@ -74,7 +74,9 @@ func VmiConsoleExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Bat
 // NOTE: This functions heritage limitations from `ExpectBatchWithValidatedSend` refer to it to check them.
 func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) error {
 	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
+	if err != nil {
+		panic(err)
+	}
 	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 30*time.Second)
 	if err != nil {
 		return err
@@ -119,7 +121,9 @@ func VmiConsoleRunCommand(vmi *v1.VirtualMachineInstance, command string, timeou
 // It will parse the kernel output (dmesg) and succeed if it finds that Secure boot is enabled
 func SecureBootExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
+	if err != nil {
+		return nil, err
+	}
 	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return nil, err
@@ -141,7 +145,9 @@ func SecureBootExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error)
 // It will parse the SeaBIOS output and succeed if it finds the string "iPXE"
 func NetBootExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
+	if err != nil {
+		return nil, err
+	}
 	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return nil, err

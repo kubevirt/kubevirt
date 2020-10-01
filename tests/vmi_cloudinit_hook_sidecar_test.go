@@ -31,6 +31,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 )
@@ -62,20 +63,20 @@ var _ = Describe("CloudInitHookSidecars", func() {
 	}
 	MountCloudInit := func(vmi *v1.VirtualMachineInstance, prompt string) {
 		cmdCheck := "mount $(blkid  -L cidata) /mnt/\n"
-		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+		err := console.CheckForTextExpecter(vmi, []expect.Batcher{
 			&expect.BSnd{S: "sudo su -\n"},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: cmdCheck},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "echo $?\n"},
-			&expect.BExp{R: tests.RetValue("0")},
+			&expect.BExp{R: console.RetValue("0")},
 		}, 15)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	CheckCloudInitFile := func(vmi *v1.VirtualMachineInstance, prompt, testFile, testData string) {
 		cmdCheck := "cat /mnt/" + testFile + "\n"
-		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+		err := console.CheckForTextExpecter(vmi, []expect.Batcher{
 			&expect.BSnd{S: "sudo su -\n"},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: cmdCheck},
