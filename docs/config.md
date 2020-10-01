@@ -21,7 +21,7 @@ Version -> imageTag
 
 #### Proposed configuration
 | Config Options | Description |
-|----|----|----|
+|----|----|
 | Version  |  Product Version |
 | ContainerRegistry | Link to Registry in the form of <registry/org> |
 | ImagePullPolicy | Always, IfNotPreset, Never  |
