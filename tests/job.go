@@ -129,8 +129,8 @@ func NewHelloWorldJobUDP(host string, port string) *batchv1.Job {
 	// local port is used to catch the reply - any number can be used
 	// we make it different than the port to be safe if both are running on the same machine
 	localPort--
-	check := []string{fmt.Sprintf(`set -x; trap "kill 0" EXIT; x="$(head -n 1 < <(echo | nc -up %d %s %s -i 3 -w 3 & nc -ul %d))"; echo "$x" ; if [ "$x" = "Hello UDP World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`,
-		localPort, host, port, localPort)}
+	check := []string{fmt.Sprintf(`set -x; ping -c 1 %s; trap "kill 0" EXIT; x="$(head -n 1 < <(echo | nc -up %d %s %s -i 3 -w 3 & nc -ul %d))"; echo "$x" ; if [ "$x" = "Hello UDP World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`,
+		host, localPort, host, port, localPort)}
 	job := NewJob("netcat", []string{"/bin/bash", "-c"}, check, JobRetry, JobTTL, JobTimeout)
 
 	return job
@@ -140,7 +140,7 @@ func NewHelloWorldJobUDP(host string, port string) *batchv1.Job {
 // This pod tries to contact the host on the provided port, over HTTP.
 // On success - it expects to receive "Hello World!".
 func NewHelloWorldJobHTTP(host string, port string) *batchv1.Job {
-	check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(curl %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, FormatIPForURL(host), port)}
+	check := []string{fmt.Sprintf(`set -x; ping -c 1 %s; x="$(head -n 1 < <(curl %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, FormatIPForURL(host), port)}
 	job := NewJob("curl", []string{"/bin/bash", "-c"}, check, JobRetry, JobTTL, JobTimeout)
 
 	return job
