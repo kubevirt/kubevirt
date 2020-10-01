@@ -373,7 +373,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		grepSleepPid := func(expecter expect.Expecter) string {
 			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
-				&expect.BSnd{S: `pgrep -f "sleep 8"` + "\n"},
+				&expect.BSnd{S: `pgrep -f "sleep 1m"` + "\n"},
 				&expect.BExp{R: console.RetValue("[0-9]+")}, // pid
 			}, 15*time.Second)
 			log.DefaultLogger().Infof("a:%+v\n", res)
@@ -385,7 +385,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		startProcess := func(expecter expect.Expecter) string {
 			By("Start a long running process")
 			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
-				&expect.BSnd{S: "sleep 8&\n"},
+				&expect.BSnd{S: "sleep 1m&\n"},
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "disown\n"}, // avoid "garbage" print in terminal on completion
 				&expect.BExp{R: console.PromptExpression},
