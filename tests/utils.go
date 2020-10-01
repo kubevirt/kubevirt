@@ -101,6 +101,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -2766,7 +2767,7 @@ func WaitForSuccessfulVMIStart(vmi runtime.Object) string {
 	return waitForVMIStart(vmi, 360, false)
 }
 
-func WaitUntilVMIReadyAsync(vmi *v1.VirtualMachineInstance, expecterFactory VMIExpecterFactory) func() *v1.VirtualMachineInstance {
+func WaitUntilVMIReadyAsync(vmi *v1.VirtualMachineInstance, expecterFactory console.VMIExpecterFactory) func() *v1.VirtualMachineInstance {
 	var (
 		wg       sync.WaitGroup
 		readyVMI *v1.VirtualMachineInstance
@@ -2783,7 +2784,7 @@ func WaitUntilVMIReadyAsync(vmi *v1.VirtualMachineInstance, expecterFactory VMIE
 	}
 }
 
-func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory VMIExpecterFactory) *v1.VirtualMachineInstance {
+func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory console.VMIExpecterFactory) *v1.VirtualMachineInstance {
 	// Wait for VirtualMachineInstance start
 	WaitForSuccessfulVMIStart(vmi)
 
@@ -2870,8 +2871,8 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "ip a | grep -q eth0; echo $?\n"},
-			&expect.BExp{R: RetValue("0")}})
-		_, err := ExpectBatchWithValidatedSend(expecter, hasNetEth0Batch, 30*time.Second)
+			&expect.BExp{R: console.RetValue("0")}})
+		_, err := console.ExpectBatchWithValidatedSend(expecter, hasNetEth0Batch, 30*time.Second)
 		return err == nil
 	}
 
@@ -2880,8 +2881,8 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "ip -6 address show dev eth0 scope global | grep -q inet6; echo $?\n"},
-			&expect.BExp{R: RetValue("0")}})
-		_, err := ExpectBatchWithValidatedSend(expecter, hasGlobalIPv6Batch, 30*time.Second)
+			&expect.BExp{R: console.RetValue("0")}})
+		_, err := console.ExpectBatchWithValidatedSend(expecter, hasGlobalIPv6Batch, 30*time.Second)
 		return err == nil
 	}
 
@@ -2906,8 +2907,8 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "sudo ip -6 addr add fd10:0:2::2/120 dev eth0; echo $?\n"},
-		&expect.BExp{R: RetValue("0")}})
-	resp, err := ExpectBatchWithValidatedSend(expecter, addIPv6Address, 30*time.Second)
+		&expect.BExp{R: console.RetValue("0")}})
+	resp, err := console.ExpectBatchWithValidatedSend(expecter, addIPv6Address, 30*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("addIPv6Address failed: %v", resp)
 		expecter.Close()
@@ -2919,8 +2920,8 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2; echo $?\n"},
-		&expect.BExp{R: RetValue("0")}})
-	resp, err = ExpectBatchWithValidatedSend(expecter, addIPv6DefaultRoute, 30*time.Second)
+		&expect.BExp{R: console.RetValue("0")}})
+	resp, err = console.ExpectBatchWithValidatedSend(expecter, addIPv6DefaultRoute, 30*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("addIPv6DefaultRoute failed: %v", resp)
 		expecter.Close()
@@ -4150,11 +4151,11 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 		// nc has to be in a while loop in case of UDP, since it exists after one message
 		serverCommand = fmt.Sprintf("screen -d -m sh -c \"while true; do nc -uklp %d -e echo -e 'Hello UDP World!';done\"\n", testPort)
 	}
-	_, err = ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+	_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 		&expect.BSnd{S: serverCommand},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0")},
+		&expect.BExp{R: console.RetValue("0")},
 	}, 60*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 }

@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -73,7 +74,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 	})
 
 	checkMacAddress := func(vmi *v1.VirtualMachineInstance, expectedMacAddress string, prompt string) {
-		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+		err := console.CheckForTextExpecter(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "cat /sys/class/net/eth0/address\n"},
@@ -83,7 +84,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 	}
 
 	checkNetworkVendor := func(vmi *v1.VirtualMachineInstance, expectedVendor string, prompt string) {
-		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+		err := console.CheckForTextExpecter(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "cat /sys/class/net/eth0/device/vendor\n"},
@@ -210,7 +211,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				&expect.BSnd{S: addrShow},
 				&expect.BExp{R: fmt.Sprintf(".*%s.*\n", expectedMtuString)},
 				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0")},
+				&expect.BExp{R: console.RetValue("0")},
 			}, 180*time.Second)
 			log.Log.Infof("%v", resp)
 			Expect(err).ToNot(HaveOccurred())
@@ -223,24 +224,24 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			// NOTE: cirros ping doesn't support -M do that could be used to
 			// validate end-to-end connectivity with Don't Fragment flag set
 			cmdCheck = fmt.Sprintf("ping %s -c 1 -w 5 -s %d\n", addr, payloadSize)
-			err = tests.CheckForTextExpecter(outboundVMI, []expect.Batcher{
+			err = console.CheckForTextExpecter(outboundVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: cmdCheck},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0")},
+				&expect.BExp{R: console.RetValue("0")},
 			}, 180)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("checking the VirtualMachineInstance can fetch via HTTP")
-			err = tests.CheckForTextExpecter(outboundVMI, []expect.Batcher{
+			err = console.CheckForTextExpecter(outboundVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\n"},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0")},
+				&expect.BExp{R: console.RetValue("0")},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
 		},
@@ -427,7 +428,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
 
-			err := tests.CheckForTextExpecter(detachedVMI, []expect.Batcher{
+			err := console.CheckForTextExpecter(detachedVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "ls /sys/class/net/ | wc -l\n"},
@@ -486,7 +487,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 		})
 
 		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string, prompt string) {
-			err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+			err := console.CheckForTextExpecter(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: prompt},
 				&expect.BSnd{S: "grep INTERFACE /sys/bus/pci/devices/" + expectedPciAddress + "/*/net/eth0/uevent|awk -F= '{ print $2 }'\n"},
@@ -550,7 +551,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 			tests.WaitUntilVMIReady(dhcpVMI, tests.LoggedInFedoraExpecter)
 
-			err = tests.CheckForTextExpecter(dhcpVMI, []expect.Batcher{
+			err = console.CheckForTextExpecter(dhcpVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\#"},
 				&expect.BSnd{S: "dhclient -1 -r -d eth0\n"},
@@ -558,13 +559,13 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				&expect.BSnd{S: "dhclient -1 -sf /usr/bin/env --request-options subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu,tftp-server-name,bootfile-name eth0 | tee /dhcp-env\n"},
 				&expect.BExp{R: "\\#"},
 				&expect.BSnd{S: "grep -q 'new_tftp_server_name=tftp.kubevirt.io' /dhcp-env; echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0")},
+				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: "grep -q 'new_bootfile_name=config' /dhcp-env; echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0")},
+				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: "grep -q 'new_ntp_servers=127.0.0.1 127.0.0.2' /dhcp-env; echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0")},
+				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: "grep -q 'new_unknown_240=private.options.kubevirt.io' /dhcp-env; echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0")},
+				&expect.BExp{R: console.RetValue("0")},
 			}, 15)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -587,7 +588,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(dnsVMI)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitUntilVMIReady(dnsVMI, tests.LoggedInCirrosExpecter)
-			err = tests.CheckForTextExpecter(dnsVMI, []expect.Batcher{
+			err = console.CheckForTextExpecter(dnsVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$"},
 				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
@@ -680,11 +681,11 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				Expect(tests.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
 
 				By("Connecting from the client vm")
-				err = tests.CheckForTextExpecter(clientVMI, createExpectConnectToServer(serverIP, tcpPort, true), 30)
+				err = console.CheckForTextExpecter(clientVMI, createExpectConnectToServer(serverIP, tcpPort, true), 30)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Rejecting the connection from the client to unregistered port")
-				err = tests.CheckForTextExpecter(clientVMI, createExpectConnectToServer(serverIP, tcpPort+1, false), 30)
+				err = console.CheckForTextExpecter(clientVMI, createExpectConnectToServer(serverIP, tcpPort+1, false), 30)
 				Expect(err).ToNot(HaveOccurred())
 			}
 
@@ -869,9 +870,9 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 				By("checking eth0 MTU inside the VirtualMachineInstance")
 				showMtu := "cat /sys/class/net/eth0/mtu\n"
-				err = tests.CheckForTextExpecter(vmi, []expect.Batcher{
+				err = console.CheckForTextExpecter(vmi, []expect.Batcher{
 					&expect.BSnd{S: showMtu},
-					&expect.BExp{R: tests.RetValue(strconv.Itoa(bridgeMtu))},
+					&expect.BExp{R: console.RetValue(strconv.Itoa(bridgeMtu))},
 				}, 180)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -949,7 +950,7 @@ sockfd = None`})
 	})
 })
 
-func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory tests.VMIExpecterFactory) *v1.VirtualMachineInstance {
+func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory console.VMIExpecterFactory) *v1.VirtualMachineInstance {
 	// Wait for VirtualMachineInstance start
 	tests.WaitForSuccessfulVMIStart(vmi)
 
@@ -985,7 +986,7 @@ func createExpectConnectToServer(serverIP string, tcpPort int, expectSuccess boo
 		&expect.BSnd{S: fmt.Sprintf("echo test | nc %s %d -i 1 -w 1 1> /dev/null\n", serverIP, tcpPort)},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: tests.RetValue(expectResult)},
+		&expect.BExp{R: console.RetValue(expectResult)},
 	}
 }
 

@@ -18,6 +18,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
@@ -38,13 +39,13 @@ func parseDeviceAddress(addrString string) []string {
 
 func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName string, prompt string) {
 	cmdCheck := fmt.Sprintf("lspci -m %s\n", gpuName)
-	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+	err := console.CheckForTextExpecter(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: tests.RetValue("0")},
+		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
 	Expect(err).ToNot(HaveOccurred(), "GPU device %q was not found in the VMI %s within the given timeout", gpuName, vmi.Name)
 }

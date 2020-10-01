@@ -13,6 +13,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
+	"kubevirt.io/kubevirt/tests/console"
 )
 
 // LoginToCirros call LoggedInFedoraExpecter but does not return the expecter
@@ -27,7 +28,7 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := console.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +77,7 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := console.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +108,7 @@ func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := console.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +164,7 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 func ReLoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance, timeout int) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := console.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -188,11 +189,11 @@ func configureConsole(expecter expect.Expecter, prompt string, shouldSudo bool) 
 		&expect.BSnd{S: "stty cols 500 rows 500\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0")},
+		&expect.BExp{R: console.RetValue("0")},
 		&expect.BSnd{S: fmt.Sprintf("%sdmesg -n 1\n", sudoString)},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0")}})
+		&expect.BExp{R: console.RetValue("0")}})
 	resp, err := expecter.ExpectBatch(batch, 30*time.Second)
 	if err != nil {
 		log.DefaultLogger().Infof("%v", resp)

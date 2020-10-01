@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/client-go/log"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
 )
@@ -237,7 +238,7 @@ var _ = Describe("[Serial]Storage", func() {
 					&expect.BSnd{S: "sudo mkfs.ext4 /dev/vdc\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: console.RetValue("0")},
 				}, 20*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -345,7 +346,7 @@ var _ = Describe("[Serial]Storage", func() {
 				listVirtioFSDisk := fmt.Sprintf("ls -l %s/*disk* | wc -l\n", virtiofsMountPath)
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: listVirtioFSDisk},
-					&expect.BExp{R: tests.RetValue("1")},
+					&expect.BExp{R: console.RetValue("1")},
 				}, 30*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "Should be able to access the mounted virtiofs file")
 
@@ -456,7 +457,7 @@ var _ = Describe("[Serial]Storage", func() {
 					// Because "/" is mounted on tmpfs, we need something that normally persists writes - /dev/sda2 is the EFI partition formatted as vFAT.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "echo content > /mnt/checkpoint\n"},
 					// The QEMU process will be killed, therefore the write must be flushed to the disk.
 					&expect.BSnd{S: "sync\n"},
@@ -484,10 +485,10 @@ var _ = Describe("[Serial]Storage", func() {
 					// Same story as when first starting the VirtualMachineInstance - the checkpoint, if persisted, is located at /dev/sda2.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "cat /mnt/checkpoint &> /dev/null\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("1")},
+					&expect.BExp{R: console.RetValue("1")},
 				}, 200*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 			})

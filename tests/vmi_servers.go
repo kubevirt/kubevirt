@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/tests/console"
 )
 
 type server string
@@ -31,5 +32,5 @@ func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int) {
 }
 
 func (s server) Start(vmi *v1.VirtualMachineInstance, port int) {
-	Expect(VmiConsoleRunCommand(vmi, s.composeNetcatServerCommand(port), 60*time.Second)).To(Succeed())
+	Expect(console.VmiConsoleRunCommand(vmi, s.composeNetcatServerCommand(port), 60*time.Second)).To(Succeed())
 }

@@ -49,6 +49,7 @@ import (
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
@@ -484,7 +485,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Expecting no bootable NIC")
-				_, err = tests.NetBootExpecter(vmi)
+				_, err = console.NetBootExpecter(vmi)
 				// The expecter *should* have error-ed since the network interface is not marked bootable
 				Expect(err).To(HaveOccurred())
 			})
@@ -512,7 +513,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Expecting a bootable NIC")
-				_, err = tests.NetBootExpecter(vmi)
+				_, err = console.NetBootExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -541,7 +542,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking if SecureBoot is enabled in Linux")
-				tests.WaitUntilVMIReady(vmi, tests.SecureBootExpecter)
+				tests.WaitUntilVMIReady(vmi, console.SecureBootExpecter)
 
 				By("Checking if SecureBoot is enabled in the libvirt XML")
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
@@ -620,13 +621,13 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
-				res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 200 ] && echo 'pass'\n"},
-					&expect.BExp{R: tests.RetValue("pass")},
+					&expect.BExp{R: console.RetValue("pass")},
 					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: console.RetValue("0")},
 				}, 15*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -678,9 +679,9 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				// Check on the VM, if the Free memory is roughly what we expected
-				res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 95 ] && echo 'pass'\n"},
-					&expect.BExp{R: tests.RetValue("pass")},
+					&expect.BExp{R: console.RetValue("pass")},
 				}, 15*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -1878,7 +1879,7 @@ var _ = Describe("Configurations", func() {
 			// NOTE: we have one disk per bus, so we expect vda, sda
 		})
 		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string, prompt string) {
-			err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+			err := console.CheckForTextExpecter(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: prompt},
 				&expect.BSnd{S: "grep DEVNAME /sys/bus/pci/devices/" + expectedPciAddress + "/*/block/vda/uevent|awk -F= '{ print $2 }'\n"},
@@ -2116,13 +2117,13 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
-				res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pass'\n"},
-					&expect.BExp{R: tests.RetValue("pass")},
+					&expect.BExp{R: console.RetValue("pass")},
 					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0")},
+					&expect.BExp{R: console.RetValue("0")},
 				}, 15*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -2465,9 +2466,9 @@ var _ = Describe("Configurations", func() {
 
 			By("Check value in VM with dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
-			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: "[ $(sudo dmidecode -s chassis-asset-tag | tr -s ' ') = Test-123 ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: console.RetValue("pass")},
 			}, 1*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
 			Expect(err).ToNot(HaveOccurred())
@@ -2511,13 +2512,13 @@ var _ = Describe("Configurations", func() {
 
 			By("Check values in dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
-			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') = KubeVirt ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: console.RetValue("pass")},
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') = None ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: console.RetValue("pass")},
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') = KubeVirt ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: console.RetValue("pass")},
 			}, 1*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
 			Expect(err).ToNot(HaveOccurred())
@@ -2552,13 +2553,13 @@ var _ = Describe("Configurations", func() {
 			By("Check values in dmidecode")
 
 			// Check on the VM, if expected values are there with dmidecode
-			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') = test ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: console.RetValue("pass")},
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') = test ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: console.RetValue("pass")},
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') = None ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: console.RetValue("pass")},
 			}, 1*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
 			Expect(err).ToNot(HaveOccurred())
@@ -2772,9 +2773,9 @@ var _ = Describe("Configurations", func() {
 			By("Check virt-what-cpuid-helper does not match KVM")
 			res, err := expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "virt-what-cpuid-helper > /dev/null 2>&1 && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: console.RetValue("pass")},
 				&expect.BSnd{S: "$(sudo virt-what-cpuid-helper | grep -q KVMKVMKVM) || echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: console.RetValue("pass")},
 			}, 1*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
 			Expect(err).ToNot(HaveOccurred())
@@ -2794,9 +2795,9 @@ var _ = Describe("Configurations", func() {
 			By("Check virt-what-cpuid-helper matches KVM")
 			res, err := expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "virt-what-cpuid-helper > /dev/null 2>&1 && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: console.RetValue("pass")},
 				&expect.BSnd{S: "$(sudo virt-what-cpuid-helper | grep -q KVMKVMKVM) && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BExp{R: console.RetValue("pass")},
 			}, 1*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
 			Expect(err).ToNot(HaveOccurred())
