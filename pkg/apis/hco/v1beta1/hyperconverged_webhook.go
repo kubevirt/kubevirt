@@ -120,8 +120,8 @@ func (r *HyperConverged) ValidateUpdate(old runtime.Object) error {
 
 		opts := &client.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
 		for _, obj := range []runtime.Object{
-			&kubevirtv1.KubeVirt{},
-			&cdiv1beta1.CDI{},
+			r.NewKubeVirt(),
+			r.NewCDI(),
 		} {
 			if err := r.UpdateOperatorCr(ctx, obj, opts); err != nil {
 				return err
