@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/utils/net"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -55,22 +56,37 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	runHelloWorldJob := func(host, port, namespace string) *batchv1.Job {
-		job := tests.NewHelloWorldJob(host, port)
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(job)
+		var job *batchv1.Job
+		if net.IsIPv6String(host) {
+			job = tests.NewHelloWorldJobv6(host, port)
+		} else {
+			job = tests.NewHelloWorldJob(host, port)
+		}
+		job, err = virtClient.BatchV1().Jobs(namespace).Create(job)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		return job
 	}
 
 	runHelloWorldJobUDP := func(host, port, namespace string) *batchv1.Job {
-		job := tests.NewHelloWorldJobUDP(host, port)
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(job)
+		var job *batchv1.Job
+		if net.IsIPv6String(host) {
+			job = tests.NewHelloWorldJobUDPv6(host, port)
+		} else {
+			job = tests.NewHelloWorldJobUDP(host, port)
+		}
+		job, err = virtClient.BatchV1().Jobs(namespace).Create(job)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		return job
 	}
 
 	runHelloWorldJobHttp := func(host, port, namespace string) *batchv1.Job {
-		job := tests.NewHelloWorldJobHTTP(host, port)
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(job)
+		var job *batchv1.Job
+		if net.IsIPv6String(host) {
+			job = tests.NewHelloWorldJobHTTPv6(host, port)
+		} else {
+			job = tests.NewHelloWorldJobHTTP(host, port)
+		}
+		job, err = virtClient.BatchV1().Jobs(namespace).Create(job)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		return job
 	}
