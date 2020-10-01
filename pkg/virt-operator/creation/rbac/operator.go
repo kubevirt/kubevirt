@@ -26,6 +26,8 @@ import (
 	virtv1 "kubevirt.io/client-go/api/v1"
 )
 
+const OperatorServiceAccountName = "kubevirt-operator"
+
 // Used for manifest generation only, not by the operator itself
 func GetAllOperator(namespace string) []interface{} {
 	return []interface{}{
@@ -45,7 +47,7 @@ func newOperatorServiceAccount(namespace string) *corev1.ServiceAccount {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      "kubevirt-operator",
+			Name:      OperatorServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -65,7 +67,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt-operator",
+			Name: OperatorServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -101,7 +103,6 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"watch",
 					"patch",
 					"update",
-					"patch",
 				},
 			},
 			{
@@ -245,8 +246,8 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"securitycontextconstraints",
 				},
 				ResourceNames: []string{
-					"kubevirt-handler",
-					"kubevirt-controller",
+					HandlerServiceAccountName,
+					ControllerServiceAccountName,
 				},
 				Verbs: []string{
 					"get",
@@ -389,7 +390,7 @@ func newOperatorClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding 
 			Kind:       "ClusterRoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt-operator",
+			Name: OperatorServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -397,13 +398,13 @@ func newOperatorClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding 
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     "kubevirt-operator",
+			Name:     OperatorServiceAccountName,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
 				Namespace: namespace,
-				Name:      "kubevirt-operator",
+				Name:      OperatorServiceAccountName,
 			},
 		},
 	}
@@ -425,19 +426,19 @@ func newOperatorRoleBinding(namespace string) *rbacv1.RoleBinding {
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "Role",
-			Name:     "kubevirt-operator",
+			Name:     OperatorServiceAccountName,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
 				Namespace: namespace,
-				Name:      "kubevirt-operator",
+				Name:      OperatorServiceAccountName,
 			},
 		},
 	}
 }
 
-// NewOperatorRole creates a Role object for kubevirt-operator.
+// NewOperatorRole creates a Role object for OperatorServiceAccountName (kubevirt-operator).
 func NewOperatorRole(namespace string) *rbacv1.Role {
 	return &rbacv1.Role{
 		TypeMeta: metav1.TypeMeta{
@@ -445,7 +446,7 @@ func NewOperatorRole(namespace string) *rbacv1.Role {
 			Kind:       "Role",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kubevirt-operator",
+			Name:      OperatorServiceAccountName,
 			Namespace: namespace,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
