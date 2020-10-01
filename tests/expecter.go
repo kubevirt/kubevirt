@@ -39,6 +39,7 @@ import (
 const (
 	PromptExpression = `(\$ |\# )`
 	CRLF             = "\r\n"
+	UTFPosEscape     = "\u001b\\[[0-9]+;[0-9]+H"
 )
 
 var (
@@ -114,6 +115,8 @@ func VmiConsoleRunCommand(vmi *v1.VirtualMachineInstance, command string, timeou
 	return nil
 }
 
+// SecureBootExpecter should be called on a VMI that has EFI enabled
+// It will parse the kernel output (dmesg) and succeed if it finds that Secure boot is enabled
 func SecureBootExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -126,7 +129,33 @@ func SecureBootExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error)
 	})
 	res, err := expecter.ExpectBatch(b, 180*time.Second)
 	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
+		log.DefaultLogger().Object(vmi).Infof("Kernel: %+v", res)
+		expecter.Close()
+		return expecter, err
+	}
+
+	return expecter, err
+}
+
+// NetBootExpecter should be called on a VMI that has BIOS serial logging enabled
+// It will parse the SeaBIOS output and succeed if it finds the string "iPXE"
+func NetBootExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	esc := UTFPosEscape
+	b := append([]expect.Batcher{
+		// SeaBIOS uses escape (\u001b) combinations for letter placement on screen
+		// The regex below effectively grep for "iPXE" while ignoring those
+		//&expect.BExp{R: "\u001b\\[7;27Hi\u001b\\[7;28HP\u001b\\[7;29HX\u001b\\[7;30HE"},
+		&expect.BExp{R: esc + "i" + esc + "P" + esc + "X" + esc + "E"},
+	})
+	res, err := expecter.ExpectBatch(b, 30*time.Second)
+	if err != nil {
+		log.DefaultLogger().Object(vmi).Infof("BIOS: %+v", res)
 		expecter.Close()
 		return expecter, err
 	}

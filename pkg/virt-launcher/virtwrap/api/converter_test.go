@@ -455,6 +455,7 @@ var _ = Describe("Converter", func() {
       <source></source>
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
+      <rom enabled="no"></rom>
     </interface>
     <channel type="unix">
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
@@ -654,6 +655,7 @@ var _ = Describe("Converter", func() {
       <source></source>
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
+      <rom enabled="no"></rom>
     </interface>
     <channel type="unix">
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
@@ -857,6 +859,7 @@ var _ = Describe("Converter", func() {
       <source></source>
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
+      <rom enabled="no"></rom>
     </interface>
     <channel type="unix">
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
@@ -1350,18 +1353,45 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("e1000"))
 		})
 
-		It("should set nic pci address when specified", func() {
+		It("should set rom to off when no boot order is specified", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = "0000:81:01.0"
-			test_address := Address{
+			vmi.Spec.Domain.Devices.Interfaces[0].BootOrder = nil
+			domain := vmiToDomain(vmi, c)
+			Expect(domain.Spec.Devices.Interfaces[0].Rom.Enabled).To(Equal("no"))
+		})
+
+		When("NIC PCI address is specified on VMI", func() {
+			expectedPCIAddress := Address{
 				Type:     "pci",
 				Domain:   "0x0000",
 				Bus:      "0x81",
 				Slot:     "0x01",
 				Function: "0x0",
 			}
-			domain := vmiToDomain(vmi, c)
-			Expect(*domain.Spec.Devices.Interfaces[0].Address).To(Equal(test_address))
+
+			BeforeEach(func() {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = "0000:81:01.0"
+			})
+
+			It("should be set on the domain spec for a non-SRIOV nic", func() {
+				domain := vmiToDomain(vmi, c)
+				Expect(*domain.Spec.Devices.Interfaces[0].Address).To(Equal(expectedPCIAddress))
+
+			})
+			It("should be set on the domain spec for a SRIOV nic", func() {
+				iface := &vmi.Spec.Domain.Devices.Interfaces[0]
+				iface.SRIOV = &v1.InterfaceSRIOV{}
+				c := &ConverterContext{
+					VirtualMachine: vmi,
+					UseEmulation:   true,
+					SRIOVDevices:   map[string][]string{iface.Name: []string{"0000:81:11.1"}},
+				}
+
+				domain := vmiToDomain(vmi, c)
+				Expect(*domain.Spec.Devices.HostDevices[0].Address).To(Equal(expectedPCIAddress))
+			})
+
 		})
 
 		It("should calculate mebibyte from a quantity", func() {

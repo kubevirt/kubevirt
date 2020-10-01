@@ -756,6 +756,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			}
 		}
 
+		if vmi.Spec.Domain.Firmware.Bootloader != nil && vmi.Spec.Domain.Firmware.Bootloader.BIOS != nil {
+			if vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial != nil && *vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial {
+				domain.Spec.OS.BIOS = &BIOS{
+					UseSerial: "yes",
+				}
+			}
+		}
+
 		if len(vmi.Spec.Domain.Firmware.Serial) > 0 {
 			domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System, Entry{Name: "serial", Value: string(vmi.Spec.Domain.Firmware.Serial)})
 		}
@@ -1282,6 +1290,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				Type:    "pci",
 				Managed: "yes",
 			}
+
+			if iface.PciAddress != "" {
+				addr, err := decoratePciAddressField(iface.PciAddress)
+				if err != nil {
+					return fmt.Errorf("failed to configure SRIOV %s: %v", iface.Name, err)
+				}
+				hostDev.Address = addr
+			}
+
 			if iface.BootOrder != nil {
 				hostDev.BootOrder = &BootOrder{Order: *iface.BootOrder}
 			}
@@ -1324,6 +1341,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				domainIface.Type = "ethernet"
 				if iface.BootOrder != nil {
 					domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
+				} else {
+					domainIface.Rom = &Rom{Enabled: "no"}
 				}
 			} else if iface.Slirp != nil {
 				domainIface.Type = "user"
