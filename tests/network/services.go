@@ -259,17 +259,22 @@ var _ = SIGDescribe("[Serial]Services", func() {
 
 			table.DescribeTable("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func(ipFamily k8sv1.IPFamily) {
 				serviceName := "myservice"
-				if ipFamily == k8sv1.IPv6Protocol {
-					libnet.SkipWhenNotDualStackCluster(virtClient)
+				By("setting up resources to expose the VMI via a service", func() {
+					if ipFamily == k8sv1.IPv6Protocol {
+						libnet.SkipWhenNotDualStackCluster(virtClient)
 
-					serviceName = serviceName + "v6"
-					service = buildIPv6ServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
-				} else {
-					service = buildServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
-				}
+						serviceName = serviceName + "v6"
+						service = buildIPv6ServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
+					} else {
+						service = buildServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
+					}
 
-				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(service)
-				Expect(err).NotTo(HaveOccurred(), "the k8sv1.Service entity should have been created.")
+					_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(service)
+					Expect(err).NotTo(HaveOccurred(), "the k8sv1.Service entity should have been created.")
+				})
+
+				By("checking connectivity the the exposed service")
+				var err error
 
 				jobCleanup, err = assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
 				Expect(err).NotTo(HaveOccurred(), "connectivity is expected to the exposed service")
