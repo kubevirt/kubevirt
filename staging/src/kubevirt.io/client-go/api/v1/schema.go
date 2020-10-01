@@ -97,6 +97,7 @@ type SecretVolumeSource struct {
 type DownwardAPIVolumeSource struct {
 	// Fields is a list of downward API volume file
 	// +optional
+	// +listType=set
 	Fields []v1.DownwardAPIVolumeFile `json:"fields,omitempty"`
 	// The volume label of the resulting disk inside the VMI.
 	// Different bootstrapping mechanisms require different values.
