@@ -603,6 +603,7 @@ type Interface struct {
 	FilterRef           *FilterRef       `xml:"filterref,omitempty"`
 	Alias               *Alias           `xml:"alias,omitempty"`
 	Driver              *InterfaceDriver `xml:"driver,omitempty"`
+	Rom                 *Rom             `xml:"rom,omitempty"`
 }
 
 type InterfaceDriver struct {
@@ -655,6 +656,10 @@ type Alias struct {
 }
 
 type UserAlias Alias
+
+type Rom struct {
+	Enabled string `xml:"enabled,attr"`
+}
 
 func (alias Alias) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	userAlias := UserAlias(alias)
@@ -713,7 +718,6 @@ type BootMenu struct {
 	Timeout *uint `xml:"timeout,attr,omitempty"`
 }
 
-// TODO <loader readonly='yes' secure='no' type='rom'>/usr/lib/xen/boot/hvmloader</loader>
 type Loader struct {
 	ReadOnly string `xml:"readonly,attr,omitempty"`
 	Secure   string `xml:"secure,attr,omitempty"`
@@ -721,8 +725,9 @@ type Loader struct {
 	Path     string `xml:",chardata"`
 }
 
-// TODO <bios useserial='yes' rebootTimeout='0'/>
+// TODO <bios rebootTimeout='0'/>
 type BIOS struct {
+	UseSerial string `xml:"useserial,attr,omitempty"`
 }
 
 type SysInfo struct {

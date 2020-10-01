@@ -282,7 +282,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 				cleanupJobs(jobsToCleanup)
 			})
 
-			It("should be able to reach the vmi based on labels specified on the vmi", func() {
+			It("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func() {
 				for _, exposedService := range serviceManager.services {
 					jobCleanupFunc := assertConnectivityToService(exposedService.Name, inboundVMI.Namespace, servicePort)
 					jobsToCleanup = append(jobsToCleanup, jobCleanupFunc)

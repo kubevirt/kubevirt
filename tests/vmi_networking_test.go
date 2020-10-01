@@ -628,7 +628,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			return vmi
 		}
 
-		table.DescribeTable("[test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", func(ports []v1.Port, withCustomCIDR bool) {
+		table.DescribeTable("[Conformance][test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", func(ports []v1.Port, withCustomCIDR bool) {
 			var ipv4NetworkCIDR string
 
 			if withCustomCIDR {
@@ -731,6 +731,10 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			}
 
 			BeforeEach(func() {
+				if !tests.HasLiveMigration() {
+					Skip("LiveMigration feature gate is not enabled in kubevirt-config")
+				}
+
 				var err error
 
 				By("Create VMI")
@@ -775,7 +779,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				}
 			})
 
-			It("preserves connectivity", func() {
+			It("[Conformance] preserves connectivity", func() {
 				Eventually(func() error {
 					for _, podIP := range virtHandlerIPs {
 						err := ping(podIP.IP)

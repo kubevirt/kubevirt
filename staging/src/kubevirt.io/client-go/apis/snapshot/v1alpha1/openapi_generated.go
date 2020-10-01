@@ -13339,6 +13339,15 @@ func schema_kubevirtio_client_go_api_v1_BIOS(ref common.ReferenceCallback) commo
 			SchemaProps: spec.SchemaProps{
 				Description: "If set (default), BIOS will be used.",
 				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"useSerial": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If set, the BIOS output will be transmitted over serial",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}
