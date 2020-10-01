@@ -49,7 +49,7 @@ spec:
         - name: CDI_VERSION
           value: v1.23.5
         - name: NETWORK_ADDONS_VERSION
-          value: v0.42.1
+          value: v0.42.2
         - name: SSP_VERSION
           value: v1.2.1
         - name: NMO_VERSION
@@ -105,15 +105,15 @@ spec:
         - name: OVS_MARKER_IMAGE
           value: quay.io/kubevirt/ovs-cni-marker@sha256:0f08d6b1550a90c9f10221f2bb07709d1090e7c675ee1a711981bd429074d620
         - name: KUBEMACPOOL_IMAGE
-          value: quay.io/kubevirt/kubemacpool@sha256:ad8ca6d379d495804969ba4d03da9a6936ff8f413f6f6c7bd20e0138dc0303c4
+          value: quay.io/kubevirt/kubemacpool@sha256:79c4534d418c4a350a663e38499c22d54dc68c400f517aead4479f6d862b408e
         - name: MACVTAP_CNI_IMAGE
           value: quay.io/kubevirt/macvtap-cni@sha256:407f75760fc096666becfa45d94f51757ebbe8f382e9e7b57ceeded0b8cfb6b8
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:4c81c404da250f5dd4af8478ee564061d9e16b80996cfebd657fd03280bebe7d
+          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:f31ea1cc004fc3b9993ed43c5f23c9e237a368a385daf8730ec9366e8f0ee238
         - name: OPERATOR_NAME
           value: cluster-network-addons-operator
         - name: OPERATOR_VERSION
-          value: v0.42.1
+          value: v0.42.2
         - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
@@ -127,7 +127,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: WATCH_NAMESPACE
-        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:4c81c404da250f5dd4af8478ee564061d9e16b80996cfebd657fd03280bebe7d
+        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:f31ea1cc004fc3b9993ed43c5f23c9e237a368a385daf8730ec9366e8f0ee238
         imagePullPolicy: IfNotPresent
         name: cluster-network-addons-operator
         resources: {}
