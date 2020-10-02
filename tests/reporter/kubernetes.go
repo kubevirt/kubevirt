@@ -100,6 +100,7 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	duration += 5 * time.Second
 	since := time.Now().Add(-duration)
 
+	r.logClusterOverview()
 	r.logEvents(virtCli, since)
 	r.logNamespaces(virtCli)
 	r.logNodes(virtCli)
@@ -793,6 +794,29 @@ func (r *KubernetesReporter) AfterSuiteDidRun(setupSummary *types.SetupSummary) 
 
 func (r *KubernetesReporter) SpecSuiteDidEnd(summary *types.SuiteSummary) {
 
+}
+
+func (r *KubernetesReporter) logClusterOverview() {
+	binary := ""
+	if flags.KubeVirtKubectlPath != "" {
+		binary = "kubectl"
+	} else if flags.KubeVirtOcPath != "" {
+		binary = "oc"
+	} else {
+		return
+	}
+
+	stdout, stderr, err := tests.RunCommandWithNS("", binary, "get", "all", "--all-namespaces", "-o", "wide")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch cluster overview: %v, %s", err, stderr)
+		return
+	}
+	filePath := filepath.Join(r.artifactsDir, fmt.Sprintf("%d_overview.log", r.failureCount))
+	err = writeStringToFile(filePath, stdout)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to write cluster overview: %v", err)
+		return
+	}
 }
 
 //getNodesWithVirtLauncher returns all node where a virt-launcher pod ran (finished) or still runs
