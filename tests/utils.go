@@ -145,10 +145,12 @@ const (
 	AdminServiceAccountName       = "kubevirt-admin-test-sa"
 	EditServiceAccountName        = "kubevirt-edit-test-sa"
 	ViewServiceAccountName        = "kubevirt-view-test-sa"
+	ControllerServiceAccountName  = "kubevirt-controller"
 )
 
 const SubresourceTestLabel = "subresource-access-test-pod"
 const insecureRegistryConfigName = "cdi-insecure-registries"
+const NamespaceKubevirt = "kubevirt"
 
 // tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
 var NamespaceTestDefault = "kubevirt-test-default"
