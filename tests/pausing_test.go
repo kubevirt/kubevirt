@@ -301,10 +301,16 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					}
 					Expect(err).ToNot(HaveOccurred())
 					return false
-				}, 300*time.Second, 1*time.Second).Should(BeTrue(), "The VMI did not disappear")
+				}, 60*time.Second, 1*time.Second).Should(BeTrue(), "The VMI did not disappear")
 
 				By("Waiting for for new VMI to start")
-				newVMI := v1.NewMinimalVMIWithNS(vm.Namespace, vm.Name)
+				Eventually(func() error {
+					_, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+					return err
+				}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "No new VMI appeared")
+
+				newVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStartWithTimeout(newVMI, 300)
 
 				By("Ensuring unpaused state")
