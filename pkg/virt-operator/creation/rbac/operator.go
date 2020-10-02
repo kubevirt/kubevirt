@@ -105,7 +105,6 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"watch",
 					"patch",
 					"update",
-					"patch",
 				},
 			},
 			{
@@ -249,8 +248,8 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"securitycontextconstraints",
 				},
 				ResourceNames: []string{
-					"kubevirt-handler",
-					"kubevirt-controller",
+					HandlerServiceAccountName,
+					ControllerServiceAccountName,
 				},
 				Verbs: []string{
 					"get",
@@ -441,7 +440,7 @@ func newOperatorRoleBinding(namespace string) *rbacv1.RoleBinding {
 	}
 }
 
-// NewOperatorRole creates a Role object for kubevirt-operator.
+// NewOperatorRole creates a Role object for OperatorServiceAccountName (kubevirt-operator).
 func NewOperatorRole(namespace string) *rbacv1.Role {
 	return &rbacv1.Role{
 		TypeMeta: metav1.TypeMeta{
