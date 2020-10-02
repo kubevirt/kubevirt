@@ -1,5 +1,6 @@
+if: type != pull_request OR branch =~ /^(release-[0-9\.]+)$/
+
 language: generic
-sudo: required
 dist: xenial
 
 services:
