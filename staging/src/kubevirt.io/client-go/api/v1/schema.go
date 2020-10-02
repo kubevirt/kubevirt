@@ -369,7 +369,7 @@ type Devices struct {
 	// Whether or not to enable virtio multi-queue for block devices
 	// +optional
 	BlockMultiQueue *bool `json:"blockMultiQueue,omitempty"`
-	// If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature
+	// If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.
 	// +optional
 	NetworkInterfaceMultiQueue *bool `json:"networkInterfaceMultiqueue,omitempty"`
 	//Whether to attach a GPU device to the vmi.
