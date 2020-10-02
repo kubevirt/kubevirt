@@ -2591,6 +2591,33 @@ func AddSecretDiskWithCustomLabel(vmi *v1.VirtualMachineInstance, secretName str
 	})
 }
 
+func NewRandomVMIWithDownwardAPIAndLabel(downwardAPIName string, labels map[string]string) *v1.VirtualMachineInstance {
+	volumeName := downwardAPIName
+	vmi := NewRandomVMIWithPVC(DiskAlpineHostPath)
+	vmi.ObjectMeta.Labels = labels
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: volumeName,
+		VolumeSource: v1.VolumeSource{
+			DownwardAPI: &v1.DownwardAPIVolumeSource{
+				Fields: []k8sv1.DownwardAPIVolumeFile{
+					{
+						Path: "labels",
+						FieldRef: &k8sv1.ObjectFieldSelector{
+							FieldPath: "metadata.labels",
+						},
+					},
+				},
+				VolumeLabel: "",
+			},
+		},
+	})
+
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+		Name: volumeName,
+	})
+	return vmi
+}
+
 func NewRandomVMIWithServiceAccount(serviceAccountName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithPVC(DiskAlpineHostPath)
 	AddServiceAccountDisk(vmi, serviceAccountName)
