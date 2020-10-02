@@ -1729,9 +1729,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					return err
 				}, 10*time.Second, 1*time.Second).Should(BeNil())
 
-				_, err = cli.Get(vm1.Name, &v12.GetOptions{})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("not found"))
+				Eventually(func() error {
+					_, err = cli.Get(vm1.Name, &v12.GetOptions{})
+
+					return err
+				}, 10*time.Second, 1*time.Second).Should(HaveOccurred())
+				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 		})
 	})
