@@ -8,7 +8,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:95c8c3e9002ebe55254b9371757a98a3d29991ba83e3edfe405a9174c596365a
-    createdAt: "2020-10-01 05:12:25"
+    createdAt: "2020-10-02 14:16:59"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -1649,7 +1649,7 @@ spec:
                 - name: CONVERSION_CONTAINER
                   value: quay.io/kubevirt/kubevirt-v2v-conversion@sha256:c620233c71b805004c2cd38927c421b69d99b27cb40af521967e655882b2f815
                 - name: VMWARE_CONTAINER
-                  value: quay.io/kubevirt/kubevirt-vmware@sha256:8f25b28caddeaf3e405e6f78fb970a0f78891a66a7dddeae8a595712da897351
+                  value: quay.io/kubevirt/kubevirt-vmware@sha256:ae5ccd98a49ab9e154ce482d2fa73f044b00211f273210a9cd371b40746d3c92
                 - name: SMBIOS
                   value: |-
                     Family: KubeVirt
@@ -2226,7 +2226,7 @@ spec:
     name: kubevirt-ssp-operator-container
   - image: quay.io/kubevirt/kubevirt-v2v-conversion@sha256:c620233c71b805004c2cd38927c421b69d99b27cb40af521967e655882b2f815
     name: kubevirt-v2v-conversion
-  - image: quay.io/kubevirt/kubevirt-vmware@sha256:8f25b28caddeaf3e405e6f78fb970a0f78891a66a7dddeae8a595712da897351
+  - image: quay.io/kubevirt/kubevirt-vmware@sha256:ae5ccd98a49ab9e154ce482d2fa73f044b00211f273210a9cd371b40746d3c92
     name: kubevirt-vmware
   - image: quay.io/kubevirt/macvtap-cni@sha256:407f75760fc096666becfa45d94f51757ebbe8f382e9e7b57ceeded0b8cfb6b8
     name: macvtap-cni

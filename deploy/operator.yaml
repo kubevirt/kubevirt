@@ -35,7 +35,7 @@ spec:
         - name: CONVERSION_CONTAINER
           value: quay.io/kubevirt/kubevirt-v2v-conversion@sha256:c620233c71b805004c2cd38927c421b69d99b27cb40af521967e655882b2f815
         - name: VMWARE_CONTAINER
-          value: quay.io/kubevirt/kubevirt-vmware@sha256:8f25b28caddeaf3e405e6f78fb970a0f78891a66a7dddeae8a595712da897351
+          value: quay.io/kubevirt/kubevirt-vmware@sha256:ae5ccd98a49ab9e154ce482d2fa73f044b00211f273210a9cd371b40746d3c92
         - name: SMBIOS
           value: |-
             Family: KubeVirt
