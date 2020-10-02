@@ -145,9 +145,9 @@ var _ = Describe("Certificate Management", func() {
 		})
 
 		table.DescribeTable("should set the notAfter on the certificate according to the supplied duration", func(caDuration time.Duration) {
-			now := time.Now()
 			crtDuration := &v1.Duration{Duration: 2 * time.Hour}
 			caSecret := NewCACertSecret("test")
+			now := time.Now()
 			Expect(PopulateSecretWithCertificate(caSecret, nil, &v1.Duration{Duration: caDuration})).To(Succeed())
 			caCrt, err := LoadCertificates(caSecret)
 			Expect(err).NotTo(HaveOccurred())
@@ -163,11 +163,11 @@ var _ = Describe("Certificate Management", func() {
 		)
 
 		table.DescribeTable("should suggaest a rotation on the certificate according on 80% of the certificate lifespan", func(caDuration time.Duration) {
-			now := time.Now()
 			crtDuration := &v1.Duration{Duration: 2 * time.Hour}
 			caSecret := NewCACertSecret("test")
 			Expect(PopulateSecretWithCertificate(caSecret, nil, &v1.Duration{Duration: caDuration})).To(Succeed())
 			caCrt, err := LoadCertificates(caSecret)
+			now := time.Now()
 			Expect(err).NotTo(HaveOccurred())
 			crtSecret := NewCertSecrets("test", "test")[0]
 			Expect(PopulateSecretWithCertificate(crtSecret, caCrt, crtDuration)).To(Succeed())
