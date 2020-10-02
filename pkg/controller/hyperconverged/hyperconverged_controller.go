@@ -1467,9 +1467,19 @@ func (r *ReconcileHyperConverged) ensureIMSConfig(req *hcoRequest) *EnsureResult
 	}
 	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
-	if !reflect.DeepEqual(found.Data, imsConfig.Data) {
-		found.Data = imsConfig.Data
-		req.logger.Info("Updating existing IMS Configmap to its default value")
+	// in an ideal world HCO should be managing the whole config map,
+	// now due to a bad design only a few values of this config map are
+	// really managed by HCO while others are managed by other entities
+	// TODO: fix this bad design splitting the config map into two distinct objects and reconcile the whole object here
+	needsUpdate := false
+	for key, value := range imsConfig.Data {
+		if found.Data[key] != value {
+			found.Data[key] = value
+			needsUpdate = true
+		}
+	}
+	if needsUpdate {
+		req.logger.Info("Updating existing IMS Configmap to its default values")
 		err = r.client.Update(req.ctx, found)
 		if err != nil {
 			return res.Error(err)

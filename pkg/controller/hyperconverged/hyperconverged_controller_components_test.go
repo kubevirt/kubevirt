@@ -1870,10 +1870,18 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
 
-		It("should reconcile according to env values", func() {
+		// in an ideal world HCO should be managing the whole config map,
+		// now due to a bad design only a few values of this config map are
+		// really managed by HCO while others are managed by other entities
+		// TODO: fix this bad design splitting the config map into two distinct objects and reconcile the whole object here
+		It("should (partially!!!) reconcile according to env values", func() {
 			convk := "v2v-conversion-image"
 			vmwarek := "kubevirt-vmware-image"
 			updatableKeys := [...]string{convk, vmwarek}
+			unupdatableKeyValues := map[string]string{
+				"ext_key_1": "ext_value_1",
+				"ext_key_2": "ext_value_2",
+			}
 
 			expectedResource := newIMSConfigForCR(hco, namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
@@ -1882,6 +1890,10 @@ var _ = Describe("HyperConverged Components", func() {
 			// values we should update
 			outdatedResource.Data[convk] = "old-conversion-container-value-we-have-to-update"
 			outdatedResource.Data[vmwarek] = "old-vmware-container-value-we-have-to-update"
+			// add values we should not touch
+			for k, v := range unupdatableKeyValues {
+				outdatedResource.Data[k] = v
+			}
 
 			cl := initClient([]runtime.Object{hco, outdatedResource})
 			r := initReconciler(cl)
@@ -1900,6 +1912,10 @@ var _ = Describe("HyperConverged Components", func() {
 			for _, k := range updatableKeys {
 				Expect(foundResource.Data[k]).To(Not(Equal(outdatedResource.Data[k])))
 				Expect(foundResource.Data[k]).To(Equal(expectedResource.Data[k]))
+			}
+
+			for k, v := range unupdatableKeyValues {
+				Expect(foundResource.Data).To(HaveKeyWithValue(k, v))
 			}
 
 		})
