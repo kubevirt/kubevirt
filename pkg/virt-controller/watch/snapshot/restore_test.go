@@ -51,16 +51,6 @@ var _ = Describe("Restore controlleer", func() {
 				Name:      "restore",
 				Namespace: testNamespace,
 				UID:       uid,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion:         kubevirtv1.GroupVersion.String(),
-						Kind:               "VirtualMachine",
-						Name:               vmName,
-						UID:                vmUID,
-						Controller:         &t,
-						BlockOwnerDeletion: &t,
-					},
-				},
 			},
 			Spec: snapshotv1.VirtualMachineRestoreSpec{
 				Target: corev1.TypedLocalObjectReference{
@@ -71,6 +61,24 @@ var _ = Describe("Restore controlleer", func() {
 				VirtualMachineSnapshotName: vmSnapshotName,
 			},
 		}
+	}
+
+	createRestoreWithOwner := func() *snapshotv1.VirtualMachineRestore {
+		r := createRestore()
+		r.OwnerReferences = []metav1.OwnerReference{
+			{
+				APIVersion:         kubevirtv1.GroupVersion.String(),
+				Kind:               "VirtualMachine",
+				Name:               vmName,
+				UID:                vmUID,
+				Controller:         &t,
+				BlockOwnerDeletion: &t,
+			},
+		}
+		r.Status = &snapshotv1.VirtualMachineRestoreStatus{
+			Complete: &f,
+		}
+		return r
 	}
 
 	addVolumeRestores := func(r *snapshotv1.VirtualMachineRestore) {
@@ -323,7 +331,7 @@ var _ = Describe("Restore controlleer", func() {
 			})
 
 			It("should error if snapshot does not exist", func() {
-				r := createRestore()
+				r := createRestoreWithOwner()
 				vm := createModifiedVM()
 				rc := r.DeepCopy()
 				rc.ResourceVersion = "1"
@@ -343,7 +351,7 @@ var _ = Describe("Restore controlleer", func() {
 			})
 
 			It("should error if different source UID", func() {
-				r := createRestore()
+				r := createRestoreWithOwner()
 				vm := createModifiedVM()
 				vm.UID = types.UID("foobar")
 				rc := r.DeepCopy()
@@ -363,7 +371,7 @@ var _ = Describe("Restore controlleer", func() {
 			})
 
 			It("should update restore status, initializing conditions and add owner", func() {
-				r := createRestore()
+				r := createRestoreWithOwner()
 				refs := r.OwnerReferences
 				r.OwnerReferences = nil
 				vm := createModifiedVM()
@@ -384,7 +392,7 @@ var _ = Describe("Restore controlleer", func() {
 			})
 
 			It("should update restore status with condition and VolumeRestores", func() {
-				r := createRestore()
+				r := createRestoreWithOwner()
 				vm := createModifiedVM()
 				rc := r.DeepCopy()
 				rc.ResourceVersion = "1"
@@ -403,7 +411,7 @@ var _ = Describe("Restore controlleer", func() {
 			})
 
 			It("should create restore PVCs", func() {
-				r := createRestore()
+				r := createRestoreWithOwner()
 				vm := createModifiedVM()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
 					Complete: &f,
@@ -420,7 +428,7 @@ var _ = Describe("Restore controlleer", func() {
 			})
 
 			It("should wait for bound", func() {
-				r := createRestore()
+				r := createRestoreWithOwner()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
 					Complete: &f,
 					Conditions: []snapshotv1.Condition{
@@ -443,7 +451,7 @@ var _ = Describe("Restore controlleer", func() {
 			})
 
 			It("should update restore status with datavolume", func() {
-				r := createRestore()
+				r := createRestoreWithOwner()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
 					Complete: &f,
 					Conditions: []snapshotv1.Condition{
@@ -473,7 +481,7 @@ var _ = Describe("Restore controlleer", func() {
 			})
 
 			It("should update PVCs and restores to have datavolumename", func() {
-				r := createRestore()
+				r := createRestoreWithOwner()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
 					Complete: &f,
 					Conditions: []snapshotv1.Condition{
@@ -506,7 +514,7 @@ var _ = Describe("Restore controlleer", func() {
 			})
 
 			It("should update VM spec", func() {
-				r := createRestore()
+				r := createRestoreWithOwner()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
 					Complete:           &f,
 					DeletedDataVolumes: getDeletedDataVolumes(createModifiedVM()),
@@ -537,7 +545,7 @@ var _ = Describe("Restore controlleer", func() {
 			})
 
 			It("should cleanup and complete", func() {
-				r := createRestore()
+				r := createRestoreWithOwner()
 				r.Status = &snapshotv1.VirtualMachineRestoreStatus{
 					Complete:           &f,
 					DeletedDataVolumes: getDeletedDataVolumes(createModifiedVM()),
