@@ -503,7 +503,7 @@ func (ctrl *VMSnapshotController) getSnapshotPVC(namespace, volumeName string) (
 		return nil, nil
 	}
 
-	pvc := obj.(*corev1.PersistentVolumeClaim)
+	pvc := obj.(*corev1.PersistentVolumeClaim).DeepCopy()
 
 	if pvc.Spec.VolumeName == "" {
 		log.Log.Warningf("Unbound PVC %s/%s", pvc.Namespace, pvc.Name)
@@ -533,7 +533,7 @@ func (ctrl *VMSnapshotController) getVolumeSnapshotClass(storageClassName string
 		return "", err
 	}
 
-	storageClass := obj.(*storagev1.StorageClass)
+	storageClass := obj.(*storagev1.StorageClass).DeepCopy()
 
 	var matches []vsv1beta1.VolumeSnapshotClass
 	volumeSnapshotClasses := ctrl.getVolumeSnapshotClasses()
@@ -648,7 +648,7 @@ func (ctrl *VMSnapshotController) getVM(vmSnapshot *snapshotv1.VirtualMachineSna
 		return nil, nil
 	}
 
-	return obj.(*kubevirtv1.VirtualMachine), nil
+	return obj.(*kubevirtv1.VirtualMachine).DeepCopy(), nil
 }
 
 func (ctrl *VMSnapshotController) getContent(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (*snapshotv1.VirtualMachineSnapshotContent, error) {
@@ -662,7 +662,7 @@ func (ctrl *VMSnapshotController) getContent(vmSnapshot *snapshotv1.VirtualMachi
 		return nil, nil
 	}
 
-	return obj.(*snapshotv1.VirtualMachineSnapshotContent), nil
+	return obj.(*snapshotv1.VirtualMachineSnapshotContent).DeepCopy(), nil
 }
 
 func (s *vmSnapshotSource) UID() types.UID {

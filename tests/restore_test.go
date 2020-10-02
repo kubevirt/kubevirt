@@ -515,6 +515,35 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 
+			It("should restore a vm multiple from the same snapshot", func() {
+				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
+					tests.GetUrl(tests.CirrosHttpUrl),
+					tests.NamespaceTestDefault,
+					"#!/bin/bash\necho 'hello'\n",
+					snapshotStorageClass,
+				))
+
+				By("Stopping VM")
+				vm = tests.StopVirtualMachine(vm)
+
+				By("creating snapshot")
+				snapshot = createSnapshot(vm)
+
+				for i := 0; i < 2; i++ {
+					By(fmt.Sprintf("Restoring VM iteration %d", i))
+					restore = createRestoreDef(vm, snapshot.Name)
+
+					restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(restore)
+					Expect(err).ToNot(HaveOccurred())
+
+					restore = waitRestoreComplete(restore, vm)
+					Expect(restore.Status.Restores).To(HaveLen(1))
+
+					deleteRestore(restore)
+					restore = nil
+				}
+			})
+
 			It("should restore a vm that boots from a datavolumetemplate", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					tests.GetUrl(tests.CirrosHttpUrl),
