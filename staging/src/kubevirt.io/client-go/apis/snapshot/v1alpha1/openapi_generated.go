@@ -16110,11 +16110,6 @@ func schema_kubevirtio_client_go_api_v1_NodePlacement(ref common.ReferenceCallba
 						},
 					},
 					"tolerations": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "map",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
 							Description: "tolerations is a list of tolerations applied to the relevant kind of pods See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info. These are additional tolerations other than default ones.",
 							Type:        []string{"array"},

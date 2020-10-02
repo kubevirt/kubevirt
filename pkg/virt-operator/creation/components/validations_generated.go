@@ -536,7 +536,6 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                     type: object
                   type: array
-                  x-kubernetes-list-type: map
               type: object
           type: object
         monitorAccount:
@@ -929,7 +928,6 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                     type: object
                   type: array
-                  x-kubernetes-list-type: map
               type: object
           type: object
       type: object
@@ -2097,6 +2095,10 @@ var CRDsValidation map[string]string = map[string]string{
                           properties:
                             bios:
                               description: If set (default), BIOS will be used.
+                              properties:
+                                useSerial:
+                                  description: If set, the BIOS output will be transmitted over serial
+                                  type: boolean
                               type: object
                             efi:
                               description: If set, EFI will be used instead of BIOS.
@@ -3519,6 +3521,10 @@ var CRDsValidation map[string]string = map[string]string{
                   properties:
                     bios:
                       description: If set (default), BIOS will be used.
+                      properties:
+                        useSerial:
+                          description: If set, the BIOS output will be transmitted over serial
+                          type: boolean
                       type: object
                     efi:
                       description: If set, EFI will be used instead of BIOS.
@@ -4714,6 +4720,10 @@ var CRDsValidation map[string]string = map[string]string{
                   properties:
                     bios:
                       description: If set (default), BIOS will be used.
+                      properties:
+                        useSerial:
+                          description: If set, the BIOS output will be transmitted over serial
+                          type: boolean
                       type: object
                     efi:
                       description: If set, EFI will be used instead of BIOS.
@@ -5747,6 +5757,10 @@ var CRDsValidation map[string]string = map[string]string{
                           properties:
                             bios:
                               description: If set (default), BIOS will be used.
+                              properties:
+                                useSerial:
+                                  description: If set, the BIOS output will be transmitted over serial
+                                  type: boolean
                               type: object
                             efi:
                               description: If set, EFI will be used instead of BIOS.
@@ -7589,6 +7603,10 @@ var CRDsValidation map[string]string = map[string]string{
                                       properties:
                                         bios:
                                           description: If set (default), BIOS will be used.
+                                          properties:
+                                            useSerial:
+                                              description: If set, the BIOS output will be transmitted over serial
+                                              type: boolean
                                           type: object
                                         efi:
                                           description: If set, EFI will be used instead of BIOS.

@@ -563,7 +563,6 @@ spec:
                             type: string
                         type: object
                       type: array
-                      x-kubernetes-list-type: map
                   type: object
               type: object
             monitorAccount:
@@ -956,7 +955,6 @@ spec:
                             type: string
                         type: object
                       type: array
-                      x-kubernetes-list-type: map
                   type: object
               type: object
           type: object

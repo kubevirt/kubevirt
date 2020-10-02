@@ -34,11 +34,10 @@ type NodePlacement struct {
 	// These are additional tolerations other than default ones.
 	// +kubebuilder:validation:Optional
 	// +optional
-	//+listType=map
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type ComponentConfig struct {
 	// nodePlacement decsribes scheduling confiuguration for specific
