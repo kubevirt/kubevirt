@@ -875,14 +875,10 @@ func (c *VMIController) listVMIsMatchingDataVolume(namespace string, dataVolumeN
 			// VolumeSource.PersistentVolumeClaim doesn't list any ownerRef for the PVC. So in order to detect
 			// if the PVC is owned by a DV, I would have to look up the PVC, and find the ownerRef and determine if
 			// it is a DV. TODO: determine if it is slower to do the above or run through a reconcile of a VMI.
-			if volume.VolumeSource.PersistentVolumeClaim == nil {
-				if volume.VolumeSource.DataVolume == nil {
-					continue
-				} else if volume.VolumeSource.DataVolume.Name != dataVolumeName {
-					continue
-				}
+			if volume.VolumeSource.PersistentVolumeClaim != nil ||
+				volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Name == dataVolumeName {
+				vmis = append(vmis, vmi)
 			}
-			vmis = append(vmis, vmi)
 		}
 	}
 	return vmis, nil
