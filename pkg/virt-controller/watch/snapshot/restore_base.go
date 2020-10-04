@@ -129,7 +129,7 @@ func (ctrl *VMRestoreController) processVMRestoreWorkItem() bool {
 			return 0, fmt.Errorf("unexpected resource %+v", storeObj)
 		}
 
-		return ctrl.updateVMRestore(vmRestore)
+		return ctrl.updateVMRestore(vmRestore.DeepCopy())
 	})
 }
 
