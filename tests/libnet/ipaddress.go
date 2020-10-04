@@ -12,14 +12,14 @@ func GetPodIpByFamily(pod *k8sv1.Pod, family k8sv1.IPFamily) string {
 	for _, ip := range pod.Status.PodIPs {
 		ips = append(ips, ip.IP)
 	}
-	return getIp(ips, family)
+	return GetIp(ips, family)
 }
 
 func GetVmiPrimaryIpByFamily(vmi *v1.VirtualMachineInstance, family k8sv1.IPFamily) string {
-	return getIp(vmi.Status.Interfaces[0].IPs, family)
+	return GetIp(vmi.Status.Interfaces[0].IPs, family)
 }
 
-func getIp(ips []string, family k8sv1.IPFamily) string {
+func GetIp(ips []string, family k8sv1.IPFamily) string {
 	for _, ip := range ips {
 		if family == getFamily(ip) {
 			return ip

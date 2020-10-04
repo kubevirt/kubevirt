@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	neturl "net/url"
 	"reflect"
@@ -38,6 +39,7 @@ import (
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
+	netutils "k8s.io/utils/net"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,6 +62,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 var _ = Describe("[Serial]Infrastructure", func() {
@@ -456,7 +459,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", func() {
 		var preparedVMIs []*v1.VirtualMachineInstance
 		var pod *k8sv1.Pod
-		var metricsURL string
+		var metricsIPs []string
 
 		pinVMIOnNode := func(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualMachineInstance {
 			if vmi == nil {
@@ -470,7 +473,8 @@ var _ = Describe("[Serial]Infrastructure", func() {
 		}
 
 		// returns metrics from the node the VMI(s) runs on
-		getKubevirtVMMetrics := func() string {
+		getKubevirtVMMetrics := func(ip string) string {
+			metricsURL := prepareMetricsURL(ip, 8443)
 			stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
 				pod,
 				"virt-handler",
@@ -485,13 +489,13 @@ var _ = Describe("[Serial]Infrastructure", func() {
 		}
 
 		// collect metrics whose key contains the given string, expects non-empty result
-		collectMetrics := func(metricSubstring string) map[string]float64 {
+		collectMetrics := func(ip, metricSubstring string) map[string]float64 {
 			By("Scraping the Prometheus endpoint")
 			var metrics map[string]float64
 			var lines []string
 
 			Eventually(func() map[string]float64 {
-				out := getKubevirtVMMetrics()
+				out := getKubevirtVMMetrics(ip)
 				lines = takeMetricsWithPrefix(out, metricSubstring)
 				metrics, err = parseMetricsToMap(lines)
 				Expect(err).ToNot(HaveOccurred())
@@ -561,7 +565,9 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			By("Finding the prometheus endpoint")
 			pod, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
-			metricsURL = fmt.Sprintf("https://%s:%d/metrics", tests.FormatIPForURL(pod.Status.PodIP), 8443)
+			for _, ip := range pod.Status.PodIPs {
+				metricsIPs = append(metricsIPs, ip.IP)
+			}
 		})
 
 		PIt("[test_id:4136][flaky] should find one leading virt-controller and two ready", func() {
@@ -690,8 +696,17 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			}
 		})
 
-		It("[test_id:4140]should throttle the Prometheus metrics access", func() {
-			By("Scraping the Prometheus endpoint")
+		table.DescribeTable("should throttle the Prometheus metrics access", func(family k8sv1.IPFamily) {
+			if family == k8sv1.IPv6Protocol {
+				libnet.SkipWhenNotDualStackCluster(virtClient)
+			}
+
+			ip := getSupportedIP(metricsIPs, family)
+
+			if netutils.IsIPv6String(ip) {
+				Skip("Skip testing with IPv6 until https://github.com/kubevirt/kubevirt/issues/4145 is fixed")
+			}
+
 			concurrency := 100 // random value "much higher" than maxRequestsInFlight
 
 			tr := &http.Transport{
@@ -707,6 +722,8 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			}
 
 			errorsChan := make(chan error)
+			By("Scraping the Prometheus endpoint")
+			metricsURL := prepareMetricsURL(ip, 8443)
 			for ix := 0; ix < concurrency; ix++ {
 				go func(ix int) {
 					req, _ := http.NewRequest("GET", metricsURL, nil)
@@ -722,19 +739,37 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 			err := validatedHTTPResponses(errorsChan, concurrency)
 			Expect(err).ToNot(HaveOccurred(), "Should throttle HTTP access without unexpected errors")
-		})
+		},
+			table.Entry("[test_id:4140] by using IPv4", k8sv1.IPv4Protocol),
+			table.Entry("by using IPv6", k8sv1.IPv6Protocol),
+		)
 
-		It("[test_id:4141]should include the metrics for a running VM", func() {
+		table.DescribeTable("should include the metrics for a running VM", func(family k8sv1.IPFamily) {
+			if family == k8sv1.IPv6Protocol {
+				libnet.SkipWhenNotDualStackCluster(virtClient)
+			}
+
+			ip := getSupportedIP(metricsIPs, family)
+
 			By("Scraping the Prometheus endpoint")
 			Eventually(func() string {
-				out := getKubevirtVMMetrics()
+				out := getKubevirtVMMetrics(ip)
 				lines := takeMetricsWithPrefix(out, "kubevirt")
 				return strings.Join(lines, "\n")
 			}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
-		})
+		},
+			table.Entry("[test_id:4141] by using IPv4", k8sv1.IPv4Protocol),
+			table.Entry("by using IPv6", k8sv1.IPv6Protocol),
+		)
 
-		It("[test_id:4142]should include the storage metrics for a running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_storage_")
+		table.DescribeTable("should include the storage metrics for a running VM", func(family k8sv1.IPFamily) {
+			if family == k8sv1.IPv6Protocol {
+				libnet.SkipWhenNotDualStackCluster(virtClient)
+			}
+
+			ip := getSupportedIP(metricsIPs, family)
+
+			metrics := collectMetrics(ip, "kubevirt_vmi_storage_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
@@ -743,10 +778,19 @@ var _ = Describe("[Serial]Infrastructure", func() {
 					Expect(value).To(BeNumerically(">", float64(0.0)))
 				}
 			}
-		})
+		},
+			table.Entry("[test_id:4142] by using IPv4", k8sv1.IPv4Protocol),
+			table.Entry("by using IPv6", k8sv1.IPv6Protocol),
+		)
 
-		table.DescribeTable("should include metrics for a running VM", func(metricSubstring, operator string) {
-			metrics := collectMetrics(metricSubstring)
+		table.DescribeTable("should include metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
+			if family == k8sv1.IPv6Protocol {
+				libnet.SkipWhenNotDualStackCluster(virtClient)
+			}
+
+			ip := getSupportedIP(metricsIPs, family)
+
+			metrics := collectMetrics(ip, metricSubstring)
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
@@ -755,15 +799,26 @@ var _ = Describe("[Serial]Infrastructure", func() {
 				Expect(value).To(BeNumerically(operator, float64(0.0)))
 			}
 		},
-			table.Entry("[test_id:4143] network metrics", "kubevirt_vmi_network_", ">="),
-			table.Entry("[test_id:4144] memory metrics", "kubevirt_vmi_memory", ">="),
-			table.Entry("[test_id:4553] vcpu wait", "kubevirt_vmi_vcpu_wait", "=="),
-			table.Entry("[test_id:4554] vcpu seconds", "kubevirt_vmi_vcpu_seconds", ">="),
-			table.Entry("[test_id:4556] vmi unused memory", "kubevirt_vmi_memory_unused_bytes", ">="),
+			table.Entry("[test_id:4143] network metrics by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_network_", ">="),
+			table.Entry("network metrics by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_network_", ">="),
+			table.Entry("[test_id:4144] memory metrics by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_memory", ">="),
+			table.Entry("memory metrics by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_memory", ">="),
+			table.Entry("[test_id:4553] vcpu wait by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_vcpu_wait", "=="),
+			table.Entry("vcpu wait by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_vcpu_wait", "=="),
+			table.Entry("[test_id:4554] vcpu seconds by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_vcpu_seconds", ">="),
+			table.Entry("vcpu seconds by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_vcpu_seconds", ">="),
+			table.Entry("[test_id:4556] vmi unused memory by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_memory_unused_bytes", ">="),
+			table.Entry("vmi unused memory by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_memory_unused_bytes", ">="),
 		)
 
-		It("[test_id:4145]should include VMI infos for a running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_")
+		table.DescribeTable("should include VMI infos for a running VM", func(family k8sv1.IPFamily) {
+			if family == k8sv1.IPv6Protocol {
+				libnet.SkipWhenNotDualStackCluster(virtClient)
+			}
+
+			ip := getSupportedIP(metricsIPs, family)
+
+			metrics := collectMetrics(ip, "kubevirt_vmi_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			nodeName := pod.Spec.NodeName
@@ -790,10 +845,19 @@ var _ = Describe("[Serial]Infrastructure", func() {
 					SatisfyAny(nameMatchers...),
 				))
 			}
-		})
+		},
+			table.Entry("[test_id:4145] by IPv4", k8sv1.IPv4Protocol),
+			table.Entry("by IPv6", k8sv1.IPv6Protocol),
+		)
 
-		It("[test_id:4146]should include VMI phase metrics for few running VMs", func() {
-			metrics := collectMetrics("kubevirt_vmi_")
+		table.DescribeTable("should include VMI phase metrics for all running VMs", func(family k8sv1.IPFamily) {
+			if family == k8sv1.IPv6Protocol {
+				libnet.SkipWhenNotDualStackCluster(virtClient)
+			}
+
+			ip := getSupportedIP(metricsIPs, family)
+
+			metrics := collectMetrics(ip, "kubevirt_vmi_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
@@ -802,26 +866,44 @@ var _ = Describe("[Serial]Infrastructure", func() {
 					Expect(value).To(Equal(float64(len(preparedVMIs))))
 				}
 			}
-		})
+		},
+			table.Entry("[test_id:4146] by IPv4", k8sv1.IPv4Protocol),
+			table.Entry("by IPv6", k8sv1.IPv6Protocol),
+		)
 
-		It("[test_id:4147]should include kubernetes labels to VMI metrics", func() {
+		table.DescribeTable("should include kubernetes labels to VMI metrics", func(family k8sv1.IPFamily) {
+			if family == k8sv1.IPv6Protocol {
+				libnet.SkipWhenNotDualStackCluster(virtClient)
+			}
+
+			ip := getSupportedIP(metricsIPs, family)
+
 			// Every VMI is labeled with kubevirt.io/nodeName, so just creating a VMI should
 			// be enough to its metrics to contain a kubernetes label
-			containK8sLabel := false
-			metrics := collectMetrics("kubevirt_vmi_vcpu_seconds")
+			metrics := collectMetrics(ip, "kubevirt_vmi_vcpu_seconds")
 			By("Checking collected metrics")
 			keys := getKeysFromMetrics(metrics)
+			containK8sLabel := false
 			for _, key := range keys {
 				if strings.Contains(key, "kubernetes_vmi_label_") {
 					containK8sLabel = true
 				}
 			}
 			Expect(containK8sLabel).To(Equal(true))
-		})
+		},
+			table.Entry("[test_id:4147] by IPv4", k8sv1.IPv4Protocol),
+			table.Entry("by IPv6", k8sv1.IPv6Protocol),
+		)
 
 		// explicit test fo swap metrics as test_id:4144 doesn't catch if they are missing
-		It("[test_id:4555]should include swap metrics", func() {
-			metrics := collectMetrics("kubevirt_vmi_memory_swap_")
+		table.DescribeTable("should include swap metrics", func(family k8sv1.IPFamily) {
+			if family == k8sv1.IPv6Protocol {
+				libnet.SkipWhenNotDualStackCluster(virtClient)
+			}
+
+			ip := getSupportedIP(metricsIPs, family)
+
+			metrics := collectMetrics(ip, "kubevirt_vmi_memory_swap_")
 			var in, out bool
 			for k, _ := range metrics {
 				if in && out {
@@ -837,7 +919,10 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 			Expect(in).To(BeTrue())
 			Expect(out).To(BeTrue())
-		})
+		},
+			table.Entry("[test_id:4555] by IPv4", k8sv1.IPv4Protocol),
+			table.Entry("by IPv6", k8sv1.IPv6Protocol),
+		)
 	})
 
 	Describe("Start a VirtualMachineInstance", func() {
@@ -982,4 +1067,15 @@ func validatedHTTPResponses(errorsChan chan error, concurrency int) error {
 	}
 
 	return unexpectedError
+}
+
+func getSupportedIP(ips []string, family k8sv1.IPFamily) string {
+	ip := libnet.GetIp(ips, family)
+	ExpectWithOffset(1, ip).NotTo(BeEmpty())
+
+	return ip
+}
+
+func prepareMetricsURL(ip string, port int) string {
+	return fmt.Sprintf("https://%s/metrics", net.JoinHostPort(ip, strconv.Itoa(port)))
 }
