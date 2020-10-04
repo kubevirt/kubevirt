@@ -1152,18 +1152,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	currentAutoThread := defaultIOThread
 	currentDedicatedThread := uint(autoThreads + 1)
 
-	var numQueues *uint
 	var numBlkQueues *uint
 	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
-	virtioNetMQRequested := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
 	vcpus := uint(cpuCount)
 	if vcpus == 0 {
 		vcpus = uint(1)
 	}
-	if virtioNetMQRequested {
-		nq := uint(CalculateNetworkQueues(vmi))
-		numQueues = &nq
-	}
+
 	if virtioBlkMQRequested {
 		numBlkQueues = &vcpus
 	}
@@ -1559,10 +1554,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 			// if UseEmulation unset and at least one NIC model is virtio,
 			// /dev/vhost-net must be present as we should have asked for it.
+			var virtioNetMQRequested bool
+			if mq := vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue; mq != nil {
+				virtioNetMQRequested = *mq
+			}
 			if ifaceType == "virtio" && virtioNetProhibited {
 				return fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
 			} else if ifaceType == "virtio" && virtioNetMQRequested {
-				domainIface.Driver = &InterfaceDriver{Name: "vhost", Queues: numQueues}
+				queueCount := uint(CalculateNetworkQueues(vmi))
+				domainIface.Driver = &InterfaceDriver{Name: "vhost", Queues: &queueCount}
 			}
 
 			// Add a pciAddress if specified
