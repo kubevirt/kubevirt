@@ -173,7 +173,7 @@ If you'd like to run specific functional tests only, you can leverage `ginkgo`
 command line options as follows (run a specified suite):
 
 ```
-    FUNC_TEST_ARGS='-ginkgo.focus=vmi_networking_test -ginkgo.regexScansFilePath' make functest
+    FUNC_TEST_ARGS='-focus=vmi_networking_test -regexScansFilePath' make functest
 ```
 
 In addition, if you want to run a specific test or tests you can prepend any `Describe`,
