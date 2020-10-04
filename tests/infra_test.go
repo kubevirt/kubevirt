@@ -860,9 +860,11 @@ var _ = Describe("[Serial]Infrastructure", func() {
 		})
 
 		It("[test_id:4556]should include unused memory metric for running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_memory_unused_bytes")
-			for _, v := range metrics {
-				Expect(v).To(BeNumerically(">=", float64(0.0)))
+			for _, url := range metricsURLs {
+				metrics := collectMetrics(url, "kubevirt_vmi_memory_unused_bytes")
+				for _, v := range metrics {
+					Expect(v).To(BeNumerically(">=", float64(0.0)))
+				}
 			}
 		})
 	})
