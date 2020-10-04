@@ -1465,31 +1465,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
-	networks := map[string]*v1.Network{}
-	cniNetworks := map[string]int{}
-	multusNetworkIndex := 1
-	for _, network := range vmi.Spec.Networks {
-		numberOfSources := 0
-		if network.Pod != nil {
-			numberOfSources++
-		}
-		if network.Multus != nil {
-			if network.Multus.Default {
-				// default network is eth0
-				cniNetworks[network.Name] = 0
-			} else {
-				cniNetworks[network.Name] = multusNetworkIndex
-				multusNetworkIndex++
-			}
-			numberOfSources++
-		}
-		if numberOfSources == 0 {
-			return fmt.Errorf("fail network %s must have a network type", network.Name)
-		} else if numberOfSources > 1 {
-			return fmt.Errorf("fail network %s must have only one network type", network.Name)
-		}
-		networks[network.Name] = network.DeepCopy()
+	if err := validateNetworksTypes(vmi.Spec.Networks); err != nil {
+		return err
 	}
+
+	networks := indexNetworksByName(vmi.Spec.Networks)
 
 	sriovPciAddresses := make(map[string][]string)
 	for key, value := range c.SRIOVDevices {
@@ -1801,6 +1781,26 @@ func formatDomainIOThreadPin(vmi *v1.VirtualMachineInstance, domain *Domain, c *
 		}
 	}
 	return nil
+}
+
+func validateNetworksTypes(networks []v1.Network) error {
+	for _, network := range networks {
+		switch {
+		case network.Pod != nil && network.Multus != nil:
+			return fmt.Errorf("network %s must have only one network type", network.Name)
+		case network.Pod == nil && network.Multus == nil:
+			return fmt.Errorf("network %s must have a network type", network.Name)
+		}
+	}
+	return nil
+}
+
+func indexNetworksByName(networks []v1.Network) map[string]*v1.Network {
+	netsByName := map[string]*v1.Network{}
+	for _, network := range networks {
+		netsByName[network.Name] = network.DeepCopy()
+	}
+	return netsByName
 }
 
 func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *Domain) error {
