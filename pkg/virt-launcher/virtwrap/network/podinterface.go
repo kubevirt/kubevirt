@@ -455,7 +455,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces(queueNumber uint32, lau
 	}
 
 	tapDeviceName := generateTapDeviceName(podInterfaceName)
-	err := createAndBindTapToBridge(b.vif, tapDeviceName, b.bridgeInterfaceName, queueNumber, launcherPID)
+	err := createAndBindTapToBridge(b.vif, tapDeviceName, b.bridgeInterfaceName, queueNumber, launcherPID, int(b.vif.Mtu))
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -744,7 +744,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces(queueNumber uint32,
 	}
 
 	tapDeviceName := generateTapDeviceName(podInterfaceName)
-	err = createAndBindTapToBridge(p.vif, tapDeviceName, p.bridgeInterfaceName, queueNumber, launcherPID)
+	err = createAndBindTapToBridge(p.vif, tapDeviceName, p.bridgeInterfaceName, queueNumber, launcherPID, int(p.vif.Mtu))
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -1251,8 +1251,8 @@ func (m *MacvtapPodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-func createAndBindTapToBridge(virtualInterface *VIF, deviceName string, bridgeIfaceName string, queueNumber uint32, launcherPID int) error {
-	err := Handler.CreateTapDevice(deviceName, queueNumber, launcherPID)
+func createAndBindTapToBridge(virtualInterface *VIF, deviceName string, bridgeIfaceName string, queueNumber uint32, launcherPID int, mtu int) error {
+	err := Handler.CreateTapDevice(deviceName, queueNumber, launcherPID, mtu)
 	if err != nil {
 		return err
 	}
