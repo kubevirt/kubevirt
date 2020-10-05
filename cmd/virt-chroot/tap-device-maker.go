@@ -9,10 +9,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func createTapDevice(name string, owner uint, group uint, queueNumber int) error {
+func createTapDevice(name string, owner uint, group uint, queueNumber int, mtu int) error {
 	var err error = nil
 	tapDevice := &netlink.Tuntap{
-		LinkAttrs:  netlink.LinkAttrs{Name: name},
+		LinkAttrs:  netlink.LinkAttrs{Name: name, MTU: mtu},
 		Mode:       unix.IFF_TAP,
 		NonPersist: false,
 		Queues:     queueNumber,
@@ -47,6 +47,10 @@ func NewCreateTapCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("could not access queue-number parameter: %v", err)
 			}
+			mtu, err := cmd.Flags().GetUint32("mtu")
+			if err != nil {
+				return fmt.Errorf("could not access mtu parameter: %v", err)
+			}
 
 			uid, err := strconv.ParseUint(uidStr, 10, 32)
 			if err != nil {
@@ -57,7 +61,7 @@ func NewCreateTapCommand() *cobra.Command {
 				return fmt.Errorf("could not parse tap device group: %v", err)
 			}
 
-			if err := createTapDevice(tapName, uint(uid), uint(gid), int(queueNumber)); err != nil {
+			if err := createTapDevice(tapName, uint(uid), uint(gid), int(queueNumber), int(mtu)); err != nil {
 				return fmt.Errorf("failed to create tap device named %s. Reason: %v", tapName, err)
 			}
 
