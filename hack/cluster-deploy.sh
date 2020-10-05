@@ -17,7 +17,7 @@
 # Copyright 2018 Red Hat, Inc.
 #
 
-set -ex
+set -ex pipefail
 
 DOCKER_TAG=${DOCKER_TAG:-devel}
 
@@ -26,9 +26,13 @@ source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
 
 function dump_kubevirt() {
-    echo "Dump kubevirt state:"
-    hack/dump.sh
+    if [ "$?" -ne "0" ]; then
+        echo "Dump kubevirt state:"
+        hack/dump.sh
+    fi
 }
+
+trap dump_kubevirt EXIT
 
 echo "Deploying ..."
 
@@ -119,7 +123,7 @@ done
 # Wait until KubeVirt is ready
 count=0
 until _kubectl wait -n kubevirt kv kubevirt --for condition=Available --timeout 5m; do
-    ((count++)) && ((count == 5)) && echo "KubeVirt not ready in time" && dump_kubevirt && exit 1
+    ((count++)) && ((count == 5)) && echo "KubeVirt not ready in time" && exit 1
     echo "Error waiting for KubeVirt to be Available, sleeping 1m and retrying"
     sleep 1m
 done
