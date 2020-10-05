@@ -2188,6 +2188,18 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].Driver).To(BeNil(),
 				"queues should not be set for models other than virtio")
 		})
+
+		It("should cap the maximum number of queues", func() {
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Cores:   512,
+				Sockets: 1,
+				Threads: 2,
+			}
+			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})
+			expectedNumberQueues := uint(multiQueueMaxQueues)
+			Expect(*(domain.Spec.Devices.Interfaces[0].Driver.Queues)).To(Equal(expectedNumberQueues),
+				"should be capped to the maximum number of queues on tap devices")
+		})
 	})
 
 	Context("sriov", func() {

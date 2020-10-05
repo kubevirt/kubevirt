@@ -57,6 +57,9 @@ const (
 	EFICodeSecureBoot      = "OVMF_CODE.secboot.fd"
 	EFIVarsSecureBoot      = "OVMF_VARS.secboot.fd"
 )
+const (
+	multiQueueMaxQueues = uint32(256)
+)
 
 // +k8s:deepcopy-gen=false
 type ConverterContext struct {
@@ -1450,7 +1453,13 @@ func calculateRequestedVCPUs(cpuTopology *CPUTopology) uint32 {
 
 func CalculateNetworkQueueNumberAndGetCPUTopology(vmi *v1.VirtualMachineInstance) (uint32, *CPUTopology) {
 	cpuTopology := getCPUTopology(vmi)
-	return calculateRequestedVCPUs(cpuTopology), cpuTopology
+	queueNumber := calculateRequestedVCPUs(cpuTopology)
+
+	if queueNumber > multiQueueMaxQueues {
+		log.Log.V(3).Infof("Capped the number of queues to be the current maximum of tap device queues: %d", multiQueueMaxQueues)
+		queueNumber = multiQueueMaxQueues
+	}
+	return queueNumber, cpuTopology
 }
 
 func formatDomainCPUTune(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) error {
