@@ -29,8 +29,10 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 var _ = Describe("[Serial]SecurityFeatures", func() {
@@ -45,12 +47,7 @@ var _ = Describe("[Serial]SecurityFeatures", func() {
 	})
 
 	Context("Check virt-launcher securityContext", func() {
-		var kubevirtConfiguration *v1.KubeVirtConfiguration
-
 		tests.BeforeAll(func() {
-			kv := tests.GetCurrentKv(virtClient)
-			kubevirtConfiguration = &kv.Spec.Configuration
-
 			tests.SkipSELinuxTestIfRunnigOnKindInfra()
 		})
 
@@ -59,10 +56,7 @@ var _ = Describe("[Serial]SecurityFeatures", func() {
 
 		Context("With selinuxLauncherType as container_t", func() {
 			BeforeEach(func() {
-				config := kubevirtConfiguration.DeepCopy()
-				config.SELinuxLauncherType = "container_t"
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
-
+				tests.UpdateClusterConfigValueAndWait(virtconfig.SELinuxLauncherTypeKey, "container_t")
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 
 				// VMIs with selinuxLauncherType container_t cannot have network interfaces, since that requires
@@ -134,10 +128,13 @@ var _ = Describe("[Serial]SecurityFeatures", func() {
 		Context("With selinuxLauncherType defined as spc_t", func() {
 
 			It("[test_id:3787]Should honor custom SELinux type for virt-launcher", func() {
-				config := kubevirtConfiguration.DeepCopy()
+
 				superPrivilegedType := "spc_t"
-				config.SELinuxLauncherType = superPrivilegedType
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
+				kubeVirtConfig, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if kubeVirtConfig.Data[virtconfig.SELinuxLauncherTypeKey] != superPrivilegedType {
+					tests.UpdateClusterConfigValueAndWait(virtconfig.SELinuxLauncherTypeKey, superPrivilegedType)
+				}
 
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
@@ -164,10 +161,13 @@ var _ = Describe("[Serial]SecurityFeatures", func() {
 		Context("With selinuxLauncherType defined as virt_launcher.process", func() {
 
 			It("[test_id:4298]qemu process type is virt_launcher.process, when selinuxLauncherType is virt_launcher.process", func() {
-				config := kubevirtConfiguration.DeepCopy()
+
 				launcherType := "virt_launcher.process"
-				config.SELinuxLauncherType = launcherType
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
+				kubeVirtConfig, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if kubeVirtConfig.Data[virtconfig.SELinuxLauncherTypeKey] != launcherType {
+					tests.UpdateClusterConfigValueAndWait(virtconfig.SELinuxLauncherTypeKey, launcherType)
+				}
 
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 

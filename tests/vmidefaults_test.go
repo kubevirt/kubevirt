@@ -29,6 +29,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -92,19 +93,10 @@ var _ = Describe("[Serial]VMIDefaults", func() {
 	})
 
 	Context("MemBalloon defaults", func() {
-		var kvConfiguration v1.KubeVirtConfiguration
-
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
 			// create VMI with missing disk target
 			vmi = tests.NewRandomVMI()
-
-			kv := tests.GetCurrentKv(virtClient)
-			kvConfiguration = kv.Spec.Configuration
-		})
-
-		AfterEach(func() {
-			tests.UpdateKubeVirtConfigValueAndWait(kvConfiguration)
 		})
 
 		It("[test_id:4556]Should be present in domain", func() {
@@ -136,11 +128,9 @@ var _ = Describe("[Serial]VMIDefaults", func() {
 			Expect(*domain.Devices.Ballooning).To(Equal(expected), "Default to virtio model and 10 seconds pooling")
 		})
 
-		table.DescribeTable("Should override period in domain if present in virt-config ", func(period uint32, expected api.MemBalloon) {
+		table.DescribeTable("Should override period in domain if present in virt-config ", func(period string, expected api.MemBalloon) {
 			By("Adding period to virt-config")
-			kvConfigurationCopy := kvConfiguration.DeepCopy()
-			kvConfigurationCopy.MemBalloonStatsPeriod = &period
-			tests.UpdateKubeVirtConfigValueAndWait(*kvConfigurationCopy)
+			tests.UpdateClusterConfigValueAndWait(virtconfig.MemBalloonStatsPeriod, period)
 
 			By("Creating a virtual machine")
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -156,7 +146,7 @@ var _ = Describe("[Serial]VMIDefaults", func() {
 			Expect(domain.Devices.Ballooning).ToNot(BeNil(), "There should be memballoon device")
 			Expect(*domain.Devices.Ballooning).To(Equal(expected))
 		},
-			table.Entry("[test_id:4557]with period 12", uint32(12), api.MemBalloon{
+			table.Entry("[test_id:4557]with period 12", "12", api.MemBalloon{
 				Model: "virtio",
 				Stats: &api.Stats{
 					Period: 12,
@@ -169,7 +159,7 @@ var _ = Describe("[Serial]VMIDefaults", func() {
 					Function: "0x0",
 				},
 			}),
-			table.Entry("[test_id:4558]with period 0", uint32(0), api.MemBalloon{
+			table.Entry("[test_id:4558]with period 0", "0", api.MemBalloon{
 				Model: "virtio",
 				Address: &api.Address{
 					Type:     "pci",
