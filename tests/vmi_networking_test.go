@@ -74,7 +74,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 	})
 
 	checkMacAddress := func(vmi *v1.VirtualMachineInstance, expectedMacAddress string, prompt string) {
-		err := console.CheckForTextExpecter(vmi, []expect.Batcher{
+		err := console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "cat /sys/class/net/eth0/address\n"},
@@ -84,7 +84,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 	}
 
 	checkNetworkVendor := func(vmi *v1.VirtualMachineInstance, expectedVendor string, prompt string) {
-		err := console.CheckForTextExpecter(vmi, []expect.Batcher{
+		err := console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "cat /sys/class/net/eth0/device/vendor\n"},
@@ -224,7 +224,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			// NOTE: cirros ping doesn't support -M do that could be used to
 			// validate end-to-end connectivity with Don't Fragment flag set
 			cmdCheck = fmt.Sprintf("ping %s -c 1 -w 5 -s %d\n", addr, payloadSize)
-			err = console.CheckForTextExpecter(outboundVMI, []expect.Batcher{
+			err = console.SafeExpectBatch(outboundVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: cmdCheck},
@@ -235,7 +235,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			Expect(err).ToNot(HaveOccurred())
 
 			By("checking the VirtualMachineInstance can fetch via HTTP")
-			err = console.CheckForTextExpecter(outboundVMI, []expect.Batcher{
+			err = console.SafeExpectBatch(outboundVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\n"},
@@ -428,7 +428,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
 
-			err := console.CheckForTextExpecter(detachedVMI, []expect.Batcher{
+			err := console.SafeExpectBatch(detachedVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "ls /sys/class/net/ | wc -l\n"},
@@ -487,7 +487,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 		})
 
 		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string, prompt string) {
-			err := console.CheckForTextExpecter(vmi, []expect.Batcher{
+			err := console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: prompt},
 				&expect.BSnd{S: "grep INTERFACE /sys/bus/pci/devices/" + expectedPciAddress + "/*/net/eth0/uevent|awk -F= '{ print $2 }'\n"},
@@ -551,7 +551,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 			tests.WaitUntilVMIReady(dhcpVMI, tests.LoggedInFedoraExpecter)
 
-			err = console.CheckForTextExpecter(dhcpVMI, []expect.Batcher{
+			err = console.SafeExpectBatch(dhcpVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\#"},
 				&expect.BSnd{S: "dhclient -1 -r -d eth0\n"},
@@ -588,7 +588,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(dnsVMI)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitUntilVMIReady(dnsVMI, tests.LoggedInCirrosExpecter)
-			err = console.CheckForTextExpecter(dnsVMI, []expect.Batcher{
+			err = console.SafeExpectBatch(dnsVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$"},
 				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
@@ -681,11 +681,11 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
 
 				By("Connecting from the client vm")
-				err = console.CheckForTextExpecter(clientVMI, createExpectConnectToServer(serverIP, tcpPort, true), 30)
+				err = console.SafeExpectBatch(clientVMI, createExpectConnectToServer(serverIP, tcpPort, true), 30)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Rejecting the connection from the client to unregistered port")
-				err = console.CheckForTextExpecter(clientVMI, createExpectConnectToServer(serverIP, tcpPort+1, false), 30)
+				err = console.SafeExpectBatch(clientVMI, createExpectConnectToServer(serverIP, tcpPort+1, false), 30)
 				Expect(err).ToNot(HaveOccurred())
 			}
 
@@ -870,7 +870,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 				By("checking eth0 MTU inside the VirtualMachineInstance")
 				showMtu := "cat /sys/class/net/eth0/mtu\n"
-				err = console.CheckForTextExpecter(vmi, []expect.Batcher{
+				err = console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: showMtu},
 					&expect.BExp{R: console.RetValue(strconv.Itoa(bridgeMtu))},
 				}, 180)

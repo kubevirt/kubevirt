@@ -1879,7 +1879,7 @@ var _ = Describe("Configurations", func() {
 			// NOTE: we have one disk per bus, so we expect vda, sda
 		})
 		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string, prompt string) {
-			err := console.CheckForTextExpecter(vmi, []expect.Batcher{
+			err := console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: prompt},
 				&expect.BSnd{S: "grep DEVNAME /sys/bus/pci/devices/" + expectedPciAddress + "/*/block/vda/uevent|awk -F= '{ print $2 }'\n"},

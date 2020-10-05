@@ -39,7 +39,7 @@ func parseDeviceAddress(addrString string) []string {
 
 func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName string, prompt string) {
 	cmdCheck := fmt.Sprintf("lspci -m %s\n", gpuName)
-	err := console.CheckForTextExpecter(vmi, []expect.Batcher{
+	err := console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: cmdCheck},

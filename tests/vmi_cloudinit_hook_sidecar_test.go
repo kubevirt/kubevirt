@@ -63,7 +63,7 @@ var _ = Describe("CloudInitHookSidecars", func() {
 	}
 	MountCloudInit := func(vmi *v1.VirtualMachineInstance, prompt string) {
 		cmdCheck := "mount $(blkid  -L cidata) /mnt/\n"
-		err := console.CheckForTextExpecter(vmi, []expect.Batcher{
+		err := console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "sudo su -\n"},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: cmdCheck},
@@ -76,7 +76,7 @@ var _ = Describe("CloudInitHookSidecars", func() {
 
 	CheckCloudInitFile := func(vmi *v1.VirtualMachineInstance, prompt, testFile, testData string) {
 		cmdCheck := "cat /mnt/" + testFile + "\n"
-		err := console.CheckForTextExpecter(vmi, []expect.Batcher{
+		err := console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "sudo su -\n"},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: cmdCheck},
