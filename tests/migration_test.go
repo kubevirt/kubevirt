@@ -40,7 +40,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
 
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
@@ -598,8 +597,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				// set autoconverge flag
 				config := defaultKVConfig()
-				allowAutoConverage := true
-				config.MigrationConfiguration.AllowAutoConverge = &allowAutoConverage
+				config.MigrationConfiguration.AllowAutoConverge = true
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 			})
 
@@ -711,8 +709,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				// set unsafe migration flag
 				cfg := defaultKVConfig()
-				unsafeMigrationOverride := true
-				cfg.MigrationConfiguration.UnsafeMigrationOverride = &unsafeMigrationOverride
+				cfg.MigrationConfiguration.UnsafeMigrationOverride = true
 				tests.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
 
@@ -984,11 +981,11 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.DeletePvAndPvc(pvName)
 			})
 
-			table.DescribeTable("should be migrated successfully, using guest agent on VM", func(migrationConfiguration *v1.MigrationConfiguration, mode v1.MigrationMode) {
-				if migrationConfiguration != nil {
-					config := defaultKVConfig()
-					config.MigrationConfiguration = migrationConfiguration
-					tests.UpdateKubeVirtConfigValueAndWait(config)
+			table.DescribeTable("should be migrated successfully, using guest agent on VM", func(configData map[string]string, mode v1.MigrationMode) {
+				if len(configData) > 0 {
+					migrationData, err := json.Marshal(configData)
+					Expect(err).ToNot(HaveOccurred())
+					tests.UpdateClusterConfigValueAndWait("migrations", string(migrationData))
 				}
 
 				// Start the VirtualMachineInstance with the PVC attached
@@ -1055,10 +1052,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForPodToDisappearWithTimeout(tests.NFSTargetName, 120)
 
 			},
-				table.Entry("[test_id:2653] with default migration configuration", nil, v1.MigrationPreCopy),
-				table.Entry("with postcopy", &v1.MigrationConfiguration{
-					AllowPostCopy:           pointer.BoolPtr(true),
-					CompletionTimeoutPerGiB: pointer.Int64Ptr(1),
+				table.Entry("[test_id:2653] with default migration configuration", map[string]string{}, v1.MigrationPreCopy),
+				table.Entry("with postcopy", map[string]string{
+					"allowPostCopy":           "true",
+					"completionTimeoutPerGiB": "1",
 				}, v1.MigrationPostCopy),
 			)
 		})
@@ -1171,10 +1168,13 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		Context("migration postcopy", func() {
 			It("[test_id:4747] should migrate using cluster level config for postcopy", func() {
-				config := defaultKVConfig()
-				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
-				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
-				tests.UpdateKubeVirtConfigValueAndWait(config)
+				data := map[string]string{
+					"allowPostCopy":           "true",
+					"completionTimeoutPerGiB": "1",
+				}
+				migrationData, err := json.Marshal(data)
+				Expect(err).ToNot(HaveOccurred())
+				tests.UpdateClusterConfigValueAndWait("migrations", string(migrationData))
 
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
