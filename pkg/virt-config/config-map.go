@@ -469,7 +469,7 @@ func (c *ClusterConfig) GetConfig() (config *v1.KubeVirtConfiguration) {
 		return c.lastValidConfig
 	}
 
-	log.DefaultLogger().Infof("Updating cluster config from %s to resource version '%s'", resourceType, resourceVersion)
+	log.DefaultLogger().Infof("Updating cluster config to resource version '%s'", resourceVersion)
 	c.lastValidConfigResourceVersion = resourceVersion
 	c.lastValidConfig = config
 	return c.lastValidConfig

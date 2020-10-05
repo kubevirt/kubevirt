@@ -51,6 +51,8 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
+const kubevirtConfig = "kubevirt-config"
+
 func newCirrosVMI() *v1.VirtualMachineInstance {
 	return tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 }
@@ -379,7 +381,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					createdVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 					launcher := tests.GetPodByVirtualMachineInstance(createdVMI, createdVMI.Namespace)
 					// Wait until we see that starting the VirtualMachineInstance is failing
-					By(fmt.Sprintf("Checking that VirtualMachineInstance start failed: starting at %v", time.Now()))
+					By("Checking that VirtualMachineInstance start failed")
 					stopChan := make(chan struct{})
 					defer close(stopChan)
 					event := tests.NewObjectEventWatcher(launcher).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(stopChan, tests.WarningEvent, "FailedMount")
@@ -783,25 +785,32 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		Context("[Serial]with default cpu model", func() {
-			var originalConfig v1.KubeVirtConfiguration
+			var cfgMap *k8sv1.ConfigMap
+			var originalData map[string]string
+			var options metav1.GetOptions
+			var defaultCPUModelKey = "default-cpu-model"
 			var defaultCPUModel = "Nehalem"
 			var vmiCPUModel = "SandyBridge"
 
 			//store old kubevirt-config
 			BeforeEach(func() {
-				kv := tests.GetCurrentKv(virtClient)
-				originalConfig = kv.Spec.Configuration
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
+				Expect(err).ToNot(HaveOccurred())
+				originalData = cfgMap.Data
 			})
 
 			//replace new kubevirt-config with old config
 			AfterEach(func() {
-				tests.UpdateKubeVirtConfigValueAndWait(originalConfig)
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
+				Expect(err).ToNot(HaveOccurred())
+				cfgMap.Data = originalData
+				_, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Update(cfgMap)
+				Expect(err).ToNot(HaveOccurred())
+				time.Sleep(5 * time.Second)
 			})
 
 			It("[test_id:3199]should set default cpu model when vmi doesn't have it set", func() {
-				config := originalConfig.DeepCopy()
-				config.CPUModel = defaultCPUModel
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
+				tests.UpdateClusterConfigValueAndWait(defaultCPUModelKey, defaultCPUModel)
 
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 
@@ -815,9 +824,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("[test_id:3200]should not set default cpu model when vmi has it set", func() {
-				config := originalConfig.DeepCopy()
-				config.CPUModel = defaultCPUModel
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
+				tests.UpdateClusterConfigValueAndWait(defaultCPUModelKey, defaultCPUModel)
 
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
@@ -858,7 +865,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				node = &nodes.Items[0]
 				originalLabels = node.GetObjectMeta().GetLabels()
 
-				tests.EnableFeatureGate(virtconfig.CPUNodeDiscoveryGate)
+				tests.UpdateClusterConfigValueAndWait(virtconfig.FeatureGatesKey, virtconfig.CPUNodeDiscoveryGate)
 			})
 
 			AfterEach(func() {
@@ -1123,7 +1130,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			BeforeEach(func() {
 				// useEmulation won't change in a test suite run, so cache it
 				if useEmulation == nil {
-					emulation := tests.ShouldUseEmulation(virtClient)
+					emulation := shouldUseEmulation(virtClient)
 					useEmulation = &emulation
 				}
 				if !(*useEmulation) {
@@ -1232,7 +1239,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			BeforeEach(func() {
 				// useEmulation won't change in a test suite run, so cache it
 				if useEmulation == nil {
-					emulation := tests.ShouldUseEmulation(virtClient)
+					emulation := shouldUseEmulation(virtClient)
 					useEmulation = &emulation
 				}
 				if *useEmulation {
@@ -1579,6 +1586,23 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 	})
 })
+
+func shouldUseEmulation(virtClient kubecli.KubevirtClient) bool {
+	useEmulation := false
+	options := metav1.GetOptions{}
+	cfgMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
+	if err == nil {
+		val, ok := cfgMap.Data["debug.useEmulation"]
+		useEmulation = ok && (val == "true")
+	} else {
+		// If the cfgMap is missing, default to useEmulation=false
+		// no other error is expected
+		if !errors.IsNotFound(err) {
+			Expect(err).ToNot(HaveOccurred())
+		}
+	}
+	return useEmulation
+}
 
 func renderPkillAllPod(processName string) *k8sv1.Pod {
 	return tests.RenderPod("vmi-killer", []string{"pkill"}, []string{"-9", processName})
