@@ -147,45 +147,23 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"kubevirt.io",
 				},
 				Resources: []string{
+					"*",
+				},
+				Verbs: []string{
+					"get", "list", "watch", "patch", "update", "create",
+				},
+			},
+			{
+				APIGroups: []string{
+					"kubevirt.io",
+				},
+				Resources: []string{
 					"kubevirts",
-				},
-				Verbs: []string{
-					"get", "list", "watch",
-				},
-			},
-			{
-				APIGroups: []string{
-					"kubevirt.io",
-				},
-				Resources: []string{
 					"virtualmachines",
-					"virtualmachineinstances",
-					"virtualmachineinstancereplicasets",
-				},
-				Verbs: []string{
-					"get", "list", "watch", "patch",
-				},
-			},
-			{
-				APIGroups: []string{
-					"kubevirt.io",
-				},
-				Resources: []string{
-					"virtualmachineinstancepresets",
-				},
-				Verbs: []string{
-					"watch", "list",
-				},
-			},
-			{
-				APIGroups: []string{
-					"kubevirt.io",
-				},
-				Resources: []string{
 					"virtualmachineinstancemigrations",
 				},
 				Verbs: []string{
-					"create", "get", "list", "watch", "patch",
+					"get", "list", "watch", "patch", "update", "create", "delete",
 				},
 			},
 			{

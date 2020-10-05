@@ -55,47 +55,26 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	})
 
 	Describe("With the kubevirt-controller service account", func() {
-		table.DescribeTable("should verify permissions on resources are correct for kubevirt-controller", func(resource string) {
-
-			controllerVerbs := make(map[string]string)
-			controllerVerbs["get"] = "yes"
-			controllerVerbs["list"] = "yes"
-			controllerVerbs["watch"] = "yes"
-			controllerVerbs["delete"] = "no"
-			controllerVerbs["create"] = "no"
-			controllerVerbs["update"] = "no"
-			controllerVerbs["patch"] = "yes"
-			controllerVerbs["deleteCollection"] = "no"
-
-			// Adjustment for the rule associated with kubevirt, vmipresets, vmim
-			switch resource {
-			case "kubevirt":
-				controllerVerbs["patch"] = "no"
-			case "virtualmachineinstancepresets":
-				controllerVerbs["get"] = "no"
-				controllerVerbs["patch"] = "no"
-			case "virtualmachineinstancemigrations":
-				controllerVerbs["create"] = "yes"
-			}
+		table.DescribeTable("should verify permissions on resources are correct for kubevirt-controller", func(expected_out []string, resource string) {
 
 			namespace := tests.NamespaceKubevirt // Is there an exported var defines kubevirt ns ?
-			verbs := []string{"get", "list", "watch", "delete", "create", "update", "patch", "deletecollection"}
+			verbs := []string{"get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"}
 
-			for _, verb := range verbs {
+			for i, verb := range verbs {
 				By(fmt.Sprintf("verifying kubevirt-controller for verb %s", verb))
-				expectedRes, _ := controllerVerbs[verb]
+				expectedRes := expected_out[i]
 				as := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, controller)
 				result, _, _ := tests.RunCommand(k8sClient, "auth", "can-i", "--as", as, verb, resource)
 				Expect(result).To(ContainSubstring(expectedRes))
 			}
 		},
 			// The test id is temporary, appearing unique
-			table.Entry("[test_id:626]given a kv", "kubevirt"),
-			table.Entry("[test_id:627]given a vm", "virtualmachines"),
-			table.Entry("[test_id:626]given a vmi", "virtualmachineinstances"),
-			table.Entry("[test_id:629][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
-			table.Entry("[test_id:628]given a vmi preset", "virtualmachineinstancepresets"),
-			table.Entry("[test_id:3330]given a vmi migration", "virtualmachineinstancemigrations"),
+			table.Entry("given a kv", []string{"yes", "yes", "yes", "yes", "yes", "yes", "yes", "no"}, "kubevirt"),
+			table.Entry("given a vm", []string{"yes", "yes", "yes", "yes", "yes", "yes", "yes", "no"}, "virtualmachines"),
+			table.Entry("given a vmi", []string{"yes", "yes", "yes", "yes", "yes", "yes", "no", "no"}, "virtualmachineinstances"),
+			table.Entry("given a vmi replica set", []string{"yes", "yes", "yes", "yes", "yes", "yes", "no", "no"}, "virtualmachineinstancereplicasets"),
+			table.Entry("given a vmi preset", []string{"yes", "yes", "yes", "yes", "yes", "yes", "no", "no"}, "virtualmachineinstancepresets"),
+			table.Entry("given a vmi migration", []string{"yes", "yes", "yes", "yes", "yes", "yes", "yes", "no"}, "virtualmachineinstancemigrations"),
 		)
 	})
 
