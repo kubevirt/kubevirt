@@ -1,11 +1,11 @@
 package v1beta1
 
 import (
-	sdkapi "github.com/kubevirt/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 )
 
 var _ = Describe("HyperconvergedResources", func() {

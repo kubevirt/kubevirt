@@ -135,14 +135,11 @@ github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperat
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1
 github.com/kubevirt/cluster-network-addons-operator/pkg/names
-# github.com/kubevirt/controller-lifecycle-operator-sdk v0.0.6
-## explicit
-github.com/kubevirt/controller-lifecycle-operator-sdk/pkg/sdk/api
 # github.com/kubevirt/kubevirt-ssp-operator v1.2.1
 ## explicit
 github.com/kubevirt/kubevirt-ssp-operator/pkg/apis
 github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1
-# github.com/kubevirt/vm-import-operator v0.2.2
+# github.com/kubevirt/vm-import-operator v0.2.3
 ## explicit
 github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1
 # github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e
@@ -787,6 +784,9 @@ kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1
 kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1
 kubevirt.io/containerized-data-importer/pkg/apis/upload
 kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1
+# kubevirt.io/controller-lifecycle-operator-sdk v0.1.0
+## explicit
+kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api
 # kubevirt.io/kubevirt v0.0.0-20200921031326-e3610ed19782
 ## explicit
 kubevirt.io/kubevirt/pkg/certificates/bootstrap

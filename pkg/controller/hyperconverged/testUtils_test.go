@@ -3,7 +3,7 @@ package hyperconverged
 import (
 	"context"
 	"fmt"
-	sdkapi "github.com/kubevirt/controller-lifecycle-operator-sdk/pkg/sdk/api"
+	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	"os"
 
 	"github.com/operator-framework/operator-sdk/pkg/ready"

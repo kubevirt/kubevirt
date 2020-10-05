@@ -10,9 +10,8 @@ require (
 	github.com/go-openapi/spec v0.19.7
 	github.com/imdario/mergo v0.3.9
 	github.com/kubevirt/cluster-network-addons-operator v0.42.2
-	github.com/kubevirt/controller-lifecycle-operator-sdk v0.0.6
 	github.com/kubevirt/kubevirt-ssp-operator v1.2.1
-	github.com/kubevirt/vm-import-operator v0.2.2
+	github.com/kubevirt/vm-import-operator v0.2.3
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
@@ -31,6 +30,7 @@ require (
 	// kubevirt.io/client-go v0.34.0
 	kubevirt.io/client-go v0.33.0
 	kubevirt.io/containerized-data-importer v1.23.5
+	kubevirt.io/controller-lifecycle-operator-sdk v0.1.0
 	// TODO: Move to v0.34.0 once available
 	// kubevirt.io/kubevirt v0.34.0
 	kubevirt.io/kubevirt v0.0.0-20200921031326-e3610ed19782

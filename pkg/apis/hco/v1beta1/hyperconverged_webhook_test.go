@@ -3,13 +3,13 @@ package v1beta1
 import (
 	"context"
 	"errors"
-	sdkapi "github.com/kubevirt/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	"os"
 
 	. "github.com/onsi/ginkgo"

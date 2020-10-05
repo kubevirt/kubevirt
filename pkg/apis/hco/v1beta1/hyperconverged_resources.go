@@ -2,8 +2,8 @@ package v1beta1
 
 import (
 	"fmt"
-	sdkapi "github.com/kubevirt/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	corev1 "k8s.io/api/core/v1"
+	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	"os"
 
 	networkaddonsshared "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared"

@@ -17,9 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
-	sdkapi "github.com/kubevirt/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 )
 
 // VMImportConfigSpec defines the desired state of VMImportConfig
