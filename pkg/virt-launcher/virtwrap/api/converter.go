@@ -57,6 +57,9 @@ const (
 	EFICodeSecureBoot      = "OVMF_CODE.secboot.fd"
 	EFIVarsSecureBoot      = "OVMF_VARS.secboot.fd"
 )
+const (
+	multiQueueMaxQueues = uint(256)
+)
 
 // +k8s:deepcopy-gen=false
 type ConverterContext struct {
@@ -1320,7 +1323,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			if ifaceType == "virtio" && virtioNetProhibited {
 				return fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
 			} else if ifaceType == "virtio" && virtioNetMQRequested {
-				domainIface.Driver = &InterfaceDriver{Name: "vhost", Queues: numQueues}
+				cappedTapQueueNumber := uint(CapTapDeviceQueueNumber(*numQueues))
+				domainIface.Driver = &InterfaceDriver{Name: "vhost", Queues: &cappedTapQueueNumber}
 			}
 
 			// Add a pciAddress if specifed
@@ -1451,6 +1455,15 @@ func calculateRequestedVCPUs(cpuTopology *CPUTopology) uint32 {
 func CalculateNetworkQueueNumberAndGetCPUTopology(vmi *v1.VirtualMachineInstance) (uint32, *CPUTopology) {
 	cpuTopology := getCPUTopology(vmi)
 	return calculateRequestedVCPUs(cpuTopology), cpuTopology
+}
+
+func CapTapDeviceQueueNumber(queueNumber uint) uint32 {
+	maxTapDeviceQueueNumber := multiQueueMaxQueues
+	if queueNumber > maxTapDeviceQueueNumber {
+		log.Log.Infof(fmt.Sprintf("Capped the number of queues to be the current maximum of tap device queues: %d", maxTapDeviceQueueNumber))
+		return uint32(maxTapDeviceQueueNumber)
+	}
+	return uint32(queueNumber)
 }
 
 func formatDomainCPUTune(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) error {
