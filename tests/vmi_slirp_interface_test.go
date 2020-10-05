@@ -142,7 +142,7 @@ var _ = Describe("[Serial]Slirp Networking", func() {
 		Expect(err).To(HaveOccurred())
 
 		By("communicate with the outside world")
-		expecter, _, err := console.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+		expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
 		defer expecter.Close()
 		Expect(err).ToNot(HaveOccurred())
 

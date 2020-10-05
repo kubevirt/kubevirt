@@ -210,7 +210,7 @@ var _ = Describe("[Serial]Multus", func() {
 				tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
 
 				cmdCheck := "sudo /sbin/cirros-dhcpc up eth1 > /dev/null\n"
-				err = console.CheckForTextExpecter(detachedVMI, []expect.Batcher{
+				err = console.SafeExpectBatch(detachedVMI, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: cmdCheck},
@@ -250,7 +250,7 @@ var _ = Describe("[Serial]Multus", func() {
 
 				By("checking virtual machine instance only has one interface")
 				// lo0, eth0
-				err = console.CheckForTextExpecter(detachedVMI, []expect.Batcher{
+				err = console.SafeExpectBatch(detachedVMI, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: "ip link show | grep -c UP\n"},
@@ -297,7 +297,7 @@ var _ = Describe("[Serial]Multus", func() {
 
 				By("Verifying the desired custom MAC is the one that was actually configured on the interface.")
 				ipLinkShow := fmt.Sprintf("ip link show eth0 | grep -i \"%s\" | wc -l\n", customMacAddress)
-				err = console.CheckForTextExpecter(vmiOne, []expect.Batcher{
+				err = console.SafeExpectBatch(vmiOne, []expect.Batcher{
 					&expect.BSnd{S: ipLinkShow},
 					&expect.BExp{R: "1"},
 				}, 15)
@@ -393,7 +393,7 @@ var _ = Describe("[Serial]Multus", func() {
 
 				By("Verifying the desired custom MAC is the one that were actually configured on the interface.")
 				ipLinkShow := fmt.Sprintf("ip link show eth0 | grep -i \"%s\" | wc -l\n", customMacAddress)
-				err = console.CheckForTextExpecter(vmiOne, []expect.Batcher{
+				err = console.SafeExpectBatch(vmiOne, []expect.Batcher{
 					&expect.BSnd{S: ipLinkShow},
 					&expect.BExp{R: "1"},
 				}, 15)
@@ -446,11 +446,11 @@ var _ = Describe("[Serial]Multus", func() {
 				}
 				Expect(interfacesByName["default"].MAC).To(Not(Equal(interfacesByName["linux-bridge"].MAC)))
 
-				err = console.CheckForTextExpecter(updatedVmi, []expect.Batcher{
+				err = console.SafeExpectBatch(updatedVmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("ip addr show eth0 | grep %s | wc -l", interfacesByName["default"].MAC)},
 					&expect.BExp{R: "1"},
 				}, 15)
-				err = console.CheckForTextExpecter(updatedVmi, []expect.Batcher{
+				err = console.SafeExpectBatch(updatedVmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("ip addr show eth1 | grep %s | wc -l", interfacesByName["linux-bridge"].MAC)},
 					&expect.BExp{R: "1"},
 				}, 15)
@@ -884,7 +884,7 @@ func cidrToIP(cidr string) string {
 
 func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAddress, prompt string) {
 	cmdCheck := fmt.Sprintf("ip addr add %s dev %s\n", interfaceAddress, interfaceName)
-	err := console.CheckForTextExpecter(vmi, []expect.Batcher{
+	err := console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: cmdCheck},
@@ -895,7 +895,7 @@ func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAdd
 	Expect(err).ToNot(HaveOccurred(), "Failed to configure address %s for interface %s on VMI %s", interfaceAddress, interfaceName, vmi.Name)
 
 	cmdCheck = fmt.Sprintf("ip link set %s up\n", interfaceName)
-	err = console.CheckForTextExpecter(vmi, []expect.Batcher{
+	err = console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: cmdCheck},
@@ -908,7 +908,7 @@ func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAdd
 
 func checkInterface(vmi *v1.VirtualMachineInstance, interfaceName, prompt string) {
 	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
-	err := console.CheckForTextExpecter(vmi, []expect.Batcher{
+	err := console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: cmdCheck},
@@ -921,7 +921,7 @@ func checkInterface(vmi *v1.VirtualMachineInstance, interfaceName, prompt string
 
 func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress string) {
 	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
-	err := console.CheckForTextExpecter(vmi, []expect.Batcher{
+	err := console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: cmdCheck},

@@ -319,7 +319,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Checking console text")
-				err = console.CheckForTextExpecter(vmi, []expect.Batcher{
+				err = console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: consoleText},
 				}, wait)

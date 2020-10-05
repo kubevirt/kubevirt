@@ -369,7 +369,7 @@ func checkHTTPPing(vmi *v1.VirtualMachineInstance, ip string, port int) error {
 	const curlCheckCmd = "curl --head %s --connect-timeout 5\n"
 	url := fmt.Sprintf("http://%s", net.JoinHostPort(ip, strconv.Itoa(port)))
 	curlCheck := fmt.Sprintf(curlCheckCmd, url)
-	err := console.VmiConsoleRunCommand(vmi, curlCheck, 10*time.Second)
+	err := console.RunCommand(vmi, curlCheck, 10*time.Second)
 	if err != nil {
 		return fmt.Errorf("failed HTTP ping from vmi(%s/%s) to url(%s): %v", vmi.Namespace, vmi.Name, url, err)
 	}

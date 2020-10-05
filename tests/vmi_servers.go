@@ -32,5 +32,5 @@ func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int) {
 }
 
 func (s server) Start(vmi *v1.VirtualMachineInstance, port int) {
-	Expect(console.VmiConsoleRunCommand(vmi, s.composeNetcatServerCommand(port), 60*time.Second)).To(Succeed())
+	Expect(console.RunCommand(vmi, s.composeNetcatServerCommand(port), 60*time.Second)).To(Succeed())
 }

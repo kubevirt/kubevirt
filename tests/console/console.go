@@ -47,16 +47,16 @@ var (
 	shellFail    = regexp.MustCompile(RetValue("[1-9].*"))
 )
 
-// VmiConsoleExpectBatch runs the batch from `expected` connecting to the `vmi` console and
+// ExpectBatch runs the batch from `expected` connecting to the `vmi` console and
 // wait `timeout` for the batch to return.
-// NOTE: there is a safer version that validates sended commands `CheckForTextExpecter` refer to it about limitations.
-func VmiConsoleExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, timeout time.Duration) error {
+// NOTE: there is a safer version that validates sended commands `SafeExpectBatch` refer to it about limitations.
+func ExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, timeout time.Duration) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		return err
 	}
 
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 30*time.Second)
+	expecter, _, err := NewExpecter(virtClient, vmi, 30*time.Second)
 	if err != nil {
 		return err
 	}
@@ -69,15 +69,15 @@ func VmiConsoleExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Bat
 	return err
 }
 
-// CheckForTextExpecter runs the batch from `expected` connecting to a VMI's console and
+// SafeExpectBatch runs the batch from `expected` connecting to a VMI's console and
 // wait `timeout` for the batch to return, it also check that the sended commands arrives to console checking.
 // NOTE: This functions heritage limitations from `ExpectBatchWithValidatedSend` refer to it to check them.
-func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) error {
+func SafeExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
 	}
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 30*time.Second)
+	expecter, _, err := NewExpecter(virtClient, vmi, 30*time.Second)
 	if err != nil {
 		return err
 	}
@@ -90,11 +90,11 @@ func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batc
 	return err
 }
 
-// VmiConsoleRunCommand runs the command line from `command connecting to an already logged in console at vmi
+// RunCommand runs the command line from `command connecting to an already logged in console at vmi
 // and wait `timeout` for command to return.
 // NOTE: The safer version `ExpectBatchWithValidatedSend` is not used here since it does not support cases.
-func VmiConsoleRunCommand(vmi *v1.VirtualMachineInstance, command string, timeout time.Duration) error {
-	err := VmiConsoleExpectBatch(vmi, []expect.Batcher{
+func RunCommand(vmi *v1.VirtualMachineInstance, command string, timeout time.Duration) error {
+	err := ExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: PromptExpression},
 		&expect.BSnd{S: command + "\n"},
@@ -124,7 +124,7 @@ func SecureBootExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error)
 	if err != nil {
 		return nil, err
 	}
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func NetBootExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
 	if err != nil {
 		return nil, err
 	}
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -169,8 +169,8 @@ func NetBootExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
 	return expecter, err
 }
 
-// NewConsoleExpecter will connect to an already logged in VMI console and return the generated expecter it will wait `timeout` for the connection.
-func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, timeout time.Duration, opts ...expect.Option) (expect.Expecter, <-chan error, error) {
+// NewExpecter will connect to an already logged in VMI console and return the generated expecter it will wait `timeout` for the connection.
+func NewExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, timeout time.Duration, opts ...expect.Option) (expect.Expecter, <-chan error, error) {
 	vmiReader, vmiWriter := io.Pipe()
 	expecterReader, expecterWriter := io.Pipe()
 	resCh := make(chan error)

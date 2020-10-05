@@ -83,7 +83,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		VerifyUserDataVMI = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
 			By("Expecting the VirtualMachineInstance console")
-			expecter, _, err := console.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+			expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 
@@ -96,7 +96,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		mountCloudInitFunc := func(devName string) func(*v1.VirtualMachineInstance, string) {
 			return func(vmi *v1.VirtualMachineInstance, prompt string) {
 				cmdCheck := fmt.Sprintf("mount $(blkid  -L %s) /mnt/\n", devName)
-				err := console.CheckForTextExpecter(vmi, []expect.Batcher{
+				err := console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "sudo su -\n"},
 					&expect.BExp{R: prompt},
 					&expect.BSnd{S: cmdCheck},
@@ -113,7 +113,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		CheckCloudInitFile = func(vmi *v1.VirtualMachineInstance, prompt, testFile, testData string) {
 			cmdCheck := "cat /mnt/" + testFile + "\n"
-			err := console.CheckForTextExpecter(vmi, []expect.Batcher{
+			err := console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "sudo su -\n"},
 				&expect.BExp{R: prompt},
 				&expect.BSnd{S: cmdCheck},
@@ -125,7 +125,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			cmdCheck := "cat /mnt/" + testFile + "\n"
 			virtClient, err := kubecli.GetKubevirtClient()
 			tests.PanicOnError(err)
-			expecter, _, err := console.NewConsoleExpecter(virtClient, vmi, 30*time.Second)
+			expecter, _, err := console.NewExpecter(virtClient, vmi, 30*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 

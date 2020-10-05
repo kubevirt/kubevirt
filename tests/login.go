@@ -28,7 +28,7 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	expecter, _, err := console.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	expecter, _, err := console.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	expecter, _, err := console.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 func ReLoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance, timeout int) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	expecter, _, err := console.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
