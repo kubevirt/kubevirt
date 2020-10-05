@@ -122,7 +122,6 @@ go_test(
         "imageupload_test.go",
         "infra_test.go",
         "kubectl_test.go",
-        "kubevirt_configmap_test.go",
         "migration_test.go",
         "networkpolicy_test.go",
         "operator_test.go",
