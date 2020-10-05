@@ -4222,7 +4222,7 @@ func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.Kub
 }
 
 // resetToDefaultConfig resets the config to the state found when the test suite started. It will wait for the config to
-// be propagated to all components before it returns. It will only update the configuration and wait for it to be
+// be propagated to all components before it returns. It will only update the config map and wait for it to be
 // propagated if the current config in use does not match the original one.
 func resetToDefaultConfig() {
 	if config.GinkgoConfig.ParallelTotal > 1 {
@@ -4234,47 +4234,16 @@ func resetToDefaultConfig() {
 	UpdateKubeVirtConfigValueAndWait(KubeVirtDefaultConfig)
 }
 
-type compare func(string, string) bool
-
-func ExpectResourceVersionToBeLessThanConfigVersion(resourceVersion, configVersion string) bool {
-	rv, err := strconv.ParseInt(resourceVersion, 10, 32)
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Resource version is unable to be parsed")
-		return false
-	}
-
-	crv, err := strconv.ParseInt(configVersion, 10, 32)
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Config resource version is unable to be parsed")
-		return false
-	}
-
-	if rv > crv {
-		log.DefaultLogger().Errorf("Config is not in sync. Expected %s or greater, Got %s", resourceVersion, configVersion)
-		return false
-	}
-
-	return true
-}
-
-func ExpectResourceVersionToBeEqualConfigVersion(resourceVersion, configVersion string) bool {
-	if resourceVersion > configVersion {
-		log.DefaultLogger().Errorf("Config is not in sync. Expected %s, Got %s", resourceVersion, configVersion)
-		return false
-	}
-
-	return true
-}
-
 func waitForConfigToBePropagated(resourceVersion string) {
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-controller", resourceVersion, ExpectResourceVersionToBeLessThanConfigVersion)
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-api", resourceVersion, ExpectResourceVersionToBeLessThanConfigVersion)
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", resourceVersion, ExpectResourceVersionToBeLessThanConfigVersion)
+	waitForConfigToBePropagatedToComponent("kubevirt.io=virt-controller", resourceVersion)
+	waitForConfigToBePropagatedToComponent("kubevirt.io=virt-api", resourceVersion)
+	waitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", resourceVersion)
 }
 
-func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion string, compareResourceVersions compare) {
+func waitForConfigToBePropagatedToComponent(podLabel string, resourceVersion string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
+	rv, _ := strconv.ParseInt(resourceVersion, 10, 32)
 
 	EventuallyWithOffset(3, func() bool {
 		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: podLabel})
@@ -4298,7 +4267,11 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 				return false
 			}
 
-			return compareResourceVersions(resourceVersion, result["config-resource-version"].(string))
+			crv, _ := strconv.ParseInt(result["config-resource-version"].(string), 10, 32)
+			if rv > crv {
+				log.DefaultLogger().Reason(err).Errorf("Config is not in sync on %s. Expected %s/%d, Got %s/%d", pod.Name, resourceVersion, rv, result["config-resource-version"], crv)
+				return false
+			}
 		}
 		return true
 	}, 10*time.Second, 1*time.Second).Should(BeTrue(), "Not all kubevirt components picked up the kubevirt config successfully")
