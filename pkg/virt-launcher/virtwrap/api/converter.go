@@ -1486,41 +1486,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			var pciAddr string
 			pciAddr, sriovPciAddresses, err = popSRIOVPCIAddress(iface.Name, sriovPciAddresses)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to configure SRIOV %s: %v", iface.Name, err)
 			}
-
-			dbsfFields, err := util.ParsePciAddress(pciAddr)
+			hostDev, err := createSRIOVHostDevice(pciAddr, iface.PciAddress, iface.BootOrder)
 			if err != nil {
-				return err
-			}
-
-			hostDev := HostDevice{
-				Source: HostDeviceSource{
-					Address: &Address{
-						Type:     "pci",
-						Domain:   "0x" + dbsfFields[0],
-						Bus:      "0x" + dbsfFields[1],
-						Slot:     "0x" + dbsfFields[2],
-						Function: "0x" + dbsfFields[3],
-					},
-				},
-				Type:    "pci",
-				Managed: "no",
-			}
-
-			if iface.PciAddress != "" {
-				addr, err := decoratePciAddressField(iface.PciAddress)
-				if err != nil {
-					return fmt.Errorf("failed to configure SRIOV %s: %v", iface.Name, err)
-				}
-				hostDev.Address = addr
-			}
-
-			if iface.BootOrder != nil {
-				hostDev.BootOrder = &BootOrder{Order: *iface.BootOrder}
+				return fmt.Errorf("failed to configure SRIOV %s: %v", iface.Name, err)
 			}
 			log.Log.Infof("SR-IOV PCI device allocated: %s", pciAddr)
-			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDev)
+			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, *hostDev)
 		} else {
 			ifaceType := getInterfaceType(&iface)
 			domainIface := Interface{
@@ -1801,6 +1774,32 @@ func indexNetworksByName(networks []v1.Network) map[string]*v1.Network {
 		netsByName[network.Name] = network.DeepCopy()
 	}
 	return netsByName
+}
+
+func createSRIOVHostDevice(hostPCIAddress string, guestPCIAddress string, bootOrder *uint) (*HostDevice, error) {
+	hostAddr, err := decoratePciAddressField(hostPCIAddress)
+	if err != nil {
+		return nil, err
+	}
+	hostDev := &HostDevice{
+		Source:  HostDeviceSource{Address: hostAddr},
+		Type:    "pci",
+		Managed: "no",
+	}
+
+	if guestPCIAddress != "" {
+		addr, err := decoratePciAddressField(guestPCIAddress)
+		if err != nil {
+			return nil, err
+		}
+		hostDev.Address = addr
+	}
+
+	if bootOrder != nil {
+		hostDev.BootOrder = &BootOrder{Order: *bootOrder}
+	}
+
+	return hostDev, nil
 }
 
 func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *Domain) error {
