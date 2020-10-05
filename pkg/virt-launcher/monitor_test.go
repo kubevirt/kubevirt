@@ -224,7 +224,7 @@ var _ = Describe("VirtLauncher", func() {
 				}()
 
 				close(stopChan)
-				noExitCheck := time.After(5 * time.Second)
+				noExitCheck := time.After(10 * time.Second)
 				exited := false
 
 				select {

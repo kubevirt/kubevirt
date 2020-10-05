@@ -56,8 +56,8 @@ go-build:
 coverage:
 	hack/dockerized "./hack/coverage.sh ${WHAT}"
 
-goveralls: go-build
-	SYNC_OUT=false hack/dockerized "COVERALLS_TOKEN_FILE=${COVERALLS_TOKEN_FILE} COVERALLS_TOKEN=${COVERALLS_TOKEN} CI_NAME=prow CI_BRANCH=${PULL_REFS} CI_PR_NUMBER=${PULL_NUMBER} ./hack/goveralls.sh"
+goveralls:
+	SYNC_OUT=false hack/dockerized "COVERALLS_TOKEN_FILE=${COVERALLS_TOKEN_FILE} COVERALLS_TOKEN=${COVERALLS_TOKEN} CI_NAME=prow CI_BRANCH=${PULL_REFS} CI_PR_NUMBER=${PULL_NUMBER} ./hack/bazel-goveralls.sh"
 
 go-test: go-build
 	SYNC_OUT=false hack/dockerized "./hack/build-go.sh test ${WHAT}"
@@ -175,4 +175,6 @@ bump-kubevirtci:
 	cluster-sync \
 	olm-verify \
 	olm-push \
+	coverage \
+	goveralls \
 	build-functests
