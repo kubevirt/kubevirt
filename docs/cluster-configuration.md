@@ -18,6 +18,11 @@ copy the Workloads configurations to this operator's CR.
 Below are the cluster configuration details. Currently, only "Node Placement" configuration is supported.
 
 ### Node Placement
+Kubernetes lets the cluster admin influence node placement in several ways, see 
+https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/ for a general overview.
+
+The HyperConverged Cluster's CR is the single entry point to let the cluster admin influence the placement of all the pods directly and indirectly managed by the HyperConverged Cluster Operator.
+
 The `nodePlacement` object is an optional field in the HyperConverged Cluster's CR, under `spec.infra` and `spec.workloads`
 fields.
 
@@ -34,6 +39,11 @@ affinity is going to be applied to the relevant kind of pods in parallel with no
 See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity.
 * `tolerations` is a list of tolerations applied to the relevant kind of pods.
 See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info.
+
+#### Operators placement
+The HyperConverged Cluster Operator and the operators for its component are supposed to be deployed by the Operator Lifecycle Manager (OLM).
+Thus, the HyperConverged Cluster Operator is not going to directly influence its own placement but that should be influenced by the OLM.
+The cluster admin indeed is allowed to influence the placement of the Pods directly created by the OLM configuring a [nodeSelector](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/doc/design/subscription-config.md#nodeselector) or [tolerations](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/doc/design/subscription-config.md#tolerations) directly on the OLM subscription object.
 
 #### Node Placement Examples
 * Place the infra resources on nodes labeled with "nodeType = infra", and workloads in nodes labeled with "nodeType = nested-virtualization", using node selector:
