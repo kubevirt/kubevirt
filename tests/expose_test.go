@@ -312,6 +312,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			table.DescribeTable("[test_id:1534[label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func(ipFamily k8sv1.IPFamily) {
 				if ipFamily == k8sv1.IPv6Protocol {
+					libnet.SkipWhenNotDualStackCluster(virtClient)
 					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
 				}
 
@@ -459,6 +460,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			table.DescribeTable("[test_id:1536][label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func(ipFamily k8sv1.IPFamily) {
 				if ipFamily == k8sv1.IPv6Protocol {
+					libnet.SkipWhenNotDualStackCluster(virtClient)
 					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
 				}
 				By("Exposing the service via virtctl command")
@@ -805,6 +807,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			table.DescribeTable("[test_id:343][label:masquerade_binding_connectivity]Should Verify an exposed service of a VM is not functional after VM deletion.", func(ipFamily k8sv1.IPFamily) {
 				if ipFamily == k8sv1.IPv6Protocol {
+					libnet.SkipWhenNotDualStackCluster(virtClient)
 					vmExposeArgs = append(vmExposeArgs, "--ip-family", "ipv6")
 				}
 				By("Calling the start command on the stopped VM")
