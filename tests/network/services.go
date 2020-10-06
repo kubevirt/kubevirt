@@ -25,6 +25,7 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -32,23 +33,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/net"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
-
-type vmiServiceManager struct {
-	vmi                    *v1.VirtualMachineInstance
-	primaryPodInterfaceIPs []string
-	services               []k8sv1.Service
-	port                   int
-	serviceNamePrefix      string
-	labelKey               string
-	labelValue             string
-}
 
 var _ = SIGDescribe("[Serial]Services", func() {
 	var virtClient kubecli.KubevirtClient
@@ -86,30 +77,34 @@ var _ = SIGDescribe("[Serial]Services", func() {
 		}, 2*time.Minute, time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), "The VMI should be gone within the given timeout")
 	}
 
-	assertConnectivityToService := func(serviceName, namespace string, servicePort int) func() error {
+	cleanupService := func(namespace string, serviceName string) error {
+		return virtClient.CoreV1().Services(namespace).Delete(serviceName, &k8smetav1.DeleteOptions{})
+	}
+
+	assertConnectivityToService := func(serviceName, namespace string, servicePort int) (func() error, error) {
 		serviceFQDN := fmt.Sprintf("%s.%s", serviceName, namespace)
 
 		By(fmt.Sprintf("starting a job which tries to reach the vmi via service %s", serviceFQDN))
 		job := runTCPClientExpectingHelloWorldFromServer(serviceFQDN, strconv.Itoa(servicePort), namespace)
 
 		By(fmt.Sprintf("waiting for the job to report a SUCCESSFUL connection attempt to service %s on port %d", serviceFQDN, servicePort))
-		tests.WaitForJobToSucceed(job, 90)
+		err := tests.WaitForJobToSucceed(job, 90*time.Second)
 		return func() error {
 			return virtClient.BatchV1().Jobs(tests.NamespaceTestDefault).Delete(job.Name, &k8smetav1.DeleteOptions{})
-		}
+		}, err
 	}
 
-	assertNoConnectivityToService := func(serviceName, namespace string, servicePort int) func() error {
+	assertNoConnectivityToService := func(serviceName, namespace string, servicePort int) (func() error, error) {
 		serviceFQDN := fmt.Sprintf("%s.%s", serviceName, namespace)
 
 		By(fmt.Sprintf("starting a job which tries to reach the vmi via service %s", serviceFQDN))
 		job := runTCPClientExpectingHelloWorldFromServer(serviceFQDN, strconv.Itoa(servicePort), namespace)
 
 		By(fmt.Sprintf("waiting for the job to report a FAILED connection attempt to service %s on port %d", serviceFQDN, servicePort))
-		tests.WaitForJobToFail(job, 90)
+		err := tests.WaitForJobToFail(job, 90*time.Second)
 		return func() error {
 			return virtClient.BatchV1().Jobs(tests.NamespaceTestDefault).Delete(job.Name, &k8smetav1.DeleteOptions{})
-		}
+		}, err
 	}
 
 	BeforeEach(func() {
@@ -154,7 +149,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 		})
 
 		Context("with a service matching the vmi exposed", func() {
-			var jobsToCleanup []func() error
+			var jobCleanup func() error
 
 			BeforeEach(func() {
 				serviceName = "myservice"
@@ -162,32 +157,35 @@ var _ = SIGDescribe("[Serial]Services", func() {
 				service := buildServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(service)
 				Expect(err).ToNot(HaveOccurred())
-
-				// reset the job cleanup functions list
-				jobsToCleanup = nil
 			})
 
 			AfterEach(func() {
-				Expect(virtClient.CoreV1().Services(inboundVMI.Namespace).Delete(serviceName, &k8smetav1.DeleteOptions{})).To(Succeed())
+				Expect(cleanupService(inboundVMI.GetNamespace(), serviceName)).To(Succeed(), "cleaning up the k8sv1.Service entity should have succeeded.")
 			})
 
 			AfterEach(func() {
-				cleanupJobs(jobsToCleanup)
+				Expect(jobCleanup).NotTo(BeNil(), "a k8sv1.Job cleaning up function should exist")
+				Expect(jobCleanup()).To(Succeed(), "cleaning up the k8sv1.Job entity should have succeeded.")
+				jobCleanup = nil
 			})
 
 			It("[test_id:1547] should be able to reach the vmi based on labels specified on the vmi", func() {
-				jobCleanupFunction := assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
-				jobsToCleanup = append(jobsToCleanup, jobCleanupFunction)
+				var err error
+
+				jobCleanup, err = assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
+				Expect(err).NotTo(HaveOccurred(), "connectivity is expected to the exposed service")
 			})
 
 			It("[test_id:1548] should fail to reach the vmi if an invalid servicename is used", func() {
-				jobCleanupFunction := assertNoConnectivityToService("wrongservice", inboundVMI.Namespace, servicePort)
-				jobsToCleanup = append(jobsToCleanup, jobCleanupFunction)
+				var err error
+
+				jobCleanup, err = assertNoConnectivityToService("wrongservice", inboundVMI.Namespace, servicePort)
+				Expect(err).NotTo(HaveOccurred(), "connectivity is *not* expected, since there isn't an exposed service")
 			})
 		})
 
 		Context("with a subdomain and a headless service given", func() {
-			var jobsToCleanup []func() error
+			var jobCleanup func() error
 
 			BeforeEach(func() {
 				serviceName = inboundVMI.Spec.Subdomain
@@ -195,9 +193,6 @@ var _ = SIGDescribe("[Serial]Services", func() {
 				service := buildHeadlessServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(service)
 				Expect(err).ToNot(HaveOccurred())
-
-				// reset the job cleanup functions list
-				jobsToCleanup = nil
 			})
 
 			AfterEach(func() {
@@ -205,13 +200,15 @@ var _ = SIGDescribe("[Serial]Services", func() {
 			})
 
 			AfterEach(func() {
-				cleanupJobs(jobsToCleanup)
+				Expect(jobCleanup()).To(Succeed(), "cleaning up the k8sv1.Service entity should have succeeded.")
 			})
 
 			It("[test_id:1549]should be able to reach the vmi via its unique fully qualified domain name", func() {
+				var err error
 				serviceHostnameWithSubdomain := fmt.Sprintf("%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain)
-				jobCleanupFunction := assertConnectivityToService(serviceHostnameWithSubdomain, inboundVMI.Namespace, servicePort)
-				jobsToCleanup = append(jobsToCleanup, jobCleanupFunction)
+
+				jobCleanup, err = assertConnectivityToService(serviceHostnameWithSubdomain, inboundVMI.Namespace, servicePort)
+				Expect(err).NotTo(HaveOccurred(), "connectivity is expected to the exposed service")
 			})
 		})
 	})
@@ -247,66 +244,66 @@ var _ = SIGDescribe("[Serial]Services", func() {
 		})
 
 		Context("with a service matching the vmi exposed", func() {
-			var jobsToCleanup []func() error
-			var serviceManager *vmiServiceManager
-			var serviceNamePrefix string
+			var jobCleanup func() error
+			var service *k8sv1.Service
 
-			BeforeEach(func() {
-				serviceNamePrefix = "myservice"
-				serviceManager = newVMIServiceManager(inboundVMI, servicePort, serviceNamePrefix, selectorLabelKey, selectorLabelValue)
-
-				services := serviceManager.buildK8sServicesSpec()
-				Expect(services).NotTo(BeEmpty(), "a service should be exposed per each iface. At least one *must* be present.")
-
-				for _, exposedService := range services {
-					_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(&exposedService)
-					Expect(err).NotTo(HaveOccurred())
-				}
-
-				// reset the job cleanup functions list
-				jobsToCleanup = nil
+			AfterEach(func() {
+				Expect(jobCleanup).NotTo(BeNil(), "a k8sv1.Job cleaning up function should exist")
+				Expect(jobCleanup()).To(Succeed(), "cleaning up the k8sv1.Job entity should have succeeded.")
+				jobCleanup = nil
 			})
 
 			AfterEach(func() {
-				var errors []error
-				for _, exposedService := range serviceManager.services {
-					err := virtClient.CoreV1().Services(inboundVMI.Namespace).Delete(exposedService.Name, &k8smetav1.DeleteOptions{})
-					errors = append(errors, err)
-				}
-				for _, err := range errors {
-					Expect(err).NotTo(HaveOccurred())
-				}
+				Expect(cleanupService(inboundVMI.GetNamespace(), service.Name)).To(Succeed(), "cleaning up the k8sv1.Service entity should have succeeded.")
 			})
+
+			table.DescribeTable("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func(ipFamily k8sv1.IPFamily) {
+				serviceName := "myservice"
+				By("setting up resources to expose the VMI via a service", func() {
+					if ipFamily == k8sv1.IPv6Protocol {
+						libnet.SkipWhenNotDualStackCluster(virtClient)
+
+						serviceName = serviceName + "v6"
+						service = buildIPv6ServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
+					} else {
+						service = buildServiceSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
+					}
+
+					_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(service)
+					Expect(err).NotTo(HaveOccurred(), "the k8sv1.Service entity should have been created.")
+				})
+
+				By("checking connectivity the the exposed service")
+				var err error
+
+				jobCleanup, err = assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
+				Expect(err).NotTo(HaveOccurred(), "connectivity is expected to the exposed service")
+			},
+				table.Entry("when the service is exposed by an IPv4 address.", k8sv1.IPv4Protocol),
+				table.Entry("when the service is exposed by an IPv6 address.", k8sv1.IPv6Protocol),
+			)
+		})
+
+		Context("*without* a service matching the vmi exposed", func() {
+			var jobCleanup func() error
+			var serviceName string
 
 			AfterEach(func() {
-				cleanupJobs(jobsToCleanup)
+				Expect(jobCleanup).NotTo(BeNil(), "a k8sv1.Job cleaning up function should exist")
+				Expect(jobCleanup()).To(Succeed(), "cleaning up the k8sv1.Job entity should have succeeded.")
+				jobCleanup = nil
 			})
 
-			It("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func() {
-				for _, exposedService := range serviceManager.services {
-					jobCleanupFunc := assertConnectivityToService(exposedService.Name, inboundVMI.Namespace, servicePort)
-					jobsToCleanup = append(jobsToCleanup, jobCleanupFunc)
-				}
-			})
+			It("should fail to reach the vmi", func() {
+				var err error
+				serviceName = "missingservice"
 
-			It("should fail to reach the vmi if an invalid servicename is used", func() {
-				jobCleanupFunc := assertNoConnectivityToService("wrongservice", inboundVMI.Namespace, servicePort)
-				jobsToCleanup = append(jobsToCleanup, jobCleanupFunc)
+				jobCleanup, err = assertNoConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
+				Expect(err).NotTo(HaveOccurred(), "connectivity is *not* expected, since there isn't an exposed service")
 			})
 		})
 	})
 })
-
-func cleanupJobs(jobsCleanupFunctions []func() error) {
-	var errorBucket []error
-	for _, jobCleanupFunc := range jobsCleanupFunctions {
-		err := jobCleanupFunc()
-		if err != nil {
-			errorBucket = append(errorBucket, err)
-		}
-	}
-	Expect(errorBucket).To(BeEmpty(), "Removing the `Job`s should be successful.")
-}
 
 func buildHeadlessServiceSpec(serviceName string, exposedPort int, portToExpose int, selectorKey string, selectorValue string) *k8sv1.Service {
 	service := buildServiceSpec(serviceName, exposedPort, portToExpose, selectorKey, selectorValue)
@@ -336,37 +333,4 @@ func buildServiceSpec(serviceName string, exposedPort int, portToExpose int, sel
 			},
 		},
 	}
-}
-
-func newVMIServiceManager(vmi *v1.VirtualMachineInstance, port int, serviceNamePrefix string, selectorLabelKey string, selectorLabelValue string) *vmiServiceManager {
-	primaryIfaceIPs := []string{}
-	ifaces := vmi.Status.Interfaces
-	if len(ifaces) > 0 {
-		primaryIfaceIPs = ifaces[0].IPs
-	}
-
-	return &vmiServiceManager{
-		vmi:                    vmi,
-		primaryPodInterfaceIPs: primaryIfaceIPs,
-		port:                   port,
-		serviceNamePrefix:      serviceNamePrefix,
-		labelKey:               selectorLabelKey,
-		labelValue:             selectorLabelValue,
-	}
-}
-
-func (si *vmiServiceManager) buildK8sServicesSpec() []k8sv1.Service {
-	for _, ipAddr := range si.primaryPodInterfaceIPs {
-		isIpv6 := net.IsIPv6String(ipAddr)
-		var service *k8sv1.Service
-
-		if isIpv6 {
-			service = buildIPv6ServiceSpec(si.serviceNamePrefix+"v6", si.port, si.port, si.labelKey, si.labelValue)
-		} else {
-			service = buildServiceSpec(si.serviceNamePrefix, si.port, si.port, si.labelKey, si.labelValue)
-		}
-
-		si.services = append(si.services, *service)
-	}
-	return si.services
 }
