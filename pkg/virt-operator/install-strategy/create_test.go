@@ -1,3 +1,22 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2019 Red Hat, Inc.
+ *
+ */
+
 package installstrategy
 
 import (
@@ -5,6 +24,9 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
@@ -22,6 +44,9 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+
+	secv1 "github.com/openshift/api/security/v1"
+	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -731,5 +756,81 @@ var _ = Describe("Create", func() {
 			injectPlacementMetadata(componentConfig, podSpec)
 			Expect(len(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(Equal(1))
 		})
+	})
+
+	Context("Manage users in Security Context Constraints", func() {
+		var stop chan struct{}
+		var ctrl *gomock.Controller
+		var stores util.Stores
+		var informers util.Informers
+		var virtClient *kubecli.MockKubevirtClient
+		var secClient *secv1fake.FakeSecurityV1
+		var err error
+
+		namespace := "kubevirt-test"
+
+		generateSCC := func(sccName string, usersList []string) *secv1.SecurityContextConstraints {
+			return &secv1.SecurityContextConstraints{
+				ObjectMeta: v12.ObjectMeta{
+					Name: sccName,
+				},
+				Users: usersList,
+			}
+		}
+
+		setupPrependReactor := func(sccName string, expectedPatch []byte) {
+			secClient.Fake.PrependReactor("patch", "securitycontextconstraints",
+				func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					patch, ok := action.(testing.PatchAction)
+					Expect(ok).To(BeTrue())
+					Expect(patch.GetName()).To(Equal(sccName), "Patch object name should match SCC name")
+					Expect(patch.GetPatch()).To(Equal(expectedPatch))
+					return true, nil, nil
+				})
+		}
+
+		BeforeEach(func() {
+			stop = make(chan struct{})
+			ctrl = gomock.NewController(GinkgoT())
+			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			informers.SCC, _ = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
+			stores.SCCCache = informers.SCC.GetStore()
+			secClient = &secv1fake.FakeSecurityV1{
+				Fake: &fake.NewSimpleClientset().Fake,
+			}
+			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
+		})
+
+		executeTest := func(scc *secv1.SecurityContextConstraints, expectedPatch string) {
+			setupPrependReactor(scc.ObjectMeta.Name, []byte(expectedPatch))
+			stores.SCCCache.Add(scc)
+			err = removeKvServiceAccountsFromDefaultSCC(namespace, virtClient, stores)
+			Expect(err).ToNot(HaveOccurred(), "Should successfully remove only the kubevirt service accounts")
+		}
+
+		AfterEach(func() {
+			close(stop)
+			ctrl.Finish()
+		})
+
+		table.DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {
+			var expectedJsonPatch string
+			var serviceAccounts []string
+			saMap := rbac.GetKubevirtComponentsServiceAccounts(namespace)
+			for key, _ := range saMap {
+				serviceAccounts = append(serviceAccounts, key)
+			}
+			serviceAccounts = append(serviceAccounts, additionalUserlist...)
+			scc := generateSCC("privileged", serviceAccounts)
+			if len(additionalUserlist) != 0 {
+				expectedJsonPatch = fmt.Sprintf(`[ { "op": "test", "path": "/users", "value": ["%s"] }, { "op": "replace", "path": "/users", "value": ["%s"] } ]`, strings.Join(serviceAccounts, `","`), strings.Join(additionalUserlist, `","`))
+			} else {
+				expectedJsonPatch = fmt.Sprintf(`[ { "op": "test", "path": "/users", "value": ["%s"] }, { "op": "replace", "path": "/users", "value": null } ]`, strings.Join(serviceAccounts, `","`))
+			}
+			executeTest(scc, expectedJsonPatch)
+		},
+			table.Entry("Without custom users", []string{}),
+			table.Entry("With custom users", []string{"someuser"}),
+		)
 	})
 })

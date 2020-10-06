@@ -827,7 +827,7 @@ func (c *KubeVirtController) getInstallStrategyJob(config *operatorutil.KubeVirt
 
 // Loads install strategies into memory, and generates jobs to
 // create install strategies that don't exist yet.
-func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, loadObservedVersion bool) (*installstrategy.InstallStrategy, bool, error) {
+func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrategy.InstallStrategy, bool, error) {
 
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
@@ -835,13 +835,6 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, loadObservedVe
 	}
 
 	config := operatorutil.GetTargetConfigFromKV(kv)
-	if loadObservedVersion {
-		config, err = operatorutil.GetObservedConfigFromKV(kv)
-		if err != nil {
-			return nil, true, err
-		}
-	}
-
 	// 1. see if we already loaded the install strategy
 	strategy, ok := c.getInstallStrategyFromMap(config, kv.Generation)
 	if ok {
@@ -962,9 +955,7 @@ func isUpdating(kv *v1.KubeVirt) bool {
 }
 
 func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
-	var prevStrategy *installstrategy.InstallStrategy
 	var targetStrategy *installstrategy.InstallStrategy
-	var prevPending bool
 	var targetPending bool
 	var err error
 
@@ -991,25 +982,17 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 
 	if isUpdating(kv) {
 		util.UpdateConditionsUpdating(kv)
-		// If this is an update, we need to retrieve the install strategy of the
-		// previous version. This is only necessary because there are settings
-		// related to SCC privileges that we can't infere without the previous
-		// strategy.
-		prevStrategy, prevPending, err = c.loadInstallStrategy(kv, true)
-		if err != nil {
-			return err
-		}
 	} else {
 		util.UpdateConditionsDeploying(kv)
 	}
 
-	targetStrategy, targetPending, err = c.loadInstallStrategy(kv, false)
+	targetStrategy, targetPending, err = c.loadInstallStrategy(kv)
 	if err != nil {
 		return err
 	}
 
 	// we're waiting on a job to finish and the config map to be created
-	if prevPending || targetPending {
+	if targetPending {
 		return nil
 	}
 
@@ -1024,7 +1007,7 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	}
 
 	// deploy
-	synced, err := installstrategy.SyncAll(c.queue, kv, prevStrategy, targetStrategy, c.stores, c.clientset, c.aggregatorClient, &c.kubeVirtExpectations)
+	synced, err := installstrategy.SyncAll(c.queue, kv, targetStrategy, c.stores, c.clientset, c.aggregatorClient, &c.kubeVirtExpectations)
 
 	if err != nil {
 		// deployment failed
@@ -1095,7 +1078,7 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 
 	// If we still have cached objects around, more deletions need to take place.
 	if !c.stores.AllEmpty() {
-		strategy, pending, err := c.loadInstallStrategy(kv, false)
+		strategy, pending, err := c.loadInstallStrategy(kv)
 		if err != nil {
 			return err
 		}
