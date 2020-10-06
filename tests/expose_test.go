@@ -1,7 +1,9 @@
 package tests_test
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -491,3 +493,41 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 })
+
+func getNodeHostname(nodeAddresses []k8sv1.NodeAddress) *string {
+	for _, address := range nodeAddresses {
+		if address.Type == k8sv1.NodeHostName {
+			return &address.Address
+		}
+	}
+	return nil
+}
+
+func resolveNodeIp(virtclient kubecli.KubevirtClient, pod *k8sv1.Pod, hostname string, ipFamily k8sv1.IPFamily) (string, error) {
+	ahostsCmd := string("ahosts" + ipFamily[2:])
+	output, err := tests.ExecuteCommandOnPod(
+		virtclient,
+		pod,
+		"compute",
+		[]string{"getent", ahostsCmd, hostname})
+
+	if err != nil {
+		return "", err
+	}
+
+	splitGetent := strings.Split(output, "\n")
+	if len(splitGetent) > 0 {
+		ip := strings.Split(splitGetent[0], " ")[0]
+		return ip, nil
+	}
+
+	return "", fmt.Errorf("could not resolve an %s address from %s name", ipFamily, hostname)
+}
+
+func resolveNodeIPAddrByFamily(virtClient kubecli.KubevirtClient, sourcePod *k8sv1.Pod, node k8sv1.Node, ipFamily k8sv1.IPFamily) (string, error) {
+	hostname := getNodeHostname(node.Status.Addresses)
+	if hostname == nil {
+		return "", fmt.Errorf("could not get node hostname")
+	}
+	return resolveNodeIp(virtClient, sourcePod, *hostname, ipFamily)
+}
