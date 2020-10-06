@@ -881,14 +881,11 @@ var _ = Describe("[Serial]Storage", func() {
 			})
 		})
 
-		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component]With Alpine ISCSI PVC", func() {
+		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component]With Alpine ISCSI PVC (using ISCSI IPv4 address)", func() {
 
 			pvName := "test-iscsi-lun" + rand.String(48)
 
 			BeforeEach(func() {
-				if tests.IsIPv6Cluster(virtClient) {
-					Skip("Skip ISCSI on IPv6")
-				}
 				// Start a ISCSI POD and service
 				By("Creating a ISCSI POD")
 				iscsiTargetPod := tests.CreateISCSITargetPOD(cd.ContainerDiskAlpine)
