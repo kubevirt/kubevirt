@@ -3410,7 +3410,7 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 	Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodSucceeded))
 }
 
-func CreateISCSITargetPOD(containerDiskName cd.ContainerDisk) (iscsiTargetIP string) {
+func CreateISCSITargetPOD(containerDiskName cd.ContainerDisk) *k8sv1.Pod {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	image := fmt.Sprintf("%s/cdi-http-import-server:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag)
@@ -3463,11 +3463,14 @@ func CreateISCSITargetPOD(containerDiskName cd.ContainerDisk) (iscsiTargetIP str
 	getStatus := func() k8sv1.PodPhase {
 		pod, err := virtClient.CoreV1().Pods(NamespaceTestDefault).Get(pod.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		iscsiTargetIP = pod.Status.PodIP
 		return pod.Status.Phase
 	}
 	Eventually(getStatus, 120, 1).Should(Equal(k8sv1.PodRunning))
-	return
+
+	pod, err = virtClient.CoreV1().Pods(NamespaceTestDefault).Get(pod.Name, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred(), "should get ISCSI target pod after phase changed to Running")
+
+	return pod
 }
 
 func CreateISCSIPvAndPvc(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) {
