@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["doc-generator.go"],
+    importpath = "kubevirt.io/kubevirt/tools/doc-generator",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/monitoring/vms/prometheus:go_default_library",
+        "//pkg/virt-controller/watch:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "doc-generator",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
