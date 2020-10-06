@@ -23,5 +23,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/common:go_default_library",
+        "//vendor/kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api:go_default_library",
     ],
 )

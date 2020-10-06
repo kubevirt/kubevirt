@@ -803,10 +803,10 @@ spec:
                 type: object
             type: object
           status:
-            description: CDIStatus defines the status of the CDI installation
+            description: CDIStatus defines the status of the installation
             properties:
               conditions:
-                description: A list of current conditions of the CDI resource
+                description: A list of current conditions of the resource
                 items:
                   description: Condition represents the state of the operator's reconciliation functionality.
                   properties:
@@ -831,16 +831,16 @@ spec:
                   type: object
                 type: array
               observedVersion:
-                description: The observed version of the CDI resource
+                description: The observed version of the resource
                 type: string
               operatorVersion:
-                description: The version of the CDI resource as defined by the operator
+                description: The version of the resource as defined by the operator
                 type: string
               phase:
-                description: CDIPhase is the current phase of the CDI deployment
+                description: Phase is the current phase of the deployment
                 type: string
               targetVersion:
-                description: The desired version of the CDI resource
+                description: The desired version of the resource
                 type: string
             type: object
         required:
@@ -1633,10 +1633,10 @@ spec:
                 type: object
             type: object
           status:
-            description: CDIStatus defines the status of the CDI installation
+            description: CDIStatus defines the status of the installation
             properties:
               conditions:
-                description: A list of current conditions of the CDI resource
+                description: A list of current conditions of the resource
                 items:
                   description: Condition represents the state of the operator's reconciliation functionality.
                   properties:
@@ -1661,16 +1661,16 @@ spec:
                   type: object
                 type: array
               observedVersion:
-                description: The observed version of the CDI resource
+                description: The observed version of the resource
                 type: string
               operatorVersion:
-                description: The version of the CDI resource as defined by the operator
+                description: The version of the resource as defined by the operator
                 type: string
               phase:
-                description: CDIPhase is the current phase of the CDI deployment
+                description: Phase is the current phase of the deployment
                 type: string
               targetVersion:
-                description: The desired version of the CDI resource
+                description: The desired version of the resource
                 type: string
             type: object
         required:

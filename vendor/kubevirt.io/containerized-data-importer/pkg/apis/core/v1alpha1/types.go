@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 
 	conditions "github.com/openshift/custom-resource-status/conditions/v1"
 )
@@ -266,9 +267,9 @@ type CDISpec struct {
 	// CDIUninstallStrategy defines the state to leave CDI on uninstall
 	UninstallStrategy *CDIUninstallStrategy `json:"uninstallStrategy,omitempty"`
 	// Rules on which nodes CDI infrastructure pods will be scheduled
-	Infra NodePlacement `json:"infra,omitempty"`
+	Infra sdkapi.NodePlacement `json:"infra,omitempty"`
 	// Restrict on which nodes CDI workload pods will be scheduled
-	Workloads NodePlacement `json:"workload,omitempty"`
+	Workloads sdkapi.NodePlacement `json:"workload,omitempty"`
 }
 
 // CDIUninstallStrategy defines the state to leave CDI on uninstall
@@ -285,16 +286,17 @@ const (
 // CDIPhase is the current phase of the CDI deployment
 type CDIPhase string
 
-// CDIStatus defines the status of the CDI installation
+// CDIStatus defines the status of the installation
 type CDIStatus struct {
+	// Phase is the current phase of the deployment
 	Phase CDIPhase `json:"phase,omitempty"`
-	// A list of current conditions of the CDI resource
+	// A list of current conditions of the resource
 	Conditions []conditions.Condition `json:"conditions,omitempty" optional:"true"`
-	// The version of the CDI resource as defined by the operator
+	// The version of the resource as defined by the operator
 	OperatorVersion string `json:"operatorVersion,omitempty" optional:"true"`
-	// The desired version of the CDI resource
+	// The desired version of the resource
 	TargetVersion string `json:"targetVersion,omitempty" optional:"true"`
-	// The observed version of the CDI resource
+	// The observed version of the resource
 	ObservedVersion string `json:"observedVersion,omitempty" optional:"true"`
 }
 
@@ -320,30 +322,6 @@ const (
 	// CDIPhaseEmpty is an uninitialized phase
 	CDIPhaseEmpty CDIPhase = ""
 )
-
-// NodePlacement describes CDI node scheduling configuration.
-type NodePlacement struct {
-	// nodeSelector is the node selector applied to the relevant kind of pods
-	// It specifies a map of key-value pairs: for the pod to be eligible to run on a node,
-	// the node must have each of the indicated key-value pairs as labels
-	// (it can have additional labels as well).
-	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-	// +optional
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-
-	// affinity enables pod affinity/anti-affinity placement expanding the types of constraints
-	// that can be expressed with nodeSelector.
-	// affinity is going to be applied to the relevant kind of pods in parallel with nodeSelector
-	// See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
-	// +optional
-	Affinity corev1.Affinity `json:"affinity,omitempty"`
-
-	// tolerations is a list of tolerations applied to the relevant kind of pods
-	// See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info.
-	// These are additional tolerations other than default ones.
-	// +optional
-	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-}
 
 //CDIList provides the needed parameters to do request a list of CDIs from the system
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -372,6 +350,19 @@ type CDIConfig struct {
 	Status CDIConfigStatus `json:"status,omitempty"`
 }
 
+//Percent is a string that can only be a value between [0,1)
+// (Note: we actually rely on reconcile to reject invalid values)
+// +kubebuilder:validation:Pattern=`^(0(?:\.\d{1,3})?|1)$`
+type Percent string
+
+//FilesystemOverhead defines the reserved size for PVCs with VolumeMode: Filesystem
+type FilesystemOverhead struct {
+	// Global is how much space of a Filesystem volume should be reserved for overhead. This value is used unless overridden by a more specific value (per storageClass)
+	Global Percent `json:"global,omitempty"`
+	// StorageClass specifies how much space of a Filesystem volume should be reserved for safety. The keys are the storageClass and the values are the overhead. This value overrides the global value
+	StorageClass map[string]Percent `json:"storageClass,omitempty"`
+}
+
 //CDIConfigSpec defines specification for user configuration
 type CDIConfigSpec struct {
 	// Override the URL used when uploading to a DataVolume
@@ -380,6 +371,8 @@ type CDIConfigSpec struct {
 	ScratchSpaceStorageClass *string `json:"scratchSpaceStorageClass,omitempty"`
 	// ResourceRequirements describes the compute resource requirements.
 	PodResourceRequirements *corev1.ResourceRequirements `json:"podResourceRequirements,omitempty"`
+	// FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes. A value is between 0 and 1, if not defined it is 0.055 (5.5% overhead)
+	FilesystemOverhead *FilesystemOverhead `json:"filesystemOverhead,omitempty"`
 }
 
 //CDIConfigStatus provides the most recently observed status of the CDI Config resource
@@ -390,6 +383,8 @@ type CDIConfigStatus struct {
 	ScratchSpaceStorageClass string `json:"scratchSpaceStorageClass,omitempty"`
 	// ResourceRequirements describes the compute resource requirements.
 	DefaultPodResourceRequirements *corev1.ResourceRequirements `json:"defaultPodResourceRequirements,omitempty"`
+	// FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes. A percentage value is between 0 and 1
+	FilesystemOverhead *FilesystemOverhead `json:"filesystemOverhead,omitempty"`
 }
 
 //CDIConfigList provides the needed parameters to do request a list of CDIConfigs from the system

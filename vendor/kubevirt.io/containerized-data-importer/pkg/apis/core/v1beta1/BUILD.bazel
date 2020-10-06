@@ -16,12 +16,12 @@ go_library(
     deps = [
         "//pkg/apis/core:go_default_library",
         "//vendor/github.com/go-openapi/spec:go_default_library",
-        "//vendor/github.com/openshift/custom-resource-status/conditions/v1:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/common:go_default_library",
+        "//vendor/kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api:go_default_library",
     ],
 )

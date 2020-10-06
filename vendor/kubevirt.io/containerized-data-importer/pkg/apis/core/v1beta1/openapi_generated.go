@@ -309,7 +309,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSourceVDDK":     schema_pkg_apis_core_v1beta1_DataVolumeSourceVDDK(ref),
 		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeSpec":           schema_pkg_apis_core_v1beta1_DataVolumeSpec(ref),
 		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.DataVolumeStatus":         schema_pkg_apis_core_v1beta1_DataVolumeStatus(ref),
-		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.NodePlacement":            schema_pkg_apis_core_v1beta1_NodePlacement(ref),
+		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.FilesystemOverhead":       schema_pkg_apis_core_v1beta1_FilesystemOverhead(ref),
+		"kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api.NodePlacement":                schema_controller_lifecycle_operator_sdk_pkg_sdk_api_NodePlacement(ref),
 	}
 }
 
@@ -13630,11 +13631,17 @@ func schema_pkg_apis_core_v1beta1_CDIConfigSpec(ref common.ReferenceCallback) co
 							},
 						},
 					},
+					"filesystemOverhead": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes. A value is between 0 and 1, if not defined it is 0.055 (5.5% overhead)",
+							Ref:         ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.FilesystemOverhead"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.ResourceRequirements"},
+			"k8s.io/api/core/v1.ResourceRequirements", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.FilesystemOverhead"},
 	}
 }
 
@@ -13665,11 +13672,17 @@ func schema_pkg_apis_core_v1beta1_CDIConfigStatus(ref common.ReferenceCallback) 
 							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
+					"filesystemOverhead": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes. A percentage value is between 0 and 1",
+							Ref:         ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.FilesystemOverhead"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.ResourceRequirements"},
+			"k8s.io/api/core/v1.ResourceRequirements", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.FilesystemOverhead"},
 	}
 }
 
@@ -13745,20 +13758,20 @@ func schema_pkg_apis_core_v1beta1_CDISpec(ref common.ReferenceCallback) common.O
 					"infra": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Rules on which nodes CDI infrastructure pods will be scheduled",
-							Ref:         ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.NodePlacement"),
+							Ref:         ref("kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api.NodePlacement"),
 						},
 					},
 					"workload": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Restrict on which nodes CDI workload pods will be scheduled",
-							Ref:         ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.NodePlacement"),
+							Ref:         ref("kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api.NodePlacement"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1.NodePlacement"},
+			"kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api.NodePlacement"},
 	}
 }
 
@@ -13766,7 +13779,7 @@ func schema_pkg_apis_core_v1beta1_CDIStatus(ref common.ReferenceCallback) common
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CDIStatus defines the status of the CDI installation",
+				Description: "CDIStatus defines the status of the installation",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"phase": {
@@ -13777,7 +13790,7 @@ func schema_pkg_apis_core_v1beta1_CDIStatus(ref common.ReferenceCallback) common
 					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Description: "A list of current conditions of the CDI resource",
+							Description: "A list of current conditions of the resource",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -13790,21 +13803,21 @@ func schema_pkg_apis_core_v1beta1_CDIStatus(ref common.ReferenceCallback) common
 					},
 					"operatorVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The version of the CDI resource as defined by the operator",
+							Description: "The version of the resource as defined by the operator",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"targetVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The desired version of the CDI resource",
+							Description: "The desired version of the resource",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"observedVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The observed version of the CDI resource",
+							Description: "The observed version of the resource",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -14335,11 +14348,46 @@ func schema_pkg_apis_core_v1beta1_DataVolumeStatus(ref common.ReferenceCallback)
 	}
 }
 
-func schema_pkg_apis_core_v1beta1_NodePlacement(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_core_v1beta1_FilesystemOverhead(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "NodePlacement describes CDI node scheduling configuration.",
+				Description: "FilesystemOverhead defines the reserved size for PVCs with VolumeMode: Filesystem",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"global": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Global is how much space of a Filesystem volume should be reserved for overhead. This value is used unless overridden by a more specific value (per storageClass)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"storageClass": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StorageClass specifies how much space of a Filesystem volume should be reserved for safety. The keys are the storageClass and the values are the overhead. This value overrides the global value",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_controller_lifecycle_operator_sdk_pkg_sdk_api_NodePlacement(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NodePlacement describes node scheduling configuration.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"nodeSelector": {

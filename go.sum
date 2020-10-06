@@ -1715,10 +1715,12 @@ k8s.io/utils v0.0.0-20200619165400-6e3d28b6ed19 h1:7Nu2dTj82c6IaWvL7hImJzcXoTPz1
 k8s.io/utils v0.0.0-20200619165400-6e3d28b6ed19/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 kubevirt.io/containerized-data-importer v1.21.0/go.mod h1:cc4y/6lg+Y6W9bUhrXPZgFJxoe3dA+EbSwKBTjBDO3I=
 kubevirt.io/containerized-data-importer v1.23.1/go.mod h1:2nNKnigVFQAwGq2v5/92+e758nKYacb03uSkHM14mX0=
-kubevirt.io/containerized-data-importer v1.23.5 h1:X6apVlDRJCqgOwj5lXtPKsysiggJsM3zvaI4946eYNM=
-kubevirt.io/containerized-data-importer v1.23.5/go.mod h1:kPTghbPZ9KoaXLlNyUdpQSsy0SkrOASrG2BuDantLe4=
+kubevirt.io/containerized-data-importer v1.24.0 h1:lmTMV8KK88GYGi4ZKw92Tj9evBpPsl3VW4AHIjQ8C8M=
+kubevirt.io/containerized-data-importer v1.24.0/go.mod h1:U7hopyIY1vTa+EkO2OpOkncRvEf/+bSd8Up2tVsX6PY=
 kubevirt.io/controller-lifecycle-operator-sdk v0.1.0 h1:wi6kO+nd9fbMDjdMy7rO6dbKXTxLdt6RjVZBpjddOew=
 kubevirt.io/controller-lifecycle-operator-sdk v0.1.0/go.mod h1:M+UuZsp90mmKUVGb5zXDZtIIY1noY5pJk9i2YCQwSnk=
+kubevirt.io/controller-lifecycle-operator-sdk v0.1.1 h1:dqURkr5Q5f4qJM7uLHL0akFxTatt0MUekKL0xifmVjs=
+kubevirt.io/controller-lifecycle-operator-sdk v0.1.1/go.mod h1:M+UuZsp90mmKUVGb5zXDZtIIY1noY5pJk9i2YCQwSnk=
 kubevirt.io/kubevirt v0.0.0-20200921031326-e3610ed19782 h1:ZjIAT1sxOm/rM7k5a68ron/F3pEOacFNbo3egwJUJK4=
 kubevirt.io/kubevirt v0.0.0-20200921031326-e3610ed19782/go.mod h1:qfKIxMvAkeEIm0na6rqW/VRfJ1pgPSmK6G2WuDnA2sQ=
 kubevirt.io/qe-tools v0.1.3/go.mod h1:PJyH/YXC4W0AmxfheDmXWMbLNsMSboVGXKpMAwfKzVE=
