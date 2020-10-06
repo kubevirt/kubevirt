@@ -487,6 +487,17 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					Expect(node.Status.Addresses).ToNot(BeEmpty())
 					nodeIP := node.Status.Addresses[0].Address
 
+					if ipFamily == k8sv1.IPv6Protocol {
+						hostname := getNodeHostname(node.Status.Addresses)
+						Expect(hostname).NotTo(BeNil(), "must have been able to retrieve the node hostname")
+						pod := tests.GetPodByVirtualMachineInstance(udpVM, udpVM.GetNamespace())
+
+						var err error
+						nodeIP, err = resolveNodeIp(virtClient, pod, *hostname, ipFamily)
+						Expect(err).NotTo(HaveOccurred(), "must have been able to resolve an IP address from the node name")
+						Expect(nodeIP).NotTo(BeEmpty(), "must have been able to resolve the IPv6 address of the node")
+					}
+
 					By("Starting a job which tries to reach the VMI via NodePort")
 					job := runHelloWorldJobUDP(nodeIP, strconv.Itoa(int(nodePort)), udpVM.Namespace)
 					jobsCleanupFuncs = append(jobsCleanupFuncs, cleanupJob(job.GetName(), job.GetNamespace()))
