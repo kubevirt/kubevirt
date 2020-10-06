@@ -878,6 +878,67 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 						Kind:        "HyperConverged",
 						DisplayName: crdDisplay + " Deployment",
 						Description: "Represents the deployment of " + crdDisplay,
+						// TODO: move this to annotations on hyperconverged_types.go once kubebuilder
+						// properly supports SpecDescriptors as the operator-sdk already does
+						SpecDescriptors: []csvv1alpha1.SpecDescriptor{
+							{
+								DisplayName: "Infra components node affinity",
+								Description: "nodeAffinity describes node affinity scheduling rules for the infra pods.",
+								Path:        "infra.nodePlacement.affinity.nodeAffinity",
+								XDescriptors: []string{
+									"urn:alm:descriptor:com.tectonic.ui:nodeAffinity",
+								},
+							},
+							{
+								DisplayName: "Infra components pod affinity",
+								Description: "podAffinity describes pod affinity scheduling rules for the infra pods.",
+								Path:        "infra.nodePlacement.affinity.podAffinity",
+								XDescriptors: []string{
+									"urn:alm:descriptor:com.tectonic.ui:podAffinity",
+								},
+							},
+							{
+								DisplayName: "Infra components pod anti-affinity",
+								Description: "podAntiAffinity describes pod anti affinity scheduling rules for the infra pods.",
+								Path:        "infra.nodePlacement.affinity.podAntiAffinity",
+								XDescriptors: []string{
+									"urn:alm:descriptor:com.tectonic.ui:podAntiAffinity",
+								},
+							},
+							{
+								DisplayName: "Workloads components node affinity",
+								Description: "nodeAffinity describes node affinity scheduling rules for the workloads pods.",
+								Path:        "workloads.nodePlacement.affinity.nodeAffinity",
+								XDescriptors: []string{
+									"urn:alm:descriptor:com.tectonic.ui:nodeAffinity",
+								},
+							},
+							{
+								DisplayName: "Workloads components pod affinity",
+								Description: "podAffinity describes pod affinity scheduling rules for the workloads pods.",
+								Path:        "workloads.nodePlacement.affinity.podAffinity",
+								XDescriptors: []string{
+									"urn:alm:descriptor:com.tectonic.ui:podAffinity",
+								},
+							},
+							{
+								DisplayName: "Workloads components pod anti-affinity",
+								Description: "podAntiAffinity describes pod anti affinity scheduling rules for the workloads pods.",
+								Path:        "workloads.nodePlacement.affinity.podAntiAffinity",
+								XDescriptors: []string{
+									"urn:alm:descriptor:com.tectonic.ui:podAntiAffinity",
+								},
+							},
+							{
+								DisplayName: "HIDDEN FIELDS - operator version",
+								Description: "HIDDEN FIELDS - operator version.",
+								Path:        "version",
+								XDescriptors: []string{
+									"urn:alm:descriptor:com.tectonic.ui:hidden",
+								},
+							},
+						},
+						StatusDescriptors: []csvv1alpha1.StatusDescriptor{},
 					},
 					// TODO: remove once oVirt and VMware providers are removed from HCO
 					{
