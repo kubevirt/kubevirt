@@ -758,6 +758,10 @@ type DataVolumeTemplateDummyStatus struct{}
 //
 // +k8s:openapi-gen=true
 type DataVolumeTemplateSpec struct {
+	// TypeMeta only exists on DataVolumeTemplate for API backwards compatiblity
+	// this field is not used by our controllers and is a no-op.
+	// +nullable
+	metav1.TypeMeta `json:",inline"`
 	// +nullable
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// DataVolumeSpec contains the DataVolume specification.
