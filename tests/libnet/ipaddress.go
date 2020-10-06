@@ -21,14 +21,14 @@ func GetVmiPrimaryIpByFamily(vmi *v1.VirtualMachineInstance, family k8sv1.IPFami
 
 func getIp(ips []string, family k8sv1.IPFamily) string {
 	for _, ip := range ips {
-		if family == getFamily(ip) {
+		if family == GetFamily(ip) {
 			return ip
 		}
 	}
 	return ""
 }
 
-func getFamily(ip string) k8sv1.IPFamily {
+func GetFamily(ip string) k8sv1.IPFamily {
 	if netutils.IsIPv6String(ip) {
 		return k8sv1.IPv6Protocol
 	}

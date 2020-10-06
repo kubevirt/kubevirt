@@ -1,7 +1,9 @@
 package tests_test
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -872,4 +874,33 @@ func cleanupJobs(jobsCleanupFunctions []func() error) []error {
 		}
 	}
 	return errorBucket
+}
+
+func getNodeHostname(nodeAddresses []k8sv1.NodeAddress) *string {
+	for _, address := range nodeAddresses {
+		if address.Type == k8sv1.NodeHostName {
+			return &address.Address
+		}
+	}
+	return nil
+}
+
+func resolveNodeIp(virtclient kubecli.KubevirtClient, pod *k8sv1.Pod, hostname string, ipFamily k8sv1.IPFamily) (string, error) {
+	output, err := tests.ExecuteCommandOnPod(
+		virtclient,
+		pod,
+		"compute",
+		[]string{"getent", "ahosts", hostname})
+
+	if err != nil {
+		return "", err
+	}
+	for _, ipStr := range strings.Split(output, "\n") {
+		ip := strings.Split(ipStr, " ")[0]
+		if libnet.GetFamily(ip) == ipFamily {
+			return ip, nil
+		}
+	}
+
+	return "", fmt.Errorf("could not resolve an %s address from %s name", ipFamily, hostname)
 }
