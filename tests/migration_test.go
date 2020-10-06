@@ -697,16 +697,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 			})
 		})
-		Context("with a shared ISCSI Filesystem PVC", func() {
+		Context("with a shared ISCSI Filesystem PVC (using ISCSI IPv4 address)", func() {
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
 
 				if !tests.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
-				}
-
-				if tests.IsIPv6Cluster(virtClient) {
-					Skip("Skip ISCSI on IPv6")
 				}
 
 				// set unsafe migration flag
@@ -844,12 +840,9 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
-		Context("with an Alpine shared ISCSI PVC", func() {
+		Context("with an Alpine shared ISCSI PVC (using ISCSI IPv4 address)", func() {
 			var pvName string
 			BeforeEach(func() {
-				if tests.IsIPv6Cluster(virtClient) {
-					Skip("Skip ISCSI on IPv6")
-				}
 				pvName = "test-iscsi-lun" + rand.String(48)
 				// Start a ISCSI POD and service
 				By("Starting an iSCSI POD")
@@ -919,12 +912,9 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
-		Context("with an Cirros shared ISCSI PVC", func() {
+		Context("with an Cirros shared ISCSI PVC (using ISCSI IPv4 address)", func() {
 			var pvName string
 			BeforeEach(func() {
-				if tests.IsIPv6Cluster(virtClient) {
-					Skip("Skip ISCSI on IPv6")
-				}
 				pvName = "test-iscsi-lun" + rand.String(48)
 				// Start a ISCSI POD and service
 				By("Starting an iSCSI POD")
@@ -1361,12 +1351,9 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 		})
-		Context("with an Cirros non-shared ISCSI PVC", func() {
+		Context("with an Cirros non-shared ISCSI PVC (using ISCSI IPv4 address)", func() {
 			var pvName string
 			BeforeEach(func() {
-				if tests.IsIPv6Cluster(virtClient) {
-					Skip("Skip ISCSI on IPv6")
-				}
 				pvName = "test-iscsi-lun" + rand.String(48)
 				// Start a ISCSI POD and service
 				By("Starting an iSCSI POD")
@@ -1497,8 +1484,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					By("Waiting for VMI to disappear")
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 				},
-					table.Entry("[test_id:2226]with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
-					table.Entry("[test_id:2731] with OCS Disk", newVirtualMachineInstanceWithFedoraOCSDisk),
+					table.Entry("[test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
+					table.Entry("[test_id:2731] with OCS Disk (using ISCSI IPv4 address)", newVirtualMachineInstanceWithFedoraOCSDisk),
 				)
 				It("[test_id:3241]should be able to cancel a migration right after posting it", func() {
 					vmi := tests.NewRandomFedoraVMIWitGuestAgent()
