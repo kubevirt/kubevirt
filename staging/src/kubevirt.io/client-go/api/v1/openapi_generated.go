@@ -14373,7 +14373,7 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 					},
 					"networkInterfaceMultiqueue": {
 						SchemaProps: spec.SchemaProps{
-							Description: "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature",
+							Description: "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
