@@ -93,6 +93,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/cluster"
+	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -3515,7 +3516,7 @@ func newISCSIPVC(name string, size string, accessMode k8sv1.PersistentVolumeAcce
 	}
 }
 
-func CreateNFSTargetPOD(os string) (nfsTargetIP string) {
+func CreateNFSTargetPOD(os string) *k8sv1.Pod {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	image := fmt.Sprintf("%s/nfs-server:%s", flags.KubeVirtRepoPrefix, flags.KubeVirtVersionTag)
@@ -3567,13 +3568,12 @@ func CreateNFSTargetPOD(os string) (nfsTargetIP string) {
 	PanicOnError(err)
 
 	getStatus := func() k8sv1.PodPhase {
-		pod, err := virtClient.CoreV1().Pods(NamespaceTestDefault).Get(pod.Name, metav1.GetOptions{})
+		pod, err = virtClient.CoreV1().Pods(NamespaceTestDefault).Get(pod.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		nfsTargetIP = pod.Status.PodIP
 		return pod.Status.Phase
 	}
 	Eventually(getStatus, 120, 1).Should(Equal(k8sv1.PodRunning))
-	return
+	return pod
 }
 
 func CreateNFSPvAndPvc(name string, size string, nfsTargetIP string, os string) {
@@ -3596,6 +3596,8 @@ func newNFSPV(name string, size string, nfsTargetIP string, os string) *k8sv1.Pe
 
 	storageClass := Config.StorageClassLocal
 	volumeMode := k8sv1.PersistentVolumeFilesystem
+
+	nfsTargetIP = ip.NormalizeIPAddress(nfsTargetIP)
 
 	return &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{

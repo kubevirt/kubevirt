@@ -46,6 +46,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 const (
@@ -72,71 +73,99 @@ var _ = Describe("[Serial]Storage", func() {
 	})
 
 	Describe("Starting a VirtualMachineInstance", func() {
-		var _pvName string
 		var vmi *v1.VirtualMachineInstance
-		var nfsInitialized bool
 
-		initNFS := func() string {
-			if !nfsInitialized {
-				_pvName = "test-nfs" + rand.String(48)
-				// Prepare a NFS backed PV
-				By("Starting an NFS POD")
-				os := string(cd.ContainerDiskAlpine)
-				nfsIP := tests.CreateNFSTargetPOD(os)
-				// create a new PV and PVC (PVs can't be reused)
-				By("create a new NFS PV and PVC")
-				tests.CreateNFSPvAndPvc(_pvName, "5Gi", nfsIP, os)
+		initNFS := func() *k8sv1.Pod {
+			tests.SkipNFSTestIfRunnigOnKindInfra()
 
-				nfsInitialized = true
-			}
-			return _pvName
+			// Prepare a NFS backed PV
+			By("Starting an NFS POD")
+			os := string(cd.ContainerDiskAlpine)
+			nfsPod := tests.CreateNFSTargetPOD(os)
+
+			return nfsPod
 		}
 
-		BeforeEach(func() {
-			nfsInitialized = false
-		})
+		createNFSPvAndPvc := func(ipFamily k8sv1.IPFamily, nfsPod *k8sv1.Pod) string {
+			pvName := "test-nfs" + rand.String(48)
 
-		AfterEach(func() {
-			if nfsInitialized {
-				By("Deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+			// create a new PV and PVC (PVs can't be reused)
+			By("create a new NFS PV and PVC")
+			nfsIP := libnet.GetPodIpByFamily(nfsPod, ipFamily)
+			ExpectWithOffset(1, nfsIP).NotTo(BeEmpty())
+			os := string(cd.ContainerDiskAlpine)
+			tests.CreateNFSPvAndPvc(pvName, "5Gi", nfsIP, os)
+			return pvName
+		}
 
-				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-				// PVs can't be reused
-				tests.DeletePvAndPvc(_pvName)
-
-				By("Deleting NFS pod")
-				Expect(virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(tests.NFSTargetName, &metav1.DeleteOptions{})).To(Succeed())
-				By("Waiting for NFS pod to disappear")
-				tests.WaitForPodToDisappearWithTimeout(tests.NFSTargetName, 120)
-			}
-		})
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]with Alpine PVC", func() {
-			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc, storageEngine string) {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
 
-				var ignoreWarnings bool
+			Context("should be successfully", func() {
 				var pvName string
-				// Start the VirtualMachineInstance with the PVC attached
-				if storageEngine == "nfs" {
-					pvName = initNFS()
-					ignoreWarnings = true
-				} else {
-					pvName = tests.DiskAlpineHostPath
-				}
-				vmi = newVMI(pvName)
-				tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 120, ignoreWarnings)
+				var nfsPod *k8sv1.Pod
 
-				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				expecter.Close()
-			},
-				table.Entry("[test_id:3130]with Disk PVC", tests.NewRandomVMIWithPVC, ""),
-				table.Entry("[test_id:3131]with CDRom PVC", tests.NewRandomVMIWithCDRom, ""),
-				table.Entry("[test_id:4618]with NFS Disk PVC", tests.NewRandomVMIWithPVC, "nfs"),
-			)
+				AfterEach(func() {
+					if vmi != nil {
+						By("Deleting the VMI")
+						Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+						By("Waiting for VMI to disappear")
+						tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+
+						vmi = nil
+					}
+				})
+
+				AfterEach(func() {
+					if nfsPod != nil {
+						By("Deleting NFS pod")
+						Expect(virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(tests.NFSTargetName, &metav1.DeleteOptions{})).To(Succeed())
+
+						By("Waiting for NFS pod to disappear")
+						tests.WaitForPodToDisappearWithTimeout(tests.NFSTargetName, 120)
+
+						nfsPod = nil
+					}
+				})
+
+				AfterEach(func() {
+					if pvName != "" && pvName != tests.DiskAlpineHostPath {
+						// PVs can't be reused
+						By("Deleting PV and PVC")
+						tests.DeletePvAndPvc(pvName)
+						pvName = ""
+					}
+				})
+
+				table.DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily) {
+					tests.SkipPVCTestIfRunnigOnKindInfra()
+					if family == k8sv1.IPv6Protocol {
+						libnet.SkipWhenNotDualStackCluster(virtClient)
+					}
+
+					var ignoreWarnings bool
+					// Start the VirtualMachineInstance with the PVC attached
+					if storageEngine == "nfs" {
+						nfsPod = initNFS()
+						pvName = createNFSPvAndPvc(family, nfsPod)
+						ignoreWarnings = true
+					} else {
+						pvName = tests.DiskAlpineHostPath
+					}
+					vmi = newVMI(pvName)
+					tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 120, ignoreWarnings)
+
+					By("Checking that the VirtualMachineInstance console has expected output")
+					expecter, err := tests.LoggedInAlpineExpecter(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					expecter.Close()
+				},
+					table.Entry("[test_id:3130]with Disk PVC", tests.NewRandomVMIWithPVC, "", nil),
+					table.Entry("[test_id:3131]with CDRom PVC", tests.NewRandomVMIWithCDRom, "", nil),
+					table.Entry("[test_id:4618]with NFS Disk PVC using ipv4 address of the NFS pod", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol),
+					table.Entry("with NFS Disk PVC using ipv6 address of the NFS pod", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv6Protocol),
+				)
+			})
 
 			table.DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc) {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
@@ -338,29 +367,71 @@ var _ = Describe("[Serial]Storage", func() {
 				isRunOnKindInfra = tests.IsRunningOnKindInfra()
 			})
 
-			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
-			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc, storageEngine string) {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
-				var ignoreWarnings bool
+			Context("should be successfully", func() {
 				var pvName string
-				// Start the VirtualMachineInstance with the PVC attached
-				if storageEngine == "nfs" {
-					pvName = initNFS()
-					ignoreWarnings = true
-				} else {
-					pvName = tests.DiskAlpineHostPath
-				}
-				vmi = newVMI(pvName)
-				vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 120, ignoreWarnings)
+				var nfsPod *k8sv1.Pod
 
-				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				expecter.Close()
-			},
-				table.Entry("[test_id:3136]with Ephemeral PVC", tests.NewRandomVMIWithEphemeralPVC, ""),
-				table.Entry("[test_id:4619]with Ephemeral PVC from NFS", tests.NewRandomVMIWithEphemeralPVC, "nfs"),
-			)
+				AfterEach(func() {
+					if vmi != nil {
+						By("Deleting the VMI")
+						Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+						By("Waiting for VMI to disappear")
+						tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+
+						vmi = nil
+					}
+				})
+
+				AfterEach(func() {
+					if nfsPod != nil {
+						By("Deleting NFS pod")
+						Expect(virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(tests.NFSTargetName, &metav1.DeleteOptions{})).To(Succeed())
+
+						By("Waiting for NFS pod to disappear")
+						tests.WaitForPodToDisappearWithTimeout(tests.NFSTargetName, 120)
+
+						nfsPod = nil
+					}
+				})
+
+				AfterEach(func() {
+					if pvName != "" && pvName != tests.DiskAlpineHostPath {
+						// PVs can't be reused
+						By("Deleting PV and PVC")
+						tests.DeletePvAndPvc(pvName)
+						pvName = ""
+					}
+				})
+
+				// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
+				table.DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily) {
+					tests.SkipPVCTestIfRunnigOnKindInfra()
+					if family == k8sv1.IPv6Protocol {
+						libnet.SkipWhenNotDualStackCluster(virtClient)
+					}
+					var ignoreWarnings bool
+					// Start the VirtualMachineInstance with the PVC attached
+					if storageEngine == "nfs" {
+						nfsPod = initNFS()
+						pvName = createNFSPvAndPvc(family, nfsPod)
+						ignoreWarnings = true
+					} else {
+						pvName = tests.DiskAlpineHostPath
+					}
+					vmi = newVMI(pvName)
+					vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 120, ignoreWarnings)
+
+					By("Checking that the VirtualMachineInstance console has expected output")
+					expecter, err := tests.LoggedInAlpineExpecter(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					expecter.Close()
+				},
+					table.Entry("[test_id:3136]with Ephemeral PVC", tests.NewRandomVMIWithEphemeralPVC, "", nil),
+					table.Entry("[test_id:4619]with Ephemeral PVC from NFS using ipv4 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", k8sv1.IPv4Protocol),
+					table.Entry("with Ephemeral PVC from NFS using ipv6 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", k8sv1.IPv6Protocol),
+				)
+			})
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
 			It("[test_id:3137]should not persist data", func() {

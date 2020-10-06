@@ -964,7 +964,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
-		Context("with an Fedora shared NFS PVC, cloud init and service account", func() {
+		Context("with a Fedora shared NFS PVC (using nfs ipv4 address), cloud init and service account", func() {
 			var pvName string
 			var vmi *v1.VirtualMachineInstance
 			BeforeEach(func() {
@@ -973,7 +973,9 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// Prepare a NFS backed PV
 				By("Starting an NFS POD")
 				os := string(cd.ContainerDiskFedora)
-				nfsIP := tests.CreateNFSTargetPOD(os)
+				nfsPod := tests.CreateNFSTargetPOD(os)
+				nfsIP := libnet.GetPodIpByFamily(nfsPod, k8sv1.IPv4Protocol)
+				Expect(nfsIP).NotTo(BeEmpty())
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new NFS PV and PVC")
 				tests.CreateNFSPvAndPvc(pvName, "5Gi", nfsIP, os)
