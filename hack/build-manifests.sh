@@ -266,6 +266,9 @@ function create_vm_import_csv() {
   local tag="${VM_IMPORT_IMAGE/*:/}"
   local controllerDigest
   controllerDigest=$(get_image_digest "${containerPrefix}/vm-import-controller:${tag}")
+  local virtv2vImage
+  virtv2vImage=$(get_image_digest "${containerPrefix}/vm-import-virtv2v:${tag}")
+
   local dumpCRDsArg="--dump-crds"
   local operatorArgs=" \
     --csv-version=${CSV_VERSION} \
@@ -273,6 +276,7 @@ function create_vm_import_csv() {
     --operator-image=${operatorDigest} \
     --controller-image=${controllerDigest} \
     --namespace=${OPERATOR_NAMESPACE} \
+    --virtv2v-image=${virtv2vImage} \
     --pull-policy=IfNotPresent \
   "
 

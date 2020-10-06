@@ -449,6 +449,7 @@ spec:
         - name: MONITORING_NAMESPACE
           value: openshift-monitoring
         - name: VIRTV2V_IMAGE
+          value: quay.io/kubevirt/vm-import-virtv2v@sha256:f66d3167976340d9a65145ea5bc3d2e94cf0ab3855616a2641b27f1d2243624b
         image: quay.io/kubevirt/vm-import-operator@sha256:62706b1ce8df1d4427f591f0b6a75a73560e724d8d5fc860144467ecf5be1edc
         imagePullPolicy: IfNotPresent
         name: vm-import-operator
