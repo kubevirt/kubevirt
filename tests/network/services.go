@@ -21,14 +21,14 @@ package network
 
 import (
 	"fmt"
-	"strconv"
 	"time"
+
+	"kubevirt.io/kubevirt/tests/connectivity"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
-	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,13 +43,6 @@ import (
 
 var _ = SIGDescribe("[Serial]Services", func() {
 	var virtClient kubecli.KubevirtClient
-
-	runTCPClientExpectingHelloWorldFromServer := func(host, port, namespace string) *batchv1.Job {
-		job := tests.NewHelloWorldJob(host, port)
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(job)
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		return job
-	}
 
 	exposeExistingVMISpec := func(vmi *v1.VirtualMachineInstance, subdomain string, hostname string, selectorLabelKey string, selectorLabelValue string) *v1.VirtualMachineInstance {
 		vmi.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
@@ -79,32 +72,6 @@ var _ = SIGDescribe("[Serial]Services", func() {
 
 	cleanupService := func(namespace string, serviceName string) error {
 		return virtClient.CoreV1().Services(namespace).Delete(serviceName, &k8smetav1.DeleteOptions{})
-	}
-
-	assertConnectivityToService := func(serviceName, namespace string, servicePort int) (func() error, error) {
-		serviceFQDN := fmt.Sprintf("%s.%s", serviceName, namespace)
-
-		By(fmt.Sprintf("starting a job which tries to reach the vmi via service %s", serviceFQDN))
-		job := runTCPClientExpectingHelloWorldFromServer(serviceFQDN, strconv.Itoa(servicePort), namespace)
-
-		By(fmt.Sprintf("waiting for the job to report a SUCCESSFUL connection attempt to service %s on port %d", serviceFQDN, servicePort))
-		err := tests.WaitForJobToSucceed(job, 90*time.Second)
-		return func() error {
-			return virtClient.BatchV1().Jobs(tests.NamespaceTestDefault).Delete(job.Name, &k8smetav1.DeleteOptions{})
-		}, err
-	}
-
-	assertNoConnectivityToService := func(serviceName, namespace string, servicePort int) (func() error, error) {
-		serviceFQDN := fmt.Sprintf("%s.%s", serviceName, namespace)
-
-		By(fmt.Sprintf("starting a job which tries to reach the vmi via service %s", serviceFQDN))
-		job := runTCPClientExpectingHelloWorldFromServer(serviceFQDN, strconv.Itoa(servicePort), namespace)
-
-		By(fmt.Sprintf("waiting for the job to report a FAILED connection attempt to service %s on port %d", serviceFQDN, servicePort))
-		err := tests.WaitForJobToFail(job, 90*time.Second)
-		return func() error {
-			return virtClient.BatchV1().Jobs(tests.NamespaceTestDefault).Delete(job.Name, &k8smetav1.DeleteOptions{})
-		}, err
 	}
 
 	BeforeEach(func() {
@@ -172,14 +139,14 @@ var _ = SIGDescribe("[Serial]Services", func() {
 			It("[test_id:1547] should be able to reach the vmi based on labels specified on the vmi", func() {
 				var err error
 
-				jobCleanup, err = assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
+				jobCleanup, err = connectivity.AssertConnectivityToService(virtClient, connectivity.RunHelloWorldJob, serviceName, inboundVMI.Namespace, servicePort)
 				Expect(err).NotTo(HaveOccurred(), "connectivity is expected to the exposed service")
 			})
 
 			It("[test_id:1548] should fail to reach the vmi if an invalid servicename is used", func() {
 				var err error
 
-				jobCleanup, err = assertNoConnectivityToService("wrongservice", inboundVMI.Namespace, servicePort)
+				jobCleanup, err = connectivity.AssertNoConnectivityToService(virtClient, connectivity.RunHelloWorldJob, "wrongservice", inboundVMI.Namespace, servicePort)
 				Expect(err).NotTo(HaveOccurred(), "connectivity is *not* expected, since there isn't an exposed service")
 			})
 		})
@@ -207,7 +174,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 				var err error
 				serviceHostnameWithSubdomain := fmt.Sprintf("%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain)
 
-				jobCleanup, err = assertConnectivityToService(serviceHostnameWithSubdomain, inboundVMI.Namespace, servicePort)
+				jobCleanup, err = connectivity.AssertConnectivityToService(virtClient, connectivity.RunHelloWorldJob, serviceHostnameWithSubdomain, inboundVMI.Namespace, servicePort)
 				Expect(err).NotTo(HaveOccurred(), "connectivity is expected to the exposed service")
 			})
 		})
@@ -276,7 +243,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 				By("checking connectivity the the exposed service")
 				var err error
 
-				jobCleanup, err = assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
+				jobCleanup, err = connectivity.AssertConnectivityToService(virtClient, connectivity.RunHelloWorldJob, serviceName, inboundVMI.Namespace, servicePort)
 				Expect(err).NotTo(HaveOccurred(), "connectivity is expected to the exposed service")
 			},
 				table.Entry("when the service is exposed by an IPv4 address.", k8sv1.IPv4Protocol),
@@ -298,7 +265,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 				var err error
 				serviceName = "missingservice"
 
-				jobCleanup, err = assertNoConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
+				jobCleanup, err = connectivity.AssertNoConnectivityToService(virtClient, connectivity.RunHelloWorldJob, serviceName, inboundVMI.Namespace, servicePort)
 				Expect(err).NotTo(HaveOccurred(), "connectivity is *not* expected, since there isn't an exposed service")
 			})
 		})

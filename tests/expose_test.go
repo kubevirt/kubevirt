@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +17,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/connectivity"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
 )
@@ -53,36 +53,10 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
 	})
-	runHelloWorldJob := func(host, port, namespace string) *batchv1.Job {
-		job := tests.NewHelloWorldJob(host, port)
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(job)
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		return job
-	}
-
-	runHelloWorldJobUDP := func(host, port, namespace string) *batchv1.Job {
-		job := tests.NewHelloWorldJobUDP(host, port)
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(job)
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		return job
-	}
-
-	runHelloWorldJobHttp := func(host, port, namespace string) *batchv1.Job {
-		job := tests.NewHelloWorldJobHTTP(host, port)
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(job)
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		return job
-	}
 
 	cleanupService := func(serviceName string, namespace string) func() error {
 		return func() error {
 			return virtClient.CoreV1().Services(namespace).Delete(serviceName, &k8smetav1.DeleteOptions{})
-		}
-	}
-
-	cleanupJob := func(jobName string, namespace string) func() error {
-		return func() error {
-			return virtClient.BatchV1().Jobs(namespace).Delete(jobName, &k8smetav1.DeleteOptions{})
 		}
 	}
 
@@ -95,7 +69,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		Context("Expose ClusterIP service", func() {
-			const servicePort = "27017"
+			const servicePort = 27017
 			const serviceName = "cluster-ip-vmi"
 
 			var vmiExposeArgs []string
@@ -107,7 +81,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				vmiExposeArgs = []string{
 					expose.COMMAND_EXPOSE,
 					"virtualmachineinstance", "--namespace", tcpVM.GetNamespace(), tcpVM.GetName(),
-					"--port", servicePort, "--name", serviceName,
+					"--port", fmt.Sprintf("%d", servicePort), "--name", serviceName,
 					"--target-port", strconv.Itoa(testPort),
 				}
 			})
@@ -145,12 +119,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				serviceCleanupFunc = cleanupService(serviceName, tcpVM.GetNamespace())
 				serviceIP := svc.Spec.ClusterIP
 
-				By("Starting a job which tries to reach the VMI via ClusterIP")
-				job := runHelloWorldJob(serviceIP, servicePort, tcpVM.Namespace)
-				jobCleanupFunc = cleanupJob(job.GetName(), job.GetNamespace())
-
-				By("Waiting for the job to report a successful connection attempt")
-				Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
+				jobCleanupFunc, err = connectivity.AssertConnectivityToServiceByIP(virtClient, connectivity.RunHelloWorldJob, serviceIP, tcpVM.GetNamespace(), servicePort)
 			},
 				table.Entry("over default IPv4 IP family", k8sv1.IPv4Protocol),
 				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
@@ -275,7 +244,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		Context("Expose NodePort service", func() {
-			const servicePort = "27017"
+			const servicePort = 27017
 			const serviceName = "node-port-vmi"
 
 			var vmiExposeArgs []string
@@ -287,8 +256,8 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				vmiExposeArgs = []string{
 					expose.COMMAND_EXPOSE,
 					"virtualmachineinstance", "--namespace", tcpVM.GetNamespace(), tcpVM.GetName(),
-					"--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
-					"--type", "NodePort",
+					"--port", fmt.Sprintf("%d", servicePort), "--name", serviceName,
+					"--target-port", strconv.Itoa(testPort), "--type", "NodePort",
 				}
 			})
 
@@ -316,9 +285,10 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					vmiExposeArgs = append(vmiExposeArgs, "--ip-family", "ipv6")
 				}
 
+				exposedPort := fmt.Sprintf("%d", servicePort)
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
-					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
+					tcpVM.Namespace, tcpVM.Name, "--port", exposedPort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
 					"--type", "NodePort")
 				err := virtctl()
 				Expect(err).ToNot(HaveOccurred())
@@ -338,12 +308,9 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					Expect(node.Status.Addresses).ToNot(BeEmpty())
 					nodeIP := node.Status.Addresses[0].Address
 
-					By("Starting a job which tries to reach the VMI via NodePort")
-					job := runHelloWorldJob(nodeIP, strconv.Itoa(int(nodePort)), tcpVM.Namespace)
-					jobsCleanupFuncs = append(jobsCleanupFuncs, cleanupJob(job.GetName(), job.GetNamespace()))
-
-					By("Waiting for the job to report a successful connection attempt")
-					Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
+					jobCleanupFunc, err := connectivity.AssertConnectivityToServiceByIP(virtClient, connectivity.RunHelloWorldJob, nodeIP, tcpVM.GetNamespace(), int(nodePort))
+					jobsCleanupFuncs = append(jobsCleanupFuncs, jobCleanupFunc)
+					Expect(err).NotTo(HaveOccurred(), "should have been able to contact the service")
 				}
 			},
 				table.Entry("over default IPv4 IP family", k8sv1.IPv4Protocol),
@@ -361,7 +328,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		Context("Expose ClusterIP UDP service", func() {
-			const servicePort = "28017"
+			const servicePort = 28017
 			const serviceName = "cluster-ip-udp-vmi"
 
 			var vmiExposeArgs []string
@@ -373,8 +340,8 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				vmiExposeArgs = []string{
 					expose.COMMAND_EXPOSE,
 					"virtualmachineinstance", "--namespace", udpVM.GetNamespace(), udpVM.GetName(),
-					"--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
-					"--protocol", "UDP",
+					"--port", fmt.Sprintf("%d", servicePort), "--name", serviceName,
+					"--target-port", strconv.Itoa(testPort), "--protocol", "UDP",
 				}
 			})
 
@@ -410,12 +377,8 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				serviceCleanupFunc = cleanupService(svc.GetName(), svc.GetNamespace())
 				serviceIP := svc.Spec.ClusterIP
 
-				By("Starting a job which tries to reach the VMI via ClusterIP")
-				job := runHelloWorldJobUDP(serviceIP, servicePort, udpVM.Namespace)
-				jobCleanupFunc = cleanupJob(job.GetName(), job.GetNamespace())
-
-				By("Waiting for the job to report a successful connection attempt")
-				Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
+				jobCleanupFunc, err = connectivity.AssertConnectivityToServiceByIP(virtClient, connectivity.RunHelloWorldJobUDP, serviceIP, udpVM.GetNamespace(), servicePort)
+				Expect(err).NotTo(HaveOccurred(), "should have been able to contact the service")
 			},
 				table.Entry("over default IPv4 IP family", k8sv1.IPv4Protocol),
 				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
@@ -423,7 +386,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		Context("Expose NodePort UDP service", func() {
-			const servicePort = "29017"
+			const servicePort = 29017
 			const serviceName = "node-port-udp-vmi"
 
 			var vmiExposeArgs []string
@@ -435,7 +398,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				vmiExposeArgs = []string{
 					expose.COMMAND_EXPOSE,
 					"virtualmachineinstance", "--namespace", udpVM.GetNamespace(), udpVM.GetName(),
-					"--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
+					"--port", fmt.Sprintf("%d", servicePort), "--name", serviceName, "--target-port", strconv.Itoa(testPort),
 					"--type", "NodePort", "--protocol", "UDP",
 				}
 			})
@@ -475,11 +438,9 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				nodePort := svc.Spec.Ports[0].NodePort
 				Expect(nodePort).To(BeNumerically(">", 0))
 
-				By("Starting a job which tries to reach the VMI via ClusterIP")
-				job := runHelloWorldJobUDP(serviceIP, servicePort, udpVM.Namespace)
-
-				By("Waiting for the job to report a successful connection attempt")
-				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
+				jobCleanupFunc, err := connectivity.AssertConnectivityToServiceByIP(virtClient, connectivity.RunHelloWorldJobUDP, serviceIP, udpVM.GetNamespace(), servicePort)
+				Expect(err).NotTo(HaveOccurred(), "should have been able to contact the service")
+				jobsCleanupFuncs = append(jobsCleanupFuncs, jobCleanupFunc)
 
 				By("Getting the node IP from all nodes")
 				nodes, err := virtClient.CoreV1().Nodes().List(k8smetav1.ListOptions{})
@@ -500,12 +461,9 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 						Expect(nodeIP).NotTo(BeEmpty(), "must have been able to resolve the IPv6 address of the node")
 					}
 
-					By("Starting a job which tries to reach the VMI via NodePort")
-					job := runHelloWorldJobUDP(nodeIP, strconv.Itoa(int(nodePort)), udpVM.Namespace)
-					jobsCleanupFuncs = append(jobsCleanupFuncs, cleanupJob(job.GetName(), job.GetNamespace()))
-
-					By("Waiting for the job to report a successful connection attempt")
-					Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
+					jobCleanupFunc, err := connectivity.AssertConnectivityToServiceByIP(virtClient, connectivity.RunHelloWorldJobUDP, nodeIP, udpVM.GetNamespace(), int(nodePort))
+					Expect(err).NotTo(HaveOccurred(), "should have been able to contact the service")
+					jobsCleanupFuncs = append(jobsCleanupFuncs, jobCleanupFunc)
 				}
 			},
 				table.Entry("over default IPv4 IP family", k8sv1.IPv4Protocol),
@@ -549,7 +507,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		Context("Expose ClusterIP service", func() {
-			const servicePort = "27017"
+			const servicePort = 27017
 			const serviceName = "cluster-ip-vmirs"
 
 			var vmirsExposeArgs []string
@@ -561,7 +519,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				vmirsExposeArgs = []string{
 					expose.COMMAND_EXPOSE,
 					"vmirs", "--namespace", vmrs.GetNamespace(), vmrs.GetName(),
-					"--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
+					"--port", fmt.Sprintf("%d", servicePort), "--name", serviceName, "--target-port", strconv.Itoa(testPort),
 				}
 			})
 
@@ -597,12 +555,8 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				serviceCleanupFunc = cleanupService(svc.GetName(), svc.GetNamespace())
 				serviceIP := svc.Spec.ClusterIP
 
-				By("Starting a job which tries to reach the VMI via ClusterIP")
-				job := runHelloWorldJob(serviceIP, servicePort, vmrs.Namespace)
-				jobCleanupFunc = cleanupJob(job.GetName(), job.GetNamespace())
-
-				By("Waiting for the job to report a successful connection attempt")
-				Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
+				jobCleanupFunc, err = connectivity.AssertConnectivityToServiceByIP(virtClient, connectivity.RunHelloWorldJob, serviceIP, vmrs.GetNamespace(), servicePort)
+				Expect(err).NotTo(HaveOccurred(), "should have been able to contact the service")
 			},
 				table.Entry("over default IPv4 IP family", k8sv1.IPv4Protocol),
 				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
@@ -611,7 +565,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Context("Expose a VM as a service.", func() {
-		const servicePort = "27017"
+		const servicePort = 27017
 		const serviceName = "cluster-ip-vm"
 		var vm *v1.VirtualMachine
 
@@ -665,7 +619,8 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				vmExposeArgs = []string{
 					expose.COMMAND_EXPOSE,
 					"virtualmachine", "--namespace", vm.GetNamespace(), vm.GetName(),
-					"--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
+					"--port", fmt.Sprintf("%d", servicePort), "--name", serviceName,
+					"--target-port", strconv.Itoa(testPort),
 				}
 			})
 
@@ -722,19 +677,14 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				serviceCleanupFunc = cleanupService(svc.GetName(), svc.GetNamespace())
 				serviceIP := svc.Spec.ClusterIP
 
-				By("Starting a job which tries to reach the VMI via ClusterIP")
-				job := runHelloWorldJob(serviceIP, servicePort, vm.Namespace)
-				jobCleanupFuncs = append(jobCleanupFuncs, cleanupJob(job.GetName(), job.GetNamespace()))
-
-				By("Waiting for the job to report a successful connection attempt")
-				Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
+				jobCleanupFunc, err := connectivity.AssertConnectivityToServiceByIP(virtClient, connectivity.RunHelloWorldJob, serviceIP, vm.GetNamespace(), servicePort)
+				Expect(err).NotTo(HaveOccurred(), "should have been able to contact the service")
+				jobCleanupFuncs = append(jobCleanupFuncs, jobCleanupFunc)
 
 				By("Starting a job which tries to reach the VMI again via the same ClusterIP, this time over HTTP.")
-				job = runHelloWorldJobHttp(serviceIP, servicePort, vm.Namespace)
-				jobCleanupFuncs = append(jobCleanupFuncs, cleanupJob(job.GetName(), job.GetNamespace()))
-
-				By("Waiting for the HTTP job to report a successful connection attempt.")
-				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
+				jobHTTPCleanupFunc, err := connectivity.AssertConnectivityToServiceByIP(virtClient, connectivity.RunHelloWorldJobHttp, serviceIP, vm.GetNamespace(), servicePort)
+				Expect(err).NotTo(HaveOccurred(), "should have been able to contact the service")
+				jobCleanupFuncs = append(jobCleanupFuncs, jobHTTPCleanupFunc)
 			},
 				table.Entry("over default IPv4 IP family", k8sv1.IPv4Protocol),
 				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
@@ -761,12 +711,9 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				serviceCleanupFunc = cleanupService(svc.GetName(), svc.GetNamespace())
 				serviceIP := svc.Spec.ClusterIP
 
-				By("Starting a job which tries to reach the VMI via ClusterIP.")
-				job := runHelloWorldJob(serviceIP, servicePort, vmObj.Namespace)
-				jobCleanupFuncs = append(jobCleanupFuncs, cleanupJob(job.GetName(), job.GetNamespace()))
-
-				By("Waiting for the job to report a successful connection attempt.")
-				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
+				jobCleanupFunc, err := connectivity.AssertConnectivityToServiceByIP(virtClient, connectivity.RunHelloWorldJob, serviceIP, vm.GetNamespace(), servicePort)
+				Expect(err).NotTo(HaveOccurred(), "should have been able to contact the service")
+				jobCleanupFuncs = append(jobCleanupFuncs, jobCleanupFunc)
 
 				// Retrieve the current VMI UID, to be compared with the new UID after restart.
 				vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(vmObj.Name, &k8smetav1.GetOptions{})
@@ -795,11 +742,9 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Repeating the sequence as prior to restarting the VM: Connect to exposed ClusterIP service.")
 				By("Starting a job which tries to reach the VMI via ClusterIP.")
-				job = runHelloWorldJob(serviceIP, servicePort, vmObj.Namespace)
-				jobCleanupFuncs = append(jobCleanupFuncs, cleanupJob(job.GetName(), job.GetNamespace()))
-
-				By("Waiting for the job to report a successful connection attempt.")
-				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
+				jobAfterRestartCleanupFunc, err := connectivity.AssertConnectivityToServiceByIP(virtClient, connectivity.RunHelloWorldJob, serviceIP, vm.GetNamespace(), servicePort)
+				Expect(err).NotTo(HaveOccurred(), "should have been able to contact the service")
+				jobCleanupFuncs = append(jobCleanupFuncs, jobAfterRestartCleanupFunc)
 			},
 				table.Entry("over default IPv4 IP family", k8sv1.IPv4Protocol),
 				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
@@ -825,12 +770,9 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				serviceCleanupFunc = cleanupService(svc.GetName(), svc.GetNamespace())
 				serviceIP := svc.Spec.ClusterIP
 
-				By("Starting a job which tries to reach the VMI via ClusterIP")
-				job := runHelloWorldJob(serviceIP, servicePort, vm.Namespace)
-
-				By("Waiting for the job to report a successful connection attempt")
-				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
-				jobCleanupFuncs = append(jobCleanupFuncs, cleanupJob(job.GetName(), job.GetNamespace()))
+				jobCleanupFunc, err := connectivity.AssertConnectivityToServiceByIP(virtClient, connectivity.RunHelloWorldJob, serviceIP, vm.GetNamespace(), servicePort)
+				Expect(err).NotTo(HaveOccurred(), "should have been able to contact the service")
+				jobCleanupFuncs = append(jobCleanupFuncs, jobCleanupFunc)
 
 				By("Comparing the service's endpoints IP address to the VM pod IP address.")
 				// Get the IP address of the VM pod.
@@ -862,13 +804,9 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(err).ToNot(HaveOccurred())
 				Expect(svcEndpoints.Subsets).To(BeNil())
 
-				By("Starting a job which tries to reach the VMI via the ClusterIP service.")
-				job = runHelloWorldJob(serviceIP, servicePort, vm.Namespace)
-				jobCleanupFuncs = append(jobCleanupFuncs, cleanupJob(job.GetName(), job.GetNamespace()))
-
-				By("Waiting for the job to report a failed connection attempt.")
-				Expect(tests.WaitForJobToFail(job, 120*time.Second)).To(Succeed())
-
+				jobCleanupFunc, err = connectivity.AssertNoConnectivityToServiceByIP(virtClient, connectivity.RunHelloWorldJob, serviceIP, vm.GetNamespace(), servicePort)
+				Expect(err).NotTo(HaveOccurred(), "should have been able to contact the service")
+				jobCleanupFuncs = append(jobCleanupFuncs, jobCleanupFunc)
 				// this way, the test does not attempt to stop the VM in the `AfterEach` section
 				vm = nil
 			},

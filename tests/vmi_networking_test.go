@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/connectivity"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -262,7 +263,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				Skip("Skip network test that requires multiple nodes when only one node is present.")
 			}
 
-			job := tests.NewHelloWorldJob(ip, strconv.Itoa(testPort))
+			job := connectivity.NewHelloWorldJob(ip, strconv.Itoa(testPort))
 			job.Spec.Template.Spec.Affinity = &v12.Affinity{
 				NodeAffinity: &v12.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &v12.NodeSelector{
@@ -280,7 +281,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 			job, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(job)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(tests.WaitForJobToSucceed(job, 90*time.Second)).To(Succeed())
+			Expect(connectivity.WaitForJobToSucceed(job, 90*time.Second)).To(Succeed())
 		},
 			table.Entry("[test_id:1543]on the same node from Pod", v12.NodeSelectorOpIn, false),
 			table.Entry("[test_id:1544]on a different node from Pod", v12.NodeSelectorOpNotIn, false),

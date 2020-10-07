@@ -1,4 +1,4 @@
-package tests
+package connectivity
 
 import (
 	"fmt"
@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libpod"
 )
 
@@ -141,7 +142,7 @@ func NewHelloWorldJobUDP(host string, port string) *batchv1.Job {
 // This pod tries to contact the host on the provided port, over HTTP.
 // On success - it expects to receive "Hello World!".
 func NewHelloWorldJobHTTP(host string, port string) *batchv1.Job {
-	check := []string{fmt.Sprintf(`set -x; ping -c 1 %s; x="$(head -n 1 < <(curl %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, FormatIPForURL(host), port)}
+	check := []string{fmt.Sprintf(`set -x; ping -c 1 %s; x="$(head -n 1 < <(curl %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, tests.FormatIPForURL(host), port)}
 	job := NewJob("curl", []string{"/bin/bash", "-c"}, check, JobRetry, JobTTL, JobTimeout)
 
 	return job
