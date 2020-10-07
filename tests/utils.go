@@ -167,20 +167,6 @@ const (
 var testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator}
 var schedulableNode = ""
 
-type startType string
-
-const (
-	invalidWatch startType = "invalidWatch"
-	// Watch since the moment a long poll connection is established
-	watchSinceNow startType = "watchSinceNow"
-	// Watch since the resourceVersion of the passed in runtime object
-	watchSinceObjectUpdate startType = "watchSinceObjectUpdate"
-	// Watch since the resourceVersion of the watched object
-	watchSinceWatchedObjectUpdate startType = "watchSinceWatchedObjectUpdate"
-	// Watch since the resourceVersion passed in to the builder
-	watchSinceResourceVersion startType = "watchSinceResourceVersion"
-)
-
 const (
 	osAlpineHostPath = "alpine-host-path"
 	osWindows        = "windows"
@@ -239,12 +225,11 @@ type ObjectEventWatcher struct {
 	timeout                *time.Duration
 	failOnWarnings         bool
 	resourceVersion        string
-	startType              startType
 	dontFailOnMissingEvent bool
 }
 
 func NewObjectEventWatcher(object runtime.Object) *ObjectEventWatcher {
-	return &ObjectEventWatcher{object: object, startType: invalidWatch}
+	return &ObjectEventWatcher{object: object}
 }
 
 func (w *ObjectEventWatcher) Timeout(duration time.Duration) *ObjectEventWatcher {
@@ -258,58 +243,19 @@ func (w *ObjectEventWatcher) FailOnWarnings() *ObjectEventWatcher {
 }
 
 /*
-SinceNow sets a watch starting point for events, from the moment on the connection to the apiserver
-was established.
-*/
-func (w *ObjectEventWatcher) SinceNow() *ObjectEventWatcher {
-	w.startType = watchSinceNow
-	return w
-}
-
-/*
 SinceWatchedObjectResourceVersion takes the resource version of the runtime object which is watched,
 and takes it as the starting point for all events to watch for.
 */
 func (w *ObjectEventWatcher) SinceWatchedObjectResourceVersion() *ObjectEventWatcher {
-	w.startType = watchSinceWatchedObjectUpdate
-	return w
-}
-
-/*
-SinceObjectResourceVersion takes the resource version of the passed in runtime object and takes it
-as the starting point for all events to watch for.
-*/
-func (w *ObjectEventWatcher) SinceObjectResourceVersion(object runtime.Object) *ObjectEventWatcher {
-	var err error
-	w.startType = watchSinceObjectUpdate
-	w.resourceVersion, err = meta.NewAccessor().ResourceVersion(object)
-	Expect(err).ToNot(HaveOccurred())
-	return w
-}
-
-/*
-SinceResourceVersion sets the passed in resourceVersion as the starting point for all events to watch for.
-*/
-func (w *ObjectEventWatcher) SinceResourceVersion(rv string) *ObjectEventWatcher {
-	w.resourceVersion = rv
-	w.startType = watchSinceResourceVersion
 	return w
 }
 
 func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessFunc, watchedDescription string) {
-	Expect(w.startType).ToNot(Equal(invalidWatch))
 	resourceVersion := ""
 
-	switch w.startType {
-	case watchSinceNow:
-		resourceVersion = ""
-	case watchSinceObjectUpdate, watchSinceResourceVersion:
-		resourceVersion = w.resourceVersion
-	case watchSinceWatchedObjectUpdate:
-		var err error
-		resourceVersion, err = meta.NewAccessor().ResourceVersion(w.object)
-		Expect(err).ToNot(HaveOccurred())
-	}
+	var err error
+	resourceVersion, err = meta.NewAccessor().ResourceVersion(w.object)
+	Expect(err).ToNot(HaveOccurred())
 
 	cli, err := kubecli.GetKubevirtClient()
 	if err != nil {
