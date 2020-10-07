@@ -2710,9 +2710,21 @@ func WaitForSuccessfulVMIStart(vmi runtime.Object) string {
 	return waitForVMIStart(vmi, 360, false)
 }
 
+func waitForSuccessfulVMIStartWithIgnoreWarnings(vmi runtime.Object, ignoreWarnings bool) string {
+	return waitForVMIStart(vmi, 360, ignoreWarnings)
+}
+
 func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory VMIExpecterFactory) *v1.VirtualMachineInstance {
+	return waitUntilVMIReadyWithIgnoreWarnings(vmi, expecterFactory, false)
+}
+
+func WaitUntilVMIReadyAndIgnoreWarnings(vmi *v1.VirtualMachineInstance, expecterFactory VMIExpecterFactory) *v1.VirtualMachineInstance {
+	return waitUntilVMIReadyWithIgnoreWarnings(vmi, expecterFactory, true)
+}
+
+func waitUntilVMIReadyWithIgnoreWarnings(vmi *v1.VirtualMachineInstance, expecterFactory VMIExpecterFactory, ignoreWarnings bool) *v1.VirtualMachineInstance {
 	// Wait for VirtualMachineInstance start
-	WaitForSuccessfulVMIStart(vmi)
+	waitForSuccessfulVMIStartWithIgnoreWarnings(vmi, ignoreWarnings)
 
 	// Fetch the new VirtualMachineInstance with updated status
 	virtClient, err := kubecli.GetKubevirtClient()

@@ -36,7 +36,6 @@ goimports(
     exclude_paths = [
         "./vendor/*",
         "./.history/*",
-        "./.git/*",
     ],
     local = ["kubevirt.io"],
     prefix = "kubevirt.io/kubevirt",

@@ -61,9 +61,9 @@ var _ = Describe("[Serial][rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][leve
 			clientVMI = createVMICirros(virtClient, tests.NamespaceTestDefault, map[string]string{}, libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()))
 			clientVMIAlternativeNamespace = createVMICirros(virtClient, tests.NamespaceTestAlternative, map[string]string{}, libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()))
 
-			serverVMI = tests.WaitUntilVMIReady(serverVMI, tests.LoggedInCirrosExpecter)
-			clientVMI = tests.WaitUntilVMIReady(clientVMI, tests.LoggedInCirrosExpecter)
-			clientVMIAlternativeNamespace = tests.WaitUntilVMIReady(clientVMIAlternativeNamespace, tests.LoggedInCirrosExpecter)
+			serverVMI = tests.WaitUntilVMIReadyAndIgnoreWarnings(serverVMI, tests.LoggedInCirrosExpecter)
+			clientVMI = tests.WaitUntilVMIReadyAndIgnoreWarnings(clientVMI, tests.LoggedInCirrosExpecter)
+			clientVMIAlternativeNamespace = tests.WaitUntilVMIReadyAndIgnoreWarnings(clientVMIAlternativeNamespace, tests.LoggedInCirrosExpecter)
 
 			By("Start HTTP server at serverVMI on ports 80 and 81")
 			tests.HTTPServer.Start(serverVMI, 80)
