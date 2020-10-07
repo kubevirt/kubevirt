@@ -263,22 +263,11 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				Skip("Skip network test that requires multiple nodes when only one node is present.")
 			}
 
-			job := connectivity.NewHelloWorldJob(ip, strconv.Itoa(testPort))
-			job.Spec.Template.Spec.Affinity = &v12.Affinity{
-				NodeAffinity: &v12.NodeAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: &v12.NodeSelector{
-						NodeSelectorTerms: []v12.NodeSelectorTerm{
-							{
-								MatchExpressions: []v12.NodeSelectorRequirement{
-									{Key: "kubernetes.io/hostname", Operator: op, Values: []string{inboundVMI.Status.NodeName}},
-								},
-							},
-						},
-					},
-				},
+			job, err := connectivity.RunJobOnNode(virtClient, ip, fmt.Sprintf("%d", testPort), inboundVMI.GetNamespace(), connectivity.RunHelloWorldJob, inboundVMI.Status.NodeName, op)
+			Expect(err).ToNot(HaveOccurred())
+			if hostNetwork {
+				job = connectivity.SetHostNetwork(job)
 			}
-			job.Spec.Template.Spec.HostNetwork = hostNetwork
-
 			job, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(job)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(connectivity.WaitForJobToSucceed(job, 90*time.Second)).To(Succeed())

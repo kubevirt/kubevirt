@@ -5,12 +5,40 @@ import (
 	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/kubecli"
 )
 
 type JobCreationFunction func(virtClient kubecli.KubevirtClient, host, port, namespace string) (*batchv1.Job, error)
+
+func RunJobOnNode(virtClient kubecli.KubevirtClient, host, port, namespace string, function JobCreationFunction, nodeName string, op k8sv1.NodeSelectorOperator) (*batchv1.Job, error) {
+	job, err := function(virtClient, host, port, namespace)
+	return pinJobOnNode(job, nodeName, op), err
+}
+
+func pinJobOnNode(job *batchv1.Job, nodeName string, op k8sv1.NodeSelectorOperator) *batchv1.Job {
+	job.Spec.Template.Spec.Affinity = &k8sv1.Affinity{
+		NodeAffinity: &k8sv1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+					{
+						MatchExpressions: []k8sv1.NodeSelectorRequirement{
+							{Key: "kubernetes.io/hostname", Operator: op, Values: []string{nodeName}},
+						},
+					},
+				},
+			},
+		},
+	}
+	return job
+}
+
+func SetHostNetwork(job *batchv1.Job) *batchv1.Job {
+	job.Spec.Template.Spec.HostNetwork = true
+	return job
+}
 
 func RunHelloWorldJob(virtClient kubecli.KubevirtClient, host, port, namespace string) (*batchv1.Job, error) {
 	job := NewHelloWorldJob(host, port)
