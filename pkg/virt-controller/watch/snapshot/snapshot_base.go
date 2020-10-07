@@ -208,7 +208,7 @@ func (ctrl *VMSnapshotController) processVMSnapshotWorkItem() bool {
 			return 0, fmt.Errorf("unexpected resource %+v", storeObj)
 		}
 
-		return ctrl.updateVMSnapshot(vmSnapshot)
+		return ctrl.updateVMSnapshot(vmSnapshot.DeepCopy())
 	})
 }
 
@@ -226,7 +226,7 @@ func (ctrl *VMSnapshotController) processVMSnapshotContentWorkItem() bool {
 			return 0, fmt.Errorf("unexpected resource %+v", storeObj)
 		}
 
-		return ctrl.updateVMSnapshotContent(vmSnapshotContent)
+		return ctrl.updateVMSnapshotContent(vmSnapshotContent.DeepCopy())
 	})
 }
 
@@ -384,7 +384,7 @@ func (ctrl *VMSnapshotController) getVolumeSnapshot(namespace, name string) (*vs
 		return nil, err
 	}
 
-	return obj.(*vsv1beta1.VolumeSnapshot), nil
+	return obj.(*vsv1beta1.VolumeSnapshot).DeepCopy(), nil
 }
 
 func (ctrl *VMSnapshotController) getVolumeSnapshotClasses() []vsv1beta1.VolumeSnapshotClass {
@@ -399,7 +399,7 @@ func (ctrl *VMSnapshotController) getVolumeSnapshotClasses() []vsv1beta1.VolumeS
 	var vscs []vsv1beta1.VolumeSnapshotClass
 	objs := di.informer.GetStore().List()
 	for _, obj := range objs {
-		vsc := obj.(*vsv1beta1.VolumeSnapshotClass)
+		vsc := obj.(*vsv1beta1.VolumeSnapshotClass).DeepCopy()
 		vscs = append(vscs, *vsc)
 	}
 

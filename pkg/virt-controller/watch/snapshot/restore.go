@@ -90,26 +90,29 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 		return 0, nil
 	}
 
-	complete := false
 	vmRestoreOut := vmRestoreIn.DeepCopy()
 
 	if vmRestoreOut.Status == nil {
-		vmRestoreOut.Status = &snapshotv1.VirtualMachineRestoreStatus{}
+		f := false
+		vmRestoreOut.Status = &snapshotv1.VirtualMachineRestoreStatus{
+			Complete: &f,
+		}
 	}
-
-	vmRestoreOut.Status.Complete = &complete
-	vmRestoreOut.Status.RestoreTime = nil
 
 	target, err := ctrl.getTarget(vmRestoreOut)
 	if err != nil {
 		logger.Reason(err).Error("Error getting restore target")
-		return 0, ctrl.doUpdateError(vmRestoreIn, vmRestoreOut, err)
+		return 0, ctrl.doUpdateError(vmRestoreOut, err)
 	}
 
 	if len(vmRestoreOut.OwnerReferences) == 0 {
 		target.Own(vmRestoreOut)
 		updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionTrue, "Initializing VirtualMachineRestore"))
 		updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionFalse, "Initializing VirtualMachineRestore"))
+	}
+
+	// let's make sure everything is initialized properly before continuing
+	if !reflect.DeepEqual(vmRestoreIn, vmRestoreOut) {
 		return 0, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
 	}
 
@@ -117,7 +120,7 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 	updated, err = ctrl.reconcileVolumeRestores(vmRestoreOut, target)
 	if err != nil {
 		logger.Reason(err).Error("Error reconciling VolumeRestores")
-		return 0, ctrl.doUpdateError(vmRestoreIn, vmRestoreOut, err)
+		return 0, ctrl.doUpdateError(vmRestoreIn, err)
 	}
 
 	if !updated {
@@ -125,20 +128,20 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 		ready, err = target.Ready()
 		if err != nil {
 			logger.Reason(err).Error("Error checking target ready")
-			return 0, ctrl.doUpdateError(vmRestoreIn, vmRestoreOut, err)
+			return 0, ctrl.doUpdateError(vmRestoreIn, err)
 		}
 
 		if ready {
 			updated, err = target.Reconcile()
 			if err != nil {
 				logger.Reason(err).Error("Error reconciling target")
-				return 0, ctrl.doUpdateError(vmRestoreIn, vmRestoreOut, err)
+				return 0, ctrl.doUpdateError(vmRestoreIn, err)
 			}
 
 			if !updated {
 				if err = target.Cleanup(); err != nil {
 					logger.Reason(err).Error("Error cleaning up")
-					return 0, ctrl.doUpdateError(vmRestoreIn, vmRestoreOut, err)
+					return 0, ctrl.doUpdateError(vmRestoreIn, err)
 				}
 
 				ctrl.Recorder.Eventf(
@@ -149,7 +152,8 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 					vmRestoreOut.Name,
 				)
 
-				complete = true
+				t := true
+				vmRestoreOut.Status.Complete = &t
 				vmRestoreOut.Status.RestoreTime = currentTime()
 				updateRestoreCondition(vmRestoreOut, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
 				updateRestoreCondition(vmRestoreOut, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
@@ -172,18 +176,20 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 	return 0, ctrl.doUpdate(vmRestoreIn, vmRestoreOut)
 }
 
-func (ctrl *VMRestoreController) doUpdateError(original, updated *snapshotv1.VirtualMachineRestore, err error) error {
+func (ctrl *VMRestoreController) doUpdateError(restore *snapshotv1.VirtualMachineRestore, err error) error {
 	ctrl.Recorder.Eventf(
-		updated,
+		restore,
 		corev1.EventTypeWarning,
 		restoreErrorEvent,
 		"VirtualMachineRestore encountered error %s",
 		err.Error(),
 	)
 
+	updated := restore.DeepCopy()
+
 	updateRestoreCondition(updated, newProgressingCondition(corev1.ConditionFalse, err.Error()))
 	updateRestoreCondition(updated, newReadyCondition(corev1.ConditionFalse, err.Error()))
-	if err2 := ctrl.doUpdate(original, updated); err2 != nil {
+	if err2 := ctrl.doUpdate(restore, updated); err2 != nil {
 		return err2
 	}
 
@@ -285,7 +291,7 @@ func (ctrl *VMRestoreController) getBindingMode(pvc *corev1.PersistentVolumeClai
 		return nil, fmt.Errorf("StorageClass %s does not exist", *pvc.Spec.StorageClassName)
 	}
 
-	sc := obj.(*storagev1.StorageClass)
+	sc := obj.(*storagev1.StorageClass).DeepCopy()
 
 	return sc.VolumeBindingMode, nil
 }
@@ -343,8 +349,13 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	var deletedDataVolumes []string
 	updatedStatus := false
 
-	copy(newTemplates, snapshotVM.Spec.DataVolumeTemplates)
-	copy(newVolumes, snapshotVM.Spec.Template.Spec.Volumes)
+	for i, t := range snapshotVM.Spec.DataVolumeTemplates {
+		t.DeepCopyInto(&newTemplates[i])
+	}
+
+	for i, v := range snapshotVM.Spec.Template.Spec.Volumes {
+		v.DeepCopyInto(&newVolumes[i])
+	}
 
 	for j, v := range snapshotVM.Spec.Template.Spec.Volumes {
 		if v.DataVolume != nil || v.PersistentVolumeClaim != nil {
@@ -503,7 +514,7 @@ func (ctrl *VMRestoreController) getSnapshotContent(vmRestore *snapshotv1.Virtua
 		return nil, fmt.Errorf("VMSnapshot %s does not exist", objKey)
 	}
 
-	vms := obj.(*snapshotv1.VirtualMachineSnapshot)
+	vms := obj.(*snapshotv1.VirtualMachineSnapshot).DeepCopy()
 	if !vmSnapshotReady(vms) {
 		return nil, fmt.Errorf("VMSnapshot %s not ready", objKey)
 	}
@@ -526,7 +537,7 @@ func (ctrl *VMRestoreController) getSnapshotContent(vmRestore *snapshotv1.Virtua
 		return nil, fmt.Errorf("VMSnapshotContent %s does not exist", objKey)
 	}
 
-	vmss := obj.(*snapshotv1.VirtualMachineSnapshotContent)
+	vmss := obj.(*snapshotv1.VirtualMachineSnapshotContent).DeepCopy()
 	if !vmSnapshotContentReady(vmss) {
 		return nil, fmt.Errorf("VMSnapshotContent %s not ready", objKey)
 	}
@@ -545,7 +556,7 @@ func (ctrl *VMRestoreController) getVM(namespace, name string) (*kubevirtv1.Virt
 		return nil, fmt.Errorf("VirtualMachine %s/%s does not exist", namespace, name)
 	}
 
-	return obj.(*kubevirtv1.VirtualMachine), nil
+	return obj.(*kubevirtv1.VirtualMachine).DeepCopy(), nil
 }
 
 func (ctrl *VMRestoreController) getPVC(namespace, name string) (*corev1.PersistentVolumeClaim, error) {
@@ -559,7 +570,7 @@ func (ctrl *VMRestoreController) getPVC(namespace, name string) (*corev1.Persist
 		return nil, nil
 	}
 
-	return obj.(*corev1.PersistentVolumeClaim), nil
+	return obj.(*corev1.PersistentVolumeClaim).DeepCopy(), nil
 }
 
 func (ctrl *VMRestoreController) getTarget(vmRestore *snapshotv1.VirtualMachineRestore) (restoreTarget, error) {
