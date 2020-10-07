@@ -619,7 +619,9 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			}
 
 			// If any of domain.Status.Interfaces were not handled above, it means that the vm contains additional
-			// interfaces not defined in domain.Spec (most likely added by user on VM). Add them to vmi.Status.Interfaces
+			// interfaces not defined in domain.Spec.Devices.Interfaces (most likely added by user on VM or a SRIOV interface)
+			// Add them to vmi.Status.Interfaces
+			setMissingSRIOVInterfacesNames(existingInterfacesSpecByName, domainInterfaceStatusByMac)
 			for interfaceMAC, domainInterfaceStatus := range domainInterfaceStatusByMac {
 				newInterface := v1.VirtualMachineInstanceNetworkInterface{
 					Name:          domainInterfaceStatus.Name,
@@ -2274,4 +2276,16 @@ func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 		domain != nil &&
 		domain.Spec.Features != nil &&
 		domain.Spec.Features.ACPI != nil
+}
+
+func setMissingSRIOVInterfacesNames(interfacesSpecByName map[string]v1.Interface, interfacesStatusByMac map[string]api.InterfaceStatus) {
+	for name, ifaceSpec := range interfacesSpecByName {
+		if ifaceSpec.SRIOV == nil || ifaceSpec.MacAddress == "" {
+			continue
+		}
+		if domainIfaceStatus, exists := interfacesStatusByMac[ifaceSpec.MacAddress]; exists {
+			domainIfaceStatus.Name = name
+			interfacesStatusByMac[ifaceSpec.MacAddress] = domainIfaceStatus
+		}
+	}
 }
