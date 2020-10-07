@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libpod"
 )
 
 func newCirrosVMI() *v1.VirtualMachineInstance {
@@ -1581,7 +1582,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 })
 
 func renderPkillAllPod(processName string) *k8sv1.Pod {
-	return tests.RenderPod("vmi-killer", []string{"pkill"}, []string{"-9", processName})
+	return libpod.RenderPod("vmi-killer", []string{"pkill"}, []string{"-9", processName})
 }
 
 func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {

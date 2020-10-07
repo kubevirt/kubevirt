@@ -57,6 +57,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libpod"
 )
 
 const (
@@ -1296,7 +1297,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					podName := fmt.Sprintf("migration-killer-pod-%d", idx)
 
 					// kill the handler right as we detect the qemu target process come online
-					pod := tests.RenderPod(podName, []string{"/bin/bash", "-c"}, []string{"while true; do ps aux | grep \"[q]emu-kvm\" && pkill -9 virt-handler && exit 0; done"})
+					pod := libpod.RenderPod(podName, []string{"/bin/bash", "-c"}, []string{"while true; do ps aux | grep \"[q]emu-kvm\" && pkill -9 virt-handler && exit 0; done"})
 					pod.Spec.NodeName = entry.Name
 					createdPod, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(pod)
 					Expect(err).ToNot(HaveOccurred(), "Should create helper pod")

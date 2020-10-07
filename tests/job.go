@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/tests/libpod"
 )
 
 const (
@@ -91,7 +92,7 @@ const (
 //                   Make sure to leave enough time for the reporter to collect the logs.
 // timeout: The overall time at which the job is terminated, regardless of it finishing or not.
 func NewJob(name string, cmd, args []string, retry, ttlAfterFinished int32, timeout int64) *batchv1.Job {
-	pod := RenderPod(name, cmd, args)
+	pod := libpod.RenderPod(name, cmd, args)
 	job := batchv1.Job{
 		ObjectMeta: pod.ObjectMeta,
 		Spec: batchv1.JobSpec{

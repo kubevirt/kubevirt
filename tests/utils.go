@@ -104,6 +104,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmi"
 
 	"github.com/Masterminds/semver"
@@ -2813,38 +2814,6 @@ func NewBool(x bool) *bool {
 	return &x
 }
 
-func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
-	pod := k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: name,
-			Labels: map[string]string{
-				v1.AppLabel: "test",
-			},
-		},
-		Spec: k8sv1.PodSpec{
-			RestartPolicy: k8sv1.RestartPolicyNever,
-			Containers: []k8sv1.Container{
-				{
-					Name:    name,
-					Image:   fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
-					Command: cmd,
-					Args:    args,
-					SecurityContext: &k8sv1.SecurityContext{
-						Privileged: NewBool(true),
-						RunAsUser:  new(int64),
-					},
-				},
-			},
-			HostPID: true,
-			SecurityContext: &k8sv1.PodSecurityContext{
-				RunAsUser: new(int64),
-			},
-		},
-	}
-
-	return &pod
-}
-
 func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter, virtClient kubecli.KubevirtClient, prompt string) error {
 	hasEth0Iface := func() bool {
 		hasNetEth0Batch := append([]expect.Batcher{
@@ -3672,7 +3641,7 @@ func newDeleteHostDisksPod(diskPath string) *k8sv1.Pod {
 }
 
 func RenderHostPathPod(podName string, dir string, hostPathType k8sv1.HostPathType, mountPropagation k8sv1.MountPropagationMode, cmd []string, args []string) *k8sv1.Pod {
-	pod := RenderPod(podName, cmd, args)
+	pod := libpod.RenderPod(podName, cmd, args)
 	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
 		Name:             "hostpath-mount",
 		MountPropagation: &mountPropagation,

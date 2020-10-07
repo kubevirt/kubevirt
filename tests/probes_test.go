@@ -1,9 +1,12 @@
 package tests_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+
 	v1 "k8s.io/api/core/v1"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -14,6 +17,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libpod"
 )
 
 var _ = Describe("[ref_id:1182]Probes", func() {
@@ -30,13 +34,20 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 	buildProbeBackendPodSpec := func(probe *v12.Probe) (*v1.Pod, func() error) {
 		isHTTPProbe := probe.Handler.HTTPGet != nil
 		var probeBackendPod *v1.Pod
+		var err error
+
 		if isHTTPProbe {
 			port := probe.HTTPGet.Port.IntVal
-			probeBackendPod = tests.StartHTTPServerPod(int(port))
+
+			By(fmt.Sprintf("Start HTTP Server pod at port %d", port))
+			probeBackendPod, err = libpod.StartHTTPServerPod(int(port))
 		} else {
 			port := probe.TCPSocket.Port.IntVal
-			probeBackendPod = tests.StartTCPServerPod(int(port))
+
+			By(fmt.Sprintf("Start TCP Server pod at port %d", port))
+			probeBackendPod, err = libpod.StartTCPServerPod(int(port))
 		}
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "should have been able to start a pod with a running server")
 		return probeBackendPod, func() error {
 			return virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(probeBackendPod.Name, &v13.DeleteOptions{})
 		}
