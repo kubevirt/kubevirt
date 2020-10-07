@@ -2635,12 +2635,8 @@ func waitForVMIPhase(phases []v1.VirtualMachineInstancePhase, obj runtime.Object
 	// In case we don't want errors, start an event watcher and  check in parallel if we receive some warnings
 	if ignoreWarnings != true {
 
-		// Fetch the VirtualMachineInstance, to make sure we have a resourceVersion as a starting point for the watch
-		// FIXME: This may start watching too late and we may miss some warnings
-		if vmi.ResourceVersion == "" {
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-			ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		}
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		objectEventWatcher := NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds+2) * time.Second)
 		objectEventWatcher.FailOnWarnings()
