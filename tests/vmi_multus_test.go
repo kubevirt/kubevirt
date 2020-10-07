@@ -790,8 +790,9 @@ var _ = Describe("[Serial]SRIOV", func() {
 		})
 
 		It("[test_id:3985]should create a virtual machine with sriov interface with custom MAC address", func() {
-			mac := "de:ad:00:00:be:ef"
-			vmi := getSriovVmi([]string{"sriov"})
+			const mac = "de:ad:00:00:be:ef"
+			const sriovNetworkName = "sriov"
+			vmi := getSriovVmi([]string{sriovNetworkName})
 			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
 
 			startVmi(vmi)
@@ -808,6 +809,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			By("checking virtual machine instance has an interface with the requested MAC address")
 			Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed())
+			By("checking virtual machine instance reports the expected network name")
+			Expect(getInterfaceNetworkNameByMAC(vmi, mac)).To(Equal(sriovNetworkName))
 		})
 
 		It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
@@ -1120,6 +1123,16 @@ func getInterfaceNameByMAC(vmi *v1.VirtualMachineInstance, mac string) (string, 
 	}
 
 	return "", fmt.Errorf("could not get sriov interface by MAC: no interface on VMI %s with MAC %s", vmi.Name, mac)
+}
+
+func getInterfaceNetworkNameByMAC(vmi *v1.VirtualMachineInstance, macAddress string) string {
+	for _, iface := range vmi.Status.Interfaces {
+		if iface.MAC == macAddress {
+			return iface.Name
+		}
+	}
+
+	return ""
 }
 
 // Tests in Multus suite are expecting a Linux bridge to be available on each node, with iptables allowing
