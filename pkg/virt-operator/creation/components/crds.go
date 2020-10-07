@@ -52,28 +52,19 @@ var (
 )
 
 func patchValidation(crd *extv1beta1.CustomResourceDefinition) {
+	name := crd.Spec.Names.Singular
+	if name != "virtualmachine" && name != "virtualmachineinstance" {
+		return
+	}
+
 	crd.Spec.PreserveUnknownFields = &PreserveUnknownFieldsFalse
-	validation, ok := CRDsValidation[crd.Spec.Names.Singular]
+	validation, ok := CRDsValidation[name]
 	if !ok {
 		return
 	}
 	crvalidation := extv1beta1.CustomResourceValidation{}
 	k8syaml.NewYAMLToJSONDecoder(strings.NewReader(validation)).Decode(&crvalidation)
 	crd.Spec.Validation = &crvalidation
-	// workaround issues with metadata in spec
-	// TODO: find out if tests can be changed and this removed
-	if crd.Spec.Names.Singular == "virtualmachine" {
-		spec := crd.Spec.Validation.OpenAPIV3Schema.Properties["spec"]
-		dataVolumeTemplates := spec.Properties["dataVolumeTemplates"]
-		items := dataVolumeTemplates.Items
-		metadata := items.Schema.Properties["metadata"]
-		metadata.Nullable = true
-		t := true
-		metadata.XPreserveUnknownFields = &t
-
-		items.Schema.Properties["metadata"] = metadata
-
-	}
 }
 
 func newBlankCrd() *extv1beta1.CustomResourceDefinition {

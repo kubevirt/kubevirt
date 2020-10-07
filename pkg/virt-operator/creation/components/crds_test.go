@@ -15,12 +15,12 @@ var _ = Describe("CRDs", func() {
 	},
 		table.Entry("for VM", NewVirtualMachineCrd()),
 		table.Entry("for VMI", NewVirtualMachineInstanceCrd()),
-		table.Entry("for VMIPRESET", NewPresetCrd()),
-		table.Entry("for VMIRS", NewReplicaSetCrd()),
-		table.Entry("for VMIM", NewVirtualMachineInstanceMigrationCrd()),
-		table.Entry("for KV", NewKubeVirtCrd()),
-		table.Entry("for VMSNAPSHOT", NewVirtualMachineSnapshotCrd()),
-		table.Entry("for VMSNAPSHOTCONTENT", NewVirtualMachineSnapshotContentCrd()),
+		table.PEntry("for VMIPRESET", NewPresetCrd()),
+		table.PEntry("for VMIRS", NewReplicaSetCrd()),
+		table.PEntry("for VMIM", NewVirtualMachineInstanceMigrationCrd()),
+		table.PEntry("for KV", NewKubeVirtCrd()),
+		table.PEntry("for VMSNAPSHOT", NewVirtualMachineSnapshotCrd()),
+		table.PEntry("for VMSNAPSHOTCONTENT", NewVirtualMachineSnapshotContentCrd()),
 	)
 
 	It("DataVolumeTemplates should have nullable a XPreserveUnknownFields on metadata", func() {
@@ -47,7 +47,7 @@ var _ = Describe("CRDs", func() {
 		Expect(*metadata.XPreserveUnknownFields).To(BeTrue())
 	})
 
-	It("Template in VMRS should have nullable a XPreserveUnknownFields on metadata", func() {
+	PIt("Template in VMRS should have nullable a XPreserveUnknownFields on metadata", func() {
 		crd := NewReplicaSetCrd()
 		patchValidation(crd)
 		spec := crd.Spec.Validation.OpenAPIV3Schema.Properties["spec"]
@@ -58,7 +58,7 @@ var _ = Describe("CRDs", func() {
 		Expect(*metadata.XPreserveUnknownFields).To(BeTrue())
 	})
 
-	It("Template in VMSnapshotContent should have nullable a XPreserveUnknownFields on metadata", func() {
+	PIt("Template in VMSnapshotContent should have nullable a XPreserveUnknownFields on metadata", func() {
 		crd := NewVirtualMachineSnapshotContentCrd()
 		patchValidation(crd)
 		spec := crd.Spec.Validation.OpenAPIV3Schema.Properties["spec"]

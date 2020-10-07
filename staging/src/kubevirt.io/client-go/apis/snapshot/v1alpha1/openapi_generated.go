@@ -14248,11 +14248,6 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 						},
 					},
 					"filesystems": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
 							Description: "Filesystems describes filesystem which is connected to the vmi.",
 							Type:        []string{"array"},
