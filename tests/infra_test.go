@@ -82,10 +82,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 	Describe("CRDs", func() {
 		It("Should have structural schema", func() {
-			ourCRDs := []string{crds.VIRTUALMACHINE, crds.VIRTUALMACHINEINSTANCE, crds.VIRTUALMACHINEINSTANCEPRESET,
-				crds.VIRTUALMACHINEINSTANCEREPLICASET, crds.VIRTUALMACHINEINSTANCEMIGRATION, crds.KUBEVIRT,
-				crds.VIRTUALMACHINESNAPSHOT, crds.VIRTUALMACHINESNAPSHOTCONTENT,
-			}
+			ourCRDs := []string{crds.VIRTUALMACHINE, crds.VIRTUALMACHINEINSTANCE}
 
 			for _, name := range ourCRDs {
 				ext, err := extclient.NewForConfig(virtClient.Config())

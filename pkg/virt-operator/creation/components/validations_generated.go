@@ -1,6 +1,229 @@
 package components
 
 var CRDsValidation map[string]string = map[string]string{
+	"datavolumetemplatespec": `openAPIV3Schema:
+  nullable: true
+  properties:
+    apiVersion:
+      description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+      type: string
+    kind:
+      description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+      type: string
+    metadata:
+      nullable: true
+      type: object
+      x-kubernetes-preserve-unknown-fields: true
+    spec:
+      description: DataVolumeSpec contains the DataVolume specification.
+      properties:
+        contentType:
+          description: 'DataVolumeContentType options: "kubevirt", "archive"'
+          enum:
+          - kubevirt
+          - archive
+          type: string
+        pvc:
+          description: PVC is the PVC specification
+          properties:
+            accessModes:
+              description: 'AccessModes contains the desired access modes the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1'
+              items:
+                type: string
+              type: array
+            dataSource:
+              description: This field requires the VolumeSnapshotDataSource alpha feature gate to be enabled and currently VolumeSnapshot is the only supported data source. If the provisioner can support VolumeSnapshot data source, it will create a new volume and data will be restored to the volume at the same time. If the provisioner does not support VolumeSnapshot data source, volume will not be created and the failure will be reported as an event. In the future, we plan to support more data source types and the behavior of the provisioner may change.
+              properties:
+                apiGroup:
+                  description: APIGroup is the group for the resource being referenced. If APIGroup is not specified, the specified Kind must be in the core API group. For any other third-party types, APIGroup is required.
+                  type: string
+                kind:
+                  description: Kind is the type of resource being referenced
+                  type: string
+                name:
+                  description: Name is the name of resource being referenced
+                  type: string
+              required:
+              - kind
+              - name
+              type: object
+            resources:
+              description: 'Resources represents the minimum resources the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
+              properties:
+                limits:
+                  additionalProperties:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                  type: object
+                requests:
+                  additionalProperties:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                  type: object
+              type: object
+            selector:
+              description: A label query over volumes to consider for binding.
+              properties:
+                matchExpressions:
+                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                  items:
+                    description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
+                    properties:
+                      key:
+                        description: key is the label key that the selector applies to.
+                        type: string
+                      operator:
+                        description: operator represents a key's relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist.
+                        type: string
+                      values:
+                        description: values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - key
+                    - operator
+                    type: object
+                  type: array
+                matchLabels:
+                  additionalProperties:
+                    type: string
+                  description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
+                  type: object
+              type: object
+            storageClassName:
+              description: 'Name of the StorageClass required by the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1'
+              type: string
+            volumeMode:
+              description: volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec. This is a beta feature.
+              type: string
+            volumeName:
+              description: VolumeName is the binding reference to the PersistentVolume backing this claim.
+              type: string
+          type: object
+        source:
+          description: Source is the src of the data for the requested DataVolume
+          properties:
+            blank:
+              description: DataVolumeBlankImage provides the parameters to create a new raw blank image for the PVC
+              type: object
+            http:
+              description: DataVolumeSourceHTTP can be either an http or https endpoint, with an optional basic auth user name and password, and an optional configmap containing additional CAs
+              properties:
+                certConfigMap:
+                  description: CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate
+                  type: string
+                secretRef:
+                  description: SecretRef A Secret reference, the secret should contain accessKeyId (user name) base64 encoded, and secretKey (password) also base64 encoded
+                  type: string
+                url:
+                  description: URL is the URL of the http(s) endpoint
+                  type: string
+              required:
+              - url
+              type: object
+            imageio:
+              description: DataVolumeSourceImageIO provides the parameters to create a Data Volume from an imageio source
+              properties:
+                certConfigMap:
+                  description: CertConfigMap provides a reference to the CA cert
+                  type: string
+                diskId:
+                  description: DiskID provides id of a disk to be imported
+                  type: string
+                secretRef:
+                  description: SecretRef provides the secret reference needed to access the ovirt-engine
+                  type: string
+                url:
+                  description: URL is the URL of the ovirt-engine
+                  type: string
+              required:
+              - diskId
+              - url
+              type: object
+            pvc:
+              description: DataVolumeSourcePVC provides the parameters to create a Data Volume from an existing PVC
+              properties:
+                name:
+                  description: The name of the source PVC
+                  type: string
+                namespace:
+                  description: The namespace of the source PVC
+                  type: string
+              required:
+              - name
+              - namespace
+              type: object
+            registry:
+              description: DataVolumeSourceRegistry provides the parameters to create a Data Volume from an registry source
+              properties:
+                certConfigMap:
+                  description: CertConfigMap provides a reference to the Registry certs
+                  type: string
+                secretRef:
+                  description: SecretRef provides the secret reference needed to access the Registry source
+                  type: string
+                url:
+                  description: URL is the url of the Docker registry source
+                  type: string
+              required:
+              - url
+              type: object
+            s3:
+              description: DataVolumeSourceS3 provides the parameters to create a Data Volume from an S3 source
+              properties:
+                secretRef:
+                  description: SecretRef provides the secret reference needed to access the S3 source
+                  type: string
+                url:
+                  description: URL is the url of the S3 source
+                  type: string
+              required:
+              - url
+              type: object
+            upload:
+              description: DataVolumeSourceUpload provides the parameters to create a Data Volume by uploading the source
+              type: object
+            vddk:
+              description: DataVolumeSourceVDDK provides the parameters to create a Data Volume from a Vmware source
+              properties:
+                backingFile:
+                  description: BackingFile is the path to the virtual hard disk to migrate from vCenter/ESXi
+                  type: string
+                secretRef:
+                  description: SecretRef provides a reference to a secret containing the username and password needed to access the vCenter or ESXi host
+                  type: string
+                thumbprint:
+                  description: Thumbprint is the certificate thumbprint of the vCenter or ESXi host
+                  type: string
+                url:
+                  description: URL is the URL of the vCenter or ESXi host with the VM to migrate
+                  type: string
+                uuid:
+                  description: UUID is the UUID of the virtual machine that the backing file is attached to in vCenter/ESXi
+                  type: string
+              type: object
+          type: object
+      required:
+      - pvc
+      - source
+      type: object
+    status:
+      description: DataVolumeTemplateDummyStatus is here simply for backwards compatibility with a previous API.
+      nullable: true
+      type: object
+  required:
+  - spec
+  type: object
+`,
 	"kubevirt": `openAPIV3Schema:
   description: KubeVirt represents the object deploying all KubeVirt resources
   properties:
@@ -954,6 +1177,9 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
               type:
                 type: string
+            required:
+            - status
+            - type
             type: object
           type: array
         observedDeploymentConfig:
@@ -978,6 +1204,8 @@ var CRDsValidation map[string]string = map[string]string{
         targetKubeVirtVersion:
           type: string
       type: object
+  required:
+  - spec
   type: object
 `,
 	"virtualmachine": `openAPIV3Schema:
@@ -997,7 +1225,14 @@ var CRDsValidation map[string]string = map[string]string{
         dataVolumeTemplates:
           description: dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference. DataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.
           items:
+            nullable: true
             properties:
+              apiVersion:
+                description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                type: string
+              kind:
+                description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                type: string
               metadata:
                 nullable: true
                 type: object
@@ -1208,6 +1443,8 @@ var CRDsValidation map[string]string = map[string]string{
                 description: DataVolumeTemplateDummyStatus is here simply for backwards compatibility with a previous API.
                 nullable: true
                 type: object
+            required:
+            - spec
             type: object
           type: array
         runStrategy:
@@ -1699,6 +1936,8 @@ var CRDsValidation map[string]string = map[string]string{
                               policy:
                                 description: 'Policy is the CPU feature attribute which can have the following attributes: force    - The virtual CPU will claim the feature is supported regardless of it being supported by host CPU. require  - Guest creation will fail unless the feature is supported by the host CPU or the hypervisor is able to emulate it. optional - The feature will be supported by virtual CPU if and only if it is supported by host CPU. disable  - The feature will not be supported by virtual CPU. forbid   - Guest creation will fail if the feature is supported by host CPU. Defaults to require'
                                 type: string
+                            required:
+                            - name
                             type: object
                           type: array
                         isolateEmulatorThread:
@@ -1805,6 +2044,8 @@ var CRDsValidation map[string]string = map[string]string{
                               tag:
                                 description: If specified, disk address and its tag will be provided to the guest via config drive metadata
                                 type: string
+                            required:
+                            - name
                             type: object
                           type: array
                         filesystems:
@@ -1816,9 +2057,11 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: string
                               virtiofs:
                                 type: object
+                            required:
+                            - name
+                            - virtiofs
                             type: object
                           type: array
-                          x-kubernetes-list-type: set
                         gpus:
                           description: Whether to attach a GPU device to the vmi.
                           items:
@@ -1828,6 +2071,9 @@ var CRDsValidation map[string]string = map[string]string{
                               name:
                                 description: Name of the GPU device as exposed by a device plugin
                                 type: string
+                            required:
+                            - deviceName
+                            - name
                             type: object
                           type: array
                         inputs:
@@ -1843,6 +2089,9 @@ var CRDsValidation map[string]string = map[string]string{
                               type:
                                 description: 'Type indicated the type of input device. Supported values: tablet.'
                                 type: string
+                            required:
+                            - name
+                            - type
                             type: object
                           type: array
                         interfaces:
@@ -1876,6 +2125,9 @@ var CRDsValidation map[string]string = map[string]string{
                                         value:
                                           description: Value is a String value for the Option provided Required.
                                           type: string
+                                      required:
+                                      - option
+                                      - value
                                       type: object
                                     type: array
                                   tftpServerName:
@@ -1911,6 +2163,8 @@ var CRDsValidation map[string]string = map[string]string{
                                     protocol:
                                       description: Protocol for port. Must be UDP or TCP. Defaults to "TCP".
                                       type: string
+                                  required:
+                                  - port
                                   type: object
                                 type: array
                               slirp:
@@ -1920,10 +2174,12 @@ var CRDsValidation map[string]string = map[string]string{
                               tag:
                                 description: If specified, the virtual network interface address and its tag will be provided to the guest via config drive
                                 type: string
+                            required:
+                            - name
                             type: object
                           type: array
                         networkInterfaceMultiqueue:
-                          description: If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature
+                          description: If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.
                           type: boolean
                         rng:
                           description: Whether to have random number generator from host
@@ -1941,6 +2197,8 @@ var CRDsValidation map[string]string = map[string]string{
                             name:
                               description: Name of the watchdog.
                               type: string
+                          required:
+                          - name
                           type: object
                       type: object
                     features:
@@ -2124,6 +2382,8 @@ var CRDsValidation map[string]string = map[string]string{
                         type:
                           description: QEMU machine type is the actual chipset of the VirtualMachineInstance.
                           type: string
+                      required:
+                      - type
                       type: object
                     memory:
                       description: Memory allow specifying the VMI memory features.
@@ -2168,6 +2428,8 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Requests is a description of the initial vmi resources. Valid resource keys are "memory" and "cpu".
                           type: object
                       type: object
+                  required:
+                  - devices
                   type: object
                 evictionStrategy:
                   description: EvictionStrategy can be set to "LiveMigrate" if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain.
@@ -2265,6 +2527,8 @@ var CRDsValidation map[string]string = map[string]string{
                           networkName:
                             description: 'References to a NetworkAttachmentDefinition CRD object. Format: <networkName>, <namespace>/<networkName>. If namespace is not specified, VMI namespace is assumed.'
                             type: string
+                        required:
+                        - networkName
                         type: object
                       name:
                         description: 'Network name. Must be a DNS_LABEL and unique within the vm. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
@@ -2276,6 +2540,8 @@ var CRDsValidation map[string]string = map[string]string{
                             description: CIDR for vm network. Default 10.0.2.0/24 if not specified.
                             type: string
                         type: object
+                    required:
+                    - name
                     type: object
                   type: array
                 nodeSelector:
@@ -2488,6 +2754,8 @@ var CRDsValidation map[string]string = map[string]string{
                           path:
                             description: Path defines the path to disk file in the container
                             type: string
+                        required:
+                        - image
                         type: object
                       dataVolume:
                         description: DataVolume represents the dynamic creation a PVC for this volume as well as the process of populating that PVC with a disk image.
@@ -2495,6 +2763,8 @@ var CRDsValidation map[string]string = map[string]string{
                           name:
                             description: Name represents the name of the DataVolume in the same namespace
                             type: string
+                        required:
+                        - name
                         type: object
                       emptyDisk:
                         description: 'EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html'
@@ -2506,6 +2776,8 @@ var CRDsValidation map[string]string = map[string]string{
                             description: Capacity of the sparse disk.
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
+                        required:
+                        - capacity
                         type: object
                       ephemeral:
                         description: Ephemeral is a special volume source that "wraps" specified source and provides copy-on-write image on top of it.
@@ -2542,6 +2814,9 @@ var CRDsValidation map[string]string = map[string]string{
                           type:
                             description: Contains information if disk.img exists or should be created allowed options are 'Disk' and 'DiskOrCreate'
                             type: string
+                        required:
+                        - path
+                        - type
                         type: object
                       name:
                         description: 'Volume''s name. Must be a DNS_LABEL and unique within the vmi. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
@@ -2578,10 +2853,16 @@ var CRDsValidation map[string]string = map[string]string{
                             description: 'Name of the service account in the pod''s namespace to use. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/'
                             type: string
                         type: object
+                    required:
+                    - name
                     type: object
                   type: array
+              required:
+              - domain
               type: object
           type: object
+      required:
+      - template
       type: object
     status:
       description: Status holds the current state of the controller and brief information about its associated VirtualMachineInstance
@@ -2607,6 +2888,9 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
               type:
                 type: string
+            required:
+            - status
+            - type
             type: object
           type: array
         created:
@@ -2633,9 +2917,13 @@ var CRDsValidation map[string]string = map[string]string{
               uid:
                 description: Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable
                 type: string
+            required:
+            - action
             type: object
           type: array
       type: object
+  required:
+  - spec
   type: object
 `,
 	"virtualmachineinstance": `openAPIV3Schema:
@@ -3125,6 +3413,8 @@ var CRDsValidation map[string]string = map[string]string{
                       policy:
                         description: 'Policy is the CPU feature attribute which can have the following attributes: force    - The virtual CPU will claim the feature is supported regardless of it being supported by host CPU. require  - Guest creation will fail unless the feature is supported by the host CPU or the hypervisor is able to emulate it. optional - The feature will be supported by virtual CPU if and only if it is supported by host CPU. disable  - The feature will not be supported by virtual CPU. forbid   - Guest creation will fail if the feature is supported by host CPU. Defaults to require'
                         type: string
+                    required:
+                    - name
                     type: object
                   type: array
                 isolateEmulatorThread:
@@ -3231,6 +3521,8 @@ var CRDsValidation map[string]string = map[string]string{
                       tag:
                         description: If specified, disk address and its tag will be provided to the guest via config drive metadata
                         type: string
+                    required:
+                    - name
                     type: object
                   type: array
                 filesystems:
@@ -3242,9 +3534,11 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                       virtiofs:
                         type: object
+                    required:
+                    - name
+                    - virtiofs
                     type: object
                   type: array
-                  x-kubernetes-list-type: set
                 gpus:
                   description: Whether to attach a GPU device to the vmi.
                   items:
@@ -3254,6 +3548,9 @@ var CRDsValidation map[string]string = map[string]string{
                       name:
                         description: Name of the GPU device as exposed by a device plugin
                         type: string
+                    required:
+                    - deviceName
+                    - name
                     type: object
                   type: array
                 inputs:
@@ -3269,6 +3566,9 @@ var CRDsValidation map[string]string = map[string]string{
                       type:
                         description: 'Type indicated the type of input device. Supported values: tablet.'
                         type: string
+                    required:
+                    - name
+                    - type
                     type: object
                   type: array
                 interfaces:
@@ -3302,6 +3602,9 @@ var CRDsValidation map[string]string = map[string]string{
                                 value:
                                   description: Value is a String value for the Option provided Required.
                                   type: string
+                              required:
+                              - option
+                              - value
                               type: object
                             type: array
                           tftpServerName:
@@ -3337,6 +3640,8 @@ var CRDsValidation map[string]string = map[string]string{
                             protocol:
                               description: Protocol for port. Must be UDP or TCP. Defaults to "TCP".
                               type: string
+                          required:
+                          - port
                           type: object
                         type: array
                       slirp:
@@ -3346,10 +3651,12 @@ var CRDsValidation map[string]string = map[string]string{
                       tag:
                         description: If specified, the virtual network interface address and its tag will be provided to the guest via config drive
                         type: string
+                    required:
+                    - name
                     type: object
                   type: array
                 networkInterfaceMultiqueue:
-                  description: If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature
+                  description: If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.
                   type: boolean
                 rng:
                   description: Whether to have random number generator from host
@@ -3367,6 +3674,8 @@ var CRDsValidation map[string]string = map[string]string{
                     name:
                       description: Name of the watchdog.
                       type: string
+                  required:
+                  - name
                   type: object
               type: object
             features:
@@ -3550,6 +3859,8 @@ var CRDsValidation map[string]string = map[string]string{
                 type:
                   description: QEMU machine type is the actual chipset of the VirtualMachineInstance.
                   type: string
+              required:
+              - type
               type: object
             memory:
               description: Memory allow specifying the VMI memory features.
@@ -3594,6 +3905,8 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Requests is a description of the initial vmi resources. Valid resource keys are "memory" and "cpu".
                   type: object
               type: object
+          required:
+          - devices
           type: object
         evictionStrategy:
           description: EvictionStrategy can be set to "LiveMigrate" if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain.
@@ -3691,6 +4004,8 @@ var CRDsValidation map[string]string = map[string]string{
                   networkName:
                     description: 'References to a NetworkAttachmentDefinition CRD object. Format: <networkName>, <namespace>/<networkName>. If namespace is not specified, VMI namespace is assumed.'
                     type: string
+                required:
+                - networkName
                 type: object
               name:
                 description: 'Network name. Must be a DNS_LABEL and unique within the vm. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
@@ -3702,6 +4017,8 @@ var CRDsValidation map[string]string = map[string]string{
                     description: CIDR for vm network. Default 10.0.2.0/24 if not specified.
                     type: string
                 type: object
+            required:
+            - name
             type: object
           type: array
         nodeSelector:
@@ -3914,6 +4231,8 @@ var CRDsValidation map[string]string = map[string]string{
                   path:
                     description: Path defines the path to disk file in the container
                     type: string
+                required:
+                - image
                 type: object
               dataVolume:
                 description: DataVolume represents the dynamic creation a PVC for this volume as well as the process of populating that PVC with a disk image.
@@ -3921,6 +4240,8 @@ var CRDsValidation map[string]string = map[string]string{
                   name:
                     description: Name represents the name of the DataVolume in the same namespace
                     type: string
+                required:
+                - name
                 type: object
               emptyDisk:
                 description: 'EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html'
@@ -3932,6 +4253,8 @@ var CRDsValidation map[string]string = map[string]string{
                     description: Capacity of the sparse disk.
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
+                required:
+                - capacity
                 type: object
               ephemeral:
                 description: Ephemeral is a special volume source that "wraps" specified source and provides copy-on-write image on top of it.
@@ -3968,6 +4291,9 @@ var CRDsValidation map[string]string = map[string]string{
                   type:
                     description: Contains information if disk.img exists or should be created allowed options are 'Disk' and 'DiskOrCreate'
                     type: string
+                required:
+                - path
+                - type
                 type: object
               name:
                 description: 'Volume''s name. Must be a DNS_LABEL and unique within the vmi. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
@@ -4004,8 +4330,12 @@ var CRDsValidation map[string]string = map[string]string{
                     description: 'Name of the service account in the pod''s namespace to use. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/'
                     type: string
                 type: object
+            required:
+            - name
             type: object
           type: array
+      required:
+      - domain
       type: object
     status:
       description: Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.
@@ -4035,6 +4365,9 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
               type:
                 type: string
+            required:
+            - status
+            - type
             type: object
           type: array
         evacuationNodeName:
@@ -4159,6 +4492,8 @@ var CRDsValidation map[string]string = map[string]string{
           description: A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'
           type: string
       type: object
+  required:
+  - spec
   type: object
 `,
 	"virtualmachineinstancemigration": `openAPIV3Schema:
@@ -4200,12 +4535,17 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
               type:
                 type: string
+            required:
+            - status
+            - type
             type: object
           type: array
         phase:
           description: VirtualMachineInstanceMigrationPhase is a label for the condition of a VirtualMachineInstanceMigration at the current time.
           type: string
       type: object
+  required:
+  - spec
   type: object
 `,
 	"virtualmachineinstancepreset": `openAPIV3Schema:
@@ -4324,6 +4664,8 @@ var CRDsValidation map[string]string = map[string]string{
                       policy:
                         description: 'Policy is the CPU feature attribute which can have the following attributes: force    - The virtual CPU will claim the feature is supported regardless of it being supported by host CPU. require  - Guest creation will fail unless the feature is supported by the host CPU or the hypervisor is able to emulate it. optional - The feature will be supported by virtual CPU if and only if it is supported by host CPU. disable  - The feature will not be supported by virtual CPU. forbid   - Guest creation will fail if the feature is supported by host CPU. Defaults to require'
                         type: string
+                    required:
+                    - name
                     type: object
                   type: array
                 isolateEmulatorThread:
@@ -4430,6 +4772,8 @@ var CRDsValidation map[string]string = map[string]string{
                       tag:
                         description: If specified, disk address and its tag will be provided to the guest via config drive metadata
                         type: string
+                    required:
+                    - name
                     type: object
                   type: array
                 filesystems:
@@ -4441,9 +4785,11 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                       virtiofs:
                         type: object
+                    required:
+                    - name
+                    - virtiofs
                     type: object
                   type: array
-                  x-kubernetes-list-type: set
                 gpus:
                   description: Whether to attach a GPU device to the vmi.
                   items:
@@ -4453,6 +4799,9 @@ var CRDsValidation map[string]string = map[string]string{
                       name:
                         description: Name of the GPU device as exposed by a device plugin
                         type: string
+                    required:
+                    - deviceName
+                    - name
                     type: object
                   type: array
                 inputs:
@@ -4468,6 +4817,9 @@ var CRDsValidation map[string]string = map[string]string{
                       type:
                         description: 'Type indicated the type of input device. Supported values: tablet.'
                         type: string
+                    required:
+                    - name
+                    - type
                     type: object
                   type: array
                 interfaces:
@@ -4501,6 +4853,9 @@ var CRDsValidation map[string]string = map[string]string{
                                 value:
                                   description: Value is a String value for the Option provided Required.
                                   type: string
+                              required:
+                              - option
+                              - value
                               type: object
                             type: array
                           tftpServerName:
@@ -4536,6 +4891,8 @@ var CRDsValidation map[string]string = map[string]string{
                             protocol:
                               description: Protocol for port. Must be UDP or TCP. Defaults to "TCP".
                               type: string
+                          required:
+                          - port
                           type: object
                         type: array
                       slirp:
@@ -4545,10 +4902,12 @@ var CRDsValidation map[string]string = map[string]string{
                       tag:
                         description: If specified, the virtual network interface address and its tag will be provided to the guest via config drive
                         type: string
+                    required:
+                    - name
                     type: object
                   type: array
                 networkInterfaceMultiqueue:
-                  description: If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature
+                  description: If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.
                   type: boolean
                 rng:
                   description: Whether to have random number generator from host
@@ -4566,6 +4925,8 @@ var CRDsValidation map[string]string = map[string]string{
                     name:
                       description: Name of the watchdog.
                       type: string
+                  required:
+                  - name
                   type: object
               type: object
             features:
@@ -4749,6 +5110,8 @@ var CRDsValidation map[string]string = map[string]string{
                 type:
                   description: QEMU machine type is the actual chipset of the VirtualMachineInstance.
                   type: string
+              required:
+              - type
               type: object
             memory:
               description: Memory allow specifying the VMI memory features.
@@ -4793,6 +5156,8 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Requests is a description of the initial vmi resources. Valid resource keys are "memory" and "cpu".
                   type: object
               type: object
+          required:
+          - devices
           type: object
         selector:
           description: Selector is a label query over a set of VMIs. Required.
@@ -4824,6 +5189,8 @@ var CRDsValidation map[string]string = map[string]string{
               description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
               type: object
           type: object
+      required:
+      - selector
       type: object
   type: object
 `,
@@ -5361,6 +5728,8 @@ var CRDsValidation map[string]string = map[string]string{
                               policy:
                                 description: 'Policy is the CPU feature attribute which can have the following attributes: force    - The virtual CPU will claim the feature is supported regardless of it being supported by host CPU. require  - Guest creation will fail unless the feature is supported by the host CPU or the hypervisor is able to emulate it. optional - The feature will be supported by virtual CPU if and only if it is supported by host CPU. disable  - The feature will not be supported by virtual CPU. forbid   - Guest creation will fail if the feature is supported by host CPU. Defaults to require'
                                 type: string
+                            required:
+                            - name
                             type: object
                           type: array
                         isolateEmulatorThread:
@@ -5467,6 +5836,8 @@ var CRDsValidation map[string]string = map[string]string{
                               tag:
                                 description: If specified, disk address and its tag will be provided to the guest via config drive metadata
                                 type: string
+                            required:
+                            - name
                             type: object
                           type: array
                         filesystems:
@@ -5478,9 +5849,11 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: string
                               virtiofs:
                                 type: object
+                            required:
+                            - name
+                            - virtiofs
                             type: object
                           type: array
-                          x-kubernetes-list-type: set
                         gpus:
                           description: Whether to attach a GPU device to the vmi.
                           items:
@@ -5490,6 +5863,9 @@ var CRDsValidation map[string]string = map[string]string{
                               name:
                                 description: Name of the GPU device as exposed by a device plugin
                                 type: string
+                            required:
+                            - deviceName
+                            - name
                             type: object
                           type: array
                         inputs:
@@ -5505,6 +5881,9 @@ var CRDsValidation map[string]string = map[string]string{
                               type:
                                 description: 'Type indicated the type of input device. Supported values: tablet.'
                                 type: string
+                            required:
+                            - name
+                            - type
                             type: object
                           type: array
                         interfaces:
@@ -5538,6 +5917,9 @@ var CRDsValidation map[string]string = map[string]string{
                                         value:
                                           description: Value is a String value for the Option provided Required.
                                           type: string
+                                      required:
+                                      - option
+                                      - value
                                       type: object
                                     type: array
                                   tftpServerName:
@@ -5573,6 +5955,8 @@ var CRDsValidation map[string]string = map[string]string{
                                     protocol:
                                       description: Protocol for port. Must be UDP or TCP. Defaults to "TCP".
                                       type: string
+                                  required:
+                                  - port
                                   type: object
                                 type: array
                               slirp:
@@ -5582,10 +5966,12 @@ var CRDsValidation map[string]string = map[string]string{
                               tag:
                                 description: If specified, the virtual network interface address and its tag will be provided to the guest via config drive
                                 type: string
+                            required:
+                            - name
                             type: object
                           type: array
                         networkInterfaceMultiqueue:
-                          description: If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature
+                          description: If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.
                           type: boolean
                         rng:
                           description: Whether to have random number generator from host
@@ -5603,6 +5989,8 @@ var CRDsValidation map[string]string = map[string]string{
                             name:
                               description: Name of the watchdog.
                               type: string
+                          required:
+                          - name
                           type: object
                       type: object
                     features:
@@ -5786,6 +6174,8 @@ var CRDsValidation map[string]string = map[string]string{
                         type:
                           description: QEMU machine type is the actual chipset of the VirtualMachineInstance.
                           type: string
+                      required:
+                      - type
                       type: object
                     memory:
                       description: Memory allow specifying the VMI memory features.
@@ -5830,6 +6220,8 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Requests is a description of the initial vmi resources. Valid resource keys are "memory" and "cpu".
                           type: object
                       type: object
+                  required:
+                  - devices
                   type: object
                 evictionStrategy:
                   description: EvictionStrategy can be set to "LiveMigrate" if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain.
@@ -5927,6 +6319,8 @@ var CRDsValidation map[string]string = map[string]string{
                           networkName:
                             description: 'References to a NetworkAttachmentDefinition CRD object. Format: <networkName>, <namespace>/<networkName>. If namespace is not specified, VMI namespace is assumed.'
                             type: string
+                        required:
+                        - networkName
                         type: object
                       name:
                         description: 'Network name. Must be a DNS_LABEL and unique within the vm. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
@@ -5938,6 +6332,8 @@ var CRDsValidation map[string]string = map[string]string{
                             description: CIDR for vm network. Default 10.0.2.0/24 if not specified.
                             type: string
                         type: object
+                    required:
+                    - name
                     type: object
                   type: array
                 nodeSelector:
@@ -6150,6 +6546,8 @@ var CRDsValidation map[string]string = map[string]string{
                           path:
                             description: Path defines the path to disk file in the container
                             type: string
+                        required:
+                        - image
                         type: object
                       dataVolume:
                         description: DataVolume represents the dynamic creation a PVC for this volume as well as the process of populating that PVC with a disk image.
@@ -6157,6 +6555,8 @@ var CRDsValidation map[string]string = map[string]string{
                           name:
                             description: Name represents the name of the DataVolume in the same namespace
                             type: string
+                        required:
+                        - name
                         type: object
                       emptyDisk:
                         description: 'EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html'
@@ -6168,6 +6568,8 @@ var CRDsValidation map[string]string = map[string]string{
                             description: Capacity of the sparse disk.
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
+                        required:
+                        - capacity
                         type: object
                       ephemeral:
                         description: Ephemeral is a special volume source that "wraps" specified source and provides copy-on-write image on top of it.
@@ -6204,6 +6606,9 @@ var CRDsValidation map[string]string = map[string]string{
                           type:
                             description: Contains information if disk.img exists or should be created allowed options are 'Disk' and 'DiskOrCreate'
                             type: string
+                        required:
+                        - path
+                        - type
                         type: object
                       name:
                         description: 'Volume''s name. Must be a DNS_LABEL and unique within the vmi. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
@@ -6240,10 +6645,17 @@ var CRDsValidation map[string]string = map[string]string{
                             description: 'Name of the service account in the pod''s namespace to use. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/'
                             type: string
                         type: object
+                    required:
+                    - name
                     type: object
                   type: array
+              required:
+              - domain
               type: object
           type: object
+      required:
+      - selector
+      - template
       type: object
     status:
       description: Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.
@@ -6268,6 +6680,9 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
               type:
                 type: string
+            required:
+            - status
+            - type
             type: object
           type: array
         labelSelector:
@@ -6282,6 +6697,8 @@ var CRDsValidation map[string]string = map[string]string{
           format: int32
           type: integer
       type: object
+  required:
+  - spec
   type: object
 `,
 	"virtualmachinerestore": `openAPIV3Schema:
@@ -6505,7 +6922,14 @@ var CRDsValidation map[string]string = map[string]string{
                     dataVolumeTemplates:
                       description: dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference. DataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.
                       items:
+                        nullable: true
                         properties:
+                          apiVersion:
+                            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                            type: string
+                          kind:
+                            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                            type: string
                           metadata:
                             nullable: true
                             type: object
@@ -6716,6 +7140,8 @@ var CRDsValidation map[string]string = map[string]string{
                             description: DataVolumeTemplateDummyStatus is here simply for backwards compatibility with a previous API.
                             nullable: true
                             type: object
+                        required:
+                        - spec
                         type: object
                       type: array
                     runStrategy:
@@ -7207,6 +7633,8 @@ var CRDsValidation map[string]string = map[string]string{
                                           policy:
                                             description: 'Policy is the CPU feature attribute which can have the following attributes: force    - The virtual CPU will claim the feature is supported regardless of it being supported by host CPU. require  - Guest creation will fail unless the feature is supported by the host CPU or the hypervisor is able to emulate it. optional - The feature will be supported by virtual CPU if and only if it is supported by host CPU. disable  - The feature will not be supported by virtual CPU. forbid   - Guest creation will fail if the feature is supported by host CPU. Defaults to require'
                                             type: string
+                                        required:
+                                        - name
                                         type: object
                                       type: array
                                     isolateEmulatorThread:
@@ -7313,6 +7741,8 @@ var CRDsValidation map[string]string = map[string]string{
                                           tag:
                                             description: If specified, disk address and its tag will be provided to the guest via config drive metadata
                                             type: string
+                                        required:
+                                        - name
                                         type: object
                                       type: array
                                     filesystems:
@@ -7324,9 +7754,11 @@ var CRDsValidation map[string]string = map[string]string{
                                             type: string
                                           virtiofs:
                                             type: object
+                                        required:
+                                        - name
+                                        - virtiofs
                                         type: object
                                       type: array
-                                      x-kubernetes-list-type: set
                                     gpus:
                                       description: Whether to attach a GPU device to the vmi.
                                       items:
@@ -7336,6 +7768,9 @@ var CRDsValidation map[string]string = map[string]string{
                                           name:
                                             description: Name of the GPU device as exposed by a device plugin
                                             type: string
+                                        required:
+                                        - deviceName
+                                        - name
                                         type: object
                                       type: array
                                     inputs:
@@ -7351,6 +7786,9 @@ var CRDsValidation map[string]string = map[string]string{
                                           type:
                                             description: 'Type indicated the type of input device. Supported values: tablet.'
                                             type: string
+                                        required:
+                                        - name
+                                        - type
                                         type: object
                                       type: array
                                     interfaces:
@@ -7384,6 +7822,9 @@ var CRDsValidation map[string]string = map[string]string{
                                                     value:
                                                       description: Value is a String value for the Option provided Required.
                                                       type: string
+                                                  required:
+                                                  - option
+                                                  - value
                                                   type: object
                                                 type: array
                                               tftpServerName:
@@ -7419,6 +7860,8 @@ var CRDsValidation map[string]string = map[string]string{
                                                 protocol:
                                                   description: Protocol for port. Must be UDP or TCP. Defaults to "TCP".
                                                   type: string
+                                              required:
+                                              - port
                                               type: object
                                             type: array
                                           slirp:
@@ -7428,10 +7871,12 @@ var CRDsValidation map[string]string = map[string]string{
                                           tag:
                                             description: If specified, the virtual network interface address and its tag will be provided to the guest via config drive
                                             type: string
+                                        required:
+                                        - name
                                         type: object
                                       type: array
                                     networkInterfaceMultiqueue:
-                                      description: If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature
+                                      description: If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.
                                       type: boolean
                                     rng:
                                       description: Whether to have random number generator from host
@@ -7449,6 +7894,8 @@ var CRDsValidation map[string]string = map[string]string{
                                         name:
                                           description: Name of the watchdog.
                                           type: string
+                                      required:
+                                      - name
                                       type: object
                                   type: object
                                 features:
@@ -7632,6 +8079,8 @@ var CRDsValidation map[string]string = map[string]string{
                                     type:
                                       description: QEMU machine type is the actual chipset of the VirtualMachineInstance.
                                       type: string
+                                  required:
+                                  - type
                                   type: object
                                 memory:
                                   description: Memory allow specifying the VMI memory features.
@@ -7676,6 +8125,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Requests is a description of the initial vmi resources. Valid resource keys are "memory" and "cpu".
                                       type: object
                                   type: object
+                              required:
+                              - devices
                               type: object
                             evictionStrategy:
                               description: EvictionStrategy can be set to "LiveMigrate" if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain.
@@ -7773,6 +8224,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       networkName:
                                         description: 'References to a NetworkAttachmentDefinition CRD object. Format: <networkName>, <namespace>/<networkName>. If namespace is not specified, VMI namespace is assumed.'
                                         type: string
+                                    required:
+                                    - networkName
                                     type: object
                                   name:
                                     description: 'Network name. Must be a DNS_LABEL and unique within the vm. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
@@ -7784,6 +8237,8 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: CIDR for vm network. Default 10.0.2.0/24 if not specified.
                                         type: string
                                     type: object
+                                required:
+                                - name
                                 type: object
                               type: array
                             nodeSelector:
@@ -7996,6 +8451,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       path:
                                         description: Path defines the path to disk file in the container
                                         type: string
+                                    required:
+                                    - image
                                     type: object
                                   dataVolume:
                                     description: DataVolume represents the dynamic creation a PVC for this volume as well as the process of populating that PVC with a disk image.
@@ -8003,6 +8460,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       name:
                                         description: Name represents the name of the DataVolume in the same namespace
                                         type: string
+                                    required:
+                                    - name
                                     type: object
                                   emptyDisk:
                                     description: 'EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html'
@@ -8014,6 +8473,8 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: Capacity of the sparse disk.
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
+                                    required:
+                                    - capacity
                                     type: object
                                   ephemeral:
                                     description: Ephemeral is a special volume source that "wraps" specified source and provides copy-on-write image on top of it.
@@ -8050,6 +8511,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       type:
                                         description: Contains information if disk.img exists or should be created allowed options are 'Disk' and 'DiskOrCreate'
                                         type: string
+                                    required:
+                                    - path
+                                    - type
                                     type: object
                                   name:
                                     description: 'Volume''s name. Must be a DNS_LABEL and unique within the vmi. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
@@ -8086,10 +8550,16 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: 'Name of the service account in the pod''s namespace to use. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/'
                                         type: string
                                     type: object
+                                required:
+                                - name
                                 type: object
                               type: array
+                          required:
+                          - domain
                           type: object
                       type: object
+                  required:
+                  - template
                   type: object
                 status:
                   description: Status holds the current state of the controller and brief information about its associated VirtualMachineInstance
@@ -8115,6 +8585,9 @@ var CRDsValidation map[string]string = map[string]string{
                             type: string
                           type:
                             type: string
+                        required:
+                        - status
+                        - type
                         type: object
                       type: array
                     created:
@@ -8141,9 +8614,13 @@ var CRDsValidation map[string]string = map[string]string{
                           uid:
                             description: Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable
                             type: string
+                        required:
+                        - action
                         type: object
                       type: array
                   type: object
+              required:
+              - spec
               type: object
           type: object
         virtualMachineSnapshotName:

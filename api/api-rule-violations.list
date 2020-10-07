@@ -144,6 +144,7 @@ API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,DHCPOptions,N
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,DHCPOptions,PrivateOptions
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,DeveloperConfiguration,FeatureGates
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,Devices,Disks
+API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,Devices,Filesystems
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,Devices,GPUs
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,Devices,Inputs
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,Devices,Interfaces

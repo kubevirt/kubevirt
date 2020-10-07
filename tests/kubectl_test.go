@@ -36,13 +36,13 @@ var _ = Describe("oc/kubectl integration", func() {
 	},
 		table.Entry("[rfe_id:3810]explain vm", "vm"),
 		table.Entry("[rfe_id:3811]explain vmi", "vmi"),
-		table.Entry("explain vmim", "vmim"),
-		table.Entry("explain kv", "kv"),
-		table.Entry("explain vmsnapshot", "vmsnapshot"),
-		table.Entry("explain vmsnapshotcontent", "vmsnapshotcontent"),
+		table.PEntry("explain vmim", "vmim"),
+		table.PEntry("explain kv", "kv"),
+		table.PEntry("explain vmsnapshot", "vmsnapshot"),
+		table.PEntry("explain vmsnapshotcontent", "vmsnapshotcontent"),
 	)
 
-	It("vmipreset have validation", func() {
+	PIt("vmipreset have validation", func() {
 		output, _, err := tests.RunCommand(k8sClient, "explain", "vmipreset")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(output).To(ContainSubstring("apiVersion	<string>"))
@@ -51,7 +51,7 @@ var _ = Describe("oc/kubectl integration", func() {
 		Expect(output).To(ContainSubstring("spec	<Object>"))
 	})
 
-	It("vmirs have validation", func() {
+	PIt("vmirs have validation", func() {
 		output, _, err := tests.RunCommand(k8sClient, "explain", "vmirs")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(output).To(ContainSubstring("apiVersion	<string>"))
