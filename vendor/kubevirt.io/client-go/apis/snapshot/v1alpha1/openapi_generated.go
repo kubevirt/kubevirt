@@ -299,6 +299,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.DHCPOptions":                                         schema_kubevirtio_client_go_api_v1_DHCPOptions(ref),
 		"kubevirt.io/client-go/api/v1.DHCPPrivateOptions":                                  schema_kubevirtio_client_go_api_v1_DHCPPrivateOptions(ref),
 		"kubevirt.io/client-go/api/v1.DataVolumeSource":                                    schema_kubevirtio_client_go_api_v1_DataVolumeSource(ref),
+		"kubevirt.io/client-go/api/v1.DataVolumeTemplateDummyStatus":                       schema_kubevirtio_client_go_api_v1_DataVolumeTemplateDummyStatus(ref),
+		"kubevirt.io/client-go/api/v1.DataVolumeTemplateSpec":                              schema_kubevirtio_client_go_api_v1_DataVolumeTemplateSpec(ref),
 		"kubevirt.io/client-go/api/v1.DeveloperConfiguration":                              schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.Devices":                                             schema_kubevirtio_client_go_api_v1_Devices(ref),
 		"kubevirt.io/client-go/api/v1.Disk":                                                schema_kubevirtio_client_go_api_v1_Disk(ref),
@@ -13337,6 +13339,15 @@ func schema_kubevirtio_client_go_api_v1_BIOS(ref common.ReferenceCallback) commo
 			SchemaProps: spec.SchemaProps{
 				Description: "If set (default), BIOS will be used.",
 				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"useSerial": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If set, the BIOS output will be transmitted over serial",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -14002,6 +14013,62 @@ func schema_kubevirtio_client_go_api_v1_DataVolumeSource(ref common.ReferenceCal
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_DataVolumeTemplateDummyStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_DataVolumeTemplateSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataVolumeSpec contains the DataVolume specification.",
+							Ref:         ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataVolumeTemplateDummyStatus is here simply for backwards compatibility with a previous API.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.DataVolumeTemplateDummyStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/client-go/api/v1.DataVolumeTemplateDummyStatus", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSpec"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -14049,6 +14116,12 @@ func schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref common.Refere
 						},
 					},
 					"useEmulation": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"cpuAllocationRatio": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -14720,7 +14793,7 @@ func schema_kubevirtio_client_go_api_v1_Features(ref common.ReferenceCallback) c
 				Properties: map[string]spec.Schema{
 					"acpi": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ACPI enables/disables ACPI insidejsondata guest. Defaults to enabled.",
+							Description: "ACPI enables/disables ACPI inside the guest. Defaults to enabled.",
 							Ref:         ref("kubevirt.io/client-go/api/v1.FeatureState"),
 						},
 					},
@@ -15360,8 +15433,7 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtConfiguration(ref common.Referen
 					},
 					"cpuRequest": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
 					"developerConfiguration": {
@@ -15437,14 +15509,14 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtConfiguration(ref common.Referen
 					"memBalloonStatsPeriod": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
-							Format: "int32",
+							Format: "int64",
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.DeveloperConfiguration", "kubevirt.io/client-go/api/v1.MigrationConfiguration", "kubevirt.io/client-go/api/v1.NetworkConfiguration", "kubevirt.io/client-go/api/v1.SMBiosConfiguration"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/client-go/api/v1.DeveloperConfiguration", "kubevirt.io/client-go/api/v1.MigrationConfiguration", "kubevirt.io/client-go/api/v1.NetworkConfiguration", "kubevirt.io/client-go/api/v1.SMBiosConfiguration"},
 	}
 }
 
@@ -15789,23 +15861,6 @@ func schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref common.Refere
 				Description: "MigrationConfiguration holds migration options",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"allowAutoConverge": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"bandwidthPerMigration": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
-						},
-					},
-					"completionTimeoutPerGiB": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"nodeDrainTaintKey": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -15824,6 +15879,23 @@ func schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref common.Refere
 							Format: "",
 						},
 					},
+					"allowAutoConverge": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"bandwidthPerMigration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"completionTimeoutPerGiB": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"progressTimeout": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -15836,8 +15908,13 @@ func schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref common.Refere
 							Format: "",
 						},
 					},
+					"allowPostCopy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
-				Required: []string{"allowAutoConverge", "unsafeMigrationOverride"},
 			},
 		},
 		Dependencies: []string{
@@ -17271,6 +17348,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceMigrationState(ref
 							Format:      "",
 						},
 					},
+					"mode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Lets us know if the vmi is currenly running pre or post copy migration",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -17939,6 +18023,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 							Format:      "",
 						},
 					},
+					"evacuationNodeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want to evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"activePods": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ActivePods is a mapping of pod UID to node name. It is possible for multiple pods to be running for a single VMI during migration.",
@@ -18068,7 +18159,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref common.ReferenceC
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolume"),
+										Ref: ref("kubevirt.io/client-go/api/v1.DataVolumeTemplateSpec"),
 									},
 								},
 							},
@@ -18079,7 +18170,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.VirtualMachineInstanceTemplateSpec", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolume"},
+			"kubevirt.io/client-go/api/v1.DataVolumeTemplateSpec", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceTemplateSpec"},
 	}
 }
 

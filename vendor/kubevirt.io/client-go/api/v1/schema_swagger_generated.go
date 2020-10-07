@@ -92,7 +92,8 @@ func (Bootloader) SwaggerDoc() map[string]string {
 
 func (BIOS) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "If set (default), BIOS will be used.\n\n+k8s:openapi-gen=true",
+		"":          "If set (default), BIOS will be used.\n\n+k8s:openapi-gen=true",
+		"useSerial": "If set, the BIOS output will be transmitted over serial\n+optional",
 	}
 }
 
@@ -399,7 +400,7 @@ func (HypervTimer) SwaggerDoc() map[string]string {
 func (Features) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "+k8s:openapi-gen=true",
-		"acpi":   "ACPI enables/disables ACPI insidejsondata guest.\nDefaults to enabled.\n+optional",
+		"acpi":   "ACPI enables/disables ACPI inside the guest.\nDefaults to enabled.\n+optional",
 		"apic":   "Defaults to the machine type setting.\n+optional",
 		"hyperv": "Defaults to the machine type setting.\n+optional",
 		"smm":    "SMM enables/disables System Management Mode.\nTSEG not yet implemented.\n+optional",

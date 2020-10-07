@@ -180,6 +180,11 @@ type VirtualMachineInstanceStatus struct {
 	// +optional
 	QOSClass *k8sv1.PodQOSClass `json:"qosClass,omitempty"`
 
+	// EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want
+	// to evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.
+	// +optional
+	EvacuationNodeName string `json:"evacuationNodeName,omitempty"`
+
 	// ActivePods is a mapping of pod UID to node name.
 	// It is possible for multiple pods to be running for a single VMI during migration.
 	ActivePods map[types.UID]string `json:"activePods,omitempty"`
@@ -195,6 +200,23 @@ func (v *VirtualMachineInstance) IsScheduled() bool {
 
 func (v *VirtualMachineInstance) IsRunning() bool {
 	return v.Status.Phase == Running
+}
+
+func (v *VirtualMachineInstance) IsMarkedForEviction() bool {
+	return v.Status.EvacuationNodeName != ""
+}
+
+func (v *VirtualMachineInstance) IsMigratable() bool {
+	for _, cond := range v.Status.Conditions {
+		if cond.Type == VirtualMachineInstanceIsMigratable && cond.Status == k8sv1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
+func (v *VirtualMachineInstance) IsEvictable() bool {
+	return v.Spec.EvictionStrategy != nil && *v.Spec.EvictionStrategy == EvictionStrategyLiveMigrate
 }
 
 func (v *VirtualMachineInstance) IsFinal() bool {
@@ -380,6 +402,8 @@ type VirtualMachineInstanceMigrationState struct {
 	AbortStatus MigrationAbortStatus `json:"abortStatus,omitempty"`
 	// The VirtualMachineInstanceMigration object associated with this migration
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
+	// Lets us know if the vmi is currenly running pre or post copy migration
+	Mode MigrationMode `json:"mode,omitempty"`
 }
 
 //
@@ -393,6 +417,17 @@ const (
 	MigrationAbortFailed MigrationAbortStatus = "Failed"
 	// MigrationAbortInProgress mean that the vmi live migration is aborting
 	MigrationAbortInProgress MigrationAbortStatus = "Aborting"
+)
+
+//
+// +k8s:openapi-gen=true
+type MigrationMode string
+
+const (
+	// MigrationPreCopy means the VMI migrations that is currenly running is in pre copy mode
+	MigrationPreCopy MigrationMode = "PreCopy"
+	// MigrationPostCopy means the VMI migrations that is currenly running is in post copy mode
+	MigrationPostCopy MigrationMode = "PostCopy"
 )
 
 //
@@ -718,6 +753,29 @@ const (
 
 //
 // +k8s:openapi-gen=true
+type DataVolumeTemplateDummyStatus struct{}
+
+//
+// +k8s:openapi-gen=true
+type DataVolumeTemplateSpec struct {
+	// TypeMeta only exists on DataVolumeTemplate for API backwards compatiblity
+	// this field is not used by our controllers and is a no-op.
+	// +nullable
+	metav1.TypeMeta `json:",inline"`
+	// +nullable
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	// DataVolumeSpec contains the DataVolume specification.
+	Spec cdiv1.DataVolumeSpec `json:"spec"`
+
+	// DataVolumeTemplateDummyStatus is here simply for backwards compatibility with
+	// a previous API.
+	// +nullable
+	// +optional
+	Status *DataVolumeTemplateDummyStatus `json:"status,omitempty"`
+}
+
+//
+// +k8s:openapi-gen=true
 type VirtualMachineInstanceTemplateSpec struct {
 	// +nullable
 	ObjectMeta metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -920,7 +978,7 @@ type VirtualMachineSpec struct {
 
 	// dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.
 	// DataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.
-	DataVolumeTemplates []cdiv1.DataVolume `json:"dataVolumeTemplates,omitempty"`
+	DataVolumeTemplates []DataVolumeTemplateSpec `json:"dataVolumeTemplates,omitempty"`
 }
 
 // StateChangeRequestType represents the existing state change requests that are possible
@@ -1370,7 +1428,7 @@ type RenameOptions struct {
 // +k8s:openapi-gen=true
 type KubeVirtConfiguration struct {
 	CPUModel                    string                  `json:"cpuModel,omitempty"`
-	CPURequest                  *resource.Quantity      `json:"cpuRequest,string,omitempty"`
+	CPURequest                  *resource.Quantity      `json:"cpuRequest,omitempty"`
 	DeveloperConfiguration      *DeveloperConfiguration `json:"developerConfiguration,omitempty"`
 	EmulatedMachines            []string                `json:"emulatedMachines,omitempty"`
 	ImagePullPolicy             k8sv1.PullPolicy        `json:"imagePullPolicy,omitempty"`
@@ -1381,7 +1439,7 @@ type KubeVirtConfiguration struct {
 	SELinuxLauncherType         string                  `json:"selinuxLauncherType,omitempty"`
 	SMBIOSConfig                *SMBiosConfiguration    `json:"smbios,omitempty"`
 	SupportedGuestAgentVersions []string                `json:"supportedGuestAgentVersions,omitempty"`
-	MemBalloonStatsPeriod       int                     `json:"memBalloonStatsPeriod,omitempty"`
+	MemBalloonStatsPeriod       *uint32                 `json:"memBalloonStatsPeriod,omitempty"`
 }
 
 // ---
@@ -1397,14 +1455,15 @@ type SMBiosConfiguration struct {
 // MigrationConfiguration holds migration options
 // +k8s:openapi-gen=true
 type MigrationConfiguration struct {
-	AllowAutoConverge                 bool               `json:"allowAutoConverge,string"`
-	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
-	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,string,omitempty"`
 	NodeDrainTaintKey                 *string            `json:"nodeDrainTaintKey,omitempty"`
 	ParallelOutboundMigrationsPerNode *uint32            `json:"parallelOutboundMigrationsPerNode,string,omitempty"`
 	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,string,omitempty"`
+	AllowAutoConverge                 *bool              `json:"allowAutoConverge,string,omitempty"`
+	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
+	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,string,omitempty"`
 	ProgressTimeout                   *int64             `json:"progressTimeout,string,omitempty"`
-	UnsafeMigrationOverride           bool               `json:"unsafeMigrationOverride,string"`
+	UnsafeMigrationOverride           *bool              `json:"unsafeMigrationOverride,string,omitempty"`
+	AllowPostCopy                     *bool              `json:"allowPostCopy,string,omitempty"`
 }
 
 // DeveloperConfiguration holds developer options
@@ -1415,12 +1474,13 @@ type DeveloperConfiguration struct {
 	MemoryOvercommit       int               `json:"memoryOvercommit,string,omitempty"`
 	NodeSelectors          map[string]string `json:"nodeSelectors,omitempty"`
 	UseEmulation           bool              `json:"useEmulation,string,omitempty"`
+	CPUAllocationRatio     float64           `json:"cpuAllocationRatio,string,omitempty"`
 }
 
 // NetworkConfiguration holds network options
 // +k8s:openapi-gen=true
 type NetworkConfiguration struct {
 	NetworkInterface                  string `json:"defaultNetworkInterface,omitempty"`
-	PermitSlirpInterface              bool   `json:"permitSlirpInterface,string,omitempty"`
-	PermitBridgeInterfaceOnPodNetwork bool   `json:"permitBridgeInterfaceOnPodNetwork,string,omitempty"`
+	PermitSlirpInterface              *bool  `json:"permitSlirpInterface,string,omitempty"`
+	PermitBridgeInterfaceOnPodNetwork *bool  `json:"permitBridgeInterfaceOnPodNetwork,string,omitempty"`
 }

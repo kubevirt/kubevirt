@@ -55,10 +55,7 @@ OPERATOR_NAMESPACE="${NAMESPACE:-kubevirt-hyperconverged}"
 OPERATOR_IMAGE="${OPERATOR_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-operator:$CSV_VERSION}"
 IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 
-# Component Images
-# TODO: Revert back to original release location once v0.34.0 is available
-# KUBEVIRT_IMAGE="${KUBEVIRT_IMAGE:-docker.io/kubevirt/virt-operator:${KUBEVIRT_VERSION}}"
-KUBEVIRT_IMAGE="${KUBEVIRT_IMAGE:-kubevirtnightlybuilds/virt-operator:${KUBEVIRT_VERSION}}"
+KUBEVIRT_IMAGE="${KUBEVIRT_IMAGE:-docker.io/kubevirt/virt-operator:${KUBEVIRT_VERSION}}"
 CNA_IMAGE="${CNA_IMAGE:-quay.io/kubevirt/cluster-network-addons-operator:${NETWORK_ADDONS_VERSION}}"
 SSP_IMAGE="${SSP_IMAGE:-quay.io/fromani/kubevirt-ssp-operator-container:${SSP_VERSION}}"
 CDI_IMAGE="${CDI_IMAGE:-docker.io/kubevirt/cdi-operator:${CDI_VERSION}}"

@@ -213,6 +213,9 @@ type Bootloader struct {
 //
 // +k8s:openapi-gen=true
 type BIOS struct {
+	// If set, the BIOS output will be transmitted over serial
+	// +optional
+	UseSerial *bool `json:"useSerial,omitempty"`
 }
 
 // If set, EFI will be used instead of BIOS.
@@ -807,7 +810,7 @@ type HypervTimer struct {
 //
 // +k8s:openapi-gen=true
 type Features struct {
-	// ACPI enables/disables ACPI insidejsondata guest.
+	// ACPI enables/disables ACPI inside the guest.
 	// Defaults to enabled.
 	// +optional
 	ACPI FeatureState `json:"acpi,omitempty"`

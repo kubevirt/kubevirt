@@ -618,6 +618,23 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	resources.Requests = make(k8sv1.ResourceList)
 	resources.Limits = make(k8sv1.ResourceList)
 
+	// Set Default CPUs request
+	if !vmi.IsCPUDedicated() {
+		vcpus := int64(1)
+		if vmi.Spec.Domain.CPU != nil {
+			vcpus = hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
+		}
+		cpuAllocationRatio := t.clusterConfig.GetCPUAllocationRatio()
+		if vcpus != 0 && cpuAllocationRatio > 0 {
+			val := float64(vcpus) / cpuAllocationRatio
+			vcpusStr := fmt.Sprintf("%g", val)
+			if val < 0 {
+				val *= 1000
+				vcpusStr = fmt.Sprintf("%gm", val)
+			}
+			resources.Requests[k8sv1.ResourceCPU] = resource.MustParse(vcpusStr)
+		}
+	}
 	// Copy vmi resources requests to a container
 	for key, value := range vmiResources.Requests {
 		resources.Requests[key] = value
@@ -1012,6 +1029,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			Resources:       initContainerResources,
 		},
 	}
+
+	// this causes containerDisks to be pre-pulled before virt-launcher starts.
+	initContainers = append(initContainers, containerdisk.GenerateInitContainers(vmi, "container-disks", "virt-bin-share-dir")...)
 
 	// TODO use constants for podLabels
 	pod := k8sv1.Pod{

@@ -674,10 +674,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	// CPU topology will be created everytime, because user can specify
 	// number of cores in vmi.Spec.Domain.Resources.Requests/Limits, not only
 	// in vmi.Spec.Domain.CPU
-	domain.Spec.CPU.Topology = getCPUTopology(vmi)
+	queueNumber, cpuTopology := CalculateNetworkQueueNumberAndGetCPUTopology(vmi)
+	domain.Spec.CPU.Topology = cpuTopology
 	domain.Spec.VCPU = &VCPU{
 		Placement: "static",
-		CPUs:      calculateRequestedVCPUs(domain.Spec.CPU.Topology),
+		CPUs:      queueNumber,
 	}
 
 	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
@@ -751,6 +752,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				domain.Spec.OS.NVRam = &NVRam{
 					NVRam:    filepath.Join("/tmp", domain.Spec.Name),
 					Template: filepath.Join(c.OVMFPath, EFIVars),
+				}
+			}
+		}
+
+		if vmi.Spec.Domain.Firmware.Bootloader != nil && vmi.Spec.Domain.Firmware.Bootloader.BIOS != nil {
+			if vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial != nil && *vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial {
+				domain.Spec.OS.BIOS = &BIOS{
+					UseSerial: "yes",
 				}
 			}
 		}
@@ -928,7 +937,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	var numBlkQueues *uint
 	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
 	virtioNetMQRequested := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
-	vcpus := uint(calculateRequestedVCPUs(domain.Spec.CPU.Topology))
+	vcpus := uint(queueNumber)
 	if vcpus == 0 {
 		vcpus = uint(1)
 	}
@@ -1281,6 +1290,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				Type:    "pci",
 				Managed: "yes",
 			}
+
+			if iface.PciAddress != "" {
+				addr, err := decoratePciAddressField(iface.PciAddress)
+				if err != nil {
+					return fmt.Errorf("failed to configure SRIOV %s: %v", iface.Name, err)
+				}
+				hostDev.Address = addr
+			}
+
 			if iface.BootOrder != nil {
 				hostDev.BootOrder = &BootOrder{Order: *iface.BootOrder}
 			}
@@ -1323,6 +1341,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				domainIface.Type = "ethernet"
 				if iface.BootOrder != nil {
 					domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
+				} else {
+					domainIface.Rom = &Rom{Enabled: "no"}
 				}
 			} else if iface.Slirp != nil {
 				domainIface.Type = "user"
@@ -1426,6 +1446,11 @@ func getCPUTopology(vmi *v1.VirtualMachineInstance) *CPUTopology {
 
 func calculateRequestedVCPUs(cpuTopology *CPUTopology) uint32 {
 	return cpuTopology.Cores * cpuTopology.Sockets * cpuTopology.Threads
+}
+
+func CalculateNetworkQueueNumberAndGetCPUTopology(vmi *v1.VirtualMachineInstance) (uint32, *CPUTopology) {
+	cpuTopology := getCPUTopology(vmi)
+	return calculateRequestedVCPUs(cpuTopology), cpuTopology
 }
 
 func formatDomainCPUTune(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) error {

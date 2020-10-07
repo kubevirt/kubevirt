@@ -307,6 +307,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.DHCPOptions":                                                schema_kubevirtio_client_go_api_v1_DHCPOptions(ref),
 		"kubevirt.io/client-go/api/v1.DHCPPrivateOptions":                                         schema_kubevirtio_client_go_api_v1_DHCPPrivateOptions(ref),
 		"kubevirt.io/client-go/api/v1.DataVolumeSource":                                           schema_kubevirtio_client_go_api_v1_DataVolumeSource(ref),
+		"kubevirt.io/client-go/api/v1.DataVolumeTemplateDummyStatus":                              schema_kubevirtio_client_go_api_v1_DataVolumeTemplateDummyStatus(ref),
+		"kubevirt.io/client-go/api/v1.DataVolumeTemplateSpec":                                     schema_kubevirtio_client_go_api_v1_DataVolumeTemplateSpec(ref),
 		"kubevirt.io/client-go/api/v1.DeveloperConfiguration":                                     schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.Devices":                                                    schema_kubevirtio_client_go_api_v1_Devices(ref),
 		"kubevirt.io/client-go/api/v1.Disk":                                                       schema_kubevirtio_client_go_api_v1_Disk(ref),
@@ -427,8 +429,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceRegistry": schema_pkg_apis_core_v1alpha1_DataVolumeSourceRegistry(ref),
 		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceS3":       schema_pkg_apis_core_v1alpha1_DataVolumeSourceS3(ref),
 		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceUpload":   schema_pkg_apis_core_v1alpha1_DataVolumeSourceUpload(ref),
+		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceVDDK":     schema_pkg_apis_core_v1alpha1_DataVolumeSourceVDDK(ref),
 		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSpec":           schema_pkg_apis_core_v1alpha1_DataVolumeSpec(ref),
 		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeStatus":         schema_pkg_apis_core_v1alpha1_DataVolumeStatus(ref),
+		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.NodePlacement":            schema_pkg_apis_core_v1alpha1_NodePlacement(ref),
 	}
 }
 
@@ -13481,6 +13485,15 @@ func schema_kubevirtio_client_go_api_v1_BIOS(ref common.ReferenceCallback) commo
 			SchemaProps: spec.SchemaProps{
 				Description: "If set (default), BIOS will be used.",
 				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"useSerial": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If set, the BIOS output will be transmitted over serial",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -14146,6 +14159,62 @@ func schema_kubevirtio_client_go_api_v1_DataVolumeSource(ref common.ReferenceCal
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_DataVolumeTemplateDummyStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_DataVolumeTemplateSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataVolumeSpec contains the DataVolume specification.",
+							Ref:         ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataVolumeTemplateDummyStatus is here simply for backwards compatibility with a previous API.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.DataVolumeTemplateDummyStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/client-go/api/v1.DataVolumeTemplateDummyStatus", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSpec"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -14193,6 +14262,12 @@ func schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref common.Refere
 						},
 					},
 					"useEmulation": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"cpuAllocationRatio": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -14864,7 +14939,7 @@ func schema_kubevirtio_client_go_api_v1_Features(ref common.ReferenceCallback) c
 				Properties: map[string]spec.Schema{
 					"acpi": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ACPI enables/disables ACPI insidejsondata guest. Defaults to enabled.",
+							Description: "ACPI enables/disables ACPI inside the guest. Defaults to enabled.",
 							Ref:         ref("kubevirt.io/client-go/api/v1.FeatureState"),
 						},
 					},
@@ -15504,8 +15579,7 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtConfiguration(ref common.Referen
 					},
 					"cpuRequest": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
 					"developerConfiguration": {
@@ -15581,14 +15655,14 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtConfiguration(ref common.Referen
 					"memBalloonStatsPeriod": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
-							Format: "int32",
+							Format: "int64",
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.DeveloperConfiguration", "kubevirt.io/client-go/api/v1.MigrationConfiguration", "kubevirt.io/client-go/api/v1.NetworkConfiguration", "kubevirt.io/client-go/api/v1.SMBiosConfiguration"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/client-go/api/v1.DeveloperConfiguration", "kubevirt.io/client-go/api/v1.MigrationConfiguration", "kubevirt.io/client-go/api/v1.NetworkConfiguration", "kubevirt.io/client-go/api/v1.SMBiosConfiguration"},
 	}
 }
 
@@ -15933,23 +16007,6 @@ func schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref common.Refere
 				Description: "MigrationConfiguration holds migration options",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"allowAutoConverge": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"bandwidthPerMigration": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
-						},
-					},
-					"completionTimeoutPerGiB": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"nodeDrainTaintKey": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -15968,6 +16025,23 @@ func schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref common.Refere
 							Format: "",
 						},
 					},
+					"allowAutoConverge": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"bandwidthPerMigration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"completionTimeoutPerGiB": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"progressTimeout": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -15980,8 +16054,13 @@ func schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref common.Refere
 							Format: "",
 						},
 					},
+					"allowPostCopy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
-				Required: []string{"allowAutoConverge", "unsafeMigrationOverride"},
 			},
 		},
 		Dependencies: []string{
@@ -17415,6 +17494,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceMigrationState(ref
 							Format:      "",
 						},
 					},
+					"mode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Lets us know if the vmi is currenly running pre or post copy migration",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -18083,6 +18169,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 							Format:      "",
 						},
 					},
+					"evacuationNodeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want to evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"activePods": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ActivePods is a mapping of pod UID to node name. It is possible for multiple pods to be running for a single VMI during migration.",
@@ -18212,7 +18305,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref common.ReferenceC
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolume"),
+										Ref: ref("kubevirt.io/client-go/api/v1.DataVolumeTemplateSpec"),
 									},
 								},
 							},
@@ -18223,7 +18316,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.VirtualMachineInstanceTemplateSpec", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolume"},
+			"kubevirt.io/client-go/api/v1.DataVolumeTemplateSpec", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceTemplateSpec"},
 	}
 }
 
@@ -18712,7 +18805,8 @@ func schema_pkg_apis_core_v1alpha1_CDIConfigSpec(ref common.ReferenceCallback) c
 					},
 					"podResourceRequirements": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/api/core/v1.ResourceRequirements"),
+							Description: "ResourceRequirements describes the compute resource requirements.",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
 				},
@@ -18746,7 +18840,8 @@ func schema_pkg_apis_core_v1alpha1_CDIConfigStatus(ref common.ReferenceCallback)
 					},
 					"defaultPodResourceRequirements": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/api/core/v1.ResourceRequirements"),
+							Description: "ResourceRequirements describes the compute resource requirements.",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
 				},
@@ -18821,13 +18916,28 @@ func schema_pkg_apis_core_v1alpha1_CDISpec(ref common.ReferenceCallback) common.
 					},
 					"uninstallStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "CDIUninstallStrategy defines the state to leave CDI on uninstall",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"infra": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Rules on which nodes CDI infrastructure pods will be scheduled",
+							Ref:         ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.NodePlacement"),
+						},
+					},
+					"workload": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Restrict on which nodes CDI workload pods will be scheduled",
+							Ref:         ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.NodePlacement"),
 						},
 					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.NodePlacement"},
 	}
 }
 
@@ -19082,11 +19192,16 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSource(ref common.ReferenceCallback
 							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceImageIO"),
 						},
 					},
+					"vddk": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceVDDK"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeBlankImage", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceHTTP", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceImageIO", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourcePVC", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceRegistry", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceS3", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceUpload"},
+			"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeBlankImage", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceHTTP", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceImageIO", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourcePVC", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceRegistry", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceS3", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceUpload", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceVDDK"},
 	}
 }
 
@@ -19269,6 +19384,54 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSourceUpload(ref common.ReferenceCa
 	}
 }
 
+func schema_pkg_apis_core_v1alpha1_DataVolumeSourceVDDK(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DataVolumeSourceVDDK provides the parameters to create a Data Volume from a Vmware source",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URL is the URL of the vCenter or ESXi host with the VM to migrate",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"uuid": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UUID is the UUID of the virtual machine that the backing file is attached to in vCenter/ESXi",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"backingFile": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BackingFile is the path to the virtual hard disk to migrate from vCenter/ESXi",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"thumbprint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Thumbprint is the certificate thumbprint of the vCenter or ESXi host",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"secretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretRef provides a reference to a secret containing the username and password needed to access the vCenter or ESXi host",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_core_v1alpha1_DataVolumeSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -19348,5 +19511,54 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeStatus(ref common.ReferenceCallback
 		},
 		Dependencies: []string{
 			"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeCondition"},
+	}
+}
+
+func schema_pkg_apis_core_v1alpha1_NodePlacement(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NodePlacement describes CDI node scheduling configuration.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "nodeSelector is the node selector applied to the relevant kind of pods It specifies a map of key-value pairs: for the pod to be eligible to run on a node, the node must have each of the indicated key-value pairs as labels (it can have additional labels as well). See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"affinity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "affinity enables pod affinity/anti-affinity placement expanding the types of constraints that can be expressed with nodeSelector. affinity is going to be applied to the relevant kind of pods in parallel with nodeSelector See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity",
+							Ref:         ref("k8s.io/api/core/v1.Affinity"),
+						},
+					},
+					"tolerations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "tolerations is a list of tolerations applied to the relevant kind of pods See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info. These are additional tolerations other than default ones.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/api/core/v1.Toleration"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Toleration"},
 	}
 }

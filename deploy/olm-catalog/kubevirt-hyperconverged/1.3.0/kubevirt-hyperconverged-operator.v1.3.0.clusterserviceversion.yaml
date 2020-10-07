@@ -8,7 +8,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:95c8c3e9002ebe55254b9371757a98a3d29991ba83e3edfe405a9174c596365a
-    createdAt: "2020-10-06 17:32:02"
+    createdAt: "2020-10-07 15:11:08"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -658,6 +658,7 @@ spec:
           - list
           - watch
           - patch
+          - update
         - apiGroups:
           - kubevirt.io
           resources:
@@ -919,10 +920,16 @@ spec:
           resources:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
+          verbs:
+          - get
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
           - virtualmachineinstances/pause
           - virtualmachineinstances/unpause
           verbs:
           - get
+          - update
         - apiGroups:
           - subresources.kubevirt.io
           resources:
@@ -968,10 +975,16 @@ spec:
           resources:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
+          verbs:
+          - get
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
           - virtualmachineinstances/pause
           - virtualmachineinstances/unpause
           verbs:
           - get
+          - update
         - apiGroups:
           - subresources.kubevirt.io
           resources:
@@ -1695,7 +1708,7 @@ spec:
                 - name: HCO_KV_IO_VERSION
                   value: 1.3.0
                 - name: KUBEVIRT_VERSION
-                  value: 20200922_3653b1f1b
+                  value: v0.34.0
                 - name: CDI_VERSION
                   value: v1.24.0
                 - name: NETWORK_ADDONS_VERSION
@@ -1816,22 +1829,22 @@ spec:
                 - "2"
                 env:
                 - name: OPERATOR_IMAGE
-                  value: kubevirtnightlybuilds/virt-operator@sha256:5589b57b4cb566726eb137cc2fc37190e10f5985ce20796b435efe5ba7946ed3
+                  value: docker.io/kubevirt/virt-operator@sha256:fec75f1d53426826a6e7b3e78f89730970dc3f7cfac7f44de7079247e4891492
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
                 - name: KUBEVIRT_VERSION
-                  value: 20200922_3653b1f1b
+                  value: v0.34.0
                 - name: VIRT_API_SHASUM
-                  value: sha256:b2d5a8e8f973add6ac20aca85836cfd1b7cdc6f58a6e3d824894d1cdd29b37d3
+                  value: sha256:b02ec9d1c1a6a18626490ab6ac8be34155d9da32718036866b341feff41e5633
                 - name: VIRT_CONTROLLER_SHASUM
-                  value: sha256:46e32cc50b37897f20a43eccaaf243108187a5bcbfd9147f1c8663b1f2f79ce7
+                  value: sha256:852b81c8d72db1236d8cdc70263e7499819fad2470f3a6e154de08d256393ad3
                 - name: VIRT_HANDLER_SHASUM
-                  value: sha256:1f01778e58ce42543c7cf8d52540c27829a426daba5efea89b85d3b7a16247e4
+                  value: sha256:ec614bb569363ad646ddab232f4e6d9cc696711d271cafd56245a08f9d1c0f68
                 - name: VIRT_LAUNCHER_SHASUM
-                  value: sha256:deb37123dea7585de52907be08e4a1b3ebbd43095019c695144af875d1e055b4
-                image: kubevirtnightlybuilds/virt-operator@sha256:5589b57b4cb566726eb137cc2fc37190e10f5985ce20796b435efe5ba7946ed3
+                  value: sha256:15280b86aa3dbb5ab9648eb8fefc57fa4e6a0f5d521318478ad5c89edd31479b
+                image: docker.io/kubevirt/virt-operator@sha256:fec75f1d53426826a6e7b3e78f89730970dc3f7cfac7f44de7079247e4891492
                 imagePullPolicy: IfNotPresent
                 name: virt-operator
                 ports:
@@ -2273,15 +2286,15 @@ spec:
     name: ovs-cni-marker
   - image: quay.io/kubevirt/ovs-cni-plugin@sha256:4101c52617efb54a45181548c257a08e3689f634b79b9dfcff42bffd8b25af53
     name: ovs-cni-plugin
-  - image: kubevirtnightlybuilds/virt-api@sha256:b2d5a8e8f973add6ac20aca85836cfd1b7cdc6f58a6e3d824894d1cdd29b37d3
+  - image: docker.io/kubevirt/virt-api@sha256:b02ec9d1c1a6a18626490ab6ac8be34155d9da32718036866b341feff41e5633
     name: virt-api
-  - image: kubevirtnightlybuilds/virt-controller@sha256:46e32cc50b37897f20a43eccaaf243108187a5bcbfd9147f1c8663b1f2f79ce7
+  - image: docker.io/kubevirt/virt-controller@sha256:852b81c8d72db1236d8cdc70263e7499819fad2470f3a6e154de08d256393ad3
     name: virt-controller
-  - image: kubevirtnightlybuilds/virt-handler@sha256:1f01778e58ce42543c7cf8d52540c27829a426daba5efea89b85d3b7a16247e4
+  - image: docker.io/kubevirt/virt-handler@sha256:ec614bb569363ad646ddab232f4e6d9cc696711d271cafd56245a08f9d1c0f68
     name: virt-handler
-  - image: kubevirtnightlybuilds/virt-launcher@sha256:deb37123dea7585de52907be08e4a1b3ebbd43095019c695144af875d1e055b4
+  - image: docker.io/kubevirt/virt-launcher@sha256:15280b86aa3dbb5ab9648eb8fefc57fa4e6a0f5d521318478ad5c89edd31479b
     name: virt-launcher
-  - image: kubevirtnightlybuilds/virt-operator@sha256:5589b57b4cb566726eb137cc2fc37190e10f5985ce20796b435efe5ba7946ed3
+  - image: docker.io/kubevirt/virt-operator@sha256:fec75f1d53426826a6e7b3e78f89730970dc3f7cfac7f44de7079247e4891492
     name: virt-operator
   - image: quay.io/kubevirt/vm-import-controller@sha256:59c3f2a65fbac003a772c1850a1d819b0ee529763bf2e199c2d3a799c44e71e4
     name: vm-import-controller

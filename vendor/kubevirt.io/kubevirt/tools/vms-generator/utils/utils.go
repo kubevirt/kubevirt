@@ -435,7 +435,7 @@ func GetVMIMasquerade() *v1.VirtualMachineInstance {
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{v1.Network{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 	initFedora(&vm.Spec)
-	userData := "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nfor i in {1..20}; do curl -I %s | grep \"200 OK\" && break || sleep 0.1; done\nyum install -y nginx\nsystemctl enable --now nginx"
+	userData := "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable --now nginx"
 	networkData := "version: 2\nethernets:\n  eth0:\n    addresses: [ fd10:0:2::2/120 ]\n    dhcp4: true\n    gateway6: fd10:0:2::1\n"
 	addNoCloudDiskWitUserDataNetworkData(&vm.Spec, userData, networkData)
 
@@ -519,7 +519,7 @@ func GetVMIBlockPvc() *v1.VirtualMachineInstance {
 
 func GetVMIHostDisk() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiHostDisk)
-	addHostDisk(&vmi.Spec, "/data/disk.img", v1.HostDiskExistsOrCreate, "1Gi")
+	addHostDisk(&vmi.Spec, "/var/data/disk.img", v1.HostDiskExistsOrCreate, "1Gi")
 	return vmi
 }
 
@@ -852,7 +852,7 @@ func GetVMDataVolume() *v1.VirtualMachine {
 		panic(err)
 	}
 	storageClassName := "local"
-	dataVolume := cdiv1.DataVolume{
+	dataVolumeSpec := v1.DataVolumeTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "alpine-dv",
 		},
@@ -874,7 +874,7 @@ func GetVMDataVolume() *v1.VirtualMachine {
 		},
 	}
 
-	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, dataVolume)
+	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, dataVolumeSpec)
 	addDataVolumeDisk(&vm.Spec.Template.Spec, "alpine-dv", busVirtio, "datavolumedisk1")
 
 	return vm

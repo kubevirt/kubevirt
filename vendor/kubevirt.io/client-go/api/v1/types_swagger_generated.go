@@ -40,17 +40,18 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual\nstate of a system.\n\n+k8s:openapi-gen=true",
-		"nodeName":        "NodeName is the name where the VirtualMachineInstance is currently running.",
-		"reason":          "A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'\n+optional",
-		"conditions":      "Conditions are specific points in VirtualMachineInstance's pod runtime.",
-		"phase":           "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
-		"interfaces":      "Interfaces represent the details of available network interfaces.",
-		"guestOSInfo":     "Guest OS Information",
-		"migrationState":  "Represents the status of a live migration",
-		"migrationMethod": "Represents the method using which the vmi can be migrated: live migration or block migration",
-		"qosClass":        "The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements\nSee PodQOSClass type for available QOS classes\nMore info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md\n+optional",
-		"activePods":      "ActivePods is a mapping of pod UID to node name.\nIt is possible for multiple pods to be running for a single VMI during migration.",
+		"":                   "VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual\nstate of a system.\n\n+k8s:openapi-gen=true",
+		"nodeName":           "NodeName is the name where the VirtualMachineInstance is currently running.",
+		"reason":             "A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'\n+optional",
+		"conditions":         "Conditions are specific points in VirtualMachineInstance's pod runtime.",
+		"phase":              "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
+		"interfaces":         "Interfaces represent the details of available network interfaces.",
+		"guestOSInfo":        "Guest OS Information",
+		"migrationState":     "Represents the status of a live migration",
+		"migrationMethod":    "Represents the method using which the vmi can be migrated: live migration or block migration",
+		"qosClass":           "The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements\nSee PodQOSClass type for available QOS classes\nMore info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md\n+optional",
+		"evacuationNodeName": "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want\nto evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.\n+optional",
+		"activePods":         "ActivePods is a mapping of pod UID to node name.\nIt is possible for multiple pods to be running for a single VMI during migration.",
 	}
 }
 
@@ -111,6 +112,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"abortRequested":                 "Indicates that the migration has been requested to abort",
 		"abortStatus":                    "Indicates the final status of the live migration abortion",
 		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
+		"mode":                           "Lets us know if the vmi is currenly running pre or post copy migration",
 	}
 }
 
@@ -158,6 +160,20 @@ func (VirtualMachineInstanceReplicaSetCondition) SwaggerDoc() map[string]string 
 		"":                   "+k8s:openapi-gen=true",
 		"lastProbeTime":      "+nullable",
 		"lastTransitionTime": "+nullable",
+	}
+}
+
+func (DataVolumeTemplateDummyStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
+func (DataVolumeTemplateSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "+k8s:openapi-gen=true",
+		"spec":   "DataVolumeSpec contains the DataVolume specification.",
+		"status": "DataVolumeTemplateDummyStatus is here simply for backwards compatibility with\na previous API.\n+nullable\n+optional",
 	}
 }
 

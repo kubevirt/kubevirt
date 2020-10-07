@@ -47,6 +47,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/onsi/ginkgo/config"
 	netutils "k8s.io/utils/net"
 
 	expect "github.com/google/goexpect"
@@ -62,6 +63,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,6 +76,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/tools/remotecommand"
@@ -144,14 +147,14 @@ const SubresourceTestLabel = "subresource-access-test-pod"
 const namespaceKubevirt = "kubevirt"
 const kubevirtConfig = "kubevirt-config"
 
-const (
-	// tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
-	NamespaceTestDefault = "kubevirt-test-default"
-	// NamespaceTestAlternative is used to test controller-namespace independency.
-	NamespaceTestAlternative = "kubevirt-test-alternative"
-	// NamespaceTestOperator is used to test if namespaces can still be deleted when kubevirt is uninstalled
-	NamespaceTestOperator = "kubevirt-test-operator"
-)
+// tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
+var NamespaceTestDefault = "kubevirt-test-default"
+
+// NamespaceTestAlternative is used to test controller-namespace independency.
+var NamespaceTestAlternative = "kubevirt-test-alternative"
+
+// NamespaceTestOperator is used to test if namespaces can still be deleted when kubevirt is uninstalled
+var NamespaceTestOperator = "kubevirt-test-operator"
 
 const (
 	NFSTargetName   = "test-nfs-target"
@@ -354,10 +357,15 @@ func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessF
 
 	go func() {
 		defer GinkgoRecover()
-		for obj := range eventWatcher.ResultChan() {
-			if f(obj.Object.(*k8sv1.Event)) {
-				close(done)
-				break
+		for watchEvent := range eventWatcher.ResultChan() {
+			if watchEvent.Type != watch.Error {
+				event := watchEvent.Object.(*k8sv1.Event)
+				if f(event) {
+					close(done)
+					break
+				}
+			} else {
+				Fail(fmt.Sprintf("unexpected error event: %v", apierrors.FromObject(watchEvent.Object)))
 			}
 		}
 	}()
@@ -526,37 +534,36 @@ func GenerateRESTReport() error {
 	return nil
 }
 
-func AfterTestSuitCleanup() {
-
+func SynchronizedAfterTestSuiteCleanup() {
 	RestoreKubeVirtResource()
 
-	// Make sure that the namespaces exist, to not have to check in the cleanup code for existing namespaces
-	createNamespaces()
-	cleanNamespaces()
-	cleanupServiceAccounts()
-
-	DeletePVC(osWindows)
-	DeletePVC(osRhel)
-
-	DeletePVC(osAlpineHostPath)
 	DeletePV(osAlpineHostPath)
 
 	if Config.ManageStorageClasses {
 		deleteStorageClass(Config.StorageClassHostPath)
 		deleteStorageClass(Config.StorageClassBlockVolume)
 	}
-
-	if flags.DeployTestingInfrastructureFlag {
-		WipeTestingInfrastructure()
-	}
-	removeNamespaces()
-
 	CleanNodes()
 
 	// Generate REST API coverage report
 	if err := GenerateRESTReport(); err != nil {
 		log.Log.Errorf("Could not generate REST coverage report %v", err)
 	}
+}
+
+func AfterTestSuitCleanup() {
+
+	DeletePVC(osWindows)
+	DeletePVC(osRhel)
+
+	DeletePVC(osAlpineHostPath)
+	cleanupServiceAccounts()
+	cleanNamespaces()
+
+	if flags.DeployTestingInfrastructureFlag {
+		WipeTestingInfrastructure()
+	}
+	removeNamespaces()
 }
 
 func BeforeTestCleanup() {
@@ -580,6 +587,13 @@ func CleanNodes() {
 		old, err := json.Marshal(node)
 		Expect(err).ToNot(HaveOccurred())
 		new := node.DeepCopy()
+
+		k8sClient := GetK8sCmdClient()
+		if k8sClient == "oc" {
+			RunCommandWithNS("", k8sClient, "adm", "uncordon", node.Name)
+		} else {
+			RunCommandWithNS("", k8sClient, "uncordon", node.Name)
+		}
 
 		found := false
 		taints := []k8sv1.Taint{}
@@ -695,12 +709,18 @@ func Taint(nodeName string, key string, effect k8sv1.TaintEffect) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func BeforeTestSuitSetup() {
-	flags.NormalizeFlags()
+// CalculateNamespaces checks on which ginkgo gest node the tests are run and sets the namespaces accordingly
+func CalculateNamespaces() {
+	worker := config.GinkgoConfig.ParallelNode
+	NamespaceTestDefault = fmt.Sprintf("%s%d", NamespaceTestDefault, worker)
+	NamespaceTestAlternative = fmt.Sprintf("%s%d", NamespaceTestAlternative, worker)
+	// TODO, that is not needed, just a shortcut to not have to treat this namespace
+	// differently when running in parallel
+	NamespaceTestOperator = fmt.Sprintf("%s%d", NamespaceTestOperator, worker)
+	testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator}
+}
 
-	log.InitializeLogging("tests")
-	log.Log.SetIOWriter(GinkgoWriter)
-
+func SynchronizedBeforeTestSetup() []byte {
 	var err error
 	Config, err = loadConfig()
 	Expect(err).ToNot(HaveOccurred())
@@ -709,11 +729,14 @@ func BeforeTestSuitSetup() {
 		detectInstallNamespace()
 	}
 
-	createNamespaces()
-	createServiceAccounts()
 	if flags.DeployTestingInfrastructureFlag {
 		WipeTestingInfrastructure()
 		DeployTestingInfrastructure()
+	}
+
+	if Config.ManageStorageClasses {
+		createStorageClass(Config.StorageClassHostPath)
+		createStorageClass(Config.StorageClassBlockVolume)
 	}
 
 	// Wait for schedulable nodes
@@ -727,26 +750,9 @@ func BeforeTestSuitSetup() {
 		return len(nodes.Items)
 	}, 5*time.Minute, 10*time.Second).ShouldNot(BeZero(), "no schedulable nodes found")
 
-	if Config.ManageStorageClasses {
-		createStorageClass(Config.StorageClassHostPath)
-		createStorageClass(Config.StorageClassBlockVolume)
-	}
-
 	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
-	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
-
-	CreatePVC(osWindows, defaultWindowsDiskSize, Config.StorageClassWindows)
-	CreatePVC(osRhel, defaultRhelDiskSize, Config.StorageClassRhel)
-
-	if IsRunningOnKindInfraIPv6() {
-		createPodPreset("fix-node-uuid", "fake-product-uuid", "virt-launcher", "/kind/product_uuid", "/sys/class/dmi/id/product_uuid")
-	}
 
 	EnsureKVMPresent()
-
-	SetDefaultEventuallyTimeout(defaultEventuallyTimeout)
-	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
-
 	AdjustKubeVirtResource()
 
 	// TODO, if a previous run was really killed, we could not restore the map and we may pick up a config here which is bad
@@ -755,6 +761,29 @@ func BeforeTestSuitSetup() {
 		PanicOnError(err)
 	}
 	KubeVirtDefaultConfig = cfgMap.Data
+	return nil
+}
+
+func BeforeTestSuitSetup(_ []byte) {
+	log.InitializeLogging("tests")
+	log.Log.SetIOWriter(GinkgoWriter)
+	var err error
+	Config, err = loadConfig()
+	Expect(err).ToNot(HaveOccurred())
+
+	createNamespaces()
+	createServiceAccounts()
+
+	if IsRunningOnKindInfraIPv6() {
+		createPodPreset("fix-node-uuid", "fake-product-uuid", "virt-launcher", "/kind/product_uuid", "/sys/class/dmi/id/product_uuid")
+	}
+
+	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
+	CreatePVC(osWindows, defaultWindowsDiskSize, Config.StorageClassWindows)
+	CreatePVC(osRhel, defaultRhelDiskSize, Config.StorageClassRhel)
+
+	SetDefaultEventuallyTimeout(defaultEventuallyTimeout)
+	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
 }
 
 var originalKV *v1.KubeVirt
@@ -806,7 +835,9 @@ func createStorageClass(name string) {
 		Provisioner: name,
 	}
 	_, err = virtClient.StorageV1().StorageClasses().Create(sc)
-	PanicOnError(err)
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
 }
 
 func deleteStorageClass(name string) {
@@ -1203,12 +1234,12 @@ func cleanupSubresourceServiceAccount() {
 		PanicOnError(err)
 	}
 
-	err = virtCli.RbacV1().ClusterRoles().Delete(SubresourceServiceAccountName, nil)
+	err = virtCli.RbacV1().Roles(NamespaceTestDefault).Delete(SubresourceServiceAccountName, nil)
 	if !errors.IsNotFound(err) {
 		PanicOnError(err)
 	}
 
-	err = virtCli.RbacV1().ClusterRoleBindings().Delete(SubresourceServiceAccountName, nil)
+	err = virtCli.RbacV1().RoleBindings(NamespaceTestDefault).Delete(SubresourceServiceAccountName, nil)
 	if !errors.IsNotFound(err) {
 		PanicOnError(err)
 	}
@@ -1275,7 +1306,7 @@ func createServiceAccount(saName string, clusterRole string) {
 		PanicOnError(err)
 	}
 
-	roleBinding := rbacv1.ClusterRoleBinding{
+	roleBinding := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      saName,
 			Namespace: NamespaceTestDefault,
@@ -1295,7 +1326,7 @@ func createServiceAccount(saName string, clusterRole string) {
 		Namespace: NamespaceTestDefault,
 	})
 
-	_, err = virtCli.RbacV1().ClusterRoleBindings().Create(&roleBinding)
+	_, err = virtCli.RbacV1().RoleBindings(NamespaceTestDefault).Create(&roleBinding)
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
@@ -1305,7 +1336,7 @@ func cleanupServiceAccount(saName string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	err = virtCli.RbacV1().ClusterRoleBindings().Delete(saName, nil)
+	err = virtCli.RbacV1().RoleBindings(NamespaceTestDefault).Delete(saName, nil)
 	if !errors.IsNotFound(err) {
 		PanicOnError(err)
 	}
@@ -1335,7 +1366,7 @@ func createSubresourceServiceAccount() {
 		PanicOnError(err)
 	}
 
-	role := rbacv1.ClusterRole{
+	role := rbacv1.Role{
 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      SubresourceServiceAccountName,
@@ -1347,16 +1378,16 @@ func createSubresourceServiceAccount() {
 	}
 	role.Rules = append(role.Rules, rbacv1.PolicyRule{
 		APIGroups: []string{"subresources.kubevirt.io"},
-		Resources: []string{"virtualmachineinstances/test"},
-		Verbs:     []string{"get"},
+		Resources: []string{"virtualmachines/start"},
+		Verbs:     []string{"update"},
 	})
 
-	_, err = virtCli.RbacV1().ClusterRoles().Create(&role)
+	_, err = virtCli.RbacV1().Roles(NamespaceTestDefault).Create(&role)
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 
-	roleBinding := rbacv1.ClusterRoleBinding{
+	roleBinding := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      SubresourceServiceAccountName,
 			Namespace: NamespaceTestDefault,
@@ -1365,7 +1396,7 @@ func createSubresourceServiceAccount() {
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
-			Kind:     "ClusterRole",
+			Kind:     "Role",
 			Name:     SubresourceServiceAccountName,
 			APIGroup: "rbac.authorization.k8s.io",
 		},
@@ -1376,7 +1407,7 @@ func createSubresourceServiceAccount() {
 		Namespace: NamespaceTestDefault,
 	})
 
-	_, err = virtCli.RbacV1().ClusterRoleBindings().Create(&roleBinding)
+	_, err = virtCli.RbacV1().RoleBindings(NamespaceTestDefault).Create(&roleBinding)
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
@@ -1894,12 +1925,21 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 	return vm
 }
 
+func addDataVolumeTemplate(vm *v1.VirtualMachine, dataVolume *cdiv1.DataVolume) {
+	dvt := &v1.DataVolumeTemplateSpec{}
+
+	dvt.Spec = *dataVolume.Spec.DeepCopy()
+	dvt.ObjectMeta = *dataVolume.ObjectMeta.DeepCopy()
+
+	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dvt)
+}
+
 func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
 	dataVolume := NewRandomDataVolumeWithHttpImport(imageUrl, namespace, k8sv1.ReadWriteOnce)
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
 
-	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dataVolume)
+	addDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
@@ -1908,7 +1948,7 @@ func NewRandomVMWithDataVolumeInStorageClass(imageUrl, namespace, storageClass s
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
 
-	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dataVolume)
+	addDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
@@ -1918,7 +1958,7 @@ func NewRandomVMWithDataVolumeAndUserDataInStorageClass(imageUrl, namespace, use
 	AddUserData(vmi, "cloud-init", userData)
 	vm := NewRandomVirtualMachine(vmi, false)
 
-	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dataVolume)
+	addDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
@@ -1928,7 +1968,7 @@ func NewRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace
 	vmi.Namespace = targetNamespace
 	vm := NewRandomVirtualMachine(vmi, false)
 
-	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dataVolume)
+	addDataVolumeTemplate(vm, dataVolume)
 	return vm
 }
 
@@ -4111,6 +4151,9 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 // UpdateClusterConfigValueAndWait updates the given configuration in the kubevirt config map and then waits
 // to allow the configuration events to be propagated to the consumers.
 func UpdateClusterConfigValueAndWait(key string, value string) string {
+	if config.GinkgoConfig.ParallelTotal > 1 {
+		Fail("Tests which alter the global kubevirt configuration must not be executed in parallel")
+	}
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	cfgMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
@@ -4131,6 +4174,12 @@ func UpdateClusterConfigValueAndWait(key string, value string) string {
 // be propagated to all components before it returns. It will only update the config map and wait for it to be
 // propagated if the current config in use does not match the original one.
 func resetToDefaultConfig() {
+	if config.GinkgoConfig.ParallelTotal > 1 {
+		// Tests which alter the global kubevirt config must be run serial, therefor, if we don't run in parallel
+		// we can just skip the restore step.
+		return
+	}
+
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	cfgMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
@@ -4161,6 +4210,9 @@ func waitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 			return false
 		}
 		for _, pod := range pods.Items {
+			if pod.DeletionTimestamp != nil {
+				continue
+			}
 			body, err := CallUrlOnPod(&pod, "8443", "/healthz")
 			if err != nil {
 				log.DefaultLogger().Reason(err).Errorf("Failed to call healthz endpoint on %s", pod.Name)
