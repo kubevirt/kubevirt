@@ -307,6 +307,7 @@ func getHTTPClient(insecure bool) *http.Client {
 	client := &http.Client{}
 
 	if insecure {
+		// #nosec cause: InsecureSkipVerify: true resolution: this method explicitly ask for insecure http client
 		client.Transport = &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}

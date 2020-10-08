@@ -12,6 +12,7 @@ import (
 
 func SetupPromTLS(certManager certificate.Manager) *tls.Config {
 	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
 			cert := certManager.Current()
 			if cert == nil {
@@ -26,6 +27,7 @@ func SetupPromTLS(certManager certificate.Manager) *tls.Config {
 				return nil, fmt.Errorf("failed to get a certificate")
 			}
 			config := &tls.Config{
+				MinVersion:   tls.VersionTLS12,
 				Certificates: []tls.Certificate{*crt},
 				ClientAuth:   tls.VerifyClientCertIfGiven,
 			}
@@ -58,6 +60,7 @@ func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.
 				return nil, err
 			}
 			config := &tls.Config{
+				MinVersion:   tls.VersionTLS12,
 				Certificates: []tls.Certificate{*cert},
 				ClientCAs:    clientCAPool,
 				ClientAuth:   clientAuth,
@@ -72,7 +75,10 @@ func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.
 }
 
 func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool) *tls.Config {
+	// #nosec cause: InsecureSkipVerify: true
+	// resolution: Neither the client nor the server should validate anything itself, `VerifyPeerCertificate` is still executed
 	return &tls.Config{
+		//
 		InsecureSkipVerify: true,
 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
 			cert := certManager.Current()
@@ -142,7 +148,10 @@ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certifi
 }
 
 func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool) *tls.Config {
+	// #nosec cause: InsecureSkipVerify: true
+	// resolution: Neither the client nor the server should validate anything itself, `VerifyPeerCertificate` is still executed
 	return &tls.Config{
+		// Neither the client nor the server should validate anything itself, `VerifyPeerCertificate` is still executed
 		InsecureSkipVerify: true,
 		ClientAuth:         tls.RequireAndVerifyClientCert,
 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {

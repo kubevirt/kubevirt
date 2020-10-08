@@ -22,7 +22,7 @@ if [ -z ${KUBEVIRT_CRI} ]; then
     fi
 fi
 
-KUBEVIRT_BUILDER_IMAGE="kubevirt/builder@sha256:6c40c31d8537a3a48dd95d997d0775f480ea6976368cdf9c9720febf9c7b3e60"
+KUBEVIRT_BUILDER_IMAGE="kubevirt/builder@sha256:3390fe22e515d653e8c2d5fb50b761f75990a9b67394120ff613cb01f15def93"
 
 SYNC_OUT=${SYNC_OUT:-true}
 
@@ -135,7 +135,13 @@ fi
 
 # Run the command
 test -t 1 && USE_TTY="-it"
-$KUBEVIRT_CRI exec ${USE_TTY} ${BUILDER}-bazel-server /entrypoint.sh "$@"
+if ! $KUBEVIRT_CRI exec ${USE_TTY} ${BUILDER}-bazel-server /entrypoint.sh "$@"; then
+    # Copy the build output out of the container, make sure that _out exactly matches the build result
+    if [ "$SYNC_OUT" = "true" ]; then
+        _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/out" ${OUT_DIR}
+    fi
+    exit 1
+fi
 
 # Copy the whole kubevirt data out to get generated sources and formatting changes
 _rsync \
