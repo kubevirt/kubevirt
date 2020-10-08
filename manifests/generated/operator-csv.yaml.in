@@ -177,7 +177,6 @@ spec:
           - watch
           - patch
           - update
-          - patch
         - apiGroups:
           - ""
           resources:
@@ -498,7 +497,26 @@ spec:
           resources:
           - '*'
           verbs:
-          - '*'
+          - get
+          - list
+          - watch
+          - patch
+          - update
+          - create
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - kubevirts
+          - virtualmachines
+          - virtualmachineinstancemigrations
+          verbs:
+          - get
+          - list
+          - watch
+          - patch
+          - update
+          - create
+          - delete
         - apiGroups:
           - cdi.kubevirt.io
           resources:

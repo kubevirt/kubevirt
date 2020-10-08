@@ -79,7 +79,6 @@ rules:
   - watch
   - patch
   - update
-  - patch
 - apiGroups:
   - ""
   resources:
@@ -400,7 +399,26 @@ rules:
   resources:
   - '*'
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+  - patch
+  - update
+  - create
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - kubevirts
+  - virtualmachines
+  - virtualmachineinstancemigrations
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+  - update
+  - create
+  - delete
 - apiGroups:
   - cdi.kubevirt.io
   resources:
