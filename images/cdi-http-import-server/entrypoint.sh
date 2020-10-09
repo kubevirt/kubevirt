@@ -61,6 +61,7 @@ else
     for executable in qemu-ga stress dmidecode /usr/libexec/virt-what-cpuid-helper; do
         cp $(which $executable) /usr/share/nginx/html/
     done
+    cp /usr/lib64/libpixman-1.so.0 /usr/share/nginx/html/
 
     /usr/sbin/nginx
 fi
