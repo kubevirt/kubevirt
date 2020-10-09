@@ -36,4 +36,4 @@ to libvirt domains based on the state of those resources.
  * `make cluster-sync`: After deploying a fresh environment, or after making
    changes to code in this tree, this command will sync the Pods and DaemonSets
    in the running KubeVirt environment with the state of this tree.
- * `make cluster-down`: This will tear down a running KubeVirt enviornment.
+ * `make cluster-down`: This will tear down a running KubeVirt environment.
