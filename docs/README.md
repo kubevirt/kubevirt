@@ -17,7 +17,7 @@ represent and manage traditional virtual machines side by side with
 containers.
 
 KubeVirt's primary CRD is the VirtualMachine (VM) resource, which contains
-a collection of VirtualMachineInstance (VMI) objects, which shares
+a VirtualMachineInstance (VMI) object, which shares
 similarity with the Pod concept. A VMI represents a single virtualized
 workload that executes once until completion (i.e., powered off). In
 addition to the VMI, the key KubeVirt components are the virt-api, the
