@@ -45,4 +45,5 @@ if [[ "$download_cluster_up" == true ]]; then
     echo ${kubevirtci_git_hash} >${version_file}
     new_sha=$(getClusterUpShasum)
     echo ${new_sha} >${sha_file}
+    echo "KUBEVIRTCI_TAG=${kubevirtci_git_hash}" >>cluster-up/hack/common.sh
 fi
