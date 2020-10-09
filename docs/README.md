@@ -27,8 +27,11 @@ virt-controller, the virt-handler, and the virt-launcher.
 
  * **virt-api**: This component provides a HTTP RESTful entrypoint to manage
    the virtual machines within the cluster.
- * **virt-controller: This component manages the state of each VMI within the
-   Kubernetes cluster.
+ * **virt-controller**: This component is a Kubernetes Operator that
+ manages the state of each VMI within the Kubernetes cluster. When new VM
+ objects are submitted to the Kubernetes API-Server, this controller takes
+ notice and creates the pod in which the VM will run and delegates the
+ other management operations to the *virt-handler* component.
  * **virt-handler**: This is a daemon that runs on each Kubernetes node. It is
    responsible for monitoring the state of VMIs according to Kubernetes and
    ensuring the corresponding libvirt domain is booted or halted accordingly.
