@@ -177,7 +177,7 @@ func (dpi *MediatedDevicePlugin) Allocate(ctx context.Context, r *pluginapi.Allo
 	resourceName := dpi.deviceName
 	log.DefaultLogger().Infof("Allocate: resourceName: %s", dpi.deviceName)
 	log.DefaultLogger().Infof("Allocate: iommuMap: %v", dpi.iommuToMDEVMap)
-	resourceNameEnvVar := util.ResourceNameToEnvvar(MDEV_RESOURCE_PREFIX, resourceName)
+	resourceNameEnvVar := util.ResourceNameToEnvVar(MDEV_RESOURCE_PREFIX, resourceName)
 	log.DefaultLogger().Infof("Allocate: resourceNameEnvVar: %s", resourceNameEnvVar)
 	allocatedDevices := []string{}
 	resp := new(pluginapi.AllocateResponse)

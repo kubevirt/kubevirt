@@ -12,9 +12,8 @@ import (
 )
 
 const (
-	configMapName            = "kubevirt-config"
-	HostDevicesConfigMapName = "kubevirt-host-device-plugin-config"
-	namespace                = "kubevirt"
+	configMapName = "kubevirt-config"
+	namespace     = "kubevirt"
 )
 
 func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
@@ -23,7 +22,7 @@ func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cach
 	kubeVirtInformer, _ := NewFakeInformerFor(&KVv1.KubeVirt{})
 
 	if cfgMap != nil {
-		copy := copyByName(cfgMap, configMapName)
+		copy := copy(cfgMap)
 		configMapInformer.GetStore().Add(copy)
 	}
 
@@ -60,11 +59,7 @@ func AddDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
 }
 
 func UpdateFakeClusterConfig(configMapInformer cache.SharedIndexInformer, cfgMap *v1.ConfigMap) {
-	UpdateFakeClusterConfigByName(configMapInformer, cfgMap, configMapName)
-}
-
-func UpdateFakeClusterConfigByName(configMapInformer cache.SharedIndexInformer, cfgMap *v1.ConfigMap, name string) {
-	copy := copyByName(cfgMap, name)
+	copy := copy(cfgMap)
 	configMapInformer.GetStore().Update(copy)
 }
 
@@ -77,11 +72,11 @@ func UpdateFakeKubeVirtClusterConfig(kubeVirtInformer cache.SharedIndexInformer,
 	kubeVirtInformer.GetStore().Update(copy)
 }
 
-func copyByName(cfgMap *v1.ConfigMap, name string) *v1.ConfigMap {
+func copy(cfgMap *v1.ConfigMap) *v1.ConfigMap {
 	copy := cfgMap.DeepCopy()
 	copy.ObjectMeta = v12.ObjectMeta{
 		Namespace: namespace,
-		Name:      name,
+		Name:      configMapName,
 		// Change the resource version, or the config will not be updated
 		ResourceVersion: rand.String(10),
 	}

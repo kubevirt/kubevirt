@@ -67,7 +67,7 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-func ResourceNameToEnvvar(prefix string, resourceName string) string {
+func ResourceNameToEnvVar(prefix string, resourceName string) string {
 	varName := strings.ToUpper(resourceName)
 	varName = strings.Replace(varName, "/", "_", -1)
 	varName = strings.Replace(varName, ".", "_", -1)

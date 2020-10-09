@@ -8547,7 +8547,8 @@
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Filesystem"
-      }
+      },
+      "x-kubernetes-list-type": "set"
      },
      "gpus": {
       "description": "Whether to attach a GPU device to the vmi.",

@@ -13,6 +13,7 @@ import (
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 )
 
 var _ = Describe("[Serial]HostDevices", func() {
@@ -59,9 +60,9 @@ var _ = Describe("[Serial]HostDevices", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Making sure the sound card is present inside the VMI")
-			_, err = tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: "grep -c " + strings.Replace(deviceIDs, ":", "", 1) + " /proc/bus/pci/devices\n"},
-				&expect.BExp{R: tests.RetValue("1")},
+				&expect.BExp{R: console.RetValue("1")},
 			}, 15*time.Second)
 			Expect(err).ToNot(HaveOccurred(), "Device not found")
 		})
