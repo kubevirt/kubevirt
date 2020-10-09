@@ -13,6 +13,7 @@ http_archive(
     urls = [
         "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.24.0/rules_go-v0.24.0.tar.gz",
         "https://github.com/bazelbuild/rules_go/releases/download/v0.24.0/rules_go-v0.24.0.tar.gz",
+        "https://storage.googleapis.com/builddeps/08369b54a7cbe9348eea474e36c9bbb19d47101e8860cec75cbf1ccd4f749281",
     ],
 )
 
@@ -22,6 +23,7 @@ http_archive(
     urls = [
         "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.22.0/bazel-gazelle-v0.22.0.tar.gz",
         "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.22.0/bazel-gazelle-v0.22.0.tar.gz",
+        "https://storage.googleapis.com/builddeps/d4113967ab451dd4d2d767c3ca5f927fec4b30f3b2c6f8135a2033b9c05a5687",
     ],
 )
 
@@ -40,7 +42,10 @@ http_archive(
     name = "io_bazel_rules_docker",
     sha256 = "4521794f0fba2e20f3bf15846ab5e01d5332e587e9ce81629c7f96c793bb7036",
     strip_prefix = "rules_docker-0.14.4",
-    urls = ["https://github.com/bazelbuild/rules_docker/releases/download/v0.14.4/rules_docker-v0.14.4.tar.gz"],
+    urls = [
+        "https://github.com/bazelbuild/rules_docker/releases/download/v0.14.4/rules_docker-v0.14.4.tar.gz",
+        "https://storage.googleapis.com/builddeps/4521794f0fba2e20f3bf15846ab5e01d5332e587e9ce81629c7f96c793bb7036",
+    ],
 )
 
 http_archive(
@@ -59,6 +64,7 @@ http_file(
     sha256 = "3a0a3d88c6cb90008fbe49fe05e7025056fb9fa3a887c4a78f79e63f8745c845",
     urls = [
         "https://download-ib01.fedoraproject.org/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libvirt-libs-6.1.0-2.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/3a0a3d88c6cb90008fbe49fe05e7025056fb9fa3a887c4a78f79e63f8745c845",
     ],
 )
 
@@ -67,6 +73,7 @@ http_file(
     sha256 = "2ebb715341b57a74759aff415e0ff53df528c49abaa7ba5b794b4047461fa8d6",
     urls = [
         "https://download-ib01.fedoraproject.org/pub/fedora/linux/releases/32/Everything/x86_64/os/Packages/l/libvirt-devel-6.1.0-2.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/2ebb715341b57a74759aff415e0ff53df528c49abaa7ba5b794b4047461fa8d6",
     ],
 )
 
@@ -399,6 +406,7 @@ http_file(
     sha256 = "669250ad47aad5939cf4d1b88036fd95a94845d8e0bbdb05e933f3d2fe262fea",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/q/qemu-img-4.1.0-2.fc31.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/669250ad47aad5939cf4d1b88036fd95a94845d8e0bbdb05e933f3d2fe262fea",
     ],
 )
 
@@ -407,6 +415,7 @@ http_file(
     sha256 = "c6629cb5b44a7adbedf5f84324933d02f6ecfaf931b90d034354cdc9516e7adb",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/q/qemu-img-4.1.0-2.fc31.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/c6629cb5b44a7adbedf5f84324933d02f6ecfaf931b90d034354cdc9516e7adb",
     ],
 )
 
@@ -416,6 +425,7 @@ http_file(
     sha256 = "429d5b9a845285710b7baad1cdc96be74addbf878011642cfc7c14b5636e9bcc",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/n/nettle-3.5.1-3.fc31.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/429d5b9a845285710b7baad1cdc96be74addbf878011642cfc7c14b5636e9bcc",
     ],
 )
 
@@ -424,6 +434,7 @@ http_file(
     sha256 = "ae530f297a7159653ee26eacec17052b8a3e628b24ff256447ee4383c963be50",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/n/nettle-3.5.1-3.fc31.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/ae530f297a7159653ee26eacec17052b8a3e628b24ff256447ee4383c963be50",
     ],
 )
 
@@ -432,6 +443,7 @@ http_file(
     sha256 = "33e0ad9b92d40c4e09d6407df1c8549b3d4d3d64fdd482439e66d12af6004f13",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/g/glibc-2.30-5.fc31.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/33e0ad9b92d40c4e09d6407df1c8549b3d4d3d64fdd482439e66d12af6004f13",
     ],
 )
 
@@ -440,6 +452,7 @@ http_file(
     sha256 = "7761a68e16aafe728b8a45187903010001b5cb086f2f5fe929703f0c7fe8a43b",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/g/glibc-2.30-5.fc31.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/7761a68e16aafe728b8a45187903010001b5cb086f2f5fe929703f0c7fe8a43b",
     ],
 )
 
@@ -448,6 +461,7 @@ http_file(
     sha256 = "d334fe6e150349148b9cb77e32523029311ce8cb10d222d11c951b66637bbd3a",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/b/bzip2-1.0.8-1.fc31.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/d334fe6e150349148b9cb77e32523029311ce8cb10d222d11c951b66637bbd3a",
     ],
 )
 
@@ -456,6 +470,7 @@ http_file(
     sha256 = "a3c696a53507cb5d6e45c1d84b874ed030de8416e4da86e8b6eb21ea5d0f0d81",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/b/bzip2-1.0.8-1.fc31.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/a3c696a53507cb5d6e45c1d84b874ed030de8416e4da86e8b6eb21ea5d0f0d81",
     ],
 )
 
@@ -464,6 +479,7 @@ http_file(
     sha256 = "4d2671bc78b11650e8ccf75926e34295c641433759eab8f8932b8403bfa15319",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/c/capstone-4.0.1-4.fc31.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/4d2671bc78b11650e8ccf75926e34295c641433759eab8f8932b8403bfa15319",
     ],
 )
 
@@ -472,6 +488,7 @@ http_file(
     sha256 = "d835db14b1dda9601cd208edeed76cffd3b14de37330684e9ec751e67b0827cf",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/c/capstone-4.0.1-11.fc31.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/d835db14b1dda9601cd208edeed76cffd3b14de37330684e9ec751e67b0827cf",
     ],
 )
 
@@ -480,6 +497,7 @@ http_file(
     sha256 = "ee6596a5010c2b4a038861828ecca240aa03c592dacd83c3a70d44cb8ee50408",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/l/libaio-0.3.111-6.fc31.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/ee6596a5010c2b4a038861828ecca240aa03c592dacd83c3a70d44cb8ee50408",
     ],
 )
 
@@ -488,6 +506,7 @@ http_file(
     sha256 = "cf0889003cdc23fa251553e96f294b253416641ddd638533c1da328deb82ec9e",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/l/libaio-0.3.111-6.fc31.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/cf0889003cdc23fa251553e96f294b253416641ddd638533c1da328deb82ec9e",
     ],
 )
 
@@ -496,6 +515,7 @@ http_file(
     sha256 = "2a89e768507364310d03fe54362b30fb90c6bb7d1b558ab52f74a596548c234f",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/l/libstdc++-9.2.1-1.fc31.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/2a89e768507364310d03fe54362b30fb90c6bb7d1b558ab52f74a596548c234f",
     ],
 )
 
@@ -504,6 +524,7 @@ http_file(
     sha256 = "9cda89750c2d01be49024fd0c57253cb2bbe5682fbad37e366c11c2fa802c68b",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/l/libstdc++-9.2.1-1.fc31.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/9cda89750c2d01be49024fd0c57253cb2bbe5682fbad37e366c11c2fa802c68b",
     ],
 )
 
@@ -512,6 +533,7 @@ http_file(
     sha256 = "41edf2ba208309eb1cde80d5d227c4fdf43906ef47ed76aa37a51c344dfed3ee",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/q/qemu-guest-agent-4.1.0-2.fc31.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/41edf2ba208309eb1cde80d5d227c4fdf43906ef47ed76aa37a51c344dfed3ee",
     ],
 )
 
@@ -520,6 +542,7 @@ http_file(
     sha256 = "cb352f4f5de837d6ab954f34c9b65f590c76547d5f59ba4c1f63343fce8d13c8",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/q/qemu-guest-agent-4.1.0-2.fc31.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/cb352f4f5de837d6ab954f34c9b65f590c76547d5f59ba4c1f63343fce8d13c8",
     ],
 )
 
@@ -529,6 +552,7 @@ http_file(
     sha256 = "913aa9517093ce768a0fab78c9ef4012efdf8364af52e8c8b27cd043517616ba",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/p/pixman-0.38.4-1.fc31.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/913aa9517093ce768a0fab78c9ef4012efdf8364af52e8c8b27cd043517616ba",
     ],
 )
 
@@ -537,6 +561,7 @@ http_file(
     sha256 = "f29e86dcaeadaeb5ecb12e5a4f2d447e711f4bf1513b8923a63e69fa1d4f0f66",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/p/pixman-0.38.4-1.fc31.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/f29e86dcaeadaeb5ecb12e5a4f2d447e711f4bf1513b8923a63e69fa1d4f0f66",
     ],
 )
 
@@ -545,6 +570,7 @@ http_file(
     sha256 = "fe1037e4dca31eabf013e48a0cbc08a10bafa7fb77e3adcdd0ce376fafc21218",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/s/stress-1.0.4-23.fc31.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/fe1037e4dca31eabf013e48a0cbc08a10bafa7fb77e3adcdd0ce376fafc21218",
     ],
 )
 
@@ -553,6 +579,7 @@ http_file(
     sha256 = "07b0cd6cce8ef6fc28f2187e128872e4a64054ddc24563c04c103abedb7c3ebd",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/s/stress-1.0.4-23.fc31.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/07b0cd6cce8ef6fc28f2187e128872e4a64054ddc24563c04c103abedb7c3ebd",
     ],
 )
 
@@ -561,6 +588,7 @@ http_file(
     sha256 = "71c02de0e50e07999d0f4f40bce06ca4904e0ab786220bd7ffebc4a60a4d3cd7",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/e/e2fsprogs-1.45.3-1.fc31.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/71c02de0e50e07999d0f4f40bce06ca4904e0ab786220bd7ffebc4a60a4d3cd7",
     ],
 )
 
@@ -569,6 +597,7 @@ http_file(
     sha256 = "9d47c2d29dd8cff1c2b646c068fbf080b4e974b6140ca184f1799e819525694c",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora-secondary/releases/31/Everything/ppc64le/os/Packages/e/e2fsprogs-1.45.3-1.fc31.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/9d47c2d29dd8cff1c2b646c068fbf080b4e974b6140ca184f1799e819525694c",
     ],
 )
 
@@ -577,6 +606,7 @@ http_file(
     sha256 = "254a243b2d6b4246d675742f4467665b6d1c639af64dae6ee60bd6c01f2f6084",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/d/dmidecode-3.2-3.fc31.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/254a243b2d6b4246d675742f4467665b6d1c639af64dae6ee60bd6c01f2f6084",
     ],
 )
 
@@ -585,6 +615,7 @@ http_file(
     sha256 = "ed94cc657a0cca686fcea9274f24053e13dc17f770e269cab0b151f18212ddaa",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/w/which-2.21-15.fc31.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/ed94cc657a0cca686fcea9274f24053e13dc17f770e269cab0b151f18212ddaa",
     ],
 )
 
@@ -593,6 +624,7 @@ http_file(
     sha256 = "4c3b6e527de5c72ba44c7e10ec7bceba1a7922aefbd3ea34f99e378885729928",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/Packages/v/virt-what-1.19-3.fc31.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/4c3b6e527de5c72ba44c7e10ec7bceba1a7922aefbd3ea34f99e378885729928",
     ],
 )
 
