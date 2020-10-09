@@ -36,7 +36,8 @@ virt-controller, the virt-handler, and the virt-launcher.
    responsible for monitoring the state of VMIs according to Kubernetes and
    ensuring the corresponding libvirt domain is booted or halted accordingly. To perform these operations, the virt-handler signals and send the VM's CRD object to the *virt-launcher* component.
  * **virt-launcher**: This component is a place-holder, one per running VMI. It
-   contains the running VMI and remains running as long as the VMI is defined.
+   contains the running VMI and remains running as long as the VMI is defined. It uses a local libvirtd instance within its container to
+   start or terminate the VM.
 
 ### Scripts
 
