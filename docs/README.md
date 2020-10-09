@@ -3,12 +3,12 @@
 Kubernetes allows for extensions to its architecture via
 [*custom resources*]( https://Kubernetes.io/docs/concepts/extend-Kubernetes/api-extension/custom-resources/),
 which add a new endpoint in the Kubernetes API that stores and retrieves a
-collection API objects of a certain kind. However, the *custom resources*
-by themselves only enable store and retrieve structured data. To add
-business logic and specific functionality into Kubernetes, it is necessary
-to use
-[*custom controllers*]( https://Kubernetes.io/docs/concepts/extend-Kubernetes/),
-which are clients of the Kubernetes API-Server that typically read an
+collection API objects of a certain kind.
+The *custom resources* by themselves only
+enable store and retrieve structured data;
+to add business logic and specific functionality,
+[*custom controllers*]( https://Kubernetes.io/docs/concepts/extend-Kubernetes/) are needed.
+*Controllers* are clients of the Kubernetes API-Server that typically read an
 object's `.spec`, possibly do things, and then update the object's
 `.status`.
 
@@ -17,8 +17,8 @@ represent and manage traditional virtual machines side by side with
 containers.
 
 KubeVirt's primary CRD is the VirtualMachine (VM) resource, which contains
-a VirtualMachineInstance (VMI) object, which shares
-similarity with the Pod concept. A VMI represents a single virtualized
+a VirtualMachineInstance (VMI) object. The VMI
+shares similarity with the Pod concept and represents a single virtualized
 workload that executes once until completion (i.e., powered off). In
 addition to the VMI, the key KubeVirt components are the virt-api, the
 virt-controller, the virt-handler, and the virt-launcher.
