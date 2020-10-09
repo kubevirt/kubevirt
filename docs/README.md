@@ -25,6 +25,8 @@ virt-controller, the virt-handler, and the virt-launcher.
 
 ### Project Components
 
+![KubeVirt components](components.png "Components")
+
  * **virt-api**: This component provides a HTTP RESTful entrypoint to manage
    the virtual machines within the cluster.
  * **virt-controller**: This component is a Kubernetes Operator that
