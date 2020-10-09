@@ -1145,7 +1145,7 @@ func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
 }
 
 func updateDeviceResourcesMap(supportedDevice hostDeviceTypePrefix, resourceToAddressesMap map[string]api.HostDevicesList, resourceName string) {
-	varName := kutil.ResourceNameToEnvvar(supportedDevice.Prefix, resourceName)
+	varName := kutil.ResourceNameToEnvVar(supportedDevice.Prefix, resourceName)
 	addrString, isSet := os.LookupEnv(varName)
 	if isSet {
 		addrs := parseDeviceAddress(addrString)

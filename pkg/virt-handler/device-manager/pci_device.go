@@ -214,7 +214,7 @@ func formatVFIODeviceSpecs(devID string) []*pluginapi.DeviceSpec {
 
 func (dpi *PCIDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	resourceName := dpi.deviceName
-	resourceNameEnvVar := util.ResourceNameToEnvvar(PCI_RESOURCE_PREFIX, resourceName)
+	resourceNameEnvVar := util.ResourceNameToEnvVar(PCI_RESOURCE_PREFIX, resourceName)
 	allocatedDevices := []string{}
 	resp := new(pluginapi.AllocateResponse)
 	containerResponse := new(pluginapi.ContainerAllocateResponse)
