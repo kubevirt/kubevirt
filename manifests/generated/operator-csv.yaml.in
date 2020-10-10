@@ -503,11 +503,15 @@ spec:
           - patch
           - update
           - create
+          - delete
         - apiGroups:
           - kubevirt.io
           resources:
           - kubevirts
           - virtualmachines
+          - virtualmachineinstances
+          - virtualmachineinstancereplicasets
+          - virtualmachineinstancepresets
           - virtualmachineinstancemigrations
           verbs:
           - get
