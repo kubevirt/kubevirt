@@ -150,7 +150,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"*",
 				},
 				Verbs: []string{
-					"get", "list", "watch", "patch", "update", "create",
+					"get", "list", "watch", "patch", "update", "create", "delete",
 				},
 			},
 			{
@@ -160,6 +160,9 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"kubevirts",
 					"virtualmachines",
+					"virtualmachineinstances",
+					"virtualmachineinstancereplicasets",
+					"virtualmachineinstancepresets",
 					"virtualmachineinstancemigrations",
 				},
 				Verbs: []string{

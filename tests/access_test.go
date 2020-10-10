@@ -71,9 +71,9 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			// The test id is temporary, appearing unique
 			table.Entry("given a kv", []string{"yes", "yes", "yes", "yes", "yes", "yes", "yes", "no"}, "kubevirt"),
 			table.Entry("given a vm", []string{"yes", "yes", "yes", "yes", "yes", "yes", "yes", "no"}, "virtualmachines"),
-			table.Entry("given a vmi", []string{"yes", "yes", "yes", "yes", "yes", "yes", "no", "no"}, "virtualmachineinstances"),
-			table.Entry("given a vmi replica set", []string{"yes", "yes", "yes", "yes", "yes", "yes", "no", "no"}, "virtualmachineinstancereplicasets"),
-			table.Entry("given a vmi preset", []string{"yes", "yes", "yes", "yes", "yes", "yes", "no", "no"}, "virtualmachineinstancepresets"),
+			table.Entry("given a vmi", []string{"yes", "yes", "yes", "yes", "yes", "yes", "yes", "no"}, "virtualmachineinstances"),
+			table.Entry("given a vmi replica set", []string{"yes", "yes", "yes", "yes", "yes", "yes", "yes", "no"}, "virtualmachineinstancereplicasets"),
+			table.Entry("given a vmi preset", []string{"yes", "yes", "yes", "yes", "yes", "yes", "yes", "no"}, "virtualmachineinstancepresets"),
 			table.Entry("given a vmi migration", []string{"yes", "yes", "yes", "yes", "yes", "yes", "yes", "no"}, "virtualmachineinstancemigrations"),
 		)
 	})
