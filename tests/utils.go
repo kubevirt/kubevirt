@@ -2766,23 +2766,6 @@ func WaitForSuccessfulVMIStart(vmi runtime.Object) string {
 	return waitForVMIStart(vmi, 360, false)
 }
 
-func WaitUntilVMIReadyAsync(vmi *v1.VirtualMachineInstance, expecterFactory VMIExpecterFactory) func() *v1.VirtualMachineInstance {
-	var (
-		wg       sync.WaitGroup
-		readyVMI *v1.VirtualMachineInstance
-	)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		readyVMI = WaitUntilVMIReady(vmi, expecterFactory)
-	}()
-
-	return func() *v1.VirtualMachineInstance {
-		wg.Wait()
-		return readyVMI
-	}
-}
-
 func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory VMIExpecterFactory) *v1.VirtualMachineInstance {
 	// Wait for VirtualMachineInstance start
 	WaitForSuccessfulVMIStart(vmi)
