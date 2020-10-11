@@ -497,13 +497,7 @@ spec:
           resources:
           - '*'
           verbs:
-          - get
-          - list
-          - watch
-          - patch
-          - update
-          - create
-          - delete
+          - '*'
         - apiGroups:
           - kubevirt.io
           resources:
