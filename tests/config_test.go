@@ -523,7 +523,6 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 
 		testLabelKey := "kubevirt.io.testdownwardapi"
 		testLabelVal := "downwardAPIValue"
-		//expectedOutput := testLabelKey + "=" + "\"" + testLabelVal + "\"\n"
 		expectedOutput := testLabelKey + "=" + "\"" + testLabelVal + "\""
 
 		It("[test_id:790]Should be the namespace and token the same for a pod and vmi", func() {
