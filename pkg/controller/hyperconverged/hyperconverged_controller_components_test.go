@@ -1,9 +1,6 @@
 package hyperconverged
 
 import (
-	"os"
-	"reflect"
-
 	networkaddonsshared "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
@@ -21,6 +18,7 @@ import (
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo"
@@ -390,6 +388,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureKubeVirt(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &kubevirtv1.KubeVirt{}
@@ -411,6 +410,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureKubeVirt(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &kubevirtv1.KubeVirt{}
@@ -431,7 +431,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 			Expect(foundResource.Spec.Workloads).ToNot(BeNil())
 			Expect(foundResource.Spec.Workloads.NodePlacement).ToNot(BeNil())
-			reflect.DeepEqual(foundResource.Spec.Workloads.NodePlacement.Tolerations, hco.Spec.Workloads.NodePlacement.Tolerations)
+			Expect(foundResource.Spec.Workloads.NodePlacement.Tolerations).Should(Equal(hco.Spec.Workloads.NodePlacement.Tolerations))
 
 			Expect(req.conditions).To(BeEmpty())
 		})
@@ -447,6 +447,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureKubeVirt(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &kubevirtv1.KubeVirt{}
@@ -482,6 +483,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureKubeVirt(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &kubevirtv1.KubeVirt{}
@@ -638,16 +640,17 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should set default UninstallStrategy if missing", func() {
-			expectedResource := hco.NewCDI(namespace)
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			missingUSResource := hco.NewCDI(namespace)
-			missingUSResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", missingUSResource.Namespace, missingUSResource.Name)
+			expectedResource := hco.NewCDI()
+			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+			missingUSResource := hco.NewCDI()
+			missingUSResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", missingUSResource.Namespace, missingUSResource.Name)
 			missingUSResource.Spec.UninstallStrategy = nil
 
 			cl := initClient([]runtime.Object{hco, missingUSResource})
 			r := initReconciler(cl)
 			res := r.ensureCDI(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &cdiv1beta1.CDI{}
@@ -669,6 +672,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureCDI(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &cdiv1beta1.CDI{}
@@ -690,7 +694,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Spec.Infra.NodeSelector["key2"]).Should(Equal("value2"))
 
 			Expect(foundResource.Spec.Workloads).ToNot(BeNil())
-			reflect.DeepEqual(foundResource.Spec.Workloads.Tolerations, hco.Spec.Workloads.NodePlacement.Tolerations)
+			Expect(foundResource.Spec.Workloads.Tolerations).Should(Equal(hco.Spec.Workloads.NodePlacement.Tolerations))
 
 			Expect(req.conditions).To(BeEmpty())
 		})
@@ -706,6 +710,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureCDI(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &cdiv1beta1.CDI{}
@@ -749,6 +754,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureCDI(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &cdiv1beta1.CDI{}
@@ -906,6 +912,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureNetworkAddons(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
@@ -929,6 +936,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureNetworkAddons(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
@@ -946,7 +954,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(placementConfig.Infra.NodeSelector["key2"]).Should(Equal("value2"))
 
 			Expect(placementConfig.Workloads).ToNot(BeNil())
-			reflect.DeepEqual(placementConfig.Workloads.Tolerations, hco.Spec.Workloads.NodePlacement.Tolerations)
+			Expect(placementConfig.Workloads.Tolerations).Should(Equal(hco.Spec.Workloads.NodePlacement.Tolerations))
 
 			Expect(req.conditions).To(BeEmpty())
 		})
@@ -962,6 +970,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureNetworkAddons(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
@@ -995,6 +1004,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureNetworkAddons(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
@@ -1133,6 +1143,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtCommonTemplateBundle(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtCommonTemplatesBundle{}
@@ -1266,6 +1277,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtNodeLabellerBundle(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
@@ -1286,6 +1298,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtNodeLabellerBundle(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
@@ -1302,7 +1315,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("value1"))
 			Expect(foundResource.Spec.NodeSelector["key2"]).Should(Equal("value2"))
 
-			reflect.DeepEqual(foundResource.Spec.Tolerations, hco.Spec.Workloads.NodePlacement.Tolerations)
+			Expect(foundResource.Spec.Tolerations).Should(Equal(hco.Spec.Workloads.NodePlacement.Tolerations))
 
 			Expect(req.conditions).To(BeEmpty())
 		})
@@ -1317,6 +1330,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtNodeLabellerBundle(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
@@ -1349,6 +1363,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtNodeLabellerBundle(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
@@ -1514,6 +1529,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtTemplateValidator(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtTemplateValidator{}
@@ -1534,6 +1550,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtTemplateValidator(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtTemplateValidator{}
@@ -1550,7 +1567,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("value1"))
 			Expect(foundResource.Spec.NodeSelector["key2"]).Should(Equal("value2"))
 
-			reflect.DeepEqual(foundResource.Spec.Tolerations, hco.Spec.Infra.NodePlacement.Tolerations)
+			Expect(foundResource.Spec.Tolerations).Should(Equal(hco.Spec.Infra.NodePlacement.Tolerations))
 
 			Expect(req.conditions).To(BeEmpty())
 		})
@@ -1565,6 +1582,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtTemplateValidator(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtTemplateValidator{}
@@ -1597,6 +1615,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtTemplateValidator(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtTemplateValidator{}
@@ -1735,6 +1754,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtMetricsAggregation(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtMetricsAggregation{}
@@ -1900,6 +1920,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 			res := r.ensureIMSConfig(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &corev1.ConfigMap{}
@@ -1933,7 +1954,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := newVMImportForCR(hco, namespace)
+			expectedResource := newVMImportForCR(hco)
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
 
@@ -1953,7 +1974,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should find if present", func() {
-			expectedResource := newVMImportForCR(hco, namespace)
+			expectedResource := newVMImportForCR(hco)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/vmimportconfigs/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := initClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
@@ -1970,7 +1991,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should reconcile to default", func() {
-			existingResource := newVMImportForCR(hco, namespace)
+			existingResource := newVMImportForCR(hco)
 			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
 
 			existingResource.Spec.ImagePullPolicy = corev1.PullAlways // set non-default value
@@ -1979,6 +2000,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureVMImport(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &vmimportv1beta1.VMImportConfig{}
@@ -1991,7 +2013,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should add node placement if missing in VM-Import", func() {
-			existingResource := newVMImportForCR(hco, namespace)
+			existingResource := newVMImportForCR(hco)
 
 			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
@@ -2000,6 +2022,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureVMImport(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &vmimportv1beta1.VMImportConfig{}
@@ -2021,8 +2044,8 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(infra.NodeSelector["key1"]).Should(Equal("value1"))
 			Expect(infra.NodeSelector["key2"]).Should(Equal("value2"))
 
-			reflect.DeepEqual(infra.Tolerations, hco.Spec.Infra.NodePlacement.Tolerations)
-			reflect.DeepEqual(infra.Affinity, hco.Spec.Infra.NodePlacement.Affinity)
+			Expect(infra.Tolerations).Should(Equal(hco.Spec.Infra.NodePlacement.Tolerations))
+			Expect(infra.Affinity).Should(Equal(hco.Spec.Infra.NodePlacement.Affinity))
 
 			Expect(req.conditions).To(BeEmpty())
 		})
@@ -2032,12 +2055,13 @@ var _ = Describe("HyperConverged Components", func() {
 			hcoNodePlacement := newHco()
 			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
 			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-			existingResource := newVMImportForCR(hcoNodePlacement, namespace)
+			existingResource := newVMImportForCR(hcoNodePlacement)
 
 			cl := initClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureVMImport(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &vmimportv1beta1.VMImportConfig{}
@@ -2062,7 +2086,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-			existingResource := newVMImportForCR(hco, namespace)
+			existingResource := newVMImportForCR(hco)
 
 			// now, modify HCO's node placement
 			seconds3 := int64(3)
@@ -2076,6 +2100,7 @@ var _ = Describe("HyperConverged Components", func() {
 			r := initReconciler(cl)
 			res := r.ensureVMImport(req)
 			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &vmimportv1beta1.VMImportConfig{}

@@ -197,7 +197,7 @@ func getBasicDeployment() *basicExpected {
 	expectedKVTV.Status.Conditions = getGenericCompletedConditions()
 	res.kvTv = expectedKVTV
 
-	expectedVMI := newVMImportForCR(hco, namespace)
+	expectedVMI := newVMImportForCR(hco)
 	expectedVMI.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/vmimportconfigs/%s", expectedVMI.Namespace, expectedVMI.Name)
 	expectedVMI.Status.Conditions = getGenericCompletedConditions()
 	res.vmi = expectedVMI

@@ -434,6 +434,7 @@ func (r *ReconcileHyperConverged) ensureHcoDeleted(req *hcoRequest) (reconcile.R
 		req.instance.NewNetworkAddons(),
 		req.instance.NewKubeVirtCommonTemplateBundle(),
 		req.instance.NewConsoleCLIDownload(),
+		newVMImportForCR(req.instance),
 	} {
 		err := hcoutil.EnsureDeleted(req.ctx, r.client, obj, req.instance.Name, req.logger, false)
 		if err != nil {
@@ -962,7 +963,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirt(req *hcoRequest) *EnsureResult 
 	req.logger.Info("KubeVirt already exists", "KubeVirt.Namespace", found.Namespace, "KubeVirt.Name", found.Name)
 
 	if !reflect.DeepEqual(found.Spec, virt.Spec) {
-		found.Spec = virt.Spec
+		virt.Spec.DeepCopyInto(&found.Spec)
 		req.logger.Info("Updating existing KubeVirt's Spec to its default value")
 		err = r.client.Update(req.ctx, found)
 		if err != nil {
@@ -1043,7 +1044,7 @@ func (r *ReconcileHyperConverged) ensureCDI(req *hcoRequest) *EnsureResult {
 
 	if !reflect.DeepEqual(found.Spec, cdi.Spec) {
 		req.logger.Info("Updating existing CDI' Spec to its default value")
-		found.Spec = cdi.Spec
+		cdi.Spec.DeepCopyInto(&found.Spec)
 		err = r.client.Update(req.ctx, found)
 		if err != nil {
 			return res.Error(err)
@@ -1107,7 +1108,7 @@ func (r *ReconcileHyperConverged) ensureNetworkAddons(req *hcoRequest) *EnsureRe
 
 	if !reflect.DeepEqual(found.Spec, networkAddons.Spec) && !r.upgradeMode {
 		req.logger.Info("Updating existing Network Addons")
-		found.Spec = networkAddons.Spec
+		networkAddons.Spec.DeepCopyInto(&found.Spec)
 		err = r.client.Update(req.ctx, found)
 		if err != nil {
 			return res.Error(err)
@@ -1271,7 +1272,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtCommonTemplateBundle(req *hcoReq
 
 	if !reflect.DeepEqual(kvCTB.Spec, found.Spec) {
 		req.logger.Info("Updating existing KubeVirt Common Templates Bundle")
-		found.Spec = kvCTB.Spec
+		kvCTB.Spec.DeepCopyInto(&found.Spec)
 		err = r.client.Update(req.ctx, found)
 		if err != nil {
 			return res.Error(err)
@@ -1374,7 +1375,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtNodeLabellerBundle(req *hcoReque
 
 	if !reflect.DeepEqual(kvNLB.Spec, found.Spec) {
 		req.logger.Info("Updating existing KubeVirt Node Labeller Bundle")
-		found.Spec = kvNLB.Spec
+		kvNLB.Spec.DeepCopyInto(&found.Spec)
 		err = r.client.Update(req.ctx, found)
 		if err != nil {
 			return res.Error(err)
@@ -1491,15 +1492,14 @@ func (r *ReconcileHyperConverged) ensureIMSConfig(req *hcoRequest) *EnsureResult
 }
 
 func (r *ReconcileHyperConverged) ensureVMImport(req *hcoRequest) *EnsureResult {
-	vmImport := newVMImportForCR(req.instance, req.Namespace)
+	vmImport := newVMImportForCR(req.instance)
 	res := NewEnsureResult(vmImport)
-	err := controllerutil.SetControllerReference(req.instance, vmImport, r.scheme)
-	if err != nil {
-		return res.Error(err)
-	}
 
-	key := client.ObjectKey{Namespace: "", Name: vmImport.GetName()}
-	res.SetName(vmImport.GetName())
+	key, err := client.ObjectKeyFromObject(vmImport)
+	if err != nil {
+		req.logger.Error(err, "Failed to get object key for vm-import-operator")
+	}
+	res.SetName(key.Name)
 
 	found := &vmimportv1beta1.VMImportConfig{}
 	err = r.client.Get(req.ctx, key, found)
@@ -1514,10 +1514,24 @@ func (r *ReconcileHyperConverged) ensureVMImport(req *hcoRequest) *EnsureResult 
 		return res.Error(err)
 	}
 
+	existingOwners := found.GetOwnerReferences()
+
+	// Previous versions used to have HCO-operator (scope namespace)
+	// as the owner of VMImportConfig (scope cluster).
+	// It's not legal, so remove that.
+	if len(existingOwners) > 0 {
+		req.logger.Info("VMImportConfig has owners, removing...")
+		found.SetOwnerReferences([]metav1.OwnerReference{})
+		err = r.client.Update(req.ctx, found)
+		if err != nil {
+			req.logger.Error(err, "Failed to remove VMImportConfig's previous owners")
+		}
+	}
+
 	req.logger.Info("VM import exists", "vmImport.Namespace", found.Namespace, "vmImport.Name", found.Name)
 	if !reflect.DeepEqual(vmImport.Spec, found.Spec) {
 		req.logger.Info("Updating existing VM import")
-		found.Spec = vmImport.Spec
+		vmImport.Spec.DeepCopyInto(&found.Spec)
 		err = r.client.Update(req.ctx, found)
 		if err != nil {
 			return res.Error(err)
@@ -1573,7 +1587,7 @@ func (r *ReconcileHyperConverged) ensureConsoleCLIDownload(req *hcoRequest) erro
 }
 
 // newVMImportForCR returns a VM import CR
-func newVMImportForCR(cr *hcov1beta1.HyperConverged, namespace string) *vmimportv1beta1.VMImportConfig {
+func newVMImportForCR(cr *hcov1beta1.HyperConverged) *vmimportv1beta1.VMImportConfig {
 	labels := map[string]string{
 		hcoutil.AppLabel: cr.Name,
 	}
@@ -1584,9 +1598,8 @@ func newVMImportForCR(cr *hcov1beta1.HyperConverged, namespace string) *vmimport
 	}
 	return &vmimportv1beta1.VMImportConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "vmimport-" + cr.Name,
-			Labels:    labels,
-			Namespace: namespace,
+			Name:   "vmimport-" + cr.Name,
+			Labels: labels,
 		},
 		Spec: spec,
 	}
@@ -1661,7 +1674,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtTemplateValidator(req *hcoReques
 
 	if !reflect.DeepEqual(kvTV.Spec, found.Spec) {
 		req.logger.Info("Updating existing KubeVirt Template Validator")
-		found.Spec = kvTV.Spec
+		kvTV.Spec.DeepCopyInto(&found.Spec)
 		err = r.client.Update(req.ctx, found)
 		if err != nil {
 			return res.Error(err)
@@ -1908,7 +1921,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtMetricsAggregation(req *hcoReque
 
 	if !reflect.DeepEqual(kubevirtMetricsAggregation.Spec, found.Spec) {
 		req.logger.Info("Updating existing KubeVirt Metrics Aggregation")
-		found.Spec = kubevirtMetricsAggregation.Spec
+		kubevirtMetricsAggregation.Spec.DeepCopyInto(&found.Spec)
 		err = r.client.Update(req.ctx, found)
 		if err != nil {
 			return res.Error(err)
