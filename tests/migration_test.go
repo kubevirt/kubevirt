@@ -310,15 +310,14 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		return uid
 	}
 
-	runStressTest := func(expecter expect.Expecter) {
+	runStressTest := func(vmi *v1.VirtualMachineInstance) {
 		By("Run a stress test to dirty some pages and slow down the migration")
-		_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: console.PromptExpression},
 			&expect.BSnd{S: "stress --vm 1 --vm-bytes 800M --vm-keep --timeout 1600s&\n"},
 			&expect.BExp{R: console.PromptExpression},
-		}, 15*time.Second)
-		Expect(err).ToNot(HaveOccurred(), "should run a stress test")
+		}, 15)).To(Succeed(), "should run a stress test")
 		// give stress tool some time to trash more memory pages before returning control to next steps
 		time.Sleep(15 * time.Second)
 	}
@@ -565,14 +564,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
-				Expect(expecterErr).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
 				// Need to wait for cloud init to finnish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				runStressTest(expecter)
+				runStressTest(vmi)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -600,19 +597,16 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
-				Expect(expecterErr).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
 				// Need to wait for cloud init to finnish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Set wrong time on the guest")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "date +%T -s 23:26:00\n"},
 					&expect.BExp{R: console.PromptExpression},
-				}, 15*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "should set guest time")
+				}, 15)).To(Succeed(), "should set guest time")
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -625,12 +619,13 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				By("Checking that the migrated VirtualMachineInstance has an updated time")
 				expecterNew, err := tests.ReLoggedInFedoraExpecter(vmi, 60)
-				defer expecterNew.Close()
 				if err != nil {
 					// session was probably disconnected, try to login
-					expecterNew, expecterErr = tests.LoggedInFedoraExpecter(vmi)
-					Expect(expecterErr).ToNot(HaveOccurred())
+					Expect(tests.LoginToFedora(vmi)).To(Succeed())
+					expecterNew, _, err = console.NewExpecter(virtClient, vmi, 10*time.Second)
+					Expect(err).NotTo(HaveOccurred())
 				}
+				defer expecterNew.Close()
 
 				By("Waiting for the agent to set the right time")
 				Eventually(func() bool {
@@ -971,9 +966,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInFedoraExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred(), "Should be able to login to the Fedora VM")
-				expecter.Close()
+				Expect(tests.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration for iteration")
@@ -988,9 +981,9 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the migrated VirtualMachineInstance console has expected output")
-				expecter, err = tests.ReLoggedInFedoraExpecter(vmi, 60)
-				defer expecter.Close()
+				expecter, err := tests.ReLoggedInFedoraExpecter(vmi, 60)
 				Expect(err).ToNot(HaveOccurred(), "Should stay logged in to the migrated VM")
+				defer expecter.Close()
 
 				By("Checking that the service account is mounted")
 				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
@@ -1037,11 +1030,9 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				// Run
-				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
-				Expect(expecterErr).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
-				runStressTest(expecter)
+				runStressTest(vmi)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -1139,14 +1130,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
-				Expect(expecterErr).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				runStressTest(expecter)
+				runStressTest(vmi)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -1199,14 +1188,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
-				Expect(expecterErr).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				runStressTest(expecter)
+				runStressTest(vmi)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -1232,9 +1219,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
-				Expect(expecterErr).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
 				// launch killer pod on every node that isn't the vmi's node
 				By("Starting our migration killer pods")
@@ -1416,14 +1401,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					vmi = runVMIAndExpectLaunch(vmi, 240)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
-					expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
-					Expect(expecterErr).ToNot(HaveOccurred())
-					defer expecter.Close()
+					Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
 					tests.WaitAgentConnected(virtClient, vmi)
 
-					runStressTest(expecter)
+					runStressTest(vmi)
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
@@ -1456,9 +1439,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					vmi = runVMIAndExpectLaunch(vmi, 240)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
-					expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
-					Expect(expecterErr).ToNot(HaveOccurred())
-					defer expecter.Close()
+					Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
@@ -1616,13 +1597,11 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
-				Expect(expecterErr).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				runStressTest(expecter)
+				runStressTest(vmi)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -1682,14 +1661,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					vmi = runVMIAndExpectLaunch(vmi, 180)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
-					expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
-					Expect(expecterErr).ToNot(HaveOccurred())
-					defer expecter.Close()
+					Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
 					tests.WaitAgentConnected(virtClient, vmi)
 
 					// Put VMI under load
-					runStressTest(expecter)
+					runStressTest(vmi)
 
 					// Mark the masters as schedulable so we can migrate there
 					setMastersUnschedulable(false)
