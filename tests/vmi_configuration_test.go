@@ -791,7 +791,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).To(HaveOccurred(), "should not start vmi")
 			})
 
-			It("[Serial][test_id:3072]should start the VMI with tablet input device with virtio bus", func() {
+			It("[test_id:3072]should start the VMI with tablet input device with virtio bus", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
@@ -2565,7 +2565,7 @@ var _ = Describe("Configurations", func() {
 		})
 	})
 
-	Context("[Serial]With ephemeral CD-ROM", func() {
+	Context("With ephemeral CD-ROM", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {

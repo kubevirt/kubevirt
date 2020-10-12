@@ -802,7 +802,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err.Error()).To(Equal(fmt.Sprintf(`Error stopping VirtualMachine Operation cannot be fulfilled on virtualmachine.kubevirt.io "%s": VM is not running`, newVM.Name)))
 			})
 
-			It("[Serial][test_id:3007]Should force restart a VM with terminationGracePeriodSeconds>0", func() {
+			It("[test_id:3007]Should force restart a VM with terminationGracePeriodSeconds>0", func() {
 
 				By("getting a VM with high TerminationGracePeriod")
 				newVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedora))
