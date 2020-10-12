@@ -66,9 +66,9 @@ var _ = Describe("[Serial][rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][leve
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			serverVMIFuture := tests.WaitUntilVMIReadyAsync(ctx, serverVMI, tests.LoggedInCirrosExpecter)
-			clientVMIFuture := tests.WaitUntilVMIReadyAsync(ctx, clientVMI, tests.LoggedInCirrosExpecter)
-			clientVMIAlternativeNamespaceFuture := tests.WaitUntilVMIReadyAsync(ctx, clientVMIAlternativeNamespace, tests.LoggedInCirrosExpecter)
+			serverVMIFuture := tests.WaitUntilVMIReadyAsync(ctx, serverVMI, tests.LoginToCirros)
+			clientVMIFuture := tests.WaitUntilVMIReadyAsync(ctx, clientVMI, tests.LoginToCirros)
+			clientVMIAlternativeNamespaceFuture := tests.WaitUntilVMIReadyAsync(ctx, clientVMIAlternativeNamespace, tests.LoginToCirros)
 
 			serverVMI = serverVMIFuture()
 			clientVMI = clientVMIFuture()
