@@ -2,7 +2,6 @@ package tests_test
 
 import (
 	"strings"
-	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
@@ -56,15 +55,13 @@ var _ = Describe("[Serial]HostDevices", func() {
 			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(randomVMI)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
-			expecter, err := tests.LoggedInFedoraExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
 			By("Making sure the sound card is present inside the VMI")
-			_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "grep -c " + strings.Replace(deviceIDs, ":", "", 1) + " /proc/bus/pci/devices\n"},
 				&expect.BExp{R: console.RetValue("1")},
-			}, 15*time.Second)
-			Expect(err).ToNot(HaveOccurred(), "Device not found")
+			}, 15)).To(Succeed(), "Device not found")
 		})
 	})
 })

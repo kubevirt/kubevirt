@@ -115,20 +115,15 @@ func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 
 // LoginToFedora performs a console login to a Fedora base VM
 func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
-	expecter, err := LoggedInFedoraExpecter(vmi)
-	defer expecter.Close()
-	return err
-}
-
-// LoggedInFedoraExpecter return prepared and ready to use console expecter for
-// Fedora test VM
-func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
+
 	expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	defer expecter.Close()
+
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BSnd{S: "\n"},
@@ -163,17 +158,17 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 	res, err := expecter.ExpectBatch(b, 3*time.Minute)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
-		expecter.Close()
-		return expecter, err
+		return err
 	}
 
 	err = configureConsole(expecter, false)
 	if err != nil {
-		expecter.Close()
-		return nil, err
+		return err
 	}
 
-	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient)
+	err = configureIPv6OnVMI(vmi, expecter, virtClient)
+
+	return err
 }
 
 // ReLoggedInFedoraExpecter return prepared and ready to use console expecter for

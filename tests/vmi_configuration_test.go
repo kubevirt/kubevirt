@@ -1250,17 +1250,13 @@ var _ = Describe("Configurations", func() {
 				getOptions := metav1.GetOptions{}
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInFedoraExpecter(agentVMI)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToFedora(agentVMI)).To(Succeed())
 
 				By("Terminating guest agent and waiting for it to dissappear.")
-				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
 					&expect.BSnd{S: "systemctl stop guestagent\n"},
 					&expect.BExp{R: console.PromptExpression},
-				}, 400*time.Second)
-				log.DefaultLogger().Object(agentVMI).Infof("Login: %v", res)
-				Expect(err).ToNot(HaveOccurred())
+				}, 400)).To(Succeed())
 
 				By("VMI has the guest agent connected condition")
 				Eventually(func() []v1.VirtualMachineInstanceCondition {
@@ -1349,17 +1345,13 @@ var _ = Describe("Configurations", func() {
 				agentVMI := prepareAgentVM()
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInFedoraExpecter(agentVMI)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToFedora(agentVMI)).To(Succeed())
 
 				By("Terminating guest agent and waiting for it to dissappear.")
-				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
 					&expect.BSnd{S: "systemctl stop guestagent\n"},
 					&expect.BExp{R: console.PromptExpression},
-				}, 400*time.Second)
-				log.DefaultLogger().Object(agentVMI).Infof("Login: %v", res)
-				Expect(err).ToNot(HaveOccurred())
+				}, 400)).To(Succeed())
 
 				By("Expecting the Guest VM information")
 				Eventually(func() string {
@@ -1374,12 +1366,7 @@ var _ = Describe("Configurations", func() {
 			It("[test_id:4629]should return user list", func() {
 				agentVMI := prepareAgentVM()
 
-				expecter, err := tests.LoggedInFedoraExpecter(agentVMI)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
-
-				// do some action on VM just to make sure user is active
-				expecter.Send("ls")
+				Expect(tests.LoginToFedora(agentVMI)).To(Succeed())
 
 				By("Expecting the Guest VM information")
 				Eventually(func() bool {
@@ -2401,9 +2388,7 @@ var _ = Describe("Configurations", func() {
 				Expect(node1).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter1, err := tests.LoggedInFedoraExpecter(cpuvmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter1.Close()
+				Expect(tests.LoginToFedora(cpuvmi)).To(Succeed())
 
 				By("Starting a VirtualMachineInstance without dedicated cpus")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -2413,9 +2398,7 @@ var _ = Describe("Configurations", func() {
 				Expect(node2).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter2, err := tests.LoggedInFedoraExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter2.Close()
+				Expect(tests.LoginToFedora(vmi)).To(Succeed())
 			})
 
 			It("[test_id:832]should start a vm with cpu pinning after a vm with no cpu pinning on same node", func() {
@@ -2428,9 +2411,7 @@ var _ = Describe("Configurations", func() {
 				Expect(node2).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter1, err := tests.LoggedInFedoraExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter1.Close()
+				Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
 				By("Starting a VirtualMachineInstance with dedicated cpus")
 				cpuvmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuvmi)
@@ -2440,9 +2421,7 @@ var _ = Describe("Configurations", func() {
 				Expect(node1).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter2, err := tests.LoggedInFedoraExpecter(cpuvmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter2.Close()
+				Expect(tests.LoginToFedora(cpuvmi)).To(Succeed())
 			})
 		})
 	})
@@ -2466,18 +2445,14 @@ var _ = Describe("Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<entry name='asset'>Test-123</entry>"))
 
 			By("Expecting console")
-			expecter, err := tests.LoggedInFedoraExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
+			Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
 			By("Check value in VM with dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
-			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "[ $(sudo dmidecode -s chassis-asset-tag | tr -s ' ') = Test-123 ] && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
-			}, 1*time.Second)
-			log.DefaultLogger().Object(vmi).Infof("%v", res)
-			Expect(err).ToNot(HaveOccurred())
+			}, 1)).To(Succeed())
 		})
 	})
 
@@ -2511,22 +2486,18 @@ var _ = Describe("Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<entry name='manufacturer'>KubeVirt</entry>"))
 
 			By("Expecting console")
-			expecter, err := tests.LoggedInFedoraExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
+			Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
 			By("Check values in dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
-			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') = KubeVirt ] && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') = None ] && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') = KubeVirt ] && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
-			}, 1*time.Second)
-			log.DefaultLogger().Object(vmi).Infof("%v", res)
-			Expect(err).ToNot(HaveOccurred())
+			}, 1)).To(Succeed())
 		})
 
 		It("[test_id:2752]test custom SMBios values", func() {
@@ -2551,23 +2522,19 @@ var _ = Describe("Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<entry name='version'>1.0</entry>"))
 
 			By("Expecting console")
-			expecter, err := tests.LoggedInFedoraExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
+			Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
 			By("Check values in dmidecode")
 
 			// Check on the VM, if expected values are there with dmidecode
-			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') = test ] && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') = test ] && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') = None ] && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
-			}, 1*time.Second)
-			log.DefaultLogger().Object(vmi).Infof("%v", res)
-			Expect(err).ToNot(HaveOccurred())
+			}, 1)).To(Succeed())
 		})
 	})
 
@@ -2706,19 +2673,15 @@ var _ = Describe("Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<hidden state='on'/>"))
 
 			By("Expecting console")
-			expecter, err := tests.LoggedInFedoraExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
+			Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
 			By("Check virt-what-cpuid-helper does not match KVM")
-			res, err := expecter.ExpectBatch([]expect.Batcher{
+			Expect(console.ExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "virt-what-cpuid-helper > /dev/null 2>&1 && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
 				&expect.BSnd{S: "$(sudo virt-what-cpuid-helper | grep -q KVMKVMKVM) || echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
-			}, 1*time.Second)
-			log.DefaultLogger().Object(vmi).Infof("%v", res)
-			Expect(err).ToNot(HaveOccurred())
+			}, 1*time.Second)).To(Succeed())
 		})
 
 		It("[test_id:5272]test cpuid default", func() {
@@ -2728,19 +2691,15 @@ var _ = Describe("Configurations", func() {
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			By("Expecting console")
-			expecter, err := tests.LoggedInFedoraExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
+			Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
 			By("Check virt-what-cpuid-helper matches KVM")
-			res, err := expecter.ExpectBatch([]expect.Batcher{
+			Expect(console.ExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "virt-what-cpuid-helper > /dev/null 2>&1 && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
 				&expect.BSnd{S: "$(sudo virt-what-cpuid-helper | grep -q KVMKVMKVM) && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
-			}, 1*time.Second)
-			log.DefaultLogger().Object(vmi).Infof("%v", res)
-			Expect(err).ToNot(HaveOccurred())
+			}, 1*time.Second)).To(Succeed())
 		})
 	})
 })

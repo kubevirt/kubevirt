@@ -74,9 +74,7 @@ var _ = Describe("[Serial]MultiQueue", func() {
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 
 			By("Checking if we can login")
-			e, err := tests.LoggedInFedoraExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			e.Close()
+			Expect(tests.LoginToFedora(vmi)).To(Succeed())
 		})
 
 		It("[test_id:959][rfe_id:2065] Should honor multiQueue requests", func() {

@@ -339,17 +339,14 @@ var _ = Describe("[Serial]Storage", func() {
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInFedoraExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred(), "Should be able to login to the Fedora VM")
-				defer expecter.Close()
+				Expect(tests.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 				By("Checking that virtio-fs is mounted")
 				listVirtioFSDisk := fmt.Sprintf("ls -l %s/*disk* | wc -l\n", virtiofsMountPath)
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				Expect(console.ExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: listVirtioFSDisk},
 					&expect.BExp{R: console.RetValue("1")},
-				}, 30*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "Should be able to access the mounted virtiofs file")
+				}, 30*time.Second)).To(Succeed(), "Should be able to access the mounted virtiofs file")
 
 				virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", fs.Name)
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
