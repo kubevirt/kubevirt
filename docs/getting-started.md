@@ -1,11 +1,11 @@
 # Getting Started
 
-A quick start guide to get KubeVirt up and running inside our container based
+A quick start guide to get KubeVirt up and running inside our container-based
 development cluster.
 
 ## I just want it built and run it on my cluster
 
-First, point the `Makefile` to the docker registry of your choice:
+First, point the `Makefile` to the Docker registry of your choice:
 
 ```bash
 export DOCKER_PREFIX=index.docker.io/myrepo
@@ -18,7 +18,7 @@ Then build the manifests and images:
 make && make push
 ```
 
-Finally push the manifests to your cluster:
+Finally, push the manifests to your cluster:
 
 ```bash
 kubectl create -f _out/manifests/release/kubevirt-operator.yaml
@@ -26,9 +26,10 @@ kubectl create -f _out/manifests/release/kubevirt-cr.yaml
 ```
 
 ### Docker Desktop for Mac
-The bazel build system doesn't support the macOS keychain. Please ensure that
+
+The Bazel build system does not support the macOS keychain. Please ensure that
 you deactivate the option `Securely store Docker logins in macOS keychain` in
-the Docker preferences. After restarting the docker service login with `docker
+the Docker preferences. After restarting the Docker service, log in with `docker
 login`. Your `$HOME/.docker/config.json` should look like:
 
 ```json
@@ -44,9 +45,11 @@ login`. Your `$HOME/.docker/config.json` should look like:
 
 ## Building
 
-The KubeVirt build system runs completely inside docker. In order to build
-KubeVirt you need to have `docker` and `rsync` installed. You also need to have `docker`
-running, and have the [permissions](https://docs.docker.com/install/linux/linux-postinstall/#manage-docker-as-a-non-root-user) to access it.
+The KubeVirt build system runs completely inside Docker. 
+In order to build KubeVirt you need to have `docker` and `rsync` installed. 
+You also need to have `docker` running, and have the 
+[permissions](https://docs.docker.com/install/linux/linux-postinstall/#manage-docker-as-a-non-root-user) 
+to access it.
 
 **Note:** For running KubeVirt in the dockerized cluster, **nested
 virtualization** must be enabled - [see here for instructions for Fedora](https://docs.fedoraproject.org/en-US/quick-docs/using-nested-virtualization-in-kvm/index.html).
@@ -55,8 +58,8 @@ Enabling nested virtualization should be preferred.
 
 ### Dockerized environment
 
-Runs master and nodes containers, when each one of them run virtual machine via QEMU.
-In additional it runs dnsmasq and docker registry containers.
+Runs master and nodes containers. Each one of them runs virtual machines via QEMU.
+In addition it runs `dnsmasq` and Docker registry containers.
 
 ### Compatibility
 
@@ -66,7 +69,7 @@ for scheduling and memory are missing or incompatible with previous versions.
 ### Compile and run it
 
 To build all required artifacts and launch the
-dockerizied environment, clone the KubeVirt repository, `cd` into it, and:
+dockerized environment, clone the KubeVirt repository, `cd` into it, and:
 
 ```bash
 # Build and deploy KubeVirt on Kubernetes in our vms inside containers
@@ -86,7 +89,7 @@ make cluster-up
 ```
 
 You can use the `KUBEVIRT_MEMORY_SIZE` environment 
-variable to increase memory size per node. Normally you don't need it, 
+variable to increase memory size per node. Normally you do not need it, 
 because default node memory size is set.
 
 ```bash
@@ -94,8 +97,10 @@ export KUBEVIRT_MEMORY_SIZE=8192M # node has 8GB memory size
 make cluster-up
 ```
 
-*NOTE* if you see following error, can check the MTU of the container and the host
-if they are different, try to make it same. See [issue 2667](https://github.com/kubevirt/kubevirt/issues/2667)
+**Note:** If you see the error below, 
+check if the MTU of the container and the host are the same. 
+If not, try to adjust them to be the same. 
+See [issue 2667](https://github.com/kubevirt/kubevirt/issues/2667)
 for more detailed info.
 ```
 # ./cluster-up/kubectl.sh get pods --all-namespaces
@@ -105,7 +110,7 @@ cdi           cdi-operator-5db567b486-grtk9             0/1     ImagePullBackOff
 Back-off pulling image "kubevirt/cdi-operator:v1.10.1"
 ```
 
-To destroy the created cluster, type
+To destroy the created cluster, type:
 
 ```
 make cluster-down
@@ -134,8 +139,8 @@ Then you can execute the following command to access the node:
 ### Automatic Code Generation
 
 Some of the code in our source tree is auto-generated (see `git ls-files|grep '^pkg/.*generated.*go$'`).
-On certain occasions (but not when building git-cloned code), you would need to regenerate it
-with
+On certain occasions (but not when building git-cloned code), you need to regenerate it
+with:
 
 ```bash
 make generate
@@ -143,10 +148,10 @@ make generate
 
 Typical cases where code regeneration should be triggered are:
 
- * When changing APIs, REST paths or their comments (gets reflected in the api documentation, clients, generated cloners...)
- * When changing mocked interfaces (the mock generator needs to update the generated mocks then)
+ * When changing APIs, REST paths or their comments (gets reflected in the API documentation, clients, generated cloners...)
+ * When changing mocked interfaces (the mock generator needs to update the generated mocks)
 
- We have a check in our CI system, so that you don't miss when `make generate` needs to be called.
+We have a check in our CI system so that you do not miss when `make generate` needs to be called.
 
  * Another case is when kubevirtci is updated, in order to vendor cluster-up run `hack/bump-kubevirtci.sh` and then
    `make generate`
@@ -169,7 +174,7 @@ up a dockerized environment. Then run
     make functest # run the functional tests against the dockerized VMs
 ```
 
-If you'd like to run specific functional tests only, you can leverage `ginkgo`
+If you would like to run specific functional tests only, you can leverage `ginkgo`
 command line options as follows (run a specified suite):
 
 ```
@@ -185,9 +190,9 @@ For additional information check out the [Ginkgo focused specs documentation](ht
 
 ## Use
 
-Congratulations you are still with us and you have built KubeVirt.
+Congratulations, you are still with us and you have built KubeVirt.
 
-Now it's time to get hands on and give it a try.
+Now it is time to get hands on and give it a try.
 
 ### Create a first Virtual Machine
 
@@ -256,7 +261,7 @@ $ ./cluster-up/kubectl.sh get vmis -o json
 
 ### Accessing the Domain via VNC
 
-First make sure you have `remote-viewer` installed. On Fedora run
+First make sure you have `remote-viewer` installed. On Fedora run:
 
 ```bash
 dnf install virt-viewer
@@ -265,13 +270,13 @@ dnf install virt-viewer
 Windows users can [download remote-viewer from virt-manager.org](https://virt-manager.org/download/), and may need
 to add virt-viewer installation folder to their `PATH`.
 
-Then, after you made sure that the VMI `vmi-ephemeral` is running, type
+Then, after you made sure that the VMI `vmi-ephemeral` is running, type:
 
 ```
 cluster-up/virtctl.sh vnc vmi-ephemeral
 ```
 
-to start a remote session with `remote-viewer`.
+This will start a remote session with `remote-viewer`.
 
 `cluster-up/virtctl.sh` is a wrapper around `virtctl`. `virtctl` brings all
 virtual machine specific commands with it and is a supplement to `kubectl`.
@@ -289,7 +294,7 @@ update the build files with your changes.
 
 #### Build.bazel build failures when switching branches
 
-In case you work on two or more branches, `make generate` for example might fails,
-the reason is there is a bazel server in the background, and when the base image changes,
-it should be auto restarted, the detection doesn't work always prefectly.
-To solve it, run `docker stop kubevirt-bazel-server`, which will stop the bazel server.
+In case you work on two or more branches, `make generate` for example might fail,
+the reason is there is a Bazel server in the background, and when the base image changes,
+it should be auto restarted, the detection does not always work perfectly.
+To solve it, run `docker stop kubevirt-bazel-server`, which will stop the Bazel server.
