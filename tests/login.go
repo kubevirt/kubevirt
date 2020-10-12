@@ -16,7 +16,10 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-// LoginToCirros call LoggedInFedoraExpecter but does not return the expecter
+// LoginToFactory represents the LogIn* functions signature
+type LoginToFactory func(*v1.VirtualMachineInstance) error
+
+// LoginToCirros performs a console login to a Cirros base VM
 func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 	expecter, err := LoggedInCirrosExpecter(vmi)
 	if err == nil {
@@ -73,6 +76,13 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient)
 }
 
+// LoginToAlpine performs a console login to an Alpine base VM
+func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
+	expecter, err := LoggedInAlpineExpecter(vmi)
+	defer expecter.Close()
+	return err
+}
+
 // LoggedInAlpineExpecter return prepared and ready to use console expecter for
 // Alpine test VM
 func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
@@ -101,6 +111,13 @@ func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		return nil, err
 	}
 	return expecter, err
+}
+
+// LoginToFedora performs a console login to a Fedora base VM
+func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
+	expecter, err := LoggedInFedoraExpecter(vmi)
+	defer expecter.Close()
+	return err
 }
 
 // LoggedInFedoraExpecter return prepared and ready to use console expecter for

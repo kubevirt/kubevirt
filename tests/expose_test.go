@@ -39,7 +39,7 @@ func newLabeledVMI(label string, virtClient kubecli.KubevirtClient, createVMI bo
 		tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 		vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.ObjectMeta.Name, &k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+		tests.WaitUntilVMIReady(vmi, tests.LoginToCirros)
 	}
 	return
 }

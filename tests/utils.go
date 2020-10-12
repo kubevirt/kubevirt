@@ -2823,7 +2823,7 @@ func WaitForSuccessfulVMIStartWithContext(ctx context.Context, vmi runtime.Objec
 	return waitForVMIStart(ctx, vmi, 360, false)
 }
 
-func WaitUntilVMIReadyAsync(ctx context.Context, vmi *v1.VirtualMachineInstance, expecterFactory console.VMIExpecterFactory) func() *v1.VirtualMachineInstance {
+func WaitUntilVMIReadyAsync(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo LoginToFactory) func() *v1.VirtualMachineInstance {
 	var (
 		wg       sync.WaitGroup
 		readyVMI *v1.VirtualMachineInstance
@@ -2832,7 +2832,7 @@ func WaitUntilVMIReadyAsync(ctx context.Context, vmi *v1.VirtualMachineInstance,
 	go func() {
 		defer GinkgoRecover()
 		defer wg.Done()
-		readyVMI = WaitUntilVMIReadyWithContext(ctx, vmi, expecterFactory)
+		readyVMI = WaitUntilVMIReadyWithContext(ctx, vmi, loginTo)
 	}()
 
 	return func() *v1.VirtualMachineInstance {
@@ -2841,13 +2841,13 @@ func WaitUntilVMIReadyAsync(ctx context.Context, vmi *v1.VirtualMachineInstance,
 	}
 }
 
-func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory console.VMIExpecterFactory) *v1.VirtualMachineInstance {
+func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo LoginToFactory) *v1.VirtualMachineInstance {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	return WaitUntilVMIReadyWithContext(ctx, vmi, expecterFactory)
+	return WaitUntilVMIReadyWithContext(ctx, vmi, loginTo)
 }
 
-func WaitUntilVMIReadyWithContext(ctx context.Context, vmi *v1.VirtualMachineInstance, expecterFactory console.VMIExpecterFactory) *v1.VirtualMachineInstance {
+func WaitUntilVMIReadyWithContext(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo LoginToFactory) *v1.VirtualMachineInstance {
 	// Wait for VirtualMachineInstance start
 	WaitForSuccessfulVMIStartWithContext(ctx, vmi)
 
@@ -2857,9 +2857,8 @@ func WaitUntilVMIReadyWithContext(ctx context.Context, vmi *v1.VirtualMachineIns
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	// Lets make sure that the OS is up by waiting until we can login
-	expecter, err := expecterFactory(vmi)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	expecter.Close()
+
+	ExpectWithOffset(1, loginTo(vmi)).To(Succeed())
 	return vmi
 }
 func NewInt32(x int32) *int32 {

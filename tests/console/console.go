@@ -119,26 +119,27 @@ func RunCommand(vmi *v1.VirtualMachineInstance, command string, timeout time.Dur
 
 // SecureBootExpecter should be called on a VMI that has EFI enabled
 // It will parse the kernel output (dmesg) and succeed if it finds that Secure boot is enabled
-func SecureBootExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
+func SecureBootExpecter(vmi *v1.VirtualMachineInstance) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	defer expecter.Close()
+
 	b := append([]expect.Batcher{
 		&expect.BExp{R: "secureboot: Secure boot enabled"},
 	})
 	res, err := ExpectBatchWithValidatedSend(expecter, b, 180*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Kernel: %+v", res)
-		expecter.Close()
-		return expecter, err
+		return err
 	}
 
-	return expecter, err
+	return err
 }
 
 // NetBootExpecter should be called on a VMI that has BIOS serial logging enabled
