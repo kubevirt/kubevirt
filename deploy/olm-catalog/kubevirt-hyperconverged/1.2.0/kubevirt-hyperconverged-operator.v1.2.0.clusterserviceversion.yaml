@@ -3,12 +3,12 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{"BareMetalPlatform":false}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"nmstate":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1alpha3","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtNodeLabellerBundle","metadata":{"name":"kubevirt-node-labeller-bundle","namespace":"kubevirt"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtTemplateValidator","metadata":{"name":"kubevirt-template-validator","namespace":"kubevirt"},"spec":{"templateValidatorReplicas":2}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtCommonTemplatesBundle","metadata":{"name":"kubevirt-common-template-bundle","namespace":"kubevirt"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtMetricsAggregation","metadata":{"name":"kubevirt-metrics-aggregation","namespace":"kubevirt"}},{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"nodemaintenance.kubevirt.io/v1beta1","kind":"NodeMaintenance","metadata":{"name":"nodemaintenance-example"},"spec":{"nodeName":"node02","reason":"Test node maintenance"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","pathConfig":{"path":"/var/hpvolumes","useNamingPrefix":false}}},{"apiVersion":"v2v.kubevirt.io/v1beta1","kind":"VMImportConfig","metadata":{"name":"vm-import-operator-config"},"spec":{"imagePullPolicy":"IfNotPresent"}}]'
+    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{"BareMetalPlatform":false}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"nmstate":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1alpha3","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtTemplateValidator","metadata":{"name":"kubevirt-template-validator","namespace":"kubevirt"},"spec":{"templateValidatorReplicas":2}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtCommonTemplatesBundle","metadata":{"name":"kubevirt-common-template-bundle","namespace":"kubevirt"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtMetricsAggregation","metadata":{"name":"kubevirt-metrics-aggregation","namespace":"kubevirt"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtNodeLabellerBundle","metadata":{"name":"kubevirt-node-labeller-bundle","namespace":"kubevirt"}},{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"nodemaintenance.kubevirt.io/v1beta1","kind":"NodeMaintenance","metadata":{"name":"nodemaintenance-example"},"spec":{"nodeName":"node02","reason":"Test node maintenance"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","pathConfig":{"path":"/var/hpvolumes","useNamingPrefix":false}}},{"apiVersion":"v2v.kubevirt.io/v1beta1","kind":"VMImportConfig","metadata":{"name":"vm-import-operator-config"},"spec":{"imagePullPolicy":"IfNotPresent"}}]'
     capabilities: Full Lifecycle
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:d015b58b0ed77fb20eab5cf5c4d530b3eebcba03fc75e571b1ec56dace9cb254
-    createdAt: "2020-09-27 05:11:21"
+    createdAt: "2020-10-12 14:44:55"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -88,6 +88,42 @@ spec:
       displayName: HyperConverged Cluster Operator Deployment
       kind: HyperConverged
       name: hyperconvergeds.hco.kubevirt.io
+      specDescriptors:
+      - description: nodeAffinity describes node affinity scheduling rules for the infra pods.
+        displayName: Infra components node affinity
+        path: infra.nodePlacement.affinity.nodeAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:nodeAffinity
+      - description: podAffinity describes pod affinity scheduling rules for the infra pods.
+        displayName: Infra components pod affinity
+        path: infra.nodePlacement.affinity.podAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAffinity
+      - description: podAntiAffinity describes pod anti affinity scheduling rules for the infra pods.
+        displayName: Infra components pod anti-affinity
+        path: infra.nodePlacement.affinity.podAntiAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: nodeAffinity describes node affinity scheduling rules for the workloads pods.
+        displayName: Workloads components node affinity
+        path: workloads.nodePlacement.affinity.nodeAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:nodeAffinity
+      - description: podAffinity describes pod affinity scheduling rules for the workloads pods.
+        displayName: Workloads components pod affinity
+        path: workloads.nodePlacement.affinity.podAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAffinity
+      - description: podAntiAffinity describes pod anti affinity scheduling rules for the workloads pods.
+        displayName: Workloads components pod anti-affinity
+        path: workloads.nodePlacement.affinity.podAntiAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: HIDDEN FIELDS - operator version.
+        displayName: HIDDEN FIELDS - operator version
+        path: version
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       version: v1beta1
     - description: V2V Vmware
       displayName: V2V Vmware
@@ -622,6 +658,7 @@ spec:
           - list
           - watch
           - patch
+          - update
         - apiGroups:
           - kubevirt.io
           resources:
@@ -883,10 +920,16 @@ spec:
           resources:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
+          verbs:
+          - get
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
           - virtualmachineinstances/pause
           - virtualmachineinstances/unpause
           verbs:
           - get
+          - update
         - apiGroups:
           - subresources.kubevirt.io
           resources:
@@ -932,10 +975,16 @@ spec:
           resources:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
+          verbs:
+          - get
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
           - virtualmachineinstances/pause
           - virtualmachineinstances/unpause
           verbs:
           - get
+          - update
         - apiGroups:
           - subresources.kubevirt.io
           resources:
@@ -1649,7 +1698,7 @@ spec:
                 - name: CONVERSION_CONTAINER
                   value: quay.io/kubevirt/kubevirt-v2v-conversion@sha256:c620233c71b805004c2cd38927c421b69d99b27cb40af521967e655882b2f815
                 - name: VMWARE_CONTAINER
-                  value: quay.io/kubevirt/kubevirt-vmware@sha256:8f25b28caddeaf3e405e6f78fb970a0f78891a66a7dddeae8a595712da897351
+                  value: quay.io/kubevirt/kubevirt-vmware@sha256:ae5ccd98a49ab9e154ce482d2fa73f044b00211f273210a9cd371b40746d3c92
                 - name: SMBIOS
                   value: |-
                     Family: KubeVirt
@@ -1659,11 +1708,11 @@ spec:
                 - name: HCO_KV_IO_VERSION
                   value: 1.2.0
                 - name: KUBEVIRT_VERSION
-                  value: 20200922_3653b1f1b
+                  value: v0.34.0
                 - name: CDI_VERSION
                   value: v1.23.5
                 - name: NETWORK_ADDONS_VERSION
-                  value: v0.42.1
+                  value: v0.42.2
                 - name: SSP_VERSION
                   value: v1.2.1
                 - name: NMO_VERSION
@@ -1671,7 +1720,7 @@ spec:
                 - name: HPPO_VERSION
                   value: v0.5.2
                 - name: VM_IMPORT_VERSION
-                  value: v0.2.2
+                  value: v0.2.3
                 image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:d015b58b0ed77fb20eab5cf5c4d530b3eebcba03fc75e571b1ec56dace9cb254
                 imagePullPolicy: IfNotPresent
                 name: hyperconverged-cluster-operator
@@ -1713,15 +1762,15 @@ spec:
                 - name: OVS_MARKER_IMAGE
                   value: quay.io/kubevirt/ovs-cni-marker@sha256:0f08d6b1550a90c9f10221f2bb07709d1090e7c675ee1a711981bd429074d620
                 - name: KUBEMACPOOL_IMAGE
-                  value: quay.io/kubevirt/kubemacpool@sha256:ad8ca6d379d495804969ba4d03da9a6936ff8f413f6f6c7bd20e0138dc0303c4
+                  value: quay.io/kubevirt/kubemacpool@sha256:79c4534d418c4a350a663e38499c22d54dc68c400f517aead4479f6d862b408e
                 - name: MACVTAP_CNI_IMAGE
                   value: quay.io/kubevirt/macvtap-cni@sha256:407f75760fc096666becfa45d94f51757ebbe8f382e9e7b57ceeded0b8cfb6b8
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/cluster-network-addons-operator@sha256:4c81c404da250f5dd4af8478ee564061d9e16b80996cfebd657fd03280bebe7d
+                  value: quay.io/kubevirt/cluster-network-addons-operator@sha256:f31ea1cc004fc3b9993ed43c5f23c9e237a368a385daf8730ec9366e8f0ee238
                 - name: OPERATOR_NAME
                   value: cluster-network-addons-operator
                 - name: OPERATOR_VERSION
-                  value: v0.42.1
+                  value: v0.42.2
                 - name: OPERATOR_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -1735,7 +1784,7 @@ spec:
                     fieldRef:
                       fieldPath: metadata.name
                 - name: WATCH_NAMESPACE
-                image: quay.io/kubevirt/cluster-network-addons-operator@sha256:4c81c404da250f5dd4af8478ee564061d9e16b80996cfebd657fd03280bebe7d
+                image: quay.io/kubevirt/cluster-network-addons-operator@sha256:f31ea1cc004fc3b9993ed43c5f23c9e237a368a385daf8730ec9366e8f0ee238
                 imagePullPolicy: IfNotPresent
                 name: cluster-network-addons-operator
                 resources: {}
@@ -1780,22 +1829,22 @@ spec:
                 - "2"
                 env:
                 - name: OPERATOR_IMAGE
-                  value: kubevirtnightlybuilds/virt-operator@sha256:5589b57b4cb566726eb137cc2fc37190e10f5985ce20796b435efe5ba7946ed3
+                  value: docker.io/kubevirt/virt-operator@sha256:fec75f1d53426826a6e7b3e78f89730970dc3f7cfac7f44de7079247e4891492
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
                 - name: KUBEVIRT_VERSION
-                  value: 20200922_3653b1f1b
+                  value: v0.34.0
                 - name: VIRT_API_SHASUM
-                  value: sha256:b2d5a8e8f973add6ac20aca85836cfd1b7cdc6f58a6e3d824894d1cdd29b37d3
+                  value: sha256:b02ec9d1c1a6a18626490ab6ac8be34155d9da32718036866b341feff41e5633
                 - name: VIRT_CONTROLLER_SHASUM
-                  value: sha256:46e32cc50b37897f20a43eccaaf243108187a5bcbfd9147f1c8663b1f2f79ce7
+                  value: sha256:852b81c8d72db1236d8cdc70263e7499819fad2470f3a6e154de08d256393ad3
                 - name: VIRT_HANDLER_SHASUM
-                  value: sha256:1f01778e58ce42543c7cf8d52540c27829a426daba5efea89b85d3b7a16247e4
+                  value: sha256:ec614bb569363ad646ddab232f4e6d9cc696711d271cafd56245a08f9d1c0f68
                 - name: VIRT_LAUNCHER_SHASUM
-                  value: sha256:deb37123dea7585de52907be08e4a1b3ebbd43095019c695144af875d1e055b4
-                image: kubevirtnightlybuilds/virt-operator@sha256:5589b57b4cb566726eb137cc2fc37190e10f5985ce20796b435efe5ba7946ed3
+                  value: sha256:15280b86aa3dbb5ab9648eb8fefc57fa4e6a0f5d521318478ad5c89edd31479b
+                image: docker.io/kubevirt/virt-operator@sha256:fec75f1d53426826a6e7b3e78f89730970dc3f7cfac7f44de7079247e4891492
                 imagePullPolicy: IfNotPresent
                 name: virt-operator
                 ports:
@@ -1848,7 +1897,7 @@ spec:
                     fieldRef:
                       fieldPath: metadata.name
                 - name: IMAGE_REFERENCE
-                  value: quay.io/fromani/kubevirt-ssp-operator-container@sha256:a8f8bd3c02db4c76a80b00288e4f9bf8e0f9885db1f303202771e44051d9127a
+                  value: quay.io/fromani/kubevirt-ssp-operator-container@sha256:13ecfd8bc5779721378cfed69109bcc99392b0dcd589ddd600eb2648de9fce8c
                 - name: WATCH_NAMESPACE
                 - name: KVM_INFO_TAG
                 - name: VALIDATOR_TAG
@@ -1860,7 +1909,7 @@ spec:
                   value: kubevirt-ssp-operator
                 - name: OPERATOR_VERSION
                   value: v1.2.1
-                image: quay.io/fromani/kubevirt-ssp-operator-container@sha256:a8f8bd3c02db4c76a80b00288e4f9bf8e0f9885db1f303202771e44051d9127a
+                image: quay.io/fromani/kubevirt-ssp-operator-container@sha256:13ecfd8bc5779721378cfed69109bcc99392b0dcd589ddd600eb2648de9fce8c
                 imagePullPolicy: IfNotPresent
                 name: kubevirt-ssp-operator
                 ports:
@@ -2008,9 +2057,9 @@ spec:
                 - name: DEPLOY_CLUSTER_RESOURCES
                   value: "true"
                 - name: OPERATOR_VERSION
-                  value: v0.2.2
+                  value: v0.2.3
                 - name: CONTROLLER_IMAGE
-                  value: quay.io/kubevirt/vm-import-controller@sha256:bee1d7820fe7803d08aeb81314737e9c380e10e4a6c2226f72074fcac3d777f9
+                  value: quay.io/kubevirt/vm-import-controller@sha256:59c3f2a65fbac003a772c1850a1d819b0ee529763bf2e199c2d3a799c44e71e4
                 - name: PULL_POLICY
                   value: IfNotPresent
                 - name: WATCH_NAMESPACE
@@ -2021,7 +2070,8 @@ spec:
                 - name: MONITORING_NAMESPACE
                   value: openshift-monitoring
                 - name: VIRTV2V_IMAGE
-                image: quay.io/kubevirt/vm-import-operator@sha256:d223cfeb93bc95dd1929347eaef56f15ef7288ddea98f1fa32cf37b665753a50
+                  value: quay.io/kubevirt/vm-import-virtv2v@sha256:f66d3167976340d9a65145ea5bc3d2e94cf0ab3855616a2641b27f1d2243624b
+                image: quay.io/kubevirt/vm-import-operator@sha256:62706b1ce8df1d4427f591f0b6a75a73560e724d8d5fc860144467ecf5be1edc
                 imagePullPolicy: IfNotPresent
                 name: vm-import-operator
                 resources: {}
@@ -2208,7 +2258,7 @@ spec:
     name: cdi-uploadproxy
   - image: docker.io/kubevirt/cdi-uploadserver@sha256:9c89fdf6d8097b0258620584bc3d6028bcb27c0c053a5c81344d969c4aeb2943
     name: cdi-uploadserver
-  - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:4c81c404da250f5dd4af8478ee564061d9e16b80996cfebd657fd03280bebe7d
+  - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:f31ea1cc004fc3b9993ed43c5f23c9e237a368a385daf8730ec9366e8f0ee238
     name: cluster-network-addons-operator
   - image: quay.io/kubevirt/cni-default-plugins@sha256:3dd438117076016d6d2acd508b93f106ca80a28c0af6e2e914d812f9a1d55142
     name: cni-default-plugins
@@ -2218,15 +2268,15 @@ spec:
     name: hostpath-provisioner-operator
   - image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:d015b58b0ed77fb20eab5cf5c4d530b3eebcba03fc75e571b1ec56dace9cb254
     name: hyperconverged-cluster-operator
-  - image: quay.io/kubevirt/kubemacpool@sha256:ad8ca6d379d495804969ba4d03da9a6936ff8f413f6f6c7bd20e0138dc0303c4
+  - image: quay.io/kubevirt/kubemacpool@sha256:79c4534d418c4a350a663e38499c22d54dc68c400f517aead4479f6d862b408e
     name: kubemacpool
   - image: quay.io/nmstate/kubernetes-nmstate-handler@sha256:444ab3349882ac58f594396529708146993b831c2e3e1d524eaa12e17e09f150
     name: kubernetes-nmstate-handler
-  - image: quay.io/fromani/kubevirt-ssp-operator-container@sha256:a8f8bd3c02db4c76a80b00288e4f9bf8e0f9885db1f303202771e44051d9127a
+  - image: quay.io/fromani/kubevirt-ssp-operator-container@sha256:13ecfd8bc5779721378cfed69109bcc99392b0dcd589ddd600eb2648de9fce8c
     name: kubevirt-ssp-operator-container
   - image: quay.io/kubevirt/kubevirt-v2v-conversion@sha256:c620233c71b805004c2cd38927c421b69d99b27cb40af521967e655882b2f815
     name: kubevirt-v2v-conversion
-  - image: quay.io/kubevirt/kubevirt-vmware@sha256:8f25b28caddeaf3e405e6f78fb970a0f78891a66a7dddeae8a595712da897351
+  - image: quay.io/kubevirt/kubevirt-vmware@sha256:ae5ccd98a49ab9e154ce482d2fa73f044b00211f273210a9cd371b40746d3c92
     name: kubevirt-vmware
   - image: quay.io/kubevirt/macvtap-cni@sha256:407f75760fc096666becfa45d94f51757ebbe8f382e9e7b57ceeded0b8cfb6b8
     name: macvtap-cni
@@ -2236,20 +2286,22 @@ spec:
     name: ovs-cni-marker
   - image: quay.io/kubevirt/ovs-cni-plugin@sha256:4101c52617efb54a45181548c257a08e3689f634b79b9dfcff42bffd8b25af53
     name: ovs-cni-plugin
-  - image: kubevirtnightlybuilds/virt-api@sha256:b2d5a8e8f973add6ac20aca85836cfd1b7cdc6f58a6e3d824894d1cdd29b37d3
+  - image: docker.io/kubevirt/virt-api@sha256:b02ec9d1c1a6a18626490ab6ac8be34155d9da32718036866b341feff41e5633
     name: virt-api
-  - image: kubevirtnightlybuilds/virt-controller@sha256:46e32cc50b37897f20a43eccaaf243108187a5bcbfd9147f1c8663b1f2f79ce7
+  - image: docker.io/kubevirt/virt-controller@sha256:852b81c8d72db1236d8cdc70263e7499819fad2470f3a6e154de08d256393ad3
     name: virt-controller
-  - image: kubevirtnightlybuilds/virt-handler@sha256:1f01778e58ce42543c7cf8d52540c27829a426daba5efea89b85d3b7a16247e4
+  - image: docker.io/kubevirt/virt-handler@sha256:ec614bb569363ad646ddab232f4e6d9cc696711d271cafd56245a08f9d1c0f68
     name: virt-handler
-  - image: kubevirtnightlybuilds/virt-launcher@sha256:deb37123dea7585de52907be08e4a1b3ebbd43095019c695144af875d1e055b4
+  - image: docker.io/kubevirt/virt-launcher@sha256:15280b86aa3dbb5ab9648eb8fefc57fa4e6a0f5d521318478ad5c89edd31479b
     name: virt-launcher
-  - image: kubevirtnightlybuilds/virt-operator@sha256:5589b57b4cb566726eb137cc2fc37190e10f5985ce20796b435efe5ba7946ed3
+  - image: docker.io/kubevirt/virt-operator@sha256:fec75f1d53426826a6e7b3e78f89730970dc3f7cfac7f44de7079247e4891492
     name: virt-operator
-  - image: quay.io/kubevirt/vm-import-controller@sha256:bee1d7820fe7803d08aeb81314737e9c380e10e4a6c2226f72074fcac3d777f9
+  - image: quay.io/kubevirt/vm-import-controller@sha256:59c3f2a65fbac003a772c1850a1d819b0ee529763bf2e199c2d3a799c44e71e4
     name: vm-import-controller
-  - image: quay.io/kubevirt/vm-import-operator@sha256:d223cfeb93bc95dd1929347eaef56f15ef7288ddea98f1fa32cf37b665753a50
+  - image: quay.io/kubevirt/vm-import-operator@sha256:62706b1ce8df1d4427f591f0b6a75a73560e724d8d5fc860144467ecf5be1edc
     name: vm-import-operator
+  - image: quay.io/kubevirt/vm-import-virtv2v@sha256:f66d3167976340d9a65145ea5bc3d2e94cf0ab3855616a2641b27f1d2243624b
+    name: vm-import-virtv2v
   replaces: kubevirt-hyperconverged-operator.v1.1.0
   selector:
     matchLabels:
