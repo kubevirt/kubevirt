@@ -171,25 +171,27 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 	return err
 }
 
-// ReLoggedInFedoraExpecter return prepared and ready to use console expecter for
-// Fedora test VM, when you are reconnecting (no login needed)
-func ReLoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance, timeout int) (expect.Expecter, error) {
+// OnPrivilegedPrompt performs a console check that the prompt is privileged.
+func OnPrivilegedPrompt(vmi *v1.VirtualMachineInstance, timeout int) bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
+
 	expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
-		return nil, err
+		return false
 	}
+	defer expecter.Close()
+
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: console.PromptExpression}})
 	res, err := expecter.ExpectBatch(b, time.Duration(timeout)*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
-		expecter.Close()
-		return expecter, err
+		return false
 	}
-	return expecter, err
+
+	return true
 }
 
 func configureConsole(expecter expect.Expecter, shouldSudo bool) error {
