@@ -618,13 +618,11 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the migrated VirtualMachineInstance has an updated time")
-				expecterNew, err := tests.ReLoggedInFedoraExpecter(vmi, 60)
-				if err != nil {
-					// session was probably disconnected, try to login
+				if !tests.OnPrivilegedPrompt(vmi, 60) {
 					Expect(tests.LoginToFedora(vmi)).To(Succeed())
-					expecterNew, _, err = console.NewExpecter(virtClient, vmi, 10*time.Second)
-					Expect(err).NotTo(HaveOccurred())
 				}
+				expecterNew, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
+				Expect(err).NotTo(HaveOccurred())
 				defer expecterNew.Close()
 
 				By("Waiting for the agent to set the right time")
@@ -981,16 +979,13 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the migrated VirtualMachineInstance console has expected output")
-				expecter, err := tests.ReLoggedInFedoraExpecter(vmi, 60)
-				Expect(err).ToNot(HaveOccurred(), "Should stay logged in to the migrated VM")
-				defer expecter.Close()
+				Expect(tests.OnPrivilegedPrompt(vmi, 60)).To(BeTrue(), "Should stay logged in to the migrated VM")
 
 				By("Checking that the service account is mounted")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "cat /mnt/servacc/namespace\n"},
 					&expect.BExp{R: tests.NamespaceTestDefault},
-				}, 30*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "Should be able to access the mounted service account file")
+				}, 30)).To(Succeed(), "Should be able to access the mounted service account file")
 
 				By("Deleting the VMI")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
