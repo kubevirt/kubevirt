@@ -16,7 +16,6 @@ We aim to run e2e tests in parallel by default. As such the following rules shou
 The following types of tests need to be marked as `[Serial]` right now:
 
  * Tests which use PVCs or DataVolumes (parallelizing these is on the way).
- * Tests which use Fedora or a lot of memory for other reasons.
  * Tests which use `BeforeAll`.
 
 Additional suggestions:

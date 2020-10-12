@@ -49,15 +49,9 @@ if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
   exit 1
 fi
 
-if [[ $TARGET =~ os-.* ]]; then
-  # when testing on slow CI system cleanup sometimes takes very long.
-  # openshift clusters are more memory demanding. If the cleanup
-  # of old vms does not go fast enough they run out of memory.
-  # To still allow continuing with the tests, give more memory in CI.
-  export KUBEVIRT_MEMORY_SIZE=6144M
-fi
-
 export KUBEVIRT_NUM_NODES=2
+# Give the nodes enough memory to run tests in parallel, including tests which involve fedora
+export KUBEVIRT_MEMORY_SIZE=10240M
 
 export RHEL_NFS_DIR=${RHEL_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/rhel7}
 export RHEL_LOCK_PATH=${RHEL_LOCK_PATH:-/var/lib/stdci/shared/download_rhel_image.lock}
