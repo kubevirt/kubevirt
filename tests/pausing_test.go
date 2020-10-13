@@ -400,8 +400,9 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 240, false)
 
 			By("Checking that the VirtualMachineInstance console has expected output")
-			expecter, expecterErr := tests.LoggedInCirrosExpecter(vmi)
-			Expect(expecterErr).ToNot(HaveOccurred(), "should successfully create expecter")
+			Expect(tests.LoginToCirros(vmi)).To(Succeed())
+			expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
+			Expect(err).ToNot(HaveOccurred(), "should successfully create expecter")
 			defer expecter.Close()
 
 			By("checking uptime difference between guest and host")

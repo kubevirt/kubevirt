@@ -75,9 +75,7 @@ var _ = Describe("Configurations", func() {
 			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: "virtio", Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
 			vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "watchdog", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionPoweroff}}}
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
-			expecter, err := tests.LoggedInCirrosExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
+			Expect(tests.LoginToCirros(vmi)).To(Succeed())
 			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			rootPortController := []api.Controller{}
@@ -565,16 +563,12 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
-				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
 					&expect.BExp{R: console.RetValue("104")},
-				}, 10*time.Second)
-				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				Expect(err).ToNot(HaveOccurred())
+				}, 10)).To(Succeed())
 
 			})
 		})
@@ -590,16 +584,12 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
-				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
 					&expect.BExp{R: console.RetValue("104")},
-				}, 10*time.Second)
-				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				Expect(err).ToNot(HaveOccurred())
+				}, 10)).To(Succeed())
 
 			})
 		})
@@ -618,20 +608,16 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
-				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 200 ] && echo 'pass'\n"},
 					&expect.BExp{R: console.RetValue("pass")},
 					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k\n"},
 					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
-				}, 15*time.Second)
-				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				Expect(err).ToNot(HaveOccurred())
+				}, 15)).To(Succeed())
 
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 				podMemoryUsage, err := tests.ExecuteCommandOnPod(
@@ -675,17 +661,13 @@ var _ = Describe("Configurations", func() {
 			})
 			It("[test_id:732]Check Free memory on the VMI", func() {
 				By("Expecting console")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
 				// Check on the VM, if the Free memory is roughly what we expected
-				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 95 ] && echo 'pass'\n"},
 					&expect.BExp{R: console.RetValue("pass")},
-				}, 15*time.Second)
-				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				Expect(err).ToNot(HaveOccurred())
+				}, 15)).To(Succeed())
 			})
 		})
 
@@ -1468,9 +1450,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Logging to VMI")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
 				loc, err := time.LoadLocation(timezone)
 				Expect(err).ToNot(HaveOccurred())
@@ -1478,11 +1458,10 @@ var _ = Describe("Configurations", func() {
 				plusone := now.Add(time.Minute)
 				By("Checking hardware clock time")
 				expected := fmt.Sprintf("(%02d:%02d:|%02d:%02d:)", now.Hour(), now.Minute(), plusone.Hour(), plusone.Minute())
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "sudo hwclock --localtime \n"},
 					&expect.BExp{R: expected},
-				}, 20*time.Second)
-				Expect(err).ToNot(HaveOccurred())
+				}, 20)).To(Succeed())
 
 			})
 		})
@@ -1575,16 +1554,13 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(cpuVmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(cpuVmi)).To(Succeed())
 
 				By("Checking the CPU model under the guest OS")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", vmiModel)},
 					&expect.BExp{R: "model name"},
-				}, 10*time.Second)
-				Expect(err).ToNot(HaveOccurred())
+				}, 10)).To(Succeed())
 			})
 		})
 
@@ -1600,16 +1576,13 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(cpuVmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(cpuVmi)).To(Succeed())
 
 				By("Checking the CPU model under the guest OS")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep '%s' /proc/cpuinfo\n", cpuModelName)},
 					&expect.BExp{R: "model name"},
-				}, 10*time.Second)
-				Expect(err).ToNot(HaveOccurred())
+				}, 10)).To(Succeed())
 			})
 		})
 
@@ -1621,15 +1594,13 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(cpuVmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(cpuVmi)).To(Succeed())
 
 				By("Checking the CPU model under the guest OS")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				console.SafeExpectBatch(cpuVmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep '%s' /proc/cpuinfo\n", libvirtCpuModel)},
 					&expect.BExp{R: "model name"},
-				}, 10*time.Second)
+				}, 10)
 			})
 		})
 
@@ -1649,16 +1620,13 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(cpuVmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(cpuVmi)).To(Succeed())
 
 				By("Checking the CPU features under the guest OS")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", cpuFeatures[0])},
 					&expect.BExp{R: "flags"},
-				}, 10*time.Second)
-				Expect(err).ToNot(HaveOccurred())
+				}, 10)).To(Succeed())
 
 			})
 		})
@@ -1885,20 +1853,15 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
-			expecter, err := tests.LoggedInCirrosExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
+			Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
-			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				// keep the ordering!
 				&expect.BSnd{S: "ls /dev/vda  /dev/vdb\n"},
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
-			}, 10*time.Second)
-			log.DefaultLogger().Object(vmi).Infof("%v", res)
-
-			Expect(err).ToNot(HaveOccurred())
+			}, 10)).To(Succeed())
 		})
 
 		It("[test_id:3906]should configure custom Pci address", func() {
@@ -2060,17 +2023,13 @@ var _ = Describe("Configurations", func() {
 				Expect(len(pinnedCPUsList)).To(Equal(int(cpuVmi.Spec.Domain.CPU.Cores)))
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(cpuVmi)).To(Succeed())
 
 				By("Checking the number of CPU cores under guest OS")
-				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "2"},
-				}, 15*time.Second)
-				log.DefaultLogger().Object(cpuVmi).Infof("%v", res)
-				Expect(err).ToNot(HaveOccurred())
+				}, 15)).To(Succeed())
 			})
 			It("[test_id:4632]should be able to start a vm with guest memory different from requested and keep guaranteed qos", func() {
 				Skip("Skip test till issue https://github.com/kubevirt/kubevirt/issues/3910 is fixed")
@@ -2107,20 +2066,16 @@ var _ = Describe("Configurations", func() {
 				Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
 
 				//-------------------------------------------------------------------
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
-				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pass'\n"},
 					&expect.BExp{R: console.RetValue("pass")},
 					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k\n"},
 					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
-				}, 15*time.Second)
-				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				Expect(err).ToNot(HaveOccurred())
+				}, 15)).To(Succeed())
 
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 				podMemoryUsage, err := tests.ExecuteCommandOnPod(
@@ -2194,17 +2149,13 @@ var _ = Describe("Configurations", func() {
 				Expect(len(pinnedCPUsList)).To(Equal(int(cpuVmi.Spec.Domain.CPU.Cores) + 1))
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(cpuVmi)).To(Succeed())
 
 				By("Checking the number of CPU cores under guest OS")
-				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "2"},
-				}, 15*time.Second)
-				log.DefaultLogger().Object(cpuVmi).Infof("%v", res)
-				Expect(err).ToNot(HaveOccurred())
+				}, 15)).To(Succeed())
 			})
 
 			It("[test_id:4024]should fail the vmi creation if IsolateEmulatorThread requested without dedicated cpus", func() {
@@ -2242,17 +2193,13 @@ var _ = Describe("Configurations", func() {
 				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(cpuVmi)).To(Succeed())
 
 				By("Checking the number of CPU cores under guest OS")
-				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "2"},
-				}, 15*time.Second)
-				log.DefaultLogger().Object(cpuVmi).Infof("%v", res)
-				Expect(err).ToNot(HaveOccurred())
+				}, 15)).To(Succeed())
 			})
 
 			It("[test_id:1688]should fail the vmi creation if the requested resources are inconsistent", func() {

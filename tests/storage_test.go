@@ -222,27 +222,21 @@ var _ = Describe("[Serial]Storage", func() {
 				})
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
 				By("Checking that /dev/vdc has a capacity of 2Gi")
-				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "sudo blockdev --getsize64 /dev/vdc\n"},
 					&expect.BExp{R: "2147483648"}, // 2Gi in bytes
-				}, 10*time.Second)
-				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				Expect(err).ToNot(HaveOccurred())
+				}, 10)).To(Succeed())
 
 				By("Checking if we can write to /dev/vdc")
-				res, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "sudo mkfs.ext4 /dev/vdc\n"},
 					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
-				}, 20*time.Second)
-				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				Expect(err).ToNot(HaveOccurred())
+				}, 20)).To(Succeed())
 			})
 
 		})
@@ -272,17 +266,13 @@ var _ = Describe("[Serial]Storage", func() {
 				})
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
 				By("Checking for the specified serial number")
-				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "sudo find /sys -type f -regex \".*/block/.*/serial\" | xargs cat\n"},
 					&expect.BExp{R: diskSerial},
-				}, 10*time.Second)
-				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				Expect(err).ToNot(HaveOccurred())
+				}, 10)).To(Succeed())
 			})
 
 		})
@@ -878,9 +868,7 @@ var _ = Describe("[Serial]Storage", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred(), "Cirros login successfully")
-				expecter.Close()
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 			})
 		})
 
