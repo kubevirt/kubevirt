@@ -469,9 +469,8 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Expecting no bootable NIC")
-				_, err = console.NetBootExpecter(vmi)
+				Expect(console.NetBootExpecter(vmi)).NotTo(Succeed())
 				// The expecter *should* have error-ed since the network interface is not marked bootable
-				Expect(err).To(HaveOccurred())
 			})
 
 			It("[test_id:5266]should boot to NIC rom if a boot order was set on a network interface", func() {
@@ -497,8 +496,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Expecting a bootable NIC")
-				_, err = console.NetBootExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(console.NetBootExpecter(vmi)).To(Succeed())
 			})
 		})
 
