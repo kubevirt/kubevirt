@@ -562,7 +562,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				// mount iso DownwardAPI image
 				&expect.BSnd{S: "mount /dev/sda /mnt\n"},
 				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0")},
+				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: "grep " + testLabelKey + " /mnt/labels\n"},
 				&expect.BExp{R: expectedOutput},
 			}, 200*time.Second)
