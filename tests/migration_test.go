@@ -413,9 +413,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				expecter.Close()
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
 				// execute a migration, wait for finalized state
 				By("starting the migration")
@@ -452,9 +450,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				expecter.Close()
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
 				num := 4
 
@@ -498,9 +494,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				expecter.Close()
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
 				pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(metav1.ListOptions{
 					LabelSelector: v1.CreatedByLabel + "=" + string(vmi.GetUID()),
@@ -887,10 +881,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				expecter.Close()
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
 				By("Checking that MigrationMethod is set to BlockMigration")
 				Expect(vmi.Status.MigrationMethod).To(Equal(v1.BlockMigration))
@@ -1319,9 +1310,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				expecter.Close()
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
 				for _, c := range vmi.Status.Conditions {
 					if c.Type == v1.VirtualMachineInstanceIsMigratable {

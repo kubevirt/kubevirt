@@ -20,7 +20,6 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -379,8 +378,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 
 			doRestore := func(device string) {
 				By("creating 'message with initial value")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
 				var batch []expect.Batcher
 				if device != "" {
@@ -419,10 +417,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 					&expect.BExp{R: console.PromptExpression},
 				}...)
 
-				res, err := console.ExpectBatchWithValidatedSend(expecter, batch, 20*time.Second)
-				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				expecter.Close()
-				Expect(err).ToNot(HaveOccurred())
+				Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 
 				By("Stopping VM")
 				vm = tests.StopVirtualMachine(vm)
@@ -436,8 +431,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("updating message")
-				expecter, err = tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
 				batch = nil
 
@@ -475,10 +469,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 					&expect.BExp{R: console.PromptExpression},
 				}...)
 
-				res, err = console.ExpectBatchWithValidatedSend(expecter, batch, 20*time.Second)
-				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				expecter.Close()
-				Expect(err).ToNot(HaveOccurred())
+				Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 
 				By("Stopping VM")
 				vm = tests.StopVirtualMachine(vm)
@@ -497,8 +488,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying original file contents")
-				expecter, err = tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
 				batch = nil
 
@@ -526,10 +516,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 					&expect.BExp{R: string(vm.UID)},
 				}...)
 
-				res, err = console.ExpectBatchWithValidatedSend(expecter, batch, 20*time.Second)
-				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				expecter.Close()
-				Expect(err).ToNot(HaveOccurred())
+				Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 			}
 
 			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {

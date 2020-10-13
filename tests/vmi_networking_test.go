@@ -200,21 +200,17 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			expectedMtuString := fmt.Sprintf("mtu %d", mtu)
 
 			By("checking eth0 MTU inside the VirtualMachineInstance")
-			expecter, err := tests.LoggedInCirrosExpecter(outboundVMI)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
+			Expect(tests.LoginToCirros(outboundVMI)).To(Succeed())
 
 			addrShow = "ip address show eth0\n"
-			resp, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			Expect(console.SafeExpectBatch(outboundVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: addrShow},
 				&expect.BExp{R: fmt.Sprintf(".*%s.*\n", expectedMtuString)},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
-			}, 180*time.Second)
-			log.Log.Infof("%v", resp)
-			Expect(err).ToNot(HaveOccurred())
+			}, 180)).To(Succeed())
 
 			By("checking the VirtualMachineInstance can send MTU sized frames to another VirtualMachineInstance")
 			// NOTE: VirtualMachineInstance is not directly accessible from inside the pod because

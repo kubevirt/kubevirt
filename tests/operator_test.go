@@ -938,11 +938,9 @@ spec:
 				Eventually(func() error {
 					vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					expecter, err := tests.LoggedInCirrosExpecter(vmi)
-					if err != nil {
+					if err := tests.LoginToCirros(vmi); err != nil {
 						return err
 					}
-					expecter.Close()
 					return nil
 				}, 60*time.Second, 1*time.Second).Should(BeNil())
 

@@ -234,16 +234,12 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, time.Second*120)
 
 				By("applying the hostname from meta-data")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
-				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "hostname\n"},
 					&expect.BExp{R: dns.SanitizeHostname(vmi)},
-				}, time.Second*10)
-				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				Expect(err).ToNot(HaveOccurred())
+				}, 10)).To(Succeed())
 			})
 		})
 
@@ -261,16 +257,12 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, time.Second*120)
 
 				By("applying the hostname from meta-data")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
-				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "hostname\n"},
 					&expect.BExp{R: dns.SanitizeHostname(vmi)},
-				}, time.Second*10)
-				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				Expect(err).ToNot(HaveOccurred())
+				}, 10)).To(Succeed())
 			})
 		})
 

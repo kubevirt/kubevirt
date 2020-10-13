@@ -21,33 +21,23 @@ type LoginToFactory func(*v1.VirtualMachineInstance) error
 
 // LoginToCirros performs a console login to a Cirros base VM
 func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
-	expecter, err := LoggedInCirrosExpecter(vmi)
-	if err == nil {
-		expecter.Close()
-	}
-	return err
-}
-
-// LoggedInCirrosExpecter return prepared and ready to use console expecter for
-// Alpine test VM
-func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	defer expecter.Close()
 	hostName := dns.SanitizeHostname(vmi)
 
 	// Do not login, if we already logged in
 	err = expecter.Send("\n")
 	if err != nil {
-		expecter.Close()
-		return nil, err
+		return err
 	}
 	_, _, err = expecter.Expect(regexp.MustCompile(`\$`), 10*time.Second)
 	if err == nil {
-		return expecter, nil
+		return nil
 	}
 
 	b := append([]expect.Batcher{
@@ -63,17 +53,17 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", resp)
-		expecter.Close()
-		return nil, err
+		return err
 	}
 
 	err = configureConsole(expecter, true)
 	if err != nil {
-		expecter.Close()
-		return nil, err
+		return err
 	}
 
-	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient)
+	err = configureIPv6OnVMI(vmi, expecter, virtClient)
+
+	return err
 }
 
 // LoginToAlpine performs a console login to an Alpine base VM

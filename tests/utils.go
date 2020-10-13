@@ -4217,22 +4217,19 @@ func ForwardPorts(pod *k8sv1.Pod, ports []string, stop chan struct{}, readyTimeo
 }
 
 func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, protocol string) {
-	expecter, err := LoggedInCirrosExpecter(vmi)
-	Expect(err).ToNot(HaveOccurred())
-	defer expecter.Close()
+	Expect(LoginToCirros(vmi)).To(Succeed())
 
 	serverCommand := fmt.Sprintf("screen -d -m sudo nc -klp %d -e echo -e 'Hello World!'\n", testPort)
 	if protocol == "udp" {
 		// nc has to be in a while loop in case of UDP, since it exists after one message
 		serverCommand = fmt.Sprintf("screen -d -m sh -c \"while true; do nc -uklp %d -e echo -e 'Hello UDP World!';done\"\n", testPort)
 	}
-	_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: serverCommand},
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: console.RetValue("0")},
-	}, 60*time.Second)
-	Expect(err).ToNot(HaveOccurred())
+	}, 60)).To(Succeed())
 }
 
 // UpdateClusterConfigValueAndWait updates the given configuration in the kubevirt config map and then waits
