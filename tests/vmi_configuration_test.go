@@ -79,6 +79,7 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
 			rootPortController := []api.Controller{}
 			for _, c := range domSpec.Devices.Controllers {
 				if c.Model == "pcie-root-port" {
@@ -1503,7 +1504,7 @@ var _ = Describe("Configurations", func() {
 		libvirtCPUModelRegexp := regexp.MustCompile(`<model>(\w+)\-*\w*</model>`)
 		libvirtCPUVendorRegexp := regexp.MustCompile(`<vendor>(\w+)</vendor>`)
 		libvirtCPUFeatureRegexp := regexp.MustCompile(`<feature name='(\w+)'/>`)
-		cpuModelNameRegexp := regexp.MustCompile(`Model name:\s*([\s\w\-@\.\(\)]+)`)
+		cpuModelNameRegexp := regexp.MustCompile(`Model name:[\t ]*([\t \w\-@\.\(\)]+)`)
 
 		var libvirtCpuModel string
 		var libvirtCpuVendor string
@@ -1594,6 +1595,7 @@ var _ = Describe("Configurations", func() {
 					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", vmiModel)},
 					&expect.BExp{R: "model name"},
 				}, 10*time.Second)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 
@@ -1615,9 +1617,10 @@ var _ = Describe("Configurations", func() {
 
 				By("Checking the CPU model under the guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", cpuModelName)},
+					&expect.BSnd{S: fmt.Sprintf("grep '%s' /proc/cpuinfo\n", cpuModelName)},
 					&expect.BExp{R: "model name"},
 				}, 10*time.Second)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 
@@ -1635,7 +1638,7 @@ var _ = Describe("Configurations", func() {
 
 				By("Checking the CPU model under the guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", libvirtCpuModel)},
+					&expect.BSnd{S: fmt.Sprintf("grep '%s' /proc/cpuinfo\n", libvirtCpuModel)},
 					&expect.BExp{R: "model name"},
 				}, 10*time.Second)
 			})
