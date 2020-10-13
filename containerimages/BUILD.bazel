@@ -11,6 +11,7 @@ container_image(
         "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@alpine_image_ppc64le//file"],
         "//conditions:default": ["@alpine_image//file"],
     }),
+    mode = "444",
     visibility = ["//visibility:public"],
 )
 
@@ -25,6 +26,7 @@ container_image(
         "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@cirros_image_ppc64le//file"],
         "//conditions:default": ["@cirros_image//file"],
     }),
+    mode = "444",
     visibility = ["//visibility:public"],
 )
 
@@ -40,6 +42,7 @@ container_image(
         "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@cirros_image_ppc64le//file"],
         "//conditions:default": ["@cirros_image//file"],
     }),
+    mode = "444",
     visibility = ["//visibility:public"],
 )
 
@@ -54,6 +57,7 @@ container_image(
         "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@fedora_image_ppc64le//file"],
         "//conditions:default": ["@fedora_image//file"],
     }),
+    mode = "444",
     visibility = ["//visibility:public"],
 )
 
@@ -64,6 +68,7 @@ container_image(
         "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@microlivecd_image_ppc64le//file"],
         "//conditions:default": ["@microlivecd_image//file"],
     }),
+    mode = "444",
     visibility = ["//visibility:public"],
 )
 
@@ -75,6 +80,7 @@ container_image(
     }),
     directory = "/disk",
     files = ["@virtio_win_image//file"],
+    mode = "444",
     visibility = ["//visibility:public"],
 )
 
@@ -88,5 +94,6 @@ container_image(
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "@fedora_sriov_lane_ppc64le//image",
         "//conditions:default": "@fedora_sriov_lane//image",
     }),
+    mode = "444",
     visibility = ["//visibility:public"],
 )
