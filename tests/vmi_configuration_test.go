@@ -200,16 +200,13 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should start console")
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the number of CPU cores under guest OS")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: console.RetValue("3")},
-				}, 15*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "should report number of cores")
+				}, 15)).To(Succeed(), "should report number of cores")
 
 				By("Checking the requested amount of memory allocated for a guest")
 				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
@@ -265,16 +262,13 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should start console")
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the number of sockets under guest OS")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "grep '^physical id' /proc/cpuinfo | uniq | wc -l\n"},
 					&expect.BExp{R: console.RetValue("3")},
-				}, 60*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "should report number of sockets")
+				}, 60)).To(Succeed(), "should report number of sockets")
 			})
 
 			It("[test_id:1661]should report 2 sockets from spec.domain.resources.requests under guest OS ", func() {
@@ -292,16 +286,13 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should start console")
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the number of sockets under guest OS")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "grep '^physical id' /proc/cpuinfo | uniq | wc -l\n"},
 					&expect.BExp{R: console.RetValue("2")},
-				}, 60*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "should report number of sockets")
+				}, 60)).To(Succeed(), "should report number of sockets")
 			})
 
 			It("[test_id:1662]should report 2 sockets from spec.domain.resources.limits under guest OS ", func() {
@@ -321,16 +312,13 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should start console")
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the number of sockets under guest OS")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "grep '^physical id' /proc/cpuinfo | uniq | wc -l\n"},
 					&expect.BExp{R: console.RetValue("2")},
-				}, 60*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "should report number of sockets")
+				}, 60)).To(Succeed(), "should report number of sockets")
 			})
 
 			It("[test_id:1663]should report 4 vCPUs under guest OS", func() {
@@ -351,16 +339,13 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should start console")
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the number of vCPUs under guest OS")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: console.RetValue("4")},
-				}, 60*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "should report number of threads")
+				}, 60)).To(Succeed(), "should report number of threads")
 			})
 
 			It("[Serial][test_id:1664]should map cores to virtio block queues", func() {
@@ -687,16 +672,13 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should get console")
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the number of usb under guest OS")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "ls -l /sys/bus/usb/devices/usb* | wc -l\n"},
 					&expect.BExp{R: console.RetValue("2")},
-				}, 60*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "should report number of usb")
+				}, 60)).To(Succeed(), "should report number of usb")
 			})
 
 			It("[test_id:3117]should start the VMI with usb controller when input device doesn't have bus", func() {
@@ -713,16 +695,13 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should get console")
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the number of usb under guest OS")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "ls -l /sys/bus/usb/devices/usb* | wc -l\n"},
 					&expect.BExp{R: console.RetValue("2")},
-				}, 60*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "should report number of usb")
+				}, 60)).To(Succeed(), "should report number of usb")
 			})
 
 			It("[test_id:3118]should start the VMI without usb controller", func() {
@@ -734,15 +713,13 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should start console")
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+
 				By("Checking the number of usb under guest OS")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "ls -l /sys/bus/usb/devices/usb* 2>/dev/null | wc -l\n"},
 					&expect.BExp{R: console.RetValue("0")},
-				}, 60*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "should report number of usb")
+				}, 60)).To(Succeed(), "should report number of usb")
 			})
 		})
 
@@ -790,16 +767,13 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should start console")
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the tablet input under guest OS")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "grep -rs '^QEMU Virtio Tablet' /sys/devices | wc -l\n"},
 					&expect.BExp{R: console.RetValue("1")},
-				}, 60*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "should report input device")
+				}, 60)).To(Succeed(), "should report input device")
 			})
 
 			It("[test_id:3073]should start the VMI with tablet input device with usb bus", func() {
@@ -817,16 +791,13 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should start console")
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the tablet input under guest OS")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "grep -rs '^QEMU USB Tablet' /sys/devices | wc -l\n"},
 					&expect.BExp{R: console.RetValue("1")},
-				}, 60*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "should report input device")
+				}, 60)).To(Succeed(), "should report input device")
 			})
 		})
 
@@ -1128,16 +1099,13 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(rngVmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(rngVmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(rngVmi)).To(Succeed())
 
 				By("Checking the virtio rng presence")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(rngVmi, []expect.Batcher{
 					&expect.BSnd{S: "grep -c ^virtio /sys/devices/virtual/misc/hw_random/rng_available\n"},
 					&expect.BExp{R: console.RetValue("1")},
-				}, 400*time.Second)
-				Expect(err).ToNot(HaveOccurred())
+				}, 400)).To(Succeed())
 			})
 
 			It("[test_id:1675]should not have the virtio rng device when not present", func() {
@@ -1147,16 +1115,13 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(rngVmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInAlpineExpecter(rngVmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(rngVmi)).To(Succeed())
 
 				By("Checking the virtio rng presence")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(rngVmi, []expect.Batcher{
 					&expect.BSnd{S: "[[ ! -e /sys/devices/virtual/misc/hw_random/rng_available ]] && echo non\n"},
 					&expect.BExp{R: console.RetValue("non")},
-				}, 400*time.Second)
-				Expect(err).ToNot(HaveOccurred())
+				}, 400)).To(Succeed())
 			})
 		})
 

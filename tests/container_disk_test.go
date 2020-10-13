@@ -22,7 +22,6 @@ package tests_test
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
@@ -204,11 +203,9 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				tests.WaitForSuccessfulVMIStart(obj)
 
 				By("Checking whether the second disk really contains virtio drivers")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred(), "expected alpine to login properly")
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed(), "expected alpine to login properly")
 
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// mount virtio cdrom and check files are there
 					&expect.BSnd{S: "mount -t iso9600 /dev/cdrom\n"},
 					&expect.BExp{R: console.PromptExpression},
@@ -220,8 +217,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
-				}, 200*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "expected virtio files to be mounted properly")
+				}, 200)).To(Succeed(), "expected virtio files to be mounted properly")
 			})
 		})
 	})

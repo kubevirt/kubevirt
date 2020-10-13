@@ -97,11 +97,9 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				Expect(podOutput).To(Equal(expectedOutput))
 
 				By("Checking mounted iso image")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// mount iso ConfigMap image
 					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
 					&expect.BExp{R: console.PromptExpression},
@@ -109,8 +107,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "cat /mnt/option1 /mnt/option2 /mnt/option3\n"},
 					&expect.BExp{R: expectedOutput},
-				}, 200*time.Second)
-				Expect(err).ToNot(HaveOccurred())
+				}, 200)).To(Succeed())
 			})
 		})
 
@@ -192,11 +189,9 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				Expect(podOutput).To(Equal(expectedOutput))
 
 				By("Checking mounted iso image")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// mount iso Secret image
 					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
 					&expect.BExp{R: console.PromptExpression},
@@ -204,8 +199,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "cat /mnt/user /mnt/password\n"},
 					&expect.BExp{R: expectedOutput},
-				}, 200*time.Second)
-				Expect(err).ToNot(HaveOccurred())
+				}, 200)).To(Succeed())
 			})
 		})
 
@@ -276,11 +270,9 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			)
 
 			By("Checking mounted iso image")
-			expecter, err := tests.LoggedInAlpineExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
+			Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
-			_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				// mount service account iso image
 				&expect.BSnd{S: "mount /dev/sda /mnt\n"},
 				&expect.BExp{R: console.PromptExpression},
@@ -290,8 +282,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				&expect.BExp{R: tests.NamespaceTestDefault},
 				&expect.BSnd{S: "tail -c 20 /mnt/token\n"},
 				&expect.BExp{R: token},
-			}, 200*time.Second)
-			Expect(err).ToNot(HaveOccurred())
+			}, 200)).To(Succeed())
 		})
 
 	})
@@ -545,19 +536,16 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			Expect(podOutput).To(Equal(expectedOutput + "\n"))
 
 			By("Checking mounted iso image")
-			expecter, err := tests.LoggedInAlpineExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
+			Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
-			_, err = expecter.ExpectBatch([]expect.Batcher{
+			Expect(console.ExpectBatch(vmi, []expect.Batcher{
 				// mount iso DownwardAPI image
 				&expect.BSnd{S: "mount /dev/sda /mnt\n"},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: "grep " + testLabelKey + " /mnt/labels\n"},
 				&expect.BExp{R: expectedOutput},
-			}, 200*time.Second)
-			Expect(err).ToNot(HaveOccurred())
+			}, 200*time.Second)).To(Succeed())
 		})
 	})
 })

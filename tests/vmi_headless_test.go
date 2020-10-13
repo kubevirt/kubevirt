@@ -128,9 +128,7 @@ var _ = Describe("[rfe_id:609]VMIheadless", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				By("checking that console works")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 			})
 
 		})

@@ -170,9 +170,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			By("checking that we can still start virtual machines and connect to the VMI")
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmi = tests.RunVMI(vmi, 60)
-			expecter, err := tests.LoggedInAlpineExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
+			Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 		})
 
 		It("[test_id:4100] should be valid during the whole rotation process", func() {
@@ -188,9 +186,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			Eventually(func() (rotated bool) {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi = tests.RunVMI(vmi, 60)
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				newAPICert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
@@ -564,18 +560,15 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			By("Expecting the VirtualMachineInstance console")
 			// This also serves as a sync point to make sure the VM completed the boot
 			// (and reduce the risk of false negatives)
-			expecter, err := tests.LoggedInAlpineExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
+			Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
 			By("Writing some data to the disk")
-			_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "dd if=/dev/zero of=/dev/vdb bs=1M count=1\n"},
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "sync\n"},
 				&expect.BExp{R: console.PromptExpression},
-			}, 10*time.Second)
-			Expect(err).ToNot(HaveOccurred())
+			}, 10)).To(Succeed())
 
 			preparedVMIs = append(preparedVMIs, vmi)
 			return nodeName
