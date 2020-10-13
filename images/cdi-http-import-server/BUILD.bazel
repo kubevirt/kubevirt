@@ -14,7 +14,10 @@ rpm_image(
     rpms = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": [
             "@qemu-img_ppc64le//file",
+            "@nettle_ppc64le//file",
+            "@glibc_ppc64le//file",
             "@qemu-guest-agent_ppc64le//file",
+            "@pixman-1_ppc64le//file",
             "@stress_ppc64le//file",
             "@libstdc_ppc64le//file",
             "@capstone_ppc64le//file",
@@ -24,7 +27,10 @@ rpm_image(
         ],
         "//conditions:default": [
             "@qemu-img//file",
+            "@nettle//file",
+            "@glibc//file",
             "@qemu-guest-agent//file",
+            "@pixman-1//file",
             "@stress//file",
             "@libstdc//file",
             "@capstone//file",
