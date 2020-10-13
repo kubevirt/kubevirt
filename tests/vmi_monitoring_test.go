@@ -52,18 +52,15 @@ var _ = Describe("Health Monitoring", func() {
 			tests.WaitForSuccessfulVMIStart(obj)
 
 			By("Expecting the VirtualMachineInstance console")
-			expecter, err := tests.LoggedInAlpineExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
+			Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
 			By("Killing the watchdog device")
-			_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "watchdog -t 2000ms -T 4000ms /dev/watchdog && sleep 5 && killall -9 watchdog\n"},
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
-			}, 250*time.Second)
-			Expect(err).ToNot(HaveOccurred())
+			}, 250)).To(Succeed())
 
 			namespace := vmi.ObjectMeta.Namespace
 			name := vmi.ObjectMeta.Name

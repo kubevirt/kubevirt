@@ -279,9 +279,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred(), "cannot fetch VirtualMachineInstance %q: %v", vmi.Name, err)
 
 				By("Obtaining serial console")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred(), "VirtualMachineInstance %q console is not accessible: %v", vmi.Name, err)
-				expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed(), "VirtualMachineInstance %q console is not accessible: %v", vmi.Name, err)
 			})
 		})
 

@@ -43,7 +43,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -158,9 +157,7 @@ var _ = Describe("[Serial]Storage", func() {
 					tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 120, ignoreWarnings)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
-					expecter, err := tests.LoggedInAlpineExpecter(vmi)
-					Expect(err).ToNot(HaveOccurred())
-					expecter.Close()
+					Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 				},
 					table.Entry("[test_id:3130]with Disk PVC", tests.NewRandomVMIWithPVC, "", nil),
 					table.Entry("[test_id:3131]with CDRom PVC", tests.NewRandomVMIWithCDRom, "", nil),
@@ -183,9 +180,7 @@ var _ = Describe("[Serial]Storage", func() {
 					// after being restarted multiple times
 					if i == num {
 						By("Checking that the VirtualMachineInstance console has expected output")
-						expecter, err := tests.LoggedInAlpineExpecter(vmi)
-						Expect(err).ToNot(HaveOccurred())
-						expecter.Close()
+						Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 					}
 
 					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
@@ -412,9 +407,7 @@ var _ = Describe("[Serial]Storage", func() {
 					vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 120, ignoreWarnings)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
-					expecter, err := tests.LoggedInAlpineExpecter(vmi)
-					Expect(err).ToNot(HaveOccurred())
-					expecter.Close()
+					Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 				},
 					table.Entry("[test_id:3136]with Ephemeral PVC", tests.NewRandomVMIWithEphemeralPVC, "", nil),
 					table.Entry("[test_id:4619]with Ephemeral PVC from NFS using ipv4 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", k8sv1.IPv4Protocol),
@@ -437,11 +430,9 @@ var _ = Describe("[Serial]Storage", func() {
 				}
 
 				By("Writing an arbitrary file to it's EFI partition")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// Because "/" is mounted on tmpfs, we need something that normally persists writes - /dev/sda2 is the EFI partition formatted as vFAT.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
 					&expect.BExp{R: console.PromptExpression},
@@ -452,8 +443,7 @@ var _ = Describe("[Serial]Storage", func() {
 					// The QEMU process will be killed, therefore the write must be flushed to the disk.
 					&expect.BSnd{S: "sync\n"},
 					&expect.BExp{R: console.PromptExpression},
-				}, 200*time.Second)
-				Expect(err).ToNot(HaveOccurred())
+				}, 200)).To(Succeed())
 
 				By("Killing a VirtualMachineInstance")
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
@@ -468,11 +458,9 @@ var _ = Describe("[Serial]Storage", func() {
 				}
 
 				By("Making sure that the previously written file is not present")
-				expecter, err = tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// Same story as when first starting the VirtualMachineInstance - the checkpoint, if persisted, is located at /dev/sda2.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
 					&expect.BExp{R: console.PromptExpression},
@@ -482,8 +470,7 @@ var _ = Describe("[Serial]Storage", func() {
 					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("1")},
-				}, 200*time.Second)
-				Expect(err).ToNot(HaveOccurred())
+				}, 200)).To(Succeed())
 			})
 		})
 
@@ -510,15 +497,12 @@ var _ = Describe("[Serial]Storage", func() {
 					// after being restarted multiple times
 					if i == num {
 						By("Checking that the second disk is present")
-						expecter, err := tests.LoggedInAlpineExpecter(vmi)
-						Expect(err).ToNot(HaveOccurred())
-						defer expecter.Close()
+						Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
-						_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+						Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 							&expect.BSnd{S: "blockdev --getsize64 /dev/vdb\n"},
 							&expect.BExp{R: "67108864"},
-						}, 200*time.Second)
-						Expect(err).ToNot(HaveOccurred())
+						}, 200)).To(Succeed())
 					}
 
 					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
@@ -900,9 +884,7 @@ var _ = Describe("[Serial]Storage", func() {
 				tests.RunVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred(), "Alpine login successfully")
-				expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 			})
 		})
 
@@ -991,25 +973,19 @@ var _ = Describe("[Serial]Storage", func() {
 				})
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking that /dev/sda has a capacity of 1Gi")
-				res, err := expecter.ExpectBatch([]expect.Batcher{
+				Expect(console.ExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "blockdev --getsize64 /dev/sda\n"},
 					&expect.BExp{R: "1073741824"}, // 2Gi in bytes
-				}, 10*time.Second)
-				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				Expect(err).ToNot(HaveOccurred())
+				}, 10*time.Second)).To(Succeed())
 
 				By("Checking that /dev/sdb has a capacity of 1Gi")
-				res, err = expecter.ExpectBatch([]expect.Batcher{
+				Expect(console.ExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "blockdev --getsize64 /dev/sdb\n"},
 					&expect.BExp{R: "1073741824"}, // 1Gi in bytes
-				}, 10*time.Second)
-				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				Expect(err).ToNot(HaveOccurred())
+				}, 10*time.Second)).To(Succeed())
 			})
 
 		})
