@@ -2591,8 +2591,7 @@ func AddSecretDiskWithCustomLabel(vmi *v1.VirtualMachineInstance, secretName str
 	})
 }
 
-func AddDownwardAPIVolumeWithLabel(vmi *v1.VirtualMachineInstance, volumeName string, labels map[string]string) {
-	vmi.ObjectMeta.Labels = labels
+func AddLabelDownwardAPIVolume(vmi *v1.VirtualMachineInstance, volumeName string) {
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: volumeName,
 		VolumeSource: v1.VolumeSource{

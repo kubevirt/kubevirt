@@ -530,7 +530,13 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 
 			By("Running VMI")
 			vmi := tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
-			tests.AddDownwardAPIVolumeWithLabel(vmi, downwardAPIName, map[string]string{testLabelKey: testLabelVal})
+			//Add the testing label to the VMI
+			if vmi.ObjectMeta.Labels == nil {
+				vmi.ObjectMeta.Labels = map[string]string{testLabelKey: testLabelVal}
+			} else {
+				vmi.ObjectMeta.Labels[testLabelKey] = testLabelVal
+			}
+			tests.AddLabelDownwardAPIVolume(vmi, downwardAPIName)
 
 			tests.RunVMIAndExpectLaunch(vmi, 90)
 

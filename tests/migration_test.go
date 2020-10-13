@@ -1547,7 +1547,13 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			tests.AddConfigMapDisk(vmi, configMapName, configMapName)
 			tests.AddSecretDisk(vmi, secretName, secretName)
 			tests.AddServiceAccountDisk(vmi, "default")
-			tests.AddDownwardAPIVolumeWithLabel(vmi, downwardAPIName, map[string]string{"testKey": "testVal"})
+
+			// In case there are no existing labels add labels to add some data to the downwardAPI disk
+			if vmi.ObjectMeta.Labels == nil {
+				vmi.ObjectMeta.Labels = map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}
+			}
+			tests.AddLabelDownwardAPIVolume(vmi, downwardAPIName)
+
 			vmi.Spec.Domain.Devices = v1.Devices{Interfaces: []v1.Interface{{Name: "default", Tag: "testnic",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Masquerade: &v1.InterfaceMasquerade{}}}}}
