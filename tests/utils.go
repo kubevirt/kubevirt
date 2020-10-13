@@ -2844,6 +2844,7 @@ func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: name,
+			Namespace:    NamespaceTestDefault,
 			Labels: map[string]string{
 				v1.AppLabel: "test",
 			},
