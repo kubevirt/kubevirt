@@ -697,16 +697,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 			})
 		})
-		Context("with a shared ISCSI Filesystem PVC", func() {
+		Context("with a shared ISCSI Filesystem PVC (using ISCSI IPv4 address)", func() {
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
 
 				if !tests.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
-				}
-
-				if tests.IsIPv6Cluster(virtClient) {
-					Skip("Skip ISCSI on IPv6")
 				}
 
 				// set unsafe migration flag
@@ -725,8 +721,11 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				pvName := "test-iscsi-dv" + rand.String(48)
 				// Start a ISCSI POD and service
 				By("Starting an iSCSI POD")
-				iscsiIP := tests.CreateISCSITargetPOD(cd.ContainerDiskEmpty)
-				_, err = virtClient.CoreV1().PersistentVolumes().Create(tests.NewISCSIPV(pvName, "2Gi", iscsiIP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem))
+				iscsiTargetPod := tests.CreateISCSITargetPOD(cd.ContainerDiskEmpty)
+				iscsiTargetIPAddress := libnet.GetPodIpByFamily(iscsiTargetPod, k8sv1.IPv4Protocol)
+				Expect(iscsiTargetIPAddress).NotTo(BeEmpty())
+
+				_, err = virtClient.CoreV1().PersistentVolumes().Create(tests.NewISCSIPV(pvName, "2Gi", iscsiTargetIPAddress, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem))
 				Expect(err).ToNot(HaveOccurred())
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteMany)
 				volMode := k8sv1.PersistentVolumeFilesystem
@@ -841,19 +840,19 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
-		Context("with an Alpine shared ISCSI PVC", func() {
+		Context("with an Alpine shared ISCSI PVC (using ISCSI IPv4 address)", func() {
 			var pvName string
 			BeforeEach(func() {
-				if tests.IsIPv6Cluster(virtClient) {
-					Skip("Skip ISCSI on IPv6")
-				}
 				pvName = "test-iscsi-lun" + rand.String(48)
 				// Start a ISCSI POD and service
 				By("Starting an iSCSI POD")
-				iscsiIP := tests.CreateISCSITargetPOD(cd.ContainerDiskAlpine)
+				iscsiTargetPod := tests.CreateISCSITargetPOD(cd.ContainerDiskAlpine)
+				iscsiTargetIPAddress := libnet.GetPodIpByFamily(iscsiTargetPod, k8sv1.IPv4Protocol)
+				Expect(iscsiTargetIPAddress).NotTo(BeEmpty())
+
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTargetIPAddress, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
 			})
 
 			AfterEach(func() {
@@ -913,19 +912,19 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
-		Context("with an Cirros shared ISCSI PVC", func() {
+		Context("with an Cirros shared ISCSI PVC (using ISCSI IPv4 address)", func() {
 			var pvName string
 			BeforeEach(func() {
-				if tests.IsIPv6Cluster(virtClient) {
-					Skip("Skip ISCSI on IPv6")
-				}
 				pvName = "test-iscsi-lun" + rand.String(48)
 				// Start a ISCSI POD and service
 				By("Starting an iSCSI POD")
-				iscsiIP := tests.CreateISCSITargetPOD(cd.ContainerDiskCirros)
+				iscsiTargetPod := tests.CreateISCSITargetPOD(cd.ContainerDiskCirros)
+				iscsiTargetIPAddress := libnet.GetPodIpByFamily(iscsiTargetPod, k8sv1.IPv4Protocol)
+				Expect(iscsiTargetIPAddress).NotTo(BeEmpty())
+
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTargetIPAddress, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
 			})
 
 			AfterEach(func() {
@@ -1352,19 +1351,19 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 		})
-		Context("with an Cirros non-shared ISCSI PVC", func() {
+		Context("with an Cirros non-shared ISCSI PVC (using ISCSI IPv4 address)", func() {
 			var pvName string
 			BeforeEach(func() {
-				if tests.IsIPv6Cluster(virtClient) {
-					Skip("Skip ISCSI on IPv6")
-				}
 				pvName = "test-iscsi-lun" + rand.String(48)
 				// Start a ISCSI POD and service
 				By("Starting an iSCSI POD")
-				iscsiIP := tests.CreateISCSITargetPOD(cd.ContainerDiskCirros)
+				iscsiTargetPod := tests.CreateISCSITargetPOD(cd.ContainerDiskCirros)
+				iscsiTargetIPAddress := libnet.GetPodIpByFamily(iscsiTargetPod, k8sv1.IPv4Protocol)
+				Expect(iscsiTargetIPAddress).NotTo(BeEmpty())
+
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTargetIPAddress, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
 			})
 
 			AfterEach(func() {
@@ -1426,11 +1425,14 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					}
 
 					By("Starting an iSCSI POD")
-					iscsiIP := tests.CreateISCSITargetPOD(cd.ContainerDiskFedora)
+					iscsiTargetPod := tests.CreateISCSITargetPOD(cd.ContainerDiskFedora)
+					iscsiTargetIPAddress := libnet.GetPodIpByFamily(iscsiTargetPod, k8sv1.IPv4Protocol)
+					Expect(iscsiTargetIPAddress).NotTo(BeEmpty())
+
 					volMode := k8sv1.PersistentVolumeBlock
 					// create a new PV and PVC (PVs can't be reused)
 					pvName := "test-iscsi-lun" + rand.String(48)
-					tests.CreateISCSIPvAndPvc(pvName, "5Gi", iscsiIP, k8sv1.ReadWriteMany, volMode)
+					tests.CreateISCSIPvAndPvc(pvName, "5Gi", iscsiTargetIPAddress, k8sv1.ReadWriteMany, volMode)
 					Expect(err).ToNot(HaveOccurred())
 					defer tests.DeletePvAndPvc(pvName)
 
@@ -1482,8 +1484,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					By("Waiting for VMI to disappear")
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 				},
-					table.Entry("[test_id:2226]with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
-					table.Entry("[test_id:2731] with OCS Disk", newVirtualMachineInstanceWithFedoraOCSDisk),
+					table.Entry("[test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
+					table.Entry("[test_id:2731] with OCS Disk (using ISCSI IPv4 address)", newVirtualMachineInstanceWithFedoraOCSDisk),
 				)
 				It("[test_id:3241]should be able to cancel a migration right after posting it", func() {
 					vmi := tests.NewRandomFedoraVMIWitGuestAgent()
