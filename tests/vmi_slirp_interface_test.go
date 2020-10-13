@@ -21,7 +21,6 @@ package tests_test
 
 import (
 	"strings"
-	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
@@ -142,18 +141,12 @@ var _ = Describe("[Serial]Slirp Networking", func() {
 		Expect(err).To(HaveOccurred())
 
 		By("communicate with the outside world")
-		expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
-		defer expecter.Close()
-		Expect(err).ToNot(HaveOccurred())
-
-		out, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: console.PromptExpression},
 			&expect.BSnd{S: "curl -o /dev/null -s -w \"%{http_code}\\n\" -k https://google.com\n"},
 			&expect.BExp{R: "301"},
-		}, 180*time.Second)
-		log.Log.Infof("%v", out)
-		Expect(err).ToNot(HaveOccurred())
+		}, 180)).To(Succeed())
 	},
 		table.Entry("VirtualMachineInstance with slirp interface", &genericVmi),
 		table.Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),

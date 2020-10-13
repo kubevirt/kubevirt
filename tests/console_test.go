@@ -59,20 +59,11 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 	}
 
 	ExpectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {
-		By("Expecting the VirtualMachineInstance console")
-		expecter, _, err := console.NewExpecter(virtClient, vmi, 30*time.Second)
-		Expect(err).ToNot(HaveOccurred())
-		defer func() {
-			By("Closing the opened expecter")
-			expecter.Close()
-		}()
-
 		By("Checking that the console output equals to expected one")
-		_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: expected},
-		}, 120*time.Second)
-		Expect(err).ToNot(HaveOccurred())
+		}, 120)).To(Succeed())
 	}
 
 	OpenConsole := func(vmi *v1.VirtualMachineInstance) (expect.Expecter, <-chan error) {

@@ -20,15 +20,12 @@
 package tests_test
 
 import (
-	"time"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -40,7 +37,6 @@ var _ = Describe("[Serial][rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][leve
 	var virtClient kubecli.KubevirtClient
 
 	var LaunchVMI func(*v1.VirtualMachineInstance)
-	var VerifyIgnitionDataVMI func(*v1.VirtualMachineInstance, []expect.Batcher, time.Duration)
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
@@ -55,18 +51,6 @@ var _ = Describe("[Serial][rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][leve
 			_, ok := obj.(*v1.VirtualMachineInstance)
 			Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
 			Expect(tests.WaitForSuccessfulVMIStart(obj)).ToNot(BeEmpty())
-		}
-
-		VerifyIgnitionDataVMI = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
-			By("Expecting the VirtualMachineInstance console")
-			expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
-
-			By("Checking that the VirtualMachineInstance serial console output equals to expected one")
-			resp, err := console.ExpectBatchWithValidatedSend(expecter, commands, timeout)
-			log.DefaultLogger().Object(vmi).Infof("%v", resp)
-			Expect(err).ToNot(HaveOccurred())
 		}
 	})
 
@@ -88,7 +72,7 @@ var _ = Describe("[Serial][rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][leve
 
 					LaunchVMI(vmi)
 
-					VerifyIgnitionDataVMI(vmi, []expect.Batcher{
+					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: "\n"},
 						&expect.BExp{R: "login:"},
 						&expect.BSnd{S: "fedora\n"},
@@ -97,7 +81,7 @@ var _ = Describe("[Serial][rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][leve
 						&expect.BExp{R: console.PromptExpression},
 						&expect.BSnd{S: "ls /sys/firmware/qemu_fw_cfg/by_name/opt/com.coreos/config\n"},
 						&expect.BExp{R: "raw"},
-					}, time.Second*300)
+					}, 300)).To(Succeed())
 				})
 			})
 		})

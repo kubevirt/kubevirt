@@ -613,28 +613,20 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				if !tests.OnPrivilegedPrompt(vmi, 60) {
 					Expect(tests.LoginToFedora(vmi)).To(Succeed())
 				}
-				expecterNew, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
-				Expect(err).NotTo(HaveOccurred())
-				defer expecterNew.Close()
 
 				By("Waiting for the agent to set the right time")
-				Eventually(func() bool {
+				Eventually(func() error {
 					// get current time on the node
 					output := tests.RunCommandOnVmiPod(vmi, []string{"date", "+%H:%M"})
 					expectedTime := strings.TrimSpace(output)
 					log.DefaultLogger().Infof("expoected time: %v", expectedTime)
 
 					By("Checking that the guest has an updated time")
-					resp, err := console.ExpectBatchWithValidatedSend(expecterNew, []expect.Batcher{
+					return console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: "date +%H:%M\n"},
 						&expect.BExp{R: expectedTime},
-					}, 30*time.Second)
-					if err != nil {
-						log.DefaultLogger().Infof("time in the guest %v", resp)
-						return false
-					}
-					return true
-				}, 240*time.Second, 1*time.Second).Should(BeTrue())
+					}, 30)
+				}, 240*time.Second, 1*time.Second).Should(Succeed())
 			})
 		})
 		Context("with a shared ISCSI Filesystem PVC (using ISCSI IPv4 address)", func() {

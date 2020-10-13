@@ -34,7 +34,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -82,15 +81,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		}
 
 		VerifyUserDataVMI = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
-			By("Expecting the VirtualMachineInstance console")
-			expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
-
 			By("Checking that the VirtualMachineInstance serial console output equals to expected one")
-			resp, err := console.ExpectBatchWithValidatedSend(expecter, commands, timeout)
-			log.DefaultLogger().Object(vmi).Infof("%v", resp)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(console.SafeExpectBatch(vmi, commands, int(timeout.Seconds()))).To(Succeed())
 		}
 
 		mountCloudInitFunc := func(devName string) func(*v1.VirtualMachineInstance) {
