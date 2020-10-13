@@ -89,6 +89,7 @@ const (
 	imageAlpine      = "alpine-container-disk-demo"
 	imageCirros      = "cirros-container-disk-demo"
 	imageFedora      = "fedora-cloud-container-disk-demo"
+	imageFedoraSriov = "fedora-cloud-sriov-lane-container-disk"
 	imageMicroLiveCD = "microlivecd-container-disk-demo"
 )
 const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
@@ -141,6 +142,13 @@ func initFedora(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceS
 	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
 	return spec
 }
+
+func initFedoraSriov(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
+	addContainerDisk(spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedoraSriov, DockerTag), busVirtio)
+	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
+	return spec
+}
+
 func enableNetworkInterfaceMultiqueue(spec *v1.VirtualMachineInstanceSpec, enable bool) {
 	spec.Domain.Devices.NetworkInterfaceMultiQueue = &enable
 }
@@ -450,9 +458,9 @@ func GetVMIMasquerade() *v1.VirtualMachineInstance {
 func GetVMISRIOV() *v1.VirtualMachineInstance {
 	vm := getBaseVMI(VmiSRIOV)
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "sriov-net", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov/sriov-network"}}}}
-	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\ndhclient eth1\n")
+	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "sriov-net", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov-network-example"}}}}
+	initFedoraSriov(&vm.Spec)
+	addNoCloudDiskWitUserData(&vm.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
 		{Name: "sriov-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}}

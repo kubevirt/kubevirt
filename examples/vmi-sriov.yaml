@@ -30,16 +30,16 @@ spec:
   - name: default
     pod: {}
   - multus:
-      networkName: sriov/sriov-network
+      networkName: sriov-network-example
     name: sriov-net
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:
-      image: registry:5000/kubevirt/fedora-cloud-container-disk-demo:devel
+      image: registry:5000/kubevirt/fedora-cloud-sriov-lane-container-disk:devel
     name: containerdisk
   - cloudInitNoCloud:
-      userData: |
-        #!/bin/bash
-        echo "fedora" |passwd fedora --stdin
-        dhclient eth1
+      userData: |-
+        #cloud-config
+        password: fedora
+        chpasswd: { expire: False }
     name: cloudinitdisk
