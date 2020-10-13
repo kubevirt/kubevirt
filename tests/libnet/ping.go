@@ -17,7 +17,7 @@
  *
  */
 
-package tests
+package libnet
 
 import (
 	"fmt"
@@ -27,6 +27,7 @@ import (
 	"k8s.io/utils/net"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/tests/console"
 )
 
 // PingFromVMConsole performs a ping through the provided VMI console.
@@ -47,7 +48,7 @@ func PingFromVMConsole(vmi *v1.VirtualMachineInstance, ipAddr string, args ...st
 	args = append([]string{pingString, ipAddr}, args...)
 	cmdCheck := strings.Join(args, " ")
 
-	err := VmiConsoleRunCommand(vmi, cmdCheck, maxCommandTimeout)
+	err := console.RunCommand(vmi, cmdCheck, maxCommandTimeout)
 	if err != nil {
 		return fmt.Errorf("Failed to ping VMI %s, error: %v", vmi.Name, err)
 	}

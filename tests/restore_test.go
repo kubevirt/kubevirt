@@ -23,6 +23,7 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
@@ -387,13 +388,13 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 						&expect.BSnd{S: fmt.Sprintf("sudo mkfs.ext4 %s\n", device)},
 						&expect.BExp{R: "\\$ "},
 						&expect.BSnd{S: "echo $?\n"},
-						&expect.BExp{R: tests.RetValue("0")},
+						&expect.BExp{R: console.RetValue("0")},
 						&expect.BSnd{S: "sudo mkdir -p /test\n"},
 						&expect.BExp{R: "\\$ "},
 						&expect.BSnd{S: fmt.Sprintf("sudo mount %s /test \n", device)},
 						&expect.BExp{R: "\\$ "},
 						&expect.BSnd{S: "echo $?\n"},
-						&expect.BExp{R: tests.RetValue("0")},
+						&expect.BExp{R: console.RetValue("0")},
 					}...)
 				}
 
@@ -441,7 +442,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 						&expect.BSnd{S: fmt.Sprintf("sudo mount %s /test \n", device)},
 						&expect.BExp{R: "\\$ "},
 						&expect.BSnd{S: "echo $?\n"},
-						&expect.BExp{R: tests.RetValue("0")},
+						&expect.BExp{R: console.RetValue("0")},
 					}...)
 				}
 
@@ -496,7 +497,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 						&expect.BSnd{S: fmt.Sprintf("sudo mount %s /test \n", device)},
 						&expect.BExp{R: "\\$ "},
 						&expect.BSnd{S: "echo $?\n"},
-						&expect.BExp{R: tests.RetValue("0")},
+						&expect.BExp{R: console.RetValue("0")},
 					}...)
 				}
 
