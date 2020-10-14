@@ -4,3 +4,4 @@ _out
 _ci-configs/*
 *.coverprofile
 _local/
+_kubevirtci/
