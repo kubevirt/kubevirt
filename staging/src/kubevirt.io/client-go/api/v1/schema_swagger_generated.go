@@ -203,8 +203,9 @@ func (Input) SwaggerDoc() map[string]string {
 
 func (Filesystem) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "+k8s:openapi-gen=true",
-		"name": "Name is the device name",
+		"":         "+k8s:openapi-gen=true",
+		"name":     "Name is the device name",
+		"virtiofs": "Virtiofs is supported",
 	}
 }
 

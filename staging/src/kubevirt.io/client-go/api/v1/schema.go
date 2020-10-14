@@ -413,7 +413,7 @@ type Input struct {
 type Filesystem struct {
 	// Name is the device name
 	Name string `json:"name"`
-	//
+	// Virtiofs is supported
 	Virtiofs *FilesystemVirtiofs `json:"virtiofs"`
 }
 

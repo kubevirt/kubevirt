@@ -42,7 +42,11 @@ func main() {
 
 	switch *resourceType {
 	case "kv":
-		util.MarshallObject(components.NewKubeVirtCrd(), os.Stdout)
+		kv, err := components.NewKubeVirtCrd()
+		if err != nil {
+			panic(fmt.Errorf("This should not happen, %v", err))
+		}
+		util.MarshallObject(kv, os.Stdout)
 	case "kv-cr":
 		util.MarshallObject(components.NewKubeVirtCR(*namespace, imagePullPolicy), os.Stdout)
 	case "operator-rbac":

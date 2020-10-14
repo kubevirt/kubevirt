@@ -14881,7 +14881,8 @@ func schema_kubevirtio_client_go_api_v1_Filesystem(ref common.ReferenceCallback)
 					},
 					"virtiofs": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/client-go/api/v1.FilesystemVirtiofs"),
+							Description: "Virtiofs is supported",
+							Ref:         ref("kubevirt.io/client-go/api/v1.FilesystemVirtiofs"),
 						},
 					},
 				},
