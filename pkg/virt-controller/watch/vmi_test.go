@@ -280,6 +280,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("VMI should fail if DataVolume fails to import", func() {
+			// TODO: Remove this test, Datavolumes are now eventually consistent, and cannot enter into failed state.
 			vmi := NewPendingVirtualMachine("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -312,26 +313,46 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
 		})
 
-		It("should not start VMI if it mistakenly uses PVC instead of DV that owns it", func() {
-			vmi := v1.NewMinimalVMI("testvm")
+	})
 
-			annotations := map[string]string{}
-			annotations[v1.ControllerAPILatestVersionObservedAnnotation] = v1.ApiLatestVersion
-			annotations[v1.ControllerAPIStorageVersionObservedAnnotation] = v1.ApiStorageVersion
-			vmi.SetAnnotations(annotations)
+	Context("On valid VirtualMachineInstance given with PVC source, ownedRef of DataVolume", func() {
+		controllerOf := true
+
+		It("should create a corresponding Pod on VMI creation when DataVolume is ready", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "dv1",
+				Name: "test1",
 				VolumeSource: v1.VolumeSource{
 					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "dv1",
+						ClaimName: "test1",
 					},
 				},
 			})
 
-			dv := &cdiv1.DataVolume{
+			dvPVC := &k8sv1.PersistentVolumeClaim{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "PersistentVolumeClaim",
+					APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "dv1",
+					Namespace: vmi.Namespace,
+					Name:      "test1",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							Kind:       "DataVolume",
+							Name:       "test1",
+							Controller: &controllerOf,
+						},
+					},
+				},
+			}
+			// we are mocking a successful DataVolume. we expect the PVC to
+			// be available in the store if DV is successful.
+			pvcInformer.GetIndexer().Add(dvPVC)
+
+			dataVolume := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test1",
 					Namespace: vmi.Namespace,
 				},
 				Status: cdiv1.DataVolumeStatus{
@@ -339,27 +360,94 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				},
 			}
 
-			pvcInformer.GetStore().Add(&k8sv1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "dv1",
-					Namespace: vmi.Namespace,
-					OwnerReferences: []metav1.OwnerReference{
-						metav1.OwnerReference{
-							Name: "dv1",
-							Kind: "DataVolume",
-						},
+			addVirtualMachine(vmi)
+			dataVolumeFeeder.Add(dataVolume)
+			shouldExpectPodCreation(vmi.UID)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+		})
+
+		It("should not create a corresponding Pod on VMI creation when DataVolume is pending", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "test1",
 					},
 				},
 			})
 
-			addVirtualMachine(vmi)
-			dataVolumeInformer.GetStore().Add(dv)
+			dvPVC := &k8sv1.PersistentVolumeClaim{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "PersistentVolumeClaim",
+					APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: vmi.Namespace,
+					Name:      "test1",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							Kind:       "DataVolume",
+							Name:       "test1",
+							Controller: &controllerOf,
+						},
+					},
+				},
+			}
+			// we are mocking a successful DataVolume. we expect the PVC to
+			// be available in the store if DV is successful.
+			pvcInformer.GetIndexer().Add(dvPVC)
 
-			vmiInterface.EXPECT().Update(gomock.Any()).Return(vmi, nil)
+			dataVolume := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test1",
+					Namespace: vmi.Namespace,
+				},
+				Status: cdiv1.DataVolumeStatus{
+					Phase: cdiv1.Pending,
+				},
+			}
+
+			addVirtualMachine(vmi)
+			dataVolumeFeeder.Add(dataVolume)
 
 			controller.Execute()
-			testutils.ExpectEvent(recorder, FailedPVCVolumeSourceMisusedReason)
 		})
+
+		It("should create a corresponding Pod on VMI creation when PVC is not controlled by a DataVolume", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "test1",
+					},
+				},
+			})
+
+			pvc := &k8sv1.PersistentVolumeClaim{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "PersistentVolumeClaim",
+					APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: vmi.Namespace,
+					Name:      "test1",
+				},
+			}
+			// we are mocking a successful DataVolume. we expect the PVC to
+			// be available in the store if DV is successful.
+			pvcInformer.GetIndexer().Add(pvc)
+
+			addVirtualMachine(vmi)
+			shouldExpectPodCreation(vmi.UID)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+		})
+
 	})
 
 	Context("On valid VirtualMachineInstance given", func() {
@@ -550,6 +638,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						),
 					),
 				)
+
+				testutils.ExpectEvent(recorder, FailedPvcNotFoundReason)
 			}
 
 			vmi := NewPendingVirtualMachine("testvmi")

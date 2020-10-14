@@ -97,8 +97,6 @@ const (
 	SuccessfulAbortMigrationReason = "SuccessfulAbortMigration"
 	// FailedAbortMigrationReason is added when an attempt to abort migration fails
 	FailedAbortMigrationReason = "FailedAbortMigration"
-	// FailedPVCVolumeSourceMisusedReason is added when PVC volume source is used where Data Volume should be used
-	FailedPVCVolumeSourceMisusedReason = "PVCVolumeSourceMisused"
 )
 
 func NewVMIController(templateService services.TemplateService,
@@ -553,10 +551,6 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		return nil
 	}
 
-	if err := handlePVCMisuseInVMI(c.pvcInformer, c.recorder, vmi); err != nil {
-		return &syncErrorImpl{err, FailedPVCVolumeSourceMisusedReason}
-	}
-
 	if !podExists(pod) {
 		// If we came ever that far to detect that we already created a pod, we don't create it again
 		if !vmi.IsUnprocessed() {
@@ -574,6 +568,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 
 		templatePod, err := c.templateService.RenderLaunchManifest(vmi)
 		if _, ok := err.(services.PvcNotFoundError); ok {
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedPvcNotFoundReason, "failed to render launch manifest: %v", err)
 			return &syncErrorImpl{fmt.Errorf("failed to render launch manifest: %v", err), FailedPvcNotFoundReason}
 		} else if err != nil {
 			return &syncErrorImpl{fmt.Errorf("failed to render launch manifest: %v", err), FailedCreatePodReason}
@@ -598,29 +593,43 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 	ready := true
 
 	for _, volume := range vmi.Spec.Volumes {
-		if volume.VolumeSource.DataVolume == nil {
-			continue
-		}
-
-		exists := false
-		for _, dataVolume := range dataVolumes {
-			if dataVolume.Name == volume.VolumeSource.DataVolume.Name {
-				exists = true
-				if dataVolume.Status.Phase != cdiv1.Succeeded {
-					log.Log.V(3).Object(vmi).Infof("DataVolume %s not ready. Phase=%s", dataVolume.Name, dataVolume.Status.Phase)
-					ready = false
-					if dataVolume.Status.Phase == cdiv1.Failed {
-						c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDataVolumeImportReason, "DataVolume %s failed", dataVolume.Name)
-						return ready, &syncErrorImpl{fmt.Errorf("DataVolume %s for volume %s failed", dataVolume.Name, volume.Name), FailedDataVolumeImportReason}
+		// Check both DVs and PVCs
+		if volume.VolumeSource.DataVolume != nil {
+			for _, dataVolume := range dataVolumes {
+				if dataVolume.Name == volume.VolumeSource.DataVolume.Name {
+					if dataVolume.Status.Phase != cdiv1.Succeeded {
+						log.Log.V(3).Object(vmi).Infof("DataVolume %s not ready. Phase=%s", dataVolume.Name, dataVolume.Status.Phase)
+						ready = false
+						// This isn't needed anymore because datavolumes are eventually consistent.
+						if dataVolume.Status.Phase == cdiv1.Failed {
+							c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDataVolumeImportReason, "DataVolume %s failed", dataVolume.Name)
+							return ready, &syncErrorImpl{fmt.Errorf("DataVolume %s for volume %s failed", dataVolume.Name, volume.Name), FailedDataVolumeImportReason}
+						}
 					}
+					break
 				}
-				break
 			}
 		}
-
-		if !exists {
-			log.Log.V(3).Object(vmi).Infof("DataVolume %s not found", volume.VolumeSource.DataVolume.Name)
-			ready = false
+		if volume.VolumeSource.PersistentVolumeClaim != nil {
+			// err is always nil
+			pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName))
+			if pvcExists {
+				pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
+				populated, err := cdiv1.IsPopulated(pvc, func(name, namespace string) (*cdiv1.DataVolume, error) {
+					dv, exists, _ := c.dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, name))
+					if !exists {
+						return nil, fmt.Errorf("Unable to find datavolume %s/%s", namespace, name)
+					}
+					return dv.(*cdiv1.DataVolume), nil
+				})
+				if err != nil {
+					return false, &syncErrorImpl{fmt.Errorf("Error determining if PVC %s is ready %v", pvc.Name, err), FailedDataVolumeImportReason}
+				}
+				if !populated {
+					log.Log.V(3).Object(vmi).Infof("PVC %s not ready.", pvc.Name)
+					ready = false
+				}
+			}
 		}
 	}
 
@@ -862,12 +871,14 @@ func (c *VMIController) listVMIsMatchingDataVolume(namespace string, dataVolumeN
 	for _, obj := range objs {
 		vmi := obj.(*virtv1.VirtualMachineInstance)
 		for _, volume := range vmi.Spec.Volumes {
-			if volume.VolumeSource.DataVolume == nil {
-				continue
-			} else if volume.VolumeSource.DataVolume.Name != dataVolumeName {
-				continue
+			// Always check persistent volume claims to see if they match a DV, can't filter any more since
+			// VolumeSource.PersistentVolumeClaim doesn't list any ownerRef for the PVC. So in order to detect
+			// if the PVC is owned by a DV, I would have to look up the PVC, and find the ownerRef and determine if
+			// it is a DV. TODO: determine if it is slower to do the above or run through a reconcile of a VMI.
+			if volume.VolumeSource.PersistentVolumeClaim != nil ||
+				volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Name == dataVolumeName {
+				vmis = append(vmis, vmi)
 			}
-			vmis = append(vmis, vmi)
 		}
 	}
 	return vmis, nil

@@ -224,6 +224,17 @@ func (_mr *_MockNetworkHandlerRecorder) IsIpv6Enabled(arg0 interface{}) *gomock.
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsIpv6Enabled", arg0)
 }
 
+func (_m *MockNetworkHandler) IsIpv4Primary() (bool, error) {
+	ret := _m.ctrl.Call(_m, "IsIpv4Primary")
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockNetworkHandlerRecorder) IsIpv4Primary() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsIpv4Primary")
+}
+
 func (_m *MockNetworkHandler) ConfigureIpv6Forwarding() error {
 	ret := _m.ctrl.Call(_m, "ConfigureIpv6Forwarding")
 	ret0, _ := ret[0].(error)
@@ -304,8 +315,8 @@ func (_mr *_MockNetworkHandlerRecorder) GetNFTIPString(arg0 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetNFTIPString", arg0)
 }
 
-func (_m *MockNetworkHandler) CreateTapDevice(tapName string, isMultiqueue bool, launcherPID int) error {
-	ret := _m.ctrl.Call(_m, "CreateTapDevice", tapName, isMultiqueue, launcherPID)
+func (_m *MockNetworkHandler) CreateTapDevice(tapName string, queueNumber uint32, launcherPID int) error {
+	ret := _m.ctrl.Call(_m, "CreateTapDevice", tapName, queueNumber, launcherPID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }

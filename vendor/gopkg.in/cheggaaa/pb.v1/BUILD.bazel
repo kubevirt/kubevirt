@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "format.go",
         "pb.go",
+        "pb_appengine.go",
         "pb_win.go",
         "pb_x.go",
         "pool.go",

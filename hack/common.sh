@@ -4,6 +4,8 @@ if [ -f cluster-up/hack/common.sh ]; then
     source cluster-up/hack/common.sh
 fi
 
+export GOFLAGS=-mod=vendor
+
 KUBEVIRT_DIR="$(
     cd "$(dirname "$BASH_SOURCE[0]")/../"
     pwd
@@ -13,6 +15,7 @@ VENDOR_DIR=$KUBEVIRT_DIR/vendor
 CMD_OUT_DIR=$OUT_DIR/cmd
 TESTS_OUT_DIR=$OUT_DIR/tests
 APIDOCS_OUT_DIR=$OUT_DIR/apidocs
+ARTIFACTS=${ARTIFACTS:-${OUT_DIR}/artifacts}
 MANIFESTS_OUT_DIR=$OUT_DIR/manifests
 MANIFEST_TEMPLATES_OUT_DIR=$OUT_DIR/templates/manifests
 PYTHON_CLIENT_OUT_DIR=$OUT_DIR/client-python

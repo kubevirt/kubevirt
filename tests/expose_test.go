@@ -97,7 +97,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				job := runHelloWorldJob(serviceIP, servicePort, tcpVM.Namespace)
 
 				By("Waiting for the job to report a successful connection attempt")
-				tests.WaitForJobToSucceed(&virtClient, job, 420)
+				Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
 			})
 		})
 
@@ -185,7 +185,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					job := runHelloWorldJob(nodeIP, strconv.Itoa(int(nodePort)), tcpVM.Namespace)
 
 					By("Waiting for the job to report a successful connection attempt")
-					tests.WaitForJobToSucceed(&virtClient, job, 420)
+					Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
 				}
 			})
 		})
@@ -220,7 +220,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				job := runHelloWorldJobUDP(serviceIP, servicePort, udpVM.Namespace)
 
 				By("Waiting for the job to report a successful connection attempt")
-				tests.WaitForJobToSucceed(&virtClient, job, 420)
+				Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
 			})
 		})
 
@@ -247,7 +247,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				job := runHelloWorldJobUDP(serviceIP, servicePort, udpVM.Namespace)
 
 				By("Waiting for the job to report a successful connection attempt")
-				tests.WaitForJobToSucceed(&virtClient, job, 120)
+				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
 
 				By("Getting the node IP from all nodes")
 				nodes, err := virtClient.CoreV1().Nodes().List(k8smetav1.ListOptions{})
@@ -261,7 +261,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					job := runHelloWorldJobUDP(nodeIP, strconv.Itoa(int(nodePort)), udpVM.Namespace)
 
 					By("Waiting for the job to report a successful connection attempt")
-					tests.WaitForJobToSucceed(&virtClient, job, 420)
+					Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
 				}
 			})
 		})
@@ -321,7 +321,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				job := runHelloWorldJob(serviceIP, servicePort, vmrs.Namespace)
 
 				By("Waiting for the job to report a successful connection attempt")
-				tests.WaitForJobToSucceed(&virtClient, job, 420)
+				Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
 			})
 		})
 	})
@@ -383,13 +383,13 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				job := runHelloWorldJob(serviceIP, servicePort, vm.Namespace)
 
 				By("Waiting for the job to report a successful connection attempt")
-				tests.WaitForJobToSucceed(&virtClient, job, 120)
+				Expect(tests.WaitForJobToSucceed(job, 420*time.Second)).To(Succeed())
 
 				By("Starting a job which tries to reach the VMI again via the same ClusterIP, this time over HTTP.")
 				job = runHelloWorldJobHttp(serviceIP, servicePort, vm.Namespace)
 
 				By("Waiting for the HTTP job to report a successful connection attempt.")
-				tests.WaitForJobToSucceed(&virtClient, job, 120)
+				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
 			})
 
 			It("[test_id:345][label:masquerade_binding_connectivity]Should verify the exposed service is functional before and after VM restart.", func() {
@@ -404,7 +404,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				job := runHelloWorldJob(serviceIP, servicePort, vmObj.Namespace)
 
 				By("Waiting for the job to report a successful connection attempt.")
-				tests.WaitForJobToSucceed(&virtClient, job, 120)
+				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
 
 				// Retrieve the current VMI UID, to be compared with the new UID after restart.
 				var vmi *v1.VirtualMachineInstance
@@ -437,7 +437,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				job = runHelloWorldJob(serviceIP, servicePort, vmObj.Namespace)
 
 				By("Waiting for the job to report a successful connection attempt.")
-				tests.WaitForJobToSucceed(&virtClient, job, 120)
+				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
 			})
 
 			It("[test_id:343][label:masquerade_binding_connectivity]Should Verify an exposed service of a VM is not functional after VM deletion.", func() {
@@ -450,7 +450,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				job := runHelloWorldJob(serviceIP, servicePort, vm.Namespace)
 
 				By("Waiting for the job to report a successful connection attempt")
-				tests.WaitForJobToSucceed(&virtClient, job, 120)
+				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
 
 				By("Comparing the service's endpoints IP address to the VM pod IP address.")
 				// Get the IP address of the VM pod.
@@ -486,7 +486,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				job = runHelloWorldJob(serviceIP, servicePort, vm.Namespace)
 
 				By("Waiting for the job to report a failed connection attempt.")
-				tests.WaitForJobToFail(&virtClient, job, 120)
+				Expect(tests.WaitForJobToFail(job, 120*time.Second)).To(Succeed())
 			})
 		})
 	})

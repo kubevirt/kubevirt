@@ -355,6 +355,7 @@ spec:
           - list
           - watch
           - patch
+          - update
         - apiGroups:
           - kubevirt.io
           resources:
@@ -405,6 +406,15 @@ spec:
           - kubevirt.io
           resources:
           - kubevirts
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - snapshot.kubevirt.io
+          resources:
+          - virtualmachinesnapshots
+          - virtualmachinerestores
           verbs:
           - get
           - list
@@ -473,6 +483,10 @@ spec:
           - get
           - list
           - watch
+          - create
+          - update
+          - delete
+          - patch
         - apiGroups:
           - snapshot.kubevirt.io
           resources:
@@ -603,10 +617,16 @@ spec:
           resources:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
+          verbs:
+          - get
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
           - virtualmachineinstances/pause
           - virtualmachineinstances/unpause
           verbs:
           - get
+          - update
         - apiGroups:
           - subresources.kubevirt.io
           resources:
@@ -633,14 +653,35 @@ spec:
           - watch
           - deletecollection
         - apiGroups:
+          - snapshot.kubevirt.io
+          resources:
+          - virtualmachinesnapshots
+          - virtualmachinesnapshotcontents
+          - virtualmachinerestores
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
           - subresources.kubevirt.io
           resources:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
+          verbs:
+          - get
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
           - virtualmachineinstances/pause
           - virtualmachineinstances/unpause
           verbs:
           - get
+          - update
         - apiGroups:
           - subresources.kubevirt.io
           resources:
@@ -666,6 +707,20 @@ spec:
           - list
           - watch
         - apiGroups:
+          - snapshot.kubevirt.io
+          resources:
+          - virtualmachinesnapshots
+          - virtualmachinesnapshotcontents
+          - virtualmachinerestores
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+        - apiGroups:
           - kubevirt.io
           resources:
           - virtualmachines
@@ -673,6 +728,16 @@ spec:
           - virtualmachineinstancepresets
           - virtualmachineinstancereplicasets
           - virtualmachineinstancemigrations
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - snapshot.kubevirt.io
+          resources:
+          - virtualmachinesnapshots
+          - virtualmachinesnapshotcontents
+          - virtualmachinerestores
           verbs:
           - get
           - list

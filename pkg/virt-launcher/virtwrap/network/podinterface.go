@@ -30,6 +30,8 @@ import (
 	"strconv"
 	"strings"
 
+	netutils "k8s.io/utils/net"
+
 	"kubevirt.io/kubevirt/pkg/util"
 
 	"github.com/coreos/go-iptables/iptables"
@@ -45,7 +47,7 @@ var bridgeFakeIP = "169.254.75.1%d/32"
 
 type BindMechanism interface {
 	discoverPodNetworkInterface() error
-	preparePodNetworkInterfaces(isMultiqueue bool, launcherPID int) error
+	preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error
 
 	loadCachedInterface(pid, name string) (bool, error)
 	setCachedInterface(pid, name string) error
@@ -83,35 +85,83 @@ func writeVifFile(buf []byte, pid, name string) error {
 }
 
 func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, uid string) error {
+	cache := PodCacheInterface{Iface: iface}
+
+	ipv4, ipv6, err := readIPAddressesFromLink(podInterfaceName)
+	if err != nil {
+		return err
+	}
+
+	switch {
+	case ipv4 != "" && ipv6 != "":
+		cache.PodIPs, err = sortIPsBasedOnPrimaryIP(ipv4, ipv6)
+		if err != nil {
+			return err
+		}
+	case ipv4 != "":
+		cache.PodIPs = []string{ipv4}
+	case ipv6 != "":
+		cache.PodIPs = []string{ipv6}
+	default:
+		return nil
+	}
+
+	cache.PodIP = cache.PodIPs[0]
+	err = writeToCachedFile(cache, util.VMIInterfacepath, uid, iface.Name)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to write pod Interface to cache, %s", err.Error())
+		return err
+	}
+
+	return nil
+}
+
+func readIPAddressesFromLink(podInterfaceName string) (string, string, error) {
 	link, err := Handler.LinkByName(podInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podInterfaceName)
-		return err
+		return "", "", err
 	}
+
 	// get IP address
 	addrList, err := Handler.AddrList(link, netlink.FAMILY_ALL)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a address for interface: %s", podInterfaceName)
-		return err
-	}
-	// no ip assigned. ipam disabled
-	if len(addrList) == 0 {
-		return nil
+		return "", "", err
 	}
 
+	// no ip assigned. ipam disabled
+	if len(addrList) == 0 {
+		return "", "", nil
+	}
+
+	var ipv4, ipv6 string
 	for _, addr := range addrList {
 		if addr.IP.IsGlobalUnicast() {
-			err = writeToCachedFile(PodCacheInterface{Iface: iface, PodIP: addr.IP.String()},
-				util.VMIInterfacepath, uid, iface.Name)
-			if err != nil {
-				log.Log.Reason(err).Errorf("failed to write pod Interface to cache, %s", err.Error())
-				return err
+			if netutils.IsIPv6(addr.IP) && ipv6 == "" {
+				ipv6 = addr.IP.String()
+			} else if !netutils.IsIPv6(addr.IP) && ipv4 == "" {
+				ipv4 = addr.IP.String()
 			}
-			return nil
 		}
 	}
 
-	return nil
+	return ipv4, ipv6, nil
+}
+
+// sortIPsBasedOnPrimaryIP returns a sorted slice of IP/s based on the detected cluster primary IP.
+// The operation clones the Pod status IP list order logic.
+func sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
+	ipv4Primary, err := Handler.IsIpv4Primary()
+	if err != nil {
+		return nil, err
+	}
+
+	if ipv4Primary {
+		return []string{ipv4, ipv6}, nil
+	}
+
+	return []string{ipv6, ipv4}, nil
 }
 
 func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error {
@@ -146,8 +196,12 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 			return err
 		}
 
+		queueNumber := uint32(0)
 		isMultiqueue := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
-		if err := driver.preparePodNetworkInterfaces(isMultiqueue, pid); err != nil {
+		if isMultiqueue {
+			queueNumber, _ = api.CalculateNetworkQueueNumberAndGetCPUTopology(vmi)
+		}
+		if err := driver.preparePodNetworkInterfaces(queueNumber, pid); err != nil {
 			log.Log.Reason(err).Error("failed to prepare pod networking")
 			return createCriticalNetworkError(err)
 		}
@@ -368,7 +422,7 @@ func (b *BridgePodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-func (b *BridgePodInterface) preparePodNetworkInterfaces(isMultiqueue bool, launcherPID int) error {
+func (b *BridgePodInterface) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
 	// Set interface link to down to change its MAC address
 	if err := Handler.LinkSetDown(b.podNicLink); err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", b.podInterfaceName)
@@ -389,7 +443,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces(isMultiqueue bool, laun
 	}
 
 	tapDeviceName := generateTapDeviceName(podInterfaceName)
-	err := createAndBindTapToBridge(b.vif, tapDeviceName, b.bridgeInterfaceName, isMultiqueue, launcherPID)
+	err := createAndBindTapToBridge(b.vif, tapDeviceName, b.bridgeInterfaceName, queueNumber, launcherPID)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -646,12 +700,13 @@ func (p *MasqueradePodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error
 	return Handler.StartDHCP(p.vif, fakeServerAddr, p.bridgeInterfaceName, p.iface.DHCPOptions)
 }
 
-func (p *MasqueradePodInterface) preparePodNetworkInterfaces(isMultiqueue bool, launcherPID int) error {
+func (p *MasqueradePodInterface) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
 	// Create an master bridge interface
 	bridgeNicName := fmt.Sprintf("%s-nic", p.bridgeInterfaceName)
 	bridgeNic := &netlink.Dummy{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: bridgeNicName,
+			MTU:  int(p.vif.Mtu),
 		},
 	}
 	err := Handler.LinkAdd(bridgeNic)
@@ -679,7 +734,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces(isMultiqueue bool, 
 	}
 
 	tapDeviceName := generateTapDeviceName(podInterfaceName)
-	err = createAndBindTapToBridge(p.vif, tapDeviceName, p.bridgeInterfaceName, isMultiqueue, launcherPID)
+	err = createAndBindTapToBridge(p.vif, tapDeviceName, p.bridgeInterfaceName, queueNumber, launcherPID)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -797,6 +852,7 @@ func (p *MasqueradePodInterface) createBridge() error {
 	bridge := &netlink.Bridge{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: p.bridgeInterfaceName,
+			MTU:  int(p.vif.Mtu),
 		},
 	}
 	err = Handler.LinkAdd(bridge)
@@ -1031,7 +1087,7 @@ func (s *SlirpPodInterface) discoverPodNetworkInterface() error {
 	return nil
 }
 
-func (s *SlirpPodInterface) preparePodNetworkInterfaces(isMultiqueue bool, launcherPID int) error {
+func (s *SlirpPodInterface) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
 	return nil
 }
 
@@ -1083,8 +1139,8 @@ func (s *SlirpPodInterface) setCachedInterface(pid, name string) error {
 	return nil
 }
 
-func createAndBindTapToBridge(virtualInterface *VIF, deviceName string, bridgeIfaceName string, isMultiqueue bool, launcherPID int) error {
-	err := Handler.CreateTapDevice(deviceName, isMultiqueue, launcherPID)
+func createAndBindTapToBridge(virtualInterface *VIF, deviceName string, bridgeIfaceName string, queueNumber uint32, launcherPID int) error {
+	err := Handler.CreateTapDevice(deviceName, queueNumber, launcherPID)
 	if err != nil {
 		return err
 	}

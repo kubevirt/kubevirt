@@ -40,10 +40,15 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	admin := tests.AdminServiceAccountName
 
 	var k8sClient string
+	var authClient *authClientV1.AuthorizationV1Client
 
 	BeforeEach(func() {
 		k8sClient = tests.GetK8sCmdClient()
 		tests.SkipIfNoCmd(k8sClient)
+		virtClient, err := kubecli.GetKubevirtClient()
+		Expect(err).ToNot(HaveOccurred())
+		authClient, err = authClientV1.NewForConfig(virtClient.Config())
+		Expect(err).ToNot(HaveOccurred())
 
 		tests.BeforeTestCleanup()
 	})
@@ -134,15 +139,10 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			table.Entry("[test_id:528]given a vmi preset", "virtualmachineinstancepresets"),
 			table.Entry("[test_id:529][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
 			table.Entry("[test_id:3230]given a vmi migration", "virtualmachineinstancemigrations"),
+			table.Entry("given a vmsnapshot", "virtualmachinesnapshots"),
+			table.Entry("given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
+			table.Entry("given a vmsrestore", "virtualmachinerestores"),
 		)
-
-		var authClient *authClientV1.AuthorizationV1Client
-		It("[test_id:3231]Prepare auth client", func() {
-			virtClient, err := kubecli.GetKubevirtClient()
-			Expect(err).ToNot(HaveOccurred())
-			authClient, err = authClientV1.NewForConfig(virtClient.Config())
-			Expect(err).ToNot(HaveOccurred())
-		})
 
 		table.DescribeTable("should verify permissions on subresources are correct for view, edit, and admin", func(resource string, subresource string) {
 
@@ -244,21 +244,28 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		)
 	})
 
-	Describe("[rfe_id:2919][crit:high][vendor:cnv-qe@redhat.com][level:component] With regular OpenShift user", func() {
+	Describe("[Serial][rfe_id:2919][crit:high][vendor:cnv-qe@redhat.com][level:component] With regular OpenShift user", func() {
 		BeforeEach(func() {
 			tests.SkipIfNoCmd("oc")
+			if !tests.IsOpenShift() {
+				Skip("Skip tests which require an openshift managed test user if not running on openshift")
+			}
 		})
 
 		const testUser = "testuser"
+
+		testAction := func(resource, verb string, right string) {
+			// AS A TEST USER
+			By(fmt.Sprintf("verifying user rights for verb %s", verb))
+			result, _, _ := tests.RunCommand(k8sClient, "auth", "can-i", "--as", testUser, verb, resource)
+			Expect(result).To(ContainSubstring(right))
+		}
 
 		testRights := func(resource, right string) {
 			verbsList := []string{"get", "list", "watch", "delete", "create", "update", "patch", "deletecollection"}
 
 			for _, verb := range verbsList {
-				// AS A TEST USER
-				By(fmt.Sprintf("verifying user rights for verb %s", verb))
-				result, _, _ := tests.RunCommand(k8sClient, "auth", "can-i", "--as", testUser, verb, resource)
-				Expect(result).To(ContainSubstring(right))
+				testAction(resource, verb, right)
 			}
 		}
 
@@ -285,6 +292,18 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				table.Entry("[test_id:2917]given a vmi preset", "virtualmachineinstancepresets"),
 				table.Entry("[test_id:2919]given a vmi replica set", "virtualmachineinstancereplicasets"),
 				table.Entry("[test_id:3235]given a vmi migration", "virtualmachineinstancemigrations"),
+				table.Entry("given a vmsnapshot", "virtualmachinesnapshots"),
+				table.Entry("given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
+				table.Entry("given a vmsrestore", "virtualmachinerestores"),
+			)
+
+			table.DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
+				testAction(resource, action, "no")
+			},
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/pause", "update"),
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/unpause", "update"),
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/console", "get"),
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/vnc", "get"),
 			)
 		})
 
@@ -316,6 +335,18 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				table.Entry("[test_id:2916]given a vmi preset", "virtualmachineinstancepresets"),
 				table.Entry("[test_id:2918][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
 				table.Entry("[test_id:2837]given a vmi migration", "virtualmachineinstancemigrations"),
+				table.Entry("given a vmsnapshot", "virtualmachinesnapshots"),
+				table.Entry("given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
+				table.Entry("given a vmsrestore", "virtualmachinerestores"),
+			)
+
+			table.DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
+				testAction(resource, action, "yes")
+			},
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/pause", "update"),
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/unpause", "update"),
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/console", "get"),
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances/vnc", "get"),
 			)
 		})
 	})

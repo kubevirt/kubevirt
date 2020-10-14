@@ -21,6 +21,6 @@ spec:
   volumes:
   - hostDisk:
       capacity: 1Gi
-      path: /data/disk.img
+      path: /var/data/disk.img
       type: DiskOrCreate
     name: host-disk

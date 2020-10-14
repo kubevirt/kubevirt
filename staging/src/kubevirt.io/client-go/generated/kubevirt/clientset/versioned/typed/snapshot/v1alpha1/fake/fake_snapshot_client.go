@@ -29,6 +29,10 @@ type FakeSnapshotV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeSnapshotV1alpha1) VirtualMachineRestores(namespace string) v1alpha1.VirtualMachineRestoreInterface {
+	return &FakeVirtualMachineRestores{c, namespace}
+}
+
 func (c *FakeSnapshotV1alpha1) VirtualMachineSnapshots(namespace string) v1alpha1.VirtualMachineSnapshotInterface {
 	return &FakeVirtualMachineSnapshots{c, namespace}
 }

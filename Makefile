@@ -1,5 +1,9 @@
 export GO15VENDOREXPERIMENT := 1
 
+ifeq (${TIMESTAMP}, 1)
+  $(info "Timestamp is enabled")
+  SHELL = ./hack/timestamps.sh
+endif
 
 all:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh && \
@@ -14,8 +18,11 @@ bazel-generate:
 bazel-build:
 	hack/dockerized "hack/bazel-fmt.sh && hack/bazel-build.sh"
 
-bazel-build-verify: TARGET_TO_RUN='make'
-bazel-build-verify: bazel-build check-git-tree-state build-verify bazel-test
+bazel-build-verify: bazel-build
+	./hack/dockerized "hack/bazel-fmt.sh"
+	./hack/verify-generate.sh
+	./hack/build-verify.sh
+	./hack/dockerized "hack/bazel-test.sh"
 
 bazel-build-images:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/bazel-build-images.sh"
@@ -25,24 +32,17 @@ bazel-push-images:
 
 push: bazel-push-images
 
-check-git-tree-state:
-ifneq ($(strip $(shell git status --porcelain 2>/dev/null)),)
-	$(error git tree is not clean, you probably need to run '${TARGET_TO_RUN}' and commit the changes)
-endif
-
-check-for-binaries:
-	hack/check-for-binaries.sh
-
 bazel-test:
 	hack/dockerized "hack/bazel-fmt.sh && hack/bazel-test.sh"
 
 generate:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/generate.sh"
 	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh && hack/bazel-fmt.sh"
-	hack/sync-kubevirtci.sh
+	hack/dockerized hack/sync-kubevirtci.sh
 
-generate-verify: TARGET_TO_RUN='make generate'
-generate-verify: generate check-for-binaries check-git-tree-state
+generate-verify: generate
+	./hack/verify-generate.sh
+	./hack/check-for-binaries.sh
 
 apidocs:
 	hack/dockerized "./hack/gen-swagger-doc/gen-swagger-docs.sh v1 html"
@@ -53,11 +53,15 @@ client-python:
 go-build:
 	hack/dockerized "KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT}" && ./hack/build-copy-artifacts.sh ${WHAT}
 
+gosec:
+	hack/dockerized "GENERATE="true" ./hack/gosec.sh"
+	hack/dockerized "./hack/gosec.sh"
+	
 coverage:
 	hack/dockerized "./hack/coverage.sh ${WHAT}"
 
-goveralls: go-build
-	SYNC_OUT=false hack/dockerized "COVERALLS_TOKEN_FILE=${COVERALLS_TOKEN_FILE} COVERALLS_TOKEN=${COVERALLS_TOKEN} CI_NAME=prow CI_BUILD_NUMBER=${BUILD_ID} CI_BRANCH=${PULL_BASE_REF} CI_PULL_REQUEST=${PULL_NUMBER} ./hack/goveralls.sh"
+goveralls:
+	SYNC_OUT=false hack/dockerized "COVERALLS_TOKEN_FILE=${COVERALLS_TOKEN_FILE} COVERALLS_TOKEN=${COVERALLS_TOKEN} CI_NAME=prow CI_BRANCH=${PULL_REFS} CI_PR_NUMBER=${PULL_NUMBER} ./hack/bazel-goveralls.sh"
 
 go-test: go-build
 	SYNC_OUT=false hack/dockerized "./hack/build-go.sh test ${WHAT}"
@@ -65,7 +69,7 @@ go-test: go-build
 test: bazel-test
 
 build-functests:
-	hack/dockerized "hack/build-func-tests.sh"
+	hack/dockerized "hack/bazel-fmt.sh && hack/build-func-tests.sh"
 
 functest: build-functests
 	hack/functests.sh
@@ -73,11 +77,14 @@ functest: build-functests
 dump: bazel-build
 	hack/dump.sh
 
-functest-image-build:
+functest-image-build: manifests build-functests
 	hack/func-tests-image.sh build
 
 functest-image-push: functest-image-build
 	hack/func-tests-image.sh push
+
+conformance:
+	hack/dockerized "hack/conformance.sh"
 
 clean:
 	hack/dockerized "./hack/build-go.sh clean ${WHAT} && rm _out/* -rf"
@@ -102,12 +109,6 @@ manifests:
 	  DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} \
 	  IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} PACKAGE_NAME=${PACKAGE_NAME} \
 	  KUBEVIRT_INSTALLED_NAMESPACE=${KUBEVIRT_INSTALLED_NAMESPACE} ./hack/build-manifests.sh"
-
-.release-functest:
-	make functest > .release-functest 2>&1
-
-release-announce: .release-functest
-	./hack/release-announce.sh $(RELREF) $(PREREF)
 
 cluster-up:
 	./cluster-up/up.sh
@@ -135,7 +136,7 @@ builder-publish:
 olm-verify:
 	hack/dockerized "./hack/olm.sh verify"
 
-current-dir := $(shell pwd)
+current-dir := $(realpath .)
 
 build-prom-spec-dumper:
 	hack/dockerized "go build -o rule-spec-dumper ./hack/prom-rule-ci/rule-spec-dumper.go"
@@ -154,6 +155,7 @@ bump-kubevirtci:
 
 .PHONY: \
 	build-verify \
+	conformance \
 	go-build \
 	go-test \
 	go-all \
@@ -170,7 +172,6 @@ bump-kubevirtci:
 	sync \
 	manifests \
 	functest \
-	release-announce \
 	cluster-up \
 	cluster-down \
 	cluster-clean \
@@ -178,4 +179,6 @@ bump-kubevirtci:
 	cluster-sync \
 	olm-verify \
 	olm-push \
+	coverage \
+	goveralls \
 	build-functests

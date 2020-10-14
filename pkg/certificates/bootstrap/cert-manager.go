@@ -28,7 +28,8 @@ type FileCertificateManager struct {
 	certAccessLock     sync.Mutex
 	stopped            bool
 	cert               *tls.Certificate
-	certDir            string
+	certBytesPath      string
+	keyBytesPath       string
 	errorRetryInterval time.Duration
 }
 
@@ -86,8 +87,13 @@ func (f *FallbackCertificateManager) ServerHealthy() bool {
 	return f.certManager.ServerHealthy()
 }
 
-func NewFileCertificateManager(certDir string) *FileCertificateManager {
-	return &FileCertificateManager{certDir: certDir, stopCh: make(chan struct{}, 1), errorRetryInterval: 1 * time.Minute}
+func NewFileCertificateManager(certBytesPath string, keyBytesPath string) *FileCertificateManager {
+	return &FileCertificateManager{
+		certBytesPath:      certBytesPath,
+		keyBytesPath:       keyBytesPath,
+		stopCh:             make(chan struct{}, 1),
+		errorRetryInterval: 1 * time.Minute,
+	}
 }
 
 func (f *FileCertificateManager) Start() {
@@ -97,9 +103,18 @@ func (f *FileCertificateManager) Start() {
 		log.DefaultLogger().Reason(err).Critical("Failed to create an inotify watcher")
 	}
 	defer watcher.Close()
-	err = watcher.Add(f.certDir)
+
+	certDir := filepath.Dir(f.certBytesPath)
+	err = watcher.Add(certDir)
 	if err != nil {
-		log.DefaultLogger().Reason(err).Criticalf("Failed to establish a watch on %s", f.certDir)
+		log.DefaultLogger().Reason(err).Criticalf("Failed to establish a watch on %s", f.certBytesPath)
+	}
+	keyDir := filepath.Dir(f.keyBytesPath)
+	if keyDir != certDir {
+		err = watcher.Add(keyDir)
+		if err != nil {
+			log.DefaultLogger().Reason(err).Criticalf("Failed to establish a watch on %s", f.keyBytesPath)
+		}
 	}
 
 	go func() {
@@ -118,7 +133,7 @@ func (f *FileCertificateManager) Start() {
 				if !ok {
 					return
 				}
-				log.DefaultLogger().Reason(err).Errorf("An error occured when watching %s", f.certDir)
+				log.DefaultLogger().Reason(err).Errorf("An error occured when watching certificates files %s and %s", f.certBytesPath, f.keyBytesPath)
 			}
 		}
 	}()
@@ -167,10 +182,9 @@ func (s *FileCertificateManager) Current() *tls.Certificate {
 }
 
 func (f *FileCertificateManager) rotateCerts() error {
-
-	crt, err := f.loadCertificates(f.certDir)
+	crt, err := f.loadCertificates()
 	if err != nil {
-		log.DefaultLogger().Reason(err).Infof("failed to load the certificate in %s", f.certDir)
+		log.DefaultLogger().Reason(err).Errorf("failed to load the certificate %s and %s", f.certBytesPath, f.keyBytesPath)
 		return err
 	}
 
@@ -179,20 +193,16 @@ func (f *FileCertificateManager) rotateCerts() error {
 	// update after the callback, to ensure that the reconfiguration succeeded
 	f.cert = crt
 
-	log.DefaultLogger().Infof("certificate from %s with common name '%s' retrieved.", f.certDir, crt.Leaf.Subject.CommonName)
+	log.DefaultLogger().Infof("certificate with common name '%s' retrieved.", crt.Leaf.Subject.CommonName)
 	return nil
 }
 
-func (s *FileCertificateManager) loadCertificates(certDir string) (serverCrt *tls.Certificate, err error) {
-
-	certBytesPath := filepath.Join(certDir, CertBytesValue)
-	keyBytesPath := filepath.Join(certDir, KeyBytesValue)
-
-	certBytes, err := ioutil.ReadFile(certBytesPath)
+func (f *FileCertificateManager) loadCertificates() (serverCrt *tls.Certificate, err error) {
+	certBytes, err := ioutil.ReadFile(f.certBytesPath)
 	if err != nil {
 		return nil, err
 	}
-	keyBytes, err := ioutil.ReadFile(keyBytesPath)
+	keyBytes, err := ioutil.ReadFile(f.keyBytesPath)
 	if err != nil {
 		return nil, err
 	}

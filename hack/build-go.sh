@@ -55,7 +55,7 @@ if [ $# -eq 0 ]; then
             go $target -tags selinux ./...
 
             cd ${KUBEVIRT_DIR}/staging/src/kubevirt.io
-            go $target ./...
+            GO111MODULE=off go $target ./...
         )
         (
             cd ${KUBEVIRT_DIR}/tests
@@ -108,7 +108,7 @@ for arg in $args; do
             LINUX_NAME=${ARCH_BASENAME}-linux-amd64
 
             echo "building dynamic binary $BIN_NAME"
-            GOOS=linux GOARCH=amd64 go_build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME} -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir linux amd64)
+            GOOS=linux GOARCH=amd64 go_build -tags selinux -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME} -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir linux amd64)
 
             (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${LINUX_NAME} ${BIN_NAME})
 

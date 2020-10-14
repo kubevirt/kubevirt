@@ -452,13 +452,21 @@ var _ = Describe("Template", func() {
 		})
 		Context("with container disk", func() {
 
-			It("should add init container to inject binary", func() {
+			It("should add init containers to inject binary and pre-pull container disks", func() {
 				volumes := []v1.Volume{
 					{
 						Name: "containerdisk1",
 						VolumeSource: v1.VolumeSource{
 							ContainerDisk: &v1.ContainerDiskSource{
 								Image: "my-image-1",
+							},
+						},
+					},
+					{
+						Name: "containerdisk2",
+						VolumeSource: v1.VolumeSource{
+							ContainerDisk: &v1.ContainerDiskSource{
+								Image: "my-image-2",
 							},
 						},
 					},
@@ -474,7 +482,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(pod.Spec.InitContainers)).To(Equal(1))
+				Expect(len(pod.Spec.InitContainers)).To(Equal(3))
 				Expect(pod.Spec.InitContainers[0].VolumeMounts[0].MountPath).To(Equal("/init/usr/bin"))
 				Expect(pod.Spec.InitContainers[0].VolumeMounts[0].Name).To(Equal("virt-bin-share-dir"))
 				Expect(pod.Spec.InitContainers[0].Command).To(Equal([]string{"/usr/bin/cp",
@@ -482,6 +490,12 @@ var _ = Describe("Template", func() {
 					"/init/usr/bin/container-disk",
 				}))
 				Expect(pod.Spec.InitContainers[0].Image).To(Equal("kubevirt/virt-launcher"))
+
+				Expect(pod.Spec.InitContainers[1].Args).To(Equal([]string{"--no-op"}))
+				Expect(pod.Spec.InitContainers[1].Image).To(Equal("my-image-1"))
+				Expect(pod.Spec.InitContainers[2].Args).To(Equal([]string{"--no-op"}))
+				Expect(pod.Spec.InitContainers[2].Image).To(Equal("my-image-2"))
+
 			})
 
 		})
@@ -1230,6 +1244,73 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				socketsMemVal := pod.Spec.Containers[0].Resources.Requests.Memory()
 				Expect(coresMemVal.Cmp(*socketsMemVal)).To(Equal(0))
+			})
+			It("should calculate vmipod cpu request based on vcpus and cpu_allocation_ratio", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{Cores: 3},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("300m"))
+			})
+			It("should allocate equal amount of cpus to vmipod as vcpus with allocation_ratio set to 1", func() {
+				allocationRatio := "1"
+				testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{
+					Data: map[string]string{virtconfig.CPUAllocationRatio: allocationRatio},
+				})
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{Cores: 3},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("3"))
+			})
+			It("should override the calculated amount of cpus if the user has explicitly specified cpu request", func() {
+				allocationRatio := "16"
+				testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{
+					Data: map[string]string{virtconfig.CPUAllocationRatio: allocationRatio},
+				})
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{Cores: 5},
+							Resources: v1.ResourceRequirements{
+								Requests: kubev1.ResourceList{
+									kubev1.ResourceCPU: resource.MustParse("150m"),
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("150m"))
 			})
 		})
 

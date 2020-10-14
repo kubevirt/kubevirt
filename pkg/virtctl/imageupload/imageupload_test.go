@@ -36,10 +36,10 @@ const (
 )
 
 const (
-	dvNamespace = "default"
-	dvName      = "test-dv"
-	pvcSize     = "500Mi"
-	configName  = "config"
+	targetNamespace = "default"
+	targetName      = "test-volume"
+	pvcSize         = "500Mi"
+	configName      = "config"
 )
 
 var _ = Describe("ImageUpload", func() {
@@ -50,8 +50,9 @@ var _ = Describe("ImageUpload", func() {
 		cdiClient  *fakecdiclient.Clientset
 		server     *httptest.Server
 
-		createCalled bool
-		updateCalled bool
+		dvCreateCalled  bool
+		pvcCreateCalled bool
+		updateCalled    bool
 
 		imagePath string
 	)
@@ -81,7 +82,7 @@ var _ = Describe("ImageUpload", func() {
 
 		pvc := &v1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        dvName,
+				Name:        targetName,
 				Namespace:   "default",
 				Annotations: map[string]string{},
 			},
@@ -102,7 +103,7 @@ var _ = Describe("ImageUpload", func() {
 
 		pvc := &v1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      dvName,
+				Name:      targetName,
 				Namespace: "default",
 			},
 			Spec: v1.PersistentVolumeClaimSpec{
@@ -140,11 +141,11 @@ var _ = Describe("ImageUpload", func() {
 	addPodPhaseAnnotation := func() {
 		defer GinkgoRecover()
 		time.Sleep(10 * time.Millisecond)
-		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(dvNamespace).Get(dvName, metav1.GetOptions{})
+		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Get(targetName, metav1.GetOptions{})
 		Expect(err).To(BeNil())
 		pvc.Annotations[podPhaseAnnotation] = "Running"
 		pvc.Annotations[podReadyAnnotation] = "true"
-		pvc, err = kubeClient.CoreV1().PersistentVolumeClaims(dvNamespace).Update(pvc)
+		pvc, err = kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Update(pvc)
 		if err != nil {
 			fmt.Fprintf(GinkgoWriter, "Error: %v\n", err)
 		}
@@ -158,7 +159,7 @@ var _ = Describe("ImageUpload", func() {
 		pvc.Spec.VolumeMode = dv.Spec.PVC.VolumeMode
 		pvc.Spec.AccessModes = append([]v1.PersistentVolumeAccessMode(nil), dv.Spec.PVC.AccessModes...)
 		pvc.Spec.StorageClassName = dv.Spec.PVC.StorageClassName
-		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(dvNamespace).Create(pvc)
+		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Create(pvc)
 		Expect(err).To(BeNil())
 	}
 
@@ -169,12 +170,30 @@ var _ = Describe("ImageUpload", func() {
 
 			dv, ok := create.GetObject().(*cdiv1.DataVolume)
 			Expect(ok).To(BeTrue())
-			Expect(dv.Name).To(Equal(dvName))
+			Expect(dv.Name).To(Equal(targetName))
 
-			Expect(createCalled).To(BeFalse())
-			createCalled = true
+			Expect(dvCreateCalled).To(BeFalse())
+			dvCreateCalled = true
 
 			go createPVC(dv)
+
+			return false, nil, nil
+		})
+
+		kubeClient.Fake.PrependReactor("create", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+			create, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+
+			pvc, ok := create.GetObject().(*v1.PersistentVolumeClaim)
+			Expect(ok).To(BeTrue())
+			Expect(pvc.Name).To(Equal(targetName))
+
+			Expect(pvcCreateCalled).To(BeFalse())
+			pvcCreateCalled = true
+
+			if !dvCreateCalled {
+				go addPodPhaseAnnotation()
+			}
 
 			return false, nil, nil
 		})
@@ -185,9 +204,9 @@ var _ = Describe("ImageUpload", func() {
 
 			pvc, ok := update.GetObject().(*v1.PersistentVolumeClaim)
 			Expect(ok).To(BeTrue())
-			Expect(pvc.Name).To(Equal(dvName))
+			Expect(pvc.Name).To(Equal(targetName))
 
-			if !createCalled && !updateCalled {
+			if !dvCreateCalled && !pvcCreateCalled && !updateCalled {
 				go addPodPhaseAnnotation()
 			}
 
@@ -211,7 +230,7 @@ var _ = Describe("ImageUpload", func() {
 	}
 
 	validatePVCArgs := func(mode v1.PersistentVolumeMode) {
-		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(dvNamespace).Get(dvName, metav1.GetOptions{})
+		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Get(targetName, metav1.GetOptions{})
 		Expect(err).To(BeNil())
 
 		_, ok := pvc.Annotations[uploadRequestAnnotation]
@@ -229,7 +248,7 @@ var _ = Describe("ImageUpload", func() {
 	}
 
 	validateDataVolumeArgs := func(mode v1.PersistentVolumeMode) {
-		dv, err := cdiClient.CdiV1alpha1().DataVolumes(dvNamespace).Get(dvName, metav1.GetOptions{})
+		dv, err := cdiClient.CdiV1alpha1().DataVolumes(targetNamespace).Get(targetName, metav1.GetOptions{})
 		Expect(err).To(BeNil())
 
 		validatePVCSpec(dv.Spec.PVC, mode)
@@ -241,6 +260,14 @@ var _ = Describe("ImageUpload", func() {
 
 	validateBlockDataVolume := func() {
 		validateDataVolumeArgs(v1.PersistentVolumeBlock)
+	}
+
+	expectedStorageClassMatchesActual := func(storageClass string) {
+		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Get(targetName, metav1.GetOptions{})
+		Expect(err).To(BeNil())
+		_, ok := pvc.Annotations[uploadRequestAnnotation]
+		Expect(ok).To(BeTrue())
+		Expect(storageClass).To(Equal(*pvc.Spec.StorageClassName))
 	}
 
 	createCDIConfig := func() *cdiv1.CDIConfig {
@@ -270,7 +297,8 @@ var _ = Describe("ImageUpload", func() {
 	}
 
 	testInitAsync := func(statusCode int, async bool, kubeobjects ...runtime.Object) {
-		createCalled = false
+		dvCreateCalled = false
+		pvcCreateCalled = false
 		updateCalled = false
 
 		config := createCDIConfig()
@@ -313,80 +341,111 @@ var _ = Describe("ImageUpload", func() {
 	}
 
 	Context("Successful upload to PVC", func() {
-		DescribeTable("PVC does exist", func(async bool) {
-			testInitAsync(http.StatusOK, async)
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", dvName, "--size", pvcSize,
+		It("PVC does not exist deprecated args", func() {
+			testInit(http.StatusOK)
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "--pvc-name", targetName, "--pvc-size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
 			Expect(cmd()).To(BeNil())
-			Expect(createCalled).To(BeTrue())
+			Expect(pvcCreateCalled).To(BeTrue())
+			validatePVC()
+		})
+
+		It("PVC exists deprecated args", func() {
+			testInit(http.StatusOK, pvcSpec())
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "--pvc-name", targetName, "--no-create",
+				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
+			Expect(cmd()).To(BeNil())
+			Expect(pvcCreateCalled).To(BeFalse())
+			validatePVC()
+		})
+
+		DescribeTable("DV does not exist", func(async bool) {
+			testInitAsync(http.StatusOK, async)
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
+				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
+			Expect(cmd()).To(BeNil())
+			Expect(dvCreateCalled).To(BeTrue())
 			validatePVC()
 			validateDataVolume()
 		},
-			Entry("PVC does not exist, async", true),
-			Entry("PVC does not exist sync", false),
+			Entry("DV does not exist, async", true),
+			Entry("DV does not exist sync", false),
 		)
 
-		It("PVC does not exist --pcvc-size", func() {
+		It("DV does not exist --pvc-size", func() {
 			testInit(http.StatusOK)
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", dvName, "--pvc-size", pvcSize,
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--pvc-size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
 			Expect(cmd()).To(BeNil())
-			Expect(createCalled).To(BeTrue())
+			Expect(dvCreateCalled).To(BeTrue())
 			validatePVC()
 			validateDataVolume()
 		})
 
-		It("PVC does not exist deprecated args", func() {
+		It("DV does not exist and --no-create", func() {
 			testInit(http.StatusOK)
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, "--pvc-name", dvName, "--size", pvcSize,
-				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
-			Expect(cmd()).To(BeNil())
-			Expect(createCalled).To(BeTrue())
-			validatePVC()
-			validateDataVolume()
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--pvc-size", pvcSize,
+				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath, "--no-create")
+			err := cmd()
+			Expect(err).ToNot(BeNil())
+			Expect(err.Error()).To(Equal(fmt.Sprintf("persistentvolumeclaims %q not found", targetName)))
+			Expect(dvCreateCalled).To(BeFalse())
 		})
 
 		It("Use CDI Config UploadProxyURL", func() {
 			testInit(http.StatusOK)
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", dvName, "--size", pvcSize,
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--insecure", "--image-path", imagePath)
 			Expect(cmd()).To(BeNil())
-			Expect(createCalled).To(BeTrue())
+			Expect(dvCreateCalled).To(BeTrue())
 			validatePVC()
 			validateDataVolume()
 		})
 
 		It("Create a VolumeMode=Block PVC", func() {
 			testInit(http.StatusOK)
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", dvName, "--size", pvcSize,
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--insecure", "--image-path", imagePath, "--block-volume")
 			Expect(cmd()).To(BeNil())
-			Expect(createCalled).To(BeTrue())
+			Expect(dvCreateCalled).To(BeTrue())
 			validateBlockPVC()
 			validateBlockDataVolume()
 		})
 
-		DescribeTable("PVC does exist", func(pvc *v1.PersistentVolumeClaim) {
-			testInit(http.StatusOK, pvc)
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, "pvc", dvName,
+		It("Create a non-default storage class PVC", func() {
+			testInit(http.StatusOK)
+			expectedStorageClass := "non-default-sc"
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
+				"--insecure", "--image-path", imagePath, "--storage-class", expectedStorageClass)
+			Expect(cmd()).To(BeNil())
+			Expect(dvCreateCalled).To(BeTrue())
+			expectedStorageClassMatchesActual(expectedStorageClass)
+		})
+
+		DescribeTable("PVC does not exist", func(async bool) {
+			testInitAsync(http.StatusOK, async)
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "pvc", targetName, "--size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
 			Expect(cmd()).To(BeNil())
-			Expect(createCalled).To(BeFalse())
+			Expect(pvcCreateCalled).To(BeTrue())
+			validatePVC()
+		},
+			Entry("PVC does not exist, async", true),
+			Entry("PVC does not exist sync", false),
+		)
+
+		DescribeTable("PVC does exist", func(pvc *v1.PersistentVolumeClaim) {
+			testInit(http.StatusOK, pvc)
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "pvc", targetName,
+				"--uploadproxy-url", server.URL, "--no-create", "--insecure", "--image-path", imagePath)
+			Expect(cmd()).To(BeNil())
+			Expect(pvcCreateCalled).To(BeFalse())
 			validatePVC()
 		},
 			Entry("PVC with upload annotation", pvcSpecWithUploadAnnotation()),
 			Entry("PVC without upload annotation", pvcSpec()),
 			Entry("PVC without upload annotation and no annotation map", pvcSpecNoAnnotationMap()),
 		)
-
-		It("PVC exists deprecated args", func() {
-			testInit(http.StatusOK, pvcSpec())
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, "--pvc-name", dvName, "--no-create",
-				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
-			Expect(cmd()).To(BeNil())
-			Expect(createCalled).To(BeFalse())
-			validatePVC()
-		})
 
 		AfterEach(func() {
 			testDone()
@@ -396,14 +455,14 @@ var _ = Describe("ImageUpload", func() {
 	Context("Upload fails", func() {
 		It("PVC already uploaded", func() {
 			testInit(http.StatusOK, pvcSpecWithUploadSucceeded())
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", dvName, "--size", pvcSize,
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
 			Expect(cmd()).NotTo(BeNil())
 		})
 
 		It("uploadProxyURL not configured", func() {
 			testInit(http.StatusOK)
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", dvName, "--size", pvcSize,
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--insecure", "--image-path", imagePath)
 			config, err := cdiClient.CdiV1alpha1().CDIConfigs().Get(configName, metav1.GetOptions{})
 			Expect(err).To(BeNil())
@@ -414,7 +473,7 @@ var _ = Describe("ImageUpload", func() {
 
 		It("Upload fails", func() {
 			testInit(http.StatusInternalServerError)
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", dvName, "--size", pvcSize,
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
 			Expect(cmd()).NotTo(BeNil())
 		})
@@ -429,21 +488,21 @@ var _ = Describe("ImageUpload", func() {
 		},
 			Entry("No args", "required flag(s) \"image-path\" not set", []string{}),
 			Entry("Missing arg", "expecting two args",
-				[]string{"dvName", "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
+				[]string{"targetName", "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
 			Entry("No name", "expecting two args",
 				[]string{"--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
-			Entry("No size", "when creating DataVolume, the size must be specified",
-				[]string{"dv", dvName, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
+			Entry("No size", "when creating a resource, the size must be specified",
+				[]string{"dv", targetName, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
 			Entry("Size invalid", "validation failed for size=500Zb: quantities must match the regular expression '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'",
-				[]string{"dv", dvName, "--size", "500Zb", "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
+				[]string{"dv", targetName, "--size", "500Zb", "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
 			Entry("No image path", "required flag(s) \"image-path\" not set",
-				[]string{"dv", dvName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure"}),
+				[]string{"dv", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure"}),
 			Entry("PVC name and args", "cannot use --pvc-name and args",
-				[]string{"foo", "--pvc-name", dvName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
+				[]string{"foo", "--pvc-name", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
 			Entry("Unexpected resource type", "invalid resource type foo",
-				[]string{"foo", dvName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
+				[]string{"foo", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
 			Entry("Size twice", "--pvc-size deprecated, use --size",
-				[]string{"dv", dvName, "--size", "500G", "--pvc-size", "50G", "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
+				[]string{"dv", targetName, "--size", "500G", "--pvc-size", "50G", "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
 		)
 
 		AfterEach(func() {

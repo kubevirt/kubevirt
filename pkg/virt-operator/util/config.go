@@ -55,10 +55,10 @@ const (
 	AdditionalPropertiesNamePullPolicy = "ImagePullPolicy"
 
 	// lookup key in AdditionalProperties
-	AdditionalPropertiesMonitorNamespace = "monitorNamespace"
+	AdditionalPropertiesMonitorNamespace = "MonitorNamespace"
 
 	// lookup key in AdditionalProperties
-	AdditionalPropertiesMonitorServiceAccount = "monitorAccount"
+	AdditionalPropertiesMonitorServiceAccount = "MonitorAccount"
 
 	// account to use if one is not explicitly named
 	DefaultMonitorNamespace = "openshift-monitoring"
@@ -136,25 +136,6 @@ func GetTargetConfigFromKV(kv *v1.KubeVirt) *KubeVirtDeploymentConfig {
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
 	return getConfig(kv.Spec.ImageRegistry, kv.Spec.ImageTag, kv.Namespace, getKVMapFromSpec(kv.Spec))
-}
-
-func GetObservedConfigFromKV(kv *v1.KubeVirt) (*KubeVirtDeploymentConfig, error) {
-	additionalProperties := getKVMapFromSpec(kv.Spec)
-
-	imagePrefix, _, err := getImagePrefixFromDeploymentConfig(kv.Status.ObservedDeploymentConfig)
-
-	if err != nil {
-		return nil, fmt.Errorf("unable to load observed config from kubevirt custom resource: %v", err)
-	}
-	additionalProperties[ImagePrefixKey] = imagePrefix
-	if kv.Spec.ProductName != "" {
-		additionalProperties[ProductNameKey] = kv.Spec.ProductName
-	}
-	if kv.Spec.ProductVersion != "" {
-		additionalProperties[ProductVersionKey] = kv.Spec.ProductVersion
-	}
-
-	return getConfig(kv.Status.ObservedKubeVirtRegistry, kv.Status.ObservedKubeVirtVersion, kv.Namespace, additionalProperties), nil
 }
 
 // retrieve imagePrefix from an existing deployment config (which is stored as JSON)
@@ -404,16 +385,16 @@ func (c *KubeVirtDeploymentConfig) GetImagePullPolicy() k8sv1.PullPolicy {
 }
 
 func (c *KubeVirtDeploymentConfig) GetMonitorNamespace() string {
-	p, ok := c.AdditionalProperties[AdditionalPropertiesMonitorNamespace]
-	if !ok {
+	p := c.AdditionalProperties[AdditionalPropertiesMonitorNamespace]
+	if p == "" {
 		return DefaultMonitorNamespace
 	}
 	return p
 }
 
 func (c *KubeVirtDeploymentConfig) GetMonitorServiceAccount() string {
-	p, ok := c.AdditionalProperties[AdditionalPropertiesMonitorServiceAccount]
-	if !ok {
+	p := c.AdditionalProperties[AdditionalPropertiesMonitorServiceAccount]
+	if p == "" {
 		return DefaultMonitorAccount
 	}
 	return p

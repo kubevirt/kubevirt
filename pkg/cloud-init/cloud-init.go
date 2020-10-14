@@ -124,7 +124,15 @@ func ResolveNoCloudSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir strin
 
 	baseDir := filepath.Join(secretSourceDir, volume.Name)
 	userData, userDataError := readFileFromDir(baseDir, "userdata")
+	// If "userdata" was not found, try "userData"
+	if userDataError != nil && os.IsNotExist(userDataError) {
+		userData, userDataError = readFileFromDir(baseDir, "userData")
+	}
 	networkData, networkDataError := readFileFromDir(baseDir, "networkdata")
+	// If "networkdata" was not found, try "networkData"
+	if networkDataError != nil && os.IsNotExist(networkDataError) {
+		networkData, networkDataError = readFileFromDir(baseDir, "networkData")
+	}
 	if userDataError != nil && networkDataError != nil {
 		return fmt.Errorf("no cloud-init data-source found at volume: %s", volume.Name)
 	}
@@ -152,7 +160,15 @@ func ResolveConfigDriveSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir s
 
 	baseDir := filepath.Join(secretSourceDir, volume.Name)
 	userData, userDataError := readFileFromDir(baseDir, "userdata")
+	// If "userdata" was not found, try "userData"
+	if userDataError != nil && os.IsNotExist(userDataError) {
+		userData, userDataError = readFileFromDir(baseDir, "userData")
+	}
 	networkData, networkDataError := readFileFromDir(baseDir, "networkdata")
+	// If "networkdata" was not found, try "networkData"
+	if networkDataError != nil && os.IsNotExist(networkDataError) {
+		networkData, networkDataError = readFileFromDir(baseDir, "networkData")
+	}
 	if userDataError != nil && networkDataError != nil {
 		return fmt.Errorf("no cloud-init data-source found at volume: %s", volume.Name)
 	}

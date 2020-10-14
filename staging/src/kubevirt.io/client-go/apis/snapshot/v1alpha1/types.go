@@ -22,6 +22,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
 )
@@ -64,6 +65,9 @@ type VirtualMachineSnapshotSpec struct {
 // VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource
 type VirtualMachineSnapshotStatus struct {
 	// +optional
+	SourceUID *types.UID `json:"sourceUID,omitempty"`
+
+	// +optional
 	VirtualMachineSnapshotContentName *string `json:"virtualMachineSnapshotContentName,omitempty"`
 
 	// +optional
@@ -73,14 +77,14 @@ type VirtualMachineSnapshotStatus struct {
 	ReadyToUse *bool `json:"readyToUse,omitempty"`
 
 	// +optional
-	Error *VirtualMachineSnapshotError `json:"error,omitempty"`
+	Error *Error `json:"error,omitempty"`
 
 	// +optional
-	Conditions []VirtualMachineSnapshotCondition `json:"conditions,omitempty"`
+	Conditions []Condition `json:"conditions,omitempty"`
 }
 
-// VirtualMachineSnapshotError is the last error encountered while creating the snapshot
-type VirtualMachineSnapshotError struct {
+// Error is the last error encountered during the snapshot/restore
+type Error struct {
 	// +optional
 	Time *metav1.Time `json:"time,omitempty"`
 
@@ -88,20 +92,20 @@ type VirtualMachineSnapshotError struct {
 	Message *string `json:"message,omitempty"`
 }
 
-// VirtualMachineSnapshotConditionType is the const type for VirtualMachineSnapshotConditions
-type VirtualMachineSnapshotConditionType string
+// ConditionType is the const type for Conditions
+type ConditionType string
 
 const (
-	// VirtualMachineSnapshotConditionReady is the "ready" condition type
-	VirtualMachineSnapshotConditionReady VirtualMachineSnapshotConditionType = "Ready"
+	// ConditionReady is the "ready" condition type
+	ConditionReady ConditionType = "Ready"
 
-	// VirtualMachineSnapshotConditionProgressing is the "progressing" condition type
-	VirtualMachineSnapshotConditionProgressing VirtualMachineSnapshotConditionType = "Progressing"
+	// ConditionProgressing is the "progressing" condition type
+	ConditionProgressing ConditionType = "Progressing"
 )
 
-// VirtualMachineSnapshotCondition defines snapshot conditions
-type VirtualMachineSnapshotCondition struct {
-	Type VirtualMachineSnapshotConditionType `json:"type"`
+// Condition defines conditions
+type Condition struct {
+	Type ConditionType `json:"type"`
 
 	Status corev1.ConditionStatus `json:"status"`
 
@@ -158,7 +162,7 @@ type SourceSpec struct {
 
 // VolumeBackup contains the data neeed to restore a PVC
 type VolumeBackup struct {
-	DiskName string `json:"diskName"`
+	VolumeName string `json:"volumeName"`
 
 	PersistentVolumeClaim corev1.PersistentVolumeClaim `json:"persistentVolumeClaim"`
 
@@ -175,7 +179,7 @@ type VirtualMachineSnapshotContentStatus struct {
 	ReadyToUse *bool `json:"readyToUse,omitempty"`
 
 	// +optional
-	Error *VirtualMachineSnapshotError `json:"error,omitempty"`
+	Error *Error `json:"error,omitempty"`
 
 	// +optional
 	VolumeSnapshotStatus []VolumeSnapshotStatus `json:"volumeSnapshotStatus,omitempty"`
@@ -201,5 +205,65 @@ type VolumeSnapshotStatus struct {
 	ReadyToUse *bool `json:"readyToUse,omitempty"`
 
 	// +optional
-	Error *VirtualMachineSnapshotError `json:"error,omitempty"`
+	Error *Error `json:"error,omitempty"`
+}
+
+// VirtualMachineRestore defines the operation of restoring a VM
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type VirtualMachineRestore struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec VirtualMachineRestoreSpec `json:"spec"`
+
+	// +optional
+	Status *VirtualMachineRestoreStatus `json:"status,omitempty"`
+}
+
+// VirtualMachineRestoreSpec is the spec for a VirtualMachineRestoreresource
+type VirtualMachineRestoreSpec struct {
+	// initially only VirtualMachine type supported
+	Target corev1.TypedLocalObjectReference `json:"target"`
+
+	VirtualMachineSnapshotName string `json:"virtualMachineSnapshotName"`
+}
+
+// VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource
+type VirtualMachineRestoreStatus struct {
+	// +optional
+	Restores []VolumeRestore `json:"restores,omitempty"`
+
+	// +optional
+	RestoreTime *metav1.Time `json:"restoreTime,omitempty"`
+
+	// +optional
+	DeletedDataVolumes []string `json:"deletedDataVolumes,omitempty"`
+
+	// +optional
+	Complete *bool `json:"complete,omitempty"`
+
+	// +optional
+	Conditions []Condition `json:"conditions,omitempty"`
+}
+
+// VolumeRestore contains the data neeed to restore a PVC
+type VolumeRestore struct {
+	VolumeName string `json:"volumeName"`
+
+	PersistentVolumeClaimName string `json:"persistentVolumeClaim"`
+
+	VolumeSnapshotName string `json:"volumeSnapshotName"`
+
+	// +optional
+	DataVolumeName *string `json:"dataVolumeName,omitempty"`
+}
+
+// VirtualMachineRestoreList is a list of VirtualMachineRestore resources
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type VirtualMachineRestoreList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []VirtualMachineRestore `json:"items"`
 }

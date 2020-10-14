@@ -21,8 +21,7 @@ set -e
 
 DOCKER_TAG=${DOCKER_TAG:-devel}
 DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
-
-export ARTIFACTS=${ARTIFACTS:-_out/artifacts}
+KUBEVIRT_E2E_PARALLEL_NODES=${KUBEVIRT_E2E_PARALLEL_NODES:-3}
 
 source hack/common.sh
 source hack/config.sh
@@ -37,4 +36,48 @@ if [[ ${KUBEVIRT_PROVIDER} == os-* ]] || [[ ${KUBEVIRT_PROVIDER} =~ (okd|ocp)-* 
     oc=${kubectl}
 fi
 
-${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -test.timeout 420m ${FUNC_TEST_ARGS} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra}
+rm -rf $ARTIFACTS
+mkdir -p $ARTIFACTS
+
+function functest() {
+    if [[ ${KUBEVIRT_PROVIDER} =~ .*(k8s-1\.16)|(k8s-1\.17)|k8s-sriov.* ]]; then
+        echo "Will skip test asserting the cluster is in dual-stack mode."
+        extra_args="${extra_args} -skip-dual-stack-test"
+    fi
+    _out/tests/ginkgo -r --slowSpecThreshold 60 $@ _out/tests/tests.test -- ${extra_args} -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS}
+}
+
+if [ "$KUBEVIRT_E2E_PARALLEL" == "true" ]; then
+    trap "_out/tests/junit-merger -o ${ARTIFACTS}/junit.functest.xml '${ARTIFACTS}/partial.*.xml'" EXIT
+    parallel_test_args=""
+    serial_test_args=""
+
+    if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
+        parallel_test_args="${parallel_test_args} --skip=\\[Serial\\]|${KUBEVIRT_E2E_SKIP}"
+        serial_test_args="${serial_test_args} --skip=${KUBEVIRT_E2E_SKIP}"
+    else
+        parallel_test_args="${parallel_test_args} --skip=\\[Serial\\]"
+    fi
+
+    if [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
+        parallel_test_args="${parallel_test_args} --focus=${KUBEVIRT_E2E_FOCUS}"
+        serial_test_args="${serial_test_args} --focus=\\[Serial\\].*(${KUBEVIRT_E2E_FOCUS})|(${KUBEVIRT_E2E_FOCUS}).*\\[Serial\\]"
+    else
+        serial_test_args="${serial_test_args} --focus=\\[Serial\\]"
+    fi
+
+    functest --nodes=${KUBEVIRT_E2E_PARALLEL_NODES} ${parallel_test_args} ${FUNC_TEST_ARGS}
+    extra_args="-junit-output ${ARTIFACTS}/partial.junit.functest.xml"
+    functest ${serial_test_args} ${FUNC_TEST_ARGS}
+else
+    additional_test_args=""
+    if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
+        additional_test_args="${additional_test_args} --skip=${KUBEVIRT_E2E_SKIP}"
+    fi
+
+    if [ -n "$KUBEVIRT_E2E_FOCUS" ]; then
+        additional_test_args="${additional_test_args} --focus=${KUBEVIRT_E2E_FOCUS}"
+    fi
+
+    functest ${additional_test_args} ${FUNC_TEST_ARGS}
+fi

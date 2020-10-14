@@ -28,7 +28,6 @@ import (
 
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,9 +43,9 @@ import (
 
 var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 	vmName := "vm"
-	apiGroup := "kubevirt.io/v1alpha3"
+	apiGroup := "kubevirt.io"
 
-	config, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&corev1.ConfigMap{})
 
 	Context("Without feature gate enabled", func() {
 		It("should reject anything", func() {
@@ -54,22 +53,22 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				Spec: snapshotv1.VirtualMachineSnapshotSpec{},
 			}
 
-			ar := createAdmissionReview(snapshot)
+			ar := createSnapshotAdmissionReview(snapshot)
 			resp := createTestVMSnapshotAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).Should(Equal("Snapshot feature gate not enabled"))
+			Expect(resp.Result.Message).Should(Equal("snapshot feature gate not enabled"))
 		})
 	})
 
 	Context("With feature gate enabled", func() {
 		enableFeatureGate := func(featureGate string) {
-			testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
+			testutils.UpdateFakeClusterConfig(configMapInformer, &corev1.ConfigMap{
 				Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
 			})
 		}
 
 		disableFeatureGates := func() {
-			testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{})
+			testutils.UpdateFakeClusterConfig(configMapInformer, &corev1.ConfigMap{})
 		}
 
 		BeforeEach(func() {
@@ -89,7 +88,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 
 			resp := createTestVMSnapshotAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).Should(ContainSubstring("Unexpected Resource"))
+			Expect(resp.Result.Message).Should(ContainSubstring("unexpected resource"))
 		})
 
 		It("should reject missing apigroup", func() {
@@ -97,7 +96,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				Spec: snapshotv1.VirtualMachineSnapshotSpec{},
 			}
 
-			ar := createAdmissionReview(snapshot)
+			ar := createSnapshotAdmissionReview(snapshot)
 			resp := createTestVMSnapshotAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
@@ -115,7 +114,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				},
 			}
 
-			ar := createAdmissionReview(snapshot)
+			ar := createSnapshotAdmissionReview(snapshot)
 			resp := createTestVMSnapshotAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
@@ -143,7 +142,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				},
 			}
 
-			ar := createUpdateAdmissionReview(oldSnapshot, snapshot)
+			ar := createSnapshotUpdateAdmissionReview(oldSnapshot, snapshot)
 			resp := createTestVMSnapshotAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
@@ -174,7 +173,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				},
 			}
 
-			ar := createUpdateAdmissionReview(oldSnapshot, snapshot)
+			ar := createSnapshotUpdateAdmissionReview(oldSnapshot, snapshot)
 			resp := createTestVMSnapshotAdmitter(config, nil).Admit(ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
@@ -204,7 +203,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				t := true
 				vm.Spec.Running = &t
 
-				ar := createAdmissionReview(snapshot)
+				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
@@ -225,7 +224,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				t := true
 				vm.Spec.Running = &t
 
-				ar := createAdmissionReview(snapshot)
+				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
@@ -247,7 +246,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				t := true
 				vm.Spec.Running = &t
 
-				ar := createAdmissionReview(snapshot)
+				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
@@ -268,7 +267,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				f := false
 				vm.Spec.Running = &f
 
-				ar := createAdmissionReview(snapshot)
+				ar := createSnapshotAdmissionReview(snapshot)
 				resp := createTestVMSnapshotAdmitter(config, vm).Admit(ar)
 				Expect(resp.Allowed).To(BeTrue())
 			})
@@ -276,7 +275,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 	})
 })
 
-func createAdmissionReview(snapshot *snapshotv1.VirtualMachineSnapshot) *v1beta1.AdmissionReview {
+func createSnapshotAdmissionReview(snapshot *snapshotv1.VirtualMachineSnapshot) *v1beta1.AdmissionReview {
 	bytes, _ := json.Marshal(snapshot)
 
 	ar := &v1beta1.AdmissionReview{
@@ -296,7 +295,7 @@ func createAdmissionReview(snapshot *snapshotv1.VirtualMachineSnapshot) *v1beta1
 	return ar
 }
 
-func createUpdateAdmissionReview(old, current *snapshotv1.VirtualMachineSnapshot) *v1beta1.AdmissionReview {
+func createSnapshotUpdateAdmissionReview(old, current *snapshotv1.VirtualMachineSnapshot) *v1beta1.AdmissionReview {
 	oldBytes, _ := json.Marshal(old)
 	currentBytes, _ := json.Marshal(current)
 

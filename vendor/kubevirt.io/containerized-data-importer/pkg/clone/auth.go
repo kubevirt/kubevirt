@@ -24,14 +24,18 @@ import (
 
 	authentication "k8s.io/api/authentication/v1"
 	authorization "k8s.io/api/authorization/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 
-	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 )
 
+// SubjectAccessReviewsProxy proxies calls to work with SubjectAccessReviews
+type SubjectAccessReviewsProxy interface {
+	Create(*authorization.SubjectAccessReview) (*authorization.SubjectAccessReview, error)
+}
+
 // CanUserClonePVC checks if a user has "appropriate" permission to clone from the given PVC
-func CanUserClonePVC(client kubernetes.Interface, sourceNamespace, pvcName, targetNamespace string,
+func CanUserClonePVC(client SubjectAccessReviewsProxy, sourceNamespace, pvcName, targetNamespace string,
 	userInfo authentication.UserInfo) (bool, string, error) {
 	if sourceNamespace == targetNamespace {
 		return true, "", nil
@@ -55,7 +59,7 @@ func CanUserClonePVC(client kubernetes.Interface, sourceNamespace, pvcName, targ
 }
 
 // CanServiceAccountClonePVC checks if a ServiceAccount has "appropriate" permission to clone from the given PVC
-func CanServiceAccountClonePVC(client kubernetes.Interface, pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
+func CanServiceAccountClonePVC(client SubjectAccessReviewsProxy, pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
 	if pvcNamespace == saNamespace {
 		return true, "", nil
 	}
@@ -63,13 +67,14 @@ func CanServiceAccountClonePVC(client kubernetes.Interface, pvcNamespace, pvcNam
 	user := fmt.Sprintf("system:serviceaccount:%s:%s", saNamespace, saName)
 
 	sarSpec := authorization.SubjectAccessReviewSpec{
-		User: user,
+		User:   user,
+		Groups: []string{"system:serviceaccounts", "system:serviceaccounts:" + saNamespace},
 	}
 
 	return sendSubjectAccessReviews(client, pvcNamespace, pvcName, sarSpec)
 }
 
-func sendSubjectAccessReviews(client kubernetes.Interface, namespace, name string, sarSpec authorization.SubjectAccessReviewSpec) (bool, string, error) {
+func sendSubjectAccessReviews(client SubjectAccessReviewsProxy, namespace, name string, sarSpec authorization.SubjectAccessReviewSpec) (bool, string, error) {
 	allowed := false
 
 	for _, ra := range getResourceAttributes(namespace, name) {
@@ -80,7 +85,7 @@ func sendSubjectAccessReviews(client kubernetes.Interface, namespace, name strin
 
 		klog.V(3).Infof("Sending SubjectAccessReview %+v", sar)
 
-		response, err := client.AuthorizationV1().SubjectAccessReviews().Create(sar)
+		response, err := client.Create(sar)
 		if err != nil {
 			return false, "", err
 		}
@@ -105,9 +110,9 @@ func getResourceAttributes(namespace, name string) []authorization.ResourceAttri
 		{
 			Namespace:   namespace,
 			Verb:        "create",
-			Group:       cdiv1alpha1.SchemeGroupVersion.Group,
+			Group:       cdiv1.SchemeGroupVersion.Group,
 			Resource:    "datavolumes",
-			Subresource: cdiv1alpha1.DataVolumeCloneSourceSubresource,
+			Subresource: cdiv1.DataVolumeCloneSourceSubresource,
 			Name:        name,
 		},
 		{

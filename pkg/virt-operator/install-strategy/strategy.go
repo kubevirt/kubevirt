@@ -51,19 +51,6 @@ import (
 
 const customSCCPrivilegedAccountsType = "KubevirtCustomSCCRule"
 
-type customSCCPrivilegedAccounts struct {
-	// this isn't a real k8s object. We use the meta type
-	// because it gives a consistent way to separate k8s
-	// objects from our custom actions
-	metav1.TypeMeta `json:",inline"`
-
-	// this is the target scc we're adding service accounts to
-	TargetSCC string `json:"TargetSCC"`
-
-	// these are the service accounts being added to the scc
-	ServiceAccounts []string `json:"serviceAccounts"`
-}
-
 type InstallStrategy struct {
 	serviceAccounts []*corev1.ServiceAccount
 
@@ -82,14 +69,10 @@ type InstallStrategy struct {
 	mutatingWebhookConfigurations   []*v1beta1.MutatingWebhookConfiguration
 	apiServices                     []*v1beta12.APIService
 	certificateSecrets              []*corev1.Secret
-
-	// deprecated, keep it for backwards compatibility
-	customSCCPrivileges []*customSCCPrivilegedAccounts
-
-	sccs            []*secv1.SecurityContextConstraints
-	serviceMonitors []*promv1.ServiceMonitor
-	prometheusRules []*promv1.PrometheusRule
-	configMaps      []*corev1.ConfigMap
+	sccs                            []*secv1.SecurityContextConstraints
+	serviceMonitors                 []*promv1.ServiceMonitor
+	prometheusRules                 []*promv1.PrometheusRule
+	configMaps                      []*corev1.ConfigMap
 }
 
 func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, addMonitorServiceResources bool, operatorNamespace string) (*corev1.ConfigMap, error) {
@@ -198,9 +181,6 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 	for _, entry := range strategy.daemonSets {
 		marshalutil.MarshallObject(entry, writer)
 	}
-	for _, entry := range strategy.customSCCPrivileges {
-		marshalutil.MarshallObject(entry, writer)
-	}
 	for _, entry := range strategy.sccs {
 		marshalutil.MarshallObject(entry, writer)
 	}
@@ -229,6 +209,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.crds = append(strategy.crds, components.NewVirtualMachineInstanceMigrationCrd())
 	strategy.crds = append(strategy.crds, components.NewVirtualMachineSnapshotCrd())
 	strategy.crds = append(strategy.crds, components.NewVirtualMachineSnapshotContentCrd())
+	strategy.crds = append(strategy.crds, components.NewVirtualMachineRestoreCrd())
 
 	rbaclist := make([]interface{}, 0)
 	rbaclist = append(rbaclist, rbac.GetAllCluster(config.GetNamespace())...)
@@ -479,12 +460,6 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 				return nil, err
 			}
 			strategy.crds = append(strategy.crds, crd)
-		case customSCCPrivilegedAccountsType:
-			priv := &customSCCPrivilegedAccounts{}
-			if err := yaml.Unmarshal([]byte(entry), &priv); err != nil {
-				return nil, err
-			}
-			strategy.customSCCPrivileges = append(strategy.customSCCPrivileges, priv)
 		case "SecurityContextConstraints":
 			s := &secv1.SecurityContextConstraints{}
 			if err := yaml.Unmarshal([]byte(entry), &s); err != nil {

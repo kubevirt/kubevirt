@@ -46,7 +46,7 @@ import (
 const InvalidDataVolumeUrl = "http://127.0.0.1/invalid"
 const DummyFilePath = "/usr/share/nginx/html/dummy.file"
 
-var _ = Describe("DataVolume Integration", func() {
+var _ = Describe("[Serial]DataVolume Integration", func() {
 
 	var virtClient kubecli.KubevirtClient
 	var err error
@@ -63,7 +63,6 @@ var _ = Describe("DataVolume Integration", func() {
 	})
 
 	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-		tests.WaitForSuccessfulDataVolumeImportOfVMI(vmi, timeout)
 
 		By("Starting a VirtualMachineInstance with DataVolume")
 		var obj *v1.VirtualMachineInstance
@@ -106,6 +105,29 @@ var _ = Describe("DataVolume Integration", func() {
 					Expect(err).To(BeNil())
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
+				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+			})
+
+			It("should be successfully started when using a PVC volume owned by a DataVolume", func() {
+
+				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
+
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
+				Expect(err).To(BeNil())
+
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).To(BeNil())
+				expecter.Close()
+
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+
 				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
 				Expect(err).To(BeNil())
 			})
@@ -611,7 +633,7 @@ var _ = Describe("DataVolume Integration", func() {
 				}
 			})
 
-			table.DescribeTable("deny then allow clone request", func(role *rbacv1.Role) {
+			table.DescribeTable("deny then allow clone request", func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool) {
 				vm := tests.NewRandomVMWithCloneDataVolume(dataVolume.Namespace, dataVolume.Name, tests.NamespaceTestDefault)
 				saVol := v1.Volume{
 					Name: "sa",
@@ -635,8 +657,18 @@ var _ = Describe("DataVolume Integration", func() {
 				}
 				Expect(stdErr).Should(ContainSubstring("Authorization failed, message is:"))
 
+				saName := tests.AdminServiceAccountName
+				saNamespace := tests.NamespaceTestDefault
+
+				if allServiceAccounts {
+					saName = ""
+					saNamespace = ""
+				} else if allServiceAccountsInNamespace {
+					saName = ""
+				}
+
 				// add permission
-				cloneRole, cloneRoleBinding = addClonePermission(virtClient, role, tests.AdminServiceAccountName, tests.NamespaceTestDefault, tests.NamespaceTestAlternative)
+				cloneRole, cloneRoleBinding = addClonePermission(virtClient, role, saName, saNamespace, tests.NamespaceTestAlternative)
 
 				// sometimes it takes a bit for permission to actually be applied so eventually
 				Eventually(func() bool {
@@ -666,8 +698,10 @@ var _ = Describe("DataVolume Integration", func() {
 				createdVirtualMachine = tests.StartVirtualMachine(createdVirtualMachine)
 				createdVirtualMachine = tests.StopVirtualMachine(createdVirtualMachine)
 			},
-				table.Entry("[test_id:3193]with explicit role", explicitCloneRole),
-				table.Entry("[test_id:3194]with implicit role", implicitCloneRole),
+				table.Entry("[test_id:3193]with explicit role", explicitCloneRole, false, false),
+				table.Entry("[test_id:3194]with implicit role", implicitCloneRole, false, false),
+				table.Entry("with explicit role (all namespaces)", explicitCloneRole, true, false),
+				table.Entry("with explicit role (one namespace)", explicitCloneRole, false, true),
 			)
 		})
 	})
@@ -724,13 +758,28 @@ func addClonePermission(client kubecli.KubevirtClient, role *rbacv1.Role, sa, sa
 			Name:     role.Name,
 			APIGroup: "rbac.authorization.k8s.io",
 		},
-		Subjects: []rbacv1.Subject{
+	}
+
+	if sa != "" {
+		rb.Subjects = []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
 				Name:      sa,
 				Namespace: saNamespace,
 			},
-		},
+		}
+	} else {
+		g := "system:serviceaccounts"
+		if saNamespace != "" {
+			g += ":" + saNamespace
+		}
+		rb.Subjects = []rbacv1.Subject{
+			{
+				Kind:     "Group",
+				Name:     g,
+				APIGroup: "rbac.authorization.k8s.io",
+			},
+		}
 	}
 
 	rb, err = client.RbacV1().RoleBindings(targetNamesace).Create(rb)

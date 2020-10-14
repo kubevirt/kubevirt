@@ -39,8 +39,6 @@ var fakeQEMUBinary string
 
 func init() {
 	flag.StringVar(&fakeQEMUBinary, "fake-qemu-binary-path", "_out/cmd/fake-qemu-process/fake-qemu-process", "path to cirros test image")
-	flag.Parse()
-	fakeQEMUBinary = filepath.Join("../../", fakeQEMUBinary)
 }
 
 var _ = Describe("VirtLauncher", func() {
@@ -114,6 +112,9 @@ var _ = Describe("VirtLauncher", func() {
 	}
 
 	BeforeEach(func() {
+		if !strings.Contains(fakeQEMUBinary, "../../") {
+			fakeQEMUBinary = filepath.Join("../../", fakeQEMUBinary)
+		}
 		gracefulShutdownChannel = make(chan struct{})
 		shutdownCallback := func(pid int) {
 			syscall.Kill(pid, syscall.SIGTERM)
@@ -223,7 +224,7 @@ var _ = Describe("VirtLauncher", func() {
 				}()
 
 				close(stopChan)
-				noExitCheck := time.After(5 * time.Second)
+				noExitCheck := time.After(10 * time.Second)
 				exited := false
 
 				select {

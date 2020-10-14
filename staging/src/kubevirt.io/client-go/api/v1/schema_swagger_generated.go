@@ -92,7 +92,8 @@ func (Bootloader) SwaggerDoc() map[string]string {
 
 func (BIOS) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "If set (default), BIOS will be used.\n\n+k8s:openapi-gen=true",
+		"":          "If set (default), BIOS will be used.\n\n+k8s:openapi-gen=true",
+		"useSerial": "If set, the BIOS output will be transmitted over serial\n+optional",
 	}
 }
 
@@ -177,8 +178,9 @@ func (Devices) SwaggerDoc() map[string]string {
 		"autoattachMemBalloon":       "Whether to attach the Memory balloon device with default period.\nPeriod can be adjusted in virt-config.\nDefaults to true.\n+optional",
 		"rng":                        "Whether to have random number generator from host\n+optional",
 		"blockMultiQueue":            "Whether or not to enable virtio multi-queue for block devices\n+optional",
-		"networkInterfaceMultiqueue": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature\n+optional",
+		"networkInterfaceMultiqueue": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.\n+optional",
 		"gpus":                       "Whether to attach a GPU device to the vmi.\n+optional",
+		"filesystems":                "Filesystems describes filesystem which is connected to the vmi.\n+optional\n+listType=set",
 	}
 }
 
@@ -188,6 +190,19 @@ func (Input) SwaggerDoc() map[string]string {
 		"bus":  "Bus indicates the bus of input device to emulate.\nSupported values: virtio, usb.",
 		"type": "Type indicated the type of input device.\nSupported values: tablet.",
 		"name": "Name is the device name",
+	}
+}
+
+func (Filesystem) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "+k8s:openapi-gen=true",
+		"name": "Name is the device name",
+	}
+}
+
+func (FilesystemVirtiofs) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
 	}
 }
 
@@ -385,10 +400,11 @@ func (HypervTimer) SwaggerDoc() map[string]string {
 func (Features) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "+k8s:openapi-gen=true",
-		"acpi":   "ACPI enables/disables ACPI insidejsondata guest.\nDefaults to enabled.\n+optional",
+		"acpi":   "ACPI enables/disables ACPI inside the guest.\nDefaults to enabled.\n+optional",
 		"apic":   "Defaults to the machine type setting.\n+optional",
 		"hyperv": "Defaults to the machine type setting.\n+optional",
 		"smm":    "SMM enables/disables System Management Mode.\nTSEG not yet implemented.\n+optional",
+		"kvm":    "Configure how KVM presence is exposed to the guest.\n+optional",
 	}
 }
 
@@ -440,6 +456,13 @@ func (FeatureHyperv) SwaggerDoc() map[string]string {
 		"tlbflush":        "TLBFlush improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.\n+optional",
 		"ipi":             "IPI improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.\n+optional",
 		"evmcs":           "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.\nDefaults to the machine type setting.\n+optional",
+	}
+}
+
+func (FeatureKVM) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "+k8s:openapi-gen=true",
+		"hidden": "Hide the KVM hypervisor from standard MSR based discovery.\nDefaults to false",
 	}
 }
 

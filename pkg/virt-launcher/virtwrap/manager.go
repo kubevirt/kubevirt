@@ -162,7 +162,7 @@ func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 	return &manager, nil
 }
 
-func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachineInstance) (bool, error) {
+func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachineInstance, migrationMode v1.MigrationMode) (bool, error) {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
 
@@ -196,6 +196,7 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 	domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 		UID:            vmi.Status.MigrationState.MigrationUID,
 		StartTimestamp: &now,
+		Mode:           migrationMode,
 	}
 	_, err = l.setDomainSpecWithHooks(vmi, domainSpec)
 	if err != nil {
@@ -300,7 +301,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 
 }
 
-func prepareMigrationFlags(isBlockMigration bool, isUnsafeMigration bool, allowAutoConverge bool) libvirt.DomainMigrateFlags {
+func prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, allowPostyCopy bool) libvirt.DomainMigrateFlags {
 	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
 
 	if isBlockMigration {
@@ -312,6 +313,10 @@ func prepareMigrationFlags(isBlockMigration bool, isUnsafeMigration bool, allowA
 	if allowAutoConverge {
 		migrateFlags |= libvirt.MIGRATE_AUTO_CONVERGE
 	}
+	if allowPostyCopy {
+		migrateFlags |= libvirt.MIGRATE_POSTCOPY
+	}
+
 	return migrateFlags
 
 }
@@ -447,7 +452,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 			return
 		}
 
-		migrateFlags := prepareMigrationFlags(isBlockMigration, options.UnsafeMigration, options.AllowAutoConverge)
+		migrateFlags := prepareMigrationFlags(isBlockMigration, options.UnsafeMigration, options.AllowAutoConverge, options.AllowPostCopy)
 		if options.UnsafeMigration {
 			log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
 		}
@@ -473,6 +478,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		migrationErrorChan := make(chan error, 1)
 		defer close(migrationErrorChan)
 		go liveMigrationMonitor(vmi, dom, l, options, migrationErrorChan)
+
 		err = dom.MigrateToURI3(dstURI, params, migrateFlags)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
@@ -604,6 +610,7 @@ func getVMIMigrationDataSize(vmi *v1.VirtualMachineInstance) int64 {
 }
 
 func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationErr chan error) {
+
 	logger := log.Log.Object(vmi)
 	start := time.Now().UTC().Unix()
 	lastProgressUpdate := start
@@ -636,6 +643,7 @@ monitorLoop:
 			logger.Reason(err).Error("failed to get domain job info")
 			break
 		}
+
 		remainingData := int64(stats.DataRemaining)
 		switch stats.Type {
 		case libvirt.DOMAIN_JOB_UNBOUNDED:
@@ -648,11 +656,24 @@ monitorLoop:
 				progressWatermark = remainingData
 				lastProgressUpdate = now
 			}
+
+			domainSpec, err := l.getDomainSpec(dom)
+			if err != nil {
+				logger.Reason(err).Error("failed to get domain spec info")
+				break
+			}
+
 			// check if the migration is progressing
 			progressDelay := now - lastProgressUpdate
 			if progressTimeout != 0 &&
 				progressDelay > progressTimeout {
 				logger.Warningf("Live migration stuck for %d sec", progressDelay)
+
+				// If the migration is in post copy mode we should not abort the job as the migration would lose state
+				if domainSpec.Metadata.KubeVirt.Migration != nil && domainSpec.Metadata.KubeVirt.Migration.Mode == v1.MigrationPostCopy {
+					break
+				}
+
 				err := dom.AbortJob()
 				if err != nil {
 					logger.Reason(err).Error("failed to abort migration")
@@ -662,10 +683,25 @@ monitorLoop:
 			}
 
 			// check the overall migration time
-			if acceptableCompletionTime != 0 &&
-				elapsed > acceptableCompletionTime {
+			if shouldTriggerTimeout(acceptableCompletionTime, elapsed, domainSpec) {
+
+				if options.AllowPostCopy {
+					err = dom.MigrateStartPostCopy(uint32(0))
+					if err != nil {
+						logger.Reason(err).Error("failed to start post migration")
+					}
+
+					err = l.updateVMIMigrationMode(dom, vmi, v1.MigrationPostCopy)
+					if err != nil {
+						log.Log.Object(vmi).Reason(err).Error("Unable to update migration mode on domain xml")
+					}
+
+					break
+				}
+
 				logger.Warningf("Live migration is not completed after %d sec",
 					acceptableCompletionTime)
+
 				err := dom.AbortJob()
 				if err != nil {
 					logger.Reason(err).Error("failed to abort migration")
@@ -691,6 +727,22 @@ monitorLoop:
 		}
 		time.Sleep(400 * time.Millisecond)
 	}
+}
+
+func shouldTriggerTimeout(acceptableCompletionTime, elapsed int64, domSpec *api.DomainSpec) bool {
+	if acceptableCompletionTime == 0 {
+		return false
+	}
+
+	if domSpec.Metadata.KubeVirt.Migration != nil && domSpec.Metadata.KubeVirt.Migration.Mode == v1.MigrationPostCopy {
+		return false
+	}
+
+	if elapsed > acceptableCompletionTime {
+		return true
+	}
+
+	return false
 }
 
 func (l *LibvirtDomainManager) CancelVMIMigration(vmi *v1.VirtualMachineInstance) error {
@@ -744,7 +796,7 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, option
 		return fmt.Errorf("cannot migration VMI until migrationState is ready")
 	}
 
-	inProgress, err := l.initializeMigrationMetadata(vmi)
+	inProgress, err := l.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
 	if err != nil {
 		return err
 	}

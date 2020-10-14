@@ -26,7 +26,9 @@ import (
 	"time"
 
 	"github.com/pborman/uuid"
+	authv1 "k8s.io/api/authorization/v1"
 	k8score "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -34,16 +36,13 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	"kubevirt.io/kubevirt/pkg/util/status"
-
-	"k8s.io/apimachinery/pkg/api/errors"
-
 	virtv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
 type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error)
@@ -54,6 +53,8 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient) *VMController {
+
+	proxy := &sarProxy{client: clientset}
 
 	c := &VMController{
 		Queue:                  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
@@ -66,7 +67,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		dataVolumeExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
-			return cdiclone.CanServiceAccountClonePVC(clientset, pvcNamespace, pvcName, saNamespace, saName)
+			return cdiclone.CanServiceAccountClonePVC(proxy, pvcNamespace, pvcName, saNamespace, saName)
 		},
 		statusUpdater: status.NewVMStatusUpdater(clientset),
 	}
@@ -90,6 +91,14 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	})
 
 	return c
+}
+
+type sarProxy struct {
+	client kubecli.KubevirtClient
+}
+
+func (p *sarProxy) Create(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
+	return p.client.AuthorizationV1().SubjectAccessReviews().Create(sar)
 }
 
 type VMController struct {
@@ -409,19 +418,22 @@ func (c *VMController) orphanDataVolumes(cm *controller.VirtualMachineController
 	return nil
 }
 
-func createDataVolumeManifest(dataVolume *cdiv1.DataVolume, vm *virtv1.VirtualMachine) *cdiv1.DataVolume {
+func createDataVolumeManifest(dataVolumeTemplate *virtv1.DataVolumeTemplateSpec, vm *virtv1.VirtualMachine) *cdiv1.DataVolume {
 
-	newDataVolume := dataVolume.DeepCopy()
+	newDataVolume := &cdiv1.DataVolume{}
+
+	newDataVolume.Spec = *dataVolumeTemplate.Spec.DeepCopy()
+	newDataVolume.ObjectMeta = *dataVolumeTemplate.ObjectMeta.DeepCopy()
 
 	labels := map[string]string{}
 	annotations := map[string]string{}
 
 	labels[virtv1.CreatedByLabel] = string(vm.UID)
 
-	for k, v := range dataVolume.Annotations {
+	for k, v := range dataVolumeTemplate.Annotations {
 		annotations[k] = v
 	}
-	for k, v := range dataVolume.Labels {
+	for k, v := range dataVolumeTemplate.Labels {
 		labels[k] = v
 	}
 	newDataVolume.ObjectMeta.Labels = labels
@@ -655,11 +667,6 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error("Failed to extract vmKey from VirtualMachine.")
 		return nil
-	}
-
-	// Check that PVCs are not used when DataVolmes should
-	if err := handlePVCMisuseInVM(c.pvcInformer, c.recorder, vm); err != nil {
-		return err
 	}
 
 	// start it

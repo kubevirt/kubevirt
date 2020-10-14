@@ -187,6 +187,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Features = &v1.Features{
 				APIC: &v1.FeatureAPIC{},
 				SMM:  &v1.FeatureState{},
+				KVM:  &v1.FeatureKVM{Hidden: true},
 				Hyperv: &v1.FeatureHyperv{
 					Relaxed:         &v1.FeatureState{Enabled: &_false},
 					VAPIC:           &v1.FeatureState{Enabled: &_true},
@@ -454,6 +455,7 @@ var _ = Describe("Converter", func() {
       <source></source>
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
+      <rom enabled="no"></rom>
     </interface>
     <channel type="unix">
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
@@ -605,6 +607,9 @@ var _ = Describe("Converter", func() {
       <evmcs state="off"></evmcs>
     </hyperv>
     <smm></smm>
+    <kvm>
+      <hidden state="on"></hidden>
+    </kvm>
   </features>
   <cpu mode="host-model">
     <topology sockets="1" cores="1" threads="1"></topology>
@@ -650,6 +655,7 @@ var _ = Describe("Converter", func() {
       <source></source>
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
+      <rom enabled="no"></rom>
     </interface>
     <channel type="unix">
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
@@ -801,6 +807,9 @@ var _ = Describe("Converter", func() {
       <evmcs state="off"></evmcs>
     </hyperv>
     <smm></smm>
+    <kvm>
+      <hidden state="on"></hidden>
+    </kvm>
   </features>
   <cpu mode="host-model">
     <topology sockets="1" cores="1" threads="1"></topology>
@@ -850,6 +859,7 @@ var _ = Describe("Converter", func() {
       <source></source>
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
+      <rom enabled="no"></rom>
     </interface>
     <channel type="unix">
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
@@ -1013,6 +1023,9 @@ var _ = Describe("Converter", func() {
       <evmcs state="off"></evmcs>
     </hyperv>
     <smm></smm>
+    <kvm>
+      <hidden state="on"></hidden>
+    </kvm>
   </features>
   <cpu mode="host-model">
     <topology sockets="1" cores="1" threads="1"></topology>
@@ -1340,18 +1353,45 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("e1000"))
 		})
 
-		It("should set nic pci address when specified", func() {
+		It("should set rom to off when no boot order is specified", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = "0000:81:01.0"
-			test_address := Address{
+			vmi.Spec.Domain.Devices.Interfaces[0].BootOrder = nil
+			domain := vmiToDomain(vmi, c)
+			Expect(domain.Spec.Devices.Interfaces[0].Rom.Enabled).To(Equal("no"))
+		})
+
+		When("NIC PCI address is specified on VMI", func() {
+			expectedPCIAddress := Address{
 				Type:     "pci",
 				Domain:   "0x0000",
 				Bus:      "0x81",
 				Slot:     "0x01",
 				Function: "0x0",
 			}
-			domain := vmiToDomain(vmi, c)
-			Expect(*domain.Spec.Devices.Interfaces[0].Address).To(Equal(test_address))
+
+			BeforeEach(func() {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = "0000:81:01.0"
+			})
+
+			It("should be set on the domain spec for a non-SRIOV nic", func() {
+				domain := vmiToDomain(vmi, c)
+				Expect(*domain.Spec.Devices.Interfaces[0].Address).To(Equal(expectedPCIAddress))
+
+			})
+			It("should be set on the domain spec for a SRIOV nic", func() {
+				iface := &vmi.Spec.Domain.Devices.Interfaces[0]
+				iface.SRIOV = &v1.InterfaceSRIOV{}
+				c := &ConverterContext{
+					VirtualMachine: vmi,
+					UseEmulation:   true,
+					SRIOVDevices:   map[string][]string{iface.Name: []string{"0000:81:11.1"}},
+				}
+
+				domain := vmiToDomain(vmi, c)
+				Expect(*domain.Spec.Devices.HostDevices[0].Address).To(Equal(expectedPCIAddress))
+			})
+
 		})
 
 		It("should calculate mebibyte from a quantity", func() {
@@ -1418,6 +1458,8 @@ var _ = Describe("Converter", func() {
 			}
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 			Expect(domainSpec.MemoryBacking.HugePages).ToNot(BeNil())
+			Expect(domainSpec.MemoryBacking.Source).ToNot(BeNil())
+			Expect(domainSpec.MemoryBacking.Source.Type).To(Equal("memfd"))
 
 			Expect(domainSpec.Memory.Value).To(Equal(uint64(8388608)))
 			Expect(domainSpec.Memory.Unit).To(Equal("b"))
@@ -2145,6 +2187,18 @@ var _ = Describe("Converter", func() {
 			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})
 			Expect(domain.Spec.Devices.Interfaces[0].Driver).To(BeNil(),
 				"queues should not be set for models other than virtio")
+		})
+
+		It("should cap the maximum number of queues", func() {
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Cores:   512,
+				Sockets: 1,
+				Threads: 2,
+			}
+			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})
+			expectedNumberQueues := uint(multiQueueMaxQueues)
+			Expect(*(domain.Spec.Devices.Interfaces[0].Driver.Queues)).To(Equal(expectedNumberQueues),
+				"should be capped to the maximum number of queues on tap devices")
 		})
 	})
 

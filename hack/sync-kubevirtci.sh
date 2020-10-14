@@ -12,7 +12,15 @@ download_cluster_up=true
 function getClusterUpShasum() {
     (
         cd ${KUBEVIRT_DIR}
-        find cluster-up -type f | sort | xargs sha1sum | sha1sum | awk '{print $1}'
+        # We use LC_ALL=C to make sort canonical between machines, this is
+        # from sort man page [1]:
+        # ```
+        # *** WARNING *** The locale specified by the environment affects sort
+        # order.  Set LC_ALL=C to get the traditional sort order that uses
+        # native byte values.
+        # ```
+        # [1] https://man7.org/linux/man-pages/man1/sort.1.html
+        find cluster-up -type f | LC_ALL=C sort | xargs sha1sum | sha1sum | awk '{print $1}'
     )
 }
 
@@ -37,4 +45,5 @@ if [[ "$download_cluster_up" == true ]]; then
     echo ${kubevirtci_git_hash} >${version_file}
     new_sha=$(getClusterUpShasum)
     echo ${new_sha} >${sha_file}
+    echo "KUBEVIRTCI_TAG=${kubevirtci_git_hash}" >>cluster-up/hack/common.sh
 fi

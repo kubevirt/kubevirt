@@ -20,7 +20,6 @@
 package installstrategy
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -33,7 +32,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -427,51 +425,6 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	scc := clientset.SecClient()
-	for _, sccPriv := range strategy.customSCCPrivileges {
-		privSCCObj, exists, err := stores.SCCCache.GetByKey(sccPriv.TargetSCC)
-		if !exists {
-			return nil
-		} else if err != nil {
-			return err
-		}
-
-		privSCC, ok := privSCCObj.(*secv1.SecurityContextConstraints)
-		if !ok {
-			return fmt.Errorf("couldn't cast object to SecurityContextConstraints: %+v", privSCCObj)
-		}
-
-		oldUsers := privSCC.Users
-		privSCCCopy := privSCC.DeepCopy()
-		users := privSCCCopy.Users
-
-		modified := false
-
-		for _, acc := range sccPriv.ServiceAccounts {
-			removed := false
-			users, removed = remove(users, acc)
-			modified = modified || removed
-		}
-
-		if modified {
-			oldUserBytes, err := json.Marshal(oldUsers)
-			if err != nil {
-				return err
-			}
-			userBytes, err := json.Marshal(users)
-			if err != nil {
-				return err
-			}
-
-			test := fmt.Sprintf(`{ "op": "test", "path": "/users", "value": %s }`, string(oldUserBytes))
-			patch := fmt.Sprintf(`{ "op": "replace", "path": "/users", "value": %s }`, string(userBytes))
-
-			_, err = scc.SecurityContextConstraints().Patch(sccPriv.TargetSCC, types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)))
-			if err != nil {
-				return fmt.Errorf("unable to patch scc: %v", err)
-			}
-		}
-	}
-
 	objects = stores.SCCCache.List()
 	for _, obj := range objects {
 		if s, ok := obj.(*secv1.SecurityContextConstraints); ok && s.DeletionTimestamp == nil {

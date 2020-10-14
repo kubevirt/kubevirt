@@ -358,6 +358,19 @@ var _ = Describe("CloudInit", func() {
 						Expect(testVolume.CloudInitNoCloud.NetworkData).To(Equal("secret-networkdata"))
 					})
 
+					It("should resolve camel-case no-cloud data from volume", func() {
+						testVolume := createCloudInitSecretRefVolume("test-volume", "test-secret")
+						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
+						fakeVolumeMountDir("test-volume", map[string]string{
+							"userData":    "secret-userdata",
+							"networkData": "secret-networkdata",
+						})
+						err := ResolveNoCloudSecrets(vmi, tmpDir)
+						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
+						Expect(testVolume.CloudInitNoCloud.UserData).To(Equal("secret-userdata"))
+						Expect(testVolume.CloudInitNoCloud.NetworkData).To(Equal("secret-networkdata"))
+					})
+
 					It("should resolve empty no-cloud volume and do nothing", func() {
 						vmi := createEmptyVMIWithVolumes([]v1.Volume{})
 						err := ResolveNoCloudSecrets(vmi, tmpDir)

@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
+set -eo pipefail
 
-set -e
-
-./hack/coverage.sh
-goveralls -service=prow -coverprofile=.coverprofile -ignore=$(find -regextype posix-egrep -regex ".*generated_mock.*\.go|.*swagger_generated\.go|.*openapi_generated\.go" -printf "%P\n" | paste -d, -s)
+bazel run //vendor/github.com/wadey/gocovmerge:gocovmerge -- $(cat | sed "s# # ${BUILD_WORKING_DIRECTORY}/#g" | sed "s#^#${BUILD_WORKING_DIRECTORY}/#") >coverprofile.dat
+goveralls -service=${CI_NAME} -coverprofile=coverprofile.dat -ignore=$(find -regextype posix-egrep -regex ".*generated_mock.*\.go|.*swagger_generated\.go|.*openapi_generated\.go" -printf "%P\n" | paste -d, -s)

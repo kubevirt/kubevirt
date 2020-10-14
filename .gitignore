@@ -3,6 +3,7 @@
 tools/openapispec/openapispec
 tools/crd-generator/crd-generator
 tools/csv-generator/csv-generator
+tools/doc-generator/doc-generator
 tools/resource-generator/resource-generator
 tools/marketplace/marketplace
 **/bin

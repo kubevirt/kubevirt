@@ -145,9 +145,9 @@ var _ = Describe("Certificate Management", func() {
 		})
 
 		table.DescribeTable("should set the notAfter on the certificate according to the supplied duration", func(caDuration time.Duration) {
-			now := time.Now()
 			crtDuration := &v1.Duration{Duration: 2 * time.Hour}
 			caSecret := NewCACertSecret("test")
+			now := time.Now()
 			Expect(PopulateSecretWithCertificate(caSecret, nil, &v1.Duration{Duration: caDuration})).To(Succeed())
 			caCrt, err := LoadCertificates(caSecret)
 			Expect(err).NotTo(HaveOccurred())
@@ -156,18 +156,18 @@ var _ = Describe("Certificate Management", func() {
 			crt, err := LoadCertificates(crtSecret)
 
 			//deadline := now.Add(time.Duration(float64(crtDuration.Duration) * 0.8))
-			Expect(crt.Leaf.NotAfter.Unix()).To(BeNumerically("==", now.Add(crtDuration.Duration).Unix(), 1))
+			Expect(crt.Leaf.NotAfter.Unix()).To(BeNumerically("==", now.Add(crtDuration.Duration).Unix(), 3))
 		},
 			table.Entry("with a long valid CA", 24*time.Hour),
 			table.Entry("with a CA which expires before the certificate rotation", 1*time.Hour),
 		)
 
 		table.DescribeTable("should suggaest a rotation on the certificate according on 80% of the certificate lifespan", func(caDuration time.Duration) {
-			now := time.Now()
 			crtDuration := &v1.Duration{Duration: 2 * time.Hour}
 			caSecret := NewCACertSecret("test")
 			Expect(PopulateSecretWithCertificate(caSecret, nil, &v1.Duration{Duration: caDuration})).To(Succeed())
 			caCrt, err := LoadCertificates(caSecret)
+			now := time.Now()
 			Expect(err).NotTo(HaveOccurred())
 			crtSecret := NewCertSecrets("test", "test")[0]
 			Expect(PopulateSecretWithCertificate(crtSecret, caCrt, crtDuration)).To(Succeed())

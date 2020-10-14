@@ -455,6 +455,37 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	container.Env = append(container.Env, containerEnv...)
 
 	container.VolumeMounts = []corev1.VolumeMount{}
+
+	container.LivenessProbe = &corev1.Probe{
+		FailureThreshold: 8,
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Scheme: corev1.URISchemeHTTPS,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: 8443,
+				},
+				Path: "/healthz",
+			},
+		},
+		InitialDelaySeconds: 15,
+		TimeoutSeconds:      10,
+	}
+	container.ReadinessProbe = &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Scheme: corev1.URISchemeHTTPS,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: 8443,
+				},
+				Path: "/healthz",
+			},
+		},
+		InitialDelaySeconds: 15,
+		TimeoutSeconds:      10,
+	}
+
 	pod.Volumes = []corev1.Volume{}
 
 	type volume struct {

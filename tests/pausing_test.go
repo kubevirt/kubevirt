@@ -41,6 +41,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
@@ -301,10 +302,16 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					}
 					Expect(err).ToNot(HaveOccurred())
 					return false
-				}, 300*time.Second, 1*time.Second).Should(BeTrue(), "The VMI did not disappear")
+				}, 60*time.Second, 1*time.Second).Should(BeTrue(), "The VMI did not disappear")
 
 				By("Waiting for for new VMI to start")
-				newVMI := v1.NewMinimalVMIWithNS(vm.Namespace, vm.Name)
+				Eventually(func() error {
+					_, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+					return err
+				}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "No new VMI appeared")
+
+				newVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStartWithTimeout(newVMI, 300)
 
 				By("Ensuring unpaused state")
@@ -365,9 +372,9 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	Context("A long running process", func() {
 
 		grepSleepPid := func(expecter expect.Expecter) string {
-			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
-				&expect.BSnd{S: `pgrep -f "sleep 5"` + "\n"},
-				&expect.BExp{R: tests.RetValue("[0-9]+")}, // pid
+			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				&expect.BSnd{S: `pgrep -f "sleep 8"` + "\n"},
+				&expect.BExp{R: console.RetValue("[0-9]+")}, // pid
 			}, 15*time.Second)
 			log.DefaultLogger().Infof("a:%+v\n", res)
 			Expect(err).ToNot(HaveOccurred())
@@ -377,9 +384,11 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		startProcess := func(expecter expect.Expecter) string {
 			By("Start a long running process")
-			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
-				&expect.BSnd{S: "sleep 5&\n"},
-				&expect.BExp{R: "\\# "}, // prompt
+			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				&expect.BSnd{S: "sleep 8&\n"},
+				&expect.BExp{R: "\\# "},     // prompt
+				&expect.BSnd{S: "disown\n"}, // avoid "garbage" print in terminal on completion
+				&expect.BExp{R: "\\# "},     // prompt
 			}, 15*time.Second)
 			log.DefaultLogger().Infof("a:%+v\n", res)
 			Expect(err).ToNot(HaveOccurred())
@@ -413,7 +422,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
 
 			By("Waiting longer than the process normally runs")
-			time.Sleep(7 * time.Second)
+			time.Sleep(10 * time.Second)
 
 			By("Unpausing the VMI")
 			command = tests.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", tests.NamespaceTestDefault, vmi.Name)

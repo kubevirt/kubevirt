@@ -49,7 +49,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/flags"
 )
 
 var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachine", func() {
@@ -112,7 +111,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
 			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].name"))
 		})
-		It("[test_id:4643]should be rejected when VM template lists a DataVolume, but VM lists PVC VolumeSource", func() {
+		It("[test_id:4643]should NOT be rejected when VM template lists a DataVolume, but VM lists PVC VolumeSource", func() {
 			dv := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 			_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
 			Expect(err).To(BeNil())
@@ -149,11 +148,15 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 
 			vm := tests.NewRandomVirtualMachine(vmi, true)
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dv)
+			dvt := &v1.DataVolumeTemplateSpec{
+				ObjectMeta: dv.ObjectMeta,
+				Spec:       dv.Spec,
+			}
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dvt)
 			_, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
-			Expect(err).Should(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 		})
-		It("[test_id:4644]should fail to start when a volume is backed by PVC created by DataVolume instead of the DataVolume itself", func() {
+		It("[Serial][test_id:4644]should fail to start when a volume is backed by PVC created by DataVolume instead of the DataVolume itself", func() {
 			dv := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 			_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
 			Expect(err).To(BeNil())
@@ -202,29 +205,16 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 	})
 
-	Context("A mutated VirtualMachine given", func() {
+	Context("[Serial]A mutated VirtualMachine given", func() {
 
 		var testingMachineType string = "pc-q35-2.7"
 
 		BeforeEach(func() {
-			_, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
-			if err != nil && !errors.IsNotFound(err) {
-				Expect(err).ToNot(HaveOccurred())
-			}
-			if errors.IsNotFound(err) {
-				// create an empty kubevirt-config configmap if none exists.
-				cfgMap := &k8sv1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{Name: "kubevirt-config"},
-					Data: map[string]string{
-						"machine-type": testingMachineType,
-					},
-				}
+			kv := tests.GetCurrentKv(virtClient)
+			kubevirtConfiguration := kv.Spec.Configuration
 
-				_, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Create(cfgMap)
-				Expect(err).ToNot(HaveOccurred())
-			} else if err == nil {
-				tests.UpdateClusterConfigValueAndWait("machine-type", testingMachineType)
-			}
+			kubevirtConfiguration.MachineType = testingMachineType
+			tests.UpdateKubeVirtConfigValueAndWait(kubevirtConfiguration)
 		})
 
 		newVirtualMachineInstanceWithContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
@@ -472,8 +462,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
+			table.Entry("[Serial]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
 		)
 
 		table.DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(createTemplate vmiBuilder) {
@@ -490,8 +480,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 300*time.Second, 2*time.Second).Should(BeZero(), "The VirtualMachineInstance did not disappear")
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
+			table.Entry("[Serial]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
 		)
 
 		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
@@ -618,8 +608,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm = stopVM(vm)
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
+			table.Entry("[Serial]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
 		)
 
 		It("[test_id:1526]should start and stop VirtualMachineInstance multiple times", func() {
@@ -977,6 +967,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 
 				It("[test_id:4119]should migrate a running VM", func() {
+					nodes := tests.GetAllSchedulableNodes(virtClient)
+					if len(nodes.Items) < 2 {
+						Skip("Migration tests require at least 2 nodes")
+					}
 					By("creating a VM with RunStrategyAlways")
 					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
@@ -1735,9 +1729,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					return err
 				}, 10*time.Second, 1*time.Second).Should(BeNil())
 
-				_, err = cli.Get(vm1.Name, &v12.GetOptions{})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("not found"))
+				Eventually(func() error {
+					_, err = cli.Get(vm1.Name, &v12.GetOptions{})
+
+					return err
+				}, 10*time.Second, 1*time.Second).Should(HaveOccurred())
+				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 		})
 	})

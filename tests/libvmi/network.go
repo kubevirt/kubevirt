@@ -40,11 +40,22 @@ func WithNetwork(network *kvirtv1.Network) Option {
 }
 
 // InterfaceDeviceWithMasqueradeBinding returns an Interface named "default" with masquerade binding.
-func InterfaceDeviceWithMasqueradeBinding() kvirtv1.Interface {
+func InterfaceDeviceWithMasqueradeBinding(ports ...kvirtv1.Port) kvirtv1.Interface {
 	return kvirtv1.Interface{
 		Name: "default",
 		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
 			Masquerade: &kvirtv1.InterfaceMasquerade{},
+		},
+		Ports: ports,
+	}
+}
+
+// InterfaceDeviceWithBridgeBinding returns an Interface named "default" with bridge binding.
+func InterfaceDeviceWithBridgeBinding() kvirtv1.Interface {
+	return kvirtv1.Interface{
+		Name: "default",
+		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
+			Bridge: &kvirtv1.InterfaceBridge{},
 		},
 	}
 }

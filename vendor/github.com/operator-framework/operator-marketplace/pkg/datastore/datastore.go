@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	marketplace "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
+	"github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -18,6 +18,10 @@ func init() {
 	// the Marketplace operator.
 	Cache = New()
 }
+
+// DatastoreLabel is the label used to indicate that the resulting CatalogSource
+// acts as the datastore for the OperatorSource if it is set to "true".
+const DatastoreLabel string = "opsrc-datastore"
 
 // New returns an instance of memoryDatastore.
 func New() *memoryDatastore {
@@ -37,6 +41,10 @@ type Reader interface {
 	// ReadVersion takes a package identifer and returns version metadata
 	// to associate that package to a particular repository version.
 	ReadRepositoryVersion(packageID string) (version string, err error)
+
+	// CheckPackages returns an error if there are packages missing from the
+	// datastore but listed in the spec.
+	CheckPackages(packageIDs []string) error
 }
 
 // Writer is an interface that is used to manage the underlying datastore
@@ -65,7 +73,7 @@ type Writer interface {
 	// successfully processed and stored in datastore.
 	// err will be set to nil if there was no error and all manifests were
 	// processed and stored successfully.
-	Write(opsrc *marketplace.OperatorSource, rawManifests []*RegistryMetadata) (count int, err error)
+	Write(opsrc *v1.OperatorSource, rawManifests []*RegistryMetadata) (count int, err error)
 
 	// RemoveOperatorSource removes everything associated with a given operator
 	// source from the underlying datastore.
@@ -75,7 +83,7 @@ type Writer interface {
 
 	// AddOperatorSource registers a new OperatorSource object with the
 	// the underlying datastore.
-	AddOperatorSource(opsrc *marketplace.OperatorSource)
+	AddOperatorSource(opsrc *v1.OperatorSource)
 
 	// GetOperatorSource returns the Spec of the OperatorSource object
 	// associated with the UID specified in opsrcUID.
@@ -142,7 +150,7 @@ func (ds *memoryDatastore) ReadRepositoryVersion(packageID string) (version stri
 	return
 }
 
-func (ds *memoryDatastore) Write(opsrc *marketplace.OperatorSource, registryMetas []*RegistryMetadata) (count int, err error) {
+func (ds *memoryDatastore) Write(opsrc *v1.OperatorSource, registryMetas []*RegistryMetadata) (count int, err error) {
 	if opsrc == nil || registryMetas == nil {
 		err = errors.New("invalid argument")
 		return
@@ -209,7 +217,25 @@ func (ds *memoryDatastore) GetPackageIDsByOperatorSource(opsrcUID types.UID) str
 	return strings.Join(packages, ",")
 }
 
-func (ds *memoryDatastore) AddOperatorSource(opsrc *marketplace.OperatorSource) {
+func (ds *memoryDatastore) CheckPackages(packageIDs []string) error {
+	missingPackages := []string{}
+	for _, packageID := range packageIDs {
+		if _, err := ds.Read(packageID); err != nil {
+			missingPackages = append(missingPackages, packageID)
+			continue
+		}
+	}
+
+	if len(missingPackages) > 0 {
+		return fmt.Errorf(
+			"Still resolving package(s) - %s. Please make sure these are valid packages.",
+			strings.Join(missingPackages, ","),
+		)
+	}
+	return nil
+}
+
+func (ds *memoryDatastore) AddOperatorSource(opsrc *v1.OperatorSource) {
 	ds.rows.AddEmpty(opsrc)
 }
 

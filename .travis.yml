@@ -1,5 +1,6 @@
+if: type != pull_request OR branch =~ /^(release-[0-9\.]+)$/
+
 language: generic
-sudo: required
 dist: xenial
 
 services:
@@ -43,7 +44,7 @@ deploy:
   script: make build-functests
   skip_cleanup: true
   on:
-    branch: master
+    tags: true
     condition: $TRAVIS_CPU_ARCH = amd64
 - provider: releases
   skip_cleanup: true
@@ -60,6 +61,8 @@ deploy:
   - _out/manifests/release/olm/kubevirt-operatorsource.yaml
   - _out/manifests/release/olm/bundle/kubevirtoperator.$TRAVIS_TAG.clusterserviceversion.yaml
   - _out/tests/tests.test
+  - _out/manifests/release/conformance.yaml
+  - _out/manifests/release/conformance.yaml.j2
   prerelease: true
   overwrite: true
   name: $TRAVIS_TAG

@@ -291,11 +291,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.ClockOffsetUTC":                                      schema_kubevirtio_client_go_api_v1_ClockOffsetUTC(ref),
 		"kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource":                          schema_kubevirtio_client_go_api_v1_CloudInitConfigDriveSource(ref),
 		"kubevirt.io/client-go/api/v1.CloudInitNoCloudSource":                              schema_kubevirtio_client_go_api_v1_CloudInitNoCloudSource(ref),
+		"kubevirt.io/client-go/api/v1.ComponentConfig":                                     schema_kubevirtio_client_go_api_v1_ComponentConfig(ref),
 		"kubevirt.io/client-go/api/v1.ConfigMapVolumeSource":                               schema_kubevirtio_client_go_api_v1_ConfigMapVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.ContainerDiskSource":                                 schema_kubevirtio_client_go_api_v1_ContainerDiskSource(ref),
+		"kubevirt.io/client-go/api/v1.CustomizeComponents":                                 schema_kubevirtio_client_go_api_v1_CustomizeComponents(ref),
+		"kubevirt.io/client-go/api/v1.CustomizeComponentsPatch":                            schema_kubevirtio_client_go_api_v1_CustomizeComponentsPatch(ref),
 		"kubevirt.io/client-go/api/v1.DHCPOptions":                                         schema_kubevirtio_client_go_api_v1_DHCPOptions(ref),
 		"kubevirt.io/client-go/api/v1.DHCPPrivateOptions":                                  schema_kubevirtio_client_go_api_v1_DHCPPrivateOptions(ref),
 		"kubevirt.io/client-go/api/v1.DataVolumeSource":                                    schema_kubevirtio_client_go_api_v1_DataVolumeSource(ref),
+		"kubevirt.io/client-go/api/v1.DataVolumeTemplateDummyStatus":                       schema_kubevirtio_client_go_api_v1_DataVolumeTemplateDummyStatus(ref),
+		"kubevirt.io/client-go/api/v1.DataVolumeTemplateSpec":                              schema_kubevirtio_client_go_api_v1_DataVolumeTemplateSpec(ref),
 		"kubevirt.io/client-go/api/v1.DeveloperConfiguration":                              schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.Devices":                                             schema_kubevirtio_client_go_api_v1_Devices(ref),
 		"kubevirt.io/client-go/api/v1.Disk":                                                schema_kubevirtio_client_go_api_v1_Disk(ref),
@@ -307,10 +312,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.EphemeralVolumeSource":                               schema_kubevirtio_client_go_api_v1_EphemeralVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.FeatureAPIC":                                         schema_kubevirtio_client_go_api_v1_FeatureAPIC(ref),
 		"kubevirt.io/client-go/api/v1.FeatureHyperv":                                       schema_kubevirtio_client_go_api_v1_FeatureHyperv(ref),
+		"kubevirt.io/client-go/api/v1.FeatureKVM":                                          schema_kubevirtio_client_go_api_v1_FeatureKVM(ref),
 		"kubevirt.io/client-go/api/v1.FeatureSpinlocks":                                    schema_kubevirtio_client_go_api_v1_FeatureSpinlocks(ref),
 		"kubevirt.io/client-go/api/v1.FeatureState":                                        schema_kubevirtio_client_go_api_v1_FeatureState(ref),
 		"kubevirt.io/client-go/api/v1.FeatureVendorID":                                     schema_kubevirtio_client_go_api_v1_FeatureVendorID(ref),
 		"kubevirt.io/client-go/api/v1.Features":                                            schema_kubevirtio_client_go_api_v1_Features(ref),
+		"kubevirt.io/client-go/api/v1.Filesystem":                                          schema_kubevirtio_client_go_api_v1_Filesystem(ref),
+		"kubevirt.io/client-go/api/v1.FilesystemVirtiofs":                                  schema_kubevirtio_client_go_api_v1_FilesystemVirtiofs(ref),
 		"kubevirt.io/client-go/api/v1.Firmware":                                            schema_kubevirtio_client_go_api_v1_Firmware(ref),
 		"kubevirt.io/client-go/api/v1.FloppyTarget":                                        schema_kubevirtio_client_go_api_v1_FloppyTarget(ref),
 		"kubevirt.io/client-go/api/v1.GPU":                                                 schema_kubevirtio_client_go_api_v1_GPU(ref),
@@ -343,6 +351,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.Network":                                             schema_kubevirtio_client_go_api_v1_Network(ref),
 		"kubevirt.io/client-go/api/v1.NetworkConfiguration":                                schema_kubevirtio_client_go_api_v1_NetworkConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.NetworkSource":                                       schema_kubevirtio_client_go_api_v1_NetworkSource(ref),
+		"kubevirt.io/client-go/api/v1.NodePlacement":                                       schema_kubevirtio_client_go_api_v1_NodePlacement(ref),
 		"kubevirt.io/client-go/api/v1.PITTimer":                                            schema_kubevirtio_client_go_api_v1_PITTimer(ref),
 		"kubevirt.io/client-go/api/v1.PodNetwork":                                          schema_kubevirtio_client_go_api_v1_PodNetwork(ref),
 		"kubevirt.io/client-go/api/v1.Port":                                                schema_kubevirtio_client_go_api_v1_Port(ref),
@@ -393,18 +402,23 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.VolumeSource":                                        schema_kubevirtio_client_go_api_v1_VolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.Watchdog":                                            schema_kubevirtio_client_go_api_v1_Watchdog(ref),
 		"kubevirt.io/client-go/api/v1.WatchdogDevice":                                      schema_kubevirtio_client_go_api_v1_WatchdogDevice(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.Condition":                           schema_client_go_apis_snapshot_v1alpha1_Condition(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.Error":                               schema_client_go_apis_snapshot_v1alpha1_Error(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.SourceSpec":                          schema_client_go_apis_snapshot_v1alpha1_SourceSpec(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestore":               schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestore(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreList":           schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreList(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreSpec":           schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreSpec(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreStatus":         schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreStatus(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshot":              schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshot(ref),
-		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotCondition":     schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotCondition(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotContent":       schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotContent(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotContentList":   schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotContentList(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotContentSpec":   schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotContentSpec(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotContentStatus": schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotContentStatus(ref),
-		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError":         schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotError(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotList":          schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotList(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotSpec":          schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotStatus":        schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VolumeBackup":                        schema_client_go_apis_snapshot_v1alpha1_VolumeBackup(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VolumeRestore":                       schema_client_go_apis_snapshot_v1alpha1_VolumeRestore(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VolumeSnapshotStatus":                schema_client_go_apis_snapshot_v1alpha1_VolumeSnapshotStatus(ref),
 	}
 }
@@ -13325,6 +13339,15 @@ func schema_kubevirtio_client_go_api_v1_BIOS(ref common.ReferenceCallback) commo
 			SchemaProps: spec.SchemaProps{
 				Description: "If set (default), BIOS will be used.",
 				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"useSerial": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If set, the BIOS output will be transmitted over serial",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -13723,6 +13746,26 @@ func schema_kubevirtio_client_go_api_v1_CloudInitNoCloudSource(ref common.Refere
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_ComponentConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodePlacement": {
+						SchemaProps: spec.SchemaProps{
+							Description: "nodePlacement decsribes scheduling confiuguration for specific KubeVirt components",
+							Ref:         ref("kubevirt.io/client-go/api/v1.NodePlacement"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.NodePlacement"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_ConfigMapVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -13794,6 +13837,73 @@ func schema_kubevirtio_client_go_api_v1_ContainerDiskSource(ref common.Reference
 					},
 				},
 				Required: []string{"image"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_CustomizeComponents(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"patches": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/api/v1.CustomizeComponentsPatch"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.CustomizeComponentsPatch"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_CustomizeComponentsPatch(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"resourceName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"resourceType": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"patch": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -13903,6 +14013,62 @@ func schema_kubevirtio_client_go_api_v1_DataVolumeSource(ref common.ReferenceCal
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_DataVolumeTemplateDummyStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_DataVolumeTemplateSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataVolumeSpec contains the DataVolume specification.",
+							Ref:         ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataVolumeTemplateDummyStatus is here simply for backwards compatibility with a previous API.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.DataVolumeTemplateDummyStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/client-go/api/v1.DataVolumeTemplateDummyStatus", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSpec"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -13950,6 +14116,12 @@ func schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref common.Refere
 						},
 					},
 					"useEmulation": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"cpuAllocationRatio": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -14055,7 +14227,7 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 					},
 					"networkInterfaceMultiqueue": {
 						SchemaProps: spec.SchemaProps{
-							Description: "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature",
+							Description: "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -14073,11 +14245,29 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 							},
 						},
 					},
+					"filesystems": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Filesystems describes filesystem which is connected to the vmi.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/api/v1.Filesystem"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.Disk", "kubevirt.io/client-go/api/v1.GPU", "kubevirt.io/client-go/api/v1.Input", "kubevirt.io/client-go/api/v1.Interface", "kubevirt.io/client-go/api/v1.Rng", "kubevirt.io/client-go/api/v1.Watchdog"},
+			"kubevirt.io/client-go/api/v1.Disk", "kubevirt.io/client-go/api/v1.Filesystem", "kubevirt.io/client-go/api/v1.GPU", "kubevirt.io/client-go/api/v1.Input", "kubevirt.io/client-go/api/v1.Interface", "kubevirt.io/client-go/api/v1.Rng", "kubevirt.io/client-go/api/v1.Watchdog"},
 	}
 }
 
@@ -14504,6 +14694,25 @@ func schema_kubevirtio_client_go_api_v1_FeatureHyperv(ref common.ReferenceCallba
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_FeatureKVM(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"hidden": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hide the KVM hypervisor from standard MSR based discovery. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_FeatureSpinlocks(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -14584,7 +14793,7 @@ func schema_kubevirtio_client_go_api_v1_Features(ref common.ReferenceCallback) c
 				Properties: map[string]spec.Schema{
 					"acpi": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ACPI enables/disables ACPI insidejsondata guest. Defaults to enabled.",
+							Description: "ACPI enables/disables ACPI inside the guest. Defaults to enabled.",
 							Ref:         ref("kubevirt.io/client-go/api/v1.FeatureState"),
 						},
 					},
@@ -14606,11 +14815,54 @@ func schema_kubevirtio_client_go_api_v1_Features(ref common.ReferenceCallback) c
 							Ref:         ref("kubevirt.io/client-go/api/v1.FeatureState"),
 						},
 					},
+					"kvm": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Configure how KVM presence is exposed to the guest.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.FeatureKVM"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.FeatureAPIC", "kubevirt.io/client-go/api/v1.FeatureHyperv", "kubevirt.io/client-go/api/v1.FeatureState"},
+			"kubevirt.io/client-go/api/v1.FeatureAPIC", "kubevirt.io/client-go/api/v1.FeatureHyperv", "kubevirt.io/client-go/api/v1.FeatureKVM", "kubevirt.io/client-go/api/v1.FeatureState"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_Filesystem(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the device name",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"virtiofs": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.FilesystemVirtiofs"),
+						},
+					},
+				},
+				Required: []string{"name", "virtiofs"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.FilesystemVirtiofs"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_FilesystemVirtiofs(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
 	}
 }
 
@@ -15181,8 +15433,7 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtConfiguration(ref common.Referen
 					},
 					"cpuRequest": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
 					"developerConfiguration": {
@@ -15258,14 +15509,14 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtConfiguration(ref common.Referen
 					"memBalloonStatsPeriod": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
-							Format: "int32",
+							Format: "int64",
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.DeveloperConfiguration", "kubevirt.io/client-go/api/v1.MigrationConfiguration", "kubevirt.io/client-go/api/v1.NetworkConfiguration", "kubevirt.io/client-go/api/v1.SMBiosConfiguration"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/client-go/api/v1.DeveloperConfiguration", "kubevirt.io/client-go/api/v1.MigrationConfiguration", "kubevirt.io/client-go/api/v1.NetworkConfiguration", "kubevirt.io/client-go/api/v1.SMBiosConfiguration"},
 	}
 }
 
@@ -15418,11 +15669,28 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref common.ReferenceCallbac
 							Ref:         ref("kubevirt.io/client-go/api/v1.KubeVirtConfiguration"),
 						},
 					},
+					"infra": {
+						SchemaProps: spec.SchemaProps{
+							Description: "selectors and tolerations that should apply to KubeVirt infrastructure components",
+							Ref:         ref("kubevirt.io/client-go/api/v1.ComponentConfig"),
+						},
+					},
+					"workloads": {
+						SchemaProps: spec.SchemaProps{
+							Description: "selectors and tolerations that should apply to KubeVirt workloads",
+							Ref:         ref("kubevirt.io/client-go/api/v1.ComponentConfig"),
+						},
+					},
+					"customizeComponents": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.CustomizeComponents"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/client-go/api/v1.KubeVirtConfiguration"},
+			"kubevirt.io/client-go/api/v1.ComponentConfig", "kubevirt.io/client-go/api/v1.CustomizeComponents", "kubevirt.io/client-go/api/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/client-go/api/v1.KubeVirtConfiguration"},
 	}
 }
 
@@ -15593,23 +15861,6 @@ func schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref common.Refere
 				Description: "MigrationConfiguration holds migration options",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"allowAutoConverge": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"bandwidthPerMigration": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
-						},
-					},
-					"completionTimeoutPerGiB": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"nodeDrainTaintKey": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -15628,6 +15879,23 @@ func schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref common.Refere
 							Format: "",
 						},
 					},
+					"allowAutoConverge": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"bandwidthPerMigration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"completionTimeoutPerGiB": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"progressTimeout": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -15640,8 +15908,13 @@ func schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref common.Refere
 							Format: "",
 						},
 					},
+					"allowPostCopy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
-				Required: []string{"allowAutoConverge", "unsafeMigrationOverride"},
 			},
 		},
 		Dependencies: []string{
@@ -15763,6 +16036,60 @@ func schema_kubevirtio_client_go_api_v1_NetworkSource(ref common.ReferenceCallba
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/api/v1.MultusNetwork", "kubevirt.io/client-go/api/v1.PodNetwork"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_NodePlacement(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NodePlacement describes node scheduling configuration.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "nodeSelector is the node selector applied to the relevant kind of pods It specifies a map of key-value pairs: for the pod to be eligible to run on a node, the node must have each of the indicated key-value pairs as labels (it can have additional labels as well). See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"affinity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "affinity enables pod affinity/anti-affinity placement expanding the types of constraints that can be expressed with nodeSelector. affinity is going to be applied to the relevant kind of pods in parallel with nodeSelector See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity",
+							Ref:         ref("k8s.io/api/core/v1.Affinity"),
+						},
+					},
+					"tolerations": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "tolerations is a list of tolerations applied to the relevant kind of pods See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info. These are additional tolerations other than default ones.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/api/core/v1.Toleration"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Toleration"},
 	}
 }
 
@@ -17021,6 +17348,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceMigrationState(ref
 							Format:      "",
 						},
 					},
+					"mode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Lets us know if the vmi is currenly running pre or post copy migration",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -17689,6 +18023,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 							Format:      "",
 						},
 					},
+					"evacuationNodeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want to evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"activePods": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ActivePods is a mapping of pod UID to node name. It is possible for multiple pods to be running for a single VMI during migration.",
@@ -17818,7 +18159,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref common.ReferenceC
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolume"),
+										Ref: ref("kubevirt.io/client-go/api/v1.DataVolumeTemplateSpec"),
 									},
 								},
 							},
@@ -17829,7 +18170,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.VirtualMachineInstanceTemplateSpec", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolume"},
+			"kubevirt.io/client-go/api/v1.DataVolumeTemplateSpec", "kubevirt.io/client-go/api/v1.VirtualMachineInstanceTemplateSpec"},
 	}
 }
 
@@ -18157,6 +18498,82 @@ func schema_kubevirtio_client_go_api_v1_WatchdogDevice(ref common.ReferenceCallb
 	}
 }
 
+func schema_client_go_apis_snapshot_v1alpha1_Condition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Condition defines conditions",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"lastProbeTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"lastTransitionTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"type", "status"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_client_go_apis_snapshot_v1alpha1_Error(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Error is the last error encountered during the snapshot/restore",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"time": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_client_go_apis_snapshot_v1alpha1_SourceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -18174,6 +18591,189 @@ func schema_client_go_apis_snapshot_v1alpha1_SourceSpec(ref common.ReferenceCall
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/api/v1.VirtualMachine"},
+	}
+}
+
+func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestore(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineRestore defines the operation of restoring a VM",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreSpec", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreStatus"},
+	}
+}
+
+func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineRestoreList is a list of VirtualMachineRestore resources",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestore"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestore"},
+	}
+}
+
+func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineRestoreSpec is the spec for a VirtualMachineRestoreresource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Description: "initially only VirtualMachine type supported",
+							Ref:         ref("k8s.io/api/core/v1.TypedLocalObjectReference"),
+						},
+					},
+					"virtualMachineSnapshotName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"target", "virtualMachineSnapshotName"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.TypedLocalObjectReference"},
+	}
+}
+
+func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"restores": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VolumeRestore"),
+									},
+								},
+							},
+						},
+					},
+					"restoreTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"deletedDataVolumes": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"complete": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.Condition"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/client-go/apis/snapshot/v1alpha1.Condition", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VolumeRestore"},
 	}
 }
 
@@ -18219,56 +18819,6 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshot(ref common.R
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotSpec", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotStatus"},
-	}
-}
-
-func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineSnapshotCondition defines snapshot conditions",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"type": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"lastProbeTime": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-						},
-					},
-					"lastTransitionTime": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-						},
-					},
-					"reason": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"message": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-				Required: []string{"type", "status"},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -18423,7 +18973,7 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotContentStatus
 					},
 					"error": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError"),
+							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.Error"),
 						},
 					},
 					"volumeSnapshotStatus": {
@@ -18442,33 +18992,7 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotContentStatus
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VolumeSnapshotStatus"},
-	}
-}
-
-func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotError(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineSnapshotError is the last error encountered while creating the snapshot",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"time": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-						},
-					},
-					"message": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/client-go/apis/snapshot/v1alpha1.Error", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VolumeSnapshotStatus"},
 	}
 }
 
@@ -18553,6 +19077,12 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref co
 				Description: "VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"sourceUID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"virtualMachineSnapshotContentName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -18572,7 +19102,7 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref co
 					},
 					"error": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError"),
+							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.Error"),
 						},
 					},
 					"conditions": {
@@ -18581,7 +19111,7 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref co
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotCondition"),
+										Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.Condition"),
 									},
 								},
 							},
@@ -18591,7 +19121,7 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref co
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotCondition", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/client-go/apis/snapshot/v1alpha1.Condition", "kubevirt.io/client-go/apis/snapshot/v1alpha1.Error"},
 	}
 }
 
@@ -18602,7 +19132,7 @@ func schema_client_go_apis_snapshot_v1alpha1_VolumeBackup(ref common.ReferenceCa
 				Description: "VolumeBackup contains the data neeed to restore a PVC",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"diskName": {
+					"volumeName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -18620,11 +19150,49 @@ func schema_client_go_apis_snapshot_v1alpha1_VolumeBackup(ref common.ReferenceCa
 						},
 					},
 				},
-				Required: []string{"diskName", "persistentVolumeClaim"},
+				Required: []string{"volumeName", "persistentVolumeClaim"},
 			},
 		},
 		Dependencies: []string{
 			"k8s.io/api/core/v1.PersistentVolumeClaim"},
+	}
+}
+
+func schema_client_go_apis_snapshot_v1alpha1_VolumeRestore(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolumeRestore contains the data neeed to restore a PVC",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"volumeName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"persistentVolumeClaim": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"volumeSnapshotName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"dataVolumeName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"volumeName", "persistentVolumeClaim", "volumeSnapshotName"},
+			},
+		},
 	}
 }
 
@@ -18654,7 +19222,7 @@ func schema_client_go_apis_snapshot_v1alpha1_VolumeSnapshotStatus(ref common.Ref
 					},
 					"error": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError"),
+							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.Error"),
 						},
 					},
 				},
@@ -18662,6 +19230,6 @@ func schema_client_go_apis_snapshot_v1alpha1_VolumeSnapshotStatus(ref common.Ref
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/client-go/apis/snapshot/v1alpha1.Error"},
 	}
 }

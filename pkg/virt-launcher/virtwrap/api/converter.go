@@ -1,6 +1,6 @@
 /*
  * This file is part of the KubeVirt project
- *
+*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,7 +15,7 @@
  *
  * Copyright 2017, 2018 Red Hat, Inc.
  *
- */
+*/
 
 package api
 
@@ -56,6 +56,9 @@ const (
 	EFIVars                = "OVMF_VARS.fd"
 	EFICodeSecureBoot      = "OVMF_CODE.secboot.fd"
 	EFIVarsSecureBoot      = "OVMF_VARS.secboot.fd"
+)
+const (
+	multiQueueMaxQueues = uint32(256)
 )
 
 // +k8s:deepcopy-gen=false
@@ -554,6 +557,13 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *Features
 			return nil
 		}
 	}
+	if source.KVM != nil {
+		features.KVM = &FeatureKVM{
+			Hidden: &FeatureState{
+				State: boolToOnOff(&source.KVM.Hidden, false),
+			},
+		}
+	}
 	return nil
 }
 
@@ -667,10 +677,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	// CPU topology will be created everytime, because user can specify
 	// number of cores in vmi.Spec.Domain.Resources.Requests/Limits, not only
 	// in vmi.Spec.Domain.CPU
-	domain.Spec.CPU.Topology = getCPUTopology(vmi)
+	queueNumber, cpuTopology := CalculateNetworkQueueNumberAndGetCPUTopology(vmi)
+	domain.Spec.CPU.Topology = cpuTopology
 	domain.Spec.VCPU = &VCPU{
 		Placement: "static",
-		CPUs:      calculateRequestedVCPUs(domain.Spec.CPU.Topology),
+		CPUs:      queueNumber,
 	}
 
 	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
@@ -748,6 +759,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			}
 		}
 
+		if vmi.Spec.Domain.Firmware.Bootloader != nil && vmi.Spec.Domain.Firmware.Bootloader.BIOS != nil {
+			if vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial != nil && *vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial {
+				domain.Spec.OS.BIOS = &BIOS{
+					UseSerial: "yes",
+				}
+			}
+		}
+
 		if len(vmi.Spec.Domain.Firmware.Serial) > 0 {
 			domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System, Entry{Name: "serial", Value: string(vmi.Spec.Domain.Firmware.Serial)})
 		}
@@ -815,9 +834,40 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		return err
 	}
 
+	var isMemfdRequired = false
 	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
 		domain.Spec.MemoryBacking = &MemoryBacking{
 			HugePages: &HugePages{},
+		}
+		if val := vmi.Annotations[v1.MemfdMemoryBackend]; val != "false" {
+			isMemfdRequired = true
+		}
+	}
+	// virtiofs require shared access
+	if util.IsVMIVirtiofsEnabled(vmi) {
+		if domain.Spec.MemoryBacking == nil {
+			domain.Spec.MemoryBacking = &MemoryBacking{}
+		}
+		domain.Spec.MemoryBacking.Access = &MemoryBackingAccess{
+			Mode: "shared",
+		}
+		isMemfdRequired = true
+	}
+
+	if isMemfdRequired {
+		// Set memfd as memory backend to solve SELinux restrictions
+		// See the issue: https://github.com/kubevirt/kubevirt/issues/3781
+		domain.Spec.MemoryBacking.Source = &MemoryBackingSource{Type: "memfd"}
+		// NUMA is required in order to use memfd
+		domain.Spec.CPU.NUMA = &NUMA{
+			Cells: []NUMACell{
+				{
+					ID:     "0",
+					CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
+					Memory: fmt.Sprintf("%d", getVirtualMemory(vmi).Value()/int64(1024)),
+					Unit:   "KiB",
+				},
+			},
 		}
 	}
 
@@ -890,7 +940,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	var numBlkQueues *uint
 	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
 	virtioNetMQRequested := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
-	vcpus := uint(calculateRequestedVCPUs(domain.Spec.CPU.Topology))
+	vcpus := uint(queueNumber)
 	if vcpus == 0 {
 		vcpus = uint(1)
 	}
@@ -938,6 +988,42 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 
 		domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
+	}
+	// Handle virtioFS
+	for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
+		if fs.Virtiofs != nil {
+			newFS := FilesystemDevice{}
+
+			newFS.Type = "mount"
+			newFS.AccessMode = "passthrough"
+			newFS.Driver = &FilesystemDriver{
+				Type:  "virtiofs",
+				Queue: "1024",
+			}
+			newFS.Binary = &FilesystemBinary{
+				Path:  "/usr/libexec/virtiofsd",
+				Xattr: "on",
+				Cache: &FilesystemBinaryCache{
+					Mode: "always",
+				},
+				Lock: &FilesystemBinaryLock{
+					Posix: "on",
+					Flock: "on",
+				},
+			}
+			newFS.Target = &FilesystemTarget{
+				Dir: fs.Name,
+			}
+
+			volume := volumes[fs.Name]
+			if volume == nil {
+				return fmt.Errorf("No matching volume with name %s found", fs.Name)
+			}
+			volDir, _ := filepath.Split(GetFilesystemVolumePath(volume.Name))
+			newFS.Source = &FilesystemSource{}
+			newFS.Source.Dir = volDir
+			domain.Spec.Devices.Filesystems = append(domain.Spec.Devices.Filesystems, newFS)
+		}
 	}
 
 	if vmi.Spec.Domain.Devices.Watchdog != nil {
@@ -1207,6 +1293,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				Type:    "pci",
 				Managed: "yes",
 			}
+
+			if iface.PciAddress != "" {
+				addr, err := decoratePciAddressField(iface.PciAddress)
+				if err != nil {
+					return fmt.Errorf("failed to configure SRIOV %s: %v", iface.Name, err)
+				}
+				hostDev.Address = addr
+			}
+
 			if iface.BootOrder != nil {
 				hostDev.BootOrder = &BootOrder{Order: *iface.BootOrder}
 			}
@@ -1249,6 +1344,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				domainIface.Type = "ethernet"
 				if iface.BootOrder != nil {
 					domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
+				} else {
+					domainIface.Rom = &Rom{Enabled: "no"}
 				}
 			} else if iface.Slirp != nil {
 				domainIface.Type = "user"
@@ -1352,6 +1449,17 @@ func getCPUTopology(vmi *v1.VirtualMachineInstance) *CPUTopology {
 
 func calculateRequestedVCPUs(cpuTopology *CPUTopology) uint32 {
 	return cpuTopology.Cores * cpuTopology.Sockets * cpuTopology.Threads
+}
+
+func CalculateNetworkQueueNumberAndGetCPUTopology(vmi *v1.VirtualMachineInstance) (uint32, *CPUTopology) {
+	cpuTopology := getCPUTopology(vmi)
+	queueNumber := calculateRequestedVCPUs(cpuTopology)
+
+	if queueNumber > multiQueueMaxQueues {
+		log.Log.V(3).Infof("Capped the number of queues to be the current maximum of tap device queues: %d", multiQueueMaxQueues)
+		queueNumber = multiQueueMaxQueues
+	}
+	return queueNumber, cpuTopology
 }
 
 func formatDomainCPUTune(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) error {

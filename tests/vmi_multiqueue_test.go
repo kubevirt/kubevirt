@@ -35,9 +35,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("MultiQueue", func() {
+var _ = Describe("[Serial]MultiQueue", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -120,6 +121,32 @@ var _ = Describe("MultiQueue", func() {
 			By("Ensuring each disk has three queues assigned")
 			for _, disk := range domSpec.Devices.Disks {
 				Expect(int(*disk.Driver.Queues)).To(Equal(numCpus))
+			}
+		})
+
+		It("should be able to create a multi-queue VMI when requesting a single vCPU", func() {
+			vmi := libvmi.NewCirros()
+
+			multiQueue := true
+			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 1, Sockets: 1, Threads: 1}
+			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = &multiQueue
+
+			By("Creating and starting the VMI")
+			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
+
+			By("Fetching Domain XML from running pod")
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			domSpec := &api.DomainSpec{}
+			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
+
+			for i, iface := range domSpec.Devices.Interfaces {
+				expectedIfaceName := fmt.Sprintf("tap%d", i)
+
+				Expect(iface.Target.Device).To(Equal(expectedIfaceName), fmt.Sprintf("the target name should be %s", expectedIfaceName))
+				Expect(iface.Target.Managed).To(Equal("no"), "we should instruct libvirt not to configure the tap device")
 			}
 		})
 

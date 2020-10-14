@@ -121,6 +121,30 @@ var _ = Describe("ContainerDisk", func() {
 
 			})
 
+			It("by verifying error occurs if multiple host directory locations exist somehow", func() {
+				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi.UID = "6789"
+				vmi.Status.ActivePods = map[types.UID]string{
+					"1234": "myhost",
+					"5678": "myhost",
+				}
+
+				// should not return error if only one dir exists
+				expectedPath := fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
+				os.MkdirAll(expectedPath, 0755)
+				path, found, err := GetVolumeMountDirOnHost(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(found).To(BeTrue())
+				Expect(path).To(Equal(expectedPath))
+
+				// return error if two dirs exist
+				secondPath := fmt.Sprintf("%s/5678/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
+				os.MkdirAll(secondPath, 0755)
+				path, found, err = GetVolumeMountDirOnHost(vmi)
+				Expect(err).To(HaveOccurred())
+				Expect(found).To(BeFalse())
+			})
+
 			It("by verifying launcher directory locations", func() {
 				vmi := v1.NewMinimalVMI("fake-vmi")
 				vmi.UID = "6789"

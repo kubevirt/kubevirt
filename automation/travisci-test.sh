@@ -1,5 +1,7 @@
 #!/bin/bash -e
 
+export TIMESTAMP=${TIMESTAMP:-1}
+
 # when not on a release do extensive checks
 if [ -z "$TRAVIS_TAG" ]; then
 	make bazel-build-verify

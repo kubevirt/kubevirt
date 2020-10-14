@@ -213,6 +213,9 @@ type Bootloader struct {
 //
 // +k8s:openapi-gen=true
 type BIOS struct {
+	// If set, the BIOS output will be transmitted over serial
+	// +optional
+	UseSerial *bool `json:"useSerial,omitempty"`
 }
 
 // If set, EFI will be used instead of BIOS.
@@ -366,12 +369,16 @@ type Devices struct {
 	// Whether or not to enable virtio multi-queue for block devices
 	// +optional
 	BlockMultiQueue *bool `json:"blockMultiQueue,omitempty"`
-	// If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature
+	// If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.
 	// +optional
 	NetworkInterfaceMultiQueue *bool `json:"networkInterfaceMultiqueue,omitempty"`
 	//Whether to attach a GPU device to the vmi.
 	// +optional
 	GPUs []GPU `json:"gpus,omitempty"`
+	// Filesystems describes filesystem which is connected to the vmi.
+	// +optional
+	// +listType=set
+	Filesystems []Filesystem `json:"filesystems,omitempty"`
 }
 
 //
@@ -386,6 +393,18 @@ type Input struct {
 	// Name is the device name
 	Name string `json:"name"`
 }
+
+//
+// +k8s:openapi-gen=true
+type Filesystem struct {
+	// Name is the device name
+	Name     string              `json:"name"`
+	Virtiofs *FilesystemVirtiofs `json:"virtiofs"`
+}
+
+//
+// +k8s:openapi-gen=true
+type FilesystemVirtiofs struct{}
 
 //
 // +k8s:openapi-gen=true
@@ -791,7 +810,7 @@ type HypervTimer struct {
 //
 // +k8s:openapi-gen=true
 type Features struct {
-	// ACPI enables/disables ACPI insidejsondata guest.
+	// ACPI enables/disables ACPI inside the guest.
 	// Defaults to enabled.
 	// +optional
 	ACPI FeatureState `json:"acpi,omitempty"`
@@ -805,6 +824,9 @@ type Features struct {
 	// TSEG not yet implemented.
 	// +optional
 	SMM *FeatureState `json:"smm,omitempty"`
+	// Configure how KVM presence is exposed to the guest.
+	// +optional
+	KVM *FeatureKVM `json:"kvm,omitempty"`
 }
 
 // Represents if a feature is enabled or disabled.
@@ -915,6 +937,13 @@ type FeatureHyperv struct {
 	// Defaults to the machine type setting.
 	// +optional
 	EVMCS *FeatureState `json:"evmcs,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type FeatureKVM struct {
+	// Hide the KVM hypervisor from standard MSR based discovery.
+	// Defaults to false
+	Hidden bool `json:"hidden,omitempty"`
 }
 
 // WatchdogAction defines the watchdog action, if a watchdog gets triggered.

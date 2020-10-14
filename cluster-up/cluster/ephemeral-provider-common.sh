@@ -2,13 +2,17 @@
 
 set -e
 
-source ${KUBEVIRTCI_PATH}/cluster/images.sh
-
 if [ "${KUBEVIRTCI_RUNTIME}" = "podman" ]; then
     _cli="pack8s"
 else
-    _cli_container="${KUBEVIRTCI_GOCLI_CONTAINER:-kubevirtci/${IMAGES[gocli]}}"
-    _cli="docker run --privileged --net=host --rm ${USE_TTY} -v /var/run/docker.sock:/var/run/docker.sock ${_cli_container}"
+    _cli_container="${KUBEVIRTCI_GOCLI_CONTAINER:-kubevirtci/gocli:${KUBEVIRTCI_TAG}}"
+    _cli="docker run --privileged --net=host --rm ${USE_TTY} -v /var/run/docker.sock:/var/run/docker.sock"
+    # gocli will try to mount /lib/modules to make it accessible to dnsmasq in
+    # in case it exists
+    if [ -d /lib/modules ]; then
+        _cli="${_cli} -v /lib/modules/:/lib/modules/"
+    fi
+    _cli="${_cli} ${_cli_container}"
 fi
 
 function _main_ip() {
@@ -36,14 +40,14 @@ function _registry_volume() {
 }
 
 function _add_common_params() {
-    local params="--nodes ${KUBEVIRT_NUM_NODES} --memory ${KUBEVIRT_MEMORY_SIZE} --cpu 6 --secondary-nics ${KUBEVIRT_NUM_SECONDARY_NICS} --random-ports --background --prefix $provider_prefix --registry-volume $(_registry_volume) kubevirtci/${image} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}"
+    local params="--nodes ${KUBEVIRT_NUM_NODES} --memory ${KUBEVIRT_MEMORY_SIZE} --cpu 6 --secondary-nics ${KUBEVIRT_NUM_SECONDARY_NICS} --random-ports --background --prefix $provider_prefix --registry-volume $(_registry_volume) ${KUBEVIRT_PROVIDER} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}"
     if [[ $TARGET =~ windows.* ]] && [ -n "$WINDOWS_NFS_DIR" ]; then
         params=" --nfs-data $WINDOWS_NFS_DIR $params"
     elif [[ $TARGET =~ os-.* ]] && [ -n "$RHEL_NFS_DIR" ]; then
         params=" --nfs-data $RHEL_NFS_DIR $params"
     fi
     if [ -n "${KUBEVIRTCI_PROVISION_CHECK}" ]; then
-        params=" --container-registry= $params"
+        params=" --container-registry= --container-suffix=:latest $params"
     fi
     echo $params
 }

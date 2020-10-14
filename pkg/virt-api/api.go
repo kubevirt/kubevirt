@@ -66,6 +66,12 @@ const (
 	defaultHost = "0.0.0.0"
 
 	defaultConsoleServerPort = 8186
+
+	defaultCAConfigMapName     = "kubevirt-ca"
+	defaultTlsCertFilePath     = "/etc/virt-api/certificates/tls.crt"
+	defaultTlsKeyFilePath      = "/etc/virt-api/certificates/tls.key"
+	defaultHandlerCertFilePath = "/etc/virt-handler/clientcertificates/tls.crt"
+	defaultHandlerKeyFilePath  = "/etc/virt-handler/clientcertificates/tls.key"
 )
 
 type VirtApi interface {
@@ -93,6 +99,13 @@ type virtAPIApp struct {
 	certmanager             certificate2.Manager
 	handlerTLSConfiguration *tls.Config
 	handlerCertManager      certificate2.Manager
+
+	caConfigMapName     string
+	tlsCertFilePath     string
+	tlsKeyFilePath      string
+	handlerCertFilePath string
+	handlerKeyFilePath  string
+	externallyManaged   bool
 }
 
 var _ service.Service = &virtAPIApp{}
@@ -540,8 +553,8 @@ func (app *virtAPIApp) readRequestHeader() error {
 }
 
 func (app *virtAPIApp) prepareCertManager() {
-	app.certmanager = bootstrap.NewFileCertificateManager("/etc/virt-api/certificates")
-	app.handlerCertManager = bootstrap.NewFileCertificateManager("/etc/virt-handler/clientcertificates")
+	app.certmanager = bootstrap.NewFileCertificateManager(app.tlsCertFilePath, app.tlsKeyFilePath)
+	app.handlerCertManager = bootstrap.NewFileCertificateManager(app.handlerCertFilePath, app.handlerKeyFilePath)
 }
 
 func (app *virtAPIApp) registerValidatingWebhooks() {
@@ -569,8 +582,14 @@ func (app *virtAPIApp) registerValidatingWebhooks() {
 	http.HandleFunc(components.VMSnapshotValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMSnapshots(w, r, app.clusterConfig, app.virtCli)
 	})
+	http.HandleFunc(components.VMRestoreValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVMRestores(w, r, app.clusterConfig, app.virtCli)
+	})
 	http.HandleFunc(components.StatusValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeStatusValidation(w, r)
+	})
+	http.HandleFunc(components.LauncherEvictionValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServePodEvictionInterceptor(w, r, app.clusterConfig, app.virtCli)
 	})
 }
 
@@ -605,7 +624,7 @@ func (app *virtAPIApp) setupTLS(k8sCAManager webhooksutils.ClientCAManager, kube
 	// if the TLS handshake requests it. As a result, the TLS handshake fails
 	// and our aggregated endpoint never becomes available.
 	app.tlsConfig = webhooksutils.SetupTLSWithCertManager(k8sCAManager, app.certmanager, tls.VerifyClientCertIfGiven)
-	app.handlerTLSConfiguration = webhooksutils.SetupTLSForVirtHandlerClients(kubevirtCAManager, app.handlerCertManager)
+	app.handlerTLSConfiguration = webhooksutils.SetupTLSForVirtHandlerClients(kubevirtCAManager, app.handlerCertManager, app.externallyManaged)
 }
 
 func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory, stopCh <-chan struct{}) error {
@@ -616,7 +635,7 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory, 
 	kubevirtCAConfigInformer := informerFactory.KubeVirtCAConfigMap()
 
 	k8sCAManager := webhooksutils.NewKubernetesClientCAManager(authConfigMapInformer.GetStore())
-	kubevirtCAInformer := webhooksutils.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace)
+	kubevirtCAInformer := webhooksutils.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace, app.caConfigMapName)
 
 	app.setupTLS(k8sCAManager, kubevirtCAInformer)
 
@@ -666,6 +685,7 @@ func (app *virtAPIApp) Run() {
 	go webhookInformers.VMIInformer.Run(stopChan)
 	go webhookInformers.VMIPresetInformer.Run(stopChan)
 	go webhookInformers.NamespaceLimitsInformer.Run(stopChan)
+	go webhookInformers.VMRestoreInformer.Run(stopChan)
 	go kubeVirtInformer.Run(stopChan)
 	go configMapInformer.Run(stopChan)
 	go crdInformer.Run(stopChan)
@@ -705,4 +725,16 @@ func (app *virtAPIApp) AddFlags() {
 		"Only serve subresource endpoints")
 	flag.IntVar(&app.consoleServerPort, "console-server-port", defaultConsoleServerPort,
 		"The port virt-handler listens on for console requests")
+	flag.StringVar(&app.caConfigMapName, "ca-configmap-name", defaultCAConfigMapName,
+		"The name of configmap containing CA certificates to authenticate requests presenting client certificates with matching CommonName")
+	flag.StringVar(&app.tlsCertFilePath, "tls-cert-file", defaultTlsCertFilePath,
+		"File containing the default x509 Certificate for HTTPS")
+	flag.StringVar(&app.tlsKeyFilePath, "tls-key-file", defaultTlsKeyFilePath,
+		"File containing the default x509 private key matching --tls-cert-file")
+	flag.StringVar(&app.handlerCertFilePath, "handler-cert-file", defaultHandlerCertFilePath,
+		"Client certificate used to prove the identity of the virt-api when it must call virt-handler during a request")
+	flag.StringVar(&app.handlerKeyFilePath, "handler-key-file", defaultHandlerKeyFilePath,
+		"Private key for the client certificate used to prove the identity of the virt-api when it must call virt-handler during a request")
+	flag.BoolVar(&app.externallyManaged, "externally-managed", false,
+		"Allow intermediate certificates to be used in building up the chain of trust when certificates are externally managed")
 }

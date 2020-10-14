@@ -30,7 +30,6 @@ const (
 	DefaultResourceMemory        = "8192Ki"
 	DefaultTestGracePeriod int64 = 0
 	DefaultVmiName               = "testvmi"
-	NamespaceTestDefault         = "kubevirt-test-default"
 )
 
 // NewFedora instantiates a new Fedora based VMI configuration,
@@ -40,14 +39,27 @@ func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	echo "fedora" |passwd fedora --stdin
 	echo `
 
-	opts = append(
+	fedoraOptions := append(
 		defaultOptions(),
 		WithResourceMemory("512M"),
 		WithRng(),
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedora)),
-		WithCloudInitNoCloudUserData(configurePassword, true),
+		WithCloudInitNoCloudUserData(configurePassword, false),
 	)
-	return New(NamespaceTestDefault, RandName(DefaultVmiName), opts...)
+	opts = append(fedoraOptions, opts...)
+	return New(RandName(DefaultVmiName), opts...)
+}
+
+// NewCirros instantiates a new CirrOS based VMI configuration
+func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	cirrosOpts := []Option{
+		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+		WithCloudInitNoCloudUserData("#!/bin/bash\necho 'hello'\n", true),
+		WithResourceMemory("64M"),
+		WithTerminationGracePeriod(DefaultTestGracePeriod),
+	}
+	cirrosOpts = append(cirrosOpts, opts...)
+	return New(RandName(DefaultVmiName), cirrosOpts...)
 }
 
 // defaultOptions returns a list of "default" options.

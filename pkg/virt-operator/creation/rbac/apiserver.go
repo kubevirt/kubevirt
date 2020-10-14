@@ -88,7 +88,7 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances",
 				},
 				Verbs: []string{
-					"get", "list", "watch", "patch",
+					"get", "list", "watch", "patch", "update",
 				},
 			},
 			{
@@ -170,6 +170,18 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 					"get",
 					"list",
 					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"snapshot.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachinesnapshots",
+					"virtualmachinerestores",
+				},
+				Verbs: []string{
+					"get", "list", "watch",
 				},
 			},
 		},
