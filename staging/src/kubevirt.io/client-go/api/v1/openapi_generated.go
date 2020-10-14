@@ -16701,30 +16701,29 @@ func schema_kubevirtio_client_go_api_v1_QemuGuestAgentSSHPublicKeyAccessCredenti
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"authorizedKeysFiles": {
+					"users": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
 								"x-kubernetes-list-type": "set",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "AuthorizedKeysFiles represents all the paths within the guest that ssh public keys should be propagated to",
+							Description: "Users represents a list of guest users that should have the ssh public keys added to their authorized_keys file.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/client-go/api/v1.AuthorizedKeysFile"),
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
 						},
 					},
 				},
-				Required: []string{"authorizedKeysFiles"},
+				Required: []string{"users"},
 			},
 		},
-		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.AuthorizedKeysFile"},
 	}
 }
 

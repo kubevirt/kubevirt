@@ -86,13 +86,15 @@ var _ = Describe("AccessCredentials", func() {
 
 	It("should handle dynamically updating ssh key with qemu agent", func() {
 		domName := "some-domain"
-		filePath := "/some/file/path/authorized_keys"
+		user := "someowner"
+		//userHome := "/home/someowner"
+		filePath := "/home/someowner/.ssh"
 
 		authorizedKeys := "some injected ssh key"
 		base64Str := "c3NoIHNvbWVrZXkgc3R1ZmYKCiMjIyBBVVRPIFBST1BBR0FURUQgQlkgS1VCRVZJUlQgQkVMT1cgVEhJUyBMSU5FICMjIwpzb21lIGluamVjdGVkIHNzaCBrZXk="
 
-		expectedOpenCmd := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s", "mode":"r" } }`, filePath)
-		expectedWriteOpenCmd := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s", "mode":"w" } }`, filePath)
+		expectedOpenCmd := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s/authorized_keys", "mode":"r" } }`, filePath)
+		expectedWriteOpenCmd := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s/authorized_keys", "mode":"w" } }`, filePath)
 		expectedOpenCmdRes := `{"return":1000}`
 
 		expectedReadCmd := `{"execute": "guest-file-read", "arguments": { "handle": 1000 } }`
@@ -105,26 +107,34 @@ var _ = Describe("AccessCredentials", func() {
 		expectedExecReturn := `{"return":{"pid":789}}`
 		expectedStatusCmd := `{"execute": "guest-exec-status", "arguments": { "pid": 789 } }`
 
-		expectedParentOwnerCmd := `{"execute": "guest-exec", "arguments": { "path": "stat", "arg": [ "-c", "%U:%G", "/some/file" ], "capture-output":true } }`
-		expectedParentOwnerCmdRes := `{"return":{"exitcode":0,"out-data":"dXNlcjpwYXNz","exited":true}}`
+		getentBase64Str := base64.StdEncoding.EncodeToString([]byte("someowner:x:1111:2222:Some Owner:/home/someowner:/bin/bash"))
+		expectedHomeDirCmd := `{"execute": "guest-exec", "arguments": { "path": "getent", "arg": [ "passwd", "someowner" ], "capture-output":true } }`
+		expectedHomeDirCmdRes := fmt.Sprintf(`{"return":{"exitcode":0,"out-data":"%s","exited":true}}`, getentBase64Str)
 
-		expectedFileOwnerCmd := `{"execute": "guest-exec", "arguments": { "path": "stat", "arg": [ "-c", "%U:%G", "/some/file/path" ], "capture-output":true } }`
-		expectedFileOwnerCmdRes := `{"return":{"exitcode":0,"out-data":"dXNlcjpwYXNz","exited":true}}`
-
-		expectedMkdirCmd := `{"execute": "guest-exec", "arguments": { "path": "mkdir", "arg": [ "-p", "/some/file/path" ], "capture-output":true } }`
+		expectedMkdirCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "mkdir", "arg": [ "-p", "%s" ], "capture-output":true } }`, filePath)
 		expectedMkdirRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
 
-		expectedParentChownCmd := `{"execute": "guest-exec", "arguments": { "path": "chown", "arg": [ "user:pass", "/some/file/path" ], "capture-output":true } }`
+		expectedParentChownCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chown", "arg": [ "1111:2222", "%s" ], "capture-output":true } }`, filePath)
 		expectedParentChownRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
 
-		expectedParentChmodCmd := `{"execute": "guest-exec", "arguments": { "path": "chmod", "arg": [ "700", "/some/file/path" ], "capture-output":true } }`
+		expectedParentChmodCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chmod", "arg": [ "700", "%s" ], "capture-output":true } }`, filePath)
 		expectedParentChmodRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
 
-		expectedFileChownCmd := `{"execute": "guest-exec", "arguments": { "path": "chown", "arg": [ "user:pass", "/some/file/path/authorized_keys" ], "capture-output":true } }`
+		expectedFileChownCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chown", "arg": [ "1111:2222", "%s/authorized_keys" ], "capture-output":true } }`, filePath)
 		expectedFileChownRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
 
-		expectedFileChmodCmd := `{"execute": "guest-exec", "arguments": { "path": "chmod", "arg": [ "600", "/some/file/path/authorized_keys" ], "capture-output":true } }`
+		expectedFileChmodCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chmod", "arg": [ "600", "%s/authorized_keys" ], "capture-output":true } }`, filePath)
 		expectedFileChmodRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
+
+		//
+		//
+		//
+		//
+		// Detect user home dir
+		//
+		mockConn.EXPECT().QemuAgentCommand(expectedHomeDirCmd, domName).Return(expectedExecReturn, nil)
+		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedHomeDirCmdRes, nil)
+
 		//
 		//
 		//
@@ -139,9 +149,6 @@ var _ = Describe("AccessCredentials", func() {
 		//
 		// Expected prepare directory
 		//
-		mockConn.EXPECT().QemuAgentCommand(expectedParentOwnerCmd, domName).Return(expectedExecReturn, nil)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedParentOwnerCmdRes, nil)
-
 		mockConn.EXPECT().QemuAgentCommand(expectedMkdirCmd, domName).Return(expectedExecReturn, nil)
 		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedMkdirRes, nil)
 
@@ -150,6 +157,7 @@ var _ = Describe("AccessCredentials", func() {
 
 		mockConn.EXPECT().QemuAgentCommand(expectedParentChmodCmd, domName).Return(expectedExecReturn, nil)
 		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedParentChmodRes, nil)
+
 		//
 		//
 		//
@@ -165,8 +173,8 @@ var _ = Describe("AccessCredentials", func() {
 		// Expected set file permissions
 		//
 
-		mockConn.EXPECT().QemuAgentCommand(expectedFileOwnerCmd, domName).Return(expectedExecReturn, nil)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileOwnerCmdRes, nil)
+		//mockConn.EXPECT().QemuAgentCommand(expectedFileOwnerCmd, domName).Return(expectedExecReturn, nil)
+		//mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileOwnerCmdRes, nil)
 
 		mockConn.EXPECT().QemuAgentCommand(expectedFileChownCmd, domName).Return(expectedExecReturn, nil)
 		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileChownRes, nil)
@@ -174,7 +182,7 @@ var _ = Describe("AccessCredentials", func() {
 		mockConn.EXPECT().QemuAgentCommand(expectedFileChmodCmd, domName).Return(expectedExecReturn, nil)
 		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileChmodRes, nil)
 
-		err := manager.agentWriteAuthorizedKeys(domName, filePath, authorizedKeys)
+		err := manager.agentWriteAuthorizedKeys(domName, user, authorizedKeys)
 		Expect(err).To(BeNil())
 	})
 

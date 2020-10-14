@@ -32,8 +32,8 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
@@ -64,14 +64,8 @@ var _ = Describe("Guest Access Credentials", func() {
 		}
 
 		ExecutingBatchCmd = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
-			By("Expecting the VirtualMachineInstance console")
-			expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
-
 			By("Checking that the VirtualMachineInstance serial console output equals to expected one")
-			resp, err := expecter.ExpectBatch(commands, timeout)
-			log.DefaultLogger().Object(vmi).Infof("%v", resp)
+			err := console.ExpectBatch(vmi, commands, timeout)
 			Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -85,7 +79,7 @@ var _ = Describe("Guest Access Credentials", func() {
 		It("should propagate public ssh keys", func() {
 			secretID := "my-pub-key"
 			vmi := tests.NewRandomFedoraVMIWitGuestAgent()
-
+			vmi.Namespace = tests.NamespaceTestDefault
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{
 					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
@@ -96,11 +90,7 @@ var _ = Describe("Guest Access Credentials", func() {
 						},
 						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
 							QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
-								AuthorizedKeysFiles: []v1.AuthorizedKeysFile{
-									{
-										FilePath: "/home/fedora/.ssh/authorized_keys",
-									},
-								},
+								Users: []string{"fedora"},
 							},
 						},
 					},
@@ -159,6 +149,7 @@ var _ = Describe("Guest Access Credentials", func() {
 		It("should propagate user password", func() {
 			secretID := "my-user-pass"
 			vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+			vmi.Namespace = tests.NamespaceTestDefault
 
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{
@@ -222,6 +213,7 @@ var _ = Describe("Guest Access Credentials", func() {
 				fedoraPassword,
 			)
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), userData)
+			vmi.Namespace = tests.NamespaceTestDefault
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{
 					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
