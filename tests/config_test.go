@@ -515,4 +515,58 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			})
 		})
 	})
+
+	Context("With a DownwardAPI defined", func() {
+
+		downwardAPIName := "downwardapi-" + uuid.NewRandom().String()
+		downwardAPIPath := config.GetDownwardAPISourcePath(downwardAPIName)
+
+		testLabelKey := "kubevirt.io.testdownwardapi"
+		testLabelVal := "downwardAPIValue"
+		expectedOutput := testLabelKey + "=" + "\"" + testLabelVal + "\""
+
+		It("[test_id:790]Should be the namespace and token the same for a pod and vmi", func() {
+			tests.SkipPVCTestIfRunnigOnKindInfra()
+
+			By("Running VMI")
+			vmi := tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
+			//Add the testing label to the VMI
+			if vmi.ObjectMeta.Labels == nil {
+				vmi.ObjectMeta.Labels = map[string]string{testLabelKey: testLabelVal}
+			} else {
+				vmi.ObjectMeta.Labels[testLabelKey] = testLabelVal
+			}
+			tests.AddLabelDownwardAPIVolume(vmi, downwardAPIName)
+
+			tests.RunVMIAndExpectLaunch(vmi, 90)
+
+			By("Checking if DownwardAPI has been attached to the pod")
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+			podOutput, err := tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				vmiPod.Spec.Containers[0].Name,
+				[]string{"grep", testLabelKey,
+					downwardAPIPath + "/labels",
+				},
+			)
+			Expect(err).To(BeNil())
+			Expect(podOutput).To(Equal(expectedOutput + "\n"))
+
+			By("Checking mounted iso image")
+			expecter, err := tests.LoggedInAlpineExpecter(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
+			_, err = expecter.ExpectBatch([]expect.Batcher{
+				// mount iso DownwardAPI image
+				&expect.BSnd{S: "mount /dev/sda /mnt\n"},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: console.RetValue("0")},
+				&expect.BSnd{S: "grep " + testLabelKey + " /mnt/labels\n"},
+				&expect.BExp{R: expectedOutput},
+			}, 200*time.Second)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
 })

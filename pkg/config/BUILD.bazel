@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "config.go",
         "config-map.go",
+        "downwardapi.go",
         "secret.go",
         "service-account.go",
     ],
@@ -22,6 +23,7 @@ go_test(
         "config-map_test.go",
         "config_suite_test.go",
         "config_test.go",
+        "downwardapi_test.go",
         "secret_test.go",
         "service-account_test.go",
     ],

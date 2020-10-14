@@ -348,7 +348,7 @@ func classifyVolumesForMigration(vmi *v1.VirtualMachineInstance) *migrationDisks
 			(volSrc.HostDisk != nil && *volSrc.HostDisk.Shared) {
 			disks.shared[volume.Name] = true
 		}
-		if volSrc.ConfigMap != nil || volSrc.Secret != nil ||
+		if volSrc.ConfigMap != nil || volSrc.Secret != nil || volSrc.DownwardAPI != nil ||
 			volSrc.ServiceAccount != nil || volSrc.CloudInitNoCloud != nil ||
 			volSrc.CloudInitConfigDrive != nil || volSrc.ContainerDisk != nil {
 			disks.generated[volume.Name] = true
@@ -1055,6 +1055,10 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// create Secret disks if they exists
 	if err := config.CreateSecretDisks(vmi); err != nil {
 		return domain, fmt.Errorf("creating secret disks failed: %v", err)
+	}
+	// create DownwardAPI disks if they exists
+	if err := config.CreateDownwardAPIDisks(vmi); err != nil {
+		return domain, fmt.Errorf("creating DownwardAPI disks failed: %v", err)
 	}
 	// create ServiceAccount disk if exists
 	if err := config.CreateServiceAccountDisk(vmi); err != nil {

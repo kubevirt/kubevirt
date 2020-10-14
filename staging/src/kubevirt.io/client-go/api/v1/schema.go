@@ -91,6 +91,21 @@ type SecretVolumeSource struct {
 	VolumeLabel string `json:"volumeLabel,omitempty"`
 }
 
+// DownwardAPIVolumeSource represents a volume containing downward API info.
+//
+// +k8s:openapi-gen=true
+type DownwardAPIVolumeSource struct {
+	// Fields is a list of downward API volume file
+	// +optional
+	// +listType=set
+	Fields []v1.DownwardAPIVolumeFile `json:"fields,omitempty"`
+	// The volume label of the resulting disk inside the VMI.
+	// Different bootstrapping mechanisms require different values.
+	// Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
+	// +optional
+	VolumeLabel string `json:"volumeLabel,omitempty"`
+}
+
 // ServiceAccountVolumeSource adapts a ServiceAccount into a volume.
 //
 // +k8s:openapi-gen=true
@@ -588,6 +603,9 @@ type VolumeSource struct {
 	// More info: https://kubernetes.io/docs/concepts/configuration/secret/
 	// +optional
 	Secret *SecretVolumeSource `json:"secret,omitempty"`
+	// DownwardAPI represents downward API about the pod that should populate this volume
+	// +optional
+	DownwardAPI *DownwardAPIVolumeSource `json:"downwardAPI,omitempty"`
 	// ServiceAccountVolumeSource represents a reference to a service account.
 	// There can only be one volume of this type!
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/

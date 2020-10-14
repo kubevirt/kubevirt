@@ -29,6 +29,14 @@ func (SecretVolumeSource) SwaggerDoc() map[string]string {
 	}
 }
 
+func (DownwardAPIVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "DownwardAPIVolumeSource represents a volume containing downward API info.\n\n+k8s:openapi-gen=true",
+		"fields":      "Fields is a list of downward API volume file\n+optional\n+listType=set",
+		"volumeLabel": "The volume label of the resulting disk inside the VMI.\nDifferent bootstrapping mechanisms require different values.\nTypical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).\n+optional",
+	}
+}
+
 func (ServiceAccountVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                   "ServiceAccountVolumeSource adapts a ServiceAccount into a volume.\n\n+k8s:openapi-gen=true",
@@ -290,6 +298,7 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"dataVolume":            "DataVolume represents the dynamic creation a PVC for this volume as well as\nthe process of populating that PVC with a disk image.\n+optional",
 		"configMap":             "ConfigMapSource represents a reference to a ConfigMap in the same namespace.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/\n+optional",
 		"secret":                "SecretVolumeSource represents a reference to a secret data in the same namespace.\nMore info: https://kubernetes.io/docs/concepts/configuration/secret/\n+optional",
+		"downwardAPI":           "DownwardAPI represents downward API about the pod that should populate this volume\n+optional",
 		"serviceAccount":        "ServiceAccountVolumeSource represents a reference to a service account.\nThere can only be one volume of this type!\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/\n+optional",
 	}
 }
