@@ -1168,10 +1168,10 @@ type QemuGuestAgentUserPasswordAccessCredentialPropagation struct{}
 //
 // +k8s:openapi-gen=true
 type QemuGuestAgentSSHPublicKeyAccessCredentialPropagation struct {
-	// AuthorizedKeysFiles represents all the paths within the guest
-	// that ssh public keys should be propagated to
+	// Users represents a list of guest users that should have the ssh public keys
+	// added to their authorized_keys file.
 	// +listType=set
-	AuthorizedKeysFiles []AuthorizedKeysFile `json:"authorizedKeysFiles"`
+	Users []string `json:"users"`
 }
 
 // SSHPublicKeyAccessCredentialSource represents where to retrieve the ssh key

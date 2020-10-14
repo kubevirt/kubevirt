@@ -610,8 +610,8 @@ func (QemuGuestAgentUserPasswordAccessCredentialPropagation) SwaggerDoc() map[st
 
 func (QemuGuestAgentSSHPublicKeyAccessCredentialPropagation) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                    "+k8s:openapi-gen=true",
-		"authorizedKeysFiles": "AuthorizedKeysFiles represents all the paths within the guest\nthat ssh public keys should be propagated to\n+listType=set",
+		"":      "+k8s:openapi-gen=true",
+		"users": "Users represents a list of guest users that should have the ssh public keys\nadded to their authorized_keys file.\n+listType=set",
 	}
 }
 
