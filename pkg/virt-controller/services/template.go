@@ -1009,46 +1009,51 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		annotationsList[ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
 	}
 
-	initContainerVolumeMounts := []k8sv1.VolumeMount{
-		k8sv1.VolumeMount{
-			Name:      "virt-bin-share-dir",
-			MountPath: "/init/usr/bin",
-		},
-	}
+	var initContainers []k8sv1.Container
 
-	initContainerResources := k8sv1.ResourceRequirements{}
-	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
-		initContainerResources.Limits = make(k8sv1.ResourceList)
-		initContainerResources.Limits[k8sv1.ResourceCPU] = resource.MustParse("10m")
-		initContainerResources.Limits[k8sv1.ResourceMemory] = resource.MustParse("40M")
-		initContainerResources.Requests = make(k8sv1.ResourceList)
-		initContainerResources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
-		initContainerResources.Requests[k8sv1.ResourceMemory] = resource.MustParse("40M")
-	} else {
-		initContainerResources.Limits = make(k8sv1.ResourceList)
-		initContainerResources.Limits[k8sv1.ResourceCPU] = resource.MustParse("100m")
-		initContainerResources.Limits[k8sv1.ResourceMemory] = resource.MustParse("40M")
-		initContainerResources.Requests = make(k8sv1.ResourceList)
-		initContainerResources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
-		initContainerResources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
-	}
-	initContainerCommand := []string{"/usr/bin/cp",
-		"/usr/bin/container-disk",
-		"/init/usr/bin/container-disk",
-	}
-	initContainers := []k8sv1.Container{
-		{
-			Name:            "container-disk-binary",
-			Image:           t.launcherImage,
-			ImagePullPolicy: imagePullPolicy,
-			Command:         initContainerCommand,
-			VolumeMounts:    initContainerVolumeMounts,
-			Resources:       initContainerResources,
-		},
-	}
+	if HaveContainerDiskVolume(vmi.Spec.Volumes) {
 
-	// this causes containerDisks to be pre-pulled before virt-launcher starts.
-	initContainers = append(initContainers, containerdisk.GenerateInitContainers(vmi, "container-disks", "virt-bin-share-dir")...)
+		initContainerVolumeMounts := []k8sv1.VolumeMount{
+			k8sv1.VolumeMount{
+				Name:      "virt-bin-share-dir",
+				MountPath: "/init/usr/bin",
+			},
+		}
+
+		initContainerResources := k8sv1.ResourceRequirements{}
+		if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
+			initContainerResources.Limits = make(k8sv1.ResourceList)
+			initContainerResources.Limits[k8sv1.ResourceCPU] = resource.MustParse("10m")
+			initContainerResources.Limits[k8sv1.ResourceMemory] = resource.MustParse("40M")
+			initContainerResources.Requests = make(k8sv1.ResourceList)
+			initContainerResources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
+			initContainerResources.Requests[k8sv1.ResourceMemory] = resource.MustParse("40M")
+		} else {
+			initContainerResources.Limits = make(k8sv1.ResourceList)
+			initContainerResources.Limits[k8sv1.ResourceCPU] = resource.MustParse("100m")
+			initContainerResources.Limits[k8sv1.ResourceMemory] = resource.MustParse("40M")
+			initContainerResources.Requests = make(k8sv1.ResourceList)
+			initContainerResources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
+			initContainerResources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
+		}
+		initContainerCommand := []string{"/usr/bin/cp",
+			"/usr/bin/container-disk",
+			"/init/usr/bin/container-disk",
+		}
+		cpInitContainer := k8sv1.Container{
+				Name:            "container-disk-binary",
+				Image:           t.launcherImage,
+				ImagePullPolicy: imagePullPolicy,
+				Command:         initContainerCommand,
+				VolumeMounts:    initContainerVolumeMounts,
+				Resources:       initContainerResources,
+		}
+
+		initContainers = append(initContainers, cpInitContainer)
+
+		// this causes containerDisks to be pre-pulled before virt-launcher starts.
+		initContainers = append(initContainers, containerdisk.GenerateInitContainers(vmi, "container-disks", "virt-bin-share-dir")...)
+	}
 
 	// TODO use constants for podLabels
 	pod := k8sv1.Pod{
@@ -1263,6 +1268,15 @@ func HaveMasqueradeInterface(interfaces []v1.Interface) bool {
 		}
 	}
 
+	return false
+}
+
+func HaveContainerDiskVolume(volumes []v1.Volume) bool {
+	for _, volume := range volumes {
+		if volume.ContainerDisk != nil {
+			return true
+		}
+	}
 	return false
 }
 
