@@ -1,7 +1,7 @@
 # Debugging
 
 ```bash
-cluster/kubectl.sh version
+cluster-up/kubectl.sh version
 ```
 
 will try to connect to the apiserver.
@@ -9,10 +9,10 @@ will try to connect to the apiserver.
 ## Retrieving Logs
 
 To investigate the logs of a pod, you can view the logs via
-`cluster/kubectl.sh logs`. To view the logs of `virt-api`, type
+`cluster-up/kubectl.sh logs`. To view the logs of `virt-api`, type
 
 ```bash
-cluster/kubectl.sh logs virt-api -f
+cluster-up/kubectl.sh logs virt-api -f
 ```
 
 Sometimes a container in a pod is crashlooping because of an application error
@@ -22,7 +22,7 @@ attempt, the `--previous` flag can be used. To view the logs of the container
 `virt-api` in the pod `virt-api` from the previous run, type
 
 ```bash
-cluster/kubectl.sh logs virt-api -f -c virt-api -p
+cluster-up/kubectl.sh logs virt-api -f -c virt-api -p
 ```
 
 Note that you always have to select a container inside a pod for fetching old
@@ -33,7 +33,7 @@ logs with the `--previous` flag.
 Both, Kubernetes and KubeVirt are creating events, which can be viewed via
 
 ```bash
-cluster/kubectl.sh get events --all-namespaces --watch
+cluster-up/kubectl.sh get events --all-namespaces --watch
 ```
 
 This way it is pretty easy to detect if a Pod or a VMI got started.
@@ -45,7 +45,7 @@ to see what is going wrong. In this case the kubectl `exec` command can be
 used. To enter `virt-api` with an interactive shell, type
 
 ```bash
-cluster/kubectl.sh exec virt-api -c virt-api -i -t -- sh
+cluster-up/kubectl.sh exec virt-api -c virt-api -i -t -- sh
 ```
 
 ## Kubelet Logs

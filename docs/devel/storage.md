@@ -11,7 +11,7 @@ In order to use disk images one must configure an appropriate storage. In this d
 The hostPath provisioner needs to write to a directory on the node, we will need to create this directory before installing the hostPath provisioner
 
 ```bash
-cluster/cli.sh ssh node01 -- sudo mkdir /var/run/kubevirt/hostpath
+cluster-up/cli.sh ssh node01 -- sudo mkdir /var/run/kubevirt/hostpath
 ```
 
 ## Deploy hostPath PVC provisioner
@@ -19,7 +19,7 @@ cluster/cli.sh ssh node01 -- sudo mkdir /var/run/kubevirt/hostpath
 We are using the hostPath provisioner from [here](https://github.com/MaZderMind/hostpath-provisioner). Simply run from :
 
 ```bash
-cluster/kubectl.sh apply -f docs/devel/hostpath-provisioner.yaml
+cluster-up/kubectl.sh apply -f docs/devel/hostpath-provisioner.yaml
 ```
 
 This will create
@@ -36,7 +36,7 @@ After a few moments the hostpath-provisioner pod should be running, we are now r
 The Containerized Data Importer controller is a controller that watches for PVCs with a specific annotation. If that annotation is detected, it will use the 'storage.image.endpoint' URL to download the image, convert it if needed and write it to the requested PVC. One can then use the PVC to start a VM using the image in it. To deploy the CDI controller run this:
 
 ```bash
-cluster/kubectl.sh apply -f https://raw.githubusercontent.com/kubevirt/containerized-data-importer/master/manifests/controller/cdi-controller-deployment.yaml
+cluster-up/kubectl.sh apply -f https://raw.githubusercontent.com/kubevirt/containerized-data-importer/master/manifests/controller/cdi-controller-deployment.yaml
 ```
 
 This will create
