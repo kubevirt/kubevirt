@@ -63,7 +63,9 @@ make cluster-up
 ```
 ## New Providers
 
- * Create a `cluster/$KUBEVIRT_PROVIDER` directory
- * Create a `cluster/$KUBEVIRT_PROVIDER/provider.sh` files
- * This file has to contain the functions `up`, `build`, `down` and `_kubectl`
- * Have a look at `cluster/k8s-1.10.11/provider.sh` for a reference implementation
+First add your provider in the [kubevirtci](https://github.com/kubevirt/kubevirtci) repository.
+After this provider is merged, update our copy of this repository with the following command:
+
+```bash
+make bump-kubevirtci
+```
