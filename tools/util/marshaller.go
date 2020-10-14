@@ -25,6 +25,7 @@ package util
 import (
 	"encoding/json"
 	"io"
+	"regexp"
 	"strings"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -107,8 +108,8 @@ func MarshallObject(obj interface{}, writer io.Writer) error {
 
 	// fix templates by removing unneeded single quotes...
 	s := string(yamlBytes)
-	s = strings.Replace(s, "'{{", "{{", -1)
-	s = strings.Replace(s, "}}'", "}}", -1)
+	re := regexp.MustCompile(`'({{.*?}})'`)
+	s = re.ReplaceAllString(s, "$1")
 
 	// fix double quoted strings by removing unneeded single quotes...
 	s = strings.Replace(s, " '\"", " \"", -1)

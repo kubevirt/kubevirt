@@ -345,11 +345,15 @@ func main() {
 					},
 				)
 			}
-
 			csv_base_alm_string := csvExtended.Annotations["alm-examples"]
 			csv_struct_alm_string := csvStruct.Annotations["alm-examples"]
 			var base_almcrs []interface{}
 			var struct_almcrs []interface{}
+
+			if !strings.HasPrefix(csv_base_alm_string, "[") {
+				csv_base_alm_string = "[" + csv_base_alm_string + "]"
+			}
+
 			if err = json.Unmarshal([]byte(csv_base_alm_string), &base_almcrs); err != nil {
 				panic(err)
 			}

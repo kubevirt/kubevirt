@@ -3,10 +3,8 @@ package components
 import (
 	"encoding/json"
 	"fmt"
-
 	"golang.org/x/tools/go/packages"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"time"
 
 	"sigs.k8s.io/controller-tools/pkg/loader"
@@ -729,7 +727,7 @@ func GetInstallStrategyBase(namespace, image, imagePullPolicy, conversionContain
 
 // GetCSVBase returns a base HCO CSV without an InstallStrategy
 func GetCSVBase(name, namespace, displayName, description, image, replaces string, version semver.Version, crdDisplay string) *csvv1alpha1.ClusterServiceVersion {
-	almExamples, _ := json.Marshal([]interface{}{
+	almExamples, _ := json.Marshal(
 		map[string]interface{}{
 			"apiVersion": "hco.kubevirt.io/v1beta1",
 			"kind":       "HyperConverged",
@@ -740,8 +738,7 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 			"spec": map[string]interface{}{
 				"BareMetalPlatform": false,
 			},
-		},
-	})
+		})
 
 	sideEffect := admissionregistrationv1.SideEffectClassNone
 	// Explicitly fail on unvalidated (for any reason) requests:
@@ -801,7 +798,8 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 				"description":    description,
 				"repository":     "https://github.com/kubevirt/hyperconverged-cluster-operator",
 				"support":        "false",
-				"operatorframework.io/suggested-namespace": namespace,
+				"operatorframework.io/suggested-namespace":     namespace,
+				"operatorframework.io/initialization-resource": string(almExamples),
 			},
 		},
 		Spec: csvv1alpha1.ClusterServiceVersionSpec{
