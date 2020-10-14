@@ -216,8 +216,8 @@ $ go get -u -d github.com/intel/multus-cni
 $ cd $GOPATH/src/github.com/intel/multus-cni/
 $ mkdir -p /etc/cni/net.d
 $ cp images/70-multus.conf /etc/cni/net.d/
-$ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/images/multus-daemonset.yml
-$ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/images/flannel-daemonset.yml
+$ ./cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/images/multus-daemonset.yml
+$ ./cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/images/flannel-daemonset.yml
 ```
 
 Now, deploy SR-IOV device plugin. Adjust config.json file for your particular
@@ -239,20 +239,20 @@ $ cat <<EOF > /etc/pcidp/config.json
     ]
 }
 EOF
-$ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-network-device-plugin/images/sriovdp-daemonset.yaml
+$ ./cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-network-device-plugin/images/sriovdp-daemonset.yaml
 ```
 
 Deploy SR-IOV CNI plugin.
 
 ```
 $ go get -u -d github.com/intel/sriov-cni/
-$ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-cni/images/sriov-cni-daemonset.yaml
+$ ./cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-cni/images/sriov-cni-daemonset.yaml
 ```
 
 Finally, create a new SR-IOV network CRD that will use SR-IOV device plugin to allocate devices.
 
 ```
-./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-network-device-plugin/deployments/sriov-crd.yaml
+./cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-network-device-plugin/deployments/sriov-crd.yaml
 ```
 
 Just make sure that the network spec refers to the right resource name for
