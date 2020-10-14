@@ -24,6 +24,7 @@ import (
 	"crypto/rand"
 	cryptorand "crypto/rand"
 	"crypto/rsa"
+	"crypto/sha1"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -63,6 +64,14 @@ func NewPrivateKey() (*rsa.PrivateKey, error) {
 	return rsa.GenerateKey(cryptorand.Reader, rsaKeySize)
 }
 
+func generateSKIFromRSAPublicKey(key crypto.Signer) []byte {
+	rsaPublicKey := key.Public().(*rsa.PublicKey)
+
+	publicKeyBytes := x509.MarshalPKCS1PublicKey(rsaPublicKey)
+	h := sha1.Sum(publicKeyBytes)
+	return h[:]
+}
+
 // NewSelfSignedCACert creates a CA certificate
 func NewSelfSignedCACert(cfg Config, key crypto.Signer, duration time.Duration) (*x509.Certificate, error) {
 	now := time.Now()
@@ -78,6 +87,12 @@ func NewSelfSignedCACert(cfg Config, key crypto.Signer, duration time.Duration) 
 		BasicConstraintsValid: true,
 		IsCA:                  true,
 	}
+
+	// Golang < 1.15 is not filling in the SKI field for CAs [1] so we replicate the golang >= 1.15 fix [2]
+	//
+	// [1] https://github.com/golang/go/issues/26676
+	// [2] https://go-review.googlesource.com/c/go/+/227098/
+	tmpl.SubjectKeyId = generateSKIFromRSAPublicKey(key)
 
 	certDERBytes, err := x509.CreateCertificate(cryptorand.Reader, &tmpl, &tmpl, key.Public(), key)
 	if err != nil {
