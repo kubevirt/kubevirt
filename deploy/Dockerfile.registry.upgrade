@@ -1,4 +1,4 @@
-FROM quay.io/fedora/fedora:30-x86_64 AS builder
+FROM quay.io/fedora/fedora:33-x86_64 AS builder
 ARG UPGRADE_VERSION=100.0.0
 
 ENV GOPATH=/go
