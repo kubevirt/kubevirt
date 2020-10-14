@@ -128,12 +128,18 @@ func getSecretBaseDir() string {
 
 }
 
-func (l *AccessCredentialManager) writeGuestFile(contents string, domName string, filePath string) error {
+func (l *AccessCredentialManager) writeGuestFile(contents string, domName string, filePath string, owner string, fileExists bool) error {
 
 	// ensure the directory exists with the correct permissions
-	err := l.agentCreateDirectory(domName, filepath.Dir(filePath), "700")
+	err := l.agentCreateDirectory(domName, filepath.Dir(filePath), "700", owner)
 	if err != nil {
 		return err
+	}
+
+	if fileExists {
+		// ensure the file has the correct permissions for writing
+		l.agentSetFilePermissions(domName, filePath, "600", owner)
+
 	}
 
 	// write the file
@@ -162,8 +168,10 @@ func (l *AccessCredentialManager) writeGuestFile(contents string, domName string
 		return err
 	}
 
-	// ensure the file has the correct permissions and ownership
-	l.agentSetFilePermissions(domName, filePath, "600")
+	if !fileExists {
+		// ensure the file has the correct permissions and ownership after creating new file
+		l.agentSetFilePermissions(domName, filePath, "600", owner)
+	}
 
 	return nil
 }
@@ -269,23 +277,16 @@ func (l *AccessCredentialManager) agentGuestExec(domName string, command string,
 	return stdOut, nil
 }
 
-// Requires usage of mkdir, chown, chmod, stat
-func (l *AccessCredentialManager) agentCreateDirectory(domName string, dir string, permissions string) error {
-	// Get parent directory ownership and use that for nested directory
-	parentDir := filepath.Dir(dir)
-	ownerStr, err := l.agentGetFileOwnership(domName, parentDir)
-	if err != nil {
-		return err
-	}
-
+// Requires usage of mkdir, chown, chmod
+func (l *AccessCredentialManager) agentCreateDirectory(domName string, dir string, permissions string, owner string) error {
 	// Ensure the directory exists
-	_, err = l.agentGuestExec(domName, "mkdir", []string{"-p", dir})
+	_, err := l.agentGuestExec(domName, "mkdir", []string{"-p", dir})
 	if err != nil {
 		return err
 	}
 
 	// set ownership/permissions of directory using parent directory owner
-	_, err = l.agentGuestExec(domName, "chown", []string{ownerStr, dir})
+	_, err = l.agentGuestExec(domName, "chown", []string{owner, dir})
 	if err != nil {
 		return err
 	}
@@ -295,6 +296,24 @@ func (l *AccessCredentialManager) agentCreateDirectory(domName string, dir strin
 	}
 
 	return nil
+}
+
+func (l *AccessCredentialManager) agentGetUserInfo(domName string, user string) (string, string, string, error) {
+	passwdEntryStr, err := l.agentGuestExec(domName, "getent", []string{"passwd", user})
+	if err != nil {
+		return "", "", "", fmt.Errorf("Unable to detect home directory of user %s: %s", user, err.Error())
+	}
+	passwdEntryStr = strings.TrimSpace(passwdEntryStr)
+	entries := strings.Split(passwdEntryStr, ":")
+	if len(entries) < 6 {
+		return "", "", "", fmt.Errorf("Unable to detect home directory of user %s", user)
+	}
+
+	filePath := entries[5]
+	uid := entries[2]
+	gid := entries[3]
+	log.Log.Infof("Detected home directory %s for user %s", filePath, user)
+	return filePath, uid, gid, nil
 }
 
 func (l *AccessCredentialManager) agentGetFileOwnership(domName string, filePath string) (string, error) {
@@ -311,17 +330,10 @@ func (l *AccessCredentialManager) agentGetFileOwnership(domName string, filePath
 	return ownerStr, nil
 }
 
-// Requires usage of chown, chmod, stat
-func (l *AccessCredentialManager) agentSetFilePermissions(domName string, filePath string, permissions string) error {
-	// Get parent directory ownership and use that for nested directory
-	parentDir := filepath.Dir(filePath)
-	ownerStr, err := l.agentGetFileOwnership(domName, parentDir)
-	if err != nil {
-		return err
-	}
-
+// Requires usage of chown, chmod
+func (l *AccessCredentialManager) agentSetFilePermissions(domName string, filePath string, permissions string, owner string) error {
 	// set ownership/permissions of directory using parent directory owner
-	_, err = l.agentGuestExec(domName, "chown", []string{ownerStr, filePath})
+	_, err := l.agentGuestExec(domName, "chown", []string{owner, filePath})
 	if err != nil {
 		return err
 	}
@@ -346,21 +358,33 @@ func (l *AccessCredentialManager) agentSetUserPassword(domName string, user stri
 	return nil
 }
 
-func (l *AccessCredentialManager) agentWriteAuthorizedKeys(domName string, filePath string, authorizedKeys string) error {
+func (l *AccessCredentialManager) agentWriteAuthorizedKeys(domName string, user string, authorizedKeys string) error {
 
 	separator := "\n### AUTO PROPAGATED BY KUBEVIRT BELOW THIS LINE ###\n"
 	curAuthorizedKeys := ""
+	fileExists := true
 
 	// ######
-	// Step 1. Read file on guest
+	// Step 1. Get home directory for user.
 	// ######
-	curAuthorizedKeys, err := l.readGuestFile(domName, filePath)
-	if err != nil && !strings.Contains(err.Error(), "No such file or directory") {
+	homeDir, uid, gid, err := l.agentGetUserInfo(domName, user)
+	if err != nil {
 		return err
 	}
 
 	// ######
-	// Step 2. Merge kubevirt authorized keys to end of file
+	// Step 2. Read file on guest
+	// ######
+	filePath := fmt.Sprintf("%s/.ssh/authorized_keys", homeDir)
+	curAuthorizedKeys, err = l.readGuestFile(domName, filePath)
+	if err != nil && strings.Contains(err.Error(), "No such file or directory") {
+		fileExists = false
+	} else if err != nil {
+		return err
+	}
+
+	// ######
+	// Step 3. Merge kubevirt authorized keys to end of file
 	// ######
 
 	// Add a warning line so people know where these entries are coming from
@@ -375,11 +399,11 @@ func (l *AccessCredentialManager) agentWriteAuthorizedKeys(domName string, fileP
 	authorizedKeys = fmt.Sprintf("%s%s%s", curAuthorizedKeys, separator, authorizedKeys)
 
 	// ######
-	// Step 3. Write merged file
+	// Step 4. Write merged file
 	// ######
 	// only update if the updated string is not equal to the current contents on the guest.
 	if origAuthorizedKeys != authorizedKeys {
-		err = l.writeGuestFile(authorizedKeys, domName, filePath)
+		err = l.writeGuestFile(authorizedKeys, domName, filePath, fmt.Sprintf("%s:%s", uid, gid), fileExists)
 		if err != nil {
 			return err
 		}
@@ -467,7 +491,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 		// secret name mapped to authorized_keys in that secret
 		secretMap := make(map[string]string)
 		// filepath mapped to secretNames
-		filePathMap := make(map[string][]string)
+		userSSHMap := make(map[string][]string)
 		// maps users to passwords
 		userPasswordMap := make(map[string]string)
 
@@ -488,12 +512,12 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 			}
 
 			if isSSHPublicKey(&accessCred) {
-				for _, entry := range accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent.AuthorizedKeysFiles {
-					secrets, ok := filePathMap[entry.FilePath]
+				for _, user := range accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent.Users {
+					secrets, ok := userSSHMap[user]
 					if !ok {
-						filePathMap[entry.FilePath] = []string{secretName}
+						userSSHMap[user] = []string{secretName}
 					} else {
-						filePathMap[entry.FilePath] = append(secrets, secretName)
+						userSSHMap[user] = append(secrets, secretName)
 					}
 				}
 
@@ -543,7 +567,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 		}
 
 		// Step 2. Update Authorized keys file
-		for filePath, secretNames := range filePathMap {
+		for user, secretNames := range userSSHMap {
 			authorizedKeys := ""
 
 			for _, secretName := range secretNames {
@@ -553,7 +577,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 				}
 			}
 
-			err := l.agentWriteAuthorizedKeys(domName, filePath, authorizedKeys)
+			err := l.agentWriteAuthorizedKeys(domName, user, authorizedKeys)
 			if err != nil {
 				// if writing failed, reset reload to true so this change will be retried again
 				reload = true

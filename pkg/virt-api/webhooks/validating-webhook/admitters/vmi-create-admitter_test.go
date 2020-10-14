@@ -2263,11 +2263,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 						},
 						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
 							QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
-								AuthorizedKeysFiles: []v1.AuthorizedKeysFile{
-									{
-										FilePath: "madeup",
-									},
-								},
+								Users: []string{"madeup"},
 							},
 						},
 					},

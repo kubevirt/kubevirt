@@ -8026,19 +8026,6 @@
      }
     }
    },
-   "v1.AuthorizedKeysFile": {
-    "description": "AuthorizedKeysFile represents a path within the guest that ssh public keys should be propagated to",
-    "type": "object",
-    "required": [
-     "filePath"
-    ],
-    "properties": {
-     "filePath": {
-      "description": "FilePath represents the place on the guest that the authorized_keys file should be writen to. This is expected to be a full path including both the base directory and file name.",
-      "type": "string"
-     }
-    }
-   },
    "v1.BIOS": {
     "description": "If set (default), BIOS will be used.",
     "type": "object",
@@ -9660,14 +9647,14 @@
    "v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation": {
     "type": "object",
     "required": [
-     "authorizedKeysFiles"
+     "users"
     ],
     "properties": {
-     "authorizedKeysFiles": {
-      "description": "AuthorizedKeysFiles represents all the paths within the guest that ssh public keys should be propagated to",
+     "users": {
+      "description": "Users represents a list of guest users that should have the ssh public keys added to their authorized_keys file.",
       "type": "array",
       "items": {
-       "$ref": "#/definitions/v1.AuthorizedKeysFile"
+       "type": "string"
       },
       "x-kubernetes-list-type": "set"
      }
