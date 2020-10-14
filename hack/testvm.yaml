@@ -1,0 +1,37 @@
+apiVersion: kubevirt.io/v1alpha3
+kind: VirtualMachine
+metadata:
+  name: testvm
+spec:
+  running: false
+  template:
+    metadata:
+      labels: 
+        kubevirt.io/size: small
+        kubevirt.io/domain: testvm
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: rootfs
+          - disk:
+              bus: virtio
+            name: cloudinit
+          interfaces:
+          - name: default
+            masquerade: {}
+        resources:
+          requests:
+            memory: 64M
+      networks:
+      - name: default
+        pod: {}
+      volumes:
+        - name: rootfs
+          containerDisk:
+            image: kubevirt/cirros-registry-disk-demo
+        - name: cloudinit
+          cloudInitNoCloud:
+            userDataBase64: SGkuXG4= 

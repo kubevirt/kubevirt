@@ -27,6 +27,7 @@ HCO_NAMESPACE="kubevirt-hyperconverged"
 HCO_KIND="hyperconvergeds"
 HCO_RESOURCE_NAME="kubevirt-hyperconverged"
 HCO_CRD_NAME="hyperconvergeds.hco.kubevirt.io"
+HCO_CONFIGURATION_HOOK=${HCO_CONFIGURATION_HOOK}
 
 CI=""
 if [ "$1" == "CI" ]; then
@@ -53,6 +54,12 @@ if [ -n "${IMAGE_FORMAT}" ]; then
 fi
 
 sed -i "s|image: quay.io/kubevirt/hyperconverged-cluster-operator:.*$|image: ${HCO_IMAGE}|g" _out/operator.yaml
+
+if [[ -n ${HCO_CONFIGURATION_HOOK} ]]; then
+  ${HCO_CONFIGURATION_HOOK}
+else
+  echo "No configuration hook"
+fi
 
 # create namespaces
 "${CMD}" create ns "${HCO_NAMESPACE}" | true
