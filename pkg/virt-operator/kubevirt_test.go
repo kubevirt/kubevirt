@@ -838,14 +838,20 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, rbac.GetAllHandler(NAMESPACE)...)
 		all = append(all, rbac.GetAllController(NAMESPACE)...)
 		// crds
-		all = append(all, components.NewVirtualMachineInstanceCrd())
-		all = append(all, components.NewPresetCrd())
-		all = append(all, components.NewReplicaSetCrd())
-		all = append(all, components.NewVirtualMachineCrd())
-		all = append(all, components.NewVirtualMachineInstanceMigrationCrd())
-		all = append(all, components.NewVirtualMachineSnapshotCrd())
-		all = append(all, components.NewVirtualMachineSnapshotContentCrd())
-		all = append(all, components.NewVirtualMachineRestoreCrd())
+		functions := []func() (*extv1beta1.CustomResourceDefinition, error){
+			components.NewVirtualMachineInstanceCrd, components.NewPresetCrd, components.NewReplicaSetCrd,
+			components.NewVirtualMachineCrd, components.NewVirtualMachineInstanceMigrationCrd,
+			components.NewVirtualMachineSnapshotCrd, components.NewVirtualMachineSnapshotContentCrd,
+			components.NewVirtualMachineRestoreCrd,
+		}
+		for _, f := range functions {
+			crd, err := f()
+			if err != nil {
+				panic(fmt.Errorf("This should not happen, %v", err))
+			}
+			all = append(all, crd)
+		}
+		// cr
 		all = append(all, components.NewPrometheusRuleCR(config.GetNamespace()))
 		// sccs
 		all = append(all, components.NewKubeVirtControllerSCC(NAMESPACE))

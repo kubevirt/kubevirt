@@ -8907,6 +8907,7 @@
       "type": "string"
      },
      "virtiofs": {
+      "description": "Virtiofs is supported",
       "$ref": "#/definitions/v1.FilesystemVirtiofs"
      }
     }

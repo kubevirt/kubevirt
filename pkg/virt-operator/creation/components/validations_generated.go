@@ -2056,6 +2056,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: Name is the device name
                                 type: string
                               virtiofs:
+                                description: Virtiofs is supported
                                 type: object
                             required:
                             - name
@@ -3533,6 +3534,7 @@ var CRDsValidation map[string]string = map[string]string{
                         description: Name is the device name
                         type: string
                       virtiofs:
+                        description: Virtiofs is supported
                         type: object
                     required:
                     - name
@@ -4784,6 +4786,7 @@ var CRDsValidation map[string]string = map[string]string{
                         description: Name is the device name
                         type: string
                       virtiofs:
+                        description: Virtiofs is supported
                         type: object
                     required:
                     - name
@@ -5848,6 +5851,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: Name is the device name
                                 type: string
                               virtiofs:
+                                description: Virtiofs is supported
                                 type: object
                             required:
                             - name
@@ -7753,6 +7757,7 @@ var CRDsValidation map[string]string = map[string]string{
                                             description: Name is the device name
                                             type: string
                                           virtiofs:
+                                            description: Virtiofs is supported
                                             type: object
                                         required:
                                         - name

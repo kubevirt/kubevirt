@@ -51,20 +51,24 @@ var (
 	PreserveUnknownFieldsFalse       = false
 )
 
-func patchValidation(crd *extv1beta1.CustomResourceDefinition) {
+func patchValidation(crd *extv1beta1.CustomResourceDefinition) error {
 	name := crd.Spec.Names.Singular
 	if name != "virtualmachine" && name != "virtualmachineinstance" {
-		return
+		return nil
 	}
 
 	crd.Spec.PreserveUnknownFields = &PreserveUnknownFieldsFalse
 	validation, ok := CRDsValidation[name]
 	if !ok {
-		return
+		return nil
 	}
 	crvalidation := extv1beta1.CustomResourceValidation{}
-	k8syaml.NewYAMLToJSONDecoder(strings.NewReader(validation)).Decode(&crvalidation)
+	err := k8syaml.NewYAMLToJSONDecoder(strings.NewReader(validation)).Decode(&crvalidation)
+	if err != nil {
+		return fmt.Errorf("Couldn't decode validation for %s, %v", name, err)
+	}
 	crd.Spec.Validation = &crvalidation
+	return nil
 }
 
 func newBlankCrd() *extv1beta1.CustomResourceDefinition {
@@ -81,7 +85,7 @@ func newBlankCrd() *extv1beta1.CustomResourceDefinition {
 	}
 }
 
-func NewVirtualMachineInstanceCrd() *extv1beta1.CustomResourceDefinition {
+func NewVirtualMachineInstanceCrd() (*extv1beta1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
 	crd.ObjectMeta.Name = VIRTUALMACHINEINSTANCE
@@ -110,11 +114,13 @@ func NewVirtualMachineInstanceCrd() *extv1beta1.CustomResourceDefinition {
 		},
 	}
 
-	patchValidation(crd)
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
-func NewVirtualMachineCrd() *extv1beta1.CustomResourceDefinition {
+func NewVirtualMachineCrd() (*extv1beta1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
 	crd.ObjectMeta.Name = VIRTUALMACHINE
@@ -143,11 +149,13 @@ func NewVirtualMachineCrd() *extv1beta1.CustomResourceDefinition {
 		},
 	}
 
-	patchValidation(crd)
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
-func NewPresetCrd() *extv1beta1.CustomResourceDefinition {
+func NewPresetCrd() (*extv1beta1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
 	crd.ObjectMeta.Name = VIRTUALMACHINEINSTANCEPRESET
@@ -168,11 +176,13 @@ func NewPresetCrd() *extv1beta1.CustomResourceDefinition {
 		},
 	}
 
-	patchValidation(crd)
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
-func NewReplicaSetCrd() *extv1beta1.CustomResourceDefinition {
+func NewReplicaSetCrd() (*extv1beta1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 	labelSelector := ".status.labelSelector"
 
@@ -211,11 +221,13 @@ func NewReplicaSetCrd() *extv1beta1.CustomResourceDefinition {
 		},
 	}
 
-	patchValidation(crd)
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
-func NewVirtualMachineInstanceMigrationCrd() *extv1beta1.CustomResourceDefinition {
+func NewVirtualMachineInstanceMigrationCrd() (*extv1beta1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
 	crd.ObjectMeta.Name = VIRTUALMACHINEINSTANCEMIGRATION
@@ -239,14 +251,16 @@ func NewVirtualMachineInstanceMigrationCrd() *extv1beta1.CustomResourceDefinitio
 		},
 	}
 
-	patchValidation(crd)
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
 // Used by manifest generation
 // If you change something here, you probably need to change the CSV manifest too,
 // see /manifests/release/kubevirt.VERSION.csv.yaml.in
-func NewKubeVirtCrd() *extv1beta1.CustomResourceDefinition {
+func NewKubeVirtCrd() (*extv1beta1.CustomResourceDefinition, error) {
 
 	// we use a different label here, so no newBlankCrd()
 	crd := &extv1beta1.CustomResourceDefinition{
@@ -286,11 +300,13 @@ func NewKubeVirtCrd() *extv1beta1.CustomResourceDefinition {
 		},
 	}
 
-	patchValidation(crd)
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
-func NewVirtualMachineSnapshotCrd() *extv1beta1.CustomResourceDefinition {
+func NewVirtualMachineSnapshotCrd() (*extv1beta1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
 	crd.ObjectMeta.Name = VIRTUALMACHINESNAPSHOT
@@ -323,11 +339,13 @@ func NewVirtualMachineSnapshotCrd() *extv1beta1.CustomResourceDefinition {
 		},
 	}
 
-	patchValidation(crd)
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
-func NewVirtualMachineSnapshotContentCrd() *extv1beta1.CustomResourceDefinition {
+func NewVirtualMachineSnapshotContentCrd() (*extv1beta1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
 	crd.ObjectMeta.Name = VIRTUALMACHINESNAPSHOTCONTENT
@@ -358,11 +376,13 @@ func NewVirtualMachineSnapshotContentCrd() *extv1beta1.CustomResourceDefinition 
 		},
 	}
 
-	patchValidation(crd)
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
-func NewVirtualMachineRestoreCrd() *extv1beta1.CustomResourceDefinition {
+func NewVirtualMachineRestoreCrd() (*extv1beta1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
 	crd.ObjectMeta.Name = "virtualmachinerestores." + snapshotv1.SchemeGroupVersion.Group
@@ -395,7 +415,10 @@ func NewVirtualMachineRestoreCrd() *extv1beta1.CustomResourceDefinition {
 		},
 	}
 
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
 func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkipVerify bool) *promv1.ServiceMonitor {
