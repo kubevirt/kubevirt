@@ -133,11 +133,11 @@ var _ = Describe("[Serial][rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][leve
 				waitForNetworkPolicyDeletion(policy)
 			})
 
-			It("[Conformance][test_id:1513] should succeed pinging between two VMI/s in the same namespace", func() {
+			It("[test_id:1513] should succeed pinging between two VMI/s in the same namespace", func() {
 				assertPingSucceed(clientVMI, serverVMI)
 			})
 
-			It("[Conformance][test_id:1514] should fail pinging between two VMI/s each on different namespaces", func() {
+			It("[test_id:1514] should fail pinging between two VMI/s each on different namespaces", func() {
 				assertPingFail(clientVMIAlternativeNamespace, serverVMI)
 			})
 

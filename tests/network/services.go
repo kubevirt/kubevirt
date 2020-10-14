@@ -257,7 +257,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 				Expect(cleanupService(inboundVMI.GetNamespace(), service.Name)).To(Succeed(), "cleaning up the k8sv1.Service entity should have succeeded.")
 			})
 
-			table.DescribeTable("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func(ipFamily k8sv1.IPFamily) {
+			table.DescribeTable("should be able to reach the vmi based on labels specified on the vmi", func(ipFamily k8sv1.IPFamily) {
 				serviceName := "myservice"
 				By("setting up resources to expose the VMI via a service", func() {
 					if ipFamily == k8sv1.IPv6Protocol {

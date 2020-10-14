@@ -631,7 +631,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			return vmi
 		}
 
-		table.DescribeTable("[Conformance][test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", func(ports []v1.Port, withCustomCIDR bool) {
+		table.DescribeTable("[test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", func(ports []v1.Port, withCustomCIDR bool) {
 			var ipv4NetworkCIDR string
 
 			if withCustomCIDR {
