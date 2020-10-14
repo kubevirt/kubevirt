@@ -241,6 +241,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	if contentCpy.Status == nil {
 		contentCpy.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{}
 	}
+	contentCpy.Status.Error = nil
 
 	if len(deletedSnapshots) > 0 {
 		ready = false
@@ -252,10 +253,6 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		for _, vss := range volueSnapshotStatus {
 			if vss.ReadyToUse == nil || !*vss.ReadyToUse {
 				ready = false
-			}
-
-			if vss.Error != nil {
-				errorMessage = "VolumeSnapshot in error state"
 				break
 			}
 		}
@@ -265,10 +262,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		contentCpy.Status.CreationTime = currentTime()
 	}
 
-	if errorMessage != "" &&
-		(contentCpy.Status.Error == nil ||
-			contentCpy.Status.Error.Message == nil ||
-			*contentCpy.Status.Error.Message != errorMessage) {
+	if errorMessage != "" {
 		contentCpy.Status.Error = &snapshotv1.Error{
 			Time:    currentTime(),
 			Message: &errorMessage,
