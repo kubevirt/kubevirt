@@ -7,7 +7,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
@@ -785,17 +785,13 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.processVMSnapshotContentWorkItem()
 			})
 
-			It("should update VirtualMachineSnapshotContent on error", func() {
-				message := "VolumeSnapshot in error state"
+			DescribeTable("should update VirtualMachineSnapshotContent on error", func(rtu bool, ct *metav1.Time) {
 				vmSnapshotContent := createVMSnapshotContent()
 				updatedContent := vmSnapshotContent.DeepCopy()
 				updatedContent.ResourceVersion = "1"
 				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
-					ReadyToUse: &f,
-					Error: &snapshotv1.Error{
-						Message: &message,
-						Time:    timeFunc(),
-					},
+					ReadyToUse:   &rtu,
+					CreationTime: ct,
 				}
 
 				vmSnapshotContentSource.Add(vmSnapshotContent)
@@ -804,8 +800,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				volumeSnapshots := createVolumeSnapshots(vmSnapshotContent)
 				for i := range volumeSnapshots {
 					message := "bad error"
-					volumeSnapshots[i].Status.ReadyToUse = &f
-					volumeSnapshots[i].Status.CreationTime = nil
+					volumeSnapshots[i].Status.ReadyToUse = &rtu
+					volumeSnapshots[i].Status.CreationTime = ct
 					volumeSnapshots[i].Status.Error = &vsv1beta1.VolumeSnapshotError{
 						Message: &message,
 						Time:    timeFunc(),
@@ -822,7 +818,10 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 
 				controller.processVMSnapshotContentWorkItem()
-			})
+			},
+				Entry("not ready", false, nil),
+				Entry("ready", true, timeFunc()),
+			)
 
 			It("should update VirtualMachineSnapshotContent when VolumeSnapshot deleted", func() {
 				vmSnapshotContent := createVMSnapshotContent()
@@ -857,7 +856,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				testutils.ExpectEvent(recorder, "VolumeSnapshotMissing")
 			})
 
-			table.DescribeTable("should delete informer", func(crdName string) {
+			DescribeTable("should delete informer", func(crdName string) {
 				crd := &extv1beta1.CustomResourceDefinition{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:              crdName,
@@ -878,8 +877,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(controller.dynamicInformerMap[crdName].stopCh).Should(BeNil())
 				Expect(controller.dynamicInformerMap[crdName].informer).Should(BeNil())
 			},
-				table.Entry("for VolumeSnapshot", volumeSnapshotCRD),
-				table.Entry("for VolumeSnapshotClass", volumeSnapshotClassCRD),
+				Entry("for VolumeSnapshot", volumeSnapshotCRD),
+				Entry("for VolumeSnapshotClass", volumeSnapshotClassCRD),
 			)
 
 			It("should update volume snapshot status for each volume", func() {
@@ -1201,7 +1200,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 			})
 
-			table.DescribeTable("should create informer", func(crdName string) {
+			DescribeTable("should create informer", func(crdName string) {
 				crd := &extv1beta1.CustomResourceDefinition{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: crdName,
@@ -1221,8 +1220,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(controller.dynamicInformerMap[crdName].stopCh).ShouldNot(BeNil())
 				Expect(controller.dynamicInformerMap[crdName].informer).ShouldNot(BeNil())
 			},
-				table.Entry("for VolumeSnapshot", volumeSnapshotCRD),
-				table.Entry("for VolumeSnapshotClass", volumeSnapshotClassCRD),
+				Entry("for VolumeSnapshot", volumeSnapshotCRD),
+				Entry("for VolumeSnapshotClass", volumeSnapshotClassCRD),
 			)
 		})
 	})
