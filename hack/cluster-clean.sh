@@ -135,4 +135,4 @@ done
 
 sleep 2
 
-echo "Done"
+echo "Done $0"

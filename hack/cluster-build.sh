@@ -97,4 +97,4 @@ for node in ${nodes[@]}; do
     done
 done
 
-echo "Done"
+echo "Done $0"
