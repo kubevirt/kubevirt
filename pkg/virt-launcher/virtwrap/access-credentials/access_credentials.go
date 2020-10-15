@@ -35,7 +35,9 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/config"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
@@ -70,8 +72,8 @@ type execStatusReturnData struct {
 type AccessCredentialManager struct {
 	virConn cli.Connection
 
-	// access credential propagation lock
-	lock                 sync.Mutex
+	// access credential propagation watchLock
+	watchLock            sync.Mutex
 	secretWatcherStarted bool
 
 	stopCh                     chan struct{}
@@ -80,15 +82,17 @@ type AccessCredentialManager struct {
 	watcher *fsnotify.Watcher
 
 	prevDesiredAuthKeysByFile map[string]string
+
+	domainModifyLock *sync.Mutex
 }
 
-func NewManager(connection cli.Connection) *AccessCredentialManager {
-
+func NewManager(connection cli.Connection, domainModifyLock *sync.Mutex) *AccessCredentialManager {
 	return &AccessCredentialManager{
 		virConn:                    connection,
 		stopCh:                     make(chan struct{}),
 		resyncCheckIntervalSeconds: 15,
 		prevDesiredAuthKeysByFile:  make(map[string]string),
+		domainModifyLock:           domainModifyLock,
 	}
 }
 
@@ -402,6 +406,13 @@ func (l *AccessCredentialManager) agentSetUserPassword(domName string, user stri
 	return nil
 }
 
+func (l *AccessCredentialManager) pingAgent(domName string) error {
+	cmdPing := `{"execute":"guest-ping"}`
+
+	_, err := l.virConn.QemuAgentCommand(cmdPing, domName)
+	return err
+}
+
 func (l *AccessCredentialManager) agentWriteAuthorizedKeys(domName string, user string, desiredAuthorizedKeys string) error {
 	curAuthorizedKeys := ""
 	fileExists := true
@@ -481,6 +492,48 @@ func getSecret(accessCred *v1.AccessCredential) string {
 	return secretName
 }
 
+func (l *AccessCredentialManager) reportAccessCredentialResult(vmi *v1.VirtualMachineInstance, succeeded bool, message string) error {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		if domainerrors.IsNotFound(err) {
+			return nil
+		} else {
+			log.Log.Reason(err).Error("Getting the domain for completed migration failed.")
+		}
+		return err
+	}
+	defer dom.Free()
+
+	state, _, err := dom.GetState()
+	if err != nil {
+		return err
+	}
+	domainSpec, err := util.GetDomainSpec(state, dom)
+	if err != nil {
+		return err
+	}
+
+	if domainSpec.Metadata.KubeVirt.AccessCredential == nil ||
+		domainSpec.Metadata.KubeVirt.AccessCredential.Succeeded != succeeded ||
+		domainSpec.Metadata.KubeVirt.AccessCredential.Message != message {
+
+		domainSpec.Metadata.KubeVirt.AccessCredential = &api.AccessCredentialMetadata{
+			Succeeded: succeeded,
+			Message:   message,
+		}
+	} else {
+		// nothing to do
+		return nil
+	}
+
+	_, err = util.SetDomainSpecStrWithHooks(l.virConn, vmi, domainSpec)
+	return err
+}
+
 func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 	logger := log.Log.Object(vmi)
 
@@ -525,6 +578,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 
 		fileChangeDetected = false
 		reload = false
+		reportedErr := false
 
 		// secret name mapped to authorized_keys in that secret
 		secretMap := make(map[string]string)
@@ -532,6 +586,14 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 		userSSHMap := make(map[string][]string)
 		// maps users to passwords
 		userPasswordMap := make(map[string]string)
+
+		err := l.pingAgent(domName)
+		if err != nil {
+			reload = true
+			reportedErr = true
+			l.reportAccessCredentialResult(vmi, false, "Guest agent is offline")
+			continue
+		}
 
 		// Step 1. Populate Secrets and filepath Map
 		for _, accessCred := range vmi.Spec.AccessCredentials {
@@ -545,7 +607,9 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 			if err != nil {
 				// if reading failed, reset reload to true so this change will be retried again
 				reload = true
+				reportedErr = true
 				logger.Reason(err).Errorf("Error encountered reading secrets file list from base directory %s", secretDir)
+				l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered reading access credential secret file list at base directory [%s]: %v", secretDir, err))
 				continue
 			}
 
@@ -569,7 +633,8 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 					if err != nil {
 						// if reading failed, reset reload to true so this change will be retried again
 						reload = true
-						logger.Reason(err).Errorf("Error encountered reading secret file %s", filepath.Join(secretDir, file.Name()))
+						reportedErr = true
+						l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered readding access credential secret file [%s]: %v", filepath.Join(secretDir, file.Name()), err))
 						continue
 					}
 
@@ -591,7 +656,9 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 					if err != nil {
 						// if reading failed, reset reload to true so this change will be retried again
 						reload = true
+						reportedErr = true
 						logger.Reason(err).Errorf("Error encountered reading secret file %s", filepath.Join(secretDir, file.Name()))
+						l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered readding access credential secret file [%s]: %v", filepath.Join(secretDir, file.Name()), err))
 						continue
 					}
 
@@ -619,7 +686,9 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 			if err != nil {
 				// if writing failed, reset reload to true so this change will be retried again
 				reload = true
+				reportedErr = true
 				logger.Reason(err).Errorf("Error encountered writing access credentials using guest agent")
+				l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered writing ssh pub key access credentials for user [%s]: %v", user, err))
 				continue
 			}
 		}
@@ -630,16 +699,22 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 			if err != nil {
 				// if setting password failed, reset reload to true so this will be tried again
 				reload = true
+				reportedErr = true
 				logger.Reason(err).Errorf("Error encountered setting password for user [%s]", user)
+
+				l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered setting password for user [%s]: %v", user, err))
 				continue
 			}
+		}
+		if !reportedErr {
+			l.reportAccessCredentialResult(vmi, true, "")
 		}
 	}
 }
 
 func (l *AccessCredentialManager) HandleQemuAgentAccessCredentials(vmi *v1.VirtualMachineInstance) error {
-	l.lock.Lock()
-	defer l.lock.Unlock()
+	l.watchLock.Lock()
+	defer l.watchLock.Unlock()
 
 	if l.secretWatcherStarted {
 		// already started

@@ -125,10 +125,20 @@ var _ = Describe("Guest Access Credentials", func() {
 			By("Waiting for agent to connect")
 			tests.WaitAgentConnected(virtClient, vmi)
 
-			By("Verifying all three pub ssh keys in secret are in VMI guest")
-
+			By("Waiting on access credentials to sync")
 			// this ensures the keys have propagated before we attempt to read
-			time.Sleep(20 * time.Second)
+			Eventually(func() bool {
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, cond := range vmi.Status.Conditions {
+					if cond.Type == v1.VirtualMachineInstanceAccessCredentialsSynchronized && cond.Status == kubev1.ConditionTrue {
+						return true
+					}
+				}
+				return false
+			}, 45*time.Second, time.Second).Should(BeTrue())
+
+			By("Verifying all three pub ssh keys in secret are in VMI guest")
 			ExecutingBatchCmd(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BSnd{S: "\n"},
@@ -192,8 +202,19 @@ var _ = Describe("Guest Access Credentials", func() {
 
 			By("Verifying signin with custom password works")
 
-			// this ensures the passwords have propagated now that agent has connected before we attempt to read
-			time.Sleep(20 * time.Second)
+			By("Waiting on access credentials to sync")
+			// this ensures the keys have propagated before we attempt to read
+			Eventually(func() bool {
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, cond := range vmi.Status.Conditions {
+					if cond.Type == v1.VirtualMachineInstanceAccessCredentialsSynchronized && cond.Status == kubev1.ConditionTrue {
+						return true
+					}
+				}
+				return false
+			}, 45*time.Second, time.Second).Should(BeTrue())
+
 			ExecutingBatchCmd(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BSnd{S: "\n"},

@@ -268,6 +268,9 @@ const (
 	// Reflects whether the QEMU guest agent is connected through the channel
 	VirtualMachineInstanceAgentConnected VirtualMachineInstanceConditionType = "AgentConnected"
 
+	// Reflects whether the QEMU guest agent updated access credentials successfully
+	VirtualMachineInstanceAccessCredentialsSynchronized VirtualMachineInstanceConditionType = "AccessCredentialsSynchronized"
+
 	// Reflects whether the QEMU guest agent is connected through the channel
 	VirtualMachineInstanceUnsupportedAgent VirtualMachineInstanceConditionType = "AgentVersionNotSupported"
 
