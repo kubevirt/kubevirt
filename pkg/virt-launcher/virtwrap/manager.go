@@ -166,10 +166,10 @@ func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 		paused: pausedVMIs{
 			paused: make(map[types.UID]bool, 0),
 		},
-		agentData:   agentStore,
-		ovmfPath:    ovmfPath,
-		credManager: accesscredentials.NewManager(connection),
+		agentData: agentStore,
+		ovmfPath:  ovmfPath,
 	}
+	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock)
 
 	return &manager, nil
 }
@@ -1698,15 +1698,7 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 }
 
 func (l *LibvirtDomainManager) setDomainSpecWithHooks(vmi *v1.VirtualMachineInstance, origSpec *api.DomainSpec) (cli.VirDomain, error) {
-
-	spec := origSpec.DeepCopy()
-	hooksManager := hooks.GetManager()
-
-	domainSpec, err := hooksManager.OnDefineDomain(spec, vmi)
-	if err != nil {
-		return nil, err
-	}
-	return util.SetDomainSpecStr(l.virConn, vmi, domainSpec)
+	return util.SetDomainSpecStrWithHooks(l.virConn, vmi, origSpec)
 }
 
 func (l *LibvirtDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {

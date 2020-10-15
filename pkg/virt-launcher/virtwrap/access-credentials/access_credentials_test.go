@@ -21,9 +21,13 @@ package accesscredentials
 
 import (
 	"encoding/base64"
+	"encoding/xml"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"runtime"
+	"strings"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -31,22 +35,29 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/golang/mock/gomock"
+	libvirt "libvirt.org/libvirt-go"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
 var _ = Describe("AccessCredentials", func() {
 	var mockConn *cli.MockConnection
+	var mockDomain *cli.MockVirDomain
 	var ctrl *gomock.Controller
 	var manager *AccessCredentialManager
 	var tmpDir string
+	var lock sync.Mutex
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockConn = cli.NewMockConnection(ctrl)
-		manager = NewManager(mockConn)
+		mockDomain = cli.NewMockVirDomain(ctrl)
+
+		manager = NewManager(mockConn, &lock)
 		manager.resyncCheckIntervalSeconds = 1
 		tmpDir, _ = ioutil.TempDir("", "credential-test")
 		unitTestSecretDir = tmpDir
@@ -54,6 +65,20 @@ var _ = Describe("AccessCredentials", func() {
 	AfterEach(func() {
 		os.RemoveAll(tmpDir)
 	})
+
+	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
+		domain := &api.Domain{}
+		c := &api.ConverterContext{
+			Architecture:   runtime.GOARCH,
+			VirtualMachine: vmi,
+			UseEmulation:   true,
+			SMBios:         &cmdv1.SMBios{},
+		}
+		Expect(api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
+		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
+
+		return &domain.Spec
+	}
 
 	It("should handle qemu agent exec", func() {
 		domName := "some-domain"
@@ -87,7 +112,6 @@ var _ = Describe("AccessCredentials", func() {
 	It("should handle dynamically updating ssh key with qemu agent", func() {
 		domName := "some-domain"
 		user := "someowner"
-		//userHome := "/home/someowner"
 		filePath := "/home/someowner/.ssh"
 
 		authorizedKeys := "ssh some injected key"
@@ -173,10 +197,6 @@ var _ = Describe("AccessCredentials", func() {
 		//
 		// Expected set file permissions
 		//
-
-		//mockConn.EXPECT().QemuAgentCommand(expectedFileOwnerCmd, domName).Return(expectedExecReturn, nil)
-		//mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileOwnerCmdRes, nil)
-
 		mockConn.EXPECT().QemuAgentCommand(expectedFileChownCmd, domName).Return(expectedExecReturn, nil)
 		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileChownRes, nil)
 
@@ -231,6 +251,26 @@ var _ = Describe("AccessCredentials", func() {
 		// set the expected command
 		base64Str := base64.StdEncoding.EncodeToString([]byte(password))
 		cmdSetPassword := fmt.Sprintf(`{"execute":"guest-set-user-password", "arguments": {"username":"%s", "password": "%s", "crypted": false }}`, user, base64Str)
+
+		cmdPing := `{"execute":"guest-ping"}`
+		mockConn.EXPECT().QemuAgentCommand(cmdPing, domName).AnyTimes().Return("", nil)
+
+		domainSpec := expectIsolationDetectionForVMI(vmi)
+		xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+
+		mockDomain.EXPECT().Free().AnyTimes()
+		mockConn.EXPECT().LookupDomainByName(domName).AnyTimes().Return(mockDomain, nil)
+		mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+		mockDomain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(string(xml), nil)
+
+		mockConn.EXPECT().DomainDefineXML(gomock.Any()).AnyTimes().DoAndReturn(func(xml string) (cli.VirDomain, error) {
+
+			match := `			<accessCredential>
+				<succeeded>true</succeeded>
+			</accessCredential>`
+			Expect(strings.Contains(xml, match)).To(BeTrue())
+			return mockDomain, nil
+		})
 
 		matched := false
 		mockConn.EXPECT().QemuAgentCommand(cmdSetPassword, domName).MinTimes(1).DoAndReturn(func(funcCmd string, funcDomName string) (string, error) {

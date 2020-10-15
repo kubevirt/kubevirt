@@ -808,6 +808,131 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		})
 
+		It("should add access credential synced condition when credentials report success", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			mockWatchdog.CreateFile(vmi)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+			domain.Spec.Metadata.KubeVirt.AccessCredential = &api.AccessCredentialMetadata{
+				Succeeded: true,
+				Message:   "",
+			}
+
+			updatedVMI := vmi.DeepCopy()
+			updatedVMI.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:          v1.VirtualMachineInstanceAccessCredentialsSynchronized,
+					LastProbeTime: metav1.Now(),
+					Status:        k8sv1.ConditionTrue,
+				},
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
+
+			controller.Execute()
+		})
+
+		It("should do nothing if access credential condition already exists", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi = addActivePods(vmi, podTestUUID, host)
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:          v1.VirtualMachineInstanceAccessCredentialsSynchronized,
+					LastProbeTime: metav1.Now(),
+					Status:        k8sv1.ConditionTrue,
+				},
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+
+			mockWatchdog.CreateFile(vmi)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+			domain.Spec.Metadata.KubeVirt.AccessCredential = &api.AccessCredentialMetadata{
+				Succeeded: true,
+				Message:   "",
+			}
+
+			vmiCopy := vmi.DeepCopy()
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			vmiInterface.EXPECT().Update(NewVMICondMatcher(*vmiCopy))
+
+			controller.Execute()
+		})
+
+		It("should update  access credential condition if agent disconnects", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi = addActivePods(vmi, podTestUUID, host)
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:          v1.VirtualMachineInstanceAccessCredentialsSynchronized,
+					LastProbeTime: metav1.Now(),
+					Status:        k8sv1.ConditionTrue,
+				},
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+
+			mockWatchdog.CreateFile(vmi)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+			domain.Spec.Metadata.KubeVirt.AccessCredential = &api.AccessCredentialMetadata{
+				Succeeded: false,
+				Message:   "some message",
+			}
+
+			vmiCopy := vmi.DeepCopy()
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:          v1.VirtualMachineInstanceAccessCredentialsSynchronized,
+					LastProbeTime: metav1.Now(),
+					Status:        k8sv1.ConditionFalse,
+					Message:       "some message",
+				},
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			vmiInterface.EXPECT().Update(NewVMICondMatcher(*vmiCopy))
+
+			controller.Execute()
+		})
+
 		It("should add and remove paused condition", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
