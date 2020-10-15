@@ -2817,7 +2817,6 @@ var CRDsValidation map[string]string = map[string]string{
                               - path
                               type: object
                             type: array
-                            x-kubernetes-list-type: set
                           volumeLabel:
                             description: The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
                             type: string
@@ -4350,7 +4349,6 @@ var CRDsValidation map[string]string = map[string]string{
                       - path
                       type: object
                     type: array
-                    x-kubernetes-list-type: set
                   volumeLabel:
                     description: The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
                     type: string
@@ -6722,7 +6720,6 @@ var CRDsValidation map[string]string = map[string]string{
                               - path
                               type: object
                             type: array
-                            x-kubernetes-list-type: set
                           volumeLabel:
                             description: The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
                             type: string
@@ -8683,7 +8680,6 @@ var CRDsValidation map[string]string = map[string]string{
                                           - path
                                           type: object
                                         type: array
-                                        x-kubernetes-list-type: set
                                       volumeLabel:
                                         description: The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
                                         type: string
