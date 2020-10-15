@@ -40,6 +40,7 @@ rm -rf $ARTIFACTS
 mkdir -p $ARTIFACTS
 
 function functest() {
+    extra_args="${extra_args} -apply-default-e2e-configuration"
     if [[ ${KUBEVIRT_PROVIDER} =~ .*(k8s-1\.16)|(k8s-1\.17)|k8s-sriov.* ]]; then
         echo "Will skip test asserting the cluster is in dual-stack mode."
         extra_args="${extra_args} -skip-dual-stack-test"
