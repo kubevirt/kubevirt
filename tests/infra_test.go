@@ -256,20 +256,25 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			AfterEach(func() {
 				if selectedNode != nil {
 					By("removing the taint from the tainted node")
-					var taints []k8sv1.Taint
-
-					for _, taint := range selectedNode.Spec.Taints {
-						if taint.Key != "CriticalAddonsOnly" {
-							taints = append(taints, taint)
-						}
-					}
-
-					nodeCopy := selectedNode.DeepCopy()
-					nodeCopy.ResourceVersion = ""
-					nodeCopy.Spec.Taints = taints
-
 					err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-						_, err := virtClient.CoreV1().Nodes().Update(nodeCopy)
+						var err error
+						selectedNode, err = virtClient.CoreV1().Nodes().Get(selectedNode.Name, metav1.GetOptions{})
+						if err != nil {
+							return err
+						}
+
+						var taints []k8sv1.Taint
+						for _, taint := range selectedNode.Spec.Taints {
+							if taint.Key != "CriticalAddonsOnly" {
+								taints = append(taints, taint)
+							}
+						}
+
+						nodeCopy := selectedNode.DeepCopy()
+						nodeCopy.ResourceVersion = ""
+						nodeCopy.Spec.Taints = taints
+
+						_, err = virtClient.CoreV1().Nodes().Update(nodeCopy)
 						return err
 					})
 					Expect(err).ShouldNot(HaveOccurred())
@@ -338,15 +343,21 @@ var _ = Describe("[Serial]Infrastructure", func() {
 				go signalTerminatedPods(stopCn, lw.ResultChan(), terminatedPodsCn)
 
 				By("tainting the selected node")
-				selectedNodeCopy := selectedNode.DeepCopy()
-				selectedNodeCopy.Spec.Taints = append(selectedNodeCopy.Spec.Taints, k8sv1.Taint{
-					Key:    "CriticalAddonsOnly",
-					Value:  "",
-					Effect: k8sv1.TaintEffectNoExecute,
-				})
-
 				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					_, err := virtClient.CoreV1().Nodes().Update(selectedNodeCopy)
+					var err error
+					selectedNode, err = virtClient.CoreV1().Nodes().Get(selectedNode.Name, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+
+					selectedNodeCopy := selectedNode.DeepCopy()
+					selectedNodeCopy.Spec.Taints = append(selectedNodeCopy.Spec.Taints, k8sv1.Taint{
+						Key:    "CriticalAddonsOnly",
+						Value:  "",
+						Effect: k8sv1.TaintEffectNoExecute,
+					})
+
+					_, err = virtClient.CoreV1().Nodes().Update(selectedNodeCopy)
 					return err
 				})
 				Expect(err).ShouldNot(HaveOccurred())
