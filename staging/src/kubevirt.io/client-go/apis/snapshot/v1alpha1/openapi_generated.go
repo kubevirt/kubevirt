@@ -14512,11 +14512,6 @@ func schema_kubevirtio_client_go_api_v1_DownwardAPIVolumeSource(ref common.Refer
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"fields": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
 							Description: "Fields is a list of downward API volume file",
 							Type:        []string{"array"},

@@ -38,7 +38,7 @@ var _ = Describe("oc/kubectl integration", func() {
 		Expect(output).To(ContainSubstring("spec	<Object>"))
 		Expect(output).To(ContainSubstring("status	<Object>"))
 	},
-		table.FEntry("[rfe_id:3810]explain vm", "vm"),
+		table.Entry("[rfe_id:3810]explain vm", "vm"),
 		table.Entry("[rfe_id:3811]explain vmi", "vmi"),
 		table.PEntry("explain vmim", "vmim"),
 		table.PEntry("explain kv", "kv"),

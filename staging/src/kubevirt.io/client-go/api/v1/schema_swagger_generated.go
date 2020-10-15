@@ -32,7 +32,7 @@ func (SecretVolumeSource) SwaggerDoc() map[string]string {
 func (DownwardAPIVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":            "DownwardAPIVolumeSource represents a volume containing downward API info.\n\n+k8s:openapi-gen=true",
-		"fields":      "Fields is a list of downward API volume file\n+optional\n+listType=set",
+		"fields":      "Fields is a list of downward API volume file\n+optional",
 		"volumeLabel": "The volume label of the resulting disk inside the VMI.\nDifferent bootstrapping mechanisms require different values.\nTypical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).\n+optional",
 	}
 }
