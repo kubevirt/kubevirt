@@ -265,6 +265,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 				nodeCopy := selectedNode.DeepCopy()
 				nodeCopy.ResourceVersion = ""
+				nodeCopy.Spec.Taints = taints
 
 				err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 					_, err := virtClient.CoreV1().Nodes().Update(nodeCopy)
