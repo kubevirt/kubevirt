@@ -70,6 +70,12 @@ func InterfaceDeviceWithSRIOVBinding(name string) kvirtv1.Interface {
 	}
 }
 
+// InterfaceWithMac decorates an existing Interface with a MAC address.
+func InterfaceWithMac(iface *kvirtv1.Interface, macAddress string) *kvirtv1.Interface {
+	iface.MacAddress = macAddress
+	return iface
+}
+
 // MultusNetwork returns a Network with the given name
 func MultusNetwork(networkName string) *kvirtv1.Network {
 	return &kvirtv1.Network{
