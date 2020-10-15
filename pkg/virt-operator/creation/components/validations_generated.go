@@ -2767,6 +2767,61 @@ var CRDsValidation map[string]string = map[string]string{
                         required:
                         - name
                         type: object
+                      downwardAPI:
+                        description: DownwardAPI represents downward API about the pod that should populate this volume
+                        properties:
+                          fields:
+                            description: Fields is a list of downward API volume file
+                            items:
+                              description: DownwardAPIVolumeFile represents information to create the file containing the pod field
+                              properties:
+                                fieldRef:
+                                  description: 'Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.'
+                                  properties:
+                                    apiVersion:
+                                      description: Version of the schema the FieldPath is written in terms of, defaults to "v1".
+                                      type: string
+                                    fieldPath:
+                                      description: Path of the field to select in the specified API version.
+                                      type: string
+                                  required:
+                                  - fieldPath
+                                  type: object
+                                mode:
+                                  description: 'Optional: mode bits to use on this file, must be a value between 0 and 0777. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.'
+                                  format: int32
+                                  type: integer
+                                path:
+                                  description: 'Required: Path is  the relative path name of the file to be created. Must not be absolute or contain the ''..'' path. Must be utf-8 encoded. The first item of the relative path must not start with ''..'''
+                                  type: string
+                                resourceFieldRef:
+                                  description: 'Selects a resource of the container: only resources limits and requests (limits.cpu, limits.memory, requests.cpu and requests.memory) are currently supported.'
+                                  properties:
+                                    containerName:
+                                      description: 'Container name: required for volumes, optional for env vars'
+                                      type: string
+                                    divisor:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      description: Specifies the output format of the exposed resources, defaults to "1"
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                    resource:
+                                      description: 'Required: resource to select'
+                                      type: string
+                                  required:
+                                  - resource
+                                  type: object
+                              required:
+                              - path
+                              type: object
+                            type: array
+                            x-kubernetes-list-type: set
+                          volumeLabel:
+                            description: The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
+                            type: string
+                        type: object
                       emptyDisk:
                         description: 'EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html'
                         properties:
@@ -4244,6 +4299,61 @@ var CRDsValidation map[string]string = map[string]string{
                     type: string
                 required:
                 - name
+                type: object
+              downwardAPI:
+                description: DownwardAPI represents downward API about the pod that should populate this volume
+                properties:
+                  fields:
+                    description: Fields is a list of downward API volume file
+                    items:
+                      description: DownwardAPIVolumeFile represents information to create the file containing the pod field
+                      properties:
+                        fieldRef:
+                          description: 'Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.'
+                          properties:
+                            apiVersion:
+                              description: Version of the schema the FieldPath is written in terms of, defaults to "v1".
+                              type: string
+                            fieldPath:
+                              description: Path of the field to select in the specified API version.
+                              type: string
+                          required:
+                          - fieldPath
+                          type: object
+                        mode:
+                          description: 'Optional: mode bits to use on this file, must be a value between 0 and 0777. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.'
+                          format: int32
+                          type: integer
+                        path:
+                          description: 'Required: Path is  the relative path name of the file to be created. Must not be absolute or contain the ''..'' path. Must be utf-8 encoded. The first item of the relative path must not start with ''..'''
+                          type: string
+                        resourceFieldRef:
+                          description: 'Selects a resource of the container: only resources limits and requests (limits.cpu, limits.memory, requests.cpu and requests.memory) are currently supported.'
+                          properties:
+                            containerName:
+                              description: 'Container name: required for volumes, optional for env vars'
+                              type: string
+                            divisor:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: Specifies the output format of the exposed resources, defaults to "1"
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            resource:
+                              description: 'Required: resource to select'
+                              type: string
+                          required:
+                          - resource
+                          type: object
+                      required:
+                      - path
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: set
+                  volumeLabel:
+                    description: The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
+                    type: string
                 type: object
               emptyDisk:
                 description: 'EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html'
@@ -6562,6 +6672,61 @@ var CRDsValidation map[string]string = map[string]string{
                         required:
                         - name
                         type: object
+                      downwardAPI:
+                        description: DownwardAPI represents downward API about the pod that should populate this volume
+                        properties:
+                          fields:
+                            description: Fields is a list of downward API volume file
+                            items:
+                              description: DownwardAPIVolumeFile represents information to create the file containing the pod field
+                              properties:
+                                fieldRef:
+                                  description: 'Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.'
+                                  properties:
+                                    apiVersion:
+                                      description: Version of the schema the FieldPath is written in terms of, defaults to "v1".
+                                      type: string
+                                    fieldPath:
+                                      description: Path of the field to select in the specified API version.
+                                      type: string
+                                  required:
+                                  - fieldPath
+                                  type: object
+                                mode:
+                                  description: 'Optional: mode bits to use on this file, must be a value between 0 and 0777. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.'
+                                  format: int32
+                                  type: integer
+                                path:
+                                  description: 'Required: Path is  the relative path name of the file to be created. Must not be absolute or contain the ''..'' path. Must be utf-8 encoded. The first item of the relative path must not start with ''..'''
+                                  type: string
+                                resourceFieldRef:
+                                  description: 'Selects a resource of the container: only resources limits and requests (limits.cpu, limits.memory, requests.cpu and requests.memory) are currently supported.'
+                                  properties:
+                                    containerName:
+                                      description: 'Container name: required for volumes, optional for env vars'
+                                      type: string
+                                    divisor:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      description: Specifies the output format of the exposed resources, defaults to "1"
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                    resource:
+                                      description: 'Required: resource to select'
+                                      type: string
+                                  required:
+                                  - resource
+                                  type: object
+                              required:
+                              - path
+                              type: object
+                            type: array
+                            x-kubernetes-list-type: set
+                          volumeLabel:
+                            description: The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
+                            type: string
+                        type: object
                       emptyDisk:
                         description: 'EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html'
                         properties:
@@ -8467,6 +8632,61 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: string
                                     required:
                                     - name
+                                    type: object
+                                  downwardAPI:
+                                    description: DownwardAPI represents downward API about the pod that should populate this volume
+                                    properties:
+                                      fields:
+                                        description: Fields is a list of downward API volume file
+                                        items:
+                                          description: DownwardAPIVolumeFile represents information to create the file containing the pod field
+                                          properties:
+                                            fieldRef:
+                                              description: 'Required: Selects a field of the pod: only annotations, labels, name and namespace are supported.'
+                                              properties:
+                                                apiVersion:
+                                                  description: Version of the schema the FieldPath is written in terms of, defaults to "v1".
+                                                  type: string
+                                                fieldPath:
+                                                  description: Path of the field to select in the specified API version.
+                                                  type: string
+                                              required:
+                                              - fieldPath
+                                              type: object
+                                            mode:
+                                              description: 'Optional: mode bits to use on this file, must be a value between 0 and 0777. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.'
+                                              format: int32
+                                              type: integer
+                                            path:
+                                              description: 'Required: Path is  the relative path name of the file to be created. Must not be absolute or contain the ''..'' path. Must be utf-8 encoded. The first item of the relative path must not start with ''..'''
+                                              type: string
+                                            resourceFieldRef:
+                                              description: 'Selects a resource of the container: only resources limits and requests (limits.cpu, limits.memory, requests.cpu and requests.memory) are currently supported.'
+                                              properties:
+                                                containerName:
+                                                  description: 'Container name: required for volumes, optional for env vars'
+                                                  type: string
+                                                divisor:
+                                                  anyOf:
+                                                  - type: integer
+                                                  - type: string
+                                                  description: Specifies the output format of the exposed resources, defaults to "1"
+                                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                  x-kubernetes-int-or-string: true
+                                                resource:
+                                                  description: 'Required: resource to select'
+                                                  type: string
+                                              required:
+                                              - resource
+                                              type: object
+                                          required:
+                                          - path
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: set
+                                      volumeLabel:
+                                        description: The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
+                                        type: string
                                     type: object
                                   emptyDisk:
                                     description: 'EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html'
