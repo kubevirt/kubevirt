@@ -26,15 +26,19 @@ var _ = Describe("oc/kubectl integration", func() {
 	})
 
 	table.DescribeTable("[rfe_id:3812]explain vm/vmi", func(resource string) {
-		output, _, err := tests.RunCommand(k8sClient, "explain", resource)
-		Expect(err).NotTo(HaveOccurred())
+		output, stderr, err := tests.RunCommand(k8sClient, "explain", resource)
+		// kubectl will not find resource for the first time this command is issued
+		if err != nil {
+			output, _, err = tests.RunCommand(k8sClient, "explain", resource)
+		}
+		Expect(err).NotTo(HaveOccurred(), stderr)
 		Expect(output).To(ContainSubstring("apiVersion	<string>"))
 		Expect(output).To(ContainSubstring("kind	<string>"))
 		Expect(output).To(ContainSubstring("metadata	<Object>"))
 		Expect(output).To(ContainSubstring("spec	<Object>"))
 		Expect(output).To(ContainSubstring("status	<Object>"))
 	},
-		table.Entry("[rfe_id:3810]explain vm", "vm"),
+		table.FEntry("[rfe_id:3810]explain vm", "vm"),
 		table.Entry("[rfe_id:3811]explain vmi", "vmi"),
 		table.PEntry("explain vmim", "vmim"),
 		table.PEntry("explain kv", "kv"),
