@@ -325,7 +325,7 @@ csplit --digits=2 --quiet --elide-empty-files \
   --prefix=hco \
   --suffix-format="%02d.${CRD_EXT}" \
   $hco_crds \
-  "/---/" "{*}"
+  "/^---$/" "{*}"
 
 popd
 

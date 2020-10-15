@@ -42,6 +42,15 @@ type CatalogSourceSpec struct {
 	// SourceType is the type of source
 	SourceType SourceType `json:"sourceType"`
 
+	// Priority field assigns a weight to the catalog source to prioritize them so that it can be consumed by the dependency resolver.
+	// Usage:
+	// Higher weight indicates that this catalog source is preferred over lower weighted catalog sources during dependency resolution.
+	// The range of the priority value can go from positive to negative in the range of int32.
+	// The default value to a catalog source with unassigned priority would be 0.
+	// The catalog source with the same priority values will be ranked lexicographically based on its name.
+	// +Optional
+	Priority int `json:"priority,omitempty"`
+
 	// ConfigMap is the name of the ConfigMap to be used to back a configmap-server registry.
 	// Only used when SourceType = SourceTypeConfigmap or SourceTypeInternal.
 	// +Optional

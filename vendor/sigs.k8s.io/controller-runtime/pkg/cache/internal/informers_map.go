@@ -245,12 +245,15 @@ func createStructuredListWatch(gvk schema.GroupVersionKind, ip *specificInformer
 		return nil, err
 	}
 
+	// TODO: the functions that make use of this ListWatch should be adapted to
+	//  pass in their own contexts instead of relying on this fixed one here.
+	ctx := context.TODO()
 	// Create a new ListWatch for the obj
 	return &cache.ListWatch{
 		ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 			res := listObj.DeepCopyObject()
 			isNamespaceScoped := ip.namespace != "" && mapping.Scope.Name() != meta.RESTScopeNameRoot
-			err := client.Get().NamespaceIfScoped(ip.namespace, isNamespaceScoped).Resource(mapping.Resource.Resource).VersionedParams(&opts, ip.paramCodec).Do().Into(res)
+			err := client.Get().NamespaceIfScoped(ip.namespace, isNamespaceScoped).Resource(mapping.Resource.Resource).VersionedParams(&opts, ip.paramCodec).Do(ctx).Into(res)
 			return res, err
 		},
 		// Setup the watch function
@@ -258,7 +261,7 @@ func createStructuredListWatch(gvk schema.GroupVersionKind, ip *specificInformer
 			// Watch needs to be set to true separately
 			opts.Watch = true
 			isNamespaceScoped := ip.namespace != "" && mapping.Scope.Name() != meta.RESTScopeNameRoot
-			return client.Get().NamespaceIfScoped(ip.namespace, isNamespaceScoped).Resource(mapping.Resource.Resource).VersionedParams(&opts, ip.paramCodec).Watch()
+			return client.Get().NamespaceIfScoped(ip.namespace, isNamespaceScoped).Resource(mapping.Resource.Resource).VersionedParams(&opts, ip.paramCodec).Watch(ctx)
 		},
 	}, nil
 }
@@ -275,22 +278,25 @@ func createUnstructuredListWatch(gvk schema.GroupVersionKind, ip *specificInform
 		return nil, err
 	}
 
+	// TODO: the functions that make use of this ListWatch should be adapted to
+	//  pass in their own contexts instead of relying on this fixed one here.
+	ctx := context.TODO()
 	// Create a new ListWatch for the obj
 	return &cache.ListWatch{
 		ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 			if ip.namespace != "" && mapping.Scope.Name() != meta.RESTScopeNameRoot {
-				return dynamicClient.Resource(mapping.Resource).Namespace(ip.namespace).List(opts)
+				return dynamicClient.Resource(mapping.Resource).Namespace(ip.namespace).List(ctx, opts)
 			}
-			return dynamicClient.Resource(mapping.Resource).List(opts)
+			return dynamicClient.Resource(mapping.Resource).List(ctx, opts)
 		},
 		// Setup the watch function
 		WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
 			// Watch needs to be set to true separately
 			opts.Watch = true
 			if ip.namespace != "" && mapping.Scope.Name() != meta.RESTScopeNameRoot {
-				return dynamicClient.Resource(mapping.Resource).Namespace(ip.namespace).Watch(opts)
+				return dynamicClient.Resource(mapping.Resource).Namespace(ip.namespace).Watch(ctx, opts)
 			}
-			return dynamicClient.Resource(mapping.Resource).Watch(opts)
+			return dynamicClient.Resource(mapping.Resource).Watch(ctx, opts)
 		},
 	}, nil
 }

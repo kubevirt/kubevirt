@@ -15,9 +15,10 @@ limitations under the License.
 */
 
 /*
+Package fake provides a fake client for testing.
+
 Deprecated: please use pkg/envtest for testing. This package will be dropped
 before the v1.0.0 release.
-Package fake provides a fake client for testing.
 
 An fake client is backed by its simple object store indexed by GroupVersionResource.
 You can create a fake client with optional objects.

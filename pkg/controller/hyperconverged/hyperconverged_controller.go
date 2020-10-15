@@ -40,7 +40,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/scheme"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
@@ -910,7 +909,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtPriorityClass(req *hcoRequest) *
 	// at this point we found the object in the cache and we check if something was changed
 	if pc.Name == found.Name && pc.Value == found.Value && pc.Description == found.Description {
 		req.logger.Info("KubeVirt PriorityClass already exists", "PriorityClass.Name", pc.Name)
-		objectRef, err := reference.GetReference(scheme.Scheme, found)
+		objectRef, err := reference.GetReference(r.scheme, found)
 		if err != nil {
 			req.logger.Error(err, "failed getting object reference for found object")
 			return res.Error(err)

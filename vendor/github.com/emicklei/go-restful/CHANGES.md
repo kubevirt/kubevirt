@@ -1,15 +1,17 @@
-## Change history of go-restful
+# Change history of go-restful
 
-v2.10.0
 
-- support for Custom Verbs (thanks Vinci Xu <277040271@qq.com>)
-- fixed static example (thanks Arthur <yang_yapo@126.com>)
-- simplify code (thanks Christian Muehlhaeuser <muesli@gmail.com>)
-- added JWT HMAC with SHA-512 authentication code example (thanks Amim Knabben <amim.knabben@gmail.com>)
+v2.11.1
+
+- fix WriteError return value (#415)
+
+v2.11.0 
+
+- allow prefix and suffix in path variable expression (#414)
 
 v2.9.6
 
-- small optimization in filter code
+- support google custome verb (#413)
 
 v2.9.5
 

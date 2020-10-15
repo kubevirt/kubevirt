@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["containerdisk.go"],
-    importpath = "kubevirt.io/kubevirt/tests/containerdisk",
-    visibility = ["//visibility:public"],
-    deps = ["//tests/flags:go_default_library"],
-)

@@ -105,7 +105,9 @@ func (k *KubeAwareEncoder) EncodeEntry(entry zapcore.Entry, fields []zapcore.Fie
 		// intercept stringer fields that happen to be Kubernetes runtime.Object or
 		// types.NamespacedName values (Kubernetes runtime.Objects commonly
 		// implement String, apparently).
-		if field.Type == zapcore.StringerType {
+		// *unstructured.Unstructured does NOT implement fmt.Striger interface.
+		// We have handle it specially.
+		if field.Type == zapcore.StringerType || field.Type == zapcore.ReflectType {
 			switch val := field.Interface.(type) {
 			case runtime.Object:
 				fields[i] = zapcore.Field{

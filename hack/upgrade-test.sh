@@ -41,7 +41,7 @@
 # to verify that it is updated to the new operator image from 
 # the local registry.
 
-MAX_STEPS=11
+MAX_STEPS=12
 CUR_STEP=1
 RELEASE_DELTA="${RELEASE_DELTA:-1}"
 HCO_DEPLOYMENT_NAME=hco-operator
@@ -239,10 +239,15 @@ Msg "verify that the hyperconverged-cluster Pod is using the new image"
 Msg "verify new operator version reported after the upgrade"
 ./hack/retry.sh 15 30 "CMD=${CMD} HCO_RESOURCE_NAME=${HCO_RESOURCE_NAME} HCO_NAMESPACE=${HCO_NAMESPACE} TARGET_VERSION=${TARGET_VERSION} hack/check_hco_version.sh"
 
+Msg "Ensure that HCO detected the cluster as OpenShift"
+HCO_POD=$( ${CMD} get pods -n ${HCO_NAMESPACE} -l "name=hyperconverged-cluster-operator" --field-selector=status.phase=Running -o name | head -n1)
+${CMD} logs -n ${HCO_NAMESPACE} "${HCO_POD}" | grep "Cluster type = openshift"
+
 echo "----- Images after upgrade"
 # TODO: compare all of them with the list of images in RelatedImages in the new CSV
 ${CMD} get deployments -n ${HCO_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
 ${CMD} get pod $HCO_CATALOGSOURCE_POD -n ${HCO_CATALOG_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
 
 dump_sccs_after
+
 echo "upgrade-test completed successfully."

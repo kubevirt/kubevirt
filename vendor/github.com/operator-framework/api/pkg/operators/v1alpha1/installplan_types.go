@@ -14,6 +14,7 @@ const (
 )
 
 // Approval is the user approval policy for an InstallPlan.
+// It must be one of "Automatic" or "Manual".
 type Approval string
 
 const (

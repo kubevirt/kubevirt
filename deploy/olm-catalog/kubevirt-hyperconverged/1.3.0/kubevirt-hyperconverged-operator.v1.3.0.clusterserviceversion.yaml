@@ -427,6 +427,13 @@ spec:
           - create
           - delete
           - update
+        - apiGroups:
+          - config.openshift.io
+          resources:
+          - clusterversions
+          verbs:
+          - get
+          - list
         serviceAccountName: hyperconverged-cluster-operator
       - rules:
         - apiGroups:

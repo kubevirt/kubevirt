@@ -455,6 +455,18 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 				"update",
 			},
 		},
+		{
+			APIGroups: []string{
+				"config.openshift.io",
+			},
+			Resources: []string{
+				"clusterversions",
+			},
+			Verbs: []string{
+				"get",
+				"list",
+			},
+		},
 	}
 }
 

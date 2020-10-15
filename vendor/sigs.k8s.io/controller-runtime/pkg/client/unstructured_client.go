@@ -53,8 +53,7 @@ func (uc *unstructuredClient) Create(ctx context.Context, obj runtime.Object, op
 		Resource(o.resource()).
 		Body(obj).
 		VersionedParams(createOpts.AsCreateOptions(), uc.paramCodec).
-		Context(ctx).
-		Do().
+		Do(ctx).
 		Into(obj)
 
 	u.SetGroupVersionKind(gvk)
@@ -83,8 +82,7 @@ func (uc *unstructuredClient) Update(ctx context.Context, obj runtime.Object, op
 		Name(o.GetName()).
 		Body(obj).
 		VersionedParams(updateOpts.AsUpdateOptions(), uc.paramCodec).
-		Context(ctx).
-		Do().
+		Do(ctx).
 		Into(obj)
 
 	u.SetGroupVersionKind(gvk)
@@ -110,8 +108,7 @@ func (uc *unstructuredClient) Delete(ctx context.Context, obj runtime.Object, op
 		Resource(o.resource()).
 		Name(o.GetName()).
 		Body(deleteOpts.AsDeleteOptions()).
-		Context(ctx).
-		Do().
+		Do(ctx).
 		Error()
 }
 
@@ -134,8 +131,7 @@ func (uc *unstructuredClient) DeleteAllOf(ctx context.Context, obj runtime.Objec
 		Resource(o.resource()).
 		VersionedParams(deleteAllOfOpts.AsListOptions(), uc.paramCodec).
 		Body(deleteAllOfOpts.AsDeleteOptions()).
-		Context(ctx).
-		Do().
+		Do(ctx).
 		Error()
 }
 
@@ -163,8 +159,7 @@ func (uc *unstructuredClient) Patch(ctx context.Context, obj runtime.Object, pat
 		Name(o.GetName()).
 		VersionedParams(patchOpts.ApplyOptions(opts).AsPatchOptions(), uc.paramCodec).
 		Body(data).
-		Context(ctx).
-		Do().
+		Do(ctx).
 		Into(obj)
 }
 
@@ -185,9 +180,8 @@ func (uc *unstructuredClient) Get(ctx context.Context, key ObjectKey, obj runtim
 	result := r.Get().
 		NamespaceIfScoped(key.Namespace, r.isNamespaced()).
 		Resource(r.resource()).
-		Context(ctx).
 		Name(key.Name).
-		Do().
+		Do(ctx).
 		Into(obj)
 
 	u.SetGroupVersionKind(gvk)
@@ -219,8 +213,7 @@ func (uc *unstructuredClient) List(ctx context.Context, obj runtime.Object, opts
 		NamespaceIfScoped(listOpts.Namespace, r.isNamespaced()).
 		Resource(r.resource()).
 		VersionedParams(listOpts.AsListOptions(), uc.paramCodec).
-		Context(ctx).
-		Do().
+		Do(ctx).
 		Into(obj)
 }
 
@@ -242,8 +235,7 @@ func (uc *unstructuredClient) UpdateStatus(ctx context.Context, obj runtime.Obje
 		SubResource("status").
 		Body(obj).
 		VersionedParams((&UpdateOptions{}).ApplyOptions(opts).AsUpdateOptions(), uc.paramCodec).
-		Context(ctx).
-		Do().
+		Do(ctx).
 		Into(obj)
 }
 
@@ -273,8 +265,7 @@ func (uc *unstructuredClient) PatchStatus(ctx context.Context, obj runtime.Objec
 		SubResource("status").
 		Body(data).
 		VersionedParams(patchOpts.ApplyOptions(opts).AsPatchOptions(), uc.paramCodec).
-		Context(ctx).
-		Do().
+		Do(ctx).
 		Into(u)
 
 	u.SetGroupVersionKind(gvk)

@@ -4,9 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"os"
-	"runtime"
-
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
@@ -17,6 +14,8 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/rest"
+	"os"
+	"runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -27,8 +26,9 @@ import (
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	sspopv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
-	csvv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
+	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -160,7 +160,7 @@ func main() {
 	}
 
 	ci := hcoutil.GetClusterInfo()
-	err = ci.CheckRunningInOpenshift(log, runInLocal)
+	err = ci.CheckRunningInOpenshift(mgr.GetAPIReader(), ctx, log, runInLocal)
 	if err != nil {
 		log.Error(err, "Cannot detect cluster type")
 	}
@@ -185,6 +185,7 @@ func main() {
 		vmimportv1beta1.AddToScheme,
 		admissionregistrationv1.AddToScheme,
 		consolev1.AddToScheme,
+		openshiftconfigv1.AddToScheme,
 	} {
 		if err := f(mgr.GetScheme()); err != nil {
 			log.Error(err, "Failed to add to scheme")

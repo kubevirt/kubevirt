@@ -108,6 +108,13 @@ func Become(ctx context.Context, lockName string) error {
 			log.Info("Became the leader.")
 			return nil
 		case apierrors.IsAlreadyExists(err):
+			// refresh the lock so we use current leader
+			key := crclient.ObjectKey{Namespace: ns, Name: lockName}
+			if err := client.Get(ctx, key, existing); err != nil {
+				log.Info("Leader lock configmap not found.")
+				continue // configmap got lost ... just wait a bit
+			}
+
 			existingOwners := existing.GetOwnerReferences()
 			switch {
 			case len(existingOwners) != 1:
@@ -120,7 +127,7 @@ func Become(ctx context.Context, lockName string) error {
 				err = client.Get(ctx, key, leaderPod)
 				switch {
 				case apierrors.IsNotFound(err):
-					log.Info("Leader pod has been deleted, waiting for garbage collection do remove the lock.")
+					log.Info("Leader pod has been deleted, waiting for garbage collection to remove the lock.")
 				case err != nil:
 					return err
 				case isPodEvicted(*leaderPod) && leaderPod.GetDeletionTimestamp() == nil:

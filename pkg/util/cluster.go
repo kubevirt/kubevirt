@@ -1,18 +1,19 @@
 package util
 
 import (
-	"errors"
+	"context"
 	"github.com/go-logr/logr"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	secv1 "github.com/openshift/api/security/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/kubevirt/pkg/util/cluster"
-	"os"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"strings"
 )
 
 type ClusterInfo interface {
-	CheckRunningInOpenshift(logger logr.Logger, runningLocally bool) error
+	CheckRunningInOpenshift(creader client.Reader, ctx context.Context, logger logr.Logger, runningLocally bool) error
 	IsOpenshift() bool
 	IsRunningLocally() bool
 }
@@ -28,58 +29,45 @@ func GetClusterInfo() ClusterInfo {
 	return clusterInfo
 }
 
-func (c *ClusterInfoImp) CheckRunningInOpenshift(logger logr.Logger, runningLocally bool) error {
+func (c *ClusterInfoImp) CheckRunningInOpenshift(creader client.Reader, ctx context.Context, logger logr.Logger, runningLocally bool) error {
 	c.runningLocally = runningLocally
+	isOpenShift := false
+	version := ""
 
-	virtClient, err := c.getKubevirtClient(logger, runningLocally)
+	clusterVersion := &openshiftconfigv1.ClusterVersion{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "version",
+		},
+	}
+	key, err := client.ObjectKeyFromObject(clusterVersion)
 	if err != nil {
+		logger.Error(err, "Failed to get object key for ClusterVersion")
 		return err
 	}
 
-	isOpenShift, err := cluster.IsOnOpenShift(virtClient)
-	if err != nil {
-		return err
+	err = creader.Get(ctx, key, clusterVersion)
+
+	if err != nil && apierrors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
+			// Not on OpenShift
+			isOpenShift = false
+		} else {
+			logger.Error(err, "Failed to get ClusterVersion")
+			return err
+		}
+	} else {
+		isOpenShift = true
+		version = clusterVersion.Status.Desired.Version
 	}
 
 	c.runningInOpenshift = isOpenShift
 	if isOpenShift {
-		logger.Info("Cluster type = openshift")
+		logger.Info("Cluster type = openshift", "version", version)
 	} else {
 		logger.Info("Cluster type = kubernetes")
 	}
 
 	return nil
-}
-
-func (c *ClusterInfoImp) getKubevirtClient(logger logr.Logger, runningLocally bool) (kubecli.KubevirtClient, error) {
-	var (
-		virtCli kubecli.KubevirtClient
-		err     error
-	)
-
-	kubecli.Init()
-	if runningLocally {
-		kubeconfig, ok := os.LookupEnv("KUBECONFIG")
-		if ok {
-			virtCli, err = kubecli.GetKubevirtClientFromFlags("", kubeconfig)
-			if err != nil {
-				logger.Error(err, "failed to get KubevirtClient From Flags", "kubeconfig", kubeconfig)
-				return nil, err
-			}
-		} else {
-			const errMsg = "KUBECONFIG environment variable is not defined"
-			err = errors.New(errMsg)
-			logger.Error(err, errMsg)
-			return nil, err
-		}
-	} else {
-		virtCli, err = kubecli.GetKubevirtClient()
-		if err != nil {
-			logger.Error(err, "failed to get KubevirtClient")
-			return nil, err
-		}
-	}
-	return virtCli, nil
 }
 
 func (c ClusterInfoImp) IsOpenshift() bool {

@@ -10,41 +10,22 @@ const (
 	GroupName = "operators.coreos.com"
 	// GroupVersion is the group version used in this package.
 	GroupVersion = runtime.APIVersionInternal
+
+	// LEGACY: Exported kind names, remove after major version bump
+
+	// ClusterServiceVersionKind is the kind name for ClusterServiceVersion resources.
+	ClusterServiceVersionKind = "ClusterServiceVersion"
+	// CatalogSourceKind is the kind name for CatalogSource resources.
+	CatalogSourceKind = "CatalogSource"
+	// InstallPlanKind is the kind name for InstallPlan resources.
+	InstallPlanKind = "InstallPlan"
+	// SubscriptionKind is the kind name for Subscription resources.
+	SubscriptionKind = "Subscription"
+	// OperatorKind is the kind name for Operator resources.
+	OperatorKind = "Operator"
+	// OperatorGroupKind is the kind name for OperatorGroup resources.
+	OperatorGroupKind = "OperatorGroup"
 )
 
 // SchemeGroupVersion is group version used to register these objects
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: runtime.APIVersionInternal}
-
-// Kind takes an unqualified kind and returns back a Group qualified GroupKind
-func Kind(kind string) schema.GroupKind {
-	return SchemeGroupVersion.WithKind(kind).GroupKind()
-}
-
-// Resource takes an unqualified resource and returns a Group qualified GroupResource
-func Resource(resource string) schema.GroupResource {
-	return SchemeGroupVersion.WithResource(resource).GroupResource()
-}
-
-var (
-	// SchemeBuilder initializes a scheme builder
-	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
-	// AddToScheme is a global function that registers this API group & version to a scheme
-	AddToScheme = SchemeBuilder.AddToScheme
-)
-
-// addKnownTypes adds the list of known types to Scheme
-func addKnownTypes(scheme *runtime.Scheme) error {
-	scheme.AddKnownTypes(SchemeGroupVersion,
-		&CatalogSource{},
-		&CatalogSourceList{},
-		&InstallPlan{},
-		&InstallPlanList{},
-		&Subscription{},
-		&SubscriptionList{},
-		&ClusterServiceVersion{},
-		&ClusterServiceVersionList{},
-		&OperatorGroup{},
-		&OperatorGroupList{},
-	)
-	return nil
-}

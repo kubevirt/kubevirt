@@ -11,6 +11,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	rbac "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/operator-framework/api/pkg/lib/version"
 )
@@ -59,10 +60,11 @@ type StrategyDeploymentPermissions struct {
 	Rules              []rbac.PolicyRule `json:"rules"`
 }
 
-// StrategyDeploymentSpec contains the name and spec for the deployment ALM should create
+// StrategyDeploymentSpec contains the name, spec and labels for the deployment ALM should create
 type StrategyDeploymentSpec struct {
-	Name string                `json:"name"`
-	Spec appsv1.DeploymentSpec `json:"spec"`
+	Name  string                `json:"name"`
+	Spec  appsv1.DeploymentSpec `json:"spec"`
+	Label labels.Set            `json:"label,omitempty"`
 }
 
 // StrategyDetailsDeployment represents the parsed details of a Deployment
@@ -178,6 +180,7 @@ type WebhookDescription struct {
 	AdmissionReviewVersions []string                                        `json:"admissionReviewVersions"`
 	ReinvocationPolicy      *admissionregistrationv1.ReinvocationPolicyType `json:"reinvocationPolicy,omitempty"`
 	WebhookPath             *string                                         `json:"webhookPath,omitempty"`
+	ConversionCRDs          []string                                        `json:"conversionCRDs,omitempty"`
 }
 
 // GetValidatingWebhook returns a ValidatingWebhook generated from the WebhookDescription
@@ -197,6 +200,7 @@ func (w *WebhookDescription) GetValidatingWebhook(namespace string, namespaceSel
 				Name:      w.DomainName() + "-service",
 				Namespace: namespace,
 				Path:      w.WebhookPath,
+				Port:      &w.ContainerPort,
 			},
 			CABundle: caBundle,
 		},
@@ -220,6 +224,7 @@ func (w *WebhookDescription) GetMutatingWebhook(namespace string, namespaceSelec
 				Name:      w.DomainName() + "-service",
 				Namespace: namespace,
 				Path:      w.WebhookPath,
+				Port:      &w.ContainerPort,
 			},
 			CABundle: caBundle,
 		},

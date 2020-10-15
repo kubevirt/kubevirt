@@ -157,6 +157,10 @@ for dep in cdi-apiserver cdi-deployment cdi-uploadproxy virt-api virt-controller
     "${CMD}" wait deployment/"${dep}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${dep} "
 done
 
+echo "Check how HCO detected the kind of cluster"
+HCO_POD=$( ${CMD} get pods -n ${HCO_NAMESPACE} -l "name=hyperconverged-cluster-operator" --field-selector=status.phase=Running -o name | head -n1)
+${CMD} logs -n ${HCO_NAMESPACE} "${HCO_POD}" | grep "Cluster type = "
+
 # compare initial cluster SCCs to be sure HCO deployment didn't introduce any change
 dump_sccs_after
 

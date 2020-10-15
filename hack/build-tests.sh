@@ -15,11 +15,12 @@ if [ "${JOB_TYPE}" == "travis" ]; then
     PACKAGE_PATH="pkg/"
     ginkgo -r -cover ${PACKAGE_PATH}
 else
-    GOFLAGS= go get github.com/onsi/ginkgo/ginkgo
-    GOFLAGS= go get github.com/onsi/gomega/...
     test_path="tests/func-tests"
+    (cd $test_path; GOFLAGS= go get github.com/onsi/ginkgo/ginkgo)
+    (cd $test_path; GOFLAGS= go get github.com/onsi/gomega)
+    (cd $test_path; go mod  tidy; go mod vendor)
     test_out_path=${test_path}/_out
     mkdir -p ${test_out_path}
-    ginkgo build ${test_path}
+    (cd $test_path; ginkgo build .)
     mv ${test_path}/func-tests.test ${test_out_path}
 fi

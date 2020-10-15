@@ -58,14 +58,12 @@ type HyperConvergedStatus struct {
 	// +patchMergeKey=type
 	// +patchStrategy=merge
 	// +optional
-	// +listType=set
 	Conditions []conditionsv1.Condition `json:"conditions,omitempty"  patchStrategy:"merge" patchMergeKey:"type"`
 
 	// RelatedObjects is a list of objects created and maintained by this
 	// operator. Object references will be added to this list after they have
 	// been created AND found in the cluster.
 	// +optional
-	// +listType=set
 	RelatedObjects []corev1.ObjectReference `json:"relatedObjects,omitempty"`
 
 	// Versions is a list of HCO component versions, as name/version pairs. The version with a name of "operator"

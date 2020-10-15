@@ -100,7 +100,7 @@ func Encoder(encoder zapcore.Encoder) func(o *Options) {
 
 // Level sets the the minimum enabled logging level e.g Debug, Info
 // See Options.Level
-func Level(level *zap.AtomicLevel) func(o *Options) {
+func Level(level zapcore.LevelEnabler) func(o *Options) {
 	return func(o *Options) {
 		o.Level = level
 	}
@@ -109,7 +109,7 @@ func Level(level *zap.AtomicLevel) func(o *Options) {
 // StacktraceLevel configures the logger to record a stack trace for all messages at
 // or above a given level.
 // See Options.StacktraceLevel
-func StacktraceLevel(stacktraceLevel *zap.AtomicLevel) func(o *Options) {
+func StacktraceLevel(stacktraceLevel zapcore.LevelEnabler) func(o *Options) {
 	return func(o *Options) {
 		o.StacktraceLevel = stacktraceLevel
 	}
@@ -137,11 +137,11 @@ type Options struct {
 	DestWritter io.Writer
 	// Level configures the verbosity of the logging.  Defaults to Debug when
 	// Development is true and Info otherwise
-	Level *zap.AtomicLevel
+	Level zapcore.LevelEnabler
 	// StacktraceLevel is the level at and above which stacktraces will
 	// be recorded for all messages. Defaults to Warn when Development
 	// is true and Error otherwise
-	StacktraceLevel *zap.AtomicLevel
+	StacktraceLevel zapcore.LevelEnabler
 	// ZapOpts allows passing arbitrary zap.Options to configure on the
 	// underlying Zap logger.
 	ZapOpts []zap.Option
@@ -181,12 +181,15 @@ func (o *Options) addDefaults() {
 			lvl := zap.NewAtomicLevelAt(zap.ErrorLevel)
 			o.StacktraceLevel = &lvl
 		}
-		o.ZapOpts = append(o.ZapOpts,
-			zap.WrapCore(func(core zapcore.Core) zapcore.Core {
-				return zapcore.NewSampler(core, time.Second, 100, 100)
-			}))
+		// Disable sampling for increased Debug levels. Otherwise, this will
+		// cause index out of bounds errors in the sampling code.
+		if !o.Level.Enabled(zapcore.Level(-2)) {
+			o.ZapOpts = append(o.ZapOpts,
+				zap.WrapCore(func(core zapcore.Core) zapcore.Core {
+					return zapcore.NewSampler(core, time.Second, 100, 100)
+				}))
+		}
 	}
-
 	o.ZapOpts = append(o.ZapOpts, zap.AddStacktrace(o.StacktraceLevel))
 }
 
@@ -204,7 +207,7 @@ func NewRaw(opts ...Opts) *zap.Logger {
 	sink := zapcore.AddSync(o.DestWritter)
 
 	o.ZapOpts = append(o.ZapOpts, zap.AddCallerSkip(1), zap.ErrorOutput(sink))
-	log := zap.New(zapcore.NewCore(&KubeAwareEncoder{Encoder: o.Encoder, Verbose: o.Development}, sink, *o.Level))
+	log := zap.New(zapcore.NewCore(&KubeAwareEncoder{Encoder: o.Encoder, Verbose: o.Development}, sink, o.Level))
 	log = log.WithOptions(o.ZapOpts...)
 	return log
 }
@@ -215,7 +218,7 @@ func NewRaw(opts ...Opts) *zap.Logger {
 //  zap-encoder: Zap log encoding ('json' or 'console')
 //  zap-log-level:  Zap Level to configure the verbosity of logging. Can be one of 'debug', 'info', 'error',
 //			       or any integer value > 0 which corresponds to custom debug levels of increasing verbosity")
-//  zap-stacktrace-level: Zap Level at and above which stacktraces are captured (one of 'warn' or 'error')
+//  zap-stacktrace-level: Zap Level at and above which stacktraces are captured (one of 'info' or 'error')
 func (o *Options) BindFlags(fs *flag.FlagSet) {
 
 	// Set Development mode value
@@ -232,8 +235,8 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 
 	// Set the Log Level
 	var levelVal levelFlag
-	levelVal.setFunc = func(fromFlag zap.AtomicLevel) {
-		o.Level = &fromFlag
+	levelVal.setFunc = func(fromFlag zapcore.LevelEnabler) {
+		o.Level = fromFlag
 	}
 	fs.Var(&levelVal, "zap-log-level",
 		"Zap Level to configure the verbosity of logging. Can be one of 'debug', 'info', 'error', "+
@@ -241,11 +244,11 @@ func (o *Options) BindFlags(fs *flag.FlagSet) {
 
 	// Set the StrackTrace Level
 	var stackVal stackTraceFlag
-	stackVal.setFunc = func(fromFlag zap.AtomicLevel) {
-		o.StacktraceLevel = &fromFlag
+	stackVal.setFunc = func(fromFlag zapcore.LevelEnabler) {
+		o.StacktraceLevel = fromFlag
 	}
 	fs.Var(&stackVal, "zap-stacktrace-level",
-		"Zap Level at and above which stacktraces are captured (one of 'warn' or 'error')")
+		"Zap Level at and above which stacktraces are captured (one of 'info', 'error').")
 }
 
 // UseFlagOptions configures the logger to use the Options set by parsing zap option flags from the CLI.
