@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/pointer"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -911,28 +912,61 @@ var _ = Describe("[Serial]Macvtap", func() {
 
 	newCirrosVMIWithMacvtapNetwork := func(macvtapNetworkName string) *v1.VirtualMachineInstance {
 		return libvmi.NewCirros(
-			libvmi.WithInterface(*v1.DefaultMacvtapNetworkInterface(macvtapNetworkName)),
+			libvmi.WithInterface(
+				*v1.DefaultMacvtapNetworkInterface(macvtapNetworkName)),
 			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName)))
 	}
 
-	createCirrosVMIWithMacvtapDefinedMAC := func(virtClient kubecli.KubevirtClient, networkName string, mac string) *v1.VirtualMachineInstance {
-		vmi := newCirrosVMIWithMacvtapNetwork(networkName)
-		vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = mac
-
-		return tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 180, false)
+	newCirrosVMIWithExplicitMac := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
+		return libvmi.NewCirros(
+			libvmi.WithInterface(
+				*libvmi.InterfaceWithMac(
+					v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
+			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName)))
 	}
 
-	createCirrosVMIWithMacvtapStaticIP := func(virtClient kubecli.KubevirtClient, nodeName string, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
-		vmi := newCirrosVMIWithMacvtapNetwork(networkName)
+	newFedoraVMIWithExplicitMacAndGuestAgent := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
+		return libvmi.NewFedora(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(
+				*libvmi.InterfaceWithMac(
+					v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName)),
+			libvmi.WithCloudInitNoCloudUserData(tests.GetGuestAgentUserData(), false))
+	}
+
+	createCirrosVMIStaticIPOnNode := func(nodeName string, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
+		var vmi *v1.VirtualMachineInstance
 		if mac != nil {
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = *mac
+			vmi = newCirrosVMIWithExplicitMac(networkName, *mac)
+		} else {
+			vmi = newCirrosVMIWithMacvtapNetwork(networkName)
 		}
 		vmi = tests.WaitUntilVMIReady(
 			tests.StartVmOnNode(vmi, nodeName),
-			libnet.WithIPv6(console.LoginToCirros))
+			console.LoginToCirros)
 		// configure the client VMI
 		Expect(configVMIInterfaceWithSudo(vmi, ifaceName, ipCIDR)).To(Succeed())
 		return vmi
+	}
+
+	createCirrosVMIRandomNode := func(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
+		runningVMI := tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(
+			newCirrosVMIWithExplicitMac(networkName, mac),
+			180,
+			false)
+		err := console.LoginToCirros(runningVMI)
+		return runningVMI, err
+	}
+
+	createFedoraVMIRandomNode := func(networkName string, mac string) (*v1.VirtualMachineInstance, error) {
+		runningVMI := tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(
+			newFedoraVMIWithExplicitMacAndGuestAgent(networkName, mac),
+			180,
+			false)
+		err := console.LoginToFedora(runningVMI)
+		return runningVMI, err
 	}
 
 	Context("a virtual machine with one macvtap interface, with a custom MAC address", func() {
@@ -949,7 +983,7 @@ var _ = Describe("[Serial]Macvtap", func() {
 			chosenMAC = "de:ad:00:00:be:af"
 			serverCIDR = "192.0.2.102/24"
 
-			serverVMI = createCirrosVMIWithMacvtapStaticIP(virtClient, nodeName, macvtapNetworkName, "eth0", serverCIDR, &chosenMAC)
+			serverVMI = createCirrosVMIStaticIPOnNode(nodeName, macvtapNetworkName, "eth0", serverCIDR, &chosenMAC)
 		})
 
 		It("should have the specified MAC address reported back via the API", func() {
@@ -960,7 +994,7 @@ var _ = Describe("[Serial]Macvtap", func() {
 		Context("and another virtual machine connected to the same network", func() {
 			var clientVMI *v1.VirtualMachineInstance
 			BeforeEach(func() {
-				clientVMI = createCirrosVMIWithMacvtapStaticIP(virtClient, nodeName, macvtapNetworkName, "eth0", "192.0.2.101/24", nil)
+				clientVMI = createCirrosVMIStaticIPOnNode(nodeName, macvtapNetworkName, "eth0", "192.0.2.101/24", nil)
 			})
 
 			It("can communicate with the virtual machine in the same network", func() {
@@ -970,7 +1004,7 @@ var _ = Describe("[Serial]Macvtap", func() {
 	})
 
 	Context("VMI migration", func() {
-		var macvtapVMI *v1.VirtualMachineInstance
+		var clientVMI *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
 			nodes := tests.GetAllSchedulableNodes(virtClient)
@@ -987,16 +1021,68 @@ var _ = Describe("[Serial]Macvtap", func() {
 
 		BeforeEach(func() {
 			macAddress := "02:03:04:05:06:07"
-			macvtapVMI = createCirrosVMIWithMacvtapDefinedMAC(virtClient, macvtapNetworkName, macAddress)
+			clientVMI, err = createCirrosVMIRandomNode(macvtapNetworkName, macAddress)
+			Expect(err).NotTo(HaveOccurred(), "must succeed creating a VMI on a random node")
 		})
 
 		It("should be successful when the VMI MAC address is defined in its spec", func() {
 			By("starting the migration")
-			migration := tests.NewRandomMigration(macvtapVMI.GetName(), macvtapVMI.GetNamespace())
+			migration := tests.NewRandomMigration(clientVMI.Name, clientVMI.Namespace)
 			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, migrationWaitTime)
 
 			// check VMI, confirm migration state
-			tests.ConfirmVMIPostMigration(virtClient, macvtapVMI, migrationUID)
+			tests.ConfirmVMIPostMigration(virtClient, clientVMI, migrationUID)
+		})
+
+		Context("with live traffic", func() {
+			var serverVMI *v1.VirtualMachineInstance
+			var serverIP string
+
+			getVMMacvtapIfaceIP := func(vmi *v1.VirtualMachineInstance, macAddress string) (string, error) {
+				var vmiIP string
+				err := wait.PollImmediate(time.Second, 2*time.Minute, func() (done bool, err error) {
+					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+					if err != nil {
+						return false, err
+					}
+
+					for _, iface := range vmi.Status.Interfaces {
+						if iface.MAC == macAddress {
+							vmiIP = iface.IP
+							return true, nil
+						}
+					}
+
+					return false, nil
+				})
+				if err != nil {
+					return "", err
+				}
+
+				return vmiIP, nil
+			}
+
+			BeforeEach(func() {
+				macAddress := "02:03:04:05:06:aa"
+
+				serverVMI, err = createFedoraVMIRandomNode(macvtapNetworkName, macAddress)
+				Expect(err).NotTo(HaveOccurred(), "must have succeeded creating a fedora VMI on a random node")
+				Expect(serverVMI.Status.Interfaces).NotTo(BeEmpty(), "a migrate-able VMI must have network interfaces")
+
+				serverIP, err = getVMMacvtapIfaceIP(serverVMI, macAddress)
+				Expect(err).NotTo(HaveOccurred(), "should have managed to figure out the IP of the server VMI")
+			})
+
+			BeforeEach(func() {
+				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *before* migrating the VMI")
+			})
+
+			It("should keep connectivity after a migration", func() {
+				migration := tests.NewRandomMigration(serverVMI.Name, serverVMI.GetNamespace())
+				_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, migrationWaitTime)
+
+				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *after* migrating the VMI")
+			})
 		})
 	})
 })
