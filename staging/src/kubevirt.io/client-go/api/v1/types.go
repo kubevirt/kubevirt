@@ -1009,6 +1009,20 @@ type VirtualMachineStatus struct {
 	// StateChangeRequests indicates a list of actions that should be taken on a VMI
 	// e.g. stop a specific VMI then start a new one.
 	StateChangeRequests []VirtualMachineStateChangeRequest `json:"stateChangeRequests,omitempty" optional:"true"`
+	// VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is
+	// supported by each volume.
+	// +listType=atomic
+	VolumeSnapshotStatuses []VolumeSnapshotStatus `json:"volumeSnapshotStatuses,omitempty" optional:"true"`
+}
+
+// +k8s:openapi-gen=true
+type VolumeSnapshotStatus struct {
+	// Volume name
+	Name string `json:"name"`
+	// True if the volume supports snapshotting
+	Enabled bool `json:"enabled"`
+	// Empty if snapshotting is enabled, contains reason otherwise
+	Reason string `json:"reason,omitempty" optional:"true"`
 }
 
 // +k8s:openapi-gen=true

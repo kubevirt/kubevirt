@@ -200,6 +200,7 @@ var _ = Describe("Snapshot controlleer", func() {
 		var mockVMSnapshotQueue *testutils.MockWorkQueue
 		var mockVMSnapshotContentQueue *testutils.MockWorkQueue
 		var mockCRDQueue *testutils.MockWorkQueue
+		var mockVMQueue *testutils.MockWorkQueue
 
 		var vmSnapshotClient *kubevirtfake.Clientset
 		var k8sSnapshotClient *k8ssnapshotfake.Clientset
@@ -293,6 +294,9 @@ var _ = Describe("Snapshot controlleer", func() {
 			mockCRDQueue = testutils.NewMockWorkQueue(controller.crdQueue)
 			controller.crdQueue = mockCRDQueue
 
+			mockVMQueue = testutils.NewMockWorkQueue(controller.vmQueue)
+			controller.vmQueue = mockVMQueue
+
 			// Set up mock client
 			virtClient.EXPECT().VirtualMachine(testNamespace).Return(vmInterface).AnyTimes()
 
@@ -359,11 +363,12 @@ var _ = Describe("Snapshot controlleer", func() {
 			mockCRDQueue.Wait()
 		}
 
-		Context("with VolumeSnapshot ad VolumeSnapshotContent informers", func() {
+		Context("with VolumeSnapshot and VolumeSnapshotContent informers", func() {
 
 			BeforeEach(func() {
 				stopCh := make(chan struct{})
 				volumeSnapshotInformer.AddEventHandler(controller.eventHandlerMap[volumeSnapshotCRD])
+				volumeSnapshotClassInformer.AddEventHandler(controller.eventHandlerMap[volumeSnapshotClassCRD])
 				controller.dynamicInformerMap[volumeSnapshotCRD].stopCh = stopCh
 				controller.dynamicInformerMap[volumeSnapshotCRD].informer = volumeSnapshotInformer
 				controller.dynamicInformerMap[volumeSnapshotClassCRD].stopCh = stopCh
@@ -876,6 +881,313 @@ var _ = Describe("Snapshot controlleer", func() {
 				table.Entry("for VolumeSnapshot", volumeSnapshotCRD),
 				table.Entry("for VolumeSnapshotClass", volumeSnapshotClassCRD),
 			)
+
+			It("should update volume snapshot status for each volume", func() {
+				vm := createVM()
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+					Name: "disk2",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "test-pvc",
+						},
+					},
+				})
+
+				updateCalled := false
+				vmInterface.EXPECT().
+					UpdateStatus(gomock.Any()).
+					Do(func(objs ...interface{}) {
+						vm := objs[0].(*v1.VirtualMachine)
+
+						Expect(len(vm.Status.VolumeSnapshotStatuses)).To(Equal(2))
+						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeFalse())
+						Expect(vm.Status.VolumeSnapshotStatuses[1].Enabled).To(BeFalse())
+						updateCalled = true
+					})
+
+				vmSource.Add(vm)
+				syncCaches(stop)
+				mockVMQueue.Add(fmt.Sprintf("%s/%s", vm.Namespace, vm.Name))
+
+				controller.processVMWorkItem()
+				controller.processVMSnapshotStatusWorkItem()
+
+				Expect(updateCalled).To(BeTrue())
+			})
+
+			It("should set volume snapshot status to true for each supported volume type", func() {
+				vm := createVM()
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+					Name: "disk2",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "test-pvc",
+						},
+					},
+				})
+
+				pvc1 := corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-pvc",
+						Namespace: testNamespace,
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						StorageClassName: &storageClassName,
+					},
+				}
+
+				pvc2 := corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "alpine-dv",
+						Namespace: testNamespace,
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						StorageClassName: &storageClassName,
+					},
+				}
+				pvcSource.Add(&pvc1)
+				pvcSource.Add(&pvc2)
+				storageClassSource.Add(createStorageClass())
+				vmSource.Add(vm)
+				volumeSnapshotClasses := createVolumeSnapshotClasses()
+				for i := range volumeSnapshotClasses {
+					volumeSnapshotClassSource.Add(&volumeSnapshotClasses[i])
+				}
+				mockVMQueue.Add(fmt.Sprintf("%s/%s", vm.Namespace, vm.Name))
+				syncCaches(stop)
+
+				updateCalled := false
+				vmInterface.EXPECT().
+					UpdateStatus(gomock.Any()).
+					Do(func(objs ...interface{}) {
+						vm := objs[0].(*v1.VirtualMachine)
+
+						Expect(len(vm.Status.VolumeSnapshotStatuses)).To(Equal(2))
+						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeTrue())
+						Expect(vm.Status.VolumeSnapshotStatuses[1].Enabled).To(BeTrue())
+						updateCalled = true
+					})
+
+				controller.processVMWorkItem()
+				controller.processVMSnapshotStatusWorkItem()
+
+				Expect(updateCalled).To(BeTrue())
+			})
+
+			It("should set volume snapshot status to false for unsupported volume types", func() {
+				localStorageClassName := "local"
+
+				vm := createVM()
+				vm.Spec.Template.Spec.Volumes = []v1.Volume{
+					{
+						Name: "disk1",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "test-pvc-unsnapshottable-storage-class",
+							},
+						},
+					},
+					{
+						Name: "disk2",
+						VolumeSource: v1.VolumeSource{
+							Ephemeral: &v1.EphemeralVolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "test-pvc-ephemeral-pvc",
+								},
+							},
+						},
+					},
+					{
+						Name: "disk3",
+						VolumeSource: v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name: "dv-with-pvc-unsnapshottable-storage-class",
+							},
+						},
+					},
+					{
+						Name: "disk4",
+						VolumeSource: v1.VolumeSource{
+							HostDisk: &v1.HostDisk{
+								Path:   "/some/path",
+								Type:   "test-type",
+								Shared: nil,
+							},
+						},
+					},
+					{
+						Name: "disk5",
+						VolumeSource: v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name: "dv-without-pvc",
+							},
+						},
+					},
+					{
+						Name: "disk6",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "non-existent-pvc",
+							},
+						},
+					},
+				}
+
+				pvc1 := corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-pvc-unsnapshottable-storage-class",
+						Namespace: testNamespace,
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						StorageClassName: &localStorageClassName,
+					},
+				}
+				pvc2 := corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-pvc-ephemeral-pvc",
+						Namespace: testNamespace,
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany},
+						StorageClassName: &storageClassName,
+					},
+				}
+				pvc3 := corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "dv-with-pvc-unsnapshottable-storage-class",
+						Namespace: testNamespace,
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						StorageClassName: &localStorageClassName,
+					},
+				}
+
+				pvcSource.Add(&pvc1)
+				pvcSource.Add(&pvc2)
+				pvcSource.Add(&pvc3)
+
+				localStorageClass := &storagev1.StorageClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: localStorageClassName,
+					},
+					Provisioner: "kubernetes.io/no-provisioner",
+				}
+				storageClassSource.Add(createStorageClass())
+				storageClassSource.Add(localStorageClass)
+				volumeSnapshotClasses := createVolumeSnapshotClasses()
+				for i := range volumeSnapshotClasses {
+					volumeSnapshotClassSource.Add(&volumeSnapshotClasses[i])
+				}
+
+				vmSource.Add(vm)
+				syncCaches(stop)
+				mockVMQueue.Add(fmt.Sprintf("%s/%s", vm.Namespace, vm.Name))
+
+				updateCalled := false
+				vmInterface.EXPECT().
+					UpdateStatus(gomock.Any()).
+					Do(func(objs ...interface{}) {
+						vm := objs[0].(*v1.VirtualMachine)
+
+						Expect(len(vm.Status.VolumeSnapshotStatuses)).To(Equal(6))
+
+						Expect(vm.Status.VolumeSnapshotStatuses[0].Name).To(Equal("disk1"))
+						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeFalse())
+						Expect(vm.Status.VolumeSnapshotStatuses[0].Reason).
+							To(Equal("No Volume Snapshot Storage Class found for volume [disk1]"))
+
+						Expect(vm.Status.VolumeSnapshotStatuses[1].Name).To(Equal("disk2"))
+						Expect(vm.Status.VolumeSnapshotStatuses[1].Enabled).To(BeFalse())
+						Expect(vm.Status.VolumeSnapshotStatuses[1].Reason).
+							To(Equal("Volume type does not suport snapshots"))
+
+						Expect(vm.Status.VolumeSnapshotStatuses[2].Name).To(Equal("disk3"))
+						Expect(vm.Status.VolumeSnapshotStatuses[2].Enabled).To(BeFalse())
+						Expect(vm.Status.VolumeSnapshotStatuses[2].Reason).
+							To(Equal("No Volume Snapshot Storage Class found for volume [disk3]"))
+
+						Expect(vm.Status.VolumeSnapshotStatuses[3].Name).To(Equal("disk4"))
+						Expect(vm.Status.VolumeSnapshotStatuses[3].Enabled).To(BeFalse())
+						Expect(vm.Status.VolumeSnapshotStatuses[3].Reason).
+							To(Equal("Volume type does not suport snapshots"))
+
+						Expect(vm.Status.VolumeSnapshotStatuses[4].Name).To(Equal("disk5"))
+						Expect(vm.Status.VolumeSnapshotStatuses[4].Enabled).To(BeFalse())
+						Expect(vm.Status.VolumeSnapshotStatuses[4].Reason).
+							To(Equal("PVC for the DataVolume not found"))
+
+						Expect(vm.Status.VolumeSnapshotStatuses[5].Name).To(Equal("disk6"))
+						Expect(vm.Status.VolumeSnapshotStatuses[5].Enabled).To(BeFalse())
+						Expect(vm.Status.VolumeSnapshotStatuses[5].Reason).
+							To(Equal("PVC not found"))
+
+						updateCalled = true
+					})
+
+				controller.processVMWorkItem()
+				controller.processVMSnapshotStatusWorkItem()
+
+				Expect(updateCalled).To(BeTrue())
+			})
+
+			It("should process volume snapshot status when a new snapshot class is added", func() {
+				vm := createVM()
+
+				pvc := corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "alpine-dv",
+						Namespace: testNamespace,
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						StorageClassName: &storageClassName,
+					},
+				}
+				pvcSource.Add(&pvc)
+				storageClassSource.Add(createStorageClass())
+				vmSource.Add(vm)
+
+				mockVMQueue.Add(fmt.Sprintf("%s/%s", vm.Namespace, vm.Name))
+				syncCaches(stop)
+
+				updateCalled := false
+				vmInterface.EXPECT().
+					UpdateStatus(gomock.Any()).
+					Do(func(objs ...interface{}) {
+						vm := objs[0].(*v1.VirtualMachine)
+
+						Expect(len(vm.Status.VolumeSnapshotStatuses)).To(Equal(1))
+						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeFalse())
+						updateCalled = true
+					})
+
+				controller.processVMWorkItem()
+				controller.processVMSnapshotStatusWorkItem()
+				Expect(updateCalled).To(BeTrue())
+
+				volumeSnapshotClasses := createVolumeSnapshotClasses()
+				for i := range volumeSnapshotClasses {
+					volumeSnapshotClassSource.Add(&volumeSnapshotClasses[i])
+				}
+				updateCalled = false
+				vmInterface.EXPECT().
+					UpdateStatus(gomock.Any()).
+					Do(func(objs ...interface{}) {
+						vm := objs[0].(*v1.VirtualMachine)
+
+						Expect(len(vm.Status.VolumeSnapshotStatuses)).To(Equal(1))
+						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeTrue())
+						updateCalled = true
+					})
+
+				controller.processVMWorkItem()
+				controller.processVMSnapshotStatusWorkItem()
+				Expect(updateCalled).To(BeTrue())
+			})
 		})
 
 		Context("without VolumeSnapshot and VolumeSnapshotClass informers", func() {
