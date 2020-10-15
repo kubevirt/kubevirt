@@ -226,24 +226,26 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			})
 
 			AfterEach(func() {
-				By("removing the taint from the tainted node")
-				var taints []k8sv1.Taint
+				if selectedNode != nil {
+					By("removing the taint from the tainted node")
+					var taints []k8sv1.Taint
 
-				for _, taint := range selectedNode.Spec.Taints {
-					if taint.Key != "CriticalAddonsOnly" {
-						taints = append(taints, taint)
+					for _, taint := range selectedNode.Spec.Taints {
+						if taint.Key != "CriticalAddonsOnly" {
+							taints = append(taints, taint)
+						}
 					}
+
+					nodeCopy := selectedNode.DeepCopy()
+					nodeCopy.ResourceVersion = ""
+					nodeCopy.Spec.Taints = taints
+
+					err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+						_, err := virtClient.CoreV1().Nodes().Update(nodeCopy)
+						return err
+					})
+					Expect(err).ShouldNot(HaveOccurred())
 				}
-
-				nodeCopy := selectedNode.DeepCopy()
-				nodeCopy.ResourceVersion = ""
-				nodeCopy.Spec.Taints = taints
-
-				err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					_, err := virtClient.CoreV1().Nodes().Update(nodeCopy)
-					return err
-				})
-				Expect(err).ShouldNot(HaveOccurred())
 			})
 
 			It("[test_id:4134] kubevirt components on that node should not evict", func() {
