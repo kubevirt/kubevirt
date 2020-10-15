@@ -300,6 +300,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 						continue
 					}
 					selectedNode = node.DeepCopy()
+					break
 				}
 
 				By("setting up a watch for terminated pods")
