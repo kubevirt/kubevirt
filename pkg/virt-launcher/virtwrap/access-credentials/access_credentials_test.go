@@ -90,17 +90,18 @@ var _ = Describe("AccessCredentials", func() {
 		//userHome := "/home/someowner"
 		filePath := "/home/someowner/.ssh"
 
-		authorizedKeys := "some injected ssh key"
-		base64Str := "c3NoIHNvbWVrZXkgc3R1ZmYKCiMjIyBBVVRPIFBST1BBR0FURUQgQlkgS1VCRVZJUlQgQkVMT1cgVEhJUyBMSU5FICMjIwpzb21lIGluamVjdGVkIHNzaCBrZXk="
+		authorizedKeys := "ssh some injected key"
 
 		expectedOpenCmd := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s/authorized_keys", "mode":"r" } }`, filePath)
 		expectedWriteOpenCmd := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s/authorized_keys", "mode":"w" } }`, filePath)
 		expectedOpenCmdRes := `{"return":1000}`
 
+		existingKey := base64.StdEncoding.EncodeToString([]byte("ssh some existing key"))
 		expectedReadCmd := `{"execute": "guest-file-read", "arguments": { "handle": 1000 } }`
-		expectedReadCmdRes := `{"return":{"count":24,"buf-b64": "c3NoIHNvbWVrZXkgc3R1ZmYK"}}`
+		expectedReadCmdRes := fmt.Sprintf(`{"return":{"count":24,"buf-b64": "%s"}}`, existingKey)
 
-		expectedWriteCmd := fmt.Sprintf(`{"execute": "guest-file-write", "arguments": { "handle": 1000, "buf-b64": "%s" } }`, base64Str)
+		mergedKeys := base64.StdEncoding.EncodeToString([]byte("ssh some existing key\nssh some injected key\n"))
+		expectedWriteCmd := fmt.Sprintf(`{"execute": "guest-file-write", "arguments": { "handle": 1000, "buf-b64": "%s" } }`, mergedKeys)
 
 		expectedCloseCmd := `{"execute": "guest-file-close", "arguments": { "handle": 1000 } }`
 
