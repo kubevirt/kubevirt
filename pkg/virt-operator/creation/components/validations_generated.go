@@ -1516,21 +1516,14 @@ var CRDsValidation map[string]string = map[string]string{
                               qemuGuestAgent:
                                 description: QemuGuestAgentAccessCredentailPropagation means ssh public keys are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.
                                 properties:
-                                  authorizedKeysFiles:
-                                    description: AuthorizedKeysFiles represents all the paths within the guest that ssh public keys should be propagated to
+                                  users:
+                                    description: Users represents a list of guest users that should have the ssh public keys added to their authorized_keys file.
                                     items:
-                                      description: AuthorizedKeysFile represents a path within the guest that ssh public keys should be propagated to
-                                      properties:
-                                        filePath:
-                                          description: FilePath represents the place on the guest that the authorized_keys file should be writen to. This is expected to be a full path including both the base directory and file name.
-                                          type: string
-                                      required:
-                                      - filePath
-                                      type: object
+                                      type: string
                                     type: array
                                     x-kubernetes-list-type: set
                                 required:
-                                - authorizedKeysFiles
+                                - users
                                 type: object
                             type: object
                           source:
@@ -3166,21 +3159,14 @@ var CRDsValidation map[string]string = map[string]string{
                       qemuGuestAgent:
                         description: QemuGuestAgentAccessCredentailPropagation means ssh public keys are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.
                         properties:
-                          authorizedKeysFiles:
-                            description: AuthorizedKeysFiles represents all the paths within the guest that ssh public keys should be propagated to
+                          users:
+                            description: Users represents a list of guest users that should have the ssh public keys added to their authorized_keys file.
                             items:
-                              description: AuthorizedKeysFile represents a path within the guest that ssh public keys should be propagated to
-                              properties:
-                                filePath:
-                                  description: FilePath represents the place on the guest that the authorized_keys file should be writen to. This is expected to be a full path including both the base directory and file name.
-                                  type: string
-                              required:
-                              - filePath
-                              type: object
+                              type: string
                             type: array
                             x-kubernetes-list-type: set
                         required:
-                        - authorizedKeysFiles
+                        - users
                         type: object
                     type: object
                   source:
@@ -5656,21 +5642,14 @@ var CRDsValidation map[string]string = map[string]string{
                               qemuGuestAgent:
                                 description: QemuGuestAgentAccessCredentailPropagation means ssh public keys are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.
                                 properties:
-                                  authorizedKeysFiles:
-                                    description: AuthorizedKeysFiles represents all the paths within the guest that ssh public keys should be propagated to
+                                  users:
+                                    description: Users represents a list of guest users that should have the ssh public keys added to their authorized_keys file.
                                     items:
-                                      description: AuthorizedKeysFile represents a path within the guest that ssh public keys should be propagated to
-                                      properties:
-                                        filePath:
-                                          description: FilePath represents the place on the guest that the authorized_keys file should be writen to. This is expected to be a full path including both the base directory and file name.
-                                          type: string
-                                      required:
-                                      - filePath
-                                      type: object
+                                      type: string
                                     type: array
                                     x-kubernetes-list-type: set
                                 required:
-                                - authorizedKeysFiles
+                                - users
                                 type: object
                             type: object
                           source:
@@ -7716,21 +7695,14 @@ var CRDsValidation map[string]string = map[string]string{
                                           qemuGuestAgent:
                                             description: QemuGuestAgentAccessCredentailPropagation means ssh public keys are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.
                                             properties:
-                                              authorizedKeysFiles:
-                                                description: AuthorizedKeysFiles represents all the paths within the guest that ssh public keys should be propagated to
+                                              users:
+                                                description: Users represents a list of guest users that should have the ssh public keys added to their authorized_keys file.
                                                 items:
-                                                  description: AuthorizedKeysFile represents a path within the guest that ssh public keys should be propagated to
-                                                  properties:
-                                                    filePath:
-                                                      description: FilePath represents the place on the guest that the authorized_keys file should be writen to. This is expected to be a full path including both the base directory and file name.
-                                                      type: string
-                                                  required:
-                                                  - filePath
-                                                  type: object
+                                                  type: string
                                                 type: array
                                                 x-kubernetes-list-type: set
                                             required:
-                                            - authorizedKeysFiles
+                                            - users
                                             type: object
                                         type: object
                                       source:

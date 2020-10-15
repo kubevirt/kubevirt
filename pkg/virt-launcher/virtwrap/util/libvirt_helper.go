@@ -20,6 +20,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -102,6 +103,17 @@ func SetDomainSpecStr(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wa
 		return nil, err
 	}
 	return dom, nil
+}
+
+func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wantedSpec *api.DomainSpec) (cli.VirDomain, error) {
+	spec := wantedSpec.DeepCopy()
+	hooksManager := hooks.GetManager()
+
+	domainSpec, err := hooksManager.OnDefineDomain(spec, vmi)
+	if err != nil {
+		return nil, err
+	}
+	return SetDomainSpecStr(virConn, vmi, domainSpec)
 }
 
 // GetDomainSpecWithRuntimeInfo return the active domain XML with runtime information embedded

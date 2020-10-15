@@ -299,9 +299,15 @@ type Metadata struct {
 }
 
 type KubeVirtMetadata struct {
-	UID         types.UID            `xml:"uid"`
-	GracePeriod *GracePeriodMetadata `xml:"graceperiod,omitempty"`
-	Migration   *MigrationMetadata   `xml:"migration,omitempty"`
+	UID              types.UID                 `xml:"uid"`
+	GracePeriod      *GracePeriodMetadata      `xml:"graceperiod,omitempty"`
+	Migration        *MigrationMetadata        `xml:"migration,omitempty"`
+	AccessCredential *AccessCredentialMetadata `xml:"accessCredential,omitempty"`
+}
+
+type AccessCredentialMetadata struct {
+	Succeeded bool   `xml:"succeeded,omitempty"`
+	Message   string `xml:"message,omitempty"`
 }
 
 type MigrationMetadata struct {
