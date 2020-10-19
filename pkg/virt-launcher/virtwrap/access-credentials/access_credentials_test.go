@@ -124,7 +124,7 @@ var _ = Describe("AccessCredentials", func() {
 		expectedReadCmd := `{"execute": "guest-file-read", "arguments": { "handle": 1000 } }`
 		expectedReadCmdRes := fmt.Sprintf(`{"return":{"count":24,"buf-b64": "%s"}}`, existingKey)
 
-		mergedKeys := base64.StdEncoding.EncodeToString([]byte("ssh some existing key\nssh some injected key\n"))
+		mergedKeys := base64.StdEncoding.EncodeToString([]byte(authorizedKeys))
 		expectedWriteCmd := fmt.Sprintf(`{"execute": "guest-file-write", "arguments": { "handle": 1000, "buf-b64": "%s" } }`, mergedKeys)
 
 		expectedCloseCmd := `{"execute": "guest-file-close", "arguments": { "handle": 1000 } }`
