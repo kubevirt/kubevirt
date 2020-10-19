@@ -140,6 +140,12 @@ if ! $KUBEVIRT_CRI exec ${USE_TTY} ${BUILDER}-bazel-server /entrypoint.sh "$@"; 
     if [ "$SYNC_OUT" = "true" ]; then
         _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/out" ${OUT_DIR}
     fi
+    set -x
+    # Copy the junit where prow can pick it up
+    if [ "$@" = "./hack/gosec.sh" ] && [ "$CI" = "true" ]; then
+        echo "Moving file in prow"
+        mv ${OUT_DIR}/artifacts/junit-gosec.xml ${ARTIFACTS}
+    fi
     exit 1
 fi
 
