@@ -1706,7 +1706,11 @@ func cleanNamespaces() {
 				}
 			}
 		}
-
+		// Remove all NetworkAttachmentDefinitions
+		nets, err := virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).List(metav1.ListOptions{})
+		for _, netDef := range nets.Items {
+			PanicOnError(virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Delete(netDef.GetName(), &metav1.DeleteOptions{}))
+		}
 	}
 }
 
