@@ -849,8 +849,8 @@ github.com/kubevirt/cluster-network-addons-operator v0.42.2 h1:aF6mWuuwT74d7WpJk
 github.com/kubevirt/cluster-network-addons-operator v0.42.2/go.mod h1:qtYFyYlmjk8egulFv39Sy2Bji2igdM2U2SdRxZFTMss=
 github.com/kubevirt/kubevirt-ssp-operator v1.2.1 h1:rwMm1eR0RUKvXLF4F9www1XinD3BsroB7cw84fsNbAQ=
 github.com/kubevirt/kubevirt-ssp-operator v1.2.1/go.mod h1:r8NvAzhRVvq7l8rnT5YGFXk9usDtlJ3QB2tttSXqPCc=
-github.com/kubevirt/vm-import-operator v0.2.3 h1:kWBzvlNI9olghwj407ku8Nj6fpJWOSzC6ooZcTdiSe8=
-github.com/kubevirt/vm-import-operator v0.2.3/go.mod h1:7Oxg4hMtSaZ5tosh2JMlMh5eobVkXUpn74xh80Uw7gs=
+github.com/kubevirt/vm-import-operator v0.2.4 h1:ub4/MiuLuF8a5Vtx5SMaGY2MJ1wHgHFzApE0UL+q8b0=
+github.com/kubevirt/vm-import-operator v0.2.4/go.mod h1:7Oxg4hMtSaZ5tosh2JMlMh5eobVkXUpn74xh80Uw7gs=
 github.com/kylelemons/godebug v0.0.0-20160406211939-eadb3ce320cb/go.mod h1:B69LEHPfb2qLo0BaaOLcbitczOKLWTsrBG9LczfCD4k=
 github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348/go.mod h1:B69LEHPfb2qLo0BaaOLcbitczOKLWTsrBG9LczfCD4k=
 github.com/lann/builder v0.0.0-20180802200727-47ae307949d0/go.mod h1:dXGbAdH5GtBTC4WfIxhKZfyBF/HBFgRZSWwZ9g/He9o=
