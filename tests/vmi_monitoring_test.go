@@ -57,9 +57,9 @@ var _ = Describe("Health Monitoring", func() {
 			defer expecter.Close()
 
 			By("Killing the watchdog device")
-			_, err = expecter.ExpectBatch([]expect.Batcher{
+			_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: "watchdog -t 2000ms -T 4000ms /dev/watchdog && sleep 5 && killall -9 watchdog\n"},
-				&expect.BExp{R: "\\#"},
+				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
 			}, 250*time.Second)

@@ -64,7 +64,7 @@ var _ = Describe("[Serial][rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][leve
 			defer expecter.Close()
 
 			By("Checking that the VirtualMachineInstance serial console output equals to expected one")
-			resp, err := expecter.ExpectBatch(commands, timeout)
+			resp, err := console.ExpectBatchWithValidatedSend(expecter, commands, timeout)
 			log.DefaultLogger().Object(vmi).Infof("%v", resp)
 			Expect(err).ToNot(HaveOccurred())
 		}
@@ -90,12 +90,11 @@ var _ = Describe("[Serial][rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][leve
 
 					VerifyIgnitionDataVMI(vmi, []expect.Batcher{
 						&expect.BSnd{S: "\n"},
-						&expect.BSnd{S: "\n"},
 						&expect.BExp{R: "login:"},
 						&expect.BSnd{S: "fedora\n"},
 						&expect.BExp{R: "Password:"},
 						&expect.BSnd{S: "fedora" + "\n"},
-						&expect.BExp{R: "\\$"},
+						&expect.BExp{R: console.PromptExpression},
 						&expect.BSnd{S: "ls /sys/firmware/qemu_fw_cfg/by_name/opt/com.coreos/config\n"},
 						&expect.BExp{R: "raw"},
 					}, time.Second*300)

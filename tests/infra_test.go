@@ -51,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 )
@@ -505,11 +506,11 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			defer expecter.Close()
 
 			By("Writing some data to the disk")
-			_, err = expecter.ExpectBatch([]expect.Batcher{
+			_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: "dd if=/dev/zero of=/dev/vdb bs=1M count=1\n"},
-				&expect.BExp{R: `localhost:~#`},
+				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "sync\n"},
-				&expect.BExp{R: `localhost:~#`},
+				&expect.BExp{R: console.PromptExpression},
 			}, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 

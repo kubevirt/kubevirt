@@ -47,14 +47,13 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: "login as 'cirros' user. default password: 'gocubsgo'. use 'sudo' for root."},
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: hostName + " login:"},
 		&expect.BSnd{S: "cirros\n"},
 		&expect.BExp{R: "Password:"},
 		&expect.BSnd{S: "gocubsgo\n"},
-		&expect.BExp{R: "\\$"}})
+		&expect.BExp{R: console.PromptExpression}})
 	resp, err := expecter.ExpectBatch(b, 180*time.Second)
 
 	if err != nil {
@@ -63,13 +62,13 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		return nil, err
 	}
 
-	err = configureConsole(expecter, "\\$ ", true)
+	err = configureConsole(expecter, true)
 	if err != nil {
 		expecter.Close()
 		return nil, err
 	}
 
-	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient, "\\$ ")
+	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient)
 }
 
 // LoggedInAlpineExpecter return prepared and ready to use console expecter for
@@ -84,10 +83,9 @@ func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: "localhost login:"},
 		&expect.BSnd{S: "root\n"},
-		&expect.BExp{R: "localhost:~\\#"}})
+		&expect.BExp{R: console.PromptExpression}})
 	res, err := expecter.ExpectBatch(b, 180*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
@@ -95,7 +93,7 @@ func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		return nil, err
 	}
 
-	err = configureConsole(expecter, "localhost:~\\#", false)
+	err = configureConsole(expecter, false)
 	if err != nil {
 		expecter.Close()
 		return nil, err
@@ -136,12 +134,12 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 				Rt: 10,
 			},
 			&expect.Case{
-				R: regexp.MustCompile(`\$ `),
+				R: regexp.MustCompile(fmt.Sprintf(`\[fedora@%s ~\]\$ `, vmi.Name)),
 				T: expect.OK(),
 			},
 		}},
 		&expect.BSnd{S: "sudo su\n"},
-		&expect.BExp{R: "\\#"},
+		&expect.BExp{R: console.PromptExpression},
 	})
 	res, err := expecter.ExpectBatch(b, 3*time.Minute)
 	if err != nil {
@@ -150,13 +148,13 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		return expecter, err
 	}
 
-	err = configureConsole(expecter, "\\#", false)
+	err = configureConsole(expecter, false)
 	if err != nil {
 		expecter.Close()
 		return nil, err
 	}
 
-	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient, "\\#")
+	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient)
 }
 
 // ReLoggedInFedoraExpecter return prepared and ready to use console expecter for
@@ -170,7 +168,7 @@ func ReLoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance, timeout int) (expe
 	}
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: "#"}})
+		&expect.BExp{R: console.PromptExpression}})
 	res, err := expecter.ExpectBatch(b, time.Duration(timeout)*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
@@ -180,18 +178,18 @@ func ReLoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance, timeout int) (expe
 	return expecter, err
 }
 
-func configureConsole(expecter expect.Expecter, prompt string, shouldSudo bool) error {
+func configureConsole(expecter expect.Expecter, shouldSudo bool) error {
 	sudoString := ""
 	if shouldSudo {
 		sudoString = "sudo "
 	}
 	batch := append([]expect.Batcher{
 		&expect.BSnd{S: "stty cols 500 rows 500\n"},
-		&expect.BExp{R: prompt},
+		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: console.RetValue("0")},
 		&expect.BSnd{S: fmt.Sprintf("%sdmesg -n 1\n", sudoString)},
-		&expect.BExp{R: prompt},
+		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: console.RetValue("0")}})
 	resp, err := expecter.ExpectBatch(batch, 30*time.Second)

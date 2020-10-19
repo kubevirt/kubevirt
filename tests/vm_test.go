@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
@@ -686,7 +687,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				defer expecter.Close()
 
 				By("Guest shutdown")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "sudo poweroff\n"},
 					&expect.BExp{R: "The system is going down NOW!"},
 				}, 240*time.Second)
@@ -940,7 +941,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					defer expecter.Close()
 
 					By("Issuing a poweroff command from inside VM")
-					_, err = expecter.ExpectBatch([]expect.Batcher{
+					_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 						&expect.BSnd{S: "sudo poweroff\n"},
 					}, 10*time.Second)
 					Expect(err).ToNot(HaveOccurred())
@@ -1097,7 +1098,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					defer expecter.Close()
 
 					By("Issuing a poweroff command from inside VM")
-					_, err = expecter.ExpectBatch([]expect.Batcher{
+					_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 						&expect.BSnd{S: "sudo poweroff\n"},
 					}, 10*time.Second)
 					Expect(err).ToNot(HaveOccurred())
@@ -1337,7 +1338,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					defer expecter.Close()
 
 					By("Issuing a poweroff command from inside VM")
-					_, err = expecter.ExpectBatch([]expect.Batcher{
+					_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 						&expect.BSnd{S: "sudo poweroff\n"},
 					}, 10*time.Second)
 					Expect(err).ToNot(HaveOccurred())

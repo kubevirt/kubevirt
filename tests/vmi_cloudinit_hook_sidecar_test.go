@@ -61,24 +61,24 @@ var _ = Describe("CloudInitHookSidecars", func() {
 
 		return string(logsRaw)
 	}
-	MountCloudInit := func(vmi *v1.VirtualMachineInstance, prompt string) {
+	MountCloudInit := func(vmi *v1.VirtualMachineInstance) {
 		cmdCheck := "mount $(blkid  -L cidata) /mnt/\n"
 		err := console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "sudo su -\n"},
-			&expect.BExp{R: prompt},
+			&expect.BExp{R: console.PromptExpression},
 			&expect.BSnd{S: cmdCheck},
-			&expect.BExp{R: prompt},
+			&expect.BExp{R: console.PromptExpression},
 			&expect.BSnd{S: "echo $?\n"},
 			&expect.BExp{R: console.RetValue("0")},
 		}, 15)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	CheckCloudInitFile := func(vmi *v1.VirtualMachineInstance, prompt, testFile, testData string) {
+	CheckCloudInitFile := func(vmi *v1.VirtualMachineInstance, testFile, testData string) {
 		cmdCheck := "cat /mnt/" + testFile + "\n"
 		err := console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "sudo su -\n"},
-			&expect.BExp{R: prompt},
+			&expect.BExp{R: console.PromptExpression},
 			&expect.BSnd{S: cmdCheck},
 			&expect.BExp{R: testData},
 		}, 15)
@@ -125,9 +125,9 @@ var _ = Describe("CloudInitHookSidecars", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
 				By("mouting cloudinit iso")
-				MountCloudInit(vmi, "#")
+				MountCloudInit(vmi)
 				By("checking cloudinit user-data")
-				CheckCloudInitFile(vmi, "#", "user-data", "#cloud-config")
+				CheckCloudInitFile(vmi, "user-data", "#cloud-config")
 			}, 300)
 		})
 	})

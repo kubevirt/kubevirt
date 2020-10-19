@@ -226,7 +226,7 @@ var _ = Describe("[Serial]Storage", func() {
 				defer expecter.Close()
 
 				By("Checking that /dev/vdc has a capacity of 2Gi")
-				res, err := expecter.ExpectBatch([]expect.Batcher{
+				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "sudo blockdev --getsize64 /dev/vdc\n"},
 					&expect.BExp{R: "2147483648"}, // 2Gi in bytes
 				}, 10*time.Second)
@@ -234,9 +234,9 @@ var _ = Describe("[Serial]Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking if we can write to /dev/vdc")
-				res, err = expecter.ExpectBatch([]expect.Batcher{
+				res, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "sudo mkfs.ext4 /dev/vdc\n"},
-					&expect.BExp{R: "\\$ "},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 20*time.Second)
@@ -276,7 +276,7 @@ var _ = Describe("[Serial]Storage", func() {
 				defer expecter.Close()
 
 				By("Checking for the specified serial number")
-				res, err := expecter.ExpectBatch([]expect.Batcher{
+				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "sudo find /sys -type f -regex \".*/block/.*/serial\" | xargs cat\n"},
 					&expect.BExp{R: diskSerial},
 				}, 10*time.Second)
@@ -453,14 +453,17 @@ var _ = Describe("[Serial]Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					// Because "/" is mounted on tmpfs, we need something that normally persists writes - /dev/sda2 is the EFI partition formatted as vFAT.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "echo content > /mnt/checkpoint\n"},
+					&expect.BExp{R: console.PromptExpression},
 					// The QEMU process will be killed, therefore the write must be flushed to the disk.
 					&expect.BSnd{S: "sync\n"},
+					&expect.BExp{R: console.PromptExpression},
 				}, 200*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -481,12 +484,14 @@ var _ = Describe("[Serial]Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					// Same story as when first starting the VirtualMachineInstance - the checkpoint, if persisted, is located at /dev/sda2.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "cat /mnt/checkpoint &> /dev/null\n"},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("1")},
 				}, 200*time.Second)
@@ -521,7 +526,7 @@ var _ = Describe("[Serial]Storage", func() {
 						Expect(err).ToNot(HaveOccurred())
 						defer expecter.Close()
 
-						_, err = expecter.ExpectBatch([]expect.Batcher{
+						_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 							&expect.BSnd{S: "blockdev --getsize64 /dev/vdb\n"},
 							&expect.BExp{R: "67108864"},
 						}, 200*time.Second)

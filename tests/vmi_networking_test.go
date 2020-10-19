@@ -73,20 +73,20 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 		currentConfiguration = kv.Spec.Configuration
 	})
 
-	checkMacAddress := func(vmi *v1.VirtualMachineInstance, expectedMacAddress string, prompt string) {
+	checkMacAddress := func(vmi *v1.VirtualMachineInstance, expectedMacAddress string) {
 		err := console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: prompt},
+			&expect.BExp{R: console.PromptExpression},
 			&expect.BSnd{S: "cat /sys/class/net/eth0/address\n"},
 			&expect.BExp{R: expectedMacAddress},
 		}, 15)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	checkNetworkVendor := func(vmi *v1.VirtualMachineInstance, expectedVendor string, prompt string) {
+	checkNetworkVendor := func(vmi *v1.VirtualMachineInstance, expectedVendor string) {
 		err := console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: prompt},
+			&expect.BExp{R: console.PromptExpression},
 			&expect.BSnd{S: "cat /sys/class/net/eth0/device/vendor\n"},
 			&expect.BExp{R: expectedVendor},
 		}, 15)
@@ -205,9 +205,9 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			defer expecter.Close()
 
 			addrShow = "ip address show eth0\n"
-			resp, err := expecter.ExpectBatch([]expect.Batcher{
+			resp, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
+				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: addrShow},
 				&expect.BExp{R: fmt.Sprintf(".*%s.*\n", expectedMtuString)},
 				&expect.BSnd{S: "echo $?\n"},
@@ -226,9 +226,9 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			cmdCheck = fmt.Sprintf("ping %s -c 1 -w 5 -s %d\n", addr, payloadSize)
 			err = console.SafeExpectBatch(outboundVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
+				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: cmdCheck},
-				&expect.BExp{R: "\\$ "},
+				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
 			}, 180)
@@ -237,9 +237,9 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			By("checking the VirtualMachineInstance can fetch via HTTP")
 			err = console.SafeExpectBatch(outboundVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
+				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\n"},
-				&expect.BExp{R: "\\$ "},
+				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
 			}, 15)
@@ -299,7 +299,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 				for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI} {
 					// as defined in https://vendev.org/pci/ven_1af4/
-					checkNetworkVendor(networkVMI, virtio_vid, "\\$ ")
+					checkNetworkVendor(networkVMI, virtio_vid)
 				}
 			})
 
@@ -326,7 +326,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 			tests.WaitUntilVMIReady(e1000VMI, tests.LoggedInAlpineExpecter)
 			// as defined in https://vendev.org/pci/ven_8086/
-			checkNetworkVendor(e1000VMI, "0x8086", "localhost:~\\#")
+			checkNetworkVendor(e1000VMI, "0x8086")
 		})
 	})
 
@@ -342,7 +342,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
-			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress, "localhost:~\\#")
+			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress)
 		})
 	})
 
@@ -359,7 +359,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitUntilVMIReady(beafdeadVMI, tests.LoggedInAlpineExpecter)
-			checkMacAddress(beafdeadVMI, "be:af:00:00:de:ad", "localhost:~#")
+			checkMacAddress(beafdeadVMI, "be:af:00:00:de:ad")
 		})
 	})
 
@@ -406,7 +406,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
-			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress, "localhost:~#")
+			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress)
 		})
 	})
 
@@ -430,7 +430,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 			err := console.SafeExpectBatch(detachedVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
+				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "ls /sys/class/net/ | wc -l\n"},
 				&expect.BExp{R: "1"},
 			}, 15)
@@ -486,10 +486,10 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			tests.BeforeTestCleanup()
 		})
 
-		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string, prompt string) {
+		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string) {
 			err := console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: prompt},
+				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "grep INTERFACE /sys/bus/pci/devices/" + expectedPciAddress + "/*/net/eth0/uevent|awk -F= '{ print $2 }'\n"},
 				&expect.BExp{R: "eth0"},
 			}, 15)
@@ -505,7 +505,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitUntilVMIReady(testVMI, tests.LoggedInCirrosExpecter)
-			checkPciAddress(testVMI, testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress, "\\$")
+			checkPciAddress(testVMI, testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress)
 		})
 	})
 
@@ -553,11 +553,11 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 			err = console.SafeExpectBatch(dhcpVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\#"},
+				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "dhclient -1 -r -d eth0\n"},
-				&expect.BExp{R: "\\#"},
+				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "dhclient -1 -sf /usr/bin/env --request-options subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu,tftp-server-name,bootfile-name eth0 | tee /dhcp-env\n"},
-				&expect.BExp{R: "\\#"},
+				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "grep -q 'new_tftp_server_name=tftp.kubevirt.io' /dhcp-env; echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: "grep -q 'new_bootfile_name=config' /dhcp-env; echo $?\n"},
@@ -590,19 +590,19 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			tests.WaitUntilVMIReady(dnsVMI, tests.LoggedInCirrosExpecter)
 			err = console.SafeExpectBatch(dnsVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$"},
+				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
 				&expect.BExp{R: "search example.com"},
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$"},
+				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
 				&expect.BExp{R: "nameserver 8.8.8.8"},
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$"},
+				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
 				&expect.BExp{R: "nameserver 4.2.2.1"},
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$"},
+				&expect.BExp{R: console.PromptExpression},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -982,9 +982,9 @@ func createExpectConnectToServer(serverIP string, tcpPort int, expectSuccess boo
 	}
 	return []expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: "\\$ "},
+		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: fmt.Sprintf("echo test | nc %s %d -i 1 -w 1 1> /dev/null\n", serverIP, tcpPort)},
-		&expect.BExp{R: "\\$ "},
+		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: console.RetValue(expectResult)},
 	}

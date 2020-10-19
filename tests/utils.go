@@ -2889,11 +2889,11 @@ func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
 	return &pod
 }
 
-func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter, virtClient kubecli.KubevirtClient, prompt string) error {
+func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter, virtClient kubecli.KubevirtClient) error {
 	hasEth0Iface := func() bool {
 		hasNetEth0Batch := append([]expect.Batcher{
 			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: prompt},
+			&expect.BExp{R: console.PromptExpression},
 			&expect.BSnd{S: "ip a | grep -q eth0; echo $?\n"},
 			&expect.BExp{R: console.RetValue("0")}})
 		_, err := console.ExpectBatchWithValidatedSend(expecter, hasNetEth0Batch, 30*time.Second)
@@ -2903,7 +2903,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 	hasGlobalIPv6 := func() bool {
 		hasGlobalIPv6Batch := append([]expect.Batcher{
 			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: prompt},
+			&expect.BExp{R: console.PromptExpression},
 			&expect.BSnd{S: "ip -6 address show dev eth0 scope global | grep -q inet6; echo $?\n"},
 			&expect.BExp{R: console.RetValue("0")}})
 		_, err := console.ExpectBatchWithValidatedSend(expecter, hasGlobalIPv6Batch, 30*time.Second)
@@ -2929,7 +2929,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 
 	addIPv6Address := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: prompt},
+		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: "sudo ip -6 addr add fd10:0:2::2/120 dev eth0; echo $?\n"},
 		&expect.BExp{R: console.RetValue("0")}})
 	resp, err := console.ExpectBatchWithValidatedSend(expecter, addIPv6Address, 30*time.Second)
@@ -2942,7 +2942,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 	time.Sleep(5 * time.Second)
 	addIPv6DefaultRoute := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: prompt},
+		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: "sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2; echo $?\n"},
 		&expect.BExp{R: console.RetValue("0")}})
 	resp, err = console.ExpectBatchWithValidatedSend(expecter, addIPv6DefaultRoute, 30*time.Second)
@@ -4180,7 +4180,7 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 	}
 	_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 		&expect.BSnd{S: serverCommand},
-		&expect.BExp{R: "\\$ "},
+		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 60*time.Second)
