@@ -20,7 +20,6 @@
 package accesscredentials
 
 import (
-	"bufio"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -81,8 +80,6 @@ type AccessCredentialManager struct {
 
 	watcher *fsnotify.Watcher
 
-	prevDesiredAuthKeysByFile map[string]string
-
 	domainModifyLock *sync.Mutex
 }
 
@@ -91,7 +88,6 @@ func NewManager(connection cli.Connection, domainModifyLock *sync.Mutex) *Access
 		virConn:                    connection,
 		stopCh:                     make(chan struct{}),
 		resyncCheckIntervalSeconds: 15,
-		prevDesiredAuthKeysByFile:  make(map[string]string),
 		domainModifyLock:           domainModifyLock,
 	}
 }
@@ -353,46 +349,6 @@ func (l *AccessCredentialManager) agentSetFilePermissions(domName string, filePa
 	return nil
 }
 
-func (l *AccessCredentialManager) mergeAuthorizedKeys(curAuthorizedKeys string, addKeys string, prevAddKeys string) string {
-	authorizedKeys := ""
-
-	// Calculate key revoke
-	addKeyMap := make(map[string]string)
-	mergedKeyMap := make(map[string]string)
-
-	scanner := bufio.NewScanner(strings.NewReader(addKeys))
-	for scanner.Scan() {
-		addKeyMap[scanner.Text()] = ""
-	}
-
-	scanner = bufio.NewScanner(strings.NewReader(curAuthorizedKeys))
-	for scanner.Scan() {
-		mergedKeyMap[scanner.Text()] = ""
-	}
-
-	// Process Deletes
-	scanner = bufio.NewScanner(strings.NewReader(prevAddKeys))
-	for scanner.Scan() {
-		key := scanner.Text()
-		_, ok := addKeyMap[key]
-		if !ok {
-			delete(mergedKeyMap, key)
-		}
-	}
-
-	// Process Adds
-	for key, _ := range addKeyMap {
-		mergedKeyMap[key] = ""
-	}
-
-	// Generate merged authorized_keys string
-	for key, _ := range mergedKeyMap {
-		authorizedKeys = authorizedKeys + key + "\n"
-	}
-
-	return authorizedKeys
-}
-
 func (l *AccessCredentialManager) agentSetUserPassword(domName string, user string, password string) error {
 
 	base64Str := base64.StdEncoding.EncodeToString([]byte(password))
@@ -426,7 +382,7 @@ func (l *AccessCredentialManager) agentWriteAuthorizedKeys(domName string, user 
 	}
 
 	// ######
-	// Step 2. Read file on guest
+	// Step 2. Read file on guest to determine if change is required
 	// ######
 	filePath := fmt.Sprintf("%s/.ssh/authorized_keys", homeDir)
 	curAuthorizedKeys, err = l.readGuestFile(domName, filePath)
@@ -437,25 +393,15 @@ func (l *AccessCredentialManager) agentWriteAuthorizedKeys(domName string, user 
 	}
 
 	// ######
-	// Step 3. Merge kubevirt authorized keys
-	// ######
-	prevDesiredAuthorizedKeys, _ := l.prevDesiredAuthKeysByFile[filePath]
-	authorizedKeys := l.mergeAuthorizedKeys(curAuthorizedKeys, desiredAuthorizedKeys, prevDesiredAuthorizedKeys)
-
-	// ######
-	// Step 4. Write merged file
+	// Step 3. Write authorized_keys file if changes exist
 	// ######
 	// only update if the updated string is not equal to the current contents on the guest.
-	if curAuthorizedKeys != authorizedKeys {
-		err = l.writeGuestFile(authorizedKeys, domName, filePath, fmt.Sprintf("%s:%s", uid, gid), fileExists)
+	if curAuthorizedKeys != desiredAuthorizedKeys {
+		err = l.writeGuestFile(desiredAuthorizedKeys, domName, filePath, fmt.Sprintf("%s:%s", uid, gid), fileExists)
 		if err != nil {
 			return err
 		}
 	}
-
-	// record the keys we successfully added so we can diff future secrets
-	// to determine what keys need to be revoked
-	l.prevDesiredAuthKeysByFile[filePath] = desiredAuthorizedKeys
 
 	return nil
 }
