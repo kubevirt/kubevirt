@@ -219,18 +219,17 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 		Context("CriticalAddonsOnly taint set on a node", func() {
 
-			var selectedNode *k8sv1.Node
+			var selectedNodeName string
 
 			BeforeEach(func() {
-				selectedNode = nil
+				selectedNodeName = ""
 			})
 
 			AfterEach(func() {
-				if selectedNode != nil {
+				if selectedNodeName != "" {
 					By("removing the taint from the tainted node")
 					err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-						var err error
-						selectedNode, err = virtClient.CoreV1().Nodes().Get(selectedNode.Name, metav1.GetOptions{})
+						selectedNode, err := virtClient.CoreV1().Nodes().Get(selectedNodeName, metav1.GetOptions{})
 						if err != nil {
 							return err
 						}
@@ -276,7 +275,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 					if _, isMaster := node.Labels["node-role.kubernetes.io/master"]; isMaster {
 						continue
 					}
-					selectedNode = node.DeepCopy()
+					selectedNodeName = node.Name
 					break
 				}
 
@@ -316,8 +315,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 				By("tainting the selected node")
 				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					var err error
-					selectedNode, err = virtClient.CoreV1().Nodes().Get(selectedNode.Name, metav1.GetOptions{})
+					selectedNode, err := virtClient.CoreV1().Nodes().Get(selectedNodeName, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
