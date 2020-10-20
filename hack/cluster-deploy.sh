@@ -80,6 +80,15 @@ spec: {}
 EOF
 fi
 
+# Ensure the cdi insecure registeries is set
+count=0
+until _kubectl get configmap -n ${cdi_namespace} cdi-insecure-registries; do
+    ((count++)) && ((count == 30)) && echo "cdi-insecure-registries config-map not found" && exit 1
+    echo "waiting for cdi-insecure-registries configmap to be created"
+    sleep 1
+done
+_kubectl patch configmap cdi-insecure-registries -n $cdi_namespace --type merge -p '{"data":{"dev-registry": "registry:5000"}}'
+
 # Deploy kubevirt operator
 _kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
 
