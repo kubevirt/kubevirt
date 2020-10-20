@@ -17,34 +17,20 @@ If `useEmulation` is enabled,
 
 # Configuration
 
-Enabling software emulation is a cluster-wide setting, and is activated using a
-ConfigMap in the `kubevirt` namespace. It can be enabled with the following
-command:
+Enabling software emulation is a cluster-wide setting, and is activated by
+editing the kubevirt-config as follows:
 
 ```bash
-cluster/kubectl.sh --namespace kubevirt create configmap kubevirt-config \
-    --from-literal debug.useEmulation=true
+cluster-up/kubectl.sh --namespace kubevirt edit kubevirt kubevirt
 ```
 
-If the `kubevirt/kubevirt-config` ConfigMap already exists, the above entry
-can be added using:
-
-```bash
-cluster/kubectl.sh --namespace kubevirt edit configmap kubevirt-config
-```
-
-In this case, add the `debug.useEmulation: "true"` setting to `data`:
+Add the following snippet to the spec:
 
 ```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kubevirt-config
-  namespace: kubevirt
-data:
-  debug.useEmulation: "true"
-
+spec:
+  developerConfiguration:
+    useEmulation: "true"
 ```
 
-**NOTE**: The values of `ConfigMap.data` are **strings**. Yaml requires the use of
+**NOTE**: The values of `KubeVirt.spec` are **strings**. Yaml requires the use of
 quotes around `"true"` to distinguish the value from a boolean.
