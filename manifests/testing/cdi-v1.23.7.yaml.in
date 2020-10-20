@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   labels:
     cdi.kubevirt.io: ""
-  name: cdi
+  name: {{.CDINamespace}}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
