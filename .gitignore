@@ -35,6 +35,7 @@ tools/vms-generator/vms-generator
 .coverprofile*
 coverage.html
 manifests/**/*.tmp
+cluster-up/**/kind-k8s-sriov*/**/*.cert
 /bazel-*
 /ci.bazelrc
 _ci-configs/
