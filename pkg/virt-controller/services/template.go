@@ -1118,6 +1118,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	pod.Spec.SchedulerName = vmi.Spec.SchedulerName
 
+	enableServiceLinks := false
+	pod.Spec.EnableServiceLinks = &enableServiceLinks
+
 	if len(serviceAccountName) > 0 {
 		pod.Spec.ServiceAccountName = serviceAccountName
 		automount := true
