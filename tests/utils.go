@@ -1770,6 +1770,10 @@ func PanicOnError(err error) {
 	}
 }
 
+func NewRandomDataVolumeWithRegistryImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
+	return newRandomDataVolumeWithRegistryImport(imageUrl, namespace, Config.StorageClassLocal, accessMode)
+}
+
 func NewRandomDataVolumeWithHttpImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
 	return newRandomDataVolumeWithHttpImport(imageUrl, namespace, Config.StorageClassLocal, accessMode)
 }
@@ -1795,6 +1799,41 @@ func NewRandomVirtualMachineInstanceWithOCSDisk(imageUrl, namespace string, acce
 	Expect(err).ToNot(HaveOccurred())
 	WaitForSuccessfulDataVolumeImport(dv, 240)
 	return NewRandomVMIWithDataVolume(dv.Name), dv
+}
+
+func newRandomDataVolumeWithRegistryImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
+	name := "test-datavolume-" + rand.String(12)
+	quantity, err := resource.ParseQuantity("1Gi")
+	PanicOnError(err)
+	dataVolume := &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: cdiv1.DataVolumeSource{
+				Registry: &cdiv1.DataVolumeSourceRegistry{
+					URL: imageUrl,
+				},
+			},
+			PVC: &k8sv1.PersistentVolumeClaimSpec{
+				AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
+				Resources: k8sv1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						"storage": quantity,
+					},
+				},
+				StorageClassName: &storageClass,
+			},
+		},
+	}
+
+	dataVolume.TypeMeta = metav1.TypeMeta{
+		APIVersion: "cdi.kubevirt.io/v1alpha1",
+		Kind:       "DataVolume",
+	}
+
+	return dataVolume
 }
 
 func newRandomDataVolumeWithHttpImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
@@ -1935,6 +1974,15 @@ func addDataVolumeTemplate(vm *v1.VirtualMachine, dataVolume *cdiv1.DataVolume) 
 	dvt.ObjectMeta = *dataVolume.ObjectMeta.DeepCopy()
 
 	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dvt)
+}
+
+func NewRandomVMWithRegistryDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
+	dataVolume := NewRandomDataVolumeWithRegistryImport(imageUrl, namespace, k8sv1.ReadWriteOnce)
+	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
+	vm := NewRandomVirtualMachine(vmi, false)
+
+	addDataVolumeTemplate(vm, dataVolume)
+	return vm
 }
 
 func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
