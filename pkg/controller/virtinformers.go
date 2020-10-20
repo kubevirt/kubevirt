@@ -492,6 +492,7 @@ func (f *kubeInformerFactory) KubeVirt() cache.SharedIndexInformer {
 
 // resyncPeriod computes the time interval a shared informer waits before resyncing with the api server
 func resyncPeriod(minResyncPeriod time.Duration) time.Duration {
+	// #nosec no need for better randomness
 	factor := rand.Float64() + 1
 	return time.Duration(float64(minResyncPeriod.Nanoseconds()) * factor)
 }
