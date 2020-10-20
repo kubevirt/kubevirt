@@ -386,6 +386,7 @@ type Devices struct {
 	Watchdog    *Watchdog          `xml:"watchdog,omitempty"`
 	Rng         *Rng               `xml:"rng,omitempty"`
 	Filesystems []FilesystemDevice `xml:"filesystem,omitempty"`
+	Sounds      []Sound            `xml:"sound,omitempty"`
 }
 
 type FilesystemDevice struct {
@@ -785,6 +786,19 @@ type ChannelSource struct {
 }
 
 //END Channel --------------------
+
+//BEGIN Sound -------------------
+
+type Sound struct {
+	Model string `xml:"model,attr"`
+	Codec Codec  `xml:"codec,omitempty"`
+}
+
+type Codec struct {
+	Type string `xml:"type,attr,omitempty"`
+}
+
+//END Sound -------------------
 
 //BEGIN Video -------------------
 /*

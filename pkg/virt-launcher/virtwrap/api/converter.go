@@ -1031,6 +1031,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			domain.Spec.Devices.Filesystems = append(domain.Spec.Devices.Filesystems, newFS)
 		}
 	}
+	for _, sound := range vmi.Spec.Domain.Devices.Sounds {
+		newSound := Sound{}
+		newSound.Model = sound.Model
+		if sound.CodecType != "" {
+			newSound.Codec.Type = sound.CodecType
+		}
+		domain.Spec.Devices.Sounds = append(domain.Spec.Devices.Sounds, newSound)
+	}
 
 	if vmi.Spec.Domain.Devices.Watchdog != nil {
 		newWatchdog := &Watchdog{}

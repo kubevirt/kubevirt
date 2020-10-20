@@ -8539,6 +8539,13 @@
        "$ref": "#/definitions/v1.Disk"
       }
      },
+     "sounds": {
+      "description": "Whether to attach a Sound device device to the vmi.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Sound"
+      }
+     },
      "filesystems": {
       "description": "Filesystems describes filesystem which is connected to the vmi.",
       "type": "array",
@@ -8649,6 +8656,22 @@
      "readonly": {
       "description": "ReadOnly. Defaults to false.",
       "type": "boolean"
+     }
+    }
+   },
+   "v1.Sound": {
+    "type": "object",
+    "required": [
+     "model"
+    ],
+    "properties": {
+     "model": {
+      "description": "Supported values: ac97.",
+      "type": "string"
+     },
+     "type": {
+      "description": "For example: micro",
+      "type": "string"
      }
     }
    },

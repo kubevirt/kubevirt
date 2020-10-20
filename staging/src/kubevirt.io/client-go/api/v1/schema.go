@@ -394,6 +394,9 @@ type Devices struct {
 	// +optional
 	// +listType=set
 	Filesystems []Filesystem `json:"filesystems,omitempty"`
+	// +optional
+	// +listType=set
+	Sounds []Sound `json:"sounds,omitempty"`
 }
 
 //
@@ -415,6 +418,19 @@ type Filesystem struct {
 	// Name is the device name
 	Name     string              `json:"name"`
 	Virtiofs *FilesystemVirtiofs `json:"virtiofs"`
+}
+
+//
+// +k8s:openapi-gen=true
+type Sound struct {
+	// Mandatory attribute, which specifies what real sound device is emulated.
+	// Supported values:  es1370, sb16, ac97, ich6, usb.
+	// More info: https://libvirt.org/formatdomain.html#sound-devices
+	Model string `json:"model"`
+	// Audio codecs attached to the audio device.
+	// Supported values: duplex, micro, output.
+	// +optional
+	CodecType string `json:"type,omitempty"`
 }
 
 //

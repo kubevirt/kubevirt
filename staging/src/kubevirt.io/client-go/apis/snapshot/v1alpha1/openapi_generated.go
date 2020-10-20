@@ -364,6 +364,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.SMBiosConfiguration":                                 schema_kubevirtio_client_go_api_v1_SMBiosConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.SecretVolumeSource":                                  schema_kubevirtio_client_go_api_v1_SecretVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource":                          schema_kubevirtio_client_go_api_v1_ServiceAccountVolumeSource(ref),
+		"kubevirt.io/client-go/api/v1.Sound":                                               schema_kubevirtio_client_go_api_v1_Sound(ref),
 		"kubevirt.io/client-go/api/v1.Timer":                                               schema_kubevirtio_client_go_api_v1_Timer(ref),
 		"kubevirt.io/client-go/api/v1.VirtualMachine":                                      schema_kubevirtio_client_go_api_v1_VirtualMachine(ref),
 		"kubevirt.io/client-go/api/v1.VirtualMachineCondition":                             schema_kubevirtio_client_go_api_v1_VirtualMachineCondition(ref),
@@ -14247,6 +14248,19 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 							},
 						},
 					},
+					"sounds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether to attach a Sound device to the vmi.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/api/v1.Sound"),
+									},
+								},
+							},
+						},
+					},
 					"filesystems": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -14269,7 +14283,7 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.Disk", "kubevirt.io/client-go/api/v1.Filesystem", "kubevirt.io/client-go/api/v1.GPU", "kubevirt.io/client-go/api/v1.Input", "kubevirt.io/client-go/api/v1.Interface", "kubevirt.io/client-go/api/v1.Rng", "kubevirt.io/client-go/api/v1.Watchdog"},
+			"kubevirt.io/client-go/api/v1.Disk", "kubevirt.io/client-go/api/v1.Filesystem", "kubevirt.io/client-go/api/v1.GPU", "kubevirt.io/client-go/api/v1.Input", "kubevirt.io/client-go/api/v1.Interface", "kubevirt.io/client-go/api/v1.Rng", "kubevirt.io/client-go/api/v1.Sound", "kubevirt.io/client-go/api/v1.Watchdog"},
 	}
 }
 
@@ -16496,6 +16510,32 @@ func schema_kubevirtio_client_go_api_v1_ServiceAccountVolumeSource(ref common.Re
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_Sound(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Model of the Sound device as exposed by a device plugin",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"model"},
 			},
 		},
 	}
