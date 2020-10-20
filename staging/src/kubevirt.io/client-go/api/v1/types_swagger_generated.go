@@ -263,7 +263,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"ready":                  "Ready indicates if the virtual machine is running and ready",
 		"conditions":             "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
 		"stateChangeRequests":    "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
-		"volumeSnapshotStatuses": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.\n+listType=atomic",
+		"volumeSnapshotStatuses": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
 	}
 }
 

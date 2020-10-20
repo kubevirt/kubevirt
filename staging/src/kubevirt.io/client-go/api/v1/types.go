@@ -1015,7 +1015,6 @@ type VirtualMachineStatus struct {
 	StateChangeRequests []VirtualMachineStateChangeRequest `json:"stateChangeRequests,omitempty" optional:"true"`
 	// VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is
 	// supported by each volume.
-	// +listType=atomic
 	VolumeSnapshotStatuses []VolumeSnapshotStatus `json:"volumeSnapshotStatuses,omitempty" optional:"true"`
 }
 

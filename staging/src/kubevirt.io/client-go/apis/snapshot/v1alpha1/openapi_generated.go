@@ -18299,11 +18299,6 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineStatus(ref common.Referenc
 						},
 					},
 					"volumeSnapshotStatuses": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
 							Description: "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is supported by each volume.",
 							Type:        []string{"array"},

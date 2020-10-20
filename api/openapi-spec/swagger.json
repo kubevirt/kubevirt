@@ -10770,8 +10770,7 @@
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.VolumeSnapshotStatus"
-      },
-      "x-kubernetes-list-type": "atomic"
+      }
      }
     }
    },
