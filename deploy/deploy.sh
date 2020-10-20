@@ -2,8 +2,10 @@
 
 set -x
 
+hco_namespace=kubevirt-hyperconverged
+
 # Create the namespaces for the HCO
-kubectl create ns kubevirt-hyperconverged
+kubectl create ns $hco_namespace
 
 # Create additional namespaces needed for HCO components
 namespaces=("openshift")
@@ -13,8 +15,7 @@ for namespace in ${namespaces[@]}; do
     fi
 done
 
-# Switch to the HCO namespace.
-kubectl config set-context $(kubectl config current-context) --namespace=kubevirt-hyperconverged
+
 
 # Launch all of the CRDs.
 kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/crds/cluster-network-addons00.crd.yaml
@@ -32,10 +33,10 @@ kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-clus
 kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/crds/hco02.crd.yaml
 
 # Launch all of the Service Accounts, Cluster Role(Binding)s, and Operators.
-kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/cluster_role.yaml
-kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/service_account.yaml
-kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/cluster_role_binding.yaml
-kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/operator.yaml
+kubectl create -n $hco_namespace -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/cluster_role.yaml
+kubectl create -n $hco_namespace -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/service_account.yaml
+kubectl create -n $hco_namespace -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/cluster_role_binding.yaml
+kubectl create -n $hco_namespace -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/operator.yaml
 
 # Create an HCO CustomResource, which creates the KubeVirt CR, launching KubeVirt.
-kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/hco.cr.yaml
+kubectl create -n $hco_namespace -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/hco.cr.yaml
