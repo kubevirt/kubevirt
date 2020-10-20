@@ -78,8 +78,8 @@ Maintainers are here to help you enabling your use-case in a reasonable amount
 of time. The maintainers will try to review your code and give you productive
 feedback in a reasonable amount of time. However, if you are blocked on a
 review, or your Pull Request does not get the attention you think it deserves,
-reach out for us via Comments in your Issues, or ping us on IRC
-[#kubevirt @irc.freenode.net](https://kiwiirc.com/client/irc.freenode.net/kubevirt).
+reach out for us via Comments in your Issues, or ping us on Slack
+[#kubevirt-dev @ kubernetes.slack.com](https://kubernetes.slack.com/?redir=%2Farchives%2FC0163DT0R8X).
 
 Maintainers are:
 
