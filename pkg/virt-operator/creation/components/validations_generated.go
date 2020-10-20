@@ -2976,6 +2976,24 @@ var CRDsValidation map[string]string = map[string]string{
             - action
             type: object
           type: array
+        volumeSnapshotStatuses:
+          description: VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is supported by each volume.
+          items:
+            properties:
+              enabled:
+                description: True if the volume supports snapshotting
+                type: boolean
+              name:
+                description: Volume name
+                type: string
+              reason:
+                description: Empty if snapshotting is enabled, contains reason otherwise
+                type: string
+            required:
+            - enabled
+            - name
+            type: object
+          type: array
       type: object
   required:
   - spec
@@ -8837,6 +8855,24 @@ var CRDsValidation map[string]string = map[string]string{
                             type: string
                         required:
                         - action
+                        type: object
+                      type: array
+                    volumeSnapshotStatuses:
+                      description: VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is supported by each volume.
+                      items:
+                        properties:
+                          enabled:
+                            description: True if the volume supports snapshotting
+                            type: boolean
+                          name:
+                            description: Volume name
+                            type: string
+                          reason:
+                            description: Empty if snapshotting is enabled, contains reason otherwise
+                            type: string
+                        required:
+                        - enabled
+                        - name
                         type: object
                       type: array
                   type: object
