@@ -20,6 +20,7 @@ package components
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/coreos/prometheus-operator/pkg/apis/monitoring"
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
@@ -28,6 +29,7 @@ import (
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
@@ -36,6 +38,38 @@ import (
 const (
 	KUBEVIRT_PROMETHEUS_RULE_NAME = "prometheus-kubevirt-rules"
 )
+
+var (
+	VIRTUALMACHINE                   = "virtualmachines." + virtv1.VirtualMachineInstanceGroupVersionKind.Group
+	VIRTUALMACHINEINSTANCE           = "virtualmachineinstances." + virtv1.VirtualMachineInstanceGroupVersionKind.Group
+	VIRTUALMACHINEINSTANCEPRESET     = "virtualmachineinstancepresets." + virtv1.VirtualMachineInstancePresetGroupVersionKind.Group
+	VIRTUALMACHINEINSTANCEREPLICASET = "virtualmachineinstancereplicasets." + virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group
+	VIRTUALMACHINEINSTANCEMIGRATION  = "virtualmachineinstancemigrations." + virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Group
+	KUBEVIRT                         = "kubevirts." + virtv1.KubeVirtGroupVersionKind.Group
+	VIRTUALMACHINESNAPSHOT           = "virtualmachinesnapshots." + snapshotv1.SchemeGroupVersion.Group
+	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1.SchemeGroupVersion.Group
+	PreserveUnknownFieldsFalse       = false
+)
+
+func patchValidation(crd *extv1beta1.CustomResourceDefinition) error {
+	name := crd.Spec.Names.Singular
+	if name != "virtualmachine" && name != "virtualmachineinstance" {
+		return nil
+	}
+
+	crd.Spec.PreserveUnknownFields = &PreserveUnknownFieldsFalse
+	validation, ok := CRDsValidation[name]
+	if !ok {
+		return nil
+	}
+	crvalidation := extv1beta1.CustomResourceValidation{}
+	err := k8syaml.NewYAMLToJSONDecoder(strings.NewReader(validation)).Decode(&crvalidation)
+	if err != nil {
+		return fmt.Errorf("Couldn't decode validation for %s, %v", name, err)
+	}
+	crd.Spec.Validation = &crvalidation
+	return nil
+}
 
 func newBlankCrd() *extv1beta1.CustomResourceDefinition {
 	return &extv1beta1.CustomResourceDefinition{
@@ -51,10 +85,10 @@ func newBlankCrd() *extv1beta1.CustomResourceDefinition {
 	}
 }
 
-func NewVirtualMachineInstanceCrd() *extv1beta1.CustomResourceDefinition {
+func NewVirtualMachineInstanceCrd() (*extv1beta1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
-	crd.ObjectMeta.Name = "virtualmachineinstances." + virtv1.VirtualMachineInstanceGroupVersionKind.Group
+	crd.ObjectMeta.Name = VIRTUALMACHINEINSTANCE
 	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
 		Group:    virtv1.VirtualMachineInstanceGroupVersionKind.Group,
 		Version:  virtv1.ApiSupportedVersions[0].Name,
@@ -80,13 +114,16 @@ func NewVirtualMachineInstanceCrd() *extv1beta1.CustomResourceDefinition {
 		},
 	}
 
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
-func NewVirtualMachineCrd() *extv1beta1.CustomResourceDefinition {
+func NewVirtualMachineCrd() (*extv1beta1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
-	crd.ObjectMeta.Name = "virtualmachines." + virtv1.VirtualMachineGroupVersionKind.Group
+	crd.ObjectMeta.Name = VIRTUALMACHINE
 	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
 		Group:    virtv1.VirtualMachineGroupVersionKind.Group,
 		Version:  virtv1.ApiSupportedVersions[0].Name,
@@ -112,13 +149,16 @@ func NewVirtualMachineCrd() *extv1beta1.CustomResourceDefinition {
 		},
 	}
 
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
-func NewPresetCrd() *extv1beta1.CustomResourceDefinition {
+func NewPresetCrd() (*extv1beta1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
-	crd.ObjectMeta.Name = "virtualmachineinstancepresets." + virtv1.VirtualMachineInstancePresetGroupVersionKind.Group
+	crd.ObjectMeta.Name = VIRTUALMACHINEINSTANCEPRESET
 	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
 		Group:    virtv1.VirtualMachineInstancePresetGroupVersionKind.Group,
 		Version:  virtv1.ApiSupportedVersions[0].Name,
@@ -136,14 +176,17 @@ func NewPresetCrd() *extv1beta1.CustomResourceDefinition {
 		},
 	}
 
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
-func NewReplicaSetCrd() *extv1beta1.CustomResourceDefinition {
+func NewReplicaSetCrd() (*extv1beta1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 	labelSelector := ".status.labelSelector"
 
-	crd.ObjectMeta.Name = "virtualmachineinstancereplicasets." + virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group
+	crd.ObjectMeta.Name = VIRTUALMACHINEINSTANCEREPLICASET
 	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
 		Group:    virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
 		Version:  virtv1.ApiSupportedVersions[0].Name,
@@ -178,13 +221,16 @@ func NewReplicaSetCrd() *extv1beta1.CustomResourceDefinition {
 		},
 	}
 
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
-func NewVirtualMachineInstanceMigrationCrd() *extv1beta1.CustomResourceDefinition {
+func NewVirtualMachineInstanceMigrationCrd() (*extv1beta1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
-	crd.ObjectMeta.Name = "virtualmachineinstancemigrations." + virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Group
+	crd.ObjectMeta.Name = VIRTUALMACHINEINSTANCEMIGRATION
 	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
 		Group:    virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Group,
 		Version:  virtv1.ApiSupportedVersions[0].Name,
@@ -205,13 +251,16 @@ func NewVirtualMachineInstanceMigrationCrd() *extv1beta1.CustomResourceDefinitio
 		},
 	}
 
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
 // Used by manifest generation
 // If you change something here, you probably need to change the CSV manifest too,
 // see /manifests/release/kubevirt.VERSION.csv.yaml.in
-func NewKubeVirtCrd() *extv1beta1.CustomResourceDefinition {
+func NewKubeVirtCrd() (*extv1beta1.CustomResourceDefinition, error) {
 
 	// we use a different label here, so no newBlankCrd()
 	crd := &extv1beta1.CustomResourceDefinition{
@@ -226,7 +275,7 @@ func NewKubeVirtCrd() *extv1beta1.CustomResourceDefinition {
 		},
 	}
 
-	crd.ObjectMeta.Name = "kubevirts." + virtv1.KubeVirtGroupVersionKind.Group
+	crd.ObjectMeta.Name = KUBEVIRT
 	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
 		Group:    virtv1.KubeVirtGroupVersionKind.Group,
 		Version:  virtv1.ApiSupportedVersions[0].Name,
@@ -251,13 +300,16 @@ func NewKubeVirtCrd() *extv1beta1.CustomResourceDefinition {
 		},
 	}
 
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
-func NewVirtualMachineSnapshotCrd() *extv1beta1.CustomResourceDefinition {
+func NewVirtualMachineSnapshotCrd() (*extv1beta1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
-	crd.ObjectMeta.Name = "virtualmachinesnapshots." + snapshotv1.SchemeGroupVersion.Group
+	crd.ObjectMeta.Name = VIRTUALMACHINESNAPSHOT
 	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
 		Group:   snapshotv1.SchemeGroupVersion.Group,
 		Version: snapshotv1.SchemeGroupVersion.Version,
@@ -287,13 +339,16 @@ func NewVirtualMachineSnapshotCrd() *extv1beta1.CustomResourceDefinition {
 		},
 	}
 
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
-func NewVirtualMachineSnapshotContentCrd() *extv1beta1.CustomResourceDefinition {
+func NewVirtualMachineSnapshotContentCrd() (*extv1beta1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
-	crd.ObjectMeta.Name = "virtualmachinesnapshotcontents." + snapshotv1.SchemeGroupVersion.Group
+	crd.ObjectMeta.Name = VIRTUALMACHINESNAPSHOTCONTENT
 	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
 		Group:   snapshotv1.SchemeGroupVersion.Group,
 		Version: snapshotv1.SchemeGroupVersion.Version,
@@ -321,10 +376,13 @@ func NewVirtualMachineSnapshotContentCrd() *extv1beta1.CustomResourceDefinition 
 		},
 	}
 
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
-func NewVirtualMachineRestoreCrd() *extv1beta1.CustomResourceDefinition {
+func NewVirtualMachineRestoreCrd() (*extv1beta1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 
 	crd.ObjectMeta.Name = "virtualmachinerestores." + snapshotv1.SchemeGroupVersion.Group
@@ -357,7 +415,10 @@ func NewVirtualMachineRestoreCrd() *extv1beta1.CustomResourceDefinition {
 		},
 	}
 
-	return crd
+	if err := patchValidation(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
 }
 
 func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkipVerify bool) *promv1.ServiceMonitor {

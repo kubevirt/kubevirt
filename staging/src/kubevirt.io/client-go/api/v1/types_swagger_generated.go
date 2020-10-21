@@ -99,8 +99,8 @@ func (VirtualMachineInstanceGuestOSInfo) SwaggerDoc() map[string]string {
 func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                               "+k8s:openapi-gen=true",
-		"startTimestamp":                 "The time the migration action began",
-		"endTimestamp":                   "The time the migration action ended",
+		"startTimestamp":                 "The time the migration action began\n+nullable",
+		"endTimestamp":                   "The time the migration action ended\n+nullable",
 		"targetNodeDomainDetected":       "The Target Node has seen the Domain Start Event",
 		"targetNodeAddress":              "The address of the target node to use for the migration",
 		"targetDirectMigrationNodePorts": "The list of ports opened for live migration on the destination node",
@@ -180,7 +180,7 @@ func (DataVolumeTemplateSpec) SwaggerDoc() map[string]string {
 func (VirtualMachineInstanceTemplateSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "+k8s:openapi-gen=true",
-		"metadata": "+nullable",
+		"metadata": "+kubebuilder:pruning:PreserveUnknownFields\n+nullable",
 		"spec":     "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
 	}
 }
@@ -263,7 +263,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"ready":                  "Ready indicates if the virtual machine is running and ready",
 		"conditions":             "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
 		"stateChangeRequests":    "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
-		"volumeSnapshotStatuses": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.\n+listType=atomic",
+		"volumeSnapshotStatuses": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
 	}
 }
 

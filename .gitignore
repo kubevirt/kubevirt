@@ -4,8 +4,11 @@ tools/openapispec/openapispec
 tools/crd-generator/crd-generator
 tools/csv-generator/csv-generator
 tools/doc-generator/doc-generator
+tools/crd-validation-generator/crd-validation-generator
 tools/resource-generator/resource-generator
 tools/marketplace/marketplace
+tools/manifest-templator/manifest-templator
+tools/vms-generator/vms-generator
 **/bin
 bin/*
 .vagrant
@@ -30,8 +33,6 @@ cluster/local/certs
 _out
 vendor/**/*_test.go
 **/polarion.xml
-tools/manifest-templator/manifest-templator
-tools/vms-generator/vms-generator
 .coverprofile*
 coverage.html
 manifests/**/*.tmp

@@ -377,8 +377,10 @@ type VirtualMachineInstanceGuestOSInfo struct {
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationState struct {
 	// The time the migration action began
+	// +nullable
 	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
 	// The time the migration action ended
+	// +nullable
 	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
 	// The Target Node has seen the Domain Start Event
 	TargetNodeDomainDetected bool `json:"targetNodeDomainDetected,omitempty"`
@@ -762,6 +764,7 @@ type DataVolumeTemplateSpec struct {
 	// this field is not used by our controllers and is a no-op.
 	// +nullable
 	metav1.TypeMeta `json:",inline"`
+	// +kubebuilder:pruning:PreserveUnknownFields
 	// +nullable
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// DataVolumeSpec contains the DataVolume specification.
@@ -777,6 +780,7 @@ type DataVolumeTemplateSpec struct {
 //
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceTemplateSpec struct {
+	// +kubebuilder:pruning:PreserveUnknownFields
 	// +nullable
 	ObjectMeta metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VirtualMachineInstance Spec contains the VirtualMachineInstance specification.
@@ -1011,7 +1015,6 @@ type VirtualMachineStatus struct {
 	StateChangeRequests []VirtualMachineStateChangeRequest `json:"stateChangeRequests,omitempty" optional:"true"`
 	// VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is
 	// supported by each volume.
-	// +listType=atomic
 	VolumeSnapshotStatuses []VolumeSnapshotStatus `json:"volumeSnapshotStatuses,omitempty" optional:"true"`
 }
 

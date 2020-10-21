@@ -75,7 +75,10 @@ func main() {
 	util.MarshallObject(operatorCsv, os.Stdout)
 
 	if *dumpCRDs {
-		kvCRD := components.NewKubeVirtCrd()
+		kvCRD, err := components.NewKubeVirtCrd()
+		if err != nil {
+			panic(err)
+		}
 		util.MarshallObject(kvCRD, os.Stdout)
 	}
 }

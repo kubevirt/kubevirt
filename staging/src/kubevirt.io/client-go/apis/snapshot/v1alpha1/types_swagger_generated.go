@@ -21,7 +21,7 @@ func (VirtualMachineSnapshotStatus) SwaggerDoc() map[string]string {
 		"":                                  "VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource",
 		"sourceUID":                         "+optional",
 		"virtualMachineSnapshotContentName": "+optional",
-		"creationTime":                      "+optional",
+		"creationTime":                      "+optional\n+nullable",
 		"readyToUse":                        "+optional",
 		"error":                             "+optional",
 		"conditions":                        "+optional",
@@ -39,8 +39,8 @@ func (Error) SwaggerDoc() map[string]string {
 func (Condition) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                   "Condition defines conditions",
-		"lastProbeTime":      "+optional",
-		"lastTransitionTime": "+optional",
+		"lastProbeTime":      "+optional\n+nullable",
+		"lastTransitionTime": "+optional\n+nullable",
 		"reason":             "+optional",
 		"message":            "+optional",
 	}
@@ -83,7 +83,7 @@ func (VolumeBackup) SwaggerDoc() map[string]string {
 func (VirtualMachineSnapshotContentStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                     "VirtualMachineSnapshotContentStatus is the status for a VirtualMachineSnapshotStatus resource",
-		"creationTime":         "+optional",
+		"creationTime":         "+optional\n+nullable",
 		"readyToUse":           "+optional",
 		"error":                "+optional",
 		"volumeSnapshotStatus": "+optional",
@@ -99,7 +99,7 @@ func (VirtualMachineSnapshotContentList) SwaggerDoc() map[string]string {
 func (VolumeSnapshotStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":             "VolumeSnapshotStatus is the status of a VolumeSnapshot",
-		"creationTime": "+optional",
+		"creationTime": "+optional\n+nullable",
 		"readyToUse":   "+optional",
 		"error":        "+optional",
 	}

@@ -32,7 +32,7 @@ func (SecretVolumeSource) SwaggerDoc() map[string]string {
 func (DownwardAPIVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":            "DownwardAPIVolumeSource represents a volume containing downward API info.\n\n+k8s:openapi-gen=true",
-		"fields":      "Fields is a list of downward API volume file\n+optional\n+listType=set",
+		"fields":      "Fields is a list of downward API volume file\n+optional",
 		"volumeLabel": "The volume label of the resulting disk inside the VMI.\nDifferent bootstrapping mechanisms require different values.\nTypical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).\n+optional",
 	}
 }
@@ -188,7 +188,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"blockMultiQueue":            "Whether or not to enable virtio multi-queue for block devices\n+optional",
 		"networkInterfaceMultiqueue": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.\n+optional",
 		"gpus":                       "Whether to attach a GPU device to the vmi.\n+optional",
-		"filesystems":                "Filesystems describes filesystem which is connected to the vmi.\n+optional\n+listType=set",
+		"filesystems":                "Filesystems describes filesystem which is connected to the vmi.\n+optional",
 	}
 }
 
@@ -203,8 +203,9 @@ func (Input) SwaggerDoc() map[string]string {
 
 func (Filesystem) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "+k8s:openapi-gen=true",
-		"name": "Name is the device name",
+		"":         "+k8s:openapi-gen=true",
+		"name":     "Name is the device name",
+		"virtiofs": "Virtiofs is supported",
 	}
 }
 
@@ -351,7 +352,7 @@ func (ClockOffsetUTC) SwaggerDoc() map[string]string {
 
 func (Clock) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":      "Represents the clock and timers of a vmi.\n\n+k8s:openapi-gen=true",
+		"":      "Represents the clock and timers of a vmi.\n\n+k8s:openapi-gen=true\n+kubebuilder:pruning:PreserveUnknownFields",
 		"timer": "Timer specifies whih timers are attached to the vmi.\n+optional",
 	}
 }

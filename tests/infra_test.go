@@ -45,11 +45,15 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/util/retry"
 
+	v1ext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
+	crds "kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -57,10 +61,11 @@ import (
 )
 
 var _ = Describe("[Serial]Infrastructure", func() {
-	var virtClient kubecli.KubevirtClient
-	var aggregatorClient *aggregatorclient.Clientset
-	var err error
-
+	var (
+		virtClient       kubecli.KubevirtClient
+		aggregatorClient *aggregatorclient.Clientset
+		err              error
+	)
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
@@ -73,6 +78,26 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 			aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 		}
+	})
+
+	Describe("CRDs", func() {
+		It("Should have structural schema", func() {
+			ourCRDs := []string{crds.VIRTUALMACHINE, crds.VIRTUALMACHINEINSTANCE}
+
+			for _, name := range ourCRDs {
+				ext, err := extclient.NewForConfig(virtClient.Config())
+				Expect(err).ToNot(HaveOccurred())
+
+				crd, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				for _, condition := range crd.Status.Conditions {
+					if condition.Type == v1ext.NonStructuralSchema {
+						Expect(condition.Status).NotTo(BeTrue())
+					}
+				}
+			}
+		})
 	})
 
 	Describe("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][level:component]certificates", func() {

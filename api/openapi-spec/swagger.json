@@ -8544,8 +8544,7 @@
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Filesystem"
-      },
-      "x-kubernetes-list-type": "set"
+      }
      },
      "gpus": {
       "description": "Whether to attach a GPU device to the vmi.",
@@ -8709,8 +8708,7 @@
       "type": "array",
       "items": {
        "$ref": "#/definitions/k8s.io.api.core.v1.DownwardAPIVolumeFile"
-      },
-      "x-kubernetes-list-type": "set"
+      }
      },
      "volumeLabel": {
       "description": "The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).",
@@ -8908,6 +8906,7 @@
       "type": "string"
      },
      "virtiofs": {
+      "description": "Virtiofs is supported",
       "$ref": "#/definitions/v1.FilesystemVirtiofs"
      }
     }
@@ -9528,8 +9527,7 @@
       "type": "array",
       "items": {
        "$ref": "#/definitions/k8s.io.api.core.v1.Toleration"
-      },
-      "x-kubernetes-list-type": "map"
+      }
      }
     }
    },
@@ -10772,8 +10770,7 @@
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.VolumeSnapshotStatus"
-      },
-      "x-kubernetes-list-type": "atomic"
+      }
      }
     }
    },

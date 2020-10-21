@@ -68,6 +68,28 @@ client-gen --clientset-name versioned \
 find ${KUBEVIRT_DIR}/pkg/ -name "*generated*.go" -exec rm {} -f \;
 
 ${KUBEVIRT_DIR}/hack/build-go.sh generate ${WHAT}
+
+# Genearte validation with controller-gen and create go file for them
+(
+    cd ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go &&
+        # supress -mod=vendor
+        GOFLAGS= controller-gen crd:allowDangerousTypes=true paths=./api/v1/
+    #include snapshot
+    GOFLAGS= controller-gen crd paths=./apis/snapshot/v1alpha1/
+
+    #remove some weird stuff from controller-gen
+    cd config/crd
+    for file in *; do
+        tail -n +3 $file >$file"new"
+        mv $file"new" $file
+    done
+    cd ${KUBEVIRT_DIR}/tools/crd-validation-generator/ && go_build
+
+    cd ${KUBEVIRT_DIR}
+    ${KUBEVIRT_DIR}/tools/crd-validation-generator/crd-validation-generator
+)
+rm -rf ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/config
+
 /${KUBEVIRT_DIR}/hack/bootstrap-ginkgo.sh
 (cd ${KUBEVIRT_DIR}/tools/openapispec/ && go_build)
 
@@ -84,10 +106,12 @@ ${KUBEVIRT_DIR}/tools/openapispec/openapispec --dump-api-spec-path ${KUBEVIRT_DI
 
 rm -f ${KUBEVIRT_DIR}/manifests/generated/*
 rm -f ${KUBEVIRT_DIR}/examples/*
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=priorityclass >${KUBEVIRT_DIR}/manifests/generated/kubevirt-priority-class.yaml
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kv >${KUBEVIRT_DIR}/manifests/generated/kv-resource.yaml
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kv-cr --namespace={{.Namespace}} --pullPolicy={{.ImagePullPolicy}} >${KUBEVIRT_DIR}/manifests/generated/kubevirt-cr.yaml.in
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=operator-rbac --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/rbac-operator.authorization.k8s.yaml.in
+
+ResourceDir=${KUBEVIRT_DIR}/manifests/generated
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=priorityclass >${ResourceDir}/kubevirt-priority-class.yaml
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kv >${ResourceDir}/kv-resource.yaml
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kv-cr --namespace={{.Namespace}} --pullPolicy={{.ImagePullPolicy}} >${ResourceDir}/kubevirt-cr.yaml.in
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=operator-rbac --namespace={{.Namespace}} >${ResourceDir}/rbac-operator.authorization.k8s.yaml.in
 
 # used for Image fields in manifests
 function getVersion() {

@@ -97,7 +97,6 @@ type SecretVolumeSource struct {
 type DownwardAPIVolumeSource struct {
 	// Fields is a list of downward API volume file
 	// +optional
-	// +listType=set
 	Fields []v1.DownwardAPIVolumeFile `json:"fields,omitempty"`
 	// The volume label of the resulting disk inside the VMI.
 	// Different bootstrapping mechanisms require different values.
@@ -392,7 +391,6 @@ type Devices struct {
 	GPUs []GPU `json:"gpus,omitempty"`
 	// Filesystems describes filesystem which is connected to the vmi.
 	// +optional
-	// +listType=set
 	Filesystems []Filesystem `json:"filesystems,omitempty"`
 }
 
@@ -413,7 +411,8 @@ type Input struct {
 // +k8s:openapi-gen=true
 type Filesystem struct {
 	// Name is the device name
-	Name     string              `json:"name"`
+	Name string `json:"name"`
+	// Virtiofs is supported
 	Virtiofs *FilesystemVirtiofs `json:"virtiofs"`
 }
 
@@ -687,6 +686,7 @@ type ClockOffsetTimezone string
 // Represents the clock and timers of a vmi.
 //
 // +k8s:openapi-gen=true
+// +kubebuilder:pruning:PreserveUnknownFields
 type Clock struct {
 	// ClockOffset allows specifying the UTC offset or the timezone of the guest clock.
 	ClockOffset `json:",inline"`

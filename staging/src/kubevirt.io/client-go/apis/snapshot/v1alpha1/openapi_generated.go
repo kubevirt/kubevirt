@@ -14248,11 +14248,6 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 						},
 					},
 					"filesystems": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
 							Description: "Filesystems describes filesystem which is connected to the vmi.",
 							Type:        []string{"array"},
@@ -14517,11 +14512,6 @@ func schema_kubevirtio_client_go_api_v1_DownwardAPIVolumeSource(ref common.Refer
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"fields": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
 							Description: "Fields is a list of downward API volume file",
 							Type:        []string{"array"},
@@ -14886,7 +14876,8 @@ func schema_kubevirtio_client_go_api_v1_Filesystem(ref common.ReferenceCallback)
 					},
 					"virtiofs": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/client-go/api/v1.FilesystemVirtiofs"),
+							Description: "Virtiofs is supported",
+							Ref:         ref("kubevirt.io/client-go/api/v1.FilesystemVirtiofs"),
 						},
 					},
 				},
@@ -16110,11 +16101,6 @@ func schema_kubevirtio_client_go_api_v1_NodePlacement(ref common.ReferenceCallba
 						},
 					},
 					"tolerations": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "map",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
 							Description: "tolerations is a list of tolerations applied to the relevant kind of pods See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info. These are additional tolerations other than default ones.",
 							Type:        []string{"array"},
@@ -18313,11 +18299,6 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineStatus(ref common.Referenc
 						},
 					},
 					"volumeSnapshotStatuses": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
 							Description: "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is supported by each volume.",
 							Type:        []string{"array"},
