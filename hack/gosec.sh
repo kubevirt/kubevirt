@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 source hack/common.sh
-export ARTIFACTS=${ARTIFACTS:-$KUBEVIRT_DIR/_out/artifacts}
 
 mkdir -p $ARTIFACTS
 
