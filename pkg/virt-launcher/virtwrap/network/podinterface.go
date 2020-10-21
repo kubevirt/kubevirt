@@ -587,6 +587,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 	bridgeNic := &netlink.Dummy{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: bridgeNicName,
+			MTU:  int(p.vif.Mtu),
 		},
 	}
 	err := Handler.LinkAdd(bridgeNic)
@@ -708,6 +709,7 @@ func (p *MasqueradePodInterface) createBridge() error {
 	bridge := &netlink.Bridge{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: p.bridgeInterfaceName,
+			MTU:  int(p.vif.Mtu),
 		},
 	}
 	err = Handler.LinkAdd(bridge)
