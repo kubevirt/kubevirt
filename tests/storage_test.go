@@ -965,5 +965,68 @@ var _ = Describe("[Serial]Storage", func() {
 
 			})
 		})
+
+		Context("With both SCSI and SATA devices", func() {
+			It("should successfully start with distinct device names", func() {
+
+				// Start the VirtualMachineInstance with two empty disks attached, one per bus
+				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: "emptydisk1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "scsi",
+						},
+					},
+				})
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: "emptydisk2",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "sata",
+						},
+					},
+				})
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: "emptydisk1",
+					VolumeSource: v1.VolumeSource{
+						EmptyDisk: &v1.EmptyDiskSource{
+							Capacity: resource.MustParse("1Gi"),
+						},
+					},
+				})
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: "emptydisk2",
+					VolumeSource: v1.VolumeSource{
+						EmptyDisk: &v1.EmptyDiskSource{
+							Capacity: resource.MustParse("1Gi"),
+						},
+					},
+				})
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
+
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				By("Checking that /dev/sda has a capacity of 1Gi")
+				res, err := expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "blockdev --getsize64 /dev/sda\n"},
+					&expect.BExp{R: "1073741824"}, // 2Gi in bytes
+				}, 10*time.Second)
+				log.DefaultLogger().Object(vmi).Infof("%v", res)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Checking that /dev/sdb has a capacity of 1Gi")
+				res, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "blockdev --getsize64 /dev/sdb\n"},
+					&expect.BExp{R: "1073741824"}, // 1Gi in bytes
+				}, 10*time.Second)
+				log.DefaultLogger().Object(vmi).Infof("%v", res)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+		})
+
 	})
 })
