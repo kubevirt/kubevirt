@@ -27,7 +27,6 @@ HCO_NAMESPACE="kubevirt-hyperconverged"
 HCO_KIND="hyperconvergeds"
 HCO_RESOURCE_NAME="kubevirt-hyperconverged"
 HCO_CRD_NAME="hyperconvergeds.hco.kubevirt.io"
-HCO_CONFIGURATION_HOOK=${HCO_CONFIGURATION_HOOK}
 
 CI=""
 if [ "$1" == "CI" ]; then
@@ -55,11 +54,19 @@ fi
 
 sed -i "s|image: quay.io/kubevirt/hyperconverged-cluster-operator:.*$|image: ${HCO_IMAGE}|g" _out/operator.yaml
 
-if [[ -n ${HCO_CONFIGURATION_HOOK} ]]; then
-  ${HCO_CONFIGURATION_HOOK}
-else
-  echo "No configuration hook"
+WORKERS=$(${CMD} get nodes -l "node-role.kubernetes.io/master!=" -o name)
+WORKERS_ARR=(${WORKERS})
+if [[ ${#WORKERS_ARR[@]} -ge 2 ]]; then
+  # Set all the workers as "infra", except for the last one that is set to "workloads"
+  for (( i=0; i<${#WORKERS_ARR[@]}-1; i++)); do
+    ${CMD} label ${WORKERS_ARR[$i]} "node.kubernetes.io/hco-test-node-type=infra"
+  done
+  ${CMD} label ${WORKERS_ARR[$((${#WORKERS_ARR[@]}-1))]} "node.kubernetes.io/hco-test-node-type=workloads"
+
+  hack/np-config-hook.sh
 fi
+
+"${CMD}" get nodes -o wide --show-labels
 
 # create namespaces
 "${CMD}" create ns "${HCO_NAMESPACE}" | true

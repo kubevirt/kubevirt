@@ -27,6 +27,24 @@ function cleanup() {
 
 trap "cleanup" INT TERM EXIT
 
+WORKERS=$(${CMD} get nodes -l "node-role.kubernetes.io/master!=" -o name)
+WORKERS_ARR=(${WORKERS})
+
+mkdir -p _out
+cp deploy/hco.cr.yaml _out/
+
+if [[ ${#WORKERS_ARR[@]} -ge 2 ]]; then
+  # Set all the workers as "infra", except for the last one that is set to "workloads"
+  for (( i=0; i<${#WORKERS_ARR[@]}-1; i++)); do
+    ${CMD} label ${WORKERS_ARR[$i]} "node.kubernetes.io/hco-test-node-type=infra"
+  done
+  ${CMD} label ${WORKERS_ARR[$((${#WORKERS_ARR[@]}-1))]} "node.kubernetes.io/hco-test-node-type=workloads"
+
+  hack/np-config-hook.sh
+fi
+
+${CMD} get nodes -o wide --show-labels
+
 if [[ -n "${KVM_EMULATION}" ]]; then
   SUBSCRIPTION_NAME=$(oc get subscription -n "${HCO_NAMESPACE}" -o name)
   # cut the type prefix, e.g. subscription.operators.coreos.com/kubevirt-hyperconverged => kubevirt-hyperconverged
@@ -52,6 +70,6 @@ EOF
   ${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="1200s"
 fi
 
-${CMD} apply -n kubevirt-hyperconverged -f deploy/hco.cr.yaml
+${CMD} apply -n kubevirt-hyperconverged -f _out/hco.cr.yaml
 
 ${CMD} wait -n "${HCO_NAMESPACE}" "${HCO_KIND}" "${HCO_RESOURCE_NAME}" --for condition=Available --timeout="30m"

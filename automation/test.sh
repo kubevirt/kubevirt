@@ -6,12 +6,13 @@ if [[ $TARGET =~ okd-.* || $TARGET =~ ocp-.* ]]; then
   export KUBEVIRT_MEMORY_SIZE=6144M
 fi
 
-export KUBEVIRT_NUM_NODES=2
+export KUBEVIRT_NUM_NODES=3
 
 kubectl() { cluster/kubectl.sh "$@"; }
 
 make cluster-down
 make cluster-up
+
 make cluster-sync
 make ci-functest
 
