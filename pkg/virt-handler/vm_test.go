@@ -27,6 +27,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -91,7 +92,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var vmiFeeder *testutils.VirtualMachineFeeder
 	var domainFeeder *testutils.DomainFeeder
 
-	var recorder record.EventRecorder
+	var recorder *record.FakeRecorder
 
 	var err error
 	var shareDir string
@@ -243,6 +244,22 @@ var _ = Describe("VirtualMachineInstance", func() {
 		os.RemoveAll(certDir)
 		os.RemoveAll(ghostCacheDir)
 	})
+
+	expectEvent := func(substring string, shouldExist bool) {
+		found := false
+		done := false
+		for found == false && done == false {
+			select {
+			case event := <-recorder.Events:
+				if strings.Contains(event, substring) {
+					found = true
+				}
+			default:
+				done = true
+			}
+		}
+		Expect(found).To(Equal(shouldExist))
+	}
 
 	initGracePeriodHelper := func(gracePeriod int64, vmi *v1.VirtualMachineInstance, dom *api.Domain) {
 		vmi.Spec.TerminationGracePeriodSeconds = &gracePeriod
@@ -844,6 +861,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
 
 			controller.Execute()
+
+			expectEvent(string(v1.AccessCredentialsSyncSuccess), true)
 		})
 
 		It("should do nothing if access credential condition already exists", func() {
@@ -881,9 +900,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*vmiCopy))
 
 			controller.Execute()
+			// should not make another event entry unless something changes
+			expectEvent(string(v1.AccessCredentialsSyncSuccess), false)
 		})
 
-		It("should update  access credential condition if agent disconnects", func() {
+		It("should update access credential condition if agent disconnects", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
@@ -911,16 +932,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			vmiCopy := vmi.DeepCopy()
-			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+			vmiCopy.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
 				{
 					Type:          v1.VirtualMachineInstanceAccessCredentialsSynchronized,
 					LastProbeTime: metav1.Now(),
 					Status:        k8sv1.ConditionFalse,
 					Message:       "some message",
-				},
-				{
-					Type:   v1.VirtualMachineInstanceIsMigratable,
-					Status: k8sv1.ConditionTrue,
 				},
 			}
 
@@ -931,6 +952,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*vmiCopy))
 
 			controller.Execute()
+			expectEvent(string(v1.AccessCredentialsSyncFailed), true)
 		})
 
 		It("should add and remove paused condition", func() {

@@ -584,18 +584,20 @@ func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
 type SyncEvent string
 
 const (
-	Created         SyncEvent = "Created"
-	Deleted         SyncEvent = "Deleted"
-	PresetFailed    SyncEvent = "PresetFailed"
-	Override        SyncEvent = "Override"
-	Started         SyncEvent = "Started"
-	ShuttingDown    SyncEvent = "ShuttingDown"
-	Stopped         SyncEvent = "Stopped"
-	PreparingTarget SyncEvent = "PreparingTarget"
-	Migrating       SyncEvent = "Migrating"
-	Migrated        SyncEvent = "Migrated"
-	SyncFailed      SyncEvent = "SyncFailed"
-	Resumed         SyncEvent = "Resumed"
+	Created                      SyncEvent = "Created"
+	Deleted                      SyncEvent = "Deleted"
+	PresetFailed                 SyncEvent = "PresetFailed"
+	Override                     SyncEvent = "Override"
+	Started                      SyncEvent = "Started"
+	ShuttingDown                 SyncEvent = "ShuttingDown"
+	Stopped                      SyncEvent = "Stopped"
+	PreparingTarget              SyncEvent = "PreparingTarget"
+	Migrating                    SyncEvent = "Migrating"
+	Migrated                     SyncEvent = "Migrated"
+	SyncFailed                   SyncEvent = "SyncFailed"
+	Resumed                      SyncEvent = "Resumed"
+	AccessCredentialsSyncFailed  SyncEvent = "AccessCredentialsSyncFailed"
+	AccessCredentialsSyncSuccess SyncEvent = "AccessCredentialsSyncSuccess"
 )
 
 func (s SyncEvent) String() string {

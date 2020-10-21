@@ -686,6 +686,11 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 				Message:            message,
 			}
 			vmi.Status.Conditions = append(vmi.Status.Conditions, newCondition)
+			if status == k8sv1.ConditionTrue {
+				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.AccessCredentialsSyncSuccess.String(), message)
+			} else {
+				d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.AccessCredentialsSyncFailed.String(), message)
+			}
 		}
 	}
 
