@@ -15,6 +15,7 @@ service Cmd {
   rpc CancelVirtualMachineMigration(VMIRequest) returns (Response) {}
   rpc SetVirtualMachineGuestTime(VMIRequest) returns (Response) {}
   rpc GetDomain(EmptyRequest) returns (DomainResponse) {}
+  rpc GetDomainWithRuntimeInfo(EmptyRequest) returns (DomainResponse) {}
   rpc GetDomainStats(EmptyRequest) returns (DomainStatsResponse) {}
   rpc GetGuestInfo(EmptyRequest) returns (GuestInfoResponse) {}
   rpc GetUsers(EmptyRequest) returns (GuestUserListResponse) {}

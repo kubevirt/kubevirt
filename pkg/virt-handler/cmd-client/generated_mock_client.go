@@ -145,6 +145,18 @@ func (_mr *_MockLauncherClientRecorder) GetDomain() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomain")
 }
 
+func (_m *MockLauncherClient) GetDomainWithRuntimeInfo() (*api.Domain, bool, error) {
+	ret := _m.ctrl.Call(_m, "GetDomainWithRuntimeInfo")
+	ret0, _ := ret[0].(*api.Domain)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+func (_mr *_MockLauncherClientRecorder) GetDomainWithRuntimeInfo() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomainWithRuntimeInfo")
+}
+
 func (_m *MockLauncherClient) GetDomainStats() (*stats.DomainStats, bool, error) {
 	ret := _m.ctrl.Call(_m, "GetDomainStats")
 	ret0, _ := ret[0].(*stats.DomainStats)

@@ -280,7 +280,6 @@ var _ = Describe("Domain informer", func() {
 		})
 
 		It("should resync active domains after resync period.", func() {
-
 			domain := api.NewMinimalDomain("test")
 			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{domain}, nil)
 			// now prove if we make a change, like adding a label, that the resync
@@ -288,7 +287,7 @@ var _ = Describe("Domain informer", func() {
 			newDomain := domain.DeepCopy()
 			newDomain.ObjectMeta.Labels = make(map[string]string)
 			newDomain.ObjectMeta.Labels["some-label"] = "some-value"
-			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{newDomain}, nil)
+			domainManager.EXPECT().ListAllDomainsWithRuntimeInfo().Return([]*api.Domain{newDomain}, nil)
 
 			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
 

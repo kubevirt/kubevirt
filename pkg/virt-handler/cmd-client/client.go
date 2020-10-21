@@ -89,6 +89,7 @@ type LauncherClient interface {
 	SetVirtualMachineGuestTime(vmi *v1.VirtualMachineInstance) error
 	DeleteDomain(vmi *v1.VirtualMachineInstance) error
 	GetDomain() (*api.Domain, bool, error)
+	GetDomainWithRuntimeInfo() (*api.Domain, bool, error)
 	GetDomainStats() (*stats.DomainStats, bool, error)
 	GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgentInfo, error)
 	GetUsers() (v1.VirtualMachineInstanceGuestOSUserList, error)
@@ -477,6 +478,35 @@ func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
 	defer cancel()
 
 	domainResponse, err := c.v1client.GetDomain(ctx, request)
+	var response *cmdv1.Response
+	if domainResponse != nil {
+		response = domainResponse.Response
+	}
+
+	if err = handleError(err, "GetDomain", response); err != nil {
+		return domain, exists, err
+	}
+
+	if domainResponse.Domain != "" {
+		if err := json.Unmarshal([]byte(domainResponse.Domain), domain); err != nil {
+			log.Log.Reason(err).Error("error unmarshalling domain")
+			return domain, exists, err
+		}
+		exists = true
+	}
+	return domain, exists, nil
+}
+
+func (c *VirtLauncherClient) GetDomainWithRuntimeInfo() (*api.Domain, bool, error) {
+
+	domain := &api.Domain{}
+	exists := false
+
+	request := &cmdv1.EmptyRequest{}
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	domainResponse, err := c.v1client.GetDomainWithRuntimeInfo(ctx, request)
 	var response *cmdv1.Response
 	if domainResponse != nil {
 		response = domainResponse.Response

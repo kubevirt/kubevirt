@@ -90,6 +90,7 @@ type DomainManager interface {
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
 	MarkGracefulShutdownVMI(*v1.VirtualMachineInstance) error
 	ListAllDomains() ([]*api.Domain, error)
+	ListAllDomainsWithRuntimeInfo() ([]*api.Domain, error)
 	MigrateVMI(*v1.VirtualMachineInstance, *cmdclient.MigrationOptions) error
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool) error
 	GetDomainStats() ([]*stats.DomainStats, error)
@@ -1365,6 +1366,14 @@ func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec
 	return util.GetDomainSpec(state, dom)
 }
 
+func (l *LibvirtDomainManager) getDomainSpecWithRuntimeInfo(dom cli.VirDomain) (*api.DomainSpec, error) {
+	state, _, err := dom.GetState()
+	if err != nil {
+		return nil, err
+	}
+	return util.GetDomainSpecWithRuntimeInfo(state, dom)
+}
+
 func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) error {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
@@ -1619,6 +1628,45 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 			return list, err
 		}
 		spec, err := l.getDomainSpec(dom)
+		if err != nil {
+			if domainerrors.IsNotFound(err) {
+				continue
+			}
+			return list, err
+		}
+		domain.Spec = *spec
+		status, reason, err := dom.GetState()
+		if err != nil {
+			if domainerrors.IsNotFound(err) {
+				continue
+			}
+			return list, err
+		}
+		domain.SetState(util.ConvState(status), util.ConvReason(status, reason))
+		list = append(list, domain)
+		dom.Free()
+	}
+
+	return list, nil
+}
+
+func (l *LibvirtDomainManager) ListAllDomainsWithRuntimeInfo() ([]*api.Domain, error) {
+
+	doms, err := l.virConn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
+	if err != nil {
+		return nil, err
+	}
+
+	var list []*api.Domain
+	for _, dom := range doms {
+		domain, err := util.NewDomain(dom)
+		if err != nil {
+			if domainerrors.IsNotFound(err) {
+				continue
+			}
+			return list, err
+		}
+		spec, err := l.getDomainSpecWithRuntimeInfo(dom)
 		if err != nil {
 			if domainerrors.IsNotFound(err) {
 				continue

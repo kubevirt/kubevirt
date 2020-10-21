@@ -304,6 +304,35 @@ func (l *Launcher) GetDomain(ctx context.Context, request *cmdv1.EmptyRequest) (
 	return response, nil
 }
 
+func (l *Launcher) GetDomainWithRuntimeInfo(ctx context.Context, request *cmdv1.EmptyRequest) (*cmdv1.DomainResponse, error) {
+
+	response := &cmdv1.DomainResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
+
+	list, err := l.domainManager.ListAllDomainsWithRuntimeInfo()
+	if err != nil {
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	if len(list) > 0 {
+		if domain, err := json.Marshal(list[0]); err != nil {
+			log.Log.Reason(err).Errorf("Failed to marshal domain")
+			response.Response.Success = false
+			response.Response.Message = getErrorMessage(err)
+			return response, nil
+		} else {
+			response.Domain = string(domain)
+		}
+	}
+
+	return response, nil
+}
+
 func (l *Launcher) GetDomainStats(ctx context.Context, request *cmdv1.EmptyRequest) (*cmdv1.DomainStatsResponse, error) {
 
 	response := &cmdv1.DomainStatsResponse{

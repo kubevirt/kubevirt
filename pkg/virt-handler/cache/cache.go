@@ -395,7 +395,7 @@ func (d *DomainWatcher) handleResync() {
 		}
 		defer client.Close()
 
-		domain, exists, err := client.GetDomain()
+		domain, exists, err := client.GetDomainWithRuntimeInfo()
 		if err != nil {
 			// this resync is best effort only.
 			log.Log.Reason(err).Errorf("unable to retrieve domain at socket %s during resync", socket)
