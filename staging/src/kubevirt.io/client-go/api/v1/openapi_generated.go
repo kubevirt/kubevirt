@@ -16641,11 +16641,6 @@ func schema_kubevirtio_client_go_api_v1_PermittedHostDevices(ref common.Referenc
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"pciHostDevices": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
@@ -16658,11 +16653,6 @@ func schema_kubevirtio_client_go_api_v1_PermittedHostDevices(ref common.Referenc
 						},
 					},
 					"mediatedDevices": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{

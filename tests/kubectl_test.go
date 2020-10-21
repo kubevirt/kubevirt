@@ -25,7 +25,7 @@ var _ = Describe("oc/kubectl integration", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	table.DescribeTable("[rfe_id:3812]explain vm/vmi", func(resource string) {
+	table.DescribeTable("[test_id:3812]explain vm/vmi", func(resource string) {
 		output, stderr, err := tests.RunCommand(k8sClient, "explain", resource)
 		// kubectl will not find resource for the first time this command is issued
 		if err != nil {
@@ -38,16 +38,19 @@ var _ = Describe("oc/kubectl integration", func() {
 		Expect(output).To(ContainSubstring("spec	<Object>"))
 		Expect(output).To(ContainSubstring("status	<Object>"))
 	},
-		table.Entry("[rfe_id:3810]explain vm", "vm"),
-		table.Entry("[rfe_id:3811]explain vmi", "vmi"),
-		table.PEntry("explain vmim", "vmim"),
-		table.PEntry("explain kv", "kv"),
-		table.PEntry("explain vmsnapshot", "vmsnapshot"),
-		table.PEntry("explain vmsnapshotcontent", "vmsnapshotcontent"),
+		table.Entry("[test_id:3810]explain vm", "vm"),
+		table.Entry("[test_id:3811]explain vmi", "vmi"),
+		table.Entry("[test_id:5178]explain vmim", "vmim"),
+		table.Entry("[test_id:5179]explain kv", "kv"),
+		table.Entry("[test_id:5180]explain vmsnapshot", "vmsnapshot"),
+		table.Entry("[test_id:5181]explain vmsnapshotcontent", "vmsnapshotcontent"),
 	)
 
-	PIt("vmipreset have validation", func() {
+	It("[test_id:5182]vmipreset have validation", func() {
 		output, _, err := tests.RunCommand(k8sClient, "explain", "vmipreset")
+		if err != nil {
+			output, _, err = tests.RunCommand(k8sClient, "explain", "vmipreset")
+		}
 		Expect(err).NotTo(HaveOccurred())
 		Expect(output).To(ContainSubstring("apiVersion	<string>"))
 		Expect(output).To(ContainSubstring("kind	<string>"))
@@ -55,8 +58,11 @@ var _ = Describe("oc/kubectl integration", func() {
 		Expect(output).To(ContainSubstring("spec	<Object>"))
 	})
 
-	PIt("vmirs have validation", func() {
+	It("[test_id:5183]vmirs have validation", func() {
 		output, _, err := tests.RunCommand(k8sClient, "explain", "vmirs")
+		if err != nil {
+			output, _, err = tests.RunCommand(k8sClient, "explain", "vmirs")
+		}
 		Expect(err).NotTo(HaveOccurred())
 		Expect(output).To(ContainSubstring("apiVersion	<string>"))
 		Expect(output).To(ContainSubstring("kind	<string>"))

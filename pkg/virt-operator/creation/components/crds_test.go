@@ -17,12 +17,12 @@ var _ = Describe("CRDs", func() {
 	},
 		table.Entry("for VM", NewVirtualMachineCrd),
 		table.Entry("for VMI", NewVirtualMachineInstanceCrd),
-		table.PEntry("for VMIPRESET", NewPresetCrd),
-		table.PEntry("for VMIRS", NewReplicaSetCrd),
-		table.PEntry("for VMIM", NewVirtualMachineInstanceMigrationCrd),
-		table.PEntry("for KV", NewKubeVirtCrd),
-		table.PEntry("for VMSNAPSHOT", NewVirtualMachineSnapshotCrd),
-		table.PEntry("for VMSNAPSHOTCONTENT", NewVirtualMachineSnapshotContentCrd),
+		table.Entry("for VMIPRESET", NewPresetCrd),
+		table.Entry("for VMIRS", NewReplicaSetCrd),
+		table.Entry("for VMIM", NewVirtualMachineInstanceMigrationCrd),
+		table.Entry("for KV", NewKubeVirtCrd),
+		table.Entry("for VMSNAPSHOT", NewVirtualMachineSnapshotCrd),
+		table.Entry("for VMSNAPSHOTCONTENT", NewVirtualMachineSnapshotContentCrd),
 	)
 
 	It("DataVolumeTemplates should have nullable a XPreserveUnknownFields on metadata", func() {
@@ -51,7 +51,7 @@ var _ = Describe("CRDs", func() {
 		Expect(*metadata.XPreserveUnknownFields).To(BeTrue())
 	})
 
-	PIt("Template in VMRS should have nullable a XPreserveUnknownFields on metadata", func() {
+	It("Template in VMRS should have nullable a XPreserveUnknownFields on metadata", func() {
 		crd, err := NewReplicaSetCrd()
 		Expect(err).NotTo(HaveOccurred())
 		patchValidation(crd)
@@ -63,7 +63,7 @@ var _ = Describe("CRDs", func() {
 		Expect(*metadata.XPreserveUnknownFields).To(BeTrue())
 	})
 
-	PIt("Template in VMSnapshotContent should have nullable a XPreserveUnknownFields on metadata", func() {
+	It("Template in VMSnapshotContent should have nullable a XPreserveUnknownFields on metadata", func() {
 		crd, err := NewVirtualMachineSnapshotContentCrd()
 		Expect(err).NotTo(HaveOccurred())
 		patchValidation(crd)

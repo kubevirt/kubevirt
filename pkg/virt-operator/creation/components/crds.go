@@ -53,9 +53,6 @@ var (
 
 func patchValidation(crd *extv1beta1.CustomResourceDefinition) error {
 	name := crd.Spec.Names.Singular
-	if name != "virtualmachine" && name != "virtualmachineinstance" {
-		return nil
-	}
 
 	crd.Spec.PreserveUnknownFields = &PreserveUnknownFieldsFalse
 	validation, ok := CRDsValidation[name]
