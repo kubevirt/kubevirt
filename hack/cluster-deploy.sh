@@ -128,4 +128,4 @@ until _kubectl wait -n kubevirt kv kubevirt --for condition=Available --timeout 
     sleep 1m
 done
 
-echo "Done"
+echo "Done $0"
