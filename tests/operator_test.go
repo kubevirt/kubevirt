@@ -379,6 +379,10 @@ var _ = Describe("[Serial]Operator", func() {
 		patchKvInfra = func(name string, infra *v1.ComponentConfig) {
 			kv := copyOriginalKv()
 			verb := "add"
+			if infra == nil {
+				verb = "remove"
+			}
+
 			if kv.Spec.Infra != nil {
 				verb = "replace"
 			}
@@ -389,6 +393,10 @@ var _ = Describe("[Serial]Operator", func() {
 		patchKvWorkloads = func(name string, workloads *v1.ComponentConfig) {
 			kv := copyOriginalKv()
 			verb := "add"
+			if workloads == nil {
+				verb = "remove"
+			}
+
 			if kv.Spec.Workloads != nil {
 				verb = "replace"
 			}

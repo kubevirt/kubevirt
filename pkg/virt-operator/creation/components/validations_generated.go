@@ -236,13 +236,10 @@ var CRDsValidation map[string]string = map[string]string{
     metadata:
       type: object
     spec:
-      description: '---'
       properties:
         certificateRotateStrategy:
-          description: '---'
           properties:
             selfSigned:
-              description: '---'
               properties:
                 caOverlapInterval:
                   type: string
@@ -355,7 +352,6 @@ var CRDsValidation map[string]string = map[string]string{
                     - resourceName
                     type: object
                   type: array
-                  x-kubernetes-list-type: set
                 pciHostDevices:
                   items:
                     description: PciHostDevice represents a host PCI device allowed for passthrough
@@ -371,12 +367,10 @@ var CRDsValidation map[string]string = map[string]string{
                     - resourceName
                     type: object
                   type: array
-                  x-kubernetes-list-type: set
               type: object
             selinuxLauncherType:
               type: string
             smbios:
-              description: '---'
               properties:
                 family:
                   type: string
