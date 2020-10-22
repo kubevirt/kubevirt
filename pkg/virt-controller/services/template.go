@@ -1184,7 +1184,7 @@ func getMemoryOverhead(vmi *v1.VirtualMachineInstance) *resource.Quantity {
 
 	// Add fixed overhead for shared libraries and such
 	// TODO account for the overhead of kubevirt components running in the pod
-	overhead.Add(resource.MustParse("128M"))
+	overhead.Add(resource.MustParse("138Mi"))
 
 	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
 	// overhead per vcpu in MiB
@@ -1208,7 +1208,7 @@ func getMemoryOverhead(vmi *v1.VirtualMachineInstance) *resource.Quantity {
 	// in addition to MMIO memory space to allow DMA. 1G is often the size of reserved MMIO space on x86 systems.
 	// Additial information can be found here: https://www.redhat.com/archives/libvir-list/2015-November/msg00329.html
 	if util.IsSRIOVVmi(vmi) || util.IsGPUVMI(vmi) {
-		overhead.Add(resource.MustParse("1G"))
+		overhead.Add(resource.MustParse("1Gi"))
 	}
 
 	return overhead

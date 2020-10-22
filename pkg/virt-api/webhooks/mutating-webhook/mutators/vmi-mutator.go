@@ -82,7 +82,7 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 		mutator.setDefaultCPUModel(newVMI)
 		mutator.setDefaultMachineType(newVMI)
 		mutator.setDefaultResourceRequests(newVMI)
-        mutator.setDefaultGuestCPUTopology(newVMI)
+		mutator.setDefaultGuestCPUTopology(newVMI)
 		mutator.setDefaultPullPoliciesOnContainerDisks(newVMI)
 		err = mutator.setDefaultNetworkInterface(newVMI)
 		if err != nil {
@@ -200,23 +200,23 @@ func (mutator *VMIsMutator) setDefaultGuestCPUTopology(vmi *v1.VirtualMachineIns
 	sockets := uint32(1)
 	vmiCPU := vmi.Spec.Domain.CPU
 	if vmiCPU == nil || (vmiCPU.Cores == 0 && vmiCPU.Sockets == 0 && vmiCPU.Threads == 0) {
-        // create cpu topology struct
-        if vmi.Spec.Domain.CPU == nil {
-            vmi.Spec.Domain.CPU = &v1.CPU{}
-        }
-        //if cores, sockets, threads are not set, take value from domain resources request or limits and
-        //set value into sockets, which have best performance (https://bugzilla.redhat.com/show_bug.cgi?id=1653453)
-        resources := vmi.Spec.Domain.Resources
-        if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
-            sockets = uint32(cpuLimit.Value())
-        } else if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
-            sockets = uint32(cpuRequests.Value())
-        }
-
-        vmi.Spec.Domain.CPU.Sockets = sockets
-        vmi.Spec.Domain.CPU.Cores = cores
-        vmi.Spec.Domain.CPU.Threads = threads
+		// create cpu topology struct
+		if vmi.Spec.Domain.CPU == nil {
+			vmi.Spec.Domain.CPU = &v1.CPU{}
 		}
+		//if cores, sockets, threads are not set, take value from domain resources request or limits and
+		//set value into sockets, which have best performance (https://bugzilla.redhat.com/show_bug.cgi?id=1653453)
+		resources := vmi.Spec.Domain.Resources
+		if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
+			sockets = uint32(cpuLimit.Value())
+		} else if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
+			sockets = uint32(cpuRequests.Value())
+		}
+
+		vmi.Spec.Domain.CPU.Sockets = sockets
+		vmi.Spec.Domain.CPU.Cores = cores
+		vmi.Spec.Domain.CPU.Threads = threads
+	}
 }
 
 func (mutator *VMIsMutator) setDefaultMachineType(vmi *v1.VirtualMachineInstance) {

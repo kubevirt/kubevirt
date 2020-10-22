@@ -287,7 +287,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(ok).To(BeFalse(), "Preset should not have been applied due to exclusion")
 
 			// check a setting from the preset itself to show it was applied
-			Expect(newVMI.Spec.Domain.CPU).To(BeNil(),
+			Expect(newVMI.Spec.Domain.CPU.Cores).NotTo(Equal(newPreset.Spec.Domain.CPU.Cores),
 				"CPU should still have been the default value (not defined in spec)")
 		})
 	})

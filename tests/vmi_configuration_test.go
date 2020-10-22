@@ -228,7 +228,7 @@ var _ = Describe("Configurations", func() {
 				if computeContainer == nil {
 					tests.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
-				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(243)))
+				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(260)))
 
 				Expect(err).ToNot(HaveOccurred())
 			})
