@@ -36,8 +36,8 @@ func (r *HyperConverged) SetupWebhookWithManager(ctx context.Context, mgr ctrl.M
 	certs := []string{filepath.Join(WebhookCertDir, WebhookCertName), filepath.Join(WebhookCertDir, WebhookKeyName)}
 	for _, fname := range certs {
 		if _, err := os.Stat(fname); err != nil {
-			hcolog.Info("CSV certificates were not found, skipping webhook initialization")
-			return nil
+			hcolog.Error(err, "CSV certificates were not found, skipping webhook initialization")
+			return err
 		}
 	}
 

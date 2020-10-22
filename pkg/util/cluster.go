@@ -6,6 +6,7 @@ import (
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -47,8 +48,8 @@ func (c *ClusterInfoImp) CheckRunningInOpenshift(creader client.Reader, ctx cont
 
 	err = creader.Get(ctx, key, clusterVersion)
 
-	if err != nil && apierrors.IsNotFound(err) {
-		if apierrors.IsNotFound(err) {
+	if err != nil {
+		if meta.IsNoMatchError(err) || apierrors.IsNotFound(err) {
 			// Not on OpenShift
 			isOpenShift = false
 		} else {

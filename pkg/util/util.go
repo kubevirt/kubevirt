@@ -30,6 +30,20 @@ func GetOperatorNamespaceFromEnv() (string, error) {
 	return "", fmt.Errorf("%s unset or empty in environment", OperatorNamespaceEnv)
 }
 
+func GetWebhookModeFromEnv() (bool, error) {
+	if whmodestring, ok := os.LookupEnv(OperatorWebhookModeEnv); ok {
+		if whmodestring == "true" {
+			return true, nil
+		} else if whmodestring == "false" {
+			return false, nil
+		} else {
+			return false, fmt.Errorf("%s unexpected value in environment", OperatorWebhookModeEnv)
+		}
+	}
+
+	return false, fmt.Errorf("%s unset or empty in environment", OperatorWebhookModeEnv)
+}
+
 func GetPod(ctx context.Context, c client.Reader, logger logr.Logger, ci ClusterInfo) (*corev1.Pod, error) {
 	operatorNs, err := k8sutil.GetOperatorNamespace()
 	if err != nil {

@@ -110,6 +110,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	// TODO: remove this once we will move to OLM operator conditions
+	// Get the webhook mode
+	operatorWebhookMode, err := hcoutil.GetWebhookModeFromEnv()
+	if err != nil {
+		log.Error(err, "Failed to get operator webhook mode from the environment")
+		os.Exit(1)
+	}
+	if operatorWebhookMode {
+		log.Info("operatorWebhookMode: running only the validating webhook")
+	} else {
+		log.Info("operatorWebhookMode: running only the real operator")
+	}
+
 	if runInLocal {
 		depOperatorNs = operatorNsEnv
 	}
@@ -142,11 +155,15 @@ func main() {
 
 	ctx := context.TODO()
 
-	// Become the leader before proceeding
-	err = leader.Become(ctx, "hyperconverged-cluster-operator-lock")
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
+	// a lock is not needed in webhook mode
+	// TODO: remove this once we will move to OLM operator conditions
+	if !operatorWebhookMode {
+		// Become the leader before proceeding
+		err = leader.Become(ctx, "hyperconverged-cluster-operator-lock")
+		if err != nil {
+			log.Error(err, "")
+			os.Exit(1)
+		}
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
@@ -156,20 +173,6 @@ func main() {
 	})
 	if err != nil {
 		log.Error(err, "")
-		os.Exit(1)
-	}
-
-	ci := hcoutil.GetClusterInfo()
-	err = ci.CheckRunningInOpenshift(mgr.GetAPIReader(), ctx, log, runInLocal)
-	if err != nil {
-		log.Error(err, "Cannot detect cluster type")
-	}
-
-	eventEmitter := hcoutil.GetEventEmitter()
-	// Set temporary configuration, until the regular client is ready
-	eventEmitter.Init(ctx, mgr, ci, log)
-	if err != nil {
-		log.Error(err, "failed to initiate event emitter")
 		os.Exit(1)
 	}
 
@@ -193,11 +196,30 @@ func main() {
 		}
 	}
 
-	// Setup all Controllers
-	if err := controller.AddToManager(mgr, ci); err != nil {
-		log.Error(err, "")
-		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to register component; "+err.Error())
+	// Detect OpenShift version
+	ci := hcoutil.GetClusterInfo()
+	err = ci.CheckRunningInOpenshift(mgr.GetAPIReader(), ctx, log, runInLocal)
+	if err != nil {
+		log.Error(err, "Cannot detect cluster type")
 		os.Exit(1)
+	}
+
+	eventEmitter := hcoutil.GetEventEmitter()
+	// Set temporary configuration, until the regular client is ready
+	eventEmitter.Init(ctx, mgr, ci, log)
+	if err != nil {
+		log.Error(err, "failed to initiate event emitter")
+		os.Exit(1)
+	}
+
+	// TODO: remove this once we will move to OLM operator conditions
+	if !operatorWebhookMode {
+		// Setup all Controllers
+		if err := controller.AddToManager(mgr, ci); err != nil {
+			log.Error(err, "")
+			eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to register component; "+err.Error())
+			os.Exit(1)
+		}
 	}
 
 	if !runInLocal {
@@ -228,18 +250,21 @@ func main() {
 		}
 	}
 
-	// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
-	// necessary to configure Prometheus to scrape metrics from this operator.
-	if err = (&hcov1beta1.HyperConverged{}).SetupWebhookWithManager(ctx, mgr); err != nil {
-		log.Error(err, "unable to create webhook", "webhook", "HyperConverged")
-		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to create webhook")
-		os.Exit(1)
-	}
-
-	err = createPriorityClass(ctx, mgr)
-	if err != nil {
-		log.Error(err, "Failed creating PriorityClass")
-		os.Exit(1)
+	// TODO: remove this once we will move to OLM operator conditions
+	if operatorWebhookMode {
+		// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
+		// necessary to configure Prometheus to scrape metrics from this operator.
+		if err = (&hcov1beta1.HyperConverged{}).SetupWebhookWithManager(ctx, mgr); err != nil {
+			log.Error(err, "unable to create webhook", "webhook", "HyperConverged")
+			eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to create webhook")
+			os.Exit(1)
+		}
+	} else {
+		err = createPriorityClass(ctx, mgr)
+		if err != nil {
+			log.Error(err, "Failed creating PriorityClass")
+			os.Exit(1)
+		}
 	}
 
 	log.Info("Starting the Cmd.")

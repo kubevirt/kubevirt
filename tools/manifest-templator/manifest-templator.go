@@ -123,7 +123,7 @@ func main() {
 	// service accounts are represented as a map to prevent us from generating the
 	// same service account multiple times.
 	deployments := []appsv1.Deployment{
-		components.GetDeployment(
+		components.GetDeploymentOperator(
 			*operatorNamespace,
 			*operatorImage,
 			"IfNotPresent",
@@ -139,6 +139,12 @@ func main() {
 			*nmoVersion,
 			*hppoVersion,
 			*vmImportVersion,
+			[]corev1.EnvVar{},
+		),
+		components.GetDeploymentWebhook(
+			*operatorNamespace,
+			*operatorImage,
+			"IfNotPresent",
 			[]corev1.EnvVar{},
 		),
 	}

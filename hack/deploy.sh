@@ -52,7 +52,7 @@ if [ -n "${IMAGE_FORMAT}" ]; then
     HCO_IMAGE=`eval echo ${IMAGE_FORMAT}`
 fi
 
-sed -i "s|image: quay.io/kubevirt/hyperconverged-cluster-operator:.*$|image: ${HCO_IMAGE}|g" _out/operator.yaml
+sed -i -r "s|: quay.io/kubevirt/hyperconverged-cluster-operator(@sha256)?:.*$|: ${HCO_IMAGE}|g" _out/operator.yaml
 
 WORKERS=$(${CMD} get nodes -l "node-role.kubernetes.io/master!=" -o name)
 WORKERS_ARR=(${WORKERS})

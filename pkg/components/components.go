@@ -30,12 +30,14 @@ import (
 )
 
 const (
-	hcoName           = "hyperconverged-cluster-operator"
-	hcoDeploymentName = "hco-operator"
-	hcoWebhookPath    = "/validate-hco-kubevirt-io-v1beta1-hyperconverged"
+	hcoName             = "hyperconverged-cluster-operator"
+	hcoNameWebhook      = "hyperconverged-cluster-webhook"
+	hcoDeploymentName   = "hco-operator"
+	hcoWhDeploymentName = "hco-webhook"
+	hcoWebhookPath      = "/validate-hco-kubevirt-io-v1beta1-hyperconverged"
 )
 
-func GetDeployment(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion string, env []corev1.EnvVar) appsv1.Deployment {
+func GetDeploymentOperator(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion string, env []corev1.EnvVar) appsv1.Deployment {
 	return appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -47,11 +49,27 @@ func GetDeployment(namespace, image, imagePullPolicy, conversionContainer, vmwar
 				"name": hcoName,
 			},
 		},
-		Spec: GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion, env),
+		Spec: GetDeploymentSpecOperator(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion, env),
 	}
 }
 
-func GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion string, env []corev1.EnvVar) appsv1.DeploymentSpec {
+func GetDeploymentWebhook(namespace, image, imagePullPolicy string, env []corev1.EnvVar) appsv1.Deployment {
+	return appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "Deployment",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: hcoNameWebhook,
+			Labels: map[string]string{
+				"name": hcoNameWebhook,
+			},
+		},
+		Spec: GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, env),
+	}
+}
+
+func GetDeploymentSpecOperator(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion string, env []corev1.EnvVar) appsv1.DeploymentSpec {
 	return appsv1.DeploymentSpec{
 		Replicas: int32Ptr(1),
 		Selector: &metav1.LabelSelector{
@@ -88,6 +106,10 @@ func GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, v
 							FailureThreshold:    1,
 						},
 						Env: append([]corev1.EnvVar{
+							{
+								Name:  util.OperatorWebhookModeEnv,
+								Value: "false",
+							},
 							{
 								Name:  "KVM_EMULATION",
 								Value: "",
@@ -163,6 +185,94 @@ func GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, v
 							{
 								Name:  util.VMImportEnvV,
 								Value: vmImportVersion,
+							},
+						}, env...),
+					},
+				},
+			},
+		},
+	}
+}
+
+// Currently we are abusing the pod readiness to signal to OLM that HCO is not ready
+// for an upgrade. This has a lot of side effects, one of this is the validating webhook
+// being not able to receive traffic when exposed by a pod that is not reporting ready=true.
+// This can cause a lot of side effects if not deadlocks when the system reach a status where,
+// for any possible reason, HCO pod cannot be ready and so HCO pod cannot validate any further update or
+// delete request on HCO CR.
+// A proper solution is properly use the readiness probe only to report the pod readiness and communicate
+// status to OLM via conditions once OLM will be ready for:
+// https://github.com/operator-framework/enhancements/blob/master/enhancements/operator-conditions.md
+// in the meanwhile a quick (but dirty!) solution is to expose the same hco binary on two distinct pods:
+// the first one will run only the controller and the second one (almost always ready) just the validating
+// webhook one.
+// A deeper code refactor to produce two distinct binaries is not worth now because we are going to
+// use OLM operator conditions soon.
+// TODO: remove this once we will move to OLM operator conditions
+func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy string, env []corev1.EnvVar) appsv1.DeploymentSpec {
+	return appsv1.DeploymentSpec{
+		Replicas: int32Ptr(1),
+		Selector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				"name": hcoNameWebhook,
+			},
+		},
+		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"name": hcoNameWebhook,
+				},
+			},
+			Spec: corev1.PodSpec{
+				ServiceAccountName: hcoName,
+				Containers: []corev1.Container{
+					{
+						Name:            hcoNameWebhook,
+						Image:           image,
+						ImagePullPolicy: corev1.PullPolicy(imagePullPolicy),
+						// TODO: command being name is artifact of operator-sdk usage
+						Command: []string{hcoName},
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								Exec: &corev1.ExecAction{
+									Command: []string{
+										"stat",
+										"/tmp/operator-sdk-ready",
+									},
+								},
+							},
+							InitialDelaySeconds: 5,
+							PeriodSeconds:       5,
+							FailureThreshold:    1,
+						},
+						Env: append([]corev1.EnvVar{
+							{
+								Name:  util.OperatorWebhookModeEnv,
+								Value: "true",
+							},
+							{
+								Name:  "OPERATOR_IMAGE",
+								Value: image,
+							},
+							{
+								Name:  "OPERATOR_NAME",
+								Value: hcoNameWebhook,
+							},
+							{
+								Name:  "OPERATOR_NAMESPACE",
+								Value: namespace,
+							},
+							{
+								Name: "POD_NAME",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "metadata.name",
+									},
+								},
+							},
+							{
+								Name:  "WATCH_NAMESPACE",
+								Value: "",
 							},
 						}, env...),
 					},
@@ -724,7 +834,11 @@ func GetInstallStrategyBase(namespace, image, imagePullPolicy, conversionContain
 		DeploymentSpecs: []csvv1alpha1.StrategyDeploymentSpec{
 			csvv1alpha1.StrategyDeploymentSpec{
 				Name: hcoDeploymentName,
-				Spec: GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion, env),
+				Spec: GetDeploymentSpecOperator(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion, env),
+			},
+			csvv1alpha1.StrategyDeploymentSpec{
+				Name: hcoWhDeploymentName,
+				Spec: GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, env),
 			},
 		},
 		Permissions: []csvv1alpha1.StrategyDeploymentPermissions{},
@@ -769,7 +883,7 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 	validating_webhook := csvv1alpha1.WebhookDescription{
 		GenerateName:            util.HcoValidatingWebhook,
 		Type:                    csvv1alpha1.ValidatingAdmissionWebhook,
-		DeploymentName:          hcoDeploymentName,
+		DeploymentName:          hcoWhDeploymentName,
 		ContainerPort:           4343,
 		AdmissionReviewVersions: []string{"v1beta1", "v1"},
 		SideEffects:             &sideEffect,

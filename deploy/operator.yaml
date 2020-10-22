@@ -20,9 +20,11 @@ spec:
       - command:
         - hyperconverged-cluster-operator
         env:
+        - name: WEBHOOK_MODE
+          value: "false"
         - name: KVM_EMULATION
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:95c8c3e9002ebe55254b9371757a98a3d29991ba83e3edfe405a9174c596365a
+          value: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:0d5d8fe37c8174d93a0de46894e49c576f1cab4e8e53f276e16db012cc4cc4a6
         - name: OPERATOR_NAME
           value: hyperconverged-cluster-operator
         - name: OPERATOR_NAMESPACE
@@ -58,9 +60,57 @@ spec:
           value: v0.5.2
         - name: VM_IMPORT_VERSION
           value: v0.2.4
-        image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:95c8c3e9002ebe55254b9371757a98a3d29991ba83e3edfe405a9174c596365a
+        image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:0d5d8fe37c8174d93a0de46894e49c576f1cab4e8e53f276e16db012cc4cc4a6
         imagePullPolicy: IfNotPresent
         name: hyperconverged-cluster-operator
+        readinessProbe:
+          exec:
+            command:
+            - stat
+            - /tmp/operator-sdk-ready
+          failureThreshold: 1
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources: {}
+      serviceAccountName: hyperconverged-cluster-operator
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    name: hyperconverged-cluster-webhook
+  name: hyperconverged-cluster-webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: hyperconverged-cluster-webhook
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        name: hyperconverged-cluster-webhook
+    spec:
+      containers:
+      - command:
+        - hyperconverged-cluster-operator
+        env:
+        - name: WEBHOOK_MODE
+          value: "true"
+        - name: OPERATOR_IMAGE
+          value: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:0d5d8fe37c8174d93a0de46894e49c576f1cab4e8e53f276e16db012cc4cc4a6
+        - name: OPERATOR_NAME
+          value: hyperconverged-cluster-webhook
+        - name: OPERATOR_NAMESPACE
+          value: kubevirt-hyperconverged
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: WATCH_NAMESPACE
+        image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:0d5d8fe37c8174d93a0de46894e49c576f1cab4e8e53f276e16db012cc4cc4a6
+        imagePullPolicy: IfNotPresent
+        name: hyperconverged-cluster-webhook
         readinessProbe:
           exec:
             command:
