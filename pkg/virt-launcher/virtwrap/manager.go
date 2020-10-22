@@ -1081,6 +1081,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		if err != nil {
 			return domain, err
 		}
+		api.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
 	}
 
 	return domain, err
