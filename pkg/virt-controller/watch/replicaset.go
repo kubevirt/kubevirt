@@ -211,7 +211,7 @@ func (c *VMIReplicaSet) execute(key string) error {
 		return err
 	}
 
-	finishedVmis := c.filterFinishedVMIs(vmis)
+	finishedVmis := append(c.filterFinishedVMIs(vmis), c.filterUnkownVMIs(vmis)...)
 	activeVmis := c.filterActiveVMIs(vmis)
 
 	var scaleErr error
@@ -352,10 +352,11 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 	return nil
 }
 
-// filterActiveVMIs takes a list of VMIs and returns all VMIs which are not in a final state and not terminating
+// filterActiveVMIs takes a list of VMIs and returns all VMIs which are not in a final state, not terminating and not unknown
 func (c *VMIReplicaSet) filterActiveVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
 	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
-		return !vmi.IsFinal() && vmi.DeletionTimestamp == nil
+		return !vmi.IsFinal() && vmi.DeletionTimestamp == nil &&
+			!controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionFalse, virtv1.PodTerminatingReason)
 	})
 }
 
@@ -370,6 +371,14 @@ func (c *VMIReplicaSet) filterReadyVMIs(vmis []*virtv1.VirtualMachineInstance) [
 func (c *VMIReplicaSet) filterFinishedVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
 	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
 		return vmi.IsFinal() && vmi.DeletionTimestamp == nil
+	})
+}
+
+// filterUnknownVMIs takes a list of VMIs and returns all VMIs which are in an unknown and not yet terminating stage
+func (c *VMIReplicaSet) filterUnkownVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
+	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
+		return !vmi.IsFinal() && vmi.DeletionTimestamp == nil &&
+			controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionFalse, virtv1.PodTerminatingReason)
 	})
 }
 

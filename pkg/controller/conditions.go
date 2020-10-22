@@ -100,6 +100,11 @@ func (d *VirtualMachineInstanceConditionManager) HasConditionWithStatus(vmi *v1.
 	return c != nil && c.Status == status
 }
 
+func (d *VirtualMachineInstanceConditionManager) HasConditionWithStatusAndReason(vmi *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType, status k8sv1.ConditionStatus, reason string) bool {
+	c := d.GetCondition(vmi, cond)
+	return c != nil && c.Status == status && c.Reason == reason
+}
+
 func (d *VirtualMachineInstanceConditionManager) RemoveCondition(vmi *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType) {
 	var conds []v1.VirtualMachineInstanceCondition
 	for _, c := range vmi.Status.Conditions {
