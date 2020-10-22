@@ -1184,30 +1184,6 @@ var _ = Describe("Converter", func() {
 				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)), "Expect vcpus")
 			})
 
-			It("should convert CPU requests to sockets", func() {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-				vmi.Spec.Domain.CPU = nil
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("2200m")
-				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-
-				Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(1)), "Expect cores")
-				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(3)), "Expect sockets")
-				Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(1)), "Expect threads")
-				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)), "Expect vcpus")
-			})
-
-			It("should convert CPU limits to sockets", func() {
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-				vmi.Spec.Domain.CPU = nil
-				vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("2.3")
-				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-
-				Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(1)), "Expect cores")
-				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(3)), "Expect sockets")
-				Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(1)), "Expect threads")
-				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)), "Expect vcpus")
-			})
-
 			It("should prefer CPU spec instead of CPU requests", func() {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.CPU = &v1.CPU{
@@ -2157,10 +2133,13 @@ var _ = Describe("Converter", func() {
 
 		It("should honor multiQueue setting", func() {
 			var expectedQueues uint = 2
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Cores:   2,
+			}
 
 			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true, SMBios: &cmdv1.SMBios{}})
 			Expect(*(domain.Spec.Devices.Disks[0].Driver.Queues)).To(Equal(expectedQueues),
-				"expected number of queues to equal number of requested CPUs")
+				"expected number of queues to equal number of requested vCPUs")
 		})
 	})
 	Context("Correctly handle iothreads with dedicated cpus", func() {
@@ -2186,6 +2165,7 @@ var _ = Describe("Converter", func() {
 			}
 		})
 		It("assigns a set of cpus per iothread, if there are more vcpus than iothreads", func() {
+			vmi.Spec.Domain.CPU.Cores = 16
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("16")
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			c := &ConverterContext{CPUSet: []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
@@ -2255,6 +2235,9 @@ var _ = Describe("Converter", func() {
 
 		It("should assign queues to a device if requested", func() {
 			var expectedQueues uint = 2
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Cores:   2,
+			}
 
 			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})
 			Expect(*(domain.Spec.Devices.Interfaces[0].Driver.Queues)).To(Equal(expectedQueues),
