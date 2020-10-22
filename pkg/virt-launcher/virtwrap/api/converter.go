@@ -194,6 +194,51 @@ func SetDriverCacheMode(disk *Disk) error {
 	return nil
 }
 
+func isPreAllocated(path string) (bool, error) {
+	var statT syscall.Stat_t
+
+	err := syscall.Stat(path, &statT)
+	if err != nil {
+		return false, err
+	}
+	log.Log.Infof("XXXXX Blksize=%d Blocks=%d Size=%d diff=%d", statT.Blksize, statT.Blocks, statT.Size, (statT.Blksize*statT.Blocks)-statT.Size)
+	if ((statT.Blksize * statT.Blocks) - statT.Size) < 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
+func SetOptimalIOMode(disk *Disk) error {
+	var path string
+
+	mode := v1.DriverCache(disk.Driver.Cache)
+	if mode != v1.CacheNone {
+		// For io=native we need to have cache 'none'
+		return nil
+	}
+	if disk.Source.File != "" {
+		path = disk.Source.File
+	} else if disk.Source.Dev != "" {
+		path = disk.Source.Dev
+	} else {
+		return fmt.Errorf("Unable to set a driver io mode, disk is neither a block device nor a file")
+	}
+
+	ioMode := v1.DriverIO(disk.Driver.IO)
+	allocated, err := isPreAllocated(path)
+
+	// Change the io mode only if we explicitly know the pre-allocation status
+	if ioMode == "" && (err == nil) {
+		if allocated {
+			disk.Driver.IO = string(v1.IONative)
+		} else {
+			disk.Driver.IO = string(v1.IOThreads)
+		}
+		log.Log.Infof("Driver IO mode for %s set to %s", path, string(v1.IONative))
+	}
+	return nil
+}
+
 func makeDeviceName(bus string, devicePerBus map[string]int) string {
 	prefix := ""
 	switch bus {
