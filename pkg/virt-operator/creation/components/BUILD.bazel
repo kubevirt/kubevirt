@@ -51,6 +51,7 @@ go_test(
     deps = [
         "//pkg/certificates/bootstrap:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
+        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

@@ -58,7 +58,7 @@ var (
 
 	// GroupVersions is group version list used to register these objects
 	// The preferred group version is the first item in the list.
-	GroupVersions = []schema.GroupVersion{GroupVersion, StorageGroupVersion}
+	GroupVersions = []schema.GroupVersion{{Group: GroupName, Version: "v1"}, {Group: GroupName, Version: "v1alpha3"}}
 
 	// SubresourceGroupVersions is group version list used to register these objects
 	// The preferred group version is the first item in the list.
