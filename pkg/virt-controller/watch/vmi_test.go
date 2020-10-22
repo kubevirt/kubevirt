@@ -20,8 +20,10 @@
 package watch
 
 import (
+	"encoding/json"
 	"fmt"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -1070,6 +1072,37 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			controller.Execute()
 		})
 
+		It("should indicate on the ready condition if the pod is terminating", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Running
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.DeletionTimestamp = now()
+			pod.Status.Conditions = []k8sv1.PodCondition{{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue}}
+
+			addVirtualMachine(vmi)
+			addActivePods(vmi, pod.UID, "")
+			podFeeder.Add(pod)
+
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).DoAndReturn(func(_ string, _ interface{}, patchBytes []byte) (*v1.VirtualMachineInstance, error) {
+				patch, err := jsonpatch.DecodePatch(patchBytes)
+				Expect(err).ToNot(HaveOccurred())
+				vmiBytes, err := json.Marshal(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				vmiBytes, err = patch.Apply(vmiBytes)
+				Expect(err).ToNot(HaveOccurred())
+				patchedVMI := &v1.VirtualMachineInstance{}
+				err = json.Unmarshal(vmiBytes, patchedVMI)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(patchedVMI.Status.Conditions).To(HaveLen(1))
+				cond := patchedVMI.Status.Conditions[0]
+				Expect(cond.Reason).To(Equal(v1.PodTerminatingReason))
+				Expect(string(cond.Type)).To(Equal(string(k8sv1.PodReady)))
+				Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
+				return patchedVMI, nil
+			})
+			controller.Execute()
+		})
+
 		It("should add active pods to status if VMI is in running state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = v1.Running
@@ -1186,6 +1219,11 @@ func now() *metav1.Time {
 
 func markAsReady(vmi *v1.VirtualMachineInstance) {
 	controller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
+}
+
+func markAsPodTerminating(vmi *v1.VirtualMachineInstance) {
+	controller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, v1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+	controller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionFalse, Reason: v1.PodTerminatingReason})
 }
 
 func markAsNonReady(vmi *v1.VirtualMachineInstance) {

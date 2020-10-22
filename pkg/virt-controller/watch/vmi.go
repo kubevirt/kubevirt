@@ -398,6 +398,19 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		if !podExists {
 			// Remove PodScheduling condition from the VM
 			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+		} else if isPodDownOrGoingDown(pod) {
+			cond := conditionManager.GetPodCondition(pod, k8sv1.PodReady)
+			if cond == nil || cond.Reason != virtv1.PodTerminatingReason {
+				conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+				conditionManager.AddPodCondition(vmiCopy, &k8sv1.PodCondition{
+					Type:               k8sv1.PodReady,
+					Status:             k8sv1.ConditionFalse,
+					LastProbeTime:      v1.Now(),
+					LastTransitionTime: v1.Now(),
+					Reason:             virtv1.PodTerminatingReason,
+					Message:            "The Pod is terminating",
+				})
+			}
 		} else if cond := conditionManager.GetPodCondition(pod, k8sv1.PodReady); cond != nil {
 			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
 			conditionManager.AddPodCondition(vmiCopy, cond)
