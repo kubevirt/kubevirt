@@ -92,13 +92,13 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha3/": {
+   "/apis/kubevirt.io/v1/": {
     "get": {
      "description": "Get KubeVirt API Resources",
      "produces": [
       "application/json"
      ],
-     "operationId": "getAPIResources-kubevirt.io-v1alpha3",
+     "operationId": "getAPIResources-kubevirt.io-v1",
      "responses": {
       "200": {
        "description": "OK",
@@ -118,7 +118,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha3/kubevirt": {
+   "/apis/kubevirt.io/v1/kubevirt": {
     "get": {
      "description": "Get a list of all KubeVirt objects.",
      "produces": [
@@ -201,7 +201,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/kubevirt": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/kubevirt": {
     "get": {
      "description": "Get a list of KubeVirt objects.",
      "produces": [
@@ -428,7 +428,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/kubevirt/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/kubevirt/{name:[a-z0-9][a-z0-9\\-]*}": {
     "get": {
      "description": "Get a KubeVirt object.",
      "produces": [
@@ -621,7 +621,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancemigrations": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancemigrations": {
     "get": {
      "description": "Get a list of VirtualMachineInstanceMigration objects.",
      "produces": [
@@ -848,7 +848,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancemigrations/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancemigrations/{name:[a-z0-9][a-z0-9\\-]*}": {
     "get": {
      "description": "Get a VirtualMachineInstanceMigration object.",
      "produces": [
@@ -1041,7 +1041,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancepresets": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancepresets": {
     "get": {
      "description": "Get a list of VirtualMachineInstancePreset objects.",
      "produces": [
@@ -1268,7 +1268,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancepresets/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancepresets/{name:[a-z0-9][a-z0-9\\-]*}": {
     "get": {
      "description": "Get a VirtualMachineInstancePreset object.",
      "produces": [
@@ -1461,7 +1461,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancereplicasets": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancereplicasets": {
     "get": {
      "description": "Get a list of VirtualMachineInstanceReplicaSet objects.",
      "produces": [
@@ -1688,7 +1688,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancereplicasets/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancereplicasets/{name:[a-z0-9][a-z0-9\\-]*}": {
     "get": {
      "description": "Get a VirtualMachineInstanceReplicaSet object.",
      "produces": [
@@ -1881,7 +1881,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances": {
     "get": {
      "description": "Get a list of VirtualMachineInstance objects.",
      "produces": [
@@ -2108,7 +2108,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}": {
     "get": {
      "description": "Get a VirtualMachineInstance object.",
      "produces": [
@@ -2301,7 +2301,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines": {
     "get": {
      "description": "Get a list of VirtualMachine objects.",
      "produces": [
@@ -2528,7 +2528,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}": {
     "get": {
      "description": "Get a VirtualMachine object.",
      "produces": [
@@ -2721,7 +2721,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/virtualmachineinstancemigrations": {
+   "/apis/kubevirt.io/v1/virtualmachineinstancemigrations": {
     "get": {
      "description": "Get a list of all VirtualMachineInstanceMigration objects.",
      "produces": [
@@ -2804,7 +2804,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/virtualmachineinstancepresets": {
+   "/apis/kubevirt.io/v1/virtualmachineinstancepresets": {
     "get": {
      "description": "Get a list of all VirtualMachineInstancePreset objects.",
      "produces": [
@@ -2887,7 +2887,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/virtualmachineinstancereplicasets": {
+   "/apis/kubevirt.io/v1/virtualmachineinstancereplicasets": {
     "get": {
      "description": "Get a list of all VirtualMachineInstanceReplicaSet objects.",
      "produces": [
@@ -2970,7 +2970,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/virtualmachineinstances": {
+   "/apis/kubevirt.io/v1/virtualmachineinstances": {
     "get": {
      "description": "Get a list of all VirtualMachineInstance objects.",
      "produces": [
@@ -3053,7 +3053,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/virtualmachines": {
+   "/apis/kubevirt.io/v1/virtualmachines": {
     "get": {
      "description": "Get a list of all VirtualMachine objects.",
      "produces": [
@@ -3136,7 +3136,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/watch/kubevirt": {
+   "/apis/kubevirt.io/v1/watch/kubevirt": {
     "get": {
      "description": "Watch a KubeVirtList object.",
      "produces": [
@@ -3217,7 +3217,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/kubevirt": {
+   "/apis/kubevirt.io/v1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/kubevirt": {
     "get": {
      "description": "Watch a KubeVirt object.",
      "produces": [
@@ -3306,7 +3306,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancemigrations": {
+   "/apis/kubevirt.io/v1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancemigrations": {
     "get": {
      "description": "Watch a VirtualMachineInstanceMigration object.",
      "produces": [
@@ -3395,7 +3395,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancepresets": {
+   "/apis/kubevirt.io/v1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancepresets": {
     "get": {
      "description": "Watch a VirtualMachineInstancePreset object.",
      "produces": [
@@ -3484,7 +3484,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancereplicasets": {
+   "/apis/kubevirt.io/v1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancereplicasets": {
     "get": {
      "description": "Watch a VirtualMachineInstanceReplicaSet object.",
      "produces": [
@@ -3573,7 +3573,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances": {
+   "/apis/kubevirt.io/v1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances": {
     "get": {
      "description": "Watch a VirtualMachineInstance object.",
      "produces": [
@@ -3662,7 +3662,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines": {
+   "/apis/kubevirt.io/v1/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines": {
     "get": {
      "description": "Watch a VirtualMachine object.",
      "produces": [
@@ -3751,7 +3751,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/watch/virtualmachineinstancemigrations": {
+   "/apis/kubevirt.io/v1/watch/virtualmachineinstancemigrations": {
     "get": {
      "description": "Watch a VirtualMachineInstanceMigrationList object.",
      "produces": [
@@ -3832,7 +3832,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/watch/virtualmachineinstancepresets": {
+   "/apis/kubevirt.io/v1/watch/virtualmachineinstancepresets": {
     "get": {
      "description": "Watch a VirtualMachineInstancePresetList object.",
      "produces": [
@@ -3913,7 +3913,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/watch/virtualmachineinstancereplicasets": {
+   "/apis/kubevirt.io/v1/watch/virtualmachineinstancereplicasets": {
     "get": {
      "description": "Watch a VirtualMachineInstanceReplicaSetList object.",
      "produces": [
@@ -3994,7 +3994,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/watch/virtualmachineinstances": {
+   "/apis/kubevirt.io/v1/watch/virtualmachineinstances": {
     "get": {
      "description": "Watch a VirtualMachineInstanceList object.",
      "produces": [
@@ -4075,7 +4075,7 @@
      }
     ]
    },
-   "/apis/kubevirt.io/v1alpha3/watch/virtualmachines": {
+   "/apis/kubevirt.io/v1/watch/virtualmachines": {
     "get": {
      "description": "Watch a VirtualMachineList object.",
      "produces": [
@@ -6233,7 +6233,7 @@
      "produces": [
       "application/json"
      ],
-     "operationId": "getSubAPIGroup",
+     "operationId": "v1alpha3GetSubAPIGroup",
      "responses": {
       "200": {
        "description": "OK",
@@ -6253,13 +6253,763 @@
      }
     }
    },
+   "/apis/subresources.kubevirt.io/v1/": {
+    "get": {
+     "description": "Get a KubeVirt API resources",
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1getAPISubResources",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIResourceList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "/apis/subresources.kubevirt.io/v1/healthz": {
+    "get": {
+     "description": "Health endpoint",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1CheckHealth",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "500": {
+       "description": "Unhealthy",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/addvolume": {
+    "put": {
+     "description": "Add a volume and disk to a running Virtual Machine Instance",
+     "operationId": "v1vmi-addvolume",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/console": {
+    "get": {
+     "description": "Open a websocket connection to a serial console on the specified VirtualMachineInstance.",
+     "operationId": "v1Console",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/filesystemlist": {
+    "get": {
+     "description": "Get list of active filesystems on guest machine via guest agent",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1Filesystemlist",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineInstanceFileSystemList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    }
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/guestosinfo": {
+    "get": {
+     "description": "Get guest agent os information",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1Guestosinfo",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineInstanceGuestAgentInfo"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/pause": {
+    "put": {
+     "description": "Pause a VirtualMachineInstance object.",
+     "operationId": "v1Pause",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/removevolume": {
+    "put": {
+     "description": "Removes a volume and disk from a running Virtual Machine Instance",
+     "operationId": "v1vmi-removevolume",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/test": {
+    "get": {
+     "description": "Test endpoint verifying apiserver connectivity.",
+     "operationId": "v1Test",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/unpause": {
+    "put": {
+     "description": "Unpause a VirtualMachineInstance object.",
+     "operationId": "v1Unpause",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/userlist": {
+    "get": {
+     "description": "Get list of active users via guest agent",
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1Userlist",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineInstanceGuestOSUserList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    }
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/vnc": {
+    "get": {
+     "description": "Open a websocket connection to connect to VNC on the specified VirtualMachineInstance.",
+     "operationId": "v1VNC",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/addvolume": {
+    "put": {
+     "description": "Add a volume and disk to a running Virtual Machine.",
+     "operationId": "v1vm-addvolume",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/migrate": {
+    "put": {
+     "description": "Migrate a running VirtualMachine to another node.",
+     "operationId": "v1Migrate",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/removevolume": {
+    "put": {
+     "description": "Removes a volume and disk from a running Virtual Machine.",
+     "operationId": "v1vm-removevolume",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/rename": {
+    "put": {
+     "description": "Rename a stopped VirtualMachine object.",
+     "operationId": "v1Rename",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "202": {
+       "description": "Accepted",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/restart": {
+    "put": {
+     "description": "Restart a VirtualMachine object.",
+     "operationId": "v1Restart",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "schema": {
+        "$ref": "#/definitions/v1.RestartOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/start": {
+    "put": {
+     "description": "Start a VirtualMachine object.",
+     "operationId": "v1Start",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/stop": {
+    "put": {
+     "description": "Stop a VirtualMachine object.",
+     "operationId": "v1Stop",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/version": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "v1Version",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    }
+   },
    "/apis/subresources.kubevirt.io/v1alpha3/": {
     "get": {
      "description": "Get a KubeVirt API resources",
      "produces": [
       "application/json"
      ],
-     "operationId": "getAPISubResources",
+     "operationId": "v1alpha3getAPISubResources",
      "responses": {
       "200": {
        "description": "OK",
@@ -6288,7 +7038,7 @@
      "produces": [
       "application/json"
      ],
-     "operationId": "checkHealth",
+     "operationId": "v1alpha3CheckHealth",
      "responses": {
       "200": {
        "description": "OK",
@@ -6311,7 +7061,7 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/addvolume": {
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine Instance",
-     "operationId": "vmi-addvolume",
+     "operationId": "v1alpha3vmi-addvolume",
      "responses": {
       "200": {
        "description": "OK",
@@ -6352,7 +7102,7 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/console": {
     "get": {
      "description": "Open a websocket connection to a serial console on the specified VirtualMachineInstance.",
-     "operationId": "console",
+     "operationId": "v1alpha3Console",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -6387,7 +7137,7 @@
      "produces": [
       "application/json"
      ],
-     "operationId": "filesystemlist",
+     "operationId": "v1alpha3Filesystemlist",
      "responses": {
       "200": {
        "description": "OK",
@@ -6410,7 +7160,7 @@
      "produces": [
       "application/json"
      ],
-     "operationId": "guestosinfo",
+     "operationId": "v1alpha3Guestosinfo",
      "responses": {
       "200": {
        "description": "OK",
@@ -6445,7 +7195,7 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/pause": {
     "put": {
      "description": "Pause a VirtualMachineInstance object.",
-     "operationId": "pause",
+     "operationId": "v1alpha3Pause",
      "responses": {
       "200": {
        "description": "OK",
@@ -6492,7 +7242,7 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/removevolume": {
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine Instance",
-     "operationId": "vmi-removevolume",
+     "operationId": "v1alpha3vmi-removevolume",
      "responses": {
       "200": {
        "description": "OK",
@@ -6533,7 +7283,7 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/test": {
     "get": {
      "description": "Test endpoint verifying apiserver connectivity.",
-     "operationId": "test",
+     "operationId": "v1alpha3Test",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -6562,7 +7312,7 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/unpause": {
     "put": {
      "description": "Unpause a VirtualMachineInstance object.",
-     "operationId": "unpause",
+     "operationId": "v1alpha3Unpause",
      "responses": {
       "200": {
        "description": "OK",
@@ -6615,7 +7365,7 @@
      "produces": [
       "application/json"
      ],
-     "operationId": "userlist",
+     "operationId": "v1alpha3Userlist",
      "responses": {
       "200": {
        "description": "OK",
@@ -6632,7 +7382,7 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/vnc": {
     "get": {
      "description": "Open a websocket connection to connect to VNC on the specified VirtualMachineInstance.",
-     "operationId": "vnc",
+     "operationId": "v1alpha3VNC",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -6661,7 +7411,7 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/addvolume": {
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine.",
-     "operationId": "vm-addvolume",
+     "operationId": "v1alpha3vm-addvolume",
      "responses": {
       "200": {
        "description": "OK",
@@ -6702,7 +7452,7 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/migrate": {
     "put": {
      "description": "Migrate a running VirtualMachine to another node.",
-     "operationId": "migrate",
+     "operationId": "v1alpha3Migrate",
      "responses": {
       "200": {
        "description": "OK",
@@ -6749,7 +7499,7 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/removevolume": {
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine.",
-     "operationId": "vm-removevolume",
+     "operationId": "v1alpha3vm-removevolume",
      "responses": {
       "200": {
        "description": "OK",
@@ -6790,7 +7540,7 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/rename": {
     "put": {
      "description": "Rename a stopped VirtualMachine object.",
-     "operationId": "rename",
+     "operationId": "v1alpha3Rename",
      "responses": {
       "200": {
        "description": "OK",
@@ -6843,7 +7593,7 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/restart": {
     "put": {
      "description": "Restart a VirtualMachine object.",
-     "operationId": "restart",
+     "operationId": "v1alpha3Restart",
      "parameters": [
       {
        "name": "body",
@@ -6899,7 +7649,7 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/start": {
     "put": {
      "description": "Start a VirtualMachine object.",
-     "operationId": "start",
+     "operationId": "v1alpha3Start",
      "responses": {
       "200": {
        "description": "OK",
@@ -6946,7 +7696,7 @@
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/stop": {
     "put": {
      "description": "Stop a VirtualMachine object.",
-     "operationId": "stop",
+     "operationId": "v1alpha3Stop",
      "responses": {
       "200": {
        "description": "OK",
@@ -6995,7 +7745,7 @@
      "produces": [
       "application/json"
      ],
-     "operationId": "version",
+     "operationId": "v1alpha3Version",
      "responses": {
       "401": {
        "description": "Unauthorized"

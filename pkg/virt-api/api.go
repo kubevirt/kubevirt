@@ -195,7 +195,7 @@ func (app *virtAPIApp) composeSubresources() {
 			To(subresourceApp.RestartVMRequestHandler).
 			Reads(v1.RestartOptions{}).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Operation("restart").
+			Operation(version.Version+"Restart").
 			Doc("Restart a VirtualMachine object.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusNotFound, "Not Found", "").
@@ -206,7 +206,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("migrate")).
 			To(subresourceApp.MigrateVMRequestHandler).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Operation("migrate").
+			Operation(version.Version+"Migrate").
 			Doc("Migrate a running VirtualMachine to another node.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusNotFound, "Not Found", "").
@@ -215,7 +215,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("start")).
 			To(subresourceApp.StartVMRequestHandler).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Operation("start").
+			Operation(version.Version+"Start").
 			Doc("Start a VirtualMachine object.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusNotFound, "Not Found", "").
@@ -224,7 +224,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("stop")).
 			To(subresourceApp.StopVMRequestHandler).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Operation("stop").
+			Operation(version.Version+"Stop").
 			Doc("Stop a VirtualMachine object.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusNotFound, "Not Found", "").
@@ -233,7 +233,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("pause")).
 			To(subresourceApp.PauseVMIRequestHandler).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Operation("pause").
+			Operation(version.Version+"Pause").
 			Doc("Pause a VirtualMachineInstance object.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusNotFound, "Not Found", "").
@@ -242,7 +242,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("unpause")).
 			To(subresourceApp.UnpauseVMIRequestHandler). // handles VMIs as well
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Operation("unpause").
+			Operation(version.Version+"Unpause").
 			Doc("Unpause a VirtualMachineInstance object.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusNotFound, "Not Found", "").
@@ -251,31 +251,31 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("console")).
 			To(subresourceApp.ConsoleRequestHandler).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Operation("console").
+			Operation(version.Version + "Console").
 			Doc("Open a websocket connection to a serial console on the specified VirtualMachineInstance."))
 
 		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("vnc")).
 			To(subresourceApp.VNCRequestHandler).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Operation("vnc").
+			Operation(version.Version + "VNC").
 			Doc("Open a websocket connection to connect to VNC on the specified VirtualMachineInstance."))
 
 		// An empty handler function would respond with HTTP OK by default
 		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("test")).
 			To(func(request *restful.Request, response *restful.Response) {}).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Operation("test").
+			Operation(version.Version + "Test").
 			Doc("Test endpoint verifying apiserver connectivity."))
 
 		subws.Route(subws.GET(rest.SubResourcePath("version")).Produces(restful.MIME_JSON).
 			To(func(request *restful.Request, response *restful.Response) {
 				response.WriteAsJson(virtversion.Get())
-			}).Operation("version"))
+			}).Operation(version.Version + "Version"))
 		subws.Route(subws.GET(rest.SubResourcePath("healthz")).
 			To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig)).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
-			Operation("checkHealth").
+			Operation(version.Version+"CheckHealth").
 			Doc("Health endpoint").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusInternalServerError, "Unhealthy", ""))
@@ -284,7 +284,7 @@ func (app *virtAPIApp) composeSubresources() {
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
-			Operation("guestosinfo").
+			Operation(version.Version+"Guestosinfo").
 			Doc("Get guest agent os information").
 			Writes(v1.VirtualMachineInstanceGuestAgentInfo{}).
 			Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceGuestAgentInfo{}))
@@ -292,7 +292,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("rename")).
 			To(subresourceApp.RenameVMRequestHandler).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Operation("rename").
+			Operation(version.Version+"Rename").
 			Doc("Rename a stopped VirtualMachine object.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusAccepted, "Accepted", "").
@@ -303,7 +303,7 @@ func (app *virtAPIApp) composeSubresources() {
 			To(subresourceApp.UserList).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
-			Operation("userlist").
+			Operation(version.Version+"Userlist").
 			Doc("Get list of active users via guest agent").
 			Writes(v1.VirtualMachineInstanceGuestOSUserList{}).
 			Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceGuestOSUserList{}))
@@ -312,7 +312,7 @@ func (app *virtAPIApp) composeSubresources() {
 			To(subresourceApp.FilesystemList).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
-			Operation("filesystemlist").
+			Operation(version.Version+"Filesystemlist").
 			Doc("Get list of active filesystems on guest machine via guest agent").
 			Writes(v1.VirtualMachineInstanceFileSystemList{}).
 			Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceFileSystemList{}))
@@ -320,7 +320,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("addvolume")).
 			To(subresourceApp.VMIAddVolumeRequestHandler).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Operation("vmi-addvolume").
+			Operation(version.Version+"vmi-addvolume").
 			Doc("Add a volume and disk to a running Virtual Machine Instance").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, "Bad Request", ""))
@@ -328,7 +328,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("removevolume")).
 			To(subresourceApp.VMIRemoveVolumeRequestHandler).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Operation("vmi-removevolume").
+			Operation(version.Version+"vmi-removevolume").
 			Doc("Removes a volume and disk from a running Virtual Machine Instance").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, "Bad Request", ""))
@@ -336,7 +336,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("addvolume")).
 			To(subresourceApp.VMAddVolumeRequestHandler).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Operation("vm-addvolume").
+			Operation(version.Version+"vm-addvolume").
 			Doc("Add a volume and disk to a running Virtual Machine.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, "Bad Request", ""))
@@ -344,7 +344,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("removevolume")).
 			To(subresourceApp.VMRemoveVolumeRequestHandler).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-			Operation("vm-removevolume").
+			Operation(version.Version+"vm-removevolume").
 			Doc("Removes a volume and disk from a running Virtual Machine.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, "Bad Request", ""))
@@ -423,7 +423,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 				response.WriteAsJson(list)
 			}).
-			Operation("getAPISubResources").
+			Operation(version.Version+"getAPISubResources").
 			Doc("Get a KubeVirt API resources").
 			Returns(http.StatusOK, "OK", metav1.APIResourceList{}).
 			Returns(http.StatusNotFound, "Not Found", ""))
@@ -463,7 +463,7 @@ func (app *virtAPIApp) composeSubresources() {
 			To(func(request *restful.Request, response *restful.Response) {
 				response.WriteAsJson(subresourceAPIGroup())
 			}).
-			Operation("getSubAPIGroup").
+			Operation(version.Version+"GetSubAPIGroup").
 			Doc("Get a KubeVirt API Group").
 			Returns(http.StatusOK, "OK", metav1.APIGroup{}).
 			Returns(http.StatusNotFound, "Not Found", ""))
