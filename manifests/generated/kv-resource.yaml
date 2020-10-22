@@ -1041,8 +1041,11 @@ spec:
       required:
       - spec
       type: object
-  version: v1alpha3
+  version: v1
   versions:
+  - name: v1
+    served: true
+    storage: false
   - name: v1alpha3
     served: true
     storage: true
