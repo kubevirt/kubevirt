@@ -2134,7 +2134,7 @@ var _ = Describe("Converter", func() {
 		It("should honor multiQueue setting", func() {
 			var expectedQueues uint = 2
 			vmi.Spec.Domain.CPU = &v1.CPU{
-				Cores:   2,
+				Cores: 2,
 			}
 
 			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true, SMBios: &cmdv1.SMBios{}})
@@ -2236,7 +2236,7 @@ var _ = Describe("Converter", func() {
 		It("should assign queues to a device if requested", func() {
 			var expectedQueues uint = 2
 			vmi.Spec.Domain.CPU = &v1.CPU{
-				Cores:   2,
+				Cores: 2,
 			}
 
 			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})

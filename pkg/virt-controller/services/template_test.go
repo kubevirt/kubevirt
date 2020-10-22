@@ -1117,8 +1117,8 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().String()).To(Equal("2m"))
-				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1163507557"))
-				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2163507557"))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1180211045"))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2180211045"))
 			})
 			It("should overcommit guest overhead if selected, by only adding the overhead to memory limits", func() {
 
@@ -1147,7 +1147,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1G"))
-				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2163507557"))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2180211045"))
 			})
 			It("should not add unset resources", func() {
 
@@ -1175,7 +1175,7 @@ var _ = Describe("Template", func() {
 
 				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
-				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(243)))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(260)))
 
 				// Limits for KVM and TUN devices should be requested.
 				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())
@@ -1210,9 +1210,9 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
 			},
-				table.Entry("and consider graphics overhead if it is not set", nil, 243),
-				table.Entry("and consider graphics overhead if it is set to true", True(), 243),
-				table.Entry("and not consider graphics overhead if it is set to false", False(), 226),
+				table.Entry("and consider graphics overhead if it is not set", nil, 260),
+				table.Entry("and consider graphics overhead if it is set to true", True(), 260),
+				table.Entry("and not consider graphics overhead if it is set to false", False(), 243),
 			)
 			It("should calculate vcpus overhead based on guest toplogy", func() {
 
@@ -1344,8 +1344,8 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(162)))
-				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(162)))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
 
 				hugepageType := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + value)
 				hugepagesRequest := pod.Spec.Containers[0].Resources.Requests[hugepageType]
@@ -1396,8 +1396,8 @@ var _ = Describe("Template", func() {
 				guestRequestMemDiff := vmi.Spec.Domain.Resources.Requests.Memory()
 				guestRequestMemDiff.Sub(guestMem)
 
-				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(162) + guestRequestMemDiff.ToDec().ScaledValue(resource.Mega)))
-				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(162) + guestRequestMemDiff.ToDec().ScaledValue(resource.Mega)))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179) + guestRequestMemDiff.ToDec().ScaledValue(resource.Mega)))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179) + guestRequestMemDiff.ToDec().ScaledValue(resource.Mega)))
 
 				hugepageType := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + "1Gi")
 				hugepagesRequest := pod.Spec.Containers[0].Resources.Requests[hugepageType]
