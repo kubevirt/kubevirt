@@ -20,6 +20,7 @@ package csv
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/coreos/go-semver/semver"
 	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
@@ -28,6 +29,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	virtv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 )
@@ -189,6 +191,23 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 		return nil, err
 	}
 
+	almExampleFmt := `
+      [
+        {
+          "apiVersion":"kubevirt.io/%s",
+          "kind":"KubeVirt",
+          "metadata": {
+            "name":"kubevirt",
+            "namespace":"kubevirt"
+          },
+          "spec": {
+            "imagePullPolicy":"Always"
+          }
+        }
+      ]`
+
+	almExample := fmt.Sprintf(almExampleFmt, virtv1.ApiLatestVersion)
+
 	return &csvv1.ClusterServiceVersion{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ClusterServiceVersion",
@@ -206,21 +225,8 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 				"repository":     "https://github.com/kubevirt/kubevirt",
 				"certified":      "false",
 				"support":        "KubeVirt",
-				"alm-examples": `
-      [
-        {
-          "apiVersion":"kubevirt.io/v1alpha3",
-          "kind":"KubeVirt",
-          "metadata": {
-            "name":"kubevirt",
-            "namespace":"kubevirt"
-          },
-          "spec": {
-            "imagePullPolicy":"Always"
-          }
-        }
-      ]`,
-				"description": "Creates and maintains KubeVirt deployments",
+				"alm-examples":   almExample,
+				"description":    "Creates and maintains KubeVirt deployments",
 			},
 		},
 
@@ -289,7 +295,7 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 				Owned: []csvv1.CRDDescription{
 					{
 						Name:        "kubevirts.kubevirt.io",
-						Version:     "v1alpha3",
+						Version:     virtv1.ApiLatestVersion,
 						Kind:        "KubeVirt",
 						DisplayName: "KubeVirt deployment",
 						Description: "Represents a KubeVirt deployment",
