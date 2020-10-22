@@ -1488,9 +1488,9 @@ var _ = Describe("Configurations", func() {
 				loc, err := time.LoadLocation(timezone)
 				Expect(err).ToNot(HaveOccurred())
 				now := time.Now().In(loc)
-
+				plusone := now.Add(time.Minute)
 				By("Checking hardware clock time")
-				expected := fmt.Sprintf("%02d:%02d:", now.Hour(), now.Minute())
+				expected := fmt.Sprintf("(%02d:%02d:|%02d:%02d:)", now.Hour(), now.Minute(), plusone.Hour(), plusone.Minute())
 				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "sudo hwclock --localtime \n"},
 					&expect.BExp{R: expected},
