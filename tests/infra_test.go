@@ -767,25 +767,13 @@ var _ = Describe("[Serial]Infrastructure", func() {
 		})
 
 		It("[test_id:4146]should include VMI phase metrics for few running VMs", func() {
-			// this tests requires at least two running VMis. To ensure this condition,
-			// the simplest way is just always run an additional VMI.
-			By("Creating another VirtualMachineInstance")
-
-			// `pod` is the pod of the virt-handler of the node on which we run all the VMIs
-			// when setting up the tests. So we implicitely run all the VMIs on the same node,
-			// so the test works. TODO: make this explicit.
-			preferredNodeName := pod.Spec.NodeName
-			vmi := pinVMIOnNode(tests.NewRandomVMI(), preferredNodeName)
-			nodeName := startVMI(vmi)
-			Expect(nodeName).To(Equal(preferredNodeName), "Should run VMIs on the same node")
-
 			metrics := collectMetrics("kubevirt_vmi_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
 				if strings.Contains(key, `phase="running"`) {
 					value := metrics[key]
-					Expect(value).To(Equal(float64(len(preparedVMIs) + 1)))
+					Expect(value).To(Equal(float64(len(preparedVMIs))))
 				}
 			}
 		})
