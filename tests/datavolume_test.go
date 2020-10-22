@@ -40,6 +40,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
@@ -525,9 +526,15 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 	})
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with a DataVolume", func() {
-		Context("using Alpine import", func() {
-			It("[test_id:3191]should be successfully started and stopped multiple times", func() {
-				vm := tests.NewRandomVMWithDataVolume(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault)
+		Context("using Alpine http import", func() {
+			table.DescribeTable("[test_id:3191]should be successfully started and stopped multiple times", func(isHTTP bool) {
+				var vm *v1.VirtualMachine
+				if isHTTP {
+					vm = tests.NewRandomVMWithDataVolume(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault)
+				} else {
+					url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskAlpine)
+					vm = tests.NewRandomVMWithRegistryDataVolume(url, tests.NamespaceTestDefault)
+				}
 				vm, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 				num := 2
@@ -548,7 +555,11 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 					vm = tests.StopVirtualMachine(vm)
 				}
 				Expect(virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})).To(Succeed())
-			})
+			},
+
+				table.Entry("with http import", true),
+				table.Entry("with registry import", false),
+			)
 
 			It("[test_id:3192]should remove owner references on DataVolume if VM is orphan deleted.", func() {
 				// Cascade=false delete fails in ocp 3.11 with CRDs that contain multiple versions.
