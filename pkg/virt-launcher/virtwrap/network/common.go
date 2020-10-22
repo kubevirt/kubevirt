@@ -486,6 +486,12 @@ func (h *NetworkUtilsHandler) BindTapDeviceToBridge(tapName string, bridgeName s
 		return fmt.Errorf("failed to set tap device %s up; %v", tapName, err)
 	}
 
+	// turn TX offload checksum because it causes dhcp failures
+	if err := dhcp.EthtoolTXOff(bridgeName); err != nil {
+		log.Log.Reason(err).Errorf("Failed to set tx offload for interface %s off", bridgeName)
+		return err
+	}
+
 	log.Log.Infof("Successfully configured tap device: %s", tapName)
 	return nil
 }

@@ -1135,7 +1135,6 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 	if (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
 		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
 		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
-		res = append(res, CAP_NET_ADMIN)
 		// The DHCP server needs the ability to use raw sockets. This
 		// capability is available by default in some clusters, but not
 		// a given.

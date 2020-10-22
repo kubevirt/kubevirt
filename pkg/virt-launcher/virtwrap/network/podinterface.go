@@ -478,7 +478,7 @@ func (b *BridgePodInterface) decorateConfig() error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.Name == b.iface.Name {
-			ifaces[i].MTU = b.virtIface.MTU
+			//ifaces[i].MTU = b.virtIface.MTU
 			ifaces[i].MAC = &api.MAC{MAC: b.vif.MAC.String()}
 			ifaces[i].Target = b.virtIface.Target
 			break
@@ -787,7 +787,7 @@ func (p *MasqueradePodInterface) decorateConfig() error {
 	ifaces := p.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.Name == p.iface.Name {
-			ifaces[i].MTU = p.virtIface.MTU
+			//ifaces[i].MTU = p.virtIface.MTU
 			ifaces[i].MAC = &api.MAC{MAC: p.vif.MAC.String()}
 			ifaces[i].Target = p.virtIface.Target
 			break

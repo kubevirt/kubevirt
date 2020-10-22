@@ -81,12 +81,6 @@ func SingleClientDHCPServer(
 		options:       options,
 	}
 
-	// turn TX offload checksum because it causes dhcp failures
-	if err := EthtoolTXOff(serverIface); err != nil {
-		log.Log.Reason(err).Errorf("Failed to set tx offload for interface %s off", serverIface)
-		return err
-	}
-
 	l, err := dhcpConn.NewUDP4BoundListener(serverIface, ":67")
 	if err != nil {
 		return err
