@@ -142,8 +142,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalDeletions int
 	var resourceChanges map[string]map[string]int
 
-	resourceCount := 52
-	patchCount := 33
+	resourceCount := 53
+	patchCount := 34
 	updateCount := 20
 
 	deleteFromCache := true
