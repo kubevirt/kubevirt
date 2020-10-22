@@ -2442,7 +2442,6 @@ var _ = Describe("Configurations", func() {
 	Context("[rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check Chassis value", func() {
 
 		It("[Serial][test_id:2927]Test Chassis value in a newly created VM", func() {
-			tests.SkipDmidecodeTestIfRunningOnKindInfraIPv6()
 			vmi := tests.NewRandomFedoraVMIWithDmidecode()
 			vmi.Spec.Domain.Chassis = &v1.Chassis{
 				Asset: "Test-123",
@@ -2479,7 +2478,6 @@ var _ = Describe("Configurations", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			tests.SkipDmidecodeTestIfRunningOnKindInfraIPv6()
 			vmi = tests.NewRandomFedoraVMIWithDmidecode()
 		})
 

@@ -1271,8 +1271,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 
 			It(" Should detect a failed migration", func() {
-				tests.SkipMigrationFailTestIfRunningOnKindInfraIPv6()
-
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 

@@ -59,7 +59,6 @@ import (
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	settingsv1alpha1 "k8s.io/api/settings/v1alpha1"
 	storagev1 "k8s.io/api/storage/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -766,10 +765,6 @@ func BeforeTestSuitSetup(_ []byte) {
 	createNamespaces()
 	createServiceAccounts()
 
-	if IsRunningOnKindInfraIPv6() {
-		createPodPreset("fix-node-uuid", "fake-product-uuid", "virt-launcher", "/kind/product_uuid", "/sys/class/dmi/id/product_uuid")
-	}
-
 	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
 	CreatePVC(osWindows, defaultWindowsDiskSize, Config.StorageClassWindows)
 	CreatePVC(osRhel, defaultRhelDiskSize, Config.StorageClassRhel)
@@ -1242,48 +1237,6 @@ func cleanupSubresourceServiceAccount() {
 
 	err = virtCli.RbacV1().RoleBindings(NamespaceTestDefault).Delete(SubresourceServiceAccountName, nil)
 	if !errors.IsNotFound(err) {
-		PanicOnError(err)
-	}
-}
-
-func createPodPreset(podPresetName, volName, label, srcPath, dstPath string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	hostPathType := k8sv1.HostPathFile
-	podPreset := settingsv1alpha1.PodPreset{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      podPresetName,
-			Namespace: NamespaceTestDefault,
-		},
-		Spec: settingsv1alpha1.PodPresetSpec{
-			Selector: metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"kubevirt.io": label,
-				},
-			},
-			Volumes: []k8sv1.Volume{
-				{
-					Name: volName,
-					VolumeSource: k8sv1.VolumeSource{
-						HostPath: &k8sv1.HostPathVolumeSource{
-							Path: srcPath,
-							Type: &hostPathType,
-						},
-					},
-				},
-			},
-			VolumeMounts: []k8sv1.VolumeMount{
-				{
-					Name:      volName,
-					MountPath: dstPath,
-				},
-			},
-		},
-	}
-
-	_, err = virtCli.SettingsV1alpha1().PodPresets(NamespaceTestDefault).Create(&podPreset)
-	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 }
@@ -4680,18 +4633,6 @@ func SkipNFSTestIfRunnigOnKindInfra() {
 func SkipSELinuxTestIfRunnigOnKindInfra() {
 	if IsRunningOnKindInfra() {
 		Skip("Skip SELinux tests till issue https://github.com/kubevirt/kubevirt/issues/3780 is fixed")
-	}
-}
-
-func SkipMigrationFailTestIfRunningOnKindInfraIPv6() {
-	if IsRunningOnKindInfraIPv6() {
-		Skip("Skip Migration fail test till issue https://github.com/kubevirt/kubevirt/issues/4086 is fixed")
-	}
-}
-
-func SkipDmidecodeTestIfRunningOnKindInfraIPv6() {
-	if IsRunningOnKindInfraIPv6() {
-		Skip("Skip dmidecode tests till issue https://github.com/kubevirt/kubevirt/issues/3901 is fixed")
 	}
 }
 
