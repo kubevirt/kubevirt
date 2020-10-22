@@ -4613,11 +4613,6 @@ func IsRunningOnKindInfra() bool {
 	return strings.HasPrefix(provider, "kind")
 }
 
-func IsRunningOnKindInfraIPv6() bool {
-	provider := os.Getenv("KUBEVIRT_PROVIDER")
-	return strings.HasPrefix(provider, "kind-k8s-1.17.0-ipv6")
-}
-
 func SkipPVCTestIfRunnigOnKindInfra() {
 	if IsRunningOnKindInfra() {
 		Skip("Skip PVC tests till PR https://github.com/kubevirt/kubevirt/pull/3171 is merged")
