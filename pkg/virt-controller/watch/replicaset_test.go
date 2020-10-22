@@ -513,11 +513,49 @@ var _ = Describe("Replicaset", func() {
 			vmiFeeder.Modify(modifiedVMI)
 
 			// Expect the re-crate of the VirtualMachineInstance
+			vmiInterface.EXPECT().Create(gomock.Any()).DoAndReturn(func(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error) {
+				return vmi, nil
+			})
 			vmiInterface.EXPECT().Delete(vmi.ObjectMeta.Name, gomock.Any()).Return(nil)
+			rsInterface.EXPECT().UpdateStatus(gomock.Any())
 
 			// Run the cleanFinishedVmis method
-			controller.cleanFinishedVmis(rs, []*v1.VirtualMachineInstance{modifiedVMI})
+			controller.Execute()
 
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+		})
+
+		It("should delete VirtualMachineIstance in unknown state", func() {
+			rs, vmi := DefaultReplicaSet(1)
+			rs.Status.Replicas = 1
+			rs.Status.ReadyReplicas = 1
+			vmi.Status.Phase = v1.Running
+			markAsReady(vmi)
+
+			addReplicaSet(rs)
+			vmiFeeder.Add(vmi)
+
+			// First make sure that we don't have to do anything
+			controller.Execute()
+
+			// Move one VirtualMachineInstance to a final state
+			modifiedVMI := vmi.DeepCopy()
+			modifiedVMI.ResourceVersion = "1"
+			markAsPodTerminating(modifiedVMI)
+			vmiFeeder.Modify(modifiedVMI)
+
+			// Expect the re-crate of the VirtualMachineInstance
+			vmiInterface.EXPECT().Create(gomock.Any()).DoAndReturn(func(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error) {
+				return vmi, nil
+			})
+			vmiInterface.EXPECT().Delete(vmi.ObjectMeta.Name, gomock.Any()).Return(nil)
+			rsInterface.EXPECT().UpdateStatus(gomock.Any())
+
+			// Run the cleanFinishedVmis method
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 		})
 
