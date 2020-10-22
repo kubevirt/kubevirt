@@ -37,6 +37,7 @@ import (
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -46,6 +47,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 const (
@@ -54,6 +56,7 @@ const (
 	ptpConfCRD             = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" }},{\"type\": \"tuning\"}]}"}}`
 	sriovConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 	sriovLinkEnableConfCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"link_state\": \"enable\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
+	macvtapNetworkConf     = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s", "annotations": {"k8s.v1.cni.cncf.io/resourceName": "macvtap.network.kubevirt.io/%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"type\": \"macvtap\"}"}}`
 )
 
 var _ = Describe("[Serial]Multus", func() {
@@ -458,9 +461,6 @@ var _ = Describe("[Serial]Multus", func() {
 		})
 
 		Context("VirtualMachineInstance with invalid MAC addres", func() {
-			BeforeEach(func() {
-				tests.BeforeTestCleanup()
-			})
 
 			It("[test_id:1713]should failed to start with invalid MAC address", func() {
 				By("Start VMI")
@@ -876,29 +876,162 @@ var _ = Describe("[Serial]SRIOV", func() {
 	})
 })
 
+var _ = Describe("[Serial]Macvtap", func() {
+	var err error
+	var virtClient kubecli.KubevirtClient
+	var macvtapLowerDevice string
+	var macvtapNetworkName string
+
+	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
+		macvtapLowerDevice = "eth0"
+		macvtapNetworkName = "net1"
+
+		// cleanup the environment
+		tests.BeforeTestCleanup()
+	})
+
+	BeforeEach(func() {
+		tests.EnableFeatureGate(virtconfig.MacvtapGate)
+	})
+
+	BeforeEach(func() {
+		result := virtClient.RestClient().
+			Post().
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, macvtapNetworkName)).
+			Body([]byte(fmt.Sprintf(macvtapNetworkConf, macvtapNetworkName, tests.NamespaceTestDefault, macvtapLowerDevice, macvtapNetworkName))).
+			Do()
+		Expect(result.Error()).NotTo(HaveOccurred(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
+	})
+
+	AfterEach(func() {
+		tests.DisableFeatureGate(virtconfig.MacvtapGate)
+	})
+
+	newCirrosVMIWithMacvtapNetwork := func(macvtapNetworkName string) *v1.VirtualMachineInstance {
+		macvtapMultusNetwork := libvmi.MultusNetwork(macvtapNetworkName)
+
+		return libvmi.NewCirros(
+			libvmi.WithInterface(*v1.DefaultMacvtapNetworkInterface(macvtapNetworkName)),
+			libvmi.WithNetwork(&macvtapMultusNetwork))
+	}
+
+	createCirrosVMIWithMacvtapDefinedMAC := func(virtClient kubecli.KubevirtClient, networkName string, mac string) *v1.VirtualMachineInstance {
+		vmi := newCirrosVMIWithMacvtapNetwork(networkName)
+		vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = mac
+
+		return tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 180, false)
+	}
+
+	createCirrosVMIWithMacvtapStaticIP := func(virtClient kubecli.KubevirtClient, nodeName string, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
+		vmi := newCirrosVMIWithMacvtapNetwork(networkName)
+		if mac != nil {
+			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = *mac
+		}
+		vmi = tests.WaitUntilVMIReady(
+			tests.StartVmOnNode(vmi, nodeName),
+			tests.LoggedInCirrosExpecter)
+		// configure the client VMI
+		configVMIInterfaceWithSudo(vmi, ifaceName, ipCIDR)
+		return vmi
+	}
+
+	Context("a virtual machine with one macvtap interface, with a custom MAC address", func() {
+		var serverVMI *v1.VirtualMachineInstance
+		var chosenMAC string
+		var serverCIDR string
+		var nodeList *k8sv1.NodeList
+		var nodeName string
+
+		BeforeEach(func() {
+			nodeList = tests.GetAllSchedulableNodes(virtClient)
+			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
+			nodeName = nodeList.Items[0].Name
+			chosenMAC = "de:ad:00:00:be:af"
+			serverCIDR = "192.0.2.102/24"
+
+			serverVMI = createCirrosVMIWithMacvtapStaticIP(virtClient, nodeName, macvtapNetworkName, "eth0", serverCIDR, &chosenMAC)
+		})
+
+		It("should have the specified MAC address reported back via the API", func() {
+			Expect(len(serverVMI.Status.Interfaces)).To(Equal(1), "should have a single interface")
+			Expect(serverVMI.Status.Interfaces[0].MAC).To(Equal(chosenMAC), "the expected MAC address should be set in the VMI")
+		})
+
+		Context("and another virtual machine connected to the same network", func() {
+			var clientVMI *v1.VirtualMachineInstance
+			BeforeEach(func() {
+				clientVMI = createCirrosVMIWithMacvtapStaticIP(virtClient, nodeName, macvtapNetworkName, "eth0", "192.0.2.101/24", nil)
+			})
+
+			It("can communicate with the virtual machine in the same network", func() {
+				Expect(libnet.PingFromVMConsole(clientVMI, cidrToIP(serverCIDR))).To(Succeed())
+			})
+		})
+	})
+
+	Context("VMI migration", func() {
+		var macvtapVMI *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			nodes := tests.GetAllSchedulableNodes(virtClient)
+			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
+
+			if len(nodes.Items) < 2 {
+				Skip("Migration tests require at least 2 nodes")
+			}
+
+			if !tests.HasLiveMigration() {
+				Skip("Migration tests require the 'LiveMigration' feature gate")
+			}
+		})
+
+		BeforeEach(func() {
+			macAddress := "02:03:04:05:06:07"
+			macvtapVMI = createCirrosVMIWithMacvtapDefinedMAC(virtClient, macvtapNetworkName, macAddress)
+		})
+
+		It("should be successful when the VMI MAC address is defined in its spec", func() {
+			By("starting the migration")
+			migration := tests.NewRandomMigration(macvtapVMI.GetName(), macvtapVMI.GetNamespace())
+			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, migrationWaitTime)
+
+			// check VMI, confirm migration state
+			tests.ConfirmVMIPostMigration(virtClient, macvtapVMI, migrationUID)
+		})
+	})
+})
+
 func cidrToIP(cidr string) string {
 	ip, _, err := net.ParseCIDR(cidr)
 	Expect(err).ToNot(HaveOccurred(), "Should be able to parse IP and prefix length from CIDR")
 	return ip.String()
 }
 
-func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAddress string) {
-	cmdCheck := fmt.Sprintf("ip addr add %s dev %s\n", interfaceAddress, interfaceName)
+func configVMIInterfaceWithSudo(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAddress string) {
+	configInterface(vmi, interfaceName, interfaceAddress, "sudo ")
+}
+
+func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAddress string, userModifierPrefix ...string) {
+	Expect(vmi).ToNot(BeNil(), "the VMI must exist for us to configure an interface in it")
+	setStaticIpCmd := fmt.Sprintf("%sip addr add %s dev %s\n", strings.Join(userModifierPrefix, " "), interfaceAddress, interfaceName)
 	err := console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: cmdCheck},
+		&expect.BSnd{S: setStaticIpCmd},
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
 	Expect(err).ToNot(HaveOccurred(), "Failed to configure address %s for interface %s on VMI %s", interfaceAddress, interfaceName, vmi.Name)
 
-	cmdCheck = fmt.Sprintf("ip link set %s up\n", interfaceName)
+	setIfaceUpCmd := fmt.Sprintf("ip link set %s up\n", interfaceName)
 	err = console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: cmdCheck},
+		&expect.BSnd{S: setIfaceUpCmd},
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: console.RetValue("0")},

@@ -9071,6 +9071,9 @@
       "description": "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
       "type": "string"
      },
+     "macvtap": {
+      "$ref": "#/definitions/v1.InterfaceMacvtap"
+     },
      "masquerade": {
       "$ref": "#/definitions/v1.InterfaceMasquerade"
      },
@@ -9106,6 +9109,9 @@
     }
    },
    "v1.InterfaceBridge": {
+    "type": "object"
+   },
+   "v1.InterfaceMacvtap": {
     "type": "object"
    },
    "v1.InterfaceMasquerade": {

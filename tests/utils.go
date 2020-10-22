@@ -1706,7 +1706,11 @@ func cleanNamespaces() {
 				}
 			}
 		}
-
+		// Remove all NetworkAttachmentDefinitions
+		nets, err := virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).List(metav1.ListOptions{})
+		for _, netDef := range nets.Items {
+			PanicOnError(virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Delete(netDef.GetName(), &metav1.DeleteOptions{}))
+		}
 	}
 }
 
@@ -3864,7 +3868,7 @@ func SkipIfOpenShift4(message string) {
 }
 
 // StartVmOnNode starts a VMI on the specified node
-func StartVmOnNode(vmi *v1.VirtualMachineInstance, nodeName string) {
+func StartVmOnNode(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualMachineInstance {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
@@ -3882,9 +3886,10 @@ func StartVmOnNode(vmi *v1.VirtualMachineInstance, nodeName string) {
 		},
 	}
 
-	_, err = virtClient.VirtualMachineInstance(NamespaceTestDefault).Create(vmi)
+	vmi, err = virtClient.VirtualMachineInstance(NamespaceTestDefault).Create(vmi)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	WaitForSuccessfulVMIStart(vmi)
+	return vmi
 }
 
 // RunCommandOnVmiPod runs specified command on the virt-launcher pod

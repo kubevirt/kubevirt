@@ -1082,6 +1082,7 @@ type InterfaceBindingMethod struct {
 	Slirp      *InterfaceSlirp      `json:"slirp,omitempty"`
 	Masquerade *InterfaceMasquerade `json:"masquerade,omitempty"`
 	SRIOV      *InterfaceSRIOV      `json:"sriov,omitempty"`
+	Macvtap    *InterfaceMacvtap    `json:"macvtap,omitempty"`
 }
 
 //
@@ -1099,6 +1100,10 @@ type InterfaceMasquerade struct{}
 //
 // +k8s:openapi-gen=true
 type InterfaceSRIOV struct{}
+
+//
+// +k8s:openapi-gen=true
+type InterfaceMacvtap struct{}
 
 // Port repesents a port to expose from the virtual machine.
 // Default protocol TCP.
