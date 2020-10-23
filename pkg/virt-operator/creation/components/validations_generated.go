@@ -267,7 +267,7 @@ var CRDsValidation map[string]string = map[string]string{
               description: DeveloperConfiguration holds developer options
               properties:
                 cpuAllocationRatio:
-                  type: number
+                  type: integer
                 featureGates:
                   items:
                     type: string
