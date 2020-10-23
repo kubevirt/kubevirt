@@ -264,7 +264,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking the read-only Image Octal mode")
-				Expect(strings.Trim(readonlyImageOctalMode, "\n")).To(Equal("444"), "Octal Mode of read-only Image should be 444")
+				Expect(strings.Trim(readonlyImageOctalMode, "\n")).To(Equal("440"), "Octal Mode of read-only Image should be 440")
 
 			})
 		})
