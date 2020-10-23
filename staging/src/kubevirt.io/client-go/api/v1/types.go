@@ -1478,31 +1478,31 @@ type SMBiosConfiguration struct {
 // +k8s:openapi-gen=true
 type MigrationConfiguration struct {
 	NodeDrainTaintKey                 *string            `json:"nodeDrainTaintKey,omitempty"`
-	ParallelOutboundMigrationsPerNode *uint32            `json:"parallelOutboundMigrationsPerNode,string,omitempty"`
-	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,string,omitempty"`
-	AllowAutoConverge                 *bool              `json:"allowAutoConverge,string,omitempty"`
+	ParallelOutboundMigrationsPerNode *uint32            `json:"parallelOutboundMigrationsPerNode,omitempty"`
+	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,omitempty"`
+	AllowAutoConverge                 *bool              `json:"allowAutoConverge,omitempty"`
 	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
-	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,string,omitempty"`
-	ProgressTimeout                   *int64             `json:"progressTimeout,string,omitempty"`
-	UnsafeMigrationOverride           *bool              `json:"unsafeMigrationOverride,string,omitempty"`
-	AllowPostCopy                     *bool              `json:"allowPostCopy,string,omitempty"`
+	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,omitempty"`
+	ProgressTimeout                   *int64             `json:"progressTimeout,omitempty"`
+	UnsafeMigrationOverride           *bool              `json:"unsafeMigrationOverride,omitempty"`
+	AllowPostCopy                     *bool              `json:"allowPostCopy,omitempty"`
 }
 
 // DeveloperConfiguration holds developer options
 // +k8s:openapi-gen=true
 type DeveloperConfiguration struct {
 	FeatureGates           []string          `json:"featureGates,omitempty"`
-	LessPVCSpaceToleration int               `json:"pvcTolerateLessSpaceUpToPercent,string,omitempty"`
-	MemoryOvercommit       int               `json:"memoryOvercommit,string,omitempty"`
+	LessPVCSpaceToleration int               `json:"pvcTolerateLessSpaceUpToPercent,omitempty"`
+	MemoryOvercommit       int               `json:"memoryOvercommit,omitempty"`
 	NodeSelectors          map[string]string `json:"nodeSelectors,omitempty"`
-	UseEmulation           bool              `json:"useEmulation,string,omitempty"`
-	CPUAllocationRatio     float64           `json:"cpuAllocationRatio,string,omitempty"`
+	UseEmulation           bool              `json:"useEmulation,omitempty"`
+	CPUAllocationRatio     int               `json:"cpuAllocationRatio,omitempty"`
 }
 
 // NetworkConfiguration holds network options
 // +k8s:openapi-gen=true
 type NetworkConfiguration struct {
 	NetworkInterface                  string `json:"defaultNetworkInterface,omitempty"`
-	PermitSlirpInterface              *bool  `json:"permitSlirpInterface,string,omitempty"`
-	PermitBridgeInterfaceOnPodNetwork *bool  `json:"permitBridgeInterfaceOnPodNetwork,string,omitempty"`
+	PermitSlirpInterface              *bool  `json:"permitSlirpInterface,omitempty"`
+	PermitBridgeInterfaceOnPodNetwork *bool  `json:"permitBridgeInterfaceOnPodNetwork,omitempty"`
 }

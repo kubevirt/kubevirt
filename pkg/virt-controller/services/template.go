@@ -643,7 +643,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 		cpuAllocationRatio := t.clusterConfig.GetCPUAllocationRatio()
 		if vcpus != 0 && cpuAllocationRatio > 0 {
-			val := float64(vcpus) / cpuAllocationRatio
+			val := float64(vcpus) / float64(cpuAllocationRatio)
 			vcpusStr := fmt.Sprintf("%g", val)
 			if val < 0 {
 				val *= 1000
