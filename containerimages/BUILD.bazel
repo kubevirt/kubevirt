@@ -1,4 +1,16 @@
 load("@io_bazel_rules_docker//container:container.bzl", "container_image")
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
+pkg_tar(
+    name = "alpine-image-tar",
+    srcs = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@alpine_image_ppc64le//file"],
+        "//conditions:default": ["@alpine_image//file"],
+    }),
+    mode = "440",
+    owner = "107.107",
+    package_dir = "/disk",
+)
 
 container_image(
     name = "alpine-container-disk-image",
@@ -6,13 +18,19 @@ container_image(
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
         "//conditions:default": "amd64",
     }),
-    directory = "/disk",
-    files = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@alpine_image_ppc64le//file"],
-        "//conditions:default": ["@alpine_image//file"],
-    }),
-    mode = "444",
+    tars = [":alpine-image-tar"],
     visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "cirros-image-tar",
+    srcs = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@cirros_image_ppc64le//file"],
+        "//conditions:default": ["@cirros_image//file"],
+    }),
+    mode = "440",
+    owner = "107.107",
+    package_dir = "/disk",
 )
 
 container_image(
@@ -21,13 +39,19 @@ container_image(
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
         "//conditions:default": "amd64",
     }),
-    directory = "/disk",
-    files = select({
+    tars = [":cirros-image-tar"],
+    visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "cirros-custom-image-tar",
+    srcs = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@cirros_image_ppc64le//file"],
         "//conditions:default": ["@cirros_image//file"],
     }),
-    mode = "444",
-    visibility = ["//visibility:public"],
+    mode = "440",
+    owner = "107.107",
+    package_dir = "/custom-disk",
 )
 
 # used for e2e testing of custom base baths
@@ -37,13 +61,19 @@ container_image(
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
         "//conditions:default": "amd64",
     }),
-    directory = "/custom-disk",
-    files = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@cirros_image_ppc64le//file"],
-        "//conditions:default": ["@cirros_image//file"],
-    }),
-    mode = "444",
+    tars = [":cirros-custom-image-tar"],
     visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "fedora-cloud-image-tar",
+    srcs = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@fedora_image_ppc64le//file"],
+        "//conditions:default": ["@fedora_image//file"],
+    }),
+    mode = "440",
+    owner = "107.107",
+    package_dir = "/disk",
 )
 
 container_image(
@@ -52,24 +82,33 @@ container_image(
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
         "//conditions:default": "amd64",
     }),
-    directory = "/disk",
-    files = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@fedora_image_ppc64le//file"],
-        "//conditions:default": ["@fedora_image//file"],
-    }),
-    mode = "444",
+    tars = [":fedora-cloud-image-tar"],
     visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "microlivecd-image-tar",
+    srcs = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@microlivecd_image_ppc64le//file"],
+        "//conditions:default": ["@microlivecd_image//file"],
+    }),
+    mode = "440",
+    owner = "107.107",
+    package_dir = "/disk",
 )
 
 container_image(
     name = "microlivecd-container-disk-image",
-    directory = "/disk",
-    files = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@microlivecd_image_ppc64le//file"],
-        "//conditions:default": ["@microlivecd_image//file"],
-    }),
-    mode = "444",
+    tars = [":microlivecd-image-tar"],
     visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "virtio-image-tar",
+    srcs = ["@virtio_win_image//file"],
+    mode = "440",
+    owner = "107.107",
+    package_dir = "/disk",
 )
 
 container_image(
@@ -78,9 +117,7 @@ container_image(
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
         "//conditions:default": "amd64",
     }),
-    directory = "/disk",
-    files = ["@virtio_win_image//file"],
-    mode = "444",
+    tars = [":virtio-image-tar"],
     visibility = ["//visibility:public"],
 )
 
