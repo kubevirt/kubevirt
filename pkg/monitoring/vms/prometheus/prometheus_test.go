@@ -101,12 +101,12 @@ var _ = Describe("Prometheus", func() {
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
-			dto := &io_prometheus_client.Metric{}
-			result.Write(dto)
+			metric := &io_prometheus_client.Metric{}
+			result.Write(metric)
 
 			Expect(result).ToNot(BeNil())
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_available_bytes"))
-			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
+			Expect(metric.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
 		It("should send unused memory", func() {
@@ -126,12 +126,13 @@ var _ = Describe("Prometheus", func() {
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
-			dto := &io_prometheus_client.Metric{}
-			result.Write(dto)
+			metric := &io_prometheus_client.Metric{}
+			result.Write(metric)
 
 			Expect(result).ToNot(BeNil())
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_unused_bytes"))
-			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
+			// Assert conversion from KiB to bytes
+			Expect(metric.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
 		It("should handle swapin", func() {
@@ -151,12 +152,12 @@ var _ = Describe("Prometheus", func() {
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
-			dto := &io_prometheus_client.Metric{}
-			result.Write(dto)
+			metric := &io_prometheus_client.Metric{}
+			result.Write(metric)
 
 			Expect(result).ToNot(BeNil())
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_swap_traffic_bytes_total"))
-			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
+			Expect(metric.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
 		It("should handle swapout", func() {
@@ -176,12 +177,12 @@ var _ = Describe("Prometheus", func() {
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
-			dto := &io_prometheus_client.Metric{}
-			result.Write(dto)
+			metric := &io_prometheus_client.Metric{}
+			result.Write(metric)
 
 			Expect(result).ToNot(BeNil())
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_swap_traffic_bytes_total"))
-			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
+			Expect(metric.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
 		It("should handle vcpu metrics", func() {
@@ -444,7 +445,7 @@ var _ = Describe("Prometheus", func() {
 						NameSet:    true,
 						Name:       "vda",
 						RdTimesSet: true,
-						RdTimes:    1000,
+						RdTimes:    1000000000,
 					},
 				},
 			}
@@ -453,8 +454,13 @@ var _ = Describe("Prometheus", func() {
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
+			metric := &io_prometheus_client.Metric{}
+			result.Write(metric)
+
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_times_ms_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_times_seconds_total"))
+			// Assert conversion from nanoseconds to seconds
+			Expect(metric.Counter.GetValue()).To(BeEquivalentTo(float64(1)))
 		})
 
 		It("should handle block write time metrics", func() {
@@ -471,7 +477,7 @@ var _ = Describe("Prometheus", func() {
 						NameSet:    true,
 						Name:       "vda",
 						WrTimesSet: true,
-						WrTimes:    1000,
+						WrTimes:    1000000000,
 					},
 				},
 			}
@@ -480,8 +486,13 @@ var _ = Describe("Prometheus", func() {
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
+			metric := &io_prometheus_client.Metric{}
+			result.Write(metric)
+
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_times_ms_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_times_seconds_total"))
+			// Assert conversion from nanoseconds to seconds
+			Expect(metric.Counter.GetValue()).To(BeEquivalentTo(float64(1)))
 		})
 
 		It("should not expose nameless block metrics", func() {
@@ -692,7 +703,7 @@ var _ = Describe("Prometheus", func() {
 			Eventually(ch).Should(BeEmpty())
 		})
 
-		It("should add kubernetes metadata labels", func() {
+		It("should expose kubernetes metadata labels", func() {
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
 

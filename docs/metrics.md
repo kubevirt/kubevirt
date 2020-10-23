@@ -90,8 +90,8 @@ Extra labels:
 * `drive` - Disk device that is being written/read.
 * `type` - Whether it's a read or write operation.
 
-#### kubevirt_vmi_storage_times_ms_total
-#### HELP kubevirt_vmi_storage_times_ms_total storage operation time.
+#### kubevirt_vmi_storage_times_seconds_total
+#### HELP kubevirt_vmi_storage_times_seconds_total storage operation time.
 
 Total time spent on read and write operations per disk device.
 

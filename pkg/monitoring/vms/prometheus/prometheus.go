@@ -46,7 +46,7 @@ var (
 	// Formatter used to sanitize k8s metadata into metric labels
 	labelFormatter = strings.NewReplacer(".", "_", "/", "_", "-", "_")
 
-	// Preffixes used when transforming K8s metadata into metric labels
+	// Prefixes used when transforming K8s metadata into metric labels
 	labelPrefix = "kubernetes_vmi_label_"
 
 	// see https://www.robustperception.io/exposing-the-software-version-to-prometheus
@@ -316,7 +316,7 @@ func (metrics *vmiMetrics) updateBlock(vmStats *stats.DomainStats) {
 			storageTimesLabels := []string{"node", "namespace", "name", "drive", "type"}
 			storageTimesLabels = append(storageTimesLabels, metrics.k8sLabels...)
 			storageTimesDesc := prometheus.NewDesc(
-				"kubevirt_vmi_storage_times_ms_total",
+				"kubevirt_vmi_storage_times_seconds_total",
 				"storage operation time.",
 				storageTimesLabels,
 				nil,
@@ -328,7 +328,10 @@ func (metrics *vmiMetrics) updateBlock(vmStats *stats.DomainStats) {
 
 				mv, err := prometheus.NewConstMetric(
 					storageTimesDesc, prometheus.CounterValue,
-					float64(block.RdTimes),
+					// Transform from nanoseconds to seconds
+					// See: https://libvirt.org/html/libvirt-libvirt-domain.html#VIR_DOMAIN_STATS_BLOCK
+					// "block.<num>.rd.times" - total time (ns) spent on reads as unsigned long long.
+					float64(block.RdTimes)/1000000000,
 					storageTimesReadLabelValues...,
 				)
 				tryToPushMetric(storageTimesDesc, mv, err, metrics.ch)
@@ -339,7 +342,10 @@ func (metrics *vmiMetrics) updateBlock(vmStats *stats.DomainStats) {
 
 				mv, err := prometheus.NewConstMetric(
 					storageTimesDesc, prometheus.CounterValue,
-					float64(block.WrTimes),
+					// Transform from nanoseconds to seconds
+					// See: https://libvirt.org/html/libvirt-libvirt-domain.html#VIR_DOMAIN_STATS_BLOCK
+					// "block.<num>.wr.times" - total time (ns) spent on writes as unsigned long long.
+					float64(block.WrTimes)/1000000000,
 					storageTimesWriteLabelValues...,
 				)
 				tryToPushMetric(storageTimesDesc, mv, err, metrics.ch)
