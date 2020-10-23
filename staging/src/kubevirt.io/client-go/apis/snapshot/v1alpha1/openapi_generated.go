@@ -14091,14 +14091,14 @@ func schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref common.Refere
 					},
 					"pvcTolerateLessSpaceUpToPercent": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Type:   []string{"integer"},
+							Format: "int32",
 						},
 					},
 					"memoryOvercommit": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Type:   []string{"integer"},
+							Format: "int32",
 						},
 					},
 					"nodeSelectors": {
@@ -14117,14 +14117,14 @@ func schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref common.Refere
 					},
 					"useEmulation": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},
 					"cpuAllocationRatio": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Type:   []string{"integer"},
+							Format: "int32",
 						},
 					},
 				},
@@ -15869,19 +15869,19 @@ func schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref common.Refere
 					},
 					"parallelOutboundMigrationsPerNode": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Type:   []string{"integer"},
+							Format: "int64",
 						},
 					},
 					"parallelMigrationsPerCluster": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Type:   []string{"integer"},
+							Format: "int64",
 						},
 					},
 					"allowAutoConverge": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},
@@ -15892,25 +15892,25 @@ func schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref common.Refere
 					},
 					"completionTimeoutPerGiB": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Type:   []string{"integer"},
+							Format: "int64",
 						},
 					},
 					"progressTimeout": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Type:   []string{"integer"},
+							Format: "int64",
 						},
 					},
 					"unsafeMigrationOverride": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},
 					"allowPostCopy": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},
@@ -15998,13 +15998,13 @@ func schema_kubevirtio_client_go_api_v1_NetworkConfiguration(ref common.Referenc
 					},
 					"permitSlirpInterface": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},
 					"permitBridgeInterfaceOnPodNetwork": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},
