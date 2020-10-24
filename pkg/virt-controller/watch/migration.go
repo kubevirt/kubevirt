@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/monitoring/migrations/prometheus"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -60,6 +61,7 @@ type MigrationController struct {
 	migrationStartLock *sync.Mutex
 	clusterConfig      *virtconfig.ClusterConfig
 	statusUpdater      *status.MigrationStatusUpdater
+	migrationMetrics   *prometheus.MigrationMetrics
 }
 
 func NewMigrationController(templateService services.TemplateService,
@@ -69,6 +71,7 @@ func NewMigrationController(templateService services.TemplateService,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
+	migrationMetrics *prometheus.MigrationMetrics,
 ) *MigrationController {
 
 	c := &MigrationController{
@@ -83,6 +86,7 @@ func NewMigrationController(templateService services.TemplateService,
 		migrationStartLock: &sync.Mutex{},
 		clusterConfig:      clusterConfig,
 		statusUpdater:      status.NewMigrationStatusUpdater(clientset),
+		migrationMetrics:   migrationMetrics,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -330,7 +334,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 				// in progress for this VMI.
 				migrationCopy.Status.Phase = virtv1.MigrationFailed
 				c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "VMI is not eligible for migration because another migration job is in progress.")
-				log.Log.Object(migration).Error("Migration object ont eligible for migration because another job is in progress")
+				log.Log.Object(migration).Error("Migration object not eligible for migration because another job is in progress")
 			}
 		case virtv1.MigrationPending:
 			if podExists {
@@ -365,6 +369,11 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		err := c.statusUpdater.UpdateStatus(migrationCopy)
 		if err != nil {
 			return err
+		}
+
+		// Observe migration duration if migration changed to a final state
+		if migrationCopy.IsFinal() {
+			c.tryToObserveMigrationDuration(migrationCopy, vmi)
 		}
 	} else if !reflect.DeepEqual(migration.Finalizers, migrationCopy.Finalizers) {
 		_, err := c.clientset.VirtualMachineInstanceMigration(migrationCopy.Namespace).Update(migrationCopy)
@@ -883,4 +892,25 @@ func (c *MigrationController) findRunningMigrations() ([]*virtv1.VirtualMachineI
 		}
 	}
 	return runningMigrations, nil
+}
+
+// tryToObserveMigrationDuration add the new sample to the histogram
+func (c *MigrationController) tryToObserveMigrationDuration(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) {
+	// VMIs can be at a final state without EndTimestamp
+	// Endtimestamp is needed to calculate the duration though
+	if vmi.Status.MigrationState.EndTimestamp != nil {
+		timeSpent := vmi.Status.MigrationState.EndTimestamp.Time.Sub(vmi.Status.MigrationState.StartTimestamp.Time)
+		c.migrationMetrics.ObserveMigrationDuration(
+			float64(timeSpent/time.Second),
+			vmi.Status.MigrationState.TargetNode,
+			vmi.Status.MigrationState.SourceNode,
+			vmi.Name,
+			vmi.Namespace,
+			string(migration.Status.Phase),
+		)
+
+		log.Log.Infof("Migration duration observed: VirtualMachineInstance: %v. VirtualMachineInstanceMigration: %v. Migration duration: %v seconds.",
+			vmi.GetName(), migration.GetName(), timeSpent,
+		)
+	}
 }

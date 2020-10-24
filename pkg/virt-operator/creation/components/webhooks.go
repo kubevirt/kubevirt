@@ -47,7 +47,8 @@ func NewOperatorWebhookService(operatorNamespace string) *corev1.Service {
 func NewOpertorValidatingWebhookConfiguration(operatorNamespace string) *v1beta1.ValidatingWebhookConfiguration {
 	failurePolicy := v1beta1.Fail
 	sideEffectNone := v1beta1.SideEffectClassNone
-	path := "/kubevirt-validate-delete"
+	kubevirtDeletionPath := "/kubevirt-validate-delete"
+	kubevirtMutationPath := "/kubevirt-validate-mutate"
 
 	return &v1beta1.ValidatingWebhookConfiguration{
 		TypeMeta: metav1.TypeMeta{
@@ -70,12 +71,35 @@ func NewOpertorValidatingWebhookConfiguration(operatorNamespace string) *v1beta1
 					Service: &v1beta1.ServiceReference{
 						Namespace: operatorNamespace,
 						Name:      VirtOperatorServiceName,
-						Path:      &path,
+						Path:      &kubevirtDeletionPath,
 					},
 				},
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Delete,
+					},
+					Rule: v1beta1.Rule{
+						APIGroups:   []string{virtv1.GroupName},
+						APIVersions: virtv1.ApiSupportedWebhookVersions,
+						Resources:   []string{"kubevirts"},
+					},
+				}},
+				FailurePolicy: &failurePolicy,
+				SideEffects:   &sideEffectNone,
+			},
+			{
+				Name: "kubevirt-mutation-validator.kubevirt.io",
+				ClientConfig: v1beta1.WebhookClientConfig{
+					Service: &v1beta1.ServiceReference{
+						Namespace: operatorNamespace,
+						Name:      VirtOperatorServiceName,
+						Path:      &kubevirtMutationPath,
+					},
+				},
+				Rules: []v1beta1.RuleWithOperations{{
+					Operations: []v1beta1.OperationType{
+						v1beta1.Create,
+						v1beta1.Update,
 					},
 					Rule: v1beta1.Rule{
 						APIGroups:   []string{virtv1.GroupName},
@@ -496,3 +520,5 @@ const VMRestoreValidatePath = "/virtualmachinerestores-validate"
 const StatusValidatePath = "/status-validate"
 
 const LauncherEvictionValidatePath = "/launcher-eviction-validate"
+
+const KubevirtMutationValidatingWebhookName = "kubevirt-validator"

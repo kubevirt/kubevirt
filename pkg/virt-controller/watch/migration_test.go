@@ -37,10 +37,13 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
+	k6tv1 "kubevirt.io/client-go/api/v1"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	m7nmetrics "kubevirt.io/kubevirt/pkg/monitoring/migrations/prometheus"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
@@ -171,6 +174,13 @@ var _ = Describe("Migration watcher", func() {
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
+		migrationMetricsConfig := &k6tv1.HistogramsConfig{
+			DurationHistogram: &k6tv1.HistogramMetric{
+				BucketValues: DefaultDurationBuckets,
+			},
+		}
+		migrationMetrics := m7nmetrics.NewMigrationMetrics(migrationMetricsConfig)
+
 		controller = NewMigrationController(
 			services.NewTemplateService("a", "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid),
 			vmiInformer,
@@ -179,6 +189,7 @@ var _ = Describe("Migration watcher", func() {
 			recorder,
 			virtClient,
 			config,
+			migrationMetrics,
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
