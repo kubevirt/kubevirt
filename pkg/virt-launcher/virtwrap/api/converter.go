@@ -33,6 +33,9 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"encoding/json"
+	"os/exec"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
@@ -194,47 +197,46 @@ func SetDriverCacheMode(disk *Disk) error {
 	return nil
 }
 
-func isPreAllocated(path string) (bool, error) {
-	var statT syscall.Stat_t
+func isPreAllocated(path string) bool {
 
-	err := syscall.Stat(path, &statT)
+	preAlloc := false
+	diskInf, err := xxGetImageInfo(path)
 	if err != nil {
-		return false, err
+		return false
 	}
-	log.Log.Infof("XXXXX Blksize=%d Blocks=%d Size=%d diff=%d", statT.Blksize, statT.Blocks, statT.Size, (statT.Blksize*statT.Blocks)-statT.Size)
-	if ((statT.Blksize * statT.Blocks) - statT.Size) < 0 {
-		return false, nil
+	if diskInf.VirtualSize > (1024 * diskInf.ActualSize) {
+		preAlloc = true
 	}
-	return true, nil
+	log.Log.Infof("XXXXX VirtualSize=%d ActualSize=%d", diskInf.VirtualSize, 1024*diskInf.ActualSize)
+	return preAlloc
 }
 
 func SetOptimalIOMode(disk *Disk) error {
 	var path string
 
-	mode := v1.DriverCache(disk.Driver.Cache)
-	if mode != v1.CacheNone {
-		// For io=native we need to have cache 'none'
+	// If the user explicitly set the io mmode do nothing
+	if v1.DriverIO(disk.Driver.IO) != "" {
 		return nil
 	}
+
 	if disk.Source.File != "" {
 		path = disk.Source.File
 	} else if disk.Source.Dev != "" {
 		path = disk.Source.Dev
 	} else {
-		return fmt.Errorf("Unable to set a driver io mode, disk is neither a block device nor a file")
+		return nil
 	}
 
-	ioMode := v1.DriverIO(disk.Driver.IO)
-	allocated, err := isPreAllocated(path)
-
-	// Change the io mode only if we explicitly know the pre-allocation status
-	if ioMode == "" && (err == nil) {
-		if allocated {
+	// O_DIRECT is needed for io="native"
+	if v1.DriverCache(disk.Driver.Cache) == v1.CacheNone {
+		// set native for block device or pre-allocateed image file
+		if (disk.Source.Dev != "") || isPreAllocated(disk.Source.File) {
 			disk.Driver.IO = string(v1.IONative)
-		} else {
-			disk.Driver.IO = string(v1.IOThreads)
 		}
-		log.Log.Infof("Driver IO mode for %s set to %s", path, string(v1.IONative))
+	}
+
+	if v1.DriverIO(disk.Driver.IO) != "" {
+		log.Log.Infof("Driver IO mode for %s set to %s", path, disk.Driver.IO)
 	}
 	return nil
 }
@@ -1797,4 +1799,21 @@ func createHostDevicesFromMdevUUIDList(mdevUuidList []string) ([]HostDevice, err
 	}
 
 	return hds, nil
+}
+
+func xxGetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
+
+	out, err := exec.Command(
+		"/usr/bin/qemu-img", "info", imagePath, "--output", "json",
+	).Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to invoke qemu-img: %v", err)
+	}
+	info := &containerdisk.DiskInfo{}
+	err = json.Unmarshal(out, info)
+	log.Log.Infof("XXXX out:%#v", info)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse disk info: %v", err)
+	}
+	return info, err
 }
