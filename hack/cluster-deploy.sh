@@ -32,6 +32,40 @@ function dump_kubevirt() {
     fi
 }
 
+function _deploy_infra_for_tests() {
+    # Remove cdi manifests for sriov-lane until kubevirt/kubevirt#4120 is fixed
+    if [[ "$KUBEVIRT_PROVIDER" =~ sriov.* ]]; then
+        rm -f ${MANIFESTS_OUT_DIR}/testing/cdi-*
+    fi
+
+    # Deploy infra for testing first
+    _kubectl create -f ${MANIFESTS_OUT_DIR}/testing
+}
+
+function _ensure_cdi_deployment() {
+    # Do not deploy any cdi-operator related objects on
+    # sriov-lane until kubevirt/kubevirt#4120 is fixed
+    if [[ ! "$KUBEVIRT_PROVIDER" =~ sriov.* ]]; then
+        _kubectl apply -f - <<EOF
+---
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: CDI
+metadata:
+  name: ${cdi_namespace}
+spec: {}
+EOF
+
+        # Ensure that cdi insecure registries are set
+        count=0
+        until _kubectl get configmap -n ${cdi_namespace} cdi-insecure-registries; do
+            ((count++)) && ((count == 30)) && echo "cdi-insecure-registries config-map not found" && exit 1
+            echo "waiting for cdi-insecure-registries configmap to be created"
+            sleep 1
+        done
+        _kubectl patch configmap cdi-insecure-registries -n $cdi_namespace --type merge -p '{"data":{"dev-registry": "registry:5000"}}'
+    fi
+}
+
 trap dump_kubevirt EXIT
 
 echo "Deploying ..."
@@ -60,34 +94,9 @@ if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" ]]; then
     done
 fi
 
-# Remove cdi manifests for sriov-lane until kubevirt/kubevirt#3850 is fixed
-if [[ "$KUBEVIRT_PROVIDER" =~ sriov.* ]]; then
-    rm -f ${MANIFESTS_OUT_DIR}/testing/cdi-*
-fi
+_deploy_infra_for_tests
 
-# Deploy infra for testing first
-_kubectl create -f ${MANIFESTS_OUT_DIR}/testing
-
-# Do not deploy cdi-operator for sriov-lane until kubevirt/kubevirt#3850 is fixed
-if [[ ! "$KUBEVIRT_PROVIDER" =~ sriov.* ]]; then
-    _kubectl apply -f - <<EOF
----
-apiVersion: cdi.kubevirt.io/v1beta1
-kind: CDI
-metadata:
-  name: cdi
-spec: {}
-EOF
-fi
-
-# Ensure the cdi insecure registeries is set
-count=0
-until _kubectl get configmap -n ${cdi_namespace} cdi-insecure-registries; do
-    ((count++)) && ((count == 30)) && echo "cdi-insecure-registries config-map not found" && exit 1
-    echo "waiting for cdi-insecure-registries configmap to be created"
-    sleep 1
-done
-_kubectl patch configmap cdi-insecure-registries -n $cdi_namespace --type merge -p '{"data":{"dev-registry": "registry:5000"}}'
+_ensure_cdi_deployment
 
 # Deploy kubevirt operator
 _kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
