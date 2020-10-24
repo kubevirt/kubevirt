@@ -258,14 +258,14 @@ func SetDriverCacheMode(disk *Disk) error {
 func isPreAllocated(path string) bool {
 
 	preAlloc := false
-	diskInf, err := xxGetImageInfo(path)
+	diskInf, err := GetImageInfo(path)
 	if err != nil {
 		return false
 	}
-	if diskInf.VirtualSize > (1024 * diskInf.ActualSize) {
+	if diskInf.VirtualSize > diskInf.ActualSize {
 		preAlloc = true
 	}
-	log.Log.Infof("XXXXX VirtualSize=%d ActualSize=%d", diskInf.VirtualSize, 1024*diskInf.ActualSize)
+	log.Log.Infof("XXXXX VirtualSize=%d ActualSize=%d", diskInf.VirtualSize, diskInf.ActualSize)
 	return preAlloc
 }
 
@@ -1911,7 +1911,7 @@ func createHostDevicesFromMdevUUIDList(mdevUuidList []string) ([]HostDevice, err
 	return hds, nil
 }
 
-func xxGetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
+func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
 
 	out, err := exec.Command(
 		"/usr/bin/qemu-img", "info", imagePath, "--output", "json",
@@ -1921,7 +1921,6 @@ func xxGetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
 	}
 	info := &containerdisk.DiskInfo{}
 	err = json.Unmarshal(out, info)
-	log.Log.Infof("XXXX out:%#v", info)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse disk info: %v", err)
 	}
