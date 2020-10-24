@@ -12,7 +12,7 @@ require (
 	github.com/imdario/mergo v0.3.9
 	github.com/kubevirt/cluster-network-addons-operator v0.42.2
 	github.com/kubevirt/kubevirt-ssp-operator v1.2.1
-	github.com/kubevirt/vm-import-operator v0.2.4
+	github.com/kubevirt/vm-import-operator v0.2.5
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.3
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
