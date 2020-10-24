@@ -20,8 +20,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
-
-	conditions "github.com/openshift/custom-resource-status/conditions/v1"
 )
 
 // DataVolume is an abstraction on top of PersistentVolumeClaims to allow easy population of those PersistentVolumeClaims with relation to VirtualMachines
@@ -288,16 +286,7 @@ type CDIPhase string
 
 // CDIStatus defines the status of the installation
 type CDIStatus struct {
-	// Phase is the current phase of the deployment
-	Phase CDIPhase `json:"phase,omitempty"`
-	// A list of current conditions of the resource
-	Conditions []conditions.Condition `json:"conditions,omitempty" optional:"true"`
-	// The version of the resource as defined by the operator
-	OperatorVersion string `json:"operatorVersion,omitempty" optional:"true"`
-	// The desired version of the resource
-	TargetVersion string `json:"targetVersion,omitempty" optional:"true"`
-	// The observed version of the resource
-	ObservedVersion string `json:"observedVersion,omitempty" optional:"true"`
+	sdkapi.Status `json:",inline"`
 }
 
 const (

@@ -8,7 +8,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:0d5d8fe37c8174d93a0de46894e49c576f1cab4e8e53f276e16db012cc4cc4a6
-    createdAt: "2020-10-22 17:05:55"
+    createdAt: "2020-10-23 08:58:25"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -1720,7 +1720,7 @@ spec:
                 - name: KUBEVIRT_VERSION
                   value: v0.34.0
                 - name: CDI_VERSION
-                  value: v1.24.2
+                  value: v1.25.0
                 - name: NETWORK_ADDONS_VERSION
                   value: v0.42.2
                 - name: SSP_VERSION
@@ -1988,24 +1988,24 @@ spec:
                 - name: DEPLOY_CLUSTER_RESOURCES
                   value: "true"
                 - name: OPERATOR_VERSION
-                  value: v1.24.2
+                  value: v1.25.0
                 - name: CONTROLLER_IMAGE
-                  value: docker.io/kubevirt/cdi-controller@sha256:c450ac859e6fad31e469ea9e943cb184c64950bb64b6c08d8a2ea40f2dc2c536
+                  value: docker.io/kubevirt/cdi-controller@sha256:34b7d03ffec9b84ba2e51163367898566acd6c283f489d5e8213670ab8cc719a
                 - name: IMPORTER_IMAGE
-                  value: docker.io/kubevirt/cdi-importer@sha256:d805a714fad3fbc7cf24ecb40f3f3e827c52dde45843ceedb8524430e3330222
+                  value: docker.io/kubevirt/cdi-importer@sha256:60e45465ff001060568956c62fd16e1369f7e3eb1a03ef10c8a30caca5b9e6d7
                 - name: CLONER_IMAGE
-                  value: docker.io/kubevirt/cdi-cloner@sha256:a40bcb3b3ecb7f7b82ff90bce38345acfcd9be5262ace6eeec2616f43dc6db6c
+                  value: docker.io/kubevirt/cdi-cloner@sha256:07526b6e857141fe6dee2bc1030aaea3be8a5ee84d92d8bf0cedc80083756148
                 - name: APISERVER_IMAGE
-                  value: docker.io/kubevirt/cdi-apiserver@sha256:8860282ec67a1199fa790e33563c796b2411a37d6b247cd7c675b8bce3780c5a
+                  value: docker.io/kubevirt/cdi-apiserver@sha256:d3f930e7d95a618d3248b158ca4b43e93b7046251e92211bc0601a92df5873d0
                 - name: UPLOAD_SERVER_IMAGE
-                  value: docker.io/kubevirt/cdi-uploadserver@sha256:0b905d7ffb01e022246c179fdce96b42376e4910c9538125d02fdb7d04655fb4
+                  value: docker.io/kubevirt/cdi-uploadserver@sha256:a7fee7110aff08cc73ead74bf95fb27fa8fddca11b7c113d7760ba4fa9377217
                 - name: UPLOAD_PROXY_IMAGE
-                  value: docker.io/kubevirt/cdi-uploadproxy@sha256:d3bb76c8cd6a57c9ff1199f7a57c455949b399f94a5ff255200cfcf606886717
+                  value: docker.io/kubevirt/cdi-uploadproxy@sha256:060781e0ad6fcce19eca414503a5b187f75581d709a2d94e83204da250a50040
                 - name: VERBOSITY
                   value: "1"
                 - name: PULL_POLICY
                   value: IfNotPresent
-                image: docker.io/kubevirt/cdi-operator@sha256:fdbde6a16c2e771352924d95f60470eec1fac0e4f9f9e2f3144b3745b30bed98
+                image: docker.io/kubevirt/cdi-operator@sha256:d3ef43e7bf332668d6e2a6a3ddf657ef7c96841dfba6c56043e4199641c148e3
                 imagePullPolicy: IfNotPresent
                 name: cdi-operator
                 ports:
@@ -2013,9 +2013,14 @@ spec:
                   name: metrics
                   protocol: TCP
                 resources: {}
+              nodeSelector:
+                kubernetes.io/os: linux
               securityContext:
                 runAsNonRoot: true
               serviceAccountName: cdi-operator
+              tolerations:
+              - key: CriticalAddonsOnly
+                operator: Exists
       - name: node-maintenance-operator
         spec:
           replicas: 1
@@ -2296,19 +2301,19 @@ spec:
   relatedImages:
   - image: quay.io/kubevirt/bridge-marker@sha256:e55f73526468fee46a35ae41aa860f492d208b8a7a132832c5b9a76d4a51566a
     name: bridge-marker
-  - image: docker.io/kubevirt/cdi-apiserver@sha256:8860282ec67a1199fa790e33563c796b2411a37d6b247cd7c675b8bce3780c5a
+  - image: docker.io/kubevirt/cdi-apiserver@sha256:d3f930e7d95a618d3248b158ca4b43e93b7046251e92211bc0601a92df5873d0
     name: cdi-apiserver
-  - image: docker.io/kubevirt/cdi-cloner@sha256:a40bcb3b3ecb7f7b82ff90bce38345acfcd9be5262ace6eeec2616f43dc6db6c
+  - image: docker.io/kubevirt/cdi-cloner@sha256:07526b6e857141fe6dee2bc1030aaea3be8a5ee84d92d8bf0cedc80083756148
     name: cdi-cloner
-  - image: docker.io/kubevirt/cdi-controller@sha256:c450ac859e6fad31e469ea9e943cb184c64950bb64b6c08d8a2ea40f2dc2c536
+  - image: docker.io/kubevirt/cdi-controller@sha256:34b7d03ffec9b84ba2e51163367898566acd6c283f489d5e8213670ab8cc719a
     name: cdi-controller
-  - image: docker.io/kubevirt/cdi-importer@sha256:d805a714fad3fbc7cf24ecb40f3f3e827c52dde45843ceedb8524430e3330222
+  - image: docker.io/kubevirt/cdi-importer@sha256:60e45465ff001060568956c62fd16e1369f7e3eb1a03ef10c8a30caca5b9e6d7
     name: cdi-importer
-  - image: docker.io/kubevirt/cdi-operator@sha256:fdbde6a16c2e771352924d95f60470eec1fac0e4f9f9e2f3144b3745b30bed98
+  - image: docker.io/kubevirt/cdi-operator@sha256:d3ef43e7bf332668d6e2a6a3ddf657ef7c96841dfba6c56043e4199641c148e3
     name: cdi-operator
-  - image: docker.io/kubevirt/cdi-uploadproxy@sha256:d3bb76c8cd6a57c9ff1199f7a57c455949b399f94a5ff255200cfcf606886717
+  - image: docker.io/kubevirt/cdi-uploadproxy@sha256:060781e0ad6fcce19eca414503a5b187f75581d709a2d94e83204da250a50040
     name: cdi-uploadproxy
-  - image: docker.io/kubevirt/cdi-uploadserver@sha256:0b905d7ffb01e022246c179fdce96b42376e4910c9538125d02fdb7d04655fb4
+  - image: docker.io/kubevirt/cdi-uploadserver@sha256:a7fee7110aff08cc73ead74bf95fb27fa8fddca11b7c113d7760ba4fa9377217
     name: cdi-uploadserver
   - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:f31ea1cc004fc3b9993ed43c5f23c9e237a368a385daf8730ec9366e8f0ee238
     name: cluster-network-addons-operator
