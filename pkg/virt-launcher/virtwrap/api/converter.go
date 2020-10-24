@@ -170,7 +170,9 @@ func SetDriverCacheMode(disk *Disk) error {
 		if backingFile := disk.BackingStore; backingFile != nil {
 			backingFilePath := backingFile.Source.File
 			backFileDirectIOSupport := checkDirectIOFlag(backingFilePath)
-			log.Log.Infof("%s backing file system does not support direct I/O", backingFilePath)
+			if !backFileDirectIOSupport {
+				log.Log.Infof("%s backing file system does not support direct I/O", backingFilePath)
+			}
 			supportDirectIO = supportDirectIO && backFileDirectIOSupport
 		}
 	}
