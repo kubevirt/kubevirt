@@ -22,8 +22,10 @@ package tests_test
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	neturl "net/url"
 	"reflect"
 	"sort"
 	"strconv"
@@ -704,7 +706,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 				Transport: tr,
 			}
 
-			errors := make(chan error)
+			errorsChan := make(chan error)
 			for ix := 0; ix < concurrency; ix++ {
 				go func(ix int) {
 					req, _ := http.NewRequest("GET", metricsURL, nil)
@@ -714,20 +716,12 @@ var _ = Describe("[Serial]Infrastructure", func() {
 					} else {
 						resp.Body.Close()
 					}
-					errors <- err
+					errorsChan <- err
 				}(ix)
 			}
 
-			errorCount := 0
-			for ix := 0; ix < concurrency; ix++ {
-				err := <-errors
-				if err != nil {
-					errorCount += 1
-				}
-			}
-
-			fmt.Fprintf(GinkgoWriter, "client: total errors #%d\n", errorCount) // troubleshooting helper
-			Expect(errorCount).To(BeNumerically(">", 0))
+			err := validatedHTTPResponses(errorsChan, concurrency)
+			Expect(err).ToNot(HaveOccurred(), "Should throttle HTTP access without unexpected errors")
 		})
 
 		It("[test_id:4141]should include the metrics for a running VM", func() {
@@ -751,42 +745,22 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			}
 		})
 
-		It("[test_id:4143]should include the network metrics for a running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_network_")
+		table.DescribeTable("should include metrics for a running VM", func(metricSubstring, operator string) {
+			metrics := collectMetrics(metricSubstring)
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
 				value := metrics[key]
-				Expect(value).To(BeNumerically(">=", float64(0.0)))
+				fmt.Fprintf(GinkgoWriter, "metric value was %f\n", value)
+				Expect(value).To(BeNumerically(operator, float64(0.0)))
 			}
-		})
-
-		It("[test_id:4144]should include the memory metrics for a running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_memory")
-			By("Checking the collected metrics")
-			keys := getKeysFromMetrics(metrics)
-			for _, key := range keys {
-				value := metrics[key]
-				// swap metrics may (and should) be actually zero
-				Expect(value).To(BeNumerically(">=", float64(0.0)))
-			}
-		})
-
-		It("[test_id:4553]should include the vcpu wait metrics for running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_vcpu_wait")
-			for _, v := range metrics {
-				fmt.Fprintf(GinkgoWriter, "vcpu wait was %f", v)
-				Expect(v).To(BeNumerically("==", float64(0.0)))
-			}
-		})
-
-		It("[test_id:4554]should include the vcpu seconds metrics for running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_vcpu_seconds")
-			for _, v := range metrics {
-				fmt.Fprintf(GinkgoWriter, "vcpu seconds was %f", v)
-				Expect(v).To(BeNumerically(">=", float64(0.0)))
-			}
-		})
+		},
+			table.Entry("[test_id:4143] network metrics", "kubevirt_vmi_network_", ">="),
+			table.Entry("[test_id:4144] memory metrics", "kubevirt_vmi_memory", ">="),
+			table.Entry("[test_id:4553] vcpu wait", "kubevirt_vmi_vcpu_wait", "=="),
+			table.Entry("[test_id:4554] vcpu seconds", "kubevirt_vmi_vcpu_seconds", ">="),
+			table.Entry("[test_id:4556] vmi unused memory", "kubevirt_vmi_memory_unused_bytes", ">="),
+		)
 
 		It("[test_id:4145]should include VMI infos for a running VM", func() {
 			metrics := collectMetrics("kubevirt_vmi_")
@@ -819,25 +793,13 @@ var _ = Describe("[Serial]Infrastructure", func() {
 		})
 
 		It("[test_id:4146]should include VMI phase metrics for few running VMs", func() {
-			// this tests requires at least two running VMis. To ensure this condition,
-			// the simplest way is just always run an additional VMI.
-			By("Creating another VirtualMachineInstance")
-
-			// `pod` is the pod of the virt-handler of the node on which we run all the VMIs
-			// when setting up the tests. So we implicitely run all the VMIs on the same node,
-			// so the test works. TODO: make this explicit.
-			preferredNodeName := pod.Spec.NodeName
-			vmi := pinVMIOnNode(tests.NewRandomVMI(), preferredNodeName)
-			nodeName := startVMI(vmi)
-			Expect(nodeName).To(Equal(preferredNodeName), "Should run VMIs on the same node")
-
 			metrics := collectMetrics("kubevirt_vmi_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
 				if strings.Contains(key, `phase="running"`) {
 					value := metrics[key]
-					Expect(value).To(Equal(float64(len(preparedVMIs) + 1)))
+					Expect(value).To(Equal(float64(len(preparedVMIs))))
 				}
 			}
 		})
@@ -875,13 +837,6 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 			Expect(in).To(BeTrue())
 			Expect(out).To(BeTrue())
-		})
-
-		It("[test_id:4556]should include unused memory metric for running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_memory_unused_bytes")
-			for _, v := range metrics {
-				Expect(v).To(BeNumerically(">=", float64(0.0)))
-			}
 		})
 	})
 
@@ -1000,4 +955,31 @@ func getKeysFromMetrics(metrics map[string]float64) []string {
 	// we sort keys only to make debug of test failures easier
 	sort.Strings(keys)
 	return keys
+}
+
+// validatedHTTPResponses checks the HTTP responses.
+// It expects timeout errors, due to the throttling on the producer side.
+// In case of unexpected errors or no errors at all it would fail,
+// returning the first unexpected error if any, or a custom error in case
+// there were no errors at all.
+func validatedHTTPResponses(errorsChan chan error, concurrency int) error {
+	var expectedErrorsCount int = 0
+	var unexpectedError error
+	for ix := 0; ix < concurrency; ix++ {
+		err := <-errorsChan
+		if unexpectedError == nil && err != nil {
+			var e *neturl.Error
+			if errors.As(err, &e) && e.Timeout() {
+				expectedErrorsCount++
+			} else {
+				unexpectedError = err
+			}
+		}
+	}
+
+	if unexpectedError == nil && expectedErrorsCount == 0 {
+		return fmt.Errorf("timeout errors were expected due to throttling")
+	}
+
+	return unexpectedError
 }
