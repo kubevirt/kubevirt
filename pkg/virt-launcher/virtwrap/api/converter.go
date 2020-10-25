@@ -21,10 +21,12 @@ package api
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -32,9 +34,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-
-	"encoding/json"
-	"os/exec"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -256,23 +255,19 @@ func SetDriverCacheMode(disk *Disk) error {
 }
 
 func isPreAllocated(path string) bool {
-
-	preAlloc := false
 	diskInf, err := GetImageInfo(path)
 	if err != nil {
 		return false
 	}
-	if diskInf.VirtualSize > diskInf.ActualSize {
-		preAlloc = true
-	}
-	log.Log.Infof("XXXXX VirtualSize=%d ActualSize=%d", diskInf.VirtualSize, diskInf.ActualSize)
-	return preAlloc
+	// ActualSize can be a little larger then VirtualSize for qcow2
+	return diskInf.VirtualSize < diskInf.ActualSize
 }
 
+// Set optimal io mode automatically
 func SetOptimalIOMode(disk *Disk) error {
 	var path string
 
-	// If the user explicitly set the io mmode do nothing
+	// If the user explicitly set the io mode do nothing
 	if v1.DriverIO(disk.Driver.IO) != "" {
 		return nil
 	}
@@ -292,7 +287,8 @@ func SetOptimalIOMode(disk *Disk) error {
 			disk.Driver.IO = string(v1.IONative)
 		}
 	}
-
+	// For now we don't explicitly set io=threads even for sparse files as it's
+	// not clear it's better for all use-cases
 	if v1.DriverIO(disk.Driver.IO) != "" {
 		log.Log.Infof("Driver IO mode for %s set to %s", path, disk.Driver.IO)
 	}
