@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -35,7 +36,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -370,11 +370,12 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	})
 
 	Context("A long running process", func() {
-
+		longProcessTimeInSeconds := 30
+		var vmi *v1.VirtualMachineInstance
 		grepSleepPid := func(expecter expect.Expecter) string {
 			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
-				&expect.BSnd{S: `pgrep -f "sleep 1m"` + "\n"},
-				&expect.BExp{R: console.RetValue("[0-9]+")}, // pid
+				&expect.BSnd{S: fmt.Sprintf(`ps | grep "sleep %d" | grep -v "grep" | awk '{print $1}'`+"\n", longProcessTimeInSeconds)},
+				&expect.BExp{R: console.RetValue("[0-9]+")}, // sleep pid
 			}, 15*time.Second)
 			log.DefaultLogger().Infof("a:%+v\n", res)
 			Expect(err).ToNot(HaveOccurred())
@@ -385,9 +386,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		startProcess := func(expecter expect.Expecter) string {
 			By("Start a long running process")
 			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
-				&expect.BSnd{S: "sleep 1m&\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: "disown\n"}, // avoid "garbage" print in terminal on completion
+				&expect.BSnd{S: fmt.Sprintf("sleep %d&\n", longProcessTimeInSeconds)},
 				&expect.BExp{R: console.PromptExpression},
 			}, 15*time.Second)
 			log.DefaultLogger().Infof("a:%+v\n", res)
@@ -401,15 +400,18 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			return grepSleepPid(expecter)
 		}
 
-		It("[test_id:3090]should be continued after the VMI is unpaused", func() {
-			By("Starting a Fedora VMI")
-			vmi := tests.NewRandomFedoraVMIWitGuestAgent()
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
-			tests.WaitAgentConnected(virtClient, vmi)
+		runCirrosVMIAndExpectLaunch := func() *v1.VirtualMachineInstance {
+			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+			By("Starting a Cirros VMI")
+			return tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 240, false)
+		}
 
-			expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
-			Expect(expecterErr).ToNot(HaveOccurred())
+		It("[test_id:3090]should be continued after the VMI is unpaused", func() {
+			vmi = runCirrosVMIAndExpectLaunch()
+			By("Checking that the VirtualMachineInstance console has expected output")
+			expecter, err := tests.LoggedInCirrosExpecter(vmi)
+			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 
 			By("Starting a process")
@@ -422,7 +424,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
 
 			By("Waiting longer than the process normally runs")
-			time.Sleep(10 * time.Second)
+			time.Sleep(time.Duration(longProcessTimeInSeconds+10) * time.Second)
 
 			By("Unpausing the VMI")
 			command = tests.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", tests.NamespaceTestDefault, vmi.Name)
