@@ -862,12 +862,6 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 			for _, key := range keys {
 				// we don't care about the ordering of the labels
-				if strings.HasPrefix(key, "kubevirt_vmi_phase_count") {
-					// special case: namespace and name don't make sense for this metric
-					Expect(key).To(ContainSubstring(`node="%s"`, nodeName))
-					continue
-				}
-
 				Expect(key).To(SatisfyAll(
 					ContainSubstring(`node="%s"`, nodeName),
 					// all testing VMIs are on the same node and namespace,
@@ -889,13 +883,16 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 			ip := getSupportedIP(metricsIPs, family)
 
-			metrics := collectMetrics(ip, "kubevirt_vmi_")
+			metrics := collectMetrics(ip, "kubevirt_vmi_phase")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
+
 			for _, key := range keys {
-				if strings.Contains(key, `phase="running"`) {
-					value := metrics[key]
-					Expect(value).To(Equal(float64(len(preparedVMIs))))
+				value := metrics[key]
+				if strings.Contains(key, `phase="Running"`) {
+					Expect(value).To(Equal(float64(1)))
+				} else {
+					Expect(value).To(Equal(float64(0)))
 				}
 			}
 		},
