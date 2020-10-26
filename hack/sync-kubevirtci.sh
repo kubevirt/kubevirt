@@ -40,7 +40,21 @@ fi
 if [[ "$download_cluster_up" == true ]]; then
     echo "downloading cluster-up"
     rm -rf cluster-up
-    curl -L https://github.com/kubevirt/kubevirtci/archive/${kubevirtci_git_hash}/kubevirtci.tar.gz | tar xz kubevirtci-${kubevirtci_git_hash}/cluster-up --strip-component 1
+
+    kubevirt_path=${PWD}
+    pr=478
+    tmp=$(mktemp -d /tmp/cluster-up.XXXX)
+    pushd $tmp
+      git clone https://github.com/kubevirt/kubevirtci --branch master --depth 1
+      cd kubevirtci
+      git fetch origin pull/$pr/head:pr$pr
+      git checkout "pr$pr"
+      kubevirtci_git_hash=$(git rev-parse HEAD)
+      mv cluster-up $kubevirt_path/cluster-up
+    popd
+    rm -rf $tmp
+
+    # curl -L https://github.com/kubevirt/kubevirtci/archive/${kubevirtci_git_hash}/kubevirtci.tar.gz | tar xz kubevirtci-${kubevirtci_git_hash}/cluster-up --strip-component 1
 
     echo ${kubevirtci_git_hash} >${version_file}
     new_sha=$(getClusterUpShasum)
