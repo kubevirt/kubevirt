@@ -618,37 +618,37 @@ func (QemuGuestAgentSSHPublicKeyAccessCredentialPropagation) SwaggerDoc() map[st
 func (SSHPublicKeyAccessCredentialSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "SSHPublicKeyAccessCredentialSource represents where to retrieve the ssh key\ncredentials\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
-		"secret": "Secret means that the access credential is pulled from a kubernetes secret",
+		"secret": "Secret means that the access credential is pulled from a kubernetes secret\n+optional",
 	}
 }
 
 func (SSHPublicKeyAccessCredentialPropagationMethod) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "SSHPublicKeyAccessCredentialPropagationMethod represents the method used to\ninject a ssh public key into the vm guest.\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
-		"configDrive":    "ConfigDrivePropagation means that the ssh public keys are injected\ninto the VM using metadata using the configDrive cloud-init provider",
-		"qemuGuestAgent": "QemuGuestAgentAccessCredentailPropagation means ssh public keys are\ndynamically injected into the vm at runtime via the qemu guest agent.\nThis feature requires the qemu guest agent to be running within the guest.",
+		"configDrive":    "ConfigDrivePropagation means that the ssh public keys are injected\ninto the VM using metadata using the configDrive cloud-init provider\n+optional",
+		"qemuGuestAgent": "QemuGuestAgentAccessCredentailPropagation means ssh public keys are\ndynamically injected into the vm at runtime via the qemu guest agent.\nThis feature requires the qemu guest agent to be running within the guest.\n+optional",
 	}
 }
 
 func (SSHPublicKeyAccessCredential) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                  "SSHPublicKeyAccessCredential represents a source and propagation method for\ninjecting ssh public keys into a vm guest\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
+		"":                  "SSHPublicKeyAccessCredential represents a source and propagation method for\ninjecting ssh public keys into a vm guest\n\n+k8s:openapi-gen=true",
 		"source":            "Source represents where the public keys are pulled from",
-		"propagationMethod": "propagationMethod represents how the public key is injected into the vm guest.",
+		"propagationMethod": "PropagationMethod represents how the public key is injected into the vm guest.",
 	}
 }
 
 func (UserPasswordAccessCredentialSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "UserPasswordAccessCredentialSource represents where to retrieve the user password\ncredentials\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
-		"secret": "Secret means that the access credential is pulled from a kubernetes secret",
+		"secret": "Secret means that the access credential is pulled from a kubernetes secret\n+optional",
 	}
 }
 
 func (UserPasswordAccessCredentialPropagationMethod) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "UserPasswordAccessCredentialPropagationMethod represents the method used to\ninject a user passwords into the vm guest.\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
-		"qemuGuestAgent": "QemuGuestAgentAccessCredentailPropagation means passwords are\ndynamically injected into the vm at runtime via the qemu guest agent.\nThis feature requires the qemu guest agent to be running within the guest.",
+		"qemuGuestAgent": "QemuGuestAgentAccessCredentailPropagation means passwords are\ndynamically injected into the vm at runtime via the qemu guest agent.\nThis feature requires the qemu guest agent to be running within the guest.\n+optional",
 	}
 }
 
@@ -662,7 +662,9 @@ func (UserPasswordAccessCredential) SwaggerDoc() map[string]string {
 
 func (AccessCredential) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "AccessCredential represents a credential source that can be used to\nauthorize remote access to the vm guest\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
+		"":             "AccessCredential represents a credential source that can be used to\nauthorize remote access to the vm guest\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
+		"sshPublicKey": "SSHPublicKey represents the source and method of applying a ssh public\nkey into a guest virtual machine.\n+optional",
+		"userPassword": "UserPassword represents the source and method for applying a guest user's\npassword\n+optional",
 	}
 }
 

@@ -8007,9 +8007,11 @@
     "type": "object",
     "properties": {
      "sshPublicKey": {
+      "description": "SSHPublicKey represents the source and method of applying a ssh public key into a guest virtual machine.",
       "$ref": "#/definitions/v1.SSHPublicKeyAccessCredential"
      },
      "userPassword": {
+      "description": "UserPassword represents the source and method for applying a guest user's password",
       "$ref": "#/definitions/v1.UserPasswordAccessCredential"
      }
     }
@@ -9747,7 +9749,7 @@
     }
    },
    "v1.SSHPublicKeyAccessCredential": {
-    "description": "SSHPublicKeyAccessCredential represents a source and propagation method for injecting ssh public keys into a vm guest Only one of its members may be specified.",
+    "description": "SSHPublicKeyAccessCredential represents a source and propagation method for injecting ssh public keys into a vm guest",
     "type": "object",
     "required": [
      "source",
@@ -9755,7 +9757,7 @@
     ],
     "properties": {
      "propagationMethod": {
-      "description": "propagationMethod represents how the public key is injected into the vm guest.",
+      "description": "PropagationMethod represents how the public key is injected into the vm guest.",
       "$ref": "#/definitions/v1.SSHPublicKeyAccessCredentialPropagationMethod"
      },
      "source": {
@@ -10640,7 +10642,7 @@
       "items": {
        "$ref": "#/definitions/v1.AccessCredential"
       },
-      "x-kubernetes-list-type": "set"
+      "x-kubernetes-list-type": "atomic"
      },
      "affinity": {
       "description": "If affinity is specifies, obey all the affinity rules",
