@@ -271,7 +271,7 @@ var _ = Describe("[Serial]Storage", func() {
 			})
 
 		})
-		Context("Run a VMI wiht VirtIO-FS and a datavolume", func() {
+		Context("Run a VMI with VirtIO-FS and a datavolume", func() {
 			var dataVolume *cdiv1.DataVolume
 			BeforeEach(func() {
 				if !tests.HasCDI() {

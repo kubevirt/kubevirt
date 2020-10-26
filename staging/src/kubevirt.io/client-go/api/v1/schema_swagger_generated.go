@@ -258,7 +258,7 @@ func (DiskTarget) SwaggerDoc() map[string]string {
 		"":           "+k8s:openapi-gen=true",
 		"bus":        "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
 		"readonly":   "ReadOnly.\nDefaults to false.",
-		"pciAddress": "If specified, the virtual disk will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10\n+optional",
+		"pciAddress": "If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10\n+optional",
 	}
 }
 
@@ -513,7 +513,7 @@ func (Interface) SwaggerDoc() map[string]string {
 		"ports":       "List of ports to be forwarded to the virtual machine.",
 		"macAddress":  "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
 		"bootOrder":   "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach interface or disk that has a boot order must have a unique value.\nInterfaces without a boot order are not tried.\n+optional",
-		"pciAddress":  "If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10\n+optional",
+		"pciAddress":  "If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10\n+optional",
 		"dhcpOptions": "If specified the network interface will pass additional DHCP options to the VMI\n+optional",
 		"tag":         "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
 	}

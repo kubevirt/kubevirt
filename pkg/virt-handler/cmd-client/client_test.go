@@ -90,7 +90,7 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(sock).To(Equal(filepath.Join(shareDir, "sockets", StandardLauncherSocketFileName)))
 
 			// falls back to returning a legacy socket name if it exists
-			// This is for backwards compatiblity
+			// This is for backwards compatibility
 			f, err := os.Create(filepath.Join(socketsDir, "1234_sock"))
 			Expect(err).ToNot(HaveOccurred())
 			f.Close()

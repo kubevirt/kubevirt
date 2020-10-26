@@ -103,7 +103,7 @@ func CreateBackedImageForVolume(volume v1.Volume, backingFile string) error {
 	}
 
 	if err = os.Chmod(imagePath, 0640); err != nil {
-		return fmt.Errorf("failed to change permisions on %s", imagePath)
+		return fmt.Errorf("failed to change permissions on %s", imagePath)
 	}
 
 	// We need to ensure that the permissions are setup correctly.

@@ -1481,7 +1481,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					data, err := logsQuery.DoRaw()
 					Expect(err).ToNot(HaveOccurred(), "Should get the logs")
 					return string(data)
-				}, 30, 0.5).Should(ContainSubstring(fmt.Sprintf("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())), "Should log gracefull shutdown")
+				}, 30, 0.5).Should(ContainSubstring(fmt.Sprintf("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())), "Should log graceful shutdown")
 
 				// Verify VirtualMachineInstance is killed after grace period expires
 				By("Checking that the VirtualMachineInstance does not exist after grace period")
@@ -1489,7 +1489,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					data, err := logsQuery.DoRaw()
 					Expect(err).ToNot(HaveOccurred(), "Should get logs")
 					return string(data)
-				}, 30, 0.5).Should(ContainSubstring(fmt.Sprintf("Grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())), "Should log gracefull kill")
+				}, 30, 0.5).Should(ContainSubstring(fmt.Sprintf("Grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())), "Should log graceful kill")
 			})
 		})
 	})

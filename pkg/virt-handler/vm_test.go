@@ -419,7 +419,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(os.IsNotExist(err)).To(BeFalse())
 		}, 3)
 
-		It("should silently retry if the commmand socket is not yet ready", func() {
+		It("should silently retry if the command socket is not yet ready", func() {
 			vmi := NewScheduledVMI(vmiTestUUID, "notexisingpoduid", host)
 			// the socket dir must exist, to not go immediately to failed
 			sockFile = cmdclient.SocketFilePathOnHost("notexisingpoduid")
@@ -444,7 +444,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetAddAfterEnqueueCount()).To(BeNumerically(">", 1))
 		})
 
-		It("should fail if the commmand socket is not ready after the suppress timeout of three minutes", func() {
+		It("should fail if the command socket is not ready after the suppress timeout of three minutes", func() {
 			vmi := NewScheduledVMI(vmiTestUUID, "notexisingpoduid", host)
 			// the socket dir must exist, to not go immediately to failed
 			sockFile = cmdclient.SocketFilePathOnHost("notexisingpoduid")

@@ -692,7 +692,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 		reqMemDiff := resource.NewScaledQuantity(0, resource.Kilo)
 		limMemDiff := resource.NewScaledQuantity(0, resource.Kilo)
-		// In case the guest memory and the requested memeory are diffrent, add the difference
+		// In case the guest memory and the requested memeory are different, add the difference
 		// to the to the overhead
 		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
 			requests := vmi.Spec.Domain.Resources.Requests.Memory().Value()

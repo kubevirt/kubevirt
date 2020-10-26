@@ -2115,7 +2115,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Nameservers: []string{"1.2.3.4"},
 				Searches:    []string{"1", "2", "3", "4", "5", "6", "7"},
 			}, 1, []string{"must not have more than 6 search paths"}),
-			table.Entry("with DNSPolicy None and seach domain exceeding max length", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
+			table.Entry("with DNSPolicy None and search domain exceeding max length", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
 				Nameservers: []string{"1.2.3.4"},
 				Searches:    []string{strings.Repeat("a", maxDNSSearchListChars/2), strings.Repeat("b", (maxDNSSearchListChars / 2))},
 			}, 1, []string{fmt.Sprintf("must not have more than %v characters (including spaces) in the search list", maxDNSSearchListChars)}),

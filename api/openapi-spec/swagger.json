@@ -8557,7 +8557,7 @@
       "type": "string"
      },
      "pciAddress": {
-      "description": "If specified, the virtual disk will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10",
+      "description": "If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10",
       "type": "string"
      },
      "readonly": {
@@ -9017,7 +9017,7 @@
       "type": "string"
      },
      "pciAddress": {
-      "description": "If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10",
+      "description": "If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10",
       "type": "string"
      },
      "ports": {
@@ -10219,7 +10219,7 @@
       "type": "string"
      },
      "mode": {
-      "description": "Lets us know if the vmi is currenly running pre or post copy migration",
+      "description": "Lets us know if the vmi is currently running pre or post copy migration",
       "type": "string"
      },
      "sourceNode": {

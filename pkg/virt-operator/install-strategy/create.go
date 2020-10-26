@@ -960,7 +960,7 @@ func createOrUpdateCrds(kv *v1.KubeVirt,
 			}
 			ops = append(ops, labelAnnotationPatch...)
 
-			// subresource support needs to be introduced carefully after the controll plane roll-over
+			// subresource support needs to be introduced carefully after the control plane roll-over
 			// to avoid creating zombie entities which don't get processed du to ignored status updates
 			if cachedCrd.Spec.Subresources == nil || cachedCrd.Spec.Subresources.Status == nil {
 				if crd.Spec.Subresources != nil && crd.Spec.Subresources.Status != nil {
@@ -1984,7 +1984,7 @@ func createOrUpdateCertificateSecrets(
 
 	for _, secret := range targetStrategy.certificateSecrets {
 
-		// The CA certificate needs to be handled separetely and before other secrets
+		// The CA certificate needs to be handled separately and before other secrets
 		if secret.Name == components.KubeVirtCASecretName {
 			continue
 		}
@@ -2609,7 +2609,7 @@ func SyncAll(queue workqueue.RateLimitingInterface, kv *v1.KubeVirt, targetStrat
 		// UPDATE PATH IS
 		// 1. daemonsets - ensures all compute nodes are updated to handle new features
 		// 2. wait for daemonsets to roll over
-		// 3. controllers - ensures controll plane is ready for new features
+		// 3. controllers - ensures control plane is ready for new features
 		// 4. wait for controllers to roll over
 		// 5. apiserver - toggles on new features.
 
@@ -2714,7 +2714,7 @@ func SyncAll(queue workqueue.RateLimitingInterface, kv *v1.KubeVirt, targetStrat
 		return false, nil
 	}
 
-	// -------- ROLLOUT INCOMPATIBLE CHANGES WHICH REQUIRE A FULL CONTROLL PLANE ROLL OVER --------
+	// -------- ROLLOUT INCOMPATIBLE CHANGES WHICH REQUIRE A FULL CONTROL PLANE ROLL OVER --------
 	// some changes can only be done after the control plane rolled over
 	err = rolloutNonCompatibleCRDChanges(kv, targetStrategy, stores, clientset, expectations)
 	if err != nil {

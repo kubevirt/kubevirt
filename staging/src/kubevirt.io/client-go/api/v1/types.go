@@ -409,7 +409,7 @@ type VirtualMachineInstanceMigrationState struct {
 	AbortStatus MigrationAbortStatus `json:"abortStatus,omitempty"`
 	// The VirtualMachineInstanceMigration object associated with this migration
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
-	// Lets us know if the vmi is currenly running pre or post copy migration
+	// Lets us know if the vmi is currently running pre or post copy migration
 	Mode MigrationMode `json:"mode,omitempty"`
 }
 
@@ -431,9 +431,9 @@ const (
 type MigrationMode string
 
 const (
-	// MigrationPreCopy means the VMI migrations that is currenly running is in pre copy mode
+	// MigrationPreCopy means the VMI migrations that is currently running is in pre copy mode
 	MigrationPreCopy MigrationMode = "PreCopy"
-	// MigrationPostCopy means the VMI migrations that is currenly running is in post copy mode
+	// MigrationPostCopy means the VMI migrations that is currently running is in post copy mode
 	MigrationPostCopy MigrationMode = "PostCopy"
 )
 
@@ -765,7 +765,7 @@ type DataVolumeTemplateDummyStatus struct{}
 //
 // +k8s:openapi-gen=true
 type DataVolumeTemplateSpec struct {
-	// TypeMeta only exists on DataVolumeTemplate for API backwards compatiblity
+	// TypeMeta only exists on DataVolumeTemplate for API backwards compatibility
 	// this field is not used by our controllers and is a no-op.
 	// +nullable
 	metav1.TypeMeta `json:",inline"`

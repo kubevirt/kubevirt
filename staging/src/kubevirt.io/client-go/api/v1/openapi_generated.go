@@ -14596,7 +14596,7 @@ func schema_kubevirtio_client_go_api_v1_DiskTarget(ref common.ReferenceCallback)
 					},
 					"pciAddress": {
 						SchemaProps: spec.SchemaProps{
-							Description: "If specified, the virtual disk will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10",
+							Description: "If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -15426,7 +15426,7 @@ func schema_kubevirtio_client_go_api_v1_Interface(ref common.ReferenceCallback) 
 					},
 					"pciAddress": {
 						SchemaProps: spec.SchemaProps{
-							Description: "If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10",
+							Description: "If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -17721,7 +17721,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceMigrationState(ref
 					},
 					"mode": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Lets us know if the vmi is currenly running pre or post copy migration",
+							Description: "Lets us know if the vmi is currently running pre or post copy migration",
 							Type:        []string{"string"},
 							Format:      "",
 						},

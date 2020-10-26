@@ -500,7 +500,7 @@ type DiskTarget struct {
 	// ReadOnly.
 	// Defaults to false.
 	ReadOnly bool `json:"readonly,omitempty"`
-	// If specified, the virtual disk will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10
+	// If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10
 	// +optional
 	PciAddress string `json:"pciAddress,omitempty"`
 }
@@ -1046,7 +1046,7 @@ type Interface struct {
 	// Interfaces without a boot order are not tried.
 	// +optional
 	BootOrder *uint `json:"bootOrder,omitempty"`
-	// If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10
+	// If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10
 	// +optional
 	PciAddress string `json:"pciAddress,omitempty"`
 	// If specified the network interface will pass additional DHCP options to the VMI

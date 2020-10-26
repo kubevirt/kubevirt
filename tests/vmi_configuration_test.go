@@ -1199,7 +1199,7 @@ var _ = Describe("Configurations", func() {
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToFedora(agentVMI)).To(Succeed())
 
-				By("Terminating guest agent and waiting for it to dissappear.")
+				By("Terminating guest agent and waiting for it to disappear.")
 				Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
 					&expect.BSnd{S: "systemctl stop guestagent\n"},
 					&expect.BExp{R: console.PromptExpression},
@@ -1294,7 +1294,7 @@ var _ = Describe("Configurations", func() {
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToFedora(agentVMI)).To(Succeed())
 
-				By("Terminating guest agent and waiting for it to dissappear.")
+				By("Terminating guest agent and waiting for it to disappear.")
 				Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
 					&expect.BSnd{S: "systemctl stop guestagent\n"},
 					&expect.BExp{R: console.PromptExpression},
@@ -1411,7 +1411,7 @@ var _ = Describe("Configurations", func() {
 				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Waiting for succesful start of VMI")
+				By("Waiting for successful start of VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Logging to VMI")
@@ -1900,7 +1900,7 @@ var _ = Describe("Configurations", func() {
 			checkPciAddress(vmi, vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress)
 		})
 
-		It("[test_id:1020]should not create the VM with wrong PCI adress", func() {
+		It("[test_id:1020]should not create the VM with wrong PCI address", func() {
 			By("setting disk1 Pci address")
 
 			wrongPciAddress := "0000:04:10.0"
