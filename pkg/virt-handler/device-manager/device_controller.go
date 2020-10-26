@@ -134,7 +134,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Contro
 			for _, pciDev := range hostDevs.PciHostDevices {
 				// do not add a device plugin for this resource if it's being provided via an external device plugin
 				if !pciDev.ExternalResourceProvider {
-					supportedPCIDeviceMap[pciDev.Selector] = pciDev.ResourceName
+					supportedPCIDeviceMap[pciDev.PCIVendorSelector] = pciDev.ResourceName
 				}
 			}
 			pciHostDevices := discoverPermittedHostPCIDevices(supportedPCIDeviceMap)
@@ -156,7 +156,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Contro
 			for _, supportedMdev := range hostDevs.MediatedDevices {
 				// do not add a device plugin for this resource if it's being provided via an external device plugin
 				if !supportedMdev.ExternalResourceProvider {
-					selector := removeSelectorSpaces(supportedMdev.Selector)
+					selector := removeSelectorSpaces(supportedMdev.MDEVNameSelector)
 					supportedMdevsMap[selector] = supportedMdev.ResourceName
 				}
 			}

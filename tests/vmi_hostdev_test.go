@@ -37,7 +37,7 @@ var _ = Describe("[Serial]HostDevices", func() {
 			config.PermittedHostDevices = &v1.PermittedHostDevices{
 				PciHostDevices: []v1.PciHostDevice{
 					{
-						Selector:     deviceIDs,
+						PCIVendorSelector:     deviceIDs,
 						ResourceName: deviceName,
 					},
 				},

@@ -1504,15 +1504,15 @@ type DeveloperConfiguration struct {
 // +k8s:openapi-gen=true
 type PermittedHostDevices struct {
 	// +listType=set
-	PciHostDevices []PciHostDevice `json:"pciDevices,omitempty"`
+	PciHostDevices []PciHostDevice `json:"pciHostDevices,omitempty"`
 	// +listType=set
-	MediatedDevices []MediatedHostDevice `json:"mdevs,omitempty"`
+	MediatedDevices []MediatedHostDevice `json:"mediatedDevices,omitempty"`
 }
 
 // PciHostDevice represents a host PCI device allowed for passthrough
 // +k8s:openapi-gen=true
 type PciHostDevice struct {
-	Selector                 string `json:"pciVendorSelector"`
+	PCIVendorSelector        string `json:"pciVendorSelector"`
 	ResourceName             string `json:"resourceName"`
 	ExternalResourceProvider bool   `json:"externalResourceProvider,omitempty"`
 }
@@ -1520,7 +1520,7 @@ type PciHostDevice struct {
 // MediatedHostDevice represents a host mediated device allowed for passthrough
 // +k8s:openapi-gen=true
 type MediatedHostDevice struct {
-	Selector                 string `json:"mdevNameSelector"`
+	MDEVNameSelector         string `json:"mdevNameSelector"`
 	ResourceName             string `json:"resourceName"`
 	ExternalResourceProvider bool   `json:"externalResourceProvider,omitempty"`
 }

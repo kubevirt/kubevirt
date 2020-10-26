@@ -58,14 +58,14 @@ var _ = Describe("PCI Device", func() {
 
 		By("creating a list of fake device using the yaml decoder")
 		fakePermittedHostDevicesConfig = `
-pciDevices:
+pciHostDevices:
 - pciVendorSelector: "` + fakeID + `"
   resourceName: "` + fakeName + `"
 `
 		err = yaml.NewYAMLOrJSONDecoder(strings.NewReader(fakePermittedHostDevicesConfig), 1024).Decode(&fakePermittedHostDevices)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(fakePermittedHostDevices.PciHostDevices)).To(Equal(1))
-		Expect(fakePermittedHostDevices.PciHostDevices[0].Selector).To(Equal(fakeID))
+		Expect(fakePermittedHostDevices.PciHostDevices[0].PCIVendorSelector).To(Equal(fakeID))
 		Expect(fakePermittedHostDevices.PciHostDevices[0].ResourceName).To(Equal(fakeName))
 	})
 
@@ -78,7 +78,7 @@ pciDevices:
 		for _, pciDev := range fakePermittedHostDevices.PciHostDevices {
 			// do not add a device plugin for this resource if it's being provided via an external device plugin
 			if !pciDev.ExternalResourceProvider {
-				supportedPCIDeviceMap[pciDev.Selector] = pciDev.ResourceName
+				supportedPCIDeviceMap[pciDev.PCIVendorSelector] = pciDev.ResourceName
 			}
 		}
 		// discoverPermittedHostPCIDevices() will walk real PCI devices wherever the tests are running
@@ -121,8 +121,8 @@ pciDevices:
 		kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 			PciHostDevices: []v1.PciHostDevice{
 				{
-					Selector:     fakeID,
-					ResourceName: fakeName,
+					PCIVendorSelector: fakeID,
+					ResourceName:      fakeName,
 				},
 			},
 		}

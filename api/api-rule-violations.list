@@ -242,12 +242,8 @@ API rule violation: names_match,kubevirt.io/client-go/api/v1,KubeVirtConfigurati
 API rule violation: names_match,kubevirt.io/client-go/api/v1,KubeVirtConfiguration,SMBIOSConfig
 API rule violation: names_match,kubevirt.io/client-go/api/v1,KubeVirtSpec,CertificateRotationStrategy
 API rule violation: names_match,kubevirt.io/client-go/api/v1,LunTarget,ReadOnly
-API rule violation: names_match,kubevirt.io/client-go/api/v1,MediatedHostDevice,Selector
 API rule violation: names_match,kubevirt.io/client-go/api/v1,NetworkConfiguration,NetworkInterface
 API rule violation: names_match,kubevirt.io/client-go/api/v1,PITTimer,Enabled
-API rule violation: names_match,kubevirt.io/client-go/api/v1,PciHostDevice,Selector
-API rule violation: names_match,kubevirt.io/client-go/api/v1,PermittedHostDevices,MediatedDevices
-API rule violation: names_match,kubevirt.io/client-go/api/v1,PermittedHostDevices,PciHostDevices
 API rule violation: names_match,kubevirt.io/client-go/api/v1,RTCTimer,Enabled
 API rule violation: names_match,kubevirt.io/client-go/api/v1,VirtualMachineInstanceFileSystemInfo,Filesystems
 API rule violation: names_match,kubevirt.io/client-go/api/v1,VirtualMachineInstanceGuestAgentInfo,GAVersion

@@ -8548,7 +8548,7 @@
       "items": {
        "$ref": "#/definitions/v1.Filesystem"
       },
-      "x-kubernetes-list-type": "set"
+      "x-kubernetes-list-type": "atomic"
      },
      "gpus": {
       "description": "Whether to attach a GPU device to the vmi.",
@@ -8556,7 +8556,7 @@
       "items": {
        "$ref": "#/definitions/v1.GPU"
       },
-      "x-kubernetes-list-type": "set"
+      "x-kubernetes-list-type": "atomic"
      },
      "hostDevices": {
       "description": "Whether to attach a host device to the vmi.",
@@ -8564,7 +8564,7 @@
       "items": {
        "$ref": "#/definitions/v1.HostDevice"
       },
-      "x-kubernetes-list-type": "set"
+      "x-kubernetes-list-type": "atomic"
      },
      "inputs": {
       "description": "Inputs describe input devices",
@@ -9628,14 +9628,14 @@
     "description": "PermittedHostDevices holds inforamtion about devices allowed for passthrough",
     "type": "object",
     "properties": {
-     "mdevs": {
+     "mediatedDevices": {
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.MediatedHostDevice"
       },
       "x-kubernetes-list-type": "set"
      },
-     "pciDevices": {
+     "pciHostDevices": {
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.PciHostDevice"

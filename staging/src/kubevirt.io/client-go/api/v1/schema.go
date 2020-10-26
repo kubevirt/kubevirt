@@ -388,15 +388,15 @@ type Devices struct {
 	NetworkInterfaceMultiQueue *bool `json:"networkInterfaceMultiqueue,omitempty"`
 	//Whether to attach a GPU device to the vmi.
 	// +optional
-	// +listType=set
+	// +listType=atomic
 	GPUs []GPU `json:"gpus,omitempty"`
 	// Filesystems describes filesystem which is connected to the vmi.
 	// +optional
-	// +listType=set
+	// +listType=atomic
 	Filesystems []Filesystem `json:"filesystems,omitempty"`
 	//Whether to attach a host device to the vmi.
 	// +optional
-	// +listType=set
+	// +listType=atomic
 	HostDevices []HostDevice `json:"hostDevices,omitempty"`
 }
 
@@ -437,8 +437,8 @@ type GPU struct {
 //
 // +k8s:openapi-gen=true
 type HostDevice struct {
-	// DeviceName is the resource name of the host device exposed by a device plugin
 	Name       string `json:"name"`
+	// DeviceName is the resource name of the host device exposed by a device plugin
 	DeviceName string `json:"deviceName"`
 }
 

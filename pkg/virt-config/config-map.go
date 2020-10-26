@@ -219,8 +219,6 @@ type ClusterConfig struct {
 	defaultConfig                           *v1.KubeVirtConfiguration
 	lastInvalidConfigResourceVersion        string
 	lastValidConfigResourceVersion          string
-	lastInvalidHostDevConfigResourceVersion string
-	lastValidHostDevConfigResourceVersion   string
 	configModifiedCallback                  ConfigModifiedFn
 }
 

@@ -342,7 +342,7 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	It("Should still get GetPermittedHostDevices after invalid update", func() {
-		expectedDevices := `{"pciDevices":[{"pciVendorSelector":"10DE:1EB8","resourceName":"nvidia.com/TU104GL_Tesla_T4"}],"mdevs":[{"mdevNameSelector":"GRID T4-1Q","resourceName":"nvidia.com/GRID_T4-1Q"}]}`
+		expectedDevices := `{"pciHostDevices":[{"pciVendorSelector":"10DE:1EB8","resourceName":"nvidia.com/TU104GL_Tesla_T4"}],"mediatedDevices":[{"mdevNameSelector":"GRID T4-1Q","resourceName":"nvidia.com/GRID_T4-1Q"}]}`
 		invalidPermittedHostDevicesConfig := "something wrong"
 		clusterConfig, store, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
 		testutils.UpdateFakeClusterConfig(store, &kubev1.ConfigMap{

@@ -1953,8 +1953,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 				PciHostDevices: []v1.PciHostDevice{
 					{
-						Selector:     "DEAD:BEEF",
-						ResourceName: "example.org/deadbeef",
+						PCIVendorSelector: "DEAD:BEEF",
+						ResourceName:      "example.org/deadbeef",
 					},
 				},
 			}
@@ -1977,8 +1977,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 				PciHostDevices: []v1.PciHostDevice{
 					{
-						Selector:     "DEAD:BEEF",
-						ResourceName: "example.org/deadbeef",
+						PCIVendorSelector: "DEAD:BEEF",
+						ResourceName:      "example.org/deadbeef",
 					},
 				},
 			}
@@ -2013,8 +2013,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 				PciHostDevices: []v1.PciHostDevice{
 					{
-						Selector:     "DEAD:BEEF",
-						ResourceName: "example.org/deadbeef",
+						PCIVendorSelector: "DEAD:BEEF",
+						ResourceName:      "example.org/deadbeef",
 					},
 				},
 			}
@@ -2036,8 +2036,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 				PciHostDevices: []v1.PciHostDevice{
 					{
-						Selector:     "DEAD:BEEF",
-						ResourceName: "example.org/deadbeef",
+						PCIVendorSelector: "DEAD:BEEF",
+						ResourceName:      "example.org/deadbeef",
 					},
 				},
 			}
