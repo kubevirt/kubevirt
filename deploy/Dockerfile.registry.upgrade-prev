@@ -5,6 +5,7 @@ ENV GOPATH=/go
 RUN echo "UPGRADE_VERSION: ${UPGRADE_VERSION}"
 WORKDIR /go/src/github.com/kubevirt/hyperconverged-cluster-operator/
 COPY . .
+USER root
 RUN dnf install -y dep golang make findutils tar && dnf clean all -y
 RUN export UPGRADE_VERSION=${UPGRADE_VERSION} && \
     export PREV=true && \
