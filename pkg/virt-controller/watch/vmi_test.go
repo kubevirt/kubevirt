@@ -1101,6 +1101,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				return patchedVMI, nil
 			})
 			controller.Execute()
+			testutils.ExpectEvent(recorder, v1.PodTerminatingReason)
 		})
 
 		It("should add active pods to status if VMI is in running state", func() {
