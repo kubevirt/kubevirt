@@ -55,7 +55,7 @@ var _ = Describe("Device Controller", func() {
 	var fakeConfigMap *virtconfig.ClusterConfig
 
 	BeforeEach(func() {
-		permittedDevices := `{"pciDevices":[{"pciVendorSelector":"DEAD:BEEF","resourceName":"fake-device2","externalResourceProvider":"true"},{"pciVendorSelector":"DEAD:BEEG","resourceName":"fake-device1","externalResourceProvider":"true"}]}`
+		permittedDevices := `{"pciHostDevices":[{"pciVendorSelector":"DEAD:BEEF","resourceName":"fake-device2","externalResourceProvider":"true"},{"pciVendorSelector":"DEAD:BEEG","resourceName":"fake-device1","externalResourceProvider":"true"}]}`
 		fakeConfigMap, _, _, _ = testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{
 			Data: map[string]string{virtconfig.PermittedHostDevicesKey: permittedDevices},
 		})

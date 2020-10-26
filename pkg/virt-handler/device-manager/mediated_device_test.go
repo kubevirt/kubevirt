@@ -60,14 +60,14 @@ var _ = Describe("Mediated Device", func() {
 
 		By("creating a list of fake device using the yaml decoder")
 		fakePermittedHostDevicesConfig = `
-mdevs:
+mediatedDevices:
 - mdevNameSelector: "` + fakeMdevNameSelector + `"
   resourceName: "` + fakeMdevResourceName + `"
 `
 		err = yaml.NewYAMLOrJSONDecoder(strings.NewReader(fakePermittedHostDevicesConfig), 1024).Decode(&fakePermittedHostDevices)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(fakePermittedHostDevices.MediatedDevices)).To(Equal(1))
-		Expect(fakePermittedHostDevices.MediatedDevices[0].Selector).To(Equal(fakeMdevNameSelector))
+		Expect(fakePermittedHostDevices.MediatedDevices[0].MDEVNameSelector).To(Equal(fakeMdevNameSelector))
 		Expect(fakePermittedHostDevices.MediatedDevices[0].ResourceName).To(Equal(fakeMdevResourceName))
 	})
 
@@ -81,7 +81,7 @@ mdevs:
 		for _, supportedMdev := range fakePermittedHostDevices.MediatedDevices {
 			// do not add a device plugin for this resource if it's being provided via an external device plugin
 			if !supportedMdev.ExternalResourceProvider {
-				selector := removeSelectorSpaces(supportedMdev.Selector)
+				selector := removeSelectorSpaces(supportedMdev.MDEVNameSelector)
 				supportedMdevsMap[selector] = supportedMdev.ResourceName
 			}
 		}
@@ -125,8 +125,8 @@ mdevs:
 		kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 			MediatedDevices: []v1.MediatedHostDevice{
 				{
-					Selector:     fakeMdevNameSelector,
-					ResourceName: fakeMdevResourceName,
+					MDEVNameSelector: fakeMdevNameSelector,
+					ResourceName:     fakeMdevResourceName,
 				},
 			},
 		}

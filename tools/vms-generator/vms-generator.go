@@ -46,7 +46,7 @@ func main() {
 	flag.Parse()
 
 	fakePermittedHostDevicesConfig := `
-pciDevices:
+pciHostDevices:
 - pciVendorSelector: "10DE:1EB8"
   resourceName: "nvidia.com/GP102GL_Tesla_P40"
   externalResourceProvider: true

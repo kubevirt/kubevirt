@@ -14242,7 +14242,7 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 					"gpus": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
+								"x-kubernetes-list-type": "atomic",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
@@ -14260,7 +14260,7 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 					"filesystems": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
+								"x-kubernetes-list-type": "atomic",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
@@ -14278,7 +14278,7 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 					"hostDevices": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
+								"x-kubernetes-list-type": "atomic",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
@@ -16302,7 +16302,7 @@ func schema_kubevirtio_client_go_api_v1_PermittedHostDevices(ref common.Referenc
 				Description: "PermittedHostDevices holds inforamtion about devices allowed for passthrough",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"pciDevices": {
+					"pciHostDevices": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
 								"x-kubernetes-list-type": "set",
@@ -16319,7 +16319,7 @@ func schema_kubevirtio_client_go_api_v1_PermittedHostDevices(ref common.Referenc
 							},
 						},
 					},
-					"mdevs": {
+					"mediatedDevices": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
 								"x-kubernetes-list-type": "set",
