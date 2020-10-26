@@ -13362,12 +13362,14 @@ func schema_kubevirtio_client_go_api_v1_AccessCredential(ref common.ReferenceCal
 				Properties: map[string]spec.Schema{
 					"sshPublicKey": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/client-go/api/v1.SSHPublicKeyAccessCredential"),
+							Description: "SSHPublicKey represents the source and method of applying a ssh public key into a guest virtual machine.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.SSHPublicKeyAccessCredential"),
 						},
 					},
 					"userPassword": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/client-go/api/v1.UserPasswordAccessCredential"),
+							Description: "UserPassword represents the source and method for applying a guest user's password",
+							Ref:         ref("kubevirt.io/client-go/api/v1.UserPasswordAccessCredential"),
 						},
 					},
 				},
@@ -16765,7 +16767,7 @@ func schema_kubevirtio_client_go_api_v1_SSHPublicKeyAccessCredential(ref common.
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "SSHPublicKeyAccessCredential represents a source and propagation method for injecting ssh public keys into a vm guest Only one of its members may be specified.",
+				Description: "SSHPublicKeyAccessCredential represents a source and propagation method for injecting ssh public keys into a vm guest",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"source": {
@@ -16776,7 +16778,7 @@ func schema_kubevirtio_client_go_api_v1_SSHPublicKeyAccessCredential(ref common.
 					},
 					"propagationMethod": {
 						SchemaProps: spec.SchemaProps{
-							Description: "propagationMethod represents how the public key is injected into the vm guest.",
+							Description: "PropagationMethod represents how the public key is injected into the vm guest.",
 							Ref:         ref("kubevirt.io/client-go/api/v1.SSHPublicKeyAccessCredentialPropagationMethod"),
 						},
 					},
@@ -18439,7 +18441,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceSpec(ref common.Re
 					"accessCredentials": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
+								"x-kubernetes-list-type": "atomic",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
