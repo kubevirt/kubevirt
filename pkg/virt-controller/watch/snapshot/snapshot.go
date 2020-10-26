@@ -834,7 +834,7 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 	}
 
 	if exists {
-		log.Log.V(3).Infof("VMI still runing")
+		log.Log.V(3).Infof("VMI still running")
 		return false, nil
 	}
 

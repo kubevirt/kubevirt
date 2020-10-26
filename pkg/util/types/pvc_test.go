@@ -71,7 +71,7 @@ var _ = Describe("PVC utils test", func() {
 
 		It("should handle non existing PVC", func() {
 			pvc, exists, isBlock, err := IsPVCBlockFromStore(pvcCache, namespace, "doesNotExist")
-			Expect(err).ToNot(HaveOccurred(), "no error occured")
+			Expect(err).ToNot(HaveOccurred(), "no error occurred")
 			Expect(pvc).To(BeNil(), "PVC is nil")
 			Expect(exists).To(BeFalse(), "PVC was not found")
 			Expect(isBlock).To(BeFalse(), "Is filesystem PVC")
@@ -79,7 +79,7 @@ var _ = Describe("PVC utils test", func() {
 
 		It("should detect filesystem device for empty VolumeMode", func() {
 			pvc, exists, isBlock, err := IsPVCBlockFromStore(pvcCache, namespace, file1Name)
-			Expect(err).ToNot(HaveOccurred(), "no error occured")
+			Expect(err).ToNot(HaveOccurred(), "no error occurred")
 			Expect(pvc).ToNot(BeNil(), "PVC isn't nil")
 			Expect(exists).To(BeTrue(), "PVC was found")
 			Expect(isBlock).To(BeFalse(), "Is filesystem PVC")
@@ -87,7 +87,7 @@ var _ = Describe("PVC utils test", func() {
 
 		It("should detect filesystem device for filesystem VolumeMode", func() {
 			pvc, exists, isBlock, err := IsPVCBlockFromStore(pvcCache, namespace, file2Name)
-			Expect(err).ToNot(HaveOccurred(), "no error occured")
+			Expect(err).ToNot(HaveOccurred(), "no error occurred")
 			Expect(pvc).ToNot(BeNil(), "PVC isn't nil")
 			Expect(exists).To(BeTrue(), "PVC was found")
 			Expect(isBlock).To(BeFalse(), "Is filesystem PVC")
@@ -95,7 +95,7 @@ var _ = Describe("PVC utils test", func() {
 
 		It("should detect block device for block VolumeMode", func() {
 			pvc, exists, isBlock, err := IsPVCBlockFromStore(pvcCache, namespace, blockName)
-			Expect(err).ToNot(HaveOccurred(), "no error occured")
+			Expect(err).ToNot(HaveOccurred(), "no error occurred")
 			Expect(pvc).ToNot(BeNil(), "PVC isn't nil")
 			Expect(exists).To(BeTrue(), "PVC was found")
 			Expect(isBlock).To(BeTrue(), "Is blockdevice PVC")
@@ -115,7 +115,7 @@ var _ = Describe("PVC utils test", func() {
 
 		It("should handle non existing PVC", func() {
 			pvc, exists, isBlock, err := IsPVCBlockFromClient(virtClient, namespace, "doesNotExist")
-			Expect(err).ToNot(HaveOccurred(), "no error occured")
+			Expect(err).ToNot(HaveOccurred(), "no error occurred")
 			Expect(pvc).To(BeNil(), "PVC is nil")
 			Expect(exists).To(BeFalse(), "PVC was not found")
 			Expect(isBlock).To(BeFalse(), "Is filesystem PVC")
@@ -123,7 +123,7 @@ var _ = Describe("PVC utils test", func() {
 
 		It("should detect filesystem device for empty VolumeMode", func() {
 			pvc, exists, isBlock, err := IsPVCBlockFromClient(virtClient, namespace, file1Name)
-			Expect(err).ToNot(HaveOccurred(), "no error occured")
+			Expect(err).ToNot(HaveOccurred(), "no error occurred")
 			Expect(pvc).ToNot(BeNil(), "PVC isn't nil")
 			Expect(exists).To(BeTrue(), "PVC was found")
 			Expect(isBlock).To(BeFalse(), "Is filesystem PVC")
@@ -131,7 +131,7 @@ var _ = Describe("PVC utils test", func() {
 
 		It("should detect filesystem device for filesystem VolumeMode", func() {
 			pvc, exists, isBlock, err := IsPVCBlockFromClient(virtClient, namespace, file2Name)
-			Expect(err).ToNot(HaveOccurred(), "no error occured")
+			Expect(err).ToNot(HaveOccurred(), "no error occurred")
 			Expect(pvc).ToNot(BeNil(), "PVC isn't nil")
 			Expect(exists).To(BeTrue(), "PVC was found")
 			Expect(isBlock).To(BeFalse(), "Is filesystem PVC")
@@ -139,7 +139,7 @@ var _ = Describe("PVC utils test", func() {
 
 		It("should detect block device for block VolumeMode", func() {
 			pvc, exists, isBlock, err := IsPVCBlockFromClient(virtClient, namespace, blockName)
-			Expect(err).ToNot(HaveOccurred(), "no error occured")
+			Expect(err).ToNot(HaveOccurred(), "no error occurred")
 			Expect(pvc).ToNot(BeNil(), "PVC isn't nil")
 			Expect(pvc.Name).To(Equal(blockName), "correct PVC was found")
 			Expect(exists).To(BeTrue(), "PVC was found")
@@ -147,7 +147,7 @@ var _ = Describe("PVC utils test", func() {
 		})
 		It("should detect shared block device for block VolumeMode", func() {
 			pvc, isShared, err := IsSharedPVCFromClient(virtClient, namespace, blockName)
-			Expect(err).ToNot(HaveOccurred(), "no error occured")
+			Expect(err).ToNot(HaveOccurred(), "no error occurred")
 			Expect(pvc).ToNot(BeNil(), "PVC isn't nil")
 			Expect(pvc.Name).To(Equal(blockName), "correct PVC was found")
 			Expect(isShared).To(BeTrue(), "Is PVC Shared")

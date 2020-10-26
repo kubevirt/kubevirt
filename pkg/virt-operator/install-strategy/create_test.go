@@ -218,7 +218,7 @@ var _ = Describe("Create", func() {
 			Expect(patched).To(BeFalse())
 		})
 
-		It("should not roll out subresources on existing CRDs before controll-plane rollover", func() {
+		It("should not roll out subresources on existing CRDs before control-plane rollover", func() {
 			crd := &extv1beta1.CustomResourceDefinition{
 				ObjectMeta: v12.ObjectMeta{
 					Name:      "test",
@@ -261,7 +261,7 @@ var _ = Describe("Create", func() {
 			Expect(createOrUpdateCrds(kv, targetStrategy, stores, clientset, expectations)).To(Succeed())
 		})
 
-		It("should not roll out subresources on existing CRDs after the controll-plane rollover", func() {
+		It("should not roll out subresources on existing CRDs after the control-plane rollover", func() {
 			crd := &extv1beta1.CustomResourceDefinition{
 				ObjectMeta: v12.ObjectMeta{
 					Name:      "test",

@@ -20,7 +20,7 @@
 package virtconfig
 
 /*
- This module is intended for exposing the virtualization configuration that is availabe at the cluster-level and its default settings.
+ This module is intended for exposing the virtualization configuration that is available at the cluster-level and its default settings.
 */
 
 import (

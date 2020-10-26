@@ -1244,7 +1244,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			}
 		}
 
-		// Adjust guest vcpu config. Currenty will handle vCPUs to pCPUs pinning
+		// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
 		if vmi.IsCPUDedicated() {
 			if err := formatDomainCPUTune(vmi, domain, c); err != nil {
 				log.Log.Reason(err).Error("failed to format domain cputune.")
@@ -1447,7 +1447,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				domainIface.Driver = &InterfaceDriver{Name: "vhost", Queues: numQueues}
 			}
 
-			// Add a pciAddress if specifed
+			// Add a pciAddress if specified
 			if iface.PciAddress != "" {
 				addr, err := decoratePciAddressField(iface.PciAddress)
 				if err != nil {

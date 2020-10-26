@@ -768,7 +768,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 								})
 							})
 
-							Context("With successfull patch", func() {
+							Context("With successful patch", func() {
 								BeforeEach(func() {
 									vmPatchStatus := http.StatusOK
 

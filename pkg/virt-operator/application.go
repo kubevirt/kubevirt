@@ -369,7 +369,7 @@ func (app *VirtOperatorApp) Run() {
 	}
 
 	readyGauge.Set(1)
-	log.Log.Infof("Attempting to aquire leader status")
+	log.Log.Infof("Attempting to acquire leader status")
 	leaderElector.Run(ctx)
 	panic("unreachable")
 

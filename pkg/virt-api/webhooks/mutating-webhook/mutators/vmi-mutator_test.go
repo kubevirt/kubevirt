@@ -714,7 +714,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		}
 		webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(vmi)
 		// we MUST report the error in mutation, but production code is
-		// supposed to ignore it to fullfill the design semantics, see
+		// supposed to ignore it to fulfill the design semantics, see
 		// the discussion in https://github.com/kubevirt/kubevirt/pull/2408
 
 		hyperv := v1.FeatureHyperv{

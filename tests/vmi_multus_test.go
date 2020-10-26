@@ -460,7 +460,7 @@ var _ = Describe("[Serial]Multus", func() {
 			})
 		})
 
-		Context("VirtualMachineInstance with invalid MAC addres", func() {
+		Context("VirtualMachineInstance with invalid MAC address", func() {
 
 			It("[test_id:1713]should failed to start with invalid MAC address", func() {
 				By("Start VMI")

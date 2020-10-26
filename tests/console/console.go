@@ -262,7 +262,7 @@ func ExpectBatchWithValidatedSend(expecter expect.Expecter, batch []expect.Batch
 		case expect.BatchSwitchCase:
 			return nil, fmt.Errorf("ExpectBatchWithValidatedSend doesn't support BatchSwitchCase")
 		default:
-			return nil, fmt.Errorf("Unkown command: ExpectBatchWithValidatedSend supports only BatchExpect and BatchSend")
+			return nil, fmt.Errorf("Unknown command: ExpectBatchWithValidatedSend supports only BatchExpect and BatchSend")
 		}
 	}
 

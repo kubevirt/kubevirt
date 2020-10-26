@@ -419,7 +419,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					return map[string]string{}
 				}
 				return vmi.Annotations
-			}, 300*time.Second, 1*time.Second).Should(HaveKeyWithValue("testannotation", "test"), "VM should start normaly.")
+			}, 300*time.Second, 1*time.Second).Should(HaveKeyWithValue("testannotation", "test"), "VM should start normally.")
 		})
 
 		It("[test_id:3162]should ignore kubernetes and kubevirt annotations to VMI", func() {
@@ -447,7 +447,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Eventually(func() error {
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
 				return err
-			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "VMI should be created normaly.")
+			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "VMI should be created normally.")
 
 			Expect(vmi.Annotations).ShouldNot(HaveKey("kubevirt.io/test"), "kubevirt internal annotations should be ignored")
 			Expect(vmi.Annotations).ShouldNot(HaveKey("kubernetes.io/test"), "kubernetes internal annotations should be ignored")

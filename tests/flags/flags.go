@@ -69,7 +69,7 @@ func init() {
 	flag.StringVar(&ConfigFile, "config", "tests/default-config.json", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
 	flag.StringVar(&ArtifactsDir, "artifacts", os.Getenv("ARTIFACTS"), "Directory for storing reporter artifacts like junit files or logs")
 	flag.BoolVar(&SkipShasumCheck, "skip-shasums-check", false, "Skip tests with sha sums.")
-	flag.BoolVar(&SkipDualStackTests, "skip-dual-stack-test", false, "Skip test that actively checks for the presense of IPv6 address in the cluster pods.")
+	flag.BoolVar(&SkipDualStackTests, "skip-dual-stack-test", false, "Skip test that actively checks for the presence of IPv6 address in the cluster pods.")
 }
 
 func NormalizeFlags() {

@@ -611,7 +611,7 @@ func (ps *prometheusScraper) Report(socketFile string, vmi *k6tv1.VirtualMachine
 	// In this case the next functions will end up writing on a closed channel. This will panic.
 	// It is actually OK in this case to abort the goroutine that panicked -that's what we want anyway,
 	// and the very reason we collect in throwaway goroutines. We need however to avoid dump stacktraces in the logs.
-	// Since this is a known failure condition, let's handle it explicitely.
+	// Since this is a known failure condition, let's handle it explicitly.
 	defer func() {
 		if err := recover(); err != nil {
 			log.Log.V(2).Warningf("collector goroutine panicked for VM %s: %s", socketFile, err)

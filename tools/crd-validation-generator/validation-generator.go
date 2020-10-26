@@ -22,7 +22,7 @@ func main() {
 
 	files, err := ioutil.ReadDir(*dirname)
 	if err != nil {
-		panic(fmt.Errorf("Error occured reading directory, %v", err))
+		panic(fmt.Errorf("Error occurred reading directory, %v", err))
 	}
 
 	if len(files) == 0 {
