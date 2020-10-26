@@ -2577,30 +2577,29 @@ var _ = Describe("Configurations", func() {
 		)
 	})
 
-	Context("Custom PCI Adresses with slots and function", func() {
+	Context("Custom PCI Addresses configuration", func() {
+		// The aim of the test is to validate the configurability of a range of PCI slots
+		// on the root PCI bus 0. We would like to test slots 2..1a (slots 0,1 and beyond 1a are reserved).
+		// In addition , we test usage of PCI functions on a single slot
+		// by occupying all the functions 1..7 on random port 2.
 
-		It("should configure custom pci address across all slots", func() {
-			pciSlotsAddr := make([]string, 25)
-			for i := range pciSlotsAddr {
-				pciSlotsAddr[i] = fmt.Sprintf("%x", i+2)
-				if len(pciSlotsAddr[i]) == 1 {
-					pciSlotsAddr[i] = "0" + pciSlotsAddr[i]
-				}
-				pciSlotsAddr[i] = fmt.Sprintf("0000:00:%v.0", pciSlotsAddr[i])
-			}
-			vmi1 := tests.NewRandomFedoraVMIWitGuestAgent()
-			for i, pci := range pciSlotsAddr[:len(pciSlotsAddr)/2] {
-				vmi1.Spec.Domain.Devices.Disks = append(vmi1.Spec.Domain.Devices.Disks,
+		addrPrefix := "0000:00" // PCI bus 0
+		numOfSlotsToTest := 24  // slots 2..1a
+		numOfFuncsToTest := 8
+		var vmi *v1.VirtualMachineInstance
+
+		createDisks := func(numOfDisks int, vmi *v1.VirtualMachineInstance) {
+			for i := 0; i < numOfDisks; i++ {
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
 					v1.Disk{
 						Name: fmt.Sprintf("test%v", i),
 						DiskDevice: v1.DiskDevice{
 							Disk: &v1.DiskTarget{
-								Bus:        "virtio",
-								PciAddress: pci,
+								Bus: "virtio",
 							},
 						},
 					})
-				vmi1.Spec.Volumes = append(vmi1.Spec.Volumes,
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes,
 					v1.Volume{
 						Name: fmt.Sprintf("test%v", i),
 						VolumeSource: v1.VolumeSource{
@@ -2610,78 +2609,54 @@ var _ = Describe("Configurations", func() {
 						},
 					})
 			}
+		}
+		assignDisksToSlots := func(startIndex int, vmi *v1.VirtualMachineInstance) {
+			var addr string
 
-			vmi2 := tests.NewRandomFedoraVMIWitGuestAgent()
-			for i, pci := range pciSlotsAddr[len(pciSlotsAddr)/2:] {
-				vmi2.Spec.Domain.Devices.Disks = append(vmi2.Spec.Domain.Devices.Disks, v1.Disk{
-					Name: fmt.Sprintf("test%v", i),
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus:        "virtio",
-							PciAddress: pci,
-						},
-					},
-				})
-				vmi2.Spec.Volumes = append(vmi2.Spec.Volumes, v1.Volume{
-					Name: fmt.Sprintf("test%v", i),
-					VolumeSource: v1.VolumeSource{
-						EmptyDisk: &v1.EmptyDiskSource{
-							Capacity: resource.MustParse("1Mi"),
-						},
-					},
-				})
+			for i, disk := range vmi.Spec.Domain.Devices.Disks {
+				addr = fmt.Sprintf("%x", i+startIndex)
+				if len(addr) == 1 {
+					disk.DiskDevice.Disk.PciAddress = fmt.Sprintf("%s:0%v.0", addrPrefix, addr)
+				} else {
+					disk.DiskDevice.Disk.PciAddress = fmt.Sprintf("%s:%v.0", addrPrefix, addr)
+				}
 			}
+		}
 
-			vmi1, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi1)
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi1, tests.LoggedInFedoraExpecter)
-			Expect(len(vmi1.Spec.Domain.Devices.Disks)).Should(BeNumerically("==", 14))
+		assignDisksToFunctions := func(startIndex int, vmi *v1.VirtualMachineInstance) {
+			for i, disk := range vmi.Spec.Domain.Devices.Disks {
+				disk.DiskDevice.Disk.PciAddress = fmt.Sprintf("%s:02.%v", addrPrefix, fmt.Sprintf("%x", i+startIndex))
+			}
+		}
 
-			vmi2, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi2)
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi2, tests.LoggedInFedoraExpecter)
-			Expect(len(vmi2.Spec.Domain.Devices.Disks)).Should(BeNumerically("==", 15))
-
-			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi1.Name, &metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi2.Name, &metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
+		BeforeEach(func() {
+			var bootOrder uint = 1
+			vmi = tests.NewRandomFedoraVMIWitGuestAgent()
+			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("1024M")
+			vmi.Spec.Domain.Devices.Disks[0].BootOrder = &bootOrder
 		})
-		It("should configure custom pci address across all slot functions", func() {
-			vmi := tests.NewRandomFedoraVMIWitGuestAgent()
-			pciSlotsAddr := make([]string, 7)
-			for i := range pciSlotsAddr {
-				pciSlotsAddr[i] = fmt.Sprintf("0000:00:02.%d", i)
-			}
 
-			for i, pci := range pciSlotsAddr {
-				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-					Name: fmt.Sprintf("test%v", i),
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus:        "virtio",
-							PciAddress: pci,
-						},
-					},
-				})
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-					Name: fmt.Sprintf("test%v", i),
-					VolumeSource: v1.VolumeSource{
-						EmptyDisk: &v1.EmptyDiskSource{
-							Capacity: resource.MustParse("1Mi"),
-						},
-					},
-				})
-			}
+		table.DescribeTable("should configure custom pci address", func(startIndex, numOfDevices int, testingPciFunctions bool) {
+			currentDisks := len(vmi.Spec.Domain.Devices.Disks)
+			numOfDisksToAdd := numOfDevices - currentDisks
 
+			createDisks(numOfDisksToAdd, vmi)
+			if testingPciFunctions {
+				assignDisksToFunctions(startIndex, vmi)
+			} else {
+				assignDisksToSlots(startIndex, vmi)
+			}
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
-			Expect(len(vmi.Spec.Domain.Devices.Disks)).Should(BeNumerically("==", 9))
+			Expect(len(vmi.Spec.Domain.Devices.Disks)).Should(BeNumerically("==", numOfDevices))
 
 			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
-		})
+		},
+			table.Entry("across all available PCI root bus slots", 2, numOfSlotsToTest, false),
+			table.Entry("across all available PCI functions of a single slot", 0, numOfFuncsToTest, true),
+		)
 	})
 
 	It("[test_id:4153]VMI with masquerade binding and guest agent should expose Pod IP as its public address", func() {
