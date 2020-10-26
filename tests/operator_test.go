@@ -866,9 +866,9 @@ spec:
 			Expect(err).ToNot(HaveOccurred())
 
 			// Create VM on previous release using a specific API.
-			// NOTE: we are testing with yaml here and explicilty _NOT_ generating
+			// NOTE: we are testing with yaml here and explicitly _NOT_ generating
 			// this vm using the latest api code. We want to guarrantee there are no
-			// surprises when it comes to backwards compatiblity with previous
+			// surprises when it comes to backwards compatibility with previous
 			// virt apis.  As we progress our api from v1alpha3 -> v1 there
 			// needs to be a VM created for every api. This is how we will ensure
 			// our api remains upgradable and supportable from previous release.
@@ -962,7 +962,7 @@ spec:
 					}
 					return false
 					// #3610 - this timeout needs to be reduced back to 60 seconds.
-					// there's an issue occuring after update where sometimes virt-launcher
+					// there's an issue occurring after update where sometimes virt-launcher
 					// can't dial the event notify socket. This impacts the timing for when
 					// the vmi is shutdown. Once that is resolved, reduce the timeout
 				}, 160*time.Second, 1*time.Second).Should(BeTrue())

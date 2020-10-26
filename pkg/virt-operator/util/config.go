@@ -87,7 +87,7 @@ type KubeVirtDeploymentConfig struct {
 
 	// the KubeVirt version
 	// matches the image tag, if tags are used, either by the manifest, or by the KubeVirt CR
-	// used on the KubeVirt CR status and on annotations, and for determing up-/downgrade path, even when using shasums for the images
+	// used on the KubeVirt CR status and on annotations, and for determining up-/downgrade path, even when using shasums for the images
 	KubeVirtVersion string `json:"kubeVirtVersion,omitempty" optional:"true"`
 
 	// the shasums of every image we use

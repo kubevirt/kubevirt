@@ -357,7 +357,7 @@ func (d *DomainWatcher) startBackground() error {
 }
 
 // TODO remove watchdog file usage eventually and only rely on detecting stale socket connections
-// for now we have to keep watchdog files around for backwards compatiblity with old VMIs
+// for now we have to keep watchdog files around for backwards compatibility with old VMIs
 func (d *DomainWatcher) handleStaleWatchdogFiles() error {
 	domains, err := watchdog.GetExpiredDomains(d.watchdogTimeout, d.virtShareDir)
 	if err != nil {

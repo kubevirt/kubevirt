@@ -298,7 +298,7 @@ var _ = Describe("HostDisk", func() {
 		})
 	})
 
-	Describe("HostDisk with unkown type", func() {
+	Describe("HostDisk with unknown type", func() {
 		It("Should not create a disk.img", func() {
 			By("Creating a new minimal vmi")
 			vmi := v1.NewMinimalVMI("fake-vmi")

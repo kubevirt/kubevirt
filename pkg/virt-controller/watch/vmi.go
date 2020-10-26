@@ -1024,7 +1024,7 @@ func (c *VMIController) currentPod(vmi *virtv1.VirtualMachineInstance) (*k8sv1.P
 		if vmi.Status.NodeName != "" &&
 			vmi.Status.NodeName != pod.Spec.NodeName {
 			// This pod isn't scheduled to the current node.
-			// This can occurr during the initial migration phases when
+			// This can occur during the initial migration phases when
 			// a new target node is being prepared for the VMI.
 			continue
 		}

@@ -362,7 +362,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 		})
 	})
 
-	Context("VirtualMachineInstance with invalid MAC addres", func() {
+	Context("VirtualMachineInstance with invalid MAC address", func() {
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
 		})
@@ -976,7 +976,7 @@ func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFa
 }
 
 func NewRandomVMIWithInvalidNetworkInterface() *v1.VirtualMachineInstance {
-	// Use alpine because cirros dhcp client starts prematurily before link is ready
+	// Use alpine because cirros dhcp client starts prematurely before link is ready
 	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	tests.AddExplicitPodNetworkInterface(vmi)
 	vmi.Spec.Domain.Devices.Interfaces[0].Model = "gibberish"

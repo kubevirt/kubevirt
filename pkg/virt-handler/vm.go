@@ -404,7 +404,7 @@ func (d *VirtualMachineController) clearPodNetworkPhase1(uid types.UID) {
 
 // Reaching into the network namespace of the VMI's pod is expensive because
 // it results in killing/spawning a posix thread. Only do this if it
-// is absolutely neccessary. The cache informs us if this action has
+// is absolutely necessary. The cache informs us if this action has
 // already taken place or not for a VMI
 func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineInstance) (bool, error) {
 
@@ -542,7 +542,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			//   set in the previous loops (when there are no interfaces), which can not be deleted,
 			//   unless overridden by Qemu agent
 			// - domain.Spec - interfaces form the Spec
-			// - domain.Status.Interfaces - interfaces reported by guest agent (emtpy if Qemu agent not running)
+			// - domain.Status.Interfaces - interfaces reported by guest agent (empty if Qemu agent not running)
 			newInterfaces := []v1.VirtualMachineInstanceNetworkInterface{}
 
 			existingInterfaceStatusByName := map[string]v1.VirtualMachineInstanceNetworkInterface{}
@@ -719,7 +719,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 
 		targetNodeDetectedDomain, timeLeft := d.hasTargetDetectedDomain(vmi)
 		// If we can't detect where the migration went to, then we have no
-		// way of transfering ownership. The only option here is to move the
+		// way of transferring ownership. The only option here is to move the
 		// vmi to failed.  The cluster vmi controller will then tear down the
 		// resulting pods.
 		if migrationHost == "" {
@@ -1381,7 +1381,7 @@ func (d *VirtualMachineController) execute(key string) error {
 
 	if !vmiExists && string(domainCachedUID) != "" {
 		// it's possible to discover the UID from cache even if the domain
-		// doesn't techincally exist anymore
+		// doesn't technically exist anymore
 		vmi.UID = domainCachedUID
 		log.Log.Object(vmi).Infof("Using cached UID for vmi found in domain cache")
 	}
@@ -1608,7 +1608,7 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 		return isUnresponsive, true, nil
 	}
 
-	// fall back to legacy watchdog support for backwards compatiblity
+	// fall back to legacy watchdog support for backwards compatibility
 	isUnresponsive, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vmi)
 	return isUnresponsive, true, err
 }

@@ -36,7 +36,7 @@ type AgentCommand string
 // Aliases for commands executed on guest agent
 // TODO: when updated to libvirt 5.6.0 this can change to libvirt types
 // Aliases are also used as keys to the store, it does not matter how the keys are named,
-// only whther it relates to the right data
+// only whether it relates to the right data
 const (
 	GET_OSINFO     AgentCommand = "guest-get-osinfo"
 	GET_HOSTNAME   AgentCommand = "guest-get-host-name"
