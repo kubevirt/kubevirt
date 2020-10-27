@@ -15198,15 +15198,15 @@ func schema_kubevirtio_client_go_api_v1_HostDevice(ref common.ReferenceCallback)
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DeviceName is the resource name of the host device exposed by a device plugin",
-							Type:        []string{"string"},
-							Format:      "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"deviceName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "DeviceName is the resource name of the host device exposed by a device plugin",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

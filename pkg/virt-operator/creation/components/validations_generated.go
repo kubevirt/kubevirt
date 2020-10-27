@@ -2120,9 +2120,9 @@ var CRDsValidation map[string]string = map[string]string{
                           items:
                             properties:
                               deviceName:
+                                description: DeviceName is the resource name of the host device exposed by a device plugin
                                 type: string
                               name:
-                                description: DeviceName is the resource name of the host device exposed by a device plugin
                                 type: string
                             required:
                             - deviceName
@@ -3689,9 +3689,9 @@ var CRDsValidation map[string]string = map[string]string{
                   items:
                     properties:
                       deviceName:
+                        description: DeviceName is the resource name of the host device exposed by a device plugin
                         type: string
                       name:
-                        description: DeviceName is the resource name of the host device exposed by a device plugin
                         type: string
                     required:
                     - deviceName
@@ -5014,9 +5014,9 @@ var CRDsValidation map[string]string = map[string]string{
                   items:
                     properties:
                       deviceName:
+                        description: DeviceName is the resource name of the host device exposed by a device plugin
                         type: string
                       name:
-                        description: DeviceName is the resource name of the host device exposed by a device plugin
                         type: string
                     required:
                     - deviceName
@@ -6098,9 +6098,9 @@ var CRDsValidation map[string]string = map[string]string{
                           items:
                             properties:
                               deviceName:
+                                description: DeviceName is the resource name of the host device exposed by a device plugin
                                 type: string
                               name:
-                                description: DeviceName is the resource name of the host device exposed by a device plugin
                                 type: string
                             required:
                             - deviceName
@@ -8077,9 +8077,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       items:
                                         properties:
                                           deviceName:
+                                            description: DeviceName is the resource name of the host device exposed by a device plugin
                                             type: string
                                           name:
-                                            description: DeviceName is the resource name of the host device exposed by a device plugin
                                             type: string
                                         required:
                                         - deviceName

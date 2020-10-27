@@ -8994,10 +8994,10 @@
     ],
     "properties": {
      "deviceName": {
+      "description": "DeviceName is the resource name of the host device exposed by a device plugin",
       "type": "string"
      },
      "name": {
-      "description": "DeviceName is the resource name of the host device exposed by a device plugin",
       "type": "string"
      }
     }

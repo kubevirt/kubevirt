@@ -98,7 +98,7 @@ mediatedDevices:
 	})
 
 	It("Should validate DPI devices", func() {
-        iommuToMDEVMap := make(map[string]string)
+		iommuToMDEVMap := make(map[string]string)
 		supportedMdevsMap := make(map[string]string)
 		for _, supportedMdev := range fakePermittedHostDevices.MediatedDevices {
 			// do not add a device plugin for this resource if it's being provided via an external device plugin
@@ -110,10 +110,10 @@ mediatedDevices:
 		// discoverPermittedHostMediatedDevices() will walk real mdev devices wherever the tests are running
 		mDevices := discoverPermittedHostMediatedDevices(supportedMdevsMap)
 		selector := removeSelectorSpaces(fakeMdevNameSelector)
-        devs := constructDPIdevicesFromMdev(mDevices[selector], iommuToMDEVMap)
-        Expect(devs[0].ID).To(Equal(fakeIommuGroup))
+		devs := constructDPIdevicesFromMdev(mDevices[selector], iommuToMDEVMap)
+		Expect(devs[0].ID).To(Equal(fakeIommuGroup))
 		Expect(devs[0].Topology.Nodes[0].ID).To(Equal(int64(fakeNumaNode)))
-    })
+	})
 
 	It("Should update the device list according to the configmap", func() {
 		By("creating a cluster config")
