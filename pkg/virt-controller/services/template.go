@@ -315,8 +315,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	var volumeDevices []k8sv1.VolumeDevice
 	var userId int64 = 0
 	var privileged bool = false
+	var hasContainerDisk bool = false
 	var volumeMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
+	var initContainers []k8sv1.Container
 
 	// Need to run in privileged mode in Power or libvirt will fail to lock memory for VMI
 	if runtime.GOARCH == "ppc64le" {
@@ -417,10 +419,13 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				},
 			})
 		}
-		if volume.ContainerDisk != nil && volume.ContainerDisk.ImagePullSecret != "" {
-			imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
-				Name: volume.ContainerDisk.ImagePullSecret,
-			})
+		if volume.ContainerDisk != nil {
+			hasContainerDisk = true
+			if volume.ContainerDisk.ImagePullSecret != "" {
+				imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
+					Name: volume.ContainerDisk.ImagePullSecret,
+				})
+			}
 		}
 		if volume.HostDisk != nil {
 			var hostPathType k8sv1.HostPathType
@@ -1009,46 +1014,45 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		annotationsList[ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
 	}
 
-	initContainerVolumeMounts := []k8sv1.VolumeMount{
-		k8sv1.VolumeMount{
-			Name:      "virt-bin-share-dir",
-			MountPath: "/init/usr/bin",
-		},
-	}
+	if hasContainerDisk {
+		initContainerVolumeMounts := []k8sv1.VolumeMount{
+			k8sv1.VolumeMount{
+				Name:      "virt-bin-share-dir",
+				MountPath: "/init/usr/bin",
+			},
+		}
 
-	initContainerResources := k8sv1.ResourceRequirements{}
-	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
-		initContainerResources.Limits = make(k8sv1.ResourceList)
-		initContainerResources.Limits[k8sv1.ResourceCPU] = resource.MustParse("10m")
-		initContainerResources.Limits[k8sv1.ResourceMemory] = resource.MustParse("40M")
-		initContainerResources.Requests = make(k8sv1.ResourceList)
-		initContainerResources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
-		initContainerResources.Requests[k8sv1.ResourceMemory] = resource.MustParse("40M")
-	} else {
-		initContainerResources.Limits = make(k8sv1.ResourceList)
-		initContainerResources.Limits[k8sv1.ResourceCPU] = resource.MustParse("100m")
-		initContainerResources.Limits[k8sv1.ResourceMemory] = resource.MustParse("40M")
-		initContainerResources.Requests = make(k8sv1.ResourceList)
-		initContainerResources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
-		initContainerResources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
-	}
-	initContainerCommand := []string{"/usr/bin/cp",
-		"/usr/bin/container-disk",
-		"/init/usr/bin/container-disk",
-	}
-	initContainers := []k8sv1.Container{
-		{
+		initContainerResources := k8sv1.ResourceRequirements{}
+		if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
+			initContainerResources.Limits = make(k8sv1.ResourceList)
+			initContainerResources.Limits[k8sv1.ResourceCPU] = resource.MustParse("10m")
+			initContainerResources.Limits[k8sv1.ResourceMemory] = resource.MustParse("40M")
+			initContainerResources.Requests = make(k8sv1.ResourceList)
+			initContainerResources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
+			initContainerResources.Requests[k8sv1.ResourceMemory] = resource.MustParse("40M")
+		} else {
+			initContainerResources.Limits = make(k8sv1.ResourceList)
+			initContainerResources.Limits[k8sv1.ResourceCPU] = resource.MustParse("100m")
+			initContainerResources.Limits[k8sv1.ResourceMemory] = resource.MustParse("40M")
+			initContainerResources.Requests = make(k8sv1.ResourceList)
+			initContainerResources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
+			initContainerResources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
+		}
+		initContainerCommand := []string{"/usr/bin/cp",
+			"/usr/bin/container-disk",
+			"/init/usr/bin/container-disk",
+		}
+		initContainers = append(initContainers, k8sv1.Container{
 			Name:            "container-disk-binary",
 			Image:           t.launcherImage,
 			ImagePullPolicy: imagePullPolicy,
 			Command:         initContainerCommand,
 			VolumeMounts:    initContainerVolumeMounts,
 			Resources:       initContainerResources,
-		},
+		})
+		// this causes containerDisks to be pre-pulled before virt-launcher starts.
+		initContainers = append(initContainers, containerdisk.GenerateInitContainers(vmi, "container-disks", "virt-bin-share-dir")...)
 	}
-
-	// this causes containerDisks to be pre-pulled before virt-launcher starts.
-	initContainers = append(initContainers, containerdisk.GenerateInitContainers(vmi, "container-disks", "virt-bin-share-dir")...)
 
 	// TODO use constants for podLabels
 	pod := k8sv1.Pod{
@@ -1077,6 +1081,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			DNSConfig:                     vmi.Spec.DNSConfig,
 			DNSPolicy:                     vmi.Spec.DNSPolicy,
 		},
+	}
+
+	if len(initContainers) > 0 {
+		pod.Spec.InitContainers = initContainers
 	}
 
 	// If an SELinux type was specified, use that--otherwise don't set an SELinux type
