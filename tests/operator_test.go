@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -155,7 +156,7 @@ var _ = Describe("[Serial]Operator", func() {
 				cdi, err := virtClient.CdiClient().CdiV1alpha1().CDIs().Get(originalCDI.Name, metav1.GetOptions{})
 				if err != nil {
 					return false
-				} else if cdi.Status.Phase != cdiv1.CDIPhaseDeployed {
+				} else if cdi.Status.Phase != sdkapi.PhaseDeployed {
 					return false
 				}
 				return true

@@ -39,3 +39,23 @@ func IsPopulated(pvc *corev1.PersistentVolumeClaim, getDvFunc func(name, namespa
 	}
 	return true, nil
 }
+
+// IsWaitForFirstConsumerBeforePopulating indicates if the persistent volume passed in is in ClaimPending state and waiting for first consumer.
+// It follow the following logic
+// 1. If the PVC is not owned by a DataVolume, return false, we can not assume it will be populated
+// 2. If the PVC is owned by a DataVolume, look up the DV and check the phase, if phase WaitForFirstConsumer return true
+// 3. If the PVC is owned by a DataVolume, look up the DV and check the phase, if phase !WaitForFirstConsumer return false
+func IsWaitForFirstConsumerBeforePopulating(pvc *corev1.PersistentVolumeClaim, getDvFunc func(name, namespace string) (*DataVolume, error)) (bool, error) {
+	pvcOwner := metav1.GetControllerOf(pvc)
+	if pvc.Status.Phase == corev1.ClaimPending && pvcOwner != nil && pvcOwner.Kind == "DataVolume" {
+		// Find the data volume:
+		dv, err := getDvFunc(pvcOwner.Name, pvc.Namespace)
+		if err != nil {
+			return false, err
+		}
+		if dv.Status.Phase == WaitForFirstConsumer {
+			return true, nil
+		}
+	}
+	return false, nil
+}
