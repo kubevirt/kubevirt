@@ -105,7 +105,7 @@ func constructDPIdevicesFromMdev(mdevs []*MDEV, iommuToMDEVMap map[string]string
 			ID:     string(mdev.iommuGroup),
 			Health: pluginapi.Healthy,
 		}
-		if mdev.numaNode > 0 {
+		if mdev.numaNode >= 0 {
 			numaInfo := &pluginapi.NUMANode{
 				ID: int64(mdev.numaNode),
 			}
