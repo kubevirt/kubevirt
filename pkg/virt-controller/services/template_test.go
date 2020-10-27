@@ -1674,6 +1674,50 @@ var _ = Describe("Template", func() {
 				expectedMemory.Add(*domain.Resources.Requests.Memory())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 			})
+			It("should still add memory overhead for 1 core if cpu topology wasn't provided", func() {
+				domain := v1.DomainSpec{
+					Resources: v1.ResourceRequirements{
+						Requests: kubev1.ResourceList{
+							kubev1.ResourceMemory: resource.MustParse("512Mi"),
+							kubev1.ResourceCPU:    resource.MustParse("150m"),
+						},
+					},
+				}
+				domain1 := v1.DomainSpec{
+					CPU: &v1.CPU{
+						Model: "Conroe",
+						Cores: 1,
+					},
+					Resources: v1.ResourceRequirements{
+						Requests: kubev1.ResourceList{
+							kubev1.ResourceMemory: resource.MustParse("512Mi"),
+							kubev1.ResourceCPU:    resource.MustParse("150m"),
+						},
+					},
+				}
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
+				}
+				vmi1 := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi1", Namespace: "default", UID: "1134",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Domain: domain1},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				pod1, err := svc.RenderLaunchManifest(&vmi1)
+				Expect(err).ToNot(HaveOccurred())
+				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
+				expectedMemory.Add(*getMemoryOverhead(&vmi))
+				expectedMemory.Add(*domain.Resources.Requests.Memory())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
+				Expect(pod1.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
+			})
 		})
 		Context("with slirp interface", func() {
 			It("Should have empty port list in the pod manifest", func() {
