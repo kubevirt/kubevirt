@@ -809,10 +809,10 @@ spec:
                 type: object
             type: object
           status:
-            description: CDIStatus defines the status of the CDI installation
+            description: CDIStatus defines the status of the installation
             properties:
               conditions:
-                description: A list of current conditions of the CDI resource
+                description: A list of current conditions of the resource
                 items:
                   description: Condition represents the state of the operator's reconciliation functionality.
                   properties:
@@ -837,16 +837,16 @@ spec:
                   type: object
                 type: array
               observedVersion:
-                description: The observed version of the CDI resource
+                description: The observed version of the resource
                 type: string
               operatorVersion:
-                description: The version of the CDI resource as defined by the operator
+                description: The version of the resource as defined by the operator
                 type: string
               phase:
-                description: CDIPhase is the current phase of the CDI deployment
+                description: Phase is the current phase of the deployment
                 type: string
               targetVersion:
-                description: The desired version of the CDI resource
+                description: The desired version of the resource
                 type: string
             type: object
         required:
@@ -1639,10 +1639,10 @@ spec:
                 type: object
             type: object
           status:
-            description: CDIStatus defines the status of the CDI installation
+            description: CDIStatus defines the status of the installation
             properties:
               conditions:
-                description: A list of current conditions of the CDI resource
+                description: A list of current conditions of the resource
                 items:
                   description: Condition represents the state of the operator's reconciliation functionality.
                   properties:
@@ -1667,16 +1667,16 @@ spec:
                   type: object
                 type: array
               observedVersion:
-                description: The observed version of the CDI resource
+                description: The observed version of the resource
                 type: string
               operatorVersion:
-                description: The version of the CDI resource as defined by the operator
+                description: The version of the resource as defined by the operator
                 type: string
               phase:
-                description: CDIPhase is the current phase of the CDI deployment
+                description: Phase is the current phase of the deployment
                 type: string
               targetVersion:
-                description: The desired version of the CDI resource
+                description: The desired version of the resource
                 type: string
             type: object
         required:
@@ -1961,6 +1961,9 @@ subjects:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  labels:
+    name: cdi-operator
+    operator.cdi.kubevirt.io: ""
   name: cdi-operator
   namespace: {{.CDINamespace}}
 spec:
@@ -1981,24 +1984,24 @@ spec:
         - name: DEPLOY_CLUSTER_RESOURCES
           value: "true"
         - name: OPERATOR_VERSION
-          value: v1.23.7
+          value: v1.25.0
         - name: CONTROLLER_IMAGE
-          value: kubevirt/cdi-controller:v1.23.7
+          value: kubevirt/cdi-controller:v1.25.0
         - name: IMPORTER_IMAGE
-          value: kubevirt/cdi-importer:v1.23.7
+          value: kubevirt/cdi-importer:v1.25.0
         - name: CLONER_IMAGE
-          value: kubevirt/cdi-cloner:v1.23.7
+          value: kubevirt/cdi-cloner:v1.25.0
         - name: APISERVER_IMAGE
-          value: kubevirt/cdi-apiserver:v1.23.7
+          value: kubevirt/cdi-apiserver:v1.25.0
         - name: UPLOAD_SERVER_IMAGE
-          value: kubevirt/cdi-uploadserver:v1.23.7
+          value: kubevirt/cdi-uploadserver:v1.25.0
         - name: UPLOAD_PROXY_IMAGE
-          value: kubevirt/cdi-uploadproxy:v1.23.7
+          value: kubevirt/cdi-uploadproxy:v1.25.0
         - name: VERBOSITY
           value: "1"
         - name: PULL_POLICY
           value: IfNotPresent
-        image: kubevirt/cdi-operator:v1.23.7
+        image: kubevirt/cdi-operator:v1.25.0
         imagePullPolicy: IfNotPresent
         name: cdi-operator
         ports:
@@ -2006,9 +2009,14 @@ spec:
           name: metrics
           protocol: TCP
         resources: {}
+      nodeSelector:
+        kubernetes.io/os: linux
       securityContext:
         runAsNonRoot: true
       serviceAccountName: cdi-operator
+      tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
 ---
 apiVersion: v1
 kind: ConfigMap
