@@ -14384,6 +14384,13 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"disableHotplug": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisableHotplug disabled the ability to hotplug disks.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"disks": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",

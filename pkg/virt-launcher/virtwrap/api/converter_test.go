@@ -207,6 +207,7 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{k8sv1.ResourceMemory: resource.MustParse("8192Ki")}
+			vmi.Spec.Domain.Devices.DisableHotplug = true
 			vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 				{
 					Bus:  "virtio",
@@ -2666,9 +2667,9 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.HostDevices[1].Mode).To(Equal("subsystem"))
 			Expect(domain.Spec.Devices.HostDevices[1].Model).To(Equal("vfio-pci"))
 			Expect(domain.Spec.Devices.HostDevices[1].Alias.Name).To(Equal("vgpu_name1"))
-
 		})
 	})
+
 	Context("HostDevices resource request", func() {
 		vmi := &v1.VirtualMachineInstance{
 			ObjectMeta: k8smeta.ObjectMeta{
@@ -2724,9 +2725,43 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.HostDevices[1].Mode).To(Equal("subsystem"))
 			Expect(domain.Spec.Devices.HostDevices[1].Model).To(Equal("vfio-pci"))
 			Expect(domain.Spec.Devices.HostDevices[1].Alias.Name).To(Equal("mdev_name"))
-
 		})
 	})
+
+	Context("hotplug", func() {
+		var vmi *v1.VirtualMachineInstance
+		var c *ConverterContext
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "mynamespace",
+				},
+			}
+
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			c = &ConverterContext{
+				VirtualMachine: vmi,
+				UseEmulation:   true,
+			}
+		})
+
+		It("should automatically add virtio-scsi controller", func() {
+			domain := vmiToDomain(vmi, c)
+			Expect(len(domain.Spec.Devices.Controllers)).To(Equal(3))
+			Expect(domain.Spec.Devices.Controllers[0].Type).To(Equal("scsi"))
+			Expect(domain.Spec.Devices.Controllers[0].Model).To(Equal("virtio-scsi"))
+		})
+
+		It("should not automatically add virtio-scsi controller, if hotplug disabled", func() {
+			vmi.Spec.Domain.Devices.DisableHotplug = true
+			domain := vmiToDomain(vmi, c)
+			Expect(len(domain.Spec.Devices.Controllers)).To(Equal(2))
+		})
+	})
+
 })
 
 var _ = Describe("popSRIOVPCIAddress", func() {
