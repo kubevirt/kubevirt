@@ -176,6 +176,7 @@ func (Firmware) SwaggerDoc() map[string]string {
 func (Devices) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                           "+k8s:openapi-gen=true",
+		"disableHotplug":             "DisableHotplug disabled the ability to hotplug disks.",
 		"disks":                      "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
 		"watchdog":                   "Watchdog describes a watchdog device which can be added to the vmi.",
 		"interfaces":                 "Interfaces describe network interfaces which are added to the vmi.",
