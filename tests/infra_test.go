@@ -405,10 +405,19 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			op := ops.Items[0]
 			Expect(op).ToNot(BeNil(), "virt-operator pod should not be nil")
 
+			var ep *k8sv1.Endpoints
 			By("finding Prometheus endpoint")
-			ep, err := virtClient.CoreV1().Endpoints("openshift-monitoring").
-				Get("prometheus-k8s", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred(), "failed to retrieve Prometheus endpoint")
+			Eventually(func() bool {
+				ep, err = virtClient.CoreV1().Endpoints("openshift-monitoring").
+					Get("prometheus-k8s", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed to retrieve Prometheus endpoint")
+
+				if len(ep.Subsets) == 0 || len(ep.Subsets[0].Addresses) == 0 {
+					return false
+				}
+				return true
+			}, 10*time.Second, time.Second).Should(BeTrue())
+
 			promIP := ep.Subsets[0].Addresses[0].IP
 			Expect(promIP).ToNot(Equal(0), "could not get Prometheus IP from endpoint")
 			var promPort int32
