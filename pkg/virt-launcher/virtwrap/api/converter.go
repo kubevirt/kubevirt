@@ -1134,6 +1134,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
+	if !vmi.Spec.Domain.Devices.DisableHotplug {
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, Controller{
+			Type:  "scsi",
+			Index: "0",
+			Model: "virtio-scsi",
+		})
+	}
+
 	if vmi.Spec.Domain.Devices.Watchdog != nil {
 		newWatchdog := &Watchdog{}
 		err := Convert_v1_Watchdog_To_api_Watchdog(vmi.Spec.Domain.Devices.Watchdog, newWatchdog, c)
