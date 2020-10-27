@@ -302,6 +302,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.ComponentConfig":                                            schema_kubevirtio_client_go_api_v1_ComponentConfig(ref),
 		"kubevirt.io/client-go/api/v1.ConfigMapVolumeSource":                                      schema_kubevirtio_client_go_api_v1_ConfigMapVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.ContainerDiskSource":                                        schema_kubevirtio_client_go_api_v1_ContainerDiskSource(ref),
+		"kubevirt.io/client-go/api/v1.Controller":                                                 schema_kubevirtio_client_go_api_v1_Controller(ref),
 		"kubevirt.io/client-go/api/v1.CustomizeComponents":                                        schema_kubevirtio_client_go_api_v1_CustomizeComponents(ref),
 		"kubevirt.io/client-go/api/v1.CustomizeComponentsPatch":                                   schema_kubevirtio_client_go_api_v1_CustomizeComponentsPatch(ref),
 		"kubevirt.io/client-go/api/v1.DHCPOptions":                                                schema_kubevirtio_client_go_api_v1_DHCPOptions(ref),
@@ -13990,6 +13991,40 @@ func schema_kubevirtio_client_go_api_v1_ContainerDiskSource(ref common.Reference
 					},
 				},
 				Required: []string{"image"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_Controller(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type is the type of controller, currently only scsi and pci are supported.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ioThread": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Thread is the number of IOThreads assigned to this controller.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"index": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Index is the index of the controller in the PCI topology, must be > 0 when type is pci, because that will add a pcie-root-port, and that requires an index > 0",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"type", "index"},
 			},
 		},
 	}

@@ -729,6 +729,38 @@ func getInterfaceType(iface *v1.Interface) string {
 	return "virtio"
 }
 
+// ConvertV1ControllerToAPIController converts a v1 schema Controller to a libvirt Domain XML controller
+func ConvertV1ControllerToAPIController(controller *v1.Controller) (*Controller, error) {
+	model := ""
+	switch controller.Type {
+	case "scsi":
+		model = "virtio-scsi"
+	case "pci":
+		model = "pcie-root-port"
+	default:
+		return nil, fmt.Errorf("Unknown controller type: %s", controller.Type)
+	}
+	result := &Controller{
+		Type:  controller.Type,
+		Model: model,
+	}
+	if controller.Index != "" {
+		// libvirt will report invalid index values. For instance if type is pci, index needs to be > 0.
+		result.Index = controller.Index
+	}
+	if controller.IOThread != "" {
+		size, err := strconv.ParseUint(controller.IOThread, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		sizeInt := uint(size)
+		result.Driver = &ControllerDriver{
+			IOThread: &sizeInt,
+		}
+	}
+	return result, nil
+}
+
 func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) (err error) {
 	precond.MustNotBeNil(vmi)
 	precond.MustNotBeNil(domain)
@@ -1089,6 +1121,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			newFS.Source.Dir = volDir
 			domain.Spec.Devices.Filesystems = append(domain.Spec.Devices.Filesystems, newFS)
 		}
+	}
+
+	// Handle controllers
+	for _, controller := range vmi.Spec.Domain.Devices.Controllers {
+		domainController, err := ConvertV1ControllerToAPIController(&controller)
+		if err != nil {
+			return err
+		}
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, *domainController)
 	}
 
 	if vmi.Spec.Domain.Devices.Watchdog != nil {

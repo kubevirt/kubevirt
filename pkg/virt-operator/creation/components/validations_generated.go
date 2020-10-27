@@ -2009,6 +2009,25 @@ var CRDsValidation map[string]string = map[string]string{
                         blockMultiQueue:
                           description: Whether or not to enable virtio multi-queue for block devices
                           type: boolean
+                        controllers:
+                          description: Controllers allow you to attach extra virtio or virtio-scsi controllers to the vmi.
+                          items:
+                            properties:
+                              index:
+                                description: Index is the index of the controller in the PCI topology, must be > 0 when type is pci, because that will add a pcie-root-port, and that requires an index > 0
+                                type: string
+                              ioThread:
+                                description: Thread is the number of IOThreads assigned to this controller.
+                                type: string
+                              type:
+                                description: Type is the type of controller, currently only scsi and pci are supported.
+                                type: string
+                            required:
+                            - index
+                            - type
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
                         disks:
                           description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                           items:
@@ -3578,6 +3597,25 @@ var CRDsValidation map[string]string = map[string]string{
                 blockMultiQueue:
                   description: Whether or not to enable virtio multi-queue for block devices
                   type: boolean
+                controllers:
+                  description: Controllers allow you to attach extra virtio or virtio-scsi controllers to the vmi.
+                  items:
+                    properties:
+                      index:
+                        description: Index is the index of the controller in the PCI topology, must be > 0 when type is pci, because that will add a pcie-root-port, and that requires an index > 0
+                        type: string
+                      ioThread:
+                        description: Thread is the number of IOThreads assigned to this controller.
+                        type: string
+                      type:
+                        description: Type is the type of controller, currently only scsi and pci are supported.
+                        type: string
+                    required:
+                    - index
+                    - type
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
                 disks:
                   description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                   items:
@@ -4903,6 +4941,25 @@ var CRDsValidation map[string]string = map[string]string{
                 blockMultiQueue:
                   description: Whether or not to enable virtio multi-queue for block devices
                   type: boolean
+                controllers:
+                  description: Controllers allow you to attach extra virtio or virtio-scsi controllers to the vmi.
+                  items:
+                    properties:
+                      index:
+                        description: Index is the index of the controller in the PCI topology, must be > 0 when type is pci, because that will add a pcie-root-port, and that requires an index > 0
+                        type: string
+                      ioThread:
+                        description: Thread is the number of IOThreads assigned to this controller.
+                        type: string
+                      type:
+                        description: Type is the type of controller, currently only scsi and pci are supported.
+                        type: string
+                    required:
+                    - index
+                    - type
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
                 disks:
                   description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                   items:
@@ -5987,6 +6044,25 @@ var CRDsValidation map[string]string = map[string]string{
                         blockMultiQueue:
                           description: Whether or not to enable virtio multi-queue for block devices
                           type: boolean
+                        controllers:
+                          description: Controllers allow you to attach extra virtio or virtio-scsi controllers to the vmi.
+                          items:
+                            properties:
+                              index:
+                                description: Index is the index of the controller in the PCI topology, must be > 0 when type is pci, because that will add a pcie-root-port, and that requires an index > 0
+                                type: string
+                              ioThread:
+                                description: Thread is the number of IOThreads assigned to this controller.
+                                type: string
+                              type:
+                                description: Type is the type of controller, currently only scsi and pci are supported.
+                                type: string
+                            required:
+                            - index
+                            - type
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
                         disks:
                           description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                           items:
@@ -7966,6 +8042,25 @@ var CRDsValidation map[string]string = map[string]string{
                                     blockMultiQueue:
                                       description: Whether or not to enable virtio multi-queue for block devices
                                       type: boolean
+                                    controllers:
+                                      description: Controllers allow you to attach extra virtio or virtio-scsi controllers to the vmi.
+                                      items:
+                                        properties:
+                                          index:
+                                            description: Index is the index of the controller in the PCI topology, must be > 0 when type is pci, because that will add a pcie-root-port, and that requires an index > 0
+                                            type: string
+                                          ioThread:
+                                            description: Thread is the number of IOThreads assigned to this controller.
+                                            type: string
+                                          type:
+                                            description: Type is the type of controller, currently only scsi and pci are supported.
+                                            type: string
+                                        required:
+                                        - index
+                                        - type
+                                        type: object
+                                      type: array
+                                      x-kubernetes-list-type: atomic
                                     disks:
                                       description: Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
                                       items:

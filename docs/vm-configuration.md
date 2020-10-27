@@ -441,3 +441,35 @@ spec:
     persistentVolumeClaim:
       claimName: testclaim
 ```
+
+### Controllers
+
+By default KubeVirt adds several controllers that are needed for normal VirtualMachine
+operations however in order to support hot plugging disks the user needs to be able to
+add more controllers. By default there is one extra pcie-root-port available for hot plugging
+a virtio disks. If you attempt to add another it will fail with not enough available ports.
+There is a maximum number of 32 pcie-root-ports one can define in the domain xml, so the number
+of disks that can be hot plugged in this manner is limited.
+
+To overcome this limitation we also allow the user to define a virtio-scsi controller and allow
+the user to hot plug a scsi disk instead of a virtio disk. One virtio-scsi controller can support
+millions of disks.
+
+```yaml
+spec:
+  domain:
+    devices:
+      controllers:
+      - type: pci
+        index: 1
+        iothread: 4
+      - type: scsi
+        index: 0
+```
+In the above example we added 2 additional controllers, one pcie-root-port at index 1 (Index 0 is reserved
+for pcie-root, when type is pci) and one virtio-scsi controller at index 0. KubeVirt will fill in the correct
+model based on the type. pci model is pcie-root-port and scsi will be virtio-scsi. Index is a required field
+and for pci should be between 1 and 31, for scsi between 0 and 31.
+
+iothread is an optional field assigning iothreads to the controller. When used in general the number of iothreads
+should be equal to the number of virtual cpus assigned to the VM for optimal performance.
