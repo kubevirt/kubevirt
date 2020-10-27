@@ -275,6 +275,11 @@ const (
 	VirtualMachineInstanceReasonInterfaceNotMigratable = "InterfaceNotLiveMigratable"
 )
 
+const (
+	// PodTerminatingReason indicates on the PodReady condition on the VMI if the underlying pod is terminating
+	PodTerminatingReason = "PodTerminating"
+)
+
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationConditionType string
 

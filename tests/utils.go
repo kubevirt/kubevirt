@@ -47,12 +47,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/onsi/ginkgo/config"
-	netutils "k8s.io/utils/net"
-
 	expect "github.com/google/goexpect"
 	covreport "github.com/mfranczy/crd-rest-coverage/pkg/report"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
@@ -80,6 +78,7 @@ import (
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/transport/spdy"
+	netutils "k8s.io/utils/net"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
@@ -1626,7 +1625,15 @@ func cleanNamespaces() {
 		}
 
 		// Remove all Pods
-		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("pods").Do().Error())
+		podList, err := virtCli.CoreV1().Pods(namespace).List(metav1.ListOptions{})
+		var gracePeriod int64 = 0
+		for _, pod := range podList.Items {
+			err := virtCli.CoreV1().Pods(namespace).Delete(pod.Name, &metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
+			if errors.IsNotFound(err) {
+				continue
+			}
+			Expect(err).ToNot(HaveOccurred())
+		}
 
 		// Remove all Services
 		svcList, err := virtCli.CoreV1().Services(namespace).List(metav1.ListOptions{})
@@ -3378,6 +3385,15 @@ func NotDeleted(vmis *v1.VirtualMachineInstanceList) (notDeleted []v1.VirtualMac
 	for _, vmi := range vmis.Items {
 		if vmi.DeletionTimestamp == nil {
 			notDeleted = append(notDeleted, vmi)
+		}
+	}
+	return
+}
+
+func Running(vmis *v1.VirtualMachineInstanceList) (running []v1.VirtualMachineInstance) {
+	for _, vmi := range vmis.Items {
+		if vmi.DeletionTimestamp == nil && vmi.Status.Phase == v1.Running {
+			running = append(running, vmi)
 		}
 	}
 	return
