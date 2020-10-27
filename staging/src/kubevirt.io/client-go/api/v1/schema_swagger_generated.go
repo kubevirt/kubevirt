@@ -225,8 +225,8 @@ func (GPU) SwaggerDoc() map[string]string {
 
 func (HostDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "+k8s:openapi-gen=true",
-		"name": "DeviceName is the resource name of the host device exposed by a device plugin",
+		"":           "+k8s:openapi-gen=true",
+		"deviceName": "DeviceName is the resource name of the host device exposed by a device plugin",
 	}
 }
 

@@ -210,16 +210,16 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 }
 
 type ClusterConfig struct {
-	configMapInformer                       cache.SharedIndexInformer
-	crdInformer                             cache.SharedIndexInformer
-	kubeVirtInformer                        cache.SharedIndexInformer
-	namespace                               string
-	lock                                    *sync.Mutex
-	lastValidConfig                         *v1.KubeVirtConfiguration
-	defaultConfig                           *v1.KubeVirtConfiguration
-	lastInvalidConfigResourceVersion        string
-	lastValidConfigResourceVersion          string
-	configModifiedCallback                  ConfigModifiedFn
+	configMapInformer                cache.SharedIndexInformer
+	crdInformer                      cache.SharedIndexInformer
+	kubeVirtInformer                 cache.SharedIndexInformer
+	namespace                        string
+	lock                             *sync.Mutex
+	lastValidConfig                  *v1.KubeVirtConfiguration
+	defaultConfig                    *v1.KubeVirtConfiguration
+	lastInvalidConfigResourceVersion string
+	lastValidConfigResourceVersion   string
+	configModifiedCallback           ConfigModifiedFn
 }
 
 func (c *ClusterConfig) SetConfigModifiedCallback(cb ConfigModifiedFn) {

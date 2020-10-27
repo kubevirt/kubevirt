@@ -82,6 +82,7 @@ func (h *DeviceUtilsHandler) GetDeviceNumaNode(basepath string, pciAddress strin
 	numaNodeStr = bytes.TrimSpace(numaNodeStr)
 	numaNode, err = strconv.Atoi(string(numaNodeStr))
 	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("failed to convert numa node value %v of device %s", numaNodeStr, pciAddress)
 		return
 	}
 	return

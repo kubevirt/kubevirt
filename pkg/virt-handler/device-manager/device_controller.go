@@ -74,14 +74,6 @@ func NewDeviceController(host string, maxDevices int, clusterConfig *virtconfig.
 	return controller
 }
 
-func (c *DeviceController) hostDevAddDeleteFunc(obj interface{}) {
-	c.refreshPermittedDevices()
-}
-
-func (c *DeviceController) hostDevUpdateFunc(oldObj, newObj interface{}) {
-	c.refreshPermittedDevices()
-}
-
 func (c *DeviceController) nodeHasDevice(devicePath string) bool {
 	_, err := os.Stat(devicePath)
 	// Since this is a boolean question, any error means "no"
@@ -234,9 +226,11 @@ func (c *DeviceController) Run(stop chan struct{}) error {
 	<-stop
 
 	// stop all device plugins
+	c.devicePluginsMutex.Lock()
 	for _, dev := range c.devicePlugins {
 		dev.stopChan <- struct{}{}
 	}
+	c.devicePluginsMutex.Unlock()
 	logger.Info("Shutting down device plugin controller")
 	return nil
 }

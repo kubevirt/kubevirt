@@ -94,7 +94,7 @@ pciHostDevices:
 	})
 
 	It("Should validate DPI devices", func() {
-        iommuToPCIMap := make(map[string]string)
+		iommuToPCIMap := make(map[string]string)
 		supportedPCIDeviceMap := make(map[string]string)
 		for _, pciDev := range fakePermittedHostDevices.PciHostDevices {
 			// do not add a device plugin for this resource if it's being provided via an external device plugin
@@ -105,10 +105,10 @@ pciHostDevices:
 		// discoverPermittedHostPCIDevices() will walk real PCI devices wherever the tests are running
 		// It's assumed here that it will find a PCI device at 0000:00:00.0
 		pciDevices := discoverPermittedHostPCIDevices(supportedPCIDeviceMap)
-        devs := constructDPIdevices(pciDevices[fakeID], iommuToPCIMap)
-        Expect(devs[0].ID).To(Equal(fakeIommuGroup))
+		devs := constructDPIdevices(pciDevices[fakeID], iommuToPCIMap)
+		Expect(devs[0].ID).To(Equal(fakeIommuGroup))
 		Expect(devs[0].Topology.Nodes[0].ID).To(Equal(int64(fakeNumaNode)))
-    })
+	})
 	It("Should update the device list according to the configmap", func() {
 		By("creating a cluster config")
 		kv := &v1.KubeVirt{

@@ -437,7 +437,7 @@ type GPU struct {
 //
 // +k8s:openapi-gen=true
 type HostDevice struct {
-	Name       string `json:"name"`
+	Name string `json:"name"`
 	// DeviceName is the resource name of the host device exposed by a device plugin
 	DeviceName string `json:"deviceName"`
 }

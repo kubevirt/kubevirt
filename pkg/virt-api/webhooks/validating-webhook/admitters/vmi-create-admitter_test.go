@@ -1971,6 +1971,21 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.GPUs"))
 		})
+		It("should accept legacy GPU devices if PermittedHostDevices aren't set", func() {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.GPUGate}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				v1.GPU{
+					Name:       "gpu1",
+					DeviceName: "example.org/deadbeef",
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(0))
+		})
 		It("should accept permitted GPU devices", func() {
 			kvConfig := kv.DeepCopy()
 			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.GPUGate}
