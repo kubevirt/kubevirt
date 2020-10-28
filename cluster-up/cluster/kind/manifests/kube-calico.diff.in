@@ -1,0 +1,21 @@
+--- kube-calico.yaml	2020-10-26 09:43:25.494348951 +0200
++++ manifests/kube-calico.yaml	2020-06-08 18:22:46.909259279 +0300
+@@ -14,7 +14,7 @@
+   # Configure the MTU to use for workload interfaces and the
+   # tunnels.  For IPIP, set to your network MTU - 20; for VXLAN
+   # set to your network MTU - 50.
+-  veth_mtu: "1440"
++  veth_mtu: "$CNI_MTU"
+ 
+   # The CNI network configuration to install on each node.  The special
+   # values in this config will be automatically populated.
+@@ -32,6 +32,9 @@
+           "ipam": {
+               "type": "calico-ipam"
+           },
++          "container_settings": {
++            "allow_ip_forwarding": true
++          },
+           "policy": {
+               "type": "k8s"
+           },
