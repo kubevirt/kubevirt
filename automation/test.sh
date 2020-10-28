@@ -51,7 +51,7 @@ fi
 
 export KUBEVIRT_NUM_NODES=2
 # Give the nodes enough memory to run tests in parallel, including tests which involve fedora
-export KUBEVIRT_MEMORY_SIZE=10240M
+export KUBEVIRT_MEMORY_SIZE=9216M
 
 export RHEL_NFS_DIR=${RHEL_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/rhel7}
 export RHEL_LOCK_PATH=${RHEL_LOCK_PATH:-/var/lib/stdci/shared/download_rhel_image.lock}
