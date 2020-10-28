@@ -3,6 +3,7 @@ package hyperconverged
 import (
 	"context"
 	"fmt"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	"os"
 
@@ -100,13 +101,13 @@ func newHco() *hcov1beta1.HyperConverged {
 	}
 }
 
-func newReq(inst *hcov1beta1.HyperConverged) *hcoRequest {
-	return &hcoRequest{
+func newReq(inst *hcov1beta1.HyperConverged) *common.HcoRequest {
+	return &common.HcoRequest{
 		Request:    request,
-		logger:     log,
-		conditions: newHcoConditions(),
-		ctx:        context.TODO(),
-		instance:   inst,
+		Logger:     log,
+		Conditions: common.NewHcoConditions(),
+		Ctx:        context.TODO(),
+		Instance:   inst,
 	}
 }
 

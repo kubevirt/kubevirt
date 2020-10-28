@@ -4,6 +4,7 @@ import (
 	networkaddonsshared "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
@@ -36,7 +37,7 @@ var _ = Describe("HyperConverged Components", func() {
 	Context("KubeVirt Priority Classes", func() {
 
 		var hco *hcov1beta1.HyperConverged
-		var req *hcoRequest
+		var req *common.HcoRequest
 
 		BeforeEach(func() {
 			hco = newHco()
@@ -122,7 +123,7 @@ var _ = Describe("HyperConverged Components", func() {
 	Context("KubeVirt Config", func() {
 
 		var hco *hcov1beta1.HyperConverged
-		var req *hcoRequest
+		var req *common.HcoRequest
 
 		updatableKeys := [...]string{virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey, virtconfig.FeatureGatesKey}
 		unupdatableKeys := [...]string{virtconfig.MigrationsConfigKey, virtconfig.NetworkInterfaceKey}
@@ -136,7 +137,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := newKubeVirtConfigForCR(req.instance, namespace)
+			expectedResource := newKubeVirtConfigForCR(req.Instance, namespace)
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtConfig(req)
@@ -249,7 +250,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 	Context("KubeVirt Storage Config", func() {
 		var hco *hcov1beta1.HyperConverged
-		var req *hcoRequest
+		var req *common.HcoRequest
 
 		BeforeEach(func() {
 			hco = newHco()
@@ -315,7 +316,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 	Context("KubeVirt", func() {
 		var hco *hcov1beta1.HyperConverged
-		var req *hcoRequest
+		var req *common.HcoRequest
 
 		BeforeEach(func() {
 			hco = newHco()
@@ -357,19 +358,19 @@ var _ = Describe("HyperConverged Components", func() {
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
-			Expect(req.conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionAvailable,
 				Status:  corev1.ConditionFalse,
 				Reason:  "KubeVirtConditions",
 				Message: "KubeVirt resource has no conditions",
 			}))
-			Expect(req.conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionProgressing,
 				Status:  corev1.ConditionTrue,
 				Reason:  "KubeVirtConditions",
 				Message: "KubeVirt resource has no conditions",
 			}))
-			Expect(req.conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionUpgradeable,
 				Status:  corev1.ConditionFalse,
 				Reason:  "KubeVirtConditions",
@@ -433,7 +434,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Spec.Workloads.NodePlacement).ToNot(BeNil())
 			Expect(foundResource.Spec.Workloads.NodePlacement.Tolerations).Should(Equal(hco.Spec.Workloads.NodePlacement.Tolerations))
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		It("should remove node placement if missing in HCO CR", func() {
@@ -463,7 +464,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Spec.Infra).To(BeNil())
 			Expect(foundResource.Spec.Workloads).To(BeNil())
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		It("should modify node placement according to HCO CR", func() {
@@ -509,7 +510,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Spec.Workloads.NodePlacement).ToNot(BeNil())
 			Expect(foundResource.Spec.Workloads.NodePlacement.NodeSelector["key1"]).Should(Equal("something else"))
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		It("should handle conditions", func() {
@@ -548,25 +549,25 @@ var _ = Describe("HyperConverged Components", func() {
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
-			Expect(req.conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionAvailable,
 				Status:  corev1.ConditionFalse,
 				Reason:  "KubeVirtNotAvailable",
 				Message: "KubeVirt is not available: Bar",
 			}))
-			Expect(req.conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionProgressing,
 				Status:  corev1.ConditionTrue,
 				Reason:  "KubeVirtProgressing",
 				Message: "KubeVirt is progressing: Bar",
 			}))
-			Expect(req.conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionUpgradeable,
 				Status:  corev1.ConditionFalse,
 				Reason:  "KubeVirtProgressing",
 				Message: "KubeVirt is progressing: Bar",
 			}))
-			Expect(req.conditions[conditionsv1.ConditionDegraded]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionDegraded]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionDegraded,
 				Status:  corev1.ConditionTrue,
 				Reason:  "KubeVirtDegraded",
@@ -577,7 +578,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 	Context("CDI", func() {
 		var hco *hcov1beta1.HyperConverged
-		var req *hcoRequest
+		var req *common.HcoRequest
 
 		BeforeEach(func() {
 			hco = newHco()
@@ -619,19 +620,19 @@ var _ = Describe("HyperConverged Components", func() {
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
-			Expect(req.conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionAvailable,
 				Status:  corev1.ConditionFalse,
 				Reason:  "CDIConditions",
 				Message: "CDI resource has no conditions",
 			}))
-			Expect(req.conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionProgressing,
 				Status:  corev1.ConditionTrue,
 				Reason:  "CDIConditions",
 				Message: "CDI resource has no conditions",
 			}))
-			Expect(req.conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionUpgradeable,
 				Status:  corev1.ConditionFalse,
 				Reason:  "CDIConditions",
@@ -696,7 +697,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Spec.Workloads).ToNot(BeNil())
 			Expect(foundResource.Spec.Workloads.Tolerations).Should(Equal(hco.Spec.Workloads.NodePlacement.Tolerations))
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		It("should remove node placement if missing in HCO CR", func() {
@@ -734,7 +735,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Spec.Workloads.Tolerations).To(BeEmpty())
 			Expect(foundResource.Spec.Workloads.NodeSelector).To(BeNil())
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		It("should modify node placement according to HCO CR", func() {
@@ -770,7 +771,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Spec.Infra.Tolerations).To(HaveLen(3))
 			Expect(foundResource.Spec.Workloads.NodeSelector["key1"]).Should(Equal("something else"))
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		It("should handle conditions", func() {
@@ -809,25 +810,25 @@ var _ = Describe("HyperConverged Components", func() {
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
-			Expect(req.conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionAvailable,
 				Status:  corev1.ConditionFalse,
 				Reason:  "CDINotAvailable",
 				Message: "CDI is not available: Bar",
 			}))
-			Expect(req.conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionProgressing,
 				Status:  corev1.ConditionTrue,
 				Reason:  "CDIProgressing",
 				Message: "CDI is progressing: Bar",
 			}))
-			Expect(req.conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionUpgradeable,
 				Status:  corev1.ConditionFalse,
 				Reason:  "CDIProgressing",
 				Message: "CDI is progressing: Bar",
 			}))
-			Expect(req.conditions[conditionsv1.ConditionDegraded]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionDegraded]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionDegraded,
 				Status:  corev1.ConditionTrue,
 				Reason:  "CDIDegraded",
@@ -838,7 +839,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 	Context("NetworkAddonsConfig", func() {
 		var hco *hcov1beta1.HyperConverged
-		var req *hcoRequest
+		var req *common.HcoRequest
 
 		BeforeEach(func() {
 			hco = newHco()
@@ -883,19 +884,19 @@ var _ = Describe("HyperConverged Components", func() {
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
-			Expect(req.conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionAvailable,
 				Status:  corev1.ConditionFalse,
 				Reason:  "NetworkAddonsConfigConditions",
 				Message: "NetworkAddonsConfig resource has no conditions",
 			}))
-			Expect(req.conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionProgressing,
 				Status:  corev1.ConditionTrue,
 				Reason:  "NetworkAddonsConfigConditions",
 				Message: "NetworkAddonsConfig resource has no conditions",
 			}))
-			Expect(req.conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionUpgradeable,
 				Status:  corev1.ConditionFalse,
 				Reason:  "NetworkAddonsConfigConditions",
@@ -923,7 +924,7 @@ var _ = Describe("HyperConverged Components", func() {
 			).To(BeNil())
 			Expect(foundResource.Spec.ImagePullPolicy).To(BeEmpty())
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		It("should add node placement if missing in CNAO", func() {
@@ -956,7 +957,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(placementConfig.Workloads).ToNot(BeNil())
 			Expect(placementConfig.Workloads.Tolerations).Should(Equal(hco.Spec.Workloads.NodePlacement.Tolerations))
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		It("should remove node placement if missing in HCO CR", func() {
@@ -983,7 +984,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(existingResource.Spec.PlacementConfiguration).ToNot(BeNil())
 			Expect(foundResource.Spec.PlacementConfiguration).To(BeNil())
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		It("should modify node placement according to HCO CR", func() {
@@ -1022,7 +1023,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Spec.PlacementConfiguration.Infra.Tolerations).To(HaveLen(3))
 			Expect(foundResource.Spec.PlacementConfiguration.Workloads.NodeSelector["key1"]).Should(Equal("something else"))
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		It("should handle conditions", func() {
@@ -1061,25 +1062,25 @@ var _ = Describe("HyperConverged Components", func() {
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
-			Expect(req.conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionAvailable,
 				Status:  corev1.ConditionFalse,
 				Reason:  "NetworkAddonsConfigNotAvailable",
 				Message: "NetworkAddonsConfig is not available: Bar",
 			}))
-			Expect(req.conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionProgressing,
 				Status:  corev1.ConditionTrue,
 				Reason:  "NetworkAddonsConfigProgressing",
 				Message: "NetworkAddonsConfig is progressing: Bar",
 			}))
-			Expect(req.conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionUpgradeable,
 				Status:  corev1.ConditionFalse,
 				Reason:  "NetworkAddonsConfigProgressing",
 				Message: "NetworkAddonsConfig is progressing: Bar",
 			}))
-			Expect(req.conditions[conditionsv1.ConditionDegraded]).To(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[conditionsv1.ConditionDegraded]).To(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionDegraded,
 				Status:  corev1.ConditionTrue,
 				Reason:  "NetworkAddonsConfigDegraded",
@@ -1090,7 +1091,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 	Context("KubeVirtCommonTemplatesBundle", func() {
 		var hco *hcov1beta1.HyperConverged
-		var req *hcoRequest
+		var req *common.HcoRequest
 
 		BeforeEach(func() {
 			hco = newHco()
@@ -1194,25 +1195,25 @@ var _ = Describe("HyperConverged Components", func() {
 				// ObjectReference should have been added
 				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 				// Check conditions
-				Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+				Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
 					Type:    conditionsv1.ConditionAvailable,
 					Status:  corev1.ConditionFalse,
 					Reason:  "KubevirtCommonTemplatesBundleNotAvailable",
 					Message: "KubevirtCommonTemplatesBundle is not available: Bar",
 				})))
-				Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+				Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
 					Type:    conditionsv1.ConditionProgressing,
 					Status:  corev1.ConditionTrue,
 					Reason:  "KubevirtCommonTemplatesBundleProgressing",
 					Message: "KubevirtCommonTemplatesBundle is progressing: Bar",
 				})))
-				Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+				Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
 					Type:    conditionsv1.ConditionUpgradeable,
 					Status:  corev1.ConditionFalse,
 					Reason:  "KubevirtCommonTemplatesBundleProgressing",
 					Message: "KubevirtCommonTemplatesBundle is progressing: Bar",
 				})))
-				Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+				Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
 					Type:    conditionsv1.ConditionDegraded,
 					Status:  corev1.ConditionTrue,
 					Reason:  "KubevirtCommonTemplatesBundleDegraded",
@@ -1224,7 +1225,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 	Context("KubeVirtNodeLabellerBundle", func() {
 		var hco *hcov1beta1.HyperConverged
-		var req *hcoRequest
+		var req *common.HcoRequest
 
 		BeforeEach(func() {
 			hco = newHco()
@@ -1317,7 +1318,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 			Expect(foundResource.Spec.Tolerations).Should(Equal(hco.Spec.Workloads.NodePlacement.Tolerations))
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		It("should remove node placement if missing in HCO CR", func() {
@@ -1343,7 +1344,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(existingResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
 			Expect(foundResource.Spec.Affinity.NodeAffinity).To(BeNil())
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		It("should modify node placement according to HCO CR", func() {
@@ -1381,7 +1382,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Spec.Tolerations).To(HaveLen(3))
 			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("something else"))
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		// TODO: temporary avoid checking conditions on KubevirtNodeLabellerBundle because it's currently
@@ -1421,25 +1422,25 @@ var _ = Describe("HyperConverged Components", func() {
 				// ObjectReference should have been added
 				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 				// Check conditions
-				Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+				Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
 					Type:    conditionsv1.ConditionAvailable,
 					Status:  corev1.ConditionFalse,
 					Reason:  "KubevirtNodeLabellerBundleNotAvailable",
 					Message: "KubevirtNodeLabellerBundle is not available: Bar",
 				})))
-				Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+				Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
 					Type:    conditionsv1.ConditionProgressing,
 					Status:  corev1.ConditionTrue,
 					Reason:  "KubevirtNodeLabellerBundleProgressing",
 					Message: "KubevirtNodeLabellerBundle is progressing: Bar",
 				})))
-				Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+				Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
 					Type:    conditionsv1.ConditionUpgradeable,
 					Status:  corev1.ConditionFalse,
 					Reason:  "KubevirtNodeLabellerBundleProgressing",
 					Message: "KubevirtNodeLabellerBundle is progressing: Bar",
 				})))
-				Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+				Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
 					Type:    conditionsv1.ConditionDegraded,
 					Status:  corev1.ConditionTrue,
 					Reason:  "KubevirtNodeLabellerBundleDegraded",
@@ -1476,7 +1477,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 	Context("KubeVirtTemplateValidator", func() {
 		var hco *hcov1beta1.HyperConverged
-		var req *hcoRequest
+		var req *common.HcoRequest
 
 		BeforeEach(func() {
 			hco = newHco()
@@ -1569,7 +1570,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 			Expect(foundResource.Spec.Tolerations).Should(Equal(hco.Spec.Infra.NodePlacement.Tolerations))
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		It("should remove node placement if missing in HCO CR", func() {
@@ -1595,7 +1596,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(existingResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
 			Expect(foundResource.Spec.Affinity.NodeAffinity).To(BeNil())
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		It("should modify node placement according to HCO CR", func() {
@@ -1633,7 +1634,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Spec.Tolerations).To(HaveLen(3))
 			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("something else"))
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		// TODO: temporary avoid checking conditions on KubevirtTemplateValidator because it's currently
@@ -1672,25 +1673,25 @@ var _ = Describe("HyperConverged Components", func() {
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
-			Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionAvailable,
 				Status:  corev1.ConditionFalse,
 				Reason:  "KubevirtTemplateValidatorNotAvailable",
 				Message: "KubevirtTemplateValidator is not available: Bar",
 			})))
-			Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionProgressing,
 				Status:  corev1.ConditionTrue,
 				Reason:  "KubevirtTemplateValidatorProgressing",
 				Message: "KubevirtTemplateValidator is progressing: Bar",
 			})))
-			Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionUpgradeable,
 				Status:  corev1.ConditionFalse,
 				Reason:  "KubevirtTemplateValidatorProgressing",
 				Message: "KubevirtTemplateValidator is progressing: Bar",
 			})))
-			Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionDegraded,
 				Status:  corev1.ConditionTrue,
 				Reason:  "KubevirtTemplateValidatorDegraded",
@@ -1701,7 +1702,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 	Context("KubeVirtMetricsAggregation", func() {
 		var hco *hcov1beta1.HyperConverged
-		var req *hcoRequest
+		var req *common.HcoRequest
 
 		BeforeEach(func() {
 			hco = newHco()
@@ -1804,25 +1805,25 @@ var _ = Describe("HyperConverged Components", func() {
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
-			Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionAvailable,
 				Status:  corev1.ConditionFalse,
 				Reason:  "KubevirtTemplateValidatorNotAvailable",
 				Message: "KubevirtTemplateValidator is not available: Bar",
 			})))
-			Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionProgressing,
 				Status:  corev1.ConditionTrue,
 				Reason:  "KubevirtTemplateValidatorProgressing",
 				Message: "KubevirtTemplateValidator is progressing: Bar",
 			})))
-			Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionUpgradeable,
 				Status:  corev1.ConditionFalse,
 				Reason:  "KubevirtTemplateValidatorProgressing",
 				Message: "KubevirtTemplateValidator is progressing: Bar",
 			})))
-			Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+			Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
 				Type:    conditionsv1.ConditionDegraded,
 				Status:  corev1.ConditionTrue,
 				Reason:  "KubevirtTemplateValidatorDegraded",
@@ -1834,7 +1835,7 @@ var _ = Describe("HyperConverged Components", func() {
 	Context("Manage IMS Config", func() {
 
 		var hco *hcov1beta1.HyperConverged
-		var req *hcoRequest
+		var req *common.HcoRequest
 
 		BeforeEach(func() {
 			os.Setenv("CONVERSION_CONTAINER", "new-conversion-container-value")
@@ -1946,7 +1947,7 @@ var _ = Describe("HyperConverged Components", func() {
 	Context("Vm Import", func() {
 
 		var hco *hcov1beta1.HyperConverged
-		var req *hcoRequest
+		var req *common.HcoRequest
 
 		BeforeEach(func() {
 			hco = newHco()
@@ -2047,7 +2048,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(infra.Tolerations).Should(Equal(hco.Spec.Infra.NodePlacement.Tolerations))
 			Expect(infra.Affinity).Should(Equal(hco.Spec.Infra.NodePlacement.Affinity))
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		It("should remove node placement if missing in HCO CR", func() {
@@ -2079,7 +2080,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Spec.Infra.NodeSelector).To(BeEmpty())
 			Expect(foundResource.Spec.Infra.Tolerations).To(BeEmpty())
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 
 		It("should modify node placement according to HCO CR", func() {
@@ -2118,14 +2119,14 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Spec.Infra.Tolerations).To(HaveLen(3))
 			Expect(foundResource.Spec.Infra.NodeSelector["key1"]).Should(Equal("something else"))
 
-			Expect(req.conditions).To(BeEmpty())
+			Expect(req.Conditions).To(BeEmpty())
 		})
 	})
 
 	Context("ConsoleCLIDownload", func() {
 
 		var hco *hcov1beta1.HyperConverged
-		var req *hcoRequest
+		var req *common.HcoRequest
 
 		BeforeEach(func() {
 			hco = newHco()

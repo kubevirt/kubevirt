@@ -1,4 +1,4 @@
-package hyperconverged
+package common
 
 import (
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	hcoConditionTypes = []conditionsv1.ConditionType{
+	HcoConditionTypes = []conditionsv1.ConditionType{
 		hcov1beta1.ConditionReconcileComplete,
 		conditionsv1.ConditionAvailable,
 		conditionsv1.ConditionProgressing,
@@ -15,13 +15,13 @@ var (
 	}
 )
 
-type hcoConditions map[conditionsv1.ConditionType]conditionsv1.Condition
+type HcoConditions map[conditionsv1.ConditionType]conditionsv1.Condition
 
-func newHcoConditions() hcoConditions {
-	return hcoConditions{}
+func NewHcoConditions() HcoConditions {
+	return HcoConditions{}
 }
 
-func (hc hcoConditions) setStatusCondition(newCondition conditionsv1.Condition) {
+func (hc HcoConditions) SetStatusCondition(newCondition conditionsv1.Condition) {
 	existingCondition, ok := hc[newCondition.Type]
 
 	if !ok {
@@ -38,6 +38,6 @@ func (hc hcoConditions) setStatusCondition(newCondition conditionsv1.Condition) 
 	hc[newCondition.Type] = existingCondition
 }
 
-func (hc hcoConditions) empty() bool {
+func (hc HcoConditions) Empty() bool {
 	return len(hc) == 0
 }
