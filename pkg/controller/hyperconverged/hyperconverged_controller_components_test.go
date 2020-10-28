@@ -1,10 +1,13 @@
 package hyperconverged
 
 import (
+	"os"
+
 	networkaddonsshared "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
@@ -12,14 +15,9 @@ import (
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	"github.com/openshift/custom-resource-status/testlib"
 	corev1 "k8s.io/api/core/v1"
-	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo"
@@ -34,828 +32,18 @@ import (
 
 var _ = Describe("HyperConverged Components", func() {
 
-	Context("KubeVirt Priority Classes", func() {
-
-		var hco *hcov1beta1.HyperConverged
-		var req *common.HcoRequest
-
-		BeforeEach(func() {
-			hco = newHco()
-			req = newReq(hco)
-		})
-
-		It("should create if not present", func() {
-			expectedResource := hco.NewKubeVirtPriorityClass()
-			cl := initClient([]runtime.Object{})
-			r := initReconciler(cl)
-			res := r.ensureKubeVirtPriorityClass(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			key, err := client.ObjectKeyFromObject(expectedResource)
-			Expect(err).ToNot(HaveOccurred())
-			foundResource := &schedulingv1.PriorityClass{}
-			Expect(cl.Get(context.TODO(), key, foundResource)).To(BeNil())
-			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Value).To(Equal(expectedResource.Value))
-			Expect(foundResource.GlobalDefault).To(Equal(expectedResource.GlobalDefault))
-		})
-
-		It("should do nothing if already exists", func() {
-			expectedResource := hco.NewKubeVirtPriorityClass()
-			cl := initClient([]runtime.Object{expectedResource})
-			r := initReconciler(cl)
-			res := r.ensureKubeVirtPriorityClass(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			objectRef, err := reference.GetReference(r.scheme, expectedResource)
-			Expect(err).To(BeNil())
-			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
-		})
-
-		DescribeTable("should update if something changed", func(modifiedResource *schedulingv1.PriorityClass) {
-			cl := initClient([]runtime.Object{modifiedResource})
-			r := initReconciler(cl)
-			res := r.ensureKubeVirtPriorityClass(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			expectedResource := hco.NewKubeVirtPriorityClass()
-			key, err := client.ObjectKeyFromObject(expectedResource)
-			Expect(err).ToNot(HaveOccurred())
-			foundResource := &schedulingv1.PriorityClass{}
-			Expect(cl.Get(context.TODO(), key, foundResource))
-			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Value).To(Equal(expectedResource.Value))
-			Expect(foundResource.GlobalDefault).To(Equal(expectedResource.GlobalDefault))
-		},
-			Entry("with modified value",
-				&schedulingv1.PriorityClass{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: "scheduling.k8s.io/v1",
-						Kind:       "PriorityClass",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "kubevirt-cluster-critical",
-					},
-					Value:         1,
-					GlobalDefault: false,
-					Description:   "",
-				}),
-			Entry("with modified global default",
-				&schedulingv1.PriorityClass{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: "scheduling.k8s.io/v1",
-						Kind:       "PriorityClass",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "kubevirt-cluster-critical",
-					},
-					Value:         1000000000,
-					GlobalDefault: true,
-					Description:   "",
-				}),
-		)
-
-	})
-
-	Context("KubeVirt Config", func() {
-
-		var hco *hcov1beta1.HyperConverged
-		var req *common.HcoRequest
-
-		updatableKeys := [...]string{virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey, virtconfig.FeatureGatesKey}
-		removeKeys := [...]string{virtconfig.MigrationsConfigKey}
-		unupdatableKeys := [...]string{virtconfig.NetworkInterfaceKey}
-
-		BeforeEach(func() {
-			hco = newHco()
-			req = newReq(hco)
-
-			os.Setenv("SMBIOS", "new-smbios-value-that-we-have-to-set")
-			os.Setenv("MACHINETYPE", "new-machinetype-value-that-we-have-to-set")
-		})
-
-		It("should create if not present", func() {
-			expectedResource := newKubeVirtConfigForCR(req.Instance, namespace)
-			cl := initClient([]runtime.Object{})
-			r := initReconciler(cl)
-			res := r.ensureKubeVirtConfig(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &corev1.ConfigMap{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-					foundResource),
-			).To(BeNil())
-			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, name))
-			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
-		})
-
-		It("should find if present", func() {
-			expectedResource := newKubeVirtConfigForCR(hco, namespace)
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			cl := initClient([]runtime.Object{hco, expectedResource})
-			r := initReconciler(cl)
-			res := r.ensureKubeVirtConfig(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			// Check HCO's status
-			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
-			objectRef, err := reference.GetReference(r.scheme, expectedResource)
-			Expect(err).To(BeNil())
-			// ObjectReference should have been added
-			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
-		})
-
-		It("should update only a few keys and only when in upgrade mode", func() {
-			expectedResource := newKubeVirtConfigForCR(hco, namespace)
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			outdatedResource := newKubeVirtConfigForCR(hco, namespace)
-			outdatedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", outdatedResource.Namespace, outdatedResource.Name)
-			// values we should update
-			outdatedResource.Data[virtconfig.SmbiosConfigKey] = "old-smbios-value-that-we-have-to-update"
-			outdatedResource.Data[virtconfig.MachineTypeKey] = "old-machinetype-value-that-we-have-to-update"
-			outdatedResource.Data[virtconfig.SELinuxLauncherTypeKey] = "old-selinuxlauncher-value-that-we-have-to-update"
-			outdatedResource.Data[virtconfig.FeatureGatesKey] = "old-featuregates-value-that-we-have-to-update"
-			// value that we should remove if configured
-			outdatedResource.Data[virtconfig.MigrationsConfigKey] = "old-migrationsconfig-value-that-we-should-remove"
-			// values we should preserve
-			outdatedResource.Data[virtconfig.NetworkInterfaceKey] = "old-defaultnetworkinterface-value-that-we-should-preserve"
-
-			cl := initClient([]runtime.Object{hco, outdatedResource})
-			r := initReconciler(cl)
-
-			// force upgrade mode
-			r.upgradeMode = true
-			res := r.ensureKubeVirtConfig(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &corev1.ConfigMap{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-					foundResource),
-			).To(BeNil())
-
-			for _, k := range updatableKeys {
-				Expect(foundResource.Data[k]).To(Not(Equal(outdatedResource.Data[k])))
-				Expect(foundResource.Data[k]).To(Equal(expectedResource.Data[k]))
-			}
-			for _, k := range unupdatableKeys {
-				Expect(foundResource.Data[k]).To(Equal(outdatedResource.Data[k]))
-				Expect(foundResource.Data[k]).To(Not(Equal(expectedResource.Data[k])))
-			}
-			for _, k := range removeKeys {
-				Expect(outdatedResource.Data).To(HaveKey(k))
-				Expect(expectedResource.Data).To(Not(HaveKey(k)))
-				Expect(foundResource.Data).To(Not(HaveKey(k)))
-			}
-		})
-
-		It("should not touch it when not in in upgrade mode", func() {
-			expectedResource := newKubeVirtConfigForCR(hco, namespace)
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			outdatedResource := newKubeVirtConfigForCR(hco, namespace)
-			outdatedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", outdatedResource.Namespace, outdatedResource.Name)
-			// values we should update
-			outdatedResource.Data[virtconfig.SmbiosConfigKey] = "old-smbios-value-that-we-have-to-update"
-			outdatedResource.Data[virtconfig.MachineTypeKey] = "old-machinetype-value-that-we-have-to-update"
-			outdatedResource.Data[virtconfig.SELinuxLauncherTypeKey] = "old-selinuxlauncher-value-that-we-have-to-update"
-			outdatedResource.Data[virtconfig.FeatureGatesKey] = "old-featuregates-value-that-we-have-to-update"
-			// values we should preserve
-			outdatedResource.Data[virtconfig.MigrationsConfigKey] = "old-migrationsconfig-value-that-we-should-preserve"
-			outdatedResource.Data[virtconfig.DefaultNetworkInterface] = "old-defaultnetworkinterface-value-that-we-should-preserve"
-
-			cl := initClient([]runtime.Object{hco, outdatedResource})
-			r := initReconciler(cl)
-
-			// ensure that we are not in upgrade mode
-			r.upgradeMode = false
-
-			res := r.ensureKubeVirtConfig(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &corev1.ConfigMap{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-					foundResource),
-			).To(BeNil())
-
-			Expect(foundResource.Data).To(Equal(outdatedResource.Data))
-			Expect(foundResource.Data).To(Not(Equal(expectedResource.Data)))
-		})
-	})
-
-	Context("KubeVirt Storage Config", func() {
-		var hco *hcov1beta1.HyperConverged
-		var req *common.HcoRequest
-
-		BeforeEach(func() {
-			hco = newHco()
-			req = newReq(hco)
-		})
-
-		It("should create if not present", func() {
-			expectedResource := newKubeVirtStorageConfigForCR(hco, namespace)
-			cl := initClient([]runtime.Object{})
-			r := initReconciler(cl)
-			err := r.ensureKubeVirtStorageConfig(req)
-			Expect(err).To(BeNil())
-
-			foundResource := &corev1.ConfigMap{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-					foundResource),
-			).To(BeNil())
-			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, name))
-			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
-		})
-
-		It("should find if present", func() {
-			expectedResource := newKubeVirtStorageConfigForCR(hco, namespace)
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			cl := initClient([]runtime.Object{hco, expectedResource})
-			r := initReconciler(cl)
-			err := r.ensureKubeVirtStorageConfig(req)
-			Expect(err).To(BeNil())
-
-			// Check HCO's status
-			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
-			objectRef, err := reference.GetReference(r.scheme, expectedResource)
-			Expect(err).To(BeNil())
-			// ObjectReference should have been added
-			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
-		})
-
-		It("volumeMode should be filesystem when platform is baremetal", func() {
-			hco.Spec.BareMetalPlatform = true
-
-			expectedResource := newKubeVirtStorageConfigForCR(hco, namespace)
-			Expect(expectedResource.Data["volumeMode"]).To(Equal("Filesystem"))
-		})
-
-		It("volumeMode should be filesystem when platform is not baremetal", func() {
-			hco.Spec.BareMetalPlatform = false
-
-			expectedResource := newKubeVirtStorageConfigForCR(hco, namespace)
-			Expect(expectedResource.Data["volumeMode"]).To(Equal("Filesystem"))
-		})
-
-		It("local storage class name should be available when specified", func() {
-			hco.Spec.LocalStorageClassName = "local"
-
-			expectedResource := newKubeVirtStorageConfigForCR(hco, namespace)
-			Expect(expectedResource.Data["local.accessMode"]).To(Equal("ReadWriteOnce"))
-			Expect(expectedResource.Data["local.volumeMode"]).To(Equal("Filesystem"))
-		})
-	})
-
-	Context("KubeVirt", func() {
-		var hco *hcov1beta1.HyperConverged
-		var req *common.HcoRequest
-
-		BeforeEach(func() {
-			hco = newHco()
-			req = newReq(hco)
-		})
-
-		It("should create if not present", func() {
-			expectedResource := hco.NewKubeVirt(namespace)
-			cl := initClient([]runtime.Object{})
-			r := initReconciler(cl)
-			res := r.ensureKubeVirt(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &kubevirtv1.KubeVirt{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-					foundResource),
-			).To(BeNil())
-			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, name))
-			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
-		})
-
-		It("should find if present", func() {
-			expectedResource := hco.NewKubeVirt(namespace)
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			cl := initClient([]runtime.Object{hco, expectedResource})
-			r := initReconciler(cl)
-			res := r.ensureKubeVirt(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			// Check HCO's status
-			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
-			objectRef, err := reference.GetReference(r.scheme, expectedResource)
-			Expect(err).To(BeNil())
-			// ObjectReference should have been added
-			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
-			// Check conditions
-			Expect(req.Conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionAvailable,
-				Status:  corev1.ConditionFalse,
-				Reason:  "KubeVirtConditions",
-				Message: "KubeVirt resource has no conditions",
-			}))
-			Expect(req.Conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionProgressing,
-				Status:  corev1.ConditionTrue,
-				Reason:  "KubeVirtConditions",
-				Message: "KubeVirt resource has no conditions",
-			}))
-			Expect(req.Conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionUpgradeable,
-				Status:  corev1.ConditionFalse,
-				Reason:  "KubeVirtConditions",
-				Message: "KubeVirt resource has no conditions",
-			}))
-		})
-
-		It("should set default UninstallStrategy if missing", func() {
-			expectedResource := hco.NewKubeVirt(namespace)
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			missingUSResource := hco.NewKubeVirt(namespace)
-			missingUSResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", missingUSResource.Namespace, missingUSResource.Name)
-			missingUSResource.Spec.UninstallStrategy = ""
-
-			cl := initClient([]runtime.Object{hco, missingUSResource})
-			r := initReconciler(cl)
-			res := r.ensureKubeVirt(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &kubevirtv1.KubeVirt{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-					foundResource),
-			).To(BeNil())
-			Expect(foundResource.Spec.UninstallStrategy).To(Equal(expectedResource.Spec.UninstallStrategy))
-		})
-
-		It("should add node placement if missing in KubeVirt", func() {
-			existingResource := hco.NewKubeVirt()
-
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-
-			cl := initClient([]runtime.Object{hco, existingResource})
-			r := initReconciler(cl)
-			res := r.ensureKubeVirt(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &kubevirtv1.KubeVirt{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
-
-			Expect(existingResource.Spec.Infra).To(BeNil())
-			Expect(existingResource.Spec.Workloads).To(BeNil())
-
-			Expect(foundResource.Spec.Infra).ToNot(BeNil())
-			Expect(foundResource.Spec.Infra.NodePlacement).ToNot(BeNil())
-			Expect(foundResource.Spec.Infra.NodePlacement.Affinity).ToNot(BeNil())
-			Expect(foundResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).Should(Equal("value1"))
-			Expect(foundResource.Spec.Infra.NodePlacement.NodeSelector["key2"]).Should(Equal("value2"))
-
-			Expect(foundResource.Spec.Workloads).ToNot(BeNil())
-			Expect(foundResource.Spec.Workloads.NodePlacement).ToNot(BeNil())
-			Expect(foundResource.Spec.Workloads.NodePlacement.Tolerations).Should(Equal(hco.Spec.Workloads.NodePlacement.Tolerations))
-
-			Expect(req.Conditions).To(BeEmpty())
-		})
-
-		It("should remove node placement if missing in HCO CR", func() {
-
-			hcoNodePlacement := newHco()
-			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-			existingResource := hcoNodePlacement.NewKubeVirt()
-
-			cl := initClient([]runtime.Object{hco, existingResource})
-			r := initReconciler(cl)
-			res := r.ensureKubeVirt(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &kubevirtv1.KubeVirt{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
-
-			Expect(existingResource.Spec.Infra).ToNot(BeNil())
-			Expect(existingResource.Spec.Workloads).ToNot(BeNil())
-
-			Expect(foundResource.Spec.Infra).To(BeNil())
-			Expect(foundResource.Spec.Workloads).To(BeNil())
-
-			Expect(req.Conditions).To(BeEmpty())
-		})
-
-		It("should modify node placement according to HCO CR", func() {
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-			existingResource := hco.NewKubeVirt()
-
-			// now, modify HCO's node placement
-			seconds3 := int64(3)
-			hco.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
-				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
-			})
-
-			hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
-
-			cl := initClient([]runtime.Object{hco, existingResource})
-			r := initReconciler(cl)
-			res := r.ensureKubeVirt(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &kubevirtv1.KubeVirt{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
-
-			Expect(existingResource.Spec.Infra).ToNot(BeNil())
-			Expect(existingResource.Spec.Infra.NodePlacement).ToNot(BeNil())
-			Expect(existingResource.Spec.Infra.NodePlacement.Tolerations).To(HaveLen(2))
-			Expect(existingResource.Spec.Workloads).ToNot(BeNil())
-
-			Expect(existingResource.Spec.Workloads.NodePlacement).ToNot(BeNil())
-			Expect(existingResource.Spec.Workloads.NodePlacement.NodeSelector["key1"]).Should(Equal("value1"))
-
-			Expect(foundResource.Spec.Infra).ToNot(BeNil())
-			Expect(foundResource.Spec.Infra.NodePlacement).ToNot(BeNil())
-			Expect(foundResource.Spec.Infra.NodePlacement.Tolerations).To(HaveLen(3))
-
-			Expect(foundResource.Spec.Workloads).ToNot(BeNil())
-			Expect(foundResource.Spec.Workloads.NodePlacement).ToNot(BeNil())
-			Expect(foundResource.Spec.Workloads.NodePlacement.NodeSelector["key1"]).Should(Equal("something else"))
-
-			Expect(req.Conditions).To(BeEmpty())
-		})
-
-		It("should handle conditions", func() {
-			expectedResource := hco.NewKubeVirt(namespace)
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			expectedResource.Status.Conditions = []kubevirtv1.KubeVirtCondition{
-				kubevirtv1.KubeVirtCondition{
-					Type:    kubevirtv1.KubeVirtConditionAvailable,
-					Status:  corev1.ConditionFalse,
-					Reason:  "Foo",
-					Message: "Bar",
-				},
-				kubevirtv1.KubeVirtCondition{
-					Type:    kubevirtv1.KubeVirtConditionProgressing,
-					Status:  corev1.ConditionTrue,
-					Reason:  "Foo",
-					Message: "Bar",
-				},
-				kubevirtv1.KubeVirtCondition{
-					Type:    kubevirtv1.KubeVirtConditionDegraded,
-					Status:  corev1.ConditionTrue,
-					Reason:  "Foo",
-					Message: "Bar",
-				},
-			}
-			cl := initClient([]runtime.Object{hco, expectedResource})
-			r := initReconciler(cl)
-			res := r.ensureKubeVirt(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			// Check HCO's status
-			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
-			objectRef, err := reference.GetReference(r.scheme, expectedResource)
-			Expect(err).To(BeNil())
-			// ObjectReference should have been added
-			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
-			// Check conditions
-			Expect(req.Conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionAvailable,
-				Status:  corev1.ConditionFalse,
-				Reason:  "KubeVirtNotAvailable",
-				Message: "KubeVirt is not available: Bar",
-			}))
-			Expect(req.Conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionProgressing,
-				Status:  corev1.ConditionTrue,
-				Reason:  "KubeVirtProgressing",
-				Message: "KubeVirt is progressing: Bar",
-			}))
-			Expect(req.Conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionUpgradeable,
-				Status:  corev1.ConditionFalse,
-				Reason:  "KubeVirtProgressing",
-				Message: "KubeVirt is progressing: Bar",
-			}))
-			Expect(req.Conditions[conditionsv1.ConditionDegraded]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionDegraded,
-				Status:  corev1.ConditionTrue,
-				Reason:  "KubeVirtDegraded",
-				Message: "KubeVirt is degraded: Bar",
-			}))
-		})
-	})
-
-	Context("CDI", func() {
-		var hco *hcov1beta1.HyperConverged
-		var req *common.HcoRequest
-
-		BeforeEach(func() {
-			hco = newHco()
-			req = newReq(hco)
-		})
-
-		It("should create if not present", func() {
-			expectedResource := hco.NewCDI()
-			cl := initClient([]runtime.Object{})
-			r := initReconciler(cl)
-			res := r.ensureCDI(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &cdiv1beta1.CDI{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-					foundResource),
-			).To(BeNil())
-			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, name))
-			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
-		})
-
-		It("should find if present", func() {
-			expectedResource := hco.NewCDI()
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			cl := initClient([]runtime.Object{hco, expectedResource})
-			r := initReconciler(cl)
-			res := r.ensureCDI(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			// Check HCO's status
-			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
-			objectRef, err := reference.GetReference(r.scheme, expectedResource)
-			Expect(err).To(BeNil())
-			// ObjectReference should have been added
-			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
-			// Check conditions
-			Expect(req.Conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionAvailable,
-				Status:  corev1.ConditionFalse,
-				Reason:  "CDIConditions",
-				Message: "CDI resource has no conditions",
-			}))
-			Expect(req.Conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionProgressing,
-				Status:  corev1.ConditionTrue,
-				Reason:  "CDIConditions",
-				Message: "CDI resource has no conditions",
-			}))
-			Expect(req.Conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionUpgradeable,
-				Status:  corev1.ConditionFalse,
-				Reason:  "CDIConditions",
-				Message: "CDI resource has no conditions",
-			}))
-		})
-
-		It("should set default UninstallStrategy if missing", func() {
-			expectedResource := hco.NewCDI()
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			missingUSResource := hco.NewCDI()
-			missingUSResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", missingUSResource.Namespace, missingUSResource.Name)
-			missingUSResource.Spec.UninstallStrategy = nil
-
-			cl := initClient([]runtime.Object{hco, missingUSResource})
-			r := initReconciler(cl)
-			res := r.ensureCDI(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &cdiv1beta1.CDI{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-					foundResource),
-			).To(BeNil())
-			Expect(*foundResource.Spec.UninstallStrategy).To(Equal(*expectedResource.Spec.UninstallStrategy))
-		})
-
-		It("should add node placement if missing in CDI", func() {
-			existingResource := hco.NewCDI()
-
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-
-			cl := initClient([]runtime.Object{hco, existingResource})
-			r := initReconciler(cl)
-			res := r.ensureCDI(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &cdiv1beta1.CDI{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
-
-			Expect(existingResource.Spec.Infra.Affinity).To(BeNil())
-			Expect(existingResource.Spec.Infra.Tolerations).To(BeEmpty())
-			Expect(existingResource.Spec.Infra.NodeSelector).To(BeNil())
-			Expect(existingResource.Spec.Workloads.Affinity).To(BeNil())
-			Expect(existingResource.Spec.Workloads.Tolerations).To(BeEmpty())
-			Expect(existingResource.Spec.Workloads.NodeSelector).To(BeNil())
-
-			Expect(foundResource.Spec.Infra.Affinity).ToNot(BeNil())
-			Expect(foundResource.Spec.Infra.NodeSelector["key1"]).Should(Equal("value1"))
-			Expect(foundResource.Spec.Infra.NodeSelector["key2"]).Should(Equal("value2"))
-
-			Expect(foundResource.Spec.Workloads).ToNot(BeNil())
-			Expect(foundResource.Spec.Workloads.Tolerations).Should(Equal(hco.Spec.Workloads.NodePlacement.Tolerations))
-
-			Expect(req.Conditions).To(BeEmpty())
-		})
-
-		It("should remove node placement if missing in HCO CR", func() {
-
-			hcoNodePlacement := newHco()
-			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-			existingResource := hcoNodePlacement.NewCDI()
-
-			cl := initClient([]runtime.Object{hco, existingResource})
-			r := initReconciler(cl)
-			res := r.ensureCDI(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &cdiv1beta1.CDI{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
-
-			Expect(existingResource.Spec.Infra.Affinity).ToNot(BeNil())
-			Expect(existingResource.Spec.Infra.Tolerations).ToNot(BeEmpty())
-			Expect(existingResource.Spec.Infra.NodeSelector).ToNot(BeNil())
-			Expect(existingResource.Spec.Workloads.Affinity).ToNot(BeNil())
-			Expect(existingResource.Spec.Workloads.Tolerations).ToNot(BeEmpty())
-			Expect(existingResource.Spec.Workloads.NodeSelector).ToNot(BeNil())
-
-			Expect(foundResource.Spec.Infra.Affinity).To(BeNil())
-			Expect(foundResource.Spec.Infra.Tolerations).To(BeEmpty())
-			Expect(foundResource.Spec.Infra.NodeSelector).To(BeNil())
-			Expect(foundResource.Spec.Workloads.Affinity).To(BeNil())
-			Expect(foundResource.Spec.Workloads.Tolerations).To(BeEmpty())
-			Expect(foundResource.Spec.Workloads.NodeSelector).To(BeNil())
-
-			Expect(req.Conditions).To(BeEmpty())
-		})
-
-		It("should modify node placement according to HCO CR", func() {
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-			existingResource := hco.NewCDI()
-
-			// now, modify HCO's node placement
-			seconds3 := int64(3)
-			hco.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
-				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
-			})
-
-			hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
-
-			cl := initClient([]runtime.Object{hco, existingResource})
-			r := initReconciler(cl)
-			res := r.ensureCDI(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &cdiv1beta1.CDI{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
-
-			Expect(existingResource.Spec.Infra.Tolerations).To(HaveLen(2))
-			Expect(existingResource.Spec.Workloads.NodeSelector["key1"]).Should(Equal("value1"))
-
-			Expect(foundResource.Spec.Infra.Tolerations).To(HaveLen(3))
-			Expect(foundResource.Spec.Workloads.NodeSelector["key1"]).Should(Equal("something else"))
-
-			Expect(req.Conditions).To(BeEmpty())
-		})
-
-		It("should handle conditions", func() {
-			expectedResource := hco.NewCDI()
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			expectedResource.Status.Conditions = []conditionsv1.Condition{
-				conditionsv1.Condition{
-					Type:    conditionsv1.ConditionAvailable,
-					Status:  corev1.ConditionFalse,
-					Reason:  "Foo",
-					Message: "Bar",
-				},
-				conditionsv1.Condition{
-					Type:    conditionsv1.ConditionProgressing,
-					Status:  corev1.ConditionTrue,
-					Reason:  "Foo",
-					Message: "Bar",
-				},
-				conditionsv1.Condition{
-					Type:    conditionsv1.ConditionDegraded,
-					Status:  corev1.ConditionTrue,
-					Reason:  "Foo",
-					Message: "Bar",
-				},
-			}
-			cl := initClient([]runtime.Object{hco, expectedResource})
-			r := initReconciler(cl)
-			res := r.ensureCDI(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			// Check HCO's status
-			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
-			objectRef, err := reference.GetReference(r.scheme, expectedResource)
-			Expect(err).To(BeNil())
-			// ObjectReference should have been added
-			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
-			// Check conditions
-			Expect(req.Conditions[conditionsv1.ConditionAvailable]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionAvailable,
-				Status:  corev1.ConditionFalse,
-				Reason:  "CDINotAvailable",
-				Message: "CDI is not available: Bar",
-			}))
-			Expect(req.Conditions[conditionsv1.ConditionProgressing]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionProgressing,
-				Status:  corev1.ConditionTrue,
-				Reason:  "CDIProgressing",
-				Message: "CDI is progressing: Bar",
-			}))
-			Expect(req.Conditions[conditionsv1.ConditionUpgradeable]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionUpgradeable,
-				Status:  corev1.ConditionFalse,
-				Reason:  "CDIProgressing",
-				Message: "CDI is progressing: Bar",
-			}))
-			Expect(req.Conditions[conditionsv1.ConditionDegraded]).To(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionDegraded,
-				Status:  corev1.ConditionTrue,
-				Reason:  "CDIDegraded",
-				Message: "CDI is degraded: Bar",
-			}))
-		})
-	})
-
 	Context("NetworkAddonsConfig", func() {
 		var hco *hcov1beta1.HyperConverged
 		var req *common.HcoRequest
 
 		BeforeEach(func() {
-			hco = newHco()
-			req = newReq(hco)
+			hco = commonTestUtils.NewHco()
+			req = commonTestUtils.NewReq(hco)
 		})
 
 		It("should create if not present", func() {
 			expectedResource := hco.NewNetworkAddons()
-			cl := initClient([]runtime.Object{})
+			cl := commonTestUtils.InitClient([]runtime.Object{})
 			r := initReconciler(cl)
 			res := r.ensureNetworkAddons(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -878,7 +66,7 @@ var _ = Describe("HyperConverged Components", func() {
 		It("should find if present", func() {
 			expectedResource := hco.NewNetworkAddons()
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			cl := initClient([]runtime.Object{hco, expectedResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
 			res := r.ensureNetworkAddons(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -916,7 +104,7 @@ var _ = Describe("HyperConverged Components", func() {
 			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
 			existingResource.Spec.ImagePullPolicy = corev1.PullAlways // set non-default value
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureNetworkAddons(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -937,10 +125,10 @@ var _ = Describe("HyperConverged Components", func() {
 		It("should add node placement if missing in CNAO", func() {
 			existingResource := hco.NewNetworkAddons()
 
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NewHyperConvergedConfig()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NewHyperConvergedConfig()}
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{commonTestUtils.NewHyperConvergedConfig()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{commonTestUtils.NewHyperConvergedConfig()}
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureNetworkAddons(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -969,12 +157,12 @@ var _ = Describe("HyperConverged Components", func() {
 
 		It("should remove node placement if missing in HCO CR", func() {
 
-			hcoNodePlacement := newHco()
-			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			hcoNodePlacement := commonTestUtils.NewHco()
+			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
 			existingResource := hcoNodePlacement.NewNetworkAddons()
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureNetworkAddons(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -996,8 +184,8 @@ var _ = Describe("HyperConverged Components", func() {
 
 		It("should modify node placement according to HCO CR", func() {
 
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
 			existingResource := hco.NewNetworkAddons()
 
 			// now, modify HCO's node placement
@@ -1008,7 +196,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 			hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureNetworkAddons(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1056,7 +244,7 @@ var _ = Describe("HyperConverged Components", func() {
 					Message: "Bar",
 				},
 			}
-			cl := initClient([]runtime.Object{hco, expectedResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
 			res := r.ensureNetworkAddons(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1101,13 +289,13 @@ var _ = Describe("HyperConverged Components", func() {
 		var req *common.HcoRequest
 
 		BeforeEach(func() {
-			hco = newHco()
-			req = newReq(hco)
+			hco = commonTestUtils.NewHco()
+			req = commonTestUtils.NewReq(hco)
 		})
 
 		It("should create if not present", func() {
 			expectedResource := hco.NewKubeVirtCommonTemplateBundle()
-			cl := initClient([]runtime.Object{})
+			cl := commonTestUtils.InitClient([]runtime.Object{})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtCommonTemplateBundle(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1127,7 +315,7 @@ var _ = Describe("HyperConverged Components", func() {
 		It("should find if present", func() {
 			expectedResource := hco.NewKubeVirtCommonTemplateBundle()
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			cl := initClient([]runtime.Object{hco, expectedResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtCommonTemplateBundle(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1147,7 +335,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 			existingResource.Spec.Version = "Non default value"
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtCommonTemplateBundle(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1235,13 +423,13 @@ var _ = Describe("HyperConverged Components", func() {
 		var req *common.HcoRequest
 
 		BeforeEach(func() {
-			hco = newHco()
-			req = newReq(hco)
+			hco = commonTestUtils.NewHco()
+			req = commonTestUtils.NewReq(hco)
 		})
 
 		It("should create if not present", func() {
 			expectedResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
-			cl := initClient([]runtime.Object{})
+			cl := commonTestUtils.InitClient([]runtime.Object{})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtNodeLabellerBundle(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1261,7 +449,7 @@ var _ = Describe("HyperConverged Components", func() {
 		It("should find if present", func() {
 			expectedResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			cl := initClient([]runtime.Object{hco, expectedResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtNodeLabellerBundle(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1281,7 +469,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 			existingResource.Spec.Version = "Non default value"
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtNodeLabellerBundle(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1300,9 +488,9 @@ var _ = Describe("HyperConverged Components", func() {
 		It("should add node placement if missing in KubeVirtNodeLabellerBundle", func() {
 			existingResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
 
-			hco.Spec.Workloads.NodePlacement = NewHyperConvergedConfig()
+			hco.Spec.Workloads.NodePlacement = commonTestUtils.NewHyperConvergedConfig()
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtNodeLabellerBundle(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1330,11 +518,11 @@ var _ = Describe("HyperConverged Components", func() {
 
 		It("should remove node placement if missing in HCO CR", func() {
 
-			hcoNodePlacement := newHco()
-			hcoNodePlacement.Spec.Workloads.NodePlacement = NewHyperConvergedConfig()
+			hcoNodePlacement := commonTestUtils.NewHco()
+			hcoNodePlacement.Spec.Workloads.NodePlacement = commonTestUtils.NewHyperConvergedConfig()
 			existingResource := newKubeVirtNodeLabellerBundleForCR(hcoNodePlacement, namespace)
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtNodeLabellerBundle(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1356,7 +544,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 		It("should modify node placement according to HCO CR", func() {
 
-			hco.Spec.Workloads.NodePlacement = NewHyperConvergedConfig()
+			hco.Spec.Workloads.NodePlacement = commonTestUtils.NewHyperConvergedConfig()
 			existingResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
 
 			// now, modify HCO's node placement
@@ -1367,7 +555,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 			hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtNodeLabellerBundle(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1487,13 +675,13 @@ var _ = Describe("HyperConverged Components", func() {
 		var req *common.HcoRequest
 
 		BeforeEach(func() {
-			hco = newHco()
-			req = newReq(hco)
+			hco = commonTestUtils.NewHco()
+			req = commonTestUtils.NewReq(hco)
 		})
 
 		It("should create if not present", func() {
 			expectedResource := newKubeVirtTemplateValidatorForCR(hco, namespace)
-			cl := initClient([]runtime.Object{})
+			cl := commonTestUtils.InitClient([]runtime.Object{})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtTemplateValidator(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1513,7 +701,7 @@ var _ = Describe("HyperConverged Components", func() {
 		It("should find if present", func() {
 			expectedResource := newKubeVirtTemplateValidatorForCR(hco, namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			cl := initClient([]runtime.Object{hco, expectedResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtTemplateValidator(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1533,7 +721,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 			existingResource.Spec.TemplateValidatorReplicas = 5 // set non-default value
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtTemplateValidator(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1552,9 +740,9 @@ var _ = Describe("HyperConverged Components", func() {
 		It("should add node placement if missing in KubeVirtTemplateValidator", func() {
 			existingResource := newKubeVirtTemplateValidatorForCR(hco, namespace)
 
-			hco.Spec.Infra.NodePlacement = NewHyperConvergedConfig()
+			hco.Spec.Infra.NodePlacement = commonTestUtils.NewHyperConvergedConfig()
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtTemplateValidator(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1582,11 +770,11 @@ var _ = Describe("HyperConverged Components", func() {
 
 		It("should remove node placement if missing in HCO CR", func() {
 
-			hcoNodePlacement := newHco()
-			hcoNodePlacement.Spec.Infra.NodePlacement = NewHyperConvergedConfig()
+			hcoNodePlacement := commonTestUtils.NewHco()
+			hcoNodePlacement.Spec.Infra.NodePlacement = commonTestUtils.NewHyperConvergedConfig()
 			existingResource := newKubeVirtTemplateValidatorForCR(hcoNodePlacement, namespace)
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtTemplateValidator(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1608,7 +796,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 		It("should modify node placement according to HCO CR", func() {
 
-			hco.Spec.Infra.NodePlacement = NewHyperConvergedConfig()
+			hco.Spec.Infra.NodePlacement = commonTestUtils.NewHyperConvergedConfig()
 			existingResource := newKubeVirtTemplateValidatorForCR(hco, namespace)
 
 			// now, modify HCO's node placement
@@ -1619,7 +807,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 			hco.Spec.Infra.NodePlacement.NodeSelector["key1"] = "something else"
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtTemplateValidator(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1712,13 +900,13 @@ var _ = Describe("HyperConverged Components", func() {
 		var req *common.HcoRequest
 
 		BeforeEach(func() {
-			hco = newHco()
-			req = newReq(hco)
+			hco = commonTestUtils.NewHco()
+			req = commonTestUtils.NewReq(hco)
 		})
 
 		It("should create if not present", func() {
 			expectedResource := newKubeVirtMetricsAggregationForCR(hco, namespace)
-			cl := initClient([]runtime.Object{})
+			cl := commonTestUtils.InitClient([]runtime.Object{})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtMetricsAggregation(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1738,7 +926,7 @@ var _ = Describe("HyperConverged Components", func() {
 		It("should find if present", func() {
 			expectedResource := newKubeVirtMetricsAggregationForCR(hco, namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			cl := initClient([]runtime.Object{hco, expectedResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtMetricsAggregation(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1758,7 +946,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 			existingResource.Spec.Version = "non-default value"
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureKubeVirtMetricsAggregation(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1847,15 +1035,15 @@ var _ = Describe("HyperConverged Components", func() {
 		BeforeEach(func() {
 			os.Setenv("CONVERSION_CONTAINER", "new-conversion-container-value")
 			os.Setenv("VMWARE_CONTAINER", "new-vmware-container-value")
-			hco = newHco()
-			req = newReq(hco)
+			hco = commonTestUtils.NewHco()
+			req = commonTestUtils.NewReq(hco)
 		})
 
 		It("should error if environment vars not specified", func() {
 			os.Unsetenv("CONVERSION_CONTAINER")
 			os.Unsetenv("VMWARE_CONTAINER")
 
-			cl := initClient([]runtime.Object{})
+			cl := commonTestUtils.InitClient([]runtime.Object{})
 			r := initReconciler(cl)
 			res := r.ensureIMSConfig(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1864,7 +1052,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 		It("should create if not present", func() {
 			expectedResource := newIMSConfigForCR(hco, namespace)
-			cl := initClient([]runtime.Object{})
+			cl := commonTestUtils.InitClient([]runtime.Object{})
 			r := initReconciler(cl)
 			res := r.ensureIMSConfig(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1884,7 +1072,7 @@ var _ = Describe("HyperConverged Components", func() {
 		It("should find if present", func() {
 			expectedResource := newIMSConfigForCR(hco, namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			cl := initClient([]runtime.Object{hco, expectedResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
 			res := r.ensureIMSConfig(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1923,7 +1111,7 @@ var _ = Describe("HyperConverged Components", func() {
 				outdatedResource.Data[k] = v
 			}
 
-			cl := initClient([]runtime.Object{hco, outdatedResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, outdatedResource})
 			r := initReconciler(cl)
 
 			res := r.ensureIMSConfig(req)
@@ -1957,13 +1145,13 @@ var _ = Describe("HyperConverged Components", func() {
 		var req *common.HcoRequest
 
 		BeforeEach(func() {
-			hco = newHco()
-			req = newReq(hco)
+			hco = commonTestUtils.NewHco()
+			req = commonTestUtils.NewReq(hco)
 		})
 
 		It("should create if not present", func() {
 			expectedResource := newVMImportForCR(hco)
-			cl := initClient([]runtime.Object{})
+			cl := commonTestUtils.InitClient([]runtime.Object{})
 			r := initReconciler(cl)
 
 			res := r.ensureVMImport(req)
@@ -1984,7 +1172,7 @@ var _ = Describe("HyperConverged Components", func() {
 		It("should find if present", func() {
 			expectedResource := newVMImportForCR(hco)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/vmimportconfigs/%s", expectedResource.Namespace, expectedResource.Name)
-			cl := initClient([]runtime.Object{hco, expectedResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
 			res := r.ensureVMImport(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -2004,7 +1192,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 			existingResource.Spec.ImagePullPolicy = corev1.PullAlways // set non-default value
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureVMImport(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -2023,10 +1211,10 @@ var _ = Describe("HyperConverged Components", func() {
 		It("should add node placement if missing in VM-Import", func() {
 			existingResource := newVMImportForCR(hco)
 
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureVMImport(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -2060,12 +1248,12 @@ var _ = Describe("HyperConverged Components", func() {
 
 		It("should remove node placement if missing in HCO CR", func() {
 
-			hcoNodePlacement := newHco()
-			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			hcoNodePlacement := commonTestUtils.NewHco()
+			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
 			existingResource := newVMImportForCR(hcoNodePlacement)
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureVMImport(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -2092,8 +1280,8 @@ var _ = Describe("HyperConverged Components", func() {
 
 		It("should modify node placement according to HCO CR", func() {
 
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: NewHyperConvergedConfig()}
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
 			existingResource := newVMImportForCR(hco)
 
 			// now, modify HCO's node placement
@@ -2104,7 +1292,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 			hco.Spec.Infra.NodePlacement.NodeSelector["key1"] = "something else"
 
-			cl := initClient([]runtime.Object{hco, existingResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			r := initReconciler(cl)
 			res := r.ensureVMImport(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -2136,13 +1324,13 @@ var _ = Describe("HyperConverged Components", func() {
 		var req *common.HcoRequest
 
 		BeforeEach(func() {
-			hco = newHco()
-			req = newReq(hco)
+			hco = commonTestUtils.NewHco()
+			req = commonTestUtils.NewReq(hco)
 		})
 
 		It("should create if not present", func() {
 			expectedResource := hco.NewConsoleCLIDownload()
-			cl := initClient([]runtime.Object{})
+			cl := commonTestUtils.InitClient([]runtime.Object{})
 			r := initReconciler(cl)
 
 			err := r.ensureConsoleCLIDownload(req)
@@ -2162,7 +1350,7 @@ var _ = Describe("HyperConverged Components", func() {
 		It("should find if present", func() {
 			expectedResource := hco.NewConsoleCLIDownload()
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/consoleclidownloads/%s", expectedResource.Namespace, expectedResource.Name)
-			cl := initClient([]runtime.Object{hco, expectedResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
 			err := r.ensureConsoleCLIDownload(req)
 			Expect(err).To(BeNil())
@@ -2177,7 +1365,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 		DescribeTable("should update if something changed", func(modifiedResource *consolev1.ConsoleCLIDownload) {
 			os.Setenv(hcoutil.KubevirtVersionEnvV, "100")
-			cl := initClient([]runtime.Object{modifiedResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{modifiedResource})
 			r := initReconciler(cl)
 			err := r.ensureConsoleCLIDownload(req)
 			Expect(err).To(BeNil())

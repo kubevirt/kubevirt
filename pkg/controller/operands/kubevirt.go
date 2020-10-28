@@ -1,0 +1,270 @@
+package operands
+
+import (
+	"fmt"
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
+	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
+	corev1 "k8s.io/api/core/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/reference"
+	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"os"
+	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+)
+
+const (
+	kubevirtDefaultNetworkInterfaceValue = "masquerade"
+)
+
+type KubevirtHandler genericOperand
+
+func (kv *KubevirtHandler) Ensure(req *common.HcoRequest) *EnsureResult {
+	virt := req.Instance.NewKubeVirt()
+	res := NewEnsureResult(virt)
+	if err := controllerutil.SetControllerReference(req.Instance, virt, kv.Scheme); err != nil {
+		return res.Error(err)
+	}
+
+	key, err := client.ObjectKeyFromObject(virt)
+	if err != nil {
+		req.Logger.Error(err, "Failed to get object key for KubeVirt")
+	}
+
+	res.SetName(key.Name)
+	found := &kubevirtv1.KubeVirt{}
+	err = kv.Client.Get(req.Ctx, key, found)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			req.Logger.Info("Creating kubevirt")
+			err = kv.Client.Create(req.Ctx, virt)
+			if err == nil {
+				return res.SetCreated().SetName(virt.Name)
+			}
+		}
+		return res.Error(err)
+	}
+
+	req.Logger.Info("KubeVirt already exists", "KubeVirt.Namespace", found.Namespace, "KubeVirt.Name", found.Name)
+
+	if !reflect.DeepEqual(found.Spec, virt.Spec) {
+		virt.Spec.DeepCopyInto(&found.Spec)
+		req.Logger.Info("Updating existing KubeVirt's Spec to its default value")
+		err = kv.Client.Update(req.Ctx, found)
+		if err != nil {
+			return res.Error(err)
+		}
+		return res.SetUpdated()
+	}
+
+	// Add it to the list of RelatedObjects if found
+	objectRef, err := reference.GetReference(kv.Scheme, found)
+	if err != nil {
+		return res.Error(err)
+	}
+	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
+
+	// Handle KubeVirt resource conditions
+	isReady := handleComponentConditions(req, "KubeVirt", translateKubeVirtConds(found.Status.Conditions))
+
+	upgradeDone := req.ComponentUpgradeInProgress && isReady && checkComponentVersion(hcoutil.KubevirtVersionEnvV, found.Status.ObservedKubeVirtVersion)
+
+	return res.SetUpgradeDone(upgradeDone)
+}
+
+type KvConfigHandler genericOperand
+
+func (kvc *KvConfigHandler) Ensure(req *common.HcoRequest) *EnsureResult {
+	kubevirtConfig := NewKubeVirtConfigForCR(req.Instance, req.Namespace)
+	res := NewEnsureResult(kubevirtConfig)
+	err := controllerutil.SetControllerReference(req.Instance, kubevirtConfig, kvc.Scheme)
+	if err != nil {
+		return res.Error(err)
+	}
+
+	key, err := client.ObjectKeyFromObject(kubevirtConfig)
+	if err != nil {
+		req.Logger.Error(err, "Failed to get object key for kubevirt config")
+	}
+	res.SetName(key.Name)
+
+	found := &corev1.ConfigMap{}
+	err = kvc.Client.Get(req.Ctx, key, found)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			req.Logger.Info("Creating kubevirt config")
+			err = kvc.Client.Create(req.Ctx, kubevirtConfig)
+			if err == nil {
+				return res.SetCreated()
+			}
+		}
+		return res.Error(err)
+	}
+
+	req.Logger.Info("KubeVirt config already exists", "KubeVirtConfig.Namespace", found.Namespace, "KubeVirtConfig.Name", found.Name)
+	// Add it to the list of RelatedObjects if found
+	objectRef, err := reference.GetReference(kvc.Scheme, found)
+	if err != nil {
+		return res.Error(err)
+	}
+	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
+
+	if req.UpgradeMode {
+
+		changed := false
+		// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey,
+		// virtconfig.FeatureGatesKey and virtconfig.UseEmulationKey are going to be manipulated
+		// and only on HCO upgrades.
+		// virtconfig.MigrationsConfigKey is going to be removed if set in the past (only during upgrades).
+		// TODO: This is going to change in the next HCO release where the whole configMap is going
+		// to be continuously reconciled
+		for _, k := range []string{
+			virtconfig.FeatureGatesKey,
+			virtconfig.SmbiosConfigKey,
+			virtconfig.MachineTypeKey,
+			virtconfig.SELinuxLauncherTypeKey,
+			virtconfig.UseEmulationKey,
+			virtconfig.MigrationsConfigKey,
+		} {
+			if found.Data[k] != kubevirtConfig.Data[k] {
+				req.Logger.Info(fmt.Sprintf("Updating %s on existing KubeVirt config", k))
+				found.Data[k] = kubevirtConfig.Data[k]
+				changed = true
+			}
+		}
+		for _, k := range []string{virtconfig.MigrationsConfigKey} {
+			_, ok := found.Data[k]
+			if ok {
+				req.Logger.Info(fmt.Sprintf("Deleting %s on existing KubeVirt config", k))
+				delete(found.Data, k)
+				changed = true
+			}
+		}
+
+		if changed {
+			err = kvc.Client.Update(req.Ctx, found)
+			if err != nil {
+				req.Logger.Error(err, "Failed updating the kubevirt config map")
+				return res.Error(err)
+			}
+		}
+	}
+
+	return res.SetUpgradeDone(req.ComponentUpgradeInProgress)
+}
+
+type KvPriorityClassHandler genericOperand
+
+func (kvpc *KvPriorityClassHandler) Ensure(req *common.HcoRequest) *EnsureResult {
+	req.Logger.Info("Reconciling KubeVirt PriorityClass")
+	pc := req.Instance.NewKubeVirtPriorityClass()
+	res := NewEnsureResult(pc)
+	key, err := client.ObjectKeyFromObject(pc)
+	if err != nil {
+		req.Logger.Error(err, "Failed to get object key for KubeVirt PriorityClass")
+		return res.Error(err)
+	}
+
+	res.SetName(key.Name)
+	found := &schedulingv1.PriorityClass{}
+	err = kvpc.Client.Get(req.Ctx, key, found)
+
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// create the new object
+			err = kvpc.Client.Create(req.Ctx, pc, &client.CreateOptions{})
+			if err == nil {
+				return res.SetCreated()
+			}
+		}
+
+		return res.Error(err)
+	}
+
+	// at this point we found the object in the cache and we check if something was changed
+	if pc.Name == found.Name && pc.Value == found.Value && pc.Description == found.Description {
+		req.Logger.Info("KubeVirt PriorityClass already exists", "PriorityClass.Name", pc.Name)
+		objectRef, err := reference.GetReference(kvpc.Scheme, found)
+		if err != nil {
+			req.Logger.Error(err, "failed getting object reference for found object")
+			return res.Error(err)
+		}
+		objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
+
+		return res.SetUpgradeDone(req.ComponentUpgradeInProgress)
+	}
+
+	// something was changed but since we can't patch a priority class object, we remove it
+	err = kvpc.Client.Delete(req.Ctx, found, &client.DeleteOptions{})
+	if err != nil {
+		return res.Error(err)
+	}
+
+	// create the new object
+	err = kvpc.Client.Create(req.Ctx, pc, &client.CreateOptions{})
+	if err != nil {
+		return res.Error(err)
+	}
+	return res.SetUpdated()
+}
+
+// translateKubeVirtConds translates list of KubeVirt conditions to a list of custom resource
+// conditions.
+func translateKubeVirtConds(orig []kubevirtv1.KubeVirtCondition) []conditionsv1.Condition {
+	translated := make([]conditionsv1.Condition, len(orig))
+
+	for i, origCond := range orig {
+		translated[i] = conditionsv1.Condition{
+			Type:    conditionsv1.ConditionType(origCond.Type),
+			Status:  origCond.Status,
+			Reason:  origCond.Reason,
+			Message: origCond.Message,
+		}
+	}
+
+	return translated
+}
+
+func NewKubeVirtConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
+	labels := map[string]string{
+		hcoutil.AppLabel: cr.Name,
+	}
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubevirt-config",
+			Labels:    labels,
+			Namespace: namespace,
+		},
+		// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey,
+		// virtconfig.FeatureGatesKey and virtconfig.UseEmulationKey are going to be manipulated
+		// and only on HCO upgrades.
+		// virtconfig.MigrationsConfigKey is going to be removed if set in the past (only during upgrades).
+		// TODO: This is going to change in the next HCO release where the whole configMap is going
+		// to be continuously reconciled
+		Data: map[string]string{
+			virtconfig.FeatureGatesKey:        "DataVolumes,SRIOV,LiveMigration,CPUManager,CPUNodeDiscovery,Sidecar,Snapshot",
+			virtconfig.SELinuxLauncherTypeKey: "virt_launcher.process",
+			virtconfig.NetworkInterfaceKey:    kubevirtDefaultNetworkInterfaceValue,
+		},
+	}
+	val, ok := os.LookupEnv("SMBIOS")
+	if ok && val != "" {
+		cm.Data[virtconfig.SmbiosConfigKey] = val
+	}
+	val, ok = os.LookupEnv("MACHINETYPE")
+	if ok && val != "" {
+		cm.Data[virtconfig.MachineTypeKey] = val
+	}
+	val, ok = os.LookupEnv("KVM_EMULATION")
+	if ok && val != "" {
+		cm.Data[virtconfig.UseEmulationKey] = val
+	}
+	return cm
+}

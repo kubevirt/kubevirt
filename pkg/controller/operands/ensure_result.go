@@ -1,4 +1,4 @@
-package hyperconverged
+package operands
 
 import (
 	"fmt"

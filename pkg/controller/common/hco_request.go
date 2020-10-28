@@ -14,6 +14,7 @@ type HcoRequest struct {
 	Conditions                 HcoConditions              // in-memory conditions
 	Ctx                        context.Context            // context of this request, to be use for any other call
 	Instance                   *hcov1beta1.HyperConverged // the current state of the CR, as read from K8s
+	UpgradeMode                bool                       // copy of the reconciler upgrade mode
 	ComponentUpgradeInProgress bool                       // if in upgrade mode, accumulate the component upgrade status
 	Dirty                      bool                       // is something was changed in the CR
 	StatusDirty                bool                       // is something was changed in the CR's Status
@@ -25,8 +26,14 @@ func NewHcoRequest(request reconcile.Request, log logr.Logger, upgradeMode bool)
 		Logger:                     log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name),
 		Conditions:                 NewHcoConditions(),
 		Ctx:                        context.TODO(),
+		UpgradeMode:                upgradeMode,
 		ComponentUpgradeInProgress: upgradeMode,
 		Dirty:                      false,
 		StatusDirty:                false,
 	}
+}
+
+func (req *HcoRequest) SetUpgradeMode(upgradeMode bool) {
+	req.UpgradeMode = upgradeMode
+	req.ComponentUpgradeInProgress = upgradeMode
 }

@@ -3,41 +3,61 @@ package hyperconverged
 import (
 	"context"
 	"fmt"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
-	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	"os"
 
-	"github.com/operator-framework/operator-sdk/pkg/ready"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-
 	"github.com/go-logr/logr"
-	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
-	sspopv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis"
 	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	consolev1 "github.com/openshift/api/console/v1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
+	"github.com/operator-framework/operator-sdk/pkg/ready"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-type basicExpected struct {
+// Mock TestRequest to simulate Reconcile() being called on an event for a watched resource
+var (
+	request = reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+)
+
+func initReconciler(client client.Client) *ReconcileHyperConverged {
+	s := commonTestUtils.GetScheme()
+	prepareHandlerMap(client, s)
+
+	// Create a ReconcileHyperConverged object with the scheme and fake client
+	return &ReconcileHyperConverged{
+		client:       client,
+		scheme:       s,
+		clusterInfo:  clusterInfoMock{},
+		eventEmitter: &eventEmitterMock{},
+		firstLoop:    true,
+	}
+}
+
+type BasicExpected struct {
 	hco                  *hcov1beta1.HyperConverged
 	pc                   *schedulingv1.PriorityClass
 	kvConfig             *corev1.ConfigMap
@@ -55,7 +75,7 @@ type basicExpected struct {
 	imsConfig            *corev1.ConfigMap
 }
 
-func (be basicExpected) toArray() []runtime.Object {
+func (be BasicExpected) toArray() []runtime.Object {
 	return []runtime.Object{
 		be.hco,
 		be.pc,
@@ -75,45 +95,13 @@ func (be basicExpected) toArray() []runtime.Object {
 	}
 }
 
-func (be basicExpected) initClient() *hcoTestClient {
-	return initClient(be.toArray())
+func (be BasicExpected) initClient() *commonTestUtils.HcoTestClient {
+	return commonTestUtils.InitClient(be.toArray())
 }
 
-// Mock request to simulate Reconcile() being called on an event for a watched resource
-var (
-	request = reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      name,
-			Namespace: namespace,
-		},
-	}
-	conversion_image = "quay.io/kubevirt/kubevirt-v2v-conversion:v2.0.0"
-	vmware_image     = "quay.io/kubevirt/kubevirt-vmware:v2.0.0"
-)
+func getBasicDeployment() *BasicExpected {
 
-func newHco() *hcov1beta1.HyperConverged {
-	return &hcov1beta1.HyperConverged{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: hcov1beta1.HyperConvergedSpec{},
-	}
-}
-
-func newReq(inst *hcov1beta1.HyperConverged) *common.HcoRequest {
-	return &common.HcoRequest{
-		Request:    request,
-		Logger:     log,
-		Conditions: common.NewHcoConditions(),
-		Ctx:        context.TODO(),
-		Instance:   inst,
-	}
-}
-
-func getBasicDeployment() *basicExpected {
-
-	res := &basicExpected{}
+	res := &BasicExpected{}
 
 	hco := &hcov1beta1.HyperConverged{
 		ObjectMeta: metav1.ObjectMeta{
@@ -126,8 +114,8 @@ func getBasicDeployment() *basicExpected {
 				{
 					Type:    hcov1beta1.ConditionReconcileComplete,
 					Status:  corev1.ConditionTrue,
-					Reason:  reconcileCompleted,
-					Message: reconcileCompletedMessage,
+					Reason:  common.ReconcileCompleted,
+					Message: common.ReconcileCompletedMessage,
 				},
 			},
 			Versions: hcov1beta1.Versions{
@@ -140,18 +128,18 @@ func getBasicDeployment() *basicExpected {
 	res.pc = hco.NewKubeVirtPriorityClass()
 	// These are all of the objects that we expect to "find" in the client because
 	// we already created them in a previous reconcile.
-	expectedKVConfig := newKubeVirtConfigForCR(hco, namespace)
+	expectedKVConfig := operands.NewKubeVirtConfigForCR(hco, namespace)
 	expectedKVConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVConfig.Namespace, expectedKVConfig.Name)
 	res.kvConfig = expectedKVConfig
 
-	expectedKVStorageConfig := newKubeVirtStorageConfigForCR(hco, namespace)
+	expectedKVStorageConfig := operands.NewKubeVirtStorageConfigForCR(hco, namespace)
 	expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
 	res.kvStorageConfig = expectedKVStorageConfig
-	expectedKVStorageRole := newKubeVirtStorageRoleForCR(hco, namespace)
+	expectedKVStorageRole := operands.NewKubeVirtStorageRoleForCR(hco, namespace)
 	expectedKVStorageRole.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/roles/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
 	res.kvStorageRole = expectedKVStorageRole
 
-	expectedKVStorageRoleBinding := newKubeVirtStorageRoleBindingForCR(hco, namespace)
+	expectedKVStorageRoleBinding := operands.NewKubeVirtStorageRoleBindingForCR(hco, namespace)
 	expectedKVStorageRoleBinding.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/rolebindings/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
 	res.kvStorageRoleBinding = expectedKVStorageRoleBinding
 
@@ -199,7 +187,7 @@ func getBasicDeployment() *basicExpected {
 	res.kvTv = expectedKVTV
 
 	expectedVMI := newVMImportForCR(hco)
-	expectedVMI.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/vmimportconfigs/%s", expectedVMI.Namespace, expectedVMI.Name)
+	expectedVMI.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/vmimportconfigs/%s", expectedVMI.Namespace, expectedVMI.Name)
 	expectedVMI.Status.Conditions = getGenericCompletedConditions()
 	res.vmi = expectedVMI
 
@@ -208,57 +196,10 @@ func getBasicDeployment() *basicExpected {
 	res.kvMtAg = kvMtAg
 
 	res.imsConfig = newIMSConfigForCR(hco, namespace)
-	res.imsConfig.Data["v2v-conversion-image"] = conversion_image
-	res.imsConfig.Data["kubevirt-vmware-image"] = vmware_image
+	res.imsConfig.Data["v2v-conversion-image"] = commonTestUtils.Conversion_image
+	res.imsConfig.Data["kubevirt-vmware-image"] = commonTestUtils.Vmware_image
 
 	return res
-}
-
-func NewHyperConvergedConfig() *sdkapi.NodePlacement {
-	seconds1, seconds2 := int64(1), int64(2)
-	return &sdkapi.NodePlacement{
-		NodeSelector: map[string]string{
-			"key1": "value1",
-			"key2": "value2",
-		},
-		Affinity: &corev1.Affinity{
-			NodeAffinity: &corev1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-					NodeSelectorTerms: []corev1.NodeSelectorTerm{
-						{
-							MatchExpressions: []corev1.NodeSelectorRequirement{
-								{Key: "key1", Operator: "operator1", Values: []string{"value11, value12"}},
-								{Key: "key2", Operator: "operator2", Values: []string{"value21, value22"}},
-							},
-							MatchFields: []corev1.NodeSelectorRequirement{
-								{Key: "key1", Operator: "operator1", Values: []string{"value11, value12"}},
-								{Key: "key2", Operator: "operator2", Values: []string{"value21, value22"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		Tolerations: []corev1.Toleration{
-			{Key: "key1", Operator: "operator1", Value: "value1", Effect: "effect1", TolerationSeconds: &seconds1},
-			{Key: "key2", Operator: "operator2", Value: "value2", Effect: "effect2", TolerationSeconds: &seconds2},
-		},
-	}
-}
-
-func checkAvailability(hco *hcov1beta1.HyperConverged, expected corev1.ConditionStatus) {
-	found := false
-	for _, cond := range hco.Status.Conditions {
-		if cond.Type == conditionsv1.ConditionType(kubevirtv1.KubeVirtConditionAvailable) {
-			found = true
-			Expect(cond.Status).To(Equal(expected))
-			break
-		}
-	}
-
-	if !found {
-		Fail(fmt.Sprintf(`Can't find 'Available' condition; %v`, hco.Status.Conditions))
-	}
 }
 
 // returns the HCO after reconcile, and the returned requeue
@@ -281,6 +222,31 @@ func doReconcile(cl client.Client, hco *hcov1beta1.HyperConverged) (*hcov1beta1.
 	).To(BeNil())
 
 	return foundResource, res.Requeue
+}
+
+type clusterInfoMock struct{}
+
+func (clusterInfoMock) CheckRunningInOpenshift(_ client.Reader, _ context.Context, _ logr.Logger, _ bool) error {
+	return nil
+}
+
+func (clusterInfoMock) IsOpenshift() bool {
+	return true
+}
+
+func (clusterInfoMock) IsRunningLocally() bool {
+	return false
+}
+
+type eventEmitterMock struct{}
+
+func (eventEmitterMock) Init(_ context.Context, _ manager.Manager, _ hcoutil.ClusterInfo, _ logr.Logger) {
+}
+
+func (eventEmitterMock) EmitEvent(_ runtime.Object, _, _, _ string) {
+}
+
+func (eventEmitterMock) UpdateClient(_ context.Context, _ client.Reader, _ logr.Logger) {
 }
 
 func getGenericCompletedConditions() []conditionsv1.Condition {
@@ -317,44 +283,6 @@ func getGenericProgressingConditions() []conditionsv1.Condition {
 	}
 }
 
-func initReconciler(client client.Client) *ReconcileHyperConverged {
-	// Setup Scheme for all resources
-	s := scheme.Scheme
-	for _, f := range []func(*runtime.Scheme) error{
-		apis.AddToScheme,
-		cdiv1beta1.AddToScheme,
-		networkaddons.AddToScheme,
-		sspopv1.AddToScheme,
-		vmimportv1beta1.AddToScheme,
-		consolev1.AddToScheme,
-	} {
-		Expect(f(s)).To(BeNil())
-	}
-
-	// Create a ReconcileHyperConverged object with the scheme and fake client
-	return &ReconcileHyperConverged{
-		client:       client,
-		scheme:       s,
-		clusterInfo:  clusterInfoMock{},
-		eventEmitter: &eventEmitterMock{},
-		firstLoop:    true,
-	}
-}
-
-type clusterInfoMock struct{}
-
-func (clusterInfoMock) CheckRunningInOpenshift(_ client.Reader, _ context.Context, _ logr.Logger, _ bool) error {
-	return nil
-}
-
-func (clusterInfoMock) IsOpenshift() bool {
-	return true
-}
-
-func (clusterInfoMock) IsRunningLocally() bool {
-	return false
-}
-
 func checkHcoReady() (bool, error) {
 	_, err := os.Stat(ready.FileName)
 
@@ -367,13 +295,17 @@ func checkHcoReady() (bool, error) {
 	return false, err
 }
 
-type eventEmitterMock struct{}
+func checkAvailability(hco *hcov1beta1.HyperConverged, expected corev1.ConditionStatus) {
+	found := false
+	for _, cond := range hco.Status.Conditions {
+		if cond.Type == conditionsv1.ConditionType(kubevirtv1.KubeVirtConditionAvailable) {
+			found = true
+			Expect(cond.Status).To(Equal(expected))
+			break
+		}
+	}
 
-func (eventEmitterMock) Init(_ context.Context, _ manager.Manager, _ hcoutil.ClusterInfo, _ logr.Logger) {
-}
-
-func (eventEmitterMock) EmitEvent(_ runtime.Object, _, _, _ string) {
-}
-
-func (eventEmitterMock) UpdateClient(_ context.Context, _ client.Reader, _ logr.Logger) {
+	if !found {
+		Fail(fmt.Sprintf(`Can't find 'Available' condition; %v`, hco.Status.Conditions))
+	}
 }

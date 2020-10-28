@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 	"os"
 	"time"
 
@@ -46,13 +48,13 @@ var _ = Describe("HyperconvergedController", func() {
 		Context("HCO Lifecycle", func() {
 
 			BeforeEach(func() {
-				os.Setenv("CONVERSION_CONTAINER", conversion_image)
-				os.Setenv("VMWARE_CONTAINER", vmware_image)
+				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.Conversion_image)
+				os.Setenv("VMWARE_CONTAINER", commonTestUtils.Vmware_image)
 				os.Setenv("OPERATOR_NAMESPACE", namespace)
 			})
 
 			It("should handle not found", func() {
-				cl := initClient([]runtime.Object{})
+				cl := commonTestUtils.InitClient([]runtime.Object{})
 				r := initReconciler(cl)
 
 				res, err := r.Reconcile(request)
@@ -71,7 +73,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Conditions: []conditionsv1.Condition{},
 					},
 				}
-				cl := initClient([]runtime.Object{hco})
+				cl := commonTestUtils.InitClient([]runtime.Object{hco})
 				r := initReconciler(cl)
 
 				// Do the reconcile
@@ -102,8 +104,8 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should create all managed resources", func() {
-				hco := newHco()
-				cl := initClient([]runtime.Object{hco})
+				hco := commonTestUtils.NewHco()
+				cl := commonTestUtils.InitClient([]runtime.Object{hco})
 				r := initReconciler(cl)
 
 				// Do the reconcile
@@ -171,13 +173,13 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 				// These are all of the objects that we expect to "find" in the client because
 				// we already created them in a previous reconcile.
-				expectedKVConfig := newKubeVirtConfigForCR(hco, namespace)
+				expectedKVConfig := operands.NewKubeVirtConfigForCR(hco, namespace)
 				expectedKVConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVConfig.Namespace, expectedKVConfig.Name)
-				expectedKVStorageConfig := newKubeVirtStorageConfigForCR(hco, namespace)
+				expectedKVStorageConfig := operands.NewKubeVirtStorageConfigForCR(hco, namespace)
 				expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
-				expectedKVStorageRole := newKubeVirtStorageRoleForCR(hco, namespace)
+				expectedKVStorageRole := operands.NewKubeVirtStorageRoleForCR(hco, namespace)
 				expectedKVStorageRole.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/roles/%s", expectedKVStorageRole.Namespace, expectedKVStorageRole.Name)
-				expectedKVStorageRoleBinding := newKubeVirtStorageRoleBindingForCR(hco, namespace)
+				expectedKVStorageRoleBinding := operands.NewKubeVirtStorageRoleBindingForCR(hco, namespace)
 				expectedKVStorageRoleBinding.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/rolebindings/%s", expectedKVStorageRoleBinding.Namespace, expectedKVStorageRoleBinding.Name)
 				expectedKV := hco.NewKubeVirt(namespace)
 				expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)
@@ -192,7 +194,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expectedKVTV := newKubeVirtTemplateValidatorForCR(hco, namespace)
 				expectedKVTV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/tv/%s", expectedKVTV.Namespace, expectedKVTV.Name)
 				// Add all of the objects to the client
-				cl := initClient([]runtime.Object{hco, expectedKVConfig, expectedKVStorageConfig, expectedKVStorageRole, expectedKVStorageRoleBinding, expectedKV, expectedCDI, expectedCNA, expectedKVCTB, expectedKVNLB, expectedKVTV})
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedKVConfig, expectedKVStorageConfig, expectedKVStorageRole, expectedKVStorageRoleBinding, expectedKV, expectedCDI, expectedCNA, expectedKVCTB, expectedKVNLB, expectedKVTV})
 				r := initReconciler(cl)
 
 				// Do the reconcile
@@ -255,13 +257,13 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 				// These are all of the objects that we expect to "find" in the client because
 				// we already created them in a previous reconcile.
-				expectedKVConfig := newKubeVirtConfigForCR(hco, namespace)
+				expectedKVConfig := operands.NewKubeVirtConfigForCR(hco, namespace)
 				expectedKVConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVConfig.Namespace, expectedKVConfig.Name)
-				expectedKVStorageConfig := newKubeVirtStorageConfigForCR(hco, namespace)
+				expectedKVStorageConfig := operands.NewKubeVirtStorageConfigForCR(hco, namespace)
 				expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
-				expectedKVStorageRole := newKubeVirtStorageRoleForCR(hco, namespace)
+				expectedKVStorageRole := operands.NewKubeVirtStorageRoleForCR(hco, namespace)
 				expectedKVStorageRole.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/role/%s", expectedKVStorageRole.Namespace, expectedKVStorageRole.Name)
-				expectedKVStorageRoleBinding := newKubeVirtStorageRoleBindingForCR(hco, namespace)
+				expectedKVStorageRoleBinding := operands.NewKubeVirtStorageRoleBindingForCR(hco, namespace)
 				expectedKVStorageRoleBinding.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/role/%s", expectedKVStorageRoleBinding.Namespace, expectedKVStorageRoleBinding.Name)
 				expectedKV := hco.NewKubeVirt(namespace)
 				expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)
@@ -321,7 +323,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expectedKVTV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/tv/%s", expectedKVTV.Namespace, expectedKVTV.Name)
 				expectedKVTV.Status.Conditions = getGenericCompletedConditions()
 				// Add all of the objects to the client
-				cl := initClient([]runtime.Object{hco, expectedKVConfig, expectedKVStorageConfig, expectedKV, expectedCDI, expectedCNA, expectedKVCTB, expectedKVNLB, expectedKVTV})
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedKVConfig, expectedKVStorageConfig, expectedKV, expectedCDI, expectedCNA, expectedKVCTB, expectedKVNLB, expectedKVTV})
 				r := initReconciler(cl)
 
 				// Do the reconcile
@@ -503,8 +505,8 @@ var _ = Describe("HyperconvergedController", func() {
 			origConds := expected.hco.Status.Conditions
 
 			BeforeEach(func() {
-				os.Setenv("CONVERSION_CONTAINER", conversion_image)
-				os.Setenv("VMWARE_CONTAINER", vmware_image)
+				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.Conversion_image)
+				os.Setenv("VMWARE_CONTAINER", commonTestUtils.Vmware_image)
 				os.Setenv("OPERATOR_NAMESPACE", namespace)
 				os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
 			})
@@ -543,8 +545,8 @@ var _ = Describe("HyperconvergedController", func() {
 			)
 
 			BeforeEach(func() {
-				os.Setenv("CONVERSION_CONTAINER", conversion_image)
-				os.Setenv("VMWARE_CONTAINER", vmware_image)
+				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.Conversion_image)
+				os.Setenv("VMWARE_CONTAINER", commonTestUtils.Vmware_image)
 				os.Setenv("OPERATOR_NAMESPACE", namespace)
 
 				expected.kv.Status.ObservedKubeVirtVersion = newComponentVersion
@@ -1182,7 +1184,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.hco.Status.Conditions = nil
 				cl := expected.initClient()
 				rsc := schema.GroupResource{Group: hcoutil.APIVersionGroup, Resource: "hyperconvergeds.hco.kubevirt.io"}
-				cl.initiateWriteErrors(
+				cl.InitiateWriteErrors(
 					nil,
 					apierrors.NewConflict(rsc, "hco", errors.New("test error")),
 				)
@@ -1205,7 +1207,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.hco.Status.Conditions = nil
 				cl := expected.initClient()
 				rs := schema.GroupResource{hcoutil.APIVersionGroup, "hyperconvergeds.hco.kubevirt.io"}
-				cl.Status().(*hcoTestStatusWriter).initiateErrors(apierrors.NewConflict(rs, "hco", errors.New("test error")))
+				cl.Status().(*commonTestUtils.HcoTestStatusWriter).InitiateErrors(apierrors.NewConflict(rs, "hco", errors.New("test error")))
 				r := initReconciler(cl)
 
 				r.ownVersion = os.Getenv(hcoutil.HcoKvIoVersionName)
