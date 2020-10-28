@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"fmt"
 	"strings"
 
 	. "github.com/onsi/ginkgo"
@@ -110,13 +111,16 @@ var _ = Describe("[Serial]SecurityFeatures", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")
 
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 				qemuProcessSelinuxContext, err := tests.ExecuteCommandOnPod(
 					virtClient,
 					pod,
 					"compute",
-					[]string{"/usr/bin/bash", "-c", "ps -efZ | grep [/]usr/libexec/qemu-kvm | awk '{print $1}'"},
+					[]string{"/usr/bin/bash", "-c", fmt.Sprintf("ps -efZ | grep %s | awk '{print $1}'", emulator)},
 				)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -180,13 +184,16 @@ var _ = Describe("[Serial]SecurityFeatures", func() {
 				tests.WaitUntilVMIReady(vmi, tests.LoginToAlpine)
 
 				By("Fetching virt-launcher Pod")
-				pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")
 
+				pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 				qemuProcessSelinuxContext, err := tests.ExecuteCommandOnPod(
 					virtClient,
 					pod,
 					"compute",
-					[]string{"/usr/bin/bash", "-c", "ps -efZ | grep [/]usr/libexec/qemu-kvm | awk '{print $1}'"},
+					[]string{"/usr/bin/bash", "-c", fmt.Sprintf("ps -efZ | grep %s | awk '{print $1}'", emulator)},
 				)
 				Expect(err).ToNot(HaveOccurred())
 
