@@ -93,10 +93,12 @@ func FileExists(path string) (bool, error) {
 }
 func Md5CheckSum(filePath string) ([]byte, error) {
 
+	// If changed to RW remove the nosec comment below and handle Close() errors
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
+	// #nosec No need to check Close() errors on RO files
 	defer file.Close()
 
 	hash := md5.New()

@@ -221,12 +221,16 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 			return err
 		}
 
-		defer f.Close()
-
 		_, err = f.Write(fileBytes)
+		if err != nil {
+			f.Close()
+			return err
+		}
+		err = f.Close()
 		if err != nil {
 			return err
 		}
+
 		ghostRecordGlobalCache[key] = record
 	}
 

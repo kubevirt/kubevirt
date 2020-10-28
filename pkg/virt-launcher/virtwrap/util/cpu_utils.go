@@ -29,11 +29,13 @@ import (
 
 func GetPodCPUSet() ([]int, error) {
 	var cpuset string
+	// If changed to RW remove the nosec comment below and handle Close() errors
 	file, err := os.Open(hardware.CPUSET_PATH)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	// #nosec No need to check Close() errors on RO files
+	defer file.Close() 
 	scanner := bufio.NewScanner(file)
 	if scanner.Scan() {
 		cpuset = scanner.Text()
