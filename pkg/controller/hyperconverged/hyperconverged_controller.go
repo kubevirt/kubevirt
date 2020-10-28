@@ -771,11 +771,11 @@ func newKubeVirtConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *co
 		// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey,
 		// virtconfig.FeatureGatesKey and virtconfig.UseEmulationKey are going to be manipulated
 		// and only on HCO upgrades.
+		// virtconfig.MigrationsConfigKey is going to be removed if set in the past (only during upgrades).
 		// TODO: This is going to change in the next HCO release where the whole configMap is going
 		// to be continuously reconciled
 		Data: map[string]string{
 			virtconfig.FeatureGatesKey:        "DataVolumes,SRIOV,LiveMigration,CPUManager,CPUNodeDiscovery,Sidecar,Snapshot",
-			virtconfig.MigrationsConfigKey:    `{"nodeDrainTaintKey" : "node.kubernetes.io/unschedulable"}`,
 			virtconfig.SELinuxLauncherTypeKey: "virt_launcher.process",
 			virtconfig.NetworkInterfaceKey:    kubevirtDefaultNetworkInterfaceValue,
 		},
@@ -834,23 +834,39 @@ func (r *ReconcileHyperConverged) ensureKubeVirtConfig(req *common.HcoRequest) *
 		// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey,
 		// virtconfig.FeatureGatesKey and virtconfig.UseEmulationKey are going to be manipulated
 		// and only on HCO upgrades.
+		// virtconfig.MigrationsConfigKey is going to be removed if set in the past (only during upgrades).
 		// TODO: This is going to change in the next HCO release where the whole configMap is going
 		// to be continuously reconciled
+		dirty := false
 		for _, k := range []string{
 			virtconfig.FeatureGatesKey,
 			virtconfig.SmbiosConfigKey,
 			virtconfig.MachineTypeKey,
 			virtconfig.SELinuxLauncherTypeKey,
 			virtconfig.UseEmulationKey,
+			virtconfig.MigrationsConfigKey,
 		} {
 			if found.Data[k] != kubevirtConfig.Data[k] {
 				req.Logger.Info(fmt.Sprintf("Updating %s on existing KubeVirt config", k))
 				found.Data[k] = kubevirtConfig.Data[k]
-				err = r.client.Update(req.Ctx, found)
-				if err != nil {
-					req.Logger.Error(err, fmt.Sprintf("Failed updating %s on an existing kubevirt config", k))
-					return res.Error(err)
-				}
+				dirty = true
+			}
+		}
+		for _, k := range []string{
+			virtconfig.MigrationsConfigKey,
+		} {
+			_, ok := found.Data[k]
+			if ok {
+				req.Logger.Info(fmt.Sprintf("Deleting %s on existing KubeVirt config", k))
+				delete(found.Data, k)
+				dirty = true
+			}
+		}
+		if dirty {
+			err = r.client.Update(req.Ctx, found)
+			if err != nil {
+				req.Logger.Error(err, fmt.Sprintf("Failed updating an existing kubevirt config"))
+				return res.Error(err)
 			}
 		}
 	}
