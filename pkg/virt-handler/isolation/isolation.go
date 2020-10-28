@@ -280,11 +280,13 @@ func (r *realIsolationResult) mountInfo() string {
 
 // MountInfoRoot returns information about the root entry in /proc/mountinfo
 func (r *realIsolationResult) MountInfoRoot() (*MountInfo, error) {
+	// If changed to RW remove the nosec comment below and handle Close() errors
 	in, err := os.Open(r.mountInfo())
 	if err != nil {
 		return nil, fmt.Errorf("could not open mountinfo: %v", err)
 	}
-	defer in.Close()
+	// #nosec No need to check Close() errors on RO files
+	defer in.Close() 
 	c := csv.NewReader(in)
 	c.Comma = ' '
 	c.LazyQuotes = true
@@ -326,11 +328,13 @@ func (r *realIsolationResult) IsMounted(mountPoint string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("could not resolve mount point path: %v", err)
 	}
+	// If changed to RW remove the nosec comment below and handle Close() errors
 	in, err := os.Open(r.mountInfo())
 	if err != nil {
 		return false, fmt.Errorf("could not open mountinfo: %v", err)
 	}
-	defer in.Close()
+	// #nosec No need to check Close() errors on RO files
+	defer in.Close() 
 	c := csv.NewReader(in)
 	c.Comma = ' '
 	c.LazyQuotes = true
@@ -359,11 +363,13 @@ func (r *realIsolationResult) IsMounted(mountPoint string) (bool, error) {
 // ParentMountInfoFor takes the mount info from a container, and looks the corresponding
 // entry in /proc/mountinfo of the isolation result of the given process.
 func (r *realIsolationResult) ParentMountInfoFor(mountInfo *MountInfo) (*MountInfo, error) {
+	// If changed to RW remove the nosec comment below and handle Close() errors
 	in, err := os.Open(r.mountInfo())
 	if err != nil {
 		return nil, fmt.Errorf("could not open mountinfo: %v", err)
 	}
-	defer in.Close()
+	// #nosec No need to check Close() errors on RO files
+	defer in.Close() 
 	c := csv.NewReader(in)
 	c.Comma = ' '
 	c.LazyQuotes = true
@@ -434,11 +440,13 @@ func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
 }
 
 func (s *socketBasedIsolationDetector) getSlice(pid int) (controller []string, slice string, err error) {
+	// If changed to RW remove the nosec comment below and handle Close() errors
 	cgroups, err := os.Open(fmt.Sprintf("/proc/%d/cgroup", pid))
 	if err != nil {
 		return
 	}
-	defer cgroups.Close()
+	// #nosec No need to check Close() errors on RO files
+	defer cgroups.Close() 
 
 	scanner := bufio.NewScanner(cgroups)
 	for scanner.Scan() {

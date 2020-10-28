@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/user"
@@ -260,12 +261,14 @@ func StartVirtlog(stopChan chan struct{}, domainName string) {
 					time.Sleep(time.Second)
 				}
 
+				// If changed to RW remove the nosec comment below and handle Close() errors
 				file, err := os.Open(logfile)
 				if err != nil {
 					log.Log.Reason(err).Error("failed to catch virtlogd logs")
 					return
 				}
-				defer file.Close()
+				// #nosec No need to check Close() errors on RO files
+				defer file.Close() 
 
 				scanner := bufio.NewScanner(file)
 				scanner.Buffer(make([]byte, 1024), 512*1024)
@@ -374,7 +377,7 @@ func SetupLibvirt() error {
 	if err != nil {
 		return err
 	}
-	defer qemuConf.Close()
+	defer fileClose(qemuConf, &err)
 	// We are in a container, don't try to stuff qemu inside special cgroups
 	_, err = qemuConf.WriteString("cgroup_controllers = [ ]\n")
 	if err != nil {
@@ -394,7 +397,7 @@ func SetupLibvirt() error {
 	if err != nil {
 		return err
 	}
-	defer libvirtConf.Close()
+	defer fileClose(libvirtConf, &err)
 	_, err = libvirtConf.WriteString("log_outputs = \"1:stderr\"\n")
 	if err != nil {
 		return err
@@ -414,5 +417,12 @@ func SetupLibvirt() error {
 		}
 	}
 
-	return nil
+	return err // Need to use err and not nil to allow the defered func to set the value if needed
+}
+
+func fileClose(c io.Closer, err *error) {
+	fileErr := c.Close()
+	if *err == nil {
+		*err = fileErr
+	}
 }

@@ -88,18 +88,27 @@ func dirBytesAvailable(path string) (uint64, error) {
 	return stat.Bavail * uint64(stat.Bsize), nil
 }
 
-func createSparseRaw(fullPath string, size int64) error {
+func createSparseRaw(fullPath string, size int64) (err error) {
+	var f *os.File
 	offset := size - 1
-	f, err := os.Create(fullPath)
-	defer f.Close()
+	f, err = os.Create(fullPath)
+
 	if err != nil {
-		return err
+		return
 	}
+
+	defer func() {
+		ferr := f.Close()
+		if err == nil {
+			err = ferr
+		}
+	}()
+
 	_, err = f.WriteAt([]byte{0}, offset)
 	if err != nil {
-		return err
+		return
 	}
-	return nil
+	return
 }
 
 func getPVCDiskImgPath(volumeName string, diskName string) string {

@@ -825,13 +825,14 @@ var updateHostsFile = func(entry string) error {
 	if err != nil {
 		return fmt.Errorf("failed opening file: %s", err)
 	}
-	defer file.Close()
 
 	_, err = file.WriteString(entry)
 	if err != nil {
+		file.Close()
 		return fmt.Errorf("failed writing to file: %s", err)
 	}
-	return nil
+
+	return file.Close()
 }
 
 // Prepares the target pod environment by executing the preStartHook
