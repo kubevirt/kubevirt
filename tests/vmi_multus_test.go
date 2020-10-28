@@ -787,13 +787,21 @@ var _ = Describe("[Serial]SRIOV", func() {
 		})
 
 		It("[test_id:3985]should create a virtual machine with sriov interface with custom MAC address", func() {
+			mac := "de:ad:00:00:be:ef"
 			vmi := getSriovVmi([]string{"sriov"})
-			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = "de:ad:00:00:be:ef"
+			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
+
 			startVmi(vmi)
 			waitVmi(vmi)
 
+			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			interfaceName, err := getInterfaceNameByMAC(vmi, mac)
+			Expect(err).NotTo(HaveOccurred())
+
 			By("checking virtual machine instance has an interface with the requested MAC address")
-			checkMacAddress(vmi, "eth1", "de:ad:00:00:be:ef")
+			Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed())
 		})
 
 		It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
@@ -856,10 +864,15 @@ var _ = Describe("[Serial]SRIOV", func() {
 			waitVmi(vmi1)
 			waitVmi(vmi2)
 
+			vmi1, err = virtClient.VirtualMachineInstance(vmi1.Namespace).Get(vmi1.Name, &metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			vmi2, err = virtClient.VirtualMachineInstance(vmi2.Namespace).Get(vmi2.Name, &metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
 			// manually configure IP/link on sriov interfaces because there is
 			// no DHCP server to serve the address to the guest
-			configInterface(vmi1, "eth1", cidrA)
-			configInterface(vmi2, "eth1", cidrB)
+			Expect(configureInterfaceStaticIPByMAC(vmi1, mac1.String(), cidrA)).To(Succeed())
+			Expect(configureInterfaceStaticIPByMAC(vmi2, mac2.String(), cidrB)).To(Succeed())
 
 			// now check ICMP goes both ways
 			Expect(libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))).To(Succeed())
@@ -1025,6 +1038,15 @@ func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAdd
 	return setInterfaceUp(vmi, interfaceName)
 }
 
+func configureInterfaceStaticIPByMAC(vmi *v1.VirtualMachineInstance, interfaceMac, interfaceAddress string) error {
+	interfaceName, err := getInterfaceNameByMAC(vmi, interfaceMac)
+	if err != nil {
+		return fmt.Errorf("could not configure address %s for interface with mac %s on VMI %s: %w", interfaceAddress, interfaceMac, vmi.Name, err)
+	}
+
+	return configInterface(vmi, interfaceName, interfaceAddress)
+}
+
 func checkInterface(vmi *v1.VirtualMachineInstance, interfaceName string) error {
 	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
 	err := runSafeCommand(vmi, cmdCheck)
@@ -1074,6 +1096,16 @@ func runSafeCommand(vmi *v1.VirtualMachineInstance, command string) error {
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
+}
+
+func getInterfaceNameByMAC(vmi *v1.VirtualMachineInstance, mac string) (string, error) {
+	for _, iface := range vmi.Status.Interfaces {
+		if iface.MAC == mac {
+			return iface.InterfaceName, nil
+		}
+	}
+
+	return "", fmt.Errorf("could not get sriov interface by MAC: no interface on VMI %s with MAC %s", vmi.Name, mac)
 }
 
 // Tests in Multus suite are expecting a Linux bridge to be available on each node, with iptables allowing
