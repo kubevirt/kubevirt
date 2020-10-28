@@ -141,6 +141,34 @@ function _fix_node_labels() {
     done
 }
 
+function _get_cri_bridge_mtu() {
+  docker network inspect -f '{{index .Options "com.docker.network.driver.mtu"}}' bridge
+}
+
+function _patch_calico_manifest_diff() {
+  local -r calico_manifest="$1"
+  local -r calico_diff="$KIND_MANIFESTS_DIR/kube-calico.diff.in"
+
+  local -r cri_mtu=$(_get_cri_bridge_mtu)
+  local -r ipip_mode=$(sed -n '/name:.*CALICO_IPV4POOL_IPIP.*/{n; s/.*value:.*\(Always\|Never\).*/\1/p}' $calico_manifest)
+  if [ $ipip_mode == "Always" ]; then
+    overhead=$((20))
+    calico_mtu=$((cri_mtu - overhead))
+  else
+    calico_mtu=$( sed -n 's/.*veth_mtu:.*\([[:digit:]]\{4,5\}\).*/\1/p' $calico_manifest)
+  fi
+
+  # Substitute MTU placeholder with the calculated MTU
+  CNI_MTU=$calico_mtu envsubst < $calico_diff
+}
+
+function _patch_calico_manifest() {
+  local -r calico_manifest="$1"
+  local -r diff_string="$2"
+  
+  patch $calico_manifest -o - <<< "$diff_string"
+}
+
 function setup_kind() {
     $KIND --loglevel debug create cluster --retain --name=${CLUSTER_NAME} --config=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml --image=$KIND_NODE_IMAGE
     $KIND get kubeconfig --name=${CLUSTER_NAME} > ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
@@ -155,11 +183,15 @@ function setup_kind() {
     echo "ipv6 cni: $IPV6_CNI"
     if [ -z ${IPV6_CNI+x} ]; then
         echo "no ipv6, safe to install calico"
-        _kubectl apply -f $KIND_MANIFESTS_DIR/kube-calico.yaml
+        calico_manifest="$KIND_MANIFESTS_DIR/kube-calico.yaml.in"
+        patched_diff=$(_patch_calico_manifest_diff $calico_manifest)
+        echo "Log Calico manifest diff:"
+        echo "$patched_diff"
+        _patch_calico_manifest "$calico_manifest" "$patched_diff" | _kubectl apply -f -
     else
-        echo "ipv6 enabled, using kindnet"
-        # currently kind does not fully support ipv6 or ipv6-DualStack,
-        # when using diffrent CNI's.
+         echo "ipv6 enabled, using kindnet"
+         #currently kind does not fully support ipv6 or ipv6-DualStack,
+         #when using diffrent CNI's.
     fi
 
     _wait_kind_up

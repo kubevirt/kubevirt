@@ -32,9 +32,6 @@ data:
           "ipam": {
               "type": "calico-ipam"
           },
-          "container_settings": {
-            "allow_ip_forwarding": true
-          },
           "policy": {
               "type": "k8s"
           },
