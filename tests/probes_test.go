@@ -1,13 +1,14 @@
 package tests_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	netutils "k8s.io/utils/net"
 
 	v12 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -17,8 +18,12 @@ import (
 )
 
 var _ = Describe("[ref_id:1182]Probes", func() {
-	var err error
-	var virtClient kubecli.KubevirtClient
+	var (
+		err           error
+		virtClient    kubecli.KubevirtClient
+		vmi           *v12.VirtualMachineInstance
+		blankIPFamily = *new(v1.IPFamily)
+	)
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
@@ -42,18 +47,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 		}
 	}
 
-	getPodIPv6Address := func(pod v1.Pod) *string {
-		for _, ip := range pod.Status.PodIPs {
-			if netutils.IsIPv6String(ip.IP) {
-				return &ip.IP
-			}
-		}
-		return nil
-	}
-
 	Context("for readiness", func() {
-		var vmi *v12.VirtualMachineInstance
-
 		const (
 			period         = 5
 			initialSeconds = 5
@@ -69,22 +63,43 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			return vmiReady(readVmi) == v1.ConditionTrue
 		}
 
-		table.DescribeTable("should succeed", func(readinessProbe *v12.Probe, serverStarter func(vmi *v12.VirtualMachineInstance, port int)) {
-			By("Specifying a VMI with a readiness probe")
-			vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
+		table.DescribeTable("should succeed", func(readinessProbe *v12.Probe, IPFamily v1.IPFamily) {
+
+			if IPFamily == v1.IPv6Protocol {
+				libnet.SkipWhenNotDualStackCluster(virtClient)
+				By("Create a support pod which will reply to kubelet's probes ...")
+				probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(readinessProbe)
+				defer func() {
+					Expect(supportPodCleanupFunc()).To(Succeed(), "The support pod responding to the probes should be cleaned-up at test tear-down.")
+				}()
+
+				By("Attaching the readiness probe to an external pod server")
+				readinessProbe, err = pointProbeToSupportPod(probeBackendPod, IPFamily, readinessProbe)
+				Expect(err).ToNot(HaveOccurred(), "should attach the backend pod with readiness probe")
+
+				By("Specifying a VMI with a readiness probe")
+				vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
+			} else {
+				By("Specifying a VMI with a readiness probe")
+				vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
+
+				By("Starting the server inside the VMI")
+				serverStarter(vmi, readinessProbe, 1500)
+			}
 
 			// pod is not ready until our probe contacts the server
 			assertPodNotReady(virtClient, vmi)
-
-			By("Starting the server inside the VMI")
-			serverStarter(vmi, 1500)
 
 			By("Checking that the VMI and the pod will be marked as ready to receive traffic")
 			Eventually(isVMIReady, 60, 1).Should(Equal(true))
 			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionTrue))
 		},
-			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server", tcpProbe, tests.StartTCPServer),
-			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server", httpProbe, tests.StartHTTPServer),
+			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server,no ip family specified ", tcpProbe, blankIPFamily),
+			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, v1.IPv4Protocol),
+			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, v1.IPv6Protocol),
+			table.Entry("[test_id:1202][posneg:positive]with working HTTP probe and http server, no ip family is specified ", httpProbe, blankIPFamily),
+			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, v1.IPv4Protocol),
+			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, v1.IPv6Protocol),
 		)
 
 		table.DescribeTable("should fail", func(readinessProbe *v12.Probe) {
@@ -101,33 +116,6 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			table.Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", tcpProbe),
 			table.Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", httpProbe),
 		)
-
-		table.DescribeTable("should succeed when probing an IPv6 IP on dual stack clusters", func(readinessProbe *v12.Probe) {
-			libnet.SkipWhenNotDualStackCluster(virtClient)
-
-			By("Create a support pod which will reply to kubelet's probes ...")
-			probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(readinessProbe)
-			defer func() {
-				Expect(supportPodCleanupFunc()).To(Succeed(), "The support pod responding to the probes should be cleaned-up at test tear-down.")
-			}()
-
-			supportPodIPv6IP := getPodIPv6Address(*probeBackendPod)
-			Expect(supportPodIPv6IP).NotTo(BeNil())
-			readinessProbe = patchProbeWithIPv6Addr(readinessProbe, *supportPodIPv6IP)
-
-			By("Specifying a VMI with a readiness probe")
-			vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
-
-			// pod is not ready until our probe contacts the server
-			assertPodNotReady(virtClient, vmi)
-
-			By("Checking that the VMI and the pod will be marked as ready to receive traffic")
-			Eventually(isVMIReady, 60, 1).Should(Equal(true))
-			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionTrue))
-		},
-			table.Entry("with working TCP probe and tcp server", tcpProbe),
-			table.Entry("with working HTTP probe and http server", httpProbe),
-		)
 	})
 
 	Context("for liveness", func() {
@@ -140,12 +128,30 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 		tcpProbe := createTCPProbe(period, initialSeconds, port)
 		httpProbe := createHTTPProbe(period, initialSeconds, port)
 
-		table.DescribeTable("should not fail the VMI", func(livenessProbe *v12.Probe, serverStarter func(vmi *v12.VirtualMachineInstance, port int)) {
-			By("Specifying a VMI with a liveness probe")
-			vmi := createReadyCirrosVMIWithLivenessProbe(virtClient, livenessProbe)
+		table.DescribeTable("should not fail the VMI", func(livenessProbe *v12.Probe, IPFamily v1.IPFamily) {
 
-			By("Starting the server inside the VMI")
-			serverStarter(vmi, 1500)
+			if IPFamily == v1.IPv6Protocol {
+				libnet.SkipWhenNotDualStackCluster(virtClient)
+
+				By("Create a support pod which will reply to kubelet's probes ...")
+				probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(livenessProbe)
+				defer func() {
+					Expect(supportPodCleanupFunc()).To(Succeed(), "The support pod responding to the probes should be cleaned-up at test tear-down.")
+				}()
+
+				By("Attaching the liveness probe to an external pod server")
+				livenessProbe, err = pointProbeToSupportPod(probeBackendPod, IPFamily, livenessProbe)
+				Expect(err).ToNot(HaveOccurred(), "should attach the backend pod with livness probe")
+
+				By("Specifying a VMI with a readiness probe")
+				vmi = createReadyCirrosVMIWithLivenessProbe(virtClient, livenessProbe)
+			} else {
+				By("Specifying a VMI with a readiness probe")
+				vmi = createReadyCirrosVMIWithLivenessProbe(virtClient, livenessProbe)
+
+				By("Starting the server inside the VMI")
+				serverStarter(vmi, livenessProbe, 1500)
+			}
 
 			By("Checking that the VMI is still running after a minute")
 			Consistently(func() bool {
@@ -154,8 +160,12 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 				return vmi.IsFinal()
 			}, 120, 1).Should(Not(BeTrue()))
 		},
-			table.Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server", tcpProbe, tests.StartTCPServer),
-			table.Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server", httpProbe, tests.StartHTTPServer),
+			table.Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server, no ip family is specified", tcpProbe, blankIPFamily),
+			table.Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, v1.IPv4Protocol),
+			table.Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, v1.IPv6Protocol),
+			table.Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server, no ip family is specified", httpProbe, blankIPFamily),
+			table.Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, v1.IPv4Protocol),
+			table.Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, v1.IPv6Protocol),
 		)
 
 		table.DescribeTable("should fail the VMI", func(livenessProbe *v12.Probe) {
@@ -171,32 +181,6 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 		},
 			table.Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", tcpProbe),
 			table.Entry("[test_id:1218][posneg:negative]with working HTTP probe and no running server", httpProbe),
-		)
-
-		table.DescribeTable("should not fail the VMI when probing with an IPv6 address", func(livenessProbe *v12.Probe) {
-			libnet.SkipWhenNotDualStackCluster(virtClient)
-
-			By("Create a support pod which will reply to kubelet's probes ...")
-			probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(livenessProbe)
-			defer func() {
-				Expect(supportPodCleanupFunc()).To(Succeed(), "The support pod responding to the probes should be cleaned-up at test tear-down.")
-			}()
-
-			supportPodIPv6IP := getPodIPv6Address(*probeBackendPod)
-			Expect(supportPodIPv6IP).NotTo(BeNil())
-			livenessProbe = patchProbeWithIPv6Addr(livenessProbe, *supportPodIPv6IP)
-
-			vmi := createReadyCirrosVMIWithLivenessProbe(virtClient, livenessProbe)
-
-			By("Checking that the VMI is still running after a minute")
-			Consistently(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &v13.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return vmi.IsFinal()
-			}, 120, 1).ShouldNot(BeTrue())
-		},
-			table.Entry("with a TCP probe", tcpProbe),
-			table.Entry("with an HTTP probe", httpProbe),
 		)
 	})
 })
@@ -257,11 +241,11 @@ func createTCPProbe(period int32, initialSeconds int32, port int) *v12.Probe {
 	return createProbeSpecification(period, initialSeconds, httpHandler)
 }
 
-func patchProbeWithIPv6Addr(existingProbe *v12.Probe, ipv6HostIP string) *v12.Probe {
+func patchProbeWithIPAddr(existingProbe *v12.Probe, ipHostIP string) *v12.Probe {
 	if isHTTPProbe(*existingProbe) {
-		existingProbe.HTTPGet.Host = ipv6HostIP
+		existingProbe.HTTPGet.Host = ipHostIP
 	} else {
-		existingProbe.TCPSocket.Host = ipv6HostIP
+		existingProbe.TCPSocket.Host = ipHostIP
 	}
 	return existingProbe
 }
@@ -285,4 +269,21 @@ func createProbeSpecification(period int32, initialSeconds int32, handler v12.Ha
 
 func isHTTPProbe(probe v12.Probe) bool {
 	return probe.Handler.HTTPGet != nil
+}
+
+func serverStarter(vmi *v12.VirtualMachineInstance, probe *v12.Probe, port int) {
+	if isHTTPProbe(*probe) {
+		tests.StartHTTPServer(vmi, port)
+	} else {
+		tests.StartTCPServer(vmi, port)
+	}
+}
+
+func pointProbeToSupportPod(pod *v1.Pod, IPFamily v1.IPFamily, probe *v12.Probe) (*v12.Probe, error) {
+	supportPodIP := libnet.GetPodIpByFamily(pod, IPFamily)
+	if supportPodIP == "" {
+		return nil, fmt.Errorf("pod's %s %s IP address does not exist", pod.Name, IPFamily)
+	}
+
+	return patchProbeWithIPAddr(probe, supportPodIP), nil
 }
