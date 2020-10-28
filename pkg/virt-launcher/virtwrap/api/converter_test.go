@@ -1293,6 +1293,30 @@ var _ = Describe("Converter", func() {
 			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed())
 		})
 
+		It("should add a virtio-scsi controller if a scsci disk is present", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
+			dom := &Domain{}
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, dom, c)).To(Succeed())
+			Expect(dom.Spec.Devices.Controllers).To(ContainElement(Controller{
+				Type:  "scsi",
+				Index: "0",
+				Model: "virtio-scsi",
+			}))
+		})
+
+		It("should not add a virtio-scsi controller if no scsi disk is present", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "sata"
+			dom := &Domain{}
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, dom, c)).To(Succeed())
+			Expect(dom.Spec.Devices.Controllers).ToNot(ContainElement(Controller{
+				Type:  "scsi",
+				Index: "0",
+				Model: "virtio-scsi",
+			}))
+		})
+
 		It("should not disable usb controller when usb device is present", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = "usb"
