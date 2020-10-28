@@ -94,6 +94,7 @@ func prepareHandlerMap(clt client.Client, scheme *runtime.Scheme) {
 	operandMap["kv"] = &operands.KubevirtHandler{Client: clt, Scheme: scheme}
 	operandMap["cdi"] = &operands.CdiHandler{Client: clt, Scheme: scheme}
 	operandMap["cna"] = &operands.CnaHandler{Client: clt, Scheme: scheme}
+	operandMap["vmimport"] = &operands.VmImportHandler{Client: clt, Scheme: scheme}
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -422,7 +423,7 @@ func (r *ReconcileHyperConverged) ensureHcoDeleted(req *common.HcoRequest) (reco
 		req.Instance.NewNetworkAddons(),
 		req.Instance.NewKubeVirtCommonTemplateBundle(),
 		req.Instance.NewConsoleCLIDownload(),
-		newVMImportForCR(req.Instance),
+		operands.NewVMImportForCR(req.Instance),
 	} {
 		err := hcoutil.EnsureDeleted(req.Ctx, r.client, obj, req.Instance.Name, req.Logger, false)
 		if err != nil {
@@ -1148,65 +1149,7 @@ func (r *ReconcileHyperConverged) ensureIMSConfig(req *common.HcoRequest) *opera
 }
 
 func (r *ReconcileHyperConverged) ensureVMImport(req *common.HcoRequest) *operands.EnsureResult {
-	vmImport := newVMImportForCR(req.Instance)
-	res := operands.NewEnsureResult(vmImport)
-
-	key, err := client.ObjectKeyFromObject(vmImport)
-	if err != nil {
-		req.Logger.Error(err, "Failed to get object key for vm-import-operator")
-	}
-	res.SetName(key.Name)
-
-	found := &vmimportv1beta1.VMImportConfig{}
-	err = r.client.Get(req.Ctx, key, found)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			req.Logger.Info("Creating vm import")
-			err = r.client.Create(req.Ctx, vmImport)
-			if err == nil {
-				return res.SetCreated()
-			}
-		}
-		return res.Error(err)
-	}
-
-	existingOwners := found.GetOwnerReferences()
-
-	// Previous versions used to have HCO-operator (scope namespace)
-	// as the owner of VMImportConfig (scope cluster).
-	// It's not legal, so remove that.
-	if len(existingOwners) > 0 {
-		req.Logger.Info("VMImportConfig has owners, removing...")
-		found.SetOwnerReferences([]metav1.OwnerReference{})
-		err = r.client.Update(req.Ctx, found)
-		if err != nil {
-			req.Logger.Error(err, "Failed to remove VMImportConfig's previous owners")
-		}
-	}
-
-	req.Logger.Info("VM import exists", "vmImport.Namespace", found.Namespace, "vmImport.Name", found.Name)
-	if !reflect.DeepEqual(vmImport.Spec, found.Spec) {
-		req.Logger.Info("Updating existing VM import")
-		vmImport.Spec.DeepCopyInto(&found.Spec)
-		err = r.client.Update(req.Ctx, found)
-		if err != nil {
-			return res.Error(err)
-		}
-		return res.SetUpdated()
-	}
-
-	// Add it to the list of RelatedObjects if found
-	objectRef, err := reference.GetReference(r.scheme, found)
-	if err != nil {
-		return res.Error(err)
-	}
-	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
-
-	// Handle VMimport resource conditions
-	isReady := handleComponentConditions(r, req, "VMimport", found.Status.Conditions)
-
-	upgradeDone := req.ComponentUpgradeInProgress && isReady && r.checkComponentVersion(hcoutil.VMImportEnvV, found.Status.ObservedVersion)
-	return res.SetUpgradeDone(upgradeDone)
+	return operandMap["vmimport"].Ensure(req)
 }
 
 func (r *ReconcileHyperConverged) ensureConsoleCLIDownload(req *common.HcoRequest) error {
@@ -1240,25 +1183,6 @@ func (r *ReconcileHyperConverged) ensureConsoleCLIDownload(req *common.HcoReques
 	}
 
 	return nil
-}
-
-// newVMImportForCR returns a VM import CR
-func newVMImportForCR(cr *hcov1beta1.HyperConverged) *vmimportv1beta1.VMImportConfig {
-	labels := map[string]string{
-		hcoutil.AppLabel: cr.Name,
-	}
-
-	spec := vmimportv1beta1.VMImportConfigSpec{}
-	if cr.Spec.Infra.NodePlacement != nil {
-		cr.Spec.Infra.NodePlacement.DeepCopyInto(&spec.Infra)
-	}
-	return &vmimportv1beta1.VMImportConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "vmimport-" + cr.Name,
-			Labels: labels,
-		},
-		Spec: spec,
-	}
 }
 
 func newKubeVirtTemplateValidatorForCR(cr *hcov1beta1.HyperConverged, namespace string) *sspv1.KubevirtTemplateValidator {
