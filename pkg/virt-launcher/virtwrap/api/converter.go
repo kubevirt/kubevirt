@@ -1192,6 +1192,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		})
 	}
 
+	if needsSCSIControler(vmi) {
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, Controller{
+			Type:  "scsi",
+			Index: "0",
+			Model: "virtio-scsi",
+		})
+	}
+
 	if vmi.Spec.Domain.Clock != nil {
 		clock := vmi.Spec.Domain.Clock
 		newClock := &Clock{}
@@ -1921,4 +1929,19 @@ func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
 		return nil, fmt.Errorf("failed to parse disk info: %v", err)
 	}
 	return info, err
+}
+
+func needsSCSIControler(vmi *v1.VirtualMachineInstance) bool {
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		if disk.LUN != nil && disk.LUN.Bus == "scsi" {
+			return true
+		}
+		if disk.Disk != nil && disk.Disk.Bus == "scsi" {
+			return true
+		}
+		if disk.CDRom != nil && disk.CDRom.Bus == "scsi" {
+			return true
+		}
+	}
+	return false
 }
