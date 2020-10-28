@@ -74,11 +74,7 @@ function _configure_registry_on_node() {
 function prepare_config() {
     BASE_PATH=${KUBEVIRTCI_CONFIG_PATH:-$PWD}
     cat >$BASE_PATH/$KUBEVIRT_PROVIDER/config-provider-$KUBEVIRT_PROVIDER.sh <<EOF
-if [ -z ${IPV6_CNI+x} ]; then
-    master_ip="127.0.0.1"
-else
-    master_ip="::1"
-fi
+master_ip="127.0.0.1"
 kubeconfig=${BASE_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
 kubectl=${BASE_PATH}/$KUBEVIRT_PROVIDER/.kubectl
 docker_prefix=localhost:5000/kubevirt
@@ -180,19 +176,12 @@ function setup_kind() {
         docker exec $node /bin/sh -c "curl -L https://github.com/containernetworking/plugins/releases/download/v0.8.5/cni-plugins-linux-amd64-v0.8.5.tgz | tar xz -C /opt/cni/bin"
     done
 
-    echo "ipv6 cni: $IPV6_CNI"
-    if [ -z ${IPV6_CNI+x} ]; then
-        echo "no ipv6, safe to install calico"
-        calico_manifest="$KIND_MANIFESTS_DIR/kube-calico.yaml.in"
-        patched_diff=$(_patch_calico_manifest_diff $calico_manifest)
-        echo "Log Calico manifest diff:"
-        echo "$patched_diff"
-        _patch_calico_manifest "$calico_manifest" "$patched_diff" | _kubectl apply -f -
-    else
-         echo "ipv6 enabled, using kindnet"
-         #currently kind does not fully support ipv6 or ipv6-DualStack,
-         #when using diffrent CNI's.
-    fi
+    echo "Installing Calico CNI plugin"
+    calico_manifest="$KIND_MANIFESTS_DIR/kube-calico.yaml.in"
+    patched_diff=$(_patch_calico_manifest_diff $calico_manifest)
+    echo "Log Calico manifest diff:"
+    echo "$patched_diff"
+    _patch_calico_manifest "$calico_manifest" "$patched_diff" | _kubectl apply -f -
 
     _wait_kind_up
     _kubectl cluster-info
