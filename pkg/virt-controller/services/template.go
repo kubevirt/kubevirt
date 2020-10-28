@@ -1041,12 +1041,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			"/init/usr/bin/container-disk",
 		}
 		cpInitContainer := k8sv1.Container{
-				Name:            "container-disk-binary",
-				Image:           t.launcherImage,
-				ImagePullPolicy: imagePullPolicy,
-				Command:         initContainerCommand,
-				VolumeMounts:    initContainerVolumeMounts,
-				Resources:       initContainerResources,
+			Name:            "container-disk-binary",
+			Image:           t.launcherImage,
+			ImagePullPolicy: imagePullPolicy,
+			Command:         initContainerCommand,
+			VolumeMounts:    initContainerVolumeMounts,
+			Resources:       initContainerResources,
 		}
 
 		initContainers = append(initContainers, cpInitContainer)

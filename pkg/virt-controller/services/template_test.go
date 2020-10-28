@@ -250,6 +250,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
+				Expect(len(pod.Spec.InitContainers)).To(Equal(0))
 				By("setting the right hostname")
 				Expect(pod.Spec.Hostname).To(Equal("testvmi"))
 				Expect(pod.Spec.Subdomain).To(BeEmpty())
