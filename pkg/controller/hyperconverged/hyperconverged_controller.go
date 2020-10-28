@@ -93,6 +93,7 @@ func prepareHandlerMap(clt client.Client, scheme *runtime.Scheme) {
 	operandMap["kvpc"] = &operands.KvPriorityClassHandler{Client: clt, Scheme: scheme}
 	operandMap["kv"] = &operands.KubevirtHandler{Client: clt, Scheme: scheme}
 	operandMap["cdi"] = &operands.CdiHandler{Client: clt, Scheme: scheme}
+	operandMap["cna"] = &operands.CnaHandler{Client: clt, Scheme: scheme}
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -785,69 +786,7 @@ func (r *ReconcileHyperConverged) ensureCDI(req *common.HcoRequest) *operands.En
 }
 
 func (r *ReconcileHyperConverged) ensureNetworkAddons(req *common.HcoRequest) *operands.EnsureResult {
-	networkAddons := req.Instance.NewNetworkAddons()
-
-	res := operands.NewEnsureResult(networkAddons)
-	key, err := client.ObjectKeyFromObject(networkAddons)
-	if err != nil {
-		req.Logger.Error(err, "Failed to get object key for Network Addons")
-	}
-
-	res.SetName(key.Name)
-	found := &networkaddonsv1.NetworkAddonsConfig{}
-	err = r.client.Get(req.Ctx, key, found)
-
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			req.Logger.Info("Creating Network Addons")
-			err = r.client.Create(req.Ctx, networkAddons)
-			if err == nil {
-				return res.SetUpdated()
-			}
-		}
-
-		return res.Error(err)
-	}
-
-	existingOwners := found.GetOwnerReferences()
-
-	// Previous versions used to have HCO-operator (scope namespace)
-	// as the owner of NetworkAddons (scope cluster).
-	// It's not legal, so remove that.
-	if len(existingOwners) > 0 {
-		req.Logger.Info("NetworkAddons has owners, removing...")
-		found.SetOwnerReferences([]metav1.OwnerReference{})
-		err = r.client.Update(req.Ctx, found)
-		if err != nil {
-			req.Logger.Error(err, "Failed to remove NetworkAddons' previous owners")
-		}
-	}
-
-	if !reflect.DeepEqual(found.Spec, networkAddons.Spec) && !r.upgradeMode {
-		req.Logger.Info("Updating existing Network Addons")
-		networkAddons.Spec.DeepCopyInto(&found.Spec)
-		err = r.client.Update(req.Ctx, found)
-		if err != nil {
-			return res.Error(err)
-		}
-		return res.SetUpdated()
-	}
-
-	req.Logger.Info("NetworkAddonsConfig already exists", "NetworkAddonsConfig.Namespace", found.Namespace, "NetworkAddonsConfig.Name", found.Name)
-
-	// Add it to the list of RelatedObjects if found
-	objectRef, err := reference.GetReference(r.scheme, found)
-	if err != nil {
-		return res.Error(err)
-	}
-	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
-
-	// Handle conditions
-	isReady := handleComponentConditions(r, req, "NetworkAddonsConfig", found.Status.Conditions)
-
-	upgradeDone := req.ComponentUpgradeInProgress && isReady && r.checkComponentVersion(hcoutil.CnaoVersionEnvV, found.Status.ObservedVersion)
-
-	return res.SetUpgradeDone(upgradeDone)
+	return operandMap["cna"].Ensure(req)
 }
 
 // handleComponentConditions - read and process a sub-component conditions.
