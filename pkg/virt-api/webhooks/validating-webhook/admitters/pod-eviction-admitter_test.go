@@ -25,6 +25,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -210,8 +211,7 @@ var _ = Describe("Pod eviction admitter", func() {
 				Expect(kubeClient.Fake.Actions()).To(HaveLen(1))
 			})
 
-			It("Should allow review requests that are on a virt-launcher pod", func() {
-
+			table.DescribeTable("Should allow  review requests that are on a virt-launcher pod", func(dryRun bool) {
 				By("Composing a dummy admission request on a virt-launcher pod")
 				pod := &k8sv1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
@@ -232,6 +232,7 @@ var _ = Describe("Pod eviction admitter", func() {
 					Request: &v1beta1.AdmissionRequest{
 						Name:      pod.Name,
 						Namespace: pod.Namespace,
+						DryRun:    &dryRun,
 					},
 				}
 
@@ -245,7 +246,9 @@ var _ = Describe("Pod eviction admitter", func() {
 
 				clusterConfig := newClusterConfigWithFeatureGate(virtconfig.LiveMigrationGate)
 
-				vmiClient.EXPECT().Update(gomock.Any()).Return(nil, nil)
+				if !dryRun {
+					vmiClient.EXPECT().Update(gomock.Any()).Return(nil, nil)
+				}
 				vmiClient.EXPECT().Get(vmi.Name, &metav1.GetOptions{}).Return(vmi, nil)
 
 				podEvictionAdmitter := PodEvictionAdmitter{
@@ -256,7 +259,10 @@ var _ = Describe("Pod eviction admitter", func() {
 				Expect(resp.Allowed).To(BeTrue())
 				actions := kubeClient.Fake.Actions()
 				Expect(actions).To(HaveLen(1))
-			})
+			},
+				table.Entry("and should mark the VMI when not in dry-run mode", false),
+				table.Entry("and should not mark the VMI when in dry-run mode", true),
+			)
 
 		})
 

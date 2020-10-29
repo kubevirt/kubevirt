@@ -50,7 +50,8 @@ func (admitter *PodEvictionAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1
 	}
 
 	if !vmi.IsMarkedForEviction() {
-		err := admitter.markVMI(ar, vmi, err)
+		dryRun := ar.Request.DryRun != nil && *ar.Request.DryRun == true
+		err := admitter.markVMI(ar, vmi, dryRun)
 		if err != nil {
 			// As with the previous case, it is up to the user to issue a retry.
 			return denied(fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", err.Error()))
@@ -62,10 +63,12 @@ func (admitter *PodEvictionAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1
 	return allowed()
 }
 
-func (admitter *PodEvictionAdmitter) markVMI(ar *v1beta1.AdmissionReview, vmi *virtv1.VirtualMachineInstance, err error) error {
+func (admitter *PodEvictionAdmitter) markVMI(ar *v1beta1.AdmissionReview, vmi *virtv1.VirtualMachineInstance, dryRun bool) (err error) {
 	vmiCopy := vmi.DeepCopy()
 	vmiCopy.Status.EvacuationNodeName = vmi.Status.NodeName
-	_, err = admitter.VirtClient.VirtualMachineInstance(ar.Request.Namespace).Update(vmiCopy)
+	if !dryRun {
+		_, err = admitter.VirtClient.VirtualMachineInstance(ar.Request.Namespace).Update(vmiCopy)
+	}
 	return err
 }
 
