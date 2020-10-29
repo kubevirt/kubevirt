@@ -8,9 +8,6 @@ RUN cd /bin/ && \
     chmod +x oc && \
     ln -s oc kubectl
 
-COPY hack/ci/get-release-tag-for-xy.sh /get-release-tag-for-xy.sh
-COPY hack/ci/deploy-release.sh /deploy-release.sh
-COPY hack/ci/test.sh /test.sh
-COPY hack/ci/entrypoint.sh /entrypoint.sh
+COPY hack/ci/*.sh /
 
 ENV DOCKER_PREFIX='kubevirt'
