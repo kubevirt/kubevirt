@@ -45,7 +45,7 @@ var (
 
 func initReconciler(client client.Client) *ReconcileHyperConverged {
 	s := commonTestUtils.GetScheme()
-	prepareHandlerMap(client, s)
+	prepareHandlerMap(client, s, true)
 
 	// Create a ReconcileHyperConverged object with the scheme and fake client
 	return &ReconcileHyperConverged{
@@ -176,12 +176,12 @@ func getBasicDeployment() *BasicExpected {
 	expectedKVCTB.Status.Conditions = getGenericCompletedConditions()
 	res.kvCtb = expectedKVCTB
 
-	expectedKVNLB := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
+	expectedKVNLB := operands.NewKubeVirtNodeLabellerBundleForCR(hco, namespace)
 	expectedKVNLB.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/nlb/%s", expectedKVNLB.Namespace, expectedKVNLB.Name)
 	expectedKVNLB.Status.Conditions = getGenericCompletedConditions()
 	res.kvNlb = expectedKVNLB
 
-	expectedKVTV := newKubeVirtTemplateValidatorForCR(hco, namespace)
+	expectedKVTV := operands.NewKubeVirtTemplateValidatorForCR(hco, namespace)
 	expectedKVTV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/tv/%s", expectedKVTV.Namespace, expectedKVTV.Name)
 	expectedKVTV.Status.Conditions = getGenericCompletedConditions()
 	res.kvTv = expectedKVTV
@@ -191,7 +191,7 @@ func getBasicDeployment() *BasicExpected {
 	expectedVMI.Status.Conditions = getGenericCompletedConditions()
 	res.vmi = expectedVMI
 
-	kvMtAg := newKubeVirtMetricsAggregationForCR(hco, namespace)
+	kvMtAg := operands.NewKubeVirtMetricsAggregationForCR(hco, namespace)
 	kvMtAg.Status.Conditions = getGenericCompletedConditions()
 	res.kvMtAg = kvMtAg
 
