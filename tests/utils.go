@@ -111,6 +111,7 @@ import (
 
 var Config *KubeVirtTestsConfiguration
 var KubeVirtDefaultConfig v1.KubeVirtConfiguration
+var CDIInsecureRegistryConfig *k8sv1.ConfigMap
 
 type EventType string
 
@@ -147,8 +148,7 @@ const (
 )
 
 const SubresourceTestLabel = "subresource-access-test-pod"
-const namespaceKubevirt = "kubevirt"
-const kubevirtConfig = "kubevirt-config"
+const insecureRegistryConfigName = "cdi-insecure-registries"
 
 // tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
 var NamespaceTestDefault = "kubevirt-test-default"
@@ -802,8 +802,12 @@ func AdjustKubeVirtResource() {
 	Expect(err).ToNot(HaveOccurred())
 	patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
 	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(patchData))
-	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
 	PanicOnError(err)
+	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
+	CDIInsecureRegistryConfig, err = virtClient.CoreV1().ConfigMaps(flags.ContainerizedDataImporterNamespace).Get(insecureRegistryConfigName, metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
 }
 
 func RestoreKubeVirtResource() {
@@ -4235,9 +4239,7 @@ func UpdateClusterConfigValueAndWait(key string, value string) string {
 // UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource
 // and then waits  to allow the configuration events to be propagated to the consumers.
 func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
-	if config.GinkgoConfig.ParallelTotal > 1 {
-		Fail("Tests which alter the global kubevirt configuration must not be executed in parallel")
-	}
+
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
@@ -4246,6 +4248,10 @@ func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.Kub
 
 	if reflect.DeepEqual(kv.Spec.Configuration, kvConfig) {
 		return kv
+	}
+
+	if config.GinkgoConfig.ParallelTotal > 1 {
+		Fail("Tests which alter the global kubevirt configuration must not be executed in parallel")
 	}
 
 	updatedKV := kv.DeepCopy()
@@ -4264,17 +4270,50 @@ func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.Kub
 	return kv
 }
 
+func UpdateCDIConfigMap(cdiConfig *k8sv1.ConfigMap) *k8sv1.ConfigMap {
+	if cdiConfig == nil {
+		return nil
+	}
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	currentConfig, err := virtClient.CoreV1().ConfigMaps(flags.ContainerizedDataImporterNamespace).Get(cdiConfig.Name, metav1.GetOptions{})
+	PanicOnError(err)
+	old, err := json.Marshal(currentConfig)
+
+	if reflect.DeepEqual(currentConfig.Data, cdiConfig.Data) {
+		return currentConfig
+	}
+
+	if config.GinkgoConfig.ParallelTotal > 1 {
+		Fail("Tests which alter the global CDI configuration must not be executed in parallel")
+	}
+
+	updatedConfig := currentConfig.DeepCopy()
+	updatedConfig.Data = cdiConfig.Data
+	newJson, err := json.Marshal(updatedConfig)
+
+	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, currentConfig)
+	Expect(err).ToNot(HaveOccurred())
+
+	currentConfig, err = virtClient.CoreV1().ConfigMaps(flags.ContainerizedDataImporterNamespace).Patch(currentConfig.GetName(), types.MergePatchType, patch)
+	Expect(err).ToNot(HaveOccurred())
+	return currentConfig
+}
+
 // resetToDefaultConfig resets the config to the state found when the test suite started. It will wait for the config to
 // be propagated to all components before it returns. It will only update the configuration and wait for it to be
 // propagated if the current config in use does not match the original one.
 func resetToDefaultConfig() {
 	if config.GinkgoConfig.ParallelTotal > 1 {
-		// Tests which alter the global kubevirt config must be run serial, therefor, if we don't run in parallel
+		// Tests which alter the global kubevirt config must be run serial, therefor, if we run in parallel
 		// we can just skip the restore step.
 		return
 	}
 
 	UpdateKubeVirtConfigValueAndWait(KubeVirtDefaultConfig)
+	UpdateCDIConfigMap(CDIInsecureRegistryConfig)
 }
 
 type compare func(string, string) bool
