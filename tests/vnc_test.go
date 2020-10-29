@@ -200,7 +200,7 @@ var _ = Describe("[Serial][rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][le
 			Expect(c.DesktopName).To(ContainSubstring(vmi.Name))
 		})
 
-		It("should connect to vnc with --proxy-only flag to the specified port", func() {
+		It("[test_id:5274]should connect to vnc with --proxy-only flag to the specified port", func() {
 			testPort := "33333"
 
 			By("Invoking virtctl vnc with --proxy-only")

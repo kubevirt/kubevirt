@@ -110,7 +110,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("should be successfully started when using a PVC volume owned by a DataVolume", func() {
+			It("[test_id:5252]should be successfully started when using a PVC volume owned by a DataVolume", func() {
 
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
@@ -711,8 +711,8 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 			},
 				table.Entry("[test_id:3193]with explicit role", explicitCloneRole, false, false),
 				table.Entry("[test_id:3194]with implicit role", implicitCloneRole, false, false),
-				table.Entry("with explicit role (all namespaces)", explicitCloneRole, true, false),
-				table.Entry("with explicit role (one namespace)", explicitCloneRole, false, true),
+				table.Entry("[test_id:5253]with explicit role (all namespaces)", explicitCloneRole, true, false),
+				table.Entry("[test_id:5254]with explicit role (one namespace)", explicitCloneRole, false, true),
 			)
 		})
 	})
