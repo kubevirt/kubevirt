@@ -4841,6 +4841,42 @@ var CRDsValidation map[string]string = map[string]string{
         reason:
           description: A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'
           type: string
+        volumeStatus:
+          description: VolumeStatus contains the statuses of all the volumes
+          items:
+            description: VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.
+            properties:
+              hotplugVolume:
+                description: If the volume is hotplug, this will contain the hotplug status.
+                properties:
+                  attachPodName:
+                    description: AttachPodName is the name of the pod used to attach the volume to the node.
+                    type: string
+                  attachPodUID:
+                    description: AttachPodUID is the UID of the pod used to attach the volume to the node.
+                    type: string
+                  message:
+                    description: Message is a detailed message about the current hotplug volume phase
+                    type: string
+                  phase:
+                    description: Phase is the phase
+                    type: string
+                  reason:
+                    description: Reason is a brief description of why we are in the current hotplug volume phase
+                    type: string
+                type: object
+              name:
+                description: Name is the name of the volume
+                type: string
+              target:
+                description: 'Target is the target name used when adding the volume to the VM, eg: vda'
+                type: string
+            required:
+            - name
+            - target
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
       type: object
   required:
   - spec

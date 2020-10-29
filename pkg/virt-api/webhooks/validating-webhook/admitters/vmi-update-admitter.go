@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"fmt"
 	"reflect"
 
 	"k8s.io/api/admission/v1beta1"
@@ -45,6 +46,19 @@ func (admitter *VMIUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
+	// Only allow the KubeVirt SA to modify the VMI spec, since that means it went through the sub resource.
+	allowed := webhooks.GetAllowedServiceAccounts()
+	if _, ok := allowed[ar.Request.UserInfo.Username]; ok {
+		hotplugResponse := admitHotplug(newVMI.Spec.Volumes, newVMI.Spec.Domain.Devices.Disks, oldVMI.Status.VolumeStatus)
+		if hotplugResponse != nil {
+			return hotplugResponse
+		}
+		// blank out volumes and disks so we can compare the rest of the VMI to ensure it didn't change
+		newVMI.Spec.Volumes = []v1.Volume{}
+		oldVMI.Spec.Volumes = []v1.Volume{}
+		newVMI.Spec.Domain.Devices.Disks = []v1.Disk{}
+		oldVMI.Spec.Domain.Devices.Disks = []v1.Disk{}
+	}
 	// Reject VMI update if VMI spec changed
 	if !reflect.DeepEqual(newVMI.Spec, oldVMI.Spec) {
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
@@ -62,6 +76,96 @@ func (admitter *VMIUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 	reviewResponse := v1beta1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
+}
+
+// admitHotplug compares the old and new volumes and disks, and ensures that they match and are valid.
+func admitHotplug(newVolumes []v1.Volume, newDisks []v1.Disk, volumeStatuses []v1.VolumeStatus) *v1beta1.AdmissionResponse {
+	if len(newVolumes) != len(newDisks) {
+		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "number of disks does not equal the number of volumes",
+			},
+		})
+	}
+	hotplugVolumeMap := getHotplugVolumes(newVolumes, volumeStatuses)
+	permanentVolumeMap := getPermanentVolumes(newVolumes, hotplugVolumeMap)
+
+	// Ensure we didn't remove non hot plugged disks and volumes.
+	permanentCount := 0
+	for _, volume := range newVolumes {
+		if _, ok := permanentVolumeMap[volume.Name]; ok {
+			permanentCount++
+		}
+	}
+	if len(permanentVolumeMap) > permanentCount || len(permanentVolumeMap) == 0 {
+		// Removed one of the permanent volumes, reject admission.
+		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "cannot remove permanent volume",
+			},
+		})
+	}
+
+	// Ensure all the disks and volumes have matching names.
+	for _, disk := range newDisks {
+		if _, ok := hotplugVolumeMap[disk.Name]; !ok {
+			// Not a hotplug volume, check permanent volumes
+			if _, ok := permanentVolumeMap[disk.Name]; !ok {
+				// Not in persistent map either, this disk doesn't have a matching volume.
+				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+					{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("Disk %s doesn't have a matching volume", disk.Name),
+					},
+				})
+			}
+		} else {
+			// Ensure the volume source is either PVC or DataVolume
+			volume, _ := hotplugVolumeMap[disk.Name]
+			if volume.DataVolume == nil && volume.PersistentVolumeClaim == nil {
+				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+					{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("Disk %s has a volume that is not a PVC or DataVolume", disk.Name),
+					},
+				})
+			}
+		}
+	}
+	return nil
+}
+
+func getHotplugVolumes(volumes []v1.Volume, volumeStatuses []v1.VolumeStatus) map[string]v1.Volume {
+	hotplugVolumes := make(map[string]v1.Volume, 0)
+	for _, volume := range volumeStatuses {
+		if volume.HotplugVolume != nil {
+			hotplugVolumes[volume.Name] = v1.Volume{}
+		}
+	}
+	for _, volume := range volumes {
+		if _, ok := hotplugVolumes[volume.Name]; ok {
+			hotplugVolumes[volume.Name] = volume
+		}
+	}
+	// Make sure the map only contains valid volumes
+	for k, v := range hotplugVolumes {
+		if k != v.Name {
+			delete(hotplugVolumes, k)
+		}
+	}
+	return hotplugVolumes
+}
+
+func getPermanentVolumes(volumes []v1.Volume, hotplugVolumeMap map[string]v1.Volume) map[string]v1.Volume {
+	permanentVolumes := make(map[string]v1.Volume, 0)
+	for _, volume := range volumes {
+		if _, ok := hotplugVolumeMap[volume.Name]; !ok {
+			permanentVolumes[volume.Name] = volume
+		}
+	}
+	return permanentVolumes
 }
 
 func admitVMILabelsUpdate(
