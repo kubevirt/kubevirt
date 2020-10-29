@@ -57,37 +57,19 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	runHelloWorldJob := func(host, port, namespace string) *batchv1.Job {
-		var job *batchv1.Job
-		if net.IsIPv6String(host) {
-			job = tests.NewHelloWorldJobv6(host, port)
-		} else {
-			job = tests.NewHelloWorldJob(host, port)
-		}
-		job, err = virtClient.BatchV1().Jobs(namespace).Create(job)
+		job, err := virtClient.BatchV1().Jobs(namespace).Create(generateBatchJobSpec(host, port, tests.NewHelloWorldJob))
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		return job
 	}
 
 	runHelloWorldJobUDP := func(host, port, namespace string) *batchv1.Job {
-		var job *batchv1.Job
-		if net.IsIPv6String(host) {
-			job = tests.NewHelloWorldJobUDPv6(host, port)
-		} else {
-			job = tests.NewHelloWorldJobUDP(host, port)
-		}
-		job, err = virtClient.BatchV1().Jobs(namespace).Create(job)
+		job, err := virtClient.BatchV1().Jobs(namespace).Create(generateBatchJobSpec(host, port, tests.NewHelloWorldJobUDP))
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		return job
 	}
 
 	runHelloWorldJobHttp := func(host, port, namespace string) *batchv1.Job {
-		var job *batchv1.Job
-		if net.IsIPv6String(host) {
-			job = tests.NewHelloWorldJobHTTPv6(host, port)
-		} else {
-			job = tests.NewHelloWorldJobHTTP(host, port)
-		}
-		job, err = virtClient.BatchV1().Jobs(namespace).Create(job)
+		job, err := virtClient.BatchV1().Jobs(namespace).Create(generateBatchJobSpec(host, port, tests.NewHelloWorldJobHTTP))
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		return job
 	}
@@ -751,6 +733,14 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 })
+
+func generateBatchJobSpec(host string, port string, clientBuilder func(host string, port string, checkConnectivityCmdPrefixes ...string) *batchv1.Job) *batchv1.Job {
+	if net.IsIPv6String(host) {
+		// TODO - remove this if condition code once https://github.com/kubevirt/kubevirt/issues/4428 is fixed
+		return clientBuilder(host, port, fmt.Sprintf("ping -c1 %s;", host))
+	}
+	return clientBuilder(host, port)
+}
 
 func getNodeHostname(nodeAddresses []k8sv1.NodeAddress) *string {
 	for _, address := range nodeAddresses {
