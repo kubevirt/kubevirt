@@ -311,8 +311,6 @@ func (vca *VirtControllerApp) configModificationCallback() {
 func (vca *VirtControllerApp) Run() {
 	logger := log.Log
 
-	stop := vca.ctx.Done()
-
 	promCertManager := bootstrap.NewFileCertificateManager(vca.promCertFilePath, vca.promKeyFilePath)
 	go promCertManager.Start()
 	promTLSConfig := webhooks.SetupPromTLS(promCertManager)
@@ -358,29 +356,7 @@ func (vca *VirtControllerApp) Run() {
 			RenewDeadline: vca.LeaderElection.RenewDeadline.Duration,
 			RetryPeriod:   vca.LeaderElection.RetryPeriod.Duration,
 			Callbacks: leaderelection.LeaderCallbacks{
-				OnStartedLeading: func(ctx context.Context) {
-					vca.informerFactory.Start(stop)
-
-					golog.Printf("STARTING controllers with following threads : "+
-						"node %d, vmi %d, replicaset %d, vm %d, migration %d, evacuation %d, disruptionBudget %d",
-						vca.nodeControllerThreads, vca.vmiControllerThreads, vca.rsControllerThreads,
-						vca.vmControllerThreads, vca.migrationControllerThreads, vca.evacuationControllerThreads,
-						vca.disruptionBudgetControllerThreads)
-
-					leaderGauge.Set(1)
-
-					go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
-					go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
-					go vca.nodeController.Run(vca.nodeControllerThreads, stop)
-					go vca.vmiController.Run(vca.vmiControllerThreads, stop)
-					go vca.rsController.Run(vca.rsControllerThreads, stop)
-					go vca.vmController.Run(vca.vmControllerThreads, stop)
-					go vca.migrationController.Run(vca.migrationControllerThreads, stop)
-					go vca.snapshotController.Run(vca.snapshotControllerThreads, stop)
-					go vca.restoreController.Run(vca.restoreControllerThreads, stop)
-					cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
-					close(vca.readyChan)
-				},
+				OnStartedLeading: vca.onStartedLeading(),
 				OnStoppedLeading: func() {
 					golog.Fatal("leaderelection lost")
 				},
@@ -394,6 +370,32 @@ func (vca *VirtControllerApp) Run() {
 	leaderElector.Run(vca.ctx)
 	readyGauge.Set(0)
 	panic("unreachable")
+}
+
+func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
+	return func(ctx context.Context) {
+		stop := ctx.Done()
+		vca.informerFactory.Start(stop)
+
+		golog.Printf("STARTING controllers with following threads : "+
+			"node %d, vmi %d, replicaset %d, vm %d, migration %d, evacuation %d, disruptionBudget %d",
+			vca.nodeControllerThreads, vca.vmiControllerThreads, vca.rsControllerThreads,
+			vca.vmControllerThreads, vca.migrationControllerThreads, vca.evacuationControllerThreads,
+			vca.disruptionBudgetControllerThreads)
+
+		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
+		go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
+		go vca.nodeController.Run(vca.nodeControllerThreads, stop)
+		go vca.vmiController.Run(vca.vmiControllerThreads, stop)
+		go vca.rsController.Run(vca.rsControllerThreads, stop)
+		go vca.vmController.Run(vca.vmControllerThreads, stop)
+		go vca.migrationController.Run(vca.migrationControllerThreads, stop)
+		go vca.snapshotController.Run(vca.snapshotControllerThreads, stop)
+		go vca.restoreController.Run(vca.restoreControllerThreads, stop)
+		cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
+		close(vca.readyChan)
+		leaderGauge.Set(1)
+	}
 }
 
 func (vca *VirtControllerApp) getNewRecorder(namespace string, componentName string) record.EventRecorder {
