@@ -464,7 +464,7 @@ var _ = Describe("Configurations", func() {
 		})
 
 		Context("with BIOS bootloader method and no disk", func() {
-			It("should find no bootable device by default", func() {
+			It("[test_id:5265]should find no bootable device by default", func() {
 				By("Creating a VMI with no disk and an explicit network interface")
 				vmi := tests.NewRandomVMI()
 				tests.AddExplicitPodNetworkInterface(vmi)
@@ -491,7 +491,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).To(HaveOccurred())
 			})
 
-			It("should boot to NIC rom if a boot order was set on a network interface", func() {
+			It("[test_id:5266]should boot to NIC rom if a boot order was set on a network interface", func() {
 				By("Creating a VMI with no disk and an explicit network interface")
 				vmi := tests.NewRandomVMI()
 				tests.AddExplicitPodNetworkInterface(vmi)
@@ -1284,7 +1284,7 @@ var _ = Describe("Configurations", func() {
 					tests.UpdateKubeVirtConfigValueAndWait(config)
 				})
 
-				It("VMI condition should signal unsupported agent presence", func() {
+				It("[test_id:5267]VMI condition should signal unsupported agent presence", func() {
 					agentVMI := prepareAgentVM()
 					getOptions := metav1.GetOptions{}
 
@@ -1462,7 +1462,7 @@ var _ = Describe("Configurations", func() {
 
 		Context("with Clock and timezone", func() {
 
-			It("guest should see timezone", func() {
+			It("[test_id:5268]guest should see timezone", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				timezone := "America/New_York"
 				tz := v1.ClockOffsetTimezone(timezone)
@@ -2674,8 +2674,8 @@ var _ = Describe("Configurations", func() {
 			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
-			table.Entry("across all available PCI root bus slots", 2, numOfSlotsToTest, false),
-			table.Entry("across all available PCI functions of a single slot", 0, numOfFuncsToTest, true),
+			table.Entry("[test_id:5269]across all available PCI root bus slots", 2, numOfSlotsToTest, false),
+			table.Entry("[test_id:5270]across all available PCI functions of a single slot", 0, numOfFuncsToTest, true),
 		)
 	})
 
@@ -2690,7 +2690,7 @@ var _ = Describe("Configurations", func() {
 			vmi = tests.NewRandomFedoraVMIWithVirtWhatCpuidHelper()
 		})
 
-		It("test cpuid hidden", func() {
+		It("[test_id:5271]test cpuid hidden", func() {
 			vmi.Spec.Domain.Features = &v1.Features{
 				KVM: &v1.FeatureKVM{Hidden: true},
 			}
@@ -2721,7 +2721,7 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("test cpuid default", func() {
+		It("[test_id:5272]test cpuid default", func() {
 			By("Starting a VirtualMachineInstance")
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())

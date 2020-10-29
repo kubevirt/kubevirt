@@ -193,7 +193,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 		})
 
 		Context("and no snapshot", func() {
-			It("should reject restore", func() {
+			It("[test_id:5255]should reject restore", func() {
 				restore := createRestoreDef(vm, "foobar")
 
 				_, err := virtClient.VirtualMachineRestore(vm.Namespace).Create(restore)
@@ -218,7 +218,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			It("should successfully restore", func() {
+			It("[test_id:5256]should successfully restore", func() {
 				var origSpec *v1.VirtualMachineSpec
 
 				Eventually(func() bool {
@@ -255,7 +255,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				deleteRestore(restore)
 			})
 
-			It("should reject restore if VM running", func() {
+			It("[test_id:5257]should reject restore if VM running", func() {
 				patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch)
 				Expect(err).ToNot(HaveOccurred())
@@ -267,7 +267,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q is running", vm.Name)))
 			})
 
-			It("should reject restore if another in progress", func() {
+			It("[test_id:5258]should reject restore if another in progress", func() {
 				fp := admissionregistrationv1beta1.Fail
 				whPath := "/foobar"
 				whName := "dummy-webhook-deny-vm-update.kubevirt.io"
@@ -532,7 +532,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			It("should restore a vm multiple from the same snapshot", func() {
+			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					tests.GetUrl(tests.CirrosHttpUrl),
 					tests.NamespaceTestDefault,
@@ -561,7 +561,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			It("should restore a vm that boots from a datavolumetemplate", func() {
+			It("[test_id:5260]should restore a vm that boots from a datavolumetemplate", func() {
 				vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					tests.GetUrl(tests.CirrosHttpUrl),
 					tests.NamespaceTestDefault,
@@ -579,7 +579,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
-			It("should restore a vm that boots from a datavolume (not template)", func() {
+			It("[test_id:5261]should restore a vm that boots from a datavolume (not template)", func() {
 				vm = tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 					tests.GetUrl(tests.CirrosHttpUrl),
 					tests.NamespaceTestDefault,
@@ -626,7 +626,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			It("should restore a vm that boots from a PVC", func() {
+			It("[test_id:5262]should restore a vm that boots from a PVC", func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
 				pvc := &corev1.PersistentVolumeClaim{
@@ -679,7 +679,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			It("should restore a vm with containerdisk and blank datavolume", func() {
+			It("[test_id:5263]should restore a vm with containerdisk and blank datavolume", func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(

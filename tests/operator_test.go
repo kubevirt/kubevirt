@@ -1325,7 +1325,7 @@ spec:
 			Expect(crd.ObjectMeta.OwnerReferences).To(HaveLen(0))
 		})
 
-		It("should be able to update product related labels of kubevirt install", func() {
+		It("[test_id:5010]should be able to update product related labels of kubevirt install", func() {
 			productName := "kubevirt-test"
 			productVersion := "0.0.0"
 			allPodsAreReady(originalKv)
