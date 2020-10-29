@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -837,9 +838,9 @@ var _ = Describe("[Serial]Storage", func() {
 
 					By("Checking events")
 					objectEventWatcher := tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(120) * time.Second)
-					stopChan := make(chan struct{})
-					defer close(stopChan)
-					objectEventWatcher.WaitFor(stopChan, tests.WarningEvent, v1.SyncFailed.String())
+					ctx, cancel := context.WithCancel(context.Background())
+					defer cancel()
+					objectEventWatcher.WaitFor(ctx, tests.WarningEvent, v1.SyncFailed.String())
 
 				})
 
@@ -856,9 +857,9 @@ var _ = Describe("[Serial]Storage", func() {
 					By("Checking events")
 					objectEventWatcher := tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(30) * time.Second)
 					objectEventWatcher.FailOnWarnings()
-					stopChan := make(chan struct{})
-					defer close(stopChan)
-					objectEventWatcher.WaitFor(stopChan, tests.EventType(hostdisk.EventTypeToleratedSmallPV), hostdisk.EventReasonToleratedSmallPV)
+					ctx, cancel := context.WithCancel(context.Background())
+					defer cancel()
+					objectEventWatcher.WaitFor(ctx, tests.EventType(hostdisk.EventTypeToleratedSmallPV), hostdisk.EventReasonToleratedSmallPV)
 				})
 			})
 		})

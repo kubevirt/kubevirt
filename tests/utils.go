@@ -296,7 +296,7 @@ func (w *ObjectEventWatcher) SinceResourceVersion(rv string) *ObjectEventWatcher
 	return w
 }
 
-func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessFunc, watchedDescription string) {
+func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc, watchedDescription string) {
 	Expect(w.startType).ToNot(Equal(invalidWatch))
 	resourceVersion := ""
 
@@ -371,7 +371,7 @@ func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessF
 	if w.timeout != nil {
 		select {
 		case <-done:
-		case <-abortChan:
+		case <-ctx.Done():
 		case <-time.After(*w.timeout):
 			if !w.dontFailOnMissingEvent {
 				Fail(fmt.Sprintf("Waited for %v seconds on the event stream to match a specific event: %s", w.timeout.Seconds(), watchedDescription), 1)
@@ -379,14 +379,14 @@ func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessF
 		}
 	} else {
 		select {
-		case <-abortChan:
+		case <-ctx.Done():
 		case <-done:
 		}
 	}
 }
 
-func (w *ObjectEventWatcher) WaitFor(stopChan chan struct{}, eventType EventType, reason interface{}) (e *k8sv1.Event) {
-	w.Watch(stopChan, func(event *k8sv1.Event) bool {
+func (w *ObjectEventWatcher) WaitFor(ctx context.Context, eventType EventType, reason interface{}) (e *k8sv1.Event) {
+	w.Watch(ctx, func(event *k8sv1.Event) bool {
 		if event.Type == string(eventType) && event.Reason == reflect.ValueOf(reason).String() {
 			e = event
 			return true
@@ -396,9 +396,9 @@ func (w *ObjectEventWatcher) WaitFor(stopChan chan struct{}, eventType EventType
 	return
 }
 
-func (w *ObjectEventWatcher) WaitNotFor(stopChan chan struct{}, eventType EventType, reason interface{}) (e *k8sv1.Event) {
+func (w *ObjectEventWatcher) WaitNotFor(ctx context.Context, eventType EventType, reason interface{}) (e *k8sv1.Event) {
 	w.dontFailOnMissingEvent = true
-	w.Watch(stopChan, func(event *k8sv1.Event) bool {
+	w.Watch(ctx, func(event *k8sv1.Event) bool {
 		if event.Type == string(eventType) && event.Reason == reflect.ValueOf(reason).String() {
 			e = event
 			Fail(fmt.Sprintf("Did not expect %s with reason %s", string(eventType), reflect.ValueOf(reason).String()), 1)
@@ -2708,16 +2708,18 @@ func waitForSuccessfulDataVolumeImport(namespace, name string, seconds int) {
 }
 
 // Block until the specified VirtualMachineInstance started and return the target node name.
-func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
-	return waitForVMIPhase([]v1.VirtualMachineInstancePhase{v1.Running}, obj, seconds, ignoreWarnings)
+func waitForVMIStart(ctx context.Context, obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
+	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Running}, obj, seconds, ignoreWarnings)
 }
 
 // Block until the specified VirtualMachineInstance scheduled and return the target node name.
 func waitForVMIScheduling(obj runtime.Object, seconds int, ignoreWarnings bool) {
-	waitForVMIPhase([]v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running}, obj, seconds, ignoreWarnings)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running}, obj, seconds, ignoreWarnings)
 }
 
-func waitForVMIPhase(phases []v1.VirtualMachineInstancePhase, obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
+func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhase, obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
 	vmi, ok := obj.(*v1.VirtualMachineInstance)
 	ExpectWithOffset(1, ok).To(BeTrue(), "Object is not of type *v1.VMI")
 
@@ -2737,11 +2739,9 @@ func waitForVMIPhase(phases []v1.VirtualMachineInstancePhase, obj runtime.Object
 		objectEventWatcher := NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds+2) * time.Second)
 		objectEventWatcher.FailOnWarnings()
 
-		stopChan := make(chan struct{})
-		defer close(stopChan)
 		go func() {
 			defer GinkgoRecover()
-			objectEventWatcher.WaitFor(stopChan, NormalEvent, v1.Started)
+			objectEventWatcher.WaitFor(ctx, NormalEvent, v1.Started)
 		}()
 	}
 
@@ -2760,15 +2760,21 @@ func waitForVMIPhase(phases []v1.VirtualMachineInstancePhase, obj runtime.Object
 }
 
 func WaitForSuccessfulVMIStartIgnoreWarnings(vmi runtime.Object) string {
-	return waitForVMIStart(vmi, 180, true)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return waitForVMIStart(ctx, vmi, 180, true)
 }
 
 func WaitForSuccessfulVMIStartWithTimeout(vmi runtime.Object, seconds int) (nodeName string) {
-	return waitForVMIStart(vmi, seconds, false)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return waitForVMIStart(ctx, vmi, seconds, false)
 }
 
 func WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi runtime.Object, seconds int) string {
-	return waitForVMIStart(vmi, seconds, true)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return waitForVMIStart(ctx, vmi, seconds, true)
 }
 
 func WaitForPodToDisappearWithTimeout(podName string, seconds int) {
@@ -2799,10 +2805,16 @@ func WaitForMigrationToDisappearWithTimeout(migration *v1.VirtualMachineInstance
 }
 
 func WaitForSuccessfulVMIStart(vmi runtime.Object) string {
-	return waitForVMIStart(vmi, 360, false)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return WaitForSuccessfulVMIStartWithContext(ctx, vmi)
 }
 
-func WaitUntilVMIReadyAsync(vmi *v1.VirtualMachineInstance, expecterFactory console.VMIExpecterFactory) func() *v1.VirtualMachineInstance {
+func WaitForSuccessfulVMIStartWithContext(ctx context.Context, vmi runtime.Object) string {
+	return waitForVMIStart(ctx, vmi, 360, false)
+}
+
+func WaitUntilVMIReadyAsync(ctx context.Context, vmi *v1.VirtualMachineInstance, expecterFactory console.VMIExpecterFactory) func() *v1.VirtualMachineInstance {
 	var (
 		wg       sync.WaitGroup
 		readyVMI *v1.VirtualMachineInstance
@@ -2810,7 +2822,7 @@ func WaitUntilVMIReadyAsync(vmi *v1.VirtualMachineInstance, expecterFactory cons
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		readyVMI = WaitUntilVMIReady(vmi, expecterFactory)
+		readyVMI = WaitUntilVMIReadyWithContext(ctx, vmi, expecterFactory)
 	}()
 
 	return func() *v1.VirtualMachineInstance {
@@ -2820,8 +2832,14 @@ func WaitUntilVMIReadyAsync(vmi *v1.VirtualMachineInstance, expecterFactory cons
 }
 
 func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory console.VMIExpecterFactory) *v1.VirtualMachineInstance {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return WaitUntilVMIReadyWithContext(ctx, vmi, expecterFactory)
+}
+
+func WaitUntilVMIReadyWithContext(ctx context.Context, vmi *v1.VirtualMachineInstance, expecterFactory console.VMIExpecterFactory) *v1.VirtualMachineInstance {
 	// Wait for VirtualMachineInstance start
-	WaitForSuccessfulVMIStart(vmi)
+	WaitForSuccessfulVMIStartWithContext(ctx, vmi)
 
 	// Fetch the new VirtualMachineInstance with updated status
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -2834,7 +2852,6 @@ func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory console.V
 	expecter.Close()
 	return vmi
 }
-
 func NewInt32(x int32) *int32 {
 	return &x
 }
