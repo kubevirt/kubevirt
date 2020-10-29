@@ -3,6 +3,8 @@ package operands
 import (
 	"context"
 	"fmt"
+	"os"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
@@ -195,4 +197,116 @@ var _ = Describe("VM-Import", func() {
 			Expect(req.Conditions).To(BeEmpty())
 		})
 	})
+
+	Context("Manage IMS Config", func() {
+
+		var hco *hcov1beta1.HyperConverged
+		var req *common.HcoRequest
+
+		BeforeEach(func() {
+			os.Setenv("CONVERSION_CONTAINER", "new-conversion-container-value")
+			os.Setenv("VMWARE_CONTAINER", "new-vmware-container-value")
+			hco = commonTestUtils.NewHco()
+			req = commonTestUtils.NewReq(hco)
+		})
+
+		It("should error if environment vars not specified", func() {
+			os.Unsetenv("CONVERSION_CONTAINER")
+			os.Unsetenv("VMWARE_CONTAINER")
+
+			cl := commonTestUtils.InitClient([]runtime.Object{})
+			handler := &IMSConfigHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			res := handler.Ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).ToNot(BeNil())
+		})
+
+		It("should create if not present", func() {
+			expectedResource := NewIMSConfigForCR(hco, commonTestUtils.Namespace)
+			cl := commonTestUtils.InitClient([]runtime.Object{})
+			handler := &IMSConfigHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			res := handler.Ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &corev1.ConfigMap{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					foundResource),
+			).To(BeNil())
+			Expect(foundResource.Name).To(Equal(expectedResource.Name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
+			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
+		})
+
+		It("should find if present", func() {
+			expectedResource := NewIMSConfigForCR(hco, commonTestUtils.Namespace)
+			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
+			handler := &IMSConfigHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			res := handler.Ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			// Check HCO's status
+			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
+			Expect(err).To(BeNil())
+			// ObjectReference should have been added
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
+		})
+
+		// in an ideal world HCO should be managing the whole config map,
+		// now due to a bad design only a few values of this config map are
+		// really managed by HCO while others are managed by other entities
+		// TODO: fix this bad design splitting the config map into two distinct objects and reconcile the whole object here
+		It("should (partially!!!) reconcile according to env values", func() {
+			convk := "v2v-conversion-image"
+			vmwarek := "kubevirt-vmware-image"
+			updatableKeys := [...]string{convk, vmwarek}
+			unupdatableKeyValues := map[string]string{
+				"ext_key_1": "ext_value_1",
+				"ext_key_2": "ext_value_2",
+			}
+
+			expectedResource := NewIMSConfigForCR(hco, commonTestUtils.Namespace)
+			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+			outdatedResource := NewIMSConfigForCR(hco, commonTestUtils.Namespace)
+			outdatedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", outdatedResource.Namespace, outdatedResource.Name)
+			// values we should update
+			outdatedResource.Data[convk] = "old-conversion-container-value-we-have-to-update"
+			outdatedResource.Data[vmwarek] = "old-vmware-container-value-we-have-to-update"
+			// add values we should not touch
+			for k, v := range unupdatableKeyValues {
+				outdatedResource.Data[k] = v
+			}
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, outdatedResource})
+			handler := &IMSConfigHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			res := handler.Ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &corev1.ConfigMap{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			for _, k := range updatableKeys {
+				Expect(foundResource.Data[k]).To(Not(Equal(outdatedResource.Data[k])))
+				Expect(foundResource.Data[k]).To(Equal(expectedResource.Data[k]))
+			}
+
+			for k, v := range unupdatableKeyValues {
+				Expect(foundResource.Data).To(HaveKeyWithValue(k, v))
+			}
+
+		})
+
+	})
+
 })

@@ -1,10 +1,8 @@
 package hyperconverged
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"reflect"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
@@ -14,10 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -31,12 +27,9 @@ import (
 	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
-	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -80,7 +73,9 @@ func Add(mgr manager.Manager, ci hcoutil.ClusterInfo) error {
 }
 
 // temp map, until we move all the operands code
-var operandMap = map[string]operands.Operand{}
+var (
+	operandMap = map[string]operands.Operand{}
+)
 
 func prepareHandlerMap(clt client.Client, scheme *runtime.Scheme, isOpenshift bool) {
 	operandMap["kvc"] = &operands.KvConfigHandler{Client: clt, Scheme: scheme}
@@ -89,6 +84,7 @@ func prepareHandlerMap(clt client.Client, scheme *runtime.Scheme, isOpenshift bo
 	operandMap["cdi"] = &operands.CdiHandler{Client: clt, Scheme: scheme}
 	operandMap["cna"] = &operands.CnaHandler{Client: clt, Scheme: scheme}
 	operandMap["vmimport"] = &operands.VmImportHandler{Client: clt, Scheme: scheme}
+	operandMap["IMSConfig"] = operands.IMSConfigHandler{Client: clt, Scheme: scheme}
 	if isOpenshift {
 		operandMap["kvCTB"] = operands.NewCommonTemplateBundleHandler(clt, scheme)
 		operandMap["kvNLB"] = operands.NewNodeLabellerBundleHandler(clt, scheme)
@@ -108,14 +104,15 @@ func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo) reconcile.Reconc
 	prepareHandlerMap(mgr.GetClient(), mgr.GetScheme(), ci.IsOpenshift())
 
 	return &ReconcileHyperConverged{
-		client:       mgr.GetClient(),
-		scheme:       mgr.GetScheme(),
-		recorder:     mgr.GetEventRecorderFor(hcoutil.HyperConvergedName),
-		upgradeMode:  false,
-		ownVersion:   ownVersion,
-		clusterInfo:  ci,
-		eventEmitter: hcoutil.GetEventEmitter(),
-		firstLoop:    true,
+		client:             mgr.GetClient(),
+		scheme:             mgr.GetScheme(),
+		recorder:           mgr.GetEventRecorderFor(hcoutil.HyperConvergedName),
+		cliDownloadHandler: &operands.CLIDownloadHandler{Client: mgr.GetClient(), Scheme: mgr.GetScheme()},
+		upgradeMode:        false,
+		ownVersion:         ownVersion,
+		clusterInfo:        ci,
+		eventEmitter:       hcoutil.GetEventEmitter(),
+		firstLoop:          true,
 	}
 }
 
@@ -173,14 +170,15 @@ var _ reconcile.Reconciler = &ReconcileHyperConverged{}
 type ReconcileHyperConverged struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client       client.Client
-	scheme       *runtime.Scheme
-	recorder     record.EventRecorder
-	upgradeMode  bool
-	ownVersion   string
-	clusterInfo  hcoutil.ClusterInfo
-	eventEmitter hcoutil.EventEmitter
-	firstLoop    bool
+	client             client.Client
+	scheme             *runtime.Scheme
+	recorder           record.EventRecorder
+	cliDownloadHandler *operands.CLIDownloadHandler
+	upgradeMode        bool
+	ownVersion         string
+	clusterInfo        hcoutil.ClusterInfo
+	eventEmitter       hcoutil.EventEmitter
+	firstLoop          bool
 }
 
 // Reconcile reads that state of the cluster for a HyperConverged object and makes changes based on the state read
@@ -312,7 +310,7 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 
 	req.SetUpgradeMode(r.upgradeMode)
 
-	r.ensureConsoleCLIDownload(req)
+	r.cliDownloadHandler.Ensure(req)
 
 	err = r.ensureHco(req)
 	if err != nil {
@@ -795,127 +793,12 @@ func (r *ReconcileHyperConverged) ensureKubeVirtNodeLabellerBundle(req *common.H
 	return nil
 }
 
-func newIMSConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
-	labels := map[string]string{
-		hcoutil.AppLabel: cr.Name,
-	}
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "v2v-vmware",
-			Labels:    labels,
-			Namespace: namespace,
-		},
-		Data: map[string]string{
-			"v2v-conversion-image":              os.Getenv("CONVERSION_CONTAINER"),
-			"kubevirt-vmware-image":             os.Getenv("VMWARE_CONTAINER"),
-			"kubevirt-vmware-image-pull-policy": "IfNotPresent",
-		},
-	}
-}
-
 func (r *ReconcileHyperConverged) ensureIMSConfig(req *common.HcoRequest) *operands.EnsureResult {
-	imsConfig := newIMSConfigForCR(req.Instance, req.Namespace)
-	res := operands.NewEnsureResult(imsConfig)
-	if os.Getenv("CONVERSION_CONTAINER") == "" {
-		return res.Error(errors.New("ims-conversion-container not specified"))
-	}
-
-	if os.Getenv("VMWARE_CONTAINER") == "" {
-		return res.Error(errors.New("ims-vmware-container not specified"))
-	}
-
-	err := controllerutil.SetControllerReference(req.Instance, imsConfig, r.scheme)
-	if err != nil {
-		return res.Error(err)
-	}
-
-	key, err := client.ObjectKeyFromObject(imsConfig)
-	if err != nil {
-		req.Logger.Error(err, "Failed to get object key for IMS Configmap")
-	}
-
-	res.SetName(key.Name)
-	found := &corev1.ConfigMap{}
-
-	err = r.client.Get(req.Ctx, key, found)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			req.Logger.Info("Creating IMS Configmap")
-			err = r.client.Create(req.Ctx, imsConfig)
-			if err == nil {
-				return res.SetCreated()
-			}
-		}
-		return res.Error(err)
-	}
-
-	req.Logger.Info("IMS Configmap already exists", "imsConfigMap.Namespace", found.Namespace, "imsConfigMap.Name", found.Name)
-
-	// Add it to the list of RelatedObjects if found
-	objectRef, err := reference.GetReference(r.scheme, found)
-	if err != nil {
-		return res.Error(err)
-	}
-	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
-
-	// in an ideal world HCO should be managing the whole config map,
-	// now due to a bad design only a few values of this config map are
-	// really managed by HCO while others are managed by other entities
-	// TODO: fix this bad design splitting the config map into two distinct objects and reconcile the whole object here
-	needsUpdate := false
-	for key, value := range imsConfig.Data {
-		if found.Data[key] != value {
-			found.Data[key] = value
-			needsUpdate = true
-		}
-	}
-	if needsUpdate {
-		req.Logger.Info("Updating existing IMS Configmap to its default values")
-		err = r.client.Update(req.Ctx, found)
-		if err != nil {
-			return res.Error(err)
-		}
-		return res.SetUpdated()
-	}
-
-	return res.SetUpgradeDone(req.ComponentUpgradeInProgress)
+	return operandMap["IMSConfig"].Ensure(req)
 }
 
 func (r *ReconcileHyperConverged) ensureVMImport(req *common.HcoRequest) *operands.EnsureResult {
 	return operandMap["vmimport"].Ensure(req)
-}
-
-func (r *ReconcileHyperConverged) ensureConsoleCLIDownload(req *common.HcoRequest) error {
-	ccd := req.Instance.NewConsoleCLIDownload()
-
-	found := req.Instance.NewConsoleCLIDownload()
-	err := hcoutil.EnsureCreated(req.Ctx, r.client, found, req.Logger)
-	if err != nil {
-		if meta.IsNoMatchError(err) {
-			req.Logger.Info("ConsoleCLIDownload was not found, skipping")
-		}
-		return err
-	}
-
-	// Make sure we hold the right link spec
-	if reflect.DeepEqual(found.Spec, ccd.Spec) {
-		objectRef, err := reference.GetReference(r.scheme, found)
-		if err != nil {
-			req.Logger.Error(err, "failed getting object reference for ConsoleCLIDownload")
-			return err
-		}
-		objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
-		return nil
-	}
-
-	ccd.Spec.DeepCopyInto(&found.Spec)
-
-	err = r.client.Update(req.Ctx, found)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (r *ReconcileHyperConverged) ensureKubeVirtTemplateValidator(req *common.HcoRequest) *operands.EnsureResult {

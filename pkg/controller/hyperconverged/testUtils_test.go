@@ -49,11 +49,12 @@ func initReconciler(client client.Client) *ReconcileHyperConverged {
 
 	// Create a ReconcileHyperConverged object with the scheme and fake client
 	return &ReconcileHyperConverged{
-		client:       client,
-		scheme:       s,
-		clusterInfo:  clusterInfoMock{},
-		eventEmitter: &eventEmitterMock{},
-		firstLoop:    true,
+		client:             client,
+		scheme:             s,
+		clusterInfo:        clusterInfoMock{},
+		eventEmitter:       &eventEmitterMock{},
+		cliDownloadHandler: &operands.CLIDownloadHandler{Client: client, Scheme: s},
+		firstLoop:          true,
 	}
 }
 
@@ -195,7 +196,7 @@ func getBasicDeployment() *BasicExpected {
 	kvMtAg.Status.Conditions = getGenericCompletedConditions()
 	res.kvMtAg = kvMtAg
 
-	res.imsConfig = newIMSConfigForCR(hco, namespace)
+	res.imsConfig = operands.NewIMSConfigForCR(hco, namespace)
 	res.imsConfig.Data["v2v-conversion-image"] = commonTestUtils.Conversion_image
 	res.imsConfig.Data["kubevirt-vmware-image"] = commonTestUtils.Vmware_image
 

@@ -1,7 +1,11 @@
 package operands
 
 import (
+	"errors"
+	corev1 "k8s.io/api/core/v1"
+	"os"
 	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
@@ -78,11 +82,6 @@ func (h VmImportHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 	return res.SetUpgradeDone(upgradeDone)
 }
 
-//type IMSConfigHandler genericOperand
-//func (h IMSConfigHandler) Ensure(req *common.HcoRequest) *EnsureResult {
-//
-//}
-
 // NewVMImportForCR returns a VM import CR
 func NewVMImportForCR(cr *hcov1beta1.HyperConverged) *vmimportv1beta1.VMImportConfig {
 	labels := map[string]string{
@@ -99,5 +98,93 @@ func NewVMImportForCR(cr *hcov1beta1.HyperConverged) *vmimportv1beta1.VMImportCo
 			Labels: labels,
 		},
 		Spec: spec,
+	}
+}
+
+type IMSConfigHandler genericOperand
+
+func (h IMSConfigHandler) Ensure(req *common.HcoRequest) *EnsureResult {
+	imsConfig := NewIMSConfigForCR(req.Instance, req.Namespace)
+	res := NewEnsureResult(imsConfig)
+	if os.Getenv("CONVERSION_CONTAINER") == "" {
+		return res.Error(errors.New("ims-conversion-container not specified"))
+	}
+
+	if os.Getenv("VMWARE_CONTAINER") == "" {
+		return res.Error(errors.New("ims-vmware-container not specified"))
+	}
+
+	err := controllerutil.SetControllerReference(req.Instance, imsConfig, h.Scheme)
+	if err != nil {
+		return res.Error(err)
+	}
+
+	key, err := client.ObjectKeyFromObject(imsConfig)
+	if err != nil {
+		req.Logger.Error(err, "Failed to get object key for IMS Configmap")
+	}
+
+	res.SetName(key.Name)
+	found := &corev1.ConfigMap{}
+
+	err = h.Client.Get(req.Ctx, key, found)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			req.Logger.Info("Creating IMS Configmap")
+			err = h.Client.Create(req.Ctx, imsConfig)
+			if err == nil {
+				return res.SetCreated()
+			}
+		}
+		return res.Error(err)
+	}
+
+	req.Logger.Info("IMS Configmap already exists", "imsConfigMap.Namespace", found.Namespace, "imsConfigMap.Name", found.Name)
+
+	// Add it to the list of RelatedObjects if found
+	objectRef, err := reference.GetReference(h.Scheme, found)
+	if err != nil {
+		return res.Error(err)
+	}
+	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
+
+	// in an ideal world HCO should be managing the whole config map,
+	// now due to a bad design only a few values of this config map are
+	// really managed by HCO while others are managed by other entities
+	// TODO: fix this bad design splitting the config map into two distinct objects and reconcile the whole object here
+	needsUpdate := false
+	for key, value := range imsConfig.Data {
+		if found.Data[key] != value {
+			found.Data[key] = value
+			needsUpdate = true
+		}
+	}
+	if needsUpdate {
+		req.Logger.Info("Updating existing IMS Configmap to its default values")
+		err = h.Client.Update(req.Ctx, found)
+		if err != nil {
+			return res.Error(err)
+		}
+		return res.SetUpdated()
+	}
+
+	return res.SetUpgradeDone(req.ComponentUpgradeInProgress)
+}
+
+func NewIMSConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
+	labels := map[string]string{
+		hcoutil.AppLabel: cr.Name,
+	}
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "v2v-vmware",
+			Labels:    labels,
+			Namespace: namespace,
+		},
+		Data: map[string]string{
+			"v2v-conversion-image":              os.Getenv("CONVERSION_CONTAINER"),
+			"kubevirt-vmware-image":             os.Getenv("VMWARE_CONTAINER"),
+			"kubevirt-vmware-image-pull-policy": "IfNotPresent",
+		},
 	}
 }
