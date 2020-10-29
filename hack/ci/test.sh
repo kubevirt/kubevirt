@@ -1,17 +1,9 @@
 #!/usr/bin/env bash
-set -xeuo pipefail
+set -euo pipefail
 
-export DOCKER_PREFIX='kubevirtnightlybuilds'
-export DOCKER_TAG="latest"
-export KUBEVIRT_PROVIDER=external
-
-echo "calling cluster-up to prepare config and check whether cluster is reachable"
-bash -x ./cluster-up/up.sh
-
-echo "deploying"
-bash -x ./hack/cluster-deploy.sh
-
-echo "testing"
+echo "Running tests"
 mkdir -p "$ARTIFACT_DIR"
-FUNC_TEST_ARGS='--ginkgo.noColor --ginkgo.focus=\[crit:high\] --junit-output='"$ARTIFACT_DIR"'/junit.functest.xml' \
-    bash -x ./hack/functests.sh
+# required to be set for test binary
+export ARTIFACTS=${ARTIFACT_DIR}
+
+tests.test -v=5 -kubeconfig=${KUBECONFIG} -container-tag=${DOCKER_TAG} -container-tag-alt= -container-prefix=${DOCKER_PREFIX} -image-prefix-alt=-kv -oc-path=/bin/oc -kubectl-path=/bin/kubectl -gocli-path=$(pwd)/cluster-up/cli.sh -test.timeout 420m -ginkgo.noColor -ginkgo.succinct -ginkgo.slowSpecThreshold=60 '-ginkgo.focus=\[rfe_id:273\]\[crit:high\]' -junit-output=${ARTIFACT_DIR}/junit.functest.xml -installed-namespace=kubevirt -previous-release-tag= -previous-release-registry=index.docker.io/kubevirt -deploy-testing-infra=false

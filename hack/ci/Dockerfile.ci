@@ -1,12 +1,16 @@
-FROM registry.svc.ci.openshift.org/ci/kubevirt-builder:30-5.8.1 AS builder
-WORKDIR /go/src/github.com/kubevirt.io/kubevirt
+FROM registry.svc.ci.openshift.org/openshift/release:golang-1.13 AS builder
+WORKDIR /go/src/kubevirt.io/kubevirt
 COPY . .
 
-ENV KUBEVIRT_RUN_UNNESTED=true
+# download oc binary
+RUN cd /bin/ && \
+    curl https://mirror.openshift.com/pub/openshift-v4/clients/oc/4.4/linux/oc.tar.gz | tar -C . -xzf -  && \
+    chmod +x oc && \
+    ln -s oc kubectl
 
-RUN source /etc/profile.d/gimme.sh && \
-    export GOPATH="/root/go" && \
-    ./hack/ci/build.sh
+COPY hack/ci/get-release-tag-for-xy.sh /get-release-tag-for-xy.sh
+COPY hack/ci/deploy-release.sh /deploy-release.sh
+COPY hack/ci/test.sh /test.sh
+COPY hack/ci/entrypoint.sh /entrypoint.sh
 
-ENTRYPOINT [ "/entrypoint.sh" ]
-CMD ["./hack/ci/test.sh"]
+ENV DOCKER_PREFIX='kubevirt'
