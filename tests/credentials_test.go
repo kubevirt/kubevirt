@@ -59,7 +59,9 @@ var _ = Describe("Guest Access Credentials", func() {
 			By("Waiting the VirtualMachineInstance start")
 			vmi, ok := obj.(*v1.VirtualMachineInstance)
 			Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-			Expect(tests.WaitForSuccessfulVMIStart(obj)).ToNot(BeEmpty())
+			// Warnings are okay. We'll receive a warning that the agent isn't connected
+			// during bootup, but that is transient
+			Expect(tests.WaitForSuccessfulVMIStartIgnoreWarnings(obj)).ToNot(BeEmpty())
 			return vmi
 		}
 
