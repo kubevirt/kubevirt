@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -63,9 +64,11 @@ var _ = Describe("[Serial][rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][leve
 			clientVMI = createVMICirros(virtClient, tests.NamespaceTestDefault, map[string]string{}, libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()))
 			clientVMIAlternativeNamespace = createVMICirros(virtClient, tests.NamespaceTestAlternative, map[string]string{}, libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()))
 
-			serverVMIFuture := tests.WaitUntilVMIReadyAsync(serverVMI, tests.LoggedInCirrosExpecter)
-			clientVMIFuture := tests.WaitUntilVMIReadyAsync(clientVMI, tests.LoggedInCirrosExpecter)
-			clientVMIAlternativeNamespaceFuture := tests.WaitUntilVMIReadyAsync(clientVMIAlternativeNamespace, tests.LoggedInCirrosExpecter)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			serverVMIFuture := tests.WaitUntilVMIReadyAsync(ctx, serverVMI, tests.LoggedInCirrosExpecter)
+			clientVMIFuture := tests.WaitUntilVMIReadyAsync(ctx, clientVMI, tests.LoggedInCirrosExpecter)
+			clientVMIAlternativeNamespaceFuture := tests.WaitUntilVMIReadyAsync(ctx, clientVMIAlternativeNamespace, tests.LoggedInCirrosExpecter)
 
 			serverVMI = serverVMIFuture()
 			clientVMI = clientVMIFuture()

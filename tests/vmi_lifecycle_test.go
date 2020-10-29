@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -347,13 +348,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					}
 					By("Starting a VirtualMachineInstance")
 					vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
-					stopChan := make(chan struct{})
-					defer close(stopChan)
+					ctx, cancel := context.WithCancel(context.Background())
+					defer cancel()
 					launcher := tests.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					tests.NewObjectEventWatcher(launcher).
 						SinceWatchedObjectResourceVersion().
 						Timeout(60*time.Second).
-						Watch(stopChan, func(event *k8sv1.Event) bool {
+						Watch(ctx, func(event *k8sv1.Event) bool {
 							if event.Type == "Warning" && event.Reason == "FailedMount" {
 								return true
 							}
@@ -381,9 +382,9 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					launcher := tests.GetPodByVirtualMachineInstance(createdVMI, createdVMI.Namespace)
 					// Wait until we see that starting the VirtualMachineInstance is failing
 					By(fmt.Sprintf("Checking that VirtualMachineInstance start failed: starting at %v", time.Now()))
-					stopChan := make(chan struct{})
-					defer close(stopChan)
-					event := tests.NewObjectEventWatcher(launcher).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(stopChan, tests.WarningEvent, "FailedMount")
+					ctx, cancel := context.WithCancel(context.Background())
+					defer cancel()
+					event := tests.NewObjectEventWatcher(launcher).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, tests.WarningEvent, "FailedMount")
 					Expect(event.Message).To(SatisfyAny(
 						ContainSubstring(`secret "nonexistent" not found`),
 						ContainSubstring(`secrets "nonexistent" not found`), // for k8s 1.11.x
@@ -409,7 +410,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 					// Wait for the VirtualMachineInstance to be started, allow warning events to occur
 					By("Checking that VirtualMachineInstance start succeeded")
-					tests.NewObjectEventWatcher(createdVMI).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).WaitFor(stopChan, tests.NormalEvent, v1.Started)
+					tests.NewObjectEventWatcher(createdVMI).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).WaitFor(ctx, tests.NormalEvent, v1.Started)
 				})
 			})
 		})
@@ -421,16 +422,16 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				nodeName := tests.WaitForSuccessfulVMIStart(vmi)
 
-				stopChan := make(chan struct{})
-				defer close(stopChan)
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
 
 				By("Crashing the virt-launcher")
 				vmiKiller, err := pkillAllLaunchers(virtClient, nodeName)
 				Expect(err).To(BeNil(), "Should create vmi-killer pod to kill virt-launcher successfully")
-				tests.NewObjectEventWatcher(vmiKiller).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).WaitFor(stopChan, tests.NormalEvent, v1.Started)
+				tests.NewObjectEventWatcher(vmiKiller).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).WaitFor(ctx, tests.NormalEvent, v1.Started)
 
 				By("Waiting for the vm to be stopped")
-				tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).WaitFor(stopChan, tests.WarningEvent, v1.Stopped)
+				tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).WaitFor(ctx, tests.WarningEvent, v1.Stopped)
 
 				By("Checking that VirtualMachineInstance has 'Failed' phase")
 				Eventually(func() v1.VirtualMachineInstancePhase {
@@ -465,8 +466,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).To(BeNil(), "Should kill VMI successfully")
 
 				// Give virt-handler some time. It can greatly vary when virt-handler will be ready again
-				stopChan := make(chan struct{})
-				defer close(stopChan)
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
 
 				By("Checking that VirtualMachineInstance has 'Failed' phase")
 				Eventually(func() v1.VirtualMachineInstancePhase {
@@ -476,7 +477,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, 240*time.Second, 1*time.Second).Should(Equal(v1.Failed), "VMI should be failed")
 
 				By(fmt.Sprintf("Waiting for %q %q event after the resource version %q", tests.WarningEvent, v1.Stopped, vmi.ResourceVersion))
-				tests.NewObjectEventWatcher(vmi).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(stopChan, tests.WarningEvent, v1.Stopped)
+				tests.NewObjectEventWatcher(vmi).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, tests.WarningEvent, v1.Stopped)
 
 				By("checking that it can still start VMIs")
 				newVMI := newCirrosVMI()
@@ -1091,9 +1092,9 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("Deleting the VirtualMachineInstance")
 				_, err = virtClient.RestClient().Delete().Resource("virtualmachineinstances").Namespace(vmi.GetObjectMeta().GetNamespace()).Name(vmi.GetObjectMeta().GetName()).Do().Get()
 				Expect(err).To(BeNil())
-				stopChan := make(chan struct{})
-				defer close(stopChan)
-				tests.NewObjectEventWatcher(vmi).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(stopChan, tests.NormalEvent, v1.Deleted)
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				tests.NewObjectEventWatcher(vmi).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, tests.NormalEvent, v1.Deleted)
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
 				// Check if the stop event was logged
@@ -1469,9 +1470,9 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
 				By("Deleting the VirtualMachineInstance")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI gracefully")
-				stopChan := make(chan struct{})
-				defer close(stopChan)
-				event := tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().Timeout(75*time.Second).WaitFor(stopChan, tests.NormalEvent, v1.Deleted)
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				event := tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().Timeout(75*time.Second).WaitFor(ctx, tests.NormalEvent, v1.Deleted)
 				Expect(event).ToNot(BeNil(), "There should be a delete event")
 
 				// Check if the graceful shutdown was logged
@@ -1506,9 +1507,9 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			err = pkillAllVMIs(virtClient, nodeName)
 			Expect(err).To(BeNil(), "Should deploy helper pod to kill VMI")
 
-			stopChan := make(chan struct{})
-			defer close(stopChan)
-			tests.NewObjectEventWatcher(obj).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(stopChan, tests.WarningEvent, v1.Stopped)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			tests.NewObjectEventWatcher(obj).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, tests.WarningEvent, v1.Stopped)
 
 			By("Checking that the VirtualMachineInstance has 'Failed' phase")
 			Eventually(func() v1.VirtualMachineInstancePhase {
@@ -1531,13 +1532,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Expect(err).To(BeNil(), "Should create kill pod to kill all VMs")
 
 			// Wait for stop event of the VirtualMachineInstance
-			stopChan := make(chan struct{})
-			defer close(stopChan)
-			tests.NewObjectEventWatcher(obj).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(stopChan, tests.WarningEvent, v1.Stopped)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			tests.NewObjectEventWatcher(obj).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, tests.WarningEvent, v1.Stopped)
 
 			// Wait for some time and see if a sync event happens on the stopped VirtualMachineInstance
 			By("Checking that virt-handler does not try to sync stopped VirtualMachineInstance")
-			event := tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().Timeout(10*time.Second).WaitNotFor(stopChan, tests.WarningEvent, v1.SyncFailed)
+			event := tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().Timeout(10*time.Second).WaitNotFor(ctx, tests.WarningEvent, v1.SyncFailed)
 			Expect(event).To(BeNil(), "virt-handler tried to sync on a VirtualMachineInstance in final state")
 		})
 	})
