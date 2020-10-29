@@ -12,9 +12,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type CnaHandler genericOperand
+type cnaHandler genericOperand
 
-func (h CnaHandler) Ensure(req *common.HcoRequest) *EnsureResult {
+func (h cnaHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 	networkAddons := req.Instance.NewNetworkAddons()
 
 	res := NewEnsureResult(networkAddons)

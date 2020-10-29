@@ -24,9 +24,9 @@ const (
 	kubevirtDefaultNetworkInterfaceValue = "masquerade"
 )
 
-type KubevirtHandler genericOperand
+type kubevirtHandler genericOperand
 
-func (kv *KubevirtHandler) Ensure(req *common.HcoRequest) *EnsureResult {
+func (kv *kubevirtHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 	virt := req.Instance.NewKubeVirt()
 	res := NewEnsureResult(virt)
 	if err := controllerutil.SetControllerReference(req.Instance, virt, kv.Scheme); err != nil {
@@ -79,9 +79,9 @@ func (kv *KubevirtHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 	return res.SetUpgradeDone(upgradeDone)
 }
 
-type KvConfigHandler genericOperand
+type kvConfigHandler genericOperand
 
-func (kvc *KvConfigHandler) Ensure(req *common.HcoRequest) *EnsureResult {
+func (kvc *kvConfigHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 	kubevirtConfig := NewKubeVirtConfigForCR(req.Instance, req.Namespace)
 	res := NewEnsureResult(kubevirtConfig)
 	err := controllerutil.SetControllerReference(req.Instance, kubevirtConfig, kvc.Scheme)
@@ -160,9 +160,9 @@ func (kvc *KvConfigHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 	return res.SetUpgradeDone(req.ComponentUpgradeInProgress)
 }
 
-type KvPriorityClassHandler genericOperand
+type kvPriorityClassHandler genericOperand
 
-func (kvpc *KvPriorityClassHandler) Ensure(req *common.HcoRequest) *EnsureResult {
+func (kvpc *kvPriorityClassHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 	req.Logger.Info("Reconciling KubeVirt PriorityClass")
 	pc := req.Instance.NewKubeVirtPriorityClass()
 	res := NewEnsureResult(pc)

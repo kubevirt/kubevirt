@@ -32,7 +32,7 @@ var _ = Describe("VM-Import", func() {
 		It("should create if not present", func() {
 			expectedResource := NewVMImportForCR(hco)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := &VmImportHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &vmImportHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			res := handler.Ensure(req)
 
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -53,7 +53,7 @@ var _ = Describe("VM-Import", func() {
 			expectedResource := NewVMImportForCR(hco)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/vmimportconfigs/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := &VmImportHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &vmImportHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
@@ -73,7 +73,7 @@ var _ = Describe("VM-Import", func() {
 			existingResource.Spec.ImagePullPolicy = corev1.PullAlways // set non-default value
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := &VmImportHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &vmImportHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -95,7 +95,7 @@ var _ = Describe("VM-Import", func() {
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := &VmImportHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &vmImportHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -134,7 +134,7 @@ var _ = Describe("VM-Import", func() {
 			existingResource := NewVMImportForCR(hcoNodePlacement)
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := &VmImportHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &vmImportHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -173,7 +173,7 @@ var _ = Describe("VM-Import", func() {
 			hco.Spec.Infra.NodePlacement.NodeSelector["key1"] = "something else"
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := &VmImportHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &vmImportHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -215,7 +215,7 @@ var _ = Describe("VM-Import", func() {
 			os.Unsetenv("VMWARE_CONTAINER")
 
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := &IMSConfigHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &imsConfigHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(BeNil())
@@ -224,7 +224,7 @@ var _ = Describe("VM-Import", func() {
 		It("should create if not present", func() {
 			expectedResource := NewIMSConfigForCR(hco, commonTestUtils.Namespace)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := &IMSConfigHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &imsConfigHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
@@ -244,7 +244,7 @@ var _ = Describe("VM-Import", func() {
 			expectedResource := NewIMSConfigForCR(hco, commonTestUtils.Namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := &IMSConfigHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &imsConfigHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
@@ -283,7 +283,7 @@ var _ = Describe("VM-Import", func() {
 			}
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, outdatedResource})
-			handler := &IMSConfigHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &imsConfigHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())

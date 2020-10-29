@@ -16,9 +16,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-type CdiHandler genericOperand
+type cdiHandler genericOperand
 
-func (h *CdiHandler) Ensure(req *common.HcoRequest) *EnsureResult {
+func (h *cdiHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 	cdi := req.Instance.NewCDI()
 	res := NewEnsureResult(cdi)
 
@@ -98,7 +98,7 @@ func (h *CdiHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 	return res.SetUpgradeDone(upgradeDone)
 }
 
-func (h *CdiHandler) ensureKubeVirtStorageRole(req *common.HcoRequest) error {
+func (h *cdiHandler) ensureKubeVirtStorageRole(req *common.HcoRequest) error {
 	kubevirtStorageRole := NewKubeVirtStorageRoleForCR(req.Instance, req.Namespace)
 	if err := controllerutil.SetControllerReference(req.Instance, kubevirtStorageRole, h.Scheme); err != nil {
 		return err
@@ -131,7 +131,7 @@ func (h *CdiHandler) ensureKubeVirtStorageRole(req *common.HcoRequest) error {
 	return nil
 }
 
-func (h *CdiHandler) ensureKubeVirtStorageRoleBinding(req *common.HcoRequest) error {
+func (h *cdiHandler) ensureKubeVirtStorageRoleBinding(req *common.HcoRequest) error {
 	kubevirtStorageRoleBinding := NewKubeVirtStorageRoleBindingForCR(req.Instance, req.Namespace)
 	if err := controllerutil.SetControllerReference(req.Instance, kubevirtStorageRoleBinding, h.Scheme); err != nil {
 		return err
@@ -164,7 +164,7 @@ func (h *CdiHandler) ensureKubeVirtStorageRoleBinding(req *common.HcoRequest) er
 	return nil
 }
 
-func (h *CdiHandler) ensureKubeVirtStorageConfig(req *common.HcoRequest) error {
+func (h *cdiHandler) ensureKubeVirtStorageConfig(req *common.HcoRequest) error {
 	kubevirtStorageConfig := NewKubeVirtStorageConfigForCR(req.Instance, req.Namespace)
 	if err := controllerutil.SetControllerReference(req.Instance, kubevirtStorageConfig, h.Scheme); err != nil {
 		return err

@@ -30,7 +30,7 @@ var _ = Describe("SSP Operands", func() {
 		It("should create if not present", func() {
 			expectedResource := hco.NewKubeVirtCommonTemplateBundle()
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := NewCommonTemplateBundleHandler(cl, commonTestUtils.GetScheme()).(*commonTemplateBundleHandler)
+			handler := newCommonTemplateBundleHandler(cl, commonTestUtils.GetScheme()).(*commonTemplateBundleHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
@@ -50,7 +50,7 @@ var _ = Describe("SSP Operands", func() {
 			expectedResource := hco.NewKubeVirtCommonTemplateBundle()
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := NewCommonTemplateBundleHandler(cl, commonTestUtils.GetScheme()).(*commonTemplateBundleHandler)
+			handler := newCommonTemplateBundleHandler(cl, commonTestUtils.GetScheme()).(*commonTemplateBundleHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
@@ -70,7 +70,7 @@ var _ = Describe("SSP Operands", func() {
 			existingResource.Spec.Version = "Non default value"
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := NewCommonTemplateBundleHandler(cl, commonTestUtils.GetScheme()).(*commonTemplateBundleHandler)
+			handler := newCommonTemplateBundleHandler(cl, commonTestUtils.GetScheme()).(*commonTemplateBundleHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -164,7 +164,7 @@ var _ = Describe("SSP Operands", func() {
 		It("should create if not present", func() {
 			expectedResource := NewKubeVirtNodeLabellerBundleForCR(hco, commonTestUtils.Namespace)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := NewNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
+			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
@@ -184,7 +184,7 @@ var _ = Describe("SSP Operands", func() {
 			expectedResource := NewKubeVirtNodeLabellerBundleForCR(hco, commonTestUtils.Namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := NewNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
+			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
@@ -204,7 +204,7 @@ var _ = Describe("SSP Operands", func() {
 			existingResource.Spec.Version = "Non default value"
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := NewNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
+			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -225,7 +225,7 @@ var _ = Describe("SSP Operands", func() {
 			hco.Spec.Workloads.NodePlacement = commonTestUtils.NewHyperConvergedConfig()
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := NewNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
+			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -257,7 +257,7 @@ var _ = Describe("SSP Operands", func() {
 			existingResource := NewKubeVirtNodeLabellerBundleForCR(hcoNodePlacement, commonTestUtils.Namespace)
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := NewNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
+			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -290,7 +290,7 @@ var _ = Describe("SSP Operands", func() {
 			hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := NewNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
+			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -416,7 +416,7 @@ var _ = Describe("SSP Operands", func() {
 		It("should create if not present", func() {
 			expectedResource := NewKubeVirtTemplateValidatorForCR(hco, commonTestUtils.Namespace)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := NewTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
+			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
@@ -436,7 +436,7 @@ var _ = Describe("SSP Operands", func() {
 			expectedResource := NewKubeVirtTemplateValidatorForCR(hco, commonTestUtils.Namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := NewTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
+			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
@@ -456,7 +456,7 @@ var _ = Describe("SSP Operands", func() {
 			existingResource.Spec.TemplateValidatorReplicas = 5 // set non-default value
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := NewTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
+			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -477,7 +477,7 @@ var _ = Describe("SSP Operands", func() {
 			hco.Spec.Infra.NodePlacement = commonTestUtils.NewHyperConvergedConfig()
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := NewTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
+			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -509,7 +509,7 @@ var _ = Describe("SSP Operands", func() {
 			existingResource := NewKubeVirtTemplateValidatorForCR(hcoNodePlacement, commonTestUtils.Namespace)
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := NewTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
+			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -542,7 +542,7 @@ var _ = Describe("SSP Operands", func() {
 			hco.Spec.Infra.NodePlacement.NodeSelector["key1"] = "something else"
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := NewTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
+			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -641,7 +641,7 @@ var _ = Describe("SSP Operands", func() {
 		It("should create if not present", func() {
 			expectedResource := NewKubeVirtMetricsAggregationForCR(hco, commonTestUtils.Namespace)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := NewMetricsAggregationHandler(cl, commonTestUtils.GetScheme()).(*metricsAggregationHandler)
+			handler := newMetricsAggregationHandler(cl, commonTestUtils.GetScheme()).(*metricsAggregationHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
@@ -661,7 +661,7 @@ var _ = Describe("SSP Operands", func() {
 			expectedResource := NewKubeVirtMetricsAggregationForCR(hco, commonTestUtils.Namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := NewMetricsAggregationHandler(cl, commonTestUtils.GetScheme()).(*metricsAggregationHandler)
+			handler := newMetricsAggregationHandler(cl, commonTestUtils.GetScheme()).(*metricsAggregationHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
@@ -681,7 +681,7 @@ var _ = Describe("SSP Operands", func() {
 			existingResource.Spec.Version = "non-default value"
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := NewMetricsAggregationHandler(cl, commonTestUtils.GetScheme()).(*metricsAggregationHandler)
+			handler := newMetricsAggregationHandler(cl, commonTestUtils.GetScheme()).(*metricsAggregationHandler)
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())

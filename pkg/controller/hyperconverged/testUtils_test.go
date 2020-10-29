@@ -45,13 +45,12 @@ var (
 
 func initReconciler(client client.Client) *ReconcileHyperConverged {
 	s := commonTestUtils.GetScheme()
-	prepareHandlerMap(client, s, true)
-
+	operandHandler := operands.NewOperandHandler(client, s, true, &eventEmitterMock{})
 	// Create a ReconcileHyperConverged object with the scheme and fake client
 	return &ReconcileHyperConverged{
 		client:             client,
 		scheme:             s,
-		clusterInfo:        clusterInfoMock{},
+		operandHandler:     operandHandler,
 		eventEmitter:       &eventEmitterMock{},
 		cliDownloadHandler: &operands.CLIDownloadHandler{Client: client, Scheme: s},
 		firstLoop:          true,
@@ -223,20 +222,6 @@ func doReconcile(cl client.Client, hco *hcov1beta1.HyperConverged) (*hcov1beta1.
 	).To(BeNil())
 
 	return foundResource, res.Requeue
-}
-
-type clusterInfoMock struct{}
-
-func (clusterInfoMock) CheckRunningInOpenshift(_ client.Reader, _ context.Context, _ logr.Logger, _ bool) error {
-	return nil
-}
-
-func (clusterInfoMock) IsOpenshift() bool {
-	return true
-}
-
-func (clusterInfoMock) IsRunningLocally() bool {
-	return false
 }
 
 type eventEmitterMock struct{}

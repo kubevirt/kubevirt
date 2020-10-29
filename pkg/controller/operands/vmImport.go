@@ -18,9 +18,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type VmImportHandler genericOperand
+type vmImportHandler genericOperand
 
-func (h VmImportHandler) Ensure(req *common.HcoRequest) *EnsureResult {
+func (h vmImportHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 	vmImport := NewVMImportForCR(req.Instance)
 	res := NewEnsureResult(vmImport)
 
@@ -101,9 +101,9 @@ func NewVMImportForCR(cr *hcov1beta1.HyperConverged) *vmimportv1beta1.VMImportCo
 	}
 }
 
-type IMSConfigHandler genericOperand
+type imsConfigHandler genericOperand
 
-func (h IMSConfigHandler) Ensure(req *common.HcoRequest) *EnsureResult {
+func (h imsConfigHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 	imsConfig := NewIMSConfigForCR(req.Instance, req.Namespace)
 	res := NewEnsureResult(imsConfig)
 	if os.Getenv("CONVERSION_CONTAINER") == "" {

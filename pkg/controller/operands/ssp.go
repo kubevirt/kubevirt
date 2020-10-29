@@ -32,7 +32,7 @@ type sspOperand struct {
 }
 type commonTemplateBundleHandler sspOperand
 
-func NewCommonTemplateBundleHandler(clt client.Client, scheme *runtime.Scheme) Operand {
+func newCommonTemplateBundleHandler(clt client.Client, scheme *runtime.Scheme) Operand {
 	return &commonTemplateBundleHandler{
 		genericOperand:     genericOperand{Client: clt, Scheme: scheme},
 		shouldRemoveOldCrd: true,
@@ -116,7 +116,7 @@ func (h *commonTemplateBundleHandler) Ensure(req *common.HcoRequest) *EnsureResu
 
 type nodeLabellerBundleHandler sspOperand
 
-func NewNodeLabellerBundleHandler(clt client.Client, scheme *runtime.Scheme) Operand {
+func newNodeLabellerBundleHandler(clt client.Client, scheme *runtime.Scheme) Operand {
 	return &nodeLabellerBundleHandler{
 		genericOperand:     genericOperand{Client: clt, Scheme: scheme},
 		shouldRemoveOldCrd: true,
@@ -228,7 +228,7 @@ func NewKubeVirtNodeLabellerBundleForCR(cr *hcov1beta1.HyperConverged, namespace
 
 type templateValidatorHandler sspOperand
 
-func NewTemplateValidatorHandler(clt client.Client, scheme *runtime.Scheme) Operand {
+func newTemplateValidatorHandler(clt client.Client, scheme *runtime.Scheme) Operand {
 	return &templateValidatorHandler{
 		genericOperand:     genericOperand{Client: clt, Scheme: scheme},
 		shouldRemoveOldCrd: true,
@@ -335,7 +335,7 @@ func NewKubeVirtTemplateValidatorForCR(cr *hcov1beta1.HyperConverged, namespace 
 
 type metricsAggregationHandler sspOperand
 
-func NewMetricsAggregationHandler(clt client.Client, scheme *runtime.Scheme) Operand {
+func newMetricsAggregationHandler(clt client.Client, scheme *runtime.Scheme) Operand {
 	return &metricsAggregationHandler{
 		genericOperand:     genericOperand{Client: clt, Scheme: scheme},
 		shouldRemoveOldCrd: true,

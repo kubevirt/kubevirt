@@ -33,7 +33,7 @@ var _ = Describe("CDI Operand", func() {
 		It("should create if not present", func() {
 			expectedResource := hco.NewCDI()
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := &CdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &cdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
@@ -53,7 +53,7 @@ var _ = Describe("CDI Operand", func() {
 			expectedResource := hco.NewCDI()
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := &CdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &cdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
@@ -93,7 +93,7 @@ var _ = Describe("CDI Operand", func() {
 			missingUSResource.Spec.UninstallStrategy = nil
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, missingUSResource})
-			handler := &CdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &cdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -115,7 +115,7 @@ var _ = Describe("CDI Operand", func() {
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := &CdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &cdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -153,7 +153,7 @@ var _ = Describe("CDI Operand", func() {
 			existingResource := hcoNodePlacement.NewCDI()
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := &CdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &cdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -197,7 +197,7 @@ var _ = Describe("CDI Operand", func() {
 			hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := &CdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &cdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -243,7 +243,7 @@ var _ = Describe("CDI Operand", func() {
 				},
 			}
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := &CdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &cdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
@@ -294,7 +294,7 @@ var _ = Describe("CDI Operand", func() {
 		It("should create if not present", func() {
 			expectedResource := NewKubeVirtStorageConfigForCR(hco, commonTestUtils.Namespace)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := &CdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &cdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			err := handler.ensureKubeVirtStorageConfig(req)
 			Expect(err).To(BeNil())
 
@@ -313,7 +313,7 @@ var _ = Describe("CDI Operand", func() {
 			expectedResource := NewKubeVirtStorageConfigForCR(hco, commonTestUtils.Namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := &CdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := &cdiHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			err := handler.ensureKubeVirtStorageConfig(req)
 			Expect(err).To(BeNil())
 
