@@ -3,6 +3,7 @@ package tests
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -110,16 +111,8 @@ func NewJob(name string, cmd, args []string, retry, ttlAfterFinished int32, time
 // NewHelloWorldJob takes a DNS entry or an IP and a port which it will use to create a job
 // which tries to contact the host on the provided port.
 // It expects to receive "Hello World!" to succeed.
-func NewHelloWorldJob(host string, port string) *batchv1.Job {
-	check := fmt.Sprintf(`set -x; x="$(head -n 1 < <(nc %s %s -i 3 -w 3))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, port)
-	return newHelloWorldJob(check)
-}
-
-// NewHelloWorldJobv6 is a workaround to generate `batch.V1` jobs that will access services exposed via IPv6 addresses.
-// It does exactly what NewHelloWorldJob does, but for IPv6.
-func NewHelloWorldJobv6(host string, port string) *batchv1.Job {
-	// TODO - remove this code once https://github.com/kubevirt/kubevirt/issues/4428 is fixed
-	check := fmt.Sprintf(`set -x; ping -c 1 %s; x="$(head -n 1 < <(nc %s %s -i 3 -w 3))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, host, port)
+func NewHelloWorldJob(host string, port string, checkConnectivityCmdPrefixes ...string) *batchv1.Job {
+	check := fmt.Sprintf(`set -x; %sx="$(head -n 1 < <(nc %s %s -i 3 -w 3))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, strings.Join(checkConnectivityCmdPrefixes, ";"), host, port)
 	return newHelloWorldJob(check)
 }
 
@@ -128,7 +121,7 @@ func NewHelloWorldJobv6(host string, port string) *batchv1.Job {
 // Note that in case of UDP, the server will not see the connection unless something is sent over it
 // However, netcat does not work well with UDP and closes before the answer arrives, for that another netcat call is needed,
 // this time as a UDP listener
-func NewHelloWorldJobUDP(host string, port string) *batchv1.Job {
+func NewHelloWorldJobUDP(host string, port string, checkConnectivityCmdPrefixes ...string) *batchv1.Job {
 	localPort, err := strconv.Atoi(port)
 	if err != nil {
 		return nil
@@ -136,25 +129,8 @@ func NewHelloWorldJobUDP(host string, port string) *batchv1.Job {
 	// local port is used to catch the reply - any number can be used
 	// we make it different than the port to be safe if both are running on the same machine
 	localPort--
-	check := fmt.Sprintf(`set -x; trap "kill 0" EXIT; x="$(head -n 1 < <(echo | nc -up %d %s %s -i 3 -w 3 & nc -ul %d))"; echo "$x" ; if [ "$x" = "Hello UDP World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`,
-		localPort, host, port, localPort)
-
-	return newHelloWorldJob(check)
-}
-
-// NewHelloWorldJobUDPv6 is a workaround to generate `batch.V1` jobs that will access services exposed via IPv6 addresses.
-// It does exactly what NewHelloWorldJobUDP does, but for IPv6.
-func NewHelloWorldJobUDPv6(host string, port string) *batchv1.Job {
-	// TODO - remove this code once https://github.com/kubevirt/kubevirt/issues/4428 is fixed
-	localPort, err := strconv.Atoi(port)
-	if err != nil {
-		return nil
-	}
-	// local port is used to catch the reply - any number can be used
-	// we make it different than the port to be safe if both are running on the same machine
-	localPort--
-	check := fmt.Sprintf(`set -x; ping -c 1 %s; trap "kill 0" EXIT; x="$(head -n 1 < <(echo | nc -up %d %s %s -i 3 -w 3 & nc -ul %d))"; echo "$x" ; if [ "$x" = "Hello UDP World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`,
-		host, localPort, host, port, localPort)
+	check := fmt.Sprintf(`set -x; trap "kill 0" EXIT; %sx="$(head -n 1 < <(echo | nc -up %d %s %s -i 3 -w 3 & nc -ul %d))"; echo "$x" ; if [ "$x" = "Hello UDP World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`,
+		strings.Join(checkConnectivityCmdPrefixes, ";"), localPort, host, port, localPort)
 
 	return newHelloWorldJob(check)
 }
@@ -162,16 +138,8 @@ func NewHelloWorldJobUDPv6(host string, port string) *batchv1.Job {
 // NewHelloWorldJobHTTP gets an IP address and a port, which it uses to create a pod.
 // This pod tries to contact the host on the provided port, over HTTP.
 // On success - it expects to receive "Hello World!".
-func NewHelloWorldJobHTTP(host string, port string) *batchv1.Job {
-	check := fmt.Sprintf(`set -x; x="$(head -n 1 < <(curl %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, FormatIPForURL(host), port)
-	return newHelloWorldJob(check)
-}
-
-// NewHelloWorldJobHTTPv6 is a workaround to generate `batch.V1` jobs that will access services exposed via IPv6 addresses.
-// It does exactly what NewHelloWorldJobHTTP does, but for IPv6.
-func NewHelloWorldJobHTTPv6(host string, port string) *batchv1.Job {
-	// TODO - remove this code once https://github.com/kubevirt/kubevirt/issues/4428 is fixed
-	check := fmt.Sprintf(`set -x; ping -c 1 %s; x="$(head -n 1 < <(curl %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, FormatIPForURL(host), port)
+func NewHelloWorldJobHTTP(host string, port string, checkConnectivityCmdPrefixes ...string) *batchv1.Job {
+	check := fmt.Sprintf(`set -x; %sx="$(head -n 1 < <(curl %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, strings.Join(checkConnectivityCmdPrefixes, ";"), FormatIPForURL(host), port)
 	return newHelloWorldJob(check)
 }
 

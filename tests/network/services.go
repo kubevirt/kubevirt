@@ -45,13 +45,11 @@ var _ = SIGDescribe("[Serial]Services", func() {
 	var virtClient kubecli.KubevirtClient
 
 	runTCPClientExpectingHelloWorldFromServer := func(host, port, namespace string, isIPv6 bool) *batchv1.Job {
-		var job *batchv1.Job
+		var pingCmd string
 		if isIPv6 {
-			job = tests.NewHelloWorldJobv6(host, port)
-		} else {
-			job = tests.NewHelloWorldJob(host, port)
+			pingCmd = fmt.Sprintf("ping -c1 %s;", host)
 		}
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(job)
+		job, err := virtClient.BatchV1().Jobs(namespace).Create(tests.NewHelloWorldJob(host, port, pingCmd))
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		return job
 	}
