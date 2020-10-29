@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -35,7 +36,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -369,71 +369,64 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 	})
 
-	Context("A long running process", func() {
+	Context("Guest and Host uptime difference before pause", func() {
+		startTime := time.Now()
+		var (
+			vmi                     *v1.VirtualMachineInstance
+			uptimeDiffBeforePausing float64
+		)
 
-		grepSleepPid := func(expecter expect.Expecter) string {
+		grepGuestUptime := func(expecter expect.Expecter) float64 {
 			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
-				&expect.BSnd{S: `pgrep -f "sleep 1m"` + "\n"},
-				&expect.BExp{R: console.RetValue("[0-9]+")}, // pid
+				&expect.BSnd{S: `cat /proc/uptime | awk '{print $1;}'` + "\n"},
+				&expect.BExp{R: console.RetValue("[0-9\\.]+")}, // guest uptime
 			}, 15*time.Second)
 			log.DefaultLogger().Infof("a:%+v\n", res)
 			Expect(err).ToNot(HaveOccurred())
-			re := regexp.MustCompile("\r\n[0-9]+\r\n")
-			return strings.TrimSpace(re.FindString(res[0].Match[0]))
+			re := regexp.MustCompile("\r\n[0-9\\.]+\r\n")
+			guestUptime, err := strconv.ParseFloat(strings.TrimSpace(re.FindString(res[0].Match[0])), 64)
+			Expect(err).ToNot(HaveOccurred(), "should be able to parse uptime to float")
+			return guestUptime
 		}
 
-		startProcess := func(expecter expect.Expecter) string {
-			By("Start a long running process")
-			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
-				&expect.BSnd{S: "sleep 1m&\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: "disown\n"}, // avoid "garbage" print in terminal on completion
-				&expect.BExp{R: console.PromptExpression},
-			}, 15*time.Second)
-			log.DefaultLogger().Infof("a:%+v\n", res)
-			Expect(err).ToNot(HaveOccurred())
-
-			return grepSleepPid(expecter)
+		hostUptime := func() float64 {
+			return time.Since(startTime).Seconds()
 		}
 
-		checkProcess := func(expecter expect.Expecter) string {
-			By("Checking the long running process")
-			return grepSleepPid(expecter)
-		}
+		BeforeEach(func() {
+			By("Starting a Cirros VMI")
+			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+			vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 240, false)
 
-		It("[test_id:3090]should be continued after the VMI is unpaused", func() {
-			By("Starting a Fedora VMI")
-			vmi := tests.NewRandomFedoraVMIWitGuestAgent()
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
-			tests.WaitAgentConnected(virtClient, vmi)
-
-			expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
-			Expect(expecterErr).ToNot(HaveOccurred())
+			By("Checking that the VirtualMachineInstance console has expected output")
+			expecter, expecterErr := tests.LoggedInCirrosExpecter(vmi)
+			Expect(expecterErr).ToNot(HaveOccurred(), "should successfully create expecter")
 			defer expecter.Close()
 
-			By("Starting a process")
-			startPid := startProcess(expecter)
-			Expect(startPid).ToNot(BeEmpty())
+			By("checking uptime difference between guest and host")
+			uptimeDiffBeforePausing = hostUptime() - grepGuestUptime(expecter)
+		})
 
+		It("[test_id:3090]should be less than uptime difference after pause", func() {
 			By("Pausing the VMI")
 			command := tests.NewRepeatableVirtctlCommand("pause", "vmi", "--namespace", tests.NamespaceTestDefault, vmi.Name)
-			Expect(command()).To(Succeed())
+			Expect(command()).To(Succeed(), "should successfully pause the vmi")
 			tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
-
-			By("Waiting longer than the process normally runs")
-			time.Sleep(10 * time.Second)
+			time.Sleep(10 * time.Second) // sleep to increase uptime diff
 
 			By("Unpausing the VMI")
 			command = tests.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", tests.NamespaceTestDefault, vmi.Name)
-			Expect(command()).To(Succeed())
+			Expect(command()).To(Succeed(), "should successfully unpause tthe vmi")
 			tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
 
-			By("Checking the process")
-			checkPid := checkProcess(expecter)
+			expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
+			Expect(err).ToNot(HaveOccurred(), "should successfully create expecter")
+			defer expecter.Close()
 
-			Expect(checkPid).To(Equal(startPid))
-
+			By("Verifying VMI was indeed Paused")
+			uptimeDiffAfterPausing := hostUptime() - grepGuestUptime(expecter)
+			Expect(uptimeDiffAfterPausing).To(BeNumerically(">", uptimeDiffBeforePausing+10), "uptime diff after pausing should be greater by at least 10 than before pausing")
 		})
 	})
 })
