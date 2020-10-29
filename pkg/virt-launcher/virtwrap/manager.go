@@ -1076,7 +1076,9 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		api.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
 	}
 
-	l.credManager.HandleQemuAgentAccessCredentials(vmi)
+	if err := l.credManager.HandleQemuAgentAccessCredentials(vmi); err != nil {
+		return domain, fmt.Errorf("Starting qemu agent access credential propagation failed: %v", err)
+	}
 
 	return domain, err
 }
