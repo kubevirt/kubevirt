@@ -8959,6 +8959,32 @@
      }
     }
    },
+   "v1.HotplugVolumeStatus": {
+    "description": "HotplugVolumeStatus represents the hotplug status of the volume",
+    "type": "object",
+    "properties": {
+     "attachPodName": {
+      "description": "AttachPodName is the name of the pod used to attach the volume to the node.",
+      "type": "string"
+     },
+     "attachPodUID": {
+      "description": "AttachPodUID is the UID of the pod used to attach the volume to the node.",
+      "type": "string"
+     },
+     "message": {
+      "description": "Message is a detailed message about the current hotplug volume phase",
+      "type": "string"
+     },
+     "phase": {
+      "description": "Phase is the phase",
+      "type": "string"
+     },
+     "reason": {
+      "description": "Reason is a brief description of why we are in the current hotplug volume phase",
+      "type": "string"
+     }
+    }
+   },
    "v1.Hugepages": {
     "description": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
     "type": "object",
@@ -10780,6 +10806,14 @@
      "reason": {
       "description": "A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'",
       "type": "string"
+     },
+     "volumeStatus": {
+      "description": "VolumeStatus contains the statuses of all the volumes",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VolumeStatus"
+      },
+      "x-kubernetes-list-type": "atomic"
      }
     }
    },
@@ -10990,6 +11024,28 @@
      },
      "reason": {
       "description": "Empty if snapshotting is enabled, contains reason otherwise",
+      "type": "string"
+     }
+    }
+   },
+   "v1.VolumeStatus": {
+    "description": "VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.",
+    "type": "object",
+    "required": [
+     "name",
+     "target"
+    ],
+    "properties": {
+     "hotplugVolume": {
+      "description": "If the volume is hotplug, this will contain the hotplug status.",
+      "$ref": "#/definitions/v1.HotplugVolumeStatus"
+     },
+     "name": {
+      "description": "Name is the name of the volume",
+      "type": "string"
+     },
+     "target": {
+      "description": "Target is the target name used when adding the volume to the VM, eg: vda",
       "type": "string"
      }
     }

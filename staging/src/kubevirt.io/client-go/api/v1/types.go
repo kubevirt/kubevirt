@@ -192,7 +192,53 @@ type VirtualMachineInstanceStatus struct {
 	// ActivePods is a mapping of pod UID to node name.
 	// It is possible for multiple pods to be running for a single VMI during migration.
 	ActivePods map[types.UID]string `json:"activePods,omitempty"`
+
+	// VolumeStatus contains the statuses of all the volumes
+	// +optional
+	// +listType=atomic
+	VolumeStatus []VolumeStatus `json:"volumeStatus,omitempty"`
 }
+
+// VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.
+// +k8s:openapi-gen=true
+type VolumeStatus struct {
+	// Name is the name of the volume
+	Name string `json:"name"`
+	// Target is the target name used when adding the volume to the VM, eg: vda
+	Target string `json:"target"`
+	// If the volume is hotplug, this will contain the hotplug status.
+	HotplugVolume *HotplugVolumeStatus `json:"hotplugVolume,omitempty"`
+}
+
+// HotplugVolumeStatus represents the hotplug status of the volume
+// +k8s:openapi-gen=true
+type HotplugVolumeStatus struct {
+	// AttachPodName is the name of the pod used to attach the volume to the node.
+	AttachPodName string `json:"attachPodName,omitempty"`
+	// AttachPodUID is the UID of the pod used to attach the volume to the node.
+	AttachPodUID types.UID `json:"attachPodUID,omitempty"`
+	// Phase is the phase
+	Phase HotplugVolumePhase `json:"phase,omitempty"`
+	// Reason is a brief description of why we are in the current hotplug volume phase
+	Reason string `json:"reason,omitempty"`
+	// Message is a detailed message about the current hotplug volume phase
+	Message string `json:"message,omitempty"`
+}
+
+// HotplugVolumePhase indicates the current phase of the hotplug process.
+// +k8s:openapi-gen=true
+type HotplugVolumePhase string
+
+const (
+	// HotplugVolumePending means the Volume is pending and cannot be attached to the node yet.
+	HotplugVolumePending HotplugVolumePhase = "Pending"
+	// HotplugVolumeBound means the Volume is bound and can be attach to the node.
+	HotplugVolumeBound HotplugVolumePhase = "Bound"
+	// HotplugVolumeAttachedToNode means the volume has been attached to the node.
+	HotplugVolumeAttachedToNode HotplugVolumePhase = "AttachedToNode"
+	// HotplugVolumeReady means the volume is ready to be used by the VirtualMachineInstance.
+	HotplugVolumeReady HotplugVolumePhase = "Ready"
+)
 
 func (v *VirtualMachineInstance) IsScheduling() bool {
 	return v.Status.Phase == Scheduling
