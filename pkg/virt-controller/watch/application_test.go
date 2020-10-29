@@ -20,6 +20,7 @@
 package watch
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -27,14 +28,32 @@ import (
 	"time"
 
 	restful "github.com/emicklei/go-restful"
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
 	kubev1 "k8s.io/api/core/v1"
+	"k8s.io/api/policy/v1beta1"
+	"k8s.io/client-go/tools/record"
 
+	io_prometheus_client "github.com/prometheus/client_model/go"
+
+	v1 "kubevirt.io/client-go/api/v1"
+	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	"kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/rest"
 	testutils "kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/snapshot"
+
+	storagev1 "k8s.io/api/storage/v1"
+	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 )
 
 func newValidGetRequest() *http.Request {
@@ -44,6 +63,108 @@ func newValidGetRequest() *http.Request {
 
 var _ = Describe("Application", func() {
 	var app VirtControllerApp = VirtControllerApp{}
+
+	It("Reports leader prometheus metric when onStartedLeading is called ", func() {
+		ctrl := gomock.NewController(GinkgoT())
+		virtClient := kubecli.NewMockKubevirtClient(ctrl)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		vmInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachine{})
+		vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		vmSnapshotInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
+		vmSnapshotContentInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
+		migrationInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
+		nodeInformer, _ := testutils.NewFakeInformerFor(&kubev1.Node{})
+		recorder := record.NewFakeRecorder(100)
+		config, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
+		pdbInformer, _ := testutils.NewFakeInformerFor(&v1beta1.PodDisruptionBudget{})
+		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
+		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		rsInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceReplicaSet{})
+		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
+		crdInformer, _ := testutils.NewFakeInformerFor(&extv1beta1.CustomResourceDefinition{})
+		vmRestoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
+
+		var qemuGid int64 = 107
+
+		app.informerFactory = controller.NewKubeInformerFactory(nil, nil, nil, "test")
+		app.evacuationController = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, recorder, virtClient, config)
+		app.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, recorder, virtClient)
+		app.nodeController = NewNodeController(virtClient, nodeInformer, vmiInformer, recorder)
+		app.vmiController = NewVMIController(services.NewTemplateService("a", "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid),
+			vmiInformer,
+			podInformer,
+			pvcInformer,
+			recorder,
+			virtClient,
+			dataVolumeInformer,
+		)
+		app.rsController = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
+		app.vmController = NewVMController(vmiInformer, vmInformer, dataVolumeInformer, pvcInformer, recorder, virtClient)
+		app.migrationController = NewMigrationController(services.NewTemplateService("a", "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid),
+			vmiInformer,
+			podInformer,
+			migrationInformer,
+			recorder,
+			virtClient,
+			config,
+		)
+		app.snapshotController = &snapshot.VMSnapshotController{
+			Client:                    virtClient,
+			VMSnapshotInformer:        vmSnapshotInformer,
+			VMSnapshotContentInformer: vmSnapshotContentInformer,
+			VMInformer:                vmInformer,
+			VMIInformer:               vmiInformer,
+			PodInformer:               podInformer,
+			StorageClassInformer:      storageClassInformer,
+			PVCInformer:               pvcInformer,
+			CRDInformer:               crdInformer,
+			Recorder:                  recorder,
+			ResyncPeriod:              60 * time.Second,
+		}
+		app.snapshotController.Init()
+		app.restoreController = &snapshot.VMRestoreController{
+			Client:                    virtClient,
+			VMRestoreInformer:         vmRestoreInformer,
+			VMSnapshotInformer:        vmSnapshotInformer,
+			VMSnapshotContentInformer: vmSnapshotContentInformer,
+			VMInformer:                vmInformer,
+			VMIInformer:               vmiInformer,
+			PVCInformer:               pvcInformer,
+			StorageClassInformer:      storageClassInformer,
+			DataVolumeInformer:        dataVolumeInformer,
+			Recorder:                  recorder,
+		}
+		app.restoreController.Init()
+		app.persistentVolumeClaimInformer = pvcInformer
+
+		app.readyChan = make(chan bool)
+
+		By("Invoking callback")
+		go app.onStartedLeading()(ctx)
+
+		By("Checking prometheus metric before sync")
+		dto := &io_prometheus_client.Metric{}
+		leaderGauge.Write(dto)
+
+		zero := 0.0
+		Expect(dto.GetGauge().Value).To(Equal(&zero), "Leader should be reported after virt-controller is fully operational")
+
+		// for sync
+		go pvcInformer.Run(ctx.Done())
+		time.Sleep(time.Second)
+
+		By("Checking prometheus metric")
+		dto = &io_prometheus_client.Metric{}
+		leaderGauge.Write(dto)
+
+		one := 1.0
+		Expect(dto.GetGauge().Value).To(Equal(&one))
+
+	})
 
 	Describe("Reinitialization conditions", func() {
 		table.DescribeTable("Re-trigger initialization", func(hasCDIAtInit bool, addCrd bool, removeCrd bool, expectReInit bool) {
