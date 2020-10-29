@@ -144,7 +144,7 @@ func prLimit(pid int, limit uintptr, rlimit *unix.Rlimit) error {
 	_, _, errno := unix.RawSyscall6(unix.SYS_PRLIMIT64,
 		uintptr(pid),
 		limit,
-		uintptr(unsafe.Pointer(rlimit)),
+		uintptr(unsafe.Pointer(rlimit)), // #nosec used in unix RawSyscall6
 		0, 0, 0)
 	if errno != 0 {
 		return fmt.Errorf("Error setting prlimit: %v", errno)
