@@ -2809,6 +2809,7 @@ func WaitUntilVMIReadyAsync(vmi *v1.VirtualMachineInstance, expecterFactory cons
 	)
 	wg.Add(1)
 	go func() {
+		defer GinkgoRecover()
 		defer wg.Done()
 		readyVMI = WaitUntilVMIReady(vmi, expecterFactory)
 	}()
