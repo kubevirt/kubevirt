@@ -133,12 +133,7 @@ func (t *ConsoleHandler) getUnixSocketPath(vmi *v1.VirtualMachineInstance, socke
 	if _, err = os.Stat(socketPath); os.IsNotExist(err) {
 		return "", err
 	}
-	// This is a workaround preventing QEMU from deleting its sockets prematurely as described in a bug https://bugs.launchpad.net/qemu/+bug/1795100
-	// once the QEMU 4.0 is released the need for this workaround goes away
-	// Fixes https://bugzilla.redhat.com/show_bug.cgi?id=1683964
-	if err = os.Chmod(socketDir, 0444); err != nil {
-		return "", err
-	}
+
 	return socketPath, nil
 }
 
