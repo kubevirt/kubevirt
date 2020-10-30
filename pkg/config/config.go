@@ -65,9 +65,9 @@ var (
 	SecretDisksDir = mountBaseDir + "/secret-disks"
 	// DownwardAPIDisksDir represents a path to DownwardAPI iso images
 	DownwardAPIDisksDir = mountBaseDir + "/downwardapi-disks"
-	// ServiceAccountDisksDir represents a path to the ServiceAccount iso image
+	// ServiceAccountDiskDir represents a path to the ServiceAccount iso image
 	ServiceAccountDiskDir = mountBaseDir + "/service-account-disk"
-	// ServiceAccountDisksName represents the name of the ServiceAccount iso image
+	// ServiceAccountDiskName represents the name of the ServiceAccount iso image
 	ServiceAccountDiskName = "service-account.iso"
 
 	createISOImage = defaultCreateIsoImage
