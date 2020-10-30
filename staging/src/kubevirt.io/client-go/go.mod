@@ -23,7 +23,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 	k8s.io/utils v0.0.0-20200720150651-0bdb4ca86cbc
-	kubevirt.io/containerized-data-importer v1.23.5
+	kubevirt.io/containerized-data-importer v1.25.0
 )
 
 replace (
@@ -62,6 +62,6 @@ replace (
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.16.4
 	k8s.io/sample-controller => k8s.io/sample-controller v0.16.4
 
-	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.23.5
+	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.25.0
 	sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v0.0.0-20190302045857-e85c7b244fd2
 )

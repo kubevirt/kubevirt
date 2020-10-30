@@ -61,7 +61,7 @@ github.com/go-kit/kit/log
 github.com/go-kit/kit/transport/http
 # github.com/go-logfmt/logfmt v0.4.0
 github.com/go-logfmt/logfmt
-# github.com/go-logr/logr v0.1.0
+# github.com/go-logr/logr v0.2.0
 github.com/go-logr/logr
 # github.com/go-openapi/analysis v0.19.2
 github.com/go-openapi/analysis
@@ -128,7 +128,7 @@ github.com/google/gofuzz
 github.com/google/goterm/term
 # github.com/google/uuid v1.1.1
 github.com/google/uuid
-# github.com/googleapis/gnostic v0.3.1 => github.com/googleapis/gnostic v0.3.1
+# github.com/googleapis/gnostic v0.4.1 => github.com/googleapis/gnostic v0.3.1
 github.com/googleapis/gnostic/OpenAPIv2
 github.com/googleapis/gnostic/compiler
 github.com/googleapis/gnostic/extensions
@@ -563,7 +563,7 @@ k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/apiserver v0.18.6 => k8s.io/apiserver v0.16.4
+# k8s.io/apiserver v0.19.0-rc.2 => k8s.io/apiserver v0.16.4
 k8s.io/apiserver/pkg/apis/audit
 k8s.io/apiserver/pkg/apis/audit/v1
 # k8s.io/client-go v12.0.0+incompatible => k8s.io/client-go v0.16.4
@@ -782,7 +782,7 @@ k8s.io/client-go/util/retry
 k8s.io/client-go/util/workqueue
 # k8s.io/klog v1.0.0 => k8s.io/klog v0.4.0
 k8s.io/klog
-# k8s.io/klog/v2 v2.0.0
+# k8s.io/klog/v2 v2.2.0
 k8s.io/klog/v2
 # k8s.io/kube-aggregator v0.19.0-rc.2 => k8s.io/kube-aggregator v0.16.4
 k8s.io/kube-aggregator/pkg/apis/apiregistration
@@ -840,12 +840,14 @@ kubevirt.io/client-go/precond
 kubevirt.io/client-go/subresources
 kubevirt.io/client-go/util
 kubevirt.io/client-go/version
-# kubevirt.io/containerized-data-importer v1.23.5 => kubevirt.io/containerized-data-importer v1.23.5
+# kubevirt.io/containerized-data-importer v1.25.0 => kubevirt.io/containerized-data-importer v1.25.0
 kubevirt.io/containerized-data-importer/pkg/apis/core
 kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1
 kubevirt.io/containerized-data-importer/pkg/apis/upload
 kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1
 kubevirt.io/containerized-data-importer/pkg/clone
+# kubevirt.io/controller-lifecycle-operator-sdk v0.1.1
+kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api
 # kubevirt.io/qe-tools v0.1.6
 kubevirt.io/qe-tools/pkg/ginkgo-reporters
 kubevirt.io/qe-tools/pkg/polarion-xml

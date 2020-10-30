@@ -24,7 +24,7 @@ import (
 
 	authentication "k8s.io/api/authentication/v1"
 	authorization "k8s.io/api/authorization/v1"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 )
@@ -67,8 +67,12 @@ func CanServiceAccountClonePVC(client SubjectAccessReviewsProxy, pvcNamespace, p
 	user := fmt.Sprintf("system:serviceaccount:%s:%s", saNamespace, saName)
 
 	sarSpec := authorization.SubjectAccessReviewSpec{
-		User:   user,
-		Groups: []string{"system:serviceaccounts", "system:serviceaccounts:" + saNamespace},
+		User: user,
+		Groups: []string{
+			"system:serviceaccounts",
+			"system:serviceaccounts:" + saNamespace,
+			"system:authenticated",
+		},
 	}
 
 	return sendSubjectAccessReviews(client, pvcNamespace, pvcName, sarSpec)
