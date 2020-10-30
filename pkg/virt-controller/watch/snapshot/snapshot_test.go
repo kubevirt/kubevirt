@@ -194,6 +194,8 @@ var _ = Describe("Snapshot controlleer", func() {
 		var pvcSource *framework.FakeControllerSource
 		var crdInformer cache.SharedIndexInformer
 		var crdSource *framework.FakeControllerSource
+		var dvInformer cache.SharedIndexInformer
+		var dvSource *framework.FakeControllerSource
 		var stop chan struct{}
 		var controller *VMSnapshotController
 		var recorder *record.FakeRecorder
@@ -215,6 +217,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			go crdInformer.Run(stop)
 			go vmiInformer.Run(stop)
 			go podInformer.Run(stop)
+			go dvInformer.Run(stop)
 			Expect(cache.WaitForCacheSync(
 				stop,
 				vmSnapshotInformer.HasSynced,
@@ -225,6 +228,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				crdInformer.HasSynced,
 				vmiInformer.HasSynced,
 				podInformer.HasSynced,
+				dvInformer.HasSynced,
 			)).To(BeTrue())
 		}
 
@@ -265,6 +269,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			storageClassInformer, storageClassSource = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 			pvcInformer, pvcSource = testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
 			crdInformer, crdSource = testutils.NewFakeInformerFor(&extv1beta1.CustomResourceDefinition{})
+			dvInformer, dvSource = testutils.NewFakeInformerFor(&cdiv1alpha1.DataVolume{})
 
 			recorder = record.NewFakeRecorder(100)
 
@@ -278,6 +283,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				StorageClassInformer:      storageClassInformer,
 				PVCInformer:               pvcInformer,
 				CRDInformer:               crdInformer,
+				DVInformer:                dvInformer,
 				Recorder:                  recorder,
 				ResyncPeriod:              60 * time.Second,
 				vmStatusUpdater:           status.NewVMStatusUpdater(virtClient),
@@ -935,19 +941,19 @@ var _ = Describe("Snapshot controlleer", func() {
 						StorageClassName: &storageClassName,
 					},
 				}
-
-				pvc2 := corev1.PersistentVolumeClaim{
+				dv1 := cdiv1alpha1.DataVolume{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "alpine-dv",
 						Namespace: testNamespace,
 					},
-					Spec: corev1.PersistentVolumeClaimSpec{
-						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-						StorageClassName: &storageClassName,
+					Spec: cdiv1alpha1.DataVolumeSpec{
+						PVC: &corev1.PersistentVolumeClaimSpec{
+							StorageClassName: &storageClassName,
+						},
 					},
 				}
 				pvcSource.Add(&pvc1)
-				pvcSource.Add(&pvc2)
+				dvSource.Add(&dv1)
 				storageClassSource.Add(createStorageClass())
 				vmSource.Add(vm)
 				volumeSnapshotClasses := createVolumeSnapshotClasses()
@@ -1020,7 +1026,7 @@ var _ = Describe("Snapshot controlleer", func() {
 						Name: "disk5",
 						VolumeSource: v1.VolumeSource{
 							DataVolume: &v1.DataVolumeSource{
-								Name: "dv-without-pvc",
+								Name: "dv-without-pvc-and-storageclass",
 							},
 						},
 					},
@@ -1029,6 +1035,22 @@ var _ = Describe("Snapshot controlleer", func() {
 						VolumeSource: v1.VolumeSource{
 							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 								ClaimName: "non-existent-pvc",
+							},
+						},
+					},
+					{
+						Name: "disk7",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "pvc-without-storage-class",
+							},
+						},
+					},
+					{
+						Name: "disk8",
+						VolumeSource: v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name: "dv-with-pvc-without-storage-class",
 							},
 						},
 					},
@@ -1064,10 +1086,70 @@ var _ = Describe("Snapshot controlleer", func() {
 						StorageClassName: &localStorageClassName,
 					},
 				}
+				pvc7 := corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "pvc-without-storage-class",
+						Namespace: testNamespace,
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						StorageClassName: nil,
+					},
+				}
+				pvc8 := corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "dv-with-pvc-without-storage-class",
+						Namespace: testNamespace,
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						StorageClassName: nil,
+					},
+				}
 
 				pvcSource.Add(&pvc1)
 				pvcSource.Add(&pvc2)
 				pvcSource.Add(&pvc3)
+				pvcSource.Add(&pvc7)
+				pvcSource.Add(&pvc8)
+
+				emptyString := ""
+				dv3 := cdiv1alpha1.DataVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "dv-with-pvc-unsnapshottable-storage-class",
+						Namespace: testNamespace,
+					},
+					Spec: cdiv1alpha1.DataVolumeSpec{
+						PVC: &corev1.PersistentVolumeClaimSpec{
+							StorageClassName: &emptyString,
+						},
+					},
+				}
+				dv5 := cdiv1alpha1.DataVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "dv-without-pvc-and-storageclass",
+						Namespace: testNamespace,
+					},
+					Spec: cdiv1alpha1.DataVolumeSpec{
+						PVC: &corev1.PersistentVolumeClaimSpec{
+							StorageClassName: &localStorageClassName,
+						},
+					},
+				}
+				dv8 := cdiv1alpha1.DataVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "dv-with-pvc-without-storage-class",
+						Namespace: testNamespace,
+					},
+					Spec: cdiv1alpha1.DataVolumeSpec{
+						PVC: &corev1.PersistentVolumeClaimSpec{
+							StorageClassName: nil,
+						},
+					},
+				}
+				dvSource.Add(&dv3)
+				dvSource.Add(&dv5)
+				dvSource.Add(&dv8)
 
 				localStorageClass := &storagev1.StorageClass{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1092,7 +1174,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					Do(func(objs ...interface{}) {
 						vm := objs[0].(*v1.VirtualMachine)
 
-						Expect(len(vm.Status.VolumeSnapshotStatuses)).To(Equal(6))
+						Expect(len(vm.Status.VolumeSnapshotStatuses)).To(Equal(8))
 
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Name).To(Equal("disk1"))
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeFalse())
@@ -1117,12 +1199,22 @@ var _ = Describe("Snapshot controlleer", func() {
 						Expect(vm.Status.VolumeSnapshotStatuses[4].Name).To(Equal("disk5"))
 						Expect(vm.Status.VolumeSnapshotStatuses[4].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[4].Reason).
-							To(Equal("PVC for the DataVolume not found"))
+							To(Equal("No Volume Snapshot Storage Class found for volume [disk5]"))
 
 						Expect(vm.Status.VolumeSnapshotStatuses[5].Name).To(Equal("disk6"))
 						Expect(vm.Status.VolumeSnapshotStatuses[5].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[5].Reason).
 							To(Equal("PVC not found"))
+
+						Expect(vm.Status.VolumeSnapshotStatuses[6].Name).To(Equal("disk7"))
+						Expect(vm.Status.VolumeSnapshotStatuses[6].Enabled).To(BeFalse())
+						Expect(vm.Status.VolumeSnapshotStatuses[6].Reason).
+							To(Equal("No Volume Snapshot Storage Class found for volume [disk7]"))
+
+						Expect(vm.Status.VolumeSnapshotStatuses[7].Name).To(Equal("disk8"))
+						Expect(vm.Status.VolumeSnapshotStatuses[7].Enabled).To(BeFalse())
+						Expect(vm.Status.VolumeSnapshotStatuses[7].Reason).
+							To(Equal("No Volume Snapshot Storage Class found for volume [disk8]"))
 
 						updateCalled = true
 					})
@@ -1146,7 +1238,19 @@ var _ = Describe("Snapshot controlleer", func() {
 						StorageClassName: &storageClassName,
 					},
 				}
+				dv := cdiv1alpha1.DataVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "alpine-dv",
+						Namespace: testNamespace,
+					},
+					Spec: cdiv1alpha1.DataVolumeSpec{
+						PVC: &corev1.PersistentVolumeClaimSpec{
+							StorageClassName: &storageClassName,
+						},
+					},
+				}
 				pvcSource.Add(&pvc)
+				dvSource.Add(&dv)
 				storageClassSource.Add(createStorageClass())
 				vmSource.Add(vm)
 
@@ -1185,6 +1289,74 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				controller.processVMWorkItem()
 				controller.processVMSnapshotStatusWorkItem()
+				Expect(updateCalled).To(BeTrue())
+			})
+
+			It("should should use storage class from template when DV does not have it", func() {
+				vm := createVM()
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+					Name: "disk2",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "test-pvc",
+						},
+					},
+				})
+
+				pvc1 := corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-pvc",
+						Namespace: testNamespace,
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						StorageClassName: &storageClassName,
+					},
+				}
+				emptyString := ""
+				dv1 := cdiv1alpha1.DataVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "alpine-dv",
+						Namespace: testNamespace,
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								Kind: "VirtualMachine",
+								Name: vm.Name,
+							},
+						},
+					},
+					Spec: cdiv1alpha1.DataVolumeSpec{
+						PVC: &corev1.PersistentVolumeClaimSpec{
+							StorageClassName: &emptyString,
+						},
+					},
+				}
+				pvcSource.Add(&pvc1)
+				dvSource.Add(&dv1)
+				storageClassSource.Add(createStorageClass())
+				vmSource.Add(vm)
+				volumeSnapshotClasses := createVolumeSnapshotClasses()
+				for i := range volumeSnapshotClasses {
+					volumeSnapshotClassSource.Add(&volumeSnapshotClasses[i])
+				}
+				mockVMQueue.Add(fmt.Sprintf("%s/%s", vm.Namespace, vm.Name))
+				syncCaches(stop)
+
+				updateCalled := false
+				vmInterface.EXPECT().
+					UpdateStatus(gomock.Any()).
+					Do(func(objs ...interface{}) {
+						vm := objs[0].(*v1.VirtualMachine)
+
+						Expect(len(vm.Status.VolumeSnapshotStatuses)).To(Equal(2))
+						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeTrue())
+						Expect(vm.Status.VolumeSnapshotStatuses[1].Enabled).To(BeTrue())
+						updateCalled = true
+					})
+
+				controller.processVMWorkItem()
+				controller.processVMSnapshotStatusWorkItem()
+
 				Expect(updateCalled).To(BeTrue())
 			})
 		})

@@ -36,6 +36,7 @@ import (
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/status"
 )
@@ -63,11 +64,11 @@ type VMSnapshotController struct {
 	VMSnapshotContentInformer cache.SharedIndexInformer
 	VMInformer                cache.SharedIndexInformer
 	VMIInformer               cache.SharedIndexInformer
-
-	StorageClassInformer cache.SharedIndexInformer
-	PVCInformer          cache.SharedIndexInformer
-	CRDInformer          cache.SharedIndexInformer
-	PodInformer          cache.SharedIndexInformer
+	StorageClassInformer      cache.SharedIndexInformer
+	PVCInformer               cache.SharedIndexInformer
+	CRDInformer               cache.SharedIndexInformer
+	PodInformer               cache.SharedIndexInformer
+	DVInformer                cache.SharedIndexInformer
 
 	Recorder record.EventRecorder
 
@@ -78,6 +79,7 @@ type VMSnapshotController struct {
 	crdQueue               workqueue.RateLimitingInterface
 	vmSnapshotStatusQueue  workqueue.RateLimitingInterface
 	vmQueue                workqueue.RateLimitingInterface
+	dvQueue                workqueue.RateLimitingInterface
 
 	dynamicInformerMap map[string]*dynamicInformer
 	eventHandlerMap    map[string]cache.ResourceEventHandlerFuncs
@@ -94,6 +96,7 @@ func (ctrl *VMSnapshotController) Init() {
 	ctrl.crdQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-crd")
 	ctrl.vmSnapshotStatusQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-vmsnashotstatus")
 	ctrl.vmQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-vm")
+	ctrl.dvQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-dv")
 
 	ctrl.dynamicInformerMap = map[string]*dynamicInformer{
 		volumeSnapshotCRD:      &dynamicInformer{informerFunc: controller.VolumeSnapshotInformer},
@@ -146,6 +149,15 @@ func (ctrl *VMSnapshotController) Init() {
 		ctrl.ResyncPeriod,
 	)
 
+	ctrl.DVInformer.AddEventHandlerWithResyncPeriod(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    ctrl.handleDV,
+			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleDV(newObj) },
+			DeleteFunc: ctrl.handleDV,
+		},
+		ctrl.ResyncPeriod,
+	)
+
 	ctrl.vmStatusUpdater = status.NewVMStatusUpdater(ctrl.Client)
 }
 
@@ -170,6 +182,7 @@ func (ctrl *VMSnapshotController) Run(threadiness int, stopCh <-chan struct{}) e
 		ctrl.CRDInformer.HasSynced,
 		ctrl.PodInformer.HasSynced,
 		ctrl.PVCInformer.HasSynced,
+		ctrl.DVInformer.HasSynced,
 		ctrl.StorageClassInformer.HasSynced,
 	) {
 		return fmt.Errorf("failed to wait for caches to sync")
@@ -181,6 +194,7 @@ func (ctrl *VMSnapshotController) Run(threadiness int, stopCh <-chan struct{}) e
 		go wait.Until(ctrl.crdWorker, time.Second, stopCh)
 		go wait.Until(ctrl.vmSnapshotStatusWorker, time.Second, stopCh)
 		go wait.Until(ctrl.vmWorker, time.Second, stopCh)
+		go wait.Until(ctrl.dvWorker, time.Second, stopCh)
 	}
 
 	<-stopCh
@@ -214,6 +228,11 @@ func (ctrl *VMSnapshotController) vmSnapshotStatusWorker() {
 
 func (ctrl *VMSnapshotController) vmWorker() {
 	for ctrl.processVMWorkItem() {
+	}
+}
+
+func (ctrl *VMSnapshotController) dvWorker() {
+	for ctrl.processDVWorkItem() {
 	}
 }
 
@@ -324,6 +343,28 @@ func (ctrl *VMSnapshotController) processVMWorkItem() bool {
 			}
 
 			ctrl.handleVM(vm)
+		}
+
+		return 0, nil
+	})
+}
+
+func (ctrl *VMSnapshotController) processDVWorkItem() bool {
+	return processWorkItem(ctrl.dvQueue, func(key string) (time.Duration, error) {
+		log.Log.V(3).Infof("DV worker processing VM [%s]", key)
+
+		storeObj, exists, err := ctrl.DVInformer.GetStore().GetByKey(key)
+		if err != nil {
+			return 0, err
+		}
+
+		if exists {
+			dv, ok := storeObj.(*cdiv1.DataVolume)
+			if !ok {
+				return 0, fmt.Errorf("unexpected resource %+v", storeObj)
+			}
+
+			ctrl.handleDV(dv)
 		}
 
 		return 0, nil
@@ -453,6 +494,22 @@ func (ctrl *VMSnapshotController) handleVolumeSnapshot(obj interface{}) {
 
 		for _, k := range keys {
 			ctrl.vmSnapshotContentQueue.Add(k)
+		}
+	}
+}
+
+func (ctrl *VMSnapshotController) handleDV(obj interface{}) {
+	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
+		obj = unknown.Obj
+	}
+
+	if dv, ok := obj.(*cdiv1.DataVolume); ok {
+		log.Log.V(3).Infof("Processing DV %s/%s", dv.Namespace, dv.Name)
+		for _, or := range dv.OwnerReferences {
+
+			if or.Kind == "VirtualMachine" {
+				ctrl.vmQueue.Add(cacheKeyFunc(dv.Namespace, or.Name))
+			}
 		}
 	}
 }

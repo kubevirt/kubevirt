@@ -33,6 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/log"
@@ -683,27 +685,88 @@ func (ctrl *VMSnapshotController) getVolumeStorageClassForVolume(namespace strin
 			return "", fmt.Errorf("PVC not found")
 		}
 		pvc := obj.(*corev1.PersistentVolumeClaim)
-		return ctrl.getVolumeSnapshotClass(*pvc.Spec.StorageClassName)
+		if pvc.Spec.StorageClassName != nil {
+			return ctrl.getVolumeSnapshotClass(*pvc.Spec.StorageClassName)
+		}
+		return "", nil
 	}
 	if volume.VolumeSource.DataVolume != nil {
-		pvcKey := cacheKeyFunc(namespace, volume.VolumeSource.DataVolume.Name)
-		// TODO Change when PVC rename PR is implemented
-
-		obj, exists, err := ctrl.PVCInformer.GetStore().GetByKey(pvcKey)
+		storageClassName, err := ctrl.getStorageClassNameForDV(namespace, volume.VolumeSource.DataVolume.Name)
 		if err != nil {
 			return "", err
 		}
 
-		if !exists {
-			log.Log.V(3).Infof("PVC not in cache [%s]", pvcKey)
-			return "", fmt.Errorf("PVC for the DataVolume not found")
-		}
-
-		pvc := obj.(*corev1.PersistentVolumeClaim)
-		return ctrl.getVolumeSnapshotClass(*pvc.Spec.StorageClassName)
+		return ctrl.getVolumeSnapshotClass(storageClassName)
 	}
 
 	return "", fmt.Errorf("Volume type does not suport snapshots")
+}
+
+func (ctrl *VMSnapshotController) getStorageClassNameForDV(namespace string, dvName string) (string, error) {
+	// First, look up DV's StorageClass
+	key := cacheKeyFunc(namespace, dvName)
+
+	obj, exists, err := ctrl.DVInformer.GetStore().GetByKey(key)
+	if err != nil {
+		return "", err
+	}
+
+	if !exists {
+		log.Log.V(3).Infof("DV not in cache [%s]", key)
+		return "", fmt.Errorf("DV '%s' not found", key)
+	}
+
+	dv := obj.(*cdiv1.DataVolume)
+	if dv.Spec.PVC != nil && dv.Spec.PVC.StorageClassName != nil && *dv.Spec.PVC.StorageClassName != "" {
+		return *dv.Spec.PVC.StorageClassName, nil
+	}
+
+	// Second, see if DV is owned by a VM, and if so, if the DVTemplate has a StorageClass
+	for _, or := range dv.OwnerReferences {
+		if or.Kind == "VirtualMachine" {
+
+			vmKey := cacheKeyFunc(namespace, or.Name)
+			storeObj, exists, err := ctrl.VMInformer.GetStore().GetByKey(vmKey)
+			if err != nil || !exists {
+				continue
+			}
+
+			vm, ok := storeObj.(*kubevirtv1.VirtualMachine)
+			if !ok {
+				continue
+			}
+
+			for _, dvTemplate := range vm.Spec.DataVolumeTemplates {
+				if dvTemplate.Name == dvName && dvTemplate.Spec.PVC != nil && dvTemplate.Spec.PVC.StorageClassName != nil {
+					return *dvTemplate.Spec.PVC.StorageClassName, nil
+				}
+			}
+		}
+	}
+
+	// Third, if everything else fails, wait for PVC to read its StorageClass
+	// NOTE: this will give possibly incorrect `false` value for the status until the
+	// PVC is ready.
+	pvcKey := cacheKeyFunc(namespace, dvName)
+	// TODO Change when PVC rename PR is implemented
+
+	obj, exists, err = ctrl.PVCInformer.GetStore().GetByKey(pvcKey)
+	if err != nil {
+		return "", err
+	}
+
+	if !exists {
+		log.Log.V(3).Infof("PVC not in cache [%s]", pvcKey)
+		return "", fmt.Errorf("PVC for the DataVolume `%s` not found", dvName)
+	}
+
+	pvc := obj.(*corev1.PersistentVolumeClaim)
+	if pvc.Spec.StorageClassName != nil {
+		return *pvc.Spec.StorageClassName, nil
+	}
+
+	log.Log.V(3).Info("PVC has no StorageClassName")
+	return "", nil
 }
 
 func (ctrl *VMSnapshotController) getVM(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (*kubevirtv1.VirtualMachine, error) {
