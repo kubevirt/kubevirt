@@ -212,7 +212,7 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachines(vmis []*virtv1
 	return claimed, utilerrors.NewAggregate(errlist)
 }
 
-// ClaimDataVolume tries to take ownership of a list of DataVolumes.
+// ClaimMatchedDataVolumes tries to take ownership of a list of DataVolumes.
 //
 // It will reconcile the following:
 //   * Adopt orphans if the selector matches.
