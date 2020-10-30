@@ -1,13 +1,12 @@
 FROM registry.svc.ci.openshift.org/openshift/release:golang-1.13 AS builder
 WORKDIR /go/src/kubevirt.io/kubevirt
-COPY . .
+COPY tests/default-config.json tests/
+COPY hack/ci/*.sh /
 
 # download oc binary
 RUN cd /bin/ && \
     curl https://mirror.openshift.com/pub/openshift-v4/clients/oc/4.4/linux/oc.tar.gz | tar -C . -xzf -  && \
     chmod +x oc && \
     ln -s oc kubectl
-
-COPY hack/ci/*.sh /
 
 ENV DOCKER_PREFIX='kubevirt'

@@ -15,6 +15,3 @@ echo "Deploying test infrastructure"
 for testinfra_file in $(curl -L "${release_url}/testing/" | grep -oE 'https://[^"]*\.yaml'); do
     oc create -f "${testinfra_file}"
 done
-
-echo "Waiting for KubeVirt to get ready"
-oc wait -n kubevirt kv kubevirt --for condition=Available --timeout 15m
