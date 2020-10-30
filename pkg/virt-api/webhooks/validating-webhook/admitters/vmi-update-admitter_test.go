@@ -343,7 +343,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		result := getPermanentVolumes(volumes, hotpluggedVolumes)
 		Expect(reflect.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
 	},
-		table.Entry("Should be empty if volumes is empty", makeVolumes(0), emptyResult(), emptyResult()),
+		table.Entry("Should be empty if volume is empty", makeVolumes(0), emptyResult(), emptyResult()),
 		table.Entry("Should be empty if all volumes are hotplugged", makeVolumes(4), makeResult(0, 1, 2, 3), emptyResult()),
 		table.Entry("Should return all volumes if hotplugged is empty", makeVolumes(4), emptyResult(), makeResult(0, 1, 2, 3)),
 		table.Entry("Should return 3 volumes if  1 hotplugged volume", makeVolumes(4), makeResult(2), makeResult(0, 1, 3)),
@@ -361,7 +361,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		table.Entry("Should reject if we remove a permanent volume", makeVolumes(0), makeDisks(0), makeStatus(1, 0), makeExpected("cannot remove permanent volume")),
 		table.Entry("Should reject if we add a disk without a matching volume", makeVolumes(2), makeDisksNoVolume(2), makeStatus(2, 1), makeExpected("Disk invalid-volume-name-1 doesn't have a matching volume")),
 		table.Entry("Should reject if we add volumes that are not PVC or DV", makeInvalidVolumes(2), makeDisks(2), makeStatus(2, 1), makeExpected("Disk volume-name-1 has a volume that is not a PVC or DataVolume")),
-		table.Entry("Should accep if we add volumes and disk properly", makeVolumes(2), makeDisks(2), makeStatus(2, 1), nil),
+		table.Entry("Should accept if we add volumes and disk properly", makeVolumes(2), makeDisks(2), makeStatus(2, 1), nil),
 	)
 
 	table.DescribeTable("Admit or deny based on user", func(user string, expected types.GomegaMatcher) {

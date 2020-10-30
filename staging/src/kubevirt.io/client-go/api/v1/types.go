@@ -238,6 +238,8 @@ const (
 	HotplugVolumeAttachedToNode HotplugVolumePhase = "AttachedToNode"
 	// HotplugVolumeReady means the volume is ready to be used by the VirtualMachineInstance.
 	HotplugVolumeReady HotplugVolumePhase = "Ready"
+	// HotplugVolumeDetaching means the volume is being detached from the node, and the attachment pod is being removed.
+	HotplugVolumeDetaching HotplugVolumePhase = "Detaching"
 )
 
 func (v *VirtualMachineInstance) IsScheduling() bool {
