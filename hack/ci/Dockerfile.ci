@@ -1,7 +1,7 @@
 FROM registry.svc.ci.openshift.org/openshift/release:golang-1.13 AS builder
 WORKDIR /go/src/kubevirt.io/kubevirt
 COPY tests/default-config.json tests/
-COPY hack/ci/*.sh /
+COPY hack/ci/entrypoint.sh /
 
 # download oc binary
 RUN cd /bin/ && \
@@ -10,3 +10,5 @@ RUN cd /bin/ && \
     ln -s oc kubectl
 
 ENV DOCKER_PREFIX='kubevirt'
+
+ENTRYPOINT [ "entrypoint.sh" ]
