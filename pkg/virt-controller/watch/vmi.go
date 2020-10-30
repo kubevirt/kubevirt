@@ -21,6 +21,7 @@ package watch
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -28,6 +29,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	k8sv1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -40,6 +42,7 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/controller"
+	kubevirttypes "kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -254,6 +257,20 @@ func (c *VMIController) execute(key string) error {
 		return err
 	}
 
+	volumeStatusCopy := make([]virtv1.VolumeStatus, 0)
+	if pod != nil {
+		hotplugVolumes := c.getHotplugVolumes(vmi, pod)
+		hotplugAttachmentPods, err := c.virtlauncherAttachmentPods(pod)
+		if err != nil {
+			return err
+		}
+		if c.needsHandleHotplug(hotplugVolumes, hotplugAttachmentPods) {
+			volumeStatusCopy, err = c.handleHotplugVolumes(hotplugVolumes, hotplugAttachmentPods, vmi, pod)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	// If needsSync is true (expectations fulfilled) we can make save assumptions if virt-handler or virt-controller owns the pod
 	needsSync := c.podExpectations.SatisfiedExpectations(key)
 
@@ -261,7 +278,7 @@ func (c *VMIController) execute(key string) error {
 	if needsSync {
 		syncErr = c.sync(vmi, pod, dataVolumes)
 	}
-	err = c.updateStatus(vmi, pod, dataVolumes, syncErr)
+	err = c.updateStatus(vmi, pod, dataVolumes, volumeStatusCopy, syncErr)
 	if err != nil {
 		return err
 	}
@@ -298,7 +315,7 @@ func conditionsEqual(a []virtv1.VirtualMachineInstanceCondition, b []virtv1.Virt
 	return true
 }
 
-func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr syncError) error {
+func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, volumeStatusCopy []virtv1.VolumeStatus, syncErr syncError) error {
 
 	hasFailedDataVolume := false
 	for _, dataVolume := range dataVolumes {
@@ -1139,4 +1156,194 @@ func (c *VMIController) currentPod(vmi *virtv1.VirtualMachineInstance) (*k8sv1.P
 func isTempPod(pod *k8sv1.Pod) bool {
 	_, ok := pod.Annotations[virtv1.EphemeralProvisioningObject]
 	return ok
+}
+
+func (c *VMIController) getHotplugVolumes(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) []*virtv1.Volume {
+	var hotplugVolumes []*virtv1.Volume
+	podVolumes := pod.Spec.Volumes
+	vmiVolumes := vmi.Spec.Volumes
+
+	podVolumeMap := make(map[string]*k8sv1.Volume)
+	for _, podVolume := range podVolumes {
+        podVolumeMap[podVolume.Name] = &podVolume
+	}
+	for _, vmiVolume := range vmiVolumes {
+		if _, ok := podVolumeMap[vmiVolume.Name]; ok && (vmiVolume.DataVolume != nil || vmiVolume.PersistentVolumeClaim != nil) {
+			hotplugVolumes = append(hotplugVolumes, &vmiVolume)
+		}
+	}
+	return hotplugVolumes
+}
+
+func (c *VMIController) virtlauncherAttachmentPods(virtlauncherPod *k8sv1.Pod) ([]*k8sv1.Pod, error) {
+	var attachmentPods []*k8sv1.Pod
+
+	// Get all pods from the namespace
+	pods, err := c.listPodsFromNamespace(virtlauncherPod.Namespace)
+	if err != nil {
+		return attachmentPods, err
+	}
+
+	for _, pod := range pods {
+		ownerRef := controller.GetControllerOf(pod)
+		if ownerRef.UID != virtlauncherPod.GetUID() {
+			continue
+		}
+		attachmentPods = append(attachmentPods, pod)
+	}
+
+	return attachmentPods, nil
+}
+
+func (c *VMIController) needsHandleHotplug(hotplugVolumes []*virtv1.Volume, currentAttachmentPods []*k8sv1.Pod) bool {
+	volumeMap := make(map[string]*virtv1.Volume)
+	// If lengths don't match, need to handle for sure. This captures single adds/deletes
+	if len(hotplugVolumes) != len(currentAttachmentPods) {
+		return true
+	}
+	for _, volume := range hotplugVolumes {
+		volumeMap[volume.Name] = volume
+	}
+	for _, pod := range currentAttachmentPods {
+		for _, podVolume := range pod.Spec.Volumes {
+			if _, ok := volumeMap[podVolume.Name]; !ok && podVolume.VolumeSource.PersistentVolumeClaim != nil {
+				// found a pod with a PVC that is not in the hotplugged volume list, this means we need to unplug the volume
+				// This also captures the add/delete at once, no need to do extra check for the add, because if we added a
+				// volume the length check would have caught it.
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod, vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) ([]virtv1.VolumeStatus, error) {
+	logger := log.Log.Object(vmi)
+
+	statusCopy := vmi.Status.DeepCopy().VolumeStatus
+	// Examine pods, and determine which volumes were added, and which were deleted.
+	deletedVolumes := c.getDeletedHotplugVolumes(hotplugAttachmentPods, hotplugVolumes)
+	if len(deletedVolumes) > 0 {
+		// Some volumes were deleted, make sure we delete the hotplug pods
+		for _, volume := range deletedVolumes {
+			logger.V(4).Infof("Deleting hotplug pod for volume: %s", volume.Name)
+			deletedPod, err := c.deleteHotplugPodForVolume(volume, hotplugAttachmentPods, logger)
+			if err != nil {
+				return nil, err
+			}
+			if deletedPod != nil {
+				// virt-handler will update the status once it removes the volume from the virt-launcher pod.
+				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, "Deleted hotplug attachment pod %s, for volume %s", deletedPod.Name, volume.Name)
+			}
+		}
+	}
+	newVolumes := c.getNewHotplugVolumes(hotplugAttachmentPods, hotplugVolumes)
+	if len(newVolumes) > 0 {
+		// New volumes detected, create hotplug pods.
+		for _, volume := range newVolumes {
+			hotplugPodTemplate, err := c.createHotplugPodTemplate(volume, virtLauncherPod, vmi)
+			if err != nil {
+				return nil, err
+			}
+			pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(hotplugPodTemplate)
+			if err != nil && !k8serrors.IsAlreadyExists(err) {
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating hotplug pod for volume %s: %v", volume.Name, err)
+				return nil, fmt.Errorf("failed to create virtual machine pod: %v", err)
+			}
+			if !k8serrors.IsAlreadyExists(err) {
+				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created hotplug attachment pod %s, for volume %s", pod.Name, volume.Name)
+			}
+		}
+	}
+	return statusCopy, nil
+}
+
+func (c *VMIController) getNewHotplugVolumes(hotplugAttachmentPods []*k8sv1.Pod, hotplugVolumes []*virtv1.Volume) []*virtv1.Volume {
+	var newVolumes []*virtv1.Volume
+	hotplugVolumeMap := make(map[string]*virtv1.Volume)
+	for _, volume := range hotplugVolumes {
+		hotplugVolumeMap[volume.Name] = volume
+	}
+	// Remove all the volumes that we have a pod for.
+	for _, pod := range hotplugAttachmentPods {
+		for _, volume := range pod.Spec.Volumes {
+			if _, ok := hotplugVolumeMap[volume.Name]; ok {
+				delete(hotplugVolumeMap, volume.Name)
+			}
+		}
+	}
+	// Any remaining volumes are new.
+	for _, v := range hotplugVolumeMap {
+		newVolumes = append(newVolumes, v)
+	}
+	return newVolumes
+}
+
+func (c *VMIController) getDeletedHotplugVolumes(hotplugPods []*k8sv1.Pod, hotplugVolumes []*virtv1.Volume) []k8sv1.Volume {
+	var deletedVolumes []k8sv1.Volume
+	hotplugVolumeMap := make(map[string]*virtv1.Volume)
+	for _, volume := range hotplugVolumes {
+		hotplugVolumeMap[volume.Name] = volume
+	}
+	for _, pod := range hotplugPods {
+		for _, volume := range pod.Spec.Volumes {
+			if _, ok := hotplugVolumeMap[volume.Name]; !ok && volume.PersistentVolumeClaim != nil {
+				deletedVolumes = append(deletedVolumes, volume)
+			}
+		}
+	}
+	return deletedVolumes
+}
+
+func (c *VMIController) deleteHotplugPodForVolume(volume k8sv1.Volume, hotplugPods []*k8sv1.Pod, logger *log.FilteredLogger) (*k8sv1.Pod, error) {
+	zero := int64(0)
+	var resPod *k8sv1.Pod
+	for _, pod := range hotplugPods {
+		for _, podVolume := range pod.Spec.Volumes {
+			if podVolume.Name == volume.Name && podVolume.PersistentVolumeClaim != nil {
+				logger.V(4).Infof("Deleting pod: %s", pod.Name)
+				resPod = pod
+				// TODO: Cleanup anything stopping the pod from dying.
+				err := c.clientset.CoreV1().Pods(pod.GetNamespace()).Delete(pod.Name, &v1.DeleteOptions{
+					GracePeriodSeconds: &zero,
+				})
+				if  err != nil && !k8serrors.IsNotFound(err) {
+					return nil, err
+				}
+			}
+		}
+	}
+	return resPod, nil
+}
+
+func (c *VMIController) createHotplugPodTemplate(volume *virtv1.Volume, ownerPod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance) (*k8sv1.Pod, error) {
+	var claimName string
+	if volume.DataVolume != nil {
+		// TODO, look up the correct PVC name based on the datavolume, right now they match, but that will not always be true.
+		claimName = volume.DataVolume.Name
+	} else if volume.PersistentVolumeClaim != nil {
+		claimName = volume.PersistentVolumeClaim.ClaimName
+	}
+	if claimName == "" {
+		return nil, errors.New("Unable to hotplug, claim not PVC or Datavolume")
+	}
+
+	pvc, exists, isBlock, err := kubevirttypes.IsPVCBlockFromClient(c.clientset, ownerPod.Namespace, claimName)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("Unable to hotplug, claim %s not found", claimName)
+	}
+	//Verify the PVC is ready to be used.
+	populated, err := cdiv1.IsPopulated(pvc, func(name, namespace string) (*cdiv1.DataVolume, error) {
+		dv, exists, _ := c.dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, name))
+		if !exists {
+			return nil, fmt.Errorf("Unable to find datavolume %s/%s", namespace, name)
+		}
+		return dv.(*cdiv1.DataVolume), nil
+	})
+
+
+	return c.templateService.RenderHotplugPodTemplate(volume, ownerPod, vmi, pvc.Name, isBlock)
 }
