@@ -13,6 +13,14 @@ import (
 var sideEffectNone = v1beta1.SideEffectClassNone
 var sideEffectNoneOnDryRun = v1beta1.SideEffectClassNoneOnDryRun
 
+var defaultPort int32 = 443
+var defaultTimeoutSeconds int32 = 30
+var ignore v1beta1.FailurePolicyType = v1beta1.Ignore
+var exact v1beta1.MatchPolicyType = v1beta1.Exact
+var nrp v1beta1.ReinvocationPolicyType = v1beta1.NeverReinvocationPolicy
+var allScopes v1beta1.ScopeType = v1beta1.AllScopes
+var defaultLabelSelector metav1.LabelSelector = metav1.LabelSelector{}
+
 func NewOperatorWebhookService(operatorNamespace string) *corev1.Service {
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -67,12 +75,14 @@ func NewOpertorValidatingWebhookConfiguration(operatorNamespace string) *v1beta1
 		},
 		Webhooks: []v1beta1.ValidatingWebhook{
 			{
-				Name: "kubevirt-validator.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1beta1"},
+				Name:                    "kubevirt-validator.kubevirt.io",
 				ClientConfig: v1beta1.WebhookClientConfig{
 					Service: &v1beta1.ServiceReference{
 						Namespace: operatorNamespace,
 						Name:      VirtOperatorServiceName,
 						Path:      &path,
+						Port:      &defaultPort,
 					},
 				},
 				Rules: []v1beta1.RuleWithOperations{{
@@ -83,10 +93,15 @@ func NewOpertorValidatingWebhookConfiguration(operatorNamespace string) *v1beta1
 						APIGroups:   []string{virtv1.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"kubevirts"},
+						Scope:       &allScopes,
 					},
 				}},
-				FailurePolicy: &failurePolicy,
-				SideEffects:   &sideEffectNone,
+				FailurePolicy:     &failurePolicy,
+				SideEffects:       &sideEffectNone,
+				MatchPolicy:       &exact,
+				TimeoutSeconds:    &defaultTimeoutSeconds,
+				NamespaceSelector: &defaultLabelSelector,
+				ObjectSelector:    &defaultLabelSelector,
 			},
 		},
 	}
@@ -114,8 +129,9 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *v1beta1.Mu
 		},
 		Webhooks: []v1beta1.MutatingWebhook{
 			{
-				Name:        "virtualmachines-mutator.kubevirt.io",
-				SideEffects: &sideEffectNone,
+				AdmissionReviewVersions: []string{"v1beta1"},
+				Name:                    "virtualmachines-mutator.kubevirt.io",
+				SideEffects:             &sideEffectNone,
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Create,
@@ -125,6 +141,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *v1beta1.Mu
 						APIGroups:   []string{virtv1.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachines"},
+						Scope:       &allScopes,
 					},
 				}},
 				ClientConfig: v1beta1.WebhookClientConfig{
@@ -132,12 +149,20 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *v1beta1.Mu
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &vmPath,
+						Port:      &defaultPort,
 					},
 				},
+				FailurePolicy:      &ignore,
+				MatchPolicy:        &exact,
+				ReinvocationPolicy: &nrp,
+				TimeoutSeconds:     &defaultTimeoutSeconds,
+				NamespaceSelector:  &defaultLabelSelector,
+				ObjectSelector:     &defaultLabelSelector,
 			},
 			{
-				Name:        "virtualmachineinstances-mutator.kubevirt.io",
-				SideEffects: &sideEffectNone,
+				AdmissionReviewVersions: []string{"v1beta1"},
+				Name:                    "virtualmachineinstances-mutator.kubevirt.io",
+				SideEffects:             &sideEffectNone,
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Create,
@@ -147,6 +172,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *v1beta1.Mu
 						APIGroups:   []string{virtv1.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstances"},
+						Scope:       &allScopes,
 					},
 				}},
 				ClientConfig: v1beta1.WebhookClientConfig{
@@ -154,12 +180,20 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *v1beta1.Mu
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &vmiPath,
+						Port:      &defaultPort,
 					},
 				},
+				FailurePolicy:      &ignore,
+				MatchPolicy:        &exact,
+				ReinvocationPolicy: &nrp,
+				TimeoutSeconds:     &defaultTimeoutSeconds,
+				NamespaceSelector:  &defaultLabelSelector,
+				ObjectSelector:     &defaultLabelSelector,
 			},
 			{
-				Name:        "migrations-mutator.kubevirt.io",
-				SideEffects: &sideEffectNone,
+				AdmissionReviewVersions: []string{"v1beta1"},
+				Name:                    "migrations-mutator.kubevirt.io",
+				SideEffects:             &sideEffectNone,
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Create,
@@ -168,6 +202,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *v1beta1.Mu
 						APIGroups:   []string{virtv1.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstancemigrations"},
+						Scope:       &allScopes,
 					},
 				}},
 				ClientConfig: v1beta1.WebhookClientConfig{
@@ -175,8 +210,15 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *v1beta1.Mu
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &migrationPath,
+						Port:      &defaultPort,
 					},
 				},
+				FailurePolicy:      &ignore,
+				MatchPolicy:        &exact,
+				ReinvocationPolicy: &nrp,
+				TimeoutSeconds:     &defaultTimeoutSeconds,
+				NamespaceSelector:  &defaultLabelSelector,
+				ObjectSelector:     &defaultLabelSelector,
 			},
 		},
 	}
@@ -216,7 +258,8 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 		},
 		Webhooks: []v1beta1.ValidatingWebhook{
 			{
-				Name: "virt-launcher-eviction-interceptor.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1beta1"},
+				Name:                    "virt-launcher-eviction-interceptor.kubevirt.io",
 				// We don't want to block evictions in the cluster in a case where this webhook is down.
 				// The eviction of virt-launcher will still be protected by our pdb.
 				FailurePolicy: &ignorePolicy,
@@ -229,6 +272,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						APIGroups:   []string{""},
 						APIVersions: []string{"v1"},
 						Resources:   []string{"pods/eviction"},
+						Scope:       &allScopes,
 					},
 				}},
 				ClientConfig: v1beta1.WebhookClientConfig{
@@ -236,13 +280,19 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &launcherEvictionValidatePath,
+						Port:      &defaultPort,
 					},
 				},
+				MatchPolicy:       &exact,
+				TimeoutSeconds:    &defaultTimeoutSeconds,
+				NamespaceSelector: &defaultLabelSelector,
+				ObjectSelector:    &defaultLabelSelector,
 			},
 			{
-				Name:          "virtualmachineinstances-create-validator.kubevirt.io",
-				FailurePolicy: &failurePolicy,
-				SideEffects:   &sideEffectNone,
+				AdmissionReviewVersions: []string{"v1beta1"},
+				Name:                    "virtualmachineinstances-create-validator.kubevirt.io",
+				FailurePolicy:           &failurePolicy,
+				SideEffects:             &sideEffectNone,
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Create,
@@ -251,6 +301,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						APIGroups:   []string{virtv1.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstances"},
+						Scope:       &allScopes,
 					},
 				}},
 				ClientConfig: v1beta1.WebhookClientConfig{
@@ -258,13 +309,19 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &vmiPathCreate,
+						Port:      &defaultPort,
 					},
 				},
+				MatchPolicy:       &exact,
+				TimeoutSeconds:    &defaultTimeoutSeconds,
+				NamespaceSelector: &defaultLabelSelector,
+				ObjectSelector:    &defaultLabelSelector,
 			},
 			{
-				Name:          "virtualmachineinstances-update-validator.kubevirt.io",
-				FailurePolicy: &failurePolicy,
-				SideEffects:   &sideEffectNone,
+				AdmissionReviewVersions: []string{"v1beta1"},
+				Name:                    "virtualmachineinstances-update-validator.kubevirt.io",
+				FailurePolicy:           &failurePolicy,
+				SideEffects:             &sideEffectNone,
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Update,
@@ -273,6 +330,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						APIGroups:   []string{virtv1.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstances"},
+						Scope:       &allScopes,
 					},
 				}},
 				ClientConfig: v1beta1.WebhookClientConfig{
@@ -280,13 +338,19 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &vmiPathUpdate,
+						Port:      &defaultPort,
 					},
 				},
+				MatchPolicy:       &exact,
+				TimeoutSeconds:    &defaultTimeoutSeconds,
+				NamespaceSelector: &defaultLabelSelector,
+				ObjectSelector:    &defaultLabelSelector,
 			},
 			{
-				Name:          "virtualmachine-validator.kubevirt.io",
-				FailurePolicy: &failurePolicy,
-				SideEffects:   &sideEffectNone,
+				AdmissionReviewVersions: []string{"v1beta1"},
+				Name:                    "virtualmachine-validator.kubevirt.io",
+				FailurePolicy:           &failurePolicy,
+				SideEffects:             &sideEffectNone,
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Create,
@@ -296,6 +360,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						APIGroups:   []string{virtv1.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachines"},
+						Scope:       &allScopes,
 					},
 				}},
 				ClientConfig: v1beta1.WebhookClientConfig{
@@ -303,13 +368,19 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &vmPath,
+						Port:      &defaultPort,
 					},
 				},
+				MatchPolicy:       &exact,
+				TimeoutSeconds:    &defaultTimeoutSeconds,
+				NamespaceSelector: &defaultLabelSelector,
+				ObjectSelector:    &defaultLabelSelector,
 			},
 			{
-				Name:          "virtualmachinereplicaset-validator.kubevirt.io",
-				FailurePolicy: &failurePolicy,
-				SideEffects:   &sideEffectNone,
+				AdmissionReviewVersions: []string{"v1beta1"},
+				Name:                    "virtualmachinereplicaset-validator.kubevirt.io",
+				FailurePolicy:           &failurePolicy,
+				SideEffects:             &sideEffectNone,
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Create,
@@ -319,6 +390,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						APIGroups:   []string{virtv1.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstancereplicasets"},
+						Scope:       &allScopes,
 					},
 				}},
 				ClientConfig: v1beta1.WebhookClientConfig{
@@ -326,13 +398,21 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &vmirsPath,
+						Port:      &defaultPort,
 					},
 				},
+
+				MatchPolicy: &exact,
+
+				TimeoutSeconds:    &defaultTimeoutSeconds,
+				NamespaceSelector: &defaultLabelSelector,
+				ObjectSelector:    &defaultLabelSelector,
 			},
 			{
-				Name:          "virtualmachinepreset-validator.kubevirt.io",
-				FailurePolicy: &failurePolicy,
-				SideEffects:   &sideEffectNone,
+				AdmissionReviewVersions: []string{"v1beta1"},
+				Name:                    "virtualmachinepreset-validator.kubevirt.io",
+				FailurePolicy:           &failurePolicy,
+				SideEffects:             &sideEffectNone,
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Create,
@@ -342,6 +422,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						APIGroups:   []string{virtv1.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstancepresets"},
+						Scope:       &allScopes,
 					},
 				}},
 				ClientConfig: v1beta1.WebhookClientConfig{
@@ -349,13 +430,19 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &vmipresetPath,
+						Port:      &defaultPort,
 					},
 				},
+				MatchPolicy:       &exact,
+				TimeoutSeconds:    &defaultTimeoutSeconds,
+				NamespaceSelector: &defaultLabelSelector,
+				ObjectSelector:    &defaultLabelSelector,
 			},
 			{
-				Name:          "migration-create-validator.kubevirt.io",
-				FailurePolicy: &failurePolicy,
-				SideEffects:   &sideEffectNone,
+				AdmissionReviewVersions: []string{"v1beta1"},
+				Name:                    "migration-create-validator.kubevirt.io",
+				FailurePolicy:           &failurePolicy,
+				SideEffects:             &sideEffectNone,
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Create,
@@ -364,6 +451,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						APIGroups:   []string{virtv1.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstancemigrations"},
+						Scope:       &allScopes,
 					},
 				}},
 				ClientConfig: v1beta1.WebhookClientConfig{
@@ -371,13 +459,19 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &migrationCreatePath,
+						Port:      &defaultPort,
 					},
 				},
+				MatchPolicy:       &exact,
+				TimeoutSeconds:    &defaultTimeoutSeconds,
+				NamespaceSelector: &defaultLabelSelector,
+				ObjectSelector:    &defaultLabelSelector,
 			},
 			{
-				Name:          "migration-update-validator.kubevirt.io",
-				FailurePolicy: &failurePolicy,
-				SideEffects:   &sideEffectNone,
+				AdmissionReviewVersions: []string{"v1beta1"},
+				Name:                    "migration-update-validator.kubevirt.io",
+				FailurePolicy:           &failurePolicy,
+				SideEffects:             &sideEffectNone,
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Update,
@@ -386,6 +480,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						APIGroups:   []string{virtv1.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
 						Resources:   []string{"virtualmachineinstancemigrations"},
+						Scope:       &allScopes,
 					},
 				}},
 				ClientConfig: v1beta1.WebhookClientConfig{
@@ -393,13 +488,19 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &migrationUpdatePath,
+						Port:      &defaultPort,
 					},
 				},
+				MatchPolicy:       &exact,
+				TimeoutSeconds:    &defaultTimeoutSeconds,
+				NamespaceSelector: &defaultLabelSelector,
+				ObjectSelector:    &defaultLabelSelector,
 			},
 			{
-				Name:          "virtualmachinesnapshot-validator.snapshot.kubevirt.io",
-				FailurePolicy: &failurePolicy,
-				SideEffects:   &sideEffectNone,
+				AdmissionReviewVersions: []string{"v1beta1"},
+				Name:                    "virtualmachinesnapshot-validator.snapshot.kubevirt.io",
+				FailurePolicy:           &failurePolicy,
+				SideEffects:             &sideEffectNone,
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Create,
@@ -409,6 +510,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						APIGroups:   []string{snapshotv1.SchemeGroupVersion.Group},
 						APIVersions: []string{snapshotv1.SchemeGroupVersion.Version},
 						Resources:   []string{"virtualmachinesnapshots"},
+						Scope:       &allScopes,
 					},
 				}},
 				ClientConfig: v1beta1.WebhookClientConfig{
@@ -416,13 +518,19 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &vmSnapshotValidatePath,
+						Port:      &defaultPort,
 					},
 				},
+				MatchPolicy:       &exact,
+				TimeoutSeconds:    &defaultTimeoutSeconds,
+				NamespaceSelector: &defaultLabelSelector,
+				ObjectSelector:    &defaultLabelSelector,
 			},
 			{
-				Name:          "virtualmachinerestore-validator.snapshot.kubevirt.io",
-				SideEffects:   &sideEffectNone,
-				FailurePolicy: &failurePolicy,
+				AdmissionReviewVersions: []string{"v1beta1"},
+				Name:                    "virtualmachinerestore-validator.snapshot.kubevirt.io",
+				SideEffects:             &sideEffectNone,
+				FailurePolicy:           &failurePolicy,
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Create,
@@ -432,6 +540,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						APIGroups:   []string{snapshotv1.SchemeGroupVersion.Group},
 						APIVersions: []string{snapshotv1.SchemeGroupVersion.Version},
 						Resources:   []string{"virtualmachinerestores"},
+						Scope:       &allScopes,
 					},
 				}},
 				ClientConfig: v1beta1.WebhookClientConfig{
@@ -439,13 +548,19 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &vmRestoreValidatePath,
+						Port:      &defaultPort,
 					},
 				},
+				MatchPolicy:       &exact,
+				TimeoutSeconds:    &defaultTimeoutSeconds,
+				NamespaceSelector: &defaultLabelSelector,
+				ObjectSelector:    &defaultLabelSelector,
 			},
 			{
-				Name:          "kubevirt-crd-status-validator.kubevirt.io",
-				FailurePolicy: &failurePolicy,
-				SideEffects:   &sideEffectNone,
+				AdmissionReviewVersions: []string{"v1beta1"},
+				Name:                    "kubevirt-crd-status-validator.kubevirt.io",
+				FailurePolicy:           &failurePolicy,
+				SideEffects:             &sideEffectNone,
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Create,
@@ -455,6 +570,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						APIGroups:   []string{virtv1.GroupName},
 						APIVersions: []string{virtv1.VirtualMachineInstanceGroupVersionKind.Version},
 						Resources:   []string{"*/status"},
+						Scope:       &allScopes,
 					},
 				}},
 				ClientConfig: v1beta1.WebhookClientConfig{
@@ -462,8 +578,13 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &statusValidatePath,
+						Port:      &defaultPort,
 					},
 				},
+				MatchPolicy:       &exact,
+				TimeoutSeconds:    &defaultTimeoutSeconds,
+				NamespaceSelector: &defaultLabelSelector,
+				ObjectSelector:    &defaultLabelSelector,
 			},
 		},
 	}

@@ -20,6 +20,7 @@
 package virt_operator
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -30,9 +31,9 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 
+	"kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
@@ -379,8 +380,17 @@ var _ = Describe("KubeVirt Operator", func() {
 		ctrl.Finish()
 	})
 
-	injectMetadata := func(objectMeta *metav1.ObjectMeta, config *util.KubeVirtDeploymentConfig) {
+	injectLastApplied := func(objRuntime runtime.Object) {
+		currentRuntimeObj, _ := sdk.StripStatusFromObject(objRuntime)
+		obj := objRuntime.(metav1.Object)
 
+		if !sdk.IsMutable(currentRuntimeObj) {
+			json, _ := json.Marshal(currentRuntimeObj)
+			obj.GetAnnotations()[installstrategy.LastAppliedConfigAnnotationKey] = string(json)
+		}
+	}
+
+	injectMetadata := func(objectMeta *metav1.ObjectMeta, config *util.KubeVirtDeploymentConfig, addGenerationID bool) {
 		if config == nil {
 			return
 		}
@@ -388,6 +398,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			objectMeta.Labels = make(map[string]string)
 		}
 		objectMeta.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
+		objectMeta.Labels[v1.AppComponentLabel] = v1.AppComponent
 
 		if objectMeta.Annotations == nil {
 			objectMeta.Annotations = make(map[string]string)
@@ -395,7 +406,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		objectMeta.Annotations[v1.InstallStrategyVersionAnnotation] = config.GetKubeVirtVersion()
 		objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation] = config.GetImageRegistry()
 		objectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation] = config.GetDeploymentID()
-		objectMeta.Annotations[v1.KubeVirtGenerationAnnotation] = "1"
+		if addGenerationID {
+			objectMeta.Annotations[v1.KubeVirtGenerationAnnotation] = "1"
+		}
 	}
 
 	addKubeVirt := func(kv *v1.KubeVirt) {
@@ -531,64 +544,86 @@ var _ = Describe("KubeVirt Operator", func() {
 	addResource := func(obj runtime.Object, config *util.KubeVirtDeploymentConfig) {
 		switch resource := obj.(type) {
 		case *k8sv1.ServiceAccount:
-			injectMetadata(&obj.(*k8sv1.ServiceAccount).ObjectMeta, config)
+			injectMetadata(&obj.(*k8sv1.ServiceAccount).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addServiceAccount(resource)
 		case *rbacv1.ClusterRole:
-			injectMetadata(&obj.(*rbacv1.ClusterRole).ObjectMeta, config)
+			injectMetadata(&obj.(*rbacv1.ClusterRole).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addClusterRole(resource)
 		case *rbacv1.ClusterRoleBinding:
-			injectMetadata(&obj.(*rbacv1.ClusterRoleBinding).ObjectMeta, config)
+			injectMetadata(&obj.(*rbacv1.ClusterRoleBinding).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addClusterRoleBinding(resource)
 		case *rbacv1.Role:
-			injectMetadata(&obj.(*rbacv1.Role).ObjectMeta, config)
+			injectMetadata(&obj.(*rbacv1.Role).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addRole(resource)
 		case *rbacv1.RoleBinding:
-			injectMetadata(&obj.(*rbacv1.RoleBinding).ObjectMeta, config)
+			injectMetadata(&obj.(*rbacv1.RoleBinding).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addRoleBinding(resource)
 		case *extv1beta1.CustomResourceDefinition:
-			injectMetadata(&obj.(*extv1beta1.CustomResourceDefinition).ObjectMeta, config)
+			injectMetadata(&obj.(*extv1beta1.CustomResourceDefinition).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addCrd(resource)
 		case *k8sv1.Service:
-			injectMetadata(&obj.(*k8sv1.Service).ObjectMeta, config)
+			injectMetadata(&obj.(*k8sv1.Service).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addService(resource)
 		case *appsv1.Deployment:
-			injectMetadata(&obj.(*appsv1.Deployment).ObjectMeta, config)
+			injectMetadata(&obj.(*appsv1.Deployment).ObjectMeta, config, true)
+			injectMetadata(&obj.(*appsv1.Deployment).Spec.Template.ObjectMeta, config, false)
+			injectLastApplied(obj)
 			addDeployment(resource)
 		case *appsv1.DaemonSet:
-			injectMetadata(&obj.(*appsv1.DaemonSet).ObjectMeta, config)
+			injectMetadata(&obj.(*appsv1.DaemonSet).ObjectMeta, config, true)
+			injectMetadata(&obj.(*appsv1.DaemonSet).Spec.Template.ObjectMeta, config, false)
+			injectLastApplied(obj)
 			addDaemonset(resource)
 		case *admissionregistrationv1beta1.ValidatingWebhookConfiguration:
-			injectMetadata(&obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration).ObjectMeta, config)
+			injectMetadata(&obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addValidatingWebhook(resource)
 		case *admissionregistrationv1beta1.MutatingWebhookConfiguration:
-			injectMetadata(&obj.(*admissionregistrationv1beta1.MutatingWebhookConfiguration).ObjectMeta, config)
+			injectMetadata(&obj.(*admissionregistrationv1beta1.MutatingWebhookConfiguration).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addMutatingWebhook(resource)
 		case *v1beta1.APIService:
-			injectMetadata(&obj.(*v1beta1.APIService).ObjectMeta, config)
+			injectMetadata(&obj.(*v1beta1.APIService).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addAPIService(resource)
 		case *batchv1.Job:
-			injectMetadata(&obj.(*batchv1.Job).ObjectMeta, config)
+			injectMetadata(&obj.(*batchv1.Job).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addInstallStrategyJob(resource)
 		case *k8sv1.ConfigMap:
-			injectMetadata(&obj.(*k8sv1.ConfigMap).ObjectMeta, config)
+			injectMetadata(&obj.(*k8sv1.ConfigMap).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addConfigMap(resource)
 		case *k8sv1.Pod:
-			injectMetadata(&obj.(*k8sv1.Pod).ObjectMeta, config)
+			injectMetadata(&obj.(*k8sv1.Pod).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addPod(resource)
 		case *policyv1beta1.PodDisruptionBudget:
-			injectMetadata(&obj.(*policyv1beta1.PodDisruptionBudget).ObjectMeta, config)
+			injectMetadata(&obj.(*policyv1beta1.PodDisruptionBudget).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addPodDisruptionBudget(resource)
 		case *k8sv1.Secret:
-			injectMetadata(&obj.(*k8sv1.Secret).ObjectMeta, config)
+			injectMetadata(&obj.(*k8sv1.Secret).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addSecret(resource)
 		case *secv1.SecurityContextConstraints:
-			injectMetadata(&obj.(*secv1.SecurityContextConstraints).ObjectMeta, config)
+			injectMetadata(&obj.(*secv1.SecurityContextConstraints).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addSCC(resource)
 		case *promv1.ServiceMonitor:
-			injectMetadata(&obj.(*promv1.ServiceMonitor).ObjectMeta, config)
+			injectMetadata(&obj.(*promv1.ServiceMonitor).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addServiceMonitor(resource)
 		case *promv1.PrometheusRule:
-			injectMetadata(&obj.(*promv1.PrometheusRule).ObjectMeta, config)
+			injectMetadata(&obj.(*promv1.PrometheusRule).ObjectMeta, config, true)
+			injectLastApplied(obj)
 			addPrometheusRule(resource)
 		default:
 			Fail("unknown resource type")
@@ -610,32 +645,15 @@ var _ = Describe("KubeVirt Operator", func() {
 	}
 
 	addPodDisruptionBudgets := func(config *util.KubeVirtDeploymentConfig, apiDeployment *appsv1.Deployment, controller *appsv1.Deployment) {
-		minAvailable := intstr.FromInt(int(1))
-		apiPodDisruptionBudget := &policyv1beta1.PodDisruptionBudget{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: apiDeployment.Namespace,
-				Name:      apiDeployment.Name + "-pdb",
-				Labels:    apiDeployment.Labels,
-			},
-			Spec: policyv1beta1.PodDisruptionBudgetSpec{
-				MinAvailable: &minAvailable,
-				Selector:     apiDeployment.Spec.Selector,
-			},
-		}
-		injectMetadata(&apiPodDisruptionBudget.ObjectMeta, config)
+
+		apiPodDisruptionBudget := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
+		injectMetadata(&apiPodDisruptionBudget.ObjectMeta, config, true)
+		injectLastApplied(apiPodDisruptionBudget)
 		addPodDisruptionBudget(apiPodDisruptionBudget)
-		controllerPodDisruptionBudget := &policyv1beta1.PodDisruptionBudget{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: controller.Namespace,
-				Name:      controller.Name + "-pdb",
-				Labels:    controller.Labels,
-			},
-			Spec: policyv1beta1.PodDisruptionBudgetSpec{
-				MinAvailable: &minAvailable,
-				Selector:     controller.Spec.Selector,
-			},
-		}
-		injectMetadata(&controllerPodDisruptionBudget.ObjectMeta, config)
+
+		controllerPodDisruptionBudget := components.NewPodDisruptionBudgetForDeployment(controller)
+		injectMetadata(&controllerPodDisruptionBudget.ObjectMeta, config, true)
+		injectLastApplied(controllerPodDisruptionBudget)
 		addPodDisruptionBudget(controllerPodDisruptionBudget)
 	}
 
@@ -659,7 +677,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			},
 		}
-		injectMetadata(&pod.ObjectMeta, config)
+		injectMetadata(&pod.ObjectMeta, config, true)
 		pod.Name = "virt-api-xxxx"
 		addPod(pod)
 
@@ -675,7 +693,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			},
 		}
 		pod.Name = "virt-controller-xxxx"
-		injectMetadata(&pod.ObjectMeta, configController)
+		injectMetadata(&pod.ObjectMeta, configController, true)
 		addPod(pod)
 
 		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, configHandler.GetImageRegistry(), configHandler.GetImagePrefix(), configHandler.GetHandlerVersion(), "", "", configHandler.GetImagePullPolicy(), configHandler.GetVerbosity(), configHandler.GetExtraEnv())
@@ -689,7 +707,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			},
 		}
-		injectMetadata(&pod.ObjectMeta, configHandler)
+		injectMetadata(&pod.ObjectMeta, configHandler, true)
 		pod.Name = "virt-handler-xxxx"
 		addPod(pod)
 
@@ -825,7 +843,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			},
 		}
 
-		injectMetadata(&validationWebhook.ObjectMeta, config)
+		injectMetadata(&validationWebhook.ObjectMeta, config, true)
 		addValidatingWebhook(validationWebhook)
 	}
 
@@ -860,11 +878,18 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, components.NewOperatorWebhookService(NAMESPACE))
 		all = append(all, components.NewPrometheusService(NAMESPACE))
 		all = append(all, components.NewApiServerService(NAMESPACE))
-		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+
+		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetProductName(), config.GetProductVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 		apiDeploymentPdb := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
-		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+		installstrategy.InjectPlacementMetadata(&v1.ComponentConfig{}, &apiDeployment.Spec.Template.Spec)
+
+		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetProductName(), config.GetProductVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+		installstrategy.InjectPlacementMetadata(&v1.ComponentConfig{}, &controller.Spec.Template.Spec)
 		controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
-		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), "", "", config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+
+		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetProductName(), config.GetProductVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+		installstrategy.InjectPlacementMetadata(&v1.ComponentConfig{}, &handler.Spec.Template.Spec)
+
 		all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
 		all = append(all, rbac.GetAllServiceMonitor(NAMESPACE, config.GetMonitorNamespace(), config.GetMonitorServiceAccount())...)

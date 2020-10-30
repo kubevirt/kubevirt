@@ -124,7 +124,7 @@ var _ = Describe("Create", func() {
 					return true, nil, fmt.Errorf("Patch failed!")
 				}
 				patched = true
-				return true, nil, nil
+				return true, cachedPodDisruptionBudget, nil
 			})
 
 			pdbClient.Fake.PrependReactor("create", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -134,7 +134,7 @@ var _ = Describe("Create", func() {
 					return true, nil, fmt.Errorf("Create failed!")
 				}
 				created = true
-				return true, nil, nil
+				return true, cachedPodDisruptionBudget, nil
 			})
 			extClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				Expect(action).To(BeNil())
@@ -189,6 +189,14 @@ var _ = Describe("Create", func() {
 
 			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
 			injectOperatorMetadata(kv, &cachedPodDisruptionBudget.ObjectMeta, Version, Registry, Id, true)
+
+			// calculate desired pdb
+			podDisruptionBudget := components.NewPodDisruptionBudgetForDeployment(deployment)
+			injectOperatorMetadata(kv, &podDisruptionBudget.ObjectMeta, Version, Registry, Id, true)
+
+			json, err := json.Marshal(podDisruptionBudget)
+			Expect(err).ToNot(HaveOccurred())
+			cachedPodDisruptionBudget.GetAnnotations()[LastAppliedConfigAnnotationKey] = string(json)
 
 			err = syncPodDisruptionBudgetForDeployment(deployment, clientset, kv, expectations, stores)
 
@@ -438,7 +446,7 @@ var _ = Describe("Create", func() {
 		})
 	})
 
-	Context("on calling injectPlacementMetadata", func() {
+	Context("on calling InjectPlacementMetadata", func() {
 		var componentConfig *v1.ComponentConfig
 		var nodePlacement *v1.NodePlacement
 		var podSpec *corev1.PodSpec
@@ -604,23 +612,23 @@ var _ = Describe("Create", func() {
 		// Node Selectors
 		It("should succeed if nodePlacement is nil", func() {
 			// if componentConfig is nil
-			injectPlacementMetadata(nil, podSpec)
+			InjectPlacementMetadata(nil, podSpec)
 			// if componentConfig.NodePlacement is nil
 			componentConfig.NodePlacement = nil
-			injectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec)
 			Expect(len(podSpec.NodeSelector)).To(Equal(0))
 		})
 
 		It("should succeed if podSpec is nil", func() {
 			orig := componentConfig.DeepCopy()
-			injectPlacementMetadata(componentConfig, nil)
+			InjectPlacementMetadata(componentConfig, nil)
 			Expect(reflect.DeepEqual(orig, componentConfig)).To(BeTrue())
 		})
 
 		It("should copy NodeSelectors when podSpec is empty", func() {
 			nodePlacement.NodeSelector = make(map[string]string)
 			nodePlacement.NodeSelector["foo"] = "bar"
-			injectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec)
 			Expect(len(podSpec.NodeSelector)).To(Equal(1))
 			Expect(podSpec.NodeSelector["foo"]).To(Equal("bar"))
 		})
@@ -630,7 +638,7 @@ var _ = Describe("Create", func() {
 			nodePlacement.NodeSelector["foo"] = "bar"
 			podSpec.NodeSelector = make(map[string]string)
 			podSpec.NodeSelector["existing"] = "value"
-			injectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec)
 			Expect(len(podSpec.NodeSelector)).To(Equal(2))
 			Expect(podSpec.NodeSelector["foo"]).To(Equal("bar"))
 			Expect(podSpec.NodeSelector["existing"]).To(Equal("value"))
@@ -641,7 +649,7 @@ var _ = Describe("Create", func() {
 			nodePlacement.NodeSelector["foo"] = "bar"
 			podSpec.NodeSelector = make(map[string]string)
 			podSpec.NodeSelector["foo"] = "from-podspec"
-			injectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec)
 			Expect(len(podSpec.NodeSelector)).To(Equal(1))
 			Expect(podSpec.NodeSelector["foo"]).To(Equal("from-podspec"))
 		})
@@ -649,7 +657,7 @@ var _ = Describe("Create", func() {
 		It("should preserve NodeSelectors if nodePlacement has none", func() {
 			podSpec.NodeSelector = make(map[string]string)
 			podSpec.NodeSelector["foo"] = "from-podspec"
-			injectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec)
 			Expect(len(podSpec.NodeSelector)).To(Equal(1))
 			Expect(podSpec.NodeSelector["foo"]).To(Equal("from-podspec"))
 		})
@@ -662,14 +670,14 @@ var _ = Describe("Create", func() {
 				Effect:   "NoSchedule",
 			}
 			nodePlacement.Tolerations = []corev1.Toleration{toleration}
-			injectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec)
 			Expect(len(podSpec.Tolerations)).To(Equal(1))
 			Expect(podSpec.Tolerations[0].Key).To(Equal("test-taint"))
 		})
 
 		It("should preserve tolerations when nodePlacement is empty", func() {
 			podSpec.Tolerations = []corev1.Toleration{toleration}
-			injectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec)
 			Expect(len(podSpec.Tolerations)).To(Equal(1))
 			Expect(podSpec.Tolerations[0].Key).To(Equal("test-taint"))
 		})
@@ -677,13 +685,13 @@ var _ = Describe("Create", func() {
 		It("should merge tolerations when both are defined", func() {
 			nodePlacement.Tolerations = []corev1.Toleration{toleration}
 			podSpec.Tolerations = []corev1.Toleration{toleration2}
-			injectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec)
 			Expect(len(podSpec.Tolerations)).To(Equal(2))
 		})
 
 		It("It should copy NodePlacement if podSpec Affinity is empty", func() {
 			nodePlacement.Affinity = affinity
-			injectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec)
 			Expect(reflect.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
 
 		})
@@ -691,7 +699,7 @@ var _ = Describe("Create", func() {
 		It("It should copy NodePlacement if Node, Pod and Anti affinities are empty", func() {
 			nodePlacement.Affinity = affinity
 			podSpec.Affinity = &corev1.Affinity{}
-			injectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec)
 			Expect(reflect.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
 
 		})
@@ -699,7 +707,7 @@ var _ = Describe("Create", func() {
 		It("It should merge NodePlacement and podSpec affinity terms", func() {
 			nodePlacement.Affinity = affinity
 			podSpec.Affinity = affinity2
-			injectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec)
 			Expect(len(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms)).To(Equal(2))
 			Expect(len(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(Equal(2))
 			Expect(len(podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution)).To(Equal(2))
@@ -713,7 +721,7 @@ var _ = Describe("Create", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.NodeAffinity = &corev1.NodeAffinity{}
 			nodePlacement.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.DeepCopy()
-			injectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec)
 			Expect(len(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms)).To(Equal(1))
 		})
 
@@ -721,7 +729,7 @@ var _ = Describe("Create", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.NodeAffinity = &corev1.NodeAffinity{}
 			nodePlacement.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
-			injectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec)
 			Expect(len(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(Equal(1))
 		})
 
@@ -729,7 +737,7 @@ var _ = Describe("Create", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.PodAffinity = &corev1.PodAffinity{}
 			nodePlacement.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution
-			injectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec)
 			Expect(len(podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution)).To(Equal(1))
 		})
 
@@ -737,7 +745,7 @@ var _ = Describe("Create", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.PodAffinity = &corev1.PodAffinity{}
 			nodePlacement.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution
-			injectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec)
 			Expect(len(podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(Equal(1))
 		})
 
@@ -745,7 +753,7 @@ var _ = Describe("Create", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
 			nodePlacement.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution
-			injectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec)
 			Expect(len(podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution)).To(Equal(1))
 		})
 
@@ -753,7 +761,7 @@ var _ = Describe("Create", func() {
 			nodePlacement.Affinity = &corev1.Affinity{}
 			nodePlacement.Affinity.PodAntiAffinity = &corev1.PodAntiAffinity{}
 			nodePlacement.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution
-			injectPlacementMetadata(componentConfig, podSpec)
+			InjectPlacementMetadata(componentConfig, podSpec)
 			Expect(len(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(Equal(1))
 		})
 	})

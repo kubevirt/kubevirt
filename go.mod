@@ -79,6 +79,8 @@ require (
 replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v11.0.0+incompatible
 	github.com/go-kit/kit => github.com/go-kit/kit v0.3.0
+	github.com/go-logr/logr => github.com/go-logr/logr v0.2.1
+	github.com/go-logr/zapr => github.com/go-logr/zapr v0.2.0
 	github.com/golang/glog => ./staging/src/github.com/golang/glog
 	github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.3.1
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c

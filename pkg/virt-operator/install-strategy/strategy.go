@@ -51,6 +51,15 @@ import (
 
 const customSCCPrivilegedAccountsType = "KubevirtCustomSCCRule"
 
+var defaultPort int32 = 443
+var defaultTimeoutSeconds int32 = 30
+var ignore v1beta1.FailurePolicyType = v1beta1.Ignore
+var exact v1beta1.MatchPolicyType = v1beta1.Exact
+var nrp v1beta1.ReinvocationPolicyType = v1beta1.NeverReinvocationPolicy
+var allScopes v1beta1.ScopeType = v1beta1.AllScopes
+var sideEffectNone = v1beta1.SideEffectClassNone
+var defaultLabelSelector metav1.LabelSelector = metav1.LabelSelector{}
+
 type InstallStrategy struct {
 	serviceAccounts []*corev1.ServiceAccount
 
@@ -390,17 +399,19 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 
 		switch obj.Kind {
 		case "ValidatingWebhookConfiguration":
-			webhook := &v1beta1.ValidatingWebhookConfiguration{}
+			webhook := v1beta1.ValidatingWebhookConfiguration{}
 			if err := yaml.Unmarshal([]byte(entry), &webhook); err != nil {
 				return nil, err
 			}
-			strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, webhook)
+			addDefaultValidatingWebhookValues(&webhook)
+			strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, &webhook)
 		case "MutatingWebhookConfiguration":
-			webhook := &v1beta1.MutatingWebhookConfiguration{}
+			webhook := v1beta1.MutatingWebhookConfiguration{}
 			if err := yaml.Unmarshal([]byte(entry), &webhook); err != nil {
 				return nil, err
 			}
-			strategy.mutatingWebhookConfigurations = append(strategy.mutatingWebhookConfigurations, webhook)
+			addDefaultMutatingWebhookValues(&webhook)
+			strategy.mutatingWebhookConfigurations = append(strategy.mutatingWebhookConfigurations, &webhook)
 		case "APIService":
 			apiService := &v1beta12.APIService{}
 			if err := yaml.Unmarshal([]byte(entry), &apiService); err != nil {
@@ -450,16 +461,23 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 			}
 			strategy.services = append(strategy.services, s)
 		case "Deployment":
-			d := &appsv1.Deployment{}
+			d := appsv1.Deployment{}
 			if err := yaml.Unmarshal([]byte(entry), &d); err != nil {
 				return nil, err
 			}
-			strategy.deployments = append(strategy.deployments, d)
+
+			addContainerDefaultValues(d.Spec.Template.Spec.Containers)
+			addDefaultSecretVolumeValues(d.Spec.Template.Spec.Volumes)
+
+			strategy.deployments = append(strategy.deployments, &d)
 		case "DaemonSet":
 			d := &appsv1.DaemonSet{}
 			if err := yaml.Unmarshal([]byte(entry), &d); err != nil {
 				return nil, err
 			}
+			addContainerDefaultValues(d.Spec.Template.Spec.Containers)
+			addDefaultSecretVolumeValues(d.Spec.Template.Spec.Volumes)
+
 			strategy.daemonSets = append(strategy.daemonSets, d)
 		case "CustomResourceDefinition":
 			crd := &extv1beta1.CustomResourceDefinition{}
@@ -498,6 +516,180 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 		log.Log.Infof("%s loaded", obj.Kind)
 	}
 	return strategy, nil
+}
+
+func addContainerDefaultValues(containers []corev1.Container) {
+	for i, _ := range containers {
+		container := &containers[i]
+		if container.TerminationMessagePath == "" {
+			container.TerminationMessagePath = corev1.TerminationMessagePathDefault
+		}
+
+		if container.TerminationMessagePolicy == "" {
+			container.TerminationMessagePolicy = corev1.TerminationMessageReadFile
+		}
+
+		addDefaultProbeValues(container.ReadinessProbe)
+		addDefaultProbeValues(container.LivenessProbe)
+		addDefaultContainerEnvValues(container.Env)
+	}
+}
+
+func addDefaultProbeValues(probe *corev1.Probe) {
+	if probe == nil {
+		return
+	}
+
+	if probe.InitialDelaySeconds == 0 {
+		probe.InitialDelaySeconds = 15
+	}
+
+	if probe.PeriodSeconds == 0 {
+		probe.PeriodSeconds = 10
+	}
+
+	if probe.SuccessThreshold == 0 {
+		probe.SuccessThreshold = 1
+	}
+
+	if probe.FailureThreshold == 0 {
+		probe.FailureThreshold = 3
+	}
+
+	if probe.TimeoutSeconds == 0 {
+		probe.TimeoutSeconds = 1
+	}
+}
+
+func addDefaultContainerEnvValues(envvars []corev1.EnvVar) {
+	for _, ev := range envvars {
+		if ev.ValueFrom != nil && ev.ValueFrom.FieldRef != nil {
+			ev.ValueFrom.FieldRef.APIVersion = "v1"
+		}
+	}
+}
+
+func addDefaultSecretVolumeValues(volumes []corev1.Volume) {
+	defaultMode := corev1.ConfigMapVolumeSourceDefaultMode
+	defaultValueHostPathType := corev1.HostPathUnset
+
+	for _, volume := range volumes {
+		if volume.VolumeSource.Secret != nil {
+			if volume.VolumeSource.Secret.DefaultMode == nil {
+				volume.VolumeSource.Secret.DefaultMode = &defaultMode
+			}
+
+			continue
+		}
+
+		if volume.VolumeSource.HostPath != nil {
+			if volume.VolumeSource.HostPath.Type == nil {
+				volume.VolumeSource.HostPath.Type = &defaultValueHostPathType
+			}
+
+			continue
+		}
+	}
+}
+
+func addDefaultValidatingWebhookValues(vwc *v1beta1.ValidatingWebhookConfiguration) {
+	for i, _ := range vwc.Webhooks {
+		vw := &vwc.Webhooks[i]
+
+		if len(vw.AdmissionReviewVersions) == 0 {
+			vw.AdmissionReviewVersions = []string{"v1beta1"}
+		}
+
+		if vw.ClientConfig.Service != nil {
+			if vw.ClientConfig.Service.Port == nil {
+				vw.ClientConfig.Service.Port = &defaultPort
+			}
+		}
+
+		vw.Rules = getRulesWithDefaults(vw.Rules)
+
+		if vw.SideEffects == nil {
+			vw.SideEffects = &sideEffectNone
+		}
+
+		if vw.FailurePolicy == nil {
+			vw.FailurePolicy = &ignore
+		}
+
+		if vw.MatchPolicy == nil {
+			vw.MatchPolicy = &exact
+		}
+
+		if vw.TimeoutSeconds == nil {
+			vw.TimeoutSeconds = &defaultTimeoutSeconds
+		}
+
+		if vw.NamespaceSelector == nil {
+			vw.NamespaceSelector = &defaultLabelSelector
+		}
+
+		if vw.ObjectSelector == nil {
+			vw.ObjectSelector = &defaultLabelSelector
+		}
+	}
+}
+
+func addDefaultMutatingWebhookValues(mwc *v1beta1.MutatingWebhookConfiguration) {
+	for i, _ := range mwc.Webhooks {
+		mw := &mwc.Webhooks[i]
+		if len(mw.AdmissionReviewVersions) == 0 {
+			mw.AdmissionReviewVersions = []string{"v1beta1"}
+		}
+
+		if mw.ClientConfig.Service != nil {
+			if mw.ClientConfig.Service.Port == nil {
+				mw.ClientConfig.Service.Port = &defaultPort
+			}
+		}
+
+		mw.Rules = getRulesWithDefaults(mw.Rules)
+
+		if mw.SideEffects == nil {
+			mw.SideEffects = &sideEffectNone
+		}
+
+		if mw.ReinvocationPolicy == nil {
+			mw.ReinvocationPolicy = &nrp
+		}
+
+		if mw.FailurePolicy == nil {
+			mw.FailurePolicy = &ignore
+		}
+
+		if mw.MatchPolicy == nil {
+			mw.MatchPolicy = &exact
+		}
+
+		if mw.TimeoutSeconds == nil {
+			mw.TimeoutSeconds = &defaultTimeoutSeconds
+		}
+
+		if mw.NamespaceSelector == nil {
+			mw.NamespaceSelector = &defaultLabelSelector
+		}
+
+		if mw.ObjectSelector == nil {
+			mw.ObjectSelector = &defaultLabelSelector
+		}
+	}
+}
+
+func getRulesWithDefaults(rules []v1beta1.RuleWithOperations) []v1beta1.RuleWithOperations {
+	newRules := []v1beta1.RuleWithOperations{}
+	for _, r := range rules {
+		if r.Rule.Scope == nil {
+			r.Rule.Scope = &allScopes
+		}
+
+		newRules = append(newRules, r)
+	}
+
+	return newRules
 }
 
 func remove(users []string, user string) ([]string, bool) {

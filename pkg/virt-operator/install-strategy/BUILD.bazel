@@ -7,6 +7,7 @@ go_library(
         "delete.go",
         "generated_mock_create.go",
         "patches.go",
+        "reconcile.go",
         "strategy.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-operator/install-strategy",
@@ -42,6 +43,7 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/util/strategicpatch:go_default_library",
         "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
         "//vendor/k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1:go_default_library",
+        "//vendor/kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk:go_default_library",
     ],
 )
 

@@ -54,11 +54,6 @@ func (c *Customizer) GenericApplyPatches(objects interface{}) error {
 
 			patches := c.GetPatchesForResource(kind, name)
 
-			patches = append(patches, v1.CustomizeComponentsPatch{
-				Patch: fmt.Sprintf(`{"metadata":{"annotations":{"%s":"%s"}}}`, v1.KubeVirtCustomizeComponentAnnotationHash, c.hash),
-				Type:  v1.StrategicMergePatchType,
-			})
-
 			err := applyPatches(obj, patches)
 			if err != nil {
 				return err

@@ -69,7 +69,6 @@ type APIServiceInterface interface {
 }
 
 func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry, id string, generation int64) bool {
-
 	if objectMeta.Annotations == nil {
 		return false
 	}
@@ -152,7 +151,7 @@ func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, vers
 }
 
 // Merge all Tolerations, Affinity and NodeSelectos from NodePlacement into pod spec
-func injectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev1.PodSpec) {
+func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev1.PodSpec) {
 	if componentConfig == nil || componentConfig.NodePlacement == nil {
 		return
 	}
@@ -295,7 +294,7 @@ func syncDaemonSet(kv *v1.KubeVirt,
 
 	injectOperatorMetadata(kv, &daemonSet.ObjectMeta, imageTag, imageRegistry, id, true)
 	injectOperatorMetadata(kv, &daemonSet.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
-	injectPlacementMetadata(kv.Spec.Workloads, &daemonSet.Spec.Template.Spec)
+	InjectPlacementMetadata(kv.Spec.Workloads, &daemonSet.Spec.Template.Spec)
 
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
@@ -304,17 +303,31 @@ func syncDaemonSet(kv *v1.KubeVirt,
 
 	var cachedDaemonSet *appsv1.DaemonSet
 	obj, exists, _ := stores.DaemonSetCache.Get(daemonSet)
-	if exists {
-		cachedDaemonSet = obj.(*appsv1.DaemonSet)
-	}
 	if !exists {
+		setLastAppliedConfiguration(daemonSet)
+
 		expectations.DaemonSet.RaiseExpectations(kvkey, 1, 0)
-		_, err = apps.DaemonSets(kv.Namespace).Create(daemonSet)
+		_, err := apps.DaemonSets(kv.Namespace).Create(daemonSet)
 		if err != nil {
 			expectations.DaemonSet.LowerExpectations(kvkey, 1, 0)
 			return fmt.Errorf("unable to create daemonset %+v: %v", daemonSet, err)
 		}
-	} else if !objectMatchesVersion(&cachedDaemonSet.ObjectMeta, imageTag, imageRegistry, id, kv.GetGeneration()) {
+
+		return nil
+	}
+
+	cachedDaemonSet = obj.(*appsv1.DaemonSet)
+	cachedDaemonSet.APIVersion = daemonSet.APIVersion
+	cachedDaemonSet.Kind = daemonSet.Kind
+
+	sync, obj, err := resourceShouldUpdate(cachedDaemonSet, daemonSet)
+	if err != nil {
+		return err
+	}
+
+	if sync {
+		daemonSet = obj.(*appsv1.DaemonSet)
+
 		// Patch if old version
 		var ops []string
 
@@ -336,6 +349,7 @@ func syncDaemonSet(kv *v1.KubeVirt,
 		if err != nil {
 			return fmt.Errorf("unable to patch daemonset %+v: %v", daemonSet, err)
 		}
+
 		log.Log.V(2).Infof("daemonset %v updated", daemonSet.GetName())
 
 	} else {
@@ -359,7 +373,7 @@ func syncDeployment(kv *v1.KubeVirt,
 
 	injectOperatorMetadata(kv, &deployment.ObjectMeta, imageTag, imageRegistry, id, true)
 	injectOperatorMetadata(kv, &deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
-	injectPlacementMetadata(kv.Spec.Infra, &deployment.Spec.Template.Spec)
+	InjectPlacementMetadata(kv.Spec.Infra, &deployment.Spec.Template.Spec)
 
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
@@ -369,18 +383,30 @@ func syncDeployment(kv *v1.KubeVirt,
 	var cachedDeployment *appsv1.Deployment
 
 	obj, exists, _ := stores.DeploymentCache.Get(deployment)
-	if exists {
-		cachedDeployment = obj.(*appsv1.Deployment)
-	}
-
 	if !exists {
+		setLastAppliedConfiguration(deployment)
+
 		expectations.Deployment.RaiseExpectations(kvkey, 1, 0)
-		_, err = apps.Deployments(kv.Namespace).Create(deployment)
+		_, err := apps.Deployments(kv.Namespace).Create(deployment)
 		if err != nil {
 			expectations.Deployment.LowerExpectations(kvkey, 1, 0)
 			return fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
 		}
-	} else if !objectMatchesVersion(&cachedDeployment.ObjectMeta, imageTag, imageRegistry, id, kv.GetGeneration()) {
+
+		return nil
+	}
+
+	cachedDeployment = obj.(*appsv1.Deployment)
+	cachedDeployment.APIVersion = deployment.APIVersion
+	cachedDeployment.Kind = deployment.Kind
+
+	sync, obj, err := resourceShouldUpdate(cachedDeployment, deployment)
+	if err != nil {
+		return err
+	}
+
+	if sync {
+		deployment = obj.(*appsv1.Deployment)
 		// Patch if old version
 		var ops []string
 
@@ -402,6 +428,7 @@ func syncDeployment(kv *v1.KubeVirt,
 		if err != nil {
 			return fmt.Errorf("unable to patch deployment %+v: %v", deployment, err)
 		}
+
 		log.Log.V(2).Infof("deployment %v updated", deployment.GetName())
 
 	} else {
@@ -560,6 +587,7 @@ func createDummyWebhookValidator(targetStrategy *InstallStrategy,
 		Webhooks: webhooks,
 	}
 	injectOperatorMetadata(kv, &validationWebhook.ObjectMeta, version, imageRegistry, id, true)
+	setLastAppliedConfiguration(validationWebhook)
 
 	expectations.ValidationWebhook.RaiseExpectations(kvkey, 1, 0)
 	_, err = clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(validationWebhook)
@@ -596,15 +624,12 @@ func createOrUpdateRoleBinding(rb *rbacv1.RoleBinding,
 		return err
 	}
 
+	injectOperatorMetadata(kv, &rb.ObjectMeta, imageTag, imageRegistry, id, true)
+
 	rb = rb.DeepCopy()
 	obj, exists, _ := stores.RoleBindingCache.Get(rb)
-
-	if exists {
-		cachedRb = obj.(*rbacv1.RoleBinding)
-	}
-
-	injectOperatorMetadata(kv, &rb.ObjectMeta, imageTag, imageRegistry, id, true)
 	if !exists {
+		setLastAppliedConfiguration(rb)
 		// Create non existent
 		expectations.RoleBinding.RaiseExpectations(kvkey, 1, 0)
 		_, err := rbac.RoleBindings(namespace).Create(rb)
@@ -612,13 +637,28 @@ func createOrUpdateRoleBinding(rb *rbacv1.RoleBinding,
 			expectations.RoleBinding.LowerExpectations(kvkey, 1, 0)
 			return fmt.Errorf("unable to create rolebinding %+v: %v", rb, err)
 		}
+
 		log.Log.V(2).Infof("rolebinding %v created", rb.GetName())
-	} else if !objectMatchesVersion(&cachedRb.ObjectMeta, imageTag, imageRegistry, id, kv.GetGeneration()) {
+		return nil
+	}
+
+	cachedRb = obj.(*rbacv1.RoleBinding)
+	cachedRb.APIVersion = rb.APIVersion
+	cachedRb.Kind = rb.Kind
+
+	sync, obj, err := resourceShouldUpdate(cachedRb, rb)
+	if err != nil {
+		return err
+	}
+
+	if sync {
+		rb = obj.(*rbacv1.RoleBinding)
 		// Update existing, we don't need to patch for rbac rules.
-		_, err = rbac.RoleBindings(namespace).Update(rb)
+		_, err := rbac.RoleBindings(namespace).Update(rb)
 		if err != nil {
 			return fmt.Errorf("unable to update rolebinding %+v: %v", rb, err)
 		}
+
 		log.Log.V(2).Infof("rolebinding %v updated", rb.GetName())
 
 	} else {
@@ -652,14 +692,12 @@ func createOrUpdateRole(r *rbacv1.Role,
 		return err
 	}
 
+	injectOperatorMetadata(kv, &r.ObjectMeta, imageTag, imageRegistry, id, true)
+
 	r = r.DeepCopy()
 	obj, exists, _ := stores.RoleCache.Get(r)
-	if exists {
-		cachedR = obj.(*rbacv1.Role)
-	}
-
-	injectOperatorMetadata(kv, &r.ObjectMeta, imageTag, imageRegistry, id, true)
 	if !exists {
+		setLastAppliedConfiguration(r)
 		// Create non existent
 		expectations.Role.RaiseExpectations(kvkey, 1, 0)
 		_, err := rbac.Roles(namespace).Create(r)
@@ -667,18 +705,33 @@ func createOrUpdateRole(r *rbacv1.Role,
 			expectations.Role.LowerExpectations(kvkey, 1, 0)
 			return fmt.Errorf("unable to create role %+v: %v", r, err)
 		}
+
 		log.Log.V(2).Infof("role %v created", r.GetName())
-	} else if !objectMatchesVersion(&cachedR.ObjectMeta, imageTag, imageRegistry, id, kv.GetGeneration()) {
+		return nil
+	}
+
+	cachedR = obj.(*rbacv1.Role)
+	cachedR.APIVersion = r.APIVersion
+	cachedR.Kind = r.Kind
+
+	sync, obj, err := resourceShouldUpdate(cachedR, r)
+	if err != nil {
+		return err
+	}
+
+	if sync {
+		r = obj.(*rbacv1.Role)
 		// Update existing, we don't need to patch for rbac rules.
 		_, err = rbac.Roles(namespace).Update(r)
 		if err != nil {
 			return fmt.Errorf("unable to update role %+v: %v", r, err)
 		}
-		log.Log.V(2).Infof("role %v updated", r.GetName())
 
+		log.Log.V(2).Infof("role %v updated", r.GetName())
 	} else {
 		log.Log.V(4).Infof("role %v already exists", r.GetName())
 	}
+
 	return nil
 }
 
@@ -701,14 +754,12 @@ func createOrUpdateClusterRoleBinding(crb *rbacv1.ClusterRoleBinding,
 		return err
 	}
 
+	injectOperatorMetadata(kv, &crb.ObjectMeta, imageTag, imageRegistry, id, true)
+
 	crb = crb.DeepCopy()
 	obj, exists, _ := stores.ClusterRoleBindingCache.Get(crb)
-	if exists {
-		cachedCrb = obj.(*rbacv1.ClusterRoleBinding)
-	}
-
-	injectOperatorMetadata(kv, &crb.ObjectMeta, imageTag, imageRegistry, id, true)
 	if !exists {
+		setLastAppliedConfiguration(crb)
 		// Create non existent
 		expectations.ClusterRoleBinding.RaiseExpectations(kvkey, 1, 0)
 		_, err := rbac.ClusterRoleBindings().Create(crb)
@@ -716,15 +767,29 @@ func createOrUpdateClusterRoleBinding(crb *rbacv1.ClusterRoleBinding,
 			expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
 			return fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
 		}
+
 		log.Log.V(2).Infof("clusterrolebinding %v created", crb.GetName())
-	} else if !objectMatchesVersion(&cachedCrb.ObjectMeta, imageTag, imageRegistry, id, kv.GetGeneration()) {
+		return nil
+	}
+
+	cachedCrb = obj.(*rbacv1.ClusterRoleBinding)
+	cachedCrb.APIVersion = crb.APIVersion
+	cachedCrb.Kind = crb.Kind
+
+	sync, obj, err := resourceShouldUpdate(cachedCrb, crb)
+	if err != nil {
+		return err
+	}
+
+	if sync {
+		crb = obj.(*rbacv1.ClusterRoleBinding)
 		// Update existing, we don't need to patch for rbac rules.
-		_, err = rbac.ClusterRoleBindings().Update(crb)
+		_, err := rbac.ClusterRoleBindings().Update(crb)
 		if err != nil {
 			return fmt.Errorf("unable to update clusterrolebinding %+v: %v", crb, err)
 		}
-		log.Log.V(2).Infof("clusterrolebinding %v updated", crb.GetName())
 
+		log.Log.V(2).Infof("clusterrolebinding %v updated", crb.GetName())
 	} else {
 		log.Log.V(4).Infof("clusterrolebinding %v already exists", crb.GetName())
 	}
@@ -751,15 +816,12 @@ func createOrUpdateClusterRole(cr *rbacv1.ClusterRole,
 		return err
 	}
 
+	injectOperatorMetadata(kv, &cr.ObjectMeta, imageTag, imageRegistry, id, true)
+
 	cr = cr.DeepCopy()
 	obj, exists, _ := stores.ClusterRoleCache.Get(cr)
-
-	if exists {
-		cachedCr = obj.(*rbacv1.ClusterRole)
-	}
-
-	injectOperatorMetadata(kv, &cr.ObjectMeta, imageTag, imageRegistry, id, true)
 	if !exists {
+		setLastAppliedConfiguration(cr)
 		// Create non existent
 		expectations.ClusterRole.RaiseExpectations(kvkey, 1, 0)
 		_, err := rbac.ClusterRoles().Create(cr)
@@ -767,15 +829,29 @@ func createOrUpdateClusterRole(cr *rbacv1.ClusterRole,
 			expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
 			return fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
 		}
+
 		log.Log.V(2).Infof("clusterrole %v created", cr.GetName())
-	} else if !objectMatchesVersion(&cachedCr.ObjectMeta, imageTag, imageRegistry, id, kv.GetGeneration()) {
+		return nil
+	}
+
+	cachedCr = obj.(*rbacv1.ClusterRole)
+	cachedCr.APIVersion = cr.APIVersion
+	cachedCr.Kind = cr.Kind
+
+	sync, obj, err := resourceShouldUpdate(cachedCr, cr)
+	if err != nil {
+		return err
+	}
+
+	if sync {
+		cr = obj.(*rbacv1.ClusterRole)
 		// Update existing, we don't need to patch for rbac rules.
-		_, err = rbac.ClusterRoles().Update(cr)
+		_, err := rbac.ClusterRoles().Update(cr)
 		if err != nil {
 			return fmt.Errorf("unable to update clusterrole %+v: %v", cr, err)
 		}
-		log.Log.V(2).Infof("clusterrole %v updated", cr.GetName())
 
+		log.Log.V(2).Infof("clusterrole %v updated", cr.GetName())
 	} else {
 		log.Log.V(4).Infof("clusterrole %v already exists", cr.GetName())
 	}
@@ -783,6 +859,7 @@ func createOrUpdateClusterRole(cr *rbacv1.ClusterRole,
 	return nil
 }
 
+// TODO: should this be synced?
 func createOrUpdateConfigMaps(kv *v1.KubeVirt,
 	targetStrategy *InstallStrategy,
 	stores util.Stores,
@@ -808,13 +885,10 @@ func createOrUpdateConfigMaps(kv *v1.KubeVirt,
 
 		var cachedCM *corev1.ConfigMap
 
+		injectOperatorMetadata(kv, &cm.ObjectMeta, version, imageRegistry, id, true)
+
 		cm := cm.DeepCopy()
 		obj, exists, _ := stores.ConfigMapCache.Get(cm)
-		if exists {
-			cachedCM = obj.(*corev1.ConfigMap)
-		}
-
-		injectOperatorMetadata(kv, &cm.ObjectMeta, version, imageRegistry, id, true)
 		if !exists {
 			// Create non existent
 			expectations.ConfigMap.RaiseExpectations(kvkey, 1, 0)
@@ -824,8 +898,20 @@ func createOrUpdateConfigMaps(kv *v1.KubeVirt,
 				return fmt.Errorf("unable to create config map %+v: %v", cm, err)
 			}
 			log.Log.V(2).Infof("config map %v created", cm.GetName())
+			continue
+		}
 
-		} else if !objectMatchesVersion(&cachedCM.ObjectMeta, version, imageRegistry, id, kv.GetGeneration()) {
+		cachedCM = obj.(*corev1.ConfigMap)
+		cachedCM.APIVersion = cm.APIVersion
+		cachedCM.Kind = cm.Kind
+
+		sync, obj, err := resourceShouldUpdate(cachedCM, cm)
+		if err != nil {
+			return err
+		}
+
+		if sync {
+			cm = obj.(*corev1.ConfigMap)
 			// Patch if old version
 			var ops []string
 
@@ -871,14 +957,27 @@ func rolloutNonCompatibleCRDChanges(kv *v1.KubeVirt,
 	for _, crd := range targetStrategy.crds {
 		var cachedCrd *extv1beta1.CustomResourceDefinition
 
+		injectOperatorMetadata(kv, &crd.ObjectMeta, version, imageRegistry, id, true)
+
 		crd := crd.DeepCopy()
 		obj, exists, _ := stores.CrdCache.Get(crd)
-		if exists {
-			cachedCrd = obj.(*extv1beta1.CustomResourceDefinition)
+		if !exists {
+			log.Log.Warningf("crd %v is trying to rollout non compatible crd changes to a CRD that does not exist", crd.GetName())
+			continue
 		}
 
-		injectOperatorMetadata(kv, &crd.ObjectMeta, version, imageRegistry, id, true)
-		if exists && objectMatchesVersion(&cachedCrd.ObjectMeta, version, imageRegistry, id, kv.GetGeneration()) {
+		cachedCrd = obj.(*extv1beta1.CustomResourceDefinition)
+		cachedCrd.APIVersion = crd.APIVersion
+		cachedCrd.Kind = crd.Kind
+
+		sync, obj, err := resourceShouldUpdate(cachedCrd, crd)
+		if err != nil {
+			return err
+		}
+
+		if sync {
+			//TODO
+			//crd = obj.(*extv1beta1.CustomResourceDefinition)
 			// Patch if in the deployed version the subresource is not enabled
 			var ops []string
 
@@ -932,14 +1031,12 @@ func createOrUpdateCrds(kv *v1.KubeVirt,
 	for _, crd := range targetStrategy.crds {
 		var cachedCrd *extv1beta1.CustomResourceDefinition
 
+		injectOperatorMetadata(kv, &crd.ObjectMeta, version, imageRegistry, id, true)
+
 		crd := crd.DeepCopy()
 		obj, exists, _ := stores.CrdCache.Get(crd)
-		if exists {
-			cachedCrd = obj.(*extv1beta1.CustomResourceDefinition)
-		}
-
-		injectOperatorMetadata(kv, &crd.ObjectMeta, version, imageRegistry, id, true)
 		if !exists {
+			setLastAppliedConfiguration(crd)
 			// Create non existent
 			expectations.Crd.RaiseExpectations(kvkey, 1, 0)
 			_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
@@ -947,9 +1044,23 @@ func createOrUpdateCrds(kv *v1.KubeVirt,
 				expectations.Crd.LowerExpectations(kvkey, 1, 0)
 				return fmt.Errorf("unable to create crd %+v: %v", crd, err)
 			}
-			log.Log.V(2).Infof("crd %v created", crd.GetName())
 
-		} else if !objectMatchesVersion(&cachedCrd.ObjectMeta, version, imageRegistry, id, kv.GetGeneration()) {
+			log.Log.V(2).Infof("crd %v created", crd.GetName())
+			continue
+		}
+
+		cachedCrd = obj.(*extv1beta1.CustomResourceDefinition)
+		cachedCrd.APIVersion = crd.APIVersion
+		cachedCrd.Kind = crd.Kind
+
+		sync, obj, err := resourceShouldUpdate(cachedCrd, crd)
+		if err != nil {
+			return err
+		}
+
+		if sync {
+			crd = obj.(*extv1beta1.CustomResourceDefinition)
+
 			// Patch if old version
 			var ops []string
 
@@ -979,8 +1090,8 @@ func createOrUpdateCrds(kv *v1.KubeVirt,
 			if err != nil {
 				return fmt.Errorf("unable to patch crd %+v: %v", crd, err)
 			}
-			log.Log.V(2).Infof("crd %v updated", crd.GetName())
 
+			log.Log.V(2).Infof("crd %v updated", crd.GetName())
 		} else {
 			log.Log.V(4).Infof("crd %v is up-to-date", crd.GetName())
 		}
@@ -1213,6 +1324,11 @@ func backupRbac(kv *v1.KubeVirt,
 		injectOperatorMetadata(kv, &cr.ObjectMeta, imageTag, imageRegistry, id, true)
 		cr.Annotations[v1.EphemeralBackupObject] = string(cachedCr.UID)
 
+		err = setLastAppliedConfiguration(cr)
+		if err != nil {
+			return err
+		}
+
 		// Create backup
 		expectations.ClusterRole.RaiseExpectations(kvkey, 1, 0)
 		_, err := rbac.ClusterRoles().Create(cr)
@@ -1251,6 +1367,11 @@ func backupRbac(kv *v1.KubeVirt,
 		}
 		injectOperatorMetadata(kv, &crb.ObjectMeta, imageTag, imageRegistry, id, true)
 		crb.Annotations[v1.EphemeralBackupObject] = string(cachedCrb.UID)
+
+		err = setLastAppliedConfiguration(crb)
+		if err != nil {
+			return err
+		}
 
 		// Create backup
 		expectations.ClusterRoleBinding.RaiseExpectations(kvkey, 1, 0)
@@ -1291,6 +1412,11 @@ func backupRbac(kv *v1.KubeVirt,
 		injectOperatorMetadata(kv, &r.ObjectMeta, imageTag, imageRegistry, id, true)
 		r.Annotations[v1.EphemeralBackupObject] = string(cachedCr.UID)
 
+		err = setLastAppliedConfiguration(r)
+		if err != nil {
+			return err
+		}
+
 		// Create backup
 		expectations.Role.RaiseExpectations(kvkey, 1, 0)
 		_, err := rbac.Roles(cachedCr.Namespace).Create(r)
@@ -1330,6 +1456,11 @@ func backupRbac(kv *v1.KubeVirt,
 		injectOperatorMetadata(kv, &rb.ObjectMeta, imageTag, imageRegistry, id, true)
 		rb.Annotations[v1.EphemeralBackupObject] = string(cachedRb.UID)
 
+		err = setLastAppliedConfiguration(rb)
+		if err != nil {
+			return err
+		}
+
 		// Create backup
 		expectations.RoleBinding.RaiseExpectations(kvkey, 1, 0)
 		_, err := rbac.RoleBindings(cachedRb.Namespace).Create(rb)
@@ -1364,14 +1495,12 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 	for _, sa := range targetStrategy.serviceAccounts {
 		var cachedSa *corev1.ServiceAccount
 
+		injectOperatorMetadata(kv, &sa.ObjectMeta, version, imageRegistry, id, true)
+
 		sa := sa.DeepCopy()
 		obj, exists, _ := stores.ServiceAccountCache.Get(sa)
-		if exists {
-			cachedSa = obj.(*corev1.ServiceAccount)
-		}
-
-		injectOperatorMetadata(kv, &sa.ObjectMeta, version, imageRegistry, id, true)
 		if !exists {
+			setLastAppliedConfiguration(sa)
 			// Create non existent
 			expectations.ServiceAccount.RaiseExpectations(kvkey, 1, 0)
 			_, err := core.ServiceAccounts(kv.Namespace).Create(sa)
@@ -1379,8 +1508,22 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 				expectations.ServiceAccount.LowerExpectations(kvkey, 1, 0)
 				return fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
 			}
+
 			log.Log.V(2).Infof("serviceaccount %v created", sa.GetName())
-		} else if !objectMatchesVersion(&cachedSa.ObjectMeta, version, imageRegistry, id, kv.GetGeneration()) {
+			continue
+		}
+
+		cachedSa = obj.(*corev1.ServiceAccount)
+		cachedSa.APIVersion = sa.APIVersion
+		cachedSa.Kind = sa.Kind
+
+		sync, obj, err := resourceShouldUpdate(cachedSa, sa)
+		if err != nil {
+			return err
+		}
+
+		if sync {
+			sa = obj.(*corev1.ServiceAccount)
 			// Patch if old version
 			var ops []string
 
@@ -1395,8 +1538,8 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 			if err != nil {
 				return fmt.Errorf("unable to patch serviceaccount %+v: %v", sa, err)
 			}
-			log.Log.V(2).Infof("serviceaccount %v updated", sa.GetName())
 
+			log.Log.V(2).Infof("serviceaccount %v updated", sa.GetName())
 		} else {
 			// Up to date
 			log.Log.V(4).Infof("serviceaccount %v already exists and is up-to-date", sa.GetName())
@@ -1498,16 +1641,6 @@ func generateServicePatch(kv *v1.KubeVirt,
 	var patchOps []string
 	var deleteAndReplace bool
 
-	version := kv.Status.TargetKubeVirtVersion
-	imageRegistry := kv.Status.TargetKubeVirtRegistry
-	id := kv.Status.TargetDeploymentID
-
-	// First check if there's anything to do.
-	if objectMatchesVersion(&cachedService.ObjectMeta, version, imageRegistry, id, kv.GetGeneration()) {
-		// spec and annotations are already up to date. Nothing to do
-		return patchOps, false, nil
-	}
-
 	if !isServiceClusterIP(cachedService) || !isServiceClusterIP(service) {
 		// we're only going to attempt to mutate Type ==ClusterIPs right now because
 		// that's the only logic we have tested.
@@ -1515,7 +1648,23 @@ func generateServicePatch(kv *v1.KubeVirt,
 		// This means both the matching cached service and the new target service must be of
 		// type "ClusterIP" for us to attempt any Patch operation
 		deleteAndReplace = true
-	} else if cachedService.Spec.ClusterIP != service.Spec.ClusterIP {
+		return patchOps, deleteAndReplace, nil
+	}
+
+	// First check if there's anything to do.
+	sync, obj, err := resourceShouldUpdate(cachedService, service)
+	if err != nil {
+		return patchOps, deleteAndReplace, err
+	}
+
+	if !sync {
+		// spec and annotations are already up to date. Nothing to do
+		return patchOps, false, nil
+	}
+
+	service = obj.(*corev1.Service)
+
+	if cachedService.Spec.ClusterIP != service.Spec.ClusterIP {
 
 		if service.Spec.ClusterIP == "" {
 			// clusterIP is not mutable. A ClusterIP == "" will mean one is dynamically assigned.
@@ -1528,12 +1677,8 @@ func generateServicePatch(kv *v1.KubeVirt,
 			// that are not equal, our only option is to delete/replace because ClusterIPs
 			// are not mutable
 			deleteAndReplace = true
+			return patchOps, deleteAndReplace, nil
 		}
-	}
-
-	if deleteAndReplace {
-		// spec can not be merged or mutated. The only way to update is to replace.
-		return patchOps, deleteAndReplace, nil
 	}
 
 	// Add Labels and Annotations Patches
@@ -1584,6 +1729,8 @@ func createOrUpdateAPIServices(kv *v1.KubeVirt,
 		var cachedAPIService *v1beta1.APIService
 		apiService = apiService.DeepCopy()
 
+		injectOperatorMetadata(kv, &apiService.ObjectMeta, version, imageRegistry, id, true)
+
 		apiService.Spec.CABundle = caBundle
 
 		obj, exists, _ := stores.APIServiceCache.Get(apiService)
@@ -1597,54 +1744,60 @@ func createOrUpdateAPIServices(kv *v1.KubeVirt,
 			} else {
 				exists = true
 			}
-		} else if exists {
+		} else {
 			cachedAPIService = obj.(*v1beta1.APIService)
 		}
 
-		certsMatch := true
-		if exists {
-			if !reflect.DeepEqual(apiService.Spec.CABundle, cachedAPIService.Spec.CABundle) {
-				certsMatch = false
-			}
-		}
-
-		injectOperatorMetadata(kv, &apiService.ObjectMeta, version, imageRegistry, id, true)
 		if !exists {
+			setLastAppliedConfiguration(apiService)
+
 			expectations.APIService.RaiseExpectations(kvkey, 1, 0)
-			_, err := aggregatorClient.Create(apiService)
+			_, err = aggregatorClient.Create(apiService)
 			if err != nil {
 				expectations.APIService.LowerExpectations(kvkey, 1, 0)
 				return fmt.Errorf("unable to create apiservice %+v: %v", apiService, err)
 			}
-		} else {
-			if !objectMatchesVersion(&cachedAPIService.ObjectMeta, version, imageRegistry, id, kv.GetGeneration()) || !certsMatch {
-				// Patch if old version
-				var ops []string
 
-				// Add Labels and Annotations Patches
-				labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&apiService.ObjectMeta)
-				if err != nil {
-					return err
-				}
-				ops = append(ops, labelAnnotationPatch...)
-
-				// Add Spec Patch
-				spec, err := json.Marshal(apiService.Spec)
-				if err != nil {
-					return err
-				}
-				ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(spec)))
-
-				_, err = aggregatorClient.Patch(apiService.Name, types.JSONPatchType, generatePatchBytes(ops))
-				if err != nil {
-					return fmt.Errorf("unable to patch apiservice %+v: %v", apiService, err)
-				}
-				log.Log.V(2).Infof("apiservice %v updated", apiService.GetName())
-
-			} else {
-				log.Log.V(4).Infof("apiservice %v is up-to-date", apiService.GetName())
-			}
+			continue
 		}
+
+		cachedAPIService.APIVersion = apiService.APIVersion
+		cachedAPIService.Kind = apiService.Kind
+
+		sync, obj, err := resourceShouldUpdate(cachedAPIService, apiService)
+		if err != nil {
+			return err
+		}
+
+		if sync {
+			apiService = obj.(*v1beta1.APIService)
+			// Patch if old version
+			var ops []string
+
+			// Add Labels and Annotations Patches
+			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&apiService.ObjectMeta)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, labelAnnotationPatch...)
+
+			// Add Spec Patch
+			spec, err := json.Marshal(apiService.Spec)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(spec)))
+
+			_, err = aggregatorClient.Patch(apiService.Name, types.JSONPatchType, generatePatchBytes(ops))
+			if err != nil {
+				return fmt.Errorf("unable to patch apiservice %+v: %v", apiService, err)
+			}
+
+			log.Log.V(2).Infof("apiservice %v updated", apiService.GetName())
+		} else {
+			log.Log.V(4).Infof("apiservice %v is up-to-date", apiService.GetName())
+		}
+
 	}
 	return nil
 }
@@ -1674,6 +1827,8 @@ func createOrUpdateMutatingWebhookConfigurations(kv *v1.KubeVirt,
 			webhook.Webhooks[i].ClientConfig.CABundle = caBundle
 		}
 
+		injectOperatorMetadata(kv, &webhook.ObjectMeta, version, imageRegistry, id, true)
+
 		obj, exists, _ := stores.MutatingWebhookCache.Get(webhook)
 		// since these objects was in the past unmanaged, reconcile and pick it up if it exists
 		if !exists {
@@ -1699,43 +1854,56 @@ func createOrUpdateMutatingWebhookConfigurations(kv *v1.KubeVirt,
 			}
 		}
 
-		injectOperatorMetadata(kv, &webhook.ObjectMeta, version, imageRegistry, id, true)
 		if !exists {
+			setLastAppliedConfiguration(webhook)
+
 			expectations.MutatingWebhook.RaiseExpectations(kvkey, 1, 0)
-			_, err := clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(webhook)
+			_, err = clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(webhook)
 			if err != nil {
 				expectations.MutatingWebhook.LowerExpectations(kvkey, 1, 0)
 				return fmt.Errorf("unable to create mutatingwebhook %+v: %v", webhook, err)
 			}
-		} else {
-			if !objectMatchesVersion(&cachedWebhook.ObjectMeta, version, imageRegistry, id, kv.GetGeneration()) || !certsMatch {
-				// Patch if old version
-				var ops []string
 
-				// Add Labels and Annotations Patches
-				labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&webhook.ObjectMeta)
-				if err != nil {
-					return err
-				}
-				ops = append(ops, labelAnnotationPatch...)
-
-				// Add Spec Patch
-				webhooks, err := json.Marshal(webhook.Webhooks)
-				if err != nil {
-					return err
-				}
-				ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/webhooks", "value": %s }`, string(webhooks)))
-
-				_, err = clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Patch(webhook.Name, types.JSONPatchType, generatePatchBytes(ops))
-				if err != nil {
-					return fmt.Errorf("unable to patch mutatingwebhookconfiguration %+v: %v", webhook, err)
-				}
-				log.Log.V(2).Infof("mutatingwebhoookconfiguration %v updated", webhook.GetName())
-
-			} else {
-				log.Log.V(4).Infof("mutatingwebhookconfiguration %v is up-to-date", webhook.GetName())
-			}
+			continue
 		}
+
+		cachedWebhook.APIVersion = webhook.APIVersion
+		cachedWebhook.Kind = webhook.Kind
+
+		sync, obj, err := resourceShouldUpdate(cachedWebhook, webhook)
+		if err != nil {
+			return err
+		}
+
+		if !certsMatch || sync {
+			webhook = obj.(*admissionregistrationv1beta1.MutatingWebhookConfiguration)
+			// Patch if old version
+			var ops []string
+
+			// Add Labels and Annotations Patches
+			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&webhook.ObjectMeta)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, labelAnnotationPatch...)
+
+			// Add Spec Patch
+			webhooks, err := json.Marshal(webhook.Webhooks)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/webhooks", "value": %s }`, string(webhooks)))
+
+			_, err = clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Patch(webhook.Name, types.JSONPatchType, generatePatchBytes(ops))
+			if err != nil {
+				return fmt.Errorf("unable to patch mutatingwebhookconfiguration %+v: %v", webhook, err)
+			}
+
+			log.Log.V(2).Infof("mutatingwebhoookconfiguration %v updated", webhook.GetName())
+		} else {
+			log.Log.V(4).Infof("mutatingwebhookconfiguration %v is up-to-date", webhook.GetName())
+		}
+
 	}
 	return nil
 }
@@ -1747,7 +1915,6 @@ func createOrUpdateValidatingWebhookConfigurations(kv *v1.KubeVirt,
 	expectations *util.Expectations,
 	caBundle []byte,
 ) error {
-
 	version := kv.Status.TargetKubeVirtVersion
 	imageRegistry := kv.Status.TargetKubeVirtRegistry
 	id := kv.Status.TargetDeploymentID
@@ -1765,6 +1932,8 @@ func createOrUpdateValidatingWebhookConfigurations(kv *v1.KubeVirt,
 			webhook.Webhooks[i].ClientConfig.CABundle = caBundle
 		}
 
+		injectOperatorMetadata(kv, &webhook.ObjectMeta, version, imageRegistry, id, true)
+
 		obj, exists, _ := stores.ValidationWebhookCache.Get(webhook)
 		// since these objects was in the past unmanaged, reconcile and pick it up if it exists
 		if !exists {
@@ -1776,7 +1945,7 @@ func createOrUpdateValidatingWebhookConfigurations(kv *v1.KubeVirt,
 			} else {
 				exists = true
 			}
-		} else if exists {
+		} else {
 			cachedWebhook = obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration)
 		}
 
@@ -1790,43 +1959,57 @@ func createOrUpdateValidatingWebhookConfigurations(kv *v1.KubeVirt,
 			}
 		}
 
-		injectOperatorMetadata(kv, &webhook.ObjectMeta, version, imageRegistry, id, true)
 		if !exists {
+			setLastAppliedConfiguration(webhook)
+
 			expectations.ValidationWebhook.RaiseExpectations(kvkey, 1, 0)
-			_, err := clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(webhook)
+			_, err = clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(webhook)
 			if err != nil {
 				expectations.ValidationWebhook.LowerExpectations(kvkey, 1, 0)
 				return fmt.Errorf("unable to create validatingwebhook %+v: %v", webhook, err)
 			}
-		} else {
-			if !objectMatchesVersion(&cachedWebhook.ObjectMeta, version, imageRegistry, id, kv.GetGeneration()) || !certsMatch {
-				// Patch if old version
-				var ops []string
 
-				// Add Labels and Annotations Patches
-				labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&webhook.ObjectMeta)
-				if err != nil {
-					return err
-				}
-				ops = append(ops, labelAnnotationPatch...)
-
-				// Add Spec Patch
-				webhooks, err := json.Marshal(webhook.Webhooks)
-				if err != nil {
-					return err
-				}
-				ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/webhooks", "value": %s }`, string(webhooks)))
-
-				_, err = clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(webhook.Name, types.JSONPatchType, generatePatchBytes(ops))
-				if err != nil {
-					return fmt.Errorf("unable to patch validatingwebhookconfiguration %+v: %v", webhook, err)
-				}
-				log.Log.V(2).Infof("validatingwebhoookconfiguration %v updated", webhook.GetName())
-
-			} else {
-				log.Log.V(4).Infof("validatingwebhookconfiguration %v is up-to-date", webhook.GetName())
-			}
+			continue
 		}
+
+		cachedWebhook.APIVersion = webhook.APIVersion
+		cachedWebhook.Kind = webhook.Kind
+
+		sync, obj, err := resourceShouldUpdate(cachedWebhook, webhook)
+		if err != nil {
+			return err
+		}
+
+		if !certsMatch || sync {
+			webhook = obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration)
+
+			// Patch if old version
+			var ops []string
+
+			// Add Labels and Annotations Patches
+			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&webhook.ObjectMeta)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, labelAnnotationPatch...)
+
+			// Add Spec Patch
+			webhooks, err := json.Marshal(webhook.Webhooks)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/webhooks", "value": %s }`, string(webhooks)))
+
+			_, err = clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(webhook.Name, types.JSONPatchType, generatePatchBytes(ops))
+			if err != nil {
+				return fmt.Errorf("unable to patch validatingwebhookconfiguration %+v: %v", webhook, err)
+			}
+
+			log.Log.V(2).Infof("validatingwebhoookconfiguration %v updated", webhook.GetName())
+		} else {
+			log.Log.V(4).Infof("validatingwebhookconfiguration %v is up-to-date", webhook.GetName())
+		}
+
 	}
 	return nil
 }
@@ -1940,7 +2123,17 @@ func createOrUpdateCertificateSecret(
 			return nil, fmt.Errorf("unable to create secret %+v: %v", secret, err)
 		}
 	} else {
-		if !objectMatchesVersion(&cachedSecret.ObjectMeta, version, imageRegistry, id, kv.GetGeneration()) || rotateCertificate {
+
+		cachedSecret.APIVersion = secret.APIVersion
+		cachedSecret.Kind = secret.Kind
+		sync, obj, err := resourceShouldUpdate(cachedSecret, secret)
+		if err != nil {
+			return nil, err
+		}
+
+		if sync || rotateCertificate {
+			secret = obj.(*corev1.Secret)
+
 			// Patch if old version
 			var ops []string
 
@@ -2022,53 +2215,60 @@ func createOrUpdateService(kv *v1.KubeVirt,
 		var cachedService *corev1.Service
 		service = service.DeepCopy()
 
-		obj, exists, _ := stores.ServiceCache.Get(service)
-		if exists {
-			cachedService = obj.(*corev1.Service)
-		}
-
 		injectOperatorMetadata(kv, &service.ObjectMeta, version, imageRegistry, id, true)
+
+		obj, exists, _ := stores.ServiceCache.Get(service)
 		if !exists {
+			setLastAppliedConfiguration(service)
+
 			expectations.Service.RaiseExpectations(kvkey, 1, 0)
-			_, err := core.Services(service.Namespace).Create(service)
+			_, err = core.Services(service.Namespace).Create(service)
 			if err != nil {
 				expectations.Service.LowerExpectations(kvkey, 1, 0)
 				return false, fmt.Errorf("unable to create service %+v: %v", service, err)
 			}
-		} else {
 
-			patchOps, deleteAndReplace, err := generateServicePatch(kv, cachedService, service)
-			if err != nil {
-				return false, fmt.Errorf("unable to generate service endpoint patch operations for %+v: %v", service, err)
-			}
+			continue
 
-			if deleteAndReplace {
-				if cachedService.DeletionTimestamp == nil {
-					if key, err := controller.KeyFunc(cachedService); err == nil {
-						expectations.Service.AddExpectedDeletion(kvkey, key)
-						err := core.Services(service.Namespace).Delete(cachedService.Name, deleteOptions)
-						if err != nil {
-							expectations.Service.DeletionObserved(kvkey, key)
-							log.Log.Errorf("Failed to delete service %+v: %v", cachedService, err)
-							return false, err
-						}
-
-						log.Log.V(2).Infof("service %v deleted. It must be re-created", cachedService.GetName())
-					}
-				}
-				// waiting for old service to be deleted,
-				// after which the operator will recreate using new spec
-				return true, nil
-			} else if len(patchOps) != 0 {
-				_, err = core.Services(service.Namespace).Patch(service.Name, types.JSONPatchType, generatePatchBytes(patchOps))
-				if err != nil {
-					return false, fmt.Errorf("unable to patch service %+v: %v", service, err)
-				}
-				log.Log.V(2).Infof("service %v patched", service.GetName())
-			} else {
-				log.Log.V(4).Infof("service %v is up-to-date", service.GetName())
-			}
 		}
+
+		cachedService = obj.(*corev1.Service)
+		cachedService.APIVersion = service.APIVersion
+		cachedService.Kind = service.Kind
+
+		patchOps, deleteAndReplace, err := generateServicePatch(kv, cachedService, service)
+		if err != nil {
+			return false, fmt.Errorf("unable to generate service endpoint patch operations for %+v: %v", service, err)
+		}
+
+		if deleteAndReplace {
+			if cachedService.DeletionTimestamp == nil {
+				if key, err := controller.KeyFunc(cachedService); err == nil {
+					expectations.Service.AddExpectedDeletion(kvkey, key)
+					err := core.Services(service.Namespace).Delete(cachedService.Name, deleteOptions)
+					if err != nil {
+						expectations.Service.DeletionObserved(kvkey, key)
+						log.Log.Errorf("Failed to delete service %+v: %v", cachedService, err)
+						return false, err
+					}
+
+					log.Log.V(2).Infof("service %v deleted. It must be re-created", cachedService.GetName())
+				}
+			}
+			// waiting for old service to be deleted,
+			// after which the operator will recreate using new spec
+			return true, nil
+		} else if len(patchOps) != 0 {
+			_, err = core.Services(service.Namespace).Patch(service.Name, types.JSONPatchType, generatePatchBytes(patchOps))
+			if err != nil {
+				return false, fmt.Errorf("unable to patch service %+v: %v", service, err)
+			}
+
+			log.Log.V(2).Infof("service %v patched", service.GetName())
+		} else {
+			log.Log.V(4).Infof("service %v is up-to-date", service.GetName())
+		}
+
 	}
 	return false, nil
 }
@@ -2097,24 +2297,36 @@ func createOrUpdateServiceMonitors(kv *v1.KubeVirt,
 	for _, serviceMonitor := range targetStrategy.serviceMonitors {
 		var cachedServiceMonitor *promv1.ServiceMonitor
 
+		injectOperatorMetadata(kv, &serviceMonitor.ObjectMeta, version, imageRegistry, id, true)
+
 		serviceMonitor := serviceMonitor.DeepCopy()
 		obj, exists, _ := stores.ServiceMonitorCache.Get(serviceMonitor)
-		if exists {
-			cachedServiceMonitor = obj.(*promv1.ServiceMonitor)
-		}
-
-		injectOperatorMetadata(kv, &serviceMonitor.ObjectMeta, version, imageRegistry, id, true)
 		if !exists {
+			setLastAppliedConfiguration(serviceMonitor)
+
 			// Create non existent
 			expectations.ServiceMonitor.RaiseExpectations(kvkey, 1, 0)
-			_, err := prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Create(serviceMonitor)
+			_, err = prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Create(serviceMonitor)
 			if err != nil {
 				expectations.ServiceMonitor.LowerExpectations(kvkey, 1, 0)
 				return fmt.Errorf("unable to create serviceMonitor %+v: %v", serviceMonitor, err)
 			}
-			log.Log.V(2).Infof("serviceMonitor %v created", serviceMonitor.GetName())
 
-		} else if !objectMatchesVersion(&cachedServiceMonitor.ObjectMeta, version, imageRegistry, id, kv.GetGeneration()) {
+			log.Log.V(2).Infof("serviceMonitor %v created", serviceMonitor.GetName())
+			continue
+		}
+
+		cachedServiceMonitor = obj.(*promv1.ServiceMonitor)
+		cachedServiceMonitor.APIVersion = serviceMonitor.APIVersion
+		cachedServiceMonitor.Kind = serviceMonitor.Kind
+
+		sync, obj, err := resourceShouldUpdate(cachedServiceMonitor, serviceMonitor)
+		if err != nil {
+			return err
+		}
+
+		if sync {
+			serviceMonitor = obj.(*promv1.ServiceMonitor)
 			// Patch if old version
 			var ops []string
 
@@ -2136,8 +2348,8 @@ func createOrUpdateServiceMonitors(kv *v1.KubeVirt,
 			if err != nil {
 				return fmt.Errorf("unable to patch serviceMonitor %+v: %v", serviceMonitor, err)
 			}
-			log.Log.V(2).Infof("serviceMonitor %v updated", serviceMonitor.GetName())
 
+			log.Log.V(2).Infof("serviceMonitor %v updated", serviceMonitor.GetName())
 		} else {
 			log.Log.V(4).Infof("serviceMonitor %v is up-to-date", serviceMonitor.GetName())
 		}
@@ -2170,24 +2382,36 @@ func createOrUpdatePrometheusRules(kv *v1.KubeVirt,
 	for _, prometheusRule := range targetStrategy.prometheusRules {
 		var cachedPrometheusRule *promv1.PrometheusRule
 
+		injectOperatorMetadata(kv, &prometheusRule.ObjectMeta, version, imageRegistry, id, true)
+
 		prometheusRule := prometheusRule.DeepCopy()
 		obj, exists, _ := stores.PrometheusRuleCache.Get(prometheusRule)
-		if exists {
-			cachedPrometheusRule = obj.(*promv1.PrometheusRule)
-		}
-
-		injectOperatorMetadata(kv, &prometheusRule.ObjectMeta, version, imageRegistry, id, true)
 		if !exists {
+			setLastAppliedConfiguration(prometheusRule)
+
 			// Create non existent
 			expectations.PrometheusRule.RaiseExpectations(kvkey, 1, 0)
-			_, err := prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Create(prometheusRule)
+			_, err = prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Create(prometheusRule)
 			if err != nil {
 				expectations.PrometheusRule.LowerExpectations(kvkey, 1, 0)
 				return fmt.Errorf("unable to create PrometheusRule %+v: %v", prometheusRule, err)
 			}
-			log.Log.V(2).Infof("PrometheusRule %v created", prometheusRule.GetName())
 
-		} else if !objectMatchesVersion(&cachedPrometheusRule.ObjectMeta, version, imageRegistry, id, kv.GetGeneration()) {
+			log.Log.V(2).Infof("PrometheusRule %v created", prometheusRule.GetName())
+			continue
+		}
+
+		cachedPrometheusRule = obj.(*promv1.PrometheusRule)
+		cachedPrometheusRule.APIVersion = prometheusRule.APIVersion
+		cachedPrometheusRule.Kind = prometheusRule.Kind
+
+		sync, obj, err := resourceShouldUpdate(cachedPrometheusRule, prometheusRule)
+		if err != nil {
+			return err
+		}
+
+		if sync {
+			prometheusRule = obj.(*promv1.PrometheusRule)
 			// Patch if old version
 			var ops []string
 
@@ -2209,8 +2433,8 @@ func createOrUpdatePrometheusRules(kv *v1.KubeVirt,
 			if err != nil {
 				return fmt.Errorf("unable to patch PrometheusRule %+v: %v", prometheusRule, err)
 			}
-			log.Log.V(2).Infof("PrometheusRule %v updated", prometheusRule.GetName())
 
+			log.Log.V(2).Infof("PrometheusRule %v updated", prometheusRule.GetName())
 		} else {
 			log.Log.V(4).Infof("PrometheusRule %v is up-to-date", prometheusRule.GetName())
 		}
@@ -2292,14 +2516,14 @@ func createOrUpdateSCC(kv *v1.KubeVirt,
 
 	for _, scc := range targetStrategy.sccs {
 		var cachedSCC *secv1.SecurityContextConstraints
-		scc := scc.DeepCopy()
-		obj, exists, _ := stores.SCCCache.GetByKey(scc.Name)
-		if exists {
-			cachedSCC = obj.(*secv1.SecurityContextConstraints)
-		}
 
 		injectOperatorMetadata(kv, &scc.ObjectMeta, version, imageRegistry, id, true)
+
+		scc := scc.DeepCopy()
+		obj, exists, _ := stores.SCCCache.GetByKey(scc.Name)
 		if !exists {
+			setLastAppliedConfiguration(scc)
+
 			expectations.SCC.RaiseExpectations(kvkey, 1, 0)
 			_, err := sec.SecurityContextConstraints().Create(scc)
 			if err != nil {
@@ -2307,9 +2531,21 @@ func createOrUpdateSCC(kv *v1.KubeVirt,
 				return fmt.Errorf("unable to create SCC %+v: %v", scc, err)
 			}
 			log.Log.V(2).Infof("SCC %v created", scc.Name)
-		} else if !objectMatchesVersion(&cachedSCC.ObjectMeta, version, imageRegistry, id, kv.GetGeneration()) {
-			scc.ObjectMeta = *cachedSCC.ObjectMeta.DeepCopy()
-			injectOperatorMetadata(kv, &scc.ObjectMeta, version, imageRegistry, id, true)
+			continue
+		}
+
+		cachedSCC = obj.(*secv1.SecurityContextConstraints)
+		cachedSCC.APIVersion = scc.APIVersion
+		cachedSCC.Kind = scc.Kind
+
+		sync, obj, err := resourceShouldUpdate(cachedSCC, scc)
+		if err != nil {
+			return err
+		}
+
+		if sync {
+			scc = obj.(*secv1.SecurityContextConstraints)
+
 			_, err = sec.SecurityContextConstraints().Update(scc)
 			if err != nil {
 				return fmt.Errorf("Unable to update %s SecurityContextConstraints", scc.Name)
@@ -2318,7 +2554,6 @@ func createOrUpdateSCC(kv *v1.KubeVirt,
 		} else {
 			log.Log.V(4).Infof("SCC %s is up to date", scc.Name)
 		}
-
 	}
 
 	return nil
@@ -2338,15 +2573,13 @@ func syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment, clients
 	var cachedPodDisruptionBudget *policyv1beta1.PodDisruptionBudget
 
 	obj, exists, _ := stores.PodDisruptionBudgetCache.Get(podDisruptionBudget)
-	if exists {
-		cachedPodDisruptionBudget = obj.(*policyv1beta1.PodDisruptionBudget)
-	}
-
 	if !exists {
 		kvkey, err := controller.KeyFunc(kv)
 		if err != nil {
 			return err
 		}
+
+		setLastAppliedConfiguration(podDisruptionBudget)
 
 		expectations.PodDisruptionBudget.RaiseExpectations(kvkey, 1, 0)
 		_, err = pdbClient.Create(podDisruptionBudget)
@@ -2354,8 +2587,22 @@ func syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment, clients
 			expectations.PodDisruptionBudget.LowerExpectations(kvkey, 1, 0)
 			return fmt.Errorf("unable to create poddisruptionbudget %+v: %v", podDisruptionBudget, err)
 		}
+
 		log.Log.V(2).Infof("poddisruptionbudget %v created", podDisruptionBudget.GetName())
-	} else if !objectMatchesVersion(&cachedPodDisruptionBudget.ObjectMeta, imageTag, imageRegistry, id, kv.GetGeneration()) {
+		return nil
+	}
+
+	cachedPodDisruptionBudget = obj.(*policyv1beta1.PodDisruptionBudget)
+	cachedPodDisruptionBudget.APIVersion = podDisruptionBudget.APIVersion
+	cachedPodDisruptionBudget.Kind = podDisruptionBudget.Kind
+
+	sync, obj, err := resourceShouldUpdate(cachedPodDisruptionBudget, podDisruptionBudget)
+	if err != nil {
+		return err
+	}
+
+	if sync {
+		podDisruptionBudget = obj.(*policyv1beta1.PodDisruptionBudget)
 		// Patch if old version
 		var ops []string
 
@@ -2377,6 +2624,7 @@ func syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment, clients
 		if err != nil {
 			return fmt.Errorf("unable to patch poddisruptionbudget %+v: %v", podDisruptionBudget, err)
 		}
+
 		log.Log.V(2).Infof("poddisruptionbudget %v patched", podDisruptionBudget.GetName())
 	} else {
 		log.Log.V(4).Infof("poddisruptionbudget %v is up-to-date", cachedPodDisruptionBudget.GetName())
@@ -2874,7 +3122,7 @@ func SyncAll(queue workqueue.RateLimitingInterface, kv *v1.KubeVirt, targetStrat
 					err := clientset.CoreV1().ConfigMaps(configMap.Namespace).Delete(configMap.Name, deleteOptions)
 					if err != nil {
 						expectations.ConfigMap.DeletionObserved(kvkey, key)
-						log.Log.Errorf("Failed to delete configmap %+v: %v", configMap, err)
+						log.Log.Errorf("Failed to delete unused configmap %v: %v", configMap.Name, err)
 						return false, err
 					}
 				}
@@ -3204,6 +3452,8 @@ func createOrUpdateKubeVirtCAConfigMap(
 		updateBundle := false
 		if exists {
 			cachedConfigMap = obj.(*corev1.ConfigMap)
+			cachedConfigMap.APIVersion = configMap.APIVersion
+			cachedConfigMap.Kind = configMap.Kind
 
 			bundle, certCount, err := components.MergeCABundle(caCert, []byte(cachedConfigMap.Data[components.CABundleKey]), overlapInterval.Duration)
 			if err != nil {
@@ -3233,7 +3483,18 @@ func createOrUpdateKubeVirtCAConfigMap(
 				return nil, fmt.Errorf("unable to create configMap %+v: %v", configMap, err)
 			}
 		} else {
-			if !objectMatchesVersion(&cachedConfigMap.ObjectMeta, version, imageRegistry, id, kv.GetGeneration()) || updateBundle {
+
+			sync := false
+			if !updateBundle {
+				sync, obj, err = resourceShouldUpdate(cachedConfigMap, configMap)
+				if err != nil {
+					return nil, err
+				}
+
+				configMap = obj.(*corev1.ConfigMap)
+			}
+
+			if sync || updateBundle {
 				// Patch if old version
 				var ops []string
 

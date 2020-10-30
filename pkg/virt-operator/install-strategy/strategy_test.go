@@ -20,6 +20,7 @@
 package installstrategy
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 
@@ -234,6 +235,10 @@ var _ = Describe("Install Strategy", func() {
 					},
 				}
 				config.SetTargetDeploymentConfig(kv)
+
+				j, err := json.Marshal(targetService)
+				Expect(err).To(BeNil())
+				cachedService.GetAnnotations()[LastAppliedConfigAnnotationKey] = string(j)
 
 				ops, shouldDeleteAndReplace, err := generateServicePatch(kv, cachedService, targetService)
 				Expect(err).To(BeNil())

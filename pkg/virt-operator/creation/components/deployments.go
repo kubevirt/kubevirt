@@ -120,9 +120,11 @@ func newPodTemplateSpec(podName string, imageName string, repository string, ver
 			Tolerations:       criticalAddonsToleration(),
 			Containers: []corev1.Container{
 				{
-					Name:            podName,
-					Image:           fmt.Sprintf("%s/%s%s", repository, imageName, version),
-					ImagePullPolicy: pullPolicy,
+					Name:                     podName,
+					Image:                    fmt.Sprintf("%s/%s%s", repository, imageName, version),
+					ImagePullPolicy:          pullPolicy,
+					TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+					TerminationMessagePath:   corev1.TerminationMessagePathDefault,
 				},
 			},
 		},
@@ -144,13 +146,15 @@ func newPodTemplateSpec(podName string, imageName string, repository string, ver
 }
 
 func attachCertificateSecret(spec *corev1.PodSpec, secretName string, mountPath string) {
+	defaultMode := corev1.ConfigMapVolumeSourceDefaultMode
 	True := true
 	secretVolume := corev1.Volume{
 		Name: secretName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: secretName,
-				Optional:   &True,
+				DefaultMode: &defaultMode,
+				SecretName:  secretName,
+				Optional:    &True,
 			},
 		},
 	}
@@ -284,6 +288,9 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 		},
 		InitialDelaySeconds: 15,
 		PeriodSeconds:       10,
+		SuccessThreshold:    1,
+		FailureThreshold:    3,
+		TimeoutSeconds:      1,
 	}
 	return deployment, nil
 }
@@ -337,6 +344,8 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 		},
 		InitialDelaySeconds: 15,
 		TimeoutSeconds:      10,
+		PeriodSeconds:       10,
+		SuccessThreshold:    1,
 	}
 	container.ReadinessProbe = &corev1.Probe{
 		Handler: corev1.Handler{
@@ -351,6 +360,9 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 		},
 		InitialDelaySeconds: 15,
 		TimeoutSeconds:      10,
+		PeriodSeconds:       10,
+		SuccessThreshold:    1,
+		FailureThreshold:    3,
 	}
 
 	attachCertificateSecret(pod, VirtControllerCertSecretName, "/etc/virt-controller/certificates")
@@ -438,7 +450,8 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 			Name: "NODE_NAME",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "spec.nodeName",
+					APIVersion: "v1",
+					FieldPath:  "spec.nodeName",
 				},
 			},
 		},
@@ -446,7 +459,8 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 			Name: "MY_POD_IP",
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "status.podIP",
+					APIVersion: "v1",
+					FieldPath:  "status.podIP",
 				},
 			},
 		},
@@ -470,6 +484,8 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		},
 		InitialDelaySeconds: 15,
 		TimeoutSeconds:      10,
+		SuccessThreshold:    1,
+		PeriodSeconds:       10,
 	}
 	container.ReadinessProbe = &corev1.Probe{
 		Handler: corev1.Handler{
@@ -484,6 +500,9 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		},
 		InitialDelaySeconds: 15,
 		TimeoutSeconds:      10,
+		SuccessThreshold:    1,
+		PeriodSeconds:       10,
+		FailureThreshold:    3,
 	}
 
 	pod.Volumes = []corev1.Volume{}
@@ -511,6 +530,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		{"kubelet-pods-shortened", "/var/lib/kubelet/pods", "/pods", nil},
 		{"kubelet-pods", "/var/lib/kubelet/pods", "/var/lib/kubelet/pods", &bidi},
 	}
+	defaultValueHostPathType := corev1.HostPathUnset
 
 	for _, volume := range volumes {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
@@ -523,6 +543,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: volume.path,
+					Type: &defaultValueHostPathType,
 				},
 			},
 		})
@@ -618,6 +639,9 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 								},
 								InitialDelaySeconds: 5,
 								TimeoutSeconds:      10,
+								SuccessThreshold:    1,
+								PeriodSeconds:       10,
+								FailureThreshold:    3,
 							},
 							Env: []corev1.EnvVar{
 								{
@@ -633,6 +657,8 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 									},
 								},
 							},
+							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+							TerminationMessagePath:   corev1.TerminationMessagePathDefault,
 						},
 					},
 					SecurityContext: &corev1.PodSecurityContext{

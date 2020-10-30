@@ -1,0 +1,30 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "cr-status.go",
+        "predicate.go",
+        "util.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk",
+    importpath = "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/appscode/jsonpatch:go_default_library",
+        "//vendor/github.com/evanphx/json-patch:go_default_library",
+        "//vendor/github.com/go-logr/logr:go_default_library",
+        "//vendor/github.com/openshift/custom-resource-status/conditions/v1:go_default_library",
+        "//vendor/k8s.io/api/apps/v1:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/jsonmergepatch:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/mergepatch:go_default_library",
+        "//vendor/k8s.io/client-go/tools/record:go_default_library",
+        "//vendor/kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/event:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/predicate:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/runtime/log:go_default_library",
+    ],
+)
