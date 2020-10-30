@@ -517,7 +517,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}()).ShouldNot(Equal(timestamp), "Should not have old vmi heartbeat")
 			})
 
-			It("[test_ids:3198]device plugins should re-register if the kubelet restarts", func() {
+			It("[test_id:3198]device plugins should re-register if the kubelet restarts", func() {
 
 				By("starting a VMI on a node")
 				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)

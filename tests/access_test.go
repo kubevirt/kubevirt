@@ -139,9 +139,9 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			table.Entry("[test_id:528]given a vmi preset", "virtualmachineinstancepresets"),
 			table.Entry("[test_id:529][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
 			table.Entry("[test_id:3230]given a vmi migration", "virtualmachineinstancemigrations"),
-			table.Entry("given a vmsnapshot", "virtualmachinesnapshots"),
-			table.Entry("given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
-			table.Entry("given a vmsrestore", "virtualmachinerestores"),
+			table.Entry("[test_id:5243]given a vmsnapshot", "virtualmachinesnapshots"),
+			table.Entry("[test_id:5244]given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
+			table.Entry("[test_id:5245]given a vmsrestore", "virtualmachinerestores"),
 		)
 
 		table.DescribeTable("should verify permissions on subresources are correct for view, edit, and admin", func(resource string, subresource string) {
@@ -292,9 +292,9 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				table.Entry("[test_id:2917]given a vmi preset", "virtualmachineinstancepresets"),
 				table.Entry("[test_id:2919]given a vmi replica set", "virtualmachineinstancereplicasets"),
 				table.Entry("[test_id:3235]given a vmi migration", "virtualmachineinstancemigrations"),
-				table.Entry("given a vmsnapshot", "virtualmachinesnapshots"),
-				table.Entry("given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
-				table.Entry("given a vmsrestore", "virtualmachinerestores"),
+				table.Entry("[test_id:5246]given a vmsnapshot", "virtualmachinesnapshots"),
+				table.Entry("[test_id:5247]given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
+				table.Entry("[test_id:5248]given a vmsrestore", "virtualmachinerestores"),
 			)
 
 			table.DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
@@ -335,9 +335,9 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				table.Entry("[test_id:2916]given a vmi preset", "virtualmachineinstancepresets"),
 				table.Entry("[test_id:2918][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
 				table.Entry("[test_id:2837]given a vmi migration", "virtualmachineinstancemigrations"),
-				table.Entry("given a vmsnapshot", "virtualmachinesnapshots"),
-				table.Entry("given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
-				table.Entry("given a vmsrestore", "virtualmachinerestores"),
+				table.Entry("[test_id:5249]given a vmsnapshot", "virtualmachinesnapshots"),
+				table.Entry("[test_id:5250]given a vmsnapshotcontent", "virtualmachinesnapshotcontents"),
+				table.Entry("[test_id:5251]given a vmsrestore", "virtualmachinerestores"),
 			)
 
 			table.DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
