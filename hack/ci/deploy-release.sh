@@ -17,6 +17,3 @@ testing_infra_url="https://gcsweb.apps.ovirt.org/gcs/kubevirt-prow/devel/release
 for testinfra_file in $(curl -L "${testing_infra_url}" | grep -oE 'https://[^"]*\.yaml'); do
     curl -L ${testinfra_file} | oc create -f -
 done
-
-echo "Waiting for KubeVirt to get ready"
-oc wait -n kubevirt kv kubevirt --for condition=Available --timeout 15m
