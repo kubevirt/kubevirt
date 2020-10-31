@@ -1204,16 +1204,32 @@ func getMemoryOverhead(vmi *v1.VirtualMachineInstance) *resource.Quantity {
 
 	// Add fixed overhead for shared libraries and such
 	// TODO account for the overhead of kubevirt components running in the pod
-	overhead.Add(resource.MustParse("128M"))
+	overhead.Add(resource.MustParse("138Mi"))
 
 	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
 	// overhead per vcpu in MiB
 	coresMemory := resource.MustParse("8Mi")
+	var vcpus int64
 	if domain.CPU != nil {
-		vcpus := hardware.GetNumberOfVCPUs(domain.CPU)
-		value := coresMemory.Value() * vcpus
-		coresMemory = *resource.NewQuantity(value, coresMemory.Format)
+		vcpus = hardware.GetNumberOfVCPUs(domain.CPU)
+	} else {
+		// Currently, a default guest CPU topology is set by the API webhook mutator, if not set by a user.
+		// However, this wasn't always the case.
+		// In case when the guest topology isn't set, take value from resources request or limits.
+		resources := vmi.Spec.Domain.Resources
+		if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
+			vcpus = cpuLimit.Value()
+		} else if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
+			vcpus = cpuRequests.Value()
+		}
 	}
+
+	// if neither CPU topology nor request or limits provided, set vcpus to 1
+	if vcpus < 1 {
+		vcpus = 1
+	}
+	value := coresMemory.Value() * vcpus
+	coresMemory = *resource.NewQuantity(value, coresMemory.Format)
 	overhead.Add(coresMemory)
 
 	// static overhead for IOThread
@@ -1228,7 +1244,7 @@ func getMemoryOverhead(vmi *v1.VirtualMachineInstance) *resource.Quantity {
 	// in addition to MMIO memory space to allow DMA. 1G is often the size of reserved MMIO space on x86 systems.
 	// Additial information can be found here: https://www.redhat.com/archives/libvir-list/2015-November/msg00329.html
 	if util.IsSRIOVVmi(vmi) || util.IsGPUVMI(vmi) {
-		overhead.Add(resource.MustParse("1G"))
+		overhead.Add(resource.MustParse("1Gi"))
 	}
 
 	return overhead

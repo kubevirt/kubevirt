@@ -482,6 +482,30 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Resources.Requests.Memory()).To(Equal(vmi.Spec.Domain.Resources.Requests.Memory()))
 	})
 
+	It("should convert CPU requests to sockets", func() {
+		vmi.Spec.Domain.CPU = &v1.CPU{Model: "EPYC"}
+		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+			k8sv1.ResourceCPU: resource.MustParse("2200m"),
+		}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+
+		Expect(vmiSpec.Domain.CPU.Cores).To(Equal(uint32(1)), "Expect cores")
+		Expect(vmiSpec.Domain.CPU.Sockets).To(Equal(uint32(3)), "Expect sockets")
+		Expect(vmiSpec.Domain.CPU.Threads).To(Equal(uint32(1)), "Expect threads")
+	})
+
+	It("should convert CPU limits to sockets", func() {
+		vmi.Spec.Domain.CPU = &v1.CPU{Model: "EPYC"}
+		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+			k8sv1.ResourceCPU: resource.MustParse("2.3"),
+		}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+
+		Expect(vmiSpec.Domain.CPU.Cores).To(Equal(uint32(1)), "Expect cores")
+		Expect(vmiSpec.Domain.CPU.Sockets).To(Equal(uint32(3)), "Expect sockets")
+		Expect(vmiSpec.Domain.CPU.Threads).To(Equal(uint32(1)), "Expect threads")
+	})
+
 	It("should apply memory-overcommit when guest-memory is set and memory-request is not set", func() {
 		// no limits wanted on this test, to not copy the limit to requests
 		namespaceLimitInformer, _ = testutils.NewFakeInformerFor(&k8sv1.LimitRange{})

@@ -843,7 +843,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				Expect(curVMI.Spec.Domain.CPU).To(BeNil(), "Expected CPU to be nil")
+				Expect(curVMI.Spec.Domain.CPU.Model).To(BeEmpty(), "Expected CPU model to be nil")
 			})
 		})
 
