@@ -1425,7 +1425,8 @@ func getCPUTopology(vmi *v1.VirtualMachineInstance) *CPUTopology {
 			sockets = vmiCPU.Sockets
 		}
 	}
-
+	// A default guest CPU topology is being set in API mutator webhook, if nothing provided by a user.
+	// However this setting is still required to handle situations when the webhook fails to set a default topology.
 	if vmiCPU == nil || (vmiCPU.Cores == 0 && vmiCPU.Sockets == 0 && vmiCPU.Threads == 0) {
 		//if cores, sockets, threads are not set, take value from domain resources request or limits and
 		//set value into sockets, which have best performance (https://bugzilla.redhat.com/show_bug.cgi?id=1653453)
