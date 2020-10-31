@@ -880,10 +880,12 @@ var _ = Describe("[Serial]SRIOV", func() {
 		}
 
 		It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {
+			Skip("Skip until https://github.com/kubevirt/kubevirt/issues/3774 fixed")
 			pingThroughSriov("192.168.1.1/24", "192.168.1.2/24")
 		})
 
 		It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
+			Skip("Skip until https://github.com/kubevirt/kubevirt/issues/3747 is fixed")
 			pingThroughSriov("fc00::1/64", "fc00::2/64")
 		})
 	})
