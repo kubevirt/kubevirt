@@ -429,7 +429,7 @@ func (b *BridgePodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error {
 			return fmt.Errorf("failed to parse address while starting DHCP server: %s", addr)
 		}
 		log.Log.Object(b.vmi).Infof("bridge pod interface: %+v %+v", b.vif, b)
-		return Handler.StartDHCP(b.vif, fakeServerAddr, b.bridgeInterfaceName, b.iface.DHCPOptions)
+		return Handler.StartDHCP(b.vif, fakeServerAddr.IP, b.bridgeInterfaceName, b.iface.DHCPOptions)
 	}
 	return nil
 }
@@ -704,12 +704,7 @@ func configureVifV6Addresses(p *MasqueradePodInterface, err error) error {
 }
 
 func (p *MasqueradePodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error {
-	addr := fmt.Sprintf("%s/24", p.vif.Gateway.String())
-	fakeServerAddr, err := netlink.ParseAddr(addr)
-	if err != nil {
-		return fmt.Errorf("failed to parse address while starting DHCP server: %s", addr)
-	}
-	return Handler.StartDHCP(p.vif, fakeServerAddr, p.bridgeInterfaceName, p.iface.DHCPOptions)
+	return Handler.StartDHCP(p.vif, p.vif.Gateway, p.bridgeInterfaceName, p.iface.DHCPOptions)
 }
 
 func (p *MasqueradePodInterface) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
