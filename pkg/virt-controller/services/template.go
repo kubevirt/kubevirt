@@ -357,7 +357,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		},
 	})
 
-	if util.IsSRIOVVmi(vmi) || util.IsGPUVMI(vmi) {
+	if util.IsGPUVMI(vmi) {
 		// libvirt needs this volume to access PCI device config;
 		// note that the volume should not be read-only because libvirt
 		// opens the config for writing
