@@ -1267,13 +1267,21 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Removing our migration killer pods")
 				for _, podName := range createdPods {
 					Eventually(func() error {
-						err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(podName, &metav1.DeleteOptions{})
+						err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(podName, &metav1.DeleteOptions{})
 
 						if err != nil && errors.IsNotFound(err) {
 							return nil
 						}
 						return err
 					}, 10*time.Second, 1*time.Second).Should(Succeed(), "Should delete helper pod")
+
+					Eventually(func() error {
+						_, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(podName, metav1.GetOptions{})
+						return err
+					}, 300*time.Second, 1*time.Second).Should(
+						SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())),
+						"The killer pod should be gone within the given timeout",
+					)
 				}
 
 				By("Waiting for virt-handler to come back online")
