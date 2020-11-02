@@ -471,3 +471,27 @@ func (v *vmis) FilesystemList(name string) (v1.VirtualMachineInstanceFileSystemL
 	err := v.restClient.Get().RequestURI(uri).Do().Into(&fsList)
 	return fsList, err
 }
+
+func (v *vmis) AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error {
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "addvolume")
+
+	JSON, err := json.Marshal(addVolumeOptions)
+
+	if err != nil {
+		return err
+	}
+
+	return v.restClient.Put().RequestURI(uri).Body([]byte(JSON)).Do().Error()
+}
+
+func (v *vmis) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error {
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "removevolume")
+
+	JSON, err := json.Marshal(removeVolumeOptions)
+
+	if err != nil {
+		return err
+	}
+
+	return v.restClient.Put().RequestURI(uri).Body([]byte(JSON)).Do().Error()
+}

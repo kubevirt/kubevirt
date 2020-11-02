@@ -3108,6 +3108,131 @@ var CRDsValidation map[string]string = map[string]string{
             - action
             type: object
           type: array
+        volumeRequests:
+          description: VolumeRequests indicates a list of volumes add or remove from the VMI template and hotplug on an active running VMI.
+          items:
+            properties:
+              addVolumeOptions:
+                description: AddVolumeOptions when set indicates a volume should be added. The details within this field specify how to add the volume
+                properties:
+                  disk:
+                    description: Disk represents the hotplug disk that will be plugged into the running VMI
+                    properties:
+                      bootOrder:
+                        description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
+                        type: integer
+                      cache:
+                        description: Cache specifies which kvm disk cache mode should be used.
+                        type: string
+                      cdrom:
+                        description: Attach a volume as a cdrom to the vmi.
+                        properties:
+                          bus:
+                            description: 'Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.'
+                            type: string
+                          readonly:
+                            description: ReadOnly. Defaults to true.
+                            type: boolean
+                          tray:
+                            description: Tray indicates if the tray of the device is open or closed. Allowed values are "open" and "closed". Defaults to closed.
+                            type: string
+                        type: object
+                      dedicatedIOThread:
+                        description: dedicatedIOThread indicates this disk should have an exclusive IO Thread. Enabling this implies useIOThreads = true. Defaults to false.
+                        type: boolean
+                      disk:
+                        description: Attach a volume as a disk to the vmi.
+                        properties:
+                          bus:
+                            description: 'Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.'
+                            type: string
+                          pciAddress:
+                            description: 'If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10'
+                            type: string
+                          readonly:
+                            description: ReadOnly. Defaults to false.
+                            type: boolean
+                        type: object
+                      floppy:
+                        description: Attach a volume as a floppy to the vmi.
+                        properties:
+                          readonly:
+                            description: ReadOnly. Defaults to false.
+                            type: boolean
+                          tray:
+                            description: Tray indicates if the tray of the device is open or closed. Allowed values are "open" and "closed". Defaults to closed.
+                            type: string
+                        type: object
+                      io:
+                        description: 'IO specifies which QEMU disk IO mode should be used. Supported values are: native, default, threads.'
+                        type: string
+                      lun:
+                        description: Attach a volume as a LUN to the vmi.
+                        properties:
+                          bus:
+                            description: 'Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.'
+                            type: string
+                          readonly:
+                            description: ReadOnly. Defaults to false.
+                            type: boolean
+                        type: object
+                      name:
+                        description: Name is the device name
+                        type: string
+                      serial:
+                        description: Serial provides the ability to specify a serial number for the disk device.
+                        type: string
+                      tag:
+                        description: If specified, disk address and its tag will be provided to the guest via config drive metadata
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  name:
+                    description: Name represents the name that will be used to map the disk to the corresponding volume. This overrides any name set inside the Disk struct itself.
+                    type: string
+                  volumeSource:
+                    description: VolumeSource represents the source of the volume to map to the disk.
+                    properties:
+                      dataVolume:
+                        description: DataVolume represents the dynamic creation a PVC for this volume as well as the process of populating that PVC with a disk image.
+                        properties:
+                          name:
+                            description: Name represents the name of the DataVolume in the same namespace
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      persistentVolumeClaim:
+                        description: 'PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims'
+                        properties:
+                          claimName:
+                            description: 'ClaimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims'
+                            type: string
+                          readOnly:
+                            description: Will force the ReadOnly setting in VolumeMounts. Default false.
+                            type: boolean
+                        required:
+                        - claimName
+                        type: object
+                    type: object
+                required:
+                - disk
+                - name
+                - volumeSource
+                type: object
+              removeVolumeOptions:
+                description: RemoveVolumeOptions when set indicates a volume should be removed. The details within this field specify how to add the volume
+                properties:
+                  name:
+                    description: Name represents the name that maps to both the disk and volume that should be removed
+                    type: string
+                required:
+                - name
+                type: object
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
         volumeSnapshotStatuses:
           description: VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is supported by each volume.
           items:
@@ -9335,6 +9460,131 @@ var CRDsValidation map[string]string = map[string]string{
                         - action
                         type: object
                       type: array
+                    volumeRequests:
+                      description: VolumeRequests indicates a list of volumes add or remove from the VMI template and hotplug on an active running VMI.
+                      items:
+                        properties:
+                          addVolumeOptions:
+                            description: AddVolumeOptions when set indicates a volume should be added. The details within this field specify how to add the volume
+                            properties:
+                              disk:
+                                description: Disk represents the hotplug disk that will be plugged into the running VMI
+                                properties:
+                                  bootOrder:
+                                    description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
+                                    type: integer
+                                  cache:
+                                    description: Cache specifies which kvm disk cache mode should be used.
+                                    type: string
+                                  cdrom:
+                                    description: Attach a volume as a cdrom to the vmi.
+                                    properties:
+                                      bus:
+                                        description: 'Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.'
+                                        type: string
+                                      readonly:
+                                        description: ReadOnly. Defaults to true.
+                                        type: boolean
+                                      tray:
+                                        description: Tray indicates if the tray of the device is open or closed. Allowed values are "open" and "closed". Defaults to closed.
+                                        type: string
+                                    type: object
+                                  dedicatedIOThread:
+                                    description: dedicatedIOThread indicates this disk should have an exclusive IO Thread. Enabling this implies useIOThreads = true. Defaults to false.
+                                    type: boolean
+                                  disk:
+                                    description: Attach a volume as a disk to the vmi.
+                                    properties:
+                                      bus:
+                                        description: 'Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.'
+                                        type: string
+                                      pciAddress:
+                                        description: 'If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10'
+                                        type: string
+                                      readonly:
+                                        description: ReadOnly. Defaults to false.
+                                        type: boolean
+                                    type: object
+                                  floppy:
+                                    description: Attach a volume as a floppy to the vmi.
+                                    properties:
+                                      readonly:
+                                        description: ReadOnly. Defaults to false.
+                                        type: boolean
+                                      tray:
+                                        description: Tray indicates if the tray of the device is open or closed. Allowed values are "open" and "closed". Defaults to closed.
+                                        type: string
+                                    type: object
+                                  io:
+                                    description: 'IO specifies which QEMU disk IO mode should be used. Supported values are: native, default, threads.'
+                                    type: string
+                                  lun:
+                                    description: Attach a volume as a LUN to the vmi.
+                                    properties:
+                                      bus:
+                                        description: 'Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.'
+                                        type: string
+                                      readonly:
+                                        description: ReadOnly. Defaults to false.
+                                        type: boolean
+                                    type: object
+                                  name:
+                                    description: Name is the device name
+                                    type: string
+                                  serial:
+                                    description: Serial provides the ability to specify a serial number for the disk device.
+                                    type: string
+                                  tag:
+                                    description: If specified, disk address and its tag will be provided to the guest via config drive metadata
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              name:
+                                description: Name represents the name that will be used to map the disk to the corresponding volume. This overrides any name set inside the Disk struct itself.
+                                type: string
+                              volumeSource:
+                                description: VolumeSource represents the source of the volume to map to the disk.
+                                properties:
+                                  dataVolume:
+                                    description: DataVolume represents the dynamic creation a PVC for this volume as well as the process of populating that PVC with a disk image.
+                                    properties:
+                                      name:
+                                        description: Name represents the name of the DataVolume in the same namespace
+                                        type: string
+                                    required:
+                                    - name
+                                    type: object
+                                  persistentVolumeClaim:
+                                    description: 'PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims'
+                                    properties:
+                                      claimName:
+                                        description: 'ClaimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims'
+                                        type: string
+                                      readOnly:
+                                        description: Will force the ReadOnly setting in VolumeMounts. Default false.
+                                        type: boolean
+                                    required:
+                                    - claimName
+                                    type: object
+                                type: object
+                            required:
+                            - disk
+                            - name
+                            - volumeSource
+                            type: object
+                          removeVolumeOptions:
+                            description: RemoveVolumeOptions when set indicates a volume should be removed. The details within this field specify how to add the volume
+                            properties:
+                              name:
+                                description: Name represents the name that maps to both the disk and volume that should be removed
+                                type: string
+                            required:
+                            - name
+                            type: object
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
                     volumeSnapshotStatuses:
                       description: VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is supported by each volume.
                       items:

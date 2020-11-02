@@ -868,6 +868,26 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) FilesystemList(arg0 int
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "FilesystemList", arg0)
 }
 
+func (_m *MockVirtualMachineInstanceInterface) AddVolume(name string, addVolumeOptions *v114.AddVolumeOptions) error {
+	ret := _m.ctrl.Call(_m, "AddVolume", name, addVolumeOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) AddVolume(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddVolume", arg0, arg1)
+}
+
+func (_m *MockVirtualMachineInstanceInterface) RemoveVolume(name string, removeVolumeOptions *v114.RemoveVolumeOptions) error {
+	ret := _m.ctrl.Call(_m, "RemoveVolume", name, removeVolumeOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) RemoveVolume(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveVolume", arg0, arg1)
+}
+
 // Mock of ReplicaSetInterface interface
 type MockReplicaSetInterface struct {
 	ctrl     *gomock.Controller
@@ -1265,6 +1285,26 @@ func (_m *MockVirtualMachineInterface) Rename(name string, options *v114.RenameO
 
 func (_mr *_MockVirtualMachineInterfaceRecorder) Rename(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Rename", arg0, arg1)
+}
+
+func (_m *MockVirtualMachineInterface) AddVolume(name string, addVolumeOptions *v114.AddVolumeOptions) error {
+	ret := _m.ctrl.Call(_m, "AddVolume", name, addVolumeOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) AddVolume(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddVolume", arg0, arg1)
+}
+
+func (_m *MockVirtualMachineInterface) RemoveVolume(name string, removeVolumeOptions *v114.RemoveVolumeOptions) error {
+	ret := _m.ctrl.Call(_m, "RemoveVolume", name, removeVolumeOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) RemoveVolume(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveVolume", arg0, arg1)
 }
 
 // Mock of VirtualMachineInstanceMigrationInterface interface
