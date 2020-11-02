@@ -4335,10 +4335,7 @@ func resetToDefaultConfig() {
 	}
 
 	UpdateKubeVirtConfigValueAndWait(KubeVirtDefaultConfig)
-
-	if HasCDI() {
-		UpdateCDIConfigMap(CDIInsecureRegistryConfig)
-	}
+	UpdateCDIConfigMap(CDIInsecureRegistryConfig)
 }
 
 type compare func(string, string) bool
