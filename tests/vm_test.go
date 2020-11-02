@@ -1601,20 +1601,20 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					// kubectl doesn't have "adm" subcommand -- only oc does
 					tests.SkipIfNoCmd("oc")
 					By("Ensuring the cluster has new test serviceaccount")
-					stdOut, stdErr, err := tests.RunCommand(k8sClient, "create", "serviceaccount", testUser)
+					stdOut, stdErr, err := tests.RunCommand(k8sClient, "create", "user", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 
 					By("Ensuring user has the admin rights for the test namespace project")
 					// This simulates the ordinary user as an admin in this project
-					stdOut, stdErr, err = tests.RunCommand(k8sClient, "adm", "policy", "add-role-to-user", "admin", fmt.Sprintf("system:serviceaccount:%s:%s", tests.NamespaceTestDefault, testUser))
+					stdOut, stdErr, err = tests.RunCommand(k8sClient, "adm", "policy", "add-role-to-user", "admin", testUser, "--namespace", tests.NamespaceTestDefault)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 				})
 
 				AfterEach(func() {
-					stdOut, stdErr, err := tests.RunCommand(k8sClient, "adm", "policy", "remove-role-from-user", "admin", fmt.Sprintf("system:serviceaccount:%s:%s", tests.NamespaceTestDefault, testUser))
+					stdOut, stdErr, err := tests.RunCommand(k8sClient, "adm", "policy", "remove-role-from-user", "admin", testUser, "--namespace", tests.NamespaceTestDefault)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 
-					stdOut, stdErr, err = tests.RunCommand(k8sClient, "delete", "serviceaccount", testUser)
+					stdOut, stdErr, err = tests.RunCommand(k8sClient, "delete", "user", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 				})
 
@@ -1626,11 +1626,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
 
 					By("Checking VM creation permission using k8s client binary")
-					// It might take time for the role to propagate
-					Eventually(func() string {
-						stdOut, _, _ := tests.RunCommand(k8sClient, "auth", "can-i", "create", "vms", "--as", testUser)
-						return strings.TrimSpace(stdOut)
-					}, 10*time.Second, 1*time.Second).Should(Equal("yes"), fmt.Sprintf("test account '%s' was never granted permission to create a VM", testUser))
+					stdOut, _, err := tests.RunCommand(k8sClient, "auth", "can-i", "create", "vms", "--as", testUser)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(strings.TrimSpace(stdOut)).To(Equal("yes"))
 				})
 			})
 
