@@ -155,31 +155,6 @@ var _ = Describe("Hyperconverged Webhooks", func() {
 			Expect(err).Should(Equal(ErrFakeCdiError))
 		})
 
-		It("should not return error if no different in Spec.Workloads", func() {
-			hco := &HyperConverged{
-				Spec: HyperConvergedSpec{
-					Infra: HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-					Workloads: HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-				},
-			}
-
-			// replace the real client with a mock
-			cli = fake.NewFakeClientWithScheme(s, hco)
-
-			newHco := &HyperConverged{}
-			hco.DeepCopyInto(newHco)
-			// Change only infra, but leave workloads as is
-			newHco.Spec.Infra.NodePlacement.NodeSelector["a change"] = "Something else"
-
-			// should new return error, even when there are no CDI and KV
-			err := newHco.ValidateUpdate(hco)
-			Expect(err).To(BeNil())
-		})
-
 		It("should not return error if dry-run update of CDI CR passes", func() {
 			hco := &HyperConverged{
 				Spec: HyperConvergedSpec{

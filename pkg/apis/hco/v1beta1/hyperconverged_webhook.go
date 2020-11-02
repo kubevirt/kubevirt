@@ -115,13 +115,14 @@ func (r *HyperConverged) ValidateUpdate(old runtime.Object) error {
 	}
 
 	if !reflect.DeepEqual(
-		oldR.Spec.Workloads,
-		r.Spec.Workloads) {
+		oldR.Spec,
+		r.Spec) {
 
 		opts := &client.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
 		for _, obj := range []runtime.Object{
 			r.NewKubeVirt(),
 			r.NewCDI(),
+			// TODO: try to validate with all the components
 		} {
 			if err := r.UpdateOperatorCr(ctx, obj, opts); err != nil {
 				return err
