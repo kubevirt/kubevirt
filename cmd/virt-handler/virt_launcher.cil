@@ -53,8 +53,4 @@
     (allow process nfs_t (dir (mounton)))
     (allow process proc_t (dir (mounton)))
     (allow process proc_t (filesystem (mount unmount)))
-    ;
-    ; Allowing libvirtd to write to /sys files.
-    ; This permission is necessary when using SR-IOV, but is not needed for anything else.
-    (allow process sysfs_t (file (write)))
 )
