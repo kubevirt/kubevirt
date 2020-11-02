@@ -2187,7 +2187,7 @@ var _ = Describe("Template", func() {
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
 				Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(BeFalse())
 			})
-			It("should mount pci related host directories", func() {
+			It("should not mount pci related host directories and should have gpu resource", func() {
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -2211,9 +2211,16 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
-				// Skip first four mounts that are generic for all launcher pods
-				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/sys/devices/"))
-				Expect(pod.Spec.Volumes[1].HostPath.Path).To(Equal("/sys/devices/"))
+
+				for _, volumeMount := range pod.Spec.Containers[0].VolumeMounts {
+					Expect(volumeMount.MountPath).ToNot(Equal("/sys/devices/"))
+				}
+
+				for _, volume := range pod.Spec.Volumes {
+					if volume.HostPath != nil {
+						Expect(volume.HostPath.Path).ToNot(Equal("/sys/devices/"))
+					}
+				}
 
 				resources := pod.Spec.Containers[0].Resources
 				val, ok := resources.Requests["vendor.com/gpu_name"]
@@ -2253,7 +2260,7 @@ var _ = Describe("Template", func() {
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
 				Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(BeFalse())
 			})
-			It("should mount pci related host directories", func() {
+			It("should not mount pci related host directories", func() {
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -2277,9 +2284,16 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
-				// Skip first four mounts that are generic for all launcher pods
-				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/sys/devices/"))
-				Expect(pod.Spec.Volumes[1].HostPath.Path).To(Equal("/sys/devices/"))
+
+				for _, volumeMount := range pod.Spec.Containers[0].VolumeMounts {
+					Expect(volumeMount.MountPath).ToNot(Equal("/sys/devices/"))
+				}
+
+				for _, volume := range pod.Spec.Volumes {
+					if volume.HostPath != nil {
+						Expect(volume.HostPath.Path).ToNot(Equal("/sys/devices/"))
+					}
+				}
 
 				resources := pod.Spec.Containers[0].Resources
 				val, ok := resources.Requests["vendor.com/dev_name"]
