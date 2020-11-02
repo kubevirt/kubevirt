@@ -805,8 +805,13 @@ func AdjustKubeVirtResource() {
 	PanicOnError(err)
 	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
 	CDIInsecureRegistryConfig, err = virtClient.CoreV1().ConfigMaps(flags.ContainerizedDataImporterNamespace).Get(insecureRegistryConfigName, metav1.GetOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		PanicOnError(err)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// force it to nil, independent of what the client returned
+			CDIInsecureRegistryConfig = nil
+		} else {
+			PanicOnError(err)
+		}
 	}
 }
 
