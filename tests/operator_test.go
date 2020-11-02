@@ -36,6 +36,7 @@ import (
 	. "github.com/onsi/gomega"
 	v12 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	k8srbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -742,6 +743,77 @@ spec:
 			Expect(usesSha(pods.Items[0].Spec.Containers[0].Image)).To(BeTrue(), "launcher pod should use shasum")
 
 		})
+	})
+
+	Describe("should reconcile components", func() {
+
+		It("test updating a deployment is reverted to it's original state", func() {
+			envVarKey := "USER_ADDED_ENV"
+
+			By("Updating KubeVirt Object")
+			vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get("virt-controller", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vc.Spec.Template.Spec.Containers[0].Env = []k8sv1.EnvVar{
+				k8sv1.EnvVar{
+					Name:  envVarKey,
+					Value: "value",
+				},
+			}
+
+			vc, err = virtClient.AppsV1().Deployments(originalKv.Namespace).Update(vc)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vc.Spec.Template.Spec.Containers[0].Env[0].Name).To(Equal(envVarKey))
+
+			By("Test that the added envvar was removed")
+			Eventually(func() bool {
+				vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get("virt-controller", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				for _, env := range vc.Spec.Template.Spec.Containers[0].Env {
+					if env.Name == envVarKey {
+						return false
+					}
+				}
+
+				return true
+			}, 60*time.Second, 5*time.Second).Should(BeTrue())
+		})
+
+		It("test updating a rolebinding is reverted to it's original state", func() {
+			roleBindngName := "kubevirt-handler"
+
+			By("Updating KubeVirt Object")
+			rb, err := virtClient.RbacV1().RoleBindings(originalKv.Namespace).Get(roleBindngName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			rb.Subjects = []k8srbacv1.Subject{
+				{
+					Kind:      "ServiceAccount",
+					Name:      "kubevirt-apiserver",
+					Namespace: originalKv.Namespace,
+				},
+			}
+
+			rb, err = virtClient.RbacV1().RoleBindings(originalKv.Namespace).Update(rb)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(rb.Subjects[0].Name).To(Equal("kubevirt-apiserver"))
+
+			By("Test that the added envvar was removed")
+			Eventually(func() bool {
+				rb, err := virtClient.RbacV1().RoleBindings(originalKv.Namespace).Get(roleBindngName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				for _, subject := range rb.Subjects {
+					if subject.Name == roleBindngName {
+						return true
+					}
+				}
+
+				return false
+			}, 60*time.Second, 5*time.Second).Should(BeTrue())
+		})
+
 	})
 
 	Describe("[test_id:4744]should apply component customization", func() {
