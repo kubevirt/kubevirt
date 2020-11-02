@@ -901,3 +901,288 @@ func (app *SubresourceAPIApp) FilesystemList(request *restful.Request, response 
 
 	response.WriteEntity(filesystemList)
 }
+
+func generateVMVolumeRequestPatch(vm *v1.VirtualMachine, volumeRequest *v1.VirtualMachineVolumeRequest) (string, error) {
+	verb := "add"
+	if len(vm.Status.VolumeRequests) > 0 {
+		verb = "replace"
+	}
+
+	vmCopy := vm.DeepCopy()
+
+	// We only validate the list against other items in the list at this point.
+	// The VM validation webhook will validate the list against the VMI spec
+	// during the Patch command
+	if volumeRequest.AddVolumeOptions != nil {
+		name := volumeRequest.AddVolumeOptions.Name
+		for _, request := range vm.Status.VolumeRequests {
+			if request.AddVolumeOptions != nil && request.AddVolumeOptions.Name == name {
+				return "", fmt.Errorf("Add volume request for volume [%s] already exists", name)
+			} else if request.RemoveVolumeOptions != nil && request.RemoveVolumeOptions.Name == name {
+				return "", fmt.Errorf("Unable to add volume. A remove volume request for volume [%s] already exists and is still being processed.", name)
+			}
+		}
+		vmCopy.Status.VolumeRequests = append(vm.Status.VolumeRequests, *volumeRequest)
+	} else if volumeRequest.RemoveVolumeOptions != nil {
+		name := volumeRequest.RemoveVolumeOptions.Name
+		volumeRequestsList := []v1.VirtualMachineVolumeRequest{}
+		for _, request := range vm.Status.VolumeRequests {
+			if request.AddVolumeOptions != nil && request.AddVolumeOptions.Name == name {
+				// Filter matching AddVolume requests from the new list.
+				continue
+			} else if request.RemoveVolumeOptions != nil && request.RemoveVolumeOptions.Name == name {
+				return "", fmt.Errorf("A remove volume request for volume [%s] already exists and is still being processed.", name)
+			}
+
+			volumeRequestsList = append(volumeRequestsList, request)
+		}
+		volumeRequestsList = append(volumeRequestsList, *volumeRequest)
+		vmCopy.Status.VolumeRequests = volumeRequestsList
+	}
+
+	oldJson, err := json.Marshal(vm.Status.VolumeRequests)
+	if err != nil {
+		return "", err
+	}
+
+	newJson, err := json.Marshal(vmCopy.Status.VolumeRequests)
+	if err != nil {
+		return "", err
+	}
+
+	test := fmt.Sprintf(`{ "op": "test", "path": "/status/volumeRequests", "value": %s}`, string(oldJson))
+	update := fmt.Sprintf(`{ "op": "%s", "path": "/status/volumeRequests", "value": %s}`, verb, string(newJson))
+	patch := fmt.Sprintf("[%s, %s]", test, update)
+
+	return patch, nil
+}
+
+func generateVMIVolumeRequestPatch(vmi *v1.VirtualMachineInstance, volumeRequest *v1.VirtualMachineVolumeRequest) (string, error) {
+
+	volumeVerb := "add"
+	diskVerb := "add"
+
+	if len(vmi.Spec.Volumes) > 0 {
+		volumeVerb = "replace"
+	}
+
+	if len(vmi.Spec.Domain.Devices.Disks) > 0 {
+		diskVerb = "replace"
+	}
+
+	vmiCopy := vmi.DeepCopy()
+	vmiCopy.Spec = *controller.ApplyVolumeRequestOnVMISpec(&vmiCopy.Spec, volumeRequest)
+
+	oldVolumesJson, err := json.Marshal(vmi.Spec.Volumes)
+	if err != nil {
+		return "", err
+	}
+
+	newVolumesJson, err := json.Marshal(vmiCopy.Spec.Volumes)
+	if err != nil {
+		return "", err
+	}
+
+	oldDisksJson, err := json.Marshal(vmi.Spec.Domain.Devices.Disks)
+	if err != nil {
+		return "", err
+	}
+
+	newDisksJson, err := json.Marshal(vmiCopy.Spec.Domain.Devices.Disks)
+	if err != nil {
+		return "", err
+	}
+
+	testVolumes := fmt.Sprintf(`{ "op": "test", "path": "/spec/volumes", "value": %s}`, string(oldVolumesJson))
+	updateVolumes := fmt.Sprintf(`{ "op": "%s", "path": "/spec/volumes", "value": %s}`, volumeVerb, string(newVolumesJson))
+
+	testDisks := fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/devices/disks", "value": %s}`, string(oldDisksJson))
+	updateDisks := fmt.Sprintf(`{ "op": "%s", "path": "/spec/domain/devices/disks", "value": %s}`, diskVerb, string(newDisksJson))
+
+	patch := fmt.Sprintf("[%s, %s, %s, %s]", testVolumes, testDisks, updateVolumes, updateDisks)
+
+	return patch, nil
+}
+
+func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
+	name := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
+
+	opts := &v1.AddVolumeOptions{}
+	if request.Request.Body != nil {
+		defer request.Request.Body.Close()
+		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
+		switch err {
+		case io.EOF, nil:
+			break
+		default:
+			writeError(errors.NewBadRequest(fmt.Sprintf("Can not unmarshal Request body to struct, error: %s", err)), response)
+			return
+		}
+	} else {
+		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"), response)
+		return
+	}
+
+	if opts.Name == "" {
+		writeError(errors.NewBadRequest("AddVolumeOptions requires name to be set"), response)
+		return
+	} else if opts.Disk == nil {
+		writeError(errors.NewBadRequest("AddVolumeOptions requires disk to not be nil"), response)
+		return
+	} else if opts.VolumeSource == nil {
+		writeError(errors.NewBadRequest("AddVolumeOptions requires VolumeSource to not be nil"), response)
+		return
+	}
+
+	opts.Disk.Name = opts.Name
+	volumeRequest := v1.VirtualMachineVolumeRequest{
+		AddVolumeOptions: opts,
+	}
+
+	// inject into VMI if ephemeral, else set as a request on the VM to both make permanent and hotplug.
+	if ephemeral {
+		vmi, statErr := app.fetchVirtualMachineInstance(name, namespace)
+		if statErr != nil {
+			writeError(statErr, response)
+			return
+		}
+
+		if !vmi.IsRunning() {
+			writeError(errors.NewConflict(v1.Resource("virtualmachineinstance"), name, fmt.Errorf("VMI is not running")), response)
+			return
+		}
+
+		patch, err := generateVMIVolumeRequestPatch(vmi, &volumeRequest)
+		if err != nil {
+			writeError(errors.NewConflict(v1.Resource("virtualmachineinstance"), name, err), response)
+			return
+		}
+
+		log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", patch)
+		_, err = app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patch))
+		if err != nil {
+			writeError(errors.NewInternalError(err), response)
+			return
+		}
+
+	} else {
+		vm, statErr := app.fetchVirtualMachine(name, namespace)
+		if statErr != nil {
+			writeError(statErr, response)
+			return
+		}
+
+		patch, err := generateVMVolumeRequestPatch(vm, &volumeRequest)
+		if err != nil {
+			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, err), response)
+			return
+		}
+
+		err = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch))
+		if err != nil {
+			writeError(errors.NewInternalError(err), response)
+			return
+		}
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
+func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
+	name := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
+
+	opts := &v1.RemoveVolumeOptions{}
+	if request.Request.Body != nil {
+		defer request.Request.Body.Close()
+		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
+		switch err {
+		case io.EOF, nil:
+			break
+		default:
+			writeError(errors.NewBadRequest(fmt.Sprintf("Can not unmarshal Request body to struct, error: %s",
+				err)), response)
+			return
+		}
+	} else {
+		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"),
+			response)
+		return
+	}
+
+	if opts.Name == "" {
+		writeError(errors.NewBadRequest("RemoveVolumeOptions requires name to be set"), response)
+		return
+	}
+	volumeRequest := v1.VirtualMachineVolumeRequest{
+		RemoveVolumeOptions: opts,
+	}
+
+	// inject into VMI if ephemeral, else set as a request on the VM to both make permanent and hotplug.
+	if ephemeral {
+		vmi, statErr := app.fetchVirtualMachineInstance(name, namespace)
+		if statErr != nil {
+			writeError(statErr, response)
+			return
+		}
+
+		if !vmi.IsRunning() {
+			writeError(errors.NewConflict(v1.Resource("virtualmachineinstance"), name, fmt.Errorf("VMI is not running")), response)
+			return
+		}
+
+		patch, err := generateVMIVolumeRequestPatch(vmi, &volumeRequest)
+		if err != nil {
+			writeError(errors.NewConflict(v1.Resource("virtualmachineinstance"), name, err), response)
+			return
+		}
+
+		log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", patch)
+		_, err = app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patch))
+		if err != nil {
+			writeError(errors.NewInternalError(err), response)
+			return
+		}
+	} else {
+		vm, statErr := app.fetchVirtualMachine(name, namespace)
+		if statErr != nil {
+			writeError(statErr, response)
+			return
+		}
+
+		patch, err := generateVMVolumeRequestPatch(vm, &volumeRequest)
+		if err != nil {
+			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, err), response)
+			return
+		}
+
+		err = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch))
+		if err != nil {
+			writeError(errors.NewInternalError(err), response)
+			return
+		}
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
+// VMAddVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
+func (app *SubresourceAPIApp) VMAddVolumeRequestHandler(request *restful.Request, response *restful.Response) {
+	app.addVolumeRequestHandler(request, response, false)
+}
+
+// VMRemoveVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
+func (app *SubresourceAPIApp) VMRemoveVolumeRequestHandler(request *restful.Request, response *restful.Response) {
+	app.removeVolumeRequestHandler(request, response, false)
+}
+
+// VMIAddVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
+func (app *SubresourceAPIApp) VMIAddVolumeRequestHandler(request *restful.Request, response *restful.Response) {
+	app.addVolumeRequestHandler(request, response, true)
+}
+
+// VMIRemoveVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
+func (app *SubresourceAPIApp) VMIRemoveVolumeRequestHandler(request *restful.Request, response *restful.Response) {
+	app.removeVolumeRequestHandler(request, response, true)
+}
