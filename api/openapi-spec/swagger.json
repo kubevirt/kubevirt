@@ -6308,6 +6308,47 @@
      }
     }
    },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/addvolume": {
+    "put": {
+     "description": "Add a volume and disk to a running Virtual Machine Instance",
+     "operationId": "vmi-addvolume",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/console": {
     "get": {
      "description": "Open a websocket connection to a serial console on the specified VirtualMachineInstance.",
@@ -6426,6 +6467,47 @@
        "schema": {
         "type": "string"
        }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/removevolume": {
+    "put": {
+     "description": "Removes a volume and disk from a running Virtual Machine Instance",
+     "operationId": "vmi-removevolume",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
       }
      }
     },
@@ -6576,6 +6658,47 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/addvolume": {
+    "put": {
+     "description": "Add a volume and disk to a running Virtual Machine.",
+     "operationId": "vm-addvolume",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/migrate": {
     "put": {
      "description": "Migrate a running VirtualMachine to another node.",
@@ -6601,6 +6724,47 @@
        "schema": {
         "type": "string"
        }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachines/{name:[a-z0-9][a-z0-9\\-]*}/removevolume": {
+    "put": {
+     "description": "Removes a volume and disk from a running Virtual Machine.",
+     "operationId": "vm-removevolume",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
       }
      }
     },
@@ -8028,6 +8192,29 @@
      }
     }
    },
+   "v1.AddVolumeOptions": {
+    "description": "AddVolumeOptions is provided when dynamically hot plugging a volume and disk",
+    "type": "object",
+    "required": [
+     "name",
+     "disk",
+     "volumeSource"
+    ],
+    "properties": {
+     "disk": {
+      "description": "Disk represents the hotplug disk that will be plugged into the running VMI",
+      "$ref": "#/definitions/v1.Disk"
+     },
+     "name": {
+      "description": "Name represents the name that will be used to map the disk to the corresponding volume. This overrides any name set inside the Disk struct itself.",
+      "type": "string"
+     },
+     "volumeSource": {
+      "description": "VolumeSource represents the source of the volume to map to the disk.",
+      "$ref": "#/definitions/v1.HotplugVolumeSource"
+     }
+    }
+   },
    "v1.BIOS": {
     "description": "If set (default), BIOS will be used.",
     "type": "object",
@@ -8963,6 +9150,20 @@
      }
     }
    },
+   "v1.HotplugVolumeSource": {
+    "description": "HotplugVolumeSource Represents the source of a volume to mount which are capable of being hotplugged on a live running VMI. Only one of its members may be specified.",
+    "type": "object",
+    "properties": {
+     "dataVolume": {
+      "description": "DataVolume represents the dynamic creation a PVC for this volume as well as the process of populating that PVC with a disk image.",
+      "$ref": "#/definitions/v1.DataVolumeSource"
+     },
+     "persistentVolumeClaim": {
+      "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+      "$ref": "#/definitions/k8s.io.api.core.v1.PersistentVolumeClaimVolumeSource"
+     }
+    }
+   },
    "v1.HotplugVolumeStatus": {
     "description": "HotplugVolumeStatus represents the hotplug status of the volume",
     "type": "object",
@@ -9696,6 +9897,19 @@
      },
      "track": {
       "description": "Track the guest or the wall clock.",
+      "type": "string"
+     }
+    }
+   },
+   "v1.RemoveVolumeOptions": {
+    "description": "RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk",
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "name": {
+      "description": "Name represents the name that maps to both the disk and volume that should be removed",
       "type": "string"
      }
     }
@@ -10929,12 +11143,33 @@
        "$ref": "#/definitions/v1.VirtualMachineStateChangeRequest"
       }
      },
+     "volumeRequests": {
+      "description": "VolumeRequests indicates a list of volumes add or remove from the VMI template and hotplug on an active running VMI.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineVolumeRequest"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "volumeSnapshotStatuses": {
       "description": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is supported by each volume.",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.VolumeSnapshotStatus"
       }
+     }
+    }
+   },
+   "v1.VirtualMachineVolumeRequest": {
+    "type": "object",
+    "properties": {
+     "addVolumeOptions": {
+      "description": "AddVolumeOptions when set indicates a volume should be added. The details within this field specify how to add the volume",
+      "$ref": "#/definitions/v1.AddVolumeOptions"
+     },
+     "removeVolumeOptions": {
+      "description": "RemoveVolumeOptions when set indicates a volume should be removed. The details within this field specify how to add the volume",
+      "$ref": "#/definitions/v1.RemoveVolumeOptions"
      }
     }
    },

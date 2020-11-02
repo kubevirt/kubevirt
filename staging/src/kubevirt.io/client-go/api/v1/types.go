@@ -1085,6 +1085,11 @@ type VirtualMachineStatus struct {
 	// StateChangeRequests indicates a list of actions that should be taken on a VMI
 	// e.g. stop a specific VMI then start a new one.
 	StateChangeRequests []VirtualMachineStateChangeRequest `json:"stateChangeRequests,omitempty" optional:"true"`
+	// VolumeRequests indicates a list of volumes add or remove from the VMI template and
+	// hotplug on an active running VMI.
+	// +listType=atomic
+	VolumeRequests []VirtualMachineVolumeRequest `json:"volumeRequests,omitempty" optional:"true"`
+
 	// VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is
 	// supported by each volume.
 	VolumeSnapshotStatuses []VolumeSnapshotStatus `json:"volumeSnapshotStatuses,omitempty" optional:"true"`
@@ -1098,6 +1103,16 @@ type VolumeSnapshotStatus struct {
 	Enabled bool `json:"enabled"`
 	// Empty if snapshotting is enabled, contains reason otherwise
 	Reason string `json:"reason,omitempty" optional:"true"`
+}
+
+// +k8s:openapi-gen=true
+type VirtualMachineVolumeRequest struct {
+	// AddVolumeOptions when set indicates a volume should be added. The details
+	// within this field specify how to add the volume
+	AddVolumeOptions *AddVolumeOptions `json:"addVolumeOptions,omitempty" optional:"true"`
+	// RemoveVolumeOptions when set indicates a volume should be removed. The details
+	// within this field specify how to add the volume
+	RemoveVolumeOptions *RemoveVolumeOptions `json:"removeVolumeOptions,omitempty" optional:"true"`
 }
 
 // +k8s:openapi-gen=true
@@ -1511,6 +1526,27 @@ type RenameOptions struct {
 	metav1.TypeMeta `json:",inline"`
 	NewName         string  `json:"newName"`
 	OldName         *string `json:"oldName,omitempty"`
+}
+
+// AddVolumeOptions is provided when dynamically hot plugging a volume and disk
+// +k8s:openapi-gen=true
+type AddVolumeOptions struct {
+	// Name represents the name that will be used to map the
+	// disk to the corresponding volume. This overrides any name
+	// set inside the Disk struct itself.
+	Name string `json:"name"`
+	// Disk represents the hotplug disk that will be plugged into the running VMI
+	Disk *Disk `json:"disk"`
+	// VolumeSource represents the source of the volume to map to the disk.
+	VolumeSource *HotplugVolumeSource `json:"volumeSource"`
+}
+
+// RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk
+// +k8s:openapi-gen=true
+type RemoveVolumeOptions struct {
+	// Name represents the name that maps to both the disk and volume that
+	// should be removed
+	Name string `json:"name"`
 }
 
 // KubeVirtConfiguration holds all kubevirt configurations

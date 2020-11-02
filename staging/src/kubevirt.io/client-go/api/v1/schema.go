@@ -628,6 +628,23 @@ type VolumeSource struct {
 	ServiceAccount *ServiceAccountVolumeSource `json:"serviceAccount,omitempty"`
 }
 
+// HotplugVolumeSource Represents the source of a volume to mount which are capable
+// of being hotplugged on a live running VMI.
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type HotplugVolumeSource struct {
+	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
+	// Directly attached to the vmi via qemu.
+	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+	// +optional
+	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
+	// DataVolume represents the dynamic creation a PVC for this volume as well as
+	// the process of populating that PVC with a disk image.
+	// +optional
+	DataVolume *DataVolumeSource `json:"dataVolume,omitempty"`
+}
+
 //
 // +k8s:openapi-gen=true
 type DataVolumeSource struct {

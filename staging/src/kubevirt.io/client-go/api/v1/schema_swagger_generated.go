@@ -313,6 +313,14 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 	}
 }
 
+func (HotplugVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                      "HotplugVolumeSource Represents the source of a volume to mount which are capable\nof being hotplugged on a live running VMI.\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
+		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+		"dataVolume":            "DataVolume represents the dynamic creation a PVC for this volume as well as\nthe process of populating that PVC with a disk image.\n+optional",
+	}
+}
+
 func (DataVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":     "+k8s:openapi-gen=true",

@@ -193,3 +193,59 @@ func SetLatestApiVersionAnnotation(object metav1.Object) {
 	annotations[v1.ControllerAPIStorageVersionObservedAnnotation] = v1.ApiStorageVersion
 	object.SetAnnotations(annotations)
 }
+
+func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineVolumeRequest) *v1.VirtualMachineInstanceSpec {
+	if request.AddVolumeOptions != nil {
+		alreadyAdded := false
+		for _, volume := range vmiSpec.Volumes {
+			if volume.Name == request.AddVolumeOptions.Name {
+				alreadyAdded = true
+				break
+			}
+		}
+
+		if !alreadyAdded {
+			newVolume := v1.Volume{
+				Name: request.AddVolumeOptions.Name,
+			}
+
+			if request.AddVolumeOptions.VolumeSource.PersistentVolumeClaim != nil {
+				newVolume.VolumeSource.PersistentVolumeClaim = request.AddVolumeOptions.VolumeSource.PersistentVolumeClaim
+			} else if request.AddVolumeOptions.VolumeSource.DataVolume != nil {
+
+				newVolume.VolumeSource.DataVolume = request.AddVolumeOptions.VolumeSource.DataVolume
+			}
+
+			vmiSpec.Volumes = append(vmiSpec.Volumes, newVolume)
+
+			if request.AddVolumeOptions.Disk != nil {
+				newDisk := request.AddVolumeOptions.Disk.DeepCopy()
+				newDisk.Name = request.AddVolumeOptions.Name
+
+				vmiSpec.Domain.Devices.Disks = append(vmiSpec.Domain.Devices.Disks, *newDisk)
+			}
+		}
+
+	} else if request.RemoveVolumeOptions != nil {
+
+		newVolumesList := []v1.Volume{}
+		newDisksList := []v1.Disk{}
+
+		for _, volume := range vmiSpec.Volumes {
+			if volume.Name != request.RemoveVolumeOptions.Name {
+				newVolumesList = append(newVolumesList, volume)
+			}
+		}
+
+		for _, disk := range vmiSpec.Domain.Devices.Disks {
+			if disk.Name != request.RemoveVolumeOptions.Name {
+				newDisksList = append(newDisksList, disk)
+			}
+		}
+
+		vmiSpec.Volumes = newVolumesList
+		vmiSpec.Domain.Devices.Disks = newDisksList
+	}
+
+	return vmiSpec
+}

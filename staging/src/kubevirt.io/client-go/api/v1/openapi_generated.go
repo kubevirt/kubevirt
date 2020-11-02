@@ -290,6 +290,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"k8s.io/apimachinery/pkg/util/intstr.IntOrString":                                         schema_apimachinery_pkg_util_intstr_IntOrString(ref),
 		"kubevirt.io/client-go/api/v1.AccessCredential":                                           schema_kubevirtio_client_go_api_v1_AccessCredential(ref),
 		"kubevirt.io/client-go/api/v1.AccessCredentialSecretSource":                               schema_kubevirtio_client_go_api_v1_AccessCredentialSecretSource(ref),
+		"kubevirt.io/client-go/api/v1.AddVolumeOptions":                                           schema_kubevirtio_client_go_api_v1_AddVolumeOptions(ref),
 		"kubevirt.io/client-go/api/v1.AuthorizedKeysFile":                                         schema_kubevirtio_client_go_api_v1_AuthorizedKeysFile(ref),
 		"kubevirt.io/client-go/api/v1.BIOS":                                                       schema_kubevirtio_client_go_api_v1_BIOS(ref),
 		"kubevirt.io/client-go/api/v1.Bootloader":                                                 schema_kubevirtio_client_go_api_v1_Bootloader(ref),
@@ -338,6 +339,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.HPETTimer":                                                  schema_kubevirtio_client_go_api_v1_HPETTimer(ref),
 		"kubevirt.io/client-go/api/v1.HostDevice":                                                 schema_kubevirtio_client_go_api_v1_HostDevice(ref),
 		"kubevirt.io/client-go/api/v1.HostDisk":                                                   schema_kubevirtio_client_go_api_v1_HostDisk(ref),
+		"kubevirt.io/client-go/api/v1.HotplugVolumeSource":                                        schema_kubevirtio_client_go_api_v1_HotplugVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.HotplugVolumeStatus":                                        schema_kubevirtio_client_go_api_v1_HotplugVolumeStatus(ref),
 		"kubevirt.io/client-go/api/v1.Hugepages":                                                  schema_kubevirtio_client_go_api_v1_Hugepages(ref),
 		"kubevirt.io/client-go/api/v1.HypervTimer":                                                schema_kubevirtio_client_go_api_v1_HypervTimer(ref),
@@ -378,6 +380,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation":      schema_kubevirtio_client_go_api_v1_QemuGuestAgentSSHPublicKeyAccessCredentialPropagation(ref),
 		"kubevirt.io/client-go/api/v1.QemuGuestAgentUserPasswordAccessCredentialPropagation":      schema_kubevirtio_client_go_api_v1_QemuGuestAgentUserPasswordAccessCredentialPropagation(ref),
 		"kubevirt.io/client-go/api/v1.RTCTimer":                                                   schema_kubevirtio_client_go_api_v1_RTCTimer(ref),
+		"kubevirt.io/client-go/api/v1.RemoveVolumeOptions":                                        schema_kubevirtio_client_go_api_v1_RemoveVolumeOptions(ref),
 		"kubevirt.io/client-go/api/v1.ResourceRequirements":                                       schema_kubevirtio_client_go_api_v1_ResourceRequirements(ref),
 		"kubevirt.io/client-go/api/v1.RestartOptions":                                             schema_kubevirtio_client_go_api_v1_RestartOptions(ref),
 		"kubevirt.io/client-go/api/v1.Rng":                                                        schema_kubevirtio_client_go_api_v1_Rng(ref),
@@ -425,6 +428,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.VirtualMachineSpec":                                         schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref),
 		"kubevirt.io/client-go/api/v1.VirtualMachineStateChangeRequest":                           schema_kubevirtio_client_go_api_v1_VirtualMachineStateChangeRequest(ref),
 		"kubevirt.io/client-go/api/v1.VirtualMachineStatus":                                       schema_kubevirtio_client_go_api_v1_VirtualMachineStatus(ref),
+		"kubevirt.io/client-go/api/v1.VirtualMachineVolumeRequest":                                schema_kubevirtio_client_go_api_v1_VirtualMachineVolumeRequest(ref),
 		"kubevirt.io/client-go/api/v1.Volume":                                                     schema_kubevirtio_client_go_api_v1_Volume(ref),
 		"kubevirt.io/client-go/api/v1.VolumeSnapshotStatus":                                       schema_kubevirtio_client_go_api_v1_VolumeSnapshotStatus(ref),
 		"kubevirt.io/client-go/api/v1.VolumeSource":                                               schema_kubevirtio_client_go_api_v1_VolumeSource(ref),
@@ -13547,6 +13551,41 @@ func schema_kubevirtio_client_go_api_v1_AccessCredentialSecretSource(ref common.
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_AddVolumeOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AddVolumeOptions is provided when dynamically hot plugging a volume and disk",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name represents the name that will be used to map the disk to the corresponding volume. This overrides any name set inside the Disk struct itself.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"disk": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Disk represents the hotplug disk that will be plugged into the running VMI",
+							Ref:         ref("kubevirt.io/client-go/api/v1.Disk"),
+						},
+					},
+					"volumeSource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeSource represents the source of the volume to map to the disk.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.HotplugVolumeSource"),
+						},
+					},
+				},
+				Required: []string{"name", "disk", "volumeSource"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.Disk", "kubevirt.io/client-go/api/v1.HotplugVolumeSource"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_AuthorizedKeysFile(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -15358,6 +15397,33 @@ func schema_kubevirtio_client_go_api_v1_HostDisk(ref common.ReferenceCallback) c
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_HotplugVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "HotplugVolumeSource Represents the source of a volume to mount which are capable of being hotplugged on a live running VMI. Only one of its members may be specified.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"persistentVolumeClaim": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource"),
+						},
+					},
+					"dataVolume": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataVolume represents the dynamic creation a PVC for this volume as well as the process of populating that PVC with a disk image.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.DataVolumeSource"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/client-go/api/v1.DataVolumeSource"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_HotplugVolumeStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -16803,6 +16869,27 @@ func schema_kubevirtio_client_go_api_v1_RTCTimer(ref common.ReferenceCallback) c
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_RemoveVolumeOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name represents the name that maps to both the disk and volume that should be removed",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
 			},
 		},
 	}
@@ -18991,6 +19078,24 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineStatus(ref common.Referenc
 							},
 						},
 					},
+					"volumeRequests": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeRequests indicates a list of volumes add or remove from the VMI template and hotplug on an active running VMI.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/api/v1.VirtualMachineVolumeRequest"),
+									},
+								},
+							},
+						},
+					},
 					"volumeSnapshotStatuses": {
 						SchemaProps: spec.SchemaProps{
 							Description: "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is supported by each volume.",
@@ -19008,7 +19113,33 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineStatus(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.VirtualMachineCondition", "kubevirt.io/client-go/api/v1.VirtualMachineStateChangeRequest", "kubevirt.io/client-go/api/v1.VolumeSnapshotStatus"},
+			"kubevirt.io/client-go/api/v1.VirtualMachineCondition", "kubevirt.io/client-go/api/v1.VirtualMachineStateChangeRequest", "kubevirt.io/client-go/api/v1.VirtualMachineVolumeRequest", "kubevirt.io/client-go/api/v1.VolumeSnapshotStatus"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_VirtualMachineVolumeRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"addVolumeOptions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AddVolumeOptions when set indicates a volume should be added. The details within this field specify how to add the volume",
+							Ref:         ref("kubevirt.io/client-go/api/v1.AddVolumeOptions"),
+						},
+					},
+					"removeVolumeOptions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RemoveVolumeOptions when set indicates a volume should be removed. The details within this field specify how to add the volume",
+							Ref:         ref("kubevirt.io/client-go/api/v1.RemoveVolumeOptions"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.AddVolumeOptions", "kubevirt.io/client-go/api/v1.RemoveVolumeOptions"},
 	}
 }
 
