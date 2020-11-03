@@ -32,6 +32,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -93,7 +94,7 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 
 					tmpVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(tmpVmi)
 					Expect(err).NotTo(HaveOccurred())
-					vmi = tests.WaitUntilVMIReady(tmpVmi, tests.LoggedInFedoraExpecter)
+					vmi = tests.WaitUntilVMIReady(tmpVmi, console.LoggedInFedoraExpecter)
 
 					tests.WaitAgentConnected(virtClient, vmi)
 				})
