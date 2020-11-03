@@ -1250,7 +1250,7 @@ var _ = Describe("Configurations", func() {
 				getOptions := metav1.GetOptions{}
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInFedoraExpecter(agentVMI)
+				expecter, err := console.LoggedInFedoraExpecter(agentVMI)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1349,7 +1349,7 @@ var _ = Describe("Configurations", func() {
 				agentVMI := prepareAgentVM()
 
 				By("Expecting the VirtualMachineInstance console")
-				expecter, err := tests.LoggedInFedoraExpecter(agentVMI)
+				expecter, err := console.LoggedInFedoraExpecter(agentVMI)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -1374,7 +1374,7 @@ var _ = Describe("Configurations", func() {
 			It("[test_id:4629]should return user list", func() {
 				agentVMI := prepareAgentVM()
 
-				expecter, err := tests.LoggedInFedoraExpecter(agentVMI)
+				expecter, err := console.LoggedInFedoraExpecter(agentVMI)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -2668,7 +2668,7 @@ var _ = Describe("Configurations", func() {
 			}
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
+			tests.WaitUntilVMIReady(vmi, console.LoggedInFedoraExpecter)
 			Expect(len(vmi.Spec.Domain.Devices.Disks)).Should(BeNumerically("==", numOfDevices))
 
 			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
