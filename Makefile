@@ -55,7 +55,7 @@ go-build:
 
 gosec:
 	hack/dockerized "./hack/gosec.sh"
-	
+
 coverage:
 	hack/dockerized "./hack/coverage.sh ${WHAT}"
 
@@ -153,6 +153,9 @@ olm-push:
 
 bump-kubevirtci:
 	./hack/bump-kubevirtci.sh
+
+foo:
+	go test ./tests/...
 
 .PHONY: \
 	build-verify \

@@ -10,6 +10,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/kubecli"
+
+	testerrors "kubevirt.io/kubevirt/tests/errors"
 )
 
 func NewHTTPServerPod(port int) *corev1.Pod {
@@ -24,7 +26,7 @@ func NewTCPServerPod(port int) *corev1.Pod {
 
 func CreatePodAndWaitUntil(pod *corev1.Pod, phaseToWait corev1.PodPhase) *corev1.Pod {
 	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
+	testerrors.PanicOnError(err)
 
 	pod, err = virtClient.CoreV1().Pods(NamespaceTestDefault).Create(pod)
 	Expect(err).ToNot(HaveOccurred(), "should succeed creating pod")

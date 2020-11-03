@@ -19,7 +19,6 @@ go_library(
         "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/util/cluster:go_default_library",
-        "//pkg/util/net/dns:go_default_library",
         "//pkg/util/net/ip:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
@@ -32,6 +31,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//tests/console:go_default_library",
         "//tests/containerdisk:go_default_library",
+        "//tests/errors:go_default_library",
         "//tests/flags:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/libvmi:go_default_library",
@@ -72,7 +72,6 @@ go_library(
         "//vendor/k8s.io/client-go/transport/spdy:go_default_library",
         "//vendor/k8s.io/utils/net:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
-        "@org_golang_google_grpc//codes:go_default_library",
     ],
 )
 
@@ -197,6 +196,7 @@ go_test(
         "//staging/src/kubevirt.io/client-go/subresources:go_default_library",
         "//tests/console:go_default_library",
         "//tests/containerdisk:go_default_library",
+        "//tests/errors:go_default_library",
         "//tests/flags:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/libvmi:go_default_library",

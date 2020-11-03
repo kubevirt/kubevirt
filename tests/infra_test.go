@@ -61,6 +61,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	testerrors "kubevirt.io/kubevirt/tests/errors"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 )
@@ -73,7 +74,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 	)
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		testerrors.PanicOnError(err)
 
 		if aggregatorClient == nil {
 			config, err := kubecli.GetConfig()
@@ -1009,22 +1010,22 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 func getLeader() string {
 	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	testerrors.PanicOnError(err)
 
 	controllerEndpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(leaderelectionconfig.DefaultEndpointName, metav1.GetOptions{})
-	tests.PanicOnError(err)
+	testerrors.PanicOnError(err)
 
 	var record resourcelock.LeaderElectionRecord
 	if recordBytes, found := controllerEndpoint.Annotations[resourcelock.LeaderElectionRecordAnnotationKey]; found {
 		err := json.Unmarshal([]byte(recordBytes), &record)
-		tests.PanicOnError(err)
+		testerrors.PanicOnError(err)
 	}
 	return record.HolderIdentity
 }
 
 func getNewLeaderPod(virtClient kubecli.KubevirtClient) *k8sv1.Pod {
 	labelSelector, err := labels.Parse(fmt.Sprint(v1.AppLabel + "=virt-controller"))
-	tests.PanicOnError(err)
+	testerrors.PanicOnError(err)
 	fieldSelector := fields.ParseSelectorOrDie("status.phase=" + string(k8sv1.PodRunning))
 	controllerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
 		metav1.ListOptions{LabelSelector: labelSelector.String(), FieldSelector: fieldSelector.String()})
