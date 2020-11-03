@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
@@ -74,7 +75,7 @@ var _ = Describe("[Serial]MultiQueue", func() {
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 
 			By("Checking if we can login")
-			e, err := tests.LoggedInFedoraExpecter(vmi)
+			e, err := console.LoggedInFedoraExpecter(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			e.Close()
 		})
