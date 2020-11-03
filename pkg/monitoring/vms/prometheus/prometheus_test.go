@@ -432,7 +432,9 @@ var _ = Describe("Prometheus", func() {
 		})
 
 		It("should handle block read time metrics", func() {
-			ch := make(chan prometheus.Metric, 1)
+			// Channel size = 2 because it will create 2 metrics
+			// One for seconds and another for the deprecated ns
+			ch := make(chan prometheus.Metric, 2)
 			defer close(ch)
 
 			ps := prometheusScraper{ch: ch}
@@ -453,6 +455,7 @@ var _ = Describe("Prometheus", func() {
 			vmi := k6tv1.VirtualMachineInstance{}
 			ps.Report("test", &vmi, vmStats)
 
+			// kubevirt_vmi_storage_times_seconds_total is pushed first to the channel
 			result := <-ch
 			metric := &io_prometheus_client.Metric{}
 			result.Write(metric)
@@ -461,10 +464,20 @@ var _ = Describe("Prometheus", func() {
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_times_seconds_total"))
 			// Assert conversion from nanoseconds to seconds
 			Expect(metric.Counter.GetValue()).To(BeEquivalentTo(float64(1)))
+
+			result = <-ch
+			metric = &io_prometheus_client.Metric{}
+			result.Write(metric)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_times_ns_total"))
+			Expect(metric.Counter.GetValue()).To(BeEquivalentTo(float64(1000000000)))
 		})
 
 		It("should handle block write time metrics", func() {
-			ch := make(chan prometheus.Metric, 1)
+			// Channel size = 2 because it will create 2 metrics
+			// One for seconds and another for the deprecated ns
+			ch := make(chan prometheus.Metric, 2)
 			defer close(ch)
 
 			ps := prometheusScraper{ch: ch}
@@ -485,6 +498,7 @@ var _ = Describe("Prometheus", func() {
 			vmi := k6tv1.VirtualMachineInstance{}
 			ps.Report("test", &vmi, vmStats)
 
+			// kubevirt_vmi_storage_times_seconds_total is pushed first to the channel
 			result := <-ch
 			metric := &io_prometheus_client.Metric{}
 			result.Write(metric)
@@ -493,6 +507,14 @@ var _ = Describe("Prometheus", func() {
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_times_seconds_total"))
 			// Assert conversion from nanoseconds to seconds
 			Expect(metric.Counter.GetValue()).To(BeEquivalentTo(float64(1)))
+
+			result = <-ch
+			metric = &io_prometheus_client.Metric{}
+			result.Write(metric)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_times_ns_total"))
+			Expect(metric.Counter.GetValue()).To(BeEquivalentTo(float64(1000000000)))
 		})
 
 		It("should not expose nameless block metrics", func() {

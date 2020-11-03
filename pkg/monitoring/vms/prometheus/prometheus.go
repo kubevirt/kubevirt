@@ -315,9 +315,16 @@ func (metrics *vmiMetrics) updateBlock(vmStats *stats.DomainStats) {
 		if block.RdTimesSet || block.WrTimesSet {
 			storageTimesLabels := []string{"node", "namespace", "name", "drive", "type"}
 			storageTimesLabels = append(storageTimesLabels, metrics.k8sLabels...)
-			storageTimesDesc := prometheus.NewDesc(
+			storageTimesSecondsDesc := prometheus.NewDesc(
 				"kubevirt_vmi_storage_times_seconds_total",
 				"storage operation time.",
+				storageTimesLabels,
+				nil,
+			)
+
+			storageTimesNsDesc := prometheus.NewDesc(
+				"kubevirt_vmi_storage_times_ns_total",
+				"storage operation time. (deprecated in favor of kubevirt_vmi_storage_times_seconds_total)",
 				storageTimesLabels,
 				nil,
 			)
@@ -327,28 +334,46 @@ func (metrics *vmiMetrics) updateBlock(vmStats *stats.DomainStats) {
 				storageTimesReadLabelValues = append(storageTimesReadLabelValues, metrics.k8sLabelValues...)
 
 				mv, err := prometheus.NewConstMetric(
-					storageTimesDesc, prometheus.CounterValue,
+					storageTimesSecondsDesc, prometheus.CounterValue,
 					// Transform from nanoseconds to seconds
 					// See: https://libvirt.org/html/libvirt-libvirt-domain.html#VIR_DOMAIN_STATS_BLOCK
 					// "block.<num>.rd.times" - total time (ns) spent on reads as unsigned long long.
 					float64(block.RdTimes)/1000000000,
 					storageTimesReadLabelValues...,
 				)
-				tryToPushMetric(storageTimesDesc, mv, err, metrics.ch)
+				tryToPushMetric(storageTimesSecondsDesc, mv, err, metrics.ch)
+
+				mv, err = prometheus.NewConstMetric(
+					storageTimesNsDesc, prometheus.CounterValue,
+					// This is being kept just for backwards compatibility
+					// Will be obsoleted in favor of kubevirt_vmi_storage_times_seconds_total
+					float64(block.RdTimes),
+					storageTimesReadLabelValues...,
+				)
+				tryToPushMetric(storageTimesNsDesc, mv, err, metrics.ch)
 			}
 			if block.WrTimesSet {
 				storageTimesWriteLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, block.Name, "write"}
 				storageTimesWriteLabelValues = append(storageTimesWriteLabelValues, metrics.k8sLabelValues...)
 
 				mv, err := prometheus.NewConstMetric(
-					storageTimesDesc, prometheus.CounterValue,
+					storageTimesSecondsDesc, prometheus.CounterValue,
 					// Transform from nanoseconds to seconds
 					// See: https://libvirt.org/html/libvirt-libvirt-domain.html#VIR_DOMAIN_STATS_BLOCK
 					// "block.<num>.wr.times" - total time (ns) spent on writes as unsigned long long.
 					float64(block.WrTimes)/1000000000,
 					storageTimesWriteLabelValues...,
 				)
-				tryToPushMetric(storageTimesDesc, mv, err, metrics.ch)
+				tryToPushMetric(storageTimesSecondsDesc, mv, err, metrics.ch)
+
+				mv, err = prometheus.NewConstMetric(
+					storageTimesNsDesc, prometheus.CounterValue,
+					// This is being kept just for backwards compatibility
+					// Will be obsoleted in favor of kubevirt_vmi_storage_times_seconds_total
+					float64(block.WrTimes),
+					storageTimesWriteLabelValues...,
+				)
+				tryToPushMetric(storageTimesNsDesc, mv, err, metrics.ch)
 			}
 		}
 	}
