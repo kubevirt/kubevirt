@@ -224,39 +224,25 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	Context("On valid VirtualMachineInstance given with DataVolume source", func() {
 
+		dvVolumeSource := v1.VolumeSource{
+			DataVolume: &v1.DataVolumeSource{
+				Name: "test1",
+			},
+		}
 		It("should create a corresponding Pod on VMI creation when DataVolume is ready", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "test1",
-					},
-				},
+				Name:         "test1",
+				VolumeSource: dvVolumeSource,
 			})
 
-			dvPVC := &k8sv1.PersistentVolumeClaim{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmi.Namespace,
-					Name:      "test1"},
-			}
+			dvPVC := NewPvc(vmi.Namespace, "test1")
 			// we are mocking a successful DataVolume. we expect the PVC to
 			// be available in the store if DV is successful.
 			pvcInformer.GetIndexer().Add(dvPVC)
 
-			dataVolume := &cdiv1.DataVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test1",
-					Namespace: vmi.Namespace,
-				},
-				Status: cdiv1.DataVolumeStatus{
-					Phase: cdiv1.Succeeded,
-				},
-			}
+			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Succeeded)
 
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
@@ -270,36 +256,17 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "test1",
-					},
-				},
+				Name:         "test1",
+				VolumeSource: dvVolumeSource,
 			})
 
-			dvPVC := &k8sv1.PersistentVolumeClaim{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmi.Namespace,
-					Name:      "test1"},
-			}
+			dvPVC := NewPvc(vmi.Namespace, "test1")
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
 			// be in available but in the Pending state.
 			pvcInformer.GetIndexer().Add(dvPVC)
 
-			dataVolume := &cdiv1.DataVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test1",
-					Namespace: vmi.Namespace,
-				},
-				Status: cdiv1.DataVolumeStatus{
-					Phase: cdiv1.WaitForFirstConsumer,
-				},
-			}
+			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
 
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
@@ -330,35 +297,17 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			pod.Annotations[v1.EphemeralProvisioningObject] = "true"
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "test1",
-					},
-				},
+				Name:         "test1",
+				VolumeSource: dvVolumeSource,
 			})
 
-			dvPVC := &k8sv1.PersistentVolumeClaim{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmi.Namespace,
-					Name:      "test1"},
-			}
+			dvPVC := NewPvc(vmi.Namespace, "test1")
+			dvPVC.Status.Phase = k8sv1.ClaimPending
 			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
 			// be in available but in the Pending state.
 			pvcInformer.GetIndexer().Add(dvPVC)
 
-			dataVolume := &cdiv1.DataVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test1",
-					Namespace: vmi.Namespace,
-				},
-				Status: cdiv1.DataVolumeStatus{
-					Phase: cdiv1.WaitForFirstConsumer,
-				},
-			}
+			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
@@ -375,41 +324,22 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}).Return(vmi, nil)
 			controller.Execute()
 		})
+
 		It("should delete a doppleganger Pod on VMI creation when DataVolume is no longer in WaitForFirstConsumer state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Annotations[v1.EphemeralProvisioningObject] = "true"
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "test1",
-					},
-				},
+				Name:         "test1",
+				VolumeSource: dvVolumeSource,
 			})
 
-			dvPVC := &k8sv1.PersistentVolumeClaim{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmi.Namespace,
-					Name:      "test1"},
-			}
-			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
-			// be in available but in the Pending state.
+			dvPVC := NewPvc(vmi.Namespace, "test1")
+			// we are mocking a DataVolume in Succeeded phase. we expect the PVC to
+			// be in available
 			pvcInformer.GetIndexer().Add(dvPVC)
-
-			dataVolume := &cdiv1.DataVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test1",
-					Namespace: vmi.Namespace,
-				},
-				Status: cdiv1.DataVolumeStatus{
-					Phase: cdiv1.Succeeded,
-				},
-			}
+			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Succeeded)
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
@@ -430,23 +360,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				pod.Status.Conditions = conditions
 
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-					Name: "test1",
-					VolumeSource: v1.VolumeSource{
-						DataVolume: &v1.DataVolumeSource{
-							Name: "test1",
-						},
-					},
+					Name:         "test1",
+					VolumeSource: dvVolumeSource,
 				})
 
-				dataVolume := &cdiv1.DataVolume{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test1",
-						Namespace: vmi.Namespace,
-					},
-					Status: cdiv1.DataVolumeStatus{
-						Phase: cdiv1.WaitForFirstConsumer,
-					},
-				}
+				dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
 
 				addVirtualMachine(vmi)
 				podFeeder.Add(pod)
@@ -474,23 +392,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "test1",
-					},
-				},
+				Name:         "test1",
+				VolumeSource: dvVolumeSource,
 			})
 
-			dataVolume := &cdiv1.DataVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test1",
-					Namespace: vmi.Namespace,
-				},
-				Status: cdiv1.DataVolumeStatus{
-					Phase: cdiv1.Pending,
-				},
-			}
+			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Pending)
 
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
@@ -503,23 +409,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "test1",
-					},
-				},
+				Name:         "test1",
+				VolumeSource: dvVolumeSource,
 			})
 
-			dataVolume := &cdiv1.DataVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test1",
-					Namespace: vmi.Namespace,
-				},
-				Status: cdiv1.DataVolumeStatus{
-					Phase: cdiv1.Failed,
-				},
-			}
+			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Failed)
 
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
@@ -537,47 +431,25 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	Context("On valid VirtualMachineInstance given with PVC source, ownedRef of DataVolume", func() {
 		controllerOf := true
 
+		pvcVolumeSource := v1.VolumeSource{
+			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: "test1",
+			},
+		}
 		It("should create a corresponding Pod on VMI creation when DataVolume is ready", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test1",
-					},
-				},
+				Name:         "test1",
+				VolumeSource: pvcVolumeSource,
 			})
 
-			dvPVC := &k8sv1.PersistentVolumeClaim{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmi.Namespace,
-					Name:      "test1",
-					OwnerReferences: []metav1.OwnerReference{
-						{
-							Kind:       "DataVolume",
-							Name:       "test1",
-							Controller: &controllerOf,
-						},
-					},
-				},
-			}
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", "test1", &controllerOf)
 			// we are mocking a successful DataVolume. we expect the PVC to
 			// be available in the store if DV is successful.
 			pvcInformer.GetIndexer().Add(dvPVC)
 
-			dataVolume := &cdiv1.DataVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test1",
-					Namespace: vmi.Namespace,
-				},
-				Status: cdiv1.DataVolumeStatus{
-					Phase: cdiv1.Succeeded,
-				},
-			}
+			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Succeeded)
 
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
@@ -587,47 +459,122 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
 
+		It("should create a doppleganger Pod on VMI creation when DataVolume is in WaitForFirstConsumer state", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name:         "test1",
+				VolumeSource: pvcVolumeSource,
+			})
+
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", "test1", &controllerOf)
+			dvPVC.Status.Phase = k8sv1.ClaimPending
+			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
+			// be in available but in the Pending state.
+			pvcInformer.GetIndexer().Add(dvPVC)
+
+			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
+
+			addVirtualMachine(vmi)
+			dataVolumeFeeder.Add(dataVolume)
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Type).To(Equal(v1.VirtualMachineInstanceProvisioning))
+			}).Return(vmi, nil)
+
+			IsPodWithoutVmPayload := WithTransform(
+				func(pod *k8sv1.Pod) string {
+					for _, c := range pod.Spec.Containers {
+						if c.Name == "compute" {
+							return strings.Join(c.Command, " ")
+						}
+					}
+
+					return ""
+				},
+				Equal("/bin/bash -c echo bound PVCs"))
+			shouldExpectMatchingPodCreation(vmi.UID, IsPodWithoutVmPayload)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+		})
+
+		It("should not delete a doppleganger Pod on VMI creation when DataVolume is in WaitForFirstConsumer state", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Annotations[v1.EphemeralProvisioningObject] = "true"
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name:         "test1",
+				VolumeSource: pvcVolumeSource,
+			})
+
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", "test1", &controllerOf)
+			dvPVC.Status.Phase = k8sv1.ClaimPending
+			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
+			// be in available but in the Pending state.
+			pvcInformer.GetIndexer().Add(dvPVC)
+
+			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
+			dataVolumeFeeder.Add(dataVolume)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Pending))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).
+					To(ContainElement(v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceProvisioning,
+						Status: k8sv1.ConditionTrue,
+					}))
+			}).Return(vmi, nil)
+			controller.Execute()
+		})
+
+		It("should delete a doppleganger Pod on VMI creation when DataVolume is no longer in WaitForFirstConsumer state", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Annotations[v1.EphemeralProvisioningObject] = "true"
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name:         "test1",
+				VolumeSource: pvcVolumeSource,
+			})
+
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", "test1", &controllerOf)
+			dvPVC.Status.Phase = k8sv1.ClaimBound
+			// we are mocking a DataVolume in Succeeded phase. we expect the PVC to
+			// be in available
+			pvcInformer.GetIndexer().Add(dvPVC)
+
+			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Succeeded)
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
+			dataVolumeFeeder.Add(dataVolume)
+			shouldExpectPodDeletion(pod)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
+		})
+
 		It("should not create a corresponding Pod on VMI creation when DataVolume is pending", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test1",
-					},
-				},
+				Name:         "test1",
+				VolumeSource: pvcVolumeSource,
 			})
 
-			dvPVC := &k8sv1.PersistentVolumeClaim{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmi.Namespace,
-					Name:      "test1",
-					OwnerReferences: []metav1.OwnerReference{
-						{
-							Kind:       "DataVolume",
-							Name:       "test1",
-							Controller: &controllerOf,
-						},
-					},
-				},
-			}
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", "test1", &controllerOf)
+			dvPVC.Status.Phase = k8sv1.ClaimPending
 			// we are mocking a successful DataVolume. we expect the PVC to
 			// be available in the store if DV is successful.
 			pvcInformer.GetIndexer().Add(dvPVC)
 
-			dataVolume := &cdiv1.DataVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test1",
-					Namespace: vmi.Namespace,
-				},
-				Status: cdiv1.DataVolumeStatus{
-					Phase: cdiv1.Pending,
-				},
-			}
+			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Pending)
 
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
@@ -639,25 +586,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test1",
-					},
-				},
+				Name:         "test1",
+				VolumeSource: pvcVolumeSource,
 			})
 
-			pvc := &k8sv1.PersistentVolumeClaim{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmi.Namespace,
-					Name:      "test1",
-				},
-			}
-			// we are mocking a successful DataVolume. we expect the PVC to
-			// be available in the store if DV is successful.
+			pvc := NewPvc(vmi.Namespace, "test1")
 			pvcInformer.GetIndexer().Add(pvc)
 
 			addVirtualMachine(vmi)
@@ -1400,6 +1333,49 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 	})
 })
+
+func NewDv(namespace string, name string, phase cdiv1.DataVolumePhase) *cdiv1.DataVolume {
+	return &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Status: cdiv1.DataVolumeStatus{
+			Phase: phase,
+		},
+	}
+}
+
+func NewPvc(namespace string, name string) *k8sv1.PersistentVolumeClaim {
+	return &k8sv1.PersistentVolumeClaim{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PersistentVolumeClaim",
+			APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+	}
+}
+
+func NewPvcWithOwner(namespace string, name string, ownerName string, isController *bool) *k8sv1.PersistentVolumeClaim {
+	return &k8sv1.PersistentVolumeClaim{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PersistentVolumeClaim",
+			APIVersion: "v1"},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					Kind:       "DataVolume",
+					Name:       ownerName,
+					Controller: isController,
+				},
+			},
+		},
+	}
+}
 
 func NewPendingVirtualMachine(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewMinimalVMI(name)
