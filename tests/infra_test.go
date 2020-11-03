@@ -219,30 +219,37 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 		Context("CriticalAddonsOnly taint set on a node", func() {
 
-			var selectedNode *k8sv1.Node
+			var selectedNodeName string
 
 			BeforeEach(func() {
-				selectedNode = nil
+				selectedNodeName = ""
 			})
 
 			AfterEach(func() {
-				By("removing the taint from the tainted node")
-				var taints []k8sv1.Taint
+				if selectedNodeName != "" {
+					By("removing the taint from the tainted node")
+					err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+						selectedNode, err := virtClient.CoreV1().Nodes().Get(selectedNodeName, metav1.GetOptions{})
+						if err != nil {
+							return err
+						}
 
-				for _, taint := range selectedNode.Spec.Taints {
-					if taint.Key != "CriticalAddonsOnly" {
-						taints = append(taints, taint)
-					}
+						var taints []k8sv1.Taint
+						for _, taint := range selectedNode.Spec.Taints {
+							if taint.Key != "CriticalAddonsOnly" {
+								taints = append(taints, taint)
+							}
+						}
+
+						nodeCopy := selectedNode.DeepCopy()
+						nodeCopy.ResourceVersion = ""
+						nodeCopy.Spec.Taints = taints
+
+						_, err = virtClient.CoreV1().Nodes().Update(nodeCopy)
+						return err
+					})
+					Expect(err).ShouldNot(HaveOccurred())
 				}
-
-				nodeCopy := selectedNode.DeepCopy()
-				nodeCopy.ResourceVersion = ""
-
-				err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					_, err := virtClient.CoreV1().Nodes().Update(nodeCopy)
-					return err
-				})
-				Expect(err).ShouldNot(HaveOccurred())
 			})
 
 			It("[test_id:4134] kubevirt components on that node should not evict", func() {
@@ -268,7 +275,8 @@ var _ = Describe("[Serial]Infrastructure", func() {
 					if _, isMaster := node.Labels["node-role.kubernetes.io/master"]; isMaster {
 						continue
 					}
-					selectedNode = node.DeepCopy()
+					selectedNodeName = node.Name
+					break
 				}
 
 				By("setting up a watch for terminated pods")
@@ -306,15 +314,20 @@ var _ = Describe("[Serial]Infrastructure", func() {
 				go signalTerminatedPods(stopCn, lw.ResultChan(), terminatedPodsCn)
 
 				By("tainting the selected node")
-				selectedNodeCopy := selectedNode.DeepCopy()
-				selectedNodeCopy.Spec.Taints = append(selectedNodeCopy.Spec.Taints, k8sv1.Taint{
-					Key:    "CriticalAddonsOnly",
-					Value:  "",
-					Effect: k8sv1.TaintEffectNoExecute,
-				})
-
 				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					_, err := virtClient.CoreV1().Nodes().Update(selectedNodeCopy)
+					selectedNode, err := virtClient.CoreV1().Nodes().Get(selectedNodeName, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+
+					selectedNodeCopy := selectedNode.DeepCopy()
+					selectedNodeCopy.Spec.Taints = append(selectedNodeCopy.Spec.Taints, k8sv1.Taint{
+						Key:    "CriticalAddonsOnly",
+						Value:  "",
+						Effect: k8sv1.TaintEffectNoExecute,
+					})
+
+					_, err = virtClient.CoreV1().Nodes().Update(selectedNodeCopy)
 					return err
 				})
 				Expect(err).ShouldNot(HaveOccurred())
