@@ -24,38 +24,38 @@ import (
 )
 
 type CloudInitNetworkData struct {
-	Version   int                           `yaml:"version"`
-	Ethernets map[string]CloudInitInterface `yaml:"ethernets,omitempty"`
+	Version   int                           `json:"version"`
+	Ethernets map[string]CloudInitInterface `json:"ethernets,omitempty"`
 }
 
 type CloudInitInterface struct {
-	AcceptRA       *bool                `yaml:"accept-ra,omitempty"`
-	Addresses      []string             `yaml:"addresses,omitempty"`
-	DHCP4          *bool                `yaml:"dhcp4,omitempty"`
-	DHCP6          *bool                `yaml:"dhcp6,omitempty"`
-	DHCPIdentifier string               `yaml:"dhcp-identifier,omitempty"` // "duid" or  "mac"
-	Gateway4       string               `yaml:"gateway4,omitempty"`
-	Gateway6       string               `yaml:"gateway6,omitempty"`
-	Nameservers    CloudInitNameservers `yaml:"nameservers,omitempty"`
-	MACAddress     string               `yaml:"macaddress,omitempty"`
-	MTU            int                  `yaml:"mtu,omitempty"`
-	Routes         []CloudInitRoute     `yaml:"routes,omitempty"`
+	AcceptRA       *bool                `json:"accept-ra,omitempty"`
+	Addresses      []string             `json:"addresses,omitempty"`
+	DHCP4          *bool                `json:"dhcp4,omitempty"`
+	DHCP6          *bool                `json:"dhcp6,omitempty"`
+	DHCPIdentifier string               `json:"dhcp-identifier,omitempty"` // "duid" or  "mac"
+	Gateway4       string               `json:"gateway4,omitempty"`
+	Gateway6       string               `json:"gateway6,omitempty"`
+	Nameservers    CloudInitNameservers `json:"nameservers,omitempty"`
+	MACAddress     string               `json:"macaddress,omitempty"`
+	MTU            int                  `json:"mtu,omitempty"`
+	Routes         []CloudInitRoute     `json:"routes,omitempty"`
 }
 
 type CloudInitNameservers struct {
-	Search    []string `yaml:"search,omitempty,flow"`
-	Addresses []string `yaml:"addresses,omitempty,flow"`
+	Search    []string `json:"search,omitempty,flow"`
+	Addresses []string `json:"addresses,omitempty,flow"`
 }
 
 type CloudInitRoute struct {
-	From   string `yaml:"from,omitempty"`
-	OnLink *bool  `yaml:"on-link,omitempty"`
-	Scope  string `yaml:"scope,omitempty"`
-	Table  *int   `yaml:"table,omitempty"`
-	To     string `yaml:"to,omitempty"`
-	Type   string `yaml:"type,omitempty"`
-	Via    string `yaml:"via,omitempty"`
-	Metric *int   `yaml:"metric,omitempty"`
+	From   string `json:"from,omitempty"`
+	OnLink *bool  `json:"on-link,omitempty"`
+	Scope  string `json:"scope,omitempty"`
+	Table  *int   `json:"table,omitempty"`
+	To     string `json:"to,omitempty"`
+	Type   string `json:"type,omitempty"`
+	Via    string `json:"via,omitempty"`
+	Metric *int   `json:"metric,omitempty"`
 }
 
 const (
