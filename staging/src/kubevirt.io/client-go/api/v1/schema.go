@@ -356,6 +356,8 @@ type Firmware struct {
 //
 // +k8s:openapi-gen=true
 type Devices struct {
+	// DisableHotplug disabled the ability to hotplug disks.
+	DisableHotplug bool `json:"disableHotplug,omitempty"`
 	// Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
 	Disks []Disk `json:"disks,omitempty"`
 	// Watchdog describes a watchdog device which can be added to the vmi.
