@@ -45,6 +45,7 @@ aliases:
       - ILpinto
       - kbidarkar
       - phoracek
+      - enp0s3
   ci-approvers:
       - dhiller
       - danielBelenky
