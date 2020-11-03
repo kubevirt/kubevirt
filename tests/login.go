@@ -19,7 +19,9 @@ import (
 // LoginToCirros call LoggedInFedoraExpecter but does not return the expecter
 func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 	expecter, err := LoggedInCirrosExpecter(vmi)
-	defer expecter.Close()
+	if err == nil {
+		expecter.Close()
+	}
 	return err
 }
 
