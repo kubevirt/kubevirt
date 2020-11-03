@@ -1069,7 +1069,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				Path:  "/usr/libexec/virtiofsd",
 				Xattr: "on",
 				Cache: &FilesystemBinaryCache{
-					Mode: "always",
+					Mode: "none",
 				},
 				Lock: &FilesystemBinaryLock{
 					Posix: "on",
