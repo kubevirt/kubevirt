@@ -690,25 +690,37 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 			pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName))
 			if pvcExists {
 				pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
-				populated, err := cdiv1.IsPopulated(pvc, func(name, namespace string) (*cdiv1.DataVolume, error) {
-					dv, exists, _ := c.dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, name))
-					if !exists {
-						return nil, fmt.Errorf("Unable to find datavolume %s/%s", namespace, name)
-					}
-					return dv.(*cdiv1.DataVolume), nil
-				})
+				populated, err := cdiv1.IsPopulated(pvc, dataVolumeByNameFunc(c.dataVolumeInformer))
 				if err != nil {
 					return false, false, &syncErrorImpl{fmt.Errorf("Error determining if PVC %s is ready %v", pvc.Name, err), FailedDataVolumeImportReason}
 				}
 				if !populated {
-					log.Log.V(3).Object(vmi).Infof("PVC %s not ready.", pvc.Name)
-					ready = false
+					waitsForFirstConsumer, err := cdiv1.IsWaitForFirstConsumerBeforePopulating(pvc, dataVolumeByNameFunc(c.dataVolumeInformer))
+					if err != nil {
+						return false, false, &syncErrorImpl{fmt.Errorf("Error determining if PVC %s is ready %v", pvc.Name, err), FailedDataVolumeImportReason}
+					}
+					if waitsForFirstConsumer {
+						wffc = true
+					} else {
+						log.Log.V(3).Object(vmi).Infof("PVC %s not ready.", pvc.Name)
+						ready = false
+					}
 				}
 			}
 		}
 	}
 
 	return ready, wffc, nil
+}
+
+func dataVolumeByNameFunc(dataVolumeInformer cache.SharedIndexInformer) func(name string, namespace string) (*cdiv1.DataVolume, error) {
+	return func(name, namespace string) (*cdiv1.DataVolume, error) {
+		dv, exists, _ := dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, name))
+		if !exists {
+			return nil, fmt.Errorf("Unable to find datavolume %s/%s", namespace, name)
+		}
+		return dv.(*cdiv1.DataVolume), nil
+	}
 }
 
 func (c *VMIController) addDataVolume(obj interface{}) {
@@ -963,10 +975,12 @@ func (c *VMIController) listMatchingDataVolumes(vmi *virtv1.VirtualMachineInstan
 
 	dataVolumes := []*cdiv1.DataVolume{}
 	for _, volume := range vmi.Spec.Volumes {
-		if volume.VolumeSource.DataVolume == nil {
+		dataVolumeName := c.getDataVolumeName(vmi.Namespace, volume)
+		if dataVolumeName == nil {
 			continue
 		}
-		obj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, volume.VolumeSource.DataVolume.Name))
+
+		obj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, *dataVolumeName))
 
 		if err != nil {
 			return dataVolumes, err
@@ -977,6 +991,23 @@ func (c *VMIController) listMatchingDataVolumes(vmi *virtv1.VirtualMachineInstan
 	}
 
 	return dataVolumes, nil
+}
+
+func (c *VMIController) getDataVolumeName(namespace string, volume virtv1.Volume) *string {
+	if volume.VolumeSource.PersistentVolumeClaim != nil {
+		pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().
+			GetByKey(fmt.Sprintf("%s/%s", namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName))
+		if pvcExists {
+			pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
+			pvcOwner := v1.GetControllerOf(pvc)
+			if pvcOwner != nil && pvcOwner.Kind == "DataVolume" {
+				return &pvcOwner.Name
+			}
+		}
+	} else if volume.VolumeSource.DataVolume != nil {
+		return &volume.VolumeSource.DataVolume.Name
+	}
+	return nil
 }
 
 func (c *VMIController) allPodsDeleted(vmi *virtv1.VirtualMachineInstance) (bool, error) {
