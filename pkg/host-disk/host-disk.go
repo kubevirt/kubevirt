@@ -34,6 +34,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/util/types"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 var pvcBaseDir = "/var/run/kubevirt-private/vmi-disks"
@@ -88,27 +89,22 @@ func dirBytesAvailable(path string) (uint64, error) {
 	return stat.Bavail * uint64(stat.Bsize), nil
 }
 
+// Use named return err to allow checking Close() errors in defer
 func createSparseRaw(fullPath string, size int64) (err error) {
-	var f *os.File
 	offset := size - 1
-	f, err = os.Create(fullPath)
+	f, err := os.Create(fullPath)
 
 	if err != nil {
-		return
+		return err
 	}
 
-	defer func() {
-		ferr := f.Close()
-		if err == nil {
-			err = ferr
-		}
-	}()
+	defer util.CloseIOAndCheckErr(f, &err)
 
 	_, err = f.WriteAt([]byte{0}, offset)
 	if err != nil {
-		return
+		return err
 	}
-	return
+	return err
 }
 
 func getPVCDiskImgPath(volumeName string, diskName string) string {

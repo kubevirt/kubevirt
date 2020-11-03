@@ -820,19 +820,19 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, option
 	return nil
 }
 
-var updateHostsFile = func(entry string) error {
+var updateHostsFile = func(entry string) (err error) {
 	file, err := os.OpenFile("/etc/hosts", os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		return fmt.Errorf("failed opening file: %s", err)
 	}
+	defer util.CloseIOAndCheckErr(file, &err)
 
 	_, err = file.WriteString(entry)
 	if err != nil {
-		file.Close()
 		return fmt.Errorf("failed writing to file: %s", err)
 	}
 
-	return file.Close()
+	return nil
 }
 
 // Prepares the target pod environment by executing the preStartHook

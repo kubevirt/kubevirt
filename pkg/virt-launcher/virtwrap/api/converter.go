@@ -201,8 +201,7 @@ func checkDirectIOFlag(path string) bool {
 	if err != nil && !os.IsNotExist(err) {
 		return false
 	}
-	// #nosec No need to check Close() errors - no writing just checking O_DIRECT flag
-	defer f.Close() 
+	defer util.CloseIOAndCheckErr(f, nil)
 	return true
 }
 
