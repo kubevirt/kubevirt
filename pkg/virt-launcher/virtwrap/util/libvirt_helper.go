@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"os/user"
@@ -261,14 +260,12 @@ func StartVirtlog(stopChan chan struct{}, domainName string) {
 					time.Sleep(time.Second)
 				}
 
-				// If changed to RW remove the nosec comment below and handle Close() errors
 				file, err := os.Open(logfile)
 				if err != nil {
 					log.Log.Reason(err).Error("failed to catch virtlogd logs")
 					return
 				}
-				// #nosec No need to check Close() errors on RO files
-				defer file.Close() 
+				defer util.CloseIOAndCheckErr(file, nil)
 
 				scanner := bufio.NewScanner(file)
 				scanner.Buffer(make([]byte, 1024), 512*1024)
@@ -343,8 +340,8 @@ func NewDomainFromName(name string, vmiUID types.UID) *api.Domain {
 	return domain
 }
 
-func SetupLibvirt() error {
-
+// Use named return err to allow checking Close() errors in defer
+func SetupLibvirt() (err error) {
 	// TODO: setting permissions and owners is not part of device plugins.
 	// Configure these manually right now on "/dev/kvm"
 	stats, err := os.Stat("/dev/kvm")
@@ -377,7 +374,7 @@ func SetupLibvirt() error {
 	if err != nil {
 		return err
 	}
-	defer fileClose(qemuConf, &err)
+	defer util.CloseIOAndCheckErr(qemuConf, &err)
 	// We are in a container, don't try to stuff qemu inside special cgroups
 	_, err = qemuConf.WriteString("cgroup_controllers = [ ]\n")
 	if err != nil {
@@ -393,11 +390,11 @@ func SetupLibvirt() error {
 	}
 
 	// Let libvirt log to stderr
-	libvirtConf, err := os.OpenFile("/etc/libvirt/libvirtd.conf", os.O_APPEND|os.O_WRONLY, 0644)
+	libvirtConf, err = os.OpenFile("/etc/libvirt/libvirtd.conf", os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
-	defer fileClose(libvirtConf, &err)
+	defer util.CloseIOAndCheckErr(libvirtConf, &err)
 	_, err = libvirtConf.WriteString("log_outputs = \"1:stderr\"\n")
 	if err != nil {
 		return err
@@ -417,12 +414,5 @@ func SetupLibvirt() error {
 		}
 	}
 
-	return err // Need to use err and not nil to allow the defered func to set the value if needed
-}
-
-func fileClose(c io.Closer, err *error) {
-	fileErr := c.Close()
-	if *err == nil {
-		*err = fileErr
-	}
+	return nil
 }

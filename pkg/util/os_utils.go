@@ -13,37 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017, 2018 Red Hat, Inc.
+ * Copyright 2018 Red Hat, Inc.
  *
  */
 
 package util
 
 import (
-	"bufio"
-	"fmt"
-	"os"
+	"io"
 
-	"kubevirt.io/kubevirt/pkg/util/hardware"
+	"kubevirt.io/client-go/log"
 )
 
-func GetPodCPUSet() ([]int, error) {
-	var cpuset string
-	file, err := os.Open(hardware.CPUSET_PATH)
-	if err != nil {
-		return nil, err
+// If err=nil only print and don't update the error in the calling function
+// Note: to update the error the calling funtion need to use named returned variable
+func CloseIOAndCheckErr(c io.Closer, err *error) {
+	if ferr := c.Close(); ferr != nil {
+		log.DefaultLogger().Reason(ferr).Error("Error when closing file")
+		// Update the calling error only in case there wasn't a different error already
+		if err != nil && *err == nil {
+			*err = ferr
+		}
 	}
-	defer util.CloseIOAndCheckErr(file, nil)
-	scanner := bufio.NewScanner(file)
-	if scanner.Scan() {
-		cpuset = scanner.Text()
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-	cpusList, err := hardware.ParseCPUSetLine(cpuset)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse cpuset file: %v", err)
-	}
-	return cpusList, nil
 }
