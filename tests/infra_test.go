@@ -237,7 +237,11 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 				nodeCopy := selectedNode.DeepCopy()
 				nodeCopy.ResourceVersion = ""
-				_, err = virtClient.CoreV1().Nodes().Update(nodeCopy)
+
+				err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					_, err := virtClient.CoreV1().Nodes().Update(nodeCopy)
+					return err
+				})
 				Expect(err).ShouldNot(HaveOccurred())
 			})
 
@@ -308,7 +312,11 @@ var _ = Describe("[Serial]Infrastructure", func() {
 					Value:  "",
 					Effect: k8sv1.TaintEffectNoExecute,
 				})
-				_, err = virtClient.CoreV1().Nodes().Update(selectedNodeCopy)
+
+				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					_, err := virtClient.CoreV1().Nodes().Update(selectedNodeCopy)
+					return err
+				})
 				Expect(err).ShouldNot(HaveOccurred())
 
 				Consistently(terminatedPodsCn, 5*time.Second).ShouldNot(Receive(), "pods should not terminate")
