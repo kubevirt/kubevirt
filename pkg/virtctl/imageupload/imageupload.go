@@ -206,13 +206,11 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// If changed to RW remove the nosec comment below and handle Close() errors
 	file, err := os.Open(imagePath)
 	if err != nil {
 		return err
 	}
-	// #nosec No need to check Close() errors on RO files
-	defer file.Close() 
+	defer util.CloseIOAndCheckErr(file, nil) 
 
 	namespace, _, err := c.clientConfig.Namespace()
 	if err != nil {

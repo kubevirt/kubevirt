@@ -186,7 +186,8 @@ func HasGhostRecord(namespace string, name string) bool {
 	return ok
 }
 
-func AddGhostRecord(namespace string, name string, socketFile string, uid types.UID) error {
+// Use named return err to allow checking Close() errors in defer
+func AddGhostRecord(namespace string, name string, socketFile string, uid types.UID) (err error) {
 	ghostRecordGlobalMutex.Lock()
 	defer ghostRecordGlobalMutex.Unlock()
 	if name == "" {
@@ -220,13 +221,9 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 		if err != nil {
 			return err
 		}
+		defer util.CloseIOAndCheckErr(f, &err)
 
 		_, err = f.Write(fileBytes)
-		if err != nil {
-			f.Close()
-			return err
-		}
-		err = f.Close()
 		if err != nil {
 			return err
 		}
@@ -246,7 +243,7 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 		return fmt.Errorf("can not add ghost record when entry already exists with differing socket file location")
 	}
 
-	return nil
+	return err
 }
 
 func DeleteGhostRecord(namespace string, name string) error {
