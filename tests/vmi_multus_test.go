@@ -658,8 +658,11 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 		waitVmi := func(vmi *v1.VirtualMachineInstance) {
 			// Need to wait for cloud init to finish and start the agent inside the vmi.
-			tests.WaitAgentConnected(virtClient, vmi)
+			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
+			tests.WaitAgentConnected(virtClient, vmi)
 			return
 		}
 
