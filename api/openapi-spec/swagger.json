@@ -8420,7 +8420,8 @@
     "type": "object",
     "properties": {
      "cpuAllocationRatio": {
-      "type": "string"
+      "type": "integer",
+      "format": "int32"
      },
      "featureGates": {
       "type": "array",
@@ -8429,7 +8430,8 @@
       }
      },
      "memoryOvercommit": {
-      "type": "string"
+      "type": "integer",
+      "format": "int32"
      },
      "nodeSelectors": {
       "type": "object",
@@ -8438,10 +8440,11 @@
       }
      },
      "pvcTolerateLessSpaceUpToPercent": {
-      "type": "string"
+      "type": "integer",
+      "format": "int32"
      },
      "useEmulation": {
-      "type": "string"
+      "type": "boolean"
      }
     }
    },
@@ -9347,31 +9350,35 @@
     "type": "object",
     "properties": {
      "allowAutoConverge": {
-      "type": "string"
+      "type": "boolean"
      },
      "allowPostCopy": {
-      "type": "string"
+      "type": "boolean"
      },
      "bandwidthPerMigration": {
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      },
      "completionTimeoutPerGiB": {
-      "type": "string"
+      "type": "integer",
+      "format": "int64"
      },
      "nodeDrainTaintKey": {
       "type": "string"
      },
      "parallelMigrationsPerCluster": {
-      "type": "string"
+      "type": "integer",
+      "format": "int64"
      },
      "parallelOutboundMigrationsPerNode": {
-      "type": "string"
+      "type": "integer",
+      "format": "int64"
      },
      "progressTimeout": {
-      "type": "string"
+      "type": "integer",
+      "format": "int64"
      },
      "unsafeMigrationOverride": {
-      "type": "string"
+      "type": "boolean"
      }
     }
    },
@@ -9419,10 +9426,10 @@
       "type": "string"
      },
      "permitBridgeInterfaceOnPodNetwork": {
-      "type": "string"
+      "type": "boolean"
      },
      "permitSlirpInterface": {
-      "type": "string"
+      "type": "boolean"
      }
     }
    },
