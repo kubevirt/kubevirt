@@ -47,8 +47,11 @@ source "${PROJECT_ROOT}"/hack/config
 
 DEPLOY_DIR="${PROJECT_ROOT}/deploy"
 CRD_DIR="${DEPLOY_DIR}/crds"
-CSV_DIR="${DEPLOY_DIR}/olm-catalog/kubevirt-hyperconverged/${CSV_VERSION}"
+OLM_DIR="${DEPLOY_DIR}/olm-catalog"
+CSV_DIR="${OLM_DIR}/kubevirt-hyperconverged/${CSV_VERSION}"
 DEFAULT_CSV_GENERATOR="/usr/bin/csv-generator"
+
+INDEX_IMAGE_DIR=${DEPLOY_DIR}/index-image
 
 OPERATOR_NAME="${NAME:-kubevirt-hyperconverged-operator}"
 OPERATOR_NAMESPACE="${NAMESPACE:-kubevirt-hyperconverged}"
@@ -431,3 +434,12 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger --crds-dir=${CRD_DIR}
 
 # Intentionally removing last so failure leaves around the templates
 rm -rf ${TEMPDIR}
+
+rm -rf "${INDEX_IMAGE_DIR:?}"
+mkdir -p "${INDEX_IMAGE_DIR:?}/kubevirt-hyperconverged"
+cp -r "${CSV_DIR}" "${INDEX_IMAGE_DIR:?}/kubevirt-hyperconverged/"
+cp "${OLM_DIR}/bundle.Dockerfile" "${INDEX_IMAGE_DIR:?}/"
+
+INDEX_IMAGE_CSV="${INDEX_IMAGE_DIR}/kubevirt-hyperconverged/${CSV_VERSION}/kubevirt-hyperconverged-operator.v${CSV_VERSION}.${CSV_EXT}"
+sed -r -i "s|createdAt: \".*\$|createdAt: \"2020-10-23 08:58:25\"|; s|quay.io/kubevirt/hyperconverged-cluster-operator.*$|+IMAGE_TO_REPLACE+|" ${INDEX_IMAGE_CSV}
+
