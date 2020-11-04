@@ -701,16 +701,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-			out, err := tests.ExecuteCommandOnPod(
-				virtClient,
-				vmiPod,
-				"compute",
-				[]string{"sh", "-c", "echo $KUBEVIRT_RESOURCE_NAME_sriov"},
-			)
-			Expect(err).ToNot(HaveOccurred())
-
-			expectedSriovResourceName := fmt.Sprintf("%s\n", sriovResourceName)
-			Expect(out).To(Equal(expectedSriovResourceName))
+			Expect(validatePodKubevirtResourceName(virtClient, vmiPod, "sriov", sriovResourceName)).To(Succeed())
 
 			checkDefaultInterfaceInPod(vmi)
 
@@ -732,16 +723,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-			out, err := tests.ExecuteCommandOnPod(
-				virtClient,
-				vmiPod,
-				"compute",
-				[]string{"sh", "-c", "echo $KUBEVIRT_RESOURCE_NAME_sriov"},
-			)
-			Expect(err).ToNot(HaveOccurred())
-
-			expectedSriovResourceName := fmt.Sprintf("%s\n", sriovResourceName)
-			Expect(out).To(Equal(expectedSriovResourceName))
+			Expect(validatePodKubevirtResourceName(virtClient, vmiPod, "sriov", sriovResourceName)).To(Succeed())
 
 			checkDefaultInterfaceInPod(vmi)
 
@@ -772,16 +754,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-			out, err := tests.ExecuteCommandOnPod(
-				virtClient,
-				vmiPod,
-				"compute",
-				[]string{"sh", "-c", "echo $KUBEVIRT_RESOURCE_NAME_sriov"},
-			)
-			Expect(err).ToNot(HaveOccurred())
-
-			expectedSriovResourceName := fmt.Sprintf("%s\n", sriovResourceName)
-			Expect(out).To(Equal(expectedSriovResourceName))
+			Expect(validatePodKubevirtResourceName(virtClient, vmiPod, "sriov", sriovResourceName)).To(Succeed())
 
 			checkDefaultInterfaceInPod(vmi)
 
@@ -820,16 +793,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variables are defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 			for _, name := range sriovNetworks {
-				out, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					vmiPod,
-					"compute",
-					[]string{"sh", "-c", fmt.Sprintf("echo $KUBEVIRT_RESOURCE_NAME_%s", name)},
-				)
-				Expect(err).ToNot(HaveOccurred())
-
-				expectedSriovResourceName := fmt.Sprintf("%s\n", sriovResourceName)
-				Expect(out).To(Equal(expectedSriovResourceName))
+				Expect(validatePodKubevirtResourceName(virtClient, vmiPod, name, sriovResourceName)).To(Succeed())
 			}
 
 			checkDefaultInterfaceInPod(vmi)
@@ -1243,4 +1207,23 @@ func checkSriovEnabled(virtClient kubecli.KubevirtClient, sriovResourceName stri
 		}
 	}
 	return false
+}
+
+func validatePodKubevirtResourceName(virtClient kubecli.KubevirtClient, vmiPod *k8sv1.Pod, networkName, sriovResourceName string) error {
+	out, err := tests.ExecuteCommandOnPod(
+		virtClient,
+		vmiPod,
+		"compute",
+		[]string{"sh", "-c", fmt.Sprintf("echo $KUBEVIRT_RESOURCE_NAME_%s", networkName)},
+	)
+	if err != nil {
+		return err
+	}
+
+	out = strings.TrimSuffix(out, "\n")
+	if out != sriovResourceName {
+		return fmt.Errorf("env settings %s didnt match %s", out, sriovResourceName)
+	}
+
+	return nil
 }
