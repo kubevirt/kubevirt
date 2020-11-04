@@ -34,13 +34,29 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/testutils"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 )
 
 var _ = Describe("Validating VMIUpdate Admitter", func() {
-	vmiUpdateAdmitter := &VMIUpdateAdmitter{}
+	kv := &v1.KubeVirt{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubevirt",
+			Namespace: "kubevirt",
+		},
+		Spec: v1.KubeVirtSpec{
+			Configuration: v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{},
+			},
+		},
+		Status: v1.KubeVirtStatus{
+			Phase: v1.KubeVirtPhaseDeploying,
+		},
+	}
+	config, _, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+	vmiUpdateAdmitter := &VMIUpdateAdmitter{config}
 
 	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse) {
 		input := map[string]interface{}{}
@@ -250,14 +266,14 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		return res
 	}
 
-	makeVolumes := func(volumeCount int) []v1.Volume {
+	makeVolumes := func(indexes ...int) []v1.Volume {
 		res := make([]v1.Volume, 0)
-		for i := 0; i < volumeCount; i++ {
+		for _, index := range indexes {
 			res = append(res, v1.Volume{
-				Name: fmt.Sprintf("volume-name-%d", i),
+				Name: fmt.Sprintf("volume-name-%d", index),
 				VolumeSource: v1.VolumeSource{
 					DataVolume: &v1.DataVolumeSource{
-						Name: fmt.Sprintf("dv-name-%d", i),
+						Name: fmt.Sprintf("dv-name-%d", index),
 					},
 				},
 			})
@@ -265,41 +281,79 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		return res
 	}
 
-	makeInvalidVolumes := func(volumeCount int) []v1.Volume {
+	makeInvalidVolumes := func(total int, indexes ...int) []v1.Volume {
 		res := make([]v1.Volume, 0)
-		for i := 0; i < volumeCount; i++ {
-			res = append(res, v1.Volume{
-				Name: fmt.Sprintf("volume-name-%d", i),
-				VolumeSource: v1.VolumeSource{
-					ContainerDisk: &v1.ContainerDiskSource{},
-				},
-			})
-		}
-		return res
-	}
-
-	makeDisks := func(diskCount int) []v1.Disk {
-		res := make([]v1.Disk, 0)
-		for i := 0; i < diskCount; i++ {
-			res = append(res, v1.Disk{
-				Name: fmt.Sprintf("volume-name-%d", i),
-			})
-		}
-		return res
-	}
-
-	makeDisksNoVolume := func(diskCount int) []v1.Disk {
-		res := make([]v1.Disk, 0)
-		for i := 0; i < diskCount; i++ {
-			if i < diskCount-1 {
-				res = append(res, v1.Disk{
+		for i := 0; i < total; i++ {
+			foundInvalid := false
+			for _, index := range indexes {
+				if i == index {
+					foundInvalid = true
+					res = append(res, v1.Volume{
+						Name: fmt.Sprintf("volume-name-%d", index),
+						VolumeSource: v1.VolumeSource{
+							ContainerDisk: &v1.ContainerDiskSource{},
+						},
+					})
+				}
+			}
+			if !foundInvalid {
+				res = append(res, v1.Volume{
 					Name: fmt.Sprintf("volume-name-%d", i),
-				})
-			} else {
-				res = append(res, v1.Disk{
-					Name: fmt.Sprintf("invalid-volume-name-%d", i),
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: fmt.Sprintf("dv-name-%d", i),
+						},
+					},
 				})
 			}
+		}
+		return res
+	}
+
+	makeDisks := func(indexes ...int) []v1.Disk {
+		res := make([]v1.Disk, 0)
+		for _, index := range indexes {
+			bootOrder := uint(index + 1)
+			res = append(res, v1.Disk{
+				Name: fmt.Sprintf("volume-name-%d", index),
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: "scsi",
+					},
+				},
+				BootOrder: &bootOrder,
+			})
+		}
+		return res
+	}
+
+	makeDisksInvalidBusLastDisk := func(indexes ...int) []v1.Disk {
+		res := makeDisks(indexes...)
+		for i, index := range indexes {
+			if i == len(indexes)-1 {
+				res[index].Disk.Bus = "invalid"
+			}
+		}
+		return res
+	}
+
+	makeDisksInvalidBootOrder := func(indexes ...int) []v1.Disk {
+		res := makeDisks(indexes...)
+		bootOrder := uint(0)
+		for i, index := range indexes {
+			if i == len(indexes)-1 {
+				res[index].BootOrder = &bootOrder
+			}
+		}
+		return res
+	}
+
+	makeDisksNoVolume := func(indexes ...int) []v1.Disk {
+		res := make([]v1.Disk, 0)
+		for _, index := range indexes {
+			res = append(res, v1.Disk{
+				Name: fmt.Sprintf("invalid-volume-name-%d", index),
+			})
 		}
 		return res
 	}
@@ -320,11 +374,12 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		return res
 	}
 
-	makeExpected := func(message string) *v1beta1.AdmissionResponse {
+	makeExpected := func(message, field string) *v1beta1.AdmissionResponse {
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: message,
+				Field:   field,
 			},
 		})
 	}
@@ -333,35 +388,102 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		result := getHotplugVolumes(volumes, statuses)
 		Expect(reflect.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
 	},
-		table.Entry("Should be empty if statuses is empty", makeVolumes(0), makeStatus(0, 0), emptyResult()),
-		table.Entry("Should be empty if statuses is not empty, but no hotplug", makeVolumes(0), makeStatus(2, 0), emptyResult()),
-		table.Entry("Should have a single hotplug if status has one hotplug", makeVolumes(2), makeStatus(2, 1), makeResult(1)),
-		table.Entry("Should have a multiple hotplug if status has multiple hotplug", makeVolumes(4), makeStatus(4, 2), makeResult(2, 3)),
+		table.Entry("Should be empty if statuses is empty", makeVolumes(), makeStatus(0, 0), emptyResult()),
+		table.Entry("Should be empty if statuses is not empty, but no hotplug", makeVolumes(), makeStatus(2, 0), emptyResult()),
+		table.Entry("Should be empty if statuses is not empty, but no hotplug", makeVolumes(), makeStatus(1, 0), emptyResult()),
+		table.Entry("Should have a single hotplug if status has one hotplug", makeVolumes(0, 1), makeStatus(2, 1), makeResult(1)),
+		table.Entry("Should have a multiple hotplug if status has multiple hotplug", makeVolumes(0, 1, 2, 3), makeStatus(4, 2), makeResult(2, 3)),
 	)
 
-	table.DescribeTable("Should properly calculate the permanent volumes", func(volumes []v1.Volume, hotpluggedVolumes, expected map[string]v1.Volume) {
-		result := getPermanentVolumes(volumes, hotpluggedVolumes)
+	table.DescribeTable("Should properly calculate the permanent volumes", func(volumes []v1.Volume, statusVolumes []v1.VolumeStatus, expected map[string]v1.Volume) {
+		result := getPermanentVolumes(volumes, statusVolumes)
 		Expect(reflect.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
 	},
-		table.Entry("Should be empty if volume is empty", makeVolumes(0), emptyResult(), emptyResult()),
-		table.Entry("Should be empty if all volumes are hotplugged", makeVolumes(4), makeResult(0, 1, 2, 3), emptyResult()),
-		table.Entry("Should return all volumes if hotplugged is empty", makeVolumes(4), emptyResult(), makeResult(0, 1, 2, 3)),
-		table.Entry("Should return 3 volumes if  1 hotplugged volume", makeVolumes(4), makeResult(2), makeResult(0, 1, 3)),
+		table.Entry("Should be empty if volume is empty", makeVolumes(), makeStatus(0, 0), emptyResult()),
+		table.Entry("Should be empty if all volumes are hotplugged", makeVolumes(0, 1, 2, 3), makeStatus(4, 4), emptyResult()),
+		table.Entry("Should return all volumes if hotplugged is empty", makeVolumes(0, 1, 2, 3), makeStatus(4, 0), makeResult(0, 1, 2, 3)),
+		table.Entry("Should return all volumes if hotplugged is empty", makeVolumes(0), makeStatus(1, 0), makeResult(0)),
+		table.Entry("Should return 3 volumes if  1 hotplugged volume", makeVolumes(0, 1, 2, 3), makeStatus(4, 1), makeResult(0, 1, 2)),
 	)
 
-	table.DescribeTable("Should return proper admission response", func(newVolumes []v1.Volume, newDisks []v1.Disk, volumeStatuses []v1.VolumeStatus, expected *v1beta1.AdmissionResponse) {
-		result := admitHotplug(newVolumes, newDisks, volumeStatuses)
+	table.DescribeTable("Should return proper admission response", func(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, volumeStatuses []v1.VolumeStatus, expected *v1beta1.AdmissionResponse) {
+		newVMI := v1.NewMinimalVMI("testvmi")
+		newVMI.Spec.Volumes = newVolumes
+		newVMI.Spec.Domain.Devices.Disks = newDisks
+
+		result := admitHotplug(newVolumes, oldVolumes, newDisks, oldDisks, volumeStatuses, newVMI, vmiUpdateAdmitter.ClusterConfig)
 		Expect(reflect.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
-		// hotpluggedVolumes := getHotplugVolumes(newVolumes, volumeStatuses)
-		// permanent := getPermanentVolumes(newVolumes, hotpluggedVolumes)
-		// Fail(fmt.Sprintf("status: %v, hp: %v, per: %v", volumeStatuses, hotpluggedVolumes, permanent))
 	},
-		table.Entry("Should reject if no volumes are there or added, need a minimum of 1 volume", makeVolumes(0), makeDisks(0), makeStatus(0, 0), makeExpected("cannot remove permanent volume")),
-		table.Entry("Should reject if #volumes != #disks", makeVolumes(2), makeDisks(1), makeStatus(0, 0), makeExpected("number of disks does not equal the number of volumes")),
-		table.Entry("Should reject if we remove a permanent volume", makeVolumes(0), makeDisks(0), makeStatus(1, 0), makeExpected("cannot remove permanent volume")),
-		table.Entry("Should reject if we add a disk without a matching volume", makeVolumes(2), makeDisksNoVolume(2), makeStatus(2, 1), makeExpected("Disk invalid-volume-name-1 doesn't have a matching volume")),
-		table.Entry("Should reject if we add volumes that are not PVC or DV", makeInvalidVolumes(2), makeDisks(2), makeStatus(2, 1), makeExpected("Disk volume-name-1 has a volume that is not a PVC or DataVolume")),
-		table.Entry("Should accept if we add volumes and disk properly", makeVolumes(2), makeDisks(2), makeStatus(2, 1), nil),
+		table.Entry("Should accept if no volumes are there or added",
+			makeVolumes(),
+			makeVolumes(),
+			makeDisks(),
+			makeDisks(),
+			makeStatus(0, 0),
+			nil),
+		table.Entry("Should reject if #volumes != #disks",
+			makeVolumes(1, 2),
+			makeVolumes(1, 2),
+			makeDisks(1),
+			makeDisks(1),
+			makeStatus(0, 0),
+			makeExpected("number of disks does not equal the number of volumes", "")),
+		table.Entry("Should reject if we remove a permanent volume",
+			makeVolumes(),
+			makeVolumes(0),
+			makeDisks(),
+			makeDisks(0),
+			makeStatus(1, 0),
+			makeExpected("Number of permanent volumes has changed", "")),
+		table.Entry("Should reject if we add a disk without a matching volume",
+			makeVolumes(0, 1),
+			makeVolumes(0),
+			makeDisksNoVolume(0, 1),
+			makeDisksNoVolume(0),
+			makeStatus(1, 0),
+			makeExpected("Disk volume-name-1 does not exist", "")),
+		table.Entry("Should reject if we modify existing volume to be invalid",
+			makeVolumes(0, 1),
+			makeVolumes(0, 1),
+			makeDisksNoVolume(0, 1),
+			makeDisks(0, 1),
+			makeStatus(1, 0),
+			makeExpected("permanent disk volume-name-0, changed", "")),
+		table.Entry("Should reject if we add volumes that are not PVC or DV",
+			makeInvalidVolumes(2, 1),
+			makeVolumes(0, 1),
+			makeDisks(0, 1),
+			makeDisks(0, 1),
+			makeStatus(1, 0),
+			makeExpected("hotplug volume volume-name-1, changed", "")),
+		table.Entry("Should reject if we add volumes that are not PVC or DV",
+			makeInvalidVolumes(2, 1),
+			makeVolumes(0),
+			makeDisks(0, 1),
+			makeDisks(0),
+			makeStatus(1, 0),
+			makeExpected("volume volume-name-1 is not a PVC or DataVolume", "")),
+		table.Entry("Should accept if we add volumes and disk properly",
+			makeVolumes(0, 1),
+			makeVolumes(0, 1),
+			makeDisks(0, 1),
+			makeDisks(0, 1),
+			makeStatus(2, 1),
+			nil),
+		table.Entry("Should reject if we add disk with invalid bus",
+			makeVolumes(0, 1),
+			makeVolumes(0),
+			makeDisksInvalidBusLastDisk(0, 1),
+			makeDisks(0),
+			makeStatus(1, 0),
+			makeExpected("hotplugged Disk volume-name-1 does not use a scsi bus", "")),
+		table.Entry("Should reject if we add disk with invalid boot order",
+			makeVolumes(0, 1),
+			makeVolumes(0),
+			makeDisksInvalidBootOrder(0, 1),
+			makeDisks(0),
+			makeStatus(1, 0),
+			makeExpected("spec.domain.devices.disks[1] must have a boot order > 0, if supplied", "spec.domain.devices.disks[1].bootOrder")),
 	)
 
 	table.DescribeTable("Admit or deny based on user", func(user string, expected types.GomegaMatcher) {

@@ -562,7 +562,7 @@ func (app *virtAPIApp) registerValidatingWebhooks() {
 		validating_webhook.ServeVMICreate(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(components.VMIUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMIUpdate(w, r)
+		validating_webhook.ServeVMIUpdate(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(components.VMValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli)
