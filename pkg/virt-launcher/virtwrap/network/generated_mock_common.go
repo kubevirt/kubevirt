@@ -334,3 +334,13 @@ func (_m *MockNetworkHandler) BindTapDeviceToBridge(tapName string, bridgeName s
 func (_mr *_MockNetworkHandlerRecorder) BindTapDeviceToBridge(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "BindTapDeviceToBridge", arg0, arg1)
 }
+
+func (_m *MockNetworkHandler) DisableTXOffloadChecksum(ifaceName string) error {
+	ret := _m.ctrl.Call(_m, "DisableTXOffloadChecksum", ifaceName)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) DisableTXOffloadChecksum(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DisableTXOffloadChecksum", arg0)
+}

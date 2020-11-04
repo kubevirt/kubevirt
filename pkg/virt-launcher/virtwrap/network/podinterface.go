@@ -599,6 +599,11 @@ func (b *BridgePodInterface) createBridge() error {
 		return err
 	}
 
+	if err = Handler.DisableTXOffloadChecksum(b.bridgeInterfaceName); err != nil {
+		log.Log.Reason(err).Error("failed to disable TX offload checksum on bridge interface")
+		return err
+	}
+
 	return nil
 }
 
@@ -896,6 +901,12 @@ func (p *MasqueradePodInterface) createBridge() error {
 			return err
 		}
 	}
+
+	if err = Handler.DisableTXOffloadChecksum(p.bridgeInterfaceName); err != nil {
+		log.Log.Reason(err).Error("failed to disable TX offload checksum on bridge interface")
+		return err
+	}
+
 	return nil
 }
 

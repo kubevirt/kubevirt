@@ -114,6 +114,7 @@ type NetworkHandler interface {
 	GetNFTIPString(proto iptables.Protocol) string
 	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
+	DisableTXOffloadChecksum(ifaceName string) error
 }
 
 type NetworkUtilsHandler struct{}
@@ -487,6 +488,15 @@ func (h *NetworkUtilsHandler) BindTapDeviceToBridge(tapName string, bridgeName s
 	}
 
 	log.Log.Infof("Successfully configured tap device: %s", tapName)
+	return nil
+}
+
+func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
+	if err := dhcp.EthtoolTXOff(ifaceName); err != nil {
+		log.Log.Reason(err).Errorf("Failed to set tx offload for interface %s off", ifaceName)
+		return err
+	}
+
 	return nil
 }
 
