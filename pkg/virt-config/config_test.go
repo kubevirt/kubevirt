@@ -24,16 +24,7 @@ var _ = Describe("ConfigMap", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
-	var stopChan chan struct{}
 	defaultCPURequest := resource.MustParse(virtconfig.DefaultCPURequest)
-
-	BeforeEach(func() {
-		stopChan = make(chan struct{})
-	})
-
-	AfterEach(func() {
-		close(stopChan)
-	})
 
 	table.DescribeTable("when memBalloonStatsPeriod", func(value string, result uint32) {
 		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
