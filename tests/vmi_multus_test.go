@@ -811,13 +811,14 @@ var _ = Describe("[Serial]SRIOV", func() {
 		})
 
 		It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
-			vmi := getSriovVmi([]string{"sriov", "sriov2"})
+			sriovNetworks := []string{"sriov", "sriov2"}
+			vmi := getSriovVmi(sriovNetworks)
 			startVmi(vmi)
 			waitVmi(vmi)
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variables are defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-			for _, name := range []string{"sriov", "sriov"} {
+			for _, name := range sriovNetworks {
 				out, err := tests.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
