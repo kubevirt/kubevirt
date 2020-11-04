@@ -7070,70 +7070,6 @@
      }
     }
    },
-   "k8s.io.api.core.v1.PersistentVolumeClaim": {
-    "description": "PersistentVolumeClaim is a user's request for and claim to a persistent volume",
-    "type": "object",
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "description": "Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
-     },
-     "spec": {
-      "description": "Spec defines the desired characteristics of a volume requested by a pod author. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
-      "$ref": "#/definitions/k8s.io.api.core.v1.PersistentVolumeClaimSpec"
-     },
-     "status": {
-      "description": "Status represents the current information/status of a persistent volume claim. Read-only. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
-      "$ref": "#/definitions/k8s.io.api.core.v1.PersistentVolumeClaimStatus"
-     }
-    }
-   },
-   "k8s.io.api.core.v1.PersistentVolumeClaimCondition": {
-    "description": "PersistentVolumeClaimCondition contails details about state of pvc",
-    "type": "object",
-    "required": [
-     "type",
-     "status"
-    ],
-    "properties": {
-     "lastProbeTime": {
-      "description": "Last time we probed the condition.",
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "lastTransitionTime": {
-      "description": "Last time the condition transitioned from one status to another.",
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "message": {
-      "description": "Human-readable message indicating details about last transition.",
-      "type": "string"
-     },
-     "reason": {
-      "description": "Unique, this should be a short, machine understandable string that gives the reason for condition's last transition. If it reports \"ResizeStarted\" that means the underlying persistent volume is being resized.",
-      "type": "string"
-     },
-     "status": {
-      "type": "string"
-     },
-     "type": {
-      "type": "string"
-     }
-    }
-   },
    "k8s.io.api.core.v1.PersistentVolumeClaimSpec": {
     "description": "PersistentVolumeClaimSpec describes the common attributes of storage devices and allows a Source for provider-specific attributes",
     "type": "object",
@@ -7167,40 +7103,6 @@
      },
      "volumeName": {
       "description": "VolumeName is the binding reference to the PersistentVolume backing this claim.",
-      "type": "string"
-     }
-    }
-   },
-   "k8s.io.api.core.v1.PersistentVolumeClaimStatus": {
-    "description": "PersistentVolumeClaimStatus is the current status of a persistent volume claim.",
-    "type": "object",
-    "nullable": true,
-    "properties": {
-     "accessModes": {
-      "description": "AccessModes contains the actual access modes the volume backing the PVC has. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1",
-      "type": "array",
-      "items": {
-       "type": "string"
-      }
-     },
-     "capacity": {
-      "description": "Represents the actual resources of the underlying volume.",
-      "type": "object",
-      "additionalProperties": {
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
-      }
-     },
-     "conditions": {
-      "description": "Current Condition of persistent volume claim. If underlying persistent volume is being resized then the Condition will be set to 'ResizeStarted'.",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/k8s.io.api.core.v1.PersistentVolumeClaimCondition"
-      },
-      "x-kubernetes-patch-merge-key": "type",
-      "x-kubernetes-patch-strategy": "merge"
-     },
-     "phase": {
-      "description": "Phase represents the current phase of PersistentVolumeClaim.",
       "type": "string"
      }
     }
@@ -11208,6 +11110,19 @@
      }
     }
    },
+   "v1alpha1.PersistentVolumeClaim": {
+    "type": "object",
+    "properties": {
+     "metadata": {
+      "description": "Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "description": "Spec defines the desired characteristics of a volume requested by a pod author. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+      "$ref": "#/definitions/k8s.io.api.core.v1.PersistentVolumeClaimSpec"
+     }
+    }
+   },
    "v1alpha1.SourceSpec": {
     "description": "SourceSpec contains the appropriate spec for the resource being snapshotted",
     "type": "object",
@@ -11519,7 +11434,7 @@
     ],
     "properties": {
      "persistentVolumeClaim": {
-      "$ref": "#/definitions/k8s.io.api.core.v1.PersistentVolumeClaim"
+      "$ref": "#/definitions/v1alpha1.PersistentVolumeClaim"
      },
      "volumeName": {
       "type": "string"

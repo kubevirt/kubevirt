@@ -73,6 +73,12 @@ func (SourceSpec) SwaggerDoc() map[string]string {
 	}
 }
 
+func (PersistentVolumeClaim) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"spec": "Spec defines the desired characteristics of a volume requested by a pod author.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+	}
+}
+
 func (VolumeBackup) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                   "VolumeBackup contains the data neeed to restore a PVC",

@@ -1578,9 +1578,12 @@ func createVirtualMachineSnapshotContent(vmSnapshot *snapshotv1.VirtualMachineSn
 		diskName := fmt.Sprintf("disk%d", i+1)
 		volumeSnapshotName := fmt.Sprintf("vmsnapshot-%s-volume-%s", vmSnapshot.UID, diskName)
 		vb := snapshotv1.VolumeBackup{
-			VolumeName:            diskName,
-			PersistentVolumeClaim: pvc,
-			VolumeSnapshotName:    &volumeSnapshotName,
+			VolumeName: diskName,
+			PersistentVolumeClaim: snapshotv1.PersistentVolumeClaim{
+				ObjectMeta: pvc.ObjectMeta,
+				Spec:       pvc.Spec,
+			},
+			VolumeSnapshotName: &volumeSnapshotName,
 		}
 		volumeBackups = append(volumeBackups, vb)
 	}
