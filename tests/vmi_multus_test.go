@@ -749,6 +749,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
 
 			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
 			rootPortController := []api.Controller{}
 			for _, c := range domSpec.Devices.Controllers {
 				if c.Model == "pcie-root-port" {
