@@ -73,13 +73,22 @@ func ExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, time
 // wait `timeout` for the batch to return, it also check that the sended commands arrives to console checking.
 // NOTE: This functions heritage limitations from `ExpectBatchWithValidatedSend` refer to it to check them.
 func SafeExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) error {
+	_, err := SafeExpectBatchWithResponse(vmi, expected, wait)
+	return err
+}
+
+// SafeExpectBatchWithResponse runs the batch from `expected` connecting to a VMI's console and
+// wait `timeout` for the batch to return with a response.
+// It includes a safety check which validates that the commands arrive to the console.
+// NOTE: This functions inherits limitations from `ExpectBatchWithValidatedSend`, refer to it for more information.
+func SafeExpectBatchWithResponse(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) ([]expect.BatchRes, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
 	}
 	expecter, _, err := NewExpecter(virtClient, vmi, 30*time.Second)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer expecter.Close()
 
@@ -87,7 +96,7 @@ func SafeExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, 
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("%v", resp)
 	}
-	return err
+	return resp, err
 }
 
 // RunCommand runs the command line from `command connecting to an already logged in console at vmi
