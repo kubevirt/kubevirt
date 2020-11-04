@@ -101,7 +101,6 @@ ${KUBEVIRT_DIR}/tools/openapispec/openapispec --dump-api-spec-path ${KUBEVIRT_DI
 (
     cd ${KUBEVIRT_DIR}/docs
     ${KUBEVIRT_DIR}/tools/doc-generator/doc-generator
-    mv newmetrics.md ${KUBEVIRT_DIR}/docs/metrics.md
 )
 
 rm -f ${KUBEVIRT_DIR}/manifests/generated/*

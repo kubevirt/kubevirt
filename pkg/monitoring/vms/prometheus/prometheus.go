@@ -60,7 +60,7 @@ var (
 	// higher-level, telemetry-friendly metrics
 	vmiCountDesc = prometheus.NewDesc(
 		"kubevirt_vmi_phase_count",
-		"VMI phase.",
+		"Sum of VMIs per phase and node. `phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`]",
 		[]string{
 			"node", "phase",
 		},
@@ -84,7 +84,7 @@ func (metrics *vmiMetrics) updateMemory(vmStats *stats.DomainStats) {
 		memoryResidentLabels = append(memoryResidentLabels, metrics.k8sLabels...)
 		memoryResidentDesc := prometheus.NewDesc(
 			"kubevirt_vmi_memory_resident_bytes",
-			"resident set size of the process running the domain.",
+			"Resident set size of the process running the domain.",
 			memoryResidentLabels,
 			nil,
 		)
@@ -105,7 +105,7 @@ func (metrics *vmiMetrics) updateMemory(vmStats *stats.DomainStats) {
 		memoryAvailableLabels = append(memoryAvailableLabels, metrics.k8sLabels...)
 		memoryAvailableDesc := prometheus.NewDesc(
 			"kubevirt_vmi_memory_available_bytes",
-			"amount of usable memory as seen by the domain.",
+			"Amount of `usable` memory as seen by the domain.",
 			memoryAvailableLabels,
 			nil,
 		)
@@ -126,7 +126,7 @@ func (metrics *vmiMetrics) updateMemory(vmStats *stats.DomainStats) {
 		memoryUnusedLabels = append(memoryUnusedLabels, metrics.k8sLabels...)
 		memoryUnusedDesc := prometheus.NewDesc(
 			"kubevirt_vmi_memory_unused_bytes",
-			"amount of unused memory as seen by the domain.",
+			"Amount of `unused` memory as seen by the domain.",
 			memoryUnusedLabels,
 			nil,
 		)
@@ -147,7 +147,7 @@ func (metrics *vmiMetrics) updateMemory(vmStats *stats.DomainStats) {
 		swapTrafficLabels = append(swapTrafficLabels, metrics.k8sLabels...)
 		swapTrafficDesc := prometheus.NewDesc(
 			"kubevirt_vmi_memory_swap_traffic_bytes_total",
-			"swap memory traffic.",
+			"Amount of `swap` memory traffic.",
 			swapTrafficLabels,
 			nil,
 		)
@@ -189,7 +189,7 @@ func (metrics *vmiMetrics) updateVcpu(vmStats *stats.DomainStats) {
 			vcpuUsageLabels = append(vcpuUsageLabels, metrics.k8sLabels...)
 			vcpuUsageDesc := prometheus.NewDesc(
 				"kubevirt_vmi_vcpu_seconds",
-				"Vcpu elapsed time.",
+				"Amount of time spent in each state by each vcpu. Where `id` is the vcpu identifier and `state` can be one of the following: [`OFFLINE`, `RUNNING`, `BLOCKED`]",
 				vcpuUsageLabels,
 				nil,
 			)
@@ -220,7 +220,7 @@ func (metrics *vmiMetrics) updateVcpu(vmStats *stats.DomainStats) {
 
 		vcpuWaitDesc := prometheus.NewDesc(
 			"kubevirt_vmi_vcpu_wait_seconds",
-			"vcpu time spent by waiting on I/O",
+			"Amount of time spent by each vcpu while waiting on I/O",
 			vcpuWaitLabels,
 			nil,
 		)
@@ -249,7 +249,7 @@ func (metrics *vmiMetrics) updateBlock(vmStats *stats.DomainStats) {
 			storageIopsLabels = append(storageIopsLabels, metrics.k8sLabels...)
 			storageIopsDesc := prometheus.NewDesc(
 				"kubevirt_vmi_storage_iops_total",
-				"I/O operation performed.",
+				"Counter of read and write operations per disk device.",
 				storageIopsLabels,
 				nil,
 			)
@@ -283,7 +283,7 @@ func (metrics *vmiMetrics) updateBlock(vmStats *stats.DomainStats) {
 			storageTrafficLabels = append(storageTrafficLabels, metrics.k8sLabels...)
 			storageTrafficDesc := prometheus.NewDesc(
 				"kubevirt_vmi_storage_traffic_bytes_total",
-				"storage traffic.",
+				"Amount of data read and written per disk device.",
 				storageTrafficLabels,
 				nil,
 			)
@@ -317,7 +317,7 @@ func (metrics *vmiMetrics) updateBlock(vmStats *stats.DomainStats) {
 			storageTimesLabels = append(storageTimesLabels, metrics.k8sLabels...)
 			storageTimesDesc := prometheus.NewDesc(
 				"kubevirt_vmi_storage_times_ms_total",
-				"storage operation time.",
+				"Time spent on read and write operations per disk device.",
 				storageTimesLabels,
 				nil,
 			)
@@ -361,7 +361,7 @@ func (metrics *vmiMetrics) updateNetwork(vmStats *stats.DomainStats) {
 			networkTrafficBytesLabels = append(networkTrafficBytesLabels, metrics.k8sLabels...)
 			networkTrafficBytesDesc := prometheus.NewDesc(
 				"kubevirt_vmi_network_traffic_bytes_total",
-				"network traffic.",
+				"Amount of traffic that is being transmitted and received.",
 				networkTrafficBytesLabels,
 				nil,
 			)
@@ -395,7 +395,7 @@ func (metrics *vmiMetrics) updateNetwork(vmStats *stats.DomainStats) {
 			networkTrafficPktsLabels = append(networkTrafficPktsLabels, metrics.k8sLabels...)
 			networkTrafficPktsDesc := prometheus.NewDesc(
 				"kubevirt_vmi_network_traffic_packets_total",
-				"network traffic.",
+				"Amount of packets that are being transmitted and received.",
 				networkTrafficPktsLabels,
 				nil,
 			)
@@ -429,7 +429,7 @@ func (metrics *vmiMetrics) updateNetwork(vmStats *stats.DomainStats) {
 			networkErrorsLabels = append(networkErrorsLabels, metrics.k8sLabels...)
 			networkErrorsDesc := prometheus.NewDesc(
 				"kubevirt_vmi_network_errors_total",
-				"network errors.",
+				"Counter of network errors when transmitting and receiving data.",
 				networkErrorsLabels,
 				nil,
 			)
