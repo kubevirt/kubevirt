@@ -11,4 +11,4 @@ RUN cd /bin/ && \
 
 ENV DOCKER_PREFIX='kubevirt'
 
-ENTRYPOINT [ "entrypoint.sh" ]
+ENTRYPOINT [ "/entrypoint.sh" ]

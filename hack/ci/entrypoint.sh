@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-function test_kubevirt_release {
+function test_kubevirt_release() {
     release="$(get_release_tag_for_xy "$1")"
     export DOCKER_TAG="$release"
     deploy_release "$release"
@@ -10,7 +10,7 @@ function test_kubevirt_release {
     run_tests
 }
 
-function get_release_tag_for_xy {
+function get_release_tag_for_xy() {
     release_xy="$1"
 
     curl --fail -s https://api.github.com/repos/kubevirt/kubevirt/releases |
@@ -18,7 +18,7 @@ function get_release_tag_for_xy {
         sort -rV | grep "v$release_xy" | head -1
 }
 
-function deploy_release {
+function deploy_release() {
     local release="$1"
 
     curl -Lo "/bin/tests.test" "https://github.com/kubevirt/kubevirt/releases/download/${release}/tests.test"
@@ -34,7 +34,7 @@ function deploy_release {
     done
 }
 
-function test_kubevirt_nightly {
+function test_kubevirt_nightly() {
     export DOCKER_PREFIX='kubevirtnightlybuilds'
     local release_url
     release_date=$(get_latest_release_date_for_kubevirt_nightly)
@@ -47,7 +47,7 @@ function test_kubevirt_nightly {
     run_tests
 }
 
-function deploy_kubevirt_nightly {
+function deploy_kubevirt_nightly() {
     release_url="$1"
 
     echo "Downloading kubevirt tests binary from nightly build $release_url"
@@ -64,30 +64,30 @@ function deploy_kubevirt_nightly {
     done
 }
 
-function get_release_tag_for_kubevirt_nightly {
+function get_release_tag_for_kubevirt_nightly() {
     release_url="$1"
     release_date="$2"
     commit=$(curl -L "${release_url}/commit")
     echo "${release_date}_$(echo "${commit}" | cut -c 1-9)"
 }
 
-function get_release_url_for_kubevirt_nightly {
+function get_release_url_for_kubevirt_nightly() {
     release_base_url="https://gcsweb.apps.ovirt.org/gcs/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt"
     release_date="$1"
     echo "${release_base_url}/${release_date}"
 }
 
-function get_latest_release_date_for_kubevirt_nightly {
+function get_latest_release_date_for_kubevirt_nightly() {
     release_base_url="https://gcsweb.apps.ovirt.org/gcs/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt"
     release_date=$(curl -L "${release_base_url}/latest")
     echo "${release_date}"
 }
 
-function wait_on_kubevirt_ready {
+function wait_on_kubevirt_ready() {
     oc wait -n kubevirt kv kubevirt --for condition=Available --timeout 15m
 }
 
-function run_tests {
+function run_tests() {
     mkdir -p "$ARTIFACT_DIR"
     # required to be set for test binary
     export ARTIFACTS=${ARTIFACT_DIR}
