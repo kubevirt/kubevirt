@@ -115,18 +115,12 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		}
 		CheckCloudInitMetaData = func(vmi *v1.VirtualMachineInstance, testFile, testData string) {
 			cmdCheck := "cat /mnt/" + testFile + "\n"
-			virtClient, err := kubecli.GetKubevirtClient()
-			tests.PanicOnError(err)
-			expecter, _, err := console.NewExpecter(virtClient, vmi, 30*time.Second)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
-
-			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+			res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
 				&expect.BSnd{S: "sudo su -\n"},
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: cmdCheck},
 				&expect.BExp{R: testData},
-			}, 15*time.Second)
+			}, 15)
 			if err != nil {
 				Expect(res[1].Output).To(ContainSubstring(testData))
 			}
