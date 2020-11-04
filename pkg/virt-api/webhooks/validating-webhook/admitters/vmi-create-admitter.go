@@ -965,6 +965,41 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		})
 	}
 
+	if spec.Domain.Devices.HostDevices != nil && !config.HostDevicesPassthroughEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Host Devices feature gate is not enabled in kubevirt-config"),
+			Field:   field.Child("HostDevices").String(),
+		})
+	}
+	if hostDevs := config.GetPermittedHostDevices(); hostDevs != nil {
+		// build a map of all permitted host devices
+		supportedHostDevicesMap := make(map[string]bool)
+		for _, dev := range hostDevs.PciHostDevices {
+			supportedHostDevicesMap[dev.ResourceName] = true
+		}
+		for _, dev := range hostDevs.MediatedDevices {
+			supportedHostDevicesMap[dev.ResourceName] = true
+		}
+		for _, hostDev := range spec.Domain.Devices.GPUs {
+			if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("GPU %s is not permitted in kubevirt-host-device-plugin-config", hostDev.DeviceName),
+					Field:   field.Child("GPUs").String(),
+				})
+			}
+		}
+		for _, hostDev := range spec.Domain.Devices.HostDevices {
+			if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("HostDevice %s is not permitted in kubevirt-host-device-plugin-config", hostDev.DeviceName),
+					Field:   field.Child("HostDevices").String(),
+				})
+			}
+		}
+	}
 	return causes
 }
 

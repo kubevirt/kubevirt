@@ -22,38 +22,56 @@ package device_manager
 import (
 	"math"
 	"os"
+	"strings"
+	"sync"
 	"time"
 
 	"kubevirt.io/client-go/log"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-const (
-	KVMPath      = "/dev/kvm"
-	KVMName      = "kvm"
-	TunPath      = "/dev/net/tun"
-	TunName      = "tun"
-	VhostNetPath = "/dev/vhost-net"
-	VhostNetName = "vhost-net"
-)
-
-type DeviceController struct {
-	devicePlugins []GenericDevice
-	host          string
-	maxDevices    int
-	backoff       []time.Duration
+var permanentDevicePluginPaths = map[string]string{
+	"kvm":       "/dev/kvm",
+	"tun":       "/dev/net/tun",
+	"vhost-net": "/dev/vhost-net",
 }
 
-func NewDeviceController(host string, maxDevices int) *DeviceController {
-	return &DeviceController{
-		devicePlugins: []GenericDevice{
-			NewGenericDevicePlugin(KVMName, KVMPath, maxDevices, false),
-			NewGenericDevicePlugin(TunName, TunPath, maxDevices, true),
-			NewGenericDevicePlugin(VhostNetName, VhostNetPath, maxDevices, true),
-		},
-		host:       host,
-		maxDevices: maxDevices,
-		backoff:    []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
+type DeviceController struct {
+	devicePlugins      map[string]ControlledDevice
+	devicePluginsMutex sync.Mutex
+	host               string
+	maxDevices         int
+	backoff            []time.Duration
+	virtConfig         *virtconfig.ClusterConfig
+	stop               chan struct{}
+}
+
+type ControlledDevice struct {
+	devicePlugin GenericDevice
+	stopChan     chan struct{}
+}
+
+func getPermanentHostDevicePlugins(maxDevices int) map[string]ControlledDevice {
+	ret := map[string]ControlledDevice{}
+	for name, path := range permanentDevicePluginPaths {
+		ret[name] = ControlledDevice{
+			devicePlugin: NewGenericDevicePlugin(name, path, maxDevices, (name != "kvm")),
+			stopChan:     make(chan struct{}),
+		}
 	}
+	return ret
+}
+
+func NewDeviceController(host string, maxDevices int, clusterConfig *virtconfig.ClusterConfig) *DeviceController {
+	controller := &DeviceController{
+		devicePlugins: getPermanentHostDevicePlugins(maxDevices),
+		host:          host,
+		maxDevices:    maxDevices,
+		backoff:       []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
+		virtConfig:    clusterConfig,
+	}
+
+	return controller
 }
 
 func (c *DeviceController) nodeHasDevice(devicePath string) bool {
@@ -62,9 +80,12 @@ func (c *DeviceController) nodeHasDevice(devicePath string) bool {
 	return (err == nil)
 }
 
-func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct{}) {
+func (c *DeviceController) startDevicePlugin(controlledDev ControlledDevice) {
 	logger := log.DefaultLogger()
+	dev := controlledDev.devicePlugin
 	deviceName := dev.GetDeviceName()
+	stop := controlledDev.stopChan
+	logger.Infof("Starting a device plugin for device: %s", deviceName)
 	retries := 0
 
 	for {
@@ -87,23 +108,136 @@ func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct
 	}
 }
 
-func (c *DeviceController) Run(stop chan struct{}) error {
-	logger := log.DefaultLogger()
-	logger.Info("Starting device plugin controller")
+// updatePermittedHostDevicePlugins will return a map of device plugins for permitted devices which are present on the node
+// and a map of restricted devices that should be removed
+func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]ControlledDevice, map[string]ControlledDevice) {
+	devicePluginsToRun := make(map[string]ControlledDevice)
+	devicePluginsToStop := make(map[string]ControlledDevice)
+	if hostDevs := c.virtConfig.GetPermittedHostDevices(); hostDevs != nil {
+		// generate a map of currently started device plugins
+		for resourceName, hostDevDP := range c.devicePlugins {
+			_, isPermanent := permanentDevicePluginPaths[resourceName]
+			if !isPermanent {
+				devicePluginsToStop[resourceName] = hostDevDP
+			}
+		}
+		supportedPCIDeviceMap := make(map[string]string)
+		if len(hostDevs.PciHostDevices) != 0 {
+			for _, pciDev := range hostDevs.PciHostDevices {
+				// do not add a device plugin for this resource if it's being provided via an external device plugin
+				if !pciDev.ExternalResourceProvider {
+					supportedPCIDeviceMap[pciDev.PCIVendorSelector] = pciDev.ResourceName
+				}
+			}
+			pciHostDevices := discoverPermittedHostPCIDevices(supportedPCIDeviceMap)
+			for pciID, pciDevices := range pciHostDevices {
+				pciResourceName := supportedPCIDeviceMap[pciID]
+				// add a device plugin only for new devices
+				if _, isRunning := c.devicePlugins[pciResourceName]; !isRunning {
+					devicePluginsToRun[pciResourceName] = ControlledDevice{
+						devicePlugin: NewPCIDevicePlugin(pciDevices, pciResourceName),
+						stopChan:     make(chan struct{}),
+					}
+				} else {
+					delete(devicePluginsToStop, pciResourceName)
+				}
+			}
+		}
+		if len(hostDevs.MediatedDevices) != 0 {
+			supportedMdevsMap := make(map[string]string)
+			for _, supportedMdev := range hostDevs.MediatedDevices {
+				// do not add a device plugin for this resource if it's being provided via an external device plugin
+				if !supportedMdev.ExternalResourceProvider {
+					selector := removeSelectorSpaces(supportedMdev.MDEVNameSelector)
+					supportedMdevsMap[selector] = supportedMdev.ResourceName
+				}
+			}
 
-	for _, dev := range c.devicePlugins {
-		go c.startDevicePlugin(dev, stop)
+			hostMdevs := discoverPermittedHostMediatedDevices(supportedMdevsMap)
+			for mdevTypeName, mdevUUIDs := range hostMdevs {
+				mdevResourceName := supportedMdevsMap[mdevTypeName]
+				// add a device plugin only for new devices
+				if _, isRunning := c.devicePlugins[mdevResourceName]; !isRunning {
+					devicePluginsToRun[mdevResourceName] = ControlledDevice{
+						devicePlugin: NewMediatedDevicePlugin(mdevUUIDs, mdevResourceName),
+						stopChan:     make(chan struct{}),
+					}
+				} else {
+					delete(devicePluginsToStop, mdevResourceName)
+				}
+			}
+		}
+	}
+	return devicePluginsToRun, devicePluginsToStop
+}
+
+func removeSelectorSpaces(selectorName string) string {
+	// The name usually contain spaces which should be replaced with _
+	// Such as GRID T4-1Q
+	typeNameStr := strings.Replace(string(selectorName), " ", "_", -1)
+	typeNameStr = strings.TrimSpace(typeNameStr)
+	return typeNameStr
+
+}
+func (c *DeviceController) refreshPermittedDevices() {
+	logger := log.DefaultLogger()
+	debugDevAdded := []string{}
+	debugDevRemoved := []string{}
+
+	// This function can be called multiple times in parallel, either because of multiple
+	//   informer callbacks for the same event, or because the configmap was quickly updated
+	//   multiple times in a row. To avoid starting/stopping device plugins multiple times,
+	//   we need to protect c.devicePlugins, which we read from in
+	//   c.updatePermittedHostDevicePlugins() and write to below.
+	c.devicePluginsMutex.Lock()
+
+	enabledDevicePlugins, disabledDevicePlugins := c.updatePermittedHostDevicePlugins()
+
+	// start device plugin for newly permitted devices
+	for resourceName, dev := range enabledDevicePlugins {
+		go c.startDevicePlugin(dev)
+		c.devicePlugins[resourceName] = dev
+		debugDevAdded = append(debugDevAdded, resourceName)
+	}
+	// remove device plugin for now forbidden devices
+	for resourceName, dev := range disabledDevicePlugins {
+		close(dev.stopChan)
+		delete(c.devicePlugins, resourceName)
+		debugDevRemoved = append(debugDevRemoved, resourceName)
 	}
 
+	c.devicePluginsMutex.Unlock()
+
+	logger.Info("refreshed device plugins for permitted/forbidden host devices")
+	logger.Infof("enabled device-pluings for: %v", debugDevAdded)
+	logger.Infof("disabled device-pluings for: %v", debugDevRemoved)
+}
+
+func (c *DeviceController) Run(stop chan struct{}) error {
+	logger := log.DefaultLogger()
+	// start the permanent DevicePlugins
+	for _, dev := range c.devicePlugins {
+		go c.startDevicePlugin(dev)
+	}
+	c.virtConfig.SetConfigModifiedCallback(c.refreshPermittedDevices)
+	c.refreshPermittedDevices()
+
+	// keep running until stop
 	<-stop
 
+	// stop all device plugins
+	c.devicePluginsMutex.Lock()
+	for _, dev := range c.devicePlugins {
+		dev.stopChan <- struct{}{}
+	}
+	c.devicePluginsMutex.Unlock()
 	logger.Info("Shutting down device plugin controller")
 	return nil
 }
 
 func (c *DeviceController) Initialized() bool {
 	for _, dev := range c.devicePlugins {
-		if !dev.GetInitialized() {
+		if !dev.devicePlugin.GetInitialized() {
 			return false
 		}
 	}

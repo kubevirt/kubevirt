@@ -187,8 +187,9 @@ func (Devices) SwaggerDoc() map[string]string {
 		"rng":                        "Whether to have random number generator from host\n+optional",
 		"blockMultiQueue":            "Whether or not to enable virtio multi-queue for block devices\n+optional",
 		"networkInterfaceMultiqueue": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.\n+optional",
-		"gpus":                       "Whether to attach a GPU device to the vmi.\n+optional",
-		"filesystems":                "Filesystems describes filesystem which is connected to the vmi.\n+optional",
+		"gpus":                       "Whether to attach a GPU device to the vmi.\n+optional\n+listType=atomic",
+		"filesystems":                "Filesystems describes filesystem which is connected to the vmi.\n+optional\n+listType=atomic",
+		"hostDevices":                "Whether to attach a host device to the vmi.\n+optional\n+listType=atomic",
 	}
 }
 
@@ -219,6 +220,13 @@ func (GPU) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":     "+k8s:openapi-gen=true",
 		"name": "Name of the GPU device as exposed by a device plugin",
+	}
+}
+
+func (HostDevice) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "+k8s:openapi-gen=true",
+		"deviceName": "DeviceName is the resource name of the host device exposed by a device plugin",
 	}
 }
 

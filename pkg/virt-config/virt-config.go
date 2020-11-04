@@ -159,3 +159,7 @@ func (c *ClusterConfig) GetOVMFPath() string {
 func (c *ClusterConfig) GetCPUAllocationRatio() int {
 	return c.GetConfig().DeveloperConfiguration.CPUAllocationRatio
 }
+
+func (c *ClusterConfig) GetPermittedHostDevices() *v1.PermittedHostDevices {
+	return c.GetConfig().PermittedHostDevices
+}

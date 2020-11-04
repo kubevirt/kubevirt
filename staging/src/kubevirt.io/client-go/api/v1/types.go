@@ -1462,6 +1462,7 @@ type KubeVirtConfiguration struct {
 	SMBIOSConfig                *SMBiosConfiguration    `json:"smbios,omitempty"`
 	SupportedGuestAgentVersions []string                `json:"supportedGuestAgentVersions,omitempty"`
 	MemBalloonStatsPeriod       *uint32                 `json:"memBalloonStatsPeriod,omitempty"`
+	PermittedHostDevices        *PermittedHostDevices   `json:"permittedHostDevices,omitempty"`
 }
 
 // ---
@@ -1497,6 +1498,31 @@ type DeveloperConfiguration struct {
 	NodeSelectors          map[string]string `json:"nodeSelectors,omitempty"`
 	UseEmulation           bool              `json:"useEmulation,omitempty"`
 	CPUAllocationRatio     int               `json:"cpuAllocationRatio,omitempty"`
+}
+
+// PermittedHostDevices holds inforamtion about devices allowed for passthrough
+// +k8s:openapi-gen=true
+type PermittedHostDevices struct {
+	// +listType=set
+	PciHostDevices []PciHostDevice `json:"pciHostDevices,omitempty"`
+	// +listType=set
+	MediatedDevices []MediatedHostDevice `json:"mediatedDevices,omitempty"`
+}
+
+// PciHostDevice represents a host PCI device allowed for passthrough
+// +k8s:openapi-gen=true
+type PciHostDevice struct {
+	PCIVendorSelector        string `json:"pciVendorSelector"`
+	ResourceName             string `json:"resourceName"`
+	ExternalResourceProvider bool   `json:"externalResourceProvider,omitempty"`
+}
+
+// MediatedHostDevice represents a host mediated device allowed for passthrough
+// +k8s:openapi-gen=true
+type MediatedHostDevice struct {
+	MDEVNameSelector         string `json:"mdevNameSelector"`
+	ResourceName             string `json:"resourceName"`
+	ExternalResourceProvider bool   `json:"externalResourceProvider,omitempty"`
 }
 
 // NetworkConfiguration holds network options

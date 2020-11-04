@@ -337,6 +337,42 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
             ovmfPath:
               type: string
+            permittedHostDevices:
+              description: PermittedHostDevices holds inforamtion about devices allowed for passthrough
+              properties:
+                mediatedDevices:
+                  items:
+                    description: MediatedHostDevice represents a host mediated device allowed for passthrough
+                    properties:
+                      externalResourceProvider:
+                        type: boolean
+                      mdevNameSelector:
+                        type: string
+                      resourceName:
+                        type: string
+                    required:
+                    - mdevNameSelector
+                    - resourceName
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: set
+                pciHostDevices:
+                  items:
+                    description: PciHostDevice represents a host PCI device allowed for passthrough
+                    properties:
+                      externalResourceProvider:
+                        type: boolean
+                      pciVendorSelector:
+                        type: string
+                      resourceName:
+                        type: string
+                    required:
+                    - pciVendorSelector
+                    - resourceName
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: set
+              type: object
             selinuxLauncherType:
               type: string
             smbios:
@@ -2063,6 +2099,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - virtiofs
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         gpus:
                           description: Whether to attach a GPU device to the vmi.
                           items:
@@ -2077,6 +2114,22 @@ var CRDsValidation map[string]string = map[string]string{
                             - name
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
+                        hostDevices:
+                          description: Whether to attach a host device to the vmi.
+                          items:
+                            properties:
+                              deviceName:
+                                description: DeviceName is the resource name of the host device exposed by a device plugin
+                                type: string
+                              name:
+                                type: string
+                            required:
+                            - deviceName
+                            - name
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
                         inputs:
                           description: Inputs describe input devices
                           items:
@@ -3615,6 +3668,7 @@ var CRDsValidation map[string]string = map[string]string{
                     - virtiofs
                     type: object
                   type: array
+                  x-kubernetes-list-type: atomic
                 gpus:
                   description: Whether to attach a GPU device to the vmi.
                   items:
@@ -3629,6 +3683,22 @@ var CRDsValidation map[string]string = map[string]string{
                     - name
                     type: object
                   type: array
+                  x-kubernetes-list-type: atomic
+                hostDevices:
+                  description: Whether to attach a host device to the vmi.
+                  items:
+                    properties:
+                      deviceName:
+                        description: DeviceName is the resource name of the host device exposed by a device plugin
+                        type: string
+                      name:
+                        type: string
+                    required:
+                    - deviceName
+                    - name
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
                 inputs:
                   description: Inputs describe input devices
                   items:
@@ -4923,6 +4993,7 @@ var CRDsValidation map[string]string = map[string]string{
                     - virtiofs
                     type: object
                   type: array
+                  x-kubernetes-list-type: atomic
                 gpus:
                   description: Whether to attach a GPU device to the vmi.
                   items:
@@ -4937,6 +5008,22 @@ var CRDsValidation map[string]string = map[string]string{
                     - name
                     type: object
                   type: array
+                  x-kubernetes-list-type: atomic
+                hostDevices:
+                  description: Whether to attach a host device to the vmi.
+                  items:
+                    properties:
+                      deviceName:
+                        description: DeviceName is the resource name of the host device exposed by a device plugin
+                        type: string
+                      name:
+                        type: string
+                    required:
+                    - deviceName
+                    - name
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
                 inputs:
                   description: Inputs describe input devices
                   items:
@@ -5990,6 +6077,7 @@ var CRDsValidation map[string]string = map[string]string{
                             - virtiofs
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
                         gpus:
                           description: Whether to attach a GPU device to the vmi.
                           items:
@@ -6004,6 +6092,22 @@ var CRDsValidation map[string]string = map[string]string{
                             - name
                             type: object
                           type: array
+                          x-kubernetes-list-type: atomic
+                        hostDevices:
+                          description: Whether to attach a host device to the vmi.
+                          items:
+                            properties:
+                              deviceName:
+                                description: DeviceName is the resource name of the host device exposed by a device plugin
+                                type: string
+                              name:
+                                type: string
+                            required:
+                            - deviceName
+                            - name
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
                         inputs:
                           description: Inputs describe input devices
                           items:
@@ -7952,6 +8056,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         - virtiofs
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
                                     gpus:
                                       description: Whether to attach a GPU device to the vmi.
                                       items:
@@ -7966,6 +8071,22 @@ var CRDsValidation map[string]string = map[string]string{
                                         - name
                                         type: object
                                       type: array
+                                      x-kubernetes-list-type: atomic
+                                    hostDevices:
+                                      description: Whether to attach a host device to the vmi.
+                                      items:
+                                        properties:
+                                          deviceName:
+                                            description: DeviceName is the resource name of the host device exposed by a device plugin
+                                            type: string
+                                          name:
+                                            type: string
+                                        required:
+                                        - deviceName
+                                        - name
+                                        type: object
+                                      type: array
+                                      x-kubernetes-list-type: atomic
                                     inputs:
                                       description: Inputs describe input devices
                                       items:

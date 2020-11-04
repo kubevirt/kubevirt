@@ -45,12 +45,19 @@ func main() {
 	genDir := flag.String("generated-vms-dir", "", "")
 	flag.Parse()
 
+	fakePermittedHostDevicesConfig := `
+pciHostDevices:
+- pciVendorSelector: "10DE:1EB8"
+  resourceName: "nvidia.com/GP102GL_Tesla_P40"
+  externalResourceProvider: true
+`
 	config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{
 		Data: map[string]string{
 			// Required to validate DataVolume usage
 			virtconfig.FeatureGatesKey:                   "DataVolumes,LiveMigration,SRIOV,GPU,HostDisk,Macvtap",
 			virtconfig.PermitSlirpInterface:              "true",
 			virtconfig.PermitBridgeInterfaceOnPodNetwork: "true",
+			virtconfig.PermittedHostDevicesKey:           fakePermittedHostDevicesConfig,
 		},
 	})
 	var priorityClasses = map[string]*schedulingv1.PriorityClass{

@@ -1947,6 +1947,126 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(len(causes)).To(Equal(0))
 		})
 
+		It("should reject GPU devices that are not permitted in the hostdev config", func() {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.GPUGate}
+			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
+				PciHostDevices: []v1.PciHostDevice{
+					{
+						PCIVendorSelector: "DEAD:BEEF",
+						ResourceName:      "example.org/deadbeef",
+					},
+				},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				v1.GPU{
+					Name:       "gpu1",
+					DeviceName: "example.org/deadbeef1",
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.GPUs"))
+		})
+		It("should accept legacy GPU devices if PermittedHostDevices aren't set", func() {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.GPUGate}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				v1.GPU{
+					Name:       "gpu1",
+					DeviceName: "example.org/deadbeef",
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(0))
+		})
+		It("should accept permitted GPU devices", func() {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.GPUGate}
+			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
+				PciHostDevices: []v1.PciHostDevice{
+					{
+						PCIVendorSelector: "DEAD:BEEF",
+						ResourceName:      "example.org/deadbeef",
+					},
+				},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				v1.GPU{
+					Name:       "gpu1",
+					DeviceName: "example.org/deadbeef",
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(0))
+		})
+		It("should reject host devices when feature gate is disabled", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+				v1.HostDevice{
+					Name:       "hostdev1",
+					DeviceName: "vendor.com/hostdev_name",
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.HostDevices"))
+		})
+		It("should reject host devices that are not permitted in the hostdev config", func() {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.HostDevicesGate}
+			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
+				PciHostDevices: []v1.PciHostDevice{
+					{
+						PCIVendorSelector: "DEAD:BEEF",
+						ResourceName:      "example.org/deadbeef",
+					},
+				},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+				v1.HostDevice{
+					Name:       "hostdev1",
+					DeviceName: "example.org/deadbeef1",
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.HostDevices"))
+		})
+		It("should accept permitted host devices", func() {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.HostDevicesGate}
+			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
+				PciHostDevices: []v1.PciHostDevice{
+					{
+						PCIVendorSelector: "DEAD:BEEF",
+						ResourceName:      "example.org/deadbeef",
+					},
+				},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+				v1.HostDevice{
+					Name:       "hostdev1",
+					DeviceName: "example.org/deadbeef",
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(0))
+		})
 		table.DescribeTable("Should accept valid DNSPolicy and DNSConfig",
 			func(dnsPolicy k8sv1.DNSPolicy, dnsConfig *k8sv1.PodDNSConfig) {
 				vmi := v1.NewMinimalVMI("testvmi")

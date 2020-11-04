@@ -1,6 +1,9 @@
 package util
 
 import (
+	"fmt"
+	"strings"
+
 	v1 "kubevirt.io/client-go/api/v1"
 )
 
@@ -45,4 +48,28 @@ func IsVMIVirtiofsEnabled(vmi *v1.VirtualMachineInstance) bool {
 		}
 	}
 	return false
+}
+
+// Check if a VMI spec requests a HostDevice
+func IsHostDevVMI(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.Devices.HostDevices != nil && len(vmi.Spec.Domain.Devices.HostDevices) != 0 {
+		return true
+	}
+	return false
+}
+
+// Check if a VMI spec requests a VFIO device
+func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
+
+	if IsHostDevVMI(vmi) || IsGPUVMI(vmi) || IsSRIOVVmi(vmi) {
+		return true
+	}
+	return false
+}
+
+func ResourceNameToEnvVar(prefix string, resourceName string) string {
+	varName := strings.ToUpper(resourceName)
+	varName = strings.Replace(varName, "/", "_", -1)
+	varName = strings.Replace(varName, ".", "_", -1)
+	return fmt.Sprintf("%s_%s", prefix, varName)
 }

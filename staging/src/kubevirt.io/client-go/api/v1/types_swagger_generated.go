@@ -452,6 +452,26 @@ func (DeveloperConfiguration) SwaggerDoc() map[string]string {
 	}
 }
 
+func (PermittedHostDevices) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                "PermittedHostDevices holds inforamtion about devices allowed for passthrough\n+k8s:openapi-gen=true",
+		"pciHostDevices":  "+listType=set",
+		"mediatedDevices": "+listType=set",
+	}
+}
+
+func (PciHostDevice) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "PciHostDevice represents a host PCI device allowed for passthrough\n+k8s:openapi-gen=true",
+	}
+}
+
+func (MediatedHostDevice) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "MediatedHostDevice represents a host mediated device allowed for passthrough\n+k8s:openapi-gen=true",
+	}
+}
+
 func (NetworkConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "NetworkConfiguration holds network options\n+k8s:openapi-gen=true",

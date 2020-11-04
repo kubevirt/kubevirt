@@ -51,34 +51,36 @@ type GenericDevice interface {
 }
 
 type GenericDevicePlugin struct {
-	counter     int
-	devs        []*pluginapi.Device
-	server      *grpc.Server
-	socketPath  string
-	stop        chan struct{}
-	health      chan string
-	devicePath  string
-	deviceName  string
-	done        chan struct{}
-	deviceRoot  string
-	preOpen     bool
-	initialized bool
-	lock        *sync.Mutex
+	counter      int
+	devs         []*pluginapi.Device
+	server       *grpc.Server
+	socketPath   string
+	stop         chan struct{}
+	health       chan string
+	devicePath   string
+	deviceName   string
+	resourceName string
+	done         chan struct{}
+	deviceRoot   string
+	preOpen      bool
+	initialized  bool
+	lock         *sync.Mutex
 }
 
 func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int, preOpen bool) *GenericDevicePlugin {
 	serverSock := SocketPath(deviceName)
 	dpi := &GenericDevicePlugin{
-		counter:     0,
-		devs:        []*pluginapi.Device{},
-		socketPath:  serverSock,
-		health:      make(chan string),
-		deviceName:  deviceName,
-		devicePath:  devicePath,
-		deviceRoot:  util.HostRootMount,
-		preOpen:     preOpen,
-		initialized: false,
-		lock:        &sync.Mutex{},
+		counter:      0,
+		devs:         []*pluginapi.Device{},
+		socketPath:   serverSock,
+		health:       make(chan string),
+		deviceName:   deviceName,
+		devicePath:   devicePath,
+		deviceRoot:   util.HostRootMount,
+		resourceName: fmt.Sprintf("%s/%s", DeviceNamespace, deviceName),
+		preOpen:      preOpen,
+		initialized:  false,
+		lock:         &sync.Mutex{},
 	}
 	for i := 0; i < maxDevices; i++ {
 		dpi.addNewGenericDevice()
@@ -181,7 +183,11 @@ func (dpi *GenericDevicePlugin) Start(stop chan struct{}) (err error) {
 
 // Stop stops the gRPC server
 func (dpi *GenericDevicePlugin) Stop() error {
-	defer close(dpi.done)
+	defer func() {
+		if !IsChanClosed(dpi.done) {
+			close(dpi.done)
+		}
+	}()
 	dpi.server.Stop()
 	dpi.setInitialized(false)
 	return dpi.cleanup()
@@ -199,7 +205,7 @@ func (dpi *GenericDevicePlugin) Register() error {
 	reqt := &pluginapi.RegisterRequest{
 		Version:      pluginapi.Version,
 		Endpoint:     path.Base(dpi.socketPath),
-		ResourceName: fmt.Sprintf("%s/%s", DeviceNamespace, dpi.deviceName),
+		ResourceName: dpi.resourceName,
 	}
 
 	_, err = client.Register(context.Background(), reqt)
@@ -246,6 +252,8 @@ func (dpi *GenericDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.Dev
 }
 
 func (dpi *GenericDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+	log.DefaultLogger().Infof("Generic Allocate: resourceName: %s", dpi.deviceName)
+	log.DefaultLogger().Infof("Generic Allocate: request: %v", r.ContainerRequests)
 	response := pluginapi.AllocateResponse{}
 	containerResponse := new(pluginapi.ContainerAllocateResponse)
 
@@ -343,6 +351,16 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 			}
 		}
 	}
+}
+
+func IsChanClosed(ch <-chan struct{}) bool {
+	select {
+	case <-ch:
+		return true
+	default:
+	}
+
+	return false
 }
 
 func SocketPath(deviceName string) string {

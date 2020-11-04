@@ -60,6 +60,7 @@ const (
 	OVMFPathKey                       = "ovmfPath"
 	MemBalloonStatsPeriod             = "memBalloonStatsPeriod"
 	CPUAllocationRatio                = "cpu-allocation-ratio"
+	PermittedHostDevicesKey           = "permittedHostDevices"
 )
 
 type ConfigModifiedFn func()
@@ -242,7 +243,7 @@ type migrationConfiguration struct {
 }
 
 // setConfigFromConfigMap parses the provided config map and updates the provided config.
-// Default values in the provided config stay in tact.
+// Default values in the provided config stay intact.
 func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.ConfigMap) error {
 	// set migration options
 	rawConfig := strings.TrimSpace(configMap.Data[MigrationsConfigKey])
@@ -266,6 +267,17 @@ func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.C
 			return fmt.Errorf("failed to parse SMBIOS config: %v", err)
 		}
 	}
+	// updates host devices in the config.
+	// Clear the list first, if whole categories get removed, we want the devices gone
+	newPermittedHostDevices := &v1.PermittedHostDevices{}
+	rawConfig = strings.TrimSpace(configMap.Data[PermittedHostDevicesKey])
+	if rawConfig != "" {
+		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(rawConfig), 1024).Decode(newPermittedHostDevices)
+		if err != nil {
+			return fmt.Errorf("failed to parse host devices config: %v", err)
+		}
+	}
+	config.PermittedHostDevices = newPermittedHostDevices
 
 	// set image pull policy
 	policy := strings.TrimSpace(configMap.Data[ImagePullPolicyKey])
@@ -478,7 +490,6 @@ func (c *ClusterConfig) GetConfig() (config *v1.KubeVirtConfiguration) {
 	} else {
 		err = setConfigFromKubeVirt(config, kv)
 	}
-
 	if err != nil {
 		c.lastInvalidConfigResourceVersion = resourceVersion
 		log.DefaultLogger().Reason(err).Errorf("Invalid cluster config using '%s' resource version '%s', falling back to last good resource version '%s'", resourceType, resourceVersion, c.lastValidConfigResourceVersion)
