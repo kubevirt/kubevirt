@@ -853,7 +853,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			RunAsUser:  &userId,
 			Privileged: &privileged,
 			Capabilities: &k8sv1.Capabilities{
-				Add: capabilities,
+				Add:  capabilities,
+				Drop: []k8sv1.Capability{CAP_NET_RAW},
 			},
 		},
 		Command:       command,
@@ -1149,10 +1150,6 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
 		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
 		res = append(res, CAP_NET_ADMIN)
-		// The DHCP server needs the ability to use raw sockets. This
-		// capability is available by default in some clusters, but not
-		// a given.
-		res = append(res, CAP_NET_RAW)
 	}
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
 	res = append(res, CAP_SYS_NICE)

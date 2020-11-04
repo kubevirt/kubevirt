@@ -473,7 +473,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 					caps := container.SecurityContext.Capabilities
 
 					Expect(caps.Add).To(Not(ContainElement(k8sv1.Capability("NET_ADMIN"))), "Compute container should not have NET_ADMIN capability")
-					Expect(caps.Add).To(Not(ContainElement(k8sv1.Capability("NET_RAW"))), "Compute container should not have NET_RAW capability")
+					Expect(caps.Drop).To(ContainElement(k8sv1.Capability("NET_RAW")), "Compute container should drop NET_RAW capability")
 				}
 			}
 
