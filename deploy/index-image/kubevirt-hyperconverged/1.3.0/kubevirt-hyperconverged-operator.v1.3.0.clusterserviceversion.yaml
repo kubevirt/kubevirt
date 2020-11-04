@@ -316,6 +316,13 @@ spec:
           verbs:
           - '*'
         - apiGroups:
+          - ""
+          resources:
+          - nodes
+          verbs:
+          - get
+          - list
+        - apiGroups:
           - apps
           resources:
           - deployments
@@ -1681,7 +1688,8 @@ spec:
           selector:
             matchLabels:
               name: hyperconverged-cluster-operator
-          strategy: {}
+          strategy:
+            type: RollingUpdate
           template:
             metadata:
               labels:
@@ -1733,13 +1741,21 @@ spec:
                   value: v0.2.5
                 image: +IMAGE_TO_REPLACE+
                 imagePullPolicy: IfNotPresent
+                livenessProbe:
+                  failureThreshold: 1
+                  httpGet:
+                    path: /livez
+                    port: 6060
+                    scheme: HTTP
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
                 name: hyperconverged-cluster-operator
                 readinessProbe:
-                  exec:
-                    command:
-                    - stat
-                    - /tmp/operator-sdk-ready
                   failureThreshold: 1
+                  httpGet:
+                    path: /readyz
+                    port: 6060
+                    scheme: HTTP
                   initialDelaySeconds: 5
                   periodSeconds: 5
                 resources: {}
@@ -1750,7 +1766,8 @@ spec:
           selector:
             matchLabels:
               name: hyperconverged-cluster-webhook
-          strategy: {}
+          strategy:
+            type: RollingUpdate
           template:
             metadata:
               labels:
@@ -1775,13 +1792,21 @@ spec:
                 - name: WATCH_NAMESPACE
                 image: +IMAGE_TO_REPLACE+
                 imagePullPolicy: IfNotPresent
+                livenessProbe:
+                  failureThreshold: 1
+                  httpGet:
+                    path: /livez
+                    port: 6060
+                    scheme: HTTP
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
                 name: hyperconverged-cluster-webhook
                 readinessProbe:
-                  exec:
-                    command:
-                    - stat
-                    - /tmp/operator-sdk-ready
                   failureThreshold: 1
+                  httpGet:
+                    path: /readyz
+                    port: 6060
+                    scheme: HTTP
                   initialDelaySeconds: 5
                   periodSeconds: 5
                 resources: {}

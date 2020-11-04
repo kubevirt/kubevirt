@@ -7,7 +7,6 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 
-	"github.com/operator-framework/operator-sdk/pkg/ready"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -27,6 +26,7 @@ import (
 	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
+	operatorhandler "github.com/operator-framework/operator-lib/handler"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -94,7 +94,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource HyperConverged
-	err = c.Watch(&source.Kind{Type: &hcov1beta1.HyperConverged{}}, &handler.EnqueueRequestForObject{}, predicate.GenerationChangedPredicate{})
+	err = c.Watch(&source.Kind{Type: &hcov1beta1.HyperConverged{}}, &operatorhandler.InstrumentedEnqueueRequestForObject{}, predicate.GenerationChangedPredicate{})
 	if err != nil {
 		return err
 	}
@@ -628,27 +628,17 @@ func (r *ReconcileHyperConverged) completeReconciliation(req *common.HcoRequest)
 		})
 	}
 
-	fr := ready.NewFileReady()
+	hcoutil.SetReady(hcoReady)
 	if hcoReady {
 		// If no operator whose conditions we are watching reports an error, then it is safe
 		// to set readiness.
 		r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "ReconcileHCO", "HCO Reconcile completed successfully")
-		err := fr.Set()
-		if err != nil {
-			req.Logger.Error(err, "Failed to mark operator ready")
-			return err
-		}
 	} else {
 		// If for any reason we marked ourselves !upgradeable...then unset readiness
 		if r.upgradeMode {
 			r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "ReconcileHCO", "HCO Upgrade in progress")
 		} else {
 			r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, "ReconcileHCO", "Not all the operators are ready")
-		}
-		err := fr.Unset()
-		if err != nil {
-			req.Logger.Error(err, "Failed to mark operator unready")
-			return err
 		}
 	}
 	return r.updateConditions(req)

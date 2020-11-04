@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -21,6 +23,34 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 )
+
+// ForceRunModeEnv indicates if the operator should be forced to run in either local
+// or cluster mode (currently only used for local mode)
+var ForceRunModeEnv = "OSDK_FORCE_RUN_MODE"
+
+type RunModeType string
+
+const (
+	LocalRunMode   RunModeType = "local"
+	ClusterRunMode RunModeType = "cluster"
+
+	// WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
+	// which is the namespace where the watch activity happens.
+	// this value is empty if the operator is running with clusterScope.
+	WatchNamespaceEnvVar = "WATCH_NAMESPACE"
+
+	// PodNameEnvVar is the constant for env variable POD_NAME
+	// which is the name of the current pod.
+	PodNameEnvVar = "POD_NAME"
+)
+
+// ErrNoNamespace indicates that a namespace could not be found for the current
+// environment
+var ErrNoNamespace = fmt.Errorf("namespace not found for current environment")
+
+// ErrRunLocal indicates that the operator is set to run in local mode (this error
+// is returned by functions that only work on operators running in cluster mode)
+var ErrRunLocal = fmt.Errorf("operator run mode forced to local")
 
 func GetOperatorNamespaceFromEnv() (string, error) {
 	if namespace, ok := os.LookupEnv(OperatorNamespaceEnv); ok {
@@ -44,8 +74,38 @@ func GetWebhookModeFromEnv() (bool, error) {
 	return false, fmt.Errorf("%s unset or empty in environment", OperatorWebhookModeEnv)
 }
 
+func isRunModeLocal() bool {
+	return os.Getenv(ForceRunModeEnv) == string(LocalRunMode)
+}
+
+// GetOperatorNamespace returns the namespace the operator should be running in.
+func GetOperatorNamespace(logger logr.Logger) (string, error) {
+	if isRunModeLocal() {
+		return "", ErrRunLocal
+	}
+	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", ErrNoNamespace
+		}
+		return "", err
+	}
+	ns := strings.TrimSpace(string(nsBytes))
+	logger.Info("Found namespace", "Namespace", ns)
+	return ns, nil
+}
+
+// GetWatchNamespace returns the namespace the operator should be watching for changes
+func GetWatchNamespace() (string, error) {
+	ns, found := os.LookupEnv(WatchNamespaceEnvVar)
+	if !found {
+		return "", fmt.Errorf("%s must be set", WatchNamespaceEnvVar)
+	}
+	return ns, nil
+}
+
 func GetPod(ctx context.Context, c client.Reader, logger logr.Logger, ci ClusterInfo) (*corev1.Pod, error) {
-	operatorNs, err := k8sutil.GetOperatorNamespace()
+	operatorNs, err := GetOperatorNamespace(logger)
 	if err != nil {
 		logger.Error(err, "Failed to get HCO namespace")
 		return nil, err
@@ -56,9 +116,9 @@ func GetPod(ctx context.Context, c client.Reader, logger logr.Logger, ci Cluster
 	if ci.IsRunningLocally() {
 		return nil, nil
 	}
-	podName := os.Getenv(k8sutil.PodNameEnvVar)
+	podName := os.Getenv(PodNameEnvVar)
 	if podName == "" {
-		return nil, fmt.Errorf("required env %s not set, please configure downward API", k8sutil.PodNameEnvVar)
+		return nil, fmt.Errorf("required env %s not set, please configure downward API", PodNameEnvVar)
 	}
 
 	pod := &corev1.Pod{}
@@ -80,7 +140,7 @@ func GetPod(ctx context.Context, c client.Reader, logger logr.Logger, ci Cluster
 }
 
 func GetCSVfromPod(pod *corev1.Pod, c client.Reader, logger logr.Logger) (*csvv1alpha1.ClusterServiceVersion, error) {
-	operatorNs, err := k8sutil.GetOperatorNamespace()
+	operatorNs, err := GetOperatorNamespace(logger)
 	if err != nil {
 		return nil, err
 	}

@@ -6,18 +6,13 @@ import (
 	"fmt"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller"
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
-	"github.com/operator-framework/operator-sdk/pkg/leader"
-	"github.com/operator-framework/operator-sdk/pkg/log/zap"
-	"github.com/operator-framework/operator-sdk/pkg/metrics"
-	"github.com/operator-framework/operator-sdk/pkg/ready"
 	"github.com/spf13/pflag"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/rest"
 	"os"
 	"runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
@@ -29,8 +24,6 @@ import (
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
-	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -42,46 +35,39 @@ import (
 
 // Change below variables to serve metrics on different host or port.
 var (
-	metricsHost               = "0.0.0.0"
-	metricsPort         int32 = 8383
-	operatorMetricsPort int32 = 8686
-	log                       = logf.Log.WithName("cmd")
+	log = logf.Log.WithName("cmd")
 )
 
 func printVersion() {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
 }
 
 func main() {
-	// Add the zap logger flag set to the CLI. The flag set must
-	// be added before calling pflag.Parse().
-	pflag.CommandLine.AddFlagSet(zap.FlagSet())
 
 	// Add flags registered by imported packages (e.g. glog and
 	// controller-runtime)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+
+	zapfs := flag.NewFlagSet("zap", flag.ExitOnError)
+	zopts := &zap.Options{}
+	zopts.BindFlags(zapfs)
+	pflag.CommandLine.AddGoFlagSet(zapfs)
 
 	pflag.Parse()
 
 	// Use a zap logr.Logger implementation. If none of the zap
 	// flags are configured (or if the zap flag set is not being
 	// used), this defaults to a production zap logger.
-	//
-	// The logger instantiated here can be changed to any logger
-	// implementing the logr.Logger interface. This logger will
-	// be propagated through the whole operator, generating
-	// uniform and structured logs.
-	logf.SetLogger(zap.Logger())
+	logf.SetLogger(zap.New(zap.UseFlagOptions(zopts)))
 
 	printVersion()
 
 	// Get the namespace the operator is currently deployed in.
-	depOperatorNs, err := k8sutil.GetOperatorNamespace()
+	depOperatorNs, err := hcoutil.GetOperatorNamespace(log)
 	runInLocal := false
 	if err != nil {
-		if err == k8sutil.ErrRunLocal {
+		if err == hcoutil.ErrRunLocal {
 			runInLocal = true
 		} else {
 			log.Error(err, "Failed to get operator namespace")
@@ -96,7 +82,7 @@ func main() {
 	watchNamespace := ""
 
 	if !runInLocal {
-		watchNamespace, err = k8sutil.GetWatchNamespace()
+		watchNamespace, err = hcoutil.GetWatchNamespace()
 		if err != nil {
 			log.Error(err, "Failed to get watch namespace")
 			os.Exit(1)
@@ -137,15 +123,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Create a new file supporting readiness probe
-	r := ready.NewFileReady()
-	err = r.Set()
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-	defer r.Unset()
-
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -157,19 +134,17 @@ func main() {
 
 	// a lock is not needed in webhook mode
 	// TODO: remove this once we will move to OLM operator conditions
-	if !operatorWebhookMode {
-		// Become the leader before proceeding
-		err = leader.Become(ctx, "hyperconverged-cluster-operator-lock")
-		if err != nil {
-			log.Error(err, "")
-			os.Exit(1)
-		}
-	}
+	needLeaderElection := !operatorWebhookMode
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{
-		Namespace:          watchNamespace,
-		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		Namespace:              watchNamespace,
+		MetricsBindAddress:     fmt.Sprintf("%s:%d", hcoutil.MetricsHost, hcoutil.MetricsPort),
+		HealthProbeBindAddress: fmt.Sprintf("%s:%d", hcoutil.HealthProbeHost, hcoutil.HealthProbePort),
+		ReadinessEndpointName:  hcoutil.ReadinessEndpointName,
+		LivenessEndpointName:   hcoutil.LivenessEndpointName,
+		LeaderElection:         needLeaderElection,
+		LeaderElectionID:       "hyperconverged-cluster-operator-lock",
 	})
 	if err != nil {
 		log.Error(err, "")
@@ -212,6 +187,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
+		log.Error(err, "unable to add health check")
+		os.Exit(1)
+	}
+
+	readyCheck := hcoutil.GetHcoPing()
+	// TODO: remove this once we will move to OLM operator conditions
+	if operatorWebhookMode {
+		readyCheck = healthz.Ping
+	}
+
+	if err := mgr.AddReadyzCheck("ready", readyCheck); err != nil {
+		log.Error(err, "unable to add ready check")
+		os.Exit(1)
+	}
+
 	// TODO: remove this once we will move to OLM operator conditions
 	if !operatorWebhookMode {
 		// Setup all Controllers
@@ -219,34 +210,6 @@ func main() {
 			log.Error(err, "")
 			eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to register component; "+err.Error())
 			os.Exit(1)
-		}
-	}
-
-	if !runInLocal {
-		if err = serveCRMetrics(cfg); err != nil {
-			log.Error(err, "Could not generate and serve custom resource metrics")
-		}
-
-		// Add to the below struct any other metrics ports you want to expose.
-		servicePorts := []corev1.ServicePort{
-			{Port: metricsPort, Name: metrics.OperatorPortName, Protocol: corev1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: metricsPort}},
-			{Port: operatorMetricsPort, Name: metrics.CRPortName, Protocol: corev1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: operatorMetricsPort}},
-		}
-
-		// Create Service object to expose the metrics port(s).
-		service, err := metrics.CreateMetricsService(ctx, cfg, servicePorts)
-		if err != nil {
-			log.Error(err, "Could not create metrics Service")
-		}
-		services := []*corev1.Service{service}
-		_, err = metrics.CreateServiceMonitors(cfg, depOperatorNs, services)
-		if err != nil {
-			log.Error(err, "Could not create ServiceMonitor object")
-			// If this operator is deployed to a cluster without the prometheus-operator running, it will return
-			// ErrServiceMonitorNotPresent, which can be used to safely skip ServiceMonitor creation.
-			if err == metrics.ErrServiceMonitorNotPresent {
-				log.Info("Install prometheus-operator in your cluster to create ServiceMonitor objects")
-			}
 		}
 	}
 
@@ -299,28 +262,4 @@ func createPriorityClass(ctx context.Context, mgr manager.Manager) error {
 	}
 
 	return err
-}
-
-// serveCRMetrics gets the Operator/CustomResource GVKs and generates metrics based on those types.
-// It serves those metrics on "http://metricsHost:operatorMetricsPort".
-func serveCRMetrics(cfg *rest.Config) error {
-	// Below function returns filtered operator/CustomResource specific GVKs.
-	// For more control override the below GVK list with your own custom logic.
-	filteredGVK, err := k8sutil.GetGVKsFromAddToScheme(apis.AddToScheme)
-	if err != nil {
-		return err
-	}
-	// Get the namespace the operator is currently deployed in.
-	operatorNs, err := k8sutil.GetOperatorNamespace()
-	if err != nil {
-		return err
-	}
-	// To generate metrics in other namespaces, add the values below.
-	ns := []string{operatorNs}
-	// Generate and serve custom resource specific metrics.
-	err = kubemetrics.GenerateAndServeCRMetrics(cfg, ns, filteredGVK, metricsHost, operatorMetricsPort)
-	if err != nil {
-		return err
-	}
-	return nil
 }

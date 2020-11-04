@@ -22,5 +22,12 @@ const (
 	APIVersionGroup        = "hco.kubevirt.io"
 	APIVersion             = APIVersionGroup + "/" + APIVersionBeta
 	// HyperConvergedName is the name of the HyperConverged resource that will be reconciled
-	HyperConvergedName = "kubevirt-hyperconverged"
+	HyperConvergedName          = "kubevirt-hyperconverged"
+	MetricsHost                 = "0.0.0.0"
+	MetricsPort           int32 = 8383
+	OperatorMetricsPort   int32 = 8686
+	HealthProbeHost             = "0.0.0.0"
+	HealthProbePort       int32 = 6060
+	ReadinessEndpointName       = "/readyz"
+	LivenessEndpointName        = "/livez"
 )

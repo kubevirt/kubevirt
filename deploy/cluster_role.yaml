@@ -223,6 +223,13 @@ rules:
   verbs:
   - '*'
 - apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+- apiGroups:
   - apps
   resources:
   - deployments

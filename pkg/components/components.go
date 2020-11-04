@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"golang.org/x/tools/go/packages"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"time"
 
 	"sigs.k8s.io/controller-tools/pkg/loader"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/blang/semver"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	csvVersion "github.com/operator-framework/api/pkg/lib/version"
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -77,6 +79,9 @@ func GetDeploymentSpecOperator(namespace, image, imagePullPolicy, conversionCont
 				"name": hcoName,
 			},
 		},
+		Strategy: appsv1.DeploymentStrategy{
+			Type: appsv1.RollingUpdateDeploymentStrategyType,
+		},
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
@@ -94,11 +99,28 @@ func GetDeploymentSpecOperator(namespace, image, imagePullPolicy, conversionCont
 						Command: []string{hcoName},
 						ReadinessProbe: &corev1.Probe{
 							Handler: corev1.Handler{
-								Exec: &corev1.ExecAction{
-									Command: []string{
-										"stat",
-										"/tmp/operator-sdk-ready",
+								HTTPGet: &corev1.HTTPGetAction{
+									Path: hcoutil.ReadinessEndpointName,
+									Port: intstr.IntOrString{
+										Type:   intstr.Int,
+										IntVal: hcoutil.HealthProbePort,
 									},
+									Scheme: corev1.URISchemeHTTP,
+								},
+							},
+							InitialDelaySeconds: 5,
+							PeriodSeconds:       5,
+							FailureThreshold:    1,
+						},
+						LivenessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path: hcoutil.LivenessEndpointName,
+									Port: intstr.IntOrString{
+										Type:   intstr.Int,
+										IntVal: hcoutil.HealthProbePort,
+									},
+									Scheme: corev1.URISchemeHTTP,
 								},
 							},
 							InitialDelaySeconds: 5,
@@ -217,6 +239,9 @@ func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy string, env []co
 				"name": hcoNameWebhook,
 			},
 		},
+		Strategy: appsv1.DeploymentStrategy{
+			Type: appsv1.RollingUpdateDeploymentStrategyType,
+		},
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
@@ -234,11 +259,28 @@ func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy string, env []co
 						Command: []string{hcoName},
 						ReadinessProbe: &corev1.Probe{
 							Handler: corev1.Handler{
-								Exec: &corev1.ExecAction{
-									Command: []string{
-										"stat",
-										"/tmp/operator-sdk-ready",
+								HTTPGet: &corev1.HTTPGetAction{
+									Path: hcoutil.ReadinessEndpointName,
+									Port: intstr.IntOrString{
+										Type:   intstr.Int,
+										IntVal: hcoutil.HealthProbePort,
 									},
+									Scheme: corev1.URISchemeHTTP,
+								},
+							},
+							InitialDelaySeconds: 5,
+							PeriodSeconds:       5,
+							FailureThreshold:    1,
+						},
+						LivenessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path: hcoutil.LivenessEndpointName,
+									Port: intstr.IntOrString{
+										Type:   intstr.Int,
+										IntVal: hcoutil.HealthProbePort,
+									},
+									Scheme: corev1.URISchemeHTTP,
 								},
 							},
 							InitialDelaySeconds: 5,
@@ -395,6 +437,18 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 			},
 			Verbs: []string{
 				"*",
+			},
+		},
+		{
+			APIGroups: []string{
+				"",
+			},
+			Resources: []string{
+				"nodes",
+			},
+			Verbs: []string{
+				"get",
+				"list",
 			},
 		},
 		{

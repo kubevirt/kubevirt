@@ -10,7 +10,8 @@ spec:
   selector:
     matchLabels:
       name: hyperconverged-cluster-operator
-  strategy: {}
+  strategy:
+    type: RollingUpdate
   template:
     metadata:
       labels:
@@ -24,7 +25,7 @@ spec:
           value: "false"
         - name: KVM_EMULATION
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:0d5d8fe37c8174d93a0de46894e49c576f1cab4e8e53f276e16db012cc4cc4a6
+          value: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:19e3a3a9636185361e30f859216b83c9fcd1c3acbfd7129bf8a6adbc468b5a2e
         - name: OPERATOR_NAME
           value: hyperconverged-cluster-operator
         - name: OPERATOR_NAMESPACE
@@ -60,15 +61,23 @@ spec:
           value: v0.5.2
         - name: VM_IMPORT_VERSION
           value: v0.2.5
-        image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:0d5d8fe37c8174d93a0de46894e49c576f1cab4e8e53f276e16db012cc4cc4a6
+        image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:19e3a3a9636185361e30f859216b83c9fcd1c3acbfd7129bf8a6adbc468b5a2e
         imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 1
+          httpGet:
+            path: /livez
+            port: 6060
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
         name: hyperconverged-cluster-operator
         readinessProbe:
-          exec:
-            command:
-            - stat
-            - /tmp/operator-sdk-ready
           failureThreshold: 1
+          httpGet:
+            path: /readyz
+            port: 6060
+            scheme: HTTP
           initialDelaySeconds: 5
           periodSeconds: 5
         resources: {}
@@ -85,7 +94,8 @@ spec:
   selector:
     matchLabels:
       name: hyperconverged-cluster-webhook
-  strategy: {}
+  strategy:
+    type: RollingUpdate
   template:
     metadata:
       labels:
@@ -98,7 +108,7 @@ spec:
         - name: WEBHOOK_MODE
           value: "true"
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:0d5d8fe37c8174d93a0de46894e49c576f1cab4e8e53f276e16db012cc4cc4a6
+          value: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:19e3a3a9636185361e30f859216b83c9fcd1c3acbfd7129bf8a6adbc468b5a2e
         - name: OPERATOR_NAME
           value: hyperconverged-cluster-webhook
         - name: OPERATOR_NAMESPACE
@@ -108,15 +118,23 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: WATCH_NAMESPACE
-        image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:0d5d8fe37c8174d93a0de46894e49c576f1cab4e8e53f276e16db012cc4cc4a6
+        image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:19e3a3a9636185361e30f859216b83c9fcd1c3acbfd7129bf8a6adbc468b5a2e
         imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 1
+          httpGet:
+            path: /livez
+            port: 6060
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
         name: hyperconverged-cluster-webhook
         readinessProbe:
-          exec:
-            command:
-            - stat
-            - /tmp/operator-sdk-ready
           failureThreshold: 1
+          httpGet:
+            path: /readyz
+            port: 6060
+            scheme: HTTP
           initialDelaySeconds: 5
           periodSeconds: 5
         resources: {}

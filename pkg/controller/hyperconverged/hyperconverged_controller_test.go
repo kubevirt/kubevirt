@@ -692,8 +692,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
 
-				hcoReady, err := checkHcoReady()
-				Expect(err).To(BeNil())
+				hcoReady := checkHcoReady()
 				Expect(hcoReady).To(BeFalse())
 
 				// check that the upgrade is not done if the not all the versions are match.
@@ -713,8 +712,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
 
-				hcoReady, err = checkHcoReady()
-				Expect(err).To(BeNil())
+				hcoReady = checkHcoReady()
 				Expect(hcoReady).To(BeFalse())
 
 				// now, complete the upgrade
@@ -733,8 +731,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(cond.Reason).Should(Equal(reconcileCompleted))
 				Expect(cond.Message).Should(Equal(reconcileCompletedMessage))
 
-				hcoReady, err = checkHcoReady()
-				Expect(err).To(BeNil())
+				hcoReady = checkHcoReady()
 				Expect(hcoReady).To(BeTrue())
 			})
 
@@ -754,8 +751,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(requeue).To(BeFalse())
 				checkAvailability(foundResource, corev1.ConditionFalse)
 
-				hcoReady, err := checkHcoReady()
-				Expect(err).To(BeNil())
+				hcoReady := checkHcoReady()
 				Expect(hcoReady).To(BeFalse())
 
 				// check that the image Id is not set, because upgrade is not completed
@@ -767,8 +763,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(cond.Reason).Should(Equal("HCOUpgrading"))
 				Expect(cond.Message).Should(Equal("HCO is now upgrading to version " + newVersion))
 
-				hcoReady, err = checkHcoReady()
-				Expect(err).To(BeNil())
+				hcoReady = checkHcoReady()
 				Expect(hcoReady).To(BeFalse())
 
 				// now, complete the upgrade
@@ -788,8 +783,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(cond.Reason).Should(Equal(reconcileCompleted))
 				Expect(cond.Message).Should(Equal(reconcileCompletedMessage))
 
-				hcoReady, err = checkHcoReady()
-				Expect(err).To(BeNil())
+				hcoReady = checkHcoReady()
 				Expect(hcoReady).To(BeTrue())
 
 			})

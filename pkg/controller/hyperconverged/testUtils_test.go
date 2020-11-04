@@ -3,8 +3,6 @@ package hyperconverged
 import (
 	"context"
 	"fmt"
-	"os"
-
 	"github.com/go-logr/logr"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
@@ -15,7 +13,6 @@ import (
 	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
-	"github.com/operator-framework/operator-sdk/pkg/ready"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
@@ -23,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -269,16 +267,8 @@ func getGenericProgressingConditions() []conditionsv1.Condition {
 	}
 }
 
-func checkHcoReady() (bool, error) {
-	_, err := os.Stat(ready.FileName)
-
-	if err == nil {
-		return true, nil
-	} else if os.IsNotExist(err) {
-		return false, nil
-	}
-
-	return false, err
+func checkHcoReady() bool {
+	return hcoutil.IsReady()
 }
 
 func checkAvailability(hco *hcov1beta1.HyperConverged, expected corev1.ConditionStatus) {
