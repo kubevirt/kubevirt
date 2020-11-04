@@ -20,6 +20,7 @@
 package util
 
 import (
+	// #nosec sha1 used to calculate hash to identify the deployment and not as cryptographic info
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
