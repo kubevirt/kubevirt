@@ -142,7 +142,7 @@ func SecureBootExpecter(vmi *v1.VirtualMachineInstance) error {
 	b := append([]expect.Batcher{
 		&expect.BExp{R: "secureboot: Secure boot enabled"},
 	})
-	res, err := ExpectBatchWithValidatedSend(expecter, b, 180*time.Second)
+	res, err := expecter.ExpectBatch(b, 180*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Kernel: %+v", res)
 		return err
@@ -229,6 +229,11 @@ func ExpectBatchWithValidatedSend(expecter expect.Expecter, batch []expect.Batch
 	sendFlag := false
 	expectFlag := false
 	previousSend := ""
+
+	if len(batch) < 2 {
+		return nil, fmt.Errorf("ExpectBatchWithValidatedSend requires at least 2 batchers, supplied %v", batch)
+	}
+
 	for i, batcher := range batch {
 		switch batcher.Cmd() {
 		case expect.BatchExpect:
