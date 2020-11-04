@@ -445,14 +445,14 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 			continue
 		}
 
-		pvcCpy := pvc.DeepCopy()
-		pvcCpy.Status = corev1.PersistentVolumeClaimStatus{}
 		volumeSnapshotName := fmt.Sprintf("vmsnapshot-%s-volume-%s", vmSnapshot.UID, volumeName)
-
 		vb := snapshotv1.VolumeBackup{
-			VolumeName:            volumeName,
-			PersistentVolumeClaim: *pvcCpy,
-			VolumeSnapshotName:    &volumeSnapshotName,
+			VolumeName: volumeName,
+			PersistentVolumeClaim: snapshotv1.PersistentVolumeClaim{
+				ObjectMeta: *pvc.ObjectMeta.DeepCopy(),
+				Spec:       *pvc.Spec.DeepCopy(),
+			},
+			VolumeSnapshotName: &volumeSnapshotName,
 		}
 
 		volumeBackups = append(volumeBackups, vb)
