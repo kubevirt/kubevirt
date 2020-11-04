@@ -1,6 +1,7 @@
 package installstrategy
 
 import (
+	// #nosec sha1 is used to calculate a hash for patches and not for cryptographic
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
