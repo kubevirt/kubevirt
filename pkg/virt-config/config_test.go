@@ -8,7 +8,6 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
@@ -23,8 +22,6 @@ import (
 var _ = Describe("ConfigMap", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
-
-	defaultCPURequest := resource.MustParse(virtconfig.DefaultCPURequest)
 
 	table.DescribeTable("when memBalloonStatsPeriod", func(value string, result uint32) {
 		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
@@ -351,7 +348,7 @@ var _ = Describe("ConfigMap", func() {
 		Expect(string(hostdevsJson)).To(BeEquivalentTo(expectedDevices))
 	})
 
-	table.DescribeTable("when kubevirt CR holds config", func(value string, result v1.KubeVirtConfiguration) {
+	table.DescribeTable("when kubevirt CR holds config", func(value v1.KubeVirtConfiguration, getPart func(*v1.KubeVirtConfiguration) interface{}, result string) {
 		clusterConfig, _, _, _ := testutils.NewFakeClusterConfigUsingKV(&v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				ResourceVersion: rand.String(10),
@@ -359,7 +356,7 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 			},
 			Spec: v1.KubeVirtSpec{
-				Configuration: result,
+				Configuration: value,
 			},
 			Status: v1.KubeVirtStatus{
 				Phase: v1.KubeVirtPhaseDeploying,
@@ -367,27 +364,46 @@ var _ = Describe("ConfigMap", func() {
 		})
 
 		kubevirtConfig := clusterConfig.GetConfig()
-		kubevirtConfigJson, err := json.Marshal(kubevirtConfig)
+		partJson, err := json.Marshal(getPart(kubevirtConfig))
 		Expect(err).ToNot(HaveOccurred())
 
-		// applying the new config to resultJson
-		kubevirtConfig = clusterConfig.GetDefaultClusterConfig()
-		resultJson, err := json.Marshal(result)
-		err = json.Unmarshal(resultJson, kubevirtConfig)
-		Expect(err).ToNot(HaveOccurred())
-		resultJson, err = json.Marshal(kubevirtConfig)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(string(kubevirtConfigJson)).To(BeEquivalentTo(string(resultJson)))
+		Expect(string(partJson)).To(BeEquivalentTo(result))
 	},
-		table.Entry("when values set, should equal to result",
-			`{"machineType":"test","cpuModel":"test"}`,
-			v1.KubeVirtConfiguration{CPURequest: &defaultCPURequest, MachineType: "test", CPUModel: "test"}),
-		table.Entry("when networkConfigurations set in kubevirt.yaml, should equal to result",
-			`{"network":{"defaultNetworkInterface":"test","permitSlirpInterface":"true","permitBridgeInterfaceOnPodNetwork":"false"}}`,
-			v1.KubeVirtConfiguration{CPURequest: &defaultCPURequest, NetworkConfiguration: &v1.NetworkConfiguration{NetworkInterface: "test", PermitSlirpInterface: pointer.BoolPtr(true), PermitBridgeInterfaceOnPodNetwork: pointer.BoolPtr(false)}}),
-		table.Entry("when developerConfigurations set in kubevirt.yaml, should equal to result",
-			`{"dev":{"useEmulation":"true","featureGates":["test1","test2"],"nodeSelectors": {"test":"test"},"pvcTolerateLessSpaceUpToPercent":"5", "memoryOvercommit": "150"}}`,
-			v1.KubeVirtConfiguration{CPURequest: &defaultCPURequest, DeveloperConfiguration: &v1.DeveloperConfiguration{UseEmulation: true, FeatureGates: []string{"test1", "test2"}, NodeSelectors: map[string]string{"test": "test"}, LessPVCSpaceToleration: 5, MemoryOvercommit: 150}}),
+		table.Entry("when machineType set, should equal to result",
+			v1.KubeVirtConfiguration{
+				MachineType: "test",
+			},
+			func(c *v1.KubeVirtConfiguration) interface{} {
+				return c.MachineType
+			},
+			`"test"`),
+		table.Entry("when developerConfiguration set, should equal to result",
+			v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates:           []string{"test1", "test2"},
+					LessPVCSpaceToleration: 5,
+					MemoryOvercommit:       150,
+					NodeSelectors:          map[string]string{"test": "test"},
+					UseEmulation:           true,
+					CPUAllocationRatio:     25,
+				},
+			},
+			func(c *v1.KubeVirtConfiguration) interface{} {
+				return c.DeveloperConfiguration
+			},
+			`{"featureGates":["test1","test2"],"pvcTolerateLessSpaceUpToPercent":5,"memoryOvercommit":150,"nodeSelectors":{"test":"test"},"useEmulation":true,"cpuAllocationRatio":25}`),
+		table.Entry("when networkConfiguration set, should equal to result",
+			v1.KubeVirtConfiguration{
+				NetworkConfiguration: &v1.NetworkConfiguration{
+					NetworkInterface:                  "test",
+					PermitSlirpInterface:              pointer.BoolPtr(true),
+					PermitBridgeInterfaceOnPodNetwork: pointer.BoolPtr(false),
+				},
+			},
+			func(c *v1.KubeVirtConfiguration) interface{} {
+				return c.NetworkConfiguration
+			},
+			`{"defaultNetworkInterface":"test","permitSlirpInterface":true,"permitBridgeInterfaceOnPodNetwork":false}`),
 	)
 
 	It("should use configmap value over kubevirt configuration", func() {
