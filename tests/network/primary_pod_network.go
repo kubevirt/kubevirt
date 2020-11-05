@@ -88,7 +88,7 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 				var vmi *v1.VirtualMachineInstance
 
 				BeforeEach(func() {
-					tmpVmi, err := newFedoraWithGuestAgent()
+					tmpVmi, err := newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithMasqueradeBinding())
 					Expect(err).NotTo(HaveOccurred())
 
 					tmpVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(tmpVmi)
@@ -103,7 +103,7 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 				})
 
 				It("[test_id:4153]should report PodIP/s as its own on interface status", func() {
-					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Consistently(func() error {
 						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 						if err != nil {
@@ -178,15 +178,17 @@ func vmiWithMasqueradeBinding() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func newFedoraWithGuestAgent() (*v1.VirtualMachineInstance, error) {
+func newFedoraWithGuestAgentAndDefaultInterface(iface v1.Interface) (*v1.VirtualMachineInstance, error) {
 	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
 	if err != nil {
 		return nil, err
 	}
 
-	tmpVmi := libvmi.NewFedora(
+	vmi := libvmi.NewFedora(
+		libvmi.WithInterface(iface),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithCloudInitNoCloudUserData(tests.GetGuestAgentUserData(), false),
 		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 	)
-	return tmpVmi, nil
+	return vmi, nil
 }

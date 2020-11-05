@@ -2159,6 +2159,8 @@ func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
 	Expect(err).NotTo(HaveOccurred())
 
 	return libvmi.NewFedora(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithCloudInitNoCloudUserData(GetGuestAgentUserData(), false),
 		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 	)
