@@ -4,7 +4,7 @@ set -x
 source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
 
 MANIFESTS_DIR="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/manifests"
-CSRCREATORPATH="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/csrcreator"
+CERTCREATOR_PATH="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/certcreator"
 KUBECONFIG_PATH="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig"
 
 MASTER_NODE="${CLUSTER_NAME}-control-plane"
@@ -185,6 +185,17 @@ function deploy_multus {
   return 0
 }
 
+function get_remote_kubeconfig {
+    local -r kube_api_address=$(docker inspect sriov-control-plane --format '{{ .NetworkSettings.IPAddress}}')
+    sed s?"127.0.0.1:\([0-9]*\)"?"$kube_api_address:6443"?g $KUBECONFIG_PATH > remote_config
+    
+    echo remote_config
+}
+
+function _golang {
+  docker run --rm --privileged -v ${PWD}:/workdir -w /workdir golang:1.13.8-alpine3.11 "$@"
+}
+
 function deploy_sriov_operator {
   echo 'Downloading the SR-IOV operator'
   operator_path=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/sriov-network-operator-${OPERATOR_GIT_HASH}
@@ -205,21 +216,23 @@ function deploy_sriov_operator {
     make deploy-setup-k8s SHELL=/bin/bash  # on prow nodes the default shell is dash and some commands are not working
   popd
 
-  echo 'Generating webhook certificates for the SR-IOV operator webhooks'
-  pushd "${CSRCREATORPATH}"
-    go run . -namespace sriov-network-operator -secret operator-webhook-service -hook operator-webhook -kubeconfig $KUBECONFIG_PATH || return 1
-    go run . -namespace sriov-network-operator -secret network-resources-injector-secret -hook network-resources-injector -kubeconfig $KUBECONFIG_PATH || return 1
+  echo 'Generating webhook certificates and create secrets for the SR-IOV operator webhooks'
+  pushd "${CERTCREATOR_PATH}"
+    remote_config=$(get_remote_kubeconfig)
+    _golang go run . -namespace sriov-network-operator -secret operator-webhook-service -hook operator-webhook -kubeconfig $remote_config || return 1
+    _golang go run . -namespace sriov-network-operator -secret network-resources-injector-secret -hook network-resources-injector -kubeconfig $remote_config || return 1
+    rm -f $remote_config
   popd
 
   echo 'Setting caBundle for SR-IOV webhooks'
   wait_k8s_object "validatingwebhookconfiguration" "operator-webhook-config" || return 1
-  _kubectl patch validatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/operator-webhook.cert)"'" }}]}'
+  _kubectl patch validatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CERTCREATOR_PATH/operator-webhook.cert)"'" }}]}'
 
   wait_k8s_object "mutatingwebhookconfiguration"   "operator-webhook-config" || return 1
-  _kubectl patch mutatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/operator-webhook.cert)"'" }}]}'
+  _kubectl patch mutatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CERTCREATOR_PATH/operator-webhook.cert)"'" }}]}'
 
   wait_k8s_object "mutatingwebhookconfiguration"   "network-resources-injector-config" || return 1
-  _kubectl patch mutatingwebhookconfiguration network-resources-injector-config --patch '{"webhooks":[{"name":"network-resources-injector-config.k8s.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/network-resources-injector.cert)"'" }}]}'
+  _kubectl patch mutatingwebhookconfiguration network-resources-injector-config --patch '{"webhooks":[{"name":"network-resources-injector-config.k8s.io", "clientConfig": { "caBundle": "'"$(cat $CERTCREATOR_PATH/network-resources-injector.cert)"'" }}]}'
 
   # Since sriov-operator doesnt have a condition or Status to indicate if
   # 'operator-webhook' and 'network-resources-injector' webhooks certificates are
