@@ -20,6 +20,7 @@
 package network
 
 import (
+	"net"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -39,7 +40,6 @@ import (
 
 var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 	var virtClient kubecli.KubevirtClient
-
 	BeforeEach(func() {
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
@@ -70,17 +70,58 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 		})
 
 		Context("VMI connected to the pod network using bridge binding", func() {
-			var vmi *v1.VirtualMachineInstance
+			When("Guest Agent exists", func() {
+				var (
+					vmi   *v1.VirtualMachineInstance
+					vmiIP = func() string {
+						var err error
+						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should success retrieving VMI to get IP")
+						return vmi.Status.Interfaces[0].IP
+					}
 
-			BeforeEach(func() {
-				vmi = setupVMI(virtClient, vmiWithBridgeBinding())
+					vmiIPs = func() []string {
+						var err error
+						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should success retrieving VMI to get IPs")
+						return vmi.Status.Interfaces[0].IPs
+					}
+				)
+				BeforeEach(func() {
+					var err error
+
+					vmi, err = newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithBridgeBinding())
+					Expect(err).NotTo(HaveOccurred())
+
+					vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+					Expect(err).NotTo(HaveOccurred())
+					tests.WaitForSuccessfulVMIStart(vmi)
+					tests.WaitAgentConnected(virtClient, vmi)
+				})
+
+				AfterEach(func() {
+					cleanupVMI(virtClient, vmi)
+				})
+
+				It("should report PodIP/s as its own on interface status", func() {
+					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+					Eventually(vmiIP).Should(WithTransform(removeCIDR, Equal(vmiPod.Status.PodIP)), "should contain VMI Status IP as Pod status ip")
+					Eventually(vmiIPs).Should(ContainElements(vmi.Status.Interfaces[0].IP, libnet.DefaultIPv6Address), "should contain at IPs the IP and the cloud-init configured ipv6")
+				})
 			})
+			When("no Guest Agent exists", func() {
+				var vmi *v1.VirtualMachineInstance
 
-			AfterEach(func() {
-				cleanupVMI(virtClient, vmi)
+				BeforeEach(func() {
+					vmi = setupVMI(virtClient, vmiWithBridgeBinding())
+				})
+
+				AfterEach(func() {
+					cleanupVMI(virtClient, vmi)
+				})
+
+				It("should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
 			})
-
-			It("should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
 		})
 
 		Context("VMI connected to the pod network using masquerade binding", func() {
@@ -191,4 +232,12 @@ func newFedoraWithGuestAgentAndDefaultInterface(iface v1.Interface) (*v1.Virtual
 		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 	)
 	return vmi, nil
+}
+
+func removeCIDR(ip string) string {
+	ipAddr, _, err := net.ParseCIDR(ip)
+	if err != nil {
+		return ip
+	}
+	return ipAddr.String()
 }
