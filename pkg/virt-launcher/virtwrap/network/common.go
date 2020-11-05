@@ -48,8 +48,8 @@ import (
 
 const (
 	randomMacGenerationAttempts = 10
-	qemuUID                     = "107"
-	qemuGID                     = "107"
+	tapOwnerUID                 = "0"
+	tapOwnerGID                 = "0"
 )
 
 type VIF struct {
@@ -394,8 +394,8 @@ func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int
 	createTapDeviceArgs := []string{
 		"create-tap",
 		"--tap-name", tapName,
-		"--uid", qemuUID,
-		"--gid", qemuGID,
+		"--uid", tapOwnerUID,
+		"--gid", tapOwnerGID,
 		"--queue-number", fmt.Sprintf("%d", queueNumber),
 		"--mtu", fmt.Sprintf("%d", mtu),
 	}
