@@ -99,6 +99,8 @@ func Md5CheckSum(filePath string) ([]byte, error) {
 	}
 	defer file.Close()
 
+	// #nosec CWE: 326 - Use of weak cryptographic primitive (http://cwe.mitre.org/data/definitions/326.html)
+	// reason: sha1 is not used for encryption but for creating a hash value
 	hash := md5.New()
 	_, err = io.Copy(hash, file)
 
