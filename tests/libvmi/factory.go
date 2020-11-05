@@ -27,7 +27,6 @@ import (
 
 // Default VMI values
 const (
-	DefaultResourceMemory        = "8192Ki"
 	DefaultTestGracePeriod int64 = 0
 	DefaultVmiName               = "testvmi"
 )
@@ -39,13 +38,13 @@ func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	echo "fedora" |passwd fedora --stdin
 	echo `
 
-	fedoraOptions := append(
-		defaultOptions(),
+	fedoraOptions := []Option{
+		WithTerminationGracePeriod(DefaultTestGracePeriod),
 		WithResourceMemory("512M"),
 		WithRng(),
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedora)),
 		WithCloudInitNoCloudUserData(configurePassword, false),
-	)
+	}
 	opts = append(fedoraOptions, opts...)
 	return New(RandName(DefaultVmiName), opts...)
 }
@@ -60,14 +59,4 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
 	return New(RandName(DefaultVmiName), cirrosOpts...)
-}
-
-// defaultOptions returns a list of "default" options.
-func defaultOptions() []Option {
-	return []Option{
-		WithInterface(InterfaceDeviceWithMasqueradeBinding()),
-		WithNetwork(kvirtv1.DefaultPodNetwork()),
-		WithTerminationGracePeriod(DefaultTestGracePeriod),
-		WithResourceMemory(DefaultResourceMemory),
-	}
 }
