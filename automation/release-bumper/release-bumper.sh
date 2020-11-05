@@ -162,12 +162,25 @@ function update_go_mod() {
 
   if [ $UPDATED_COMPONENT == "KUBEVIRT" ]; then
     MODULE_PATH="kubevirt.io"
-    EXCLUSION="/containerized-data-importer/!"
+
+    EXCLUSION_LIST=(
+      "containerized-data-importer"
+      "controller-lifecycle-operator-sdk"
+      )
+    LAST=$(( ${#EXCLUSION_LIST[*]} - 1 ))
+    EXCLUSION='/'
+    for excl in "${EXCLUSION_LIST[@]}"; do
+      EXCLUSION+="(${excl})"
+      if [ "${excl}" == "${EXCLUSION_LIST[$LAST]}" ]; then
+        EXCLUSION+='/!'
+      else
+        EXCLUSION+='|'
+      fi
+    done
   else
     MODULE_PATH=$(echo ${COMPONENTS_REPOS[$UPDATED_COMPONENT]} | cut -d "/" -f 2)
   fi
-
-  sed -E -i "$EXCLUSION s/($MODULE_PATH.*)v.+/\1${UPDATED_VERSION}/" go.mod
+  sed -E -i "${EXCLUSION} s/(${MODULE_PATH}.*)v.+/\1${UPDATED_VERSION}/" go.mod
 }
 
 main

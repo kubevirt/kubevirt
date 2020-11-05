@@ -12,7 +12,7 @@ A unified operator deploying and controlling [KubeVirt](https://github.com/kubev
 - [Node Maintenance](https://github.com/kubevirt/node-maintenance-operator)
 
 This operator is typically installed from the Operator Lifecycle Manager (OLM),
-and creates operator CustomResources (CRs) for its underlying operators as can be seen in the diagrom below.
+and creates operator CustomResources (CRs) for its underlying operators as can be seen in the diagram below.
 Use it to obtain an opinionated deployment of KubeVirt and its helper operators.
 
 ![](images/HCO-design.jpg)
