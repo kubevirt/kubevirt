@@ -426,6 +426,8 @@ func (c *KubeVirtDeploymentConfig) generateInstallStrategyID() {
 	// changeable properties from the KubeVirt CR. This will be used for identifying the correct install strategy job
 	// and configmap
 	// Calculate a sha over all those properties
+	// #nosec CWE: 326 - Use of weak cryptographic primitive (http://cwe.mitre.org/data/definitions/326.html)
+	// reason: sha1 is not used for encryption but for creating a hash value
 	hasher := sha1.New()
 	values := getStringFromFields(*c)
 	hasher.Write([]byte(values))
