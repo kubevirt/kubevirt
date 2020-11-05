@@ -59,8 +59,8 @@ type CloudInitRoute struct {
 }
 
 const (
-	ipv6MasqueradeAddress = "fd10:0:2::2/120"
-	ipv6MasqueradeGateway = "fd10:0:2::1"
+	DefaultIPv6Address = "fd10:0:2::2/120"
+	DefaultIPv6Gateway = "fd10:0:2::1"
 )
 
 // CreateDefaultCloudInitNetworkData generates a default configuration
@@ -79,9 +79,9 @@ func CreateDefaultCloudInitNetworkData() (string, error) {
 			Version: 2,
 			Ethernets: map[string]CloudInitInterface{
 				"eth0": {
-					Addresses: []string{ipv6MasqueradeAddress},
+					Addresses: []string{DefaultIPv6Address},
 					DHCP4:     &enabled,
-					Gateway6:  ipv6MasqueradeGateway,
+					Gateway6:  DefaultIPv6Gateway,
 					Nameservers: CloudInitNameservers{
 						Addresses: []string{dnsServerIP},
 						Search:    SearchDomains(),
