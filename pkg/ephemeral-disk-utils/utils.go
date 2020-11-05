@@ -21,6 +21,7 @@ package ephemeraldiskutils
 
 import (
 	"bytes"
+	// #nosec md5 here is used only as hash to compare files and not for cryptographic
 	"crypto/md5"
 	"fmt"
 	"io"
