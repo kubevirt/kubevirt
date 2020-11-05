@@ -58,10 +58,6 @@ OPERATOR_NAMESPACE="${NAMESPACE:-kubevirt-hyperconverged}"
 OPERATOR_IMAGE="${OPERATOR_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-operator:$CSV_VERSION}"
 IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 
-# TODO: remove this line only when this PR gets merged and quay.io/kubevirt/hyperconverged-cluster-operator:1.3.0-sdk110
-# promoted as quay.io/kubevirt/hyperconverged-cluster-operator:1.3.0 keeping the same sha digest
-OPERATOR_IMAGE=quay.io/kubevirt/hyperconverged-cluster-operator:1.3.0-sdk110
-
 KUBEVIRT_IMAGE="${KUBEVIRT_IMAGE:-docker.io/kubevirt/virt-operator:${KUBEVIRT_VERSION}}"
 CNA_IMAGE="${CNA_IMAGE:-quay.io/kubevirt/cluster-network-addons-operator:${NETWORK_ADDONS_VERSION}}"
 SSP_IMAGE="${SSP_IMAGE:-quay.io/fromani/kubevirt-ssp-operator-container:${SSP_VERSION}}"
