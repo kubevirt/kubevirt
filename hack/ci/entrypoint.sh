@@ -21,10 +21,11 @@ function get_release_tag_for_xy() {
 function deploy_release() {
     local release="$1"
 
-    curl -Lo "/bin/tests.test" "https://github.com/kubevirt/kubevirt/releases/download/${release}/tests.test"
-    chmod +x "/bin/tests.test"
-
     tagged_release_url="https://github.com/kubevirt/kubevirt/releases/download/${release}"
+
+    curl -Lo "$BIN_DIR/tests.test" "${tagged_release_url}/tests.test"
+    chmod +x "$BIN_DIR/tests.test"
+
     curl -L "${tagged_release_url}/kubevirt-operator.yaml" | oc create -f -
     curl -L "${tagged_release_url}/kubevirt-cr.yaml" | oc create -f -
 
@@ -51,8 +52,8 @@ function deploy_kubevirt_nightly() {
     release_url="$1"
 
     echo "Downloading kubevirt tests binary from nightly build $release_url"
-    curl -L -o /bin/tests.test "${release_url}/testing/tests.test"
-    chmod +x /bin/tests.test
+    curl -Lo "$BIN_DIR/tests.test" "${release_url}/testing/tests.test"
+    chmod +x "$BIN_DIR/tests.test"
 
     echo "Deploying kubevirt from nightly build $release_url"
     oc create -f "${release_url}/kubevirt-operator.yaml"
@@ -92,7 +93,8 @@ function run_tests() {
     # required to be set for test binary
     export ARTIFACTS=${ARTIFACT_DIR}
 
-    tests.test -v=5 -kubeconfig=${KUBECONFIG} -container-tag=${DOCKER_TAG} -container-tag-alt= -container-prefix=${DOCKER_PREFIX} -image-prefix-alt=-kv -oc-path=/bin/oc -kubectl-path=/bin/kubectl -gocli-path=$(pwd)/cluster-up/cli.sh -test.timeout 420m -ginkgo.noColor -ginkgo.succinct -ginkgo.slowSpecThreshold=60 '-ginkgo.focus=\[rfe_id:273\]\[crit:high\]' -junit-output=${ARTIFACT_DIR}/junit.functest.xml -installed-namespace=kubevirt -previous-release-tag= -previous-release-registry=index.docker.io/kubevirt -deploy-testing-infra=false
+    tests.test -v=5 -kubeconfig=${KUBECONFIG} -container-tag=${DOCKER_TAG} -container-tag-alt= -container-prefix=${DOCKER_PREFIX} -image-prefix-alt=-kv -oc-path=${BIN_DIR}/oc -kubectl-path=${BIN_DIR}/kubectl -gocli-path=$(pwd)/cluster-up/cli.sh -test.timeout 420m -ginkgo.noColor -ginkgo.succinct -ginkgo.slowSpecThreshold=60 ${KUBEVIRT_TESTS_FOCUS} -junit-output=${ARTIFACT_DIR}/junit.functest.xml -installed-namespace=kubevirt -previous-release-tag= -previous-release-registry=index.docker.io/kubevirt -deploy-testing-infra=false
 }
 
+export PATH="$BIN_DIR:$PATH"
 eval "$@"
