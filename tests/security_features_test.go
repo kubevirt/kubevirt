@@ -228,7 +228,7 @@ var _ = Describe("[Serial]SecurityFeatures", func() {
 				}
 			}
 			caps := *container.SecurityContext.Capabilities
-			Expect(len(caps.Add)).To(Equal(2))
+			Expect(len(caps.Add)).To(Equal(1))
 
 			By("Checking virt-launcher Pod's compute container has precisely the documented extra capabilities")
 			for _, cap := range caps.Add {
