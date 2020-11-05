@@ -1,14 +1,17 @@
 package operands
 
 import (
+	"errors"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/reference"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"reflect"
@@ -18,84 +21,77 @@ import (
 
 type cdiHandler genericOperand
 
+func newCdiHandler(Client client.Client, Scheme *runtime.Scheme) *cdiHandler {
+	handler := &cdiHandler{
+		Client: Client,
+		Scheme: Scheme,
+		crType: "CDI",
+		// Previous versions used to have HCO-operator (scope namespace)
+		// as the owner of CDI (scope cluster).
+		// It's not legal, so remove that.
+		removeExistingOwner: true,
+		getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
+			return hc.NewCDI()
+		},
+		getEmptyCr: func() runtime.Object { return &cdiv1beta1.CDI{} },
+		getConditions: func(cr runtime.Object) []conditionsv1.Condition {
+			return cr.(*cdiv1beta1.CDI).Status.Conditions
+		},
+		checkComponentVersion: func(cr runtime.Object) bool {
+			found := cr.(*cdiv1beta1.CDI)
+			return checkComponentVersion(hcoutil.CdiVersionEnvV, found.Status.ObservedVersion)
+		},
+		getObjectMeta: func(cr runtime.Object) *metav1.ObjectMeta {
+			return &cr.(*cdiv1beta1.CDI).ObjectMeta
+		},
+	}
+
+	handler.postFound = handler.postFoundImp
+	handler.updateCr = handler.updateCrImp
+
+	return handler
+}
+
 func (h *cdiHandler) Ensure(req *common.HcoRequest) *EnsureResult {
-	cdi := req.Instance.NewCDI()
-	res := NewEnsureResult(cdi)
+	gh := (*genericOperand)(h)
+	return gh.ensure(req)
+}
 
-	key, err := client.ObjectKeyFromObject(cdi)
-	if err != nil {
-		req.Logger.Error(err, "Failed to get object key for CDI")
+func (h *cdiHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, error) {
+	cdi, ok1 := required.(*cdiv1beta1.CDI)
+	found, ok2 := exists.(*cdiv1beta1.CDI)
+	if !ok1 || !ok2 {
+		return false, errors.New("can't convert to CDI")
 	}
-
-	res.SetName(key.Name)
-	found := &cdiv1beta1.CDI{}
-	err = h.Client.Get(req.Ctx, key, found)
-
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			req.Logger.Info("Creating CDI")
-			err = h.Client.Create(req.Ctx, cdi)
-			if err == nil {
-				return res.SetCreated()
-			}
+	if !reflect.DeepEqual(found.Spec, cdi.Spec) {
+		req.Logger.Info("Updating existing CDI' Spec to its default value")
+		cdi.Spec.DeepCopyInto(&found.Spec)
+		err := h.Client.Update(req.Ctx, found)
+		if err != nil {
+			return false, err
 		}
-		return res.Error(err)
+		return true, nil
 	}
+	return false, nil
+}
 
-	req.Logger.Info("CDI already exists", "CDI.Namespace", found.Namespace, "CDI.Name", found.Name)
-
-	err = h.ensureKubeVirtStorageConfig(req)
+func (h *cdiHandler) postFoundImp(req *common.HcoRequest, exists runtime.Object) error {
+	err := h.ensureKubeVirtStorageConfig(req)
 	if err != nil {
-		return res.Error(err)
+		return err
 	}
 
 	err = h.ensureKubeVirtStorageRole(req)
 	if err != nil {
-		return res.Error(err)
+		return err
 	}
 
 	err = h.ensureKubeVirtStorageRoleBinding(req)
 	if err != nil {
-		return res.Error(err)
+		return err
 	}
 
-	existingOwners := found.GetOwnerReferences()
-
-	// Previous versions used to have HCO-operator (scope namespace)
-	// as the owner of CDI (scope cluster).
-	// It's not legal, so remove that.
-	if len(existingOwners) > 0 {
-		req.Logger.Info("CDI has owners, removing...")
-		found.SetOwnerReferences([]metav1.OwnerReference{})
-		err = h.Client.Update(req.Ctx, found)
-		if err != nil {
-			req.Logger.Error(err, "Failed to remove CDI's previous owners")
-		}
-	}
-
-	if !reflect.DeepEqual(found.Spec, cdi.Spec) {
-		req.Logger.Info("Updating existing CDI' Spec to its default value")
-		cdi.Spec.DeepCopyInto(&found.Spec)
-		err = h.Client.Update(req.Ctx, found)
-		if err != nil {
-			return res.Error(err)
-		}
-		return res.SetUpdated()
-	}
-
-	// Add it to the list of RelatedObjects if found
-	objectRef, err := reference.GetReference(h.Scheme, found)
-	if err != nil {
-		return res.Error(err)
-	}
-	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
-
-	// Handle CDI resource conditions
-	isReady := handleComponentConditions(req, "CDI", found.Status.Conditions)
-
-	upgradeDone := req.ComponentUpgradeInProgress && isReady && checkComponentVersion(hcoutil.CdiVersionEnvV, found.Status.ObservedVersion)
-
-	return res.SetUpgradeDone(upgradeDone)
+	return nil
 }
 
 func (h *cdiHandler) ensureKubeVirtStorageRole(req *common.HcoRequest) error {

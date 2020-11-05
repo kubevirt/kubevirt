@@ -2,11 +2,17 @@ package operands
 
 import (
 	"fmt"
+	"os"
+
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
+	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"os"
+	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -15,8 +21,110 @@ type Operand interface {
 }
 
 type genericOperand struct {
-	Client client.Client
-	Scheme *runtime.Scheme
+	Client              client.Client
+	Scheme              *runtime.Scheme
+	crType              string
+	removeExistingOwner bool
+
+	// hooks
+	getFullCr              func(hc *hcov1beta1.HyperConverged) runtime.Object
+	getEmptyCr             func() runtime.Object
+	setControllerReference func(hc *hcov1beta1.HyperConverged, controlled metav1.Object, scheme *runtime.Scheme) error
+	postFound              func(request *common.HcoRequest, exists runtime.Object) error
+	updateCr               func(request *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, error)
+	getConditions          func(cr runtime.Object) []conditionsv1.Condition
+	checkComponentVersion  func(cr runtime.Object) bool
+	getObjectMeta          func(cr runtime.Object) *metav1.ObjectMeta
+}
+
+func (handler *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
+	cr := handler.getFullCr(req.Instance)
+
+	res := NewEnsureResult(cr)
+	ref, ok := cr.(metav1.Object)
+	if handler.setControllerReference != nil {
+		if !ok {
+			return res.Error(fmt.Errorf("can't convert %T to k8s.io/apimachinery/pkg/apis/meta/v1.Object", cr))
+		}
+		if err := handler.setControllerReference(req.Instance, ref, handler.Scheme); err != nil {
+			return res.Error(err)
+		}
+	}
+
+	key, err := client.ObjectKeyFromObject(cr)
+	if err != nil {
+		req.Logger.Error(err, "Failed to get object key for "+handler.crType)
+	}
+
+	res.SetName(key.Name)
+	found := handler.getEmptyCr()
+	err = handler.Client.Get(req.Ctx, key, found)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			req.Logger.Info("Creating " + handler.crType)
+			err = handler.Client.Create(req.Ctx, cr)
+			if err == nil {
+				return res.SetCreated().SetName(key.Name)
+			}
+		}
+		return res.Error(err)
+	}
+
+	key, err = client.ObjectKeyFromObject(found)
+	if err != nil {
+		req.Logger.Error(err, "Failed to get object key for "+handler.crType)
+	}
+	req.Logger.Info(handler.crType+" already exists", handler.crType+".Namespace", key.Namespace, handler.crType+".Name", key.Name)
+
+	if handler.postFound != nil {
+		if err = handler.postFound(req, found); err != nil {
+			return res.Error(err)
+		}
+	}
+
+	if handler.removeExistingOwner && (handler.getObjectMeta != nil) {
+		existingOwners := handler.getObjectMeta(found).GetOwnerReferences()
+
+		if len(existingOwners) > 0 {
+			req.Logger.Info(handler.crType + " has owners, removing...")
+			err = handler.Client.Update(req.Ctx, found)
+			if err != nil {
+				req.Logger.Error(err, fmt.Sprintf("Failed to remove %s's previous owners", handler.crType))
+			}
+		}
+
+		if err == nil {
+			// do that only once
+			handler.removeExistingOwner = false
+		}
+	}
+
+	if handler.updateCr != nil {
+		updated, err := handler.updateCr(req, found, cr)
+		if err != nil {
+			return res.Error(err)
+		}
+		if updated {
+			return res.SetUpdated()
+		}
+	}
+
+	// Add it to the list of RelatedObjects if found
+	objectRef, err := reference.GetReference(handler.Scheme, found)
+	if err != nil {
+		return res.Error(err)
+	}
+	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
+
+	if (handler.getConditions != nil) && (handler.checkComponentVersion) != nil {
+		// Handle KubeVirt resource conditions
+		isReady := handleComponentConditions(req, handler.crType, handler.getConditions(found))
+
+		upgradeDone := req.ComponentUpgradeInProgress && isReady && handler.checkComponentVersion(found)
+		return res.SetUpgradeDone(upgradeDone)
+	}
+
+	return res
 }
 
 // handleComponentConditions - read and process a sub-component conditions.
