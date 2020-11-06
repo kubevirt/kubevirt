@@ -207,7 +207,7 @@ type VolumeStatus struct {
 	// Target is the target name used when adding the volume to the VM, eg: vda
 	Target string `json:"target"`
 	// Phase is the phase
-	Phase HotplugVolumePhase `json:"phase,omitempty"`
+	Phase VolumePhase `json:"phase,omitempty"`
 	// Reason is a brief description of why we are in the current hotplug volume phase
 	Reason string `json:"reason,omitempty"`
 	// Message is a detailed message about the current hotplug volume phase
@@ -225,21 +225,25 @@ type HotplugVolumeStatus struct {
 	AttachPodUID types.UID `json:"attachPodUID,omitempty"`
 }
 
-// HotplugVolumePhase indicates the current phase of the hotplug process.
+// VolumePhase indicates the current phase of the hotplug process.
 // +k8s:openapi-gen=true
-type HotplugVolumePhase string
+type VolumePhase string
 
 const (
-	// HotplugVolumePending means the Volume is pending and cannot be attached to the node yet.
-	HotplugVolumePending HotplugVolumePhase = "Pending"
-	// HotplugVolumeBound means the Volume is bound and can be attach to the node.
-	HotplugVolumeBound HotplugVolumePhase = "Bound"
+	// VolumePending means the Volume is pending and cannot be attached to the node yet.
+	VolumePending VolumePhase = "Pending"
+	// VolumeBound means the Volume is bound and can be attach to the node.
+	VolumeBound VolumePhase = "Bound"
 	// HotplugVolumeAttachedToNode means the volume has been attached to the node.
-	HotplugVolumeAttachedToNode HotplugVolumePhase = "AttachedToNode"
-	// HotplugVolumeReady means the volume is ready to be used by the VirtualMachineInstance.
-	HotplugVolumeReady HotplugVolumePhase = "Ready"
+	HotplugVolumeAttachedToNode VolumePhase = "AttachedToNode"
+	// HotplugVolumeMounted means the volume has been attached to the node and is mounted to the virt-launcer pod.
+	HotplugVolumeMounted VolumePhase = "MountedToPod"
+	// VolumeReady means the volume is ready to be used by the VirtualMachineInstance.
+	VolumeReady VolumePhase = "Ready"
 	// HotplugVolumeDetaching means the volume is being detached from the node, and the attachment pod is being removed.
-	HotplugVolumeDetaching HotplugVolumePhase = "Detaching"
+	HotplugVolumeDetaching VolumePhase = "Detaching"
+	// HotplugVolumeUnMounted means the volume has been unmounted from the virt-launcer pod.
+	HotplugVolumeUnMounted VolumePhase = "UnMountedFromPod"
 )
 
 func (v *VirtualMachineInstance) IsScheduling() bool {

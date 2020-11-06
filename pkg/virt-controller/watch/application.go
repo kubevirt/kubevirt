@@ -85,6 +85,7 @@ const (
 
 var (
 	containerDiskDir = filepath.Join(util.VirtShareDir, "/container-disks")
+	hotplugDiskDir   = filepath.Join(util.VirtShareDir, "/hotplug-disks")
 
 	leaderGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
@@ -154,6 +155,7 @@ type VirtControllerApp struct {
 	virtLibDir                 string
 	ephemeralDiskDir           string
 	containerDiskDir           string
+	hotplugDiskDir             string
 	readyChan                  chan bool
 	kubevirtNamespace          string
 	evacuationController       *evacuation.EvacuationController
@@ -418,6 +420,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.virtLibDir,
 		vca.ephemeralDiskDir,
 		vca.containerDiskDir,
+		vca.hotplugDiskDir,
 		vca.imagePullSecret,
 		vca.persistentVolumeClaimCache,
 		virtClient,
@@ -550,6 +553,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.containerDiskDir, "container-disk-dir", containerDiskDir,
 		"Base directory for container disk data")
+
+	flag.StringVar(&vca.hotplugDiskDir, "hotplug-disk-dir", hotplugDiskDir,
+		"Base directory for hotplug disk data")
 
 	// allows user-defined threads based on the underlying hardware in use
 	flag.IntVar(&vca.nodeControllerThreads, "node-controller-threads", defaultControllerThreads,

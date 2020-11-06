@@ -31,6 +31,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -49,6 +50,7 @@ import (
 
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
+	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -115,6 +117,7 @@ func NewController(
 		migrationProxy:           migrationproxy.NewMigrationProxyManager(serverTLSConfig, clientTLSConfig),
 		podIsolationDetector:     podIsolationDetector,
 		containerDiskMounter:     container_disk.NewMounter(podIsolationDetector, virtPrivateDir+"/container-disk-mount-state"),
+		hotplugVolumeMounter:     hotplug_volume.NewVolumeMounter(podIsolationDetector, virtPrivateDir+"/hotplug-volume-mount-state"),
 		clusterConfig:            clusterConfig,
 	}
 
@@ -173,6 +176,7 @@ type VirtualMachineController struct {
 	migrationProxy           migrationproxy.ProxyManager
 	podIsolationDetector     isolation.PodIsolationDetector
 	containerDiskMounter     container_disk.Mounter
+	hotplugVolumeMounter     hotplug_volume.VolumeMounter
 	clusterConfig            *virtconfig.ClusterConfig
 
 	// records if pod network phase1 has completed
@@ -482,6 +486,14 @@ func (d *VirtualMachineController) getPodInterfacefromFileCache(uid types.UID, i
 	return result, nil
 }
 
+func canUpdateToMounted(currentPhase v1.VolumePhase) bool {
+	return currentPhase == v1.VolumeBound || currentPhase == v1.VolumePending || currentPhase == v1.HotplugVolumeAttachedToNode
+}
+
+func canUpdateToUnmounted(currentPhase v1.VolumePhase) bool {
+	return currentPhase == v1.VolumeReady || currentPhase == v1.HotplugVolumeMounted
+}
+
 func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 
@@ -514,6 +526,46 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 					vmi.Status.Interfaces[0].Name = network.Name
 				}
 			}
+		}
+
+		if len(vmi.Status.VolumeStatus) > 0 {
+			diskDeviceMap := make(map[string]string)
+			for _, disk := range domain.Spec.Devices.Disks {
+				diskDeviceMap[strings.TrimPrefix(disk.Alias.Name, api.UserAliasPrefix)] = disk.Target.Device
+			}
+			specVolumeMap := make(map[string]v1.Volume)
+			for _, volume := range vmi.Spec.Volumes {
+				specVolumeMap[volume.Name] = volume
+			}
+			newStatuses := make([]v1.VolumeStatus, 0)
+			for _, volumeStatus := range vmi.Status.VolumeStatus {
+				if _, ok := diskDeviceMap[volumeStatus.Name]; ok {
+					volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
+				}
+				if volumeStatus.HotplugVolume != nil {
+					if mounted, _ := d.hotplugVolumeMounter.IsMounted(vmi, volumeStatus.Name, volumeStatus.HotplugVolume.AttachPodUID); mounted {
+						if _, ok := specVolumeMap[volumeStatus.Name]; ok && canUpdateToMounted(volumeStatus.Phase) {
+							// mounted, and still in spec, and in phase we can change, update status to mounted.
+							volumeStatus.Phase = v1.HotplugVolumeMounted
+							volumeStatus.Message = fmt.Sprintf("Volume %s has been mounted in virt-launcher pod", volumeStatus.Name)
+							volumeStatus.Reason = "VolumeMountedToPod"
+						}
+					} else {
+						// Not mounted, check if the volume is in the spec, if not update status
+						if _, ok := specVolumeMap[volumeStatus.Name]; !ok && canUpdateToMounted(volumeStatus.Phase) {
+							// Not mounted.
+							volumeStatus.Phase = v1.HotplugVolumeUnMounted
+							volumeStatus.Message = fmt.Sprintf("Volume %s has been unmounted from virt-launcher pod", volumeStatus.Name)
+							volumeStatus.Reason = "VolumeUnMountedFromPod"
+						}
+					}
+				}
+				newStatuses = append(newStatuses, volumeStatus)
+			}
+			sort.SliceStable(newStatuses, func(i, j int) bool {
+				return strings.Compare(newStatuses[i].Name, newStatuses[j].Name) == -1
+			})
+			vmi.Status.VolumeStatus = newStatuses
 		}
 
 		if len(vmi.Status.Interfaces) == 0 {
@@ -1290,6 +1342,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		// requiring the phase of the domain and VirtualMachineInstance to be in sync is an
 		// optimization that prevents unnecessary re-processing VMIs during the start flow.
 		phase, err := d.calculateVmPhaseForStatusReason(domain, vmi)
+		log.Log.V(1).Infof("Calculated phase %s", phase)
 		if err != nil {
 			return err
 		}
@@ -1479,8 +1532,10 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	d.migrationProxy.StopSourceListener(vmiId)
 
 	// Unmount container disks and clean up remaining files
-	err = d.containerDiskMounter.Unmount(vmi)
-	if err != nil {
+	if err := d.containerDiskMounter.Unmount(vmi); err != nil {
+		return err
+	}
+	if err := d.hotplugVolumeMounter.UnmountAll(vmi); err != nil {
 		return err
 	}
 
@@ -2036,7 +2091,6 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is migrating.")
 		}
 	} else {
-
 		if !vmi.IsRunning() && !vmi.IsFinal() {
 
 			// give containerDisks some time to become ready before throwing errors on retries
@@ -2067,6 +2121,14 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			err = d.podIsolationDetector.AdjustResources(vmi)
 			if err != nil {
 				return fmt.Errorf("failed to adjust resources: %v", err)
+			}
+		} else if vmi.IsRunning() {
+			// Umount any disks no longer mounted
+			if err := d.hotplugVolumeMounter.Unmount(vmi); err != nil {
+				return err
+			}
+			if err := d.hotplugVolumeMounter.Mount(vmi); err != nil {
+				return err
 			}
 		}
 
