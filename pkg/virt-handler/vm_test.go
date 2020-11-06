@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util"
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
+	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -88,6 +89,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var mockIsolationDetector *isolation.MockPodIsolationDetector
 	var mockIsolationResult *isolation.MockIsolationResult
 	var mockContainerDiskMounter *container_disk.MockMounter
+	var mockHotplugVolumeMounter *hotplug_volume.MockVolumeMounter
 
 	var vmiFeeder *testutils.VirtualMachineFeeder
 	var domainFeeder *testutils.DomainFeeder
@@ -177,6 +179,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockIsolationDetector.EXPECT().AdjustResources(gomock.Any()).Return(nil).AnyTimes()
 
 		mockContainerDiskMounter = container_disk.NewMockMounter(ctrl)
+		mockHotplugVolumeMounter = hotplug_volume.NewMockVolumeMounter(ctrl)
 		controller = NewController(recorder,
 			virtClient,
 			host,
@@ -1156,6 +1159,70 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(0))
 				Expect(mockQueue.Len()).To(Equal(0))
 				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+			})
+		})
+
+		Context("reacting to a VMI with hotplug", func() {
+			BeforeEach(func() {
+				controller.hotplugVolumeMounter = mockHotplugVolumeMounter
+			})
+
+			It("should call mount and unmount if VMI is running", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Running
+				vmiFeeder.Add(vmi)
+				domainFeeder.Add(domain)
+				vmiInterface.EXPECT().Update(gomock.Any())
+				mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
+				client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+
+				controller.Execute()
+			})
+
+			It("should call unmount first and fail, if it fails while VMI is running", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Running
+				vmiFeeder.Add(vmi)
+				domainFeeder.Add(domain)
+				vmiInterface.EXPECT().Update(gomock.Any())
+				mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(fmt.Errorf("Unable to unmount"))
+
+				controller.Execute()
+			})
+
+			It("should call mount and unmount, fail if mount fails", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Running
+				vmiFeeder.Add(vmi)
+				domainFeeder.Add(domain)
+				vmiInterface.EXPECT().Update(gomock.Any())
+				mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(fmt.Errorf("Error"))
+
+				controller.Execute()
+			})
+
+			It("should call unmountAll from processVmCleanup", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Running
+				vmiFeeder.Add(vmi)
+				domainFeeder.Add(domain)
+				mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
+				client.EXPECT().Close()
+				controller.processVmCleanup(vmi)
 			})
 		})
 
