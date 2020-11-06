@@ -8974,18 +8974,6 @@
      "attachPodUID": {
       "description": "AttachPodUID is the UID of the pod used to attach the volume to the node.",
       "type": "string"
-     },
-     "message": {
-      "description": "Message is a detailed message about the current hotplug volume phase",
-      "type": "string"
-     },
-     "phase": {
-      "description": "Phase is the phase",
-      "type": "string"
-     },
-     "reason": {
-      "description": "Reason is a brief description of why we are in the current hotplug volume phase",
-      "type": "string"
      }
     }
    },
@@ -11044,8 +11032,20 @@
       "description": "If the volume is hotplug, this will contain the hotplug status.",
       "$ref": "#/definitions/v1.HotplugVolumeStatus"
      },
+     "message": {
+      "description": "Message is a detailed message about the current hotplug volume phase",
+      "type": "string"
+     },
      "name": {
       "description": "Name is the name of the volume",
+      "type": "string"
+     },
+     "phase": {
+      "description": "Phase is the phase",
+      "type": "string"
+     },
+     "reason": {
+      "description": "Reason is a brief description of why we are in the current hotplug volume phase",
       "type": "string"
      },
      "target": {

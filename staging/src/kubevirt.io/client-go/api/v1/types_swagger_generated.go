@@ -62,6 +62,9 @@ func (VolumeStatus) SwaggerDoc() map[string]string {
 		"":              "VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.\n+k8s:openapi-gen=true",
 		"name":          "Name is the name of the volume",
 		"target":        "Target is the target name used when adding the volume to the VM, eg: vda",
+		"phase":         "Phase is the phase",
+		"reason":        "Reason is a brief description of why we are in the current hotplug volume phase",
+		"message":       "Message is a detailed message about the current hotplug volume phase",
 		"hotplugVolume": "If the volume is hotplug, this will contain the hotplug status.",
 	}
 }
@@ -71,9 +74,6 @@ func (HotplugVolumeStatus) SwaggerDoc() map[string]string {
 		"":              "HotplugVolumeStatus represents the hotplug status of the volume\n+k8s:openapi-gen=true",
 		"attachPodName": "AttachPodName is the name of the pod used to attach the volume to the node.",
 		"attachPodUID":  "AttachPodUID is the UID of the pod used to attach the volume to the node.",
-		"phase":         "Phase is the phase",
-		"reason":        "Reason is a brief description of why we are in the current hotplug volume phase",
-		"message":       "Message is a detailed message about the current hotplug volume phase",
 	}
 }
 

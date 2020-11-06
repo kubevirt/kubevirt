@@ -106,6 +106,8 @@ const (
 	MissingAttachmentPodReason = "MissingAttachmentPod"
 	// PVCNotReadyReason is set when the PVC is not ready to be hot plugged.
 	PVCNotReadyReason = "PVCNotReady"
+	// FailedHotplugSyncReason is set when a hotplug specific failure occurs during sync
+	FailedHotplugSyncReason = "FailedHotplugSync"
 )
 
 func NewVMIController(templateService services.TemplateService,
@@ -628,6 +630,10 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	}
 
 	if vmi.IsFinal() {
+		err := c.deleteAllAttachmentPods(vmi)
+		if err != nil {
+			return &syncErrorImpl{fmt.Errorf("failed to delete attachment pods: %v", err), FailedHotplugSyncReason}
+		}
 		return nil
 	}
 
@@ -689,7 +695,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	hotplugVolumes := c.getHotplugVolumes(vmi, pod)
 	hotplugAttachmentPods, err := c.virtlauncherAttachmentPods(pod)
 	if err != nil {
-		return &syncErrorImpl{fmt.Errorf("failed to get attachment pods: %v", err), FailedCreatePodReason}
+		return &syncErrorImpl{fmt.Errorf("failed to get attachment pods: %v", err), FailedHotplugSyncReason}
 	}
 	if pod.DeletionTimestamp == nil && c.needsHandleHotplug(hotplugVolumes, hotplugAttachmentPods) {
 		var hotplugSyncErr syncError = nil
@@ -1300,7 +1306,7 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating hotplug pod for volume %s: %v", volume.Name, err)
 					return &syncErrorImpl{fmt.Errorf("Error creating attachment pod %v", err), FailedCreatePodReason}
 				}
-				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created attachment pod %s", pod.Name)
+				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created attachment pod %s for volume %s", pod.Name, volume.Name)
 			}
 		}
 	}
@@ -1474,16 +1480,16 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 				status.HotplugVolume.AttachPodUID = ""
 				// Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
 				phase, reason, message := c.getVolumePhaseMessageReason(&volume, vmi.Namespace)
-				status.HotplugVolume.Phase = phase
-				status.HotplugVolume.Message = message
-				status.HotplugVolume.Reason = reason
+				status.Phase = phase
+				status.Message = message
+				status.Reason = reason
 			} else {
 				status.HotplugVolume.AttachPodName = attachmentPod.Name
 				status.HotplugVolume.AttachPodUID = attachmentPod.UID
-				if status.HotplugVolume.Phase != virtv1.HotplugVolumeReady {
-					status.HotplugVolume.Phase = virtv1.HotplugVolumeAttachedToNode
-					status.HotplugVolume.Message = fmt.Sprintf("Created hotplug attachment pod %s, for volume %s", attachmentPod.Name, volume.Name)
-					status.HotplugVolume.Reason = SuccessfulCreatePodReason
+				if c.canMoveToAttachedPhase(status.Phase) {
+					status.Phase = virtv1.HotplugVolumeAttachedToNode
+					status.Message = fmt.Sprintf("Created hotplug attachment pod %s, for volume %s", attachmentPod.Name, volume.Name)
+					status.Reason = SuccessfulCreatePodReason
 				}
 			}
 		}
@@ -1497,10 +1503,10 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 		if attachmentPod != nil {
 			v.HotplugVolume.AttachPodName = attachmentPod.Name
 			v.HotplugVolume.AttachPodUID = attachmentPod.UID
-			v.HotplugVolume.Phase = virtv1.HotplugVolumeDetaching
+			v.Phase = virtv1.HotplugVolumeDetaching
 			if attachmentPod.DeletionTimestamp != nil {
-				v.HotplugVolume.Message = fmt.Sprintf("Deleted hotplug attachment pod %s, for volume %s", attachmentPod.Name, k)
-				v.HotplugVolume.Reason = SuccessfulDeletePodReason
+				v.Message = fmt.Sprintf("Deleted hotplug attachment pod %s, for volume %s", attachmentPod.Name, k)
+				v.Reason = SuccessfulDeletePodReason
 			}
 			// If the pod exists, we keep the status.
 			newStatus = append(newStatus, v)
@@ -1511,6 +1517,11 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 	})
 	vmi.Status.VolumeStatus = newStatus
 	return nil
+}
+
+func (c *VMIController) canMoveToAttachedPhase(currentPhase virtv1.HotplugVolumePhase) bool {
+	return currentPhase == virtv1.HotplugVolumeBound || currentPhase == virtv1.HotplugVolumePending ||
+		currentPhase == virtv1.HotplugVolumeAttachedToNode
 }
 
 func (c *VMIController) findAttachmentPodByVolumeName(volumeName string, attachmentPods []*k8sv1.Pod) *k8sv1.Pod {
