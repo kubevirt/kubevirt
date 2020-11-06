@@ -12,7 +12,7 @@ require (
 	github.com/go-openapi/spec v0.19.7
 	github.com/googleapis/gnostic v0.5.1 // indirect
 	github.com/imdario/mergo v0.3.9
-	github.com/kubevirt/cluster-network-addons-operator v0.42.2
+	github.com/kubevirt/cluster-network-addons-operator v0.42.3
 	github.com/kubevirt/kubevirt-ssp-operator v1.2.1
 	github.com/kubevirt/vm-import-operator v0.2.5
 	github.com/onsi/ginkgo v1.14.2

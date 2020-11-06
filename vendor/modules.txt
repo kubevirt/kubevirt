@@ -86,7 +86,7 @@ github.com/imdario/mergo
 github.com/json-iterator/go
 # github.com/konsorten/go-windows-terminal-sequences v1.0.3
 github.com/konsorten/go-windows-terminal-sequences
-# github.com/kubevirt/cluster-network-addons-operator v0.42.2
+# github.com/kubevirt/cluster-network-addons-operator v0.42.3
 ## explicit
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared
