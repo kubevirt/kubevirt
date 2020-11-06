@@ -1,8 +1,9 @@
-package v1beta1
+package webhooks
 
 import (
 	"context"
 	"errors"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -11,6 +12,8 @@ import (
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	"os"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -25,28 +28,50 @@ const (
 	HcoValidNamespace        = "kubevirt-hyperconverged"
 )
 
-var _ = Describe("Hyperconverged Webhooks", func() {
+var (
+	logger = logf.Log.WithName("hyperconverged-resource")
+)
+
+func TestWebhook(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Webhooks Suite")
+}
+
+var _ = Describe("webhooks handler", func() {
+	s := scheme.Scheme
+	for _, f := range []func(*runtime.Scheme) error{
+		v1beta1.AddToScheme,
+		cdiv1beta1.AddToScheme,
+		kubevirtv1.AddToScheme,
+	} {
+		Expect(f(s)).To(BeNil())
+	}
+
 	Context("Check validating webhook", func() {
 		BeforeEach(func() {
 			os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)
 		})
 
-		cr := &HyperConverged{
+		cr := &v1beta1.HyperConverged{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      ResourceName,
 				Namespace: HcoValidNamespace,
 			},
-			Spec: HyperConvergedSpec{},
+			Spec: v1beta1.HyperConvergedSpec{},
 		}
 
+		cli := fake.NewFakeClientWithScheme(s)
+		wh := &WebhookHandler{}
+		wh.Init(logger, cli)
+
 		It("should accept creation of a resource with a valid namespace", func() {
-			err := cr.ValidateCreate()
+			err := wh.ValidateCreate(cr)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should reject creation of a resource with an arbitrary namespace", func() {
 			cr.ObjectMeta.Namespace = ResourceInvalidNamespace
-			err := cr.ValidateCreate()
+			err := wh.ValidateCreate(cr)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -54,128 +79,130 @@ var _ = Describe("Hyperconverged Webhooks", func() {
 	})
 
 	Context("validate update webhook", func() {
-		s := scheme.Scheme
-		for _, f := range []func(*runtime.Scheme) error{
-			AddToScheme,
-			cdiv1beta1.AddToScheme,
-			kubevirtv1.AddToScheme,
-		} {
-			Expect(f(s)).To(BeNil())
-		}
 
 		It("should return error if KV CR is missing", func() {
-			hco := &HyperConverged{}
+			hco := &v1beta1.HyperConverged{}
 			// replace the real client with a mock
-			cli = fake.NewFakeClientWithScheme(s, hco, hco.NewCDI())
+			cli := fake.NewFakeClientWithScheme(s, hco, hco.NewCDI())
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli)
 
-			newHco := &HyperConverged{
-				Spec: HyperConvergedSpec{
-					Infra: HyperConvergedConfig{
+			newHco := &v1beta1.HyperConverged{
+				Spec: v1beta1.HyperConvergedSpec{
+					Infra: v1beta1.HyperConvergedConfig{
 						NodePlacement: newHyperConvergedConfig(),
 					},
-					Workloads: HyperConvergedConfig{
+					Workloads: v1beta1.HyperConvergedConfig{
 						NodePlacement: newHyperConvergedConfig(),
 					},
 				},
 			}
 
-			err := newHco.ValidateUpdate(hco)
+			err := wh.ValidateUpdate(newHco, hco)
 			Expect(err).NotTo(BeNil())
 			Expect(apierrors.IsNotFound(err)).To(BeTrue())
 		})
 
 		It("should return error if dry-run update of KV CR returns error", func() {
-			hco := &HyperConverged{
-				Spec: HyperConvergedSpec{
-					Infra: HyperConvergedConfig{
+			hco := &v1beta1.HyperConverged{
+				Spec: v1beta1.HyperConvergedSpec{
+					Infra: v1beta1.HyperConvergedConfig{
 						NodePlacement: newHyperConvergedConfig(),
 					},
-					Workloads: HyperConvergedConfig{
+					Workloads: v1beta1.HyperConvergedConfig{
 						NodePlacement: newHyperConvergedConfig(),
 					},
 				},
 			}
 			// replace the real client with a mock
 			c := fake.NewFakeClientWithScheme(s, hco, hco.NewKubeVirt(), hco.NewCDI())
-			cli = errorClient{c, kvUpdateFailure}
+			cli := errorClient{c, kvUpdateFailure}
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli)
 
-			newHco := &HyperConverged{}
+			newHco := &v1beta1.HyperConverged{}
 			hco.DeepCopyInto(newHco)
 			// change something in workloads to trigger dry-run update
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
-			err := newHco.ValidateUpdate(hco)
+			err := wh.ValidateUpdate(newHco, hco)
 			Expect(err).NotTo(BeNil())
 			Expect(err).Should(Equal(ErrFakeKvError))
 		})
 
 		It("should return error if CDI CR is missing", func() {
-			hco := &HyperConverged{}
+			hco := &v1beta1.HyperConverged{}
 			// replace the real client with a mock
-			cli = fake.NewFakeClientWithScheme(s, hco, hco.NewKubeVirt())
+			cli := fake.NewFakeClientWithScheme(s, hco, hco.NewKubeVirt())
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli)
 
-			newHco := &HyperConverged{
-				Spec: HyperConvergedSpec{
-					Infra: HyperConvergedConfig{
+			newHco := &v1beta1.HyperConverged{
+				Spec: v1beta1.HyperConvergedSpec{
+					Infra: v1beta1.HyperConvergedConfig{
 						NodePlacement: newHyperConvergedConfig(),
 					},
-					Workloads: HyperConvergedConfig{
+					Workloads: v1beta1.HyperConvergedConfig{
 						NodePlacement: newHyperConvergedConfig(),
 					},
 				},
 			}
 
-			err := newHco.ValidateUpdate(hco)
+			err := wh.ValidateUpdate(newHco, hco)
 			Expect(err).NotTo(BeNil())
 			Expect(apierrors.IsNotFound(err)).To(BeTrue())
 		})
 
 		It("should return error if dry-run update of CDI CR returns error", func() {
-			hco := &HyperConverged{
-				Spec: HyperConvergedSpec{
-					Infra: HyperConvergedConfig{
+			hco := &v1beta1.HyperConverged{
+				Spec: v1beta1.HyperConvergedSpec{
+					Infra: v1beta1.HyperConvergedConfig{
 						NodePlacement: newHyperConvergedConfig(),
 					},
-					Workloads: HyperConvergedConfig{
+					Workloads: v1beta1.HyperConvergedConfig{
 						NodePlacement: newHyperConvergedConfig(),
 					},
 				},
 			}
 			// replace the real client with a mock
 			c := fake.NewFakeClientWithScheme(s, hco, hco.NewKubeVirt(), hco.NewCDI())
-			cli = errorClient{c, cdiUpdateFailure}
+			cli := errorClient{c, cdiUpdateFailure}
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli)
 
-			newHco := &HyperConverged{}
+			newHco := &v1beta1.HyperConverged{}
 			hco.DeepCopyInto(newHco)
 			// change something in workloads to trigger dry-run update
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
-			err := newHco.ValidateUpdate(hco)
+			err := wh.ValidateUpdate(newHco, hco)
 			Expect(err).NotTo(BeNil())
 			Expect(err).Should(Equal(ErrFakeCdiError))
 		})
 
 		It("should not return error if dry-run update of CDI CR passes", func() {
-			hco := &HyperConverged{
-				Spec: HyperConvergedSpec{
-					Infra: HyperConvergedConfig{
+			hco := &v1beta1.HyperConverged{
+				Spec: v1beta1.HyperConvergedSpec{
+					Infra: v1beta1.HyperConvergedConfig{
 						NodePlacement: newHyperConvergedConfig(),
 					},
-					Workloads: HyperConvergedConfig{
+					Workloads: v1beta1.HyperConvergedConfig{
 						NodePlacement: newHyperConvergedConfig(),
 					},
 				},
 			}
 			// replace the real client with a mock
 			c := fake.NewFakeClientWithScheme(s, hco, hco.NewKubeVirt(), hco.NewCDI())
-			cli = errorClient{c, noFailure}
+			cli := errorClient{c, noFailure}
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli)
 
-			newHco := &HyperConverged{}
+			newHco := &v1beta1.HyperConverged{}
 			hco.DeepCopyInto(newHco)
 			// change something in workloads to trigger dry-run update
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
-			err := newHco.ValidateUpdate(hco)
+			err := wh.ValidateUpdate(newHco, hco)
 			Expect(err).To(BeNil())
 		})
 

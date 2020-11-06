@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/webhooks"
 	"github.com/spf13/pflag"
 	"os"
 	"runtime"
@@ -217,7 +218,8 @@ func main() {
 	if operatorWebhookMode {
 		// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
 		// necessary to configure Prometheus to scrape metrics from this operator.
-		if err = (&hcov1beta1.HyperConverged{}).SetupWebhookWithManager(ctx, mgr); err != nil {
+		hwHandler := &webhooks.WebhookHandler{}
+		if err = (&hcov1beta1.HyperConverged{}).SetupWebhookWithManager(ctx, mgr, hwHandler); err != nil {
 			log.Error(err, "unable to create webhook", "webhook", "HyperConverged")
 			eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to create webhook")
 			os.Exit(1)
