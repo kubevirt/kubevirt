@@ -1519,8 +1519,8 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 	return nil
 }
 
-func (c *VMIController) canMoveToAttachedPhase(currentPhase virtv1.HotplugVolumePhase) bool {
-	return currentPhase == virtv1.HotplugVolumeBound || currentPhase == virtv1.HotplugVolumePending ||
+func (c *VMIController) canMoveToAttachedPhase(currentPhase virtv1.VolumePhase) bool {
+	return currentPhase == "" || currentPhase == virtv1.VolumeBound || currentPhase == virtv1.VolumePending ||
 		currentPhase == virtv1.HotplugVolumeAttachedToNode
 }
 
@@ -1535,7 +1535,7 @@ func (c *VMIController) findAttachmentPodByVolumeName(volumeName string, attachm
 	return nil
 }
 
-func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, namespace string) (virtv1.HotplugVolumePhase, string, string) {
+func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, namespace string) (virtv1.VolumePhase, string, string) {
 	claimName := ""
 	if volume.DataVolume != nil {
 		// Using fact that PVC name = DV name.
@@ -1546,13 +1546,13 @@ func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, names
 	}
 	pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, claimName))
 	if !pvcExists {
-		return virtv1.HotplugVolumePending, FailedPvcNotFoundReason, "Unable to determine PVC name"
+		return virtv1.VolumePending, FailedPvcNotFoundReason, "Unable to determine PVC name"
 	}
 	pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
 	if pvc.Status.Phase == k8sv1.ClaimPending {
-		return virtv1.HotplugVolumePending, PVCNotReadyReason, "PVC is in phase ClaimPending"
+		return virtv1.VolumePending, PVCNotReadyReason, "PVC is in phase ClaimPending"
 	} else if pvc.Status.Phase == k8sv1.ClaimBound {
-		return virtv1.HotplugVolumeBound, PVCNotReadyReason, "PVC is in phase Bound"
+		return virtv1.VolumeBound, PVCNotReadyReason, "PVC is in phase Bound"
 	}
-	return virtv1.HotplugVolumePending, PVCNotReadyReason, "PVC is in phase Lost"
+	return virtv1.VolumePending, PVCNotReadyReason, "PVC is in phase Lost"
 }

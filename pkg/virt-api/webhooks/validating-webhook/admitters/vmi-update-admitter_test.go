@@ -367,8 +367,8 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			if i >= statusCount-hotplugCount {
 				res[i].HotplugVolume = &v1.HotplugVolumeStatus{
 					AttachPodName: fmt.Sprintf("test-pod-%d", i),
-					Phase:         v1.HotplugVolumeReady,
 				}
+				res[i].Phase = v1.VolumeReady
 			}
 		}
 		return res

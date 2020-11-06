@@ -356,6 +356,18 @@ func (r *realIsolationResult) IsMounted(mountPoint string) (bool, error) {
 	return false, nil
 }
 
+// IsBlockDevice check if the path given is a block device or not.
+func (r *realIsolationResult) IsBlockDevice(path string) (bool, error) {
+	fileInfo, err := os.Stat(path)
+	if err == nil {
+		if !fileInfo.IsDir() && (fileInfo.Mode()&os.ModeDevice) != 0 {
+			return true, nil
+		}
+		return false, fmt.Errorf("found %v, but it's not a block device", path)
+	}
+	return false, fmt.Errorf("error checking for block device: %v", err)
+}
+
 // ParentMountInfoFor takes the mount info from a container, and looks the corresponding
 // entry in /proc/mountinfo of the isolation result of the given process.
 func (r *realIsolationResult) ParentMountInfoFor(mountInfo *MountInfo) (*MountInfo, error) {
