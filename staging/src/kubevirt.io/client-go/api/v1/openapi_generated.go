@@ -15379,27 +15379,6 @@ func schema_kubevirtio_client_go_api_v1_HotplugVolumeStatus(ref common.Reference
 							Format:      "",
 						},
 					},
-					"phase": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Phase is the phase",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"reason": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Reason is a brief description of why we are in the current hotplug volume phase",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"message": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Message is a detailed message about the current hotplug volume phase",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 				},
 			},
 		},
@@ -19266,6 +19245,27 @@ func schema_kubevirtio_client_go_api_v1_VolumeStatus(ref common.ReferenceCallbac
 					"target": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Target is the target name used when adding the volume to the VM, eg: vda",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Phase is the phase",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reason is a brief description of why we are in the current hotplug volume phase",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Message is a detailed message about the current hotplug volume phase",
 							Type:        []string{"string"},
 							Format:      "",
 						},

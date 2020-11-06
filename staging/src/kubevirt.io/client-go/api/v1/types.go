@@ -206,6 +206,12 @@ type VolumeStatus struct {
 	Name string `json:"name"`
 	// Target is the target name used when adding the volume to the VM, eg: vda
 	Target string `json:"target"`
+	// Phase is the phase
+	Phase HotplugVolumePhase `json:"phase,omitempty"`
+	// Reason is a brief description of why we are in the current hotplug volume phase
+	Reason string `json:"reason,omitempty"`
+	// Message is a detailed message about the current hotplug volume phase
+	Message string `json:"message,omitempty"`
 	// If the volume is hotplug, this will contain the hotplug status.
 	HotplugVolume *HotplugVolumeStatus `json:"hotplugVolume,omitempty"`
 }
@@ -217,12 +223,6 @@ type HotplugVolumeStatus struct {
 	AttachPodName string `json:"attachPodName,omitempty"`
 	// AttachPodUID is the UID of the pod used to attach the volume to the node.
 	AttachPodUID types.UID `json:"attachPodUID,omitempty"`
-	// Phase is the phase
-	Phase HotplugVolumePhase `json:"phase,omitempty"`
-	// Reason is a brief description of why we are in the current hotplug volume phase
-	Reason string `json:"reason,omitempty"`
-	// Message is a detailed message about the current hotplug volume phase
-	Message string `json:"message,omitempty"`
 }
 
 // HotplugVolumePhase indicates the current phase of the hotplug process.
