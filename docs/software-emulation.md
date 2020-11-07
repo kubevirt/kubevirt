@@ -28,9 +28,7 @@ Add the following snippet to the spec:
 
 ```yaml
 spec:
-  developerConfiguration:
-    useEmulation: "true"
+  configuration:
+    developerConfiguration:
+      useEmulation: true
 ```
-
-**NOTE**: The values of `KubeVirt.spec` are **strings**. Yaml requires the use of
-quotes around `"true"` to distinguish the value from a boolean.
