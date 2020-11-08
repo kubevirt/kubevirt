@@ -83,11 +83,20 @@ func (h *commonTemplateBundleHandler) Ensure(req *common.HcoRequest) *EnsureResu
 	req.Logger.Info("KubeVirt Common Templates Bundle already exists", "bundle.Namespace", found.Namespace, "bundle.Name", found.Name)
 
 	if !reflect.DeepEqual(kvCTB.Spec, found.Spec) {
-		req.Logger.Info("Updating existing KubeVirt Common Templates Bundle")
+		overwritten := false
+		if req.HCOTriggered {
+			req.Logger.Info("Updating existing KubeVirt Common Templates Bundle's Spec to new opinionated values")
+		} else {
+			req.Logger.Info("Reconciling an externally updated KubeVirt Common Templates Bundle's Spec to its opinionated values")
+			overwritten = true
+		}
 		kvCTB.Spec.DeepCopyInto(&found.Spec)
 		err = h.Client.Update(req.Ctx, found)
 		if err != nil {
 			return res.Error(err)
+		}
+		if overwritten {
+			res.SetOverwritten()
 		}
 		return res.SetUpdated()
 	}
@@ -157,11 +166,20 @@ func (h *nodeLabellerBundleHandler) Ensure(req *common.HcoRequest) *EnsureResult
 	req.Logger.Info("KubeVirt Node Labeller Bundle already exists", "bundle.Namespace", found.Namespace, "bundle.Name", found.Name)
 
 	if !reflect.DeepEqual(kvNLB.Spec, found.Spec) {
-		req.Logger.Info("Updating existing KubeVirt Node Labeller Bundle")
+		overwritten := false
+		if req.HCOTriggered {
+			req.Logger.Info("Updating existing KubeVirt Node Labeller Bundle's Spec to new opinionated values")
+		} else {
+			req.Logger.Info("Reconciling an externally updated KubeVirt Node Labeller Bundle's Spec to its opinionated values")
+			overwritten = true
+		}
 		kvNLB.Spec.DeepCopyInto(&found.Spec)
 		err = h.Client.Update(req.Ctx, found)
 		if err != nil {
 			return res.Error(err)
+		}
+		if overwritten {
+			res.SetOverwritten()
 		}
 		return res.SetUpdated()
 	}
@@ -268,11 +286,20 @@ func (h *templateValidatorHandler) Ensure(req *common.HcoRequest) *EnsureResult 
 	req.Logger.Info("KubeVirt Template Validator already exists", "validator.Namespace", found.Namespace, "validator.Name", found.Name)
 
 	if !reflect.DeepEqual(kvTV.Spec, found.Spec) {
-		req.Logger.Info("Updating existing KubeVirt Template Validator")
+		overwritten := false
+		if req.HCOTriggered {
+			req.Logger.Info("Updating existing KubeVirt Template Validator's Spec to new opinionated values")
+		} else {
+			req.Logger.Info("Reconciling an externally updated KubeVirt Template Validator's Spec to its opinionated values")
+			overwritten = true
+		}
 		kvTV.Spec.DeepCopyInto(&found.Spec)
 		err = h.Client.Update(req.Ctx, found)
 		if err != nil {
 			return res.Error(err)
+		}
+		if overwritten {
+			res.SetOverwritten()
 		}
 		return res.SetUpdated()
 	}
@@ -377,11 +404,20 @@ func (h *metricsAggregationHandler) Ensure(req *common.HcoRequest) *EnsureResult
 	req.Logger.Info("KubeVirt Metrics Aggregation already exists", "metrics.Namespace", found.Namespace, "metrics.Name", found.Name)
 
 	if !reflect.DeepEqual(kubevirtMetricsAggregation.Spec, found.Spec) {
-		req.Logger.Info("Updating existing KubeVirt Metrics Aggregation")
+		overwritten := false
+		if req.HCOTriggered {
+			req.Logger.Info("Updating existing KubeVirt Metrics Aggregation's Spec to new opinionated values")
+		} else {
+			req.Logger.Info("Reconciling an externally updated KubeVirt Metrics Aggregation's Spec to its opinionated values")
+			overwritten = true
+		}
 		kubevirtMetricsAggregation.Spec.DeepCopyInto(&found.Spec)
 		err = h.Client.Update(req.Ctx, found)
 		if err != nil {
 			return res.Error(err)
+		}
+		if overwritten {
+			res.SetOverwritten()
 		}
 		return res.SetUpdated()
 	}

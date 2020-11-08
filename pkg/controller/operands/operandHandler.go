@@ -74,7 +74,12 @@ func (h OperandHandler) Ensure(req *common.HcoRequest) error {
 		if res.Created {
 			h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Created", fmt.Sprintf("Created %s %s", res.Type, res.Name))
 		} else if res.Updated {
-			h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Updated", fmt.Sprintf("Updated %s %s", res.Type, res.Name))
+			if !res.Overwritten {
+				h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Updated", fmt.Sprintf("Updated %s %s", res.Type, res.Name))
+			} else {
+				h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, "Overwritten", fmt.Sprintf("Overwritten %s %s", res.Type, res.Name))
+				// TODO: raise an alert, count them with a CR specific metric and so on...
+			}
 		}
 
 		req.ComponentUpgradeInProgress = req.ComponentUpgradeInProgress && res.UpgradeDone

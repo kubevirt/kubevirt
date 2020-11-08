@@ -31,7 +31,7 @@ type genericOperand struct {
 	getEmptyCr             func() runtime.Object
 	setControllerReference func(hc *hcov1beta1.HyperConverged, controlled metav1.Object, scheme *runtime.Scheme) error
 	postFound              func(request *common.HcoRequest, exists runtime.Object) error
-	updateCr               func(request *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, error)
+	updateCr               func(request *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error)
 	getConditions          func(cr runtime.Object) []conditionsv1.Condition
 	checkComponentVersion  func(cr runtime.Object) bool
 	getObjectMeta          func(cr runtime.Object) *metav1.ObjectMeta
@@ -100,12 +100,16 @@ func (handler *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
 	}
 
 	if handler.updateCr != nil {
-		updated, err := handler.updateCr(req, found, cr)
+		updated, overwritten, err := handler.updateCr(req, found, cr)
 		if err != nil {
 			return res.Error(err)
 		}
 		if updated {
-			return res.SetUpdated()
+			res.SetUpdated()
+			if overwritten {
+				res.SetOverwritten()
+			}
+			return res
 		}
 	}
 

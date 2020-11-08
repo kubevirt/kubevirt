@@ -54,11 +54,12 @@ func NewHco() *hcov1beta1.HyperConverged {
 
 func NewReq(inst *hcov1beta1.HyperConverged) *common.HcoRequest {
 	return &common.HcoRequest{
-		Request:    TestRequest,
-		Logger:     TestLogger,
-		Conditions: common.NewHcoConditions(),
-		Ctx:        context.TODO(),
-		Instance:   inst,
+		Request:      TestRequest,
+		Logger:       TestLogger,
+		Conditions:   common.NewHcoConditions(),
+		Ctx:          context.TODO(),
+		Instance:     inst,
+		HCOTriggered: true,
 	}
 }
 

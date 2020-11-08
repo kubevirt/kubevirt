@@ -55,11 +55,20 @@ func (kv *kubevirtHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 	req.Logger.Info("KubeVirt already exists", "KubeVirt.Namespace", found.Namespace, "KubeVirt.Name", found.Name)
 
 	if !reflect.DeepEqual(found.Spec, virt.Spec) {
+		overwritten := false
+		if req.HCOTriggered {
+			req.Logger.Info("Updating existing VMimport's Spec to new opinionated values")
+		} else {
+			req.Logger.Info("Reconciling an externally updated KubeVirt's Spec to its opinionated values")
+			overwritten = true
+		}
 		virt.Spec.DeepCopyInto(&found.Spec)
-		req.Logger.Info("Updating existing KubeVirt's Spec to its default value")
 		err = kv.Client.Update(req.Ctx, found)
 		if err != nil {
 			return res.Error(err)
+		}
+		if overwritten {
+			res.SetOverwritten()
 		}
 		return res.SetUpdated()
 	}

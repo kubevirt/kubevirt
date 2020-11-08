@@ -97,6 +97,7 @@ var _ = Describe("CDI Operand", func() {
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &cdiv1beta1.CDI{}
@@ -119,6 +120,7 @@ var _ = Describe("CDI Operand", func() {
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &cdiv1beta1.CDI{}
@@ -157,6 +159,7 @@ var _ = Describe("CDI Operand", func() {
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &cdiv1beta1.CDI{}
@@ -201,6 +204,7 @@ var _ = Describe("CDI Operand", func() {
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &cdiv1beta1.CDI{}
@@ -215,6 +219,54 @@ var _ = Describe("CDI Operand", func() {
 
 			Expect(foundResource.Spec.Infra.Tolerations).To(HaveLen(3))
 			Expect(foundResource.Spec.Workloads.NodeSelector["key1"]).Should(Equal("something else"))
+
+			Expect(req.Conditions).To(BeEmpty())
+		})
+
+		It("should overwrite node placement if directly set on CDI CR", func() {
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+			existingResource := hco.NewCDI()
+
+			// mock a reconciliation triggered by a change in CDI CR
+			req.HCOTriggered = false
+
+			// now, modify CDI's node placement
+			seconds3 := int64(3)
+			existingResource.Spec.Infra.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
+				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+			})
+			existingResource.Spec.Workloads.Tolerations = append(hco.Spec.Workloads.NodePlacement.Tolerations, corev1.Toleration{
+				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+			})
+
+			existingResource.Spec.Infra.NodeSelector["key1"] = "BADvalue1"
+			existingResource.Spec.Workloads.NodeSelector["key2"] = "BADvalue2"
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+			handler := newCdiHandler(cl, commonTestUtils.GetScheme())
+			res := handler.Ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeTrue())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &cdiv1beta1.CDI{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.Infra.Tolerations).To(HaveLen(3))
+			Expect(existingResource.Spec.Workloads.Tolerations).To(HaveLen(3))
+			Expect(existingResource.Spec.Infra.NodeSelector["key1"]).Should(Equal("BADvalue1"))
+			Expect(existingResource.Spec.Workloads.NodeSelector["key2"]).Should(Equal("BADvalue2"))
+
+			Expect(foundResource.Spec.Infra.Tolerations).To(HaveLen(2))
+			Expect(foundResource.Spec.Workloads.Tolerations).To(HaveLen(2))
+			Expect(foundResource.Spec.Infra.NodeSelector["key1"]).Should(Equal("value1"))
+			Expect(foundResource.Spec.Workloads.NodeSelector["key2"]).Should(Equal("value2"))
 
 			Expect(req.Conditions).To(BeEmpty())
 		})

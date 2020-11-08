@@ -8,6 +8,7 @@ import (
 
 type EnsureResult struct {
 	Updated     bool
+	Overwritten bool
 	Created     bool
 	UpgradeDone bool
 	Err         error
@@ -33,6 +34,11 @@ func (r *EnsureResult) SetCreated() *EnsureResult {
 
 func (r *EnsureResult) SetUpdated() *EnsureResult {
 	r.Updated = true
+	return r
+}
+
+func (r *EnsureResult) SetOverwritten() *EnsureResult {
+	r.Overwritten = true
 	return r
 }
 

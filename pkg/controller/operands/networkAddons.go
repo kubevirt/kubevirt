@@ -54,11 +54,20 @@ func (h cnaHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 	}
 
 	if !reflect.DeepEqual(found.Spec, networkAddons.Spec) && !req.UpgradeMode {
-		req.Logger.Info("Updating existing Network Addons")
+		overwritten := false
+		if req.HCOTriggered {
+			req.Logger.Info("Updating existing Network Addons's Spec to new opinionated values")
+		} else {
+			req.Logger.Info("Reconciling an externally updated Network Addons's Spec to its opinionated values")
+			overwritten = true
+		}
 		networkAddons.Spec.DeepCopyInto(&found.Spec)
 		err = h.Client.Update(req.Ctx, found)
 		if err != nil {
 			return res.Error(err)
+		}
+		if overwritten {
+			res.SetOverwritten()
 		}
 		return res.SetUpdated()
 	}

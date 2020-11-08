@@ -10,6 +10,7 @@ require (
 	github.com/go-logr/logr v0.2.1
 	github.com/go-logr/zapr v0.2.0 // indirect
 	github.com/go-openapi/spec v0.19.7
+	github.com/google/uuid v1.1.1
 	github.com/googleapis/gnostic v0.5.1 // indirect
 	github.com/imdario/mergo v0.3.9
 	github.com/kubevirt/cluster-network-addons-operator v0.42.3

@@ -32,6 +32,9 @@ var _ = Describe("SSP Operands", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{})
 			handler := newCommonTemplateBundleHandler(cl, commonTestUtils.GetScheme()).(*commonTemplateBundleHandler)
 			res := handler.Ensure(req)
+			Expect(res.Created).To(BeTrue())
+			Expect(res.Updated).To(BeFalse())
+			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
@@ -52,6 +55,9 @@ var _ = Describe("SSP Operands", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := newCommonTemplateBundleHandler(cl, commonTestUtils.GetScheme()).(*commonTemplateBundleHandler)
 			res := handler.Ensure(req)
+			Expect(res.Created).To(BeFalse())
+			Expect(res.Updated).To(BeFalse())
+			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
@@ -68,12 +74,15 @@ var _ = Describe("SSP Operands", func() {
 			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
 
 			existingResource.Spec.Version = "Non default value"
+			req.HCOTriggered = false // mock a reconciliation triggered by a change in NewKubeVirtCommonTemplateBundle CR
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := newCommonTemplateBundleHandler(cl, commonTestUtils.GetScheme()).(*commonTemplateBundleHandler)
 			res := handler.Ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeTrue())
+			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtCommonTemplatesBundle{}
@@ -166,6 +175,9 @@ var _ = Describe("SSP Operands", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{})
 			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
 			res := handler.Ensure(req)
+			Expect(res.Created).To(BeTrue())
+			Expect(res.Updated).To(BeFalse())
+			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
@@ -186,6 +198,9 @@ var _ = Describe("SSP Operands", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
 			res := handler.Ensure(req)
+			Expect(res.Created).To(BeFalse())
+			Expect(res.Updated).To(BeFalse())
+			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
@@ -202,12 +217,15 @@ var _ = Describe("SSP Operands", func() {
 			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
 
 			existingResource.Spec.Version = "Non default value"
+			req.HCOTriggered = false // mock a reconciliation triggered by a change in NewKubeVirtNodeLabellerBundle CR
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
 			res := handler.Ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeTrue())
+			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
@@ -227,8 +245,10 @@ var _ = Describe("SSP Operands", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
 			res := handler.Ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeFalse())
+			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
@@ -259,8 +279,10 @@ var _ = Describe("SSP Operands", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
 			res := handler.Ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeFalse())
+			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
@@ -292,8 +314,10 @@ var _ = Describe("SSP Operands", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
 			res := handler.Ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeFalse())
+			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
@@ -310,6 +334,46 @@ var _ = Describe("SSP Operands", func() {
 			Expect(foundResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
 			Expect(foundResource.Spec.Tolerations).To(HaveLen(3))
 			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("something else"))
+
+			Expect(req.Conditions).To(BeEmpty())
+		})
+
+		It("should overwrite node placement if directly set on NewKubeVirtNodeLabellerBundle CR", func() {
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+			existingResource := NewKubeVirtNodeLabellerBundleForCR(hco, commonTestUtils.Namespace)
+
+			// mock a reconciliation triggered by a change in NewKubeVirtNodeLabellerBundle CR
+			req.HCOTriggered = false
+
+			// now, modify VMImport node placement
+			seconds3 := int64(3)
+			existingResource.Spec.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
+				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+			})
+
+			existingResource.Spec.NodeSelector["key1"] = "BADvalue1"
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme()).(*nodeLabellerBundleHandler)
+			res := handler.Ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeTrue())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.Tolerations).To(HaveLen(3))
+			Expect(existingResource.Spec.NodeSelector["key1"]).Should(Equal("BADvalue1"))
+
+			Expect(foundResource.Spec.Tolerations).To(HaveLen(2))
+			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("value1"))
 
 			Expect(req.Conditions).To(BeEmpty())
 		})
@@ -418,6 +482,9 @@ var _ = Describe("SSP Operands", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{})
 			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
 			res := handler.Ensure(req)
+			Expect(res.Created).To(BeTrue())
+			Expect(res.Updated).To(BeFalse())
+			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
@@ -438,6 +505,9 @@ var _ = Describe("SSP Operands", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
 			res := handler.Ensure(req)
+			Expect(res.Created).To(BeFalse())
+			Expect(res.Updated).To(BeFalse())
+			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
@@ -454,12 +524,15 @@ var _ = Describe("SSP Operands", func() {
 			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
 
 			existingResource.Spec.TemplateValidatorReplicas = 5 // set non-default value
+			req.HCOTriggered = false                            // mock a reconciliation triggered by a change in NewKubeVirtTemplateValidator CR
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
 			res := handler.Ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeTrue())
+			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtTemplateValidator{}
@@ -479,8 +552,10 @@ var _ = Describe("SSP Operands", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
 			res := handler.Ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeFalse())
+			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtTemplateValidator{}
@@ -511,8 +586,10 @@ var _ = Describe("SSP Operands", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
 			res := handler.Ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeFalse())
+			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtTemplateValidator{}
@@ -544,8 +621,10 @@ var _ = Describe("SSP Operands", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
 			res := handler.Ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeFalse())
+			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtTemplateValidator{}
@@ -562,6 +641,46 @@ var _ = Describe("SSP Operands", func() {
 			Expect(foundResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
 			Expect(foundResource.Spec.Tolerations).To(HaveLen(3))
 			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("something else"))
+
+			Expect(req.Conditions).To(BeEmpty())
+		})
+
+		It("should overwrite node placement if directly set on NewKubeVirtTemplateValidator CR", func() {
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+			existingResource := NewKubeVirtTemplateValidatorForCR(hco, commonTestUtils.Namespace)
+
+			// mock a reconciliation triggered by a change in NewKubeVirtTemplateValidator CR
+			req.HCOTriggered = false
+
+			// now, modify NewKubeVirtTemplateValidator node placement
+			seconds3 := int64(3)
+			existingResource.Spec.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
+				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+			})
+
+			existingResource.Spec.NodeSelector["key1"] = "BADvalue1"
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme()).(*templateValidatorHandler)
+			res := handler.Ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeTrue())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &sspv1.KubevirtTemplateValidator{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.Tolerations).To(HaveLen(3))
+			Expect(existingResource.Spec.NodeSelector["key1"]).Should(Equal("BADvalue1"))
+
+			Expect(foundResource.Spec.Tolerations).To(HaveLen(2))
+			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("value1"))
 
 			Expect(req.Conditions).To(BeEmpty())
 		})
@@ -643,6 +762,9 @@ var _ = Describe("SSP Operands", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{})
 			handler := newMetricsAggregationHandler(cl, commonTestUtils.GetScheme()).(*metricsAggregationHandler)
 			res := handler.Ensure(req)
+			Expect(res.Created).To(BeTrue())
+			Expect(res.Updated).To(BeFalse())
+			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
@@ -663,6 +785,9 @@ var _ = Describe("SSP Operands", func() {
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := newMetricsAggregationHandler(cl, commonTestUtils.GetScheme()).(*metricsAggregationHandler)
 			res := handler.Ensure(req)
+			Expect(res.Created).To(BeFalse())
+			Expect(res.Updated).To(BeFalse())
+			Expect(res.Overwritten).To(BeFalse())
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
@@ -679,12 +804,15 @@ var _ = Describe("SSP Operands", func() {
 			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
 
 			existingResource.Spec.Version = "non-default value"
+			req.HCOTriggered = false // mock a reconciliation triggered by a change in NewKubeVirtMetricsAggregation CR
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := newMetricsAggregationHandler(cl, commonTestUtils.GetScheme()).(*metricsAggregationHandler)
 			res := handler.Ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeTrue())
+			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtMetricsAggregation{}

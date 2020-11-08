@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 
@@ -36,7 +37,8 @@ import (
 )
 
 var (
-	log = logf.Log.WithName("controller_hyperconverged")
+	log               = logf.Log.WithName("controller_hyperconverged")
+	randomConstSuffix = ""
 )
 
 const (
@@ -55,7 +57,8 @@ const (
 	commonDegradedReason        = "HCODegraded"
 	commonProgressingReason     = "HCOProgressing"
 
-	hcoVersionName = "operator"
+	hcoVersionName    = "operator"
+	secondaryCRPrefix = "hco-controlled-cr-"
 )
 
 // Add creates a new HyperConverged Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -99,7 +102,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	hco, err := getHyperconverged()
+	secCRPlaceholder, err := getSecondaryCRPlaceholder()
 	if err != nil {
 		return err
 	}
@@ -118,10 +121,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	} {
 		err = c.Watch(&source.Kind{Type: resource}, &handler.EnqueueRequestsFromMapFunc{
 			ToRequests: handler.ToRequestsFunc(
-				// always enqueue the same HyperConverged object, since there should be only one
+				// enqueue using a placeholder to be able to discriminate request triggered
+				// by changes on the HyperConverged object from request triggered by changes
+				// on a secondary CR controlled by HCO
 				func(a handler.MapObject) []reconcile.Request {
 					return []reconcile.Request{
-						{NamespacedName: hco},
+						{NamespacedName: secCRPlaceholder},
 					}
 				}),
 		})
@@ -157,8 +162,30 @@ type ReconcileHyperConverged struct {
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 
-	req := common.NewHcoRequest(request, log, r.upgradeMode)
-	req.Logger.Info("Reconciling HyperConverged operator")
+	secCRPlaceholder, err := getSecondaryCRPlaceholder()
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	hcoTriggered := true
+	pRequest := request
+	if request.NamespacedName == secCRPlaceholder {
+		hcoTriggered = false
+		hco, err := getHyperconverged()
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		pRequest = reconcile.Request{
+			NamespacedName: hco,
+		}
+	}
+
+	req := common.NewHcoRequest(pRequest, log, r.upgradeMode, hcoTriggered)
+	if req.HCOTriggered {
+		req.Logger.Info("Reconciling HyperConverged operator")
+	} else {
+		req.Logger.Info("The reconciliation got triggered by a secondary CR object")
+	}
 
 	// Fetch the HyperConverged instance
 	instance, err := r.getHcoInstanceFromK8s(req)
@@ -687,6 +714,23 @@ func getHyperconverged() (types.NamespacedName, error) {
 	return hco, nil
 }
 
+// getOtherCrPlaceholder returns a placeholder to be able to discriminate
+// reconciliation requests triggered by secondary watched resources
+// use a random generated suffix for security reasons
+func getSecondaryCRPlaceholder() (types.NamespacedName, error) {
+	hco := types.NamespacedName{
+		Name: secondaryCRPrefix + randomConstSuffix,
+	}
+
+	namespace, err := hcoutil.GetOperatorNamespaceFromEnv()
+	if err != nil {
+		return hco, err
+	}
+	hco.Namespace = namespace
+
+	return hco, nil
+}
+
 func contains(slice []string, s string) bool {
 	for _, element := range slice {
 		if element == s {
@@ -704,4 +748,8 @@ func drop(slice []string, s string) []string {
 		}
 	}
 	return newSlice
+}
+
+func init() {
+	randomConstSuffix = uuid.New().String()
 }

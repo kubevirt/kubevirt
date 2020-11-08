@@ -57,22 +57,28 @@ func (h *cdiHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 	return gh.ensure(req)
 }
 
-func (h *cdiHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, error) {
+func (h *cdiHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	cdi, ok1 := required.(*cdiv1beta1.CDI)
 	found, ok2 := exists.(*cdiv1beta1.CDI)
 	if !ok1 || !ok2 {
-		return false, errors.New("can't convert to CDI")
+		return false, false, errors.New("can't convert to CDI")
 	}
 	if !reflect.DeepEqual(found.Spec, cdi.Spec) {
-		req.Logger.Info("Updating existing CDI' Spec to its default value")
+		overwritten := false
+		if req.HCOTriggered {
+			req.Logger.Info("Updating existing CDI's Spec to new opinionated values")
+		} else {
+			req.Logger.Info("Reconciling an externally updated CDI's Spec to its opinionated values")
+			overwritten = true
+		}
 		cdi.Spec.DeepCopyInto(&found.Spec)
 		err := h.Client.Update(req.Ctx, found)
 		if err != nil {
-			return false, err
+			return false, false, err
 		}
-		return true, nil
+		return true, overwritten, nil
 	}
-	return false, nil
+	return false, false, nil
 }
 
 func (h *cdiHandler) postFoundImp(req *common.HcoRequest, exists runtime.Object) error {

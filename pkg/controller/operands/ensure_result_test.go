@@ -18,6 +18,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			Expect(er.Name).To(BeEmpty())
 			Expect(er.UpgradeDone).To(BeFalse())
 			Expect(er.Updated).To(BeFalse())
+			Expect(er.Overwritten).To(BeFalse())
 			Expect(er.Created).To(BeFalse())
 			Expect(er.Err).To(BeNil())
 		})
@@ -29,6 +30,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			Expect(er.Name).To(Equal("a name"))
 			Expect(er.UpgradeDone).To(BeFalse())
 			Expect(er.Updated).To(BeFalse())
+			Expect(er.Overwritten).To(BeFalse())
 			Expect(er.Created).To(BeFalse())
 			Expect(er.Err).To(BeNil())
 		})
@@ -40,6 +42,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			Expect(er.Name).To(BeEmpty())
 			Expect(er.UpgradeDone).To(BeTrue())
 			Expect(er.Updated).To(BeFalse())
+			Expect(er.Overwritten).To(BeFalse())
 			Expect(er.Created).To(BeFalse())
 			Expect(er.Err).To(BeNil())
 
@@ -48,6 +51,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			Expect(er.Name).To(BeEmpty())
 			Expect(er.UpgradeDone).To(BeFalse())
 			Expect(er.Updated).To(BeFalse())
+			Expect(er.Overwritten).To(BeFalse())
 			Expect(er.Created).To(BeFalse())
 			Expect(er.Err).To(BeNil())
 		})
@@ -59,6 +63,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			Expect(er.Name).To(BeEmpty())
 			Expect(er.UpgradeDone).To(BeFalse())
 			Expect(er.Updated).To(BeFalse())
+			Expect(er.Overwritten).To(BeFalse())
 			Expect(er.Created).To(BeTrue())
 			Expect(er.Err).To(BeNil())
 		})
@@ -69,6 +74,18 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			Expect(er.Name).To(BeEmpty())
 			Expect(er.UpgradeDone).To(BeFalse())
 			Expect(er.Updated).To(BeTrue())
+			Expect(er.Overwritten).To(BeFalse())
+			Expect(er.Created).To(BeFalse())
+			Expect(er.Err).To(BeNil())
+		})
+
+		It("Should set overwritten", func() {
+			er := NewEnsureResult(kv)
+			er.SetOverwritten()
+			Expect(er.Name).To(BeEmpty())
+			Expect(er.UpgradeDone).To(BeFalse())
+			Expect(er.Updated).To(BeFalse())
+			Expect(er.Overwritten).To(BeTrue())
 			Expect(er.Created).To(BeFalse())
 			Expect(er.Err).To(BeNil())
 		})
@@ -80,6 +97,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			Expect(er.Name).To(BeEmpty())
 			Expect(er.UpgradeDone).To(BeFalse())
 			Expect(er.Updated).To(BeFalse())
+			Expect(er.Overwritten).To(BeFalse())
 			Expect(er.Created).To(BeFalse())
 			Expect(er.Err).ToNot(BeNil())
 		})
@@ -88,6 +106,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			er := NewEnsureResult(kv).
 				Error(errors.New("a test error")).
 				SetUpdated().
+				SetOverwritten().
 				SetCreated().
 				SetUpgradeDone(true).
 				SetName("a name")
@@ -95,6 +114,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			Expect(er.Name).To(Equal("a name"))
 			Expect(er.UpgradeDone).To(BeTrue())
 			Expect(er.Updated).To(BeTrue())
+			Expect(er.Overwritten).To(BeTrue())
 			Expect(er.Created).To(BeTrue())
 			Expect(er.Err).ToNot(BeNil())
 		})

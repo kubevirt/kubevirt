@@ -59,11 +59,20 @@ func (h vmImportHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 
 	req.Logger.Info("VM import exists", "vmImport.Namespace", found.Namespace, "vmImport.Name", found.Name)
 	if !reflect.DeepEqual(vmImport.Spec, found.Spec) {
-		req.Logger.Info("Updating existing VM import")
+		overwritten := false
+		if req.HCOTriggered {
+			req.Logger.Info("Updating existing VMimport's Spec to new opinionated values")
+		} else {
+			req.Logger.Info("Reconciling an externally updated VMimport's Spec to its opinionated values")
+			overwritten = true
+		}
 		vmImport.Spec.DeepCopyInto(&found.Spec)
 		err = h.Client.Update(req.Ctx, found)
 		if err != nil {
 			return res.Error(err)
+		}
+		if overwritten {
+			res.SetOverwritten()
 		}
 		return res.SetUpdated()
 	}

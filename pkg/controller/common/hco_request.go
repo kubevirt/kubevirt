@@ -18,9 +18,10 @@ type HcoRequest struct {
 	ComponentUpgradeInProgress bool                       // if in upgrade mode, accumulate the component upgrade status
 	Dirty                      bool                       // is something was changed in the CR
 	StatusDirty                bool                       // is something was changed in the CR's Status
+	HCOTriggered               bool                       // if the request got triggered by a direct modification on HCO CR
 }
 
-func NewHcoRequest(request reconcile.Request, log logr.Logger, upgradeMode bool) *HcoRequest {
+func NewHcoRequest(request reconcile.Request, log logr.Logger, upgradeMode, hcoTriggered bool) *HcoRequest {
 	return &HcoRequest{
 		Request:                    request,
 		Logger:                     log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name),
@@ -30,6 +31,7 @@ func NewHcoRequest(request reconcile.Request, log logr.Logger, upgradeMode bool)
 		ComponentUpgradeInProgress: upgradeMode,
 		Dirty:                      false,
 		StatusDirty:                false,
+		HCOTriggered:               hcoTriggered,
 	}
 }
 
