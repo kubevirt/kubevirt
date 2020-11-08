@@ -797,11 +797,14 @@ var _ = Describe("[Serial]SRIOV", func() {
 			startVmi(vmi)
 			waitVmi(vmi)
 
-			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-
-			interfaceName, err := getInterfaceNameByMAC(vmi, mac)
-			Expect(err).NotTo(HaveOccurred())
+			var interfaceName string
+			Eventually(func() error {
+				var err error
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				interfaceName, err = getInterfaceNameByMAC(vmi, mac)
+				return err
+			}, 140*time.Second, 5*time.Second).Should(Succeed())
 
 			By("checking virtual machine instance has an interface with the requested MAC address")
 			Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed())
