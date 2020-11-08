@@ -56,10 +56,20 @@ const (
 	invalidRequestMessageFormat = "Request does not match expected name (%v) and namespace (%v)"
 	commonDegradedReason        = "HCODegraded"
 	commonProgressingReason     = "HCOProgressing"
+	taintedConfigurationReason  = "UnsupportedFeatureAnnotation"
+	taintedConfigurationMessage = "Unsupported feature was activated via an HCO annotation"
 
 	hcoVersionName    = "operator"
 	secondaryCRPrefix = "hco-controlled-cr-"
 )
+
+// Annotations used to patch operand CRs with unsupported/unofficial/hidden features.
+// The presence of any of these annotations raises the hcov1beta1.ConditionTaintedConfiguration condition.
+var JSONPatchAnnotationNames = []string{
+	common.JSONPatchKVAnnotationName,
+	common.JSONPatchCDIAnnotationName,
+	common.JSONPatchCNAOAnnotationName,
+}
 
 // Add creates a new HyperConverged Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -685,6 +695,9 @@ func (r *ReconcileHyperConverged) updateConditions(req *common.HcoRequest) error
 		conditionsv1.SetStatusCondition(&req.Instance.Status.Conditions, cond)
 	}
 
+	// Detect a "TaintedConfiguration" state, and raise a corresponding event
+	r.detectTaintedConfiguration(req)
+
 	req.StatusDirty = true
 	return nil
 }
@@ -696,6 +709,47 @@ func (r *ReconcileHyperConverged) setLabels(req *common.HcoRequest) {
 	if req.Instance.ObjectMeta.Labels[hcoutil.AppLabel] == "" {
 		req.Instance.ObjectMeta.Labels[hcoutil.AppLabel] = req.Instance.Name
 		req.Dirty = true
+	}
+}
+
+func (r *ReconcileHyperConverged) detectTaintedConfiguration(req *common.HcoRequest) {
+	conditionExists := conditionsv1.IsStatusConditionTrue(req.Instance.Status.Conditions,
+		hcov1beta1.ConditionTaintedConfiguration)
+
+	// A tainted configuration state is indicated by the
+	// presence of at least one of the JSON Patch annotations
+	tainted := false
+	for _, jpa := range JSONPatchAnnotationNames {
+		_, exists := req.Instance.ObjectMeta.Annotations[jpa]
+		if exists {
+			tainted = true
+			break
+		}
+	}
+
+	if tainted {
+		conditionsv1.SetStatusCondition(&req.Instance.Status.Conditions, conditionsv1.Condition{
+			Type:    hcov1beta1.ConditionTaintedConfiguration,
+			Status:  corev1.ConditionTrue,
+			Reason:  taintedConfigurationReason,
+			Message: taintedConfigurationMessage,
+		})
+
+		if !conditionExists {
+			// Only log at "first occurrence" of detection
+			req.Logger.Info("Detected tainted configuration state for HCO")
+			req.StatusDirty = true
+		}
+	} else { // !tainted
+
+		// For the sake of keeping the JSONPatch backdoor in low profile,
+		// we just remove the condition instead of False'ing it.
+		if conditionExists {
+			conditionsv1.RemoveStatusCondition(&req.Instance.Status.Conditions, hcov1beta1.ConditionTaintedConfiguration)
+
+			req.Logger.Info("Detected untainted configuration state for HCO")
+			req.StatusDirty = true
+		}
 	}
 }
 

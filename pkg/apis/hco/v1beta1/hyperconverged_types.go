@@ -114,9 +114,17 @@ func (vs *Versions) getVersion(name string) (string, bool) {
 	return "", false
 }
 
-// ConditionReconcileComplete communicates the status of the HyperConverged resource's
-// reconcile functionality. Basically, is the Reconcile function running to completion.
-const ConditionReconcileComplete conditionsv1.ConditionType = "ReconcileComplete"
+const (
+
+	// ConditionReconcileComplete communicates the status of the HyperConverged resource's
+	// reconcile functionality. Basically, is the Reconcile function running to completion.
+	ConditionReconcileComplete conditionsv1.ConditionType = "ReconcileComplete"
+
+	// ConditionTaintedConfiguration indicates that a hidden/debug configuration
+	// has been applied to the HyperConverged resource via a specialized annotation.
+	// This condition is exposed only when its value is True, and is otherwise hidden.
+	ConditionTaintedConfiguration conditionsv1.ConditionType = "TaintedConfiguration"
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
