@@ -19,8 +19,8 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "agent_parser_test.go",
         "agent_poller_suite_test.go",
-        "agent_poller_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
