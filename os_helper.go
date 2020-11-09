@@ -21,11 +21,12 @@ package util
 
 import (
 	"io"
-
 	"kubevirt.io/client-go/log"
 )
 
-// If err=nil only print and don't update the error in the calling function
+// CloseIOAndCheckErr closes the file and check the returned error. 
+// If there was an error a log messags will be printed. 
+// If a valid address (not nil) is passed in  err the function will also update the error 
 // Note: to update the error the calling funtion need to use named returned variable
 func CloseIOAndCheckErr(c io.Closer, err *error) {
 	if ferr := c.Close(); ferr != nil {

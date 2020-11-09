@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 )
 

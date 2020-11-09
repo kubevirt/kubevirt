@@ -827,13 +827,12 @@ var updateHostsFile = func(entry string) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed opening file: %s", err)
 	}
-	defer util.CloseIOAndCheckErr(file, &err)
+	defer kutil.CloseIOAndCheckErr(file, &err)
 
 	_, err = file.WriteString(entry)
 	if err != nil {
 		return fmt.Errorf("failed writing to file: %s", err)
 	}
-
 	return nil
 }
 
