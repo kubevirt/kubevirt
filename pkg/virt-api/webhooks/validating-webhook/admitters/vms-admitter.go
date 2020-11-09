@@ -34,6 +34,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
+	"kubevirt.io/kubevirt/pkg/controller"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -100,6 +101,11 @@ func (admitter *VMsAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	}
 
 	causes = validateStateChangeRequests(ar.Request, &vm)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	causes = validateVolumeRequests(ar.Request, &vm, admitter.ClusterConfig)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -270,6 +276,57 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	}
 
 	return causes
+}
+
+func validateVolumeRequests(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMachine, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+
+	if len(vm.Status.VolumeRequests) == 0 {
+		return nil
+	}
+
+	spec := vm.Spec.Template.Spec.DeepCopy()
+
+	volumeMap := make(map[string]*v1.Volume)
+
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		volumeMap[volume.Name] = &volume
+	}
+
+	for _, volumeRequest := range vm.Status.VolumeRequests {
+		if volumeRequest.AddVolumeOptions != nil && volumeRequest.RemoveVolumeOptions != nil {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "VolumeRequests require either addVolumeOptions or removeVolumeOptions to be set, not both",
+				Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
+			}}
+		}
+
+		name := ""
+		if volumeRequest.AddVolumeOptions != nil {
+			name = volumeRequest.AddVolumeOptions.Name
+			_, ok := volumeMap[name]
+			if ok {
+				return []metav1.StatusCause{{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("Volume [%s] aleady exists", name),
+					Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
+				}}
+			}
+		} else if volumeRequest.RemoveVolumeOptions != nil {
+			name = volumeRequest.RemoveVolumeOptions.Name
+		} else {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "VolumeRequests require either addVolumeOptions or removeVolumeOptions to be set",
+				Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
+			}}
+		}
+
+		spec = controller.ApplyVolumeRequestOnVMISpec(spec, &volumeRequest)
+	}
+
+	// this simulates injecting the changes into the VMI template and validates it will work.
+	return ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec", "template", "spec"), spec, config)
 }
 
 func validateStateChangeRequests(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
