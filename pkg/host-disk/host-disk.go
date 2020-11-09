@@ -33,8 +33,8 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/types"
 )
 
 var pvcBaseDir = "/var/run/kubevirt-private/vmi-disks"
@@ -93,18 +93,15 @@ func dirBytesAvailable(path string) (uint64, error) {
 func createSparseRaw(fullPath string, size int64) (err error) {
 	offset := size - 1
 	f, err := os.Create(fullPath)
-
 	if err != nil {
 		return err
 	}
-
 	defer util.CloseIOAndCheckErr(f, &err)
-
 	_, err = f.WriteAt([]byte{0}, offset)
 	if err != nil {
 		return err
 	}
-	return err
+	return nil
 }
 
 func getPVCDiskImgPath(volumeName string, diskName string) string {

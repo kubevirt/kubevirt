@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/util"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -227,7 +228,6 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 		if err != nil {
 			return err
 		}
-
 		ghostRecordGlobalCache[key] = record
 	}
 
@@ -243,7 +243,7 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 		return fmt.Errorf("can not add ghost record when entry already exists with differing socket file location")
 	}
 
-	return err
+	return nil
 }
 
 func DeleteGhostRecord(namespace string, name string) error {

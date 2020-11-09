@@ -6,6 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/imageupload",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/util:go_default_library",
         "//pkg/virtctl/templates:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
