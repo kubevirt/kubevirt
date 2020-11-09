@@ -136,7 +136,7 @@ func main() {
 
 	// a lock is not needed in webhook mode
 	// TODO: remove this once we will move to OLM operator conditions
-	needLeaderElection := !operatorWebhookMode
+	needLeaderElection := !operatorWebhookMode && !runInLocal
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{

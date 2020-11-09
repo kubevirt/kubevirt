@@ -129,12 +129,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&schedulingv1.PriorityClass{},
 		&vmimportv1beta1.VMImportConfig{},
 	} {
+		msg := fmt.Sprintf("Reconciling for %T", resource)
 		err = c.Watch(&source.Kind{Type: resource}, &handler.EnqueueRequestsFromMapFunc{
 			ToRequests: handler.ToRequestsFunc(
 				// enqueue using a placeholder to be able to discriminate request triggered
 				// by changes on the HyperConverged object from request triggered by changes
 				// on a secondary CR controlled by HCO
 				func(a handler.MapObject) []reconcile.Request {
+					log.Info(msg)
 					return []reconcile.Request{
 						{NamespacedName: secCRPlaceholder},
 					}

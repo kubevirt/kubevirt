@@ -45,6 +45,7 @@ def get_env_file(outdir, frmt='txt'):
         with open(f'{outdir}/envs{ext}', 'w') as out:
             vars = [line.strip() for line in infile if rgx.match(line)]
             vars.append('KUBECONFIG=None')
+            vars.append('WEBHOOK_MODE=false')
             vars = map(lambda s: get_env(s), vars)
             var_str = f"{sep.join(vars)}{sep}WATCH_NAMESPACE=kubevirt-hyperconverged{sep}OSDK_FORCE_RUN_MODE=local{sep}OPERATOR_NAMESPACE=kubevirt-hyperconverged"
             var_str = var_str.replace("CONVERSION_CONTAINER_VERSION=", "CONVERSION_CONTAINER=").replace("VMWARE_CONTAINER_VERSION=", "VMWARE_CONTAINER=")
