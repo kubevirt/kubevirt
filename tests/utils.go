@@ -2685,14 +2685,12 @@ func WaitForDataVolumeReady(namespace, name string, seconds int) {
 	waitForDataVolumePhase(namespace, name, seconds, cdiv1.WaitForFirstConsumer, cdiv1.Succeeded)
 }
 
-func WaitForDataVolumePhaseWFFC(obj runtime.Object, seconds int) {
-	vmi, ok := obj.(*v1.VirtualMachineInstance)
-	ExpectWithOffset(1, ok).To(BeTrue(), "Object is not of type *v1.VMI")
-	waitForDataVolumePhase(vmi.Namespace, vmi.Spec.Volumes[0].DataVolume.Name, seconds, cdiv1.WaitForFirstConsumer)
+func WaitForDataVolumePhaseWFFC(namespace, name string, seconds int) {
+	waitForDataVolumePhase(namespace, name, seconds, cdiv1.WaitForFirstConsumer)
 }
 
 func WaitForSuccessfulDataVolumeImport(dv *cdiv1.DataVolume, seconds int) {
-	waitForDataVolumePhase(dv.Namespace, dv.Name, seconds, cdiv1.WaitForFirstConsumer, cdiv1.Succeeded)
+	waitForDataVolumePhase(dv.Namespace, dv.Name, seconds, cdiv1.Succeeded)
 }
 
 func waitForDataVolumePhase(namespace, name string, seconds int, phase ...cdiv1.DataVolumePhase) {
