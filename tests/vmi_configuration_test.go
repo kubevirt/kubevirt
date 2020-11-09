@@ -1702,7 +1702,7 @@ var _ = Describe("Configurations", func() {
 		})
 	})
 
-	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache settings and PVC", func() {
+	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache and io settings and PVC", func() {
 		var originalConfig v1.KubeVirtConfiguration
 
 		BeforeEach(func() {
@@ -1784,6 +1784,66 @@ var _ = Describe("Configurations", func() {
 			By("checking if default cache 'writethrough' has been set to fs which does not support direct I/O")
 			Expect(disks[6].Alias.Name).To(Equal("hostdisk"))
 			Expect(disks[6].Driver.Cache).To(Equal(cacheWritethrough))
+		})
+
+		It("[test_id:1683]should set appropriate IO modes", func() {
+			tests.SkipPVCTestIfRunnigOnKindInfra()
+
+			vmi := tests.NewRandomVMI()
+			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64M")
+
+			By("adding disks to a VMI")
+			// disk[0]:  File, sparsed, no user-input, cache=none
+			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
+
+			// disk[1]:  Block, no user-input, cache=none
+			tests.AddPVCDisk(vmi, "block-pvc", "virtio", tests.BlockDiskForTest)
+
+			// disk[2]: File, not-sparsed, no user-input, cache=none
+			tests.AddPVCDisk(vmi, "hostpath-pvc", "virtio", tests.DiskAlpineHostPath)
+
+			// disk[3]:  File, sparsed, user-input=threads, cache=none
+			tests.AddEphemeralDisk(vmi, "ephemeral-disk2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			vmi.Spec.Domain.Devices.Disks[3].Cache = v1.CacheNone
+			vmi.Spec.Domain.Devices.Disks[3].IO = v1.IOThreads
+
+			tests.RunVMIAndExpectLaunch(vmi, 60)
+			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			disks := runningVMISpec.Devices.Disks
+			By("checking if number of attached disks is equal to real disks number")
+			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(len(disks)))
+
+			ioNative := string(v1.IONative)
+			ioThreads := string(v1.IOThreads)
+			ioNone := ""
+
+			By("checking if default io has not been seti for sparsed file")
+			Expect(disks[0].Alias.Name).To(Equal("ephemeral-disk1"))
+			Expect(disks[0].Driver.IO).To(Equal(ioNone))
+
+			By("checking if default io mode has been set to 'native' for block device")
+			Expect(disks[1].Alias.Name).To(Equal("block-pvc"))
+			Expect(disks[1].Driver.IO).To(Equal(ioNative))
+
+			By("checking if default cache 'none' has been set to pvc disk")
+			Expect(disks[2].Alias.Name).To(Equal("hostpath-pvc"))
+			// PVC is mounted as tmpfs on kind, which does not support direct I/O.
+			// As such, it behaves as plugging in a hostDisk - check disks[6].
+			if tests.IsRunningOnKindInfra() {
+				// The chache mode is set to cacheWritethrough
+				Expect(disks[2].Driver.IO).To(Equal(ioNone))
+			} else {
+				// The chache mode is set to cacheNone
+				Expect(disks[2].Driver.IO).To(Equal(ioNative))
+			}
+
+			By("checking if requested io mode 'threads' has been set")
+			Expect(disks[3].Alias.Name).To(Equal("ephemeral-disk2"))
+			Expect(disks[3].Driver.IO).To(Equal(ioThreads))
+
 		})
 	})
 
