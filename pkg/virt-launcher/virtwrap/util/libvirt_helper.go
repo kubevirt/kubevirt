@@ -341,7 +341,6 @@ func NewDomainFromName(name string, vmiUID types.UID) *api.Domain {
 	return domain
 }
 
-// Use named return err to allow checking Close() errors in defer
 func SetupLibvirt() (err error) {
 	// TODO: setting permissions and owners is not part of device plugins.
 	// Configure these manually right now on "/dev/kvm"

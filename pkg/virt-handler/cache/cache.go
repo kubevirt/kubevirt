@@ -187,7 +187,6 @@ func HasGhostRecord(namespace string, name string) bool {
 	return ok
 }
 
-// Use named return err to allow checking Close() errors in defer
 func AddGhostRecord(namespace string, name string, socketFile string, uid types.UID) (err error) {
 	ghostRecordGlobalMutex.Lock()
 	defer ghostRecordGlobalMutex.Unlock()

@@ -4,7 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "hw_helper.go",
-        "os_utils.go",
+        "os_helper.go",
         "util.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/util",
