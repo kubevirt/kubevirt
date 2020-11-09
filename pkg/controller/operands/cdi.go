@@ -31,7 +31,7 @@ func newCdiHandler(Client client.Client, Scheme *runtime.Scheme) *cdiHandler {
 		// It's not legal, so remove that.
 		removeExistingOwner: true,
 		getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
-			return hc.NewCDI()
+			return NewCDI(hc)
 		},
 		getEmptyCr: func() runtime.Object { return &cdiv1beta1.CDI{} },
 		getConditions: func(cr runtime.Object) []conditionsv1.Condition {
@@ -98,6 +98,30 @@ func (h *cdiHandler) postFoundImp(req *common.HcoRequest, exists runtime.Object)
 	}
 
 	return nil
+}
+
+func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) *cdiv1beta1.CDI {
+	uninstallStrategy := cdiv1beta1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist
+
+	spec := cdiv1beta1.CDISpec{
+		UninstallStrategy: &uninstallStrategy,
+	}
+
+	if hc.Spec.Infra.NodePlacement != nil {
+		hc.Spec.Infra.NodePlacement.DeepCopyInto(&spec.Infra)
+	}
+	if hc.Spec.Workloads.NodePlacement != nil {
+		hc.Spec.Workloads.NodePlacement.DeepCopyInto(&spec.Workloads)
+	}
+
+	return &cdiv1beta1.CDI{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cdi-" + hc.Name,
+			Labels:    getLabels(hc),
+			Namespace: getNamespace(hcoutil.UndefinedNamespace, opts),
+		},
+		Spec: spec,
+	}
 }
 
 func (h *cdiHandler) ensureKubeVirtStorageRole(req *common.HcoRequest) error {

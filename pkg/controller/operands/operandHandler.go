@@ -90,11 +90,11 @@ func (h OperandHandler) Ensure(req *common.HcoRequest) error {
 
 func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 	for _, obj := range []runtime.Object{
-		req.Instance.NewKubeVirt(),
-		req.Instance.NewCDI(),
-		req.Instance.NewNetworkAddons(),
-		req.Instance.NewKubeVirtCommonTemplateBundle(),
-		req.Instance.NewConsoleCLIDownload(),
+		NewKubeVirt(req.Instance),
+		NewCDI(req.Instance),
+		NewNetworkAddons(req.Instance),
+		NewKubeVirtCommonTemplateBundle(req.Instance),
+		NewConsoleCLIDownload(req.Instance),
 		NewVMImportForCR(req.Instance),
 	} {
 		err := hcoutil.EnsureDeleted(req.Ctx, h.client, obj, req.Instance.Name, req.Logger, false)

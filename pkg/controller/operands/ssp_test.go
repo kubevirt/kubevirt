@@ -28,7 +28,7 @@ var _ = Describe("SSP Operands", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := hco.NewKubeVirtCommonTemplateBundle()
+			expectedResource := NewKubeVirtCommonTemplateBundle(hco)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
 			handler := newCommonTemplateBundleHandler(cl, commonTestUtils.GetScheme()).(*commonTemplateBundleHandler)
 			res := handler.Ensure(req)
@@ -50,7 +50,7 @@ var _ = Describe("SSP Operands", func() {
 		})
 
 		It("should find if present", func() {
-			expectedResource := hco.NewKubeVirtCommonTemplateBundle()
+			expectedResource := NewKubeVirtCommonTemplateBundle(hco)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := newCommonTemplateBundleHandler(cl, commonTestUtils.GetScheme()).(*commonTemplateBundleHandler)
@@ -70,7 +70,7 @@ var _ = Describe("SSP Operands", func() {
 		})
 
 		It("should reconcile to default", func() {
-			existingResource := hco.NewKubeVirtCommonTemplateBundle()
+			existingResource := NewKubeVirtCommonTemplateBundle(hco)
 			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
 
 			existingResource.Spec.Version = "Non default value"

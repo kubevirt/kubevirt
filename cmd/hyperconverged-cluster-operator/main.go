@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/webhooks"
 	"github.com/spf13/pflag"
 	"os"
@@ -248,7 +249,7 @@ func main() {
 // so we are never supposed to delete it: because the priority class
 // is completely opaque to OLM it will remain as a leftover on the cluster
 func createPriorityClass(ctx context.Context, mgr manager.Manager) error {
-	pc := (&hcov1beta1.HyperConverged{}).NewKubeVirtPriorityClass()
+	pc := operands.NewKubeVirtPriorityClass(&hcov1beta1.HyperConverged{})
 
 	key, err := client.ObjectKeyFromObject(pc)
 	if err != nil {

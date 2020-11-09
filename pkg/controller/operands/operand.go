@@ -2,6 +2,7 @@ package operands
 
 import (
 	"fmt"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"os"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
@@ -227,4 +228,23 @@ func componentNotAvailable(req *common.HcoRequest, component string, msg string)
 func checkComponentVersion(versionEnvName, actualVersion string) bool {
 	expectedVersion := os.Getenv(versionEnvName)
 	return expectedVersion != "" && expectedVersion == actualVersion
+}
+
+func getNamespace(defaultNamespace string, opts []string) string {
+	if len(opts) > 0 {
+		return opts[0]
+	}
+	return defaultNamespace
+}
+
+func getLabels(hc *hcov1beta1.HyperConverged) map[string]string {
+	hcoName := hcov1beta1.HyperConvergedName
+
+	if hc.Name != "" {
+		hcoName = hc.Name
+	}
+
+	return map[string]string{
+		hcoutil.AppLabel: hcoName,
+	}
 }

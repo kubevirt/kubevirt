@@ -31,7 +31,7 @@ var _ = Describe("CLI Download", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := hco.NewConsoleCLIDownload()
+			expectedResource := NewConsoleCLIDownload(hco)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
 			handler := &CLIDownloadHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			err := handler.Ensure(req)
@@ -49,7 +49,7 @@ var _ = Describe("CLI Download", func() {
 		})
 
 		It("should find if present", func() {
-			expectedResource := hco.NewConsoleCLIDownload()
+			expectedResource := NewConsoleCLIDownload(hco)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/consoleclidownloads/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := &CLIDownloadHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
@@ -70,7 +70,7 @@ var _ = Describe("CLI Download", func() {
 			handler := &CLIDownloadHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
 			err := handler.Ensure(req)
 			Expect(err).To(BeNil())
-			expectedResource := hco.NewConsoleCLIDownload()
+			expectedResource := NewConsoleCLIDownload(hco)
 			key, err := client.ObjectKeyFromObject(expectedResource)
 			Expect(err).ToNot(HaveOccurred())
 			foundResource := &consolev1.ConsoleCLIDownload{}

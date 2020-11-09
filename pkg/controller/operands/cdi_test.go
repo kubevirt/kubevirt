@@ -31,7 +31,7 @@ var _ = Describe("CDI Operand", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := hco.NewCDI()
+			expectedResource := NewCDI(hco)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
 			handler := newCdiHandler(cl, commonTestUtils.GetScheme())
 			res := handler.Ensure(req)
@@ -50,7 +50,7 @@ var _ = Describe("CDI Operand", func() {
 		})
 
 		It("should find if present", func() {
-			expectedResource := hco.NewCDI()
+			expectedResource := NewCDI(hco)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := newCdiHandler(cl, commonTestUtils.GetScheme())
@@ -86,9 +86,9 @@ var _ = Describe("CDI Operand", func() {
 		})
 
 		It("should set default UninstallStrategy if missing", func() {
-			expectedResource := hco.NewCDI()
+			expectedResource := NewCDI(hco)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			missingUSResource := hco.NewCDI()
+			missingUSResource := NewCDI(hco)
 			missingUSResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", missingUSResource.Namespace, missingUSResource.Name)
 			missingUSResource.Spec.UninstallStrategy = nil
 
@@ -110,7 +110,7 @@ var _ = Describe("CDI Operand", func() {
 		})
 
 		It("should add node placement if missing in CDI", func() {
-			existingResource := hco.NewCDI()
+			existingResource := NewCDI(hco)
 
 			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
@@ -152,7 +152,7 @@ var _ = Describe("CDI Operand", func() {
 			hcoNodePlacement := commonTestUtils.NewHco()
 			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
 			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
-			existingResource := hcoNodePlacement.NewCDI()
+			existingResource := NewCDI(hcoNodePlacement)
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := newCdiHandler(cl, commonTestUtils.GetScheme())
@@ -189,7 +189,7 @@ var _ = Describe("CDI Operand", func() {
 		It("should modify node placement according to HCO CR", func() {
 			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
-			existingResource := hco.NewCDI()
+			existingResource := NewCDI(hco)
 
 			// now, modify HCO's node placement
 			seconds3 := int64(3)
@@ -226,7 +226,7 @@ var _ = Describe("CDI Operand", func() {
 		It("should overwrite node placement if directly set on CDI CR", func() {
 			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
-			existingResource := hco.NewCDI()
+			existingResource := NewCDI(hco)
 
 			// mock a reconciliation triggered by a change in CDI CR
 			req.HCOTriggered = false
@@ -272,7 +272,7 @@ var _ = Describe("CDI Operand", func() {
 		})
 
 		It("should handle conditions", func() {
-			expectedResource := hco.NewCDI()
+			expectedResource := NewCDI(hco)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			expectedResource.Status.Conditions = []conditionsv1.Condition{
 				conditionsv1.Condition{

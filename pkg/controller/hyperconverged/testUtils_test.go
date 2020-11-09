@@ -123,7 +123,7 @@ func getBasicDeployment() *BasicExpected {
 	}
 	res.hco = hco
 
-	res.pc = hco.NewKubeVirtPriorityClass()
+	res.pc = operands.NewKubeVirtPriorityClass(hco)
 	// These are all of the objects that we expect to "find" in the client because
 	// we already created them in a previous reconcile.
 	expectedKVConfig := operands.NewKubeVirtConfigForCR(hco, namespace)
@@ -141,7 +141,7 @@ func getBasicDeployment() *BasicExpected {
 	expectedKVStorageRoleBinding.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/rolebindings/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
 	res.kvStorageRoleBinding = expectedKVStorageRoleBinding
 
-	expectedKV := hco.NewKubeVirt(namespace)
+	expectedKV := operands.NewKubeVirt(hco, namespace)
 	expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)
 	expectedKV.Status.Conditions = []kubevirtv1.KubeVirtCondition{
 		{
@@ -159,17 +159,17 @@ func getBasicDeployment() *BasicExpected {
 	}
 	res.kv = expectedKV
 
-	expectedCDI := hco.NewCDI()
+	expectedCDI := operands.NewCDI(hco)
 	expectedCDI.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cdis/%s", expectedCDI.Namespace, expectedCDI.Name)
 	expectedCDI.Status.Conditions = getGenericCompletedConditions()
 	res.cdi = expectedCDI
 
-	expectedCNA := hco.NewNetworkAddons()
+	expectedCNA := operands.NewNetworkAddons(hco)
 	expectedCNA.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cnas/%s", expectedCNA.Namespace, expectedCNA.Name)
 	expectedCNA.Status.Conditions = getGenericCompletedConditions()
 	res.cna = expectedCNA
 
-	expectedKVCTB := hco.NewKubeVirtCommonTemplateBundle()
+	expectedKVCTB := operands.NewKubeVirtCommonTemplateBundle(hco)
 	expectedKVCTB.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/ctbs/%s", expectedKVCTB.Namespace, expectedKVCTB.Name)
 	expectedKVCTB.Status.Conditions = getGenericCompletedConditions()
 	res.kvCtb = expectedKVCTB

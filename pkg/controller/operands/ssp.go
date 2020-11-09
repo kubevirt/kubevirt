@@ -40,7 +40,7 @@ func newCommonTemplateBundleHandler(clt client.Client, scheme *runtime.Scheme) O
 }
 
 func (h *commonTemplateBundleHandler) Ensure(req *common.HcoRequest) *EnsureResult {
-	kvCTB := req.Instance.NewKubeVirtCommonTemplateBundle()
+	kvCTB := NewKubeVirtCommonTemplateBundle(req.Instance)
 	res := NewEnsureResult(kvCTB)
 	// todo if !r.clusterInfo.IsOpenshift() { // SSP operators Only supported in OpenShift. Ignore in K8s.
 	//    return res.SetUpgradeDone(true)
@@ -121,6 +121,16 @@ func (h *commonTemplateBundleHandler) Ensure(req *common.HcoRequest) *EnsureResu
 	}
 
 	return res.SetUpgradeDone(req.ComponentUpgradeInProgress && upgradeInProgress)
+}
+
+func NewKubeVirtCommonTemplateBundle(hc *hcov1beta1.HyperConverged, opts ...string) *sspv1.KubevirtCommonTemplatesBundle {
+	return &sspv1.KubevirtCommonTemplatesBundle{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "common-templates-" + hc.Name,
+			Labels:    getLabels(hc),
+			Namespace: getNamespace(hcoutil.OpenshiftNamespace, opts),
+		},
+	}
 }
 
 type nodeLabellerBundleHandler sspOperand

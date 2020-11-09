@@ -27,7 +27,7 @@ const (
 type kubevirtHandler genericOperand
 
 func (kv *kubevirtHandler) Ensure(req *common.HcoRequest) *EnsureResult {
-	virt := req.Instance.NewKubeVirt()
+	virt := NewKubeVirt(req.Instance)
 	res := NewEnsureResult(virt)
 	if err := controllerutil.SetControllerReference(req.Instance, virt, kv.Scheme); err != nil {
 		return res.Error(err)
@@ -86,6 +86,51 @@ func (kv *kubevirtHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 	upgradeDone := req.ComponentUpgradeInProgress && isReady && checkComponentVersion(hcoutil.KubevirtVersionEnvV, found.Status.ObservedKubeVirtVersion)
 
 	return res.SetUpgradeDone(upgradeDone)
+}
+
+func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) *kubevirtv1.KubeVirt {
+	spec := kubevirtv1.KubeVirtSpec{
+		UninstallStrategy: kubevirtv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist,
+		Infra:             hcoConfig2KvConfig(hc.Spec.Infra),
+		Workloads:         hcoConfig2KvConfig(hc.Spec.Workloads),
+	}
+
+	return &kubevirtv1.KubeVirt{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubevirt-" + hc.Name,
+			Labels:    getLabels(hc),
+			Namespace: getNamespace(hc.Namespace, opts),
+		},
+		Spec: spec,
+	}
+}
+
+func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig) *kubevirtv1.ComponentConfig {
+	if hcoConfig.NodePlacement != nil {
+		kvConfig := &kubevirtv1.ComponentConfig{}
+		kvConfig.NodePlacement = &kubevirtv1.NodePlacement{}
+
+		if hcoConfig.NodePlacement.Affinity != nil {
+			kvConfig.NodePlacement.Affinity = &corev1.Affinity{}
+			hcoConfig.NodePlacement.Affinity.DeepCopyInto(kvConfig.NodePlacement.Affinity)
+		}
+
+		if hcoConfig.NodePlacement.NodeSelector != nil {
+			kvConfig.NodePlacement.NodeSelector = make(map[string]string)
+			for k, v := range hcoConfig.NodePlacement.NodeSelector {
+				kvConfig.NodePlacement.NodeSelector[k] = v
+			}
+		}
+
+		for _, hcoTolr := range hcoConfig.NodePlacement.Tolerations {
+			kvTolr := corev1.Toleration{}
+			hcoTolr.DeepCopyInto(&kvTolr)
+			kvConfig.NodePlacement.Tolerations = append(kvConfig.NodePlacement.Tolerations, kvTolr)
+		}
+
+		return kvConfig
+	}
+	return nil
 }
 
 type kvConfigHandler genericOperand
@@ -173,7 +218,7 @@ type kvPriorityClassHandler genericOperand
 
 func (kvpc *kvPriorityClassHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 	req.Logger.Info("Reconciling KubeVirt PriorityClass")
-	pc := req.Instance.NewKubeVirtPriorityClass()
+	pc := NewKubeVirtPriorityClass(req.Instance)
 	res := NewEnsureResult(pc)
 	key, err := client.ObjectKeyFromObject(pc)
 	if err != nil {
@@ -222,6 +267,24 @@ func (kvpc *kvPriorityClassHandler) Ensure(req *common.HcoRequest) *EnsureResult
 		return res.Error(err)
 	}
 	return res.SetUpdated()
+}
+
+func NewKubeVirtPriorityClass(hc *hcov1beta1.HyperConverged) *schedulingv1.PriorityClass {
+	return &schedulingv1.PriorityClass{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "scheduling.k8s.io/v1",
+			Kind:       "PriorityClass",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "kubevirt-cluster-critical",
+			Labels: getLabels(hc),
+		},
+		// 1 billion is the highest value we can set
+		// https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+		Value:         1000000000,
+		GlobalDefault: false,
+		Description:   "This priority class should be used for KubeVirt core components only.",
+	}
 }
 
 // translateKubeVirtConds translates list of KubeVirt conditions to a list of custom resource
