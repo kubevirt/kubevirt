@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright 2020 Red Hat, Inc.
  *
  */
 
@@ -21,13 +21,14 @@ package util
 
 import (
 	"io"
+
 	"kubevirt.io/client-go/log"
 )
 
-// CloseIOAndCheckErr closes the file and check the returned error. 
-// If there was an error a log messags will be printed. 
-// If a valid address (not nil) is passed in  err the function will also update the error 
-// Note: to update the error the calling funtion need to use named returned variable
+// CloseIOAndCheckErr closes the file and check the returned error.
+// If there was an error a log messages will be printed.
+// If a valid address (not nil) is passed in  err the function will also update the error
+// Note: to update the error the calling funtion need to use named returned variable (If called as defer function)
 func CloseIOAndCheckErr(c io.Closer, err *error) {
 	if ferr := c.Close(); ferr != nil {
 		log.DefaultLogger().Reason(ferr).Error("Error when closing file")

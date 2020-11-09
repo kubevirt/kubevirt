@@ -89,7 +89,6 @@ func dirBytesAvailable(path string) (uint64, error) {
 	return stat.Bavail * uint64(stat.Bsize), nil
 }
 
-// Use named return err to allow checking Close() errors in defer
 func createSparseRaw(fullPath string, size int64) (err error) {
 	offset := size - 1
 	f, err := os.Create(fullPath)
