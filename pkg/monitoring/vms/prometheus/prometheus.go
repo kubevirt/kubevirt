@@ -122,7 +122,7 @@ func (metrics *vmiMetrics) updateMemory(vmStats *stats.DomainStats) {
 	}
 
 	if vmStats.Memory.UnusedSet {
-		memoryUnusedLabels := []string{"node", "namespace", "name", "domain"}
+		memoryUnusedLabels := []string{"node", "namespace", "name"}
 		memoryUnusedLabels = append(memoryUnusedLabels, metrics.k8sLabels...)
 		memoryUnusedDesc := prometheus.NewDesc(
 			"kubevirt_vmi_memory_unused_bytes",
@@ -131,7 +131,7 @@ func (metrics *vmiMetrics) updateMemory(vmStats *stats.DomainStats) {
 			nil,
 		)
 
-		memoryUnusedLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, vmStats.Name}
+		memoryUnusedLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name}
 		memoryUnusedLabelValues = append(memoryUnusedLabelValues, metrics.k8sLabelValues...)
 		mv, err := prometheus.NewConstMetric(
 			memoryUnusedDesc, prometheus.GaugeValue,
