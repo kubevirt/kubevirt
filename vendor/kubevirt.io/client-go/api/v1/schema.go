@@ -91,6 +91,20 @@ type SecretVolumeSource struct {
 	VolumeLabel string `json:"volumeLabel,omitempty"`
 }
 
+// DownwardAPIVolumeSource represents a volume containing downward API info.
+//
+// +k8s:openapi-gen=true
+type DownwardAPIVolumeSource struct {
+	// Fields is a list of downward API volume file
+	// +optional
+	Fields []v1.DownwardAPIVolumeFile `json:"fields,omitempty"`
+	// The volume label of the resulting disk inside the VMI.
+	// Different bootstrapping mechanisms require different values.
+	// Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
+	// +optional
+	VolumeLabel string `json:"volumeLabel,omitempty"`
+}
+
 // ServiceAccountVolumeSource adapts a ServiceAccount into a volume.
 //
 // +k8s:openapi-gen=true
@@ -369,7 +383,7 @@ type Devices struct {
 	// Whether or not to enable virtio multi-queue for block devices
 	// +optional
 	BlockMultiQueue *bool `json:"blockMultiQueue,omitempty"`
-	// If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature
+	// If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.
 	// +optional
 	NetworkInterfaceMultiQueue *bool `json:"networkInterfaceMultiqueue,omitempty"`
 	//Whether to attach a GPU device to the vmi.
@@ -377,7 +391,6 @@ type Devices struct {
 	GPUs []GPU `json:"gpus,omitempty"`
 	// Filesystems describes filesystem which is connected to the vmi.
 	// +optional
-	// +listType=set
 	Filesystems []Filesystem `json:"filesystems,omitempty"`
 }
 
@@ -398,7 +411,8 @@ type Input struct {
 // +k8s:openapi-gen=true
 type Filesystem struct {
 	// Name is the device name
-	Name     string              `json:"name"`
+	Name string `json:"name"`
+	// Virtiofs is supported
 	Virtiofs *FilesystemVirtiofs `json:"virtiofs"`
 }
 
@@ -588,6 +602,9 @@ type VolumeSource struct {
 	// More info: https://kubernetes.io/docs/concepts/configuration/secret/
 	// +optional
 	Secret *SecretVolumeSource `json:"secret,omitempty"`
+	// DownwardAPI represents downward API about the pod that should populate this volume
+	// +optional
+	DownwardAPI *DownwardAPIVolumeSource `json:"downwardAPI,omitempty"`
 	// ServiceAccountVolumeSource represents a reference to a service account.
 	// There can only be one volume of this type!
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
@@ -669,6 +686,7 @@ type ClockOffsetTimezone string
 // Represents the clock and timers of a vmi.
 //
 // +k8s:openapi-gen=true
+// +kubebuilder:pruning:PreserveUnknownFields
 type Clock struct {
 	// ClockOffset allows specifying the UTC offset or the timezone of the guest clock.
 	ClockOffset `json:",inline"`
@@ -1064,6 +1082,7 @@ type InterfaceBindingMethod struct {
 	Slirp      *InterfaceSlirp      `json:"slirp,omitempty"`
 	Masquerade *InterfaceMasquerade `json:"masquerade,omitempty"`
 	SRIOV      *InterfaceSRIOV      `json:"sriov,omitempty"`
+	Macvtap    *InterfaceMacvtap    `json:"macvtap,omitempty"`
 }
 
 //
@@ -1081,6 +1100,10 @@ type InterfaceMasquerade struct{}
 //
 // +k8s:openapi-gen=true
 type InterfaceSRIOV struct{}
+
+//
+// +k8s:openapi-gen=true
+type InterfaceMacvtap struct{}
 
 // Port repesents a port to expose from the virtual machine.
 // Default protocol TCP.

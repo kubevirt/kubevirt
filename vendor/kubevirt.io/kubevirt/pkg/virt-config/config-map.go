@@ -228,17 +228,33 @@ func (c *ClusterConfig) SetConfigModifiedCallback(cb ConfigModifiedFn) {
 	go c.configModifiedCallback()
 }
 
+// This struct is for backward compatibility and is deprecated, no new fields should be added
+type migrationConfiguration struct {
+	NodeDrainTaintKey                 *string            `json:"nodeDrainTaintKey,omitempty"`
+	ParallelOutboundMigrationsPerNode *uint32            `json:"parallelOutboundMigrationsPerNode,string,omitempty"`
+	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,string,omitempty"`
+	AllowAutoConverge                 *bool              `json:"allowAutoConverge,string,omitempty"`
+	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
+	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,string,omitempty"`
+	ProgressTimeout                   *int64             `json:"progressTimeout,string,omitempty"`
+	UnsafeMigrationOverride           *bool              `json:"unsafeMigrationOverride,string,omitempty"`
+	AllowPostCopy                     *bool              `json:"allowPostCopy,string,omitempty"`
+}
+
 // setConfigFromConfigMap parses the provided config map and updates the provided config.
 // Default values in the provided config stay in tact.
 func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.ConfigMap) error {
 	// set migration options
 	rawConfig := strings.TrimSpace(configMap.Data[MigrationsConfigKey])
 	if rawConfig != "" {
+		migrationConfig := migrationConfiguration(*config.MigrationConfiguration)
 		// only sets values if they were specified, default values stay intact
-		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(rawConfig), 1024).Decode(config.MigrationConfiguration)
+		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(rawConfig), 1024).Decode(&migrationConfig)
 		if err != nil {
 			return fmt.Errorf("failed to parse migration config: %v", err)
 		}
+		converted := v1.MigrationConfiguration(migrationConfig)
+		config.MigrationConfiguration = &converted
 	}
 
 	// set smbios values if they exist
@@ -301,8 +317,8 @@ func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.C
 	}
 
 	if cpuOvercommit := strings.TrimSpace(configMap.Data[CPUAllocationRatio]); cpuOvercommit != "" {
-		if value, err := strconv.ParseFloat(cpuOvercommit, 64); err == nil && value > 0 {
-			config.DeveloperConfiguration.CPUAllocationRatio = value
+		if value, err := strconv.ParseInt(cpuOvercommit, 10, 32); err == nil && value > 0 {
+			config.DeveloperConfiguration.CPUAllocationRatio = int(value)
 		} else {
 			return fmt.Errorf("Invalid cpu allocation ratio in ConfigMap: %s", cpuOvercommit)
 		}
@@ -469,7 +485,7 @@ func (c *ClusterConfig) GetConfig() (config *v1.KubeVirtConfiguration) {
 		return c.lastValidConfig
 	}
 
-	log.DefaultLogger().Infof("Updating cluster config to resource version '%s'", resourceVersion)
+	log.DefaultLogger().Infof("Updating cluster config from %s to resource version '%s'", resourceType, resourceVersion)
 	c.lastValidConfigResourceVersion = resourceVersion
 	c.lastValidConfig = config
 	return c.lastValidConfig

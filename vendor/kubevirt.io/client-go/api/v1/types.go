@@ -275,6 +275,11 @@ const (
 	VirtualMachineInstanceReasonInterfaceNotMigratable = "InterfaceNotLiveMigratable"
 )
 
+const (
+	// PodTerminatingReason indicates on the PodReady condition on the VMI if the underlying pod is terminating
+	PodTerminatingReason = "PodTerminating"
+)
+
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationConditionType string
 
@@ -377,8 +382,10 @@ type VirtualMachineInstanceGuestOSInfo struct {
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationState struct {
 	// The time the migration action began
+	// +nullable
 	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
 	// The time the migration action ended
+	// +nullable
 	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
 	// The Target Node has seen the Domain Start Event
 	TargetNodeDomainDetected bool `json:"targetNodeDomainDetected,omitempty"`
@@ -762,6 +769,7 @@ type DataVolumeTemplateSpec struct {
 	// this field is not used by our controllers and is a no-op.
 	// +nullable
 	metav1.TypeMeta `json:",inline"`
+	// +kubebuilder:pruning:PreserveUnknownFields
 	// +nullable
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// DataVolumeSpec contains the DataVolume specification.
@@ -777,6 +785,7 @@ type DataVolumeTemplateSpec struct {
 //
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceTemplateSpec struct {
+	// +kubebuilder:pruning:PreserveUnknownFields
 	// +nullable
 	ObjectMeta metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VirtualMachineInstance Spec contains the VirtualMachineInstance specification.
@@ -1009,6 +1018,19 @@ type VirtualMachineStatus struct {
 	// StateChangeRequests indicates a list of actions that should be taken on a VMI
 	// e.g. stop a specific VMI then start a new one.
 	StateChangeRequests []VirtualMachineStateChangeRequest `json:"stateChangeRequests,omitempty" optional:"true"`
+	// VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is
+	// supported by each volume.
+	VolumeSnapshotStatuses []VolumeSnapshotStatus `json:"volumeSnapshotStatuses,omitempty" optional:"true"`
+}
+
+// +k8s:openapi-gen=true
+type VolumeSnapshotStatus struct {
+	// Volume name
+	Name string `json:"name"`
+	// True if the volume supports snapshotting
+	Enabled bool `json:"enabled"`
+	// Empty if snapshotting is enabled, contains reason otherwise
+	Reason string `json:"reason,omitempty" optional:"true"`
 }
 
 // +k8s:openapi-gen=true
@@ -1456,31 +1478,31 @@ type SMBiosConfiguration struct {
 // +k8s:openapi-gen=true
 type MigrationConfiguration struct {
 	NodeDrainTaintKey                 *string            `json:"nodeDrainTaintKey,omitempty"`
-	ParallelOutboundMigrationsPerNode *uint32            `json:"parallelOutboundMigrationsPerNode,string,omitempty"`
-	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,string,omitempty"`
-	AllowAutoConverge                 *bool              `json:"allowAutoConverge,string,omitempty"`
+	ParallelOutboundMigrationsPerNode *uint32            `json:"parallelOutboundMigrationsPerNode,omitempty"`
+	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,omitempty"`
+	AllowAutoConverge                 *bool              `json:"allowAutoConverge,omitempty"`
 	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
-	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,string,omitempty"`
-	ProgressTimeout                   *int64             `json:"progressTimeout,string,omitempty"`
-	UnsafeMigrationOverride           *bool              `json:"unsafeMigrationOverride,string,omitempty"`
-	AllowPostCopy                     *bool              `json:"allowPostCopy,string,omitempty"`
+	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,omitempty"`
+	ProgressTimeout                   *int64             `json:"progressTimeout,omitempty"`
+	UnsafeMigrationOverride           *bool              `json:"unsafeMigrationOverride,omitempty"`
+	AllowPostCopy                     *bool              `json:"allowPostCopy,omitempty"`
 }
 
 // DeveloperConfiguration holds developer options
 // +k8s:openapi-gen=true
 type DeveloperConfiguration struct {
 	FeatureGates           []string          `json:"featureGates,omitempty"`
-	LessPVCSpaceToleration int               `json:"pvcTolerateLessSpaceUpToPercent,string,omitempty"`
-	MemoryOvercommit       int               `json:"memoryOvercommit,string,omitempty"`
+	LessPVCSpaceToleration int               `json:"pvcTolerateLessSpaceUpToPercent,omitempty"`
+	MemoryOvercommit       int               `json:"memoryOvercommit,omitempty"`
 	NodeSelectors          map[string]string `json:"nodeSelectors,omitempty"`
-	UseEmulation           bool              `json:"useEmulation,string,omitempty"`
-	CPUAllocationRatio     float64           `json:"cpuAllocationRatio,string,omitempty"`
+	UseEmulation           bool              `json:"useEmulation,omitempty"`
+	CPUAllocationRatio     int               `json:"cpuAllocationRatio,omitempty"`
 }
 
 // NetworkConfiguration holds network options
 // +k8s:openapi-gen=true
 type NetworkConfiguration struct {
 	NetworkInterface                  string `json:"defaultNetworkInterface,omitempty"`
-	PermitSlirpInterface              *bool  `json:"permitSlirpInterface,string,omitempty"`
-	PermitBridgeInterfaceOnPodNetwork *bool  `json:"permitBridgeInterfaceOnPodNetwork,string,omitempty"`
+	PermitSlirpInterface              *bool  `json:"permitSlirpInterface,omitempty"`
+	PermitBridgeInterfaceOnPodNetwork *bool  `json:"permitBridgeInterfaceOnPodNetwork,omitempty"`
 }

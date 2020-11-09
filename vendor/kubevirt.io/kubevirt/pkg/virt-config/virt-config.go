@@ -58,10 +58,10 @@ const (
 	SmbiosConfigDefaultProduct                      = "None"
 	DefaultPermitBridgeInterfaceOnPodNetwork        = true
 	DefaultSELinuxLauncherType                      = "virt_launcher.process"
-	SupportedGuestAgentVersions                     = "3.*,4.*"
+	SupportedGuestAgentVersions                     = "2.*,3.*,4.*"
 	DefaultOVMFPath                                 = "/usr/share/OVMF"
 	DefaultMemBalloonStatsPeriod             uint32 = 10
-	DefaultCPUAllocationRatio                       = 10.0
+	DefaultCPUAllocationRatio                       = 10
 )
 
 // Set default machine type and supported emulated machines based on architecture
@@ -156,6 +156,6 @@ func (c *ClusterConfig) GetOVMFPath() string {
 	return c.GetConfig().OVMFPath
 }
 
-func (c *ClusterConfig) GetCPUAllocationRatio() float64 {
-	return float64(c.GetConfig().DeveloperConfiguration.CPUAllocationRatio)
+func (c *ClusterConfig) GetCPUAllocationRatio() int {
+	return c.GetConfig().DeveloperConfiguration.CPUAllocationRatio
 }
