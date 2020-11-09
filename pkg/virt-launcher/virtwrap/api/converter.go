@@ -260,7 +260,7 @@ func isPreAllocated(path string) bool {
 		return false
 	}
 	// ActualSize can be a little larger then VirtualSize for qcow2
-	return diskInf.VirtualSize < diskInf.ActualSize
+	return diskInf.VirtualSize <= diskInf.ActualSize
 }
 
 // Set optimal io mode automatically
