@@ -22,6 +22,7 @@ package prometheus
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -57,10 +58,27 @@ var (
 		nil,
 	)
 
+	// VmPhaseUnset is ommited
+	vmiPhases = []k6tv1.VirtualMachineInstancePhase{
+		k6tv1.Pending,
+		k6tv1.Scheduling,
+		k6tv1.Scheduled,
+		k6tv1.Running,
+		k6tv1.Succeeded,
+		k6tv1.Failed,
+		k6tv1.Unknown,
+	}
+
+	vcpuStates = map[int]string{
+		int(libvirt.VCPU_OFFLINE): "offline",
+		int(libvirt.VCPU_BLOCKED): "blocked",
+		int(libvirt.VCPU_RUNNING): "running",
+	}
+
 	// higher-level, telemetry-friendly metrics
 	vmiCountDesc = prometheus.NewDesc(
 		"kubevirt_vmi_phase_count",
-		"Sum of VMIs per phase and node. `phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`]",
+		"Sum of VMIs per phase and node. `phase` can be one of the following: "+fmt.Sprint(vmiPhases),
 		[]string{
 			"node", "phase",
 		},
@@ -180,6 +198,12 @@ func (metrics *vmiMetrics) updateMemory(vmStats *stats.DomainStats) {
 }
 
 func (metrics *vmiMetrics) updateVcpu(vmStats *stats.DomainStats) {
+	statesSlice := make([]string, 0)
+	for s := range vcpuStates {
+		statesSlice = append(statesSlice, vcpuStates[s])
+	}
+	sort.Strings(statesSlice)
+
 	for vcpuId, vcpu := range vmStats.Vcpu {
 		// Initial vcpu metrics labels
 		if !vcpu.StateSet || !vcpu.TimeSet {
@@ -189,12 +213,12 @@ func (metrics *vmiMetrics) updateVcpu(vmStats *stats.DomainStats) {
 			vcpuUsageLabels = append(vcpuUsageLabels, metrics.k8sLabels...)
 			vcpuUsageDesc := prometheus.NewDesc(
 				"kubevirt_vmi_vcpu_seconds",
-				"Amount of time spent in each state by each vcpu. Where `id` is the vcpu identifier and `state` can be one of the following: [`OFFLINE`, `RUNNING`, `BLOCKED`]",
+				"Amount of time spent in each state by each vcpu. Where `id` is the vcpu identifier and `state` can be one of the following: "+fmt.Sprint(statesSlice),
 				vcpuUsageLabels,
 				nil,
 			)
 
-			vcpuUsageLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, fmt.Sprintf("%v", vcpuId), humanReadableState(vcpu.State)}
+			vcpuUsageLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, fmt.Sprintf("%v", vcpuId), vcpuStates[vcpu.State]}
 			vcpuUsageLabelValues = append(vcpuUsageLabelValues, metrics.k8sLabelValues...)
 			mv, err := prometheus.NewConstMetric(
 				vcpuUsageDesc, prometheus.GaugeValue,
@@ -663,18 +687,5 @@ func newVmiMetrics(vmi *k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metri
 		k8sLabels:      []string{},
 		k8sLabelValues: []string{},
 		ch:             ch,
-	}
-}
-
-func humanReadableState(state int) string {
-	switch state {
-	case int(libvirt.VCPU_OFFLINE):
-		return "offline"
-	case int(libvirt.VCPU_BLOCKED):
-		return "blocked"
-	case int(libvirt.VCPU_RUNNING):
-		return "running"
-	default:
-		return "unknown"
 	}
 }
