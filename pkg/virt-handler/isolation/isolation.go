@@ -285,7 +285,6 @@ func (r *realIsolationResult) MountInfoRoot() (*MountInfo, error) {
 		return nil, fmt.Errorf("could not open mountinfo: %v", err)
 	}
 	defer util.CloseIOAndCheckErr(in, nil)
-
 	c := csv.NewReader(in)
 	c.Comma = ' '
 	c.LazyQuotes = true
