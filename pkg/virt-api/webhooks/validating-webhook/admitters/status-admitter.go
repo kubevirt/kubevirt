@@ -9,7 +9,7 @@ import (
 )
 
 type StatusAdmitter struct {
-	vmsAdmitter *VMsAdmitter
+	VmsAdmitter *VMsAdmitter
 }
 
 func (s *StatusAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
@@ -18,7 +18,7 @@ func (s *StatusAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRe
 	}
 
 	if webhooks.ValidateRequestResource(ar.Request.Resource, webhooks2.VirtualMachineGroupVersionResource.Group, webhooks2.VirtualMachineGroupVersionResource.Resource) {
-		return s.vmsAdmitter.AdmitStatus(ar)
+		return s.VmsAdmitter.AdmitStatus(ar)
 	}
 
 	reviewResponse := v1beta1.AdmissionResponse{}
