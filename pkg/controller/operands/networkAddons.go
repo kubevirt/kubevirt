@@ -25,6 +25,7 @@ func newCnaHandler(Client client.Client, Scheme *runtime.Scheme) *cnaHandler {
 		Client: Client,
 		Scheme: Scheme,
 		crType: "NetworkAddonsConfig",
+		isCr:   true,
 		// Previous versions used to have HCO-operator (scope namespace)
 		// as the owner of NetworkAddons (scope cluster).
 		// It's not legal, so remove that.

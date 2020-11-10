@@ -26,6 +26,7 @@ func newCdiHandler(Client client.Client, Scheme *runtime.Scheme) *cdiHandler {
 		Client: Client,
 		Scheme: Scheme,
 		crType: "CDI",
+		isCr:   true,
 		// Previous versions used to have HCO-operator (scope namespace)
 		// as the owner of CDI (scope cluster).
 		// It's not legal, so remove that.

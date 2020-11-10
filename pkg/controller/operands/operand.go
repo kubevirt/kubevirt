@@ -28,6 +28,7 @@ type genericOperand struct {
 	crType                 string
 	removeExistingOwner    bool
 	setControllerReference bool
+	isCr                   bool
 
 	// hooks
 	getFullCr             func(hc *hcov1beta1.HyperConverged) runtime.Object
@@ -122,12 +123,17 @@ func (handler *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
 	}
 	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
 
-	if (handler.getConditions != nil) && (handler.checkComponentVersion) != nil {
-		// Handle KubeVirt resource conditions
-		isReady := handleComponentConditions(req, handler.crType, handler.getConditions(found))
+	if handler.isCr {
+		if (handler.getConditions != nil) && (handler.checkComponentVersion) != nil {
+			// Handle KubeVirt resource conditions
+			isReady := handleComponentConditions(req, handler.crType, handler.getConditions(found))
 
-		upgradeDone := req.ComponentUpgradeInProgress && isReady && handler.checkComponentVersion(found)
-		return res.SetUpgradeDone(upgradeDone)
+			upgradeDone := req.ComponentUpgradeInProgress && isReady && handler.checkComponentVersion(found)
+			return res.SetUpgradeDone(upgradeDone)
+		}
+	} else {
+		// For resources that are not CRs, such as priority classes or a config map, there is no new version to upgrade
+		res.SetUpgradeDone(req.ComponentUpgradeInProgress)
 	}
 
 	return res

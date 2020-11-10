@@ -3,23 +3,20 @@ package operands
 import (
 	"errors"
 	"fmt"
+	"os"
+	"reflect"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
-	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/reference"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"os"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -33,6 +30,7 @@ func newKubevirtHandler(Client client.Client, Scheme *runtime.Scheme) *kubevirtH
 		Client:                 Client,
 		Scheme:                 Scheme,
 		crType:                 "KubeVirt",
+		isCr:                   true,
 		removeExistingOwner:    false,
 		setControllerReference: true,
 		getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
@@ -60,7 +58,7 @@ func (h *kubevirtHandler) updateCrImp(req *common.HcoRequest, exists runtime.Obj
 	virt, ok1 := required.(*kubevirtv1.KubeVirt)
 	found, ok2 := exists.(*kubevirtv1.KubeVirt)
 	if !ok1 || !ok2 {
-		return false, false, errors.New("can't convert to CDI")
+		return false, false, errors.New("can't convert to KubeVirt")
 	}
 	if !reflect.DeepEqual(found.Spec, virt.Spec) {
 		if req.HCOTriggered {
@@ -130,43 +128,36 @@ func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig) *kubevirtv1.C
 
 type kvConfigHandler genericOperand
 
-func (kvc *kvConfigHandler) Ensure(req *common.HcoRequest) *EnsureResult {
-	kubevirtConfig := NewKubeVirtConfigForCR(req.Instance, req.Namespace)
-	res := NewEnsureResult(kubevirtConfig)
-	err := controllerutil.SetControllerReference(req.Instance, kubevirtConfig, kvc.Scheme)
-	if err != nil {
-		return res.Error(err)
+func newKvConfigHandler(Client client.Client, Scheme *runtime.Scheme) *kvConfigHandler {
+	handler := &kvConfigHandler{
+		Client:                 Client,
+		Scheme:                 Scheme,
+		crType:                 "KubeVirt Config",
+		isCr:                   false,
+		removeExistingOwner:    false,
+		setControllerReference: true,
+		getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
+			return NewKubeVirtConfigForCR(hc, hc.Namespace)
+		},
+		getEmptyCr: func() runtime.Object { return &corev1.ConfigMap{} },
+		getObjectMeta: func(cr runtime.Object) *metav1.ObjectMeta {
+			return &cr.(*corev1.ConfigMap).ObjectMeta
+		},
 	}
 
-	key, err := client.ObjectKeyFromObject(kubevirtConfig)
-	if err != nil {
-		req.Logger.Error(err, "Failed to get object key for kubevirt config")
-	}
-	res.SetName(key.Name)
+	handler.updateCr = handler.updateCrImp
 
-	found := &corev1.ConfigMap{}
-	err = kvc.Client.Get(req.Ctx, key, found)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			req.Logger.Info("Creating kubevirt config")
-			err = kvc.Client.Create(req.Ctx, kubevirtConfig)
-			if err == nil {
-				return res.SetCreated()
-			}
-		}
-		return res.Error(err)
-	}
+	return handler
+}
 
-	req.Logger.Info("KubeVirt config already exists", "KubeVirtConfig.Namespace", found.Namespace, "KubeVirtConfig.Name", found.Name)
-	// Add it to the list of RelatedObjects if found
-	objectRef, err := reference.GetReference(kvc.Scheme, found)
-	if err != nil {
-		return res.Error(err)
+func (h *kvConfigHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+	kubevirtConfig, ok1 := required.(*corev1.ConfigMap)
+	found, ok2 := exists.(*corev1.ConfigMap)
+	if !ok1 || !ok2 {
+		return false, false, errors.New("can't convert to ConfigMap")
 	}
-	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
 
 	if req.UpgradeMode {
-
 		changed := false
 		// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey,
 		// virtconfig.FeatureGatesKey and virtconfig.UseEmulationKey are going to be manipulated
@@ -198,70 +189,85 @@ func (kvc *kvConfigHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 		}
 
 		if changed {
-			err = kvc.Client.Update(req.Ctx, found)
+			err := h.Client.Update(req.Ctx, found)
 			if err != nil {
 				req.Logger.Error(err, "Failed updating the kubevirt config map")
-				return res.Error(err)
+				return false, false, err
 			}
+			return true, false, nil
 		}
 	}
+	return false, false, nil
+}
 
-	return res.SetUpgradeDone(req.ComponentUpgradeInProgress)
+func (h *kvConfigHandler) Ensure(req *common.HcoRequest) *EnsureResult {
+	gh := (*genericOperand)(h)
+	res := gh.ensure(req)
+
+	return res
 }
 
 type kvPriorityClassHandler genericOperand
 
-func (kvpc *kvPriorityClassHandler) Ensure(req *common.HcoRequest) *EnsureResult {
-	req.Logger.Info("Reconciling KubeVirt PriorityClass")
-	pc := NewKubeVirtPriorityClass(req.Instance)
-	res := NewEnsureResult(pc)
-	key, err := client.ObjectKeyFromObject(pc)
-	if err != nil {
-		req.Logger.Error(err, "Failed to get object key for KubeVirt PriorityClass")
-		return res.Error(err)
-	}
-
-	res.SetName(key.Name)
-	found := &schedulingv1.PriorityClass{}
-	err = kvpc.Client.Get(req.Ctx, key, found)
-
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			// create the new object
-			err = kvpc.Client.Create(req.Ctx, pc, &client.CreateOptions{})
-			if err == nil {
-				return res.SetCreated()
-			}
-		}
-
-		return res.Error(err)
+func (h *kvPriorityClassHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+	pc, ok1 := required.(*schedulingv1.PriorityClass)
+	found, ok2 := exists.(*schedulingv1.PriorityClass)
+	if !ok1 || !ok2 {
+		return false, false, errors.New("can't convert to PriorityClass")
 	}
 
 	// at this point we found the object in the cache and we check if something was changed
-	if pc.Name == found.Name && pc.Value == found.Value && pc.Description == found.Description {
-		req.Logger.Info("KubeVirt PriorityClass already exists", "PriorityClass.Name", pc.Name)
-		objectRef, err := reference.GetReference(kvpc.Scheme, found)
-		if err != nil {
-			req.Logger.Error(err, "failed getting object reference for found object")
-			return res.Error(err)
-		}
-		objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
+	if (pc.Name == found.Name) && (pc.Value == found.Value) && (pc.Description == found.Description) {
+		return false, false, nil
+	}
 
-		return res.SetUpgradeDone(req.ComponentUpgradeInProgress)
+	if req.HCOTriggered {
+		req.Logger.Info("Updating existing KubeVirt's Spec to new opinionated values")
+	} else {
+		req.Logger.Info("Reconciling an externally updated KubeVirt's Spec to its opinionated values")
 	}
 
 	// something was changed but since we can't patch a priority class object, we remove it
-	err = kvpc.Client.Delete(req.Ctx, found, &client.DeleteOptions{})
+	err := h.Client.Delete(req.Ctx, found, &client.DeleteOptions{})
 	if err != nil {
-		return res.Error(err)
+		return false, false, err
 	}
 
 	// create the new object
-	err = kvpc.Client.Create(req.Ctx, pc, &client.CreateOptions{})
+	err = h.Client.Create(req.Ctx, pc, &client.CreateOptions{})
 	if err != nil {
-		return res.Error(err)
+		return false, false, err
 	}
-	return res.SetUpdated()
+
+	return true, !req.HCOTriggered, nil
+}
+
+func (h *kvPriorityClassHandler) Ensure(req *common.HcoRequest) *EnsureResult {
+	gh := (*genericOperand)(h)
+	res := gh.ensure(req)
+
+	return res
+}
+
+func newKvPriorityClassHandler(Client client.Client, Scheme *runtime.Scheme) *kvPriorityClassHandler {
+	handler := &kvPriorityClassHandler{
+		Client:                 Client,
+		Scheme:                 Scheme,
+		crType:                 "KubeVirt PriorityClass",
+		isCr:                   false,
+		removeExistingOwner:    false,
+		setControllerReference: false,
+		getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
+			return NewKubeVirtPriorityClass(hc)
+		},
+		getEmptyCr: func() runtime.Object { return &schedulingv1.PriorityClass{} },
+		getObjectMeta: func(cr runtime.Object) *metav1.ObjectMeta {
+			return &cr.(*schedulingv1.PriorityClass).ObjectMeta
+		},
+	}
+	handler.updateCr = handler.updateCrImp
+
+	return handler
 }
 
 func NewKubeVirtPriorityClass(hc *hcov1beta1.HyperConverged) *schedulingv1.PriorityClass {
