@@ -30,7 +30,6 @@ import (
 	"time"
 
 	dhcp "github.com/krolaw/dhcp4"
-	dhcpConn "github.com/krolaw/dhcp4/conn"
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -87,7 +86,7 @@ func SingleClientDHCPServer(
 		return err
 	}
 
-	l, err := dhcpConn.NewUDP4BoundListener(serverIface, ":67")
+	l, err := NewUDP4FilterListener(serverIface, ":67")
 	if err != nil {
 		return err
 	}

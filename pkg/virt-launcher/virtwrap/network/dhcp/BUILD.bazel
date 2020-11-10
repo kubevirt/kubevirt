@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "dhcp.go",
         "ethtool.go",
+        "socket_listener.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp",
     visibility = ["//visibility:public"],
@@ -14,6 +15,7 @@ go_library(
         "//vendor/github.com/krolaw/dhcp4:go_default_library",
         "//vendor/github.com/krolaw/dhcp4/conn:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
+        "//vendor/golang.org/x/net/ipv4:go_default_library",
     ],
 )
 

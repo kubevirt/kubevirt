@@ -4926,8 +4926,16 @@ func IsLauncherCapabilityValid(capability k8sv1.Capability) bool {
 	switch capability {
 	case
 		capNetAdmin,
-		capNetRaw,
 		capSysNice:
+		return true
+	}
+	return false
+}
+
+func IsLauncherCapabilityDropped(capability k8sv1.Capability) bool {
+	switch capability {
+	case
+		capNetRaw:
 		return true
 	}
 	return false

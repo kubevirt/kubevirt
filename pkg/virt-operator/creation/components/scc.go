@@ -74,7 +74,7 @@ func NewKubeVirtControllerSCC(namespace string) *secv1.SecurityContextConstraint
 	scc.SELinuxContext = secv1.SELinuxContextStrategyOptions{
 		Type: secv1.SELinuxStrategyRunAsAny,
 	}
-	scc.AllowedCapabilities = []corev1.Capability{"NET_ADMIN", "NET_RAW", "SYS_NICE"}
+	scc.AllowedCapabilities = []corev1.Capability{"NET_ADMIN", "SYS_NICE"}
 	scc.AllowHostDirVolumePlugin = true
 	scc.Users = []string{fmt.Sprintf("system:serviceaccount:%s:kubevirt-controller", namespace)}
 

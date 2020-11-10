@@ -228,11 +228,16 @@ var _ = Describe("[Serial]SecurityFeatures", func() {
 				}
 			}
 			caps := *container.SecurityContext.Capabilities
-			Expect(len(caps.Add)).To(Equal(3))
+			Expect(len(caps.Add)).To(Equal(2))
 
 			By("Checking virt-launcher Pod's compute container has precisely the documented extra capabilities")
 			for _, cap := range caps.Add {
 				Expect(tests.IsLauncherCapabilityValid(cap)).To(BeTrue(), "Expected compute container of virt_launcher to be granted only specific capabilities")
+			}
+			By("Checking virt-launcher Pod's compute container has precisely the documented dropped capabilities")
+			Expect(len(caps.Drop)).To(Equal(1))
+			for _, cap := range caps.Drop {
+				Expect(tests.IsLauncherCapabilityDropped(cap)).To(BeTrue(), "Expected compute container of virt_launcher to drop only specific capabilities")
 			}
 		})
 	})
