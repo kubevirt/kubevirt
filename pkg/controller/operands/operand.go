@@ -4,6 +4,7 @@ import (
 	"fmt"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
@@ -22,20 +23,20 @@ type Operand interface {
 }
 
 type genericOperand struct {
-	Client              client.Client
-	Scheme              *runtime.Scheme
-	crType              string
-	removeExistingOwner bool
+	Client                 client.Client
+	Scheme                 *runtime.Scheme
+	crType                 string
+	removeExistingOwner    bool
+	setControllerReference bool
 
 	// hooks
-	getFullCr              func(hc *hcov1beta1.HyperConverged) runtime.Object
-	getEmptyCr             func() runtime.Object
-	setControllerReference func(hc *hcov1beta1.HyperConverged, controlled metav1.Object, scheme *runtime.Scheme) error
-	postFound              func(request *common.HcoRequest, exists runtime.Object) error
-	updateCr               func(request *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error)
-	getConditions          func(cr runtime.Object) []conditionsv1.Condition
-	checkComponentVersion  func(cr runtime.Object) bool
-	getObjectMeta          func(cr runtime.Object) *metav1.ObjectMeta
+	getFullCr             func(hc *hcov1beta1.HyperConverged) runtime.Object
+	getEmptyCr            func() runtime.Object
+	postFound             func(request *common.HcoRequest, exists runtime.Object) error
+	updateCr              func(request *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error)
+	getConditions         func(cr runtime.Object) []conditionsv1.Condition
+	checkComponentVersion func(cr runtime.Object) bool
+	getObjectMeta         func(cr runtime.Object) *metav1.ObjectMeta
 }
 
 func (handler *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
@@ -43,11 +44,11 @@ func (handler *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
 
 	res := NewEnsureResult(cr)
 	ref, ok := cr.(metav1.Object)
-	if handler.setControllerReference != nil {
+	if handler.setControllerReference {
 		if !ok {
 			return res.Error(fmt.Errorf("can't convert %T to k8s.io/apimachinery/pkg/apis/meta/v1.Object", cr))
 		}
-		if err := handler.setControllerReference(req.Instance, ref, handler.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(req.Instance, ref, handler.Scheme); err != nil {
 			return res.Error(err)
 		}
 	}

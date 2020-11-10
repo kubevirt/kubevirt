@@ -260,7 +260,7 @@ var _ = Describe("KubeVirt Operand", func() {
 		It("should create if not present", func() {
 			expectedResource := NewKubeVirt(hco, commonTestUtils.Namespace)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := &kubevirtHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := newKubevirtHandler(cl, commonTestUtils.GetScheme())
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
@@ -280,7 +280,7 @@ var _ = Describe("KubeVirt Operand", func() {
 			expectedResource := NewKubeVirt(hco, commonTestUtils.Namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := &kubevirtHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := newKubevirtHandler(cl, commonTestUtils.GetScheme())
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
@@ -320,7 +320,7 @@ var _ = Describe("KubeVirt Operand", func() {
 			missingUSResource.Spec.UninstallStrategy = ""
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, missingUSResource})
-			handler := &kubevirtHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := newKubevirtHandler(cl, commonTestUtils.GetScheme())
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -343,7 +343,7 @@ var _ = Describe("KubeVirt Operand", func() {
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := &kubevirtHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := newKubevirtHandler(cl, commonTestUtils.GetScheme())
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -381,7 +381,7 @@ var _ = Describe("KubeVirt Operand", func() {
 			existingResource := NewKubeVirt(hcoNodePlacement)
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := &kubevirtHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := newKubevirtHandler(cl, commonTestUtils.GetScheme())
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -418,7 +418,7 @@ var _ = Describe("KubeVirt Operand", func() {
 			hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := &kubevirtHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := newKubevirtHandler(cl, commonTestUtils.GetScheme())
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -471,7 +471,7 @@ var _ = Describe("KubeVirt Operand", func() {
 			existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"] = "BADvalue2"
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := &kubevirtHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := newKubevirtHandler(cl, commonTestUtils.GetScheme())
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -522,7 +522,7 @@ var _ = Describe("KubeVirt Operand", func() {
 				},
 			}
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := &kubevirtHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			handler := newKubevirtHandler(cl, commonTestUtils.GetScheme())
 			res := handler.Ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())

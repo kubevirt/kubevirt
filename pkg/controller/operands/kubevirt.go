@@ -1,6 +1,7 @@
 package operands
 
 import (
+	"errors"
 	"fmt"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
@@ -11,6 +12,7 @@ import (
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/reference"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -26,66 +28,59 @@ const (
 
 type kubevirtHandler genericOperand
 
-func (kv *kubevirtHandler) Ensure(req *common.HcoRequest) *EnsureResult {
-	virt := NewKubeVirt(req.Instance)
-	res := NewEnsureResult(virt)
-	if err := controllerutil.SetControllerReference(req.Instance, virt, kv.Scheme); err != nil {
-		return res.Error(err)
+func newKubevirtHandler(Client client.Client, Scheme *runtime.Scheme) *kubevirtHandler {
+	handler := &kubevirtHandler{
+		Client:                 Client,
+		Scheme:                 Scheme,
+		crType:                 "KubeVirt",
+		removeExistingOwner:    false,
+		setControllerReference: true,
+		getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
+			return NewKubeVirt(hc)
+		},
+		getEmptyCr: func() runtime.Object { return &kubevirtv1.KubeVirt{} },
+		getConditions: func(cr runtime.Object) []conditionsv1.Condition {
+			return translateKubeVirtConds(cr.(*kubevirtv1.KubeVirt).Status.Conditions)
+		},
+		checkComponentVersion: func(cr runtime.Object) bool {
+			found := cr.(*kubevirtv1.KubeVirt)
+			return checkComponentVersion(hcoutil.KubevirtVersionEnvV, found.Status.ObservedKubeVirtVersion)
+		},
+		getObjectMeta: func(cr runtime.Object) *metav1.ObjectMeta {
+			return &cr.(*kubevirtv1.KubeVirt).ObjectMeta
+		},
 	}
 
-	key, err := client.ObjectKeyFromObject(virt)
-	if err != nil {
-		req.Logger.Error(err, "Failed to get object key for KubeVirt")
+	handler.updateCr = handler.updateCrImp
+
+	return handler
+}
+
+func (h *kubevirtHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+	virt, ok1 := required.(*kubevirtv1.KubeVirt)
+	found, ok2 := exists.(*kubevirtv1.KubeVirt)
+	if !ok1 || !ok2 {
+		return false, false, errors.New("can't convert to CDI")
 	}
-
-	res.SetName(key.Name)
-	found := &kubevirtv1.KubeVirt{}
-	err = kv.Client.Get(req.Ctx, key, found)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			req.Logger.Info("Creating kubevirt")
-			err = kv.Client.Create(req.Ctx, virt)
-			if err == nil {
-				return res.SetCreated().SetName(virt.Name)
-			}
-		}
-		return res.Error(err)
-	}
-
-	req.Logger.Info("KubeVirt already exists", "KubeVirt.Namespace", found.Namespace, "KubeVirt.Name", found.Name)
-
 	if !reflect.DeepEqual(found.Spec, virt.Spec) {
-		overwritten := false
 		if req.HCOTriggered {
-			req.Logger.Info("Updating existing VMimport's Spec to new opinionated values")
+			req.Logger.Info("Updating existing KubeVirt's Spec to new opinionated values")
 		} else {
 			req.Logger.Info("Reconciling an externally updated KubeVirt's Spec to its opinionated values")
-			overwritten = true
 		}
 		virt.Spec.DeepCopyInto(&found.Spec)
-		err = kv.Client.Update(req.Ctx, found)
+		err := h.Client.Update(req.Ctx, found)
 		if err != nil {
-			return res.Error(err)
+			return false, false, err
 		}
-		if overwritten {
-			res.SetOverwritten()
-		}
-		return res.SetUpdated()
+		return true, !req.HCOTriggered, nil
 	}
+	return false, false, nil
+}
 
-	// Add it to the list of RelatedObjects if found
-	objectRef, err := reference.GetReference(kv.Scheme, found)
-	if err != nil {
-		return res.Error(err)
-	}
-	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
-
-	// Handle KubeVirt resource conditions
-	isReady := handleComponentConditions(req, "KubeVirt", translateKubeVirtConds(found.Status.Conditions))
-
-	upgradeDone := req.ComponentUpgradeInProgress && isReady && checkComponentVersion(hcoutil.KubevirtVersionEnvV, found.Status.ObservedKubeVirtVersion)
-
-	return res.SetUpgradeDone(upgradeDone)
+func (h *kubevirtHandler) Ensure(req *common.HcoRequest) *EnsureResult {
+	gh := (*genericOperand)(h)
+	return gh.ensure(req)
 }
 
 func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) *kubevirtv1.KubeVirt {

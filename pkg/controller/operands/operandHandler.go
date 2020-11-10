@@ -34,7 +34,7 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshift
 	operands := []Operand{
 		&kvConfigHandler{Client: client, Scheme: scheme},
 		&kvPriorityClassHandler{Client: client, Scheme: scheme},
-		&kubevirtHandler{Client: client, Scheme: scheme},
+		newKubevirtHandler(client, scheme),
 		newCdiHandler(client, scheme),
 		newCnaHandler(client, scheme),
 		&vmImportHandler{Client: client, Scheme: scheme},
