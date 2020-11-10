@@ -20,6 +20,8 @@
 package agentpoller
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -82,4 +84,69 @@ var _ = Describe("Qemu agent poller", func() {
 			Expect(agentStore.AgentUpdated).ToNot(Receive())
 		})
 	})
+
+	Context("PollerWorker", func() {
+		It("executes the agent commands at least once", func() {
+			const interval = 1
+			const expectedExecutions = 1
+
+			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions)
+
+			Expect(commandExecutions).To(Equal(expectedExecutions))
+		})
+
+		It("executes the agent commands based on the time interval specified", func() {
+			const interval = 1
+			const expectedExecutions = 3
+
+			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions)
+
+			Expect(commandExecutions).To(Equal(expectedExecutions))
+		})
+	})
 })
+
+// runPollAndCountCommandExecution runs a PollerWorker with the specified polling interval
+// and counts the number of times the command has been executed.
+// The operation is limited by the provided or self calculated timeout and the expected executions.
+// The timeout needs to be large enough to allow the expected executions to occur and to accommodate the
+// inaccuracy of the go-routine execution.
+func runPollAndCountCommandExecution(interval, expectedExecutions int, timeout time.Duration) int {
+	const fakeAgentCommandName = "foo"
+	w := PollerWorker{
+		CallTick:      time.Duration(interval),
+		AgentCommands: []AgentCommand{fakeAgentCommandName},
+	}
+	// Closing the c channel assures go-routine termination.
+	// The done channel is a receiver, therefore left to the gc for collection.
+	c := make(chan struct{})
+	defer close(c)
+	done := make(chan struct{})
+
+	go w.Poll(func(commands []AgentCommand) { done <- struct{}{} }, c)
+
+	if timeout == 0 {
+		// Calculate the time needed for the poll to execute the commands.
+		// An additional interval is included intentionally to act as a timeout buffer.
+		timeout = time.Duration((expectedExecutions)*interval) * time.Second
+	}
+	return countSignals(done, expectedExecutions, timeout)
+}
+
+// countSignals counts the number of signals received through the `done` channel
+// Returns in case the timeout has been reached or maxSignals received.
+func countSignals(done <-chan struct{}, maxSignals int, timeout time.Duration) int {
+	var counter int
+	t := time.After(timeout)
+	for {
+		select {
+		case <-t:
+			return counter
+		case <-done:
+			counter++
+			if counter == maxSignals {
+				return counter
+			}
+		}
+	}
+}
