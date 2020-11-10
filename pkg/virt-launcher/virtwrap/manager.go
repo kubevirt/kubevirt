@@ -1358,7 +1358,11 @@ func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec
 	if err != nil {
 		return nil, err
 	}
-	return util.GetDomainSpec(state, dom)
+	if cli.IsDown(state) {
+		return util.GetDomainSpec(state, dom)
+	}
+	// If the domain is up, we want to return as much info as possible about it.
+	return util.GetDomainSpecWithRuntimeInfo(state, dom)
 }
 
 func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) error {
