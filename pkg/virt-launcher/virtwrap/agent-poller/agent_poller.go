@@ -45,6 +45,8 @@ const (
 	GET_USERS      AgentCommand = "guest-get-users"
 	GET_FILESYSTEM AgentCommand = "guest-get-fsinfo"
 	GET_AGENT      AgentCommand = "guest-info"
+
+	pollInitialInterval = 10 * time.Second
 )
 
 // AgentUpdatedEvent fire up when data is changes in the store
@@ -196,7 +198,13 @@ func (p *PollerWorker) Poll(execAgentCommands agentCommandsExecutor, closeChan c
 	// do the first round to fill the cache immediately
 	execAgentCommands(p.AgentCommands)
 
-	ticker := time.NewTicker(time.Second * p.CallTick)
+	pollMaxInterval := p.CallTick * time.Second
+	pollInterval := pollMaxInterval
+
+	if pollInitialInterval < pollMaxInterval {
+		pollInterval = pollInitialInterval
+	}
+	ticker := time.NewTicker(pollInterval)
 
 	for {
 		select {
@@ -206,7 +214,24 @@ func (p *PollerWorker) Poll(execAgentCommands agentCommandsExecutor, closeChan c
 		case <-ticker.C:
 			execAgentCommands(p.AgentCommands)
 		}
+		if pollInterval < pollMaxInterval {
+			pollInterval = incrementPollInterval(pollInterval, pollMaxInterval)
+			ticker = replaceTicker(ticker, pollInterval)
+		}
 	}
+}
+
+func replaceTicker(ticker *time.Ticker, interval time.Duration) *time.Ticker {
+	ticker.Stop()
+	return time.NewTicker(time.Second * interval)
+}
+
+func incrementPollInterval(interval time.Duration, maxInterval time.Duration) time.Duration {
+	interval *= 2
+	if interval > maxInterval {
+		interval = maxInterval
+	}
+	return interval
 }
 
 type AgentPoller struct {

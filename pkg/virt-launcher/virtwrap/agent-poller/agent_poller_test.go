@@ -90,7 +90,7 @@ var _ = Describe("Qemu agent poller", func() {
 			const interval = 1
 			const expectedExecutions = 1
 
-			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions)
+			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, 0)
 
 			Expect(commandExecutions).To(Equal(expectedExecutions))
 		})
@@ -99,7 +99,20 @@ var _ = Describe("Qemu agent poller", func() {
 			const interval = 1
 			const expectedExecutions = 3
 
-			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions)
+			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, 0)
+
+			Expect(commandExecutions).To(Equal(expectedExecutions))
+		})
+
+		It("executes the agent commands based on the minimum interval at initial run", func() {
+			const interval = 30
+			const expectedExecutions = 2
+
+			// Given the initial interval is 10sec, the code under test is expected to execute the commands at time:
+			// 0, 10sec, 10sec + 2*10sec
+			// Therefore, setting a timeout limit of 20sec should cover the first 2 executions.
+			t := 2 * pollInitialInterval
+			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, t)
 
 			Expect(commandExecutions).To(Equal(expectedExecutions))
 		})
