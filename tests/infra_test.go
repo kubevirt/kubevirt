@@ -292,6 +292,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 				By("finding all schedulable nodes")
 				schedulableNodesList := tests.GetAllSchedulableNodes(virtClient)
+				Expect(schedulableNodesList.Items).NotTo(BeEmpty())
 				schedulableNodes := map[string]*k8sv1.Node{}
 				for _, node := range schedulableNodesList.Items {
 					schedulableNodes[node.Name] = node.DeepCopy()
@@ -303,21 +304,12 @@ var _ = Describe("[Serial]Infrastructure", func() {
 				// on a master node, we risk in breaking the test cluster.
 				for _, pod := range pods.Items {
 					node, ok := schedulableNodes[pod.Spec.NodeName]
-					if !ok {
-						// Pod is running on a non-schedulable node?
-						continue
-					}
+					Expect(ok).To(BeTrue())
 					if _, isMaster := node.Labels["node-role.kubernetes.io/master"]; isMaster {
 						continue
 					}
 					selectedNodeName = node.Name
 					break
-				}
-
-				// It is possible to run this test on a cluster that simply does not have worker nodes.
-				// Since KubeVirt can't control that, the only correct action is to halt the test.
-				if selectedNodeName == "" {
-					Skip("Could nould determine a node to safely taint")
 				}
 
 				By("setting up a watch for terminated pods")
