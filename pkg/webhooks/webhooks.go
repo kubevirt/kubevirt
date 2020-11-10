@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
+	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
+	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
@@ -53,7 +56,12 @@ func (wh WebhookHandler) ValidateUpdate(requested *v1beta1.HyperConverged, exist
 		for _, obj := range []runtime.Object{
 			operands.NewKubeVirt(requested),
 			operands.NewCDI(requested),
-			// TODO: try to validate with all the components
+			operands.NewNetworkAddons(requested),
+			operands.NewKubeVirtCommonTemplateBundle(requested),
+			operands.NewKubeVirtNodeLabellerBundleForCR(requested, requested.Namespace),
+			operands.NewKubeVirtTemplateValidatorForCR(requested, requested.Namespace),
+			operands.NewKubeVirtMetricsAggregationForCR(requested, requested.Namespace),
+			operands.NewVMImportForCR(requested),
 		} {
 			if err := wh.updateOperatorCr(ctx, requested, obj, opts); err != nil {
 				return err
@@ -74,14 +82,44 @@ func (wh WebhookHandler) updateOperatorCr(ctx context.Context, hc *v1beta1.Hyper
 
 	switch obj := exists.(type) {
 	case *kubevirtv1.KubeVirt:
-		existingKv := obj
+		existing := obj
 		required := operands.NewKubeVirt(hc)
-		existingKv.Spec = required.Spec
+		required.Spec.DeepCopyInto(&existing.Spec)
 
 	case *cdiv1beta1.CDI:
-		existingCdi := obj
+		existing := obj
 		required := operands.NewCDI(hc)
-		existingCdi.Spec = required.Spec
+		required.Spec.DeepCopyInto(&existing.Spec)
+
+	case *networkaddonsv1.NetworkAddonsConfig:
+		existing := obj
+		required := operands.NewNetworkAddons(hc)
+		required.Spec.DeepCopyInto(&existing.Spec)
+
+	case *sspv1.KubevirtCommonTemplatesBundle:
+		existing := obj
+		required := operands.NewKubeVirtCommonTemplateBundle(hc)
+		required.Spec.DeepCopyInto(&existing.Spec)
+
+	case *sspv1.KubevirtNodeLabellerBundle:
+		existing := obj
+		required := operands.NewKubeVirtNodeLabellerBundleForCR(hc, hc.Namespace)
+		required.Spec.DeepCopyInto(&existing.Spec)
+
+	case *sspv1.KubevirtTemplateValidator:
+		existing := obj
+		required := operands.NewKubeVirtTemplateValidatorForCR(hc, hc.Namespace)
+		required.Spec.DeepCopyInto(&existing.Spec)
+
+	case *sspv1.KubevirtMetricsAggregation:
+		existing := obj
+		required := operands.NewKubeVirtMetricsAggregationForCR(hc, hc.Namespace)
+		required.Spec.DeepCopyInto(&existing.Spec)
+
+	case *vmimportv1beta1.VMImportConfig:
+		existing := obj
+		required := operands.NewVMImportForCR(hc)
+		required.Spec.DeepCopyInto(&existing.Spec)
 	}
 
 	if err = wh.cli.Update(ctx, exists, opts); err != nil {
