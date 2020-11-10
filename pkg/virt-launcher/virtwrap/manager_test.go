@@ -759,8 +759,11 @@ var _ = Describe("Manager", func() {
 			Expect(err).To(BeNil())
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockDomain, nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).AnyTimes().Return(string(oldXML), nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).AnyTimes().Return(string(oldXML), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().Return(string(oldXML), nil)
+			mockDomain.EXPECT().
+				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				AnyTimes().
+				Return("<kubevirt></kubevirt>", nil)
 			mockConn.EXPECT().DomainDefineXML(gomock.Any()).DoAndReturn(func(xml string) (cli.VirDomain, error) {
 				Expect(strings.Contains(xml, "<markedForGracefulShutdown>true</markedForGracefulShutdown>")).To(BeTrue())
 				return mockDomain, nil
@@ -805,8 +808,11 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetJobInfo().AnyTimes().Return(fake_jobinfo, nil)
 			mockDomain.EXPECT().AbortJob()
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).AnyTimes().Return(string(xml), nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).AnyTimes().Return(string(xml), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().Return(string(xml), nil)
+			mockDomain.EXPECT().
+				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				AnyTimes().
+				Return("<kubevirt></kubevirt>", nil)
 
 			liveMigrationMonitor(vmi, mockDomain, manager, options, migrationErrorChan)
 		})
@@ -847,8 +853,11 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetJobInfo().AnyTimes().Return(fake_jobinfo, nil)
 			mockDomain.EXPECT().AbortJob()
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).AnyTimes().Return(string(xml), nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).AnyTimes().Return(string(xml), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().Return(string(xml), nil)
+			mockDomain.EXPECT().
+				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				AnyTimes().
+				Return("<kubevirt></kubevirt>", nil)
 
 			liveMigrationMonitor(vmi, mockDomain, manager, options, migrationErrorChan)
 		})
@@ -897,18 +906,18 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetJobInfo().AnyTimes().DoAndReturn(func() (*libvirt.DomainJobInfo, error) {
 				return fake_jobinfo(), nil
 			})
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).AnyTimes().DoAndReturn(func(_ libvirt.DomainXMLFlags) (string, error) {
-				xmlOriginal, err := xml.MarshalIndent(domainSpec, "", "\t")
-				Expect(err).To(BeNil())
-				return string(xmlOriginal), nil
-			})
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).AnyTimes().DoAndReturn(func(_ libvirt.DomainXMLFlags) (string, error) {
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().DoAndReturn(func(_ libvirt.DomainXMLFlags) (string, error) {
 				xmlOriginal, err := xml.MarshalIndent(domainSpec, "", "\t")
 				Expect(err).To(BeNil())
 				return string(xmlOriginal), nil
 			})
 			mockDomain.EXPECT().MigrateStartPostCopy(gomock.Eq(uint32(0))).Return(nil)
-
+			mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				DoAndReturn(func(_ libvirt.DomainMetadataType, _ string, _ libvirt.DomainModificationImpact) (string, error) {
+					metadata, err := xml.MarshalIndent(domainSpec.Metadata, "", "\t")
+					Expect(err).ShouldNot(HaveOccurred())
+					return string(metadata), nil
+				}).AnyTimes()
 			mockConn.EXPECT().DomainDefineXML(gomock.Any()).AnyTimes().DoAndReturn(func(xml string) (cli.VirDomain, error) {
 				Expect(strings.Contains(xml, "<mode>PostCopy</mode>")).To(BeTrue())
 
