@@ -150,6 +150,19 @@ spec:
               bareMetalPlatform:
                 description: BareMetalPlatform indicates whether the infrastructure is baremetal.
                 type: boolean
+              certConfig:
+                description: certConfig holds the rotation policy for internal, self-signed certificates
+                properties:
+                  caOverlapInterval:
+                    description: CAOverlapInterval the duration of CA Certificates at CABundle if not set it will default to CARotateInterval
+                    type: string
+                  caRotateInterval:
+                    description: CARotateInterval configurated duration for CA and certificate
+                    type: string
+                  certRotateInterval:
+                    description: CertRotateInterval configurated duration for of service certificate the the webhook configuration is referencing different services all of them will share the same duration
+                    type: string
+                type: object
               infra:
                 description: infra HyperConvergedConfig influences the pod configuration (currently only placement) for all the infra components needed on the virtualization enabled cluster but not necessarely directly on each node running VMs/VMIs.
                 properties:

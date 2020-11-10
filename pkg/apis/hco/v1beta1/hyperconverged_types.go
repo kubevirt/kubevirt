@@ -40,6 +40,10 @@ type HyperConvergedSpec struct {
 	// +optional
 	Workloads HyperConvergedConfig `json:"workloads,omitempty"`
 
+	// certConfig holds the rotation policy for internal, self-signed certificates
+	// +optional
+	CertConfig *HyperConvergedCertConfig `json:"certConfig,omitempty"`
+
 	// operator version
 	Version string `json:"version,omitempty"`
 }
@@ -49,6 +53,20 @@ type HyperConvergedConfig struct {
 	// NodePlacement describes node scheduling configuration.
 	// +optional
 	NodePlacement *sdkapi.NodePlacement `json:"nodePlacement,omitempty"`
+}
+
+type HyperConvergedCertConfig struct {
+	// CARotateInterval configurated duration for CA and certificate
+	CARotateInterval string `json:"caRotateInterval,omitempty"`
+
+	// CAOverlapInterval the duration of CA Certificates at CABundle if
+	// not set it will default to CARotateInterval
+	CAOverlapInterval string `json:"caOverlapInterval,omitempty"`
+
+	// CertRotateInterval configurated duration for of service certificate
+	// the the webhook configuration is referencing different services all
+	// of them will share the same duration
+	CertRotateInterval string `json:"certRotateInterval,omitempty"`
 }
 
 // HyperConvergedStatus defines the observed state of HyperConverged

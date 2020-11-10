@@ -3,6 +3,7 @@ package operands
 import (
 	"context"
 	"fmt"
+
 	networkaddonsshared "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
@@ -255,6 +256,106 @@ var _ = Describe("CNA Operand", func() {
 			Expect(foundResource.Spec.PlacementConfiguration.Workloads.Tolerations).To(HaveLen(2))
 			Expect(foundResource.Spec.PlacementConfiguration.Infra.NodeSelector["key1"]).Should(Equal("value1"))
 			Expect(foundResource.Spec.PlacementConfiguration.Workloads.NodeSelector["key2"]).Should(Equal("value2"))
+
+			Expect(req.Conditions).To(BeEmpty())
+		})
+
+		It("should add cert configuration if missing in CNAO", func() {
+			existingResource := NewNetworkAddons(hco)
+
+			hco.Spec.CertConfig = &hcov1beta1.HyperConvergedCertConfig{
+				CARotateInterval:   "1h",
+				CAOverlapInterval:  "2h",
+				CertRotateInterval: "3h",
+			}
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+			handler := newCnaHandler(cl, commonTestUtils.GetScheme())
+			res := handler.Ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.SelfSignConfiguration).To(BeNil())
+			Expect(foundResource.Spec.SelfSignConfiguration).ToNot(BeNil())
+			Expect(foundResource.Spec.SelfSignConfiguration.CARotateInterval).Should(Equal("1h"))
+			Expect(foundResource.Spec.SelfSignConfiguration.CAOverlapInterval).Should(Equal("2h"))
+			Expect(foundResource.Spec.SelfSignConfiguration.CertRotateInterval).Should(Equal("3h"))
+			Expect(req.Conditions).To(BeEmpty())
+		})
+
+		It("should remove cert configuration if missing in HCO CR", func() {
+			hcoCertConfig := commonTestUtils.NewHco()
+			hcoCertConfig.Spec.CertConfig = &hcov1beta1.HyperConvergedCertConfig{
+				CARotateInterval:   "1h",
+				CAOverlapInterval:  "2h",
+				CertRotateInterval: "3h",
+			}
+
+			existingResource := NewNetworkAddons(hcoCertConfig)
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+			handler := newCnaHandler(cl, commonTestUtils.GetScheme())
+			res := handler.Ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.SelfSignConfiguration).ToNot(BeNil())
+			Expect(foundResource.Spec.SelfSignConfiguration).To(BeNil())
+
+			Expect(req.Conditions).To(BeEmpty())
+		})
+
+		It("should modify cert configuration according to HCO CR", func() {
+			hco.Spec.CertConfig = &hcov1beta1.HyperConvergedCertConfig{
+				CARotateInterval:   "1h",
+				CAOverlapInterval:  "2h",
+				CertRotateInterval: "3h",
+			}
+			existingResource := NewNetworkAddons(hco)
+
+			hco.Spec.CertConfig.CARotateInterval = "4h"
+			hco.Spec.CertConfig.CAOverlapInterval = "5h"
+			hco.Spec.CertConfig.CertRotateInterval = "6h"
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+			handler := newCnaHandler(cl, commonTestUtils.GetScheme())
+			res := handler.Ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.SelfSignConfiguration).ToNot(BeNil())
+			Expect(existingResource.Spec.SelfSignConfiguration.CARotateInterval).Should(Equal("1h"))
+			Expect(existingResource.Spec.SelfSignConfiguration.CAOverlapInterval).Should(Equal("2h"))
+			Expect(existingResource.Spec.SelfSignConfiguration.CertRotateInterval).Should(Equal("3h"))
+
+			Expect(foundResource.Spec.SelfSignConfiguration).ToNot(BeNil())
+			Expect(foundResource.Spec.SelfSignConfiguration.CARotateInterval).Should(Equal("4h"))
+			Expect(foundResource.Spec.SelfSignConfiguration.CAOverlapInterval).Should(Equal("5h"))
+			Expect(foundResource.Spec.SelfSignConfiguration.CertRotateInterval).Should(Equal("6h"))
 
 			Expect(req.Conditions).To(BeEmpty())
 		})

@@ -2,6 +2,8 @@ package operands
 
 import (
 	"errors"
+	"reflect"
+
 	networkaddonsshared "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
@@ -13,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -95,6 +96,14 @@ func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) *networkadd
 		cnaoSpec.PlacementConfiguration = &networkaddonsshared.PlacementConfiguration{
 			Infra:     cnaoInfra,
 			Workloads: cnaoWorkloads,
+		}
+	}
+
+	if hc.Spec.CertConfig != nil {
+		cnaoSpec.SelfSignConfiguration = &networkaddonsshared.SelfSignConfiguration{
+			CARotateInterval:   hc.Spec.CertConfig.CARotateInterval,
+			CAOverlapInterval:  hc.Spec.CertConfig.CAOverlapInterval,
+			CertRotateInterval: hc.Spec.CertConfig.CertRotateInterval,
 		}
 	}
 
