@@ -22,6 +22,7 @@ package tests_test
 import (
 	"crypto/tls"
 	"encoding/json"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -1187,6 +1188,12 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(tests.LoginToFedora(vmi)).To(Succeed())
 
+				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				emulator := filepath.Base(strings.TrimPrefix(domSpec.Devices.Emulator, "/"))
+				// ensure that we only match the process
+				emulator = "[" + emulator[0:1] + "]" + emulator[1:]
+
 				// launch killer pod on every node that isn't the vmi's node
 				By("Starting our migration killer pods")
 				nodes := tests.GetAllSchedulableNodes(virtClient)
@@ -1199,11 +1206,11 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					podName := fmt.Sprintf("migration-killer-pod-%d", idx)
 
 					// kill the handler right as we detect the qemu target process come online
-					pod := tests.RenderPod(podName, []string{"/bin/bash", "-c"}, []string{"while true; do ps aux | grep \"[q]emu-kvm\" && pkill -9 virt-handler && exit 0; done"})
+					pod := tests.RenderPod(podName, []string{"/bin/bash", "-c"}, []string{fmt.Sprintf("while true; do ps aux | grep \"%s\" && pkill -9 virt-handler && exit 0; done", emulator)})
+
 					pod.Spec.NodeName = entry.Name
 					createdPod, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(pod)
 					Expect(err).ToNot(HaveOccurred(), "Should create helper pod")
-
 					createdPods = append(createdPods, createdPod.Name)
 				}
 
