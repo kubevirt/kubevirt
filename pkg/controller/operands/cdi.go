@@ -22,7 +22,7 @@ import (
 type cdiHandler genericOperand
 
 func newCdiHandler(Client client.Client, Scheme *runtime.Scheme) *cdiHandler {
-	handler := &cdiHandler{
+	return &cdiHandler{
 		Client: Client,
 		Scheme: Scheme,
 		crType: "CDI",
@@ -31,34 +31,32 @@ func newCdiHandler(Client client.Client, Scheme *runtime.Scheme) *cdiHandler {
 		// as the owner of CDI (scope cluster).
 		// It's not legal, so remove that.
 		removeExistingOwner: true,
-		getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
-			return NewCDI(hc)
-		},
-		getEmptyCr: func() runtime.Object { return &cdiv1beta1.CDI{} },
-		getConditions: func(cr runtime.Object) []conditionsv1.Condition {
-			return cr.(*cdiv1beta1.CDI).Status.Conditions
-		},
-		checkComponentVersion: func(cr runtime.Object) bool {
-			found := cr.(*cdiv1beta1.CDI)
-			return checkComponentVersion(hcoutil.CdiVersionEnvV, found.Status.ObservedVersion)
-		},
-		getObjectMeta: func(cr runtime.Object) *metav1.ObjectMeta {
-			return &cr.(*cdiv1beta1.CDI).ObjectMeta
-		},
+		hooks:               &cdiHooks{Client: Client, Scheme: Scheme},
 	}
-
-	handler.postFound = handler.postFoundImp
-	handler.updateCr = handler.updateCrImp
-
-	return handler
 }
 
-func (h *cdiHandler) Ensure(req *common.HcoRequest) *EnsureResult {
-	gh := (*genericOperand)(h)
-	return gh.ensure(req)
+type cdiHooks struct {
+	Client client.Client
+	Scheme *runtime.Scheme
 }
 
-func (h *cdiHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+func (h cdiHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
+	return NewCDI(hc)
+}
+func (h cdiHooks) getEmptyCr() runtime.Object { return &cdiv1beta1.CDI{} }
+func (h cdiHooks) validate() error            { return nil }
+func (h cdiHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
+	return cr.(*cdiv1beta1.CDI).Status.Conditions
+}
+func (h cdiHooks) checkComponentVersion(cr runtime.Object) bool {
+	found := cr.(*cdiv1beta1.CDI)
+	return checkComponentVersion(hcoutil.CdiVersionEnvV, found.Status.ObservedVersion)
+}
+func (h cdiHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
+	return &cr.(*cdiv1beta1.CDI).ObjectMeta
+}
+
+func (h *cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	cdi, ok1 := required.(*cdiv1beta1.CDI)
 	found, ok2 := exists.(*cdiv1beta1.CDI)
 	if !ok1 || !ok2 {
@@ -73,7 +71,7 @@ func (h *cdiHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, 
 			overwritten = true
 		}
 		cdi.Spec.DeepCopyInto(&found.Spec)
-		err := h.Client.Update(req.Ctx, found)
+		err := Client.Update(req.Ctx, found)
 		if err != nil {
 			return false, false, err
 		}
@@ -82,7 +80,7 @@ func (h *cdiHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, 
 	return false, false, nil
 }
 
-func (h *cdiHandler) postFoundImp(req *common.HcoRequest, exists runtime.Object) error {
+func (h *cdiHooks) postFound(req *common.HcoRequest, exists runtime.Object) error {
 	err := h.ensureKubeVirtStorageConfig(req)
 	if err != nil {
 		return err
@@ -125,7 +123,7 @@ func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) *cdiv1beta1.CDI {
 	}
 }
 
-func (h *cdiHandler) ensureKubeVirtStorageRole(req *common.HcoRequest) error {
+func (h *cdiHooks) ensureKubeVirtStorageRole(req *common.HcoRequest) error {
 	kubevirtStorageRole := NewKubeVirtStorageRoleForCR(req.Instance, req.Namespace)
 	if err := controllerutil.SetControllerReference(req.Instance, kubevirtStorageRole, h.Scheme); err != nil {
 		return err
@@ -158,7 +156,7 @@ func (h *cdiHandler) ensureKubeVirtStorageRole(req *common.HcoRequest) error {
 	return nil
 }
 
-func (h *cdiHandler) ensureKubeVirtStorageRoleBinding(req *common.HcoRequest) error {
+func (h *cdiHooks) ensureKubeVirtStorageRoleBinding(req *common.HcoRequest) error {
 	kubevirtStorageRoleBinding := NewKubeVirtStorageRoleBindingForCR(req.Instance, req.Namespace)
 	if err := controllerutil.SetControllerReference(req.Instance, kubevirtStorageRoleBinding, h.Scheme); err != nil {
 		return err
@@ -191,7 +189,7 @@ func (h *cdiHandler) ensureKubeVirtStorageRoleBinding(req *common.HcoRequest) er
 	return nil
 }
 
-func (h *cdiHandler) ensureKubeVirtStorageConfig(req *common.HcoRequest) error {
+func (h *cdiHooks) ensureKubeVirtStorageConfig(req *common.HcoRequest) error {
 	kubevirtStorageConfig := NewKubeVirtStorageConfigForCR(req.Instance, req.Namespace)
 	if err := controllerutil.SetControllerReference(req.Instance, kubevirtStorageConfig, h.Scheme); err != nil {
 		return err

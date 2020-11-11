@@ -49,7 +49,7 @@ func (handler *sspOperand) ensure(req *common.HcoRequest) *EnsureResult {
 type commonTemplateBundleHandler sspOperand
 
 func newCommonTemplateBundleHandler(clt client.Client, scheme *runtime.Scheme) *commonTemplateBundleHandler {
-	handler := &commonTemplateBundleHandler{
+	return &commonTemplateBundleHandler{
 		genericOperand: genericOperand{
 			Client: clt,
 			Scheme: scheme,
@@ -60,32 +60,35 @@ func newCommonTemplateBundleHandler(clt client.Client, scheme *runtime.Scheme) *
 			removeExistingOwner:    true,
 			isCr:                   true,
 			setControllerReference: false,
-			getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
-				return NewKubeVirtCommonTemplateBundle(hc)
-			},
-			getEmptyCr: func() runtime.Object {
-				return &sspv1.KubevirtCommonTemplatesBundle{}
-			},
-			getConditions: func(cr runtime.Object) []conditionsv1.Condition {
-				return cr.(*sspv1.KubevirtCommonTemplatesBundle).Status.Conditions
-			},
-			checkComponentVersion: func(cr runtime.Object) bool {
-				found := cr.(*sspv1.KubevirtCommonTemplatesBundle)
-				return checkComponentVersion(hcoutil.SspVersionEnvV, found.Status.ObservedVersion)
-			},
-			getObjectMeta: func(cr runtime.Object) *metav1.ObjectMeta {
-				return &cr.(*sspv1.KubevirtCommonTemplatesBundle).ObjectMeta
-			},
+			hooks:                  &commonTemplateBundleHooks{},
 		},
 		shouldRemoveOldCrd: true,
 		oldCrdName:         commonTemplatesBundleOldCrdName,
 	}
-
-	handler.updateCr = handler.updateCrImp
-	return handler
 }
 
-func (h *commonTemplateBundleHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+type commonTemplateBundleHooks struct{}
+
+func (h commonTemplateBundleHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
+	return NewKubeVirtCommonTemplateBundle(hc)
+}
+func (h commonTemplateBundleHooks) getEmptyCr() runtime.Object {
+	return &sspv1.KubevirtCommonTemplatesBundle{}
+}
+func (h commonTemplateBundleHooks) validate() error                                    { return nil }
+func (h commonTemplateBundleHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
+func (h commonTemplateBundleHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
+	return cr.(*sspv1.KubevirtCommonTemplatesBundle).Status.Conditions
+}
+func (h commonTemplateBundleHooks) checkComponentVersion(cr runtime.Object) bool {
+	found := cr.(*sspv1.KubevirtCommonTemplatesBundle)
+	return checkComponentVersion(hcoutil.SspVersionEnvV, found.Status.ObservedVersion)
+}
+func (h commonTemplateBundleHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
+	return &cr.(*sspv1.KubevirtCommonTemplatesBundle).ObjectMeta
+}
+
+func (h *commonTemplateBundleHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	kvCTB, ok1 := required.(*sspv1.KubevirtCommonTemplatesBundle)
 	found, ok2 := exists.(*sspv1.KubevirtCommonTemplatesBundle)
 	if !ok1 || !ok2 {
@@ -98,7 +101,7 @@ func (h *commonTemplateBundleHandler) updateCrImp(req *common.HcoRequest, exists
 			req.Logger.Info("Reconciling an externally updated KubeVirt Common Templates Bundle's Spec to its opinionated values")
 		}
 		kvCTB.Spec.DeepCopyInto(&found.Spec)
-		err := h.Client.Update(req.Ctx, found)
+		err := Client.Update(req.Ctx, found)
 		if err != nil {
 			return false, false, err
 		}
@@ -126,7 +129,7 @@ func NewKubeVirtCommonTemplateBundle(hc *hcov1beta1.HyperConverged, opts ...stri
 type nodeLabellerBundleHandler sspOperand
 
 func newNodeLabellerBundleHandler(clt client.Client, scheme *runtime.Scheme) *nodeLabellerBundleHandler {
-	handler := &nodeLabellerBundleHandler{
+	return &nodeLabellerBundleHandler{
 		genericOperand: genericOperand{
 			Client:                 clt,
 			Scheme:                 scheme,
@@ -134,33 +137,35 @@ func newNodeLabellerBundleHandler(clt client.Client, scheme *runtime.Scheme) *no
 			removeExistingOwner:    false,
 			isCr:                   true,
 			setControllerReference: true,
-			getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
-				return NewKubeVirtNodeLabellerBundleForCR(hc, hc.Namespace)
-			},
-			getEmptyCr: func() runtime.Object {
-				return &sspv1.KubevirtNodeLabellerBundle{}
-			},
-			getConditions: func(cr runtime.Object) []conditionsv1.Condition {
-				return cr.(*sspv1.KubevirtNodeLabellerBundle).Status.Conditions
-			},
-			checkComponentVersion: func(cr runtime.Object) bool {
-				found := cr.(*sspv1.KubevirtNodeLabellerBundle)
-				return checkComponentVersion(hcoutil.SspVersionEnvV, found.Status.ObservedVersion)
-			},
-			getObjectMeta: func(cr runtime.Object) *metav1.ObjectMeta {
-				return &cr.(*sspv1.KubevirtNodeLabellerBundle).ObjectMeta
-			},
+			hooks:                  &nodeLabellerBundleHooks{},
 		},
 		shouldRemoveOldCrd: true,
 		oldCrdName:         nodeLabellerBundlesOldCrdName,
 	}
-
-	handler.updateCr = handler.updateCrImp
-
-	return handler
 }
 
-func (h *nodeLabellerBundleHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+type nodeLabellerBundleHooks struct{}
+
+func (h nodeLabellerBundleHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
+	return NewKubeVirtNodeLabellerBundleForCR(hc, hc.Namespace)
+}
+func (h nodeLabellerBundleHooks) getEmptyCr() runtime.Object {
+	return &sspv1.KubevirtNodeLabellerBundle{}
+}
+func (h nodeLabellerBundleHooks) validate() error                                        { return nil }
+func (h nodeLabellerBundleHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
+func (h nodeLabellerBundleHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
+	return cr.(*sspv1.KubevirtNodeLabellerBundle).Status.Conditions
+}
+func (h nodeLabellerBundleHooks) checkComponentVersion(cr runtime.Object) bool {
+	found := cr.(*sspv1.KubevirtNodeLabellerBundle)
+	return checkComponentVersion(hcoutil.SspVersionEnvV, found.Status.ObservedVersion)
+}
+func (h nodeLabellerBundleHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
+	return &cr.(*sspv1.KubevirtNodeLabellerBundle).ObjectMeta
+}
+
+func (h *nodeLabellerBundleHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	kvNLB, ok1 := required.(*sspv1.KubevirtNodeLabellerBundle)
 	found, ok2 := exists.(*sspv1.KubevirtNodeLabellerBundle)
 	if !ok1 || !ok2 {
@@ -173,7 +178,7 @@ func (h *nodeLabellerBundleHandler) updateCrImp(req *common.HcoRequest, exists r
 			req.Logger.Info("Reconciling an externally updated KubeVirt Node Labeller Bundle's Spec to its opinionated values")
 		}
 		kvNLB.Spec.DeepCopyInto(&found.Spec)
-		err := h.Client.Update(req.Ctx, found)
+		err := Client.Update(req.Ctx, found)
 		if err != nil {
 			return false, false, err
 		}
@@ -230,7 +235,7 @@ func NewKubeVirtNodeLabellerBundleForCR(cr *hcov1beta1.HyperConverged, namespace
 type templateValidatorHandler sspOperand
 
 func newTemplateValidatorHandler(clt client.Client, scheme *runtime.Scheme) *templateValidatorHandler {
-	handler := &templateValidatorHandler{
+	return &templateValidatorHandler{
 		genericOperand: genericOperand{
 			Client:                 clt,
 			Scheme:                 scheme,
@@ -238,32 +243,35 @@ func newTemplateValidatorHandler(clt client.Client, scheme *runtime.Scheme) *tem
 			removeExistingOwner:    false,
 			isCr:                   true,
 			setControllerReference: true,
-			getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
-				return NewKubeVirtTemplateValidatorForCR(hc, hc.Namespace)
-			},
-			getEmptyCr: func() runtime.Object {
-				return &sspv1.KubevirtTemplateValidator{}
-			},
-			getConditions: func(cr runtime.Object) []conditionsv1.Condition {
-				return cr.(*sspv1.KubevirtTemplateValidator).Status.Conditions
-			},
-			checkComponentVersion: func(cr runtime.Object) bool {
-				found := cr.(*sspv1.KubevirtTemplateValidator)
-				return checkComponentVersion(hcoutil.SspVersionEnvV, found.Status.ObservedVersion)
-			},
-			getObjectMeta: func(cr runtime.Object) *metav1.ObjectMeta {
-				return &cr.(*sspv1.KubevirtTemplateValidator).ObjectMeta
-			},
+			hooks:                  &templateValidatorHooks{},
 		},
 		shouldRemoveOldCrd: true,
 		oldCrdName:         templateValidatorsOldCrdName,
 	}
-
-	handler.updateCr = handler.updateCrImp
-	return handler
 }
 
-func (h *templateValidatorHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+type templateValidatorHooks struct{}
+
+func (h templateValidatorHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
+	return NewKubeVirtTemplateValidatorForCR(hc, hc.Namespace)
+}
+func (h templateValidatorHooks) getEmptyCr() runtime.Object {
+	return &sspv1.KubevirtTemplateValidator{}
+}
+func (h templateValidatorHooks) validate() error                                        { return nil }
+func (h templateValidatorHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
+func (h templateValidatorHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
+	return cr.(*sspv1.KubevirtTemplateValidator).Status.Conditions
+}
+func (h templateValidatorHooks) checkComponentVersion(cr runtime.Object) bool {
+	found := cr.(*sspv1.KubevirtTemplateValidator)
+	return checkComponentVersion(hcoutil.SspVersionEnvV, found.Status.ObservedVersion)
+}
+func (h templateValidatorHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
+	return &cr.(*sspv1.KubevirtTemplateValidator).ObjectMeta
+}
+
+func (h *templateValidatorHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	kvTV, ok1 := required.(*sspv1.KubevirtTemplateValidator)
 	found, ok2 := exists.(*sspv1.KubevirtTemplateValidator)
 	if !ok1 || !ok2 {
@@ -277,7 +285,7 @@ func (h *templateValidatorHandler) updateCrImp(req *common.HcoRequest, exists ru
 			req.Logger.Info("Reconciling an externally updated KubeVirt Template Validator's Spec to its opinionated values")
 		}
 		kvTV.Spec.DeepCopyInto(&found.Spec)
-		err := h.Client.Update(req.Ctx, found)
+		err := Client.Update(req.Ctx, found)
 		if err != nil {
 			return false, false, err
 		}
@@ -330,7 +338,7 @@ func NewKubeVirtTemplateValidatorForCR(cr *hcov1beta1.HyperConverged, namespace 
 type metricsAggregationHandler sspOperand
 
 func newMetricsAggregationHandler(clt client.Client, scheme *runtime.Scheme) *metricsAggregationHandler {
-	handler := &metricsAggregationHandler{
+	return &metricsAggregationHandler{
 		genericOperand: genericOperand{
 			Client:                 clt,
 			Scheme:                 scheme,
@@ -338,33 +346,35 @@ func newMetricsAggregationHandler(clt client.Client, scheme *runtime.Scheme) *me
 			removeExistingOwner:    false,
 			isCr:                   true,
 			setControllerReference: true,
-			getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
-				return NewKubeVirtMetricsAggregationForCR(hc, hc.Namespace)
-			},
-			getEmptyCr: func() runtime.Object {
-				return &sspv1.KubevirtMetricsAggregation{}
-			},
-			getConditions: func(cr runtime.Object) []conditionsv1.Condition {
-				return cr.(*sspv1.KubevirtMetricsAggregation).Status.Conditions
-			},
-			checkComponentVersion: func(cr runtime.Object) bool {
-				found := cr.(*sspv1.KubevirtMetricsAggregation)
-				return checkComponentVersion(hcoutil.SspVersionEnvV, found.Status.ObservedVersion)
-			},
-			getObjectMeta: func(cr runtime.Object) *metav1.ObjectMeta {
-				return &cr.(*sspv1.KubevirtMetricsAggregation).ObjectMeta
-			},
+			hooks:                  &metricsAggregationHooks{},
 		},
 		shouldRemoveOldCrd: true,
 		oldCrdName:         metricsAggregationOldCrdName,
 	}
-
-	handler.updateCr = handler.updateCrImp
-
-	return handler
 }
 
-func (h *metricsAggregationHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+type metricsAggregationHooks struct{}
+
+func (h metricsAggregationHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
+	return NewKubeVirtMetricsAggregationForCR(hc, hc.Namespace)
+}
+func (h metricsAggregationHooks) getEmptyCr() runtime.Object {
+	return &sspv1.KubevirtMetricsAggregation{}
+}
+func (h metricsAggregationHooks) validate() error                                        { return nil }
+func (h metricsAggregationHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
+func (h metricsAggregationHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
+	return cr.(*sspv1.KubevirtMetricsAggregation).Status.Conditions
+}
+func (h metricsAggregationHooks) checkComponentVersion(cr runtime.Object) bool {
+	found := cr.(*sspv1.KubevirtMetricsAggregation)
+	return checkComponentVersion(hcoutil.SspVersionEnvV, found.Status.ObservedVersion)
+}
+func (h metricsAggregationHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
+	return &cr.(*sspv1.KubevirtMetricsAggregation).ObjectMeta
+}
+
+func (h *metricsAggregationHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	kubevirtMetricsAggregation, ok1 := required.(*sspv1.KubevirtMetricsAggregation)
 	found, ok2 := exists.(*sspv1.KubevirtMetricsAggregation)
 	if !ok1 || !ok2 {
@@ -378,7 +388,7 @@ func (h *metricsAggregationHandler) updateCrImp(req *common.HcoRequest, exists r
 			req.Logger.Info("Reconciling an externally updated KubeVirt Template Validator's Spec to its opinionated values")
 		}
 		kubevirtMetricsAggregation.Spec.DeepCopyInto(&found.Spec)
-		err := h.Client.Update(req.Ctx, found)
+		err := Client.Update(req.Ctx, found)
 		if err != nil {
 			return false, false, err
 		}

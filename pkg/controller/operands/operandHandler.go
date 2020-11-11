@@ -32,13 +32,13 @@ type OperandHandler struct {
 
 func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshiftCluster bool, eventEmitter hcoutil.EventEmitter) *OperandHandler {
 	operands := []Operand{
-		newKvConfigHandler(client, scheme),
-		newKvPriorityClassHandler(client, scheme),
-		newKubevirtHandler(client, scheme),
-		newCdiHandler(client, scheme),
-		newCnaHandler(client, scheme),
-		newVmImportHandler(client, scheme),
-		newImsConfigHandler(client, scheme),
+		(*genericOperand)(newKvConfigHandler(client, scheme)),
+		(*genericOperand)(newKvPriorityClassHandler(client, scheme)),
+		(*genericOperand)(newKubevirtHandler(client, scheme)),
+		(*genericOperand)(newCdiHandler(client, scheme)),
+		(*genericOperand)(newCnaHandler(client, scheme)),
+		(*genericOperand)(newVmImportHandler(client, scheme)),
+		(*genericOperand)(newImsConfigHandler(client, scheme)),
 	}
 
 	if isOpenshiftCluster {
@@ -59,7 +59,7 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshift
 
 func (h OperandHandler) Ensure(req *common.HcoRequest) error {
 	for _, handler := range h.operands {
-		res := handler.Ensure(req)
+		res := handler.ensure(req)
 		if res.Err != nil {
 			req.ComponentUpgradeInProgress = false
 			req.Conditions.SetStatusCondition(conditionsv1.Condition{

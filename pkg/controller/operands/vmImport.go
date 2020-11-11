@@ -15,10 +15,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// ***********  VM Import Handler  ***********
 type vmImportHandler genericOperand
 
 func newVmImportHandler(Client client.Client, Scheme *runtime.Scheme) *vmImportHandler {
-	handler := &vmImportHandler{
+	return &vmImportHandler{
 		Client: Client,
 		Scheme: Scheme,
 		crType: "vmImport",
@@ -27,28 +28,30 @@ func newVmImportHandler(Client client.Client, Scheme *runtime.Scheme) *vmImportH
 		// as the owner of VMImportConfig (scope cluster).
 		// It's not legal, so remove that.
 		removeExistingOwner: true,
-		getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
-			return NewVMImportForCR(hc)
-		},
-		getEmptyCr: func() runtime.Object { return &vmimportv1beta1.VMImportConfig{} },
-		getConditions: func(cr runtime.Object) []conditionsv1.Condition {
-			return cr.(*vmimportv1beta1.VMImportConfig).Status.Conditions
-		},
-		checkComponentVersion: func(cr runtime.Object) bool {
-			found := cr.(*vmimportv1beta1.VMImportConfig)
-			return checkComponentVersion(hcoutil.VMImportEnvV, found.Status.ObservedVersion)
-		},
-		getObjectMeta: func(cr runtime.Object) *metav1.ObjectMeta {
-			return &cr.(*vmimportv1beta1.VMImportConfig).ObjectMeta
-		},
+		hooks:               &vmImportHooks{},
 	}
-
-	handler.updateCr = handler.updateCrImp
-
-	return handler
 }
 
-func (h *vmImportHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+type vmImportHooks struct{}
+
+func (h vmImportHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
+	return NewVMImportForCR(hc)
+}
+func (h vmImportHooks) getEmptyCr() runtime.Object                             { return &vmimportv1beta1.VMImportConfig{} }
+func (h vmImportHooks) validate() error                                        { return nil }
+func (h vmImportHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
+func (h vmImportHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
+	return cr.(*vmimportv1beta1.VMImportConfig).Status.Conditions
+}
+func (h vmImportHooks) checkComponentVersion(cr runtime.Object) bool {
+	found := cr.(*vmimportv1beta1.VMImportConfig)
+	return checkComponentVersion(hcoutil.VMImportEnvV, found.Status.ObservedVersion)
+}
+func (h vmImportHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
+	return &cr.(*vmimportv1beta1.VMImportConfig).ObjectMeta
+}
+
+func (h *vmImportHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	vmImport, ok1 := required.(*vmimportv1beta1.VMImportConfig)
 	found, ok2 := exists.(*vmimportv1beta1.VMImportConfig)
 
@@ -63,7 +66,7 @@ func (h *vmImportHandler) updateCrImp(req *common.HcoRequest, exists runtime.Obj
 			req.Logger.Info("Reconciling an externally updated vmImport's Spec to its opinionated values")
 		}
 		vmImport.Spec.DeepCopyInto(&found.Spec)
-		err := h.Client.Update(req.Ctx, found)
+		err := Client.Update(req.Ctx, found)
 		if err != nil {
 			return false, false, err
 		}
@@ -71,11 +74,6 @@ func (h *vmImportHandler) updateCrImp(req *common.HcoRequest, exists runtime.Obj
 	}
 
 	return false, false, nil
-}
-
-func (h vmImportHandler) Ensure(req *common.HcoRequest) *EnsureResult {
-	handler := genericOperand(h)
-	return handler.ensure(req)
 }
 
 // NewVMImportForCR returns a VM import CR
@@ -97,32 +95,44 @@ func NewVMImportForCR(cr *hcov1beta1.HyperConverged) *vmimportv1beta1.VMImportCo
 	}
 }
 
+// ************** IMS Config Handler **************
 type imsConfigHandler genericOperand
 
 func newImsConfigHandler(Client client.Client, Scheme *runtime.Scheme) *imsConfigHandler {
-	handler := &imsConfigHandler{
+	return &imsConfigHandler{
 		Client:                 Client,
 		Scheme:                 Scheme,
-		crType:                 "IMS Configmap",
+		crType:                 "IMSConfigmap",
 		isCr:                   false,
 		removeExistingOwner:    false,
 		setControllerReference: true,
-		getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
-			return NewIMSConfigForCR(hc, hc.Namespace)
-		},
-		getEmptyCr: func() runtime.Object { return &corev1.ConfigMap{} },
-		getObjectMeta: func(cr runtime.Object) *metav1.ObjectMeta {
-			return &cr.(*corev1.ConfigMap).ObjectMeta
-		},
-		validate: validateImsConfig,
+		hooks:                  &imsConfigHooks{},
 	}
-
-	handler.updateCr = handler.updateCrImp
-
-	return handler
 }
 
-func (h *imsConfigHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+type imsConfigHooks struct{}
+
+func (h imsConfigHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
+	return NewIMSConfigForCR(hc, hc.Namespace)
+}
+func (h imsConfigHooks) getEmptyCr() runtime.Object { return &corev1.ConfigMap{} }
+func (h imsConfigHooks) validate() error {
+	if os.Getenv("CONVERSION_CONTAINER") == "" {
+		return errors.New("ims-conversion-container not specified")
+	}
+
+	if os.Getenv("VMWARE_CONTAINER") == "" {
+		return errors.New("ims-vmware-container not specified")
+	}
+	return nil
+}
+func (h imsConfigHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error  { return nil }
+func (h imsConfigHooks) getConditions(_ runtime.Object) []conditionsv1.Condition { return nil }
+func (h imsConfigHooks) checkComponentVersion(_ runtime.Object) bool             { return true }
+func (h imsConfigHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
+	return &cr.(*corev1.ConfigMap).ObjectMeta
+}
+func (h *imsConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	imsConfig, ok1 := required.(*corev1.ConfigMap)
 	found, ok2 := exists.(*corev1.ConfigMap)
 	if !ok1 || !ok2 {
@@ -142,7 +152,7 @@ func (h *imsConfigHandler) updateCrImp(req *common.HcoRequest, exists runtime.Ob
 	}
 	if needsUpdate {
 		req.Logger.Info("Updating existing IMS Configmap to its default values")
-		err := h.Client.Update(req.Ctx, found)
+		err := Client.Update(req.Ctx, found)
 		if err != nil {
 			return false, false, err
 		}
@@ -150,22 +160,6 @@ func (h *imsConfigHandler) updateCrImp(req *common.HcoRequest, exists runtime.Ob
 	}
 
 	return false, false, nil
-}
-
-func validateImsConfig() error {
-	if os.Getenv("CONVERSION_CONTAINER") == "" {
-		return errors.New("ims-conversion-container not specified")
-	}
-
-	if os.Getenv("VMWARE_CONTAINER") == "" {
-		return errors.New("ims-vmware-container not specified")
-	}
-	return nil
-}
-
-func (h imsConfigHandler) Ensure(req *common.HcoRequest) *EnsureResult {
-	handler := genericOperand(h)
-	return handler.ensure(req)
 }
 
 func NewIMSConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {

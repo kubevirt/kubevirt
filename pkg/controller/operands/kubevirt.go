@@ -22,38 +22,41 @@ const (
 	kubevirtDefaultNetworkInterfaceValue = "masquerade"
 )
 
+// ************  KubeVirt Handler  **************
 type kubevirtHandler genericOperand
 
 func newKubevirtHandler(Client client.Client, Scheme *runtime.Scheme) *kubevirtHandler {
-	handler := &kubevirtHandler{
+	return &kubevirtHandler{
 		Client:                 Client,
 		Scheme:                 Scheme,
 		crType:                 "KubeVirt",
-		isCr:                   true,
 		removeExistingOwner:    false,
 		setControllerReference: true,
-		getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
-			return NewKubeVirt(hc)
-		},
-		getEmptyCr: func() runtime.Object { return &kubevirtv1.KubeVirt{} },
-		getConditions: func(cr runtime.Object) []conditionsv1.Condition {
-			return translateKubeVirtConds(cr.(*kubevirtv1.KubeVirt).Status.Conditions)
-		},
-		checkComponentVersion: func(cr runtime.Object) bool {
-			found := cr.(*kubevirtv1.KubeVirt)
-			return checkComponentVersion(hcoutil.KubevirtVersionEnvV, found.Status.ObservedKubeVirtVersion)
-		},
-		getObjectMeta: func(cr runtime.Object) *metav1.ObjectMeta {
-			return &cr.(*kubevirtv1.KubeVirt).ObjectMeta
-		},
+		isCr:                   true,
+		hooks:                  &kubevirtHooks{},
 	}
-
-	handler.updateCr = handler.updateCrImp
-
-	return handler
 }
 
-func (h *kubevirtHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+type kubevirtHooks struct{}
+
+func (h kubevirtHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
+	return NewKubeVirt(hc)
+}
+func (h kubevirtHooks) getEmptyCr() runtime.Object                         { return &kubevirtv1.KubeVirt{} }
+func (h kubevirtHooks) validate() error                                    { return nil }
+func (h kubevirtHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
+func (h kubevirtHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
+	return translateKubeVirtConds(cr.(*kubevirtv1.KubeVirt).Status.Conditions)
+}
+func (h kubevirtHooks) checkComponentVersion(cr runtime.Object) bool {
+	found := cr.(*kubevirtv1.KubeVirt)
+	return checkComponentVersion(hcoutil.KubevirtVersionEnvV, found.Status.ObservedKubeVirtVersion)
+}
+func (h kubevirtHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
+	return &cr.(*kubevirtv1.KubeVirt).ObjectMeta
+}
+
+func (h *kubevirtHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	virt, ok1 := required.(*kubevirtv1.KubeVirt)
 	found, ok2 := exists.(*kubevirtv1.KubeVirt)
 	if !ok1 || !ok2 {
@@ -66,18 +69,13 @@ func (h *kubevirtHandler) updateCrImp(req *common.HcoRequest, exists runtime.Obj
 			req.Logger.Info("Reconciling an externally updated KubeVirt's Spec to its opinionated values")
 		}
 		virt.Spec.DeepCopyInto(&found.Spec)
-		err := h.Client.Update(req.Ctx, found)
+		err := Client.Update(req.Ctx, found)
 		if err != nil {
 			return false, false, err
 		}
 		return true, !req.HCOTriggered, nil
 	}
 	return false, false, nil
-}
-
-func (h *kubevirtHandler) Ensure(req *common.HcoRequest) *EnsureResult {
-	gh := (*genericOperand)(h)
-	return gh.ensure(req)
 }
 
 func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) *kubevirtv1.KubeVirt {
@@ -125,31 +123,36 @@ func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig) *kubevirtv1.C
 	return nil
 }
 
+// ***********  KubeVirt Config Handler  ************
 type kvConfigHandler genericOperand
 
 func newKvConfigHandler(Client client.Client, Scheme *runtime.Scheme) *kvConfigHandler {
-	handler := &kvConfigHandler{
+	return &kvConfigHandler{
 		Client:                 Client,
 		Scheme:                 Scheme,
-		crType:                 "KubeVirt Config",
-		isCr:                   false,
+		crType:                 "KubeVirtConfig",
 		removeExistingOwner:    false,
-		setControllerReference: true,
-		getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
-			return NewKubeVirtConfigForCR(hc, hc.Namespace)
-		},
-		getEmptyCr: func() runtime.Object { return &corev1.ConfigMap{} },
-		getObjectMeta: func(cr runtime.Object) *metav1.ObjectMeta {
-			return &cr.(*corev1.ConfigMap).ObjectMeta
-		},
+		setControllerReference: false,
+		isCr:                   false,
+		hooks:                  &kvConfigHooks{},
 	}
-
-	handler.updateCr = handler.updateCrImp
-
-	return handler
 }
 
-func (h *kvConfigHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+type kvConfigHooks struct{}
+
+func (h kvConfigHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
+	return NewKubeVirtConfigForCR(hc, hc.Namespace)
+}
+func (h kvConfigHooks) getEmptyCr() runtime.Object                            { return &corev1.ConfigMap{} }
+func (h kvConfigHooks) validate() error                                       { return nil }
+func (h kvConfigHooks) postFound(*common.HcoRequest, runtime.Object) error    { return nil }
+func (h kvConfigHooks) getConditions(runtime.Object) []conditionsv1.Condition { return nil }
+func (h kvConfigHooks) checkComponentVersion(runtime.Object) bool             { return true }
+func (h kvConfigHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
+	return &cr.(*corev1.ConfigMap).ObjectMeta
+}
+
+func (h *kvConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	kubevirtConfig, ok1 := required.(*corev1.ConfigMap)
 	found, ok2 := exists.(*corev1.ConfigMap)
 	if !ok1 || !ok2 {
@@ -188,7 +191,7 @@ func (h *kvConfigHandler) updateCrImp(req *common.HcoRequest, exists runtime.Obj
 		}
 
 		if changed {
-			err := h.Client.Update(req.Ctx, found)
+			err := Client.Update(req.Ctx, found)
 			if err != nil {
 				req.Logger.Error(err, "Failed updating the kubevirt config map")
 				return false, false, err
@@ -199,16 +202,36 @@ func (h *kvConfigHandler) updateCrImp(req *common.HcoRequest, exists runtime.Obj
 	return false, false, nil
 }
 
-func (h *kvConfigHandler) Ensure(req *common.HcoRequest) *EnsureResult {
-	gh := (*genericOperand)(h)
-	res := gh.ensure(req)
-
-	return res
-}
-
+// ***********  KubeVirt Priority Class  ************
 type kvPriorityClassHandler genericOperand
 
-func (h *kvPriorityClassHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+func newKvPriorityClassHandler(Client client.Client, Scheme *runtime.Scheme) *kvPriorityClassHandler {
+	return &kvPriorityClassHandler{
+		Client:                 Client,
+		Scheme:                 Scheme,
+		crType:                 "KubeVirtPriorityClass",
+		removeExistingOwner:    false,
+		setControllerReference: false,
+		isCr:                   false,
+		hooks:                  &kvPriorityClassHooks{},
+	}
+}
+
+type kvPriorityClassHooks struct{}
+
+func (h kvPriorityClassHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
+	return NewKubeVirtPriorityClass(hc)
+}
+func (h kvPriorityClassHooks) getEmptyCr() runtime.Object                              { return &schedulingv1.PriorityClass{} }
+func (h kvPriorityClassHooks) validate() error                                         { return nil }
+func (h kvPriorityClassHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error  { return nil }
+func (h kvPriorityClassHooks) getConditions(_ runtime.Object) []conditionsv1.Condition { return nil }
+func (h kvPriorityClassHooks) checkComponentVersion(_ runtime.Object) bool             { return true }
+func (h kvPriorityClassHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
+	return &cr.(*schedulingv1.PriorityClass).ObjectMeta
+}
+
+func (h *kvPriorityClassHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	pc, ok1 := required.(*schedulingv1.PriorityClass)
 	found, ok2 := exists.(*schedulingv1.PriorityClass)
 	if !ok1 || !ok2 {
@@ -227,46 +250,18 @@ func (h *kvPriorityClassHandler) updateCrImp(req *common.HcoRequest, exists runt
 	}
 
 	// something was changed but since we can't patch a priority class object, we remove it
-	err := h.Client.Delete(req.Ctx, found, &client.DeleteOptions{})
+	err := Client.Delete(req.Ctx, found, &client.DeleteOptions{})
 	if err != nil {
 		return false, false, err
 	}
 
 	// create the new object
-	err = h.Client.Create(req.Ctx, pc, &client.CreateOptions{})
+	err = Client.Create(req.Ctx, pc, &client.CreateOptions{})
 	if err != nil {
 		return false, false, err
 	}
 
 	return true, !req.HCOTriggered, nil
-}
-
-func (h *kvPriorityClassHandler) Ensure(req *common.HcoRequest) *EnsureResult {
-	gh := (*genericOperand)(h)
-	res := gh.ensure(req)
-
-	return res
-}
-
-func newKvPriorityClassHandler(Client client.Client, Scheme *runtime.Scheme) *kvPriorityClassHandler {
-	handler := &kvPriorityClassHandler{
-		Client:                 Client,
-		Scheme:                 Scheme,
-		crType:                 "KubeVirt PriorityClass",
-		isCr:                   false,
-		removeExistingOwner:    false,
-		setControllerReference: false,
-		getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
-			return NewKubeVirtPriorityClass(hc)
-		},
-		getEmptyCr: func() runtime.Object { return &schedulingv1.PriorityClass{} },
-		getObjectMeta: func(cr runtime.Object) *metav1.ObjectMeta {
-			return &cr.(*schedulingv1.PriorityClass).ObjectMeta
-		},
-	}
-	handler.updateCr = handler.updateCrImp
-
-	return handler
 }
 
 func NewKubeVirtPriorityClass(hc *hcov1beta1.HyperConverged) *schedulingv1.PriorityClass {

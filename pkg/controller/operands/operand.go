@@ -19,60 +19,79 @@ import (
 )
 
 type Operand interface {
-	Ensure(req *common.HcoRequest) *EnsureResult
+	ensure(req *common.HcoRequest) *EnsureResult
 }
 
+// Handles a specific resource (a CR, a configMap and so on), to be run during reconciliation
 type genericOperand struct {
-	Client                 client.Client
-	Scheme                 *runtime.Scheme
-	crType                 string
-	removeExistingOwner    bool
+	// K8s client
+	Client client.Client
+	Scheme *runtime.Scheme
+	// printable resource name
+	crType string
+	// In some cases, Previous versions used to have HCO-operator (scope namespace)
+	// as the owner of some resources (scope cluster).
+	// It's not legal, so remove that.
+	removeExistingOwner bool
+	// Should the handler add the controller reference
 	setControllerReference bool
-	isCr                   bool
-
-	// hooks
-	getFullCr             func(hc *hcov1beta1.HyperConverged) runtime.Object
-	getEmptyCr            func() runtime.Object
-	validate              func() error
-	postFound             func(request *common.HcoRequest, exists runtime.Object) error
-	updateCr              func(request *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error)
-	getConditions         func(cr runtime.Object) []conditionsv1.Condition
-	checkComponentVersion func(cr runtime.Object) bool
-	getObjectMeta         func(cr runtime.Object) *metav1.ObjectMeta
+	// Is it a custom resource
+	isCr bool
+	// Set of resource handler hooks, to be implement in each handler
+	hooks hcoResourceHooks
 }
 
-func (handler *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
-	cr := handler.getFullCr(req.Instance)
+// Set of resource handler hooks, to be implement in each handler
+type hcoResourceHooks interface {
+	// Generate the required resource, with all the required fields)
+	getFullCr(*hcov1beta1.HyperConverged) runtime.Object
+	// Generate an empty resource, to be used as the input of the client.Get method. After calling this method, it will
+	// contains the actual values in K8s.
+	getEmptyCr() runtime.Object
+	// optional validation before starting the ensure work
+	validate() error
+	// an optional hook that is called just after getting the resource from K8s
+	postFound(*common.HcoRequest, runtime.Object) error
+	// check if there is a change between the required resource and the resource read from K8s, and update K8s accordingly.
+	updateCr(*common.HcoRequest, client.Client, runtime.Object, runtime.Object) (bool, bool, error)
+	// get the CR conditions, if exists
+	getConditions(runtime.Object) []conditionsv1.Condition
+	// on upgrade mode, check if the CR is already with the expected version
+	checkComponentVersion(runtime.Object) bool
+	// cast he specific resource to *metav1.ObjectMeta
+	getObjectMeta(runtime.Object) *metav1.ObjectMeta
+}
+
+func (h *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
+	cr := h.hooks.getFullCr(req.Instance)
 
 	res := NewEnsureResult(cr)
-	if handler.validate != nil {
-		if err := handler.validate(); err != nil {
-			return res.Error(err)
-		}
+	if err := h.hooks.validate(); err != nil {
+		return res.Error(err)
 	}
 
 	ref, ok := cr.(metav1.Object)
-	if handler.setControllerReference {
+	if h.setControllerReference {
 		if !ok {
 			return res.Error(fmt.Errorf("can't convert %T to k8s.io/apimachinery/pkg/apis/meta/v1.Object", cr))
 		}
-		if err := controllerutil.SetControllerReference(req.Instance, ref, handler.Scheme); err != nil {
+		if err := controllerutil.SetControllerReference(req.Instance, ref, h.Scheme); err != nil {
 			return res.Error(err)
 		}
 	}
 
 	key, err := client.ObjectKeyFromObject(cr)
 	if err != nil {
-		req.Logger.Error(err, "Failed to get object key for "+handler.crType)
+		req.Logger.Error(err, "Failed to get object key for "+h.crType)
 	}
 
 	res.SetName(key.Name)
-	found := handler.getEmptyCr()
-	err = handler.Client.Get(req.Ctx, key, found)
+	found := h.hooks.getEmptyCr()
+	err = h.Client.Get(req.Ctx, key, found)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			req.Logger.Info("Creating " + handler.crType)
-			err = handler.Client.Create(req.Ctx, cr)
+			req.Logger.Info("Creating " + h.crType)
+			err = h.Client.Create(req.Ctx, cr)
 			if err == nil {
 				return res.SetCreated().SetName(key.Name)
 			}
@@ -82,69 +101,61 @@ func (handler *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
 
 	key, err = client.ObjectKeyFromObject(found)
 	if err != nil {
-		req.Logger.Error(err, "Failed to get object key for "+handler.crType)
-	}
-	req.Logger.Info(handler.crType+" already exists", handler.crType+".Namespace", key.Namespace, handler.crType+".Name", key.Name)
-
-	if handler.postFound != nil {
-		if err = handler.postFound(req, found); err != nil {
-			return res.Error(err)
-		}
+		req.Logger.Error(err, "Failed to get object key for "+h.crType)
+		return res.Error(err)
 	}
 
-	if handler.removeExistingOwner && (handler.getObjectMeta != nil) {
-		existingOwners := handler.getObjectMeta(found).GetOwnerReferences()
+	req.Logger.Info(h.crType+" already exists", h.crType+".Namespace", key.Namespace, h.crType+".Name", key.Name)
+
+	if err = h.hooks.postFound(req, found); err != nil {
+		return res.Error(err)
+	}
+
+	if h.removeExistingOwner {
+		existingOwners := h.hooks.getObjectMeta(found).GetOwnerReferences()
 
 		if len(existingOwners) > 0 {
-			req.Logger.Info(handler.crType + " has owners, removing...")
-			err = handler.Client.Update(req.Ctx, found)
+			req.Logger.Info(h.crType + " has owners, removing...")
+			err = h.Client.Update(req.Ctx, found)
 			if err != nil {
-				req.Logger.Error(err, fmt.Sprintf("Failed to remove %s's previous owners", handler.crType))
+				req.Logger.Error(err, fmt.Sprintf("Failed to remove %s's previous owners", h.crType))
 			}
 		}
 
 		if err == nil {
 			// do that only once
-			handler.removeExistingOwner = false
+			h.removeExistingOwner = false
 		}
 	}
 
-	if handler.updateCr != nil {
-		updated, overwritten, err := handler.updateCr(req, found, cr)
-		if err != nil {
-			return res.Error(err)
+	updated, overwritten, err := h.hooks.updateCr(req, h.Client, found, cr)
+	if err != nil {
+		return res.Error(err)
+	}
+	if updated {
+		res.SetUpdated()
+		if overwritten {
+			res.SetOverwritten()
 		}
-		if updated {
-			res.SetUpdated()
-			if overwritten {
-				res.SetOverwritten()
-			}
-			return res
-		}
+		return res
 	}
 
 	// Add it to the list of RelatedObjects if found
-	objectRef, err := reference.GetReference(handler.Scheme, found)
+	objectRef, err := reference.GetReference(h.Scheme, found)
 	if err != nil {
 		return res.Error(err)
 	}
 	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
 
-	if handler.isCr {
-		if (handler.getConditions != nil) && (handler.checkComponentVersion) != nil {
-			// Handle KubeVirt resource conditions
-			isReady := handleComponentConditions(req, handler.crType, handler.getConditions(found))
+	if h.isCr {
+		// Handle KubeVirt resource conditions
+		isReady := handleComponentConditions(req, h.crType, h.hooks.getConditions(found))
 
-			upgradeDone := req.UpgradeMode && isReady && handler.checkComponentVersion(found)
-			return res.SetUpgradeDone(upgradeDone)
-		}
-
-	} else {
-		// For resources that are not CRs, such as priority classes or a config map, there is no new version to upgrade
-		res.SetUpgradeDone(req.ComponentUpgradeInProgress)
+		upgradeDone := req.UpgradeMode && isReady && h.hooks.checkComponentVersion(found)
+		return res.SetUpgradeDone(upgradeDone)
 	}
-
-	return res
+	// For resources that are not CRs, such as priority classes or a config map, there is no new version to upgrade
+	return res.SetUpgradeDone(req.ComponentUpgradeInProgress)
 }
 
 // handleComponentConditions - read and process a sub-component conditions.

@@ -32,9 +32,9 @@ var _ = Describe("VM-Import", func() {
 		It("should create if not present", func() {
 			expectedResource := NewVMImportForCR(hco)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := newVmImportHandler(cl, commonTestUtils.GetScheme())
+			handler := (*genericOperand)(newVmImportHandler(cl, commonTestUtils.GetScheme()))
 
-			res := handler.Ensure(req)
+			res := handler.ensure(req)
 
 			Expect(res.Created).To(BeTrue())
 			Expect(res.Updated).To(BeFalse())
@@ -57,8 +57,8 @@ var _ = Describe("VM-Import", func() {
 			expectedResource := NewVMImportForCR(hco)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/vmimportconfigs/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := newVmImportHandler(cl, commonTestUtils.GetScheme())
-			res := handler.Ensure(req)
+			handler := (*genericOperand)(newVmImportHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
 			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeFalse())
 			Expect(res.Overwritten).To(BeFalse())
@@ -81,8 +81,8 @@ var _ = Describe("VM-Import", func() {
 			req.HCOTriggered = false                                  // mock a reconciliation triggered by a change in vm-import CR
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := newVmImportHandler(cl, commonTestUtils.GetScheme())
-			res := handler.Ensure(req)
+			handler := (*genericOperand)(newVmImportHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
 			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Overwritten).To(BeTrue())
@@ -105,8 +105,8 @@ var _ = Describe("VM-Import", func() {
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := newVmImportHandler(cl, commonTestUtils.GetScheme())
-			res := handler.Ensure(req)
+			handler := (*genericOperand)(newVmImportHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
 			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Overwritten).To(BeFalse())
@@ -146,8 +146,8 @@ var _ = Describe("VM-Import", func() {
 			existingResource := NewVMImportForCR(hcoNodePlacement)
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := newVmImportHandler(cl, commonTestUtils.GetScheme())
-			res := handler.Ensure(req)
+			handler := (*genericOperand)(newVmImportHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
 			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Overwritten).To(BeFalse())
@@ -187,8 +187,8 @@ var _ = Describe("VM-Import", func() {
 			hco.Spec.Infra.NodePlacement.NodeSelector["key1"] = "something else"
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := newVmImportHandler(cl, commonTestUtils.GetScheme())
-			res := handler.Ensure(req)
+			handler := (*genericOperand)(newVmImportHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
 			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Overwritten).To(BeFalse())
@@ -230,8 +230,8 @@ var _ = Describe("VM-Import", func() {
 			existingResource.Spec.Infra.NodeSelector["key1"] = "BADvalue1"
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := newVmImportHandler(cl, commonTestUtils.GetScheme())
-			res := handler.Ensure(req)
+			handler := (*genericOperand)(newVmImportHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Overwritten).To(BeTrue())
@@ -272,9 +272,9 @@ var _ = Describe("VM-Import", func() {
 			os.Unsetenv("VMWARE_CONTAINER")
 
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := newImsConfigHandler(cl, commonTestUtils.GetScheme())
+			handler := (*genericOperand)(newImsConfigHandler(cl, commonTestUtils.GetScheme()))
 
-			res := handler.Ensure(req)
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(BeNil())
 		})
@@ -282,8 +282,8 @@ var _ = Describe("VM-Import", func() {
 		It("should create if not present", func() {
 			expectedResource := NewIMSConfigForCR(hco, commonTestUtils.Namespace)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := newImsConfigHandler(cl, commonTestUtils.GetScheme())
-			res := handler.Ensure(req)
+			handler := (*genericOperand)(newImsConfigHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
@@ -302,8 +302,8 @@ var _ = Describe("VM-Import", func() {
 			expectedResource := NewIMSConfigForCR(hco, commonTestUtils.Namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := newImsConfigHandler(cl, commonTestUtils.GetScheme())
-			res := handler.Ensure(req)
+			handler := (*genericOperand)(newImsConfigHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
@@ -341,8 +341,8 @@ var _ = Describe("VM-Import", func() {
 			}
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, outdatedResource})
-			handler := newImsConfigHandler(cl, commonTestUtils.GetScheme())
-			res := handler.Ensure(req)
+			handler := (*genericOperand)(newImsConfigHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
 			Expect(res.Err).To(BeNil())

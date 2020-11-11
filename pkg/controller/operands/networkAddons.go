@@ -21,7 +21,7 @@ import (
 type cnaHandler genericOperand
 
 func newCnaHandler(Client client.Client, Scheme *runtime.Scheme) *cnaHandler {
-	handler := &cnaHandler{
+	return &cnaHandler{
 		Client: Client,
 		Scheme: Scheme,
 		crType: "NetworkAddonsConfig",
@@ -30,33 +30,30 @@ func newCnaHandler(Client client.Client, Scheme *runtime.Scheme) *cnaHandler {
 		// as the owner of NetworkAddons (scope cluster).
 		// It's not legal, so remove that.
 		removeExistingOwner: true,
-		getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
-			return NewNetworkAddons(hc)
-		},
-		getEmptyCr: func() runtime.Object { return &networkaddonsv1.NetworkAddonsConfig{} },
-		getConditions: func(cr runtime.Object) []conditionsv1.Condition {
-			return cr.(*networkaddonsv1.NetworkAddonsConfig).Status.Conditions
-		},
-		checkComponentVersion: func(cr runtime.Object) bool {
-			found := cr.(*networkaddonsv1.NetworkAddonsConfig)
-			return checkComponentVersion(hcoutil.CnaoVersionEnvV, found.Status.ObservedVersion)
-		},
-		getObjectMeta: func(cr runtime.Object) *metav1.ObjectMeta {
-			return &cr.(*networkaddonsv1.NetworkAddonsConfig).ObjectMeta
-		},
+		hooks:               &cnaHooks{},
 	}
-
-	handler.updateCr = handler.updateCrImp
-
-	return handler
 }
 
-func (h *cnaHandler) Ensure(req *common.HcoRequest) *EnsureResult {
-	gh := (*genericOperand)(h)
-	return gh.ensure(req)
+type cnaHooks struct{}
+
+func (h cnaHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
+	return NewNetworkAddons(hc)
+}
+func (h cnaHooks) getEmptyCr() runtime.Object                         { return &networkaddonsv1.NetworkAddonsConfig{} }
+func (h cnaHooks) validate() error                                    { return nil }
+func (h cnaHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
+func (h cnaHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
+	return cr.(*networkaddonsv1.NetworkAddonsConfig).Status.Conditions
+}
+func (h cnaHooks) checkComponentVersion(cr runtime.Object) bool {
+	found := cr.(*networkaddonsv1.NetworkAddonsConfig)
+	return checkComponentVersion(hcoutil.CnaoVersionEnvV, found.Status.ObservedVersion)
+}
+func (h cnaHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
+	return &cr.(*networkaddonsv1.NetworkAddonsConfig).ObjectMeta
 }
 
-func (h *cnaHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+func (h *cnaHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	networkAddons, ok1 := required.(*networkaddonsv1.NetworkAddonsConfig)
 	found, ok2 := exists.(*networkaddonsv1.NetworkAddonsConfig)
 
@@ -71,7 +68,7 @@ func (h *cnaHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, 
 			req.Logger.Info("Reconciling an externally updated Network Addons's Spec to its opinionated values")
 		}
 		networkAddons.Spec.DeepCopyInto(&found.Spec)
-		err := h.Client.Update(req.Ctx, found)
+		err := Client.Update(req.Ctx, found)
 		if err != nil {
 			return false, false, err
 		}
