@@ -682,16 +682,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Obtaining the serial console")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				defer expecter.Close()
+				Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
 				By("Guest shutdown")
-				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "sudo poweroff\n"},
 					&expect.BExp{R: "The system is going down NOW!"},
-				}, 240*time.Second)
-				Expect(err).ToNot(HaveOccurred())
+				}, 240)).To(Succeed())
 
 				By("waiting for the controller to replace the shut-down vmi with a new instance")
 				Eventually(func() bool {
@@ -936,15 +933,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
 
-					expecter, err := tests.LoggedInCirrosExpecter(vmi)
-					Expect(err).ToNot(HaveOccurred())
-					defer expecter.Close()
+					Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
 					By("Issuing a poweroff command from inside VM")
-					_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: "sudo poweroff\n"},
-					}, 10*time.Second)
-					Expect(err).ToNot(HaveOccurred())
+						&expect.BExp{R: console.PromptExpression},
+					}, 10)).To(Succeed())
 
 					By("Getting VM's UUID")
 					virtualMachine, err = virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
@@ -1093,15 +1088,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
 
-					expecter, err := tests.LoggedInCirrosExpecter(vmi)
-					Expect(err).ToNot(HaveOccurred())
-					defer expecter.Close()
+					Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
 					By("Issuing a poweroff command from inside VM")
-					_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: "sudo poweroff\n"},
-					}, 10*time.Second)
-					Expect(err).ToNot(HaveOccurred())
+						&expect.BExp{R: console.PromptExpression},
+					}, 10)).To(Succeed())
 
 					By("Ensuring the VirtualMachineInstance enters Succeeded phase")
 					Eventually(func() v1.VirtualMachineInstancePhase {
@@ -1333,15 +1326,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					expecter, err := tests.LoggedInCirrosExpecter(vmi)
-					Expect(err).ToNot(HaveOccurred())
-					defer expecter.Close()
+					Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
 					By("Issuing a poweroff command from inside VM")
-					_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: "sudo poweroff\n"},
-					}, 10*time.Second)
-					Expect(err).ToNot(HaveOccurred())
+						&expect.BExp{R: console.PromptExpression},
+					}, 10)).To(Succeed())
 
 					By("Ensuring the VirtualMachineInstance enters Succeeded phase")
 					Eventually(func() v1.VirtualMachineInstancePhase {

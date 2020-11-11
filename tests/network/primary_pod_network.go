@@ -93,7 +93,7 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 
 					tmpVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(tmpVmi)
 					Expect(err).NotTo(HaveOccurred())
-					vmi = tests.WaitUntilVMIReady(tmpVmi, tests.LoggedInFedoraExpecter)
+					vmi = tests.WaitUntilVMIReady(tmpVmi, tests.LoginToFedora)
 
 					tests.WaitAgentConnected(virtClient, vmi)
 				})
@@ -139,7 +139,7 @@ func setupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance)
 	Expect(err).NotTo(HaveOccurred(), "VMI should be successfully created")
 
 	By("Waiting until the VMI gets ready")
-	vmi = tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
+	vmi = tests.WaitUntilVMIReady(vmi, tests.LoginToAlpine)
 
 	return vmi
 }

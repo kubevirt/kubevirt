@@ -27,8 +27,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"kubevirt.io/client-go/log"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -376,12 +374,11 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			uptimeDiffBeforePausing float64
 		)
 
-		grepGuestUptime := func(expecter expect.Expecter) float64 {
-			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+		grepGuestUptime := func(vmi *v1.VirtualMachineInstance) float64 {
+			res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
 				&expect.BSnd{S: `cat /proc/uptime | awk '{print $1;}'` + "\n"},
 				&expect.BExp{R: console.RetValue("[0-9\\.]+")}, // guest uptime
-			}, 15*time.Second)
-			log.DefaultLogger().Infof("a:%+v\n", res)
+			}, 15)
 			Expect(err).ToNot(HaveOccurred())
 			re := regexp.MustCompile("\r\n[0-9\\.]+\r\n")
 			guestUptime, err := strconv.ParseFloat(strings.TrimSpace(re.FindString(res[0].Match[0])), 64)
@@ -400,12 +397,10 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 240, false)
 
 			By("Checking that the VirtualMachineInstance console has expected output")
-			expecter, expecterErr := tests.LoggedInCirrosExpecter(vmi)
-			Expect(expecterErr).ToNot(HaveOccurred(), "should successfully create expecter")
-			defer expecter.Close()
+			Expect(tests.LoginToCirros(vmi)).To(Succeed())
 
 			By("checking uptime difference between guest and host")
-			uptimeDiffBeforePausing = hostUptime() - grepGuestUptime(expecter)
+			uptimeDiffBeforePausing = hostUptime() - grepGuestUptime(vmi)
 		})
 
 		It("[test_id:3090]should be less than uptime difference after pause", func() {
@@ -420,12 +415,8 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(command()).To(Succeed(), "should successfully unpause tthe vmi")
 			tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
 
-			expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
-			Expect(err).ToNot(HaveOccurred(), "should successfully create expecter")
-			defer expecter.Close()
-
 			By("Verifying VMI was indeed Paused")
-			uptimeDiffAfterPausing := hostUptime() - grepGuestUptime(expecter)
+			uptimeDiffAfterPausing := hostUptime() - grepGuestUptime(vmi)
 			Expect(uptimeDiffAfterPausing).To(BeNumerically(">", uptimeDiffBeforePausing+10), "uptime diff after pausing should be greater by at least 10 than before pausing")
 		})
 	})

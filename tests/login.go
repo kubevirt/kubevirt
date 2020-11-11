@@ -16,35 +16,28 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-// LoginToCirros call LoggedInFedoraExpecter but does not return the expecter
-func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
-	expecter, err := LoggedInCirrosExpecter(vmi)
-	if err == nil {
-		expecter.Close()
-	}
-	return err
-}
+// LoginToFactory represents the LogIn* functions signature
+type LoginToFactory func(*v1.VirtualMachineInstance) error
 
-// LoggedInCirrosExpecter return prepared and ready to use console expecter for
-// Alpine test VM
-func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
+// LoginToCirros performs a console login to a Cirros base VM
+func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	defer expecter.Close()
 	hostName := dns.SanitizeHostname(vmi)
 
 	// Do not login, if we already logged in
 	err = expecter.Send("\n")
 	if err != nil {
-		expecter.Close()
-		return nil, err
+		return err
 	}
 	_, _, err = expecter.Expect(regexp.MustCompile(`\$`), 10*time.Second)
 	if err == nil {
-		return expecter, nil
+		return nil
 	}
 
 	b := append([]expect.Batcher{
@@ -60,28 +53,28 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", resp)
-		expecter.Close()
-		return nil, err
+		return err
 	}
 
 	err = configureConsole(expecter, true)
 	if err != nil {
-		expecter.Close()
-		return nil, err
+		return err
 	}
 
-	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient)
+	err = configureIPv6OnVMI(vmi, expecter, virtClient)
+
+	return err
 }
 
-// LoggedInAlpineExpecter return prepared and ready to use console expecter for
-// Alpine test VM
-func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
+// LoginToAlpine performs a console login to an Alpine base VM
+func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	defer expecter.Close()
 
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
@@ -91,27 +84,27 @@ func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 	res, err := expecter.ExpectBatch(b, 180*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
-		expecter.Close()
-		return nil, err
+		return err
 	}
 
 	err = configureConsole(expecter, false)
 	if err != nil {
-		expecter.Close()
-		return nil, err
+		return err
 	}
-	return expecter, err
+	return err
 }
 
-// LoggedInFedoraExpecter return prepared and ready to use console expecter for
-// Fedora test VM
-func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
+// LoginToFedora performs a console login to a Fedora base VM
+func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
+
 	expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	defer expecter.Close()
+
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BSnd{S: "\n"},
@@ -146,38 +139,40 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 	res, err := expecter.ExpectBatch(b, 3*time.Minute)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
-		expecter.Close()
-		return expecter, err
+		return err
 	}
 
 	err = configureConsole(expecter, false)
 	if err != nil {
-		expecter.Close()
-		return nil, err
+		return err
 	}
 
-	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient)
+	err = configureIPv6OnVMI(vmi, expecter, virtClient)
+
+	return err
 }
 
-// ReLoggedInFedoraExpecter return prepared and ready to use console expecter for
-// Fedora test VM, when you are reconnecting (no login needed)
-func ReLoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance, timeout int) (expect.Expecter, error) {
+// OnPrivilegedPrompt performs a console check that the prompt is privileged.
+func OnPrivilegedPrompt(vmi *v1.VirtualMachineInstance, timeout int) bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
+
 	expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
-		return nil, err
+		return false
 	}
+	defer expecter.Close()
+
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: console.PromptExpression}})
 	res, err := expecter.ExpectBatch(b, time.Duration(timeout)*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
-		expecter.Close()
-		return expecter, err
+		return false
 	}
-	return expecter, err
+
+	return true
 }
 
 func configureConsole(expecter expect.Expecter, shouldSudo bool) error {

@@ -73,13 +73,22 @@ func ExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, time
 // wait `timeout` for the batch to return, it also check that the sended commands arrives to console checking.
 // NOTE: This functions heritage limitations from `ExpectBatchWithValidatedSend` refer to it to check them.
 func SafeExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) error {
+	_, err := SafeExpectBatchWithResponse(vmi, expected, wait)
+	return err
+}
+
+// SafeExpectBatchWithResponse runs the batch from `expected` connecting to a VMI's console and
+// wait `timeout` for the batch to return with a response.
+// It includes a safety check which validates that the commands arrive to the console.
+// NOTE: This functions inherits limitations from `ExpectBatchWithValidatedSend`, refer to it for more information.
+func SafeExpectBatchWithResponse(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) ([]expect.BatchRes, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
 	}
 	expecter, _, err := NewExpecter(virtClient, vmi, 30*time.Second)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer expecter.Close()
 
@@ -87,7 +96,7 @@ func SafeExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, 
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("%v", resp)
 	}
-	return err
+	return resp, err
 }
 
 // RunCommand runs the command line from `command connecting to an already logged in console at vmi
@@ -119,39 +128,42 @@ func RunCommand(vmi *v1.VirtualMachineInstance, command string, timeout time.Dur
 
 // SecureBootExpecter should be called on a VMI that has EFI enabled
 // It will parse the kernel output (dmesg) and succeed if it finds that Secure boot is enabled
-func SecureBootExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
+func SecureBootExpecter(vmi *v1.VirtualMachineInstance) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	defer expecter.Close()
+
 	b := append([]expect.Batcher{
 		&expect.BExp{R: "secureboot: Secure boot enabled"},
 	})
-	res, err := ExpectBatchWithValidatedSend(expecter, b, 180*time.Second)
+	res, err := expecter.ExpectBatch(b, 180*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Kernel: %+v", res)
-		expecter.Close()
-		return expecter, err
+		return err
 	}
 
-	return expecter, err
+	return err
 }
 
 // NetBootExpecter should be called on a VMI that has BIOS serial logging enabled
 // It will parse the SeaBIOS output and succeed if it finds the string "iPXE"
-func NetBootExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
+func NetBootExpecter(vmi *v1.VirtualMachineInstance) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	defer expecter.Close()
+
 	esc := UTFPosEscape
 	b := append([]expect.Batcher{
 		// SeaBIOS uses escape (\u001b) combinations for letter placement on screen
@@ -162,11 +174,10 @@ func NetBootExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
 	res, err := expecter.ExpectBatch(b, 30*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("BIOS: %+v", res)
-		expecter.Close()
-		return expecter, err
+		return err
 	}
 
-	return expecter, err
+	return err
 }
 
 // NewExpecter will connect to an already logged in VMI console and return the generated expecter it will wait `timeout` for the connection.
@@ -218,6 +229,11 @@ func ExpectBatchWithValidatedSend(expecter expect.Expecter, batch []expect.Batch
 	sendFlag := false
 	expectFlag := false
 	previousSend := ""
+
+	if len(batch) < 2 {
+		return nil, fmt.Errorf("ExpectBatchWithValidatedSend requires at least 2 batchers, supplied %v", batch)
+	}
+
 	for i, batcher := range batch {
 		switch batcher.Cmd() {
 		case expect.BatchExpect:

@@ -147,7 +147,7 @@ var _ = Describe("[Serial]SecurityFeatures", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Ensuring VMI is running by logging in")
-				tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
+				tests.WaitUntilVMIReady(vmi, tests.LoginToAlpine)
 
 				By("Fetching virt-launcher Pod")
 				pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -177,7 +177,7 @@ var _ = Describe("[Serial]SecurityFeatures", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Ensuring VMI is running by logging in")
-				tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
+				tests.WaitUntilVMIReady(vmi, tests.LoginToAlpine)
 
 				By("Fetching virt-launcher Pod")
 				pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -216,7 +216,7 @@ var _ = Describe("[Serial]SecurityFeatures", func() {
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			By("Ensuring VMI is running by logging in")
-			tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
+			tests.WaitUntilVMIReady(vmi, tests.LoginToAlpine)
 
 			By("Fetching virt-launcher Pod")
 			pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
