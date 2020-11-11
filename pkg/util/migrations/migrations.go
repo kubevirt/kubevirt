@@ -1,6 +1,7 @@
 package migrations
 
 import (
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -26,4 +27,24 @@ func FilterRunningMigrations(migrations []v1.VirtualMachineInstanceMigration) []
 		}
 	}
 	return runningMigrations
+}
+
+// IsMigrating returns true if a given VMI is still migrating and false otherwise.
+func IsMigrating(vmi *v1.VirtualMachineInstance) bool {
+
+	now := v12.Now()
+
+	running := false
+	if vmi.Status.MigrationState != nil {
+		start := vmi.Status.MigrationState.StartTimestamp
+		stop := vmi.Status.MigrationState.EndTimestamp
+		if start != nil && (now.After(start.Time) || now.Equal(start)) {
+			running = true
+		}
+
+		if stop != nil && (now.After(stop.Time) || now.Equal(stop)) {
+			running = false
+		}
+	}
+	return running
 }
