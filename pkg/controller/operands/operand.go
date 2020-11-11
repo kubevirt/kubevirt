@@ -135,9 +135,10 @@ func (handler *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
 			// Handle KubeVirt resource conditions
 			isReady := handleComponentConditions(req, handler.crType, handler.getConditions(found))
 
-			upgradeDone := req.ComponentUpgradeInProgress && isReady && handler.checkComponentVersion(found)
+			upgradeDone := req.UpgradeMode && isReady && handler.checkComponentVersion(found)
 			return res.SetUpgradeDone(upgradeDone)
 		}
+
 	} else {
 		// For resources that are not CRs, such as priority classes or a config map, there is no new version to upgrade
 		res.SetUpgradeDone(req.ComponentUpgradeInProgress)

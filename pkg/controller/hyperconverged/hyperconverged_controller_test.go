@@ -163,7 +163,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Spec: hcov1beta1.HyperConvergedSpec{},
 					Status: hcov1beta1.HyperConvergedStatus{
 						Conditions: []conditionsv1.Condition{
-							conditionsv1.Condition{
+							{
 								Type:    hcov1beta1.ConditionReconcileComplete,
 								Status:  corev1.ConditionTrue,
 								Reason:  reconcileCompleted,
