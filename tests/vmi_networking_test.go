@@ -179,24 +179,27 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			payloadSize := 0
 			ipHeaderSize := 28 // IPv4 specific
 
-			By("checking k6t-eth0 MTU inside the pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(outboundVMI, tests.NamespaceTestDefault)
-			output, err := tests.ExecuteCommandOnPod(
-				virtClient,
-				vmiPod,
-				"compute",
-				[]string{"cat", "/sys/class/net/k6t-eth0/mtu"},
-			)
-			log.Log.Infof("k6t-eth0 mtu is %v", output)
-			Expect(err).ToNot(HaveOccurred())
+			var mtu int
+			for _, ifaceName := range []string{"k6t-eth0", "tap0"} {
+				By(fmt.Sprintf("checking %s MTU inside the pod", ifaceName))
+				output, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					vmiPod,
+					"compute",
+					[]string{"cat", fmt.Sprintf("/sys/class/net/%s/mtu", ifaceName)},
+				)
+				log.Log.Infof("%s mtu is %v", ifaceName, output)
+				Expect(err).ToNot(HaveOccurred())
 
-			output = strings.TrimSuffix(output, "\n")
-			mtu, err := strconv.Atoi(output)
-			Expect(err).ToNot(HaveOccurred())
+				output = strings.TrimSuffix(output, "\n")
+				mtu, err = strconv.Atoi(output)
+				Expect(err).ToNot(HaveOccurred())
 
-			Expect(mtu > 1000).To(BeTrue())
+				Expect(mtu > 1000).To(BeTrue())
 
-			payloadSize = mtu - ipHeaderSize
+				payloadSize = mtu - ipHeaderSize
+			}
 			expectedMtuString := fmt.Sprintf("mtu %d", mtu)
 
 			By("checking eth0 MTU inside the VirtualMachineInstance")
@@ -867,6 +870,10 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				By("checking k6t-eth0-nic MTU inside the pod")
 				bridgePrimaryNicMtu := getMtu(vmiPod, "k6t-eth0-nic")
 				Expect(bridgePrimaryNicMtu).To(Equal(primaryIfaceMtu), "k6t-eth0-nic mtu should equal eth0 interface mtu")
+
+				By("checking the tap device - tap0 - MTU inside the pod")
+				tapDeviceMTU := getMtu(vmiPod, "tap0")
+				Expect(tapDeviceMTU).To(Equal(primaryIfaceMtu), "tap0 mtu should equal eth0 interface mtu")
 
 				By("checking eth0 MTU inside the VirtualMachineInstance")
 				showMtu := "cat /sys/class/net/eth0/mtu\n"
