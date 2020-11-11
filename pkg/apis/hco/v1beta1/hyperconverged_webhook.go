@@ -25,7 +25,6 @@ const (
 
 var (
 	hcolog = logf.Log.WithName("hyperconverged-resource")
-	cli    client.Client
 )
 
 type WebhookHandlerIfs interface {
@@ -40,7 +39,7 @@ var whHandler WebhookHandlerIfs
 func (r *HyperConverged) SetupWebhookWithManager(ctx context.Context, mgr ctrl.Manager, handler WebhookHandlerIfs) error {
 	// Make sure the certificates are mounted, this should be handled by the OLM
 	whHandler = handler
-	whHandler.Init(hcolog, cli)
+	whHandler.Init(hcolog, mgr.GetClient())
 
 	certs := []string{filepath.Join(WebhookCertDir, WebhookCertName), filepath.Join(WebhookCertDir, WebhookKeyName)}
 	for _, fname := range certs {
@@ -49,9 +48,6 @@ func (r *HyperConverged) SetupWebhookWithManager(ctx context.Context, mgr ctrl.M
 			return err
 		}
 	}
-
-	// Use the client from the manager in the validating functions
-	cli = mgr.GetClient()
 
 	// The OLM limits the webhook scope to the namespaces that are defined in the OperatorGroup
 	// by setting namespaceSelector in the ValidatingWebhookConfiguration.  We would like our webhook to intercept
