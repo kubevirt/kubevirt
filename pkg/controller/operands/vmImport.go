@@ -2,93 +2,80 @@ package operands
 
 import (
 	"errors"
-	corev1 "k8s.io/api/core/v1"
-	"os"
-	"reflect"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
-	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/reference"
+	"k8s.io/apimachinery/pkg/runtime"
+	"os"
+	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type vmImportHandler genericOperand
 
-func (h vmImportHandler) Ensure(req *common.HcoRequest) *EnsureResult {
-	vmImport := NewVMImportForCR(req.Instance)
-	res := NewEnsureResult(vmImport)
-
-	key, err := client.ObjectKeyFromObject(vmImport)
-	if err != nil {
-		req.Logger.Error(err, "Failed to get object key for vm-import-operator")
-	}
-	res.SetName(key.Name)
-
-	found := &vmimportv1beta1.VMImportConfig{}
-	err = h.Client.Get(req.Ctx, key, found)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			req.Logger.Info("Creating vm import")
-			err = h.Client.Create(req.Ctx, vmImport)
-			if err == nil {
-				return res.SetCreated()
-			}
-		}
-		return res.Error(err)
-	}
-
-	existingOwners := found.GetOwnerReferences()
-
-	// Previous versions used to have HCO-operator (scope namespace)
-	// as the owner of VMImportConfig (scope cluster).
-	// It's not legal, so remove that.
-	if len(existingOwners) > 0 {
-		req.Logger.Info("VMImportConfig has owners, removing...")
-		found.SetOwnerReferences([]metav1.OwnerReference{})
-		err = h.Client.Update(req.Ctx, found)
-		if err != nil {
-			req.Logger.Error(err, "Failed to remove VMImportConfig's previous owners")
-		}
+func newVmImportHandler(Client client.Client, Scheme *runtime.Scheme) *vmImportHandler {
+	handler := &vmImportHandler{
+		Client: Client,
+		Scheme: Scheme,
+		crType: "vmImport",
+		isCr:   true,
+		// Previous versions used to have HCO-operator (scope namespace)
+		// as the owner of VMImportConfig (scope cluster).
+		// It's not legal, so remove that.
+		removeExistingOwner: true,
+		getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
+			return NewVMImportForCR(hc)
+		},
+		getEmptyCr: func() runtime.Object { return &vmimportv1beta1.VMImportConfig{} },
+		getConditions: func(cr runtime.Object) []conditionsv1.Condition {
+			return cr.(*vmimportv1beta1.VMImportConfig).Status.Conditions
+		},
+		checkComponentVersion: func(cr runtime.Object) bool {
+			found := cr.(*vmimportv1beta1.VMImportConfig)
+			return checkComponentVersion(hcoutil.VMImportEnvV, found.Status.ObservedVersion)
+		},
+		getObjectMeta: func(cr runtime.Object) *metav1.ObjectMeta {
+			return &cr.(*vmimportv1beta1.VMImportConfig).ObjectMeta
+		},
 	}
 
-	req.Logger.Info("VM import exists", "vmImport.Namespace", found.Namespace, "vmImport.Name", found.Name)
-	if !reflect.DeepEqual(vmImport.Spec, found.Spec) {
-		overwritten := false
+	handler.updateCr = handler.updateCrImp
+
+	return handler
+}
+
+func (h *vmImportHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+	vmImport, ok1 := required.(*vmimportv1beta1.VMImportConfig)
+	found, ok2 := exists.(*vmimportv1beta1.VMImportConfig)
+
+	if !ok1 || !ok2 {
+		return false, false, errors.New("can't convert to vmImport")
+	}
+
+	if !reflect.DeepEqual(found.Spec, vmImport.Spec) {
 		if req.HCOTriggered {
-			req.Logger.Info("Updating existing VMimport's Spec to new opinionated values")
+			req.Logger.Info("Updating existing vmImport's Spec to new opinionated values")
 		} else {
-			req.Logger.Info("Reconciling an externally updated VMimport's Spec to its opinionated values")
-			overwritten = true
+			req.Logger.Info("Reconciling an externally updated vmImport's Spec to its opinionated values")
 		}
 		vmImport.Spec.DeepCopyInto(&found.Spec)
-		err = h.Client.Update(req.Ctx, found)
+		err := h.Client.Update(req.Ctx, found)
 		if err != nil {
-			return res.Error(err)
+			return false, false, err
 		}
-		if overwritten {
-			res.SetOverwritten()
-		}
-		return res.SetUpdated()
+		return true, !req.HCOTriggered, nil
 	}
 
-	// Add it to the list of RelatedObjects if found
-	objectRef, err := reference.GetReference(h.Scheme, found)
-	if err != nil {
-		return res.Error(err)
-	}
-	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
+	return false, false, nil
+}
 
-	// Handle VMimport resource conditions
-	isReady := handleComponentConditions(req, "VMimport", found.Status.Conditions)
-
-	upgradeDone := req.ComponentUpgradeInProgress && isReady && checkComponentVersion(hcoutil.VMImportEnvV, found.Status.ObservedVersion)
-	return res.SetUpgradeDone(upgradeDone)
+func (h vmImportHandler) Ensure(req *common.HcoRequest) *EnsureResult {
+	handler := genericOperand(h)
+	return handler.ensure(req)
 }
 
 // NewVMImportForCR returns a VM import CR
@@ -112,50 +99,35 @@ func NewVMImportForCR(cr *hcov1beta1.HyperConverged) *vmimportv1beta1.VMImportCo
 
 type imsConfigHandler genericOperand
 
-func (h imsConfigHandler) Ensure(req *common.HcoRequest) *EnsureResult {
-	imsConfig := NewIMSConfigForCR(req.Instance, req.Namespace)
-	res := NewEnsureResult(imsConfig)
-	if os.Getenv("CONVERSION_CONTAINER") == "" {
-		return res.Error(errors.New("ims-conversion-container not specified"))
+func newImsConfigHandler(Client client.Client, Scheme *runtime.Scheme) *imsConfigHandler {
+	handler := &imsConfigHandler{
+		Client:                 Client,
+		Scheme:                 Scheme,
+		crType:                 "IMS Configmap",
+		isCr:                   false,
+		removeExistingOwner:    false,
+		setControllerReference: true,
+		getFullCr: func(hc *hcov1beta1.HyperConverged) runtime.Object {
+			return NewIMSConfigForCR(hc, hc.Namespace)
+		},
+		getEmptyCr: func() runtime.Object { return &corev1.ConfigMap{} },
+		getObjectMeta: func(cr runtime.Object) *metav1.ObjectMeta {
+			return &cr.(*corev1.ConfigMap).ObjectMeta
+		},
+		validate: validateImsConfig,
 	}
 
-	if os.Getenv("VMWARE_CONTAINER") == "" {
-		return res.Error(errors.New("ims-vmware-container not specified"))
+	handler.updateCr = handler.updateCrImp
+
+	return handler
+}
+
+func (h *imsConfigHandler) updateCrImp(req *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+	imsConfig, ok1 := required.(*corev1.ConfigMap)
+	found, ok2 := exists.(*corev1.ConfigMap)
+	if !ok1 || !ok2 {
+		return false, false, errors.New("can't convert to a ConfigMap")
 	}
-
-	err := controllerutil.SetControllerReference(req.Instance, imsConfig, h.Scheme)
-	if err != nil {
-		return res.Error(err)
-	}
-
-	key, err := client.ObjectKeyFromObject(imsConfig)
-	if err != nil {
-		req.Logger.Error(err, "Failed to get object key for IMS Configmap")
-	}
-
-	res.SetName(key.Name)
-	found := &corev1.ConfigMap{}
-
-	err = h.Client.Get(req.Ctx, key, found)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			req.Logger.Info("Creating IMS Configmap")
-			err = h.Client.Create(req.Ctx, imsConfig)
-			if err == nil {
-				return res.SetCreated()
-			}
-		}
-		return res.Error(err)
-	}
-
-	req.Logger.Info("IMS Configmap already exists", "imsConfigMap.Namespace", found.Namespace, "imsConfigMap.Name", found.Name)
-
-	// Add it to the list of RelatedObjects if found
-	objectRef, err := reference.GetReference(h.Scheme, found)
-	if err != nil {
-		return res.Error(err)
-	}
-	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
 
 	// in an ideal world HCO should be managing the whole config map,
 	// now due to a bad design only a few values of this config map are
@@ -170,14 +142,30 @@ func (h imsConfigHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 	}
 	if needsUpdate {
 		req.Logger.Info("Updating existing IMS Configmap to its default values")
-		err = h.Client.Update(req.Ctx, found)
+		err := h.Client.Update(req.Ctx, found)
 		if err != nil {
-			return res.Error(err)
+			return false, false, err
 		}
-		return res.SetUpdated()
+		return true, false, nil
 	}
 
-	return res.SetUpgradeDone(req.ComponentUpgradeInProgress)
+	return false, false, nil
+}
+
+func validateImsConfig() error {
+	if os.Getenv("CONVERSION_CONTAINER") == "" {
+		return errors.New("ims-conversion-container not specified")
+	}
+
+	if os.Getenv("VMWARE_CONTAINER") == "" {
+		return errors.New("ims-vmware-container not specified")
+	}
+	return nil
+}
+
+func (h imsConfigHandler) Ensure(req *common.HcoRequest) *EnsureResult {
+	handler := genericOperand(h)
+	return handler.ensure(req)
 }
 
 func NewIMSConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {

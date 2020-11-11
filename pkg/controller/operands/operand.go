@@ -33,6 +33,7 @@ type genericOperand struct {
 	// hooks
 	getFullCr             func(hc *hcov1beta1.HyperConverged) runtime.Object
 	getEmptyCr            func() runtime.Object
+	validate              func() error
 	postFound             func(request *common.HcoRequest, exists runtime.Object) error
 	updateCr              func(request *common.HcoRequest, exists runtime.Object, required runtime.Object) (bool, bool, error)
 	getConditions         func(cr runtime.Object) []conditionsv1.Condition
@@ -44,6 +45,12 @@ func (handler *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
 	cr := handler.getFullCr(req.Instance)
 
 	res := NewEnsureResult(cr)
+	if handler.validate != nil {
+		if err := handler.validate(); err != nil {
+			return res.Error(err)
+		}
+	}
+
 	ref, ok := cr.(metav1.Object)
 	if handler.setControllerReference {
 		if !ok {

@@ -37,8 +37,8 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshift
 		newKubevirtHandler(client, scheme),
 		newCdiHandler(client, scheme),
 		newCnaHandler(client, scheme),
-		&vmImportHandler{Client: client, Scheme: scheme},
-		&imsConfigHandler{Client: client, Scheme: scheme},
+		newVmImportHandler(client, scheme),
+		newImsConfigHandler(client, scheme),
 	}
 
 	if isOpenshiftCluster {
