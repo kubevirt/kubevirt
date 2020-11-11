@@ -155,6 +155,8 @@ func (c *Customizer) GetPatchesForResource(resourceType, name string) []v1.Custo
 }
 
 func getHash(customizations v1.CustomizeComponents) (string, error) {
+	// #nosec CWE: 326 - Use of weak cryptographic primitive (http://cwe.mitre.org/data/definitions/326.html)
+	// reason: sha1 is not used for encryption but for creating a hash value
 	hasher := sha1.New()
 
 	sort.SliceStable(customizations.Patches, func(i, j int) bool {
