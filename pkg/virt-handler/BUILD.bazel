@@ -12,6 +12,7 @@ go_library(
         "//pkg/host-disk:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/cluster:go_default_library",
+        "//pkg/util/migrations:go_default_library",
         "//pkg/util/types:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/cache:go_default_library",
