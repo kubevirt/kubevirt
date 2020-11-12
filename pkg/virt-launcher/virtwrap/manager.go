@@ -27,12 +27,10 @@ package virtwrap
 
 import (
 	"context"
-	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -873,7 +871,7 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 			if err != nil {
 				return err
 			}
-			info, err := GetImageInfo(image)
+			info, err := api.GetImageInfo(image)
 			if err != nil {
 				return err
 			}
@@ -1081,6 +1079,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		if err != nil {
 			return domain, err
 		}
+		api.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
 	}
 
 	return domain, err
@@ -1265,7 +1264,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 			if err != nil {
 				return nil, err
 			}
-			info, err := GetImageInfo(image)
+			info, err := api.GetImageInfo(image)
 			if err != nil {
 				return nil, err
 			}
@@ -1757,22 +1756,6 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 	}
 	return devicesMetadata, nil
 
-}
-
-func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
-
-	out, err := exec.Command(
-		"/usr/bin/qemu-img", "info", imagePath, "--output", "json",
-	).Output()
-	if err != nil {
-		return nil, fmt.Errorf("failed to invoke qemu-img: %v", err)
-	}
-	info := &containerdisk.DiskInfo{}
-	err = json.Unmarshal(out, info)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse disk info: %v", err)
-	}
-	return info, err
 }
 
 // GetGuestInfo queries the agent store and return the aggregated data from Guest agent

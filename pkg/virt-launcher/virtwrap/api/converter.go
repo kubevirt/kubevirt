@@ -21,10 +21,12 @@ package api
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -249,6 +251,47 @@ func SetDriverCacheMode(disk *Disk) error {
 	disk.Driver.Cache = string(mode)
 	log.Log.Infof("Driver cache mode for %s set to %s", path, mode)
 
+	return nil
+}
+
+func isPreAllocated(path string) bool {
+	diskInf, err := GetImageInfo(path)
+	if err != nil {
+		return false
+	}
+	// ActualSize can be a little larger then VirtualSize for qcow2
+	return diskInf.VirtualSize <= diskInf.ActualSize
+}
+
+// Set optimal io mode automatically
+func SetOptimalIOMode(disk *Disk) error {
+	var path string
+
+	// If the user explicitly set the io mode do nothing
+	if v1.DriverIO(disk.Driver.IO) != "" {
+		return nil
+	}
+
+	if disk.Source.File != "" {
+		path = disk.Source.File
+	} else if disk.Source.Dev != "" {
+		path = disk.Source.Dev
+	} else {
+		return nil
+	}
+
+	// O_DIRECT is needed for io="native"
+	if v1.DriverCache(disk.Driver.Cache) == v1.CacheNone {
+		// set native for block device or pre-allocateed image file
+		if (disk.Source.Dev != "") || isPreAllocated(disk.Source.File) {
+			disk.Driver.IO = string(v1.IONative)
+		}
+	}
+	// For now we don't explicitly set io=threads even for sparse files as it's
+	// not clear it's better for all use-cases
+	if v1.DriverIO(disk.Driver.IO) != "" {
+		log.Log.Infof("Driver IO mode for %s set to %s", path, disk.Driver.IO)
+	}
 	return nil
 }
 
@@ -1862,4 +1905,20 @@ func createHostDevicesFromMdevUUIDList(mdevUuidList []string) ([]HostDevice, err
 	}
 
 	return hds, nil
+}
+
+func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
+
+	out, err := exec.Command(
+		"/usr/bin/qemu-img", "info", imagePath, "--output", "json",
+	).Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to invoke qemu-img: %v", err)
+	}
+	info := &containerdisk.DiskInfo{}
+	err = json.Unmarshal(out, info)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse disk info: %v", err)
+	}
+	return info, err
 }
