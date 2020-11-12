@@ -55,6 +55,8 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
+type VMICreationFuncWithEFI func() *v1.VirtualMachineInstance
+
 var _ = Describe("Configurations", func() {
 
 	var err error
@@ -502,38 +504,36 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func() {
+		table.DescribeTable("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func(vmiNew VMICreationFuncWithEFI, loginTo console.LoginToFactory, msg string, fileName string) {
+			vmi := vmiNew()
+			By("Starting a VirtualMachineInstance")
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
-			It("[Serial][test_id:1668]should use EFI", func() {
-				vmi := tests.NewRandomVMIWithEFIBootloader()
+			tests.WaitForVMIStartOrFailed(vmi, 180, true)
+			vmiMeta, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-				By("Starting a VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-
-				By("Checking if UEFI is enabled")
+			switch vmiMeta.Status.Phase {
+			case v1.Failed:
+				// This Error is expected to be handled
+				By("Getting virt-launcher logs")
+				logs := func() string { return getVirtLauncherLogs(virtClient, vmi) }
+				Eventually(logs,
+					30*time.Second,
+					500*time.Millisecond).
+					Should(ContainSubstring("EFI OVMF roms missing"))
+			default:
+				tests.WaitUntilVMIReady(vmi, loginTo)
+				By(msg)
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring("OVMF_CODE.fd"))
-			})
-
-			It("[Serial][test_id:4437]should enable EFI secure boot", func() {
-				vmi := tests.NewRandomVMIWithSecureBoot()
-
-				By("Starting a VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Checking if SecureBoot is enabled in Linux")
-				tests.WaitUntilVMIReady(vmi, console.SecureBootExpecter)
-
-				By("Checking if SecureBoot is enabled in the libvirt XML")
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring("OVMF_CODE.secboot.fd"))
-			})
-		})
+				Expect(domXml).To(ContainSubstring(fileName))
+			}
+		},
+			table.Entry("[Serial][test_id:1668]should use EFI", tests.NewRandomVMIWithEFIBootloader, console.LoginToAlpine, "Checking if UEFI is enabled", "OVMF_CODE.fd"),
+			table.Entry("[Serial][test_id:4437]should enable EFI secure boot", tests.NewRandomVMIWithSecureBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", "OVMF_CODE.secboot.fd"),
+		)
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging guest memory from requested memory", func() {
 			It("[test_id:1669]should show the requested guest memory inside the VMI", func() {
