@@ -970,6 +970,19 @@ func generateVMIVolumeRequestPatch(vmi *v1.VirtualMachineInstance, volumeRequest
 		diskVerb = "replace"
 	}
 
+	foundRemoveVol := false
+	for _, volume := range vmi.Spec.Volumes {
+		if volumeRequest.AddVolumeOptions != nil && volume.Name == volumeRequest.AddVolumeOptions.Name {
+			return "", fmt.Errorf("Unable to add volume [%s] because it already exists", volume.Name)
+		} else if volumeRequest.RemoveVolumeOptions != nil && volume.Name == volumeRequest.RemoveVolumeOptions.Name {
+			foundRemoveVol = true
+		}
+	}
+
+	if volumeRequest.RemoveVolumeOptions != nil && !foundRemoveVol {
+		return "", fmt.Errorf("Unable to remove volume [%s] because it does not exist", volumeRequest.RemoveVolumeOptions.Name)
+	}
+
 	vmiCopy := vmi.DeepCopy()
 	vmiCopy.Spec = *controller.ApplyVolumeRequestOnVMISpec(&vmiCopy.Spec, volumeRequest)
 

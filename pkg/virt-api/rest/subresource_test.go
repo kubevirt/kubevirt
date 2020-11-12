@@ -920,6 +920,289 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 	})
 
+	Context("Add/Remove Volume Subresource api", func() {
+
+		newAddVolumeBody := func(opts *v1.AddVolumeOptions) io.ReadCloser {
+			optsJson, _ := json.Marshal(opts)
+			return &readCloserWrapper{bytes.NewReader(optsJson)}
+		}
+		newRemoveVolumeBody := func(opts *v1.RemoveVolumeOptions) io.ReadCloser {
+			optsJson, _ := json.Marshal(opts)
+			return &readCloserWrapper{bytes.NewReader(optsJson)}
+		}
+
+		BeforeEach(func() {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+		})
+
+		table.DescribeTable("Should succeed with add volume request", func(addOpts *v1.AddVolumeOptions, removeOpts *v1.RemoveVolumeOptions, isVM bool, code int) {
+			if addOpts != nil {
+				request.Request.Body = newAddVolumeBody(addOpts)
+			} else {
+				request.Request.Body = newRemoveVolumeBody(removeOpts)
+			}
+
+			if isVM {
+				vm := newMinimalVM(request.PathParameter("name"))
+				vm.Namespace = "default"
+
+				patchedVM := vm.DeepCopy()
+				patchedVM.Status.VolumeRequests = append(patchedVM.Status.VolumeRequests, v1.VirtualMachineVolumeRequest{AddVolumeOptions: addOpts, RemoveVolumeOptions: removeOpts})
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					),
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm/status"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, patchedVM),
+					),
+				)
+				if addOpts != nil {
+					app.VMAddVolumeRequestHandler(request, response)
+				} else {
+					app.VMRemoveVolumeRequestHandler(request, response)
+				}
+			} else {
+				vmi := v1.NewMinimalVMI(request.PathParameter("name"))
+				vmi.Namespace = "default"
+				vmi.Status.Phase = v1.Running
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: "existingvol",
+				})
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: "existingvol",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testpvcdiskclaim",
+						},
+					},
+				})
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+					),
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+					),
+				)
+
+				if addOpts != nil {
+					app.VMIAddVolumeRequestHandler(request, response)
+				} else {
+					app.VMIRemoveVolumeRequestHandler(request, response)
+				}
+			}
+
+			Expect(response.StatusCode()).To(Equal(code))
+		},
+			table.Entry("VM with a valid add volume request", &v1.AddVolumeOptions{
+				Name:         "vol1",
+				Disk:         &v1.Disk{},
+				VolumeSource: &v1.HotplugVolumeSource{},
+			}, nil, true, http.StatusAccepted),
+			table.Entry("VMI with a valid add volume request", &v1.AddVolumeOptions{
+				Name:         "vol1",
+				Disk:         &v1.Disk{},
+				VolumeSource: &v1.HotplugVolumeSource{},
+			}, nil, false, http.StatusAccepted),
+			table.Entry("VMI with an invalid add volume request that's missing a name", &v1.AddVolumeOptions{
+				VolumeSource: &v1.HotplugVolumeSource{},
+				Disk:         &v1.Disk{},
+			}, nil, false, http.StatusBadRequest),
+			table.Entry("VMI with an invalid add volume request that's missing a disk", &v1.AddVolumeOptions{
+				Name:         "vol1",
+				VolumeSource: &v1.HotplugVolumeSource{},
+			}, nil, false, http.StatusBadRequest),
+			table.Entry("VMI with an invalid add volume request that's missing a volume", &v1.AddVolumeOptions{
+				Name: "vol1",
+				Disk: &v1.Disk{},
+			}, nil, false, http.StatusBadRequest),
+			table.Entry("VM with a valid remove volume request", nil, &v1.RemoveVolumeOptions{
+				Name: "vol1",
+			}, true, http.StatusAccepted),
+			table.Entry("VMI with a valid remove volume request", nil, &v1.RemoveVolumeOptions{
+				Name: "existingvol",
+			}, false, http.StatusAccepted),
+			table.Entry("VMI with a invalid remove volume request missing a name", nil, &v1.RemoveVolumeOptions{}, false, http.StatusBadRequest),
+		)
+
+		table.DescribeTable("Should generate expected vmi patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, expectedPatch string, expectError bool) {
+
+			vmi := v1.NewMinimalVMI(request.PathParameter("name"))
+			vmi.Namespace = "default"
+			vmi.Status.Phase = v1.Running
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "existingvol",
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "existingvol",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testpvcdiskclaim",
+					},
+				},
+			})
+
+			patch, err := generateVMIVolumeRequestPatch(vmi, volumeRequest)
+			if expectError {
+				Expect(err).ToNot(BeNil())
+			} else {
+				Expect(err).To(BeNil())
+			}
+
+			Expect(patch).To(Equal(expectedPatch))
+		},
+			table.Entry("add volume request",
+				&v1.VirtualMachineVolumeRequest{
+					AddVolumeOptions: &v1.AddVolumeOptions{
+						Name:         "vol1",
+						Disk:         &v1.Disk{},
+						VolumeSource: &v1.HotplugVolumeSource{},
+					},
+				},
+				"[{ \"op\": \"test\", \"path\": \"/spec/volumes\", \"value\": [{\"name\":\"existingvol\",\"persistentVolumeClaim\":{\"claimName\":\"testpvcdiskclaim\"}}]}, { \"op\": \"test\", \"path\": \"/spec/domain/devices/disks\", \"value\": [{\"name\":\"existingvol\"}]}, { \"op\": \"replace\", \"path\": \"/spec/volumes\", \"value\": [{\"name\":\"existingvol\",\"persistentVolumeClaim\":{\"claimName\":\"testpvcdiskclaim\"}},{\"name\":\"vol1\"}]}, { \"op\": \"replace\", \"path\": \"/spec/domain/devices/disks\", \"value\": [{\"name\":\"existingvol\"},{\"name\":\"vol1\"}]}]",
+				false),
+			table.Entry("remove volume request",
+				&v1.VirtualMachineVolumeRequest{
+					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+						Name: "existingvol",
+					},
+				},
+				"[{ \"op\": \"test\", \"path\": \"/spec/volumes\", \"value\": [{\"name\":\"existingvol\",\"persistentVolumeClaim\":{\"claimName\":\"testpvcdiskclaim\"}}]}, { \"op\": \"test\", \"path\": \"/spec/domain/devices/disks\", \"value\": [{\"name\":\"existingvol\"}]}, { \"op\": \"replace\", \"path\": \"/spec/volumes\", \"value\": []}, { \"op\": \"replace\", \"path\": \"/spec/domain/devices/disks\", \"value\": []}]",
+				false),
+			table.Entry("remove volume that doesn't exist",
+				&v1.VirtualMachineVolumeRequest{
+					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+						Name: "non-existent",
+					},
+				},
+				"",
+				true),
+			table.Entry("add a volume that already exists",
+				&v1.VirtualMachineVolumeRequest{
+					AddVolumeOptions: &v1.AddVolumeOptions{
+						Name:         "existingvol",
+						Disk:         &v1.Disk{},
+						VolumeSource: &v1.HotplugVolumeSource{},
+					},
+				},
+				"",
+				true),
+		)
+		table.DescribeTable("Should generate expected vm patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, existingVolumeRequests []v1.VirtualMachineVolumeRequest, expectedPatch string, expectError bool) {
+
+			vm := newMinimalVM(request.PathParameter("name"))
+			vm.Namespace = "default"
+
+			if len(existingVolumeRequests) > 0 {
+				vm.Status.VolumeRequests = existingVolumeRequests
+			}
+
+			patch, err := generateVMVolumeRequestPatch(vm, volumeRequest)
+			if expectError {
+				Expect(err).ToNot(BeNil())
+			} else {
+				Expect(err).To(BeNil())
+			}
+
+			Expect(patch).To(Equal(expectedPatch))
+		},
+			table.Entry("add volume request with no existing volumes",
+				&v1.VirtualMachineVolumeRequest{
+					AddVolumeOptions: &v1.AddVolumeOptions{
+						Name:         "vol1",
+						Disk:         &v1.Disk{},
+						VolumeSource: &v1.HotplugVolumeSource{},
+					},
+				},
+				nil,
+				"[{ \"op\": \"test\", \"path\": \"/status/volumeRequests\", \"value\": null}, { \"op\": \"add\", \"path\": \"/status/volumeRequests\", \"value\": [{\"addVolumeOptions\":{\"name\":\"vol1\",\"disk\":{\"name\":\"\"},\"volumeSource\":{}}}]}]",
+				false),
+			table.Entry("add volume request that already exists should fail",
+				&v1.VirtualMachineVolumeRequest{
+					AddVolumeOptions: &v1.AddVolumeOptions{
+						Name:         "vol1",
+						Disk:         &v1.Disk{},
+						VolumeSource: &v1.HotplugVolumeSource{},
+					},
+				},
+				[]v1.VirtualMachineVolumeRequest{
+					{
+						AddVolumeOptions: &v1.AddVolumeOptions{
+							Name:         "vol1",
+							Disk:         &v1.Disk{},
+							VolumeSource: &v1.HotplugVolumeSource{},
+						},
+					},
+				},
+				"",
+				true),
+			table.Entry("add volume request when volume requests alread exist",
+				&v1.VirtualMachineVolumeRequest{
+					AddVolumeOptions: &v1.AddVolumeOptions{
+						Name:         "vol1",
+						Disk:         &v1.Disk{},
+						VolumeSource: &v1.HotplugVolumeSource{},
+					},
+				},
+				[]v1.VirtualMachineVolumeRequest{
+					{
+						AddVolumeOptions: &v1.AddVolumeOptions{
+							Name:         "vol2",
+							Disk:         &v1.Disk{},
+							VolumeSource: &v1.HotplugVolumeSource{},
+						},
+					},
+				},
+				"[{ \"op\": \"test\", \"path\": \"/status/volumeRequests\", \"value\": [{\"addVolumeOptions\":{\"name\":\"vol2\",\"disk\":{\"name\":\"\"},\"volumeSource\":{}}}]}, { \"op\": \"replace\", \"path\": \"/status/volumeRequests\", \"value\": [{\"addVolumeOptions\":{\"name\":\"vol2\",\"disk\":{\"name\":\"\"},\"volumeSource\":{}}},{\"addVolumeOptions\":{\"name\":\"vol1\",\"disk\":{\"name\":\"\"},\"volumeSource\":{}}}]}]",
+				false),
+			table.Entry("remove volume request with no existing volume request", &v1.VirtualMachineVolumeRequest{
+				RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+					Name: "vol1",
+				},
+			},
+				nil,
+				"[{ \"op\": \"test\", \"path\": \"/status/volumeRequests\", \"value\": null}, { \"op\": \"add\", \"path\": \"/status/volumeRequests\", \"value\": [{\"removeVolumeOptions\":{\"name\":\"vol1\"}}]}]",
+				false),
+			table.Entry("remove volume request should replace add volume request",
+				&v1.VirtualMachineVolumeRequest{
+					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+						Name: "vol2",
+					},
+				},
+				[]v1.VirtualMachineVolumeRequest{
+					{
+						AddVolumeOptions: &v1.AddVolumeOptions{
+							Name:         "vol2",
+							Disk:         &v1.Disk{},
+							VolumeSource: &v1.HotplugVolumeSource{},
+						},
+					},
+				},
+				"[{ \"op\": \"test\", \"path\": \"/status/volumeRequests\", \"value\": [{\"addVolumeOptions\":{\"name\":\"vol2\",\"disk\":{\"name\":\"\"},\"volumeSource\":{}}}]}, { \"op\": \"replace\", \"path\": \"/status/volumeRequests\", \"value\": [{\"removeVolumeOptions\":{\"name\":\"vol2\"}}]}]",
+				false),
+			table.Entry("remove volume request that already exists should fail",
+				&v1.VirtualMachineVolumeRequest{
+					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+						Name: "vol2",
+					},
+				},
+				[]v1.VirtualMachineVolumeRequest{
+					{
+						RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+							Name: "vol2",
+						},
+					},
+				},
+				"",
+				true),
+		)
+	})
+
 	Context("Subresource api - error handling for StartVMRequestHandler", func() {
 		BeforeEach(func() {
 			request.PathParameters()["name"] = "testvm"
