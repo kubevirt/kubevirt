@@ -115,29 +115,29 @@ function is_taint_absence {
 function wait_for_taint_absence {
   local -r taint=$1
 
-  local -r tries=60
+  local -r tries=24
   local -r wait_time=5
 
-  local -r wait_message="Waiting for $taint taint absence"
-  local -r error_message="Taint $taint $name did not removed"
+  local -r wait_message="Waiting for taint '$taint' absence"
+  local -r error_message="Taint $taint did not removed"
   local -r action="is_taint_absence $taint"
 
   retry "$tries" "$wait_time" "$action" "$wait_message" && return 0
-  echo $error_message && return 1
+  echo "$error_message" && return 1
 }
 
 function wait_for_taint {
   local -r taint=$1
 
-  local -r tries=60
+  local -r tries=24
   local -r wait_time=5
 
-  local -r wait_message="Waiting for $taint taint to present"
-  local -r error_message="Taint $taint $name did not present"
+  local -r wait_message="Waiting for taint '$taint' to present"
+  local -r error_message="Taint '$taint' did not present"
   local -r action="_kubectl get nodes -o custom-columns=taints:.spec.taints[*].effect --no-headers | grep -i $taint"
 
   retry "$tries" "$wait_time" "$action" "$wait_message" && return 0
-  echo $error_message && return 1
+  echo "$error_message" && return 1
 }
 
 # not using kubectl wait since with the sriov operator the pods get restarted a couple of times and this is
@@ -186,6 +186,11 @@ function deploy_multus {
 }
 
 function deploy_sriov_operator {
+  local -r OPERATOR_LABEL="name=sriov-network-operator"
+  local -r NETWORK_DAEMON_CONFIG_LABEL="app=sriov-network-config-daemon"
+  local -r NETWORK_RESOURCE_INJECTOR_LABEL="app=network-resources-injector"
+  local -r OPERATOR_WEBHOOK="app=operator-webhook"
+  
   echo 'Downloading the SR-IOV operator'
   operator_path=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/sriov-network-operator-${OPERATOR_GIT_HASH}
   if [ ! -d $operator_path ]; then
@@ -205,11 +210,23 @@ function deploy_sriov_operator {
     make deploy-setup-k8s SHELL=/bin/bash  # on prow nodes the default shell is dash and some commands are not working
   popd
 
-  echo 'Generating webhook certificates for the SR-IOV operator webhooks'
+  wait_pod $SRIOV_OPERATOR_NAMESPACE $OPERATOR_LABEL
+  _kubectl wait pods -n $SRIOV_OPERATOR_NAMESPACE -l $OPERATOR_LABEL --for condition=Ready --timeout 5m
+
+  wait_pod $SRIOV_OPERATOR_NAMESPACE $NETWORK_DAEMON_CONFIG_LABEL
+  _kubectl wait pods -n $SRIOV_OPERATOR_NAMESPACE -l $NETWORK_DAEMON_CONFIG_LABEL --for condition=Ready --timeout 5m
+
+  echo 'Generating certificates for SRIOV operator webhooks and create secrets'
   pushd "${CSRCREATORPATH}"
     go run . -namespace sriov-network-operator -secret operator-webhook-service -hook operator-webhook -kubeconfig $KUBECONFIG_PATH || return 1
     go run . -namespace sriov-network-operator -secret network-resources-injector-secret -hook network-resources-injector -kubeconfig $KUBECONFIG_PATH || return 1
   popd
+
+  wait_pod $SRIOV_OPERATOR_NAMESPACE $OPERATOR_WEBHOOK_LABEL || return 1
+  _kubectl wait pods -n $SRIOV_OPERATOR_NAMESPACE -l $OPERATOR_WEBHOOK_LABEL --for condition=Ready --timeout 5m
+
+  wait_pod $SRIOV_OPERATOR_NAMESPACE $NETWORK_RESOURCE_INJECTOR_LABEL  || return 1
+  _kubectl wait pods -n $SRIOV_OPERATOR_NAMESPACE -l $NETWORK_RESOURCE_INJECTOR_LABEL --for condition=Ready --timeout 5m
 
   echo 'Setting caBundle for SR-IOV webhooks'
   wait_k8s_object "validatingwebhookconfiguration" "operator-webhook-config" || return 1
@@ -220,7 +237,7 @@ function deploy_sriov_operator {
 
   wait_k8s_object "mutatingwebhookconfiguration"   "network-resources-injector-config" || return 1
   _kubectl patch mutatingwebhookconfiguration network-resources-injector-config --patch '{"webhooks":[{"name":"network-resources-injector-config.k8s.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/network-resources-injector.cert)"'" }}]}'
-
+  
   # Since sriov-operator doesnt have a condition or Status to indicate if
   # 'operator-webhook' and 'network-resources-injector' webhooks certificates are
   # configured, in order to check if caBundle reconcile is finished it is necessary
@@ -235,9 +252,8 @@ function deploy_sriov_operator {
 function apply_sriov_node_policy {
   policy_file=$1
 
-  SRIOV_OPERATOR_NAMESPACE="sriov-network-operator"
-  SRIOV_DEVICE_PLUGIN_LABEL="app=sriov-device-plugin"
-  SRIOV_CNI_LABEL="app=sriov-cni"
+  local -r SRIOV_DEVICE_PLUGIN_LABEL="app=sriov-device-plugin"
+  local -r SRIOV_CNI_LABEL="app=sriov-cni"
 
   echo "Applying SriovNetworkNodeConfigPolicy:"
   cat $policy_file
@@ -266,6 +282,8 @@ function apply_sriov_node_policy {
 
   return 0
 }
+
+SRIOV_OPERATOR_NAMESPACE="sriov-network-operator"
 
 # The first worker needs to be handled specially as it has no ending number, and sort will not work
 # We add the 0 to it and we remove it if it's the candidate worker

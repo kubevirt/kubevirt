@@ -42,7 +42,7 @@ if [[ "$download_cluster_up" == true ]]; then
     rm -rf cluster-up
 
     kubevirt_path=${PWD}
-    pr=472
+    pr=476
     tmp=$(mktemp -d /tmp/cluster-up.XXXX)
     pushd $tmp
       git clone https://github.com/kubevirt/kubevirtci --branch master --depth 1
