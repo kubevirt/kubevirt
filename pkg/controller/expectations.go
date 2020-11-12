@@ -103,9 +103,9 @@ type ControllerExpectationsInterface interface {
 	GetExpectations(controllerKey string) (*ControlleeExpectations, bool, error)
 	SatisfiedExpectations(controllerKey string) bool
 	DeleteExpectations(controllerKey string)
-	SetExpectations(controllerKey string, add, del int) error
-	ExpectCreations(controllerKey string, adds int) error
-	ExpectDeletions(controllerKey string, dels int) error
+	SetExpectations(controllerKey string, add, del int)
+	ExpectCreations(controllerKey string, adds int)
+	ExpectDeletions(controllerKey string, dels int)
 	CreationObserved(controllerKey string)
 	DeletionObserved(controllerKey string)
 	RaiseExpectations(controllerKey string, add, del int)
@@ -176,18 +176,20 @@ func (exp *ControlleeExpectations) isExpired() bool {
 }
 
 // SetExpectations registers new expectations for the given controller. Forgets existing expectations.
-func (r *ControllerExpectations) SetExpectations(controllerKey string, add, del int) error {
+func (r *ControllerExpectations) SetExpectations(controllerKey string, add, del int) {
 	exp := &ControlleeExpectations{add: int64(add), del: int64(del), key: controllerKey, timestamp: clock.RealClock{}.Now()}
 	glog.V(4).Infof("Setting expectations %#v", exp)
-	return r.Add(exp)
+	if err := r.Add(exp); err != nil {
+		panic(fmt.Errorf("KeyFunc was changed, %v", err))
+	}
 }
 
-func (r *ControllerExpectations) ExpectCreations(controllerKey string, adds int) error {
-	return r.SetExpectations(controllerKey, adds, 0)
+func (r *ControllerExpectations) ExpectCreations(controllerKey string, adds int) {
+	r.SetExpectations(controllerKey, adds, 0)
 }
 
-func (r *ControllerExpectations) ExpectDeletions(controllerKey string, dels int) error {
-	return r.SetExpectations(controllerKey, 0, dels)
+func (r *ControllerExpectations) ExpectDeletions(controllerKey string, dels int) {
+	r.SetExpectations(controllerKey, 0, dels)
 }
 
 // Decrements the expectation counts of the given controller.
@@ -311,7 +313,7 @@ func (u *UIDTrackingControllerExpectations) GetUIDs(controllerKey string) sets.S
 }
 
 // ExpectDeletions records expectations for the given deleteKeys, against the given controller.
-func (u *UIDTrackingControllerExpectations) ExpectDeletions(rcKey string, deletedKeys []string) error {
+func (u *UIDTrackingControllerExpectations) ExpectDeletions(rcKey string, deletedKeys []string) {
 	u.uidStoreLock.Lock()
 	defer u.uidStoreLock.Unlock()
 
@@ -324,12 +326,12 @@ func (u *UIDTrackingControllerExpectations) ExpectDeletions(rcKey string, delete
 	}
 	glog.V(4).Infof("Controller %v waiting on deletions for: %+v", rcKey, deletedKeys)
 	if err := u.uidStore.Add(&UIDSet{expectedUIDs, rcKey}); err != nil {
-		return err
+		panic(fmt.Errorf("KeyFunc was changed, %v", err))
 	}
-	return u.ControllerExpectationsInterface.ExpectDeletions(rcKey, expectedUIDs.Len())
+	u.ControllerExpectationsInterface.ExpectDeletions(rcKey, expectedUIDs.Len())
 }
 
-func (u *UIDTrackingControllerExpectations) AddExpectedDeletion(rcKey string, deletedKey string) error {
+func (u *UIDTrackingControllerExpectations) AddExpectedDeletion(rcKey string, deletedKey string) {
 	u.uidStoreLock.Lock()
 	defer u.uidStoreLock.Unlock()
 
@@ -340,9 +342,9 @@ func (u *UIDTrackingControllerExpectations) AddExpectedDeletion(rcKey string, de
 	expectedUIDs.Insert(deletedKey)
 	glog.V(4).Infof("Controller %v waiting on deletions for: %+v", rcKey, expectedUIDs)
 	if err := u.uidStore.Add(&UIDSet{expectedUIDs, rcKey}); err != nil {
-		return err
+		panic(fmt.Errorf("KeyFunc was changed, %v", err))
 	}
-	return u.ControllerExpectationsInterface.ExpectDeletions(rcKey, expectedUIDs.Len())
+	u.ControllerExpectationsInterface.ExpectDeletions(rcKey, expectedUIDs.Len())
 }
 
 // DeletionObserved records the given deleteKey as a deletion, for the given rc.

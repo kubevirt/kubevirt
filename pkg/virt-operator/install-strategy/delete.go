@@ -449,7 +449,9 @@ func DeleteAll(kv *v1.KubeVirt,
 		}
 	}
 
-	deleteDummyWebhookValidators(kv, clientset, stores, expectations)
-
+	err = deleteDummyWebhookValidators(kv, clientset, stores, expectations)
+	if err != nil {
+		return err
+	}
 	return nil
 }
