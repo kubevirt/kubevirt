@@ -29,9 +29,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/cert"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
-
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 )
 
 type ClientCAManager interface {
@@ -51,21 +51,23 @@ type manager struct {
 
 func NewKubernetesClientCAManager(configMapCache cache.Store) ClientCAManager {
 	return &manager{
-		store:     configMapCache,
-		lock:      &sync.Mutex{},
-		namespace: metav1.NamespaceSystem,
-		name:      util.ExtensionAPIServerAuthenticationConfigMap,
-		secretKey: util.RequestHeaderClientCAFileKey,
+		store:        configMapCache,
+		lock:         &sync.Mutex{},
+		namespace:    metav1.NamespaceSystem,
+		name:         util.ExtensionAPIServerAuthenticationConfigMap,
+		secretKey:    util.RequestHeaderClientCAFileKey,
+		lastRevision: "-1",
 	}
 }
 
 func NewCAManager(configMapCache cache.Store, namespace string, configMapName string) ClientCAManager {
 	return &manager{
-		store:     configMapCache,
-		lock:      &sync.Mutex{},
-		namespace: namespace,
-		name:      configMapName,
-		secretKey: components.CABundleKey,
+		store:        configMapCache,
+		lock:         &sync.Mutex{},
+		namespace:    namespace,
+		name:         configMapName,
+		secretKey:    components.CABundleKey,
+		lastRevision: "-1",
 	}
 }
 
@@ -91,10 +93,11 @@ func (m *manager) GetCurrent() (*x509.CertPool, error) {
 	if m.lastRevision == configMap.ResourceVersion {
 		return m.lastPool, nil
 	}
+	log.DefaultLogger().Infof("CA update in configmap %s/%s detected. Updating from resource version %v to %v", m.namespace, m.name, m.lastRevision, configMap.ResourceVersion)
 
 	requestHeaderClientCA, ok := configMap.Data[m.secretKey]
 	if !ok {
-		return nil, fmt.Errorf("requestheader-client-ca-file not found in extension-apiserver-authentication ConfigMap")
+		return nil, fmt.Errorf("requestheader-client-ca-file not found in configmap %s/%s", m.namespace, m.name)
 	}
 
 	certs, err := cert.ParseCertsPEM([]byte(requestHeaderClientCA))
