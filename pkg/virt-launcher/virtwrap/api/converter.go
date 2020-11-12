@@ -1526,6 +1526,29 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	return nil
 }
 
+func CheckEFI_OVMFRoms(vmi *v1.VirtualMachineInstance, c *ConverterContext) (err error) {
+	if vmi.Spec.Domain.Firmware != nil {
+		if vmi.Spec.Domain.Firmware.Bootloader != nil && vmi.Spec.Domain.Firmware.Bootloader.EFI != nil {
+			if vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot {
+				_, err1 := os.Stat(filepath.Join(c.OVMFPath, EFICodeSecureBoot))
+				_, err2 := os.Stat(filepath.Join(c.OVMFPath, EFIVarsSecureBoot))
+				if os.IsNotExist(err1) || os.IsNotExist(err2) {
+					log.Log.Reason(err).Error("EFI OVMF roms missing for secure boot")
+					return fmt.Errorf("EFI OVMF roms missing for secure boot")
+				}
+			} else {
+				_, err1 := os.Stat(filepath.Join(c.OVMFPath, EFICode))
+				_, err2 := os.Stat(filepath.Join(c.OVMFPath, EFIVars))
+				if os.IsNotExist(err1) || os.IsNotExist(err2) {
+					log.Log.Reason(err).Error("EFI OVMF roms missing for insecure boot")
+					return fmt.Errorf("EFI OVMF roms missing for insecure boot")
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func getVirtualMemory(vmi *v1.VirtualMachineInstance) *resource.Quantity {
 	// In case that guest memory is explicitly set, return it
 	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
