@@ -48,8 +48,8 @@ import (
 
 const (
 	randomMacGenerationAttempts = 10
-	qemuUID                     = "107"
-	qemuGID                     = "107"
+	tapOwnerUID                 = "0"
+	tapOwnerGID                 = "0"
 )
 
 type VIF struct {
@@ -112,8 +112,9 @@ type NetworkHandler interface {
 	NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
 	NftablesLoad(fnName string) error
 	GetNFTIPString(proto iptables.Protocol) string
-	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int) error
+	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
+	DisableTXOffloadChecksum(ifaceName string) error
 }
 
 type NetworkUtilsHandler struct{}
@@ -375,8 +376,8 @@ func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
 	return net.HardwareAddr(append(prefix, suffix...)), nil
 }
 
-func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, queueNumber uint32, launcherPID int) error {
-	tapDeviceMaker, err := buildTapDeviceMaker(tapName, queueNumber, launcherPID)
+func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int) error {
+	tapDeviceMaker, err := buildTapDeviceMaker(tapName, queueNumber, launcherPID, mtu)
 	if err != nil {
 		return fmt.Errorf("error creating tap device named %s; %v", tapName, err)
 	}
@@ -389,13 +390,14 @@ func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, queueNumber uint32
 	return nil
 }
 
-func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int) (*tapDeviceMaker, error) {
+func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int, mtu int) (*tapDeviceMaker, error) {
 	createTapDeviceArgs := []string{
 		"create-tap",
 		"--tap-name", tapName,
-		"--uid", qemuUID,
-		"--gid", qemuGID,
+		"--uid", tapOwnerUID,
+		"--gid", tapOwnerGID,
 		"--queue-number", fmt.Sprintf("%d", queueNumber),
+		"--mtu", fmt.Sprintf("%d", mtu),
 	}
 	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
 
@@ -487,6 +489,15 @@ func (h *NetworkUtilsHandler) BindTapDeviceToBridge(tapName string, bridgeName s
 	}
 
 	log.Log.Infof("Successfully configured tap device: %s", tapName)
+	return nil
+}
+
+func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
+	if err := dhcp.EthtoolTXOff(ifaceName); err != nil {
+		log.Log.Reason(err).Errorf("Failed to set tx offload for interface %s off", ifaceName)
+		return err
+	}
+
 	return nil
 }
 
