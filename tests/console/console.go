@@ -273,5 +273,3 @@ func ExpectBatchWithValidatedSend(expecter expect.Expecter, batch []expect.Batch
 func RetValue(retcode string) string {
 	return "\n" + retcode + CRLF + ".*" + PromptExpression
 }
-
-type VMIExpecterFactory func(*v1.VirtualMachineInstance) (expect.Expecter, error)
