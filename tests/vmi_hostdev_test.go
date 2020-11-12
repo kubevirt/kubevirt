@@ -55,7 +55,7 @@ var _ = Describe("[Serial]HostDevices", func() {
 			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(randomVMI)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
-			Expect(tests.LoginToFedora(vmi)).To(Succeed())
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Making sure the sound card is present inside the VMI")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
