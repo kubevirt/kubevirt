@@ -557,7 +557,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(tests.LoginToFedora(vmi)).To(Succeed())
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				// Need to wait for cloud init to finnish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
@@ -590,7 +590,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(tests.LoginToFedora(vmi)).To(Succeed())
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				// Need to wait for cloud init to finnish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
@@ -612,7 +612,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				By("Checking that the migrated VirtualMachineInstance has an updated time")
 				if !console.OnPrivilegedPrompt(vmi, 60) {
-					Expect(tests.LoginToFedora(vmi)).To(Succeed())
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
 				}
 
 				By("Waiting for the agent to set the right time")
@@ -997,7 +997,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				// Run
-				Expect(tests.LoginToFedora(vmi)).To(Succeed())
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				runStressTest(vmi)
 
@@ -1097,7 +1097,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(tests.LoginToFedora(vmi)).To(Succeed())
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
@@ -1155,7 +1155,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(tests.LoginToFedora(vmi)).To(Succeed())
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
@@ -1186,7 +1186,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(tests.LoginToFedora(vmi)).To(Succeed())
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -1410,7 +1410,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					vmi = runVMIAndExpectLaunch(vmi, 240)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
-					Expect(tests.LoginToFedora(vmi)).To(Succeed())
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
@@ -1568,7 +1568,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(tests.LoginToFedora(vmi)).To(Succeed())
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				tests.WaitAgentConnected(virtClient, vmi)
 
@@ -1682,7 +1682,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					vmi = runVMIAndExpectLaunch(vmi, 180)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
-					Expect(tests.LoginToFedora(vmi)).To(Succeed())
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 					tests.WaitAgentConnected(virtClient, vmi)
 
