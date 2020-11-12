@@ -817,9 +817,13 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				var err error
 
 				By("Create masquerade VMI")
+				networkData, err := libnet.CreateDefaultCloudInitNetworkData()
+				Expect(err).NotTo(HaveOccurred())
+
 				vmi = libvmi.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 				)
 
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -835,7 +839,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				anotherVmi, err = virtClient.VirtualMachineInstance(anotherVmi.Namespace).Get(anotherVmi.Name, &v13.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				tests.WaitUntilVMIReady(vmi, tests.LoginToFedora)
+				tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})

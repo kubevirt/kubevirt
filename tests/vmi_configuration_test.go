@@ -1196,7 +1196,7 @@ var _ = Describe("Configurations", func() {
 				getOptions := metav1.GetOptions{}
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(tests.LoginToFedora(agentVMI)).To(Succeed())
+				Expect(console.LoginToFedora(agentVMI)).To(Succeed())
 
 				By("Terminating guest agent and waiting for it to dissappear.")
 				Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
@@ -1291,7 +1291,7 @@ var _ = Describe("Configurations", func() {
 				agentVMI := prepareAgentVM()
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(tests.LoginToFedora(agentVMI)).To(Succeed())
+				Expect(console.LoginToFedora(agentVMI)).To(Succeed())
 
 				By("Terminating guest agent and waiting for it to dissappear.")
 				Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
@@ -1312,7 +1312,7 @@ var _ = Describe("Configurations", func() {
 			It("[test_id:4629]should return user list", func() {
 				agentVMI := prepareAgentVM()
 
-				Expect(tests.LoginToFedora(agentVMI)).To(Succeed())
+				Expect(console.LoginToFedora(agentVMI)).To(Succeed())
 
 				By("Expecting the Guest VM information")
 				Eventually(func() bool {
@@ -2606,7 +2606,7 @@ var _ = Describe("Configurations", func() {
 			}
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi, tests.LoginToFedora)
+			tests.WaitUntilVMIReady(vmi, console.LoginToFedora)
 			Expect(len(vmi.Spec.Domain.Devices.Disks)).Should(BeNumerically("==", numOfDevices))
 
 			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
