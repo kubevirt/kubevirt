@@ -163,6 +163,171 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
 		})
 
+		table.DescribeTable("should hotplug a vm", func(isRunning bool) {
+
+			vm, vmi := DefaultVirtualMachine(isRunning)
+			vm.Status.Created = true
+			vm.Status.Ready = true
+			vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
+				{
+					AddVolumeOptions: &v1.AddVolumeOptions{
+						Name:         "vol1",
+						Disk:         &v1.Disk{},
+						VolumeSource: &v1.HotplugVolumeSource{},
+					},
+				},
+			}
+
+			addVirtualMachine(vm)
+
+			if isRunning {
+				markAsReady(vmi)
+				vmiFeeder.Add(vmi)
+				vmiInterface.EXPECT().AddVolume(vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions)
+			}
+
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
+			}).Return(nil, nil)
+
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+				// vol request shouldn't be cleared until update status observes the new volume change
+				Expect(len(arg.(*v1.VirtualMachine).Status.VolumeRequests)).To(Equal(1))
+			}).Return(nil, nil)
+
+			controller.Execute()
+		},
+
+			table.Entry("that is running", true),
+			table.Entry("that is not running", false),
+		)
+
+		table.DescribeTable("should unhotplug a vm", func(isRunning bool) {
+			vm, vmi := DefaultVirtualMachine(isRunning)
+			vm.Status.Created = true
+			vm.Status.Ready = true
+			vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
+				{
+					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+						Name: "vol1",
+					},
+				},
+			}
+			vm.Spec.Template.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "vol1",
+			})
+			vm.Spec.Template.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "vol1",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testpvcdiskclaim",
+					},
+				},
+			})
+
+			addVirtualMachine(vm)
+
+			if isRunning {
+				vmi.Spec.Volumes = vm.Spec.Template.Spec.Volumes
+				vmi.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
+				markAsReady(vmi)
+				vmiFeeder.Add(vmi)
+				vmiInterface.EXPECT().RemoveVolume(vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].RemoveVolumeOptions)
+			}
+
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(len(arg.(*v1.VirtualMachine).Spec.Template.Spec.Volumes)).To(Equal(0))
+			}).Return(nil, nil)
+
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+				// vol request shouldn't be cleared until update status observes the new volume change occured
+				Expect(len(arg.(*v1.VirtualMachine).Status.VolumeRequests)).To(Equal(1))
+			}).Return(nil, nil)
+
+			controller.Execute()
+		},
+
+			table.Entry("that is running", true),
+			table.Entry("that is not running", false),
+		)
+
+		table.DescribeTable("should clear VolumeRequests for added volumes that are satisfied", func(isRunning bool) {
+			vm, vmi := DefaultVirtualMachine(isRunning)
+			vm.Status.Created = true
+			vm.Status.Ready = true
+			vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
+				{
+					AddVolumeOptions: &v1.AddVolumeOptions{
+						Name:         "vol1",
+						Disk:         &v1.Disk{},
+						VolumeSource: &v1.HotplugVolumeSource{},
+					},
+				},
+			}
+			vm.Spec.Template.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "vol1",
+			})
+			vm.Spec.Template.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "vol1",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testpvcdiskclaim",
+					},
+				},
+			})
+
+			addVirtualMachine(vm)
+
+			if isRunning {
+				vmi.Spec.Volumes = vm.Spec.Template.Spec.Volumes
+				vmi.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
+				markAsReady(vmi)
+				vmiFeeder.Add(vmi)
+			}
+
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+				Expect(len(arg.(*v1.VirtualMachine).Status.VolumeRequests)).To(Equal(0))
+			}).Return(nil, nil)
+
+			controller.Execute()
+		},
+
+			table.Entry("that is running", true),
+			table.Entry("that is not running", false),
+		)
+
+		table.DescribeTable("should clear VolumeRequests for removed volumes that are satisfied", func(isRunning bool) {
+			vm, vmi := DefaultVirtualMachine(isRunning)
+			vm.Status.Created = true
+			vm.Status.Ready = true
+			vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
+				{
+					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+						Name: "vol1",
+					},
+				},
+			}
+			vm.Spec.Template.Spec.Volumes = []v1.Volume{}
+			vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{}
+
+			addVirtualMachine(vm)
+
+			if isRunning {
+				markAsReady(vmi)
+				vmiFeeder.Add(vmi)
+			}
+
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+				Expect(len(arg.(*v1.VirtualMachine).Status.VolumeRequests)).To(Equal(0))
+			}).Return(nil, nil)
+
+			controller.Execute()
+		},
+
+			table.Entry("that is running", true),
+			table.Entry("that is not running", false),
+		)
+
 		It("should not delete failed DataVolume for VirtualMachineInstance", func() {
 			vm, _ := DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{

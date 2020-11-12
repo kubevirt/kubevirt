@@ -537,8 +537,10 @@ func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virt
 
 	vmCopy := vm.DeepCopy()
 	vmiVolumeMap := make(map[string]virtv1.Volume)
-	for _, volume := range vmi.Spec.Volumes {
-		vmiVolumeMap[volume.Name] = volume
+	if vmi != nil {
+		for _, volume := range vmi.Spec.Volumes {
+			vmiVolumeMap[volume.Name] = volume
+		}
 	}
 
 	for _, request := range vm.Status.VolumeRequests {
