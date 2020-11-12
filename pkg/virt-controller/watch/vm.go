@@ -536,21 +536,30 @@ func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virt
 	}
 
 	vmCopy := vm.DeepCopy()
+	vmiVolumeMap := make(map[string]virtv1.Volume)
+	for _, volume := range vmi.Spec.Volumes {
+		vmiVolumeMap[volume.Name] = volume
+	}
 
 	for _, request := range vm.Status.VolumeRequests {
 		vmCopy.Spec.Template.Spec = *controller.ApplyVolumeRequestOnVMISpec(&vmCopy.Spec.Template.Spec, &request)
 
 		if vmi != nil && vmi.DeletionTimestamp == nil {
 			if request.AddVolumeOptions != nil {
-				err := c.clientset.VirtualMachineInstance(vmi.Namespace).AddVolume(vmi.Name, request.AddVolumeOptions)
-				if err != nil {
-					return err
+				_, exists := vmiVolumeMap[request.AddVolumeOptions.Name]
+				if !exists {
+					err := c.clientset.VirtualMachineInstance(vmi.Namespace).AddVolume(vmi.Name, request.AddVolumeOptions)
+					if err != nil {
+						return err
+					}
 				}
-
 			} else if request.RemoveVolumeOptions != nil {
-				err := c.clientset.VirtualMachineInstance(vmi.Namespace).RemoveVolume(vmi.Name, request.RemoveVolumeOptions)
-				if err != nil {
-					return err
+				_, exists := vmiVolumeMap[request.RemoveVolumeOptions.Name]
+				if exists {
+					err := c.clientset.VirtualMachineInstance(vmi.Namespace).RemoveVolume(vmi.Name, request.RemoveVolumeOptions)
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
