@@ -2746,19 +2746,26 @@ func waitForDataVolumePhase(namespace, name string, seconds int, phase ...cdiv1.
 			"Timed out waiting for DataVolume to enter Succeeded phase")
 }
 
+// Block until the specified VirtualMachineInstance reached either Failed or Running states
+func WaitForVMIStartOrFailed(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Running, v1.Failed}, obj, seconds, ignoreWarnings, true)
+}
+
 // Block until the specified VirtualMachineInstance started and return the target node name.
 func waitForVMIStart(ctx context.Context, obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
-	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Running}, obj, seconds, ignoreWarnings)
+	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Running}, obj, seconds, ignoreWarnings, false)
 }
 
 // Block until the specified VirtualMachineInstance scheduled and return the target node name.
 func waitForVMIScheduling(obj runtime.Object, seconds int, ignoreWarnings bool) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running}, obj, seconds, ignoreWarnings)
+	waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running}, obj, seconds, ignoreWarnings, false)
 }
 
-func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhase, obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
+func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhase, obj runtime.Object, seconds int, ignoreWarnings bool, waitForFail bool) (nodeName string) {
 	vmi, ok := obj.(*v1.VirtualMachineInstance)
 	ExpectWithOffset(1, ok).To(BeTrue(), "Object is not of type *v1.VMI")
 
@@ -2791,7 +2798,11 @@ func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhas
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		nodeName = vmi.Status.NodeName
-		Expect(vmi.IsFinal()).To(BeFalse(), "VMI %s unexpectedly stopped. State: %s", vmi.Name, vmi.Status.Phase)
+		Expect(vmi.Status.Phase == v1.Succeeded).To(BeFalse(), "VMI %s unexpectedly stopped. State: %s", vmi.Name, vmi.Status.Phase)
+		// May need to wait for Failed state
+		if !waitForFail {
+			Expect(vmi.Status.Phase == v1.Failed).To(BeFalse(), "VMI %s unexpectedly stopped. State: %s", vmi.Name, vmi.Status.Phase)
+		}
 		return vmi.Status.Phase
 	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(BeElementOf(phases), timeoutMsg)
 
