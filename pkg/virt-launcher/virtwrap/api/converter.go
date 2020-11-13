@@ -68,6 +68,10 @@ const (
 	multiQueueMaxQueues = uint32(256)
 )
 
+type deviceNamer struct {
+	nameMap map[string]string
+}
+
 type HostDevicesList struct {
 	Type     HostDeviceType
 	AddrList []string
@@ -82,6 +86,8 @@ type ConverterContext struct {
 	CPUSet                []int
 	IsBlockPVC            map[string]bool
 	IsBlockDV             map[string]bool
+	HotplugVolumes        map[string]v1.VolumeStatus
+	PermanentVolumes      map[string]v1.VolumeStatus
 	DiskType              map[string]*containerdisk.DiskInfo
 	SRIOVDevices          map[string][]string
 	SMBios                *cmdv1.SMBios
@@ -138,12 +144,21 @@ func Convert_HostDevices_And_GPU(devices v1.Devices, domain *Domain, c *Converte
 
 }
 
-func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
-
+func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, prefixMap map[string]deviceNamer, numQueues *uint) error {
 	if diskDevice.Disk != nil {
 		disk.Device = "disk"
 		disk.Target.Bus = diskDevice.Disk.Bus
-		disk.Target.Device = makeDeviceName(diskDevice.Disk.Bus, devicePerBus)
+		if diskDevice.Disk.Bus == "scsi" {
+			// Ensure we assign this disk to the correct scsi controller
+			if disk.Address == nil {
+				disk.Address = &Address{}
+			}
+			disk.Address.Type = "drive"
+			// This should be the index of the virtio-scsi controller, which is hard coded to 0
+			disk.Address.Controller = "0"
+			disk.Address.Bus = "0"
+		}
+		disk.Target.Device = makeDeviceName(diskDevice.Name, diskDevice.Disk.Bus, prefixMap)
 		if diskDevice.Disk.PciAddress != "" {
 			if diskDevice.Disk.Bus != "virtio" {
 				return fmt.Errorf("setting a pci address is not allowed for non-virtio bus types, for disk %s", diskDevice.Name)
@@ -159,19 +174,19 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 	} else if diskDevice.LUN != nil {
 		disk.Device = "lun"
 		disk.Target.Bus = diskDevice.LUN.Bus
-		disk.Target.Device = makeDeviceName(diskDevice.LUN.Bus, devicePerBus)
+		disk.Target.Device = makeDeviceName(diskDevice.Name, diskDevice.LUN.Bus, prefixMap)
 		disk.ReadOnly = toApiReadOnly(diskDevice.LUN.ReadOnly)
 	} else if diskDevice.Floppy != nil {
 		disk.Device = "floppy"
 		disk.Target.Bus = "fdc"
 		disk.Target.Tray = string(diskDevice.Floppy.Tray)
-		disk.Target.Device = makeDeviceName(disk.Target.Bus, devicePerBus)
+		disk.Target.Device = makeDeviceName(diskDevice.Name, disk.Target.Bus, prefixMap)
 		disk.ReadOnly = toApiReadOnly(diskDevice.Floppy.ReadOnly)
 	} else if diskDevice.CDRom != nil {
 		disk.Device = "cdrom"
 		disk.Target.Tray = string(diskDevice.CDRom.Tray)
 		disk.Target.Bus = diskDevice.CDRom.Bus
-		disk.Target.Device = makeDeviceName(diskDevice.CDRom.Bus, devicePerBus)
+		disk.Target.Device = makeDeviceName(diskDevice.Name, diskDevice.CDRom.Bus, prefixMap)
 		if diskDevice.CDRom.ReadOnly != nil {
 			disk.ReadOnly = toApiReadOnly(*diskDevice.CDRom.ReadOnly)
 		} else {
@@ -295,24 +310,36 @@ func SetOptimalIOMode(disk *Disk) error {
 	return nil
 }
 
-func makeDeviceName(bus string, devicePerBus map[string]int) string {
-	prefix := ""
-	switch bus {
-	case "virtio":
-		prefix = "vd"
-	case "sata", "scsi":
-		prefix = "sd"
-	case "fdc":
-		prefix = "fd"
-	default:
-		log.Log.Errorf("Unrecognized bus '%s'", bus)
-		return ""
+func (n *deviceNamer) getKeyFromValue(value string) (string, bool) {
+	for k, v := range n.nameMap {
+		if v == value {
+			return k, true
+		}
 	}
+	return "", false
+}
 
-	index := devicePerBus[prefix]
-	devicePerBus[prefix] += 1
-
-	return formatDeviceName(prefix, index)
+func makeDeviceName(diskName, bus string, prefixMap map[string]deviceNamer) string {
+	prefix := getPrefixFromBus(bus)
+	if _, ok := prefixMap[prefix]; !ok {
+		// This should never happen since the prefix map is populated from all disks.
+		prefixMap[prefix] = deviceNamer{
+			nameMap: make(map[string]string),
+		}
+	}
+	deviceNamer := prefixMap[prefix]
+	if name, ok := deviceNamer.getKeyFromValue(diskName); ok {
+		return name
+	}
+	// Name not found yet, generate next new one.
+	for i := 0; i < 26*26*26; i++ {
+		name := formatDeviceName(prefix, i)
+		if _, ok := deviceNamer.nameMap[name]; !ok {
+			deviceNamer.nameMap[name] = diskName
+			return name
+		}
+	}
+	return ""
 }
 
 // port of http://elixir.free-electrons.com/linux/v4.15/source/drivers/scsi/sd.c#L3211
@@ -391,6 +418,18 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.Name)
 }
 
+// Convert_v1_Hotplug_Volume_To_api_Disk convers a hotplug volume to an api disk
+func Convert_v1_Hotplug_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterContext) error {
+	if source.PersistentVolumeClaim != nil {
+		return Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(source.Name, disk, c)
+	}
+
+	if source.DataVolume != nil {
+		return Convert_v1_Hotplug_DataVolume_To_api_Disk(source.Name, disk, c)
+	}
+	return fmt.Errorf("hotplug disk %s references an unsupported source", disk.Alias.Name)
+}
+
 func Convert_v1_Config_To_api_Disk(volumeName string, disk *Disk, configType config.Type) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
@@ -418,8 +457,20 @@ func GetFilesystemVolumePath(volumeName string) string {
 	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt-private", "vmi-disks", volumeName, "disk.img")
 }
 
+// GetHotplugFilesystemVolumePath returns the path and file name of a hotplug disk image
+func GetHotplugFilesystemVolumePath(volumeName string) string {
+	log.Log.Infof("Looking at path: %s", filepath.Join(string(filepath.Separator), "var", "run", "kubevirt", "hotplug-disks", fmt.Sprintf("%s/disk.img", volumeName)))
+	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt", "hotplug-disks", volumeName, "disk.img")
+}
+
 func GetBlockDeviceVolumePath(volumeName string) string {
 	return filepath.Join(string(filepath.Separator), "dev", volumeName)
+}
+
+// GetHotplugBlockDeviceVolumePath returns the path and name of a hotplugged block device
+func GetHotplugBlockDeviceVolumePath(volumeName string) string {
+	log.Log.Infof("Looking at path: %s", filepath.Join(string(filepath.Separator), "var", "run", "kubevirt", "hotplug-disks", volumeName))
+	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt", "hotplug-disks", volumeName)
 }
 
 func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, disk *Disk, c *ConverterContext) error {
@@ -429,6 +480,14 @@ func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, disk *Disk, c *Co
 	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c)
 }
 
+// Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk converts a Hotplugged PVC to an api disk
+func Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(name string, disk *Disk, c *ConverterContext) error {
+	if c.IsBlockDV[name] {
+		return Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(name, disk, c)
+	}
+	return Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(name, disk, c)
+}
+
 func Convert_v1_DataVolume_To_api_Disk(name string, disk *Disk, c *ConverterContext) error {
 	if c.IsBlockDV[name] {
 		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c)
@@ -436,7 +495,15 @@ func Convert_v1_DataVolume_To_api_Disk(name string, disk *Disk, c *ConverterCont
 	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c)
 }
 
-// Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
+// Convert_v1_Hotplug_DataVolume_To_api_Disk converts a Hotplugged DataVolume to an api disk
+func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *Disk, c *ConverterContext) error {
+	if c.IsBlockDV[name] {
+		return Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(name, disk, c)
+	}
+	return Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(name, disk, c)
+}
+
+// Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the domain Disk representation
 func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
@@ -444,10 +511,26 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk
 	return nil
 }
 
+// Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
+func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
+	disk.Type = "file"
+	disk.Driver.Type = "raw"
+	disk.Source.File = GetHotplugFilesystemVolumePath(volumeName)
+	return nil
+}
+
 func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
 	disk.Source.Dev = GetBlockDeviceVolumePath(volumeName)
+	return nil
+}
+
+// Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk takes a block device source and builds the domain Disk representation
+func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
+	disk.Type = "block"
+	disk.Driver.Type = "raw"
+	disk.Source.Dev = GetHotplugBlockDeviceVolumePath(volumeName)
 	return nil
 }
 
@@ -1059,11 +1142,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		numBlkQueues = &vcpus
 	}
 
-	devicePerBus := make(map[string]int)
+	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := Disk{}
 
-		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, devicePerBus, numBlkQueues)
+		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, prefixMap, numBlkQueues)
 		if err != nil {
 			return err
 		}
@@ -1071,7 +1154,12 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if volume == nil {
 			return fmt.Errorf("No matching volume with name %s found", disk.Name)
 		}
-		err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c, volumeIndices[disk.Name])
+
+		if _, ok := c.HotplugVolumes[disk.Name]; !ok {
+			err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c, volumeIndices[disk.Name])
+		} else {
+			err = Convert_v1_Hotplug_Volume_To_api_Disk(volume, &newDisk, c)
+		}
 		if err != nil {
 			return err
 		}
@@ -1095,7 +1183,12 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			newDisk.Driver.IOThread = &ioThreadId
 		}
 
-		domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
+		log.Log.Infof("hotplugVolumes: %v, permanent volumes %v", c.HotplugVolumes, c.PermanentVolumes)
+
+		if status, ok := c.HotplugVolumes[disk.Name]; !ok || status.HotplugVolume.AttachPodUID != "" {
+			log.Log.Infof("Adding disk %s, is it hotplugged? %t", disk.Name, ok)
+			domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
+		}
 	}
 	// Handle virtioFS
 	for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
@@ -1132,14 +1225,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			newFS.Source.Dir = volDir
 			domain.Spec.Devices.Filesystems = append(domain.Spec.Devices.Filesystems, newFS)
 		}
-	}
-
-	if !vmi.Spec.Domain.Devices.DisableHotplug {
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, Controller{
-			Type:  "scsi",
-			Index: "0",
-			Model: "virtio-scsi",
-		})
 	}
 
 	if vmi.Spec.Domain.Devices.Watchdog != nil {
@@ -1951,5 +2036,44 @@ func needsSCSIControler(vmi *v1.VirtualMachineInstance) bool {
 			return true
 		}
 	}
-	return false
+	return !vmi.Spec.Domain.Devices.DisableHotplug
+}
+
+func getPrefixFromBus(bus string) string {
+	switch bus {
+	case "virtio":
+		return "vd"
+	case "sata", "scsi":
+		return "sd"
+	case "fdc":
+		return "fd"
+	default:
+		log.Log.Errorf("Unrecognized bus '%s'", bus)
+		return ""
+	}
+}
+
+func newDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[string]deviceNamer {
+	prefixMap := make(map[string]deviceNamer)
+	volumeTargetMap := make(map[string]string)
+	for _, volumeStatus := range volumeStatuses {
+		volumeTargetMap[volumeStatus.Target] = volumeStatus.Name
+	}
+
+	for _, disk := range disks {
+		if disk.Disk == nil {
+			continue
+		}
+		prefix := getPrefixFromBus(disk.Disk.Bus)
+		if _, ok := prefixMap[prefix]; !ok {
+			prefixMap[prefix] = deviceNamer{
+				nameMap: make(map[string]string),
+			}
+		}
+		namer := prefixMap[disk.Disk.Bus]
+		if _, ok := volumeTargetMap[disk.Name]; ok {
+			namer.nameMap[disk.Name] = volumeTargetMap[disk.Name]
+		}
+	}
+	return prefixMap
 }

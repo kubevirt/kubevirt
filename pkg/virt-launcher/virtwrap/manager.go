@@ -1244,17 +1244,33 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		}
 	}
 
+	hotplugVolumes := make(map[string]v1.VolumeStatus)
+	permanentVolumes := make(map[string]v1.VolumeStatus)
+	for _, status := range vmi.Status.VolumeStatus {
+		if status.HotplugVolume != nil {
+			hotplugVolumes[status.Name] = status
+		} else {
+			permanentVolumes[status.Name] = status
+		}
+	}
+
 	// Check if PVC volumes are block volumes
 	isBlockPVCMap := make(map[string]bool)
 	isBlockDVMap := make(map[string]bool)
 	diskInfo := make(map[string]*containerdisk.DiskInfo)
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.PersistentVolumeClaim != nil {
-			isBlockPVC, err := isBlockDeviceVolume(volume.Name)
-			if err != nil {
-				logger.Reason(err).Errorf("failed to detect volume mode for Volume %v and PVC %v.",
-					volume.Name, volume.VolumeSource.PersistentVolumeClaim.ClaimName)
-				return nil, err
+			var err error
+			isBlockPVC := false
+			if _, ok := hotplugVolumes[volume.Name]; ok {
+				isBlockPVC = isHotplugBlockDeviceVolume(volume.Name)
+			} else if _, ok := permanentVolumes[volume.Name]; ok {
+				isBlockPVC, err = isBlockDeviceVolume(volume.Name)
+				if err != nil {
+					logger.Reason(err).Errorf("failed to detect volume mode for Volume %v and PVC %v.",
+						volume.Name, volume.VolumeSource.PersistentVolumeClaim.ClaimName)
+					return nil, err
+				}
 			}
 			isBlockPVCMap[volume.Name] = isBlockPVC
 		} else if volume.VolumeSource.ContainerDisk != nil {
@@ -1268,11 +1284,17 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 			}
 			diskInfo[volume.Name] = info
 		} else if volume.VolumeSource.DataVolume != nil {
-			isBlockDV, err := isBlockDeviceVolume(volume.Name)
-			if err != nil {
-				logger.Reason(err).Errorf("failed to detect volume mode for Volume %v and DV %v.",
-					volume.Name, volume.VolumeSource.DataVolume.Name)
-				return nil, err
+			var err error
+			isBlockDV := false
+			if _, ok := hotplugVolumes[volume.Name]; ok {
+				isBlockDV = isHotplugBlockDeviceVolume(volume.Name)
+			} else if _, ok := permanentVolumes[volume.Name]; ok {
+				isBlockDV, err = isBlockDeviceVolume(volume.Name)
+				if err != nil {
+					logger.Reason(err).Errorf("failed to detect volume mode for Volume %v and DV %v.",
+						volume.Name, volume.VolumeSource.DataVolume.Name)
+					return nil, err
+				}
 			}
 			isBlockDVMap[volume.Name] = isBlockDV
 		}
@@ -1286,6 +1308,8 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		CPUSet:            podCPUSet,
 		IsBlockPVC:        isBlockPVCMap,
 		IsBlockDV:         isBlockDVMap,
+		HotplugVolumes:    hotplugVolumes,
+		PermanentVolumes:  permanentVolumes,
 		DiskType:          diskInfo,
 		SRIOVDevices:      getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
 		GpuDevices:        getEnvAddressListByPrefix(gpuEnvPrefix),
@@ -1377,19 +1401,110 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		return nil, err
 	}
 
-	var newSpec api.DomainSpec
-	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
+	var oldSpec api.DomainSpec
+	err = xml.Unmarshal([]byte(xmlstr), &oldSpec)
 	if err != nil {
 		logger.Reason(err).Error("Parsing domain XML failed.")
 		return nil, err
 	}
 
+	//Look up all the disks to detach
+	for _, detachDisk := range getDetachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
+		detachBytes, err := xml.Marshal(detachDisk)
+		logger.Infof("detach xml [%s]", strings.ToLower(string(detachBytes)))
+		if err != nil {
+			logger.Reason(err).Error("marshalling detached disk failed")
+			return nil, err
+		}
+		err = dom.DetachDevice(strings.ToLower(string(detachBytes)))
+		if err != nil {
+			logger.Reason(err).Error("detaching device")
+			return nil, err
+		}
+	}
+	//Look up all the disks to attach
+	for _, attachDisk := range getAttachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
+		// Before attempting to attach, ensure we can open the file
+		file, err := os.OpenFile(attachDisk.Source.File, os.O_RDWR, 0660)
+		if err != nil {
+			logger.Infof("cannot open file yet, don't attach: %v", err)
+			continue
+		}
+		defer file.Close()
+		attachBytes, err := xml.Marshal(attachDisk)
+		logger.Infof("attach xml [%s]", strings.ToLower(string(attachBytes)))
+		if err != nil {
+			logger.Reason(err).Error("marshalling attached disk failed")
+			return nil, err
+		}
+		err = dom.AttachDevice(strings.ToLower(string(attachBytes)))
+		if err != nil {
+			logger.Reason(err).Error("attaching device")
+			return nil, err
+		}
+	}
+
+	// Resync after attaching and detaching
+	xmlstr, err = dom.GetXMLDesc(0)
+	if err != nil {
+		return nil, err
+	}
+	err = xml.Unmarshal([]byte(xmlstr), &oldSpec)
+	if err != nil {
+		logger.Reason(err).Error("Parsing domain XML failed.")
+		return nil, err
+	}
+	log.DefaultLogger().Infof("%v", oldSpec.Devices.Disks)
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
-	return &newSpec, nil
+	return &oldSpec, nil
+}
+
+func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
+	newDiskMap := make(map[string]api.Disk)
+	for _, disk := range newDisks {
+		newDiskMap[disk.Source.File] = disk
+	}
+	res := make([]api.Disk, 0)
+	for _, oldDisk := range oldDisks {
+		if _, ok := newDiskMap[oldDisk.Source.File]; !ok {
+			// This disk got detached, add it to the list
+			res = append(res, oldDisk)
+		}
+	}
+	return res
+}
+
+func getAttachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
+	oldDiskMap := make(map[string]api.Disk)
+	for _, disk := range oldDisks {
+		oldDiskMap[disk.Source.File] = disk
+	}
+	res := make([]api.Disk, 0)
+	if len(oldDiskMap) == 0 {
+		return res
+	}
+	for _, newDisk := range newDisks {
+		if _, ok := oldDiskMap[newDisk.Source.File]; !ok {
+			// This disk got attached, add it to the list
+			res = append(res, newDisk)
+		}
+	}
+	return res
+}
+
+func isHotplugBlockDeviceVolume(volumeName string) bool {
+	path := api.GetHotplugBlockDeviceVolumePath(volumeName)
+	fileInfo, err := os.Stat(path)
+	if err == nil {
+		if !fileInfo.IsDir() && (fileInfo.Mode()&os.ModeDevice) != 0 {
+			return true
+		}
+		return false
+	}
+	return false
 }
 
 func isBlockDeviceVolume(volumeName string) (bool, error) {
-	// check for block device
 	path := api.GetBlockDeviceVolumePath(volumeName)
 	fileInfo, err := os.Stat(path)
 	if err == nil {

@@ -2160,7 +2160,7 @@ var _ = Describe("Converter", func() {
 				},
 			}
 			apiDisk := Disk{}
-			devicePerBus := map[string]int{}
+			devicePerBus := map[string]deviceNamer{}
 			numQueues := uint(2)
 			Convert_v1_Disk_To_api_Disk(&v1Disk, &apiDisk, devicePerBus, &numQueues)
 			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
@@ -2174,8 +2174,9 @@ var _ = Describe("Converter", func() {
 				},
 			}
 			apiDisk := Disk{}
-			devicePerBus := map[string]int{}
-			Convert_v1_Disk_To_api_Disk(&v1Disk, &apiDisk, devicePerBus, nil)
+			devicePerBus := map[string]deviceNamer{}
+			err := Convert_v1_Disk_To_api_Disk(&v1Disk, &apiDisk, devicePerBus, nil)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
 			Expect(apiDisk.Driver.Queues).To(BeNil(), "expected no queues to be requested")
 		})
@@ -2796,8 +2797,46 @@ var _ = Describe("popSRIOVPCIAddress", func() {
 	})
 })
 
+var _ = Describe("disk device naming", func() {
+	It("format device name should return correct value", func() {
+		res := formatDeviceName("sd", 0)
+		Expect(res).To(Equal("sda"))
+		res = formatDeviceName("sd", 1)
+		Expect(res).To(Equal("sdb"))
+		// 25 is z 26 starting at 0
+		res = formatDeviceName("sd", 25)
+		Expect(res).To(Equal("sdz"))
+		res = formatDeviceName("sd", 26*2-1)
+		Expect(res).To(Equal("sdaz"))
+		res = formatDeviceName("sd", 26*26-1)
+		Expect(res).To(Equal("sdyz"))
+	})
+
+	It("makeDeviceName should generate proper name", func() {
+		prefixMap := make(map[string]deviceNamer)
+		res := makeDeviceName("test1", "virtio", prefixMap)
+		Expect(res).To(Equal("vda"))
+		for i := 2; i < 10; i++ {
+			makeDeviceName(fmt.Sprintf("test%d", i), "virtio", prefixMap)
+		}
+		prefix := getPrefixFromBus("virtio")
+		delete(prefixMap[prefix].nameMap, "vdd")
+		By("Verifying next value is vdd")
+		res = makeDeviceName("something", "virtio", prefixMap)
+		Expect(res).To(Equal("vdd"))
+		res = makeDeviceName("something_else", "virtio", prefixMap)
+		Expect(res).To(Equal("vdj"))
+		By("verifying existing returns correct value")
+		res = makeDeviceName("something", "virtio", prefixMap)
+		Expect(res).To(Equal("vdd"))
+		By("Verifying a new bus returns from start")
+		res = makeDeviceName("something", "scsi", prefixMap)
+		Expect(res).To(Equal("sda"))
+	})
+})
+
 func diskToDiskXML(disk *v1.Disk) string {
-	devicePerBus := make(map[string]int)
+	devicePerBus := make(map[string]deviceNamer)
 	libvirtDisk := &Disk{}
 	Expect(Convert_v1_Disk_To_api_Disk(disk, libvirtDisk, devicePerBus, nil)).To(Succeed())
 	data, err := xml.MarshalIndent(libvirtDisk, "", "  ")
