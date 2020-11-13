@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
-	"os"
-	"time"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -370,6 +372,116 @@ var _ = Describe("HyperconvergedController", func() {
 					Reason:  reconcileCompleted,
 					Message: reconcileCompletedMessage,
 				})))
+			})
+
+			It("should increment counter when out-of-band change overwritten", func() {
+				hco := commonTestUtils.NewHco()
+				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+				existingResource := operands.NewKubeVirt(hco, namespace)
+
+				// now, modify KV's node placement
+				seconds3 := int64(3)
+				existingResource.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
+					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+				})
+				existingResource.Spec.Workloads.NodePlacement.Tolerations = append(hco.Spec.Workloads.NodePlacement.Tolerations, corev1.Toleration{
+					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+				})
+
+				existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"] = "BADvalue1"
+				existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"] = "BADvalue2"
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				r := initReconciler(cl)
+
+				// mock a reconciliation triggered by a change in secondary CR
+				ph, err := getSecondaryCRPlaceholder()
+				Expect(err).To(BeNil())
+				rq := request
+				rq.NamespacedName = ph
+
+				counterValueBefore, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(existingResource.Name)
+				Expect(err).To(BeNil())
+
+				// Do the reconcile
+				res, err := r.Reconcile(rq)
+				Expect(err).To(BeNil())
+				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+
+				foundResource := &kubevirtv1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(existingResource.Spec.Infra.NodePlacement.Tolerations).To(HaveLen(3))
+				Expect(existingResource.Spec.Workloads.NodePlacement.Tolerations).To(HaveLen(3))
+				Expect(existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).Should(Equal("BADvalue1"))
+				Expect(existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).Should(Equal("BADvalue2"))
+
+				Expect(foundResource.Spec.Infra.NodePlacement.Tolerations).To(HaveLen(2))
+				Expect(foundResource.Spec.Workloads.NodePlacement.Tolerations).To(HaveLen(2))
+				Expect(foundResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).Should(Equal("value1"))
+				Expect(foundResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).Should(Equal("value2"))
+
+				counterValueAfter, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(foundResource.Name)
+				Expect(err).To(BeNil())
+				Expect(counterValueAfter).To(Equal(counterValueBefore + 1))
+
+			})
+
+			It("should not increment counter when CR was changed by HCO", func() {
+				hco := commonTestUtils.NewHco()
+				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+				existingResource := operands.NewKubeVirt(hco, namespace)
+
+				// now, modify KV's node placement
+				seconds3 := int64(3)
+				existingResource.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
+					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+				})
+				existingResource.Spec.Workloads.NodePlacement.Tolerations = append(hco.Spec.Workloads.NodePlacement.Tolerations, corev1.Toleration{
+					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+				})
+
+				existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"] = "BADvalue1"
+				existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"] = "BADvalue2"
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				r := initReconciler(cl)
+
+				counterValueBefore, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(existingResource.Name)
+				Expect(err).To(BeNil())
+
+				// Do the reconcile triggered by HCO
+				res, err := r.Reconcile(request)
+				Expect(err).To(BeNil())
+				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+
+				foundResource := &kubevirtv1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(existingResource.Spec.Infra.NodePlacement.Tolerations).To(HaveLen(3))
+				Expect(existingResource.Spec.Workloads.NodePlacement.Tolerations).To(HaveLen(3))
+				Expect(existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).Should(Equal("BADvalue1"))
+				Expect(existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).Should(Equal("BADvalue2"))
+
+				Expect(foundResource.Spec.Infra.NodePlacement.Tolerations).To(HaveLen(2))
+				Expect(foundResource.Spec.Workloads.NodePlacement.Tolerations).To(HaveLen(2))
+				Expect(foundResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).Should(Equal("value1"))
+				Expect(foundResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).Should(Equal("value2"))
+
+				counterValueAfter, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(foundResource.Name)
+				Expect(err).To(BeNil())
+				Expect(counterValueAfter).To(Equal(counterValueBefore))
+
 			})
 
 			It(`should be not available when components with missing "Available" condition`, func() {
