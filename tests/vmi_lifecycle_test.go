@@ -207,12 +207,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			By("Getting virt-launcher logs")
 			logs := func() string { return getVirtLauncherLogs(virtClient, vmi) }
 
-			// there are plenty of strings we can use to identify the debug logs. Here we use something easy to see...
-			Eventually(logs,
-				11*time.Second,
-				500*time.Millisecond).
-				Should(ContainSubstring("OBJECT_REF"))
-			// ...and something we deeply care about when in debug mode.
+			// There are plenty of strings we can use to identify the debug logs.
+			// Here we use something we deeply care about when in debug mode.
 			Eventually(logs,
 				2*time.Second,
 				500*time.Millisecond).

@@ -401,8 +401,8 @@ func SetupLibvirt() error {
 	}
 
 	if _, ok := os.LookupEnv("LIBVIRT_DEBUG_LOGS"); ok {
-		// see https://wiki.libvirt.org/page/DebugLogs for details
-		_, err = libvirtConf.WriteString("log_filters=\"3:remote 4:event 3:util.json 3:rpc 1:*\"\n")
+		// see https://libvirt.org/kbase/debuglogs.html for details
+		_, err = libvirtConf.WriteString("log_filters=\"3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*\"\n")
 		if err != nil {
 			return err
 		}
