@@ -357,6 +357,8 @@ type VirDomain interface {
 	Create() error
 	Suspend() error
 	Resume() error
+	AttachDevice(xml string) error
+	DetachDevice(xml string) error
 	DestroyFlags(flags libvirt.DomainDestroyFlags) error
 	ShutdownFlags(flags libvirt.DomainShutdownFlags) error
 	UndefineFlags(flags libvirt.DomainUndefineFlagsValues) error

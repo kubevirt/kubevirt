@@ -655,5 +655,5 @@ func (m *volumeMounter) IsMounted(vmi *v1.VirtualMachineInstance, volume string,
 		isBlockExists, _ := isBlockDevice(deviceName)
 		return isBlockExists, nil
 	}
-	return isMounted(targetPath)
+	return isMounted(filepath.Join(targetPath, volume))
 }
