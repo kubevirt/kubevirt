@@ -690,12 +690,12 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 			pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName))
 			if pvcExists {
 				pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
-				populated, err := cdiv1.IsPopulated(pvc, dataVolumeByNameFunc(c.dataVolumeInformer))
+				populated, err := cdiv1.IsPopulated(pvc, dataVolumeByNameFunc(c.dataVolumeInformer, dataVolumes))
 				if err != nil {
 					return false, false, &syncErrorImpl{fmt.Errorf("Error determining if PVC %s is ready %v", pvc.Name, err), FailedDataVolumeImportReason}
 				}
 				if !populated {
-					waitsForFirstConsumer, err := cdiv1.IsWaitForFirstConsumerBeforePopulating(pvc, dataVolumeByNameFunc(c.dataVolumeInformer))
+					waitsForFirstConsumer, err := cdiv1.IsWaitForFirstConsumerBeforePopulating(pvc, dataVolumeByNameFunc(c.dataVolumeInformer, dataVolumes))
 					if err != nil {
 						return false, false, &syncErrorImpl{fmt.Errorf("Error determining if PVC %s is ready %v", pvc.Name, err), FailedDataVolumeImportReason}
 					}
@@ -713,8 +713,13 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 	return ready, wffc, nil
 }
 
-func dataVolumeByNameFunc(dataVolumeInformer cache.SharedIndexInformer) func(name string, namespace string) (*cdiv1.DataVolume, error) {
+func dataVolumeByNameFunc(dataVolumeInformer cache.SharedIndexInformer, dataVolumes []*cdiv1.DataVolume) func(name string, namespace string) (*cdiv1.DataVolume, error) {
 	return func(name, namespace string) (*cdiv1.DataVolume, error) {
+		for _, dataVolume := range dataVolumes {
+			if dataVolume.Name == name && dataVolume.Namespace == namespace {
+				return dataVolume, nil
+			}
+		}
 		dv, exists, _ := dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, name))
 		if !exists {
 			return nil, fmt.Errorf("Unable to find datavolume %s/%s", namespace, name)
