@@ -529,6 +529,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		}
 
 		if len(vmi.Status.VolumeStatus) > 0 {
+			requeue := false
 			diskDeviceMap := make(map[string]string)
 			for _, disk := range domain.Spec.Devices.Disks {
 				diskDeviceMap[strings.TrimPrefix(disk.Alias.Name, api.UserAliasPrefix)] = disk.Target.Device
@@ -543,21 +544,30 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 					volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
 				}
 				if volumeStatus.HotplugVolume != nil {
-					if mounted, _ := d.hotplugVolumeMounter.IsMounted(vmi, volumeStatus.Name, volumeStatus.HotplugVolume.AttachPodUID); mounted {
-						if _, ok := specVolumeMap[volumeStatus.Name]; ok && canUpdateToMounted(volumeStatus.Phase) {
-							// mounted, and still in spec, and in phase we can change, update status to mounted.
-							volumeStatus.Phase = v1.HotplugVolumeMounted
-							volumeStatus.Message = fmt.Sprintf("Volume %s has been mounted in virt-launcher pod", volumeStatus.Name)
-							volumeStatus.Reason = "VolumeMountedToPod"
+					if volumeStatus.Target == "" {
+						requeue = true
+						if mounted, _ := d.hotplugVolumeMounter.IsMounted(vmi, volumeStatus.Name, volumeStatus.HotplugVolume.AttachPodUID); mounted {
+							if _, ok := specVolumeMap[volumeStatus.Name]; ok && canUpdateToMounted(volumeStatus.Phase) {
+								log.DefaultLogger().Infof("Marking volume %s as mounted in pod, it can now be attached", volumeStatus.Name)
+								// mounted, and still in spec, and in phase we can change, update status to mounted.
+								volumeStatus.Phase = v1.HotplugVolumeMounted
+								volumeStatus.Message = fmt.Sprintf("Volume %s has been mounted in virt-launcher pod", volumeStatus.Name)
+								volumeStatus.Reason = "VolumeMountedToPod"
+							}
+						} else {
+							// Not mounted, check if the volume is in the spec, if not update status
+							if _, ok := specVolumeMap[volumeStatus.Name]; !ok && canUpdateToUnmounted(volumeStatus.Phase) {
+								// Not mounted.
+								volumeStatus.Phase = v1.HotplugVolumeUnMounted
+								volumeStatus.Message = fmt.Sprintf("Volume %s has been unmounted from virt-launcher pod", volumeStatus.Name)
+								volumeStatus.Reason = "VolumeUnMountedFromPod"
+							}
 						}
 					} else {
-						// Not mounted, check if the volume is in the spec, if not update status
-						if _, ok := specVolumeMap[volumeStatus.Name]; !ok && canUpdateToMounted(volumeStatus.Phase) {
-							// Not mounted.
-							volumeStatus.Phase = v1.HotplugVolumeUnMounted
-							volumeStatus.Message = fmt.Sprintf("Volume %s has been unmounted from virt-launcher pod", volumeStatus.Name)
-							volumeStatus.Reason = "VolumeUnMountedFromPod"
-						}
+						// Successfully attached to VM.
+						volumeStatus.Phase = v1.VolumeReady
+						volumeStatus.Message = fmt.Sprintf("Successfully attach hotplugged volumed %s to VM", volumeStatus.Name)
+						volumeStatus.Reason = "VolumeReady"
 					}
 				}
 				newStatuses = append(newStatuses, volumeStatus)
@@ -566,6 +576,9 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 				return strings.Compare(newStatuses[i].Name, newStatuses[j].Name) == -1
 			})
 			vmi.Status.VolumeStatus = newStatuses
+			if requeue {
+				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second)
+			}
 		}
 
 		if len(vmi.Status.Interfaces) == 0 {
@@ -1342,7 +1355,6 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		// requiring the phase of the domain and VirtualMachineInstance to be in sync is an
 		// optimization that prevents unnecessary re-processing VMIs during the start flow.
 		phase, err := d.calculateVmPhaseForStatusReason(domain, vmi)
-		log.Log.V(1).Infof("Calculated phase %s", phase)
 		if err != nil {
 			return err
 		}

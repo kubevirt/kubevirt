@@ -50,18 +50,18 @@ func (admitter *VMIUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 	}
 
 	// Only allow the KubeVirt SA to modify the VMI spec, since that means it went through the sub resource.
-	allowed := webhooks.GetAllowedServiceAccounts()
-	if _, ok := allowed[ar.Request.UserInfo.Username]; ok {
-		hotplugResponse := admitHotplug(newVMI.Spec.Volumes, oldVMI.Spec.Volumes, newVMI.Spec.Domain.Devices.Disks, oldVMI.Spec.Domain.Devices.Disks, oldVMI.Status.VolumeStatus, newVMI, admitter.ClusterConfig)
-		if hotplugResponse != nil {
-			return hotplugResponse
-		}
-		// blank out volumes and disks so we can compare the rest of the VMI to ensure it didn't change
-		newVMI.Spec.Volumes = []v1.Volume{}
-		oldVMI.Spec.Volumes = []v1.Volume{}
-		newVMI.Spec.Domain.Devices.Disks = []v1.Disk{}
-		oldVMI.Spec.Domain.Devices.Disks = []v1.Disk{}
+	// allowed := webhooks.GetAllowedServiceAccounts()
+	// if _, ok := allowed[ar.Request.UserInfo.Username]; ok {
+	hotplugResponse := admitHotplug(newVMI.Spec.Volumes, oldVMI.Spec.Volumes, newVMI.Spec.Domain.Devices.Disks, oldVMI.Spec.Domain.Devices.Disks, oldVMI.Status.VolumeStatus, newVMI, admitter.ClusterConfig)
+	if hotplugResponse != nil {
+		return hotplugResponse
 	}
+	// blank out volumes and disks so we can compare the rest of the VMI to ensure it didn't change
+	newVMI.Spec.Volumes = []v1.Volume{}
+	oldVMI.Spec.Volumes = []v1.Volume{}
+	newVMI.Spec.Domain.Devices.Disks = []v1.Disk{}
+	oldVMI.Spec.Domain.Devices.Disks = []v1.Disk{}
+	// }
 	// Reject VMI update if VMI spec changed
 	if !reflect.DeepEqual(newVMI.Spec, oldVMI.Spec) {
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
