@@ -324,6 +324,14 @@ spec:
 EOF
 fi
 
+# Enable jumbo-frames for a selected lane
+if [[ $TARGET == "k8s-1.19" ]]; then
+  echo "Enabling jumbo frames."
+  kubectl patch configmap/calico-config -n kube-system --type merge \
+    -p '{"data":{"veth_mtu": "8000"}}'
+
+  kubectl rollout restart daemonset calico-node -n kube-system
+fi
 
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params make functest

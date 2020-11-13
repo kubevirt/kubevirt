@@ -223,6 +223,10 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			// NOTE: cirros ping doesn't support -M do that could be used to
 			// validate end-to-end connectivity with Don't Fragment flag set
 			cmdCheck = fmt.Sprintf("ping %s -c 1 -w 5 -s %d\n", addr, payloadSize)
+			// pinging over the internet w/ a jumbo frame is not a good idea. Far from it.
+			if destination == "Internet" {
+				cmdCheck = fmt.Sprintf("ping %s -c 1 -w 5\n", addr)
+			}
 			err = console.SafeExpectBatch(outboundVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},
