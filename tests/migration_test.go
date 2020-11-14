@@ -1616,6 +1616,56 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					tests.CleanNodes()
 				})
 
+				It("should migrate a VMI only one time", func() {
+					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
+
+					vmi = fedoraVMIWithEvictionStrategy()
+
+					By("Starting the VirtualMachineInstance")
+					vmi = runVMIAndExpectLaunch(vmi, 180)
+
+					tests.WaitAgentConnected(virtClient, vmi)
+
+					// Mark the masters as schedulable so we can migrate there
+					setMastersUnschedulable(false)
+
+					// Drain node.
+					node := vmi.Status.NodeName
+					drainNode(node)
+
+					// verify VMI migrated and lives on another node now.
+					Eventually(func() error {
+						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						if err != nil {
+							return err
+						} else if vmi.Status.NodeName == node {
+							return fmt.Errorf("VMI still exist on the same node")
+						} else if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceNode != node {
+							return fmt.Errorf("VMI did not migrate yet")
+						} else if vmi.Status.EvacuationNodeName != "" {
+							return fmt.Errorf("evacuation node name is still set on the VMI")
+						}
+
+						// VMI should still be running at this point. If it
+						// isn't, then there's nothing to be waiting on.
+						Expect(vmi.Status.Phase).To(Equal(v1.Running))
+
+						return nil
+					}, 180*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+					Consistently(func() error {
+						migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(&metav1.ListOptions{})
+						if err != nil {
+							return err
+						}
+						if len(migrations.Items) > 1 {
+							return fmt.Errorf("should have only 1 migration issued for evacuation of 1 VM")
+						}
+						return nil
+					}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+				})
+
 				It("[test_id:2221] should migrate a VMI under load to another node", func() {
 					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
