@@ -46,6 +46,7 @@ import (
 	kvselinux "kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcpv6"
 )
 
 const (
@@ -366,6 +367,16 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInter
 		}
 	}()
 
+	go func() {
+		if err = DHCPv6Server(
+			nic.IPv6.IP,
+			bridgeInterfaceName,
+		); err != nil {
+			log.Log.Errorf("failed to run DHCP: %v", err)
+			panic(err)
+		}
+	}()
+
 	return nil
 }
 
@@ -511,6 +522,7 @@ func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
 var SetupPodNetworkPhase1 = SetupNetworkInterfacesPhase1
 var SetupPodNetworkPhase2 = SetupNetworkInterfacesPhase2
 var DHCPServer = dhcp.SingleClientDHCPServer
+var DHCPv6Server = dhcpv6.SingleClientDHCPv6Server
 
 func initHandler() {
 	if Handler == nil {
