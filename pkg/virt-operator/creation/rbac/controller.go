@@ -155,6 +155,19 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					"subresources.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachineinstances/addvolume",
+					"virtualmachineinstances/removevolume",
+				},
+				Verbs: []string{
+					"get",
+					"update",
+				},
+			},
+			{
+				APIGroups: []string{
 					"cdi.kubevirt.io",
 				},
 				Resources: []string{

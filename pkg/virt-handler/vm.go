@@ -529,7 +529,6 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		}
 
 		if len(vmi.Status.VolumeStatus) > 0 {
-			requeue := false
 			diskDeviceMap := make(map[string]string)
 			for _, disk := range domain.Spec.Devices.Disks {
 				diskDeviceMap[strings.TrimPrefix(disk.Alias.Name, api.UserAliasPrefix)] = disk.Target.Device
@@ -545,7 +544,6 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 				}
 				if volumeStatus.HotplugVolume != nil {
 					if volumeStatus.Target == "" {
-						requeue = true
 						if mounted, _ := d.hotplugVolumeMounter.IsMounted(vmi, volumeStatus.Name, volumeStatus.HotplugVolume.AttachPodUID); mounted {
 							if _, ok := specVolumeMap[volumeStatus.Name]; ok && canUpdateToMounted(volumeStatus.Phase) {
 								log.DefaultLogger().Infof("Marking volume %s as mounted in pod, it can now be attached", volumeStatus.Name)
@@ -576,9 +574,6 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 				return strings.Compare(newStatuses[i].Name, newStatuses[j].Name) == -1
 			})
 			vmi.Status.VolumeStatus = newStatuses
-			if requeue {
-				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second)
-			}
 		}
 
 		if len(vmi.Status.Interfaces) == 0 {

@@ -2752,8 +2752,15 @@ var _ = Describe("Converter", func() {
 		It("should automatically add virtio-scsi controller", func() {
 			domain := vmiToDomain(vmi, c)
 			Expect(len(domain.Spec.Devices.Controllers)).To(Equal(3))
-			Expect(domain.Spec.Devices.Controllers[0].Type).To(Equal("scsi"))
-			Expect(domain.Spec.Devices.Controllers[0].Model).To(Equal("virtio-scsi"))
+			foundScsiController := false
+			for _, controller := range domain.Spec.Devices.Controllers {
+				if controller.Type == "scsi" {
+					foundScsiController = true
+					Expect(controller.Model).To(Equal("virtio-scsi"))
+
+				}
+			}
+			Expect(foundScsiController).To(BeTrue(), "did not find SCSI controller when expected")
 		})
 
 		It("should not automatically add virtio-scsi controller, if hotplug disabled", func() {
