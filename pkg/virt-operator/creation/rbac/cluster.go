@@ -135,6 +135,8 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"virtualmachineinstances/pause",
 					"virtualmachineinstances/unpause",
+					"virtualmachineinstances/addvolume",
+					"virtualmachineinstances/removevolume",
 				},
 				Verbs: []string{
 					"get",
@@ -219,6 +221,8 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"virtualmachineinstances/pause",
 					"virtualmachineinstances/unpause",
+					"virtualmachineinstances/addvolume",
+					"virtualmachineinstances/removevolume",
 				},
 				Verbs: []string{
 					"get",

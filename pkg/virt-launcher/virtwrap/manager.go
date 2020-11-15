@@ -1411,7 +1411,6 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	//Look up all the disks to detach
 	for _, detachDisk := range getDetachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
 		detachBytes, err := xml.Marshal(detachDisk)
-		logger.Infof("detach xml [%s]", strings.ToLower(string(detachBytes)))
 		if err != nil {
 			logger.Reason(err).Error("marshalling detached disk failed")
 			return nil, err
@@ -1427,12 +1426,11 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		// Before attempting to attach, ensure we can open the file
 		file, err := os.OpenFile(attachDisk.Source.File, os.O_RDWR, 0660)
 		if err != nil {
-			logger.Infof("cannot open file yet, don't attach: %v", err)
+			logger.V(4).Infof("cannot open file yet, don't attach: %v", err)
 			continue
 		}
 		defer file.Close()
 		attachBytes, err := xml.Marshal(attachDisk)
-		logger.Infof("attach xml [%s]", strings.ToLower(string(attachBytes)))
 		if err != nil {
 			logger.Reason(err).Error("marshalling attached disk failed")
 			return nil, err
@@ -1444,17 +1442,6 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		}
 	}
 
-	// Resync after attaching and detaching
-	xmlstr, err = dom.GetXMLDesc(0)
-	if err != nil {
-		return nil, err
-	}
-	err = xml.Unmarshal([]byte(xmlstr), &oldSpec)
-	if err != nil {
-		logger.Reason(err).Error("Parsing domain XML failed.")
-		return nil, err
-	}
-	log.DefaultLogger().Infof("%v", oldSpec.Devices.Disks)
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
 	return &oldSpec, nil
 }
