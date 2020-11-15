@@ -236,7 +236,7 @@ const (
 	VolumeBound VolumePhase = "Bound"
 	// HotplugVolumeAttachedToNode means the volume has been attached to the node.
 	HotplugVolumeAttachedToNode VolumePhase = "AttachedToNode"
-	// HotplugVolumeMounted means the volume has been attached to the node and is mounted to the virt-launcer pod.
+	// HotplugVolumeMounted means the volume has been attached to the node and is mounted to the virt-launcher pod.
 	HotplugVolumeMounted VolumePhase = "MountedToPod"
 	// VolumeReady means the volume is ready to be used by the VirtualMachineInstance.
 	VolumeReady VolumePhase = "Ready"

@@ -420,6 +420,12 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 
 // Convert_v1_Hotplug_Volume_To_api_Disk convers a hotplug volume to an api disk
 func Convert_v1_Hotplug_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterContext) error {
+	// This is here because virt-handler before passing the VMI here replaces all PVCs with host disks in
+	// hostdisk.ReplacePVCByHostDisk not quite sure why, but it broken hot plugging PVCs
+	if source.HostDisk != nil {
+		return Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(source.Name, disk, c)
+	}
+
 	if source.PersistentVolumeClaim != nil {
 		return Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(source.Name, disk, c)
 	}
@@ -459,7 +465,6 @@ func GetFilesystemVolumePath(volumeName string) string {
 
 // GetHotplugFilesystemVolumePath returns the path and file name of a hotplug disk image
 func GetHotplugFilesystemVolumePath(volumeName string) string {
-	log.Log.Infof("Looking at path: %s", filepath.Join(string(filepath.Separator), "var", "run", "kubevirt", "hotplug-disks", fmt.Sprintf("%s/disk.img", volumeName)))
 	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt", "hotplug-disks", volumeName, "disk.img")
 }
 
@@ -469,7 +474,6 @@ func GetBlockDeviceVolumePath(volumeName string) string {
 
 // GetHotplugBlockDeviceVolumePath returns the path and name of a hotplugged block device
 func GetHotplugBlockDeviceVolumePath(volumeName string) string {
-	log.Log.Infof("Looking at path: %s", filepath.Join(string(filepath.Separator), "var", "run", "kubevirt", "hotplug-disks", volumeName))
 	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt", "hotplug-disks", volumeName)
 }
 
@@ -1183,10 +1187,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			newDisk.Driver.IOThread = &ioThreadId
 		}
 
-		log.Log.Infof("hotplugVolumes: %v, permanent volumes %v", c.HotplugVolumes, c.PermanentVolumes)
-
-		if status, ok := c.HotplugVolumes[disk.Name]; !ok || status.HotplugVolume.AttachPodUID != "" {
-			log.Log.Infof("Adding disk %s, is it hotplugged? %t", disk.Name, ok)
+		hpStatus, hpOk := c.HotplugVolumes[disk.Name]
+		// if len(c.PermanentVolumes) == 0, it means the vmi is not ready yet, add all disks
+		if _, ok := c.PermanentVolumes[disk.Name]; ok || len(c.PermanentVolumes) == 0 || (hpOk && (hpStatus.Phase == v1.HotplugVolumeMounted || hpStatus.Phase == v1.VolumeReady)) {
 			domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
 		}
 	}

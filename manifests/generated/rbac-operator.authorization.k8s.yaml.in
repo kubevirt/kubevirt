@@ -542,6 +542,8 @@ rules:
   resources:
   - virtualmachineinstances/pause
   - virtualmachineinstances/unpause
+  - virtualmachineinstances/addvolume
+  - virtualmachineinstances/removevolume
   verbs:
   - get
   - update
