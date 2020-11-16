@@ -499,22 +499,13 @@ spec:
           verbs:
           - '*'
         - apiGroups:
-          - kubevirt.io
+          - subresources.kubevirt.io
           resources:
-          - kubevirts
-          - virtualmachines
-          - virtualmachineinstances
-          - virtualmachineinstancereplicasets
-          - virtualmachineinstancepresets
-          - virtualmachineinstancemigrations
+          - virtualmachineinstances/addvolume
+          - virtualmachineinstances/removevolume
           verbs:
           - get
-          - list
-          - watch
-          - patch
           - update
-          - create
-          - delete
         - apiGroups:
           - cdi.kubevirt.io
           resources:
@@ -640,6 +631,8 @@ spec:
           resources:
           - virtualmachineinstances/pause
           - virtualmachineinstances/unpause
+          - virtualmachineinstances/addvolume
+          - virtualmachineinstances/removevolume
           verbs:
           - get
           - update
@@ -695,6 +688,8 @@ spec:
           resources:
           - virtualmachineinstances/pause
           - virtualmachineinstances/unpause
+          - virtualmachineinstances/addvolume
+          - virtualmachineinstances/removevolume
           verbs:
           - get
           - update

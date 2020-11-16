@@ -74,6 +74,26 @@ func (_mr *_MockConnectionRecorder) DomainEventLifecycleRegister(arg0 interface{
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventLifecycleRegister", arg0)
 }
 
+func (_m *MockConnection) DomainEventDeviceAddedRegister(callback libvirt_go.DomainEventDeviceAddedCallback) error {
+	ret := _m.ctrl.Call(_m, "DomainEventDeviceAddedRegister", callback)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockConnectionRecorder) DomainEventDeviceAddedRegister(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventDeviceAddedRegister", arg0)
+}
+
+func (_m *MockConnection) DomainEventDeviceRemovedRegister(callback libvirt_go.DomainEventDeviceRemovedCallback) error {
+	ret := _m.ctrl.Call(_m, "DomainEventDeviceRemovedRegister", callback)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockConnectionRecorder) DomainEventDeviceRemovedRegister(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventDeviceRemovedRegister", arg0)
+}
+
 func (_m *MockConnection) AgentEventLifecycleRegister(callback libvirt_go.DomainEventAgentLifecycleCallback) error {
 	ret := _m.ctrl.Call(_m, "AgentEventLifecycleRegister", callback)
 	ret0, _ := ret[0].(error)

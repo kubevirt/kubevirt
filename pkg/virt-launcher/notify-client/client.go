@@ -367,9 +367,47 @@ func (n *Notifier) StartDomainNotifier(
 		}
 	}
 
+	domainEventDeviceAddedCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventDeviceAdded) {
+		log.Log.Infof("Domain Device Added event received")
+		name, err := d.GetName()
+		if err != nil {
+			log.Log.Reason(err).Info("Could not determine name of libvirt domain in event callback.")
+		}
+		select {
+		case eventChan <- libvirtEvent{Domain: name}:
+		default:
+			log.Log.Infof("Libvirt event channel is full, dropping event.")
+		}
+	}
+
+	domainEventDeviceRemovedCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventDeviceRemoved) {
+		log.Log.Infof("Domain Device Removed event received")
+		name, err := d.GetName()
+		if err != nil {
+			log.Log.Reason(err).Info("Could not determine name of libvirt domain in event callback.")
+		}
+
+		select {
+		case eventChan <- libvirtEvent{Domain: name}:
+		default:
+			log.Log.Infof("Libvirt event channel is full, dropping event.")
+		}
+	}
+
 	err := domainConn.DomainEventLifecycleRegister(domainEventLifecycleCallback)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
+		return err
+	}
+
+	err = domainConn.DomainEventDeviceAddedRegister(domainEventDeviceAddedCallback)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to register device added event callback with libvirt")
+		return err
+	}
+	err = domainConn.DomainEventDeviceRemovedRegister(domainEventDeviceRemovedCallback)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to register device removed event callback with libvirt")
 		return err
 	}
 
