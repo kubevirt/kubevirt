@@ -52,7 +52,7 @@ var _ = Describe("Health Monitoring", func() {
 			tests.WaitForSuccessfulVMIStart(obj)
 
 			By("Expecting the VirtualMachineInstance console")
-			Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 			By("Killing the watchdog device")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
