@@ -13,7 +13,7 @@ const (
 )
 
 func GetImageInfo(imagePath string, context IsolationResult) (*containerdisk.DiskInfo, error) {
-
+	// #nosec g204 no risk to use MountNamespace()  argument as it returns a fixed string of "/proc/<pid>/ns/mnt"
 	out, err := exec.Command(
 		"/usr/bin/virt-chroot", "--user", "qemu", "--memory", "1000", "--cpu", "10", "--mount", context.MountNamespace(), "exec", "--",
 		QEMUIMGPath, "info", imagePath, "--output", "json",
