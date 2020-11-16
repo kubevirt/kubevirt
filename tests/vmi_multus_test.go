@@ -171,7 +171,7 @@ var _ = Describe("[Serial]Multus", func() {
 
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, tests.LoginToCirros)
+				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
 
 				Expect(libnet.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
 			})
@@ -189,7 +189,7 @@ var _ = Describe("[Serial]Multus", func() {
 
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, tests.LoginToCirros)
+				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
 
 				Expect(libnet.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
 			})
@@ -210,7 +210,7 @@ var _ = Describe("[Serial]Multus", func() {
 
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, tests.LoginToCirros)
+				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
 
 				cmdCheck := "sudo /sbin/cirros-dhcpc up eth1 > /dev/null\n"
 				err = console.SafeExpectBatch(detachedVMI, []expect.Batcher{
@@ -246,7 +246,7 @@ var _ = Describe("[Serial]Multus", func() {
 
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(detachedVMI, tests.LoginToCirros)
+				tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
 
 				By("checking virtual machine instance can ping 10.1.1.1 using ptp cni plugin")
 				Expect(libnet.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
@@ -661,7 +661,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(vmi, tests.LoginToFedora)
+			tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToFedora))
 			tests.WaitAgentConnected(virtClient, vmi)
 			return
 		}
@@ -928,7 +928,7 @@ var _ = Describe("[Serial]Macvtap", func() {
 		}
 		vmi = tests.WaitUntilVMIReady(
 			tests.StartVmOnNode(vmi, nodeName),
-			tests.LoginToCirros)
+			libnet.WithIPv6(console.LoginToCirros))
 		// configure the client VMI
 		Expect(configVMIInterfaceWithSudo(vmi, ifaceName, ipCIDR)).To(Succeed())
 		return vmi

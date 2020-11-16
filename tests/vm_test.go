@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachine", func() {
@@ -682,7 +683,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Obtaining the serial console")
-				Expect(tests.LoginToCirros(vmi)).To(Succeed())
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 				By("Guest shutdown")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -933,7 +934,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
 
-					Expect(tests.LoginToCirros(vmi)).To(Succeed())
+					Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 					By("Issuing a poweroff command from inside VM")
 					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -1088,7 +1089,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
 
-					Expect(tests.LoginToCirros(vmi)).To(Succeed())
+					Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 					By("Issuing a poweroff command from inside VM")
 					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -1326,7 +1327,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					Expect(tests.LoginToCirros(vmi)).To(Succeed())
+					Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 					By("Issuing a poweroff command from inside VM")
 					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{

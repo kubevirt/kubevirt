@@ -412,7 +412,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(tests.LoginToCirros(vmi)).To(Succeed())
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 				// execute a migration, wait for finalized state
 				By("starting the migration")
@@ -449,7 +449,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(tests.LoginToCirros(vmi)).To(Succeed())
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 				num := 4
 
@@ -493,7 +493,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(tests.LoginToCirros(vmi)).To(Succeed())
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 				pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(metav1.ListOptions{
 					LabelSelector: v1.CreatedByLabel + "=" + string(vmi.GetUID()),
@@ -862,7 +862,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(tests.LoginToCirros(vmi)).To(Succeed())
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 				By("Checking that MigrationMethod is set to BlockMigration")
 				Expect(vmi.Status.MigrationMethod).To(Equal(v1.BlockMigration))
@@ -936,7 +936,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(tests.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration for iteration")
@@ -1297,7 +1297,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(tests.LoginToCirros(vmi)).To(Succeed())
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 				for _, c := range vmi.Status.Conditions {
 					if c.Type == v1.VirtualMachineInstanceIsMigratable {
@@ -1372,7 +1372,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					vmi = runVMIAndExpectLaunch(vmi, 240)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
-					Expect(tests.LoginToFedora(vmi)).To(Succeed())
+					Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
 
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
 					tests.WaitAgentConnected(virtClient, vmi)

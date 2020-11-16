@@ -20,6 +20,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -40,7 +41,7 @@ func newLabeledVMI(label string, virtClient kubecli.KubevirtClient, createVMI bo
 		tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 		vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.ObjectMeta.Name, &k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		tests.WaitUntilVMIReady(vmi, tests.LoginToCirros)
+		tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 	}
 	return
 }

@@ -51,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -1394,7 +1395,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				// wait until booted
-				vmi = tests.WaitUntilVMIReady(vmi, tests.LoginToCirros)
+				vmi = tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 
 				By("Deleting the VirtualMachineInstance")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
@@ -1423,7 +1424,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				// wait until booted
-				vmi = tests.WaitUntilVMIReady(vmi, tests.LoginToCirros)
+				vmi = tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 
 				By("Deleting the VirtualMachineInstance")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
