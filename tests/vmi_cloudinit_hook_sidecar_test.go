@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 const cloudinitHookSidecarImage = "example-cloudinit-hook-sidecar"
@@ -123,7 +124,7 @@ var _ = Describe("CloudInitHookSidecars", func() {
 			It("[test_id:3169]should have cloud-init user-data from sidecar", func() {
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(vmi, tests.LoginToCirros)
+				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 				By("mouting cloudinit iso")
 				MountCloudInit(vmi)
 				By("checking cloudinit user-data")

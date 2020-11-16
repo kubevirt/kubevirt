@@ -9,7 +9,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-func ConfigureIPv6OnVMI(vmi *v1.VirtualMachineInstance) error {
+func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance) error {
 
 	hasEth0Iface := func() bool {
 		err := console.RunCommand(vmi, "ip a | grep -q eth0", 30*time.Second)
@@ -52,4 +52,14 @@ func ConfigureIPv6OnVMI(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	return nil
+}
+
+func WithIPv6(loginToFactory console.LoginToFactory) console.LoginToFactory {
+	return func(vmi *v1.VirtualMachineInstance) error {
+		err := loginToFactory(vmi)
+		if err != nil {
+			return err
+		}
+		return configureIPv6OnVMI(vmi)
+	}
 }
