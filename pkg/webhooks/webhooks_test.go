@@ -20,6 +20,7 @@ import (
 	"os"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -35,7 +36,7 @@ const (
 )
 
 var (
-	logger = logf.Log.WithName("hyperconverged-resource")
+	logger = logf.ZapLoggerTo(GinkgoWriter, true).WithName("hyperconverged-resource")
 )
 
 func TestWebhook(t *testing.T) {
@@ -58,7 +59,7 @@ var _ = Describe("webhooks handler", func() {
 
 	Context("Check validating webhook", func() {
 		BeforeEach(func() {
-			os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)
+			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).To(BeNil())
 		})
 
 		cr := &v1beta1.HyperConverged{
@@ -93,7 +94,7 @@ var _ = Describe("webhooks handler", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
 			cli := getFakeClient(s, hco)
-			cli.Delete(ctx, operands.NewKubeVirt(hco))
+			Expect(cli.Delete(ctx, operands.NewKubeVirt(hco))).To(BeNil())
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli)
 
@@ -143,7 +144,7 @@ var _ = Describe("webhooks handler", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
 			cli := getFakeClient(s, hco)
-			cli.Delete(ctx, operands.NewCDI(hco))
+			Expect(cli.Delete(ctx, operands.NewCDI(hco))).To(BeNil())
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli)
 
@@ -218,7 +219,7 @@ var _ = Describe("webhooks handler", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
 			cli := getFakeClient(s, hco)
-			cli.Delete(ctx, operands.NewNetworkAddons(hco))
+			Expect(cli.Delete(ctx, operands.NewNetworkAddons(hco))).To(BeNil())
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli)
 
@@ -268,7 +269,7 @@ var _ = Describe("webhooks handler", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
 			cli := getFakeClient(s, hco)
-			cli.Delete(ctx, operands.NewKubeVirtCommonTemplateBundle(hco))
+			Expect(cli.Delete(ctx, operands.NewKubeVirtCommonTemplateBundle(hco))).To(BeNil())
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli)
 
@@ -319,7 +320,7 @@ var _ = Describe("webhooks handler", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
 			cli := getFakeClient(s, hco)
-			cli.Delete(ctx, operands.NewKubeVirtNodeLabellerBundleForCR(hco, hco.Namespace))
+			Expect(cli.Delete(ctx, operands.NewKubeVirtNodeLabellerBundleForCR(hco, hco.Namespace))).To(BeNil())
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli)
 
@@ -370,7 +371,7 @@ var _ = Describe("webhooks handler", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
 			cli := getFakeClient(s, hco)
-			cli.Delete(ctx, operands.NewKubeVirtTemplateValidatorForCR(hco, hco.Namespace))
+			Expect(cli.Delete(ctx, operands.NewKubeVirtTemplateValidatorForCR(hco, hco.Namespace))).To(BeNil())
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli)
 
@@ -421,7 +422,7 @@ var _ = Describe("webhooks handler", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
 			cli := getFakeClient(s, hco)
-			cli.Delete(ctx, operands.NewKubeVirtMetricsAggregationForCR(hco, hco.Namespace))
+			Expect(cli.Delete(ctx, operands.NewKubeVirtMetricsAggregationForCR(hco, hco.Namespace))).To(BeNil())
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli)
 
@@ -471,7 +472,7 @@ var _ = Describe("webhooks handler", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
 			cli := getFakeClient(s, hco)
-			cli.Delete(ctx, operands.NewVMImportForCR(hco))
+			Expect(cli.Delete(ctx, operands.NewVMImportForCR(hco))).To(BeNil())
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli)
 
@@ -515,6 +516,32 @@ var _ = Describe("webhooks handler", func() {
 			err := wh.ValidateUpdate(newHco, hco)
 			Expect(err).NotTo(BeNil())
 			Expect(err).Should(Equal(ErrFakeVMImportError))
+		})
+
+		It("should return error if dry-run update is timeout", func() {
+			hco := &v1beta1.HyperConverged{
+				Spec: v1beta1.HyperConvergedSpec{
+					Infra: v1beta1.HyperConvergedConfig{
+						NodePlacement: newHyperConvergedConfig(),
+					},
+					Workloads: v1beta1.HyperConvergedConfig{
+						NodePlacement: newHyperConvergedConfig(),
+					},
+				},
+			}
+			c := getFakeClient(s, hco)
+			cli := errorClient{c, timeoutError}
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli)
+
+			newHco := &v1beta1.HyperConverged{}
+			hco.DeepCopyInto(newHco)
+			// change something in workloads to trigger dry-run update
+			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
+
+			err := wh.ValidateUpdate(newHco, hco)
+			Expect(err).NotTo(BeNil())
+			Expect(err).Should(Equal(context.DeadlineExceeded))
 		})
 
 	})
@@ -578,6 +605,7 @@ const (
 	kubevirtTemplateValidatorUpdateFailure
 	kubevirtMetricsAggregationUpdateFailure
 	vmImportUpdateFailure
+	timeoutError
 )
 
 type errorClient struct {
@@ -630,6 +658,11 @@ func (ec errorClient) Update(ctx context.Context, obj runtime.Object, opts ...cl
 		if ec.failure == vmImportUpdateFailure {
 			return ErrFakeVMImportError
 		}
+	}
+
+	if ec.failure == timeoutError {
+		// timeout + 100 ms
+		time.Sleep(updateDryRunTimeOut + time.Millisecond*100)
 	}
 
 	return ec.Client.Update(ctx, obj, opts...)

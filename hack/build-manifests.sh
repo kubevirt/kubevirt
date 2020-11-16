@@ -425,8 +425,9 @@ cp -f ${TEMPDIR}/*.${CRD_EXT} ${CRD_DIR}
 cp -f ${TEMPDIR}/*.${CRD_EXT} ${CSV_DIR}
 
 # Validate the yaml files
-(cd ${CRD_DIR} && docker run --rm -v "$(pwd)":/yaml sdesbure/yamllint yamllint -d "{extends: relaxed, rules: {line-length: disable}}" *.yaml)
-(cd ${CSV_DIR} && docker run --rm -v "$(pwd)":/yaml sdesbure/yamllint yamllint -d "{extends: relaxed, rules: {line-length: disable}}" *.yaml)
+pip install --user yamllint
+(cd ${CRD_DIR} && yamllint -d "{extends: relaxed, rules: {line-length: disable}}" *.yaml)
+(cd ${CSV_DIR} && yamllint -d "{extends: relaxed, rules: {line-length: disable}}" *.yaml)
 
 # Check there are not API Groups overlap between different CNV operators
 ${PROJECT_ROOT}/tools/csv-merger/csv-merger --crds-dir=${CRD_DIR}

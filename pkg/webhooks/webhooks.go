@@ -16,6 +16,12 @@ import (
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sync"
+	"time"
+)
+
+const (
+	updateDryRunTimeOut = time.Second * 3
 )
 
 type WebhookHandler struct {
@@ -38,22 +44,29 @@ func (wh WebhookHandler) ValidateCreate(hc *v1beta1.HyperConverged) error {
 	}
 
 	if hc.Namespace != operatorNsEnv {
-		return fmt.Errorf("Invalid namespace for v1beta1.HyperConverged - please use the %s namespace", operatorNsEnv)
+		return fmt.Errorf("invalid namespace for v1beta1.HyperConverged - please use the %s namespace", operatorNsEnv)
 	}
 
 	return nil
 }
 
+// ValidateUpdate is the ValidateUpdate webhook implementation. It calls all the resources in parallel, to dry-run the
+// upgrade.
 func (wh WebhookHandler) ValidateUpdate(requested *v1beta1.HyperConverged, exists *v1beta1.HyperConverged) error {
 	wh.logger.Info("Validating update", "name", requested.Name)
-	ctx := context.TODO()
+	ctx, cancel := context.WithTimeout(context.Background(), updateDryRunTimeOut)
+	defer cancel()
 
 	if !reflect.DeepEqual(
 		exists.Spec,
 		requested.Spec) {
 
+		wg := sync.WaitGroup{}
+		errorCh := make(chan error)
+		done := make(chan bool)
+
 		opts := &client.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
-		for _, obj := range []runtime.Object{
+		resources := []runtime.Object{
 			operands.NewKubeVirt(requested),
 			operands.NewCDI(requested),
 			operands.NewNetworkAddons(requested),
@@ -62,10 +75,37 @@ func (wh WebhookHandler) ValidateUpdate(requested *v1beta1.HyperConverged, exist
 			operands.NewKubeVirtTemplateValidatorForCR(requested, requested.Namespace),
 			operands.NewKubeVirtMetricsAggregationForCR(requested, requested.Namespace),
 			operands.NewVMImportForCR(requested),
-		} {
-			if err := wh.updateOperatorCr(ctx, requested, obj, opts); err != nil {
+		}
+
+		wg.Add(len(resources))
+
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+
+		for _, obj := range resources {
+			go func(o runtime.Object, wgr *sync.WaitGroup) {
+				defer wgr.Done()
+				if err := wh.updateOperatorCr(ctx, requested, o, opts); err != nil {
+					errorCh <- err
+				}
+			}(obj, &wg)
+		}
+
+		select {
+		case err := <-errorCh:
+			return err
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-done:
+			// just in case close(done) was selected while there is an error,
+			// check the error channel again.
+			if len(errorCh) != 0 {
+				err := <-errorCh
 				return err
 			}
+			return nil
 		}
 	}
 
@@ -80,44 +120,36 @@ func (wh WebhookHandler) updateOperatorCr(ctx context.Context, hc *v1beta1.Hyper
 		return err
 	}
 
-	switch obj := exists.(type) {
+	switch existing := exists.(type) {
 	case *kubevirtv1.KubeVirt:
-		existing := obj
 		required := operands.NewKubeVirt(hc)
 		required.Spec.DeepCopyInto(&existing.Spec)
 
 	case *cdiv1beta1.CDI:
-		existing := obj
 		required := operands.NewCDI(hc)
 		required.Spec.DeepCopyInto(&existing.Spec)
 
 	case *networkaddonsv1.NetworkAddonsConfig:
-		existing := obj
 		required := operands.NewNetworkAddons(hc)
 		required.Spec.DeepCopyInto(&existing.Spec)
 
 	case *sspv1.KubevirtCommonTemplatesBundle:
-		existing := obj
 		required := operands.NewKubeVirtCommonTemplateBundle(hc)
 		required.Spec.DeepCopyInto(&existing.Spec)
 
 	case *sspv1.KubevirtNodeLabellerBundle:
-		existing := obj
 		required := operands.NewKubeVirtNodeLabellerBundleForCR(hc, hc.Namespace)
 		required.Spec.DeepCopyInto(&existing.Spec)
 
 	case *sspv1.KubevirtTemplateValidator:
-		existing := obj
 		required := operands.NewKubeVirtTemplateValidatorForCR(hc, hc.Namespace)
 		required.Spec.DeepCopyInto(&existing.Spec)
 
 	case *sspv1.KubevirtMetricsAggregation:
-		existing := obj
 		required := operands.NewKubeVirtMetricsAggregationForCR(hc, hc.Namespace)
 		required.Spec.DeepCopyInto(&existing.Spec)
 
 	case *vmimportv1beta1.VMImportConfig:
-		existing := obj
 		required := operands.NewVMImportForCR(hc)
 		required.Spec.DeepCopyInto(&existing.Spec)
 	}
