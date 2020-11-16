@@ -500,6 +500,14 @@ spec:
           verbs:
           - '*'
         - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachineinstances/addvolume
+          - virtualmachineinstances/removevolume
+          verbs:
+          - get
+          - update
+        - apiGroups:
           - cdi.kubevirt.io
           resources:
           - '*'
@@ -624,6 +632,8 @@ spec:
           resources:
           - virtualmachineinstances/pause
           - virtualmachineinstances/unpause
+          - virtualmachineinstances/addvolume
+          - virtualmachineinstances/removevolume
           verbs:
           - get
           - update
@@ -679,6 +689,8 @@ spec:
           resources:
           - virtualmachineinstances/pause
           - virtualmachineinstances/unpause
+          - virtualmachineinstances/addvolume
+          - virtualmachineinstances/removevolume
           verbs:
           - get
           - update
