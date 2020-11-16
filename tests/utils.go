@@ -4133,7 +4133,7 @@ func ForwardPorts(pod *k8sv1.Pod, ports []string, stop chan struct{}, readyTimeo
 }
 
 func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, protocol string) {
-	Expect(LoginToCirros(vmi)).To(Succeed())
+	Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 	serverCommand := fmt.Sprintf("screen -d -m sudo nc -klp %d -e echo -e 'Hello World!'\n", testPort)
 	if protocol == "udp" {

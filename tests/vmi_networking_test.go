@@ -150,10 +150,10 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			}
 
 			// Wait for VMIs to become ready
-			inboundVMI = tests.WaitUntilVMIReady(inboundVMI, tests.LoginToCirros)
-			outboundVMI = tests.WaitUntilVMIReady(outboundVMI, tests.LoginToCirros)
-			inboundVMIWithPodNetworkSet = tests.WaitUntilVMIReady(inboundVMIWithPodNetworkSet, tests.LoginToCirros)
-			inboundVMIWithCustomMacAddress = tests.WaitUntilVMIReady(inboundVMIWithCustomMacAddress, tests.LoginToCirros)
+			inboundVMI = tests.WaitUntilVMIReady(inboundVMI, libnet.WithIPv6(console.LoginToCirros))
+			outboundVMI = tests.WaitUntilVMIReady(outboundVMI, libnet.WithIPv6(console.LoginToCirros))
+			inboundVMIWithPodNetworkSet = tests.WaitUntilVMIReady(inboundVMIWithPodNetworkSet, libnet.WithIPv6(console.LoginToCirros))
+			inboundVMIWithCustomMacAddress = tests.WaitUntilVMIReady(inboundVMIWithCustomMacAddress, libnet.WithIPv6(console.LoginToCirros))
 
 			tests.StartTCPServer(inboundVMI, testPort)
 		})
@@ -203,7 +203,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			expectedMtuString := fmt.Sprintf("mtu %d", mtu)
 
 			By("checking eth0 MTU inside the VirtualMachineInstance")
-			Expect(tests.LoginToCirros(outboundVMI)).To(Succeed())
+			Expect(libnet.WithIPv6(console.LoginToCirros)(outboundVMI)).To(Succeed())
 
 			addrShow = "ip address show eth0\n"
 			Expect(console.SafeExpectBatch(outboundVMI, []expect.Batcher{
@@ -425,7 +425,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(detachedVMI, tests.LoginToCirros)
+			tests.WaitUntilVMIReady(detachedVMI, libnet.WithIPv6(console.LoginToCirros))
 
 			err := console.SafeExpectBatch(detachedVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
@@ -503,7 +503,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(testVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(testVMI, tests.LoginToCirros)
+			tests.WaitUntilVMIReady(testVMI, libnet.WithIPv6(console.LoginToCirros))
 			checkPciAddress(testVMI, testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress)
 		})
 	})
@@ -548,7 +548,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(dhcpVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(dhcpVMI, tests.LoginToFedora)
+			tests.WaitUntilVMIReady(dhcpVMI, libnet.WithIPv6(console.LoginToFedora))
 
 			err = console.SafeExpectBatch(dhcpVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
@@ -586,7 +586,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			}
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(dnsVMI)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(dnsVMI, tests.LoginToCirros)
+			tests.WaitUntilVMIReady(dnsVMI, libnet.WithIPv6(console.LoginToCirros))
 			err = console.SafeExpectBatch(dnsVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},
@@ -642,14 +642,14 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				clientVMI = masqueradeVMI([]v1.Port{}, ipv4NetworkCIDR)
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
 				Expect(err).ToNot(HaveOccurred())
-				clientVMI = tests.WaitUntilVMIReady(clientVMI, tests.LoginToCirros)
+				clientVMI = tests.WaitUntilVMIReady(clientVMI, libnet.WithIPv6(console.LoginToCirros))
 			}
 
 			serverVMI = masqueradeVMI(ports, ipv4NetworkCIDR)
 			serverVMI.Labels = map[string]string{"expose": "server"}
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
 			Expect(err).ToNot(HaveOccurred())
-			serverVMI = tests.WaitUntilVMIReady(serverVMI, tests.LoginToCirros)
+			serverVMI = tests.WaitUntilVMIReady(serverVMI, libnet.WithIPv6(console.LoginToCirros))
 			Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
 			Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 
@@ -743,7 +743,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				vmi = masqueradeVMI([]v1.Port{}, "")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(vmi, tests.LoginToCirros)
+				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -835,7 +835,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Wait for VMIs to be ready")
-				tests.WaitUntilVMIReady(anotherVmi, tests.LoginToCirros)
+				tests.WaitUntilVMIReady(anotherVmi, libnet.WithIPv6(console.LoginToCirros))
 				anotherVmi, err = virtClient.VirtualMachineInstance(anotherVmi.Namespace).Get(anotherVmi.Name, &v13.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 

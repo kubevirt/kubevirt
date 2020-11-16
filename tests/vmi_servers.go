@@ -8,6 +8,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 type server string
@@ -22,12 +23,12 @@ func (s server) composeNetcatServerCommand(port int) string {
 }
 
 func StartTCPServer(vmi *v1.VirtualMachineInstance, port int) {
-	LoginToCirros(vmi)
+	libnet.WithIPv6(console.LoginToCirros)(vmi)
 	TCPServer.Start(vmi, port)
 }
 
 func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int) {
-	LoginToCirros(vmi)
+	libnet.WithIPv6(console.LoginToCirros)(vmi)
 	HTTPServer.Start(vmi, port)
 }
 

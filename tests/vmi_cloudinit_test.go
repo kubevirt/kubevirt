@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 const (
@@ -220,7 +221,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, time.Second*120)
 
 				By("applying the hostname from meta-data")
-				Expect(tests.LoginToCirros(vmi)).To(Succeed())
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "hostname\n"},
@@ -243,7 +244,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, time.Second*120)
 
 				By("applying the hostname from meta-data")
-				Expect(tests.LoginToCirros(vmi)).To(Succeed())
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "hostname\n"},
@@ -304,7 +305,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros), testUserData, testNetworkData, false)
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, tests.LoginToCirros)
+				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 
 				By("mouting cloudinit iso")
 				MountCloudInitNoCloud(vmi)
@@ -319,7 +320,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros), testUserData, testNetworkData, true)
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, tests.LoginToCirros)
+				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 
 				By("mouting cloudinit iso")
 				MountCloudInitNoCloud(vmi)
@@ -370,7 +371,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, tests.LoginToCirros)
+				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 
 				By("mouting cloudinit iso")
 				MountCloudInitNoCloud(vmi)
@@ -398,7 +399,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					cd.ContainerDiskFor(cd.ContainerDiskCirros), testUserData, testNetworkData, false)
 
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, tests.LoginToCirros)
+				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 
 				By("mouting cloudinit iso")
 				MountCloudInitConfigDrive(vmi)
@@ -415,7 +416,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Tag: "specialNet", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
 				vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, tests.LoginToCirros)
+				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -461,7 +462,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros), testUserData, testNetworkData, true)
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, tests.LoginToCirros)
+				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 
 				By("mouting cloudinit iso")
 				MountCloudInitConfigDrive(vmi)
@@ -512,7 +513,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, tests.LoginToCirros)
+				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 
 				By("mouting cloudinit iso")
 				MountCloudInitConfigDrive(vmi)
@@ -591,7 +592,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 
 				LaunchVMI(vmi)
-				tests.WaitUntilVMIReady(vmi, tests.LoginToCirros)
+				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 
 				By("mounting cloudinit iso")
 				MountCloudInitConfigDrive(vmi)
