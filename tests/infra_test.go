@@ -170,7 +170,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			By("checking that we can still start virtual machines and connect to the VMI")
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmi = tests.RunVMI(vmi, 60)
-			Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 		})
 
 		It("[test_id:4100] should be valid during the whole rotation process", func() {
@@ -186,7 +186,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			Eventually(func() (rotated bool) {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi = tests.RunVMI(vmi, 60)
-				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				newAPICert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
@@ -560,7 +560,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			By("Expecting the VirtualMachineInstance console")
 			// This also serves as a sync point to make sure the VM completed the boot
 			// (and reduce the risk of false negatives)
-			Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 			By("Writing some data to the disk")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{

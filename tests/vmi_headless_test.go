@@ -30,6 +30,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
@@ -129,7 +130,7 @@ var _ = Describe("[rfe_id:609]VMIheadless", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				By("checking that console works")
-				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			})
 
 		})

@@ -22,15 +22,6 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-// LoginToAlpine performs a console login to an Alpine base VM
-func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
-	err := console.LoginToAlpine(vmi)
-	if err != nil {
-		return fmt.Errorf("failed login into alpine console: %w", err)
-	}
-	return nil
-}
-
 // LoginToFedora performs a console login to a Fedora base VM
 func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 	err := console.LoginToFedora(vmi)
