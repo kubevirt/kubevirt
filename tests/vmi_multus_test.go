@@ -840,15 +840,15 @@ var _ = Describe("[Serial]SRIOV", func() {
 			// it's hard to match them.
 		})
 
-		// pingThroughSriov instantiates two VMs connected through SR-IOV and
-		// pings between them.
+		// createSriovVMs instantiates two VMs connected through SR-IOV.
 		// Note: test case assumes interconnectivity between SR-IOV
 		// interfaces. It can be achieved either by configuring the external switch
 		// properly, or via in-PF switching for VFs (works for some NIC models)
-		pingThroughSriov := func(cidrA, cidrB string) {
+		createSriovVMs := func(cidrA, cidrB string) (*v1.VirtualMachineInstance, *v1.VirtualMachineInstance) {
+			const networkName = "sriov-link-enabled"
 			// start peer machines with sriov interfaces from the same resource pool
-			vmi1 := getSriovVmi([]string{"sriov-link-enabled"})
-			vmi2 := getSriovVmi([]string{"sriov-link-enabled"})
+			vmi1 := getSriovVmi([]string{networkName})
+			vmi2 := getSriovVmi([]string{networkName})
 
 			// Explicitly choose different random mac addresses instead of relying on kubemacpool to do it:
 			// 1) we don't at the moment deploy kubemacpool in kind providers
@@ -880,19 +880,25 @@ var _ = Describe("[Serial]SRIOV", func() {
 			Expect(configureInterfaceStaticIPByMAC(vmi1, mac1.String(), cidrA)).To(Succeed())
 			Expect(configureInterfaceStaticIPByMAC(vmi2, mac2.String(), cidrB)).To(Succeed())
 
-			// now check ICMP goes both ways
-			Expect(libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))).To(Succeed())
-			Expect(libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))).To(Succeed())
+			return vmi1, vmi2
 		}
 
 		It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {
 			Skip("Skip until https://github.com/kubevirt/kubevirt/issues/3774 fixed")
-			pingThroughSriov("192.168.1.1/24", "192.168.1.2/24")
+			cidrA := "192.168.1.1/24"
+			cidrB := "192.168.1.2/24"
+			vmi1, vmi2 := createSriovVMs(cidrA, cidrB)
+			Expect(libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))).To(Succeed())
+			Expect(libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))).To(Succeed())
 		})
 
 		It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
 			Skip("Skip until https://github.com/kubevirt/kubevirt/issues/3747 is fixed")
-			pingThroughSriov("fc00::1/64", "fc00::2/64")
+			cidrA := "fc00::1/64"
+			cidrB := "fc00::2/64"
+			vmi1, vmi2 := createSriovVMs(cidrA, cidrB)
+			Expect(libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))).To(Succeed())
+			Expect(libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))).To(Succeed())
 		})
 	})
 })
