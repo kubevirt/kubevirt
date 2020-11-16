@@ -51,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("Configurations", func() {
@@ -1646,7 +1647,7 @@ var _ = Describe("Configurations", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.SchedulerName = "my-custom-scheduler"
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
-			launcherPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
+			launcherPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
 			Expect(launcherPod.Spec.SchedulerName).To(Equal("my-custom-scheduler"))
 		})
 	})
@@ -1658,7 +1659,7 @@ var _ = Describe("Configurations", func() {
 			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceCPU] = resource.MustParse("500m")
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
-			readyPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
+			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
 			computeContainer := tests.GetComputeContainerOfPod(readyPod)
 			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("500m"))
@@ -1673,7 +1674,7 @@ var _ = Describe("Configurations", func() {
 			}
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
-			readyPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
+			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
 			computeContainer := tests.GetComputeContainerOfPod(readyPod)
 			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("100m"))
@@ -1695,7 +1696,7 @@ var _ = Describe("Configurations", func() {
 			}
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
-			readyPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
+			readyPod := libvmi.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
 			computeContainer := tests.GetComputeContainerOfPod(readyPod)
 			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("800m"))
