@@ -181,7 +181,7 @@ func setupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance)
 	Expect(err).NotTo(HaveOccurred(), "VMI should be successfully created")
 
 	By("Waiting until the VMI gets ready")
-	vmi = tests.WaitUntilVMIReady(vmi, tests.LoginToAlpine)
+	vmi = tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 	return vmi
 }

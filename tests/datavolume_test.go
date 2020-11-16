@@ -40,6 +40,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 )
@@ -97,7 +98,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 					// after being restarted multiple times
 					if i == num {
 						By("Checking that the VirtualMachineInstance console has expected output")
-						Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+						Expect(console.LoginToAlpine(vmi)).To(Succeed())
 					}
 
 					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
@@ -119,7 +120,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).To(BeNil())
@@ -544,7 +545,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 						By("Checking that the VirtualMachineInstance console has expected output")
 						vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
-						Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+						Expect(console.LoginToAlpine(vmi)).To(Succeed())
 					}
 					vm = tests.StopVirtualMachine(vm)
 				}

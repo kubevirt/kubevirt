@@ -293,7 +293,7 @@ var _ = Describe("[Serial]Multus", func() {
 				By("Creating a VM with custom MAC address on its ptp interface.")
 				interfaces[0].MacAddress = customMacAddress
 				vmiOne := createVMIOnNode(interfaces, networks)
-				tests.WaitUntilVMIReady(vmiOne, tests.LoginToAlpine)
+				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 
 				By("Configuring static IP address to ptp interface.")
 				Expect(configInterface(vmiOne, "eth0", "10.1.1.1/24")).To(Succeed())
@@ -329,8 +329,8 @@ var _ = Describe("[Serial]Multus", func() {
 				vmiOne := createVMIOnNode(interfaces, networks)
 				vmiTwo := createVMIOnNode(interfaces, networks)
 
-				tests.WaitUntilVMIReady(vmiOne, tests.LoginToAlpine)
-				tests.WaitUntilVMIReady(vmiTwo, tests.LoginToAlpine)
+				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
+				tests.WaitUntilVMIReady(vmiTwo, console.LoginToAlpine)
 
 				Expect(configInterface(vmiOne, "eth0", "10.1.1.1/24")).To(Succeed())
 				By("checking virtual machine interface eth0 state")
@@ -358,8 +358,8 @@ var _ = Describe("[Serial]Multus", func() {
 				vmiOne := createVMIOnNode(interfaces, networks)
 				vmiTwo := createVMIOnNode(interfaces, networks)
 
-				tests.WaitUntilVMIReady(vmiOne, tests.LoginToAlpine)
-				tests.WaitUntilVMIReady(vmiTwo, tests.LoginToAlpine)
+				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
+				tests.WaitUntilVMIReady(vmiTwo, console.LoginToAlpine)
 
 				Expect(configInterface(vmiOne, "eth1", "10.1.1.1/24")).To(Succeed())
 				By("checking virtual machine interface eth1 state")
@@ -383,12 +383,12 @@ var _ = Describe("[Serial]Multus", func() {
 			It("[test_id:676]should configure valid custom MAC address on Linux bridge CNI interface.", func() {
 				By("Creating a VM with Linux bridge CNI network interface and default MAC address.")
 				vmiTwo := createVMIOnNode(interfaces, networks)
-				tests.WaitUntilVMIReady(vmiTwo, tests.LoginToAlpine)
+				tests.WaitUntilVMIReady(vmiTwo, console.LoginToAlpine)
 
 				By("Creating another VM with custom MAC address on its Linux bridge CNI interface.")
 				interfaces[linuxBridgeIfIdx].MacAddress = customMacAddress
 				vmiOne := createVMIOnNode(interfaces, networks)
-				tests.WaitUntilVMIReady(vmiOne, tests.LoginToAlpine)
+				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 
 				By("Configuring static IP address to the Linux bridge interface.")
 				Expect(configInterface(vmiOne, "eth0", "10.1.1.1/24")).To(Succeed())
@@ -431,7 +431,7 @@ var _ = Describe("[Serial]Multus", func() {
 
 				vmiOne := createVMIOnNode(interfaces, networks)
 
-				tests.WaitUntilVMIReady(vmiOne, tests.LoginToAlpine)
+				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
 
 				updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmiOne.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())

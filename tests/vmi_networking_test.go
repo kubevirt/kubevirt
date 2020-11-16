@@ -323,7 +323,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(e1000VMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(e1000VMI, tests.LoginToAlpine)
+			tests.WaitUntilVMIReady(e1000VMI, console.LoginToAlpine)
 			// as defined in https://vendev.org/pci/ven_8086/
 			checkNetworkVendor(e1000VMI, "0x8086")
 		})
@@ -340,7 +340,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(deadbeafVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(deadbeafVMI, tests.LoginToAlpine)
+			tests.WaitUntilVMIReady(deadbeafVMI, console.LoginToAlpine)
 			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress)
 		})
 	})
@@ -357,7 +357,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(beafdeadVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(beafdeadVMI, tests.LoginToAlpine)
+			tests.WaitUntilVMIReady(beafdeadVMI, console.LoginToAlpine)
 			checkMacAddress(beafdeadVMI, "be:af:00:00:de:ad")
 		})
 	})
@@ -404,7 +404,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(deadbeafVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(deadbeafVMI, tests.LoginToAlpine)
+			tests.WaitUntilVMIReady(deadbeafVMI, console.LoginToAlpine)
 			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress)
 		})
 	})
@@ -447,7 +447,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			waitUntilVMIReady(vmi, tests.LoginToAlpine)
+			waitUntilVMIReady(vmi, console.LoginToAlpine)
 
 			By("Checking that the pod did not request a tun device")
 			virtClient, err := kubecli.GetKubevirtClient()
@@ -522,7 +522,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(learningDisabledVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(learningDisabledVMI, tests.LoginToAlpine)
+			tests.WaitUntilVMIReady(learningDisabledVMI, console.LoginToAlpine)
 			checkLearningState(learningDisabledVMI, "0")
 		})
 	})
@@ -918,7 +918,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi, tests.LoginToAlpine)
+			tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 			output := tests.RunCommandOnVmiPod(vmi, []string{"python3", "-c", `import array
 import fcntl

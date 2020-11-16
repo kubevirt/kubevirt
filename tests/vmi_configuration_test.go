@@ -201,7 +201,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the number of CPU cores under guest OS")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -263,7 +263,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the number of sockets under guest OS")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -287,7 +287,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the number of sockets under guest OS")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -313,7 +313,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the number of sockets under guest OS")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -340,7 +340,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the number of vCPUs under guest OS")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -509,7 +509,7 @@ var _ = Describe("Configurations", func() {
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(vmi, tests.LoginToAlpine)
+				tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				By("Checking if UEFI is enabled")
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
@@ -671,7 +671,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the number of usb under guest OS")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -694,7 +694,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the number of usb under guest OS")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -712,7 +712,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the number of usb under guest OS")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -766,7 +766,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the tablet input under guest OS")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -790,7 +790,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the tablet input under guest OS")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -1098,7 +1098,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(rngVmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(tests.LoginToAlpine(rngVmi)).To(Succeed())
+				Expect(console.LoginToAlpine(rngVmi)).To(Succeed())
 
 				By("Checking the virtio rng presence")
 				Expect(console.SafeExpectBatch(rngVmi, []expect.Batcher{
@@ -1114,7 +1114,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(rngVmi)
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(tests.LoginToAlpine(rngVmi)).To(Succeed())
+				Expect(console.LoginToAlpine(rngVmi)).To(Succeed())
 
 				By("Checking the virtio rng presence")
 				Expect(console.SafeExpectBatch(rngVmi, []expect.Batcher{
