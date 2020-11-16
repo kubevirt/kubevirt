@@ -611,7 +611,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the migrated VirtualMachineInstance has an updated time")
-				if !tests.OnPrivilegedPrompt(vmi, 60) {
+				if !console.OnPrivilegedPrompt(vmi, 60) {
 					Expect(tests.LoginToFedora(vmi)).To(Succeed())
 				}
 
@@ -951,7 +951,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the migrated VirtualMachineInstance console has expected output")
-				Expect(tests.OnPrivilegedPrompt(vmi, 60)).To(BeTrue(), "Should stay logged in to the migrated VM")
+				Expect(console.OnPrivilegedPrompt(vmi, 60)).To(BeTrue(), "Should stay logged in to the migrated VM")
 
 				By("Checking that the service account is mounted")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{

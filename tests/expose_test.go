@@ -22,6 +22,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 func newLabeledVMI(label string, virtClient kubecli.KubevirtClient, createVMI bool) (vmi *v1.VirtualMachineInstance) {
@@ -270,7 +271,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					if ipFamily == k8sv1.IPv6Protocol {
 						ipv6NodeIP, err := resolveNodeIPAddrByFamily(
 							virtClient,
-							tests.GetPodByVirtualMachineInstance(tcpVM, tcpVM.GetNamespace()),
+							libvmi.GetPodByVirtualMachineInstance(tcpVM, tcpVM.GetNamespace()),
 							node,
 							ipFamily)
 						Expect(err).NotTo(HaveOccurred(), "must have been able to resolve an IP address from the node name")
@@ -395,7 +396,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					if ipFamily == k8sv1.IPv6Protocol {
 						ipv6NodeIP, err := resolveNodeIPAddrByFamily(
 							virtClient,
-							tests.GetPodByVirtualMachineInstance(udpVM, udpVM.GetNamespace()),
+							libvmi.GetPodByVirtualMachineInstance(udpVM, udpVM.GetNamespace()),
 							node,
 							ipFamily)
 						Expect(err).NotTo(HaveOccurred(), "must have been able to resolve an IP address from the node name")

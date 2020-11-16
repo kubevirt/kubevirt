@@ -1,4 +1,4 @@
-package tests
+package console
 
 import (
 	"fmt"
@@ -13,7 +13,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	"kubevirt.io/kubevirt/tests/console"
 )
 
 // LoginToFactory represents the LogIn* functions signature
@@ -22,8 +21,10 @@ type LoginToFactory func(*v1.VirtualMachineInstance) error
 // LoginToCirros performs a console login to a Cirros base VM
 func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-	expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
+	if err != nil {
+		panic(err)
+	}
+	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return err
 	}
@@ -48,7 +49,7 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 		&expect.BSnd{S: "cirros\n"},
 		&expect.BExp{R: "Password:"},
 		&expect.BSnd{S: "gocubsgo\n"},
-		&expect.BExp{R: console.PromptExpression}})
+		&expect.BExp{R: PromptExpression}})
 	resp, err := expecter.ExpectBatch(b, 180*time.Second)
 
 	if err != nil {
@@ -60,17 +61,17 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 	if err != nil {
 		return err
 	}
-
-	err = configureIPv6OnVMI(vmi, expecter, virtClient)
-
-	return err
+	return nil
 }
 
 // LoginToAlpine performs a console login to an Alpine base VM
 func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-	expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
+	if err != nil {
+		panic(err)
+	}
+
+	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return err
 	}
@@ -80,7 +81,7 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: "localhost login:"},
 		&expect.BSnd{S: "root\n"},
-		&expect.BExp{R: console.PromptExpression}})
+		&expect.BExp{R: PromptExpression}})
 	res, err := expecter.ExpectBatch(b, 180*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
@@ -97,9 +98,11 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 // LoginToFedora performs a console login to a Fedora base VM
 func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
+	if err != nil {
+		panic(err)
+	}
 
-	expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return err
 	}
@@ -134,7 +137,7 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 			},
 		}},
 		&expect.BSnd{S: "sudo su\n"},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: PromptExpression},
 	})
 	res, err := expecter.ExpectBatch(b, 3*time.Minute)
 	if err != nil {
@@ -146,18 +149,17 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 	if err != nil {
 		return err
 	}
-
-	err = configureIPv6OnVMI(vmi, expecter, virtClient)
-
-	return err
+	return nil
 }
 
 // OnPrivilegedPrompt performs a console check that the prompt is privileged.
 func OnPrivilegedPrompt(vmi *v1.VirtualMachineInstance, timeout int) bool {
 	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
+	if err != nil {
+		panic(err)
+	}
 
-	expecter, _, err := console.NewExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return false
 	}
@@ -165,7 +167,7 @@ func OnPrivilegedPrompt(vmi *v1.VirtualMachineInstance, timeout int) bool {
 
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: console.PromptExpression}})
+		&expect.BExp{R: PromptExpression}})
 	res, err := expecter.ExpectBatch(b, time.Duration(timeout)*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
@@ -182,13 +184,13 @@ func configureConsole(expecter expect.Expecter, shouldSudo bool) error {
 	}
 	batch := append([]expect.Batcher{
 		&expect.BSnd{S: "stty cols 500 rows 500\n"},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: console.RetValue("0")},
+		&expect.BExp{R: RetValue("0")},
 		&expect.BSnd{S: fmt.Sprintf("%sdmesg -n 1\n", sudoString)},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: console.RetValue("0")}})
+		&expect.BExp{R: RetValue("0")}})
 	resp, err := expecter.ExpectBatch(batch, 30*time.Second)
 	if err != nil {
 		log.DefaultLogger().Infof("%v", resp)

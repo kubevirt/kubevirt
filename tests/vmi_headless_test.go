@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("[rfe_id:609]VMIheadless", func() {
@@ -78,7 +79,7 @@ var _ = Describe("[rfe_id:609]VMIheadless", func() {
 				}
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
-				readyPod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				readyPod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 				computeContainer := tests.GetComputeContainerOfPod(readyPod)
 
 				Expect(computeContainer.Resources.Requests.Memory().String()).To(Equal("100M"))
@@ -92,7 +93,7 @@ var _ = Describe("[rfe_id:609]VMIheadless", func() {
 				}
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
-				readyPod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				readyPod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 				computeContainer := tests.GetComputeContainerOfPod(readyPod)
 
 				Expect(computeContainer.Resources.Requests.Memory().String()).ToNot(Equal("100M"))
@@ -104,10 +105,10 @@ var _ = Describe("[rfe_id:609]VMIheadless", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 				normalVmi = tests.RunVMIAndExpectLaunch(normalVmi, 30)
 
-				readyPod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				readyPod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 				computeContainer := tests.GetComputeContainerOfPod(readyPod)
 
-				normalReadyPod := tests.GetPodByVirtualMachineInstance(normalVmi, tests.NamespaceTestDefault)
+				normalReadyPod := libvmi.GetPodByVirtualMachineInstance(normalVmi, tests.NamespaceTestDefault)
 				normalComputeContainer := tests.GetComputeContainerOfPod(normalReadyPod)
 
 				memDiff := normalComputeContainer.Resources.Requests.Memory()

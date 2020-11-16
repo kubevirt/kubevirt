@@ -956,7 +956,7 @@ sockfd = None`})
 	})
 })
 
-func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo tests.LoginToFactory) *v1.VirtualMachineInstance {
+func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) *v1.VirtualMachineInstance {
 	// Wait for VirtualMachineInstance start
 	tests.WaitForSuccessfulVMIStart(vmi)
 
