@@ -20,6 +20,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 func parseDeviceAddress(addrString string) []string {
@@ -73,7 +74,7 @@ var _ = Describe("[Serial]GPU", func() {
 			vmi, apiErr := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(randomVMI)
 			Expect(apiErr).ToNot(HaveOccurred())
 
-			pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+			pod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 			Expect(pod.Status.Phase).To(Equal(k8sv1.PodPending))
 			Expect(pod.Status.Conditions[0].Type).To(Equal(k8sv1.PodScheduled))
 			Expect(strings.Contains(pod.Status.Conditions[0].Message, "Insufficient "+gpuName)).To(Equal(true))

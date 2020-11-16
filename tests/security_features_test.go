@@ -32,6 +32,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("[Serial]SecurityFeatures", func() {
@@ -154,7 +155,7 @@ var _ = Describe("[Serial]SecurityFeatures", func() {
 				tests.WaitUntilVMIReady(vmi, tests.LoginToAlpine)
 
 				By("Fetching virt-launcher Pod")
-				pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				pod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 
 				By("Verifying SELinux context contains custom type")
 				Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal(superPrivilegedType))
@@ -188,7 +189,7 @@ var _ = Describe("[Serial]SecurityFeatures", func() {
 				Expect(err).ToNot(HaveOccurred())
 				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")
 
-				pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				pod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 				qemuProcessSelinuxContext, err := tests.ExecuteCommandOnPod(
 					virtClient,
 					pod,
@@ -226,7 +227,7 @@ var _ = Describe("[Serial]SecurityFeatures", func() {
 			tests.WaitUntilVMIReady(vmi, tests.LoginToAlpine)
 
 			By("Fetching virt-launcher Pod")
-			pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+			pod := libvmi.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 
 			for _, containerSpec := range pod.Spec.Containers {
 				if containerSpec.Name == "compute" {
