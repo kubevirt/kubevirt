@@ -8,7 +8,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -321,13 +320,13 @@ func (c *EvacuationController) execute(key string) error {
 }
 
 func getMarkedForEvictionVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
-	var evicted []*virtv1.VirtualMachineInstance
+	var evictionCandidates []*virtv1.VirtualMachineInstance
 	for _, vmi := range vmis {
-		if vmi.IsMarkedForEviction() {
-			evicted = append(evicted, vmi)
+		if vmi.IsMarkedForEviction() && !hasMigratedOnEviction(vmi) && !migrationutils.IsMigrating(vmi) {
+			evictionCandidates = append(evictionCandidates, vmi)
 		}
 	}
-	return evicted
+	return evictionCandidates
 }
 
 func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.VirtualMachineInstance, activeMigrations []*virtv1.VirtualMachineInstanceMigration) error {
@@ -336,10 +335,6 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	taint := &k8sv1.Taint{
 		Key:    taintKey,
 		Effect: k8sv1.TaintEffectNoSchedule,
-	}
-
-	if err := c.cleanEvacuationNode(vmisOnNode); err != nil {
-		return err
 	}
 
 	vmisToMigrate := vmisToMigrate(node, vmisOnNode, taint)
@@ -423,23 +418,6 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	case err := <-errChan:
 		return err
 	default:
-	}
-	return nil
-}
-
-func (c *EvacuationController) cleanEvacuationNode(vmis []*virtv1.VirtualMachineInstance) error {
-	for _, vmi := range vmis {
-		if !vmi.IsMarkedForEviction() || !hasMigratedOnEviction(vmi) {
-			continue
-		}
-
-		patch := []byte(`[{"op":"remove", "path":"/status/evacuationNodeName"}]`)
-		_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, patch)
-		if err != nil {
-			log.Log.Reason(err).Errorf("could not clean eviction mark from VMI %s. Reason: %s", vmi.Name, err.Error())
-			return err
-		}
-		log.Log.Infof("VMI %s has succesfully migrated and the eviction mark was cleaned", vmi.Name)
 	}
 	return nil
 }

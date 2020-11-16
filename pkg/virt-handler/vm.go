@@ -45,6 +45,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"kubevirt.io/kubevirt/pkg/util/migrations"
+
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 
@@ -707,6 +709,8 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			// the target node has seen the domain event.
 			vmi.Labels[v1.NodeNameLabel] = migrationHost
 			vmi.Status.NodeName = migrationHost
+			// clean the evacuation node name since have already migrated to a new node
+			vmi.Status.EvacuationNodeName = ""
 			vmi.Status.MigrationState.Completed = true
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to node %s.", migrationHost))
 		}
@@ -1003,25 +1007,6 @@ func (d *VirtualMachineController) migrationOrphanedSourceNodeExecute(key string
 	return nil
 }
 
-func isMigrating(vmi *v1.VirtualMachineInstance) bool {
-
-	now := v12.Now()
-
-	running := false
-	if vmi.Status.MigrationState != nil {
-		start := vmi.Status.MigrationState.StartTimestamp
-		stop := vmi.Status.MigrationState.EndTimestamp
-		if start != nil && (now.After(start.Time) || now.Equal(start)) {
-			running = true
-		}
-
-		if stop != nil && (now.After(stop.Time) || now.Equal(stop)) {
-			running = false
-		}
-	}
-	return running
-}
-
 func (d *VirtualMachineController) migrationTargetExecute(key string,
 	vmi *v1.VirtualMachineInstance,
 	vmiExists bool,
@@ -1091,7 +1076,7 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 			vmiCopy.Status.MigrationState.TargetNodeDomainDetected = true
 			d.setVMIGuestTime(vmi)
 		}
-		if !isMigrating(vmi) {
+		if !migrations.IsMigrating(vmi) {
 
 			destSrcPortsMap := d.migrationProxy.GetTargetListenerPorts(string(vmi.UID))
 			if len(destSrcPortsMap) == 0 {
@@ -1948,7 +1933,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 	}
 
 	if d.isPreMigrationTarget(vmi) {
-		if !isMigrating(vmi) {
+		if !migrations.IsMigrating(vmi) {
 
 			// give containerDisks some time to become ready before throwing errors on retries
 			info := d.getLauncherClinetInfo(vmi)

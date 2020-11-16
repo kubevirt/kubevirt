@@ -49,7 +49,7 @@ func (admitter *PodEvictionAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1
 			"VMI %s is configured with an eviction strategy but is not live-migratable", vmi.Name))
 	}
 
-	if !vmi.IsMarkedForEviction() {
+	if !vmi.IsMarkedForEviction() && vmi.Status.NodeName == launcher.Spec.NodeName {
 		err := admitter.markVMI(ar, vmi, err)
 		if err != nil {
 			// As with the previous case, it is up to the user to issue a retry.
