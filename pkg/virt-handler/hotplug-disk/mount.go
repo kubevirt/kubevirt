@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -172,7 +171,7 @@ func (m *volumeMounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*v
 	}
 
 	// not found
-	return nil, nil
+	return &vmiMountTargetRecord{}, nil
 }
 
 func (m *volumeMounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, record *vmiMountTargetRecord) error {
@@ -181,19 +180,9 @@ func (m *volumeMounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, rec
 	}
 
 	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))
-	fileExists, err := diskutils.FileExists(recordFile)
-	if err != nil {
-		return err
-	}
 
 	m.mountRecordsLock.Lock()
 	defer m.mountRecordsLock.Unlock()
-
-	existingRecord, ok := m.mountRecords[vmi.UID]
-	if ok && fileExists && reflect.DeepEqual(existingRecord, record) {
-		// already done
-		return nil
-	}
 
 	bytes, err := json.Marshal(record)
 	if err != nil {
@@ -205,6 +194,7 @@ func (m *volumeMounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, rec
 		return err
 	}
 
+	log.DefaultLogger().V(1).Infof("Writing the following to the record file: %s", bytes)
 	err = ioutil.WriteFile(recordFile, bytes, 0644)
 	if err != nil {
 		return err
@@ -213,42 +203,41 @@ func (m *volumeMounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, rec
 	return nil
 }
 
+func (m *volumeMounter) writePathToMountRecord(path string, vmi *v1.VirtualMachineInstance, record *vmiMountTargetRecord) error {
+	if path != "" {
+		record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
+			TargetFile: path,
+		})
+	}
+	if err := m.setMountTargetRecord(vmi, record); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (m *volumeMounter) Mount(vmi *v1.VirtualMachineInstance) error {
 	logger := log.DefaultLogger()
-	record := vmiMountTargetRecord{}
-	var targetPath *string
-	var err error
+	record, err := m.getMountTargetRecord(vmi)
+	if err != nil {
+		return err
+	}
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume == nil {
 			// Skip non hotplug volumes
 			continue
 		}
 		logger.V(4).Infof("Hotplug check volume name: %s", volumeStatus.Name)
-		targetPath = nil
 		sourceUID := volumeStatus.HotplugVolume.AttachPodUID
 		if m.isBlockVolume(sourceUID) {
-			targetPath, err = m.mountBlockHotplugVolume(vmi, volumeStatus.Name, sourceUID)
-			if err != nil {
+			logger.V(4).Infof("Mounting block volume: %s", volumeStatus.Name)
+			if err := m.mountBlockHotplugVolume(vmi, volumeStatus.Name, sourceUID, record); err != nil {
 				return err
 			}
 		} else {
-			targetPath, err = m.mountFileSystemHotplugVolume(vmi, volumeStatus.Name, sourceUID)
-			if err != nil {
+			logger.V(4).Infof("Mounting file system volume: %s", volumeStatus.Name)
+			if err := m.mountFileSystemHotplugVolume(vmi, volumeStatus.Name, sourceUID, record); err != nil {
 				return err
 			}
-		}
-		if targetPath != nil {
-			record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
-				TargetFile: *targetPath,
-			})
-		}
-	}
-
-	logger.V(4).Infof("Mount number of records %d", len(record.MountTargetEntries))
-	if len(record.MountTargetEntries) > 0 {
-		err := m.setMountTargetRecord(vmi, &record)
-		if err != nil {
-			return err
 		}
 	}
 
@@ -271,45 +260,44 @@ func (m *volumeMounter) isBlockVolume(sourceUID types.UID) bool {
 	return false
 }
 
-// mountBlockHotplugVolume will give every container in the pod access to the block device. Its because I can't tell which container is the
-// container running the VM.  We need to determine if this is something we want or not. If it is possible to inject malicious side cars
-// they can get access to the block devices. On the other hand they already have access to the volumes that were not hotplugged.
-func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID) (*string, error) {
+func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, record *vmiMountTargetRecord) error {
 	logger := log.DefaultLogger()
 	logger.V(4).Infof("Hotplug block volume: %s", volume)
 
 	virtlauncherUID := m.findVirtlauncherUID(vmi)
 	if virtlauncherUID == "" {
 		// This is not the node the pod is running on.
-		return nil, nil
+		return nil
 	}
 	targetPath, err := hotplugdisk.GetHotplugTargetPodPathOnHost(virtlauncherUID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	sourceMajor, sourceMinor, permissions, err := m.getSourceMajorMinor(vmi, sourceUID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	deviceName := filepath.Join(targetPath, volume)
 
 	if isBlockExists, _ := isBlockDevice(deviceName); !isBlockExists {
+		if err := m.writePathToMountRecord(deviceName, vmi, record); err != nil {
+			return err
+		}
 		computeCGroupPath, err := m.getTargetCgroupPath(vmi)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		// allow block devices
 		if err := m.allowBlockMajorMinor(sourceMajor, sourceMinor, computeCGroupPath); err != nil {
-			return nil, err
+			return err
 		}
-		device, err := m.createBlockDeviceFile(deviceName, sourceMajor, sourceMinor, permissions)
-		if err != nil {
-			return nil, err
+		if _, err = m.createBlockDeviceFile(deviceName, sourceMajor, sourceMinor, permissions); err != nil {
+			return err
 		}
-		return &device, nil
+		return nil
 	}
-	return nil, nil
+	return nil
 }
 
 func (m *volumeMounter) getSourceMajorMinor(vmi *v1.VirtualMachineInstance, sourceUID types.UID) (int, int, string, error) {
@@ -438,33 +426,35 @@ func (m *volumeMounter) createBlockDeviceFile(deviceName string, major, minor in
 	return deviceName, nil
 }
 
-func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID) (*string, error) {
+func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, record *vmiMountTargetRecord) error {
 	sourcePath, err := m.getSourcePodFilePath(sourceUID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	virtlauncherUID := m.findVirtlauncherUID(vmi)
 	if virtlauncherUID == "" {
 		// This is not the node the pod is running on.
-		return nil, nil
+		return nil
 	}
 	targetPath, err := hotplugdisk.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volume)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if isMounted, err := isMounted(targetPath); err != nil {
-		return nil, fmt.Errorf("failed to determine if %s is already mounted: %v", targetPath, err)
+		return fmt.Errorf("failed to determine if %s is already mounted: %v", targetPath, err)
 	} else if !isMounted {
-		out, err := mountCommand(sourcePath, targetPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to bindmount hotplug-disk %v: %v : %v", volume, string(out), err)
+		if err := m.writePathToMountRecord(targetPath, vmi, record); err != nil {
+			return err
+		}
+		if out, err := mountCommand(sourcePath, targetPath); err != nil {
+			return fmt.Errorf("failed to bindmount hotplug-disk %v: %v : %v", volume, string(out), err)
 		}
 	} else {
-		return nil, nil
+		return nil
 	}
-	return &targetPath, nil
+	return nil
 }
 
 func (m *volumeMounter) findVirtlauncherUID(vmi *v1.VirtualMachineInstance) types.UID {

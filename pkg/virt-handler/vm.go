@@ -491,7 +491,7 @@ func canUpdateToMounted(currentPhase v1.VolumePhase) bool {
 }
 
 func canUpdateToUnmounted(currentPhase v1.VolumePhase) bool {
-	return currentPhase == v1.VolumeReady || currentPhase == v1.HotplugVolumeMounted
+	return currentPhase == v1.VolumeReady || currentPhase == v1.HotplugVolumeMounted || currentPhase == v1.HotplugVolumeAttachedToNode
 }
 
 func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
@@ -538,12 +538,14 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 				specVolumeMap[volume.Name] = volume
 			}
 			newStatuses := make([]v1.VolumeStatus, 0)
+			needsRefresh := false
 			for _, volumeStatus := range vmi.Status.VolumeStatus {
 				if _, ok := diskDeviceMap[volumeStatus.Name]; ok {
 					volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
 				}
 				if volumeStatus.HotplugVolume != nil {
 					if volumeStatus.Target == "" {
+						needsRefresh = true
 						if mounted, _ := d.hotplugVolumeMounter.IsMounted(vmi, volumeStatus.Name, volumeStatus.HotplugVolume.AttachPodUID); mounted {
 							if _, ok := specVolumeMap[volumeStatus.Name]; ok && canUpdateToMounted(volumeStatus.Phase) {
 								log.DefaultLogger().Infof("Marking volume %s as mounted in pod, it can now be attached", volumeStatus.Name)
@@ -573,6 +575,9 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			sort.SliceStable(newStatuses, func(i, j int) bool {
 				return strings.Compare(newStatuses[i].Name, newStatuses[j].Name) == -1
 			})
+			if needsRefresh {
+				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second)
+			}
 			vmi.Status.VolumeStatus = newStatuses
 		}
 

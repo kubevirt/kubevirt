@@ -146,6 +146,7 @@ func Convert_HostDevices_And_GPU(devices v1.Devices, domain *Domain, c *Converte
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, prefixMap map[string]deviceNamer, numQueues *uint) error {
 	if diskDevice.Disk != nil {
+		var unit int
 		disk.Device = "disk"
 		disk.Target.Bus = diskDevice.Disk.Bus
 		if diskDevice.Disk.Bus == "scsi" {
@@ -158,7 +159,10 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, prefixMap map[
 			disk.Address.Controller = "0"
 			disk.Address.Bus = "0"
 		}
-		disk.Target.Device = makeDeviceName(diskDevice.Name, diskDevice.Disk.Bus, prefixMap)
+		disk.Target.Device, unit = makeDeviceName(diskDevice.Name, diskDevice.Disk.Bus, prefixMap)
+		if diskDevice.Disk.Bus == "scsi" {
+			disk.Address.Unit = strconv.Itoa(unit)
+		}
 		if diskDevice.Disk.PciAddress != "" {
 			if diskDevice.Disk.Bus != "virtio" {
 				return fmt.Errorf("setting a pci address is not allowed for non-virtio bus types, for disk %s", diskDevice.Name)
@@ -174,19 +178,19 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, prefixMap map[
 	} else if diskDevice.LUN != nil {
 		disk.Device = "lun"
 		disk.Target.Bus = diskDevice.LUN.Bus
-		disk.Target.Device = makeDeviceName(diskDevice.Name, diskDevice.LUN.Bus, prefixMap)
+		disk.Target.Device, _ = makeDeviceName(diskDevice.Name, diskDevice.LUN.Bus, prefixMap)
 		disk.ReadOnly = toApiReadOnly(diskDevice.LUN.ReadOnly)
 	} else if diskDevice.Floppy != nil {
 		disk.Device = "floppy"
 		disk.Target.Bus = "fdc"
 		disk.Target.Tray = string(diskDevice.Floppy.Tray)
-		disk.Target.Device = makeDeviceName(diskDevice.Name, disk.Target.Bus, prefixMap)
+		disk.Target.Device, _ = makeDeviceName(diskDevice.Name, disk.Target.Bus, prefixMap)
 		disk.ReadOnly = toApiReadOnly(diskDevice.Floppy.ReadOnly)
 	} else if diskDevice.CDRom != nil {
 		disk.Device = "cdrom"
 		disk.Target.Tray = string(diskDevice.CDRom.Tray)
 		disk.Target.Bus = diskDevice.CDRom.Bus
-		disk.Target.Device = makeDeviceName(diskDevice.Name, diskDevice.CDRom.Bus, prefixMap)
+		disk.Target.Device, _ = makeDeviceName(diskDevice.Name, diskDevice.CDRom.Bus, prefixMap)
 		if diskDevice.CDRom.ReadOnly != nil {
 			disk.ReadOnly = toApiReadOnly(*diskDevice.CDRom.ReadOnly)
 		} else {
@@ -319,7 +323,7 @@ func (n *deviceNamer) getKeyFromValue(value string) (string, bool) {
 	return "", false
 }
 
-func makeDeviceName(diskName, bus string, prefixMap map[string]deviceNamer) string {
+func makeDeviceName(diskName, bus string, prefixMap map[string]deviceNamer) (string, int) {
 	prefix := getPrefixFromBus(bus)
 	if _, ok := prefixMap[prefix]; !ok {
 		// This should never happen since the prefix map is populated from all disks.
@@ -329,21 +333,28 @@ func makeDeviceName(diskName, bus string, prefixMap map[string]deviceNamer) stri
 	}
 	deviceNamer := prefixMap[prefix]
 	if name, ok := deviceNamer.getKeyFromValue(diskName); ok {
-		return name
+		for i := 0; i < 26*26*26; i++ {
+			calculatedName := FormatDeviceName(prefix, i)
+			if calculatedName == name {
+				return name, i
+			}
+		}
+		log.Log.Error("Unable to determine index of device")
+		return name, 0
 	}
 	// Name not found yet, generate next new one.
 	for i := 0; i < 26*26*26; i++ {
-		name := formatDeviceName(prefix, i)
+		name := FormatDeviceName(prefix, i)
 		if _, ok := deviceNamer.nameMap[name]; !ok {
 			deviceNamer.nameMap[name] = diskName
-			return name
+			return name, i
 		}
 	}
-	return ""
+	return "", 0
 }
 
 // port of http://elixir.free-electrons.com/linux/v4.15/source/drivers/scsi/sd.c#L3211
-func formatDeviceName(prefix string, index int) string {
+func FormatDeviceName(prefix string, index int) string {
 	base := int('z' - 'a' + 1)
 	name := ""
 
