@@ -47,7 +47,8 @@ var (
 	labelFormatter = strings.NewReplacer(".", "_", "/", "_", "-", "_")
 
 	// Preffixes used when transforming K8s metadata into metric labels
-	labelPrefix = "kubernetes_vmi_label_"
+	labelPrefix      = "kubernetes_vmi_label_"
+	annotationPrefix = "vm.kubevirt.io/"
 
 	// see https://www.robustperception.io/exposing-the-software-version-to-prometheus
 	versionDesc = prometheus.NewDesc(
@@ -62,7 +63,7 @@ var (
 		"kubevirt_vmi_phase_count",
 		"VMI phase.",
 		[]string{
-			"node", "phase",
+			"node", "phase", "os", "workload", "flavor",
 		},
 		nil,
 	)
@@ -460,24 +461,56 @@ func (metrics *vmiMetrics) updateNetwork(vmStats *stats.DomainStats) {
 	}
 }
 
-func makeVMIsPhasesMap(vmis []*k6tv1.VirtualMachineInstance) map[string]uint64 {
-	phasesMap := make(map[string]uint64)
+type vmiCountMetric struct {
+	Phase    string
+	OS       string
+	Workload string
+	Flavor   string
+}
 
-	for _, vmi := range vmis {
-		phasesMap[strings.ToLower(string(vmi.Status.Phase))] += 1
+func (vmc *vmiCountMetric) UpdateFromAnnotations(annotations map[string]string) {
+	if val, ok := annotations[annotationPrefix+"os"]; ok {
+		vmc.OS = val
 	}
 
-	return phasesMap
+	if val, ok := annotations[annotationPrefix+"workload"]; ok {
+		vmc.Workload = val
+	}
+
+	if val, ok := annotations[annotationPrefix+"flavor"]; ok {
+		vmc.Flavor = val
+	}
+}
+
+func newVMICountMetric(vmi *k6tv1.VirtualMachineInstance) vmiCountMetric {
+	vmc := vmiCountMetric{
+		Phase:    strings.ToLower(string(vmi.Status.Phase)),
+		OS:       "<none>",
+		Workload: "<none>",
+		Flavor:   "<none>",
+	}
+	vmc.UpdateFromAnnotations(vmi.Annotations)
+	return vmc
+}
+
+func makeVMICountMetricMap(vmis []*k6tv1.VirtualMachineInstance) map[vmiCountMetric]uint64 {
+	countMap := make(map[vmiCountMetric]uint64)
+
+	for _, vmi := range vmis {
+		vmc := newVMICountMetric(vmi)
+		countMap[vmc]++
+	}
+	return countMap
 }
 
 func updateVMIsPhase(nodeName string, vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
-	phasesMap := makeVMIsPhasesMap(vmis)
+	countMap := makeVMICountMetricMap(vmis)
 
-	for phase, count := range phasesMap {
+	for vmc, count := range countMap {
 		mv, err := prometheus.NewConstMetric(
 			vmiCountDesc, prometheus.GaugeValue,
 			float64(count),
-			nodeName, phase,
+			nodeName, vmc.Phase, vmc.OS, vmc.Workload, vmc.Flavor,
 		)
 		if err != nil {
 			continue
