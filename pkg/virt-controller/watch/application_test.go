@@ -87,6 +87,7 @@ var _ = Describe("Application", func() {
 		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 		crdInformer, _ := testutils.NewFakeInformerFor(&extv1beta1.CustomResourceDefinition{})
 		vmRestoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
+		dvInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 
 		var qemuGid int64 = 107
 
@@ -122,6 +123,7 @@ var _ = Describe("Application", func() {
 			StorageClassInformer:      storageClassInformer,
 			PVCInformer:               pvcInformer,
 			CRDInformer:               crdInformer,
+			DVInformer:                dvInformer,
 			Recorder:                  recorder,
 			ResyncPeriod:              60 * time.Second,
 		}
