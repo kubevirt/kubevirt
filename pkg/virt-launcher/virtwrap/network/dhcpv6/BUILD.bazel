@@ -10,6 +10,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/insomniacslk/dhcp/dhcpv6:go_default_library",
         "//vendor/github.com/insomniacslk/dhcp/dhcpv6/server6:go_default_library",
+        "//vendor/github.com/insomniacslk/dhcp/iana:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
     ],
 )
