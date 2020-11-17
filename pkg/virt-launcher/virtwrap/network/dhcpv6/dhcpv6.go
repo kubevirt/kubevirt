@@ -22,22 +22,30 @@ package dhcpv6
 import (
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/insomniacslk/dhcp/dhcpv6"
 	"github.com/insomniacslk/dhcp/dhcpv6/server6"
+	"github.com/insomniacslk/dhcp/iana"
 
 	"kubevirt.io/client-go/log"
 )
 
+const (
+	infiniteLease = 999 * 24 * time.Hour
+)
+
 type DHCPv6Handler struct {
-	clientIP net.IP
+	clientIP    net.IP
+	serverIface string
 }
 
 func SingleClientDHCPv6Server(clientIP net.IP, serverIface string) error {
 	log.Log.Info("Starting SingleClientDHCPv6Server")
 
 	handler := &DHCPv6Handler{
-		clientIP: clientIP,
+		clientIP:    clientIP,
+		serverIface: serverIface,
 	}
 
 	s, err := server6.NewServer(serverIface, nil, handler.ServeDHCPv6)
@@ -54,17 +62,37 @@ func SingleClientDHCPv6Server(clientIP net.IP, serverIface string) error {
 }
 
 func (h *DHCPv6Handler) ServeDHCPv6(conn net.PacketConn, peer net.Addr, m dhcpv6.DHCPv6) {
-	log.Log.V(4).Info("Serving a new request")
+	log.Log.V(4).Info("DHCPv6 serving a new request")
 
 	// TODO if we extend the server to support bridge binding, we need to filter out non-vm requests
 
-	msg := m.(*dhcpv6.Message)
-	adv, err := dhcpv6.NewAdvertiseFromSolicit(msg)
+	var response *dhcpv6.Message
+
+	optIAAddress := dhcpv6.OptIAAddress{IPv6Addr: h.clientIP, PreferredLifetime: infiniteLease, ValidLifetime: infiniteLease}
+
+	iface, err := net.InterfaceByName(h.serverIface)
 	if err != nil {
-		log.Log.V(4).Errorf("NewAdvertiseFromSolicit failed: %v", err)
+		log.Log.V(4).Info("DHCPv6 - couldn't get the server interface")
 		return
 	}
-	if _, err := conn.WriteTo(adv.ToBytes(), peer); err != nil {
-		log.Log.V(4).Errorf("Cannot reply to client: %v", err)
+	duid := dhcpv6.Duid{Type: dhcpv6.DUID_LL, HwType: iana.HWTypeEthernet, LinkLayerAddr: iface.HardwareAddr}
+
+	dhcpv6Msg := m.(*dhcpv6.Message)
+	switch dhcpv6Msg.Type() {
+	case dhcpv6.MessageTypeSolicit:
+		log.Log.V(4).Info("DHCPv6 - the request has message type Solicit")
+		response, err = dhcpv6.NewAdvertiseFromSolicit(dhcpv6Msg, dhcpv6.WithIANA(optIAAddress), dhcpv6.WithServerID(duid))
+	default:
+		log.Log.V(4).Info("DHCPv6 - non Solicit request recieved")
+		response, err = dhcpv6.NewReplyFromMessage(dhcpv6Msg, dhcpv6.WithIANA(optIAAddress), dhcpv6.WithServerID(duid))
+	}
+
+	if err != nil {
+		log.Log.V(4).Errorf("DHCPv6 failed sending a response to the client: %v", err)
+		return
+	}
+
+	if _, err := conn.WriteTo(response.ToBytes(), peer); err != nil {
+		log.Log.V(4).Errorf("DHCPv6 cannot reply to client: %v", err)
 	}
 }
