@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/util"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -186,7 +187,7 @@ func HasGhostRecord(namespace string, name string) bool {
 	return ok
 }
 
-func AddGhostRecord(namespace string, name string, socketFile string, uid types.UID) error {
+func AddGhostRecord(namespace string, name string, socketFile string, uid types.UID) (err error) {
 	ghostRecordGlobalMutex.Lock()
 	defer ghostRecordGlobalMutex.Unlock()
 	if name == "" {
@@ -220,8 +221,7 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 		if err != nil {
 			return err
 		}
-
-		defer f.Close()
+		defer util.CloseIOAndCheckErr(f, &err)
 
 		_, err = f.Write(fileBytes)
 		if err != nil {

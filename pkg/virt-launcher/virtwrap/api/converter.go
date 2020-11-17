@@ -201,7 +201,7 @@ func checkDirectIOFlag(path string) bool {
 	if err != nil && !os.IsNotExist(err) {
 		return false
 	}
-	defer f.Close()
+	defer util.CloseIOAndCheckErr(f, nil)
 	return true
 }
 

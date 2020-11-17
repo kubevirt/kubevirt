@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	uploadcdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -210,7 +211,7 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer util.CloseIOAndCheckErr(file, nil)
 
 	namespace, _, err := c.clientConfig.Namespace()
 	if err != nil {

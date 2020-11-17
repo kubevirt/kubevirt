@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 )
 
@@ -33,7 +34,7 @@ func GetPodCPUSet() ([]int, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer util.CloseIOAndCheckErr(file, nil)
 	scanner := bufio.NewScanner(file)
 	if scanner.Scan() {
 		cpuset = scanner.Text()

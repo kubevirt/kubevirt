@@ -820,12 +820,12 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, option
 	return nil
 }
 
-var updateHostsFile = func(entry string) error {
+var updateHostsFile = func(entry string) (err error) {
 	file, err := os.OpenFile("/etc/hosts", os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		return fmt.Errorf("failed opening file: %s", err)
 	}
-	defer file.Close()
+	defer kutil.CloseIOAndCheckErr(file, &err)
 
 	_, err = file.WriteString(entry)
 	if err != nil {

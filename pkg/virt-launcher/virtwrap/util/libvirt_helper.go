@@ -20,6 +20,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )
@@ -265,7 +266,7 @@ func StartVirtlog(stopChan chan struct{}, domainName string) {
 					log.Log.Reason(err).Error("failed to catch virtlogd logs")
 					return
 				}
-				defer file.Close()
+				defer util.CloseIOAndCheckErr(file, nil)
 
 				scanner := bufio.NewScanner(file)
 				scanner.Buffer(make([]byte, 1024), 512*1024)
@@ -340,8 +341,7 @@ func NewDomainFromName(name string, vmiUID types.UID) *api.Domain {
 	return domain
 }
 
-func SetupLibvirt() error {
-
+func SetupLibvirt() (err error) {
 	// TODO: setting permissions and owners is not part of device plugins.
 	// Configure these manually right now on "/dev/kvm"
 	stats, err := os.Stat("/dev/kvm")
@@ -374,7 +374,7 @@ func SetupLibvirt() error {
 	if err != nil {
 		return err
 	}
-	defer qemuConf.Close()
+	defer util.CloseIOAndCheckErr(qemuConf, &err)
 	// We are in a container, don't try to stuff qemu inside special cgroups
 	_, err = qemuConf.WriteString("cgroup_controllers = [ ]\n")
 	if err != nil {
@@ -394,7 +394,7 @@ func SetupLibvirt() error {
 	if err != nil {
 		return err
 	}
-	defer libvirtConf.Close()
+	defer util.CloseIOAndCheckErr(libvirtConf, &err)
 	_, err = libvirtConf.WriteString("log_outputs = \"1:stderr\"\n")
 	if err != nil {
 		return err

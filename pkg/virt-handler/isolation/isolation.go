@@ -284,7 +284,7 @@ func (r *realIsolationResult) MountInfoRoot() (*MountInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not open mountinfo: %v", err)
 	}
-	defer in.Close()
+	defer util.CloseIOAndCheckErr(in, nil)
 	c := csv.NewReader(in)
 	c.Comma = ' '
 	c.LazyQuotes = true
@@ -330,7 +330,7 @@ func (r *realIsolationResult) IsMounted(mountPoint string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("could not open mountinfo: %v", err)
 	}
-	defer in.Close()
+	defer util.CloseIOAndCheckErr(in, nil)
 	c := csv.NewReader(in)
 	c.Comma = ' '
 	c.LazyQuotes = true
@@ -363,7 +363,7 @@ func (r *realIsolationResult) ParentMountInfoFor(mountInfo *MountInfo) (*MountIn
 	if err != nil {
 		return nil, fmt.Errorf("could not open mountinfo: %v", err)
 	}
-	defer in.Close()
+	defer util.CloseIOAndCheckErr(in, nil)
 	c := csv.NewReader(in)
 	c.Comma = ' '
 	c.LazyQuotes = true
@@ -438,8 +438,7 @@ func (s *socketBasedIsolationDetector) getSlice(pid int) (controller []string, s
 	if err != nil {
 		return
 	}
-	defer cgroups.Close()
-
+	defer util.CloseIOAndCheckErr(cgroups, nil)
 	scanner := bufio.NewScanner(cgroups)
 	for scanner.Scan() {
 		cgEntry := strings.SplitN(scanner.Text(), ":", 3)

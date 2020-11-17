@@ -33,6 +33,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 // TODO this should be part of structs, instead of a global
@@ -97,7 +98,7 @@ func Md5CheckSum(filePath string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer util.CloseIOAndCheckErr(file, nil)
 
 	// #nosec CWE: 326 - Use of weak cryptographic primitive (http://cwe.mitre.org/data/definitions/326.html)
 	// reason: sha1 is not used for encryption but for creating a hash value
