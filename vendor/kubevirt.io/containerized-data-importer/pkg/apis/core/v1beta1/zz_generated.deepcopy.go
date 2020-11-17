@@ -229,6 +229,11 @@ func (in *CDISpec) DeepCopyInto(out *CDISpec) {
 	}
 	in.Infra.DeepCopyInto(&out.Infra)
 	in.Workloads.DeepCopyInto(&out.Workloads)
+	if in.Config != nil {
+		in, out := &in.Config, &out.Config
+		*out = new(CDIConfigSpec)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

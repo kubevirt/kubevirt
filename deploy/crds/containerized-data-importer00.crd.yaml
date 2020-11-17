@@ -42,6 +42,53 @@ spec:
           spec:
             description: CDISpec defines our specification for the CDI installation
             properties:
+              config:
+                description: CDIConfig at CDI level
+                properties:
+                  filesystemOverhead:
+                    description: FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes. A value is between 0 and 1, if not defined it is 0.055 (5.5% overhead)
+                    properties:
+                      global:
+                        description: Global is how much space of a Filesystem volume should be reserved for overhead. This value is used unless overridden by a more specific value (per storageClass)
+                        pattern: ^(0(?:\.\d{1,3})?|1)$
+                        type: string
+                      storageClass:
+                        additionalProperties:
+                          description: 'Percent is a string that can only be a value between [0,1) (Note: we actually rely on reconcile to reject invalid values)'
+                          pattern: ^(0(?:\.\d{1,3})?|1)$
+                          type: string
+                        description: StorageClass specifies how much space of a Filesystem volume should be reserved for safety. The keys are the storageClass and the values are the overhead. This value overrides the global value
+                        type: object
+                    type: object
+                  podResourceRequirements:
+                    description: ResourceRequirements describes the compute resource requirements.
+                    properties:
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                        type: object
+                    type: object
+                  scratchSpaceStorageClass:
+                    description: 'Override the storage class to used for scratch space during transfer operations. The scratch space storage class is determined in the following order: 1. value of scratchSpaceStorageClass, if that doesn''t exist, use the default storage class, if there is no default storage class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space'
+                    type: string
+                  uploadProxyURLOverride:
+                    description: Override the URL used when uploading to a DataVolume
+                    type: string
+                type: object
               imagePullPolicy:
                 description: PullPolicy describes a policy for if/when to pull a container image
                 enum:
@@ -872,6 +919,58 @@ spec:
           spec:
             description: CDISpec defines our specification for the CDI installation
             properties:
+              config:
+                description: CDIConfig at CDI level
+                properties:
+                  featureGates:
+                    description: FeatureGates are a list of specific enabled feature gates
+                    items:
+                      type: string
+                    type: array
+                  filesystemOverhead:
+                    description: FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes. A value is between 0 and 1, if not defined it is 0.055 (5.5% overhead)
+                    properties:
+                      global:
+                        description: Global is how much space of a Filesystem volume should be reserved for overhead. This value is used unless overridden by a more specific value (per storageClass)
+                        pattern: ^(0(?:\.\d{1,3})?|1)$
+                        type: string
+                      storageClass:
+                        additionalProperties:
+                          description: 'Percent is a string that can only be a value between [0,1) (Note: we actually rely on reconcile to reject invalid values)'
+                          pattern: ^(0(?:\.\d{1,3})?|1)$
+                          type: string
+                        description: StorageClass specifies how much space of a Filesystem volume should be reserved for safety. The keys are the storageClass and the values are the overhead. This value overrides the global value
+                        type: object
+                    type: object
+                  podResourceRequirements:
+                    description: ResourceRequirements describes the compute resource requirements.
+                    properties:
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                        type: object
+                    type: object
+                  scratchSpaceStorageClass:
+                    description: 'Override the storage class to used for scratch space during transfer operations. The scratch space storage class is determined in the following order: 1. value of scratchSpaceStorageClass, if that doesn''t exist, use the default storage class, if there is no default storage class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space'
+                    type: string
+                  uploadProxyURLOverride:
+                    description: Override the URL used when uploading to a DataVolume
+                    type: string
+                type: object
               imagePullPolicy:
                 description: PullPolicy describes a policy for if/when to pull a container image
                 enum:

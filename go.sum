@@ -985,6 +985,7 @@ github.com/morikuni/aec v1.0.0 h1:nP9CBfwrvYnBRgY6qfDQkygYDmYwOilePFkwzv4dU8A=
 github.com/morikuni/aec v1.0.0/go.mod h1:BbKIizmSmc5MMPqRYbxO4ZU0S0+P200+tUnFx7PXmsc=
 github.com/mozillazg/go-cos v0.13.0/go.mod h1:Zp6DvvXn0RUOXGJ2chmWt2bLEqRAnJnS3DnAZsJsoaE=
 github.com/mozillazg/go-httpheader v0.2.1/go.mod h1:jJ8xECTlalr6ValeXYdOF8fFUISeBAdw6E61aqQma60=
+github.com/mrnold/go-libnbd v1.4.1-cdi/go.mod h1:t/zovtHFkgtIy65eJ+Ay1mNBFz+yO6ESu6r6CluGzdI=
 github.com/mrunalp/fileutils v0.0.0-20160930181131-4ee1cc9a8058/go.mod h1:x8F1gnqOkIEiO4rqoeEEEqQbo7HjGMTvyoq3gej4iT0=
 github.com/mtrmac/gpgme v0.1.2/go.mod h1:GYYHnGSuS7HK3zVS2n3y73y0okK/BeKzwnn5jgiVFNI=
 github.com/munnerz/goautoneg v0.0.0-20120707110453-a547fc61f48d/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
@@ -1987,6 +1988,8 @@ kubevirt.io/client-go v0.35.0/go.mod h1:H7w/toi2lEbJ1K6EK3hd2ZatVvm793iZOKFVxx18
 kubevirt.io/containerized-data-importer v1.23.1/go.mod h1:2nNKnigVFQAwGq2v5/92+e758nKYacb03uSkHM14mX0=
 kubevirt.io/containerized-data-importer v1.25.0 h1:B0AolhY7/gYqgaq9JkaHNHDkY8hhDAfKPZG520jdr7E=
 kubevirt.io/containerized-data-importer v1.25.0/go.mod h1:LwwTsoJNDD6dpLpBAX6frulmVQTQK/mvHavd6L/KR6k=
+kubevirt.io/containerized-data-importer v1.26.0 h1:n2YGX+Ys4Y2S/hq9W78A+6TT86IS7yK0EWHMuDfCWM8=
+kubevirt.io/containerized-data-importer v1.26.0/go.mod h1:gV0UGj0JybVFobLjkUzRxFJFgeUUhZb7zs1HgvnDsOQ=
 kubevirt.io/controller-lifecycle-operator-sdk v0.1.0 h1:wi6kO+nd9fbMDjdMy7rO6dbKXTxLdt6RjVZBpjddOew=
 kubevirt.io/controller-lifecycle-operator-sdk v0.1.0/go.mod h1:M+UuZsp90mmKUVGb5zXDZtIIY1noY5pJk9i2YCQwSnk=
 kubevirt.io/controller-lifecycle-operator-sdk v0.1.1 h1:dqURkr5Q5f4qJM7uLHL0akFxTatt0MUekKL0xifmVjs=
