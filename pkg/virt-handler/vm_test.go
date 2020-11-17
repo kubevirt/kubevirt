@@ -197,6 +197,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			tlsConfig,
 			mockIsolationDetector,
 		)
+		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()
@@ -338,6 +339,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(exists).To(BeTrue())
 
 			mockQueue.Add(namespace + "/" + name)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
 			client.EXPECT().Close()
 			controller.Execute()
 
@@ -504,6 +506,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.phase1NetworkSetupCache[oldVMI.UID] = 1
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
 
 			controller.Execute()
 			Expect(mockQueue.Len()).To(Equal(0))
@@ -522,7 +525,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			controller.phase1NetworkSetupCache[vmi.UID] = 1
 			vmiFeeder.Add(vmi)
-
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
 			client.EXPECT().Close()
 			controller.Execute()
 			Expect(mockQueue.Len()).To(Equal(0))
@@ -720,6 +723,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
 			client.EXPECT().GetGuestInfo().Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 
 			controller.Execute()
 		})
@@ -771,6 +776,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
 			})
 			client.EXPECT().GetGuestInfo().Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 
 			controller.Execute()
 		})
@@ -824,6 +831,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
 			})
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 
 			controller.Execute()
 		})
@@ -989,6 +998,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
 
 			controller.Execute()
@@ -1009,6 +1020,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
 
 			controller.Execute()
@@ -1230,6 +1243,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Status.Phase = phase
 			vmiFeeder.Add(vmi)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
 			controller.Execute()
 			// expect no errors and no mock interactions
 			Expect(mockQueue.NumRequeues("default/testvmi")).To(Equal(0))
@@ -1342,6 +1356,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			updatedVmi := vmi.DeepCopy()
 			updatedVmi.Status.MigrationState.TargetNodeAddress = controller.ipAddress
 			updatedVmi.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPorts
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
 
 			client.EXPECT().Close()
 			controller.Execute()
@@ -1381,6 +1396,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			socket, err := net.Listen("unix", socketFile)
 			Expect(err).NotTo(HaveOccurred())
 			defer socket.Close()
+
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
 
 			client.EXPECT().Ping().Return(fmt.Errorf("disconnected"))
 			client.EXPECT().Close()

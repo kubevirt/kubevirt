@@ -1410,6 +1410,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 
 	//Look up all the disks to detach
 	for _, detachDisk := range getDetachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
+		logger.V(1).Infof("Detaching disk %s", *detachDisk.Alias)
 		detachBytes, err := xml.Marshal(detachDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling detached disk failed")
@@ -1426,10 +1427,13 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		// Before attempting to attach, ensure we can open the file
 		file, err := os.OpenFile(attachDisk.Source.File, os.O_RDWR, 0660)
 		if err != nil {
-			logger.V(4).Infof("cannot open file yet, don't attach: %v", err)
+			logger.V(1).Infof("cannot open file yet, don't attach: %v", err)
 			continue
 		}
-		defer file.Close()
+		if err := file.Close(); err != nil {
+			logger.Errorf("Unable to close file: %s", file.Name())
+		}
+		logger.V(1).Infof("Attaching disk %s", *attachDisk.Alias)
 		attachBytes, err := xml.Marshal(attachDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling attached disk failed")

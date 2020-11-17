@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
@@ -153,7 +154,7 @@ var _ = Describe("HotplugVolume mount target records", func() {
 		Expect(err).ToNot(HaveOccurred())
 		res, err := m.getMountTargetRecord(vmi)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(res).To(BeNil())
+		Expect(res).To(Equal(&vmiMountTargetRecord{}))
 	})
 
 	It("deleteMountTargetRecord should remove both record file and entry file", func() {
@@ -171,9 +172,10 @@ var _ = Describe("HotplugVolume mount target records", func() {
 
 var _ = Describe("HotplugVolume block devices", func() {
 	var (
-		m   *volumeMounter
-		err error
-		vmi *v1.VirtualMachineInstance
+		m      *volumeMounter
+		err    error
+		vmi    *v1.VirtualMachineInstance
+		record *vmiMountTargetRecord
 	)
 
 	BeforeEach(func() {
@@ -190,6 +192,7 @@ var _ = Describe("HotplugVolume block devices", func() {
 			mountRecords:         make(map[types.UID]*vmiMountTargetRecord),
 			mountStateDir:        tempDir,
 		}
+		record = &vmiMountTargetRecord{}
 
 		deviceBasePath = func(sourceUID types.UID) string {
 			return filepath.Join(tempDir, string(sourceUID), "volumes")
@@ -265,7 +268,7 @@ var _ = Describe("HotplugVolume block devices", func() {
 		Expect(err).ToNot(HaveOccurred())
 		err = ioutil.WriteFile(deviceFile, []byte("test"), 0644)
 		Expect(err).ToNot(HaveOccurred())
-		_, err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID)
+		err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID, record)
 		Expect(err).ToNot(HaveOccurred())
 		By("Verifying the block file exists")
 		_, err = os.Stat(filepath.Join(targetPodPath, "testvolume"))
@@ -581,9 +584,10 @@ var _ = Describe("HotplugVolume block devices", func() {
 
 var _ = Describe("HotplugVolume filesystem volumes", func() {
 	var (
-		m   *volumeMounter
-		err error
-		vmi *v1.VirtualMachineInstance
+		m      *volumeMounter
+		err    error
+		vmi    *v1.VirtualMachineInstance
+		record *vmiMountTargetRecord
 	)
 
 	BeforeEach(func() {
@@ -594,6 +598,8 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 		activePods := make(map[types.UID]string, 0)
 		activePods["abcd"] = "host"
 		vmi.Status.ActivePods = activePods
+
+		record = &vmiMountTargetRecord{}
 
 		m = &volumeMounter{
 			podIsolationDetector: &mockIsolationDetector{},
@@ -665,9 +671,9 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 			return []byte("Success"), nil
 		}
 
-		resTargetPath, err := m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID(sourcePodUID))
+		err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID(sourcePodUID), record)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(*resTargetPath).To(Equal(targetFilePath))
+		Expect(record.MountTargetEntries[0].TargetFile).To(Equal(targetFilePath))
 
 		unmountCommand = func(diskPath string) ([]byte, error) {
 			Expect(targetFilePath).To(Equal(diskPath))
@@ -679,7 +685,7 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 			return true, nil
 		}
 
-		err = m.unmountFileSystemHotplugVolumes(*resTargetPath)
+		err = m.unmountFileSystemHotplugVolumes(record.MountTargetEntries[0].TargetFile)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = os.Stat(targetFilePath)
 		Expect(err).To(HaveOccurred())
@@ -792,9 +798,11 @@ var _ = Describe("HotplugVolume volumes", func() {
 			},
 		})
 		isBlockDevice = func(path string) (bool, error) {
+			log.DefaultLogger().Infof("Checking isBlockDevice for %s", path)
 			if strings.Contains(path, string(blockSourcePodUID)) {
 				return true, nil
 			}
+			log.DefaultLogger().Info("Not a block device")
 			return false, fmt.Errorf("Not a block device")
 		}
 		vmi.Status.VolumeStatus = volumeStatuses
