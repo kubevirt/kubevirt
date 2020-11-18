@@ -181,7 +181,7 @@ func (c *Customizer) GetPatchesForResource(resourceType, name string) []v1.Custo
 	patches := make([]v1.CustomizeComponentsPatch, 0)
 
 	for _, p := range allPatches {
-		if strings.EqualFold(p.ResourceType, resourceType) && strings.EqualFold(p.ResourceName, name) {
+		if (p.ResourceType == "" || strings.EqualFold(p.ResourceType, resourceType)) && (p.ResourceName == "" || strings.EqualFold(p.ResourceName, name)) {
 			patches = append(patches, p)
 		}
 	}
