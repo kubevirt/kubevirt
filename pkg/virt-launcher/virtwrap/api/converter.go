@@ -69,7 +69,8 @@ const (
 )
 
 type deviceNamer struct {
-	nameMap map[string]string
+	existingNameMap map[string]string
+	usedDeviceMap   map[string]string
 }
 
 type HostDevicesList struct {
@@ -160,6 +161,7 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, prefixMap map[
 			disk.Address.Bus = "0"
 		}
 		disk.Target.Device, unit = makeDeviceName(diskDevice.Name, diskDevice.Disk.Bus, prefixMap)
+		log.DefaultLogger().Infof("Setting target to %s for %s", disk.Target.Device, diskDevice.Name)
 		if diskDevice.Disk.Bus == "scsi" {
 			disk.Address.Unit = strconv.Itoa(unit)
 		}
@@ -314,11 +316,16 @@ func SetOptimalIOMode(disk *Disk) error {
 	return nil
 }
 
-func (n *deviceNamer) getKeyFromValue(value string) (string, bool) {
-	for k, v := range n.nameMap {
-		if v == value {
-			return k, true
-		}
+func (n *deviceNamer) getExistingVolumeValue(key string) (string, bool) {
+	if _, ok := n.existingNameMap[key]; ok {
+		return n.existingNameMap[key], true
+	}
+	return "", false
+}
+
+func (n *deviceNamer) getExistingTargetValue(key string) (string, bool) {
+	if _, ok := n.usedDeviceMap[key]; ok {
+		return n.usedDeviceMap[key], true
 	}
 	return "", false
 }
@@ -328,11 +335,12 @@ func makeDeviceName(diskName, bus string, prefixMap map[string]deviceNamer) (str
 	if _, ok := prefixMap[prefix]; !ok {
 		// This should never happen since the prefix map is populated from all disks.
 		prefixMap[prefix] = deviceNamer{
-			nameMap: make(map[string]string),
+			existingNameMap: make(map[string]string),
+			usedDeviceMap:   make(map[string]string),
 		}
 	}
 	deviceNamer := prefixMap[prefix]
-	if name, ok := deviceNamer.getKeyFromValue(diskName); ok {
+	if name, ok := deviceNamer.getExistingVolumeValue(diskName); ok {
 		for i := 0; i < 26*26*26; i++ {
 			calculatedName := FormatDeviceName(prefix, i)
 			if calculatedName == name {
@@ -345,8 +353,9 @@ func makeDeviceName(diskName, bus string, prefixMap map[string]deviceNamer) (str
 	// Name not found yet, generate next new one.
 	for i := 0; i < 26*26*26; i++ {
 		name := FormatDeviceName(prefix, i)
-		if _, ok := deviceNamer.nameMap[name]; !ok {
-			deviceNamer.nameMap[name] = diskName
+		if _, ok := deviceNamer.getExistingTargetValue(name); !ok {
+			deviceNamer.existingNameMap[diskName] = name
+			deviceNamer.usedDeviceMap[name] = diskName
 			return name, i
 		}
 	}
@@ -2071,9 +2080,12 @@ func newDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[strin
 	prefixMap := make(map[string]deviceNamer)
 	volumeTargetMap := make(map[string]string)
 	for _, volumeStatus := range volumeStatuses {
-		volumeTargetMap[volumeStatus.Target] = volumeStatus.Name
+		if volumeStatus.Target != "" {
+			volumeTargetMap[volumeStatus.Name] = volumeStatus.Target
+		}
 	}
 
+	log.DefaultLogger().Infof("volumeTargetMap: %v", volumeTargetMap)
 	for _, disk := range disks {
 		if disk.Disk == nil {
 			continue
@@ -2081,13 +2093,16 @@ func newDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[strin
 		prefix := getPrefixFromBus(disk.Disk.Bus)
 		if _, ok := prefixMap[prefix]; !ok {
 			prefixMap[prefix] = deviceNamer{
-				nameMap: make(map[string]string),
+				existingNameMap: make(map[string]string),
+				usedDeviceMap:   make(map[string]string),
 			}
 		}
-		namer := prefixMap[disk.Disk.Bus]
+		namer := prefixMap[prefix]
 		if _, ok := volumeTargetMap[disk.Name]; ok {
-			namer.nameMap[disk.Name] = volumeTargetMap[disk.Name]
+			namer.existingNameMap[disk.Name] = volumeTargetMap[disk.Name]
+			namer.usedDeviceMap[volumeTargetMap[disk.Name]] = disk.Name
 		}
 	}
+	log.DefaultLogger().Infof("prefixMap: %v", prefixMap)
 	return prefixMap
 }

@@ -2376,6 +2376,101 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		})
 	})
+
+	Context("VirtualMachineInstance controller gets informed about disk information", func() {
+		It("should update existing volume status with target", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name:  "permvolume",
+					Phase: v1.VolumeReady,
+				},
+				{
+					Name:  "hpvolume",
+					Phase: v1.VolumeReady,
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "pod",
+						AttachPodUID:  "abcd",
+					},
+				},
+			}
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+
+			domain.Spec.Devices.Disks = []api.Disk{
+				{
+					Device: "disk",
+					Type:   "file",
+					Source: api.DiskSource{
+						File: "/var/run/kubevirt-private/vmi-disks/permvolume1/disk.img",
+					},
+					Target: api.DiskTarget{
+						Bus:    "virtio",
+						Device: "vda",
+					},
+					Driver: &api.DiskDriver{
+						Cache: "none",
+						Name:  "qemu",
+						Type:  "raw",
+					},
+					Alias: &api.Alias{
+						Name: "ua-permvolume",
+					},
+				},
+				{
+					Device: "disk",
+					Type:   "file",
+					Source: api.DiskSource{
+						File: "/var/run/kubevirt/hotplug-disks/hpvolume1/disk.img",
+					},
+					Target: api.DiskTarget{
+						Bus:    "scsi",
+						Device: "sda",
+					},
+					Driver: &api.DiskDriver{
+						Cache: "none",
+						Name:  "qemu",
+						Type:  "raw",
+					},
+					Alias: &api.Alias{
+						Name: "hpvolume",
+					},
+					Address: &api.Address{
+						Type:       "drive",
+						Bus:        "0",
+						Controller: "0",
+						Unit:       "0",
+					},
+				},
+			}
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(len(arg.(*v1.VirtualMachineInstance).Status.VolumeStatus)).To(Equal(2))
+				for _, status := range arg.(*v1.VirtualMachineInstance).Status.VolumeStatus {
+					if status.Name == "hpvolume" {
+						Expect(status.Target).To(Equal("sda"))
+					}
+					if status.Name == "permvolume" {
+						Expect(status.Target).To(Equal("vda"))
+					}
+				}
+			}).Return(vmi, nil)
+
+			controller.Execute()
+		})
+	})
 })
 
 var _ = Describe("DomainNotifyServerRestarts", func() {

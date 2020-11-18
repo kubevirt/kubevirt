@@ -84,11 +84,23 @@ var _ = Describe("Manager", func() {
 
 	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
 		domain := &api.Domain{}
+		hotplugVolumes := make(map[string]v1.VolumeStatus)
+		permanentVolumes := make(map[string]v1.VolumeStatus)
+		for _, status := range vmi.Status.VolumeStatus {
+			if status.HotplugVolume != nil {
+				hotplugVolumes[status.Name] = status
+			} else {
+				permanentVolumes[status.Name] = status
+			}
+		}
+
 		c := &api.ConverterContext{
-			Architecture:   runtime.GOARCH,
-			VirtualMachine: vmi,
-			UseEmulation:   true,
-			SMBios:         &cmdv1.SMBios{},
+			Architecture:     runtime.GOARCH,
+			VirtualMachine:   vmi,
+			UseEmulation:     true,
+			SMBios:           &cmdv1.SMBios{},
+			HotplugVolumes:   hotplugVolumes,
+			PermanentVolumes: permanentVolumes,
 		}
 		Expect(api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
@@ -304,6 +316,431 @@ var _ = Describe("Manager", func() {
 			err := manager.UnpauseVMI(vmi)
 			Expect(err).To(BeNil())
 
+		})
+		It("should hotplug a disk if a volume was hotplugged", func() {
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free()
+			StubOutNetworkForTest()
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name: "permvolume1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+					Cache: "none",
+				},
+				{
+					Name: "hpvolume1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "scsi",
+						},
+					},
+					Cache: "none",
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "permvolume1",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv1",
+						},
+					},
+				},
+				{
+					Name: "hpvolume1",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv2",
+						},
+					},
+				},
+			}
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name:  "permvolume1",
+					Phase: v1.VolumeReady,
+				},
+				{
+					Name:  "hpvolume1",
+					Phase: v1.VolumeReady,
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "testpod1",
+						AttachPodUID:  "abcd",
+					},
+				},
+			}
+			isBlockDeviceVolume = func(volumeName string) (bool, error) {
+				if volumeName == "dv1" {
+					return true, nil
+				}
+				return false, nil
+			}
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).To(BeNil())
+			checkIfDiskReadyToUse = func(filename string) (bool, error) {
+				Expect(filename).To(Equal("/var/run/kubevirt/hotplug-disks/hpvolume1/disk.img"))
+				return true, nil
+			}
+			domainSpec.Devices.Disks = []api.Disk{
+				{
+					Device: "disk",
+					Type:   "file",
+					Source: api.DiskSource{
+						File: "/var/run/kubevirt-private/vmi-disks/permvolume1/disk.img",
+					},
+					Target: api.DiskTarget{
+						Bus:    "virtio",
+						Device: "vda",
+					},
+					Driver: &api.DiskDriver{
+						Cache: "none",
+						Name:  "qemu",
+						Type:  "raw",
+					},
+					Alias: &api.Alias{
+						Name: "ua-permvolume1",
+					},
+				},
+			}
+			attachDisk := api.Disk{
+				Device: "disk",
+				Type:   "file",
+				Source: api.DiskSource{
+					File: "/var/run/kubevirt/hotplug-disks/hpvolume1/disk.img",
+				},
+				Target: api.DiskTarget{
+					Bus:    "scsi",
+					Device: "sda",
+				},
+				Driver: &api.DiskDriver{
+					Cache: "none",
+					Name:  "qemu",
+					Type:  "raw",
+				},
+				Alias: &api.Alias{
+					Name: "hpvolume1",
+				},
+				Address: &api.Address{
+					Type:       "drive",
+					Bus:        "0",
+					Controller: "0",
+					Unit:       "0",
+				},
+			}
+			xmlDomain2, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).ToNot(HaveOccurred())
+			attachBytes, err := xml.Marshal(attachDisk)
+			Expect(err).ToNot(HaveOccurred())
+			mockConn.EXPECT().DomainDefineXML(string(xmlDomain)).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+			mockDomain.EXPECT().Create().Return(nil)
+			mockDomain.EXPECT().AttachDevice(strings.ToLower(string(attachBytes)))
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xmlDomain2), nil)
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0, nil, "/usr/share/OVMF")
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+			Expect(err).To(BeNil())
+			Expect(newspec).ToNot(BeNil())
+		})
+		It("should unplug a disk if a volume was unplugged", func() {
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free()
+			StubOutNetworkForTest()
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name: "permvolume1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+					Cache: "none",
+				},
+				{
+					Name: "hpvolume1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "scsi",
+						},
+					},
+					Cache: "none",
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "permvolume1",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv1",
+						},
+					},
+				},
+				{
+					Name: "hpvolume1",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv2",
+						},
+					},
+				},
+			}
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name:  "permvolume1",
+					Phase: v1.VolumeReady,
+				},
+				{
+					Name:  "hpvolume1",
+					Phase: v1.VolumeReady,
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "testpod1",
+						AttachPodUID:  "abcd",
+					},
+				},
+			}
+			isBlockDeviceVolume = func(volumeName string) (bool, error) {
+				if volumeName == "dv1" {
+					return true, nil
+				}
+				return false, nil
+			}
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).To(BeNil())
+			detachDisk := api.Disk{
+				Device: "disk",
+				Type:   "file",
+				Source: api.DiskSource{
+					File: "/var/run/kubevirt/hotplug-disks/hpvolume1/disk.img",
+				},
+				Target: api.DiskTarget{
+					Bus:    "scsi",
+					Device: "sda",
+				},
+				Driver: &api.DiskDriver{
+					Cache: "none",
+					Name:  "qemu",
+					Type:  "raw",
+				},
+				Alias: &api.Alias{
+					Name: "hpvolume1",
+				},
+				Address: &api.Address{
+					Type:       "drive",
+					Bus:        "0",
+					Controller: "0",
+					Unit:       "0",
+				},
+			}
+			detachBytes, err := xml.Marshal(detachDisk)
+			Expect(err).ToNot(HaveOccurred())
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name:  "permvolume1",
+					Phase: v1.VolumeReady,
+				},
+			}
+
+			mockConn.EXPECT().DomainDefineXML(gomock.Any()).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+			mockDomain.EXPECT().Create().Return(nil)
+			mockDomain.EXPECT().DetachDevice(strings.ToLower(string(detachBytes)))
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xmlDomain), nil)
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0, nil, "/usr/share/OVMF")
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+			Expect(err).To(BeNil())
+			Expect(newspec).ToNot(BeNil())
+		})
+		It("should not plug/unplug a disk if nothing changed", func() {
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free()
+			StubOutNetworkForTest()
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name: "permvolume1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+					Cache: "none",
+				},
+				{
+					Name: "hpvolume1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "scsi",
+						},
+					},
+					Cache: "none",
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "permvolume1",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv1",
+						},
+					},
+				},
+				{
+					Name: "hpvolume1",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv2",
+						},
+					},
+				},
+			}
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name:  "permvolume1",
+					Phase: v1.VolumeReady,
+				},
+				{
+					Name:  "hpvolume1",
+					Phase: v1.VolumeReady,
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "testpod1",
+						AttachPodUID:  "abcd",
+					},
+				},
+			}
+			isBlockDeviceVolume = func(volumeName string) (bool, error) {
+				if volumeName == "dv1" {
+					return true, nil
+				}
+				return false, nil
+			}
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).To(BeNil())
+			checkIfDiskReadyToUse = func(filename string) (bool, error) {
+				Expect(filename).To(Equal("/var/run/kubevirt/hotplug-disks/hpvolume1/disk.img"))
+				return true, nil
+			}
+			mockConn.EXPECT().DomainDefineXML(string(xmlDomain)).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+			mockDomain.EXPECT().Create().Return(nil)
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xmlDomain), nil)
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0, nil, "/usr/share/OVMF")
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+			Expect(err).To(BeNil())
+			Expect(newspec).ToNot(BeNil())
+		})
+		It("should not hotplug a disk if a volume was hotplugged, but the disk is not ready yet", func() {
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free()
+			StubOutNetworkForTest()
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name: "permvolume1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+					Cache: "none",
+				},
+				{
+					Name: "hpvolume1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "scsi",
+						},
+					},
+					Cache: "none",
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "permvolume1",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv1",
+						},
+					},
+				},
+				{
+					Name: "hpvolume1",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv2",
+						},
+					},
+				},
+			}
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name:  "permvolume1",
+					Phase: v1.VolumeReady,
+				},
+				{
+					Name:  "hpvolume1",
+					Phase: v1.VolumeReady,
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "testpod1",
+						AttachPodUID:  "abcd",
+					},
+				},
+			}
+			isBlockDeviceVolume = func(volumeName string) (bool, error) {
+				if volumeName == "dv1" {
+					return true, nil
+				}
+				return false, nil
+			}
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).To(BeNil())
+			checkIfDiskReadyToUse = func(filename string) (bool, error) {
+				Expect(filename).To(Equal("/var/run/kubevirt/hotplug-disks/hpvolume1/disk.img"))
+				return false, nil
+			}
+			domainSpec.Devices.Disks = []api.Disk{
+				{
+					Device: "disk",
+					Type:   "file",
+					Source: api.DiskSource{
+						File: "/var/run/kubevirt-private/vmi-disks/permvolume1/disk.img",
+					},
+					Target: api.DiskTarget{
+						Bus:    "virtio",
+						Device: "vda",
+					},
+					Driver: &api.DiskDriver{
+						Cache: "none",
+						Name:  "qemu",
+						Type:  "raw",
+					},
+					Alias: &api.Alias{
+						Name: "ua-permvolume1",
+					},
+				},
+			}
+			xmlDomain2, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).ToNot(HaveOccurred())
+			mockConn.EXPECT().DomainDefineXML(string(xmlDomain)).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+			mockDomain.EXPECT().Create().Return(nil)
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xmlDomain2), nil)
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0, nil, "/usr/share/OVMF")
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+			Expect(err).To(BeNil())
+			Expect(newspec).ToNot(BeNil())
 		})
 	})
 	Context("test marking graceful shutdown", func() {
@@ -949,6 +1386,128 @@ var _ = Describe("getEnvAddressListByPrefix with vgpu prefix", func() {
 		Expect(addrs[1]).To(Equal("aa618089-8b16-4d01-a136-25a0f3c73124"))
 	})
 
+})
+
+var _ = Describe("getAttachedDisks", func() {
+	table.DescribeTable("should return the correct values", func(oldDisks, newDisks, expected []api.Disk) {
+		res := getAttachedDisks(oldDisks, newDisks)
+		Expect(res).To(Equal(expected))
+	},
+		table.Entry("be empty with empty old and new",
+			[]api.Disk{},
+			[]api.Disk{},
+			[]api.Disk{}),
+		table.Entry("be empty with empty old and new being identical",
+			[]api.Disk{
+				{
+					Source: api.DiskSource{
+						Name: "test",
+						File: "file",
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Source: api.DiskSource{
+						Name: "test",
+						File: "file",
+					},
+				},
+			},
+			[]api.Disk{}),
+		table.Entry("contain a new disk with empty having a new disk compared to old",
+			[]api.Disk{
+				{
+					Source: api.DiskSource{
+						Name: "test",
+						File: "file",
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Source: api.DiskSource{
+						Name: "test",
+						File: "file",
+					},
+				},
+				{
+					Source: api.DiskSource{
+						Name: "test2",
+						File: "file2",
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Source: api.DiskSource{
+						Name: "test2",
+						File: "file2",
+					},
+				},
+			}),
+	)
+})
+
+var _ = Describe("getDetachedDisks", func() {
+	table.DescribeTable("should return the correct values", func(oldDisks, newDisks, expected []api.Disk) {
+		res := getDetachedDisks(oldDisks, newDisks)
+		Expect(res).To(Equal(expected))
+	},
+		table.Entry("be empty with empty old and new",
+			[]api.Disk{},
+			[]api.Disk{},
+			[]api.Disk{}),
+		table.Entry("be empty with empty old and new being identical",
+			[]api.Disk{
+				{
+					Source: api.DiskSource{
+						Name: "test",
+						File: "file",
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Source: api.DiskSource{
+						Name: "test",
+						File: "file",
+					},
+				},
+			},
+			[]api.Disk{}),
+		table.Entry("contains something if new has less than old",
+			[]api.Disk{
+				{
+					Source: api.DiskSource{
+						Name: "test",
+						File: "file",
+					},
+				},
+				{
+					Source: api.DiskSource{
+						Name: "test2",
+						File: "file2",
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Source: api.DiskSource{
+						Name: "test",
+						File: "file",
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Source: api.DiskSource{
+						Name: "test2",
+						File: "file2",
+					},
+				},
+			}),
+	)
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
