@@ -5,6 +5,8 @@ import (
 	"net"
 	"time"
 
+	"golang.org/x/net/ipv6"
+
 	"github.com/vishvananda/netlink"
 
 	"github.com/insomniacslk/dhcp/dhcpv6"
@@ -22,12 +24,12 @@ const (
 type DHCPv6Handler struct {
 	clientIP      net.IP
 	leaseDuration time.Duration
-	serverIface   string
+	serverIface   *net.Interface
 }
 
 func SingleClientDHCPv6Server(
 	clientIP net.IP,
-	serverIface string,
+	serverIfaceName string,
 	dnsIPs [][]byte,
 	routes *[]netlink.Route,
 	searchDomains []string,
@@ -36,13 +38,23 @@ func SingleClientDHCPv6Server(
 
 	log.Log.Info("Starting SingleClientDHCPv6Server")
 
+	iface, err := net.InterfaceByName(serverIfaceName)
+	if err != nil {
+		log.Log.Infof("DHCPv6 - couldn't get the server interface: %v", err)
+	}
+
 	handler := &DHCPv6Handler{
 		clientIP:      clientIP,
 		leaseDuration: infiniteLease,
-		serverIface:   serverIface,
+		serverIface:   iface,
 	}
 
-	s, err := server6.NewServer(serverIface, nil, handler.ServeDHCPv6)
+	conn, err := handler.createConnection()
+	if err != nil {
+		return fmt.Errorf("couldn't create connection for dhcpv6 server: %v", err)
+	}
+
+	s, err := server6.NewServer("", nil, handler.ServeDHCPv6, server6.WithConn(conn))
 	if err != nil {
 		return fmt.Errorf("couldn't create dhcpv6 server: %v", err)
 	}
@@ -53,6 +65,35 @@ func SingleClientDHCPv6Server(
 	return nil
 }
 
+func (h *DHCPv6Handler) createConnection() (*FilteredConn, error) {
+	// no connection provided by the user, create a new one
+	addr := &net.UDPAddr{
+		IP:   net.IPv6unspecified,
+		Port: dhcpv6.DefaultServerPort,
+	}
+	udpConn, err := server6.NewIPv6UDPConn("", addr)
+	if err != nil {
+		return nil, err
+	}
+
+	packetConn := ipv6.NewPacketConn(udpConn)
+	if err := packetConn.SetControlMessage(ipv6.FlagInterface, true); err != nil {
+		return nil, err
+	}
+
+	for _, groupAddrerss := range []net.IP{dhcpv6.AllDHCPRelayAgentsAndServers, dhcpv6.AllDHCPServers} {
+		group := net.UDPAddr{
+			IP:   groupAddrerss,
+			Port: dhcpv6.DefaultServerPort,
+		}
+		if err := packetConn.JoinGroup(h.serverIface, &group); err != nil {
+			return nil, err
+		}
+	}
+
+	return &FilteredConn{packetConn: packetConn, ifIndex: h.serverIface.Index}, err
+}
+
 func (h *DHCPv6Handler) ServeDHCPv6(conn net.PacketConn, peer net.Addr, m dhcpv6.DHCPv6) {
 	log.Log.V(4).Info("DHCPv6 serving a new request")
 
@@ -61,15 +102,11 @@ func (h *DHCPv6Handler) ServeDHCPv6(conn net.PacketConn, peer net.Addr, m dhcpv6
 	msg := m.(*dhcpv6.Message)
 
 	var response *dhcpv6.Message
+	var err error
 
 	optIAAddress := dhcpv6.OptIAAddress{IPv6Addr: h.clientIP, PreferredLifetime: h.leaseDuration, ValidLifetime: h.leaseDuration}
 
-	iface, err := net.InterfaceByName(h.serverIface)
-	if err != nil {
-		log.Log.V(4).Info("DHCPv6 - couldn't get the server interface")
-		return
-	}
-	duid := dhcpv6.Duid{Type: dhcpv6.DUID_LL, HwType: iana.HWTypeEthernet, LinkLayerAddr: iface.HardwareAddr}
+	duid := dhcpv6.Duid{Type: dhcpv6.DUID_LL, HwType: iana.HWTypeEthernet, LinkLayerAddr: h.serverIface.HardwareAddr}
 
 	switch msg.Type() {
 	case dhcpv6.MessageTypeSolicit:
