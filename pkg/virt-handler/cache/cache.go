@@ -117,7 +117,7 @@ func InitializeGhostRecordCache(directoryPath string) error {
 			continue
 		}
 		recordPath := filepath.Join(ghostRecordDir, file.Name())
-
+		// #nosec no risk for path injection. Used only for testing and using static location
 		fileBytes, err := ioutil.ReadFile(recordPath)
 		if err != nil {
 			log.Log.Reason(err).Errorf("Unable to read ghost record file at path %s", recordPath)

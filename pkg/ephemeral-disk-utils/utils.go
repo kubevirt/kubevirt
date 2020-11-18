@@ -94,6 +94,7 @@ func FileExists(path string) (bool, error) {
 }
 func Md5CheckSum(filePath string) ([]byte, error) {
 
+	// #nosec no risk for path injection: only used to calculate MD5 of files
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err

@@ -414,6 +414,7 @@ func (dpi *MediatedDevicePlugin) healthCheck() error {
 }
 
 func getMdevTypeName(mdevUUID string) (string, error) {
+	// #nosec No risk for path injection. Path is composed from static base  "mdevBasePath" and static components
 	rawName, err := ioutil.ReadFile(filepath.Join(mdevBasePath, mdevUUID, "mdev_type/name"))
 	if err != nil {
 		return "", err
