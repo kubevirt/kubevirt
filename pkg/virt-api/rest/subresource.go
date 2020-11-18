@@ -755,7 +755,7 @@ func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string)
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("virtualmachine"), name)
 		}
-		return nil, errors.NewInternalError(err)
+		return nil, errors.NewInternalError(fmt.Errorf("unable to retrieve vm [%s]: %v", name, err))
 	}
 	return vm, nil
 }
@@ -767,7 +767,7 @@ func (app *SubresourceAPIApp) fetchVirtualMachineInstance(name string, namespace
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), name)
 		}
-		return nil, errors.NewInternalError(err)
+		return nil, errors.NewInternalError(fmt.Errorf("unable to retrieve vmi [%s]: %v", name, err))
 	}
 	return vmi, nil
 }
@@ -1075,7 +1075,7 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, 
 		log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", patch)
 		_, err = app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patch))
 		if err != nil {
-			writeError(errors.NewInternalError(err), response)
+			writeError(errors.NewInternalError(fmt.Errorf("unable to patch vmi during volume add: %v", err)), response)
 			return
 		}
 
@@ -1094,7 +1094,7 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, 
 
 		err = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch))
 		if err != nil {
-			writeError(errors.NewInternalError(err), response)
+			writeError(errors.NewInternalError(fmt.Errorf("unable to patch vm status during volume add: %v", err)), response)
 			return
 		}
 	}
@@ -1154,7 +1154,7 @@ func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Reques
 		log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", patch)
 		_, err = app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patch))
 		if err != nil {
-			writeError(errors.NewInternalError(err), response)
+			writeError(errors.NewInternalError(fmt.Errorf("unable to patch vmi during volume remove: %v", err)), response)
 			return
 		}
 	} else {
@@ -1172,7 +1172,7 @@ func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Reques
 
 		err = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch))
 		if err != nil {
-			writeError(errors.NewInternalError(err), response)
+			writeError(errors.NewInternalError(fmt.Errorf("unable to patch vm status during volume remove: %v", err)), response)
 			return
 		}
 	}
