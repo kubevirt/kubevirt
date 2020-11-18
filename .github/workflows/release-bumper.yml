@@ -17,12 +17,18 @@ jobs:
       - name: Check for new releases and update
         run: ./automation/release-bumper/release-bumper.sh
       - name: Set "UPDATED_COMPONENT" environment variable
-        run: echo "::set-env name=UPDATED_COMPONENT::$(cat updated_component.txt)";
+        run: |
+          echo 'UPDATED_COMPONENT<<EOF' >> $GITHUB_ENV
+          cat updated_component.txt >> $GITHUB_ENV
+          echo 'EOF' >> $GITHUB_ENV
       - name: Set "UPDATED_VERSION" environment variable
-        run: echo "::set-env name=UPDATED_VERSION::$(cat updated_version.txt)";
+        run: |
+          echo 'UPDATED_VERSION<<EOF' >> $GITHUB_ENV
+          cat updated_version.txt >> $GITHUB_ENV
+          echo 'EOF' >> $GITHUB_ENV
       - name: Remove temporary files
         run: rm -f updated_component.txt updated_version.txt
-      - uses: peter-evans/create-pull-request@v2
+      - uses: peter-evans/create-pull-request@v3
         with:
           token: ${{ secrets.HCO_BOT_TOKEN }}
           commit-message: |
