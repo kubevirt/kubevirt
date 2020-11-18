@@ -1424,14 +1424,12 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	}
 	//Look up all the disks to attach
 	for _, attachDisk := range getAttachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
-		// Before attempting to attach, ensure we can open the file
-		file, err := os.OpenFile(attachDisk.Source.File, os.O_RDWR, 0660)
+		allowAttach, err := checkIfDiskReadyToUse(attachDisk.Source.File)
 		if err != nil {
-			logger.V(1).Infof("cannot open file yet, don't attach: %v", err)
-			continue
+			return nil, err
 		}
-		if err := file.Close(); err != nil {
-			logger.Errorf("Unable to close file: %s", file.Name())
+		if !allowAttach {
+			continue
 		}
 		logger.V(1).Infof("Attaching disk %s", *attachDisk.Alias)
 		attachBytes, err := xml.Marshal(attachDisk)
@@ -1448,6 +1446,20 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
 	return &oldSpec, nil
+}
+
+var checkIfDiskReadyToUse = checkIfDiskReadyToUseFunc
+
+func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
+	// Before attempting to attach, ensure we can open the file
+	file, err := os.OpenFile(filename, os.O_RDWR, 0660)
+	if err != nil {
+		return false, nil
+	}
+	if err := file.Close(); err != nil {
+		return false, fmt.Errorf("Unable to close file: %s", file.Name())
+	}
+	return true, nil
 }
 
 func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
@@ -1471,9 +1483,6 @@ func getAttachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 		oldDiskMap[disk.Source.File] = disk
 	}
 	res := make([]api.Disk, 0)
-	if len(oldDiskMap) == 0 {
-		return res
-	}
 	for _, newDisk := range newDisks {
 		if _, ok := oldDiskMap[newDisk.Source.File]; !ok {
 			// This disk got attached, add it to the list
@@ -1483,7 +1492,9 @@ func getAttachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	return res
 }
 
-func isHotplugBlockDeviceVolume(volumeName string) bool {
+var isHotplugBlockDeviceVolume = isHotplugBlockDeviceVolumeFunc
+
+func isHotplugBlockDeviceVolumeFunc(volumeName string) bool {
 	path := api.GetHotplugBlockDeviceVolumePath(volumeName)
 	fileInfo, err := os.Stat(path)
 	if err == nil {
@@ -1495,7 +1506,9 @@ func isHotplugBlockDeviceVolume(volumeName string) bool {
 	return false
 }
 
-func isBlockDeviceVolume(volumeName string) (bool, error) {
+var isBlockDeviceVolume = isBlockDeviceVolumeFunc
+
+func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
 	path := api.GetBlockDeviceVolumePath(volumeName)
 	fileInfo, err := os.Stat(path)
 	if err == nil {

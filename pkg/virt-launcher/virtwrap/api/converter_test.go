@@ -2828,7 +2828,7 @@ var _ = Describe("disk device naming", func() {
 			makeDeviceName(fmt.Sprintf("test%d", i), "virtio", prefixMap)
 		}
 		prefix := getPrefixFromBus("virtio")
-		delete(prefixMap[prefix].nameMap, "vdd")
+		delete(prefixMap[prefix].usedDeviceMap, "vdd")
 		By("Verifying next value is vdd")
 		res, index = makeDeviceName("something", "virtio", prefixMap)
 		Expect(index).To(Equal(3))

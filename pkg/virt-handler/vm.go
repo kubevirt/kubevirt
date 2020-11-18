@@ -496,6 +496,7 @@ func canUpdateToUnmounted(currentPhase v1.VolumePhase) bool {
 
 func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
+	hasHotplug := false
 
 	// Don't update the VirtualMachineInstance if it is already in a final state
 	if vmi.IsFinal() {
@@ -544,6 +545,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 					volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
 				}
 				if volumeStatus.HotplugVolume != nil {
+					hasHotplug = true
 					if volumeStatus.Target == "" {
 						needsRefresh = true
 						if mounted, _ := d.hotplugVolumeMounter.IsMounted(vmi, volumeStatus.Name, volumeStatus.HotplugVolume.AttachPodUID); mounted {
@@ -853,6 +855,9 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 				Reason:  v1.VirtualMachineInstanceReasonInterfaceNotMigratable,
 			}
 			vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
+		}
+		if hasHotplug {
+			liveMigrationCondition.Status = k8sv1.ConditionFalse
 		}
 		if liveMigrationCondition.Status == k8sv1.ConditionTrue {
 			vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
