@@ -191,9 +191,14 @@ type VirtControllerApp struct {
 var _ service.Service = &VirtControllerApp{}
 
 func init() {
-	vsv1beta1.AddToScheme(scheme.Scheme)
-	snapshotv1.AddToScheme(scheme.Scheme)
-
+	err := vsv1beta1.AddToScheme(scheme.Scheme)
+	if err != nil {
+		panic(err)
+	}
+	err = snapshotv1.AddToScheme(scheme.Scheme)
+	if err != nil {
+		panic(err)
+	}
 	prometheus.MustRegister(leaderGauge)
 	prometheus.MustRegister(readyGauge)
 }

@@ -175,7 +175,9 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	case err = <-resChan:
 	}
 
-	terminal.Restore(int(os.Stdin.Fd()), state)
+	if err := terminal.Restore(int(os.Stdin.Fd()), state); err != nil {
+		return fmt.Errorf("Failed to restore terminal: %v", err)
+	}
 
 	if err != nil {
 		if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseAbnormalClosure {

@@ -145,7 +145,8 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		// Don't set deadline if only proxy is running and VNC is to be connected manually
 		if !proxyOnly {
 			// exit early if spawning vnc client fails
-			ln.SetDeadline(time.Now().Add(LISTEN_TIMEOUT))
+			err := ln.SetDeadline(time.Now().Add(LISTEN_TIMEOUT))
+			listenResChan <- fmt.Errorf("Failed to set deadline on listener. %v", err)
 		}
 		fd, err := ln.Accept()
 		if err != nil {

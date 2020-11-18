@@ -227,12 +227,16 @@ func StartLibvirt(stopChan chan struct{}) {
 
 			go func() {
 				defer close(exitChan)
-				cmd.Wait()
+				if err := cmd.Wait(); err != nil {
+					log.Log.Errorf("libvirtd exited, %s", err)
+				}
 			}()
 
 			select {
 			case <-stopChan:
-				cmd.Process.Kill()
+				if err := cmd.Process.Kill(); err != nil {
+					log.Log.Errorf("failed to kill libvirtd, %s", err)
+				}
 				return
 			case <-exitChan:
 				log.Log.Errorf("libvirtd exited, restarting")
@@ -294,12 +298,16 @@ func StartVirtlog(stopChan chan struct{}, domainName string) {
 
 			go func() {
 				defer close(exitChan)
-				cmd.Wait()
+				if err := cmd.Wait(); err != nil {
+					log.Log.Errorf("virtlogd exited, %s", err)
+				}
 			}()
 
 			select {
 			case <-stopChan:
-				cmd.Process.Kill()
+				if err := cmd.Process.Kill(); err != nil {
+					log.Log.Errorf("failed to kill virtlogd, %s", err)
+				}
 				return
 			case <-exitChan:
 				log.Log.Errorf("virtlogd exited, restarting")

@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	netutils "k8s.io/utils/net"
 
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 
 	"github.com/coreos/go-iptables/iptables"
@@ -227,7 +228,7 @@ func createCriticalNetworkError(err error) *CriticalNetworkError {
 
 func ensureDHCP(vmi *v1.VirtualMachineInstance, bindMechanism BindMechanism, podInterfaceName string) error {
 	dhcpStartedFile := fmt.Sprintf("/var/run/kubevirt-private/dhcp_started-%s", podInterfaceName)
-	_, err := os.Stat(dhcpStartedFile)
+	_, err = os.Stat(dhcpStartedFile)
 	if os.IsNotExist(err) {
 		if err := bindMechanism.startDHCP(vmi); err != nil {
 			return fmt.Errorf("failed to start DHCP server for interface %s", podInterfaceName)
@@ -236,7 +237,7 @@ func ensureDHCP(vmi *v1.VirtualMachineInstance, bindMechanism BindMechanism, pod
 		if err != nil {
 			return fmt.Errorf("failed to create dhcp started file %s: %s", dhcpStartedFile, err)
 		}
-		newFile.Close()
+		defer util.CloseIOAndCheckErr(newFile, nil)
 	}
 	return nil
 }

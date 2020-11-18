@@ -189,6 +189,11 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, 
 		return nil, err
 	}
 
+	manifests, err := dumpInstallStrategyToBytes(strategy)
+	if err != nil {
+		return nil, err
+	}
+
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "kubevirt-install-strategy-",
@@ -204,7 +209,7 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, 
 			},
 		},
 		Data: map[string]string{
-			"manifests": string(dumpInstallStrategyToBytes(strategy)),
+			"manifests": string(manifests),
 		},
 	}
 	return configMap, nil
@@ -244,67 +249,112 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNa
 	return nil
 }
 
-func dumpInstallStrategyToBytes(strategy *Strategy) []byte {
+// Writing to bytes.Buffer is safe
+func safeWriteToBuffer(writer *bufio.Writer, data []byte) {
+	if _, err := writer.Write(data); err != nil {
+		panic(fmt.Errorf("Writting to Buffer shouln't return err, %v", err))
+	}
+}
+
+func dumpInstallStrategyToBytes(strategy *Strategy) ([]byte, error) {
 
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
 
 	for _, entry := range strategy.serviceAccounts {
-		marshalutil.MarshallObject(entry, writer)
+		if err := marshalutil.MarshallObject(entry, writer); err != nil {
+			return nil, err
+		}
 	}
 	for _, entry := range strategy.clusterRoles {
-		marshalutil.MarshallObject(entry, writer)
+		if err := marshalutil.MarshallObject(entry, writer); err != nil {
+			return nil, err
+		}
 	}
 	for _, entry := range strategy.clusterRoleBindings {
-		marshalutil.MarshallObject(entry, writer)
+		if err := marshalutil.MarshallObject(entry, writer); err != nil {
+			return nil, err
+		}
 	}
 	for _, entry := range strategy.roles {
-		marshalutil.MarshallObject(entry, writer)
+		if err := marshalutil.MarshallObject(entry, writer); err != nil {
+			return nil, err
+		}
 	}
 	for _, entry := range strategy.roleBindings {
-		marshalutil.MarshallObject(entry, writer)
+		if err := marshalutil.MarshallObject(entry, writer); err != nil {
+			return nil, err
+		}
 	}
+	delimeter := []byte("---\n")
 	for _, entry := range strategy.crds {
-		b, _ := yaml.Marshal(entry)
-		writer.Write([]byte("---\n"))
-		writer.Write(b)
+		b, err := yaml.Marshal(entry)
+		if err != nil {
+			return nil, err
+		}
+		safeWriteToBuffer(writer, delimeter)
+		safeWriteToBuffer(writer, b)
 	}
 	for _, entry := range strategy.services {
-		marshalutil.MarshallObject(entry, writer)
+		if err := marshalutil.MarshallObject(entry, writer); err != nil {
+			return nil, err
+		}
 	}
 	for _, entry := range strategy.certificateSecrets {
-		marshalutil.MarshallObject(entry, writer)
+		if err := marshalutil.MarshallObject(entry, writer); err != nil {
+			return nil, err
+		}
 	}
 	for _, entry := range strategy.validatingWebhookConfigurations {
-		marshalutil.MarshallObject(entry, writer)
+		if err := marshalutil.MarshallObject(entry, writer); err != nil {
+			return nil, err
+		}
 	}
 	for _, entry := range strategy.mutatingWebhookConfigurations {
-		marshalutil.MarshallObject(entry, writer)
+		if err := marshalutil.MarshallObject(entry, writer); err != nil {
+			return nil, err
+		}
 	}
 	for _, entry := range strategy.apiServices {
-		marshalutil.MarshallObject(entry, writer)
+		if err := marshalutil.MarshallObject(entry, writer); err != nil {
+			return nil, err
+		}
 	}
 	for _, entry := range strategy.deployments {
-		marshalutil.MarshallObject(entry, writer)
+		if err := marshalutil.MarshallObject(entry, writer); err != nil {
+			return nil, err
+		}
 	}
 	for _, entry := range strategy.daemonSets {
-		marshalutil.MarshallObject(entry, writer)
+		if err := marshalutil.MarshallObject(entry, writer); err != nil {
+			return nil, err
+		}
 	}
 	for _, entry := range strategy.sccs {
-		marshalutil.MarshallObject(entry, writer)
+		if err := marshalutil.MarshallObject(entry, writer); err != nil {
+			return nil, err
+		}
 	}
 	for _, entry := range strategy.serviceMonitors {
-		marshalutil.MarshallObject(entry, writer)
+		if err := marshalutil.MarshallObject(entry, writer); err != nil {
+			return nil, err
+		}
 	}
 	for _, entry := range strategy.prometheusRules {
-		marshalutil.MarshallObject(entry, writer)
+		if err := marshalutil.MarshallObject(entry, writer); err != nil {
+			return nil, err
+		}
 	}
 	for _, entry := range strategy.configMaps {
-		marshalutil.MarshallObject(entry, writer)
+		if err := marshalutil.MarshallObject(entry, writer); err != nil {
+			return nil, err
+		}
 	}
-	writer.Flush()
+	if err := writer.Flush(); err != nil {
+		panic(fmt.Errorf("Flush on bytes should be safe, %v", err))
+	}
 
-	return b.Bytes()
+	return b.Bytes(), nil
 }
 
 func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfig, addMonitorServiceResources bool, operatorNamespace string) (*Strategy, error) {

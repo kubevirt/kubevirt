@@ -202,7 +202,9 @@ func getHash(customizations v1.CustomizeComponents) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	hasher.Write(values)
+	if _, err := hasher.Write(values); err != nil {
+		panic("Error with sha1 is not possible")
+	}
 
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }

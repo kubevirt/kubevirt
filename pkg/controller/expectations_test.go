@@ -53,7 +53,7 @@ func NewFakeControllerExpectationsLookup(ttl time.Duration) (*ControllerExpectat
 	fakeClock := clock.NewFakeClock(fakeTime)
 	ttlPolicy := &cache.TTLPolicy{TTL: ttl, Clock: fakeClock}
 	ttlStore := cache.NewFakeExpirationStore(
-		ExpKeyFunc, nil, ttlPolicy, fakeClock)
+		expKeyFunc, nil, ttlPolicy, fakeClock)
 	return &ControllerExpectations{ttlStore, ""}, fakeClock
 }
 

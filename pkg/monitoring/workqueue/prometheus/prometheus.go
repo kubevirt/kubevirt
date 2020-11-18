@@ -36,7 +36,7 @@ func (_ prometheusMetricsProvider) NewDepthMetric(name string) workqueue.GaugeMe
 		Name:      "depth",
 		Help:      "Current depth of workqueue: " + name,
 	})
-	prometheus.Register(depth)
+	prometheus.MustRegister(depth)
 	return depth
 }
 
@@ -46,7 +46,7 @@ func (_ prometheusMetricsProvider) NewAddsMetric(name string) workqueue.CounterM
 		Name:      "adds",
 		Help:      "Total number of adds handled by workqueue: " + name,
 	})
-	prometheus.Register(adds)
+	prometheus.MustRegister(adds)
 	return adds
 }
 
@@ -56,7 +56,7 @@ func (_ prometheusMetricsProvider) NewLatencyMetric(name string) workqueue.Histo
 		Name:      "queue_latency",
 		Help:      "How long an item stays in workqueue" + name + " before being requested.",
 	})
-	prometheus.Register(latency)
+	prometheus.MustRegister(latency)
 	return latency
 }
 
@@ -66,7 +66,7 @@ func (_ prometheusMetricsProvider) NewWorkDurationMetric(name string) workqueue.
 		Name:      "work_duration",
 		Help:      "How long processing an item from workqueue" + name + " takes.",
 	})
-	prometheus.Register(workDuration)
+	prometheus.MustRegister(workDuration)
 	return workDuration
 }
 
@@ -76,7 +76,7 @@ func (_ prometheusMetricsProvider) NewRetriesMetric(name string) workqueue.Count
 		Name:      "retries",
 		Help:      "Total number of retries handled by workqueue: " + name,
 	})
-	prometheus.Register(retries)
+	prometheus.MustRegister(retries)
 	return retries
 }
 
@@ -86,7 +86,7 @@ func (_ prometheusMetricsProvider) NewLongestRunningProcessorSecondsMetric(name 
 		Name:      "longest_running_proceessror_seconds",
 		Help:      "The longest running processor time",
 	})
-	prometheus.Register(longestRunningProcessor)
+	prometheus.MustRegister(longestRunningProcessor)
 	return longestRunningProcessor
 }
 
@@ -96,6 +96,6 @@ func (_ prometheusMetricsProvider) NewUnfinishedWorkSecondsMetric(name string) w
 		Name:      "unfinished_work",
 		Help:      "The unfinished work duration",
 	})
-	prometheus.Register(unfinishedWork)
+	prometheus.MustRegister(unfinishedWork)
 	return unfinishedWork
 }

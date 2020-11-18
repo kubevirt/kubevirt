@@ -134,7 +134,9 @@ func Execute() {
 
 	// apply any passthrough environment to this operator as well
 	for k, v := range util.GetPassthroughEnv() {
-		os.Setenv(k, v)
+		if err := os.Setenv(k, v); err != nil {
+			golog.Fatal(err)
+		}
 	}
 
 	config, err := kubecli.GetConfig()

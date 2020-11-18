@@ -431,7 +431,9 @@ func (c *KubeVirtDeploymentConfig) generateInstallStrategyID() {
 	// reason: sha1 is not used for encryption but for creating a hash value
 	hasher := sha1.New()
 	values := getStringFromFields(*c)
-	hasher.Write([]byte(values))
+	if _, err := hasher.Write([]byte(values)); err != nil {
+		panic("Error with sha1 is not possible")
+	}
 
 	c.ID = hex.EncodeToString(hasher.Sum(nil))
 }
