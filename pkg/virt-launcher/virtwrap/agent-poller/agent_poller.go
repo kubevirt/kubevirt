@@ -45,6 +45,8 @@ const (
 	GET_USERS      AgentCommand = "guest-get-users"
 	GET_FILESYSTEM AgentCommand = "guest-get-fsinfo"
 	GET_AGENT      AgentCommand = "guest-info"
+
+	pollInitialInterval = 10 * time.Second
 )
 
 // AgentUpdatedEvent fire up when data is changes in the store
@@ -187,77 +189,22 @@ type PollerWorker struct {
 	CallTick time.Duration
 }
 
-// Poll is the call to the guestagent
-// with libvirt 5.6.0 direct call to agent can be replaced with call to libvirt
-// Domain.GetGuestInfo
-func (p *PollerWorker) Poll(con cli.Connection, agentStore *AsyncAgentStore, domainName string, closeChan chan struct{}) {
-	ticker := time.NewTicker(time.Second * p.CallTick)
+type agentCommandsExecutor func(commands []AgentCommand)
 
+// Poll is the call to the guestagent
+func (p *PollerWorker) Poll(execAgentCommands agentCommandsExecutor, closeChan chan struct{}) {
 	log.Log.Infof("Polling command: %v", p.AgentCommands)
 
-	// subroutine to do actual polling, used as a workaround for golang ticker
-	// ticker does not do first tick immediately, but after period
-	poll := func(commands []AgentCommand) {
-		for _, command := range p.AgentCommands {
-			// replace with direct call to libvirt function when 5.6.0 is available
-			cmdResult, err := con.QemuAgentCommand(`{"execute":"`+string(command)+`"}`, domainName)
-			if err != nil {
-				// skip the command on error, it is not vital
-				continue
-			}
-
-			// parse the json data and convert to domain api
-			// for libvirt 5.6.0 json conversion deprecated
-			switch command {
-			case GET_INTERFACES:
-				interfaces, err := parseInterfaces(cmdResult)
-				if err != nil {
-					log.Log.Errorf("Cannot parse guest agent interface %s", err.Error())
-				}
-				agentStore.Store(GET_INTERFACES, interfaces)
-			case GET_OSINFO:
-				osInfo, err := parseGuestOSInfo(cmdResult)
-				if err != nil {
-					log.Log.Errorf("Cannot parse guest agent guestosinfo %s", err.Error())
-				}
-				agentStore.Store(GET_OSINFO, osInfo)
-			case GET_HOSTNAME:
-				hostname, err := parseHostname(cmdResult)
-				if err != nil {
-					log.Log.Errorf("Cannot parse guest agent hostname %s", err.Error())
-				}
-				agentStore.Store(GET_HOSTNAME, hostname)
-			case GET_TIMEZONE:
-				timezone, err := parseTimezone(cmdResult)
-				if err != nil {
-					log.Log.Errorf("Cannot parse guest agent timezone %s", err.Error())
-				}
-				agentStore.Store(GET_TIMEZONE, timezone)
-			case GET_USERS:
-				users, err := parseUsers(cmdResult)
-				if err != nil {
-					log.Log.Errorf("Cannot parse guest agent users %s", err.Error())
-				}
-				agentStore.Store(GET_USERS, users)
-			case GET_FILESYSTEM:
-				filesystems, err := parseFilesystem(cmdResult)
-				if err != nil {
-					log.Log.Errorf("Cannot parse guest agent filesystem %s", err.Error())
-				}
-				agentStore.Store(GET_FILESYSTEM, filesystems)
-			case GET_AGENT:
-				agent, err := parseAgent(cmdResult)
-				if err != nil {
-					log.Log.Errorf("Cannot parse guest agent version %s", err.Error())
-				}
-				agentStore.Store(GET_AGENT, agent)
-			}
-
-		}
-	}
-
 	// do the first round to fill the cache immediately
-	poll(p.AgentCommands)
+	execAgentCommands(p.AgentCommands)
+
+	pollMaxInterval := p.CallTick * time.Second
+	pollInterval := pollMaxInterval
+
+	if pollInitialInterval < pollMaxInterval {
+		pollInterval = pollInitialInterval
+	}
+	ticker := time.NewTicker(pollInterval)
 
 	for {
 		select {
@@ -265,9 +212,26 @@ func (p *PollerWorker) Poll(con cli.Connection, agentStore *AsyncAgentStore, dom
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			poll(p.AgentCommands)
+			execAgentCommands(p.AgentCommands)
+		}
+		if pollInterval < pollMaxInterval {
+			pollInterval = incrementPollInterval(pollInterval, pollMaxInterval)
+			ticker = replaceTicker(ticker, pollInterval)
 		}
 	}
+}
+
+func replaceTicker(ticker *time.Ticker, interval time.Duration) *time.Ticker {
+	ticker.Stop()
+	return time.NewTicker(time.Second * interval)
+}
+
+func incrementPollInterval(interval time.Duration, maxInterval time.Duration) time.Duration {
+	interval *= 2
+	if interval > maxInterval {
+		interval = maxInterval
+	}
+	return interval
 }
 
 type AgentPoller struct {
@@ -331,7 +295,9 @@ func (p *AgentPoller) Start() {
 
 	for i := 0; i < len(p.workers); i++ {
 		log.Log.Infof("Starting agent poller with commands: %v", p.workers[i].AgentCommands)
-		go p.workers[i].Poll(p.Connection, p.agentStore, p.domainName, p.agentDone)
+		go p.workers[i].Poll(func(commands []AgentCommand) {
+			executeAgentCommands(commands, p.Connection, p.agentStore, p.domainName)
+		}, p.agentDone)
 	}
 }
 
@@ -340,5 +306,64 @@ func (p *AgentPoller) Stop() {
 	if p.agentDone != nil {
 		close(p.agentDone)
 		p.agentDone = nil
+	}
+}
+
+// With libvirt 5.6.0 direct call to agent can be replaced with call to libvirt Domain.GetGuestInfo
+func executeAgentCommands(commands []AgentCommand, con cli.Connection, agentStore *AsyncAgentStore, domainName string) {
+	for _, command := range commands {
+		// replace with direct call to libvirt function when 5.6.0 is available
+		cmdResult, err := con.QemuAgentCommand(`{"execute":"`+string(command)+`"}`, domainName)
+		if err != nil {
+			// skip the command on error, it is not vital
+			continue
+		}
+
+		// parse the json data and convert to domain api
+		// for libvirt 5.6.0 json conversion deprecated
+		switch command {
+		case GET_INTERFACES:
+			interfaces, err := parseInterfaces(cmdResult)
+			if err != nil {
+				log.Log.Errorf("Cannot parse guest agent interface %s", err.Error())
+			}
+			agentStore.Store(GET_INTERFACES, interfaces)
+		case GET_OSINFO:
+			osInfo, err := parseGuestOSInfo(cmdResult)
+			if err != nil {
+				log.Log.Errorf("Cannot parse guest agent guestosinfo %s", err.Error())
+			}
+			agentStore.Store(GET_OSINFO, osInfo)
+		case GET_HOSTNAME:
+			hostname, err := parseHostname(cmdResult)
+			if err != nil {
+				log.Log.Errorf("Cannot parse guest agent hostname %s", err.Error())
+			}
+			agentStore.Store(GET_HOSTNAME, hostname)
+		case GET_TIMEZONE:
+			timezone, err := parseTimezone(cmdResult)
+			if err != nil {
+				log.Log.Errorf("Cannot parse guest agent timezone %s", err.Error())
+			}
+			agentStore.Store(GET_TIMEZONE, timezone)
+		case GET_USERS:
+			users, err := parseUsers(cmdResult)
+			if err != nil {
+				log.Log.Errorf("Cannot parse guest agent users %s", err.Error())
+			}
+			agentStore.Store(GET_USERS, users)
+		case GET_FILESYSTEM:
+			filesystems, err := parseFilesystem(cmdResult)
+			if err != nil {
+				log.Log.Errorf("Cannot parse guest agent filesystem %s", err.Error())
+			}
+			agentStore.Store(GET_FILESYSTEM, filesystems)
+		case GET_AGENT:
+			agent, err := parseAgent(cmdResult)
+			if err != nil {
+				log.Log.Errorf("Cannot parse guest agent version %s", err.Error())
+			}
+			agentStore.Store(GET_AGENT, agent)
+		}
 	}
 }

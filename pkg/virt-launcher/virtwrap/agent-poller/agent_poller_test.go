@@ -20,6 +20,8 @@
 package agentpoller
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -27,406 +29,137 @@ import (
 )
 
 var _ = Describe("Qemu agent poller", func() {
-	Context("recieving a reply from the agent", func() {
-		JSONInput := `{
-            "return": [
-                {
-                    "name":"lo",
-                    "ip-addresses": [
-                        {
-                            "ip-address-type": "ipv4",
-                            "ip-address": "127.0.0.1",
-                            "prefix": 8
-                        },
-                        {
-                            "ip-address-type": "ipv6",
-                            "ip-address": "::1",
-                            "prefix": 128
-                        }
-                    ],
-                    "hardware-address": "00:00:00:00:00:00"
-                },
-                {
-                    "name":"eth0",
-                    "ip-addresses": [
-                        {
-                            "ip-address-type": "ipv4",
-                            "ip-address": "10.244.0.81",
-                            "prefix": 24
-                        },
-                        {
-                            "ip-address-type": "ipv6",
-                            "ip-address": "fe80::858:aff:fef4:51",
-                            "prefix": 64
-                        }
-                    ],
-                    "hardware-address": "0a:58:0a:f4:00:51"
-                },
-                {
-                    "name":"eth1",
-                    "ip-addresses": [
-                        {
-                            "ip-address-type": "ipv6",
-                            "ip-address": "fe80::ff:feb0:1766",
-                            "prefix": 64
-                        }
-                    ],
-                    "hardware-address": "02:00:00:b0:17:66"
-                },
-                {
-                    "name": "eth5",
-                    "ip-addresses": [
-                        {
-                            "ip-address-type": "ipv4",
-                            "ip-address": "1.2.3.4",
-                            "prefix": 24
-                        },
-                        {
-                            "ip-address-type": "ipv6",
-                            "ip-address": "fe80::ff:1111:2222",
-                            "prefix":64
-                        }
-                    ],
-                    "hardware-address": "02:00:00:22:11:11"
-                }
-            ]
-        }`
+	Context("with AsyncAgentStore", func() {
 
-		It("should not parse network interface data into a list of interfaces", func() {
-			malformedJSONInput := `{
-                "return": [
-                    {
-                        "name":"lo",
-                        "ip-addresses": [
-                            {
-                                "ip-address-type": "ipv4",
-                                "ip-address": "127.0.0.1",
-                                "prefix": 8
-                            },
+		It("should store and load the data", func() {
+			var agentStore = NewAsyncAgentStore()
+			agentVersion := "4.1"
+			agentStore.Store(GET_AGENT, agentVersion)
+			agent := agentStore.GetGA()
 
-                                "ip-address-type": "ipv6",
-                                "ip-address": "::1",
-                                "prefix": 128
-                            }
-                        ],
-                        "hardware-address": "00:00:00:00:00:00"
-                    }
-                ]
-            }`
-			_, err := parseInterfaces(malformedJSONInput)
-			Expect(err).To(HaveOccurred(), "should not parse network interfaces")
-
+			Expect(agent).To(Equal(agentVersion))
 		})
 
-		It("should parse it into a list of interfaces", func() {
-			// eth5 only present in agent data
-			interfaceStatuses, err := parseInterfaces(JSONInput)
-			Expect(err).ToNot(HaveOccurred(), "should parse network interfaces")
+		It("should fire an event for new sysinfo data", func() {
+			var agentStore = NewAsyncAgentStore()
 
-			expectedStatuses := []api.InterfaceStatus{}
-			expectedStatuses = append(expectedStatuses,
-				api.InterfaceStatus{
-					Name:          "",
-					Mac:           "0a:58:0a:f4:00:51",
-					Ip:            "10.244.0.81/24",
-					IPs:           []string{"10.244.0.81/24", "fe80::858:aff:fef4:51/64"},
-					InterfaceName: "eth0",
-				})
-			expectedStatuses = append(expectedStatuses,
-				api.InterfaceStatus{
-					Name:          "",
-					Mac:           "02:00:00:b0:17:66",
-					Ip:            "fe80::ff:feb0:1766/64",
-					IPs:           []string{"fe80::ff:feb0:1766/64"},
-					InterfaceName: "eth1",
-				})
-			expectedStatuses = append(expectedStatuses,
-				api.InterfaceStatus{
-					Mac:           "02:00:00:22:11:11",
-					Ip:            "1.2.3.4/24",
-					IPs:           []string{"1.2.3.4/24", "fe80::ff:1111:2222/64"},
-					InterfaceName: "eth5",
-				})
-			Expect(interfaceStatuses).To(Equal(expectedStatuses))
-		})
-
-		It("should merge QEMU info and agent info", func() {
-			interfaceStatuses, err := parseInterfaces(JSONInput)
-			Expect(err).ToNot(HaveOccurred(), "should parse network inferfaces")
-
-			domInterfaces := []api.Interface{
-				api.Interface{
-					MAC: &api.MAC{
-						MAC: "0a:58:0a:f4:00:51",
-					},
-					Alias: &api.Alias{
-						Name: "ovs",
-					},
-				},
-				api.Interface{
-					MAC: &api.MAC{
-						MAC: "02:00:00:b0:17:66",
-					},
-					Alias: &api.Alias{
-						Name: "net1",
-					},
-				},
-				api.Interface{
-					MAC: &api.MAC{
-						MAC: "02:11:11:b0:17:66",
-					},
-					Alias: &api.Alias{
-						Name: "net2",
-					},
-				},
-			}
-
-			interfaceStatuses = MergeAgentStatusesWithDomainData(domInterfaces, interfaceStatuses)
-
-			expectedStatuses := []api.InterfaceStatus{}
-			expectedStatuses = append(expectedStatuses,
-				api.InterfaceStatus{
-					Name:          "ovs",
-					Mac:           "0a:58:0a:f4:00:51",
-					Ip:            "10.244.0.81/24",
-					IPs:           []string{"10.244.0.81/24", "fe80::858:aff:fef4:51/64"},
-					InterfaceName: "eth0",
-				})
-			expectedStatuses = append(expectedStatuses,
-				api.InterfaceStatus{
-					Name:          "net1",
-					Mac:           "02:00:00:b0:17:66",
-					Ip:            "fe80::ff:feb0:1766/64",
-					IPs:           []string{"fe80::ff:feb0:1766/64"},
-					InterfaceName: "eth1",
-				})
-			expectedStatuses = append(expectedStatuses,
-				api.InterfaceStatus{
-					Mac:           "02:00:00:22:11:11",
-					Ip:            "1.2.3.4/24",
-					IPs:           []string{"1.2.3.4/24", "fe80::ff:1111:2222/64"},
-					InterfaceName: "eth5",
-				})
-			expectedStatuses = append(expectedStatuses,
-				api.InterfaceStatus{
-					Name: "net2",
-					Mac:  "02:11:11:b0:17:66",
-				})
-
-			Expect(interfaceStatuses).To(Equal(expectedStatuses))
-		})
-
-		It("should parse Guest OS Info", func() {
-
-			JSONInput := `{
-                "return": {
-                    "name": "TestGuestOSName",
-                    "kernel-release": "1.1.0-Generic",
-                    "version": "1.0.0",
-                    "pretty-name": "TestGuestOSName 1.0.0",
-                    "version-id": "1.0.0",
-                    "kernel-version": "1.1.0",
-                    "machine": "x86_64",
-                    "id": "testguestos"
-                }
-            }`
-
-			guestOSInfoStatus, err := parseGuestOSInfo(JSONInput)
-			Expect(err).ToNot(HaveOccurred(), "Should parse the info")
-
-			expectedGuestOSInfo := api.GuestOSInfo{Name: "TestGuestOSName",
+			fakeInfo := api.GuestOSInfo{
+				Name:          "TestGuestOSName",
 				KernelRelease: "1.1.0-Generic",
 				Version:       "1.0.0",
 				PrettyName:    "TestGuestOSName 1.0.0",
 				VersionId:     "1.0.0",
 				KernelVersion: "1.1.0",
 				Machine:       "x86_64",
-				Id:            "testguestos"}
-			Expect(guestOSInfoStatus).To(Equal(expectedGuestOSInfo))
+				Id:            "testguestos",
+			}
+			agentStore.Store(GET_OSINFO, fakeInfo)
+
+			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
+				Type:       GET_OSINFO,
+				DomainInfo: api.DomainGuestInfo{OSInfo: &fakeInfo},
+			})))
 		})
 
-		It("should not parse Guest OS Info", func() {
-			malformedJSONInput := `{
-                "return": {{
-                    "name": "TestGuestOSName",
-                    "kernel-release": "1.1.0-Generic",
-                    "version": "1.0.0"
-                    "pretty-name": "TestGuestOSName 1.0.0",
-                    "version-id": "1.0.0",
-                    "kernel-version": "1.1.0",
-                    "machine": "x86_64",
-                    "id": "testguestos"
-                }
-            }`
-
-			_, err := parseGuestOSInfo(malformedJSONInput)
-			Expect(err).To(HaveOccurred(), "Should not parse the info")
-		})
-
-		It("should parse Hostname", func() {
-			jsonInput := `{
-                "return":{
-                    "host-name":"TestHost"
-                }
-            }`
-
-			hostname, err := parseHostname(jsonInput)
-			expectedHostname := "TestHost"
-
-			Expect(err).ToNot(HaveOccurred(), "hostname should be parser normally")
-			Expect(hostname).To(Equal(expectedHostname))
-		})
-
-		It("should parse Agent", func() {
-			jsonInput := `{
-                "return":{
-                    "version":"4.1"
-                }
-            }`
-
-			agent, err := parseAgent(jsonInput)
-			expectedAgent := "4.1"
-
-			Expect(err).ToNot(HaveOccurred(), "agent version should be parsed normally")
-			Expect(agent).To(Equal(expectedAgent))
-		})
-
-		It("should strip Agent response", func() {
-			jsonInput := `{"return":{"version":"4.1"}}`
-
-			response := stripAgentResponse(jsonInput)
-			expectedResponse := `{"version":"4.1"}`
-
-			Expect(response).To(Equal(expectedResponse))
-		})
-
-		It("should parse Timezone", func() {
-
-			jsonInput := `{
-                "return":{
-                    "zone":"Prague",
-                    "offset":2
-                }
-            }`
-
-			timezone, err := parseTimezone(jsonInput)
-			expectedTimezone := api.Timezone{
-				Zone:   "Prague",
-				Offset: 2,
+		It("should not fire an event for the same sysinfo data", func() {
+			var agentStore = NewAsyncAgentStore()
+			fakeInfo := api.GuestOSInfo{
+				Name:          "TestGuestOSName",
+				KernelRelease: "1.1.0-Generic",
+				Version:       "1.0.0",
+				PrettyName:    "TestGuestOSName 1.0.0",
+				VersionId:     "1.0.0",
+				KernelVersion: "1.1.0",
+				Machine:       "x86_64",
+				Id:            "testguestos",
 			}
 
-			Expect(err).ToNot(HaveOccurred(), "timezone should be parsed normally")
-			Expect(timezone).To(Equal(expectedTimezone))
+			agentStore.Store(GET_OSINFO, fakeInfo)
+			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
+				Type:       GET_OSINFO,
+				DomainInfo: api.DomainGuestInfo{OSInfo: &fakeInfo},
+			})))
+
+			agentStore.Store(GET_OSINFO, fakeInfo)
+			Expect(agentStore.AgentUpdated).ToNot(Receive())
+		})
+	})
+
+	Context("PollerWorker", func() {
+		It("executes the agent commands at least once", func() {
+			const interval = 1
+			const expectedExecutions = 1
+
+			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, 0)
+
+			Expect(commandExecutions).To(Equal(expectedExecutions))
 		})
 
-		It("should parse Filesystem", func() {
+		It("executes the agent commands based on the time interval specified", func() {
+			const interval = 1
+			const expectedExecutions = 3
 
-			jsonInput := `{
-                "return":[
-                    {
-                        "name":"main",
-                        "mountpoint":"/",
-                        "type":"ext",
-                        "total-bytes":99999,
-                        "used-bytes":33333
-                    }
-                ]
-            }`
+			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, 0)
 
-			filesystem, err := parseFilesystem(jsonInput)
-			expectedFilesystem := []api.Filesystem{
-				api.Filesystem{
-					Name:       "main",
-					Mountpoint: "/",
-					Type:       "ext",
-					TotalBytes: 99999,
-					UsedBytes:  33333,
-				},
-			}
-
-			Expect(err).ToNot(HaveOccurred(), "filesystem should be parsed normally")
-			Expect(filesystem).To(Equal(expectedFilesystem))
+			Expect(commandExecutions).To(Equal(expectedExecutions))
 		})
 
-		It("should parse Users", func() {
+		It("executes the agent commands based on the minimum interval at initial run", func() {
+			const interval = 30
+			const expectedExecutions = 2
 
-			jsonInput := `{
-                "return":[
-                    {
-                        "user":"bob",
-                        "domain":"bobs",
-                        "login-time":99999
-                    }
-                ]
-            }`
+			// Given the initial interval is 10sec, the code under test is expected to execute the commands at time:
+			// 0, 10sec, 10sec + 2*10sec
+			// Therefore, setting a timeout limit of 20sec should cover the first 2 executions.
+			t := 2 * pollInitialInterval
+			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, t)
 
-			users, err := parseUsers(jsonInput)
-			expectedUsers := []api.User{
-				api.User{
-					Name:      "bob",
-					Domain:    "bobs",
-					LoginTime: 99999,
-				},
-			}
-
-			Expect(err).ToNot(HaveOccurred(), "users should be parsed normally")
-			Expect(users).To(Equal(expectedUsers))
-		})
-
-		Context("with AsyncAgentStore", func() {
-
-			It("should store and load the data", func() {
-				var agentStore = NewAsyncAgentStore()
-				agentVersion := "4.1"
-				agentStore.Store(GET_AGENT, agentVersion)
-				agent := agentStore.GetGA()
-
-				Expect(agent).To(Equal(agentVersion))
-			})
-
-			It("should fire an event for new sysinfo data", func() {
-				var agentStore = NewAsyncAgentStore()
-
-				fakeInfo := api.GuestOSInfo{
-					Name:          "TestGuestOSName",
-					KernelRelease: "1.1.0-Generic",
-					Version:       "1.0.0",
-					PrettyName:    "TestGuestOSName 1.0.0",
-					VersionId:     "1.0.0",
-					KernelVersion: "1.1.0",
-					Machine:       "x86_64",
-					Id:            "testguestos",
-				}
-				agentStore.Store(GET_OSINFO, fakeInfo)
-
-				Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
-					Type:       GET_OSINFO,
-					DomainInfo: api.DomainGuestInfo{OSInfo: &fakeInfo},
-				})))
-			})
-
-			It("should not fire an event for the same sysinfo data", func() {
-				var agentStore = NewAsyncAgentStore()
-				fakeInfo := api.GuestOSInfo{
-					Name:          "TestGuestOSName",
-					KernelRelease: "1.1.0-Generic",
-					Version:       "1.0.0",
-					PrettyName:    "TestGuestOSName 1.0.0",
-					VersionId:     "1.0.0",
-					KernelVersion: "1.1.0",
-					Machine:       "x86_64",
-					Id:            "testguestos",
-				}
-
-				agentStore.Store(GET_OSINFO, fakeInfo)
-				Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
-					Type:       GET_OSINFO,
-					DomainInfo: api.DomainGuestInfo{OSInfo: &fakeInfo},
-				})))
-
-				agentStore.Store(GET_OSINFO, fakeInfo)
-				Expect(agentStore.AgentUpdated).ToNot(Receive())
-			})
+			Expect(commandExecutions).To(Equal(expectedExecutions))
 		})
 	})
 })
+
+// runPollAndCountCommandExecution runs a PollerWorker with the specified polling interval
+// and counts the number of times the command has been executed.
+// The operation is limited by the provided or self calculated timeout and the expected executions.
+// The timeout needs to be large enough to allow the expected executions to occur and to accommodate the
+// inaccuracy of the go-routine execution.
+func runPollAndCountCommandExecution(interval, expectedExecutions int, timeout time.Duration) int {
+	const fakeAgentCommandName = "foo"
+	w := PollerWorker{
+		CallTick:      time.Duration(interval),
+		AgentCommands: []AgentCommand{fakeAgentCommandName},
+	}
+	// Closing the c channel assures go-routine termination.
+	// The done channel is a receiver, therefore left to the gc for collection.
+	c := make(chan struct{})
+	defer close(c)
+	done := make(chan struct{})
+
+	go w.Poll(func(commands []AgentCommand) { done <- struct{}{} }, c)
+
+	if timeout == 0 {
+		// Calculate the time needed for the poll to execute the commands.
+		// An additional interval is included intentionally to act as a timeout buffer.
+		timeout = time.Duration((expectedExecutions)*interval) * time.Second
+	}
+	return countSignals(done, expectedExecutions, timeout)
+}
+
+// countSignals counts the number of signals received through the `done` channel
+// Returns in case the timeout has been reached or maxSignals received.
+func countSignals(done <-chan struct{}, maxSignals int, timeout time.Duration) int {
+	var counter int
+	t := time.After(timeout)
+	for {
+		select {
+		case <-t:
+			return counter
+		case <-done:
+			counter++
+			if counter == maxSignals {
+				return counter
+			}
+		}
+	}
+}
