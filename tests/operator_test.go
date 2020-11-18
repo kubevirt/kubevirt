@@ -53,8 +53,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 type vmYamlDefinition struct {
@@ -938,7 +940,7 @@ spec:
 				Eventually(func() error {
 					vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					if err := tests.LoginToCirros(vmi); err != nil {
+					if err := libnet.WithIPv6(console.LoginToCirros)(vmi); err != nil {
 						return err
 					}
 					return nil

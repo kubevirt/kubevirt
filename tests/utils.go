@@ -1554,28 +1554,6 @@ func GetRunningPodByLabel(label string, labelType string, namespace string, node
 	return readyPod, nil
 }
 
-func GetPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) *k8sv1.Pod {
-	virtCli, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	pods, err := virtCli.CoreV1().Pods(namespace).List(metav1.ListOptions{})
-	PanicOnError(err)
-
-	var controlledPod *k8sv1.Pod
-	for _, pod := range pods.Items {
-		if controller.IsControlledBy(&pod, vmi) {
-			controlledPod = &pod
-			break
-		}
-	}
-
-	if controlledPod == nil {
-		PanicOnError(fmt.Errorf("no controlled pod was found for VMI"))
-	}
-
-	return controlledPod
-}
-
 func GetComputeContainerOfPod(pod *k8sv1.Pod) *k8sv1.Container {
 	return GetContainerOfPod(pod, "compute")
 }
@@ -2824,7 +2802,7 @@ func WaitForSuccessfulVMIStartWithContext(ctx context.Context, vmi runtime.Objec
 	return waitForVMIStart(ctx, vmi, 360, false)
 }
 
-func WaitUntilVMIReadyAsync(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo LoginToFactory) func() *v1.VirtualMachineInstance {
+func WaitUntilVMIReadyAsync(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) func() *v1.VirtualMachineInstance {
 	var (
 		wg       sync.WaitGroup
 		readyVMI *v1.VirtualMachineInstance
@@ -2842,13 +2820,13 @@ func WaitUntilVMIReadyAsync(ctx context.Context, vmi *v1.VirtualMachineInstance,
 	}
 }
 
-func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo LoginToFactory) *v1.VirtualMachineInstance {
+func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) *v1.VirtualMachineInstance {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	return WaitUntilVMIReadyWithContext(ctx, vmi, loginTo)
 }
 
-func WaitUntilVMIReadyWithContext(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo LoginToFactory) *v1.VirtualMachineInstance {
+func WaitUntilVMIReadyWithContext(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) *v1.VirtualMachineInstance {
 	// Wait for VirtualMachineInstance start
 	WaitForSuccessfulVMIStartWithContext(ctx, vmi)
 
@@ -2928,71 +2906,6 @@ func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
 	return &pod
 }
 
-func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter, virtClient kubecli.KubevirtClient) error {
-	hasEth0Iface := func() bool {
-		hasNetEth0Batch := append([]expect.Batcher{
-			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: "ip a | grep -q eth0; echo $?\n"},
-			&expect.BExp{R: console.RetValue("0")}})
-		_, err := console.ExpectBatchWithValidatedSend(expecter, hasNetEth0Batch, 30*time.Second)
-		return err == nil
-	}
-
-	hasGlobalIPv6 := func() bool {
-		hasGlobalIPv6Batch := append([]expect.Batcher{
-			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: "ip -6 address show dev eth0 scope global | grep -q inet6; echo $?\n"},
-			&expect.BExp{R: console.RetValue("0")}})
-		_, err := console.ExpectBatchWithValidatedSend(expecter, hasGlobalIPv6Batch, 30*time.Second)
-		return err == nil
-	}
-
-	clusterSupportsIpv6 := func() bool {
-		pod := GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-		for _, ip := range pod.Status.PodIPs {
-			if netutils.IsIPv6String(ip.IP) {
-				return true
-			}
-		}
-		return false
-	}
-
-	if !clusterSupportsIpv6() ||
-		(vmi.Spec.Domain.Devices.Interfaces == nil || len(vmi.Spec.Domain.Devices.Interfaces) == 0 || vmi.Spec.Domain.Devices.Interfaces[0].InterfaceBindingMethod.Masquerade == nil) ||
-		(vmi.Spec.Domain.Devices.AutoattachPodInterface != nil && !*vmi.Spec.Domain.Devices.AutoattachPodInterface) ||
-		(!hasEth0Iface() || hasGlobalIPv6()) {
-		return nil
-	}
-
-	addIPv6Address := append([]expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: "sudo ip -6 addr add fd10:0:2::2/120 dev eth0; echo $?\n"},
-		&expect.BExp{R: console.RetValue("0")}})
-	resp, err := console.ExpectBatchWithValidatedSend(expecter, addIPv6Address, 30*time.Second)
-	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("addIPv6Address failed: %v", resp)
-		expecter.Close()
-		return err
-	}
-
-	time.Sleep(5 * time.Second)
-	addIPv6DefaultRoute := append([]expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: "sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2; echo $?\n"},
-		&expect.BExp{R: console.RetValue("0")}})
-	resp, err = console.ExpectBatchWithValidatedSend(expecter, addIPv6DefaultRoute, 30*time.Second)
-	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("addIPv6DefaultRoute failed: %v", resp)
-		expecter.Close()
-		return err
-	}
-
-	return nil
-}
 func NewVirtctlCommand(args ...string) *cobra.Command {
 	commandline := []string{}
 	master := flag.Lookup("master").Value
@@ -4218,7 +4131,7 @@ func ForwardPorts(pod *k8sv1.Pod, ports []string, stop chan struct{}, readyTimeo
 }
 
 func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, protocol string) {
-	Expect(LoginToCirros(vmi)).To(Succeed())
+	Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 	serverCommand := fmt.Sprintf("screen -d -m sudo nc -klp %d -e echo -e 'Hello World!'\n", testPort)
 	if protocol == "udp" {

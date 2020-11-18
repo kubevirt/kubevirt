@@ -20,8 +20,10 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 func newLabeledVMI(label string, virtClient kubecli.KubevirtClient, createVMI bool) (vmi *v1.VirtualMachineInstance) {
@@ -39,7 +41,7 @@ func newLabeledVMI(label string, virtClient kubecli.KubevirtClient, createVMI bo
 		tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 		vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.ObjectMeta.Name, &k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		tests.WaitUntilVMIReady(vmi, tests.LoginToCirros)
+		tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
 	}
 	return
 }
@@ -270,7 +272,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					if ipFamily == k8sv1.IPv6Protocol {
 						ipv6NodeIP, err := resolveNodeIPAddrByFamily(
 							virtClient,
-							tests.GetPodByVirtualMachineInstance(tcpVM, tcpVM.GetNamespace()),
+							libvmi.GetPodByVirtualMachineInstance(tcpVM, tcpVM.GetNamespace()),
 							node,
 							ipFamily)
 						Expect(err).NotTo(HaveOccurred(), "must have been able to resolve an IP address from the node name")
@@ -395,7 +397,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					if ipFamily == k8sv1.IPv6Protocol {
 						ipv6NodeIP, err := resolveNodeIPAddrByFamily(
 							virtClient,
-							tests.GetPodByVirtualMachineInstance(udpVM, udpVM.GetNamespace()),
+							libvmi.GetPodByVirtualMachineInstance(udpVM, udpVM.GetNamespace()),
 							node,
 							ipFamily)
 						Expect(err).NotTo(HaveOccurred(), "must have been able to resolve an IP address from the node name")

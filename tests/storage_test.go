@@ -157,7 +157,7 @@ var _ = Describe("[Serial]Storage", func() {
 					tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 120, ignoreWarnings)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
-					Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 				},
 					table.Entry("[test_id:3130]with Disk PVC", tests.NewRandomVMIWithPVC, "", nil),
 					table.Entry("[test_id:3131]with CDRom PVC", tests.NewRandomVMIWithCDRom, "", nil),
@@ -180,7 +180,7 @@ var _ = Describe("[Serial]Storage", func() {
 					// after being restarted multiple times
 					if i == num {
 						By("Checking that the VirtualMachineInstance console has expected output")
-						Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+						Expect(console.LoginToAlpine(vmi)).To(Succeed())
 					}
 
 					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
@@ -217,7 +217,7 @@ var _ = Describe("[Serial]Storage", func() {
 				})
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
-				Expect(tests.LoginToCirros(vmi)).To(Succeed())
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 				By("Checking that /dev/vdc has a capacity of 2Gi")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -261,7 +261,7 @@ var _ = Describe("[Serial]Storage", func() {
 				})
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
-				Expect(tests.LoginToCirros(vmi)).To(Succeed())
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 				By("Checking for the specified serial number")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -324,7 +324,7 @@ var _ = Describe("[Serial]Storage", func() {
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(tests.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 				By("Checking that virtio-fs is mounted")
 				listVirtioFSDisk := fmt.Sprintf("ls -l %s/*disk* | wc -l\n", virtiofsMountPath)
@@ -407,7 +407,7 @@ var _ = Describe("[Serial]Storage", func() {
 					vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 120, ignoreWarnings)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
-					Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 				},
 					table.Entry("[test_id:3136]with Ephemeral PVC", tests.NewRandomVMIWithEphemeralPVC, "", nil),
 					table.Entry("[test_id:4619]with Ephemeral PVC from NFS using ipv4 address of the NFS pod", tests.NewRandomVMIWithEphemeralPVC, "nfs", k8sv1.IPv4Protocol),
@@ -430,7 +430,7 @@ var _ = Describe("[Serial]Storage", func() {
 				}
 
 				By("Writing an arbitrary file to it's EFI partition")
-				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// Because "/" is mounted on tmpfs, we need something that normally persists writes - /dev/sda2 is the EFI partition formatted as vFAT.
@@ -458,7 +458,7 @@ var _ = Describe("[Serial]Storage", func() {
 				}
 
 				By("Making sure that the previously written file is not present")
-				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// Same story as when first starting the VirtualMachineInstance - the checkpoint, if persisted, is located at /dev/sda2.
@@ -497,7 +497,7 @@ var _ = Describe("[Serial]Storage", func() {
 					// after being restarted multiple times
 					if i == num {
 						By("Checking that the second disk is present")
-						Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+						Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 						Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 							&expect.BSnd{S: "blockdev --getsize64 /dev/vdb\n"},
@@ -852,7 +852,7 @@ var _ = Describe("[Serial]Storage", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(tests.LoginToCirros(vmi)).To(Succeed())
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 			})
 		})
 
@@ -884,7 +884,7 @@ var _ = Describe("[Serial]Storage", func() {
 				tests.RunVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			})
 		})
 
@@ -973,7 +973,7 @@ var _ = Describe("[Serial]Storage", func() {
 				})
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
-				Expect(tests.LoginToAlpine(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking that /dev/sda has a capacity of 1Gi")
 				Expect(console.ExpectBatch(vmi, []expect.Batcher{

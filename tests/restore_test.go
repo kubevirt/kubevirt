@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
@@ -378,7 +379,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 
 			doRestore := func(device string) {
 				By("creating 'message with initial value")
-				Expect(tests.LoginToCirros(vmi)).To(Succeed())
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 				var batch []expect.Batcher
 				if device != "" {
@@ -431,7 +432,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("updating message")
-				Expect(tests.LoginToCirros(vmi)).To(Succeed())
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 				batch = nil
 
@@ -488,7 +489,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying original file contents")
-				Expect(tests.LoginToCirros(vmi)).To(Succeed())
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 
 				batch = nil
 
