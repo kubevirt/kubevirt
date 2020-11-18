@@ -45,11 +45,11 @@ type VirtualMachineSnapshot struct {
 type DeletionPolicy string
 
 const (
-	// VirtualMachineSnapshotContentDelete is the default and causes the
+	// VirtualMachineSnapshotContentDelete causes the
 	// VirtualMachineSnapshotContent to be deleted
 	VirtualMachineSnapshotContentDelete DeletionPolicy = "Delete"
 
-	// VirtualMachineSnapshotContentRetain is the default and causes the
+	// VirtualMachineSnapshotContentRetain causes the
 	// VirtualMachineSnapshotContent to stay around
 	VirtualMachineSnapshotContentRetain DeletionPolicy = "Retain"
 )
@@ -163,11 +163,24 @@ type SourceSpec struct {
 	VirtualMachine *v1.VirtualMachine `json:"virtualMachine,omitempty"`
 }
 
+type PersistentVolumeClaim struct {
+	// Standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// Spec defines the desired characteristics of a volume requested by a pod author.
+	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+	// +optional
+	Spec corev1.PersistentVolumeClaimSpec `json:"spec,omitempty"`
+}
+
 // VolumeBackup contains the data neeed to restore a PVC
 type VolumeBackup struct {
 	VolumeName string `json:"volumeName"`
 
-	PersistentVolumeClaim corev1.PersistentVolumeClaim `json:"persistentVolumeClaim"`
+	PersistentVolumeClaim PersistentVolumeClaim `json:"persistentVolumeClaim"`
 
 	// +optional
 	VolumeSnapshotName *string `json:"volumeSnapshotName,omitempty"`

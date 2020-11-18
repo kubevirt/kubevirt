@@ -411,6 +411,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.WatchdogDevice":                                      schema_kubevirtio_client_go_api_v1_WatchdogDevice(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.Condition":                           schema_client_go_apis_snapshot_v1alpha1_Condition(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.Error":                               schema_client_go_apis_snapshot_v1alpha1_Error(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.PersistentVolumeClaim":               schema_client_go_apis_snapshot_v1alpha1_PersistentVolumeClaim(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.SourceSpec":                          schema_client_go_apis_snapshot_v1alpha1_SourceSpec(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestore":               schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestore(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreList":           schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreList(ref),
@@ -18858,6 +18859,32 @@ func schema_client_go_apis_snapshot_v1alpha1_Error(ref common.ReferenceCallback)
 	}
 }
 
+func schema_client_go_apis_snapshot_v1alpha1_PersistentVolumeClaim(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec defines the desired characteristics of a volume requested by a pod author. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimSpec"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.PersistentVolumeClaimSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
 func schema_client_go_apis_snapshot_v1alpha1_SourceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -19424,7 +19451,7 @@ func schema_client_go_apis_snapshot_v1alpha1_VolumeBackup(ref common.ReferenceCa
 					},
 					"persistentVolumeClaim": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/api/core/v1.PersistentVolumeClaim"),
+							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.PersistentVolumeClaim"),
 						},
 					},
 					"volumeSnapshotName": {
@@ -19438,7 +19465,7 @@ func schema_client_go_apis_snapshot_v1alpha1_VolumeBackup(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaim"},
+			"kubevirt.io/client-go/apis/snapshot/v1alpha1.PersistentVolumeClaim"},
 	}
 }
 
