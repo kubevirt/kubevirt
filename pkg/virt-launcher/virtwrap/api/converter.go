@@ -197,6 +197,7 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 func checkDirectIOFlag(path string) bool {
 	// check if fs where disk.img file is located or block device
 	// support direct i/o
+	// #nosec No risk for path injection. No information can be exposed to attacker
 	f, err := os.OpenFile(path, syscall.O_RDONLY|syscall.O_DIRECT, 0)
 	if err != nil && !os.IsNotExist(err) {
 		return false
@@ -1790,6 +1791,7 @@ func boolToString(value *bool, defaultPositive bool, positive string, negative s
 
 // returns nameservers [][]byte, searchdomains []string, error
 func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
+	// #nosec No risk for path injection. resolvConf is static "/etc/resolve.conf"
 	b, err := ioutil.ReadFile(resolvConf)
 	if err != nil {
 		return nil, nil, err

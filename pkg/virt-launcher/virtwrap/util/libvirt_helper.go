@@ -260,7 +260,7 @@ func StartVirtlog(stopChan chan struct{}, domainName string) {
 					}
 					time.Sleep(time.Second)
 				}
-
+				// #nosec No risk for path injection. logfile has a static basedir
 				file, err := os.Open(logfile)
 				if err != nil {
 					log.Log.Reason(err).Error("failed to catch virtlogd logs")

@@ -206,7 +206,7 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 	if err := parseArgs(args); err != nil {
 		return err
 	}
-
+	// #nosec No risk for path injection. This is used only to upload an image not to read info
 	file, err := os.Open(imagePath)
 	if err != nil {
 		return err

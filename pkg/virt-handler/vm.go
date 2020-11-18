@@ -464,7 +464,7 @@ func (d *VirtualMachineController) getPodInterfacefromFileCache(uid types.UID, i
 	if exists {
 		return result, nil
 	}
-
+	// #nosec No risk for path injection. ifacepath is composed of static values from pkg/util
 	content, err := ioutil.ReadFile(ifacepath)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to read from cache file: %s", err.Error())
@@ -2228,7 +2228,7 @@ func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan
 
 func (d *VirtualMachineController) updateNodeCpuManagerLabel(cpuManagerPath string) {
 	var cpuManagerOptions map[string]interface{}
-
+	// #nosec No risk for path injection. cpuManagerPath is composed of static values from pkg/util
 	content, err := ioutil.ReadFile(cpuManagerPath)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)

@@ -191,6 +191,7 @@ func (mon *monitor) RunForever(startTimeout time.Duration, signalStopChan chan s
 	mon.monitorLoop(startTimeout, signalStopChan)
 }
 
+// #nosec doesn't seem like this function is even used
 func readProcCmdline(pathname string) ([]string, error) {
 	content, err := ioutil.ReadFile(pathname)
 	if err != nil {
@@ -221,6 +222,7 @@ func FindPid(commandNamePrefix string) (int, error) {
 	}
 
 	for _, entry := range entries {
+		// #nosec No risk for path injection. Reading specific entries under /proc
 		content, err := ioutil.ReadFile(entry)
 		if err != nil {
 			return 0, err

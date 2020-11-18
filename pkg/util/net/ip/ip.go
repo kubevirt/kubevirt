@@ -75,6 +75,7 @@ func NormalizeIPAddress(ipAddress string) string {
 }
 
 func isIPv6Disabled(filename string) bool {
+	// #nosec No injection path risk: filename is set to the const `disableIPv6Path`
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return true
