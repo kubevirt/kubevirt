@@ -36,19 +36,29 @@ const (
 )
 
 type DHCPv6Handler struct {
-	clientIP    net.IP
-	serverIface string
+	clientIP       net.IP
+	serverIfaceMac net.HardwareAddr
 }
 
-func SingleClientDHCPv6Server(clientIP net.IP, serverIface string) error {
+func SingleClientDHCPv6Server(clientIP net.IP, serverIfaceName string) error {
 	log.Log.Info("Starting SingleClientDHCPv6Server")
 
-	handler := &DHCPv6Handler{
-		clientIP:    clientIP,
-		serverIface: serverIface,
+	iface, err := net.InterfaceByName(serverIfaceName)
+	if err != nil {
+		return fmt.Errorf("couldn't create DHCPv6 server, couldn't get the dhcp6 server interface: %v", err)
 	}
 
-	s, err := server6.NewServer(serverIface, nil, handler.ServeDHCPv6)
+	handler := &DHCPv6Handler{
+		clientIP:       clientIP,
+		serverIfaceMac: iface.HardwareAddr,
+	}
+
+	conn, err := NewConnection(iface)
+	if err != nil {
+		return fmt.Errorf("couldn't create DHCPv6 server: %v", err)
+	}
+
+	s, err := server6.NewServer("", nil, handler.ServeDHCPv6, server6.WithConn(conn))
 	if err != nil {
 		return fmt.Errorf("couldn't create DHCPv6 server: %v", err)
 	}
@@ -67,15 +77,11 @@ func (h *DHCPv6Handler) ServeDHCPv6(conn net.PacketConn, peer net.Addr, m dhcpv6
 	// TODO if we extend the server to support bridge binding, we need to filter out non-vm requests
 
 	var response *dhcpv6.Message
+	var err error
 
 	optIAAddress := dhcpv6.OptIAAddress{IPv6Addr: h.clientIP, PreferredLifetime: infiniteLease, ValidLifetime: infiniteLease}
 
-	iface, err := net.InterfaceByName(h.serverIface)
-	if err != nil {
-		log.Log.V(4).Info("DHCPv6 - couldn't get the server interface")
-		return
-	}
-	duid := dhcpv6.Duid{Type: dhcpv6.DUID_LL, HwType: iana.HWTypeEthernet, LinkLayerAddr: iface.HardwareAddr}
+	duid := dhcpv6.Duid{Type: dhcpv6.DUID_LL, HwType: iana.HWTypeEthernet, LinkLayerAddr: h.serverIfaceMac}
 
 	dhcpv6Msg := m.(*dhcpv6.Message)
 	switch dhcpv6Msg.Type() {
