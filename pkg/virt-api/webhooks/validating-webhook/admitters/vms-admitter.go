@@ -299,8 +299,8 @@ func (admitter *VMsAdmitter) validateVolumeRequests(ar *v1beta1.AdmissionRequest
 	curVMAddRequestsMap := make(map[string]*v1.VirtualMachineVolumeRequest)
 	curVMRemoveRequestsMap := make(map[string]*v1.VirtualMachineVolumeRequest)
 
-	vmVolumeMap := make(map[string]*v1.Volume)
-	vmiVolumeMap := make(map[string]*v1.Volume)
+	vmVolumeMap := make(map[string]v1.Volume)
+	vmiVolumeMap := make(map[string]v1.Volume)
 
 	vmi := &v1.VirtualMachineInstance{}
 	vmiExists := false
@@ -320,12 +320,12 @@ func (admitter *VMsAdmitter) validateVolumeRequests(ar *v1beta1.AdmissionRequest
 
 	if vmiExists {
 		for _, volume := range vmi.Spec.Volumes {
-			vmiVolumeMap[volume.Name] = &volume
+			vmiVolumeMap[volume.Name] = volume
 		}
 	}
 
 	for _, volume := range vm.Spec.Template.Spec.Volumes {
-		vmVolumeMap[volume.Name] = &volume
+		vmVolumeMap[volume.Name] = volume
 	}
 
 	newSpec := vm.Spec.Template.Spec.DeepCopy()
@@ -380,16 +380,16 @@ func (admitter *VMsAdmitter) validateVolumeRequests(ar *v1beta1.AdmissionRequest
 			}
 
 			vmVolume, ok := vmVolumeMap[name]
-			if ok && !reflect.DeepEqual(newVolume, *vmVolume) {
+			if ok && !reflect.DeepEqual(newVolume, vmVolume) {
 				return []metav1.StatusCause{{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("AddVolume request for [%s] conflicts with an existing volume of the same name on the vmi template", name),
+					Message: fmt.Sprintf("AddVolume request for [%s] conflicts with an existing volume of the same name on the vmi template.", name),
 					Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
 				}}, nil
 			}
 
 			vmiVolume, ok := vmiVolumeMap[name]
-			if ok && !reflect.DeepEqual(newVolume, *vmiVolume) {
+			if ok && !reflect.DeepEqual(newVolume, vmiVolume) {
 				return []metav1.StatusCause{{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("AddVolume request for [%s] conflicts with an existing volume of the same name on currently running vmi", name),

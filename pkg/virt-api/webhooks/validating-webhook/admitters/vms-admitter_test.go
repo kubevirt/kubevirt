@@ -174,6 +174,30 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		})
 
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: "a-pvcdisk",
+		})
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "a-pvcdisk",
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "a-pvcdiskclaim",
+				},
+			},
+		})
+
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: "t-pvcdisk",
+		})
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "t-pvcdisk",
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "t-pvcdiskclaim",
+				},
+			},
+		})
+
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
 				Running: &notRunning,
@@ -260,6 +284,42 @@ var _ = Describe("Validating VM Admitter", func() {
 		table.Entry("with valid request to add volume that is identical to one in vmi", []v1.VirtualMachineVolumeRequest{
 			{
 				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name: "a-pvcdisk",
+					Disk: &v1.Disk{
+						Name: "a-pvcdisk",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: "scsi",
+							},
+						},
+					},
+					VolumeSource: &v1.HotplugVolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "a-pvcdiskclaim",
+						},
+					},
+				},
+			},
+			{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name: "testpvcdisk-extra1",
+					Disk: &v1.Disk{
+						Name: "testpvcdisk-extra1",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: "scsi",
+							},
+						},
+					},
+					VolumeSource: &v1.HotplugVolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testpvcdiskclaim-extra1",
+						},
+					},
+				},
+			},
+			{
+				AddVolumeOptions: &v1.AddVolumeOptions{
 					Name: "testpvcdisk-extra",
 					Disk: &v1.Disk{
 						Name: "testpvcdisk-extra",
@@ -272,6 +332,42 @@ var _ = Describe("Validating VM Admitter", func() {
 					VolumeSource: &v1.HotplugVolumeSource{
 						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testpvcdiskclaim-extra",
+						},
+					},
+				},
+			},
+			{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name: "testpvcdisk-extra2",
+					Disk: &v1.Disk{
+						Name: "testpvcdisk-extra2",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: "scsi",
+							},
+						},
+					},
+					VolumeSource: &v1.HotplugVolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testpvcdiskclaim-extra2",
+						},
+					},
+				},
+			},
+			{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name: "t-pvcdisk",
+					Disk: &v1.Disk{
+						Name: "t-pvcdisk",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: "scsi",
+							},
+						},
+					},
+					VolumeSource: &v1.HotplugVolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "t-pvcdiskclaim",
 						},
 					},
 				},
