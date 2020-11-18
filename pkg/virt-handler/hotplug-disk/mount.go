@@ -228,15 +228,17 @@ func (m *volumeMounter) Mount(vmi *v1.VirtualMachineInstance) error {
 		}
 		logger.V(4).Infof("Hotplug check volume name: %s", volumeStatus.Name)
 		sourceUID := volumeStatus.HotplugVolume.AttachPodUID
-		if m.isBlockVolume(sourceUID) {
-			logger.V(4).Infof("Mounting block volume: %s", volumeStatus.Name)
-			if err := m.mountBlockHotplugVolume(vmi, volumeStatus.Name, sourceUID, record); err != nil {
-				return err
-			}
-		} else {
-			logger.V(4).Infof("Mounting file system volume: %s", volumeStatus.Name)
-			if err := m.mountFileSystemHotplugVolume(vmi, volumeStatus.Name, sourceUID, record); err != nil {
-				return err
+		if sourceUID != "" {
+			if m.isBlockVolume(sourceUID) {
+				logger.V(4).Infof("Mounting block volume: %s", volumeStatus.Name)
+				if err := m.mountBlockHotplugVolume(vmi, volumeStatus.Name, sourceUID, record); err != nil {
+					return err
+				}
+			} else {
+				logger.V(4).Infof("Mounting file system volume: %s", volumeStatus.Name)
+				if err := m.mountFileSystemHotplugVolume(vmi, volumeStatus.Name, sourceUID, record); err != nil {
+					return err
+				}
 			}
 		}
 	}

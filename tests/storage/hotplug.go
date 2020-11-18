@@ -71,18 +71,19 @@ var _ = SIGDescribe("Hotplug", func() {
 	}
 
 	addVolumeVMWithSource := func(vm *kubevirtv1.VirtualMachine, volumeName, bus string, volumeSource *kubevirtv1.HotplugVolumeSource) {
-		err = virtClient.VirtualMachine(vm.Namespace).AddVolume(vm.Name, &kubevirtv1.AddVolumeOptions{
-			Name: volumeName,
-			Disk: &kubevirtv1.Disk{
-				DiskDevice: kubevirtv1.DiskDevice{
-					Disk: &kubevirtv1.DiskTarget{
-						Bus: bus,
+		Eventually(func() error {
+			return virtClient.VirtualMachine(vm.Namespace).AddVolume(vm.Name, &kubevirtv1.AddVolumeOptions{
+				Name: volumeName,
+				Disk: &kubevirtv1.Disk{
+					DiskDevice: kubevirtv1.DiskDevice{
+						Disk: &kubevirtv1.DiskTarget{
+							Bus: bus,
+						},
 					},
 				},
-			},
-			VolumeSource: volumeSource,
-		})
-		Expect(err).ToNot(HaveOccurred())
+				VolumeSource: volumeSource,
+			})
+		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	addDVVolumeVM := func(vm *kubevirtv1.VirtualMachine, volumeName, claimName, bus string) {
@@ -374,7 +375,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			By("Verify the volume status of the hotplugged volume is ready")
 			verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
 			By("Obtaining the serial console")
-			Expect(tests.LoginToFedora(vmi)).To(Succeed())
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
 			targets := getTargetsFromVolumeStatus(vmi, "testvolume")
 			Eventually(func() error {
 				return console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -406,7 +407,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			// By("Obtaining the serial console")
-			Expect(tests.LoginToFedora(vmi)).To(Succeed())
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 			testVolumes := make([]string, 0)
 			dvNames := make([]string, 0)
@@ -486,26 +487,70 @@ var _ = SIGDescribe("Hotplug", func() {
 					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(dvName, &metav1.DeleteOptions{})).To(Succeed())
 				}
 			}(dvNames, vmi.Namespace)
-			time.Sleep(time.Minute)
+
 			for i := 0; i < 4; i++ {
 				By("Adding volume " + strconv.Itoa(i) + " to running VM, dv name:" + dvNames[i])
 				addDVVolumeVM(vm, testVolumes[i], dvNames[i], "scsi")
 			}
 
-			// By("Verifying the volume and disk are in the VM and VMI")
-			// verifyVolumeAndDiskVMAdded(vm, testVolumes[:len(testVolumes)-1]...)
-			// vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
-			// Expect(err).ToNot(HaveOccurred())
-			// verifyVolumeAndDiskVMIAdded(vmi, testVolumes[:len(testVolumes)-1]...)
+			By("Verifying the volume and disk are in the VM and VMI")
+			verifyVolumeAndDiskVMAdded(vm, testVolumes[:len(testVolumes)-1]...)
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			verifyVolumeAndDiskVMIAdded(vmi, testVolumes[:len(testVolumes)-1]...)
+			By("Verify the volume status of the hotplugged volume is ready")
+			verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, testVolumes[:len(testVolumes)-1]...)
 
-			// By("Verify the volume status of the hotplugged volume is ready")
-			// verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, testVolumes[:len(testVolumes)-1]...)
-			// for _, volumeName := range testVolumes {
-			// 	By("removing volume from VM")
-			// 	removeVolumeVM(vm, volumeName)
-			// 	By("Verifying the volume no longer exists in VM")
-			// 	verifyVolumeAndDiskVMRemoved(vm, volumeName)
-			// }
+			By("removing volume sdc, with dv" + dvNames[2])
+			Eventually(func() string {
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vmi.Status.VolumeStatus[4].Target
+			}, 40*time.Second, 2*time.Second).Should(Equal("sdc"))
+			Eventually(func() string {
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vmi.Status.VolumeStatus[5].Target
+			}, 40*time.Second, 2*time.Second).Should(Equal("sdd"))
+
+			removeVolumeVM(vm, testVolumes[2])
+			Eventually(func() string {
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vmi.Status.VolumeStatus[4].Target
+			}, 40*time.Second, 2*time.Second).Should(Equal("sdd"))
+
+			By("Adding remaining volume, it should end up in the spot that was just cleared")
+			addDVVolumeVM(vm, testVolumes[4], dvNames[4], "scsi")
+			Eventually(func() string {
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, volumeStatus := range vmi.Status.VolumeStatus {
+					if volumeStatus.Name == testVolumes[4] {
+						return volumeStatus.Target
+					}
+				}
+				return ""
+			}, 40*time.Second, 2*time.Second).Should(Equal("sdc"))
+			By("Adding intermediate volume, it should end up at the end")
+			addDVVolumeVM(vm, testVolumes[2], dvNames[2], "scsi")
+			Eventually(func() string {
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, volumeStatus := range vmi.Status.VolumeStatus {
+					if volumeStatus.Name == testVolumes[2] {
+						return volumeStatus.Target
+					}
+				}
+				return ""
+			}, 40*time.Second, 2*time.Second).Should(Equal("sde"))
+
+			for _, volumeName := range testVolumes {
+				By("removing volume from VM")
+				removeVolumeVM(vm, volumeName)
+				By("Verifying the volume no longer exists in VM")
+				verifyVolumeAndDiskVMRemoved(vm, volumeName)
+			}
 		})
 	})
 })
