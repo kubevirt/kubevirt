@@ -1,0 +1,55 @@
+name: Auto-Bump Component's Versions
+on:
+  schedule:
+    - cron:  '0 4 * * *'
+jobs:
+  build:
+    name: HCO Release Bump Job
+    if: (github.repository == 'kubevirt/hyperconverged-cluster-operator')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: master
+
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.15' # The Go version to download (if necessary) and use.
+
+      - name: Get dependencies
+        working-directory: tools/digester
+        run: |
+          cd tools/
+          go get -v -t -d ./...
+          if [ -f Gopkg.toml ]; then
+              curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+              dep ensure
+          fi
+
+      - name: Build
+        working-directory: tools/digester
+        run: go build -v .
+
+      - name: Run
+        run: ./automation/digester/update_images.sh
+
+      - uses: peter-evans/create-pull-request@v3
+        with:
+          token: ${{ secrets.HCO_BOT_TOKEN }}
+          commit-message: |
+            Update Image Digests
+
+            Signed-off-by: HCO Bump Bot <noreply@github.com>
+          committer: HCO Bump Bot <noreply@github.com>
+          title: "Update Image Digests"
+          body: |
+            Update Image Digests
+            Executed by HCO Release-Bumper Bot.
+            ```release-note
+            Update Image Digests
+            ```
+          assignees: tiraboschi,orenc1,nunnatsa
+          reviewers: tiraboschi,orenc1,nunnatsa
+          team-reviewers: owners, maintainers
+          branch: update-image-digests
+          delete-branch: true
