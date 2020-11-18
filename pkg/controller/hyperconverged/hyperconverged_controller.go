@@ -43,7 +43,8 @@ var (
 const (
 	// We cannot set owner reference of cluster-wide resources to namespaced HyperConverged object. Therefore,
 	// use finalizers to manage the cleanup.
-	FinalizerName = "hyperconvergeds.hco.kubevirt.io"
+	FinalizerName    = "kubevirt.io/hyperconverged"
+	badFinalizerName = "hyperconvergeds.hco.kubevirt.io"
 
 	// OpenshiftNamespace is for resources that belong in the openshift namespace
 
@@ -300,6 +301,10 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 		// Add the finalizer if it's not there
 		if !contains(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
 			req.Instance.ObjectMeta.Finalizers = append(req.Instance.ObjectMeta.Finalizers, FinalizerName)
+			req.Dirty = true
+		}
+		if contains(req.Instance.ObjectMeta.Finalizers, badFinalizerName) {
+			req.Instance.ObjectMeta.Finalizers = drop(req.Instance.ObjectMeta.Finalizers, badFinalizerName)
 			req.Dirty = true
 		}
 	} else {

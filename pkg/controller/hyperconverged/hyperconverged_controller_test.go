@@ -611,6 +611,46 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(foundResource.ObjectMeta.Finalizers).To(BeNil())
 
 			})
+
+			It(`should set a finalizer on HCO CR`, func() {
+				expected := getBasicDeployment()
+				cl := expected.initClient()
+				r := initReconciler(cl)
+				res, err := r.Reconcile(request)
+				Expect(err).To(BeNil())
+				Expect(res).Should(Equal(reconcile.Result{}))
+
+				foundResource := &hcov1beta1.HyperConverged{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
+				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
+			})
+
+			It(`should replace a finalizer with a bad name if there`, func() {
+				expected := getBasicDeployment()
+				expected.hco.ObjectMeta.Finalizers = []string{badFinalizerName}
+				cl := expected.initClient()
+				r := initReconciler(cl)
+				res, err := r.Reconcile(request)
+				Expect(err).To(BeNil())
+				Expect(res).Should(Equal(reconcile.Result{}))
+
+				foundResource := &hcov1beta1.HyperConverged{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
+				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
+			})
+
 		})
 
 		Context("Validate OLM required fields", func() {
