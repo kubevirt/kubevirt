@@ -109,7 +109,7 @@ func (m *mounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*vmiMoun
 	}
 
 	// if not there, see if record is on disk, this can happen if virt-handler restarts
-	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))
+	recordFile := filepath.Join(m.mountStateDir, filepath.Clean(string(vmi.UID)))
 
 	exists, err := diskutils.FileExists(recordFile)
 	if err != nil {
@@ -118,6 +118,7 @@ func (m *mounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*vmiMoun
 
 	if exists {
 		record := vmiMountTargetRecord{}
+		// #nosec No risk for path injection. Using static base and cleaned filename
 		bytes, err := ioutil.ReadFile(recordFile)
 		if err != nil {
 			return nil, err

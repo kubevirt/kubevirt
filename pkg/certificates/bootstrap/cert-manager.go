@@ -198,10 +198,12 @@ func (f *FileCertificateManager) rotateCerts() error {
 }
 
 func (f *FileCertificateManager) loadCertificates() (serverCrt *tls.Certificate, err error) {
+	// #nosec No risk for path injection. Used for specific cert file for key rotation
 	certBytes, err := ioutil.ReadFile(f.certBytesPath)
 	if err != nil {
 		return nil, err
 	}
+	// #nosec No risk for path injection. Used for specific cert file for key rotation
 	keyBytes, err := ioutil.ReadFile(f.keyBytesPath)
 	if err != nil {
 		return nil, err

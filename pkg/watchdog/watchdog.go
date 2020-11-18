@@ -49,7 +49,7 @@ func WatchdogFileGetUID(baseDir string, vmi *v1.VirtualMachineInstance) string {
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 
 	filePath := WatchdogFileFromNamespaceName(baseDir, namespace, domain)
-
+	// #nosec No risk for path injection. Using static path and base path of "virtShareDir"
 	b, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return ""

@@ -161,8 +161,10 @@ func GenerateSelfSignedCertKeyWithFixtures(host string, alternateIPs []net.IP, a
 	certFixturePath := path.Join(fixtureDirectory, baseName+".crt")
 	keyFixturePath := path.Join(fixtureDirectory, baseName+".key")
 	if len(fixtureDirectory) > 0 {
+		// #nosec No risk for path injection. Used internally to read cert files
 		cert, err := ioutil.ReadFile(certFixturePath)
 		if err == nil {
+			// #nosec No risk for path injection. Used internally to read cert files
 			key, err := ioutil.ReadFile(keyFixturePath)
 			if err == nil {
 				return cert, key, nil

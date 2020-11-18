@@ -267,6 +267,7 @@ func findCloudInitConfigDriveSecretVolume(volumes []v1.Volume) *v1.Volume {
 
 func readFileFromDir(basedir, secretFile string) (string, error) {
 	userDataSecretFile := filepath.Join(basedir, secretFile)
+	// #nosec No risk for path injection: basedir & secretFile are static strings
 	userDataSecret, err := ioutil.ReadFile(userDataSecretFile)
 	if err != nil {
 		log.Log.V(2).Reason(err).
