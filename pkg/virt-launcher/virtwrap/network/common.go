@@ -31,8 +31,10 @@ import (
 	"os/exec"
 	"runtime"
 	"syscall"
+	"time"
 
 	"github.com/coreos/go-iptables/iptables"
+	"github.com/ftrvxmtrx/fd"
 	"github.com/opencontainers/selinux/go-selinux"
 	lmf "github.com/subgraph/libmacouflage"
 	"github.com/vishvananda/netlink"
@@ -48,6 +50,7 @@ import (
 	kvselinux "kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcpv6"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/ndp"
 )
 
 const (
@@ -118,6 +121,12 @@ type NetworkHandler interface {
 	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
 	DisableTXOffloadChecksum(ifaceName string) error
+	CreateNDPConnection(bridgeInterfaceName string, launcherPID int) error
+	CreateRADaemon(
+		socketPath string,
+		advitesementIfaceName string,
+		ipv6CIDR string,
+		currentRetry int) error
 }
 
 type NetworkUtilsHandler struct{}
@@ -383,6 +392,23 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInter
 	return nil
 }
 
+func (h *NetworkUtilsHandler) CreateNDPConnection(bridgeInterfaceName string, launcherPID int) error {
+	log.Log.Infof("Starting RA daemon on network Nic: %s", bridgeInterfaceName)
+	ndpConnection, err := ndp.NewNDPConnection(bridgeInterfaceName)
+	if err != nil {
+		return fmt.Errorf("failed to create the RouterAdvertisement daemon: %v", err)
+	}
+
+	go func() {
+		_ = ndpConnection.Export(
+			GetNDPConnectionUnixSocketPath(
+				fmt.Sprintf("%d", launcherPID),
+				bridgeInterfaceName))
+	}()
+
+	return nil
+}
+
 // Generate a random mac for interface
 // Avoid MAC address starting with reserved value 0xFE (https://github.com/kubevirt/kubevirt/issues/1494)
 func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
@@ -517,6 +543,46 @@ func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
 		log.Log.Reason(err).Errorf("Failed to set tx offload for interface %s off", ifaceName)
 		return err
 	}
+
+	return nil
+}
+
+func (h *NetworkUtilsHandler) CreateRADaemon(socketPath string, advertisementIfaceName string, ipv6CIDR string, currentRetry int) error {
+	c, err := net.Dial("unix", socketPath)
+	if err != nil {
+		log.Log.V(4).Warningf("could not connect to the unix domain socket: %v", err)
+
+		if currentRetry > 0 {
+			time.Sleep(time.Second)
+			return h.CreateRADaemon(socketPath, advertisementIfaceName, ipv6CIDR, currentRetry-1)
+		}
+	}
+	defer c.Close()
+	fdConn := c.(*net.UnixConn)
+
+	log.Log.Info("managed to connect to unix domain socket; will retrieve the opened FD from it")
+
+	expectedFDNumber := 1
+	fds, err := fd.Get(fdConn, expectedFDNumber, []string{})
+	if err != nil || len(fds) == 0 {
+		return fmt.Errorf("error importing the NDP connection: %v", err)
+	}
+
+	openedFD := fds[expectedFDNumber-1]
+	defer func() {
+		_ = openedFD.Close()
+	}()
+
+	raDaemon, err := ndp.RouterAdvertisementDaemonFromFD(openedFD, advertisementIfaceName, ipv6CIDR)
+	if err != nil {
+		return fmt.Errorf("failed to re-create the RouterAdvertisement daemon on virt-launcher: %v", err)
+	}
+
+	go func() {
+		if err := raDaemon.Serve(); err != nil {
+			log.Log.Criticalf("could not listen via the Router Advertisement daemon to incoming requests: %v", err)
+		}
+	}()
 
 	return nil
 }

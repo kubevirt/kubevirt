@@ -344,3 +344,23 @@ func (_m *MockNetworkHandler) DisableTXOffloadChecksum(ifaceName string) error {
 func (_mr *_MockNetworkHandlerRecorder) DisableTXOffloadChecksum(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DisableTXOffloadChecksum", arg0)
 }
+
+func (_m *MockNetworkHandler) CreateNDPConnection(bridgeInterfaceName string, launcherPID int) error {
+	ret := _m.ctrl.Call(_m, "CreateNDPConnection", bridgeInterfaceName, launcherPID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) CreateNDPConnection(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateNDPConnection", arg0, arg1)
+}
+
+func (_m *MockNetworkHandler) CreateRADaemon(socketPath string, advitesementIfaceName string, ipv6CIDR string, currentRetry int) error {
+	ret := _m.ctrl.Call(_m, "CreateRADaemon", socketPath, advitesementIfaceName, ipv6CIDR, currentRetry)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) CreateRADaemon(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateRADaemon", arg0, arg1, arg2, arg3)
+}
