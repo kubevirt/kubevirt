@@ -58,7 +58,7 @@ EOF
         # Ensure that cdi insecure registries are set
         count=0
         until _kubectl get configmap -n ${cdi_namespace} cdi-insecure-registries; do
-            ((count++)) && ((count == 30)) && echo "cdi-insecure-registries config-map not found" && exit 1
+            ((count++)) && ((count == 120)) && echo "cdi-insecure-registries config-map not found" && exit 1
             echo "waiting for cdi-insecure-registries configmap to be created"
             sleep 1
         done
