@@ -268,6 +268,7 @@ var _ = Describe("Pod Network", func() {
 		}
 		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, queueNumber, pid, mtu).Return(nil)
 		mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)
+		mockNetwork.EXPECT().StartRA(api.DefaultVMIpv6CIDR, api.DefaultBridgeName).Return(nil)
 
 		err := SetupPodNetworkPhase1(vm, pid)
 		Expect(err).To(BeNil())

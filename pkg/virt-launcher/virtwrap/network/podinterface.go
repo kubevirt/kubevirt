@@ -783,6 +783,10 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces(queueNumber uint32,
 		} else {
 			return fmt.Errorf("Couldn't configure ipv6 nat rules")
 		}
+
+		if err := Handler.StartRA(p.vmIpv6NetworkCIDR, p.bridgeInterfaceName); err != nil {
+			return fmt.Errorf("could not start the RA daemon: %v", err)
+		}
 	}
 
 	p.virtIface.MTU = &api.MTU{Size: strconv.Itoa(p.podNicLink.Attrs().MTU)}

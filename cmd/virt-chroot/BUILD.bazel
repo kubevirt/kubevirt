@@ -4,12 +4,14 @@ go_library(
     name = "go_default_library",
     srcs = [
         "main.go",
+        "ra-sender.go",
         "selinux.go",
         "tap-device-maker.go",
     ],
     importpath = "kubevirt.io/kubevirt/cmd/virt-chroot",
     visibility = ["//visibility:private"],
     deps = [
+        "//pkg/virt-launcher/virtwrap/network/ndp:go_default_library",
         "//vendor/github.com/opencontainers/selinux/go-selinux:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
