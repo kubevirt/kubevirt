@@ -568,7 +568,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 					} else {
 						// Successfully attached to VM.
 						volumeStatus.Phase = v1.VolumeReady
-						volumeStatus.Message = fmt.Sprintf("Successfully attach hotplugged volumed %s to VM", volumeStatus.Name)
+						volumeStatus.Message = fmt.Sprintf("Successfully attach hotplugged volume %s to VM", volumeStatus.Name)
 						volumeStatus.Reason = "VolumeReady"
 					}
 				}
