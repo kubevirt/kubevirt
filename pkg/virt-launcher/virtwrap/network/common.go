@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcpv6"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/ndp"
 )
 
 const (
@@ -117,6 +118,11 @@ type NetworkHandler interface {
 	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
 	DisableTXOffloadChecksum(ifaceName string) error
+	CreateAndExportNDPConnection(advertisementIfaceName string, launcherPID int) error
+	CreateRouterAdvertiser(
+		socketPath string,
+		advitesementIfaceName string,
+		ipv6CIDR string) error
 }
 
 type NetworkUtilsHandler struct{}
@@ -411,6 +417,26 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInter
 	return nil
 }
 
+func (h *NetworkUtilsHandler) CreateAndExportNDPConnection(advertisementIfaceName string, launcherPID int) error {
+	log.Log.Infof("Starting Router Advertiser on network Nic: %s", advertisementIfaceName)
+	ndpConnection, err := ndp.NewNDPConnection(advertisementIfaceName)
+	if err != nil {
+		return fmt.Errorf("failed to create the Router Advertiser: %v", err)
+	}
+
+	go func() {
+		err := ndpConnection.Export(
+			getNDPConnectionUnixSocketPath(
+				fmt.Sprintf("%d", launcherPID),
+				advertisementIfaceName))
+		if err != nil {
+			log.Log.Warningf("failed to export the ICMP6 listener socket to virt-launcher: %v", err)
+		}
+	}()
+
+	return nil
+}
+
 // Generate a random mac for interface
 // Avoid MAC address starting with reserved value 0xFE (https://github.com/kubevirt/kubevirt/issues/1494)
 func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
@@ -484,6 +510,26 @@ func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
 	return nil
 }
 
+func (h *NetworkUtilsHandler) CreateRouterAdvertiser(socketPath string, advertisementIfaceName string, ipv6CIDR string) error {
+	openedFD, err := ndp.ImportConnection(socketPath)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to import the NDP connection: %v", err)
+	}
+
+	routerAdvertiser, err := ndp.CreateRouterAdvertisementServerFromFD(openedFD, advertisementIfaceName, ipv6CIDR)
+	if err != nil {
+		return fmt.Errorf("failed to re-create the RouterAdvertisement daemon on virt-launcher: %v", err)
+	}
+
+	go func() {
+		if err := routerAdvertiser.Serve(); err != nil {
+			log.Log.Criticalf("could not listen via the Router Advertisement daemon to incoming requests: %v", err)
+		}
+	}()
+
+	return nil
+}
+
 // Allow mocking for tests
 var DHCPServer = dhcp.SingleClientDHCPServer
 var DHCPv6Server = dhcpv6.SingleClientDHCPv6Server
@@ -514,4 +560,8 @@ func filterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []
 
 func setVifCacheFile(path string) {
 	vifCacheFile = path
+}
+
+func getNDPConnectionUnixSocketPath(pid string, ifaceName string) string {
+	return fmt.Sprintf(raSenderUnixSocketTemplate, pid, ifaceName)
 }

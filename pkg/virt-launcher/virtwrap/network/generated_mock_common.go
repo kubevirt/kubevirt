@@ -374,3 +374,23 @@ func (_m *MockNetworkHandler) DisableTXOffloadChecksum(ifaceName string) error {
 func (_mr *_MockNetworkHandlerRecorder) DisableTXOffloadChecksum(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DisableTXOffloadChecksum", arg0)
 }
+
+func (_m *MockNetworkHandler) CreateAndExportNDPConnection(advertisementIfaceName string, launcherPID int) error {
+	ret := _m.ctrl.Call(_m, "CreateAndExportNDPConnection", advertisementIfaceName, launcherPID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) CreateAndExportNDPConnection(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateAndExportNDPConnection", arg0, arg1)
+}
+
+func (_m *MockNetworkHandler) CreateRouterAdvertiser(socketPath string, advitesementIfaceName string, ipv6CIDR string) error {
+	ret := _m.ctrl.Call(_m, "CreateRouterAdvertiser", socketPath, advitesementIfaceName, ipv6CIDR)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) CreateRouterAdvertiser(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateRouterAdvertiser", arg0, arg1, arg2)
+}

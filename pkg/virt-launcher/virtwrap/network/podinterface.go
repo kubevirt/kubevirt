@@ -783,7 +783,23 @@ func configureVifV6Addresses(b *MasqueradeBindMechanism, err error) error {
 }
 
 func (b *MasqueradeBindMechanism) startDynamicIPServers(vmi *v1.VirtualMachineInstance) error {
+	if err := b.startRouterAdvertiser(); err != nil {
+		log.Log.Criticalf("could not start the Router Advertiser: %v", err)
+		return err
+	}
 	return Handler.StartDHCP(b.vif, b.vif.Gateway, b.bridgeInterfaceName, b.iface.DHCPOptions, false)
+}
+
+func (b *MasqueradeBindMechanism) startRouterAdvertiser() error {
+	targetPID := "self"
+	if err := Handler.CreateRouterAdvertiser(
+		getNDPConnectionUnixSocketPath(targetPID, b.bridgeInterfaceName),
+		b.bridgeInterfaceName,
+		api.DefaultVMIpv6CIDR); err != nil {
+		return fmt.Errorf("failed to start the Router Advertiser in virt-launcher: %v", err)
+	}
+
+	return nil
 }
 
 func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
@@ -834,6 +850,10 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to create ipv6 nat rules for vm error: %v", err)
 			return err
+		}
+
+		if err := Handler.CreateAndExportNDPConnection(b.bridgeInterfaceName, launcherPID); err != nil {
+			log.Log.Criticalf("could not start the Router Advertiser: %v", err)
 		}
 	}
 

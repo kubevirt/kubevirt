@@ -36,6 +36,7 @@ const primaryPodInterfaceName = "eth0"
 
 var vifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
 var podNICFactory = newpodNIC
+var raSenderUnixSocketTemplate = "/proc/%s/root/var/run/kubevirt/sockets/%s"
 
 type PodCacheInterface struct {
 	Iface  *v1.Interface `json:"iface,omitempty"`
