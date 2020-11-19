@@ -53,7 +53,7 @@ func ExactArgs(nameOfCommand string, n int) cobra.PositionalArgs {
 		if len(args) != n {
 			fmt.Printf("fatal: Number of input parameters is incorrect, %s accepts %d arg(s), received %d\n\n", nameOfCommand, n, len(args))
 			if err := cmd.Help(); err != nil {
-				panic("Help doesn't return error")
+				return err
 			}
 			return errors.New("argument validation failed")
 		}

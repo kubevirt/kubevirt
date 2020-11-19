@@ -249,13 +249,6 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNa
 	return nil
 }
 
-// Writing to bytes.Buffer is safe
-func safeWriteToBuffer(writer *bufio.Writer, data []byte) {
-	if _, err := writer.Write(data); err != nil {
-		panic(fmt.Errorf("Writting to Buffer shouln't return err, %v", err))
-	}
-}
-
 func dumpInstallStrategyToBytes(strategy *Strategy) ([]byte, error) {
 
 	var b bytes.Buffer
@@ -286,14 +279,17 @@ func dumpInstallStrategyToBytes(strategy *Strategy) ([]byte, error) {
 			return nil, err
 		}
 	}
-	delimeter := []byte("---\n")
 	for _, entry := range strategy.crds {
 		b, err := yaml.Marshal(entry)
 		if err != nil {
 			return nil, err
 		}
-		safeWriteToBuffer(writer, delimeter)
-		safeWriteToBuffer(writer, b)
+		if _, err := writer.Write([]byte("---\n")); err != nil {
+			return nil, fmt.Errorf("Writting to Buffer shouln't return err, %v", err)
+		}
+		if _, err := writer.Write(b); err != nil {
+			return nil, fmt.Errorf("Writting to Buffer shouln't return err, %v", err)
+		}
 	}
 	for _, entry := range strategy.services {
 		if err := marshalutil.MarshallObject(entry, writer); err != nil {
@@ -351,7 +347,7 @@ func dumpInstallStrategyToBytes(strategy *Strategy) ([]byte, error) {
 		}
 	}
 	if err := writer.Flush(); err != nil {
-		panic(fmt.Errorf("Flush on bytes should be safe, %v", err))
+		return nil, fmt.Errorf("Flush on bytes should be safe, %v", err)
 	}
 
 	return b.Bytes(), nil

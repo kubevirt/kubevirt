@@ -228,7 +228,7 @@ func createCriticalNetworkError(err error) *CriticalNetworkError {
 
 func ensureDHCP(vmi *v1.VirtualMachineInstance, bindMechanism BindMechanism, podInterfaceName string) error {
 	dhcpStartedFile := fmt.Sprintf("/var/run/kubevirt-private/dhcp_started-%s", podInterfaceName)
-	_, err = os.Stat(dhcpStartedFile)
+	_, err := os.Stat(dhcpStartedFile)
 	if os.IsNotExist(err) {
 		if err := bindMechanism.startDHCP(vmi); err != nil {
 			return fmt.Errorf("failed to start DHCP server for interface %s", podInterfaceName)

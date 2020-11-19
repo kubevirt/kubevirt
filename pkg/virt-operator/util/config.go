@@ -432,7 +432,7 @@ func (c *KubeVirtDeploymentConfig) generateInstallStrategyID() {
 	hasher := sha1.New()
 	values := getStringFromFields(*c)
 	if _, err := hasher.Write([]byte(values)); err != nil {
-		panic("Error with sha1 is not possible")
+		fmt.Println(fmt.Errorf("Error with sha1 is not possible"))
 	}
 
 	c.ID = hex.EncodeToString(hasher.Sum(nil))

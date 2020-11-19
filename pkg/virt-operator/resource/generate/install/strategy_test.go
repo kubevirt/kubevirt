@@ -65,7 +65,9 @@ var _ = Describe("Install Strategy", func() {
 			strategy, err := GenerateCurrentInstallStrategy(config, true, namespace)
 			Expect(err).NotTo(HaveOccurred())
 
-			data := string(dumpInstallStrategyToBytes(strategy))
+			b, err := dumpInstallStrategyToBytes(strategy)
+			Expect(err).NotTo(HaveOccurred())
+			data := string(b)
 
 			entries := strings.Split(data, "---")
 
@@ -84,7 +86,9 @@ var _ = Describe("Install Strategy", func() {
 			strategy, err := GenerateCurrentInstallStrategy(config, true, namespace)
 			Expect(err).ToNot(HaveOccurred())
 
-			strategyStr := string(dumpInstallStrategyToBytes(strategy))
+			b, err := dumpInstallStrategyToBytes(strategy)
+			Expect(err).NotTo(HaveOccurred())
+			strategyStr := string(b)
 
 			newStrategy, err := loadInstallStrategyFromBytes(strategyStr)
 			Expect(err).ToNot(HaveOccurred())

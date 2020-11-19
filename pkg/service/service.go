@@ -73,7 +73,7 @@ func Setup(service Service) {
 
 	// set new default verbosity, was set to 0 by glog
 	if err := flag.Set("v", "2"); err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 
 	flag.Parse()

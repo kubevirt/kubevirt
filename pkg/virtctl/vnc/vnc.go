@@ -146,7 +146,9 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		if !proxyOnly {
 			// exit early if spawning vnc client fails
 			err := ln.SetDeadline(time.Now().Add(LISTEN_TIMEOUT))
-			listenResChan <- fmt.Errorf("Failed to set deadline on listener. %v", err)
+			if err != nil {
+				listenResChan <- fmt.Errorf("Failed to set deadline on listener. %v", err)
+			}
 		}
 		fd, err := ln.Accept()
 		if err != nil {

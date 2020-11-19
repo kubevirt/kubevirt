@@ -21,6 +21,7 @@ package watch
 
 import (
 	"context"
+	"fmt"
 	golog "log"
 	"net/http"
 	"os"
@@ -193,11 +194,11 @@ var _ service.Service = &VirtControllerApp{}
 func init() {
 	err := vsv1beta1.AddToScheme(scheme.Scheme)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("Failed to register scheme, %s", err))
 	}
 	err = snapshotv1.AddToScheme(scheme.Scheme)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("Failed to register scheme, %s", err))
 	}
 	prometheus.MustRegister(leaderGauge)
 	prometheus.MustRegister(readyGauge)
