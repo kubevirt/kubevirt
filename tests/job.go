@@ -112,7 +112,7 @@ func NewJob(name string, cmd, args []string, retry, ttlAfterFinished int32, time
 // which tries to contact the host on the provided port.
 // It expects to receive "Hello World!" to succeed.
 func NewHelloWorldJob(host string, port string, checkConnectivityCmdPrefixes ...string) *batchv1.Job {
-	check := fmt.Sprintf(`set -x; %sx="$(head -n 1 < <(nc %s %s -i 3 -w 3))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, strings.Join(checkConnectivityCmdPrefixes, ";"), host, port)
+	check := fmt.Sprintf(`set -x; %sx="$(head -n 1 < <(nc %s %s -i 3 -w 3 --no-shutdown))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, strings.Join(checkConnectivityCmdPrefixes, ";"), host, port)
 	return newHelloWorldJob(check)
 }
 
