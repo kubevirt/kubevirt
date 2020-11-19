@@ -11,24 +11,38 @@ jobs:
       - uses: actions/checkout@v2
         with:
           ref: master
+
       - uses: actions/setup-go@v2
         with:
           go-version: '^1.15' # The Go version to download (if necessary) and use.
+
       - name: Check for new releases and update
-        run: ./automation/release-bumper/release-bumper.sh
-      - name: Set "UPDATED_COMPONENT" environment variable
         run: |
-          echo 'UPDATED_COMPONENT<<EOF' >> $GITHUB_ENV
-          cat updated_component.txt >> $GITHUB_ENV
-          echo 'EOF' >> $GITHUB_ENV
-      - name: Set "UPDATED_VERSION" environment variable
-        run: |
-          echo 'UPDATED_VERSION<<EOF' >> $GITHUB_ENV
-          cat updated_version.txt >> $GITHUB_ENV
-          echo 'EOF' >> $GITHUB_ENV
+          ./automation/release-bumper/release-bumper.sh
+          if [[ -f updated_component.txt ]]; then
+            echo 'UPDATED_COMPONENT<<EOF' >> $GITHUB_ENV
+            cat updated_component.txt >> $GITHUB_ENV
+            echo 'EOF' >> $GITHUB_ENV
+            UPDATED_COMPONENT_EXISTS=true
+          fi
+
+          if [[ -f updated_version.txt ]]; then
+            echo 'UPDATED_VERSION<<EOF' >> $GITHUB_ENV
+            cat updated_version.txt >> $GITHUB_ENV
+            echo 'EOF' >> $GITHUB_ENV
+            UPDATED_VERSION_EXISTS=true
+          fi
+
+          if [[ -n ${UPDATED_COMPONENT_EXISTS} && -n ${UPDATED_VERSION_EXISTS} ]]; then
+            echo "CHANGED=true" >> $GITHUB_ENV
+          fi
+
       - name: Remove temporary files
+        if: ${{ env.CHANGED }}
         run: rm -f updated_component.txt updated_version.txt
+
       - uses: peter-evans/create-pull-request@v3
+        if: ${{ env.CHANGED }}
         with:
           token: ${{ secrets.HCO_BOT_TOKEN }}
           commit-message: |

@@ -2077,7 +2077,7 @@ spec:
                       fieldPath: metadata.name
                 - name: OPERATOR_NAME
                   value: node-maintenance-operator
-                image: quay.io/kubevirt/node-maintenance-operator:v0.7.0
+                image: quay.io/kubevirt/node-maintenance-operator@sha256:71bb8de714dc0de0616050d66405ccb58841930fc1562a61399e1b964a0b678a
                 imagePullPolicy: Always
                 name: node-maintenance-operator
                 resources: {}
@@ -2364,6 +2364,8 @@ spec:
     name: macvtap-cni
   - image: nfvpe/multus@sha256:167722b954355361bd69829466f27172b871dbdbf86b85a95816362885dc0aba
     name: multus
+  - image: quay.io/kubevirt/node-maintenance-operator@sha256:71bb8de714dc0de0616050d66405ccb58841930fc1562a61399e1b964a0b678a
+    name: node-maintenance-operator
   - image: quay.io/kubevirt/ovs-cni-marker@sha256:0f08d6b1550a90c9f10221f2bb07709d1090e7c675ee1a711981bd429074d620
     name: ovs-cni-marker
   - image: quay.io/kubevirt/ovs-cni-plugin@sha256:4101c52617efb54a45181548c257a08e3689f634b79b9dfcff42bffd8b25af53

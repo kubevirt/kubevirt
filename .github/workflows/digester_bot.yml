@@ -1,10 +1,10 @@
-name: Auto-Bump Component's Versions
+name: Auto-Update Image Digests
 on:
   schedule:
-    - cron:  '0 4 * * *'
+    - cron:  '0 4/4 * * *'
 jobs:
   build:
-    name: HCO Release Bump Job
+    name: HCO Update Image Digests Job
     if: (github.repository == 'kubevirt/hyperconverged-cluster-operator')
     runs-on: ubuntu-latest
     steps:
@@ -19,21 +19,29 @@ jobs:
       - name: Get dependencies
         working-directory: tools/digester
         run: |
-          cd tools/
           go get -v -t -d ./...
           if [ -f Gopkg.toml ]; then
               curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
               dep ensure
           fi
 
-      - name: Build
+      - name: Build the degister app
         working-directory: tools/digester
         run: go build -v .
 
-      - name: Run
-        run: ./automation/digester/update_images.sh
+      - name: Run the degister app to update the digests
+        run: |
+          ./automation/digester/update_images.sh
+          if ! git diff --quiet --exit-code; then
+            echo "CHANGED=true" >> $GITHUB_ENV
+          fi
+
+      - name: Regenerage CSV
+        if: ${{ env.CHANGED }}
+        run: ./hack/build-manifests.sh
 
       - uses: peter-evans/create-pull-request@v3
+        if: ${{ env.CHANGED }}
         with:
           token: ${{ secrets.HCO_BOT_TOKEN }}
           commit-message: |
@@ -44,7 +52,7 @@ jobs:
           title: "Update Image Digests"
           body: |
             Update Image Digests
-            Executed by HCO Release-Bumper Bot.
+            Executed by HCO Update Image Digest Bot.
             ```release-note
             Update Image Digests
             ```

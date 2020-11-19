@@ -1,6 +1,14 @@
 package main
 
-// This tool maintain the deploy/images.csv and the deploy/images.env file, to be used to generate the CSV
+// This tool maintain the deploy/images.csv and the deploy/images.env files, to be used to generate the HCO CSV
+// the csv (comma separated) file structure is:
+// - environment variable name, to be place in the env file
+// - name - the image name with no tag or digest
+// - tag - the environment variable name, that holds the image tag
+// - digest - the latest known digest
+//
+// The application will loop over the csv lines and will read the digest for name:${tag}, and will write back the file
+// if there is a change
 
 import (
 	"bufio"
@@ -9,6 +17,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	docker "docker.io/go-docker"
 )
@@ -84,24 +94,53 @@ func main() {
 		os.Exit(1)
 	}
 
-	changed := false
-	for _, image := range images[1:] {
-		fullName := fmt.Sprintf("%s:%s", image.Name, os.Getenv(image.Tag))
-		fmt.Printf("Reading digest for %s\n", fullName)
-		inspect, err := cli.DistributionInspect(context.Background(), fullName, "")
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+	wg := &sync.WaitGroup{}
+	wg.Add(len(images) - 1) // the first "image" is the CSV title
 
-		digest := inspect.Descriptor.Digest.Hex()
-		if image.Digest != digest {
+	type message struct {
+		index    int
+		digest   string
+		fullName string
+	}
+
+	ch := make(chan message, len(images)-1)
+
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	start := time.Now()
+	for i, image := range images[1:] {
+		go func(image *Image, index int) {
+			fullName := fmt.Sprintf("%s:%s", image.Name, os.Getenv(image.Tag))
+			fmt.Printf("Reading digest for %s\n", fullName)
+			inspect, err := cli.DistributionInspect(ctx, fullName, "")
+			if err != nil {
+				fmt.Printf("Error while trying to get digest for %s; %s\n", fullName, err)
+				os.Exit(1)
+			}
+
+			digest := inspect.Descriptor.Digest.Hex()
+			ch <- message{index: index, digest: digest, fullName: fullName}
+			wg.Done()
+		}(image, i+1)
+	}
+
+	changed := false
+	for msg := range ch {
+		if images[msg.index].Digest != msg.digest {
 			changed = true
-			fmt.Printf("New digest for %s - %s\n", fullName, digest)
-			image.setDigest(digest)
+			fmt.Printf("New digest for %s - %s\n", msg.fullName, msg.digest)
+			images[msg.index].setDigest(msg.digest)
 		}
 	}
 
+	howLong := time.Now().Sub(start)
+	fmt.Println("took", howLong)
 	if changed {
 		fmt.Println("Found new digests. Updating the file")
 		if err = writeCsv(images); err != nil {

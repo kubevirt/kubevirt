@@ -27,6 +27,9 @@ function main {
 
   update_versions
 
+  echo INFO: Updating image digest list...
+  ./automation/digester/update_images.sh
+
   echo INFO: Executing "build-manifests.sh"...
   ./hack/build-manifests.sh
 
