@@ -22,9 +22,9 @@ const (
 )
 
 type DHCPv6Handler struct {
-	clientIP      net.IP
-	leaseDuration time.Duration
-	serverIface   *net.Interface
+	clientIP    net.IP
+	serverIface *net.Interface
+	modifiers   []dhcpv6.Modifier
 }
 
 func SingleClientDHCPv6Server(
@@ -43,10 +43,15 @@ func SingleClientDHCPv6Server(
 		log.Log.Infof("DHCPv6 - couldn't get the server interface: %v", err)
 	}
 
+	modifiers, err := prepareDHCPModifiers(clientIP, iface.HardwareAddr)
+
+	if err != nil {
+		log.Log.Infof("DHCPv6 - couldn't prepare modifiers: %v", err)
+	}
 	handler := &DHCPv6Handler{
-		clientIP:      clientIP,
-		leaseDuration: infiniteLease,
-		serverIface:   iface,
+		clientIP:    clientIP,
+		serverIface: iface,
+		modifiers:   modifiers,
 	}
 
 	conn, err := handler.createConnection()
@@ -104,17 +109,13 @@ func (h *DHCPv6Handler) ServeDHCPv6(conn net.PacketConn, peer net.Addr, m dhcpv6
 	var response *dhcpv6.Message
 	var err error
 
-	optIAAddress := dhcpv6.OptIAAddress{IPv6Addr: h.clientIP, PreferredLifetime: h.leaseDuration, ValidLifetime: h.leaseDuration}
-
-	duid := dhcpv6.Duid{Type: dhcpv6.DUID_LL, HwType: iana.HWTypeEthernet, LinkLayerAddr: h.serverIface.HardwareAddr}
-
 	switch msg.Type() {
 	case dhcpv6.MessageTypeSolicit:
 		log.Log.V(4).Info("DHCPv6 - the request has message type Solicit")
-		response, err = dhcpv6.NewAdvertiseFromSolicit(msg, dhcpv6.WithIANA(optIAAddress), dhcpv6.WithServerID(duid))
+		response, err = dhcpv6.NewAdvertiseFromSolicit(msg, h.modifiers...)
 	default:
 		log.Log.V(4).Info("DHCPv6 - non Solicit request recieved")
-		response, err = dhcpv6.NewReplyFromMessage(msg, dhcpv6.WithIANA(optIAAddress), dhcpv6.WithServerID(duid))
+		response, err = dhcpv6.NewReplyFromMessage(msg, h.modifiers...)
 	}
 
 	if err != nil {
@@ -125,4 +126,19 @@ func (h *DHCPv6Handler) ServeDHCPv6(conn net.PacketConn, peer net.Addr, m dhcpv6
 	if _, err := conn.WriteTo(response.ToBytes(), peer); err != nil {
 		log.Log.V(4).Errorf("DHCPv6 cannot reply to client: %v", err)
 	}
+}
+
+func prepareDHCPModifiers(
+	clientIP net.IP,
+	serverInterfaceMac net.HardwareAddr) ([]dhcpv6.Modifier, error) {
+
+	var modifiers []dhcpv6.Modifier
+
+	optIAAddress := dhcpv6.OptIAAddress{IPv6Addr: clientIP, PreferredLifetime: infiniteLease, ValidLifetime: infiniteLease}
+	modifiers = append(modifiers, dhcpv6.WithIANA(optIAAddress))
+
+	duid := dhcpv6.Duid{Type: dhcpv6.DUID_LL, HwType: iana.HWTypeEthernet, LinkLayerAddr: serverInterfaceMac}
+	modifiers = append(modifiers, dhcpv6.WithServerID(duid))
+
+	return modifiers, nil
 }
