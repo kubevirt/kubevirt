@@ -182,12 +182,17 @@ func main() {
 	createTapCmd.Flags().Uint32("queue-number", 0, "the number of queues to use on multi-queued devices")
 	createTapCmd.Flags().Uint32("mtu", 1500, "the link MTU of the tap device")
 
+	raSenderCmd := NewCreateRADaemonCommand()
+	raSenderCmd.Flags().String("listen-on-iface", "k6t-eth0", "the interface to listen to RouterSolicitation messages")
+	raSenderCmd.Flags().String("ipv6-cidr", "", "the IPv6 CIDR to advertise on interface")
+
 	rootCmd.AddCommand(
 		execCmd,
 		mntCmd,
 		umntCmd,
 		selinuxCmd,
 		createTapCmd,
+		raSenderCmd,
 	)
 
 	if err := rootCmd.Execute(); err != nil {
