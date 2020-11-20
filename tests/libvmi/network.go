@@ -60,9 +60,19 @@ func InterfaceDeviceWithBridgeBinding() kvirtv1.Interface {
 	}
 }
 
+// InterfaceDeviceWithSRIOVBinding returns an Interface with SRIOV binding.
+func InterfaceDeviceWithSRIOVBinding(name string) kvirtv1.Interface {
+	return kvirtv1.Interface{
+		Name: name,
+		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
+			SRIOV: &kvirtv1.InterfaceSRIOV{},
+		},
+	}
+}
+
 // MultusNetwork returns a Network with the given name
-func MultusNetwork(networkName string) kvirtv1.Network {
-	return kvirtv1.Network{
+func MultusNetwork(networkName string) *kvirtv1.Network {
+	return &kvirtv1.Network{
 		Name: networkName,
 		NetworkSource: kvirtv1.NetworkSource{
 			Multus: &kvirtv1.MultusNetwork{
