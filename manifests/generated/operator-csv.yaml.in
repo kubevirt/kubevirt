@@ -820,13 +820,18 @@ spec:
                   name: webhooks
                   protocol: TCP
                 readinessProbe:
+                  failureThreshold: 3
                   httpGet:
                     path: /metrics
                     port: 8443
                     scheme: HTTPS
                   initialDelaySeconds: 5
+                  periodSeconds: 10
+                  successThreshold: 1
                   timeoutSeconds: 10
                 resources: {}
+                terminationMessagePath: /dev/termination-log
+                terminationMessagePolicy: File
                 volumeMounts:
                 - mountPath: /etc/virt-operator/certificates
                   name: kubevirt-operator-certs
@@ -841,6 +846,7 @@ spec:
               volumes:
               - name: kubevirt-operator-certs
                 secret:
+                  defaultMode: 420
                   optional: true
                   secretName: kubevirt-operator-certs
       permissions:
