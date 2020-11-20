@@ -185,6 +185,7 @@ func main() {
 	raSenderCmd := NewCreateRADaemonCommand()
 	raSenderCmd.Flags().String("listen-on-iface", "k6t-eth0", "the interface to listen to RouterSolicitation messages")
 	raSenderCmd.Flags().String("ipv6-cidr", "", "the IPv6 CIDR to advertise on interface")
+	raSenderCmd.Flags().String("server-mac-address", "", "the MAC address on the advertising interface")
 
 	rootCmd.AddCommand(
 		execCmd,

@@ -15,8 +15,9 @@ func NewCreateRADaemonCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			serverIface := cmd.Flag("listen-on-iface").Value.String()
 			ipv6CIDR := cmd.Flag("ipv6-cidr").Value.String()
+			serverMACAddr := cmd.Flag("server-mac-address").Value.String()
 
-			err := ndp.SingleClientRouterAdvertisementDaemon(serverIface, ipv6CIDR)
+			err := ndp.SingleClientRouterAdvertisementDaemon(serverIface, ipv6CIDR, serverMACAddr)
 			if err != nil {
 				return fmt.Errorf("failed to create the RouterAdvertisement daemon: %v", err)
 			}

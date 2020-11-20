@@ -782,7 +782,11 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces(queueNumber uint32,
 			return fmt.Errorf("Couldn't configure ipv6 nat rules")
 		}
 
-		if err := Handler.StartRA(p.vmIpv6NetworkCIDR, p.bridgeInterfaceName); err != nil {
+		bridgeLink, err := netlink.LinkByName(p.bridgeInterfaceName)
+		if err != nil {
+			return fmt.Errorf("could not retrieve bridge to know the advertising MAC address: %v", err)
+		}
+		if err := Handler.StartRA(p.vmIpv6NetworkCIDR, p.bridgeInterfaceName, bridgeLink.Attrs().HardwareAddr); err != nil {
 			return fmt.Errorf("could not start the RA daemon: %v", err)
 		}
 	}

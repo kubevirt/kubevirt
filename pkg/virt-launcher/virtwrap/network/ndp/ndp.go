@@ -39,7 +39,7 @@ type RouterAdvertisementDaemon struct {
 	raOptions []ndp.Option
 }
 
-func SingleClientRouterAdvertisementDaemon(serverIface string, ipv6CIDR string) error {
+func SingleClientRouterAdvertisementDaemon(serverIface string, ipv6CIDR string, routerMACAddr string) error {
 	log.Log.Info("Starting RouterAdvertisement daemon")
 
 	prefix, network, err := net.ParseCIDR(ipv6CIDR)
@@ -48,8 +48,13 @@ func SingleClientRouterAdvertisementDaemon(serverIface string, ipv6CIDR string) 
 	}
 	prefixLength, _ := network.Mask.Size()
 
+	serverMAC, err := net.ParseMAC(routerMACAddr)
+	if err != nil {
+		return fmt.Errorf("could not parse MAC address from %s; %v", routerMACAddr, err)
+	}
+
 	handler := &RouterAdvertisementDaemon{
-		raOptions: prepareRAOptions(prefix, uint8(prefixLength)),
+		raOptions: prepareRAOptions(prefix, uint8(prefixLength), serverMAC),
 	}
 
 	listener, err := NewICMPv6Listener(serverIface)
@@ -99,7 +104,7 @@ func filterRouterSolicitations(icmpListener *Listener) error {
 	return nil
 }
 
-func prepareRAOptions(prefix net.IP, prefixLength uint8) []ndp.Option {
+func prepareRAOptions(prefix net.IP, prefixLength uint8, sourceLinkLayerAddr net.HardwareAddr) []ndp.Option {
 	prefixInfo := &ndp.PrefixInformation{
 		PrefixLength:                   prefixLength,
 		OnLink:                         true,
@@ -115,5 +120,10 @@ func prepareRAOptions(prefix net.IP, prefixLength uint8) []ndp.Option {
 		RouteLifetime: infiniteLease,
 		Prefix:        prefix,
 	}
-	return []ndp.Option{prefixInfo, defaultRoute}
+	
+	clientLinkLayerAddr := &ndp.LinkLayerAddress{
+		Direction: ndp.Source,
+		Addr:      sourceLinkLayerAddr,
+	}
+	return []ndp.Option{prefixInfo, defaultRoute, clientLinkLayerAddr}
 }
