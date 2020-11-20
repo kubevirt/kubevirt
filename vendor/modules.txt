@@ -181,6 +181,8 @@ github.com/mailru/easyjson/jwriter
 github.com/mattn/go-runewidth
 # github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
 github.com/matttproud/golang_protobuf_extensions/pbutil
+# github.com/mdlayher/ndp v0.0.0-20200602162440-17ab9e3e5567
+github.com/mdlayher/ndp
 # github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
 github.com/mitchellh/go-ps
 # github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
@@ -316,6 +318,8 @@ github.com/vishvananda/netns
 github.com/wadey/gocovmerge
 # github.com/willf/bitset v1.1.11-0.20200630133818-d5bec3311243
 github.com/willf/bitset
+# gitlab.com/golang-commonmark/puny v0.0.0-20191124015043-9f83538fa04f
+gitlab.com/golang-commonmark/puny
 # golang.org/x/crypto v0.0.0-20201216223049-8b5274cf687f
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
@@ -346,6 +350,7 @@ golang.org/x/net/html/charset
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack
+golang.org/x/net/icmp
 golang.org/x/net/idna
 golang.org/x/net/internal/iana
 golang.org/x/net/internal/socket

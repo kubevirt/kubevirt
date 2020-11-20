@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["puny.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/gitlab.com/golang-commonmark/puny",
+    importpath = "gitlab.com/golang-commonmark/puny",
+    visibility = ["//visibility:public"],
+)
