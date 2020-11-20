@@ -24,6 +24,8 @@ import (
 	"net"
 	"time"
 
+	"golang.org/x/net/ipv6"
+
 	"github.com/mdlayher/ndp"
 
 	"kubevirt.io/client-go/log"
@@ -59,6 +61,10 @@ func SingleClientRouterAdvertisementDaemon(serverIface string, ipv6CIDR string) 
 }
 
 func (rad *RouterAdvertisementDaemon) serve(listener *Listener) error {
+	if err := filterRouterSolicitations(listener); err != nil {
+		return fmt.Errorf("could not set a RouterSolicitation filter on the ICMPv6 listener: %v", err)
+	}
+
 	for {
 		msg, _, _, err := listener.ReadFrom()
 		if err != nil {
@@ -81,6 +87,16 @@ func (rad *RouterAdvertisementDaemon) serve(listener *Listener) error {
 			}
 		}
 	}
+}
+
+func filterRouterSolicitations(icmpListener *Listener) error {
+	var filter ipv6.ICMPFilter
+	filter.SetAll(true)
+	filter.Accept(ipv6.ICMPTypeRouterSolicitation)
+	if err := icmpListener.ConfigureFilter(&filter); err != nil {
+		return err
+	}
+	return nil
 }
 
 func prepareRAOptions(prefix net.IP, prefixLength uint8) []ndp.Option {

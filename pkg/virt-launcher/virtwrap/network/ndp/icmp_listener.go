@@ -67,6 +67,10 @@ func (l *Listener) WriteTo(m ndp.Message, cm *ipv6.ControlMessage, dst net.IP) e
 	return l.conn.WriteTo(m, cm, dst)
 }
 
+func (l *Listener) ConfigureFilter(icmpFilter *ipv6.ICMPFilter) error {
+	return l.conn.SetICMPFilter(icmpFilter)
+}
+
 func findIface(ifaceName string) (*net.Interface, error) {
 	ifi, err := net.InterfaceByName(ifaceName)
 	if err != nil {
