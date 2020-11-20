@@ -67,6 +67,10 @@ func (l *NDPConnection) WriteTo(m ndp.Message, cm *ipv6.ControlMessage, dst net.
 	return l.conn.WriteTo(m, cm, dst)
 }
 
+func (l *NDPConnection) ConfigureFilter(icmpFilter *ipv6.ICMPFilter) error {
+	return l.conn.SetICMPFilter(icmpFilter)
+}
+
 func findIface(ifaceName string) (*net.Interface, error) {
 	ifi, err := net.InterfaceByName(ifaceName)
 	if err != nil {
