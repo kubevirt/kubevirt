@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "addr.go",
+        "conn.go",
+        "doc.go",
+        "fuzz.go",
+        "message.go",
+        "option.go",
+        "string.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/mdlayher/ndp",
+    importpath = "github.com/mdlayher/ndp",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/gitlab.com/golang-commonmark/puny:go_default_library",
+        "//vendor/golang.org/x/net/icmp:go_default_library",
+        "//vendor/golang.org/x/net/ipv6:go_default_library",
+    ],
+)

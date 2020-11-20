@@ -169,6 +169,8 @@ github.com/mailru/easyjson/jwriter
 github.com/mattn/go-runewidth
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
+# github.com/mdlayher/ndp v0.0.0-20200602162440-17ab9e3e5567
+github.com/mdlayher/ndp
 # github.com/mfranczy/crd-rest-coverage v0.1.0
 github.com/mfranczy/crd-rest-coverage/pkg/analysis
 github.com/mfranczy/crd-rest-coverage/pkg/report
@@ -292,6 +294,8 @@ github.com/vishvananda/netns
 github.com/wadey/gocovmerge
 # github.com/willf/bitset v1.1.11-0.20200630133818-d5bec3311243
 github.com/willf/bitset
+# gitlab.com/golang-commonmark/puny v0.0.0-20191124015043-9f83538fa04f
+gitlab.com/golang-commonmark/puny
 # golang.org/x/crypto v0.0.0-20200423211502-4bdfaf469ed5
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
@@ -320,11 +324,13 @@ golang.org/x/net/html/charset
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack
+golang.org/x/net/icmp
 golang.org/x/net/idna
 golang.org/x/net/internal/iana
 golang.org/x/net/internal/socket
 golang.org/x/net/internal/timeseries
 golang.org/x/net/ipv4
+golang.org/x/net/ipv6
 golang.org/x/net/trace
 # golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 golang.org/x/oauth2
