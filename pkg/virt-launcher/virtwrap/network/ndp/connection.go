@@ -84,6 +84,10 @@ func NewNDPConnection(ifaceName string) (*NDPConnection, error) {
 		controlMsg: getIPv6ControlMsg(listenAddr.IP, iface),
 	}
 
+	if err := listener.Filter(ipv6.ICMPTypeRouterSolicitation); err != nil {
+		return nil, fmt.Errorf("failed to set an ICMP filter for RouterSolicitations")
+	}
+
 	return listener, nil
 }
 
@@ -170,5 +174,17 @@ func (l *NDPConnection) WriteTo(msg ndp.Message, dst net.IP) error {
 	if err != nil || n == 0 {
 		return fmt.Errorf("failed to send the NDP msg to %s. Error: %v, n bytes: %d", dst.String(), err, n)
 	}
+	return nil
+}
+
+func (l *NDPConnection) Filter(icmpType ipv6.ICMPType) error {
+	var filter ipv6.ICMPFilter
+	filter.SetAll(true)
+	filter.Accept(icmpType)
+
+	if err := l.conn.SetICMPFilter(&filter); err != nil {
+		return err
+	}
+
 	return nil
 }
