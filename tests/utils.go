@@ -1732,8 +1732,8 @@ func NewRandomDataVolumeWithHttpImportInStorageClass(imageUrl, namespace, storag
 	return newRandomDataVolumeWithHttpImport(imageUrl, namespace, storageClass, accessMode)
 }
 
-func NewRandomBlankDataVolume(namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
-	return newRandomBlankDataVolume(namespace, Config.StorageClassLocal, accessMode)
+func NewRandomBlankDataVolume(namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
+	return newRandomBlankDataVolume(namespace, storageClass, accessMode, volumeMode)
 }
 
 func NewRandomVirtualMachineInstanceWithOCSDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode, volMode k8sv1.PersistentVolumeMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
@@ -1825,9 +1825,9 @@ func newRandomDataVolumeWithHttpImport(imageUrl, namespace, storageClass string,
 	return dataVolume
 }
 
-func newRandomBlankDataVolume(namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
+func newRandomBlankDataVolume(namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
 	name := "test-datavolume-" + rand.String(12)
-	quantity, err := resource.ParseQuantity("1Gi")
+	quantity, err := resource.ParseQuantity("64Mi")
 	PanicOnError(err)
 	dataVolume := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1846,6 +1846,7 @@ func newRandomBlankDataVolume(namespace, storageClass string, accessMode k8sv1.P
 					},
 				},
 				StorageClassName: &storageClass,
+				VolumeMode:       &volumeMode,
 			},
 		},
 	}

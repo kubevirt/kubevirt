@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	podsBaseDir = util.KubeletPodsDir
+	podsBaseDir = filepath.Join(util.HostRootMount, util.KubeletPodsDir)
 
 	mountBaseDir = filepath.Join(util.VirtShareDir, "/hotplug-disks")
 
@@ -52,14 +52,14 @@ func GetHotplugTargetPodPathOnHost(virtlauncherPodUID types.UID) (string, error)
 }
 
 // GetFileSystemDiskTargetPathFromHostView gets the disk image file in the target pod (virt-launcher) on the host.
-func GetFileSystemDiskTargetPathFromHostView(virtlauncherPodUID types.UID, volumeName string) (string, error) {
+func GetFileSystemDiskTargetPathFromHostView(virtlauncherPodUID types.UID, volumeName string, create bool) (string, error) {
 	targetPath, err := GetHotplugTargetPodPathOnHost(virtlauncherPodUID)
 	if err != nil {
 		return targetPath, err
 	}
 	diskPath := filepath.Join(targetPath, volumeName)
 	exists, _ := diskutils.FileExists(diskPath)
-	if !exists {
+	if !exists && create {
 		err = os.Mkdir(diskPath, 0755)
 		if err != nil {
 			return diskPath, err

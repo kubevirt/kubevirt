@@ -1260,17 +1260,11 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	diskInfo := make(map[string]*containerdisk.DiskInfo)
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.PersistentVolumeClaim != nil {
-			var err error
 			isBlockPVC := false
 			if _, ok := hotplugVolumes[volume.Name]; ok {
 				isBlockPVC = isHotplugBlockDeviceVolume(volume.Name)
-			} else if _, ok := permanentVolumes[volume.Name]; ok {
-				isBlockPVC, err = isBlockDeviceVolume(volume.Name)
-				if err != nil {
-					logger.Reason(err).Errorf("failed to detect volume mode for Volume %v and PVC %v.",
-						volume.Name, volume.VolumeSource.PersistentVolumeClaim.ClaimName)
-					return nil, err
-				}
+			} else {
+				isBlockPVC, _ = isBlockDeviceVolume(volume.Name)
 			}
 			isBlockPVCMap[volume.Name] = isBlockPVC
 		} else if volume.VolumeSource.ContainerDisk != nil {
@@ -1284,17 +1278,11 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 			}
 			diskInfo[volume.Name] = info
 		} else if volume.VolumeSource.DataVolume != nil {
-			var err error
 			isBlockDV := false
 			if _, ok := hotplugVolumes[volume.Name]; ok {
 				isBlockDV = isHotplugBlockDeviceVolume(volume.Name)
-			} else if _, ok := permanentVolumes[volume.Name]; ok {
-				isBlockDV, err = isBlockDeviceVolume(volume.Name)
-				if err != nil {
-					logger.Reason(err).Errorf("failed to detect volume mode for Volume %v and DV %v.",
-						volume.Name, volume.VolumeSource.DataVolume.Name)
-					return nil, err
-				}
+			} else {
+				isBlockDV, _ = isBlockDeviceVolume(volume.Name)
 			}
 			isBlockDVMap[volume.Name] = isBlockDV
 		}
@@ -1424,7 +1412,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	}
 	//Look up all the disks to attach
 	for _, attachDisk := range getAttachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
-		allowAttach, err := checkIfDiskReadyToUse(attachDisk.Source.File)
+		allowAttach, err := checkIfDiskReadyToUse(getSourceFile(attachDisk))
 		if err != nil {
 			return nil, err
 		}
@@ -1448,9 +1436,31 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	return &oldSpec, nil
 }
 
+func getSourceFile(disk api.Disk) string {
+	file := disk.Source.File
+	if disk.Source.File == "" {
+		file = disk.Source.Dev
+	}
+	return file
+}
+
 var checkIfDiskReadyToUse = checkIfDiskReadyToUseFunc
 
 func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
+	info, err := os.Stat(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		} else {
+			log.DefaultLogger().V(1).Infof("stat error: %v", err)
+			return false, err
+		}
+	}
+	log.DefaultLogger().V(1).Info("checking if device")
+	if (info.Mode() & os.ModeDevice) != 0 {
+		return true, nil
+	}
+	log.DefaultLogger().V(1).Info("not device")
 	// Before attempting to attach, ensure we can open the file
 	file, err := os.OpenFile(filename, os.O_RDWR, 0660)
 	if err != nil {
@@ -1465,11 +1475,14 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	newDiskMap := make(map[string]api.Disk)
 	for _, disk := range newDisks {
-		newDiskMap[disk.Source.File] = disk
+		file := getSourceFile(disk)
+		if file != "" {
+			newDiskMap[file] = disk
+		}
 	}
 	res := make([]api.Disk, 0)
 	for _, oldDisk := range oldDisks {
-		if _, ok := newDiskMap[oldDisk.Source.File]; !ok {
+		if _, ok := newDiskMap[getSourceFile(oldDisk)]; !ok {
 			// This disk got detached, add it to the list
 			res = append(res, oldDisk)
 		}
@@ -1480,11 +1493,14 @@ func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 func getAttachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 	oldDiskMap := make(map[string]api.Disk)
 	for _, disk := range oldDisks {
-		oldDiskMap[disk.Source.File] = disk
+		file := getSourceFile(disk)
+		if file != "" {
+			oldDiskMap[file] = disk
+		}
 	}
 	res := make([]api.Disk, 0)
 	for _, newDisk := range newDisks {
-		if _, ok := oldDiskMap[newDisk.Source.File]; !ok {
+		if _, ok := oldDiskMap[getSourceFile(newDisk)]; !ok {
 			// This disk got attached, add it to the list
 			res = append(res, newDisk)
 		}

@@ -539,7 +539,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			// We could not retry if the "test" fails but we have no sane way to detect that right now: https://github.com/kubernetes/kubernetes/issues/68202 for details
 			// So just retry like with any other errors
 			if err != nil {
-				return fmt.Errorf("patching of vmi conditions and activePods failed: %v", err)
+				return fmt.Errorf("patching of vmi conditions and activePods failed: %v, %v", err, patchOps)
 			}
 		}
 		return nil
