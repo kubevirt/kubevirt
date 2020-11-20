@@ -351,13 +351,14 @@ var _ = Describe("HotplugVolume block devices", func() {
 		} else {
 			Expect(err).ToNot(HaveOccurred())
 		}
+		// Values are translated to hex (245->580, 32->50)
 		Expect(major).To(Equal(majorRes))
 		Expect(minor).To(Equal(minorRes))
 		Expect(perm).To(Equal(permRes))
 	},
 		table.Entry("Should return values if stat command successful", func(fileName string) ([]byte, error) {
 			return []byte("245,32,0664,block special file"), nil
-		}, 245, 32, "0664", false),
+		}, 581, 50, "0664", false),
 		table.Entry("Should not return values if stat command errors", func(fileName string) ([]byte, error) {
 			return []byte("245,32,0664,block special file"), fmt.Errorf("Error")
 		}, -1, -1, "", true),
@@ -371,10 +372,10 @@ var _ = Describe("HotplugVolume block devices", func() {
 			return []byte("245,32,0664, block file"), nil
 		}, -1, -1, "", true),
 		table.Entry("Should not return values if stat command doesn't int major", func(fileName string) ([]byte, error) {
-			return []byte("aa,32,0664,block special file"), nil
+			return []byte("kk,32,0664,block special file"), nil
 		}, -1, -1, "", true),
 		table.Entry("Should not return values if stat command doesn't int minor", func(fileName string) ([]byte, error) {
-			return []byte("254,bb,0664,block special file"), nil
+			return []byte("254,gg,0664,block special file"), nil
 		}, -1, -1, "", true),
 	)
 
@@ -520,7 +521,8 @@ var _ = Describe("HotplugVolume block devices", func() {
 		Expect(err).ToNot(HaveOccurred())
 		content, err := ioutil.ReadFile(denyFile)
 		Expect(err).ToNot(HaveOccurred())
-		Expect("b 245:32 rwm").To(Equal(string(content)))
+		// Since stat returns values in hex, we need to get hex value as int.
+		Expect("b 581:50 rwm").To(Equal(string(content)))
 		_, err = os.Stat(deviceFileName)
 		Expect(err).To(HaveOccurred())
 	})

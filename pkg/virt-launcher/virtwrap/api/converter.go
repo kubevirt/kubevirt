@@ -161,7 +161,6 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, prefixMap map[
 			disk.Address.Bus = "0"
 		}
 		disk.Target.Device, unit = makeDeviceName(diskDevice.Name, diskDevice.Disk.Bus, prefixMap)
-		log.DefaultLogger().Infof("Setting target to %s for %s", disk.Target.Device, diskDevice.Name)
 		if diskDevice.Disk.Bus == "scsi" {
 			disk.Address.Unit = strconv.Itoa(unit)
 		}
