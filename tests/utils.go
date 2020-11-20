@@ -796,7 +796,7 @@ func AdjustKubeVirtResource() {
 		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
 	}
 
-	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"CPUManager", "LiveMigration", "ExperimentalIgnitionSupport", "Sidecar", "Snapshot"}
+	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"CPUManager", "LiveMigration", "ExperimentalIgnitionSupport", "Sidecar", "Snapshot", "HotplugVolumes"}
 	kv.Spec.Configuration.SELinuxLauncherType = "virt_launcher.process"
 
 	data, err := json.Marshal(kv.Spec)

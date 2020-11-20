@@ -33,6 +33,7 @@ const (
 	GPUGate               = "GPU"
 	HostDevicesGate       = "HostDevices"
 	SnapshotGate          = "Snapshot"
+	HotplugVolumesGate    = "HotplugVolumes"
 	HostDiskGate          = "HostDisk"
 	VirtIOFSGate          = "ExperimentalVirtiofsSupport"
 	MacvtapGate           = "Macvtap"
@@ -77,6 +78,10 @@ func (config *ClusterConfig) GPUPassthroughEnabled() bool {
 
 func (config *ClusterConfig) SnapshotEnabled() bool {
 	return config.isFeatureGateEnabled(SnapshotGate)
+}
+
+func (config *ClusterConfig) HotplugVolumesEnabled() bool {
+	return config.isFeatureGateEnabled(HotplugVolumesGate)
 }
 
 func (config *ClusterConfig) HostDiskEnabled() bool {
