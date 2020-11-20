@@ -2,10 +2,14 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["icmp_listener.go"],
+    srcs = [
+        "icmp_listener.go",
+        "ndp.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/ndp",
     visibility = ["//visibility:public"],
     deps = [
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/mdlayher/ndp:go_default_library",
         "//vendor/golang.org/x/net/ipv6:go_default_library",
     ],
