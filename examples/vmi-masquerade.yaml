@@ -41,9 +41,8 @@ spec:
         version: 2
         ethernets:
           eth0:
-            addresses: [ fd10:0:2::2/120 ]
             dhcp4: true
-            gateway6: fd10:0:2::1
+            accept-ra: true
       userData: |-
         #!/bin/bash
         echo "fedora" |passwd fedora --stdin
