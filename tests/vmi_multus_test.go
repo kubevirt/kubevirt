@@ -375,35 +375,41 @@ var _ = Describe("[Serial]Multus", func() {
 		})
 
 		Context("VirtualMachineInstance with Linux bridge CNI plugin interface and custom MAC address.", func() {
-			interfaces := []v1.Interface{linuxBridgeInterface}
-			networks := []v1.Network{linuxBridgeNetwork}
-			linuxBridgeIfIdx := 0
 			customMacAddress := "50:00:00:00:90:0d"
 
 			It("[test_id:676]should configure valid custom MAC address on Linux bridge CNI interface.", func() {
 				By("Creating a VM with Linux bridge CNI network interface and default MAC address.")
-				vmiTwo := createVMIOnNode(interfaces, networks)
-				tests.WaitUntilVMIReady(vmiTwo, console.LoginToAlpine)
+				vmiTwo := libvmi.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithInterface(linuxBridgeInterface),
+					libvmi.WithNetwork(&linuxBridgeNetwork),
+					libvmi.WithCloudInitNoCloudUserData(tests.GetGuestAgentUserData(), false),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByDevice("eth1", "10.1.1.2/24"), false))
+				vmiTwo = tests.StartVmOnNode(vmiTwo, nodes.Items[0].Name)
 
 				By("Creating another VM with custom MAC address on its Linux bridge CNI interface.")
-				interfaces[linuxBridgeIfIdx].MacAddress = customMacAddress
-				vmiOne := createVMIOnNode(interfaces, networks)
-				tests.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
+				linuxBridgeInterfaceWithCustomMac := linuxBridgeInterface
+				linuxBridgeInterfaceWithCustomMac.MacAddress = customMacAddress
+				vmiOne := libvmi.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
+					libvmi.WithNetwork(&linuxBridgeNetwork),
+					libvmi.WithCloudInitNoCloudUserData(tests.GetGuestAgentUserData(), false),
+					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, customMacAddress, "10.1.1.1/24"), false))
+				vmiOne = tests.StartVmOnNode(vmiOne, nodes.Items[0].Name)
 
-				By("Configuring static IP address to the Linux bridge interface.")
-				Expect(configInterface(vmiOne, "eth0", "10.1.1.1/24")).To(Succeed())
-				Expect(configInterface(vmiTwo, "eth0", "10.1.1.2/24")).To(Succeed())
+				vmiOne = tests.WaitUntilVMIReady(vmiOne, console.LoginToFedora)
+				tests.WaitAgentConnected(virtClient, vmiOne)
 
 				By("Verifying the desired custom MAC is the one that were actually configured on the interface.")
-				ipLinkShow := fmt.Sprintf("ip link show eth0 | grep -i \"%s\" | wc -l\n", customMacAddress)
-				err = console.SafeExpectBatch(vmiOne, []expect.Batcher{
-					&expect.BSnd{S: ipLinkShow},
-					&expect.BExp{R: "1"},
-				}, 15)
-				Expect(err).ToNot(HaveOccurred())
+				vmiIfaceStatusByName := libvmi.IndexInterfaceStatusByName(vmiOne)
+				Expect(vmiIfaceStatusByName).To(ContainElement(linuxBridgeInterfaceWithCustomMac.Name), "should set linux bridge interface with the custom MAC address at VMI Status")
+				Expect(vmiIfaceStatusByName[linuxBridgeInterfaceWithCustomMac.Name].MAC).To(Equal(customMacAddress), "should set linux bridge interface with the custom MAC address at VMI")
 
 				By("Verifying the desired custom MAC is not configured inside the pod namespace.")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, tests.NamespaceTestDefault)
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, vmiOne.Namespace)
 				out, err := tests.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
@@ -414,6 +420,7 @@ var _ = Describe("[Serial]Multus", func() {
 				Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
 
 				By("Ping from the VM with the custom MAC to the other VM.")
+				tests.WaitUntilVMIReady(vmiTwo, console.LoginToFedora)
 				Expect(libnet.PingFromVMConsole(vmiOne, "10.1.1.2")).To(Succeed())
 			})
 		})
@@ -1247,4 +1254,30 @@ func validatePodKubevirtResourceName(virtClient kubecli.KubevirtClient, vmiPod *
 	}
 
 	return nil
+}
+
+func cloudInitNetworkDataWithStaticIPsByMac(nicName, macAddress, ipv4Address string) string {
+	networkData, err := libnet.NewNetworkData(
+		libnet.WithEthernet(nicName,
+			libnet.WithAddresses(ipv4Address, libnet.DefaultIPv6CIDR),
+			libnet.WithGateway6(libnet.DefaultIPv6Gateway),
+			libnet.WithNameserverFromCluster(),
+			libnet.WithMatchingMAC(macAddress),
+		),
+	)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should success creating static IPs by mac address cloud init network data")
+	return networkData
+}
+
+func cloudInitNetworkDataWithStaticIPsByDevice(deviceName, ipv4Address string) string {
+	networkData, err := libnet.NewNetworkData(
+		libnet.WithEthernet(deviceName,
+			libnet.WithAddresses(ipv4Address, libnet.DefaultIPv6CIDR),
+			libnet.WithGateway6(libnet.DefaultIPv6Gateway),
+			libnet.WithAddresses(ipv4Address),
+			libnet.WithNameserverFromCluster(),
+		),
+	)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should success creating static IPs by device name cloud init network data")
+	return networkData
 }
