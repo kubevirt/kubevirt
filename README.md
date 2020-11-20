@@ -55,15 +55,19 @@ If you want to make changes to the HCO, here's how you can test your changes
 through [OLM](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/doc/install/install.md#installing-olm).
 
 Build the HCO container using the Makefile recipes `make container-build` and
-`make container-push` with vars `IMAGE_REGISTRY`, `OPERATOR_IMAGE`, and `IMAGE_TAG`
+`make container-push` with vars `IMAGE_REGISTRY`, `REGISTRY_NAMESPACE`, and `CONTAINER_TAG`
 to direct it's location.
 
 To use the HCO's container, we'll use a registry image to serve metadata to OLM.
 Build and push the HCO's registry image.
-
 ```bash
+# e.g. quay.io, docker.io
+export IMAGE_REGISTRY=<image_registry>
 export REGISTRY_NAMESPACE=<container_org>
-export TAG=example
+export CONTAINER_TAG=example
+
+# builds the registry image and pushes it to 
+# $IMAGE_REGISTRY/$REGISTRY_NAMESPACE/hco-container-registry:$CONTAINER_TAG
 make bundleRegistry
 ```
 
@@ -86,7 +90,10 @@ spec:
 EOF
 ```
 
-Create a Catalog Source.
+Create a CatalogSource and a Subscription.
+
+> If OLM Operator and Catalog Operator run in a namespace different than `openshift-marketplace`, replace `openshift-marketplace` with it in the CatalogSource and Subscription below.
+
 ```bash
 cat <<EOF | kubectl create -f -
 apiVersion: operators.coreos.com/v1alpha1
@@ -96,13 +103,12 @@ metadata:
   namespace: openshift-marketplace
 spec:
   sourceType: grpc
-  image: docker.io/$REGISTRY_NAMESPACE/hco-container-registry:$TAG
+  image: $IMAGE_REGISTRY/$REGISTRY_NAMESPACE/hco-container-registry:$CONTAINER_TAG
   displayName: KubeVirt HyperConverged
   publisher: Red Hat
 EOF
 ```
 
-Create a subscription.
 ```bash
 cat <<EOF | kubectl create -f -
 apiVersion: operators.coreos.com/v1alpha1
@@ -111,7 +117,7 @@ metadata:
   name: hco-subscription
   namespace: kubevirt-hyperconverged
 spec:
-  channel: "1.0.0"
+  channel: "1.2.0"
   name: kubevirt-hyperconverged
   source: hco-catalogsource
   sourceNamespace: openshift-marketplace
