@@ -437,7 +437,7 @@ func GetVMIMasquerade() *v1.VirtualMachineInstance {
 	vm.Spec.Networks = []v1.Network{v1.Network{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 	initFedora(&vm.Spec)
 	userData := "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable --now nginx"
-	networkData := "version: 2\nethernets:\n  eth0:\n    addresses: [ fd10:0:2::2/120 ]\n    dhcp4: true\n    gateway6: fd10:0:2::1\n"
+	networkData := "version: 2\nethernets:\n  eth0:\n    dhcp4: true\n    dhcp6: true\n    accept-ra: true\n"
 	addNoCloudDiskWitUserDataNetworkData(&vm.Spec, userData, networkData)
 
 	masquerade := &v1.InterfaceMasquerade{}
