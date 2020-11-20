@@ -49,6 +49,8 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const vmPathFormat = "/apis/kubevirt.io/%s/namespaces/%s/virtualmachines/%s"
@@ -74,8 +76,26 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
+	kv := &v1.KubeVirt{
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name:      "kubevirt",
+			Namespace: "kubevirt",
+		},
+		Spec: v1.KubeVirtSpec{
+			Configuration: v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{},
+			},
+		},
+		Status: v1.KubeVirtStatus{
+			Phase: v1.KubeVirtPhaseDeploying,
+		},
+	}
+
+	config, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
+
 	app := SubresourceAPIApp{}
 	BeforeEach(func() {
+
 		server = ghttp.NewServer()
 		backend = ghttp.NewTLSServer()
 		backendAddr := strings.Split(backend.Addr(), ":")
@@ -89,11 +109,21 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		app.statusUpdater = status.NewVMStatusUpdater(app.virtCli)
 		app.credentialsLock = &sync.Mutex{}
 		app.handlerTLSConfiguration = &tls.Config{InsecureSkipVerify: true}
+		app.clusterConfig = config
 
 		request = restful.NewRequest(&http.Request{})
 		recorder = httptest.NewRecorder()
 		response = restful.NewResponse(recorder)
 	})
+
+	enableFeatureGate := func(featureGate string) {
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+	}
+	disableFeatureGates := func() {
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+	}
 
 	expectHandlerPod := func() {
 		pod := &k8sv1.Pod{}
@@ -936,7 +966,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.PathParameters()["namespace"] = "default"
 		})
 
-		table.DescribeTable("Should succeed with add volume request", func(addOpts *v1.AddVolumeOptions, removeOpts *v1.RemoveVolumeOptions, isVM bool, code int) {
+		table.DescribeTable("Should succeed with add volume request", func(addOpts *v1.AddVolumeOptions, removeOpts *v1.RemoveVolumeOptions, isVM bool, code int, enableGate bool) {
+
+			if enableGate {
+				enableFeatureGate(virtconfig.HotplugVolumesGate)
+			}
 			if addOpts != nil {
 				request.Request.Body = newAddVolumeBody(addOpts)
 			} else {
@@ -1003,31 +1037,39 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Name:         "vol1",
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
-			}, nil, true, http.StatusAccepted),
+			}, nil, true, http.StatusAccepted, true),
 			table.Entry("VMI with a valid add volume request", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
-			}, nil, false, http.StatusAccepted),
+			}, nil, false, http.StatusAccepted, true),
 			table.Entry("VMI with an invalid add volume request that's missing a name", &v1.AddVolumeOptions{
 				VolumeSource: &v1.HotplugVolumeSource{},
 				Disk:         &v1.Disk{},
-			}, nil, false, http.StatusBadRequest),
+			}, nil, false, http.StatusBadRequest, true),
 			table.Entry("VMI with an invalid add volume request that's missing a disk", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				VolumeSource: &v1.HotplugVolumeSource{},
-			}, nil, false, http.StatusBadRequest),
+			}, nil, false, http.StatusBadRequest, true),
 			table.Entry("VMI with an invalid add volume request that's missing a volume", &v1.AddVolumeOptions{
 				Name: "vol1",
 				Disk: &v1.Disk{},
-			}, nil, false, http.StatusBadRequest),
+			}, nil, false, http.StatusBadRequest, true),
 			table.Entry("VM with a valid remove volume request", nil, &v1.RemoveVolumeOptions{
 				Name: "vol1",
-			}, true, http.StatusAccepted),
+			}, true, http.StatusAccepted, true),
 			table.Entry("VMI with a valid remove volume request", nil, &v1.RemoveVolumeOptions{
 				Name: "existingvol",
-			}, false, http.StatusAccepted),
-			table.Entry("VMI with a invalid remove volume request missing a name", nil, &v1.RemoveVolumeOptions{}, false, http.StatusBadRequest),
+			}, false, http.StatusAccepted, true),
+			table.Entry("VMI with a invalid remove volume request missing a name", nil, &v1.RemoveVolumeOptions{}, false, http.StatusBadRequest, true),
+			table.Entry("VMI with a valid remove volume request but no feature gate", nil, &v1.RemoveVolumeOptions{
+				Name: "existingvol",
+			}, false, http.StatusBadRequest, false),
+			table.Entry("VM with a valid add volume request but no feature gate", &v1.AddVolumeOptions{
+				Name:         "vol1",
+				Disk:         &v1.Disk{},
+				VolumeSource: &v1.HotplugVolumeSource{},
+			}, nil, true, http.StatusBadRequest, false),
 		)
 
 		table.DescribeTable("Should generate expected vmi patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, expectedPatch string, expectError bool) {
@@ -1810,6 +1852,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	AfterEach(func() {
 		server.Close()
 		backend.Close()
+		disableFeatureGates()
 	})
 })
 

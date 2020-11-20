@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 type SubresourceAPIApp struct {
@@ -53,15 +54,17 @@ type SubresourceAPIApp struct {
 	handlerTLSConfiguration *tls.Config
 	credentialsLock         *sync.Mutex
 	statusUpdater           *status.VMStatusUpdater
+	clusterConfig           *virtconfig.ClusterConfig
 }
 
-func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int, tlsConfiguration *tls.Config) *SubresourceAPIApp {
+func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int, tlsConfiguration *tls.Config, clusterConfig *virtconfig.ClusterConfig) *SubresourceAPIApp {
 	return &SubresourceAPIApp{
 		virtCli:                 virtCli,
 		consoleServerPort:       consoleServerPort,
 		credentialsLock:         &sync.Mutex{},
 		handlerTLSConfiguration: tlsConfiguration,
 		statusUpdater:           status.NewVMStatusUpdater(virtCli),
+		clusterConfig:           clusterConfig,
 	}
 }
 
@@ -1021,6 +1024,11 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, 
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
+	if !app.clusterConfig.HotplugVolumesEnabled() {
+		writeError(errors.NewBadRequest("Unable to Add Volume because HotplugVolumes feature gate is not enabled."), response)
+		return
+	}
+
 	opts := &v1.AddVolumeOptions{}
 	if request.Request.Body != nil {
 		defer request.Request.Body.Close()
@@ -1105,6 +1113,11 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, 
 func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
+
+	if !app.clusterConfig.HotplugVolumesEnabled() {
+		writeError(errors.NewBadRequest("Unable to Remove Volume because HotplugVolumes feature gate is not enabled."), response)
+		return
+	}
 
 	opts := &v1.RemoveVolumeOptions{}
 	if request.Request.Body != nil {
