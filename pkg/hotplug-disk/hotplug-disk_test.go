@@ -87,7 +87,7 @@ var _ = Describe("HotplugDisk", func() {
 			Expect(podUID).To(Equal(testUID))
 			return string(testUID)
 		}
-		res, err := GetFileSystemDiskTargetPathFromHostView(testUID, "testvolume")
+		res, err := GetFileSystemDiskTargetPathFromHostView(testUID, "testvolume", true)
 		Expect(err).ToNot(HaveOccurred())
 		testPath := filepath.Join(tempDir, string(testUID), "testvolume")
 		exists, _ := diskutils.FileExists(testPath)
@@ -104,7 +104,7 @@ var _ = Describe("HotplugDisk", func() {
 		}
 		testPath := filepath.Join(tempDir, string(testUID), "testvolume")
 		err = os.MkdirAll(testPath, os.FileMode(0755))
-		res, err := GetFileSystemDiskTargetPathFromHostView(testUID, "testvolume")
+		res, err := GetFileSystemDiskTargetPathFromHostView(testUID, "testvolume", false)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(res).To(Equal(testPath))
 	})
@@ -116,7 +116,7 @@ var _ = Describe("HotplugDisk", func() {
 			Expect(podUID).To(Equal(testUID))
 			return string(testUID)
 		}
-		_, err := GetFileSystemDiskTargetPathFromHostView(testUID, "testvolume")
+		_, err := GetFileSystemDiskTargetPathFromHostView(testUID, "testvolume", false)
 		Expect(err).To(HaveOccurred())
 	})
 })

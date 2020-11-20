@@ -15,6 +15,7 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -194,7 +195,6 @@ func (m *volumeMounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, rec
 		return err
 	}
 
-	log.DefaultLogger().V(1).Infof("Writing the following to the record file: %s", bytes)
 	err = ioutil.WriteFile(recordFile, bytes, 0644)
 	if err != nil {
 		return err
@@ -252,20 +252,17 @@ func (m *volumeMounter) isBlockVolume(sourceUID types.UID) bool {
 	// Check if the volumeDevices directory exists in the attachment pod, if so, its a block device, otherwise its file system.
 	if sourceUID != types.UID("") {
 		devicePath := deviceBasePath(sourceUID)
-		res, err := isBlockDevice(devicePath)
+		info, err := os.Stat(devicePath)
 		if err != nil {
-			log.Log.V(4).Infof("%s is not a block device %v", devicePath, err)
+			log.Log.V(4).Infof("%s pod does not contain a block device %v", sourceUID, err)
 			return false
 		}
-		return res
+		return info.IsDir()
 	}
 	return false
 }
 
 func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, record *vmiMountTargetRecord) error {
-	logger := log.DefaultLogger()
-	logger.V(4).Infof("Hotplug block volume: %s", volume)
-
 	virtlauncherUID := m.findVirtlauncherUID(vmi)
 	if virtlauncherUID == "" {
 		// This is not the node the pod is running on.
@@ -276,13 +273,13 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		return err
 	}
 
-	sourceMajor, sourceMinor, permissions, err := m.getSourceMajorMinor(vmi, sourceUID)
-	if err != nil {
-		return err
-	}
 	deviceName := filepath.Join(targetPath, volume)
 
 	if isBlockExists, _ := isBlockDevice(deviceName); !isBlockExists {
+		sourceMajor, sourceMinor, permissions, err := m.getSourceMajorMinor(vmi, sourceUID)
+		if err != nil {
+			return err
+		}
 		if err := m.writePathToMountRecord(deviceName, vmi, record); err != nil {
 			return err
 		}
@@ -308,12 +305,32 @@ func (m *volumeMounter) getSourceMajorMinor(vmi *v1.VirtualMachineInstance, sour
 	if sourceUID != types.UID("") {
 		basepath := deviceBasePath(sourceUID)
 		err := filepath.Walk(basepath, func(filePath string, info os.FileInfo, err error) error {
-			if info != nil && !info.IsDir() && m.isBlockFile(filePath) {
-				result[0], result[1], perms, err = m.getBlockFileMajorMinor(filePath)
-				// Err != nil means not a block device or unable to determine major/minor, try next file
-				if err == nil {
-					// Successfully located
-					return io.EOF
+			if info != nil && !info.IsDir() {
+				// Walk doesn't follow symlinks which is good because I need to massage symlinks
+				linkInfo, err := os.Lstat(filePath)
+				if err != nil {
+					return err
+				}
+				path := filePath
+				if linkInfo.Mode()&os.ModeSymlink != 0 {
+					// Its a symlink, follow it
+					link, err := os.Readlink(filePath)
+					if err != nil {
+						return err
+					}
+					if !strings.HasPrefix(link, util.HostRootMount) {
+						path = filepath.Join(util.HostRootMount, link)
+					} else {
+						path = link
+					}
+				}
+				if m.isBlockFile(path) {
+					result[0], result[1], perms, err = m.getBlockFileMajorMinor(path)
+					// Err != nil means not a block device or unable to determine major/minor, try next file
+					if err == nil {
+						// Successfully located
+						return io.EOF
+					}
 				}
 				return nil
 			}
@@ -333,6 +350,7 @@ func (m *volumeMounter) isBlockFile(fileName string) bool {
 	// Stat the file and see if there is no error
 	out, err := statCommand(fileName)
 	if err != nil {
+		log.DefaultLogger().Errorf("Error statting block device file: %s, %v", out, err)
 		// Not a block device skip to next file
 		return false
 	}
@@ -362,10 +380,11 @@ func (m *volumeMounter) getBlockFileMajorMinor(fileName string) (int, int, strin
 	}
 	// Verify that both values are ints.
 	for i := 0; i < 2; i++ {
-		result[i], err = strconv.Atoi(split[i])
+		val, err := strconv.ParseInt(split[i], 16, 32)
 		if err != nil {
 			return -1, -1, "", err
 		}
+		result[i] = int(val)
 	}
 	return result[0], result[1], split[2], nil
 }
@@ -420,8 +439,9 @@ func (m *volumeMounter) createBlockDeviceFile(deviceName string, major, minor in
 		return "", err
 	}
 	if !exists {
-		_, err := mknodCommand(deviceName, major, minor, blockDevicePermissions)
+		out, err := mknodCommand(deviceName, major, minor, blockDevicePermissions)
 		if err != nil {
+			log.DefaultLogger().Errorf("Error creating block device file: %s, %v", out, err)
 			return "", err
 		}
 	}
@@ -439,7 +459,7 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 		// This is not the node the pod is running on.
 		return nil
 	}
-	targetPath, err := hotplugdisk.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volume)
+	targetPath, err := hotplugdisk.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volume, true)
 	if err != nil {
 		return err
 	}
@@ -502,6 +522,9 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 			// no entries to unmount
 			return nil
 		}
+		if len(record.MountTargetEntries) == 0 {
+			return nil
+		}
 
 		currentHotplugPaths := make(map[string]types.UID, 0)
 		virtlauncherUID := m.findVirtlauncherUID(vmi)
@@ -518,7 +541,7 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 				path := filepath.Join(basePath, volumeStatus.Name)
 				currentHotplugPaths[path] = virtlauncherUID
 			} else {
-				path, err := hotplugdisk.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volumeStatus.Name)
+				path, err := hotplugdisk.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volumeStatus.Name, false)
 				if err != nil {
 					return err
 				}
