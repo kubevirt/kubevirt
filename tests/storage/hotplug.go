@@ -382,17 +382,6 @@ var _ = SIGDescribe("Hotplug", func() {
 				}, 300*time.Second, 1*time.Second).Should(BeTrue())
 			})
 
-			AfterEach(func() {
-				By("Deleting the virtual machine")
-				Expect(virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})).To(Succeed())
-				By("Waiting for VMI to be removed")
-				Eventually(func() int {
-					vmis, err := virtClient.VirtualMachineInstance(vm.Namespace).List(&metav1.ListOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return len(vmis.Items)
-				}, 300*time.Second, 2*time.Second).Should(BeZero(), "The VirtualMachineInstance did not disappear")
-			})
-
 			table.DescribeTable("should add/remove volume", func(addVolumeFunc func(name, namespace, volumeName, claimName, bus string), removeVolumeFunc func(name, namespace, volumeName string), volumeMode corev1.PersistentVolumeMode, vmiOnly, waitToStart bool) {
 				By("Creating DataVolume")
 				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, corev1.ReadWriteOnce, volumeMode)
@@ -651,17 +640,6 @@ var _ = SIGDescribe("Hotplug", func() {
 
 				vmi = tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
-			})
-
-			AfterEach(func() {
-				By("Deleting the virtual machine instance")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-				By("Waiting for VMI to be removed")
-				Eventually(func() int {
-					vmis, err := virtClient.VirtualMachineInstance(vmi.Namespace).List(&metav1.ListOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return len(vmis.Items)
-				}, 300*time.Second, 2*time.Second).Should(BeZero(), "The VirtualMachineInstance did not disappear")
 			})
 
 			It("should mark VMI failed, if an attachment pod is deleted", func() {
