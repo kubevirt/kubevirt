@@ -191,16 +191,6 @@ func (mon *monitor) RunForever(startTimeout time.Duration, signalStopChan chan s
 	mon.monitorLoop(startTimeout, signalStopChan)
 }
 
-// #nosec doesn't seem like this function is even used
-func readProcCmdline(pathname string) ([]string, error) {
-	content, err := ioutil.ReadFile(pathname)
-	if err != nil {
-		return nil, err
-	}
-
-	return strings.Split(string(content), "\x00"), nil
-}
-
 func pidExists(pid int) (bool, error) {
 	path := fmt.Sprintf("/proc/%d/cmdline", pid)
 
