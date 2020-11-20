@@ -117,5 +117,12 @@ func prepareRAOptions(prefix net.IP, prefixLength uint8) []ndp.Option {
 		PreferredLifetime:              ndp.Infinity,
 		Prefix:                         prefix,
 	}
-	return []ndp.Option{prefixInfo}
+
+	defaultRoute := &ndp.RouteInformation{
+		PrefixLength:  prefixLength,
+		Preference:    ndp.High,
+		RouteLifetime: ndp.Infinity,
+		Prefix:        prefix,
+	}
+	return []ndp.Option{prefixInfo, defaultRoute}
 }
