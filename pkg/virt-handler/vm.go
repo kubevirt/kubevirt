@@ -834,40 +834,20 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 	}
 
 	// Cacluate whether the VM is migratable
+	liveMigrationCondition, isBlockMigration := d.calculateLiveMigrationCondition(vmi, hasHotplug)
 	if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceIsMigratable) {
-		isBlockMigration, err := d.checkVolumesForMigration(vmi)
-		liveMigrationCondition := v1.VirtualMachineInstanceCondition{
-			Type:   v1.VirtualMachineInstanceIsMigratable,
-			Status: k8sv1.ConditionTrue,
-		}
-		if err != nil {
-			liveMigrationCondition.Status = k8sv1.ConditionFalse
-			liveMigrationCondition.Message = err.Error()
-			liveMigrationCondition.Reason = v1.VirtualMachineInstanceReasonDisksNotMigratable
-			vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
-		}
-		err = d.checkNetworkInterfacesForMigration(vmi)
-		if err != nil {
-			liveMigrationCondition = v1.VirtualMachineInstanceCondition{
-				Type:    v1.VirtualMachineInstanceIsMigratable,
-				Status:  k8sv1.ConditionFalse,
-				Message: err.Error(),
-				Reason:  v1.VirtualMachineInstanceReasonInterfaceNotMigratable,
-			}
-			vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
-		}
-		if hasHotplug {
-			liveMigrationCondition.Status = k8sv1.ConditionFalse
-		}
-		if liveMigrationCondition.Status == k8sv1.ConditionTrue {
-			vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
-		}
-
+		vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
 		// Set VMI Migration Method
 		if isBlockMigration {
 			vmi.Status.MigrationMethod = v1.BlockMigration
 		} else {
 			vmi.Status.MigrationMethod = v1.LiveMigration
+		}
+	} else {
+		cond := condManager.GetCondition(vmi, v1.VirtualMachineInstanceIsMigratable)
+		if !reflect.DeepEqual(cond, liveMigrationCondition) {
+			condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceIsMigratable)
+			vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
 		}
 	}
 	// Update the condition when GA is connected
@@ -973,6 +953,40 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 	}
 
 	return nil
+}
+
+func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.VirtualMachineInstance, hasHotplug bool) (*v1.VirtualMachineInstanceCondition, bool) {
+	liveMigrationCondition := v1.VirtualMachineInstanceCondition{
+		Type:   v1.VirtualMachineInstanceIsMigratable,
+		Status: k8sv1.ConditionTrue,
+	}
+	isBlockMigration, err := d.checkVolumesForMigration(vmi)
+	if err != nil {
+		liveMigrationCondition.Status = k8sv1.ConditionFalse
+		liveMigrationCondition.Message = err.Error()
+		liveMigrationCondition.Reason = v1.VirtualMachineInstanceReasonDisksNotMigratable
+		return &liveMigrationCondition, isBlockMigration
+	}
+	err = d.checkNetworkInterfacesForMigration(vmi)
+	if err != nil {
+		liveMigrationCondition = v1.VirtualMachineInstanceCondition{
+			Type:    v1.VirtualMachineInstanceIsMigratable,
+			Status:  k8sv1.ConditionFalse,
+			Message: err.Error(),
+			Reason:  v1.VirtualMachineInstanceReasonInterfaceNotMigratable,
+		}
+		return &liveMigrationCondition, isBlockMigration
+	}
+	if hasHotplug {
+		liveMigrationCondition = v1.VirtualMachineInstanceCondition{
+			Type:    v1.VirtualMachineInstanceIsMigratable,
+			Status:  k8sv1.ConditionFalse,
+			Message: "VMI has hotplugged disks",
+			Reason:  v1.VirtualMachineInstanceReasonHotplugNotMigratable,
+		}
+		return &liveMigrationCondition, isBlockMigration
+	}
+	return &liveMigrationCondition, isBlockMigration
 }
 
 func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
