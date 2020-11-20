@@ -43,7 +43,7 @@ func NewNDPConnection(ifaceName string) (*NDPConnection, error) {
 
 	c, _, err := ndp.Dial(iface, ndp.Unspecified)
 	if err != nil {
-		return nil, fmt.Errorf("could not start NDP connection on %s: %v", ifaceName, err)
+		return nil, fmt.Errorf("could not start NDP ndpConn on %s: %v", ifaceName, err)
 	}
 
 	// join the routers multicast group
