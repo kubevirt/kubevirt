@@ -345,12 +345,12 @@ func (_mr *_MockNetworkHandlerRecorder) DisableTXOffloadChecksum(arg0 interface{
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DisableTXOffloadChecksum", arg0)
 }
 
-func (_m *MockNetworkHandler) StartRA(ipv6CIDR string, bridgeInterfaceName string) error {
-	ret := _m.ctrl.Call(_m, "StartRA", ipv6CIDR, bridgeInterfaceName)
+func (_m *MockNetworkHandler) StartRA(ipv6CIDR string, bridgeInterfaceName string, macAddr net.HardwareAddr) error {
+	ret := _m.ctrl.Call(_m, "StartRA", ipv6CIDR, bridgeInterfaceName, macAddr)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockNetworkHandlerRecorder) StartRA(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartRA", arg0, arg1)
+func (_mr *_MockNetworkHandlerRecorder) StartRA(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartRA", arg0, arg1, arg2)
 }

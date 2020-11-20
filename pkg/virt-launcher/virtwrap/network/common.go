@@ -117,7 +117,7 @@ type NetworkHandler interface {
 	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
 	DisableTXOffloadChecksum(ifaceName string) error
-	StartRA(ipv6CIDR string, bridgeInterfaceName string) error
+	StartRA(ipv6CIDR string, bridgeInterfaceName string, macAddr net.HardwareAddr) error
 }
 
 type NetworkUtilsHandler struct{}
@@ -370,7 +370,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInter
 	return nil
 }
 
-func (h *NetworkUtilsHandler) StartRA(ipv6CIDR string, bridgeInterfaceName string) error {
+func (h *NetworkUtilsHandler) StartRA(ipv6CIDR string, bridgeInterfaceName string, macAddr net.HardwareAddr) error {
 	log.Log.Infof("Starting RA daemon on network Nic: %s, advertising prefix: %s ", bridgeInterfaceName, ipv6CIDR)
 
 	runtime.LockOSThread()
@@ -380,6 +380,7 @@ func (h *NetworkUtilsHandler) StartRA(ipv6CIDR string, bridgeInterfaceName strin
 		"ra-sender",
 		"--listen-on-iface", bridgeInterfaceName,
 		"--ipv6-cidr", ipv6CIDR,
+		"--server-mac-address", macAddr.String(),
 	}
 	startRADaemonCmd := exec.Command("virt-chroot", runRADaemonArgs...)
 	err := startRADaemonCmd.Start()

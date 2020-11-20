@@ -268,7 +268,6 @@ var _ = Describe("Pod Network", func() {
 		}
 		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, queueNumber, pid, mtu).Return(nil)
 		mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)
-		mockNetwork.EXPECT().StartRA(api.DefaultVMIpv6CIDR, api.DefaultBridgeName).Return(nil)
 
 		err := SetupPodNetworkPhase1(vm, pid)
 		Expect(err).To(BeNil())
@@ -419,6 +418,15 @@ var _ = Describe("Pod Network", func() {
 			})
 		})
 		Context("Masquerade Plug", func() {
+			var masqueradeBridgeWithMAC netlink.Bridge
+			var bridgeMAC net.HardwareAddr
+
+			BeforeEach(func() {
+				masqueradeBridgeWithMAC = *masqueradeBridgeTest
+				bridgeMAC, _ = net.ParseMAC("12:34:56:78:9A:DD")
+				masqueradeBridgeWithMAC.HardwareAddr = bridgeMAC
+			})
+
 			It("should define a new VIF bind to a bridge and create a default nat rule using iptables", func() {
 
 				// forward all the traffic
@@ -427,6 +435,8 @@ var _ = Describe("Pod Network", func() {
 				}
 				mockNetwork.EXPECT().IsIpv6Enabled(podInterface).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
+				mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(&masqueradeBridgeWithMAC, nil)
+				mockNetwork.EXPECT().StartRA(api.DefaultVMIpv6CIDR, api.DefaultBridgeName, bridgeMAC).Return(nil)
 
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
@@ -438,6 +448,8 @@ var _ = Describe("Pod Network", func() {
 				// Forward a specific port
 				mockNetwork.EXPECT().IsIpv6Enabled(podInterface).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
+				mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(&masqueradeBridgeWithMAC, nil)
+				mockNetwork.EXPECT().StartRA(api.DefaultVMIpv6CIDR, api.DefaultBridgeName, bridgeMAC).Return(nil)
 
 				for _, proto := range ipProtocols() {
 					mockNetwork.EXPECT().HasNatIptables(proto).Return(true).Times(2)
@@ -478,6 +490,8 @@ var _ = Describe("Pod Network", func() {
 				}
 				mockNetwork.EXPECT().IsIpv6Enabled(podInterface).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
+				mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(&masqueradeBridgeWithMAC, nil)
+				mockNetwork.EXPECT().StartRA(api.DefaultVMIpv6CIDR, api.DefaultBridgeName, bridgeMAC).Return(nil)
 
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
@@ -489,6 +503,8 @@ var _ = Describe("Pod Network", func() {
 				// Forward a specific port
 				mockNetwork.EXPECT().IsIpv6Enabled(podInterface).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
+				mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(&masqueradeBridgeWithMAC, nil)
+				mockNetwork.EXPECT().StartRA(api.DefaultVMIpv6CIDR, api.DefaultBridgeName, bridgeMAC).Return(nil)
 
 				for _, proto := range ipProtocols() {
 					mockNetwork.EXPECT().HasNatIptables(proto).Return(false).Times(2)

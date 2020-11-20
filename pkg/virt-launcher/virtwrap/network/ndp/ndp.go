@@ -39,7 +39,7 @@ type RouterAdvertisementDaemon struct {
 	ndpConn   *NDPConnection
 }
 
-func SingleClientRouterAdvertisementDaemon(serverIface string, ipv6CIDR string) error {
+func SingleClientRouterAdvertisementDaemon(serverIface string, ipv6CIDR string, routerMACAddr string) error {
 	log.Log.Info("Starting RouterAdvertisement daemon")
 
 	prefix, network, err := net.ParseCIDR(ipv6CIDR)
@@ -48,13 +48,18 @@ func SingleClientRouterAdvertisementDaemon(serverIface string, ipv6CIDR string) 
 	}
 	prefixLength, _ := network.Mask.Size()
 
+	serverMAC, err := net.ParseMAC(routerMACAddr)
+	if err != nil {
+		return fmt.Errorf("could not parse MAC address from %s; %v", routerMACAddr, err)
+	}
+
 	ndpConnection, err := NewNDPConnection(serverIface)
 	if err != nil {
 		return fmt.Errorf("could not listen to icmpv6 on interface %s. Reason: %v", serverIface, err)
 	}
 
 	handler := &RouterAdvertisementDaemon{
-		raOptions: prepareRAOptions(prefix, uint8(prefixLength)),
+		raOptions: prepareRAOptions(prefix, uint8(prefixLength), serverMAC),
 		ndpConn:   ndpConnection,
 	}
 
@@ -102,13 +107,13 @@ func (rad *RouterAdvertisementDaemon) filterRouterSolicitations() error {
 	var filter ipv6.ICMPFilter
 	filter.SetAll(true)
 	filter.Accept(ipv6.ICMPTypeRouterSolicitation)
-	if err := rad.listener.ConfigureFilter(&filter); err != nil {
+	if err := rad.ndpConn.ConfigureFilter(&filter); err != nil {
 		return err
 	}
 	return nil
 }
 
-func prepareRAOptions(prefix net.IP, prefixLength uint8) []ndp.Option {
+func prepareRAOptions(prefix net.IP, prefixLength uint8, sourceLinkLayerAddr net.HardwareAddr) []ndp.Option {
 	prefixInfo := &ndp.PrefixInformation{
 		PrefixLength:                   prefixLength,
 		OnLink:                         true,
@@ -124,5 +129,10 @@ func prepareRAOptions(prefix net.IP, prefixLength uint8) []ndp.Option {
 		RouteLifetime: ndp.Infinity,
 		Prefix:        prefix,
 	}
-	return []ndp.Option{prefixInfo, defaultRoute}
+
+	clientLinkLayerAddr := &ndp.LinkLayerAddress{
+		Direction: ndp.Source,
+		Addr:      sourceLinkLayerAddr,
+	}
+	return []ndp.Option{prefixInfo, defaultRoute, clientLinkLayerAddr}
 }
