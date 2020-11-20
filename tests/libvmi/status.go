@@ -38,3 +38,11 @@ func GetPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace st
 
 	return controlledPod
 }
+
+func IndexInterfaceStatusByName(vmi *v1.VirtualMachineInstance) map[string]v1.VirtualMachineInstanceNetworkInterface {
+	interfaceStatusByName := map[string]v1.VirtualMachineInstanceNetworkInterface{}
+	for _, interfaceStatus := range vmi.Status.Interfaces {
+		interfaceStatusByName[interfaceStatus.Name] = interfaceStatus
+	}
+	return interfaceStatusByName
+}
