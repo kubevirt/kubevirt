@@ -34,6 +34,20 @@ const (
 // NewFedora instantiates a new Fedora based VMI configuration,
 // building its extra properties based on the specified With* options.
 func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	return newFedora(cd.ContainerDiskFedora, opts...)
+}
+
+// NewSriovFedora instantiates a new Fedora based VMI configuration,
+// building its extra properties based on the specified With* options, the
+// image used include Guest Agent and some moduled needed by SRIOV.
+func NewSriovFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	return newFedora(cd.ContainerDiskFedoraSRIOVLane, opts...)
+}
+
+// NewFedora instantiates a new Fedora based VMI configuration with specified
+// containerDisk, building its extra properties based on the specified With*
+// options.
+func newFedora(containerDisk cd.ContainerDisk, opts ...Option) *kvirtv1.VirtualMachineInstance {
 	configurePassword := `#!/bin/bash
 	echo "fedora" |passwd fedora --stdin
 	echo `
@@ -42,7 +56,7 @@ func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
 		WithResourceMemory("512M"),
 		WithRng(),
-		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedora)),
+		WithContainerImage(cd.ContainerDiskFor(containerDisk)),
 		WithCloudInitNoCloudUserData(configurePassword, false),
 	}
 	opts = append(fedoraOptions, opts...)
