@@ -1,21 +1,45 @@
 ## Technical Overview
 
-Kubernetes allows for extensions to its architecture in the form of custom
-resources: <https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/>.
-KubeVirt represents virtual machines as custom resources and manages changes
-to libvirt domains based on the state of those resources.
+Kubernetes allows for extensions to its architecture via
+[*custom resources*]( https://Kubernetes.io/docs/concepts/extend-Kubernetes/api-extension/custom-resources/),
+which add a new endpoint in the Kubernetes API that stores and retrieves a
+collection API objects of a certain kind.
+The *custom resources* by themselves only
+enable store and retrieve structured data;
+to add business logic and specific functionality,
+[*custom controllers*]( https://Kubernetes.io/docs/concepts/extend-Kubernetes/) are needed.
+*Controllers* are clients of the Kubernetes API-Server that typically read an
+object's `.spec`, possibly do things, and then update the object's
+`.status`.
+
+KubeVirt uses CRDs, *controllers* and other Kubernetes features, to
+represent and manage traditional virtual machines side by side with
+containers.
+
+KubeVirt's primary CRD is the VirtualMachine (VM) resource, which manages
+the lifecycle of a VirtualMachineInstance (VMI) object that represents a
+single virtualized workload that executes once until completion
+(i.e., powered off).
 
 ### Project Components
+The key KubeVirt components are the virt-api, the
+virt-controller, the virt-handler, and the virt-launcher.
 
- * virt-api: This component provides a HTTP RESTful entrypoint to manage
+![KubeVirt components](components.png "Components")
+
+ * **virt-api**: This component provides a HTTP RESTful entrypoint to manage
    the virtual machines within the cluster.
- * virt-controller: This component manages the state of each VMI within the
-   Kubernetes cluster.
- * virt-handler: This is a daemon that runs on each Kubernetes node. It is
-   responsible for monitoring the state of VMIs according to Kubernetes and
-   ensuring the corresponding libvirt domain is booted or halted accordingly.
- * virt-launcher: This component is a place-holder, one per running VMI. It
-   contains the running VMI and remains running as long as the VMI is defined.
+ * **virt-controller**: This component is a Kubernetes controller that
+ manages the lifecycle of VMs within the Kubernetes cluster.
+ * **virt-handler**: This is a daemon that runs on each Kubernetes node.
+It is responsible for monitoring the state of VMIs according to
+Kubernetes and ensuring the corresponding libvirt domain is booted or
+halted accordingly. To perform these operations, the virt-handler has a
+communication channel with each virt-launcher that is used to manage the
+lifecycle of the qemu process within the *virt-launcher* pod.
+ * **virt-launcher**: There is one per running VMI.
+This component directly manages the lifecycle of the qemu process within
+the VMI's pod and receives lifecycle commands from virt-handler.
 
 ### Scripts
 
@@ -36,4 +60,4 @@ to libvirt domains based on the state of those resources.
  * `make cluster-sync`: After deploying a fresh environment, or after making
    changes to code in this tree, this command will sync the Pods and DaemonSets
    in the running KubeVirt environment with the state of this tree.
- * `make cluster-down`: This will tear down a running KubeVirt enviornment.
+ * `make cluster-down`: This will tear down a running KubeVirt environment.
