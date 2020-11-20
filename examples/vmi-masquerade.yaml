@@ -37,13 +37,6 @@ spec:
       image: registry:5000/kubevirt/fedora-cloud-container-disk-demo:devel
     name: containerdisk
   - cloudInitNoCloud:
-      networkData: |
-        version: 2
-        ethernets:
-          eth0:
-            addresses: [ fd10:0:2::2/120 ]
-            dhcp4: true
-            gateway6: fd10:0:2::1
       userData: |-
         #!/bin/bash
         echo "fedora" |passwd fedora --stdin
