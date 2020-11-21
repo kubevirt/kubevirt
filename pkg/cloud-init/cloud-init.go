@@ -306,6 +306,7 @@ func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
 	args = append(args, "-rock")
 	args = append(args, inDir)
 
+	// #nosec No risk for attacket injection. Parameters are predefined strings
 	cmd := exec.Command("genisoimage", args...)
 
 	err := cmd.Start()

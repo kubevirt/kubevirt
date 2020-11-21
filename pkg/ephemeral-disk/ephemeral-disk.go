@@ -94,6 +94,7 @@ func CreateBackedImageForVolume(volume v1.Volume, backingFile string) error {
 	args = append(args, backingFile)
 	args = append(args, imagePath)
 
+	// #nosec No risk for attacket injection. Parameters are predefined strings
 	cmd := exec.Command("qemu-img", args...)
 	output, err := cmd.CombinedOutput()
 

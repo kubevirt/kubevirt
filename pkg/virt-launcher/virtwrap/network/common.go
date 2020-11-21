@@ -236,6 +236,7 @@ func (h *NetworkUtilsHandler) NftablesNewChain(proto iptables.Protocol, table, c
 
 func (h *NetworkUtilsHandler) NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error {
 	cmd := append([]string{"add", "rule", Handler.GetNFTIPString(proto), table, chain}, rulespec...)
+	// #nosec No risk for attacket injection. CMD variables are predefined strings
 	output, err := exec.Command("nft", cmd...).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to apped new nfrule error %s", string(output))
@@ -401,6 +402,7 @@ func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int
 		"--queue-number", fmt.Sprintf("%d", queueNumber),
 		"--mtu", fmt.Sprintf("%d", mtu),
 	}
+	// #nosec No risk for attacket injection. createTapDeviceArgs includes predefined strings
 	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
 
 	return &tapDeviceMaker{
