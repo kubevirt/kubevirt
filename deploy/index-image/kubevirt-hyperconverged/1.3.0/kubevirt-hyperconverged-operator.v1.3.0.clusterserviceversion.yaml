@@ -1728,7 +1728,7 @@ spec:
                 - name: KUBEVIRT_VERSION
                   value: v0.35.0
                 - name: CDI_VERSION
-                  value: v1.26.0
+                  value: v1.26.1
                 - name: NETWORK_ADDONS_VERSION
                   value: v0.42.3
                 - name: SSP_VERSION
@@ -2013,7 +2013,7 @@ spec:
                 - name: DEPLOY_CLUSTER_RESOURCES
                   value: "true"
                 - name: OPERATOR_VERSION
-                  value: v1.26.0
+                  value: v1.26.1
                 - name: CONTROLLER_IMAGE
                   value: docker.io/kubevirt/cdi-controller@sha256:8135370750adf2eaa269b346a68f40ed9c93400f34e2a9817704dbe466aa8e92
                 - name: IMPORTER_IMAGE

@@ -47,7 +47,7 @@ func IsPopulated(pvc *corev1.PersistentVolumeClaim, getDvFunc func(name, namespa
 // 3. If the PVC is owned by a DataVolume, look up the DV and check the phase, if phase !WaitForFirstConsumer return false
 func IsWaitForFirstConsumerBeforePopulating(pvc *corev1.PersistentVolumeClaim, getDvFunc func(name, namespace string) (*DataVolume, error)) (bool, error) {
 	pvcOwner := metav1.GetControllerOf(pvc)
-	if pvc.Status.Phase == corev1.ClaimPending && pvcOwner != nil && pvcOwner.Kind == "DataVolume" {
+	if pvcOwner != nil && pvcOwner.Kind == "DataVolume" {
 		// Find the data volume:
 		dv, err := getDvFunc(pvcOwner.Name, pvc.Namespace)
 		if err != nil {
