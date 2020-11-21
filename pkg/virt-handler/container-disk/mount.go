@@ -290,6 +290,7 @@ func (m *mounter) legacyUnmount(vmi *v1.VirtualMachineInstance) error {
 			if mounted, err := isolation.NodeIsolationResult().IsMounted(path); err != nil {
 				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", path, err)
 			} else if mounted {
+				// #nosec No risk for attacket injection. Parameters are predefined strings
 				out, err := exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "umount", path).CombinedOutput()
 				if err != nil {
 					return fmt.Errorf("failed to unmount containerDisk %v: %v : %v", path, string(out), err)
@@ -333,6 +334,7 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", path, err)
 			} else if mounted {
 				log.DefaultLogger().Object(vmi).Infof("unmounting container disk at path %s", path)
+				// #nosec No risk for attacket injection. Parameters are predefined strings
 				out, err := exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "umount", path).CombinedOutput()
 				if err != nil {
 					return fmt.Errorf("failed to unmount containerDisk %v: %v : %v", path, string(out), err)

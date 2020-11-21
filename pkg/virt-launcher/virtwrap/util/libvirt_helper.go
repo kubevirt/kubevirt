@@ -251,6 +251,7 @@ func StartVirtlog(stopChan chan struct{}, domainName string) {
 			var args []string
 			args = append(args, "-f")
 			args = append(args, "/etc/libvirt/virtlogd.conf")
+			// #nosec No risk for attacket injection. Args  are predefined strings
 			cmd := exec.Command("/usr/sbin/virtlogd", args...)
 
 			exitChan := make(chan struct{})
