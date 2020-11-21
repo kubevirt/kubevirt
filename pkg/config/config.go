@@ -108,6 +108,7 @@ func defaultCreateIsoImage(output string, volID string, files []string) error {
 	args = append(args, "-graft-points")
 	args = append(args, files...)
 
+	// #nosec No risk for attacket injection. Parameters are predefined strings
 	cmd := exec.Command("genisoimage", args...)
 	err := cmd.Run()
 	if err != nil {

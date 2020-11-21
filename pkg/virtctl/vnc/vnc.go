@@ -272,6 +272,7 @@ func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port i
 		if glog.V(4) {
 			glog.Infof("Executing commandline: '%s %v'", vncBin, args)
 		}
+		// #nosec No risk for attacket injection. vncBin and args include predefined strings
 		cmnd := exec.Command(vncBin, args...)
 		output, err := cmnd.CombinedOutput()
 		if err != nil {

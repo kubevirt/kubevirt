@@ -2032,6 +2032,7 @@ func createHostDevicesFromMdevUUIDList(mdevUuidList []string) ([]HostDevice, err
 
 func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
 
+	// #nosec No risk for attacket injection. Only get information about an image
 	out, err := exec.Command(
 		"/usr/bin/qemu-img", "info", imagePath, "--output", "json",
 	).Output()
