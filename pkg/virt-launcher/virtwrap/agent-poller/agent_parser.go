@@ -2,7 +2,6 @@ package agentpoller
 
 import (
 	"encoding/json"
-	"fmt"
 	"regexp"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -269,7 +268,7 @@ func extractIPs(ipAddresses []IP) (string, []string) {
 	interfaceIPs := []string{}
 	var interfaceIP string
 	for _, ipAddr := range ipAddresses {
-		ip := fmt.Sprintf("%s/%d", ipAddr.IP, ipAddr.Prefix)
+		ip := ipAddr.IP
 		// Prefer ipv4 as the main interface IP
 		if ipAddr.Type == "ipv4" && interfaceIP == "" {
 			interfaceIP = ip
