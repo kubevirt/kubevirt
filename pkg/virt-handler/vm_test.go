@@ -1923,8 +1923,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			interfaceName := "interface_name"
 			mac := "C0:01:BE:E7:15:G0:0D"
-			ip := "2.2.2.2/24"
-			ips := []string{"2.2.2.2/24", "3.3.3.3/16"}
+			ip := "2.2.2.2"
+			ips := []string{"2.2.2.2", "3.3.3.3"}
 
 			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
 				{
