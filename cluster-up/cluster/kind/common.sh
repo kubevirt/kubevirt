@@ -15,6 +15,9 @@ REGISTRY_NAME=${CLUSTER_NAME}-registry
 MASTER_NODES_PATTERN="control-plane"
 WORKER_NODES_PATTERN="worker"
 
+KUBEVIRT_WITH_KIND_ETCD_IN_MEMORY=${KUBEVIRT_WITH_KIND_ETCD_IN_MEMORY:-"true"}
+ETCD_IN_MEMORY_DATA_DIR="/tmp/kind-cluster-etcd"
+
 function _wait_kind_up {
     echo "Waiting for kind to be ready ..."
     while [ -z "$(docker exec --privileged ${CLUSTER_NAME}-control-plane kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes --selector=node-role.kubernetes.io/master -o=jsonpath='{.items..status.conditions[-1:].status}' | grep True)" ]; do
@@ -91,24 +94,6 @@ function _configure_network() {
     done
 }
 
-function prepare_workers() {
-    # appending eventual workers to the yaml
-    for ((n=0;n<$(($KUBEVIRT_NUM_NODES-1));n++)); do
-        cat << EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
-- role: worker
-  kubeadmConfigPatches:
-  - |
-    kind: JoinConfiguration
-    nodeRegistration:
-      kubeletExtraArgs:
-        "feature-gates": "CPUManager=true"
-        "cpu-manager-policy": "static"
-        "kube-reserved": "cpu=500m"
-        "system-reserved": "cpu=500m"
-EOF
-    done
-}
-
 function _get_nodes() {
     _kubectl get nodes --no-headers
 }
@@ -172,6 +157,17 @@ function setup_kind() {
     docker cp ${CLUSTER_NAME}-control-plane:/kind/bin/kubectl ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
     chmod u+x ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
 
+    if [ $KUBEVIRT_WITH_KIND_ETCD_IN_MEMORY == "true" ]; then
+        for node in $(_get_nodes | awk '{print $1}' | grep control-plane); do
+            echo "[$node] Checking KIND cluster etcd data is mounted to RAM: $ETCD_IN_MEMORY_DATA_DIR"
+            docker exec $node df -h $(dirname $ETCD_IN_MEMORY_DATA_DIR) | grep -P '(tmpfs|ramfs)'
+            [ $(echo $?) != 0 ] && echo "[$node] etcd data directory is not mounted to RAM" && return 1
+
+            docker exec $node du -h $ETCD_IN_MEMORY_DATA_DIR
+            [ $(echo $?) != 0 ] && echo "[$node] Failed to check etcd data directory" && return 1
+        done
+    fi
+
     for node in $(_get_nodes | awk '{print $1}'); do
         docker exec $node /bin/sh -c "curl -L https://github.com/containernetworking/plugins/releases/download/v0.8.5/cni-plugins-linux-amd64-v0.8.5.tgz | tar xz -C /opt/cni/bin"
     done
@@ -210,9 +206,71 @@ function setup_kind() {
     prepare_config
 }
 
+function _add_worker_extra_mounts() {
+    if [[ "$KUBEVIRT_PROVIDER" =~ sriov.* ]]; then
+        cat <<EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
+  extraMounts:
+  - containerPath: /lib/modules
+    hostPath: /lib/modules
+    readOnly: true
+  - containerPath: /dev/vfio/
+    hostPath: /dev/vfio/
+EOF
+  fi
+}
+
+function _add_worker_kubeadm_config_patch() {
+    cat << EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
+  kubeadmConfigPatches:
+  - |-
+    kind: JoinConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        "feature-gates": "CPUManager=true"
+        "cpu-manager-policy": "static"
+        "kube-reserved": "cpu=500m"
+        "system-reserved": "cpu=500m"
+EOF
+}
+
+function _add_workers() {
+    # appending eventual workers to the yaml
+    for ((n=0;n<$(($KUBEVIRT_NUM_NODES-1));n++)); do
+        cat << EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
+- role: worker
+EOF
+    _add_worker_kubeadm_config_patch
+    _add_worker_extra_mounts
+    done
+}
+
+function _add_kubeadm_config_patches() {
+    if [ $KUBEVIRT_WITH_KIND_ETCD_IN_MEMORY == "true" ]; then
+        cat <<EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
+kubeadmConfigPatches:
+- |
+  kind: ClusterConfiguration
+  metadata:
+    name: config
+  etcd:
+    local:
+      dataDir: $ETCD_IN_MEMORY_DATA_DIR
+EOF
+        echo "KIND cluster etcd data will be mounted to RAM on kind nodes: $ETCD_IN_MEMORY_DATA_DIR"
+    fi
+}
+
+function _prepare_kind_config() {
+    _add_workers
+    _add_kubeadm_config_patches
+
+    echo "Final KIND config:"
+    cat ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
+}
+
 function kind_up() {
     _fetch_kind
-    prepare_workers
+    _prepare_kind_config
     setup_kind
 }
 

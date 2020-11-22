@@ -4,7 +4,7 @@ set -x
 source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
 
 MANIFESTS_DIR="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/manifests"
-CSRCREATORPATH="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/csrcreator"
+CERTCREATOR_PATH="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/certcreator"
 KUBECONFIG_PATH="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig"
 
 MASTER_NODE="${CLUSTER_NAME}-control-plane"
@@ -115,29 +115,29 @@ function is_taint_absence {
 function wait_for_taint_absence {
   local -r taint=$1
 
-  local -r tries=60
+  local -r tries=24
   local -r wait_time=5
 
-  local -r wait_message="Waiting for $taint taint absence"
-  local -r error_message="Taint $taint $name did not removed"
+  local -r wait_message="Waiting for taint '$taint' absence"
+  local -r error_message="Taint $taint did not removed"
   local -r action="is_taint_absence $taint"
 
   retry "$tries" "$wait_time" "$action" "$wait_message" && return 0
-  echo $error_message && return 1
+  echo "$error_message" && return 1
 }
 
 function wait_for_taint {
   local -r taint=$1
 
-  local -r tries=60
+  local -r tries=24
   local -r wait_time=5
 
-  local -r wait_message="Waiting for $taint taint to present"
-  local -r error_message="Taint $taint $name did not present"
+  local -r wait_message="Waiting for taint '$taint' to present"
+  local -r error_message="Taint '$taint' did not present"
   local -r action="_kubectl get nodes -o custom-columns=taints:.spec.taints[*].effect --no-headers | grep -i $taint"
 
   retry "$tries" "$wait_time" "$action" "$wait_message" && return 0
-  echo $error_message && return 1
+  echo "$error_message" && return 1
 }
 
 # not using kubectl wait since with the sriov operator the pods get restarted a couple of times and this is
@@ -206,20 +206,20 @@ function deploy_sriov_operator {
   popd
 
   echo 'Generating webhook certificates for the SR-IOV operator webhooks'
-  pushd "${CSRCREATORPATH}"
+  pushd "${CERTCREATOR_PATH}"
     go run . -namespace sriov-network-operator -secret operator-webhook-service -hook operator-webhook -kubeconfig $KUBECONFIG_PATH || return 1
     go run . -namespace sriov-network-operator -secret network-resources-injector-secret -hook network-resources-injector -kubeconfig $KUBECONFIG_PATH || return 1
   popd
 
   echo 'Setting caBundle for SR-IOV webhooks'
   wait_k8s_object "validatingwebhookconfiguration" "operator-webhook-config" || return 1
-  _kubectl patch validatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/operator-webhook.cert)"'" }}]}'
+  _kubectl patch validatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CERTCREATOR_PATH/operator-webhook.cert)"'" }}]}'
 
   wait_k8s_object "mutatingwebhookconfiguration"   "operator-webhook-config" || return 1
-  _kubectl patch mutatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/operator-webhook.cert)"'" }}]}'
+  _kubectl patch mutatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CERTCREATOR_PATH/operator-webhook.cert)"'" }}]}'
 
   wait_k8s_object "mutatingwebhookconfiguration"   "network-resources-injector-config" || return 1
-  _kubectl patch mutatingwebhookconfiguration network-resources-injector-config --patch '{"webhooks":[{"name":"network-resources-injector-config.k8s.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/network-resources-injector.cert)"'" }}]}'
+  _kubectl patch mutatingwebhookconfiguration network-resources-injector-config --patch '{"webhooks":[{"name":"network-resources-injector-config.k8s.io", "clientConfig": { "caBundle": "'"$(cat $CERTCREATOR_PATH/network-resources-injector.cert)"'" }}]}'
 
   # Since sriov-operator doesnt have a condition or Status to indicate if
   # 'operator-webhook' and 'network-resources-injector' webhooks certificates are
