@@ -128,23 +128,23 @@ var _ = Describe("Qemu agent poller", func() {
 				api.InterfaceStatus{
 					Name:          "",
 					Mac:           "0a:58:0a:f4:00:51",
-					Ip:            "10.244.0.81/24",
-					IPs:           []string{"10.244.0.81/24", "fe80::858:aff:fef4:51/64"},
+					Ip:            "10.244.0.81",
+					IPs:           []string{"10.244.0.81", "fe80::858:aff:fef4:51"},
 					InterfaceName: "eth0",
 				})
 			expectedStatuses = append(expectedStatuses,
 				api.InterfaceStatus{
 					Name:          "",
 					Mac:           "02:00:00:b0:17:66",
-					Ip:            "fe80::ff:feb0:1766/64",
-					IPs:           []string{"fe80::ff:feb0:1766/64"},
+					Ip:            "fe80::ff:feb0:1766",
+					IPs:           []string{"fe80::ff:feb0:1766"},
 					InterfaceName: "eth1",
 				})
 			expectedStatuses = append(expectedStatuses,
 				api.InterfaceStatus{
 					Mac:           "02:00:00:22:11:11",
-					Ip:            "1.2.3.4/24",
-					IPs:           []string{"1.2.3.4/24", "fe80::ff:1111:2222/64"},
+					Ip:            "1.2.3.4",
+					IPs:           []string{"1.2.3.4", "fe80::ff:1111:2222"},
 					InterfaceName: "eth5",
 				})
 			Expect(interfaceStatuses).To(Equal(expectedStatuses))
@@ -188,23 +188,23 @@ var _ = Describe("Qemu agent poller", func() {
 				api.InterfaceStatus{
 					Name:          "ovs",
 					Mac:           "0a:58:0a:f4:00:51",
-					Ip:            "10.244.0.81/24",
-					IPs:           []string{"10.244.0.81/24", "fe80::858:aff:fef4:51/64"},
+					Ip:            "10.244.0.81",
+					IPs:           []string{"10.244.0.81", "fe80::858:aff:fef4:51"},
 					InterfaceName: "eth0",
 				})
 			expectedStatuses = append(expectedStatuses,
 				api.InterfaceStatus{
 					Name:          "net1",
 					Mac:           "02:00:00:b0:17:66",
-					Ip:            "fe80::ff:feb0:1766/64",
-					IPs:           []string{"fe80::ff:feb0:1766/64"},
+					Ip:            "fe80::ff:feb0:1766",
+					IPs:           []string{"fe80::ff:feb0:1766"},
 					InterfaceName: "eth1",
 				})
 			expectedStatuses = append(expectedStatuses,
 				api.InterfaceStatus{
 					Mac:           "02:00:00:22:11:11",
-					Ip:            "1.2.3.4/24",
-					IPs:           []string{"1.2.3.4/24", "fe80::ff:1111:2222/64"},
+					Ip:            "1.2.3.4",
+					IPs:           []string{"1.2.3.4", "fe80::ff:1111:2222"},
 					InterfaceName: "eth5",
 				})
 			expectedStatuses = append(expectedStatuses,
