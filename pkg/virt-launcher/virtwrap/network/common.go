@@ -368,20 +368,22 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInter
 		}
 	}()
 
-	go func() {
-		if err = DHCPv6Server(
-			nic.IPv6.IP,
-			bridgeInterfaceName,
-			nameservers,
-			nic.Routes,
-			searchDomains,
-			nic.Mtu,
-			dhcpOptions,
-		); err != nil {
-			log.Log.Errorf("failed to run DHCP: %v", err)
-			panic(err)
-		}
-	}()
+	if nic.IPv6.IPNet != nil {
+		go func() {
+			if err = DHCPv6Server(
+				nic.IPv6.IP,
+				bridgeInterfaceName,
+				nameservers,
+				nic.Routes,
+				searchDomains,
+				nic.Mtu,
+				dhcpOptions,
+			); err != nil {
+				log.Log.Errorf("failed to run DHCPv6: %v", err)
+				panic(err)
+			}
+		}()
+	}
 
 	return nil
 }
