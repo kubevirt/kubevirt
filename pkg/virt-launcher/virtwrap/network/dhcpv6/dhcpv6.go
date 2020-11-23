@@ -85,7 +85,12 @@ func (h *DHCPv6Handler) ServeDHCPv6(conn net.PacketConn, peer net.Addr, m dhcpv6
 	switch dhcpv6Msg.Type() {
 	case dhcpv6.MessageTypeSolicit:
 		log.Log.V(4).Info("DHCPv6 - the request has message type Solicit")
-		response, err = dhcpv6.NewAdvertiseFromSolicit(dhcpv6Msg, h.modifiers...)
+		if dhcpv6Msg.GetOneOption(dhcpv6.OptionRapidCommit) == nil {
+			response, err = dhcpv6.NewAdvertiseFromSolicit(dhcpv6Msg, h.modifiers...)
+		} else {
+			log.Log.V(4).Info("DHCPv6 - replying with rapid commit")
+			response, err = dhcpv6.NewReplyFromMessage(dhcpv6Msg, h.modifiers...)
+		}
 	default:
 		log.Log.V(4).Info("DHCPv6 - non Solicit request recieved")
 		response, err = dhcpv6.NewReplyFromMessage(dhcpv6Msg, h.modifiers...)
