@@ -69,7 +69,8 @@ require (
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 	k8s.io/utils v0.0.0-20200720150651-0bdb4ca86cbc
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000
-	kubevirt.io/containerized-data-importer v1.25.0
+	kubevirt.io/containerized-data-importer v1.26.1
+	kubevirt.io/controller-lifecycle-operator-sdk v0.1.1
 	kubevirt.io/qe-tools v0.1.6
 	libvirt.org/libvirt-go v6.5.0+incompatible
 	sigs.k8s.io/yaml v1.2.0
@@ -113,7 +114,7 @@ replace (
 
 	kubevirt.io/client-go => ./staging/src/kubevirt.io/client-go
 
-	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.25.0
+	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.26.1
 )
 
 go 1.13
