@@ -5,19 +5,22 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"net/http"
 	"os"
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const (
-	WebhookPort     = 4343
 	WebhookCertDir  = "/apiserver.local.config/certificates"
 	WebhookCertName = "apiserver.crt"
 	WebhookKeyName  = "apiserver.key"
@@ -28,18 +31,25 @@ var (
 )
 
 type WebhookHandlerIfs interface {
-	Init(logger logr.Logger, cli client.Client)
+	Init(logger logr.Logger, cli client.Client, namespace string)
 	ValidateCreate(hc *HyperConverged) error
 	ValidateUpdate(requested *HyperConverged, exists *HyperConverged) error
 	ValidateDelete(hc *HyperConverged) error
+	HandleMutatingNsDelete(ns *corev1.Namespace, dryRun bool) (bool, error)
 }
 
 var whHandler WebhookHandlerIfs
 
 func (r *HyperConverged) SetupWebhookWithManager(ctx context.Context, mgr ctrl.Manager, handler WebhookHandlerIfs) error {
+	operatorNsEnv, nserr := hcoutil.GetOperatorNamespaceFromEnv()
+	if nserr != nil {
+		hcolog.Error(nserr, "failed to get operator namespace from the environment")
+		return nserr
+	}
+
 	// Make sure the certificates are mounted, this should be handled by the OLM
 	whHandler = handler
-	whHandler.Init(hcolog, mgr.GetClient())
+	whHandler.Init(hcolog, mgr.GetClient(), operatorNsEnv)
 
 	certs := []string{filepath.Join(WebhookCertDir, WebhookCertName), filepath.Join(WebhookCertDir, WebhookKeyName)}
 	for _, fname := range certs {
@@ -83,11 +93,14 @@ func (r *HyperConverged) SetupWebhookWithManager(ctx context.Context, mgr ctrl.M
 	}
 
 	bldr := ctrl.NewWebhookManagedBy(mgr).For(r)
+
 	srv := mgr.GetWebhookServer()
 	srv.CertDir = WebhookCertDir
 	srv.CertName = WebhookCertName
 	srv.KeyName = WebhookKeyName
-	srv.Port = WebhookPort
+	srv.Port = hcoutil.WebhookPort
+	srv.Register(hcoutil.HCONSWebhookPath, &webhook.Admission{Handler: &nsMutator{}})
+
 	return bldr.Complete()
 }
 
@@ -108,4 +121,49 @@ func (r *HyperConverged) ValidateUpdate(old runtime.Object) error {
 
 func (r *HyperConverged) ValidateDelete() error {
 	return whHandler.ValidateDelete(r)
+}
+
+// nsMutator mutates Ns requests
+type nsMutator struct {
+	decoder *admission.Decoder
+}
+
+// TODO: nsMutator should try to delete HyperConverged CR before deleting the namespace
+// currently it simply blocks namespace deletion if HyperConverged CR is there
+func (a *nsMutator) Handle(ctx context.Context, req admission.Request) admission.Response {
+	hcolog.Info("reaching nsMutator.Handle")
+	ns := &corev1.Namespace{}
+
+	if req.Operation == admissionv1beta1.Delete {
+
+		// In reference to PR: https://github.com/kubernetes/kubernetes/pull/76346
+		// OldObject contains the object being deleted
+		err := a.decoder.DecodeRaw(req.OldObject, ns)
+		if err != nil {
+			hcolog.Error(err, "failed decoding namespace object")
+			return admission.Errored(http.StatusBadRequest, err)
+		}
+
+		admitted, herr := whHandler.HandleMutatingNsDelete(ns, *req.DryRun)
+		if err != nil {
+			return admission.Errored(http.StatusInternalServerError, herr)
+		}
+		if admitted {
+			return admission.Allowed("the namespace doesn't contain HyperConverged CR, admitting its deletion")
+		}
+		return admission.Denied("HyperConverged CR is still present, please remove it before deleting the containing namespace")
+	}
+
+	// ignoring other operations
+	return admission.Allowed("ignoring other operations")
+
+}
+
+// nsMutator implements admission.DecoderInjector.
+// A decoder will be automatically injected.
+
+// InjectDecoder injects the decoder.
+func (a *nsMutator) InjectDecoder(d *admission.Decoder) error {
+	a.decoder = d
+	return nil
 }

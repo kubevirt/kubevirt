@@ -41,7 +41,7 @@
 # to verify that it is updated to the new operator image from 
 # the local registry.
 
-MAX_STEPS=12
+MAX_STEPS=13
 CUR_STEP=1
 RELEASE_DELTA="${RELEASE_DELTA:-1}"
 HCO_DEPLOYMENT_NAME=hco-operator
@@ -249,5 +249,9 @@ ${CMD} get deployments -n ${HCO_NAMESPACE} -o yaml | grep image | grep -v imageP
 ${CMD} get pod $HCO_CATALOGSOURCE_POD -n ${HCO_CATALOG_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
 
 dump_sccs_after
+
+Msg "brutally delete HCO removing the namespace where it's running"
+source hack/test_delete_ns.sh
+test_delete_ns
 
 echo "upgrade-test completed successfully."

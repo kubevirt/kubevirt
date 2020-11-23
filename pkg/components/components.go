@@ -36,7 +36,6 @@ const (
 	hcoNameWebhook      = "hyperconverged-cluster-webhook"
 	hcoDeploymentName   = "hco-operator"
 	hcoWhDeploymentName = "hco-webhook"
-	hcoWebhookPath      = "/validate-hco-kubevirt-io-v1beta1-hyperconverged"
 )
 
 func GetDeploymentOperator(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion string, env []corev1.EnvVar) appsv1.Deployment {
@@ -927,7 +926,7 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 	// In that case the user can only directly remove the
 	// ValidatingWebhookConfiguration object first (eventually bypassing the OLM if needed).
 	failurePolicy := admissionregistrationv1.Fail
-	webhookPath := hcoWebhookPath
+	webhookPath := util.HCOWebhookPath
 	// TODO: temporary workaround for https://bugzilla.redhat.com/1868712
 	// currently OLM is going to periodically kill HCO, due to that some request can got lost with a timeout error
 	// using a really high timeout can mitigate it giving more time to a new HCO instance.
@@ -938,7 +937,7 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 		GenerateName:            util.HcoValidatingWebhook,
 		Type:                    csvv1alpha1.ValidatingAdmissionWebhook,
 		DeploymentName:          hcoWhDeploymentName,
-		ContainerPort:           4343,
+		ContainerPort:           util.WebhookPort,
 		AdmissionReviewVersions: []string{"v1beta1", "v1"},
 		SideEffects:             &sideEffect,
 		FailurePolicy:           &failurePolicy,
@@ -958,6 +957,36 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 			},
 		},
 		WebhookPath: &webhookPath,
+	}
+
+	sideEffectMutating := admissionregistrationv1.SideEffectClassNoneOnDryRun
+	webhookPathMutating := util.HCONSWebhookPath
+
+	ns_mutating_webhook := csvv1alpha1.WebhookDescription{
+		GenerateName:            util.HcoMutatingWebhookNS,
+		Type:                    csvv1alpha1.MutatingAdmissionWebhook,
+		DeploymentName:          hcoWhDeploymentName,
+		ContainerPort:           util.WebhookPort,
+		AdmissionReviewVersions: []string{"v1beta1", "v1"},
+		SideEffects:             &sideEffectMutating,
+		FailurePolicy:           &failurePolicy,
+		TimeoutSeconds:          &webhookTimeout,
+		ObjectSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"name": namespace},
+		},
+		Rules: []admissionregistrationv1.RuleWithOperations{
+			admissionregistrationv1.RuleWithOperations{
+				Operations: []admissionregistrationv1.OperationType{
+					admissionregistrationv1.Delete,
+				},
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"namespaces"},
+				},
+			},
+		},
+		WebhookPath: &webhookPathMutating,
 	}
 
 	return &csvv1alpha1.ClusterServiceVersion{
@@ -1047,7 +1076,7 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 			// Skip this in favor of having a separate function to get
 			// the actual StrategyDetailsDeployment when merging CSVs
 			InstallStrategy:    csvv1alpha1.NamedInstallStrategy{},
-			WebhookDefinitions: []csvv1alpha1.WebhookDescription{validating_webhook},
+			WebhookDefinitions: []csvv1alpha1.WebhookDescription{validating_webhook, ns_mutating_webhook},
 			CustomResourceDefinitions: csvv1alpha1.CustomResourceDefinitions{
 				Owned: []csvv1alpha1.CRDDescription{
 					{

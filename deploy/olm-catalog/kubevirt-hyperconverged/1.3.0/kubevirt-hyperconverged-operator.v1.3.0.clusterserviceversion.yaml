@@ -2418,6 +2418,29 @@ spec:
     webhookPath: /validate-hco-kubevirt-io-v1beta1-hyperconverged
   - admissionReviewVersions:
     - v1beta1
+    - v1
+    containerPort: 4343
+    deploymentName: hco-webhook
+    failurePolicy: Fail
+    generateName: mutate-ns-hco.kubevirt.io
+    objectSelector:
+      matchLabels:
+        name: kubevirt-hyperconverged
+    rules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      operations:
+      - DELETE
+      resources:
+      - namespaces
+    sideEffects: NoneOnDryRun
+    timeoutSeconds: 30
+    type: MutatingAdmissionWebhook
+    webhookPath: /mutate-ns-hco-kubevirt-io
+  - admissionReviewVersions:
+    - v1beta1
     containerPort: 8443
     deploymentName: node-maintenance-operator
     failurePolicy: Fail

@@ -296,21 +296,22 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 	// negative conditions (!Available, Degraded, Progressing)
 	req.Conditions = common.NewHcoConditions()
 
+	fin_dropped := false
 	// Handle finalizers
+	if contains(req.Instance.ObjectMeta.Finalizers, badFinalizerName) {
+		req.Logger.Info("removing a finalizer set in the past (without a fully qualified name)")
+		req.Instance.ObjectMeta.Finalizers, fin_dropped = drop(req.Instance.ObjectMeta.Finalizers, badFinalizerName)
+		req.Dirty = req.Dirty || fin_dropped
+	}
 	if req.Instance.ObjectMeta.DeletionTimestamp.IsZero() {
 		// Add the finalizer if it's not there
 		if !contains(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
+			req.Logger.Info("setting a finalizer (with fully qualified name)")
 			req.Instance.ObjectMeta.Finalizers = append(req.Instance.ObjectMeta.Finalizers, FinalizerName)
-			req.Dirty = true
-		}
-		if contains(req.Instance.ObjectMeta.Finalizers, badFinalizerName) {
-			req.Instance.ObjectMeta.Finalizers = drop(req.Instance.ObjectMeta.Finalizers, badFinalizerName)
-			req.Dirty = true
+			req.Dirty = req.Dirty || fin_dropped
 		}
 	} else {
-		if contains(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
-			return r.ensureHcoDeleted(req)
-		}
+		return r.ensureHcoDeleted(req)
 	}
 
 	// If the current version is not updated in CR ,then we're updating. This is also works when updating from
@@ -428,12 +429,23 @@ func (r *ReconcileHyperConverged) ensureHcoDeleted(req *common.HcoRequest) (reco
 		return reconcile.Result{}, err
 	}
 
-	// Remove the finalizer
-	req.Instance.ObjectMeta.Finalizers = drop(req.Instance.ObjectMeta.Finalizers, FinalizerName)
-	req.Dirty = true
+	requeue := false
+
+	// Remove the finalizers
+	fin_dropped := false
+	if contains(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
+		req.Instance.ObjectMeta.Finalizers, fin_dropped = drop(req.Instance.ObjectMeta.Finalizers, FinalizerName)
+		req.Dirty = true
+		requeue = requeue || fin_dropped
+	}
+	if contains(req.Instance.ObjectMeta.Finalizers, badFinalizerName) {
+		req.Instance.ObjectMeta.Finalizers, fin_dropped = drop(req.Instance.ObjectMeta.Finalizers, badFinalizerName)
+		req.Dirty = true
+		requeue = requeue || fin_dropped
+	}
 
 	// Need to requeue because finalizer update does not change metadata.generation
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{Requeue: requeue}, nil
 }
 
 func (r *ReconcileHyperConverged) aggregateComponentConditions(req *common.HcoRequest) bool {
@@ -803,14 +815,17 @@ func contains(slice []string, s string) bool {
 	return false
 }
 
-func drop(slice []string, s string) []string {
+func drop(slice []string, s string) ([]string, bool) {
 	newSlice := []string{}
+	dropped := false
 	for _, element := range slice {
 		if element != s {
 			newSlice = append(newSlice, element)
+		} else {
+			dropped = true
 		}
 	}
-	return newSlice
+	return newSlice, dropped
 }
 
 func init() {

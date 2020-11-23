@@ -72,7 +72,7 @@ var _ = Describe("webhooks handler", func() {
 
 		cli := fake.NewFakeClientWithScheme(s)
 		wh := &WebhookHandler{}
-		wh.Init(logger, cli)
+		wh.Init(logger, cli, HcoValidNamespace)
 
 		It("should accept creation of a resource with a valid namespace", func() {
 			err := wh.ValidateCreate(cr)
@@ -96,7 +96,7 @@ var _ = Describe("webhooks handler", func() {
 			cli := getFakeClient(s, hco)
 			Expect(cli.Delete(ctx, operands.NewKubeVirt(hco))).To(BeNil())
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{
 				Spec: v1beta1.HyperConvergedSpec{
@@ -128,7 +128,7 @@ var _ = Describe("webhooks handler", func() {
 			c := getFakeClient(s, hco)
 			cli := errorClient{c, kvUpdateFailure}
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{}
 			hco.DeepCopyInto(newHco)
@@ -146,7 +146,7 @@ var _ = Describe("webhooks handler", func() {
 			cli := getFakeClient(s, hco)
 			Expect(cli.Delete(ctx, operands.NewCDI(hco))).To(BeNil())
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{
 				Spec: v1beta1.HyperConvergedSpec{
@@ -178,7 +178,7 @@ var _ = Describe("webhooks handler", func() {
 			c := getFakeClient(s, hco)
 			cli := errorClient{c, cdiUpdateFailure}
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{}
 			hco.DeepCopyInto(newHco)
@@ -204,7 +204,7 @@ var _ = Describe("webhooks handler", func() {
 			c := getFakeClient(s, hco)
 			cli := errorClient{c, noFailure}
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{}
 			hco.DeepCopyInto(newHco)
@@ -221,7 +221,7 @@ var _ = Describe("webhooks handler", func() {
 			cli := getFakeClient(s, hco)
 			Expect(cli.Delete(ctx, operands.NewNetworkAddons(hco))).To(BeNil())
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{
 				Spec: v1beta1.HyperConvergedSpec{
@@ -253,7 +253,7 @@ var _ = Describe("webhooks handler", func() {
 			c := getFakeClient(s, hco)
 			cli := errorClient{c, networkUpdateFailure}
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{}
 			hco.DeepCopyInto(newHco)
@@ -271,7 +271,7 @@ var _ = Describe("webhooks handler", func() {
 			cli := getFakeClient(s, hco)
 			Expect(cli.Delete(ctx, operands.NewKubeVirtCommonTemplateBundle(hco))).To(BeNil())
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{
 				Spec: v1beta1.HyperConvergedSpec{
@@ -303,7 +303,7 @@ var _ = Describe("webhooks handler", func() {
 			c := getFakeClient(s, hco)
 			cli := errorClient{c, kubevirtCommonTemplateBundleUpdateFailure}
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{}
 			hco.DeepCopyInto(newHco)
@@ -322,7 +322,7 @@ var _ = Describe("webhooks handler", func() {
 			cli := getFakeClient(s, hco)
 			Expect(cli.Delete(ctx, operands.NewKubeVirtNodeLabellerBundleForCR(hco, hco.Namespace))).To(BeNil())
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{
 				Spec: v1beta1.HyperConvergedSpec{
@@ -354,7 +354,7 @@ var _ = Describe("webhooks handler", func() {
 			c := getFakeClient(s, hco)
 			cli := errorClient{c, kubevirtNodeLabellerBundleUpdateFailure}
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{}
 			hco.DeepCopyInto(newHco)
@@ -373,7 +373,7 @@ var _ = Describe("webhooks handler", func() {
 			cli := getFakeClient(s, hco)
 			Expect(cli.Delete(ctx, operands.NewKubeVirtTemplateValidatorForCR(hco, hco.Namespace))).To(BeNil())
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{
 				Spec: v1beta1.HyperConvergedSpec{
@@ -405,7 +405,7 @@ var _ = Describe("webhooks handler", func() {
 			c := getFakeClient(s, hco)
 			cli := errorClient{c, kubevirtTemplateValidatorUpdateFailure}
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{}
 			hco.DeepCopyInto(newHco)
@@ -424,7 +424,7 @@ var _ = Describe("webhooks handler", func() {
 			cli := getFakeClient(s, hco)
 			Expect(cli.Delete(ctx, operands.NewKubeVirtMetricsAggregationForCR(hco, hco.Namespace))).To(BeNil())
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{
 				Spec: v1beta1.HyperConvergedSpec{
@@ -456,7 +456,7 @@ var _ = Describe("webhooks handler", func() {
 			c := getFakeClient(s, hco)
 			cli := errorClient{c, kubevirtMetricsAggregationUpdateFailure}
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{}
 			hco.DeepCopyInto(newHco)
@@ -474,7 +474,7 @@ var _ = Describe("webhooks handler", func() {
 			cli := getFakeClient(s, hco)
 			Expect(cli.Delete(ctx, operands.NewVMImportForCR(hco))).To(BeNil())
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{
 				Spec: v1beta1.HyperConvergedSpec{
@@ -506,7 +506,7 @@ var _ = Describe("webhooks handler", func() {
 			c := getFakeClient(s, hco)
 			cli := errorClient{c, vmImportUpdateFailure}
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{}
 			hco.DeepCopyInto(newHco)
@@ -532,7 +532,7 @@ var _ = Describe("webhooks handler", func() {
 			c := getFakeClient(s, hco)
 			cli := errorClient{c, timeoutError}
 			wh := &WebhookHandler{}
-			wh.Init(logger, cli)
+			wh.Init(logger, cli, HcoValidNamespace)
 
 			newHco := &v1beta1.HyperConverged{}
 			hco.DeepCopyInto(newHco)
@@ -545,6 +545,64 @@ var _ = Describe("webhooks handler", func() {
 		})
 
 	})
+
+	Context("Check mutating webhook for namespace deletion", func() {
+		BeforeEach(func() {
+			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).To(BeNil())
+		})
+
+		cr := &v1beta1.HyperConverged{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      ResourceName,
+				Namespace: HcoValidNamespace,
+			},
+			Spec: v1beta1.HyperConvergedSpec{},
+		}
+
+		ns := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: HcoValidNamespace,
+			},
+		}
+
+		It("should allow the delete of the namespace if Hyperconverged CR doesn't exist", func() {
+			cli := fake.NewFakeClientWithScheme(s)
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli, HcoValidNamespace)
+
+			allowed, err := wh.HandleMutatingNsDelete(ns, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(allowed).To(BeTrue())
+		})
+
+		It("should not allow the delete of the namespace if Hyperconverged CR exists", func() {
+			cli := fake.NewFakeClientWithScheme(s, cr)
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli, HcoValidNamespace)
+
+			allowed, err := wh.HandleMutatingNsDelete(ns, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(allowed).To(BeFalse())
+		})
+
+		It("should ignore other namespaces even if Hyperconverged CR exists", func() {
+			cli := fake.NewFakeClientWithScheme(s, cr)
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli, HcoValidNamespace)
+
+			other_ns := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: ResourceInvalidNamespace,
+				},
+			}
+
+			allowed, err := wh.HandleMutatingNsDelete(other_ns, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(allowed).To(BeTrue())
+		})
+
+	})
+
 })
 
 func newHyperConvergedConfig() *sdkapi.NodePlacement {
