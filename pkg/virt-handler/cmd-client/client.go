@@ -468,8 +468,7 @@ func (c *VirtLauncherClient) SetVirtualMachineGuestTime(vmi *v1.VirtualMachineIn
 	return c.genericSendVMICmd("SetVirtualMachineGuestTime", c.v1client.SetVirtualMachineGuestTime, vmi, &cmdv1.VirtualMachineOptions{})
 }
 
-func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
-
+func _getDomain(c *VirtLauncherClient, getRuntimeInfo bool) (*api.Domain, bool, error) {
 	domain := &api.Domain{}
 	exists := false
 
@@ -477,7 +476,14 @@ func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
 	defer cancel()
 
-	domainResponse, err := c.v1client.GetDomain(ctx, request)
+	domainResponse := &cmdv1.DomainResponse{}
+	var err error
+
+	if getRuntimeInfo {
+		domainResponse, err = c.v1client.GetDomainWithRuntimeInfo(ctx, request)
+	} else {
+		domainResponse, err = c.v1client.GetDomain(ctx, request)
+	}
 	var response *cmdv1.Response
 	if domainResponse != nil {
 		response = domainResponse.Response
@@ -497,33 +503,12 @@ func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
 	return domain, exists, nil
 }
 
+func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
+	return _getDomain(c, false)
+}
+
 func (c *VirtLauncherClient) GetDomainWithRuntimeInfo() (*api.Domain, bool, error) {
-
-	domain := &api.Domain{}
-	exists := false
-
-	request := &cmdv1.EmptyRequest{}
-	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
-	defer cancel()
-
-	domainResponse, err := c.v1client.GetDomainWithRuntimeInfo(ctx, request)
-	var response *cmdv1.Response
-	if domainResponse != nil {
-		response = domainResponse.Response
-	}
-
-	if err = handleError(err, "GetDomain", response); err != nil {
-		return domain, exists, err
-	}
-
-	if domainResponse.Domain != "" {
-		if err := json.Unmarshal([]byte(domainResponse.Domain), domain); err != nil {
-			log.Log.Reason(err).Error("error unmarshalling domain")
-			return domain, exists, err
-		}
-		exists = true
-	}
-	return domain, exists, nil
+	return _getDomain(c, true)
 }
 
 func (c *VirtLauncherClient) GetDomainStats() (*stats.DomainStats, bool, error) {
