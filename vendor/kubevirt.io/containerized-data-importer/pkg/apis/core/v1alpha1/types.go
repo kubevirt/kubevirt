@@ -268,6 +268,8 @@ type CDISpec struct {
 	Infra sdkapi.NodePlacement `json:"infra,omitempty"`
 	// Restrict on which nodes CDI workload pods will be scheduled
 	Workloads sdkapi.NodePlacement `json:"workload,omitempty"`
+	// CDIConfig at CDI level
+	Config *CDIConfigSpec `json:"config,omitempty"`
 }
 
 // CDIUninstallStrategy defines the state to leave CDI on uninstall

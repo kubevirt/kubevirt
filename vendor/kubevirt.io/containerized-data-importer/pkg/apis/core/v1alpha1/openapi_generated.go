@@ -13753,11 +13753,17 @@ func schema_pkg_apis_core_v1alpha1_CDISpec(ref common.ReferenceCallback) common.
 							Ref:         ref("kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api.NodePlacement"),
 						},
 					},
+					"config": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CDIConfig at CDI level",
+							Ref:         ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.CDIConfigSpec"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api.NodePlacement"},
+			"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.CDIConfigSpec", "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api.NodePlacement"},
 	}
 }
 
