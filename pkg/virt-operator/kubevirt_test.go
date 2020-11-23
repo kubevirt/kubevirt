@@ -390,7 +390,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		}
 	}
 
-	injectMetadata := func(objectMeta *metav1.ObjectMeta, config *util.KubeVirtDeploymentConfig, addGenerationID bool) {
+	injectMetadata := func(objectMeta *metav1.ObjectMeta, config *util.KubeVirtDeploymentConfig) {
 		if config == nil {
 			return
 		}
@@ -406,9 +406,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		objectMeta.Annotations[v1.InstallStrategyVersionAnnotation] = config.GetKubeVirtVersion()
 		objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation] = config.GetImageRegistry()
 		objectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation] = config.GetDeploymentID()
-		if addGenerationID {
-			objectMeta.Annotations[v1.KubeVirtGenerationAnnotation] = "1"
-		}
 	}
 
 	addKubeVirt := func(kv *v1.KubeVirt) {
@@ -544,85 +541,85 @@ var _ = Describe("KubeVirt Operator", func() {
 	addResource := func(obj runtime.Object, config *util.KubeVirtDeploymentConfig) {
 		switch resource := obj.(type) {
 		case *k8sv1.ServiceAccount:
-			injectMetadata(&obj.(*k8sv1.ServiceAccount).ObjectMeta, config, true)
+			injectMetadata(&obj.(*k8sv1.ServiceAccount).ObjectMeta, config)
 			injectLastApplied(obj)
 			addServiceAccount(resource)
 		case *rbacv1.ClusterRole:
-			injectMetadata(&obj.(*rbacv1.ClusterRole).ObjectMeta, config, true)
+			injectMetadata(&obj.(*rbacv1.ClusterRole).ObjectMeta, config)
 			injectLastApplied(obj)
 			addClusterRole(resource)
 		case *rbacv1.ClusterRoleBinding:
-			injectMetadata(&obj.(*rbacv1.ClusterRoleBinding).ObjectMeta, config, true)
+			injectMetadata(&obj.(*rbacv1.ClusterRoleBinding).ObjectMeta, config)
 			injectLastApplied(obj)
 			addClusterRoleBinding(resource)
 		case *rbacv1.Role:
-			injectMetadata(&obj.(*rbacv1.Role).ObjectMeta, config, true)
+			injectMetadata(&obj.(*rbacv1.Role).ObjectMeta, config)
 			injectLastApplied(obj)
 			addRole(resource)
 		case *rbacv1.RoleBinding:
-			injectMetadata(&obj.(*rbacv1.RoleBinding).ObjectMeta, config, true)
+			injectMetadata(&obj.(*rbacv1.RoleBinding).ObjectMeta, config)
 			injectLastApplied(obj)
 			addRoleBinding(resource)
 		case *extv1beta1.CustomResourceDefinition:
-			injectMetadata(&obj.(*extv1beta1.CustomResourceDefinition).ObjectMeta, config, true)
+			injectMetadata(&obj.(*extv1beta1.CustomResourceDefinition).ObjectMeta, config)
 			injectLastApplied(obj)
 			addCrd(resource)
 		case *k8sv1.Service:
-			injectMetadata(&obj.(*k8sv1.Service).ObjectMeta, config, true)
+			injectMetadata(&obj.(*k8sv1.Service).ObjectMeta, config)
 			injectLastApplied(obj)
 			addService(resource)
 		case *appsv1.Deployment:
-			injectMetadata(&obj.(*appsv1.Deployment).ObjectMeta, config, true)
-			injectMetadata(&obj.(*appsv1.Deployment).Spec.Template.ObjectMeta, config, false)
+			injectMetadata(&obj.(*appsv1.Deployment).ObjectMeta, config)
+			injectMetadata(&obj.(*appsv1.Deployment).Spec.Template.ObjectMeta, config)
 			injectLastApplied(obj)
 			addDeployment(resource)
 		case *appsv1.DaemonSet:
-			injectMetadata(&obj.(*appsv1.DaemonSet).ObjectMeta, config, true)
-			injectMetadata(&obj.(*appsv1.DaemonSet).Spec.Template.ObjectMeta, config, false)
+			injectMetadata(&obj.(*appsv1.DaemonSet).ObjectMeta, config)
+			injectMetadata(&obj.(*appsv1.DaemonSet).Spec.Template.ObjectMeta, config)
 			injectLastApplied(obj)
 			addDaemonset(resource)
 		case *admissionregistrationv1beta1.ValidatingWebhookConfiguration:
-			injectMetadata(&obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration).ObjectMeta, config, true)
+			injectMetadata(&obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration).ObjectMeta, config)
 			injectLastApplied(obj)
 			addValidatingWebhook(resource)
 		case *admissionregistrationv1beta1.MutatingWebhookConfiguration:
-			injectMetadata(&obj.(*admissionregistrationv1beta1.MutatingWebhookConfiguration).ObjectMeta, config, true)
+			injectMetadata(&obj.(*admissionregistrationv1beta1.MutatingWebhookConfiguration).ObjectMeta, config)
 			injectLastApplied(obj)
 			addMutatingWebhook(resource)
 		case *v1beta1.APIService:
-			injectMetadata(&obj.(*v1beta1.APIService).ObjectMeta, config, true)
+			injectMetadata(&obj.(*v1beta1.APIService).ObjectMeta, config)
 			injectLastApplied(obj)
 			addAPIService(resource)
 		case *batchv1.Job:
-			injectMetadata(&obj.(*batchv1.Job).ObjectMeta, config, true)
+			injectMetadata(&obj.(*batchv1.Job).ObjectMeta, config)
 			injectLastApplied(obj)
 			addInstallStrategyJob(resource)
 		case *k8sv1.ConfigMap:
-			injectMetadata(&obj.(*k8sv1.ConfigMap).ObjectMeta, config, true)
+			injectMetadata(&obj.(*k8sv1.ConfigMap).ObjectMeta, config)
 			injectLastApplied(obj)
 			addConfigMap(resource)
 		case *k8sv1.Pod:
-			injectMetadata(&obj.(*k8sv1.Pod).ObjectMeta, config, true)
+			injectMetadata(&obj.(*k8sv1.Pod).ObjectMeta, config)
 			injectLastApplied(obj)
 			addPod(resource)
 		case *policyv1beta1.PodDisruptionBudget:
-			injectMetadata(&obj.(*policyv1beta1.PodDisruptionBudget).ObjectMeta, config, true)
+			injectMetadata(&obj.(*policyv1beta1.PodDisruptionBudget).ObjectMeta, config)
 			injectLastApplied(obj)
 			addPodDisruptionBudget(resource)
 		case *k8sv1.Secret:
-			injectMetadata(&obj.(*k8sv1.Secret).ObjectMeta, config, true)
+			injectMetadata(&obj.(*k8sv1.Secret).ObjectMeta, config)
 			injectLastApplied(obj)
 			addSecret(resource)
 		case *secv1.SecurityContextConstraints:
-			injectMetadata(&obj.(*secv1.SecurityContextConstraints).ObjectMeta, config, true)
+			injectMetadata(&obj.(*secv1.SecurityContextConstraints).ObjectMeta, config)
 			injectLastApplied(obj)
 			addSCC(resource)
 		case *promv1.ServiceMonitor:
-			injectMetadata(&obj.(*promv1.ServiceMonitor).ObjectMeta, config, true)
+			injectMetadata(&obj.(*promv1.ServiceMonitor).ObjectMeta, config)
 			injectLastApplied(obj)
 			addServiceMonitor(resource)
 		case *promv1.PrometheusRule:
-			injectMetadata(&obj.(*promv1.PrometheusRule).ObjectMeta, config, true)
+			injectMetadata(&obj.(*promv1.PrometheusRule).ObjectMeta, config)
 			injectLastApplied(obj)
 			addPrometheusRule(resource)
 		default:
@@ -647,12 +644,12 @@ var _ = Describe("KubeVirt Operator", func() {
 	addPodDisruptionBudgets := func(config *util.KubeVirtDeploymentConfig, apiDeployment *appsv1.Deployment, controller *appsv1.Deployment) {
 
 		apiPodDisruptionBudget := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
-		injectMetadata(&apiPodDisruptionBudget.ObjectMeta, config, true)
+		injectMetadata(&apiPodDisruptionBudget.ObjectMeta, config)
 		injectLastApplied(apiPodDisruptionBudget)
 		addPodDisruptionBudget(apiPodDisruptionBudget)
 
 		controllerPodDisruptionBudget := components.NewPodDisruptionBudgetForDeployment(controller)
-		injectMetadata(&controllerPodDisruptionBudget.ObjectMeta, config, true)
+		injectMetadata(&controllerPodDisruptionBudget.ObjectMeta, config)
 		injectLastApplied(controllerPodDisruptionBudget)
 		addPodDisruptionBudget(controllerPodDisruptionBudget)
 	}
@@ -677,7 +674,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			},
 		}
-		injectMetadata(&pod.ObjectMeta, config, true)
+		injectMetadata(&pod.ObjectMeta, config)
 		pod.Name = "virt-api-xxxx"
 		addPod(pod)
 
@@ -693,7 +690,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			},
 		}
 		pod.Name = "virt-controller-xxxx"
-		injectMetadata(&pod.ObjectMeta, configController, true)
+		injectMetadata(&pod.ObjectMeta, configController)
 		addPod(pod)
 
 		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, configHandler.GetImageRegistry(), configHandler.GetImagePrefix(), configHandler.GetHandlerVersion(), "", "", configHandler.GetImagePullPolicy(), configHandler.GetVerbosity(), configHandler.GetExtraEnv())
@@ -707,7 +704,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			},
 		}
-		injectMetadata(&pod.ObjectMeta, configHandler, true)
+		injectMetadata(&pod.ObjectMeta, configHandler)
 		pod.Name = "virt-handler-xxxx"
 		addPod(pod)
 
@@ -843,7 +840,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			},
 		}
 
-		injectMetadata(&validationWebhook.ObjectMeta, config, true)
+		injectMetadata(&validationWebhook.ObjectMeta, config)
 		addValidatingWebhook(validationWebhook)
 	}
 
@@ -1470,7 +1467,6 @@ var _ = Describe("KubeVirt Operator", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-install",
 					Namespace:  NAMESPACE,
-					Generation: int64(1),
 					Finalizers: []string{util.KubeVirtFinalizer},
 				},
 				Status: v1.KubeVirtStatus{
@@ -1530,7 +1526,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					Name:       "test-install",
 					Namespace:  NAMESPACE,
 					Finalizers: []string{util.KubeVirtFinalizer},
-					Generation: int64(1),
 				},
 				Spec: v1.KubeVirtSpec{
 					ImageTag: "custom.tag",
@@ -1571,7 +1566,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					Name:       "test-install",
 					Namespace:  NAMESPACE,
 					Finalizers: []string{util.KubeVirtFinalizer},
-					Generation: int64(1),
 				},
 				Status: v1.KubeVirtStatus{
 					Phase:           v1.KubeVirtPhaseDeployed,
@@ -1611,7 +1605,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					Name:       "test-install",
 					Namespace:  NAMESPACE,
 					Finalizers: []string{util.KubeVirtFinalizer},
-					Generation: int64(1),
 				},
 				Status: v1.KubeVirtStatus{
 					Phase:           v1.KubeVirtPhaseDeployed,
@@ -1645,7 +1638,6 @@ var _ = Describe("KubeVirt Operator", func() {
 					Name:       "test-install",
 					Namespace:  NAMESPACE,
 					Finalizers: []string{util.KubeVirtFinalizer},
-					Generation: int64(1),
 				},
 				Status: v1.KubeVirtStatus{
 					Phase:           v1.KubeVirtPhaseDeployed,

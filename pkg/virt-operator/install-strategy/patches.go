@@ -2,13 +2,11 @@ package installstrategy
 
 import (
 	// #nosec sha1 is used to calculate a hash for patches and not for cryptographic
-	"crypto/sha1"
-	"encoding/hex"
+
 	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
-	"sort"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -20,20 +18,12 @@ import (
 
 type Customizer struct {
 	Patches []v1.CustomizeComponentsPatch
-
-	hash string
 }
 
-func NewCustomizer(customizations v1.CustomizeComponents) (*Customizer, error) {
-	hash, err := getHash(customizations)
-	if err != nil {
-		return &Customizer{}, err
-	}
-
+func NewCustomizer(customizations v1.CustomizeComponents) *Customizer {
 	return &Customizer{
 		Patches: customizations.Patches,
-		hash:    hash,
-	}, nil
+	}
 }
 
 func (c *Customizer) GenericApplyPatches(objects interface{}) error {
@@ -148,22 +138,4 @@ func (c *Customizer) GetPatchesForResource(resourceType, name string) []v1.Custo
 	}
 
 	return patches
-}
-
-func getHash(customizations v1.CustomizeComponents) (string, error) {
-	// #nosec CWE: 326 - Use of weak cryptographic primitive (http://cwe.mitre.org/data/definitions/326.html)
-	// reason: sha1 is not used for encryption but for creating a hash value
-	hasher := sha1.New()
-
-	sort.SliceStable(customizations.Patches, func(i, j int) bool {
-		return len(customizations.Patches[i].Patch) < len(customizations.Patches[j].Patch)
-	})
-
-	values, err := json.Marshal(customizations)
-	if err != nil {
-		return "", err
-	}
-	hasher.Write(values)
-
-	return hex.EncodeToString(hasher.Sum(nil)), nil
 }

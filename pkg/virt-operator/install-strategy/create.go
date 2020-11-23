@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -68,7 +67,7 @@ type APIServiceInterface interface {
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1beta1.APIService, err error)
 }
 
-func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry, id string, generation int64) bool {
+func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry, id string) bool {
 	if objectMeta.Annotations == nil {
 		return false
 	}
@@ -76,13 +75,7 @@ func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry,
 	foundVersion := objectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
 	foundImageRegistry := objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
 	foundID := objectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation]
-	foundGeneration, generationExists := objectMeta.Annotations[v1.KubeVirtGenerationAnnotation]
 	foundLabels := objectMeta.Labels[v1.ManagedByLabel] == v1.ManagedByLabelOperatorValue
-	sGeneration := strconv.FormatInt(generation, 10)
-
-	if generationExists && foundGeneration != sGeneration {
-		return false
-	}
 
 	if foundVersion == version && foundImageRegistry == imageRegistry && foundID == id && foundLabels {
 		return true
@@ -145,9 +138,6 @@ func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, vers
 	objectMeta.Annotations[v1.InstallStrategyVersionAnnotation] = version
 	objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation] = imageRegistry
 	objectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation] = id
-	if injectCustomizationMetadata {
-		objectMeta.Annotations[v1.KubeVirtGenerationAnnotation] = strconv.FormatInt(kv.ObjectMeta.GetGeneration(), 10)
-	}
 }
 
 // Merge all Tolerations, Affinity and NodeSelectos from NodePlacement into pod spec
@@ -525,7 +515,7 @@ func createDummyWebhookValidator(targetStrategy *InstallStrategy,
 	for _, obj := range objects {
 		if webhook, ok := obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok {
 
-			if objectMatchesVersion(&webhook.ObjectMeta, version, imageRegistry, id, kv.GetGeneration()) {
+			if objectMatchesVersion(&webhook.ObjectMeta, version, imageRegistry, id) {
 				// already created blocking webhook for this version
 				return nil
 			}
@@ -1105,7 +1095,7 @@ func shouldBackupRBACObject(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta) (boo
 	curImageRegistry := kv.Status.TargetKubeVirtRegistry
 	curID := kv.Status.TargetDeploymentID
 
-	if objectMatchesVersion(objectMeta, curVersion, curImageRegistry, curID, kv.GetGeneration()) {
+	if objectMatchesVersion(objectMeta, curVersion, curImageRegistry, curID) {
 		// matches current target version already, so doesn't need backup
 		return false, "", "", ""
 	}
@@ -1165,7 +1155,7 @@ func needsClusterRoleBindingBackup(kv *v1.KubeVirt, stores util.Stores, crb *rba
 			continue
 		}
 
-		if uid == string(crb.UID) && objectMatchesVersion(&cachedCrb.ObjectMeta, imageTag, imageRegistry, id, kv.GetGeneration()) {
+		if uid == string(crb.UID) && objectMatchesVersion(&cachedCrb.ObjectMeta, imageTag, imageRegistry, id) {
 			// found backup. UID matches and versions match
 			// note, it's possible for a single UID to have multiple backups with
 			// different versions
@@ -1200,7 +1190,7 @@ func needsClusterRoleBackup(kv *v1.KubeVirt, stores util.Stores, cr *rbacv1.Clus
 			continue
 		}
 
-		if uid == string(cr.UID) && objectMatchesVersion(&cachedCr.ObjectMeta, imageTag, imageRegistry, id, kv.GetGeneration()) {
+		if uid == string(cr.UID) && objectMatchesVersion(&cachedCr.ObjectMeta, imageTag, imageRegistry, id) {
 			// found backup. UID matches and versions match
 			// note, it's possible for a single UID to have multiple backups with
 			// different versions
@@ -1236,7 +1226,7 @@ func needsRoleBindingBackup(kv *v1.KubeVirt, stores util.Stores, rb *rbacv1.Role
 			continue
 		}
 
-		if uid == string(rb.UID) && objectMatchesVersion(&cachedRb.ObjectMeta, imageTag, imageRegistry, id, kv.GetGeneration()) {
+		if uid == string(rb.UID) && objectMatchesVersion(&cachedRb.ObjectMeta, imageTag, imageRegistry, id) {
 			// found backup. UID matches and versions match
 			// note, it's possible for a single UID to have multiple backups with
 			// different versions
@@ -1272,7 +1262,7 @@ func needsRoleBackup(kv *v1.KubeVirt, stores util.Stores, r *rbacv1.Role) bool {
 			continue
 		}
 
-		if uid == string(r.UID) && objectMatchesVersion(&cachedR.ObjectMeta, imageTag, imageRegistry, id, kv.GetGeneration()) {
+		if uid == string(r.UID) && objectMatchesVersion(&cachedR.ObjectMeta, imageTag, imageRegistry, id) {
 			// found backup. UID matches and versions match
 			// note, it's possible for a single UID to have multiple backups with
 			// different versions
@@ -2693,10 +2683,7 @@ func SyncAll(queue workqueue.RateLimitingInterface, kv *v1.KubeVirt, targetStrat
 		}
 	}
 
-	customize, err := NewCustomizer(kv.Spec.CustomizeComponents)
-	if err != nil {
-		return false, err
-	}
+	customize := NewCustomizer(kv.Spec.CustomizeComponents)
 
 	err = customize.GenericApplyPatches(targetStrategy.deployments)
 	if err != nil {

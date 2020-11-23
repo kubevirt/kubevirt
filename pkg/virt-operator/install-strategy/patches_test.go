@@ -49,7 +49,7 @@ var _ = Describe("Patches", func() {
 	}
 
 	getCustomizer := func() *Customizer {
-		c, _ := NewCustomizer(v1.CustomizeComponents{
+		c := NewCustomizer(v1.CustomizeComponents{
 			Patches: []v1.CustomizeComponentsPatch{
 				{
 					ResourceName: "virt-controller",
@@ -86,64 +86,6 @@ var _ = Describe("Patches", func() {
 		It("should not error on empty patch", func() {
 			err := applyPatch(nil, v1.CustomizeComponentsPatch{})
 			Expect(err).ToNot(HaveOccurred())
-		})
-	})
-
-	Context("get hash", func() {
-
-		It("should be equal", func() {
-			c1 := v1.CustomizeComponents{
-				Patches: []v1.CustomizeComponentsPatch{
-					{
-						ResourceName: "virt-controller",
-						ResourceType: "Deployment",
-						Patch:        `{"metadata":{"labels":{"new-key":"added-this-label"}}}`,
-						Type:         v1.StrategicMergePatchType,
-					},
-					{
-						ResourceName: "virt-api",
-						ResourceType: "Deployment",
-						Patch:        `{"metadata":{"labels":{"my-custom-label":"custom-label"}}}`,
-						Type:         v1.StrategicMergePatchType,
-					},
-					{
-						ResourceName: "virt-controller",
-						ResourceType: "Deployment",
-						Patch:        `{"metadata":{"annotation":{"key":"value"}}}`,
-						Type:         v1.StrategicMergePatchType,
-					},
-				},
-			}
-
-			c2 := v1.CustomizeComponents{
-				Patches: []v1.CustomizeComponentsPatch{
-					{
-						ResourceName: "virt-api",
-						ResourceType: "Deployment",
-						Patch:        `{"metadata":{"labels":{"my-custom-label":"custom-label"}}}`,
-						Type:         v1.StrategicMergePatchType,
-					},
-					{
-						ResourceName: "virt-controller",
-						ResourceType: "Deployment",
-						Patch:        `{"metadata":{"labels":{"new-key":"added-this-label"}}}`,
-						Type:         v1.StrategicMergePatchType,
-					},
-					{
-						ResourceName: "virt-controller",
-						ResourceType: "Deployment",
-						Patch:        `{"metadata":{"annotation":{"key":"value"}}}`,
-						Type:         v1.StrategicMergePatchType,
-					},
-				},
-			}
-
-			h1, err := getHash(c1)
-			Expect(err).ToNot(HaveOccurred())
-			h2, err := getHash(c2)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(h1).To(Equal(h2))
 		})
 	})
 })
