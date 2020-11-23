@@ -33,14 +33,17 @@ function up() {
     $kubectl label node -l $label node-role.kubernetes.io/worker=''
 
     # Activate cluster-network-addons-operator if flag is passed
-    if [ "$KUBEVIRT_WITH_CNAO" == "true" ]; then
+    if [ "$KUBEVIRT_WITH_CNAO" == "true" ] || [ "$KUBVIRT_WITH_CNAO_SKIP_CONFIG" == "true" ]; then
 
         $kubectl create -f /opt/cnao/namespace.yaml
         $kubectl create -f /opt/cnao/network-addons-config.crd.yaml
         $kubectl create -f /opt/cnao/operator.yaml
         $kubectl wait deployment -n cluster-network-addons cluster-network-addons-operator --for condition=Available --timeout=200s
 
-        $kubectl create -f /opt/cnao/network-addons-config-example.cr.yaml
-        $kubectl wait networkaddonsconfig cluster --for condition=Available --timeout=200s
+        if [ "$KUBVIRT_WITH_CNAO_SKIP_CONFIG" != "true" ]; then
+
+            $kubectl create -f /opt/cnao/network-addons-config-example.cr.yaml
+            $kubectl wait networkaddonsconfig cluster --for condition=Available --timeout=200s
+        fi
     fi
 }

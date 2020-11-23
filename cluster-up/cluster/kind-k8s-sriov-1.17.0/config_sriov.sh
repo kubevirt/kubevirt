@@ -4,7 +4,7 @@ set -x
 source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
 
 MANIFESTS_DIR="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/manifests"
-CSRCREATORPATH="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/csrcreator"
+CERTCREATOR_PATH="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/certcreator"
 KUBECONFIG_PATH="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig"
 
 MASTER_NODE="${CLUSTER_NAME}-control-plane"
@@ -12,8 +12,9 @@ WORKER_NODE_ROOT="${CLUSTER_NAME}-worker"
 
 OPERATOR_GIT_HASH=8d3c30de8ec5a9a0c9eeb84ea0aa16ba2395cd68  # release-4.4
 
-# This function gets a command string and invoke it
-# until the command returns an empty string or until timeout
+# This function gets a command string and invoke it repeatedly
+# until the command returns a non empty STDOUT string (success)
+# or until timeout (failure)
 function retry {
   local -r tries=$1
   local -r wait_time=$2
@@ -206,20 +207,20 @@ function deploy_sriov_operator {
   popd
 
   echo 'Generating webhook certificates for the SR-IOV operator webhooks'
-  pushd "${CSRCREATORPATH}"
+  pushd "${CERTCREATOR_PATH}"
     go run . -namespace sriov-network-operator -secret operator-webhook-service -hook operator-webhook -kubeconfig $KUBECONFIG_PATH || return 1
     go run . -namespace sriov-network-operator -secret network-resources-injector-secret -hook network-resources-injector -kubeconfig $KUBECONFIG_PATH || return 1
   popd
 
   echo 'Setting caBundle for SR-IOV webhooks'
   wait_k8s_object "validatingwebhookconfiguration" "operator-webhook-config" || return 1
-  _kubectl patch validatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/operator-webhook.cert)"'" }}]}'
+  _kubectl patch validatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CERTCREATOR_PATH/operator-webhook.cert)"'" }}]}'
 
   wait_k8s_object "mutatingwebhookconfiguration"   "operator-webhook-config" || return 1
-  _kubectl patch mutatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/operator-webhook.cert)"'" }}]}'
+  _kubectl patch mutatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CERTCREATOR_PATH/operator-webhook.cert)"'" }}]}'
 
   wait_k8s_object "mutatingwebhookconfiguration"   "network-resources-injector-config" || return 1
-  _kubectl patch mutatingwebhookconfiguration network-resources-injector-config --patch '{"webhooks":[{"name":"network-resources-injector-config.k8s.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/network-resources-injector.cert)"'" }}]}'
+  _kubectl patch mutatingwebhookconfiguration network-resources-injector-config --patch '{"webhooks":[{"name":"network-resources-injector-config.k8s.io", "clientConfig": { "caBundle": "'"$(cat $CERTCREATOR_PATH/network-resources-injector.cert)"'" }}]}'
 
   # Since sriov-operator doesnt have a condition or Status to indicate if
   # 'operator-webhook' and 'network-resources-injector' webhooks certificates are
@@ -293,7 +294,7 @@ for ifs in "${sriov_pfs[@]}"; do
   ifs_name="${ifs%%/device/*}"
   ifs_name="${ifs_name##*/}"
 
-  if [ $(echo "${PF_BLACKLIST[@]}" | grep -q "${ifs_name}") ]; then
+  if [ $(echo "${PF_BLACKLIST[@]}" | grep "${ifs_name}") ]; then
     continue
   fi
 
