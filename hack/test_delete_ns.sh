@@ -35,19 +35,7 @@ function test_delete_ns(){
     echo "Delete the hyperconverged CR to remove the product"
     timeout 10m ${CMD} delete hyperconverged -n kubevirt-hyperconverged kubevirt-hyperconverged
 
-    #TODO: test only, remove this!
-    echo "check if really deleted"
-    ${CMD} get hyperconverged -n kubevirt-hyperconverged kubevirt-hyperconverged -o yaml || true
-
-    # remove this when we are sure that we don't have any component CR deleted in background
-    sleep 180
-
     echo "Finally delete kubevirt-hyperconverged namespace"
     timeout 10m ${CMD} delete namespace kubevirt-hyperconverged
-
-    #TODO: test only, remove this!
-    echo "check remaining issues"
-    ${CMD} get namespace kubevirt-hyperconverged -o yaml || true
 }
-
 
