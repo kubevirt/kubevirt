@@ -3,6 +3,9 @@ package operands
 import (
 	"errors"
 	"fmt"
+	"os"
+	"reflect"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
@@ -13,8 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"os"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -83,6 +84,16 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) *kubevirtv1.Kube
 		UninstallStrategy: kubevirtv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist,
 		Infra:             hcoConfig2KvConfig(hc.Spec.Infra),
 		Workloads:         hcoConfig2KvConfig(hc.Spec.Workloads),
+	}
+
+	if hc.Spec.CertConfig != nil {
+		spec.CertificateRotationStrategy = kubevirtv1.KubeVirtCertificateRotateStrategy{
+			SelfSigned: &kubevirtv1.KubeVirtSelfSignConfiguration{
+				CARotateInterval:   hc.Spec.CertConfig.CARotateInterval.DeepCopy(),
+				CAOverlapInterval:  hc.Spec.CertConfig.CAOverlapInterval.DeepCopy(),
+				CertRotateInterval: hc.Spec.CertConfig.CertRotateInterval.DeepCopy(),
+			},
+		}
 	}
 
 	return &kubevirtv1.KubeVirt{

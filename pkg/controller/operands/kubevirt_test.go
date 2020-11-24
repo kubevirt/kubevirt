@@ -3,6 +3,9 @@ package operands
 import (
 	"context"
 	"fmt"
+	"os"
+	"time"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
@@ -19,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -495,6 +497,105 @@ var _ = Describe("KubeVirt Operand", func() {
 			Expect(foundResource.Spec.Workloads.NodePlacement.Tolerations).To(HaveLen(2))
 			Expect(foundResource.Spec.Infra.NodePlacement.NodeSelector["key1"]).Should(Equal("value1"))
 			Expect(foundResource.Spec.Workloads.NodePlacement.NodeSelector["key2"]).Should(Equal("value2"))
+
+			Expect(req.Conditions).To(BeEmpty())
+		})
+
+		It("should add cert configuration if missing in KubeVirt", func() {
+			existingResource := NewKubeVirt(hco)
+
+			hco.Spec.CertConfig = &hcov1beta1.HyperConvergedCertConfig{
+				CARotateInterval:   metav1.Duration{Duration: 1 * time.Hour},
+				CAOverlapInterval:  metav1.Duration{Duration: 2 * time.Hour},
+				CertRotateInterval: metav1.Duration{Duration: 3 * time.Hour},
+			}
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+			handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &kubevirtv1.KubeVirt{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.CertificateRotationStrategy.SelfSigned).To(BeNil())
+			Expect(foundResource.Spec.CertificateRotationStrategy.SelfSigned).ToNot(BeNil())
+			Expect(foundResource.Spec.CertificateRotationStrategy.SelfSigned.CARotateInterval.Duration.String()).Should(Equal("1h0m0s"))
+			Expect(foundResource.Spec.CertificateRotationStrategy.SelfSigned.CAOverlapInterval.Duration.String()).Should(Equal("2h0m0s"))
+			Expect(foundResource.Spec.CertificateRotationStrategy.SelfSigned.CertRotateInterval.Duration.String()).Should(Equal("3h0m0s"))
+			Expect(req.Conditions).To(BeEmpty())
+		})
+
+		It("should remove cert configuration from KubeVirt if missing in HCO CR", func() {
+			hcoCertConfig := commonTestUtils.NewHco()
+			hcoCertConfig.Spec.CertConfig = &hcov1beta1.HyperConvergedCertConfig{
+				CARotateInterval:   metav1.Duration{Duration: 1 * time.Hour},
+				CAOverlapInterval:  metav1.Duration{Duration: 2 * time.Hour},
+				CertRotateInterval: metav1.Duration{Duration: 3 * time.Hour},
+			}
+
+			existingResource := NewKubeVirt(hcoCertConfig)
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+			handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &kubevirtv1.KubeVirt{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.CertificateRotationStrategy.SelfSigned).ToNot(BeNil())
+			Expect(foundResource.Spec.CertificateRotationStrategy.SelfSigned).To(BeNil())
+			Expect(req.Conditions).To(BeEmpty())
+		})
+
+		It("should modify KubeVirt's cert configuration according to HCO CR", func() {
+			hco.Spec.CertConfig = &hcov1beta1.HyperConvergedCertConfig{
+				CARotateInterval:   metav1.Duration{Duration: 1 * time.Hour},
+				CAOverlapInterval:  metav1.Duration{Duration: 2 * time.Hour},
+				CertRotateInterval: metav1.Duration{Duration: 3 * time.Hour},
+			}
+			existingResource := NewKubeVirt(hco)
+
+			hco.Spec.CertConfig.CARotateInterval = metav1.Duration{Duration: 4 * time.Hour}
+			hco.Spec.CertConfig.CAOverlapInterval = metav1.Duration{Duration: 5 * time.Hour}
+			hco.Spec.CertConfig.CertRotateInterval = metav1.Duration{Duration: 6 * time.Hour}
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+			handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &kubevirtv1.KubeVirt{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			Expect(existingResource.Spec.CertificateRotationStrategy.SelfSigned).ToNot(BeNil())
+			Expect(existingResource.Spec.CertificateRotationStrategy.SelfSigned.CARotateInterval.Duration.String()).Should(Equal("1h0m0s"))
+			Expect(existingResource.Spec.CertificateRotationStrategy.SelfSigned.CAOverlapInterval.Duration.String()).Should(Equal("2h0m0s"))
+			Expect(existingResource.Spec.CertificateRotationStrategy.SelfSigned.CertRotateInterval.Duration.String()).Should(Equal("3h0m0s"))
+
+			Expect(foundResource.Spec.CertificateRotationStrategy.SelfSigned).ToNot(BeNil())
+			Expect(foundResource.Spec.CertificateRotationStrategy.SelfSigned.CARotateInterval.Duration.String()).Should(Equal("4h0m0s"))
+			Expect(foundResource.Spec.CertificateRotationStrategy.SelfSigned.CAOverlapInterval.Duration.String()).Should(Equal("5h0m0s"))
+			Expect(foundResource.Spec.CertificateRotationStrategy.SelfSigned.CertRotateInterval.Duration.String()).Should(Equal("6h0m0s"))
 
 			Expect(req.Conditions).To(BeEmpty())
 		})

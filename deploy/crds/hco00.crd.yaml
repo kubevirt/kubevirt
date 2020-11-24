@@ -154,13 +154,13 @@ spec:
                 description: certConfig holds the rotation policy for internal, self-signed certificates
                 properties:
                   caOverlapInterval:
-                    description: CAOverlapInterval the duration of CA Certificates at CABundle if not set it will default to CARotateInterval
+                    description: CAOverlapInterval defines the duration of CA Certificates at CABundle
                     type: string
                   caRotateInterval:
-                    description: CARotateInterval configurated duration for CA and certificate
+                    description: CARotateInterval defines the duration for CA and certificate
                     type: string
                   certRotateInterval:
-                    description: CertRotateInterval configurated duration for of service certificate the the webhook configuration is referencing different services all of them will share the same duration
+                    description: CertRotateInterval defines the duration of service certificate
                     type: string
                 type: object
               infra:

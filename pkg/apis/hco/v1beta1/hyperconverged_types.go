@@ -56,17 +56,14 @@ type HyperConvergedConfig struct {
 }
 
 type HyperConvergedCertConfig struct {
-	// CARotateInterval configurated duration for CA and certificate
-	CARotateInterval string `json:"caRotateInterval,omitempty"`
+	// CARotateInterval defines the duration for CA and certificate
+	CARotateInterval metav1.Duration `json:"caRotateInterval,omitempty"`
 
-	// CAOverlapInterval the duration of CA Certificates at CABundle if
-	// not set it will default to CARotateInterval
-	CAOverlapInterval string `json:"caOverlapInterval,omitempty"`
+	// CAOverlapInterval defines the duration of CA Certificates at CABundle
+	CAOverlapInterval metav1.Duration `json:"caOverlapInterval,omitempty"`
 
-	// CertRotateInterval configurated duration for of service certificate
-	// the the webhook configuration is referencing different services all
-	// of them will share the same duration
-	CertRotateInterval string `json:"certRotateInterval,omitempty"`
+	// CertRotateInterval defines the duration of service certificate
+	CertRotateInterval metav1.Duration `json:"certRotateInterval,omitempty"`
 }
 
 // HyperConvergedStatus defines the observed state of HyperConverged

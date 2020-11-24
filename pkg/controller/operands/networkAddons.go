@@ -99,9 +99,9 @@ func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) *networkadd
 
 	if hc.Spec.CertConfig != nil {
 		cnaoSpec.SelfSignConfiguration = &networkaddonsshared.SelfSignConfiguration{
-			CARotateInterval:   hc.Spec.CertConfig.CARotateInterval,
-			CAOverlapInterval:  hc.Spec.CertConfig.CAOverlapInterval,
-			CertRotateInterval: hc.Spec.CertConfig.CertRotateInterval,
+			CARotateInterval:   hc.Spec.CertConfig.CARotateInterval.Duration.String(),
+			CAOverlapInterval:  hc.Spec.CertConfig.CAOverlapInterval.Duration.String(),
+			CertRotateInterval: hc.Spec.CertConfig.CertRotateInterval.Duration.String(),
 		}
 	}
 
