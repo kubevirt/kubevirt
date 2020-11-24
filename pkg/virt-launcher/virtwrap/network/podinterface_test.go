@@ -436,7 +436,7 @@ var _ = Describe("Pod Network", func() {
 				mockNetwork.EXPECT().IsIpv6Enabled(podInterface).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 				mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(&masqueradeBridgeWithMAC, nil)
-				mockNetwork.EXPECT().StartRA(api.DefaultVMIpv6CIDR, api.DefaultBridgeName, bridgeMAC).Return(nil)
+				mockNetwork.EXPECT().StartRA(api.DefaultVMIpv6CIDR, api.DefaultBridgeName, bridgeMAC, pid).Return(nil)
 
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
@@ -449,7 +449,7 @@ var _ = Describe("Pod Network", func() {
 				mockNetwork.EXPECT().IsIpv6Enabled(podInterface).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 				mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(&masqueradeBridgeWithMAC, nil)
-				mockNetwork.EXPECT().StartRA(api.DefaultVMIpv6CIDR, api.DefaultBridgeName, bridgeMAC).Return(nil)
+				mockNetwork.EXPECT().StartRA(api.DefaultVMIpv6CIDR, api.DefaultBridgeName, bridgeMAC, pid).Return(nil)
 
 				for _, proto := range ipProtocols() {
 					mockNetwork.EXPECT().HasNatIptables(proto).Return(true).Times(2)
@@ -491,7 +491,7 @@ var _ = Describe("Pod Network", func() {
 				mockNetwork.EXPECT().IsIpv6Enabled(podInterface).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 				mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(&masqueradeBridgeWithMAC, nil)
-				mockNetwork.EXPECT().StartRA(api.DefaultVMIpv6CIDR, api.DefaultBridgeName, bridgeMAC).Return(nil)
+				mockNetwork.EXPECT().StartRA(api.DefaultVMIpv6CIDR, api.DefaultBridgeName, bridgeMAC, pid).Return(nil)
 
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
@@ -504,7 +504,7 @@ var _ = Describe("Pod Network", func() {
 				mockNetwork.EXPECT().IsIpv6Enabled(podInterface).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 				mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(&masqueradeBridgeWithMAC, nil)
-				mockNetwork.EXPECT().StartRA(api.DefaultVMIpv6CIDR, api.DefaultBridgeName, bridgeMAC).Return(nil)
+				mockNetwork.EXPECT().StartRA(api.DefaultVMIpv6CIDR, api.DefaultBridgeName, bridgeMAC, pid).Return(nil)
 
 				for _, proto := range ipProtocols() {
 					mockNetwork.EXPECT().HasNatIptables(proto).Return(false).Times(2)
