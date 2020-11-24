@@ -438,7 +438,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				metadataStruct := cloudinit.Metadata{
+				metadataStruct := cloudinit.ConfigDriveMetadata{
 					InstanceID: fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
 					Hostname:   dns.SanitizeHostname(vmi),
 					UUID:       string(vmi.UID),

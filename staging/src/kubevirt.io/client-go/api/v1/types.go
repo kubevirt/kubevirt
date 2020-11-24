@@ -150,6 +150,10 @@ type VirtualMachineInstanceSpec struct {
 	// configuration based on DNSPolicy.
 	// +optional
 	DNSConfig *k8sv1.PodDNSConfig `json:"dnsConfig,omitempty" protobuf:"bytes,26,opt,name=dnsConfig"`
+	// Specifies a set of public keys to inject into the vm guest
+	// +listType=atomic
+	// +optional
+	AccessCredentials []AccessCredential `json:"accessCredentials,omitempty"`
 }
 
 // VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual
@@ -263,6 +267,9 @@ const (
 
 	// Reflects whether the QEMU guest agent is connected through the channel
 	VirtualMachineInstanceAgentConnected VirtualMachineInstanceConditionType = "AgentConnected"
+
+	// Reflects whether the QEMU guest agent updated access credentials successfully
+	VirtualMachineInstanceAccessCredentialsSynchronized VirtualMachineInstanceConditionType = "AccessCredentialsSynchronized"
 
 	// Reflects whether the QEMU guest agent is connected through the channel
 	VirtualMachineInstanceUnsupportedAgent VirtualMachineInstanceConditionType = "AgentVersionNotSupported"
@@ -577,18 +584,20 @@ func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
 type SyncEvent string
 
 const (
-	Created         SyncEvent = "Created"
-	Deleted         SyncEvent = "Deleted"
-	PresetFailed    SyncEvent = "PresetFailed"
-	Override        SyncEvent = "Override"
-	Started         SyncEvent = "Started"
-	ShuttingDown    SyncEvent = "ShuttingDown"
-	Stopped         SyncEvent = "Stopped"
-	PreparingTarget SyncEvent = "PreparingTarget"
-	Migrating       SyncEvent = "Migrating"
-	Migrated        SyncEvent = "Migrated"
-	SyncFailed      SyncEvent = "SyncFailed"
-	Resumed         SyncEvent = "Resumed"
+	Created                      SyncEvent = "Created"
+	Deleted                      SyncEvent = "Deleted"
+	PresetFailed                 SyncEvent = "PresetFailed"
+	Override                     SyncEvent = "Override"
+	Started                      SyncEvent = "Started"
+	ShuttingDown                 SyncEvent = "ShuttingDown"
+	Stopped                      SyncEvent = "Stopped"
+	PreparingTarget              SyncEvent = "PreparingTarget"
+	Migrating                    SyncEvent = "Migrating"
+	Migrated                     SyncEvent = "Migrated"
+	SyncFailed                   SyncEvent = "SyncFailed"
+	Resumed                      SyncEvent = "Resumed"
+	AccessCredentialsSyncFailed  SyncEvent = "AccessCredentialsSyncFailed"
+	AccessCredentialsSyncSuccess SyncEvent = "AccessCredentialsSyncSuccess"
 )
 
 func (s SyncEvent) String() string {

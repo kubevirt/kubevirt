@@ -1,0 +1,39 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["access_credentials.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/access-credentials",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/config:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/virt-launcher/virtwrap/cli:go_default_library",
+        "//pkg/virt-launcher/virtwrap/errors:go_default_library",
+        "//pkg/virt-launcher/virtwrap/util:go_default_library",
+        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/fsnotify/fsnotify:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "access_credentials_suite_test.go",
+        "access_credentials_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/handler-launcher-com/cmd/v1:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/virt-launcher/virtwrap/cli:go_default_library",
+        "//pkg/virt-launcher/virtwrap/util:go_default_library",
+        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//vendor/github.com/fsnotify/fsnotify:go_default_library",
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/libvirt.org/libvirt-go:go_default_library",
+    ],
+)

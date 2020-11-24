@@ -610,6 +610,33 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	}
 
+	for _, accessCred := range vmi.Spec.AccessCredentials {
+		secretName := ""
+		if accessCred.SSHPublicKey != nil && accessCred.SSHPublicKey.Source.Secret != nil {
+			secretName = accessCred.SSHPublicKey.Source.Secret.SecretName
+		} else if accessCred.UserPassword != nil && accessCred.UserPassword.Source.Secret != nil {
+			secretName = accessCred.UserPassword.Source.Secret.SecretName
+		}
+
+		if secretName == "" {
+			continue
+		}
+		volumeName := secretName + "-access-cred"
+		volumes = append(volumes, k8sv1.Volume{
+			Name: volumeName,
+			VolumeSource: k8sv1.VolumeSource{
+				Secret: &k8sv1.SecretVolumeSource{
+					SecretName: secretName,
+				},
+			},
+		})
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+			Name:      volumeName,
+			MountPath: filepath.Join(config.SecretSourceDir, volumeName),
+			ReadOnly:  true,
+		})
+	}
+
 	if t.imagePullSecret != "" {
 		imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
 			Name: t.imagePullSecret,

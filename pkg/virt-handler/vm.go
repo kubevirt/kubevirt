@@ -660,6 +660,40 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		}
 	}
 
+	// Update AccessCredential conditions
+	if domain != nil && domain.Spec.Metadata.KubeVirt.AccessCredential != nil {
+
+		message := domain.Spec.Metadata.KubeVirt.AccessCredential.Message
+		status := k8sv1.ConditionFalse
+		if domain.Spec.Metadata.KubeVirt.AccessCredential.Succeeded {
+			status = k8sv1.ConditionTrue
+		}
+
+		add := false
+		condition := condManager.GetCondition(vmi, v1.VirtualMachineInstanceAccessCredentialsSynchronized)
+		if condition == nil {
+			add = true
+		} else if condition.Status != status || condition.Message != message {
+			// if not as expected, remove, then add.
+			condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceAccessCredentialsSynchronized)
+			add = true
+		}
+		if add {
+			newCondition := v1.VirtualMachineInstanceCondition{
+				Type:               v1.VirtualMachineInstanceAccessCredentialsSynchronized,
+				LastTransitionTime: v12.Now(),
+				Status:             status,
+				Message:            message,
+			}
+			vmi.Status.Conditions = append(vmi.Status.Conditions, newCondition)
+			if status == k8sv1.ConditionTrue {
+				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.AccessCredentialsSyncSuccess.String(), message)
+			} else {
+				d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.AccessCredentialsSyncFailed.String(), message)
+			}
+		}
+	}
+
 	// handle migrations differently than normal status updates.
 	//
 	// When a successful migration is detected, we must transfer ownership of the VMI

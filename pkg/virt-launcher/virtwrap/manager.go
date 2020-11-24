@@ -62,6 +62,7 @@ import (
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	accesscredentials "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/access-credentials"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -110,6 +111,8 @@ type LibvirtDomainManager struct {
 	domainModifyLock sync.Mutex
 	// mutex to control access to the guest time context
 	setGuestTimeLock sync.Mutex
+
+	credManager *accesscredentials.AccessCredentialManager
 
 	virtShareDir           string
 	notifier               *eventsclient.Notifier
@@ -166,6 +169,7 @@ func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 		agentData: agentStore,
 		ovmfPath:  ovmfPath,
 	}
+	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock)
 
 	return &manager, nil
 }
@@ -989,18 +993,8 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	logger.Info("Executing PreStartHook on VMI pod environment")
 
-	err := cloudinit.ResolveNoCloudSecrets(vmi, config.SecretSourceDir)
-	if err != nil {
-		return nil, err
-	}
-
-	err = cloudinit.ResolveConfigDriveSecrets(vmi, config.SecretSourceDir)
-	if err != nil {
-		return nil, err
-	}
-
 	// generate cloud-init data
-	cloudInitData, err := cloudinit.ReadCloudInitVolumeDataSource(vmi)
+	cloudInitData, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, config.SecretSourceDir)
 	if err != nil {
 		return domain, fmt.Errorf("PreCloudInitIso hook failed: %v", err)
 	}
@@ -1080,6 +1074,10 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 			return domain, err
 		}
 		api.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
+	}
+
+	if err := l.credManager.HandleQemuAgentAccessCredentials(vmi); err != nil {
+		return domain, fmt.Errorf("Starting qemu agent access credential propagation failed: %v", err)
 	}
 
 	return domain, err
@@ -1702,15 +1700,7 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 }
 
 func (l *LibvirtDomainManager) setDomainSpecWithHooks(vmi *v1.VirtualMachineInstance, origSpec *api.DomainSpec) (cli.VirDomain, error) {
-
-	spec := origSpec.DeepCopy()
-	hooksManager := hooks.GetManager()
-
-	domainSpec, err := hooksManager.OnDefineDomain(spec, vmi)
-	if err != nil {
-		return nil, err
-	}
-	return util.SetDomainSpecStr(l.virConn, vmi, domainSpec)
+	return util.SetDomainSpecStrWithHooks(l.virConn, vmi, origSpec)
 }
 
 func (l *LibvirtDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
