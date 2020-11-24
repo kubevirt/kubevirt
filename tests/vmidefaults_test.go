@@ -127,7 +127,7 @@ var _ = Describe("[Serial]VMIDefaults", func() {
 				Address: &api.Address{
 					Type:     "pci",
 					Domain:   "0x0000",
-					Bus:      "0x03",
+					Bus:      "0x04",
 					Slot:     "0x00",
 					Function: "0x0",
 				},
@@ -164,7 +164,7 @@ var _ = Describe("[Serial]VMIDefaults", func() {
 				Address: &api.Address{
 					Type:     "pci",
 					Domain:   "0x0000",
-					Bus:      "0x03",
+					Bus:      "0x04",
 					Slot:     "0x00",
 					Function: "0x0",
 				},
@@ -174,7 +174,7 @@ var _ = Describe("[Serial]VMIDefaults", func() {
 				Address: &api.Address{
 					Type:     "pci",
 					Domain:   "0x0000",
-					Bus:      "0x03",
+					Bus:      "0x04",
 					Slot:     "0x00",
 					Function: "0x0",
 				},
