@@ -123,6 +123,11 @@ func (h *DHCPv6Handler) ServeDHCPv6(conn net.PacketConn, peer net.Addr, m dhcpv6
 		response, err = dhcpv6.NewReplyFromMessage(msg, h.modifiers...)
 	}
 
+	ianaRequest := msg.Options.OneIANA()
+	ianaResponse := response.Options.OneIANA()
+	ianaResponse.IaId = ianaRequest.IaId
+	response.UpdateOption(ianaResponse)
+
 	if err != nil {
 		log.Log.V(4).Errorf("DHCPv6 failed sending a response to the client: %v", err)
 		return
