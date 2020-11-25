@@ -45,12 +45,6 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance) error {
 
 	time.Sleep(5 * time.Second)
 
-	err = console.RunCommand(vmi, "sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2", 30*time.Second)
-	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("addIPv6DefaultRoute failed: %v", err)
-		return err
-	}
-
 	return nil
 }
 
