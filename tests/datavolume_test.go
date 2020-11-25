@@ -88,26 +88,26 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 			BeforeEach(func() {
 				By("Enable featuregate=HonorWaitForFirstConsumer")
 				// in practice we might have HonorWaitForFirstConsumer twice in featureGates array, but this is not a problem
-				jsonpath := `-o=jsonpath="{.spec.featureGates}"`
-				out, _, err := tests.RunCommand("kubectl", "get", "cdiconfigs.cdi.kubevirt.io", "config", jsonpath)
+				jsonpath := `-o=jsonpath="{.spec.config.featureGates}"`
+				out, _, err := tests.RunCommand("kubectl", "get", "cdis.cdi.kubevirt.io", "cdi", jsonpath)
 				Expect(err).ToNot(HaveOccurred())
 
 				// no feature Gates? we need to add the whole structure, else just add the flag
 				// Looks like the output might be quoted
 				if str, err := strconv.Unquote(strings.TrimSpace(out)); str == "" {
-					patch := `{"spec":{"featureGates":["HonorWaitForFirstConsumer"]}}`
-					_, _, err = tests.RunCommand("kubectl", "patch", "cdiconfigs.cdi.kubevirt.io", "config", "-o=json", "--type=merge", "-p", patch)
+					patch := `{"spec": { "config": {"featureGates":["HonorWaitForFirstConsumer"]}}}`
+					_, _, err = tests.RunCommand("kubectl", "patch", "cdis.cdi.kubevirt.io", "cdi", "-o=json", "--type=merge", "-p", patch)
 					Expect(err).ToNot(HaveOccurred())
 				} else {
-					patch := `[{"op": "add" , "path": "/spec/featureGates/0", "value": "HonorWaitForFirstConsumer"}]`
-					_, _, err = tests.RunCommand("kubectl", "patch", "cdiconfigs.cdi.kubevirt.io", "config", "--type=json", "-p", patch)
+					patch := `[{"op": "add" , "path": "/spec/config/featureGates/0", "value": "HonorWaitForFirstConsumer"}]`
+					_, _, err = tests.RunCommand("kubectl", "patch", "cdis.cdi.kubevirt.io", "cdi", "--type=json", "-p", patch)
 					Expect(err).ToNot(HaveOccurred())
 				}
 			})
 			AfterEach(func() {
 				By("Restore featuregates")
-				patch := `[{"op": "remove" , "path": "/spec/featureGates/0", "value": "HonorWaitForFirstConsumer"}]`
-				_, _, err = tests.RunCommand("kubectl", "patch", "cdiconfigs.cdi.kubevirt.io", "config", "--type=json", "-p", patch)
+				patch := `[{"op": "remove" , "path": "/spec/config/featureGates/0", "value": "HonorWaitForFirstConsumer"}]`
+				_, _, err = tests.RunCommand("kubectl", "patch", "cdis.cdi.kubevirt.io", "cdi", "--type=json", "-p", patch)
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
