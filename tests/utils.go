@@ -408,7 +408,7 @@ func (w *ObjectEventWatcher) WaitNotFor(ctx context.Context, eventType EventType
 	return
 }
 
-// Do scale and retuns error, replicas-before.
+// Do scale and returns error, replicas-before.
 func DoScaleDeployment(namespace string, name string, desired int32) (error, int32) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -1678,7 +1678,7 @@ func removeNamespaces() {
 		fmt.Printf("Waiting for namespace %s to be removed, this can take a while ...\n", namespace)
 		EventuallyWithOffset(1, func() error {
 			return virtCli.CoreV1().Namespaces().Delete(namespace, nil)
-		}, 240*time.Second, 1*time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), fmt.Sprintf("should successfuly delete namespace '%s'", namespace))
+		}, 240*time.Second, 1*time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), fmt.Sprintf("should successfully delete namespace '%s'", namespace))
 	}
 }
 
@@ -2657,7 +2657,7 @@ func AddExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
 }
 
 func NewRandomVMIWithe1000NetworkInterface() *v1.VirtualMachineInstance {
-	// Use alpine because cirros dhcp client starts prematurily before link is ready
+	// Use alpine because cirros dhcp client starts prematurely before link is ready
 	vmi := NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	AddExplicitPodNetworkInterface(vmi)
 	vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"

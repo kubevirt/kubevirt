@@ -120,7 +120,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				It("[test_id:3224]should not be paused", func() {
 					By("Launching a VMI with LivenessProbe")
 					vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-					// a random probe wich will not fail immediately
+					// a random probe which will not fail immediately
 					vmi.Spec.LivenessProbe = &v1.Probe{
 						Handler: v1.Handler{
 							HTTPGet: &k8sv1.HTTPGetAction{

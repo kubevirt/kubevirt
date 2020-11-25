@@ -1029,7 +1029,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 
 	// create disks images on the cluster lever
-	// or initalize disks images for empty PVC
+	// or initialize disks images for empty PVC
 	hostDiskCreator := hostdisk.NewHostDiskCreator(l.notifier, l.lessPVCSpaceToleration)
 	err = hostDiskCreator.Create(vmi)
 	if err != nil {

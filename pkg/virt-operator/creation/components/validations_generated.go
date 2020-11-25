@@ -2116,7 +2116,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: 'Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.'
                                     type: string
                                   pciAddress:
-                                    description: 'If specified, the virtual disk will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10'
+                                    description: 'If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10'
                                     type: string
                                   readonly:
                                     description: ReadOnly. Defaults to false.
@@ -2276,7 +2276,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: Logical name of the interface as well as a reference to the associated networks. Must match the Name of a Network.
                                 type: string
                               pciAddress:
-                                description: 'If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10'
+                                description: 'If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10'
                                 type: string
                               ports:
                                 description: List of ports to be forwarded to the virtual machine.
@@ -3759,7 +3759,7 @@ var CRDsValidation map[string]string = map[string]string{
                             description: 'Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.'
                             type: string
                           pciAddress:
-                            description: 'If specified, the virtual disk will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10'
+                            description: 'If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10'
                             type: string
                           readonly:
                             description: ReadOnly. Defaults to false.
@@ -3919,7 +3919,7 @@ var CRDsValidation map[string]string = map[string]string{
                         description: Logical name of the interface as well as a reference to the associated networks. Must match the Name of a Network.
                         type: string
                       pciAddress:
-                        description: 'If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10'
+                        description: 'If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10'
                         type: string
                       ports:
                         description: List of ports to be forwarded to the virtual machine.
@@ -4801,7 +4801,7 @@ var CRDsValidation map[string]string = map[string]string{
               description: The VirtualMachineInstanceMigration object associated with this migration
               type: string
             mode:
-              description: Lets us know if the vmi is currenly running pre or post copy migration
+              description: Lets us know if the vmi is currently running pre or post copy migration
               type: string
             sourceNode:
               description: The source node that the VMI originated on
@@ -5084,7 +5084,7 @@ var CRDsValidation map[string]string = map[string]string{
                             description: 'Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.'
                             type: string
                           pciAddress:
-                            description: 'If specified, the virtual disk will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10'
+                            description: 'If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10'
                             type: string
                           readonly:
                             description: ReadOnly. Defaults to false.
@@ -5244,7 +5244,7 @@ var CRDsValidation map[string]string = map[string]string{
                         description: Logical name of the interface as well as a reference to the associated networks. Must match the Name of a Network.
                         type: string
                       pciAddress:
-                        description: 'If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10'
+                        description: 'If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10'
                         type: string
                       ports:
                         description: List of ports to be forwarded to the virtual machine.
@@ -6242,7 +6242,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: 'Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.'
                                     type: string
                                   pciAddress:
-                                    description: 'If specified, the virtual disk will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10'
+                                    description: 'If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10'
                                     type: string
                                   readonly:
                                     description: ReadOnly. Defaults to false.
@@ -6402,7 +6402,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: Logical name of the interface as well as a reference to the associated networks. Must match the Name of a Network.
                                 type: string
                               pciAddress:
-                                description: 'If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10'
+                                description: 'If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10'
                                 type: string
                               ports:
                                 description: List of ports to be forwarded to the virtual machine.
@@ -8295,7 +8295,7 @@ var CRDsValidation map[string]string = map[string]string{
                                                 description: 'Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.'
                                                 type: string
                                               pciAddress:
-                                                description: 'If specified, the virtual disk will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10'
+                                                description: 'If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10'
                                                 type: string
                                               readonly:
                                                 description: ReadOnly. Defaults to false.
@@ -8455,7 +8455,7 @@ var CRDsValidation map[string]string = map[string]string{
                                             description: Logical name of the interface as well as a reference to the associated networks. Must match the Name of a Network.
                                             type: string
                                           pciAddress:
-                                            description: 'If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10'
+                                            description: 'If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10'
                                             type: string
                                           ports:
                                             description: List of ports to be forwarded to the virtual machine.

@@ -356,7 +356,7 @@ func (app *virtHandlerApp) Run() {
 			panic(fmt.Errorf("error relabeling required files: %v", err))
 		}
 	} else if err != nil {
-		//an error occured
+		//an error occurred
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
 	}
 

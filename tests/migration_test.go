@@ -480,7 +480,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 
 			// We had a bug that prevent migrations and graceful shutdown when the libvirt connection
-			// is reset. This can occurr for many reasons, one easy way to trigger it is to
+			// is reset. This can occur for many reasons, one easy way to trigger it is to
 			// force libvirtd down, which will result in virt-launcher respawning it.
 			// Previously, we'd stop getting events after libvirt reconnect, which
 			// prevented things like migration. This test verifies we can migrate after

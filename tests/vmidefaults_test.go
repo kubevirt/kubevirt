@@ -112,7 +112,7 @@ var _ = Describe("[Serial]VMIDefaults", func() {
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Waiting for succesful start")
+			By("Waiting for successful start")
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting domain of vmi")
@@ -146,7 +146,7 @@ var _ = Describe("[Serial]VMIDefaults", func() {
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Waiting for succesful start")
+			By("Waiting for successful start")
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting domain of vmi")
@@ -188,7 +188,7 @@ var _ = Describe("[Serial]VMIDefaults", func() {
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Waiting for succesful start")
+			By("Waiting for successful start")
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting domain of vmi")

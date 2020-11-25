@@ -133,7 +133,7 @@ func (f *FileCertificateManager) Start() {
 				if !ok {
 					return
 				}
-				log.DefaultLogger().Reason(err).Errorf("An error occured when watching certificates files %s and %s", f.certBytesPath, f.keyBytesPath)
+				log.DefaultLogger().Reason(err).Errorf("An error occurred when watching certificates files %s and %s", f.certBytesPath, f.keyBytesPath)
 			}
 		}
 	}()
