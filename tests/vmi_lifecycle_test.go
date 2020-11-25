@@ -577,6 +577,9 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var nodeName string
 			var virtHandler *k8sv1.Pod
 			var virtHandlerAvailablePods int32
+			dsOriginalConfiguration := &v1.ComponentConfig{
+				NodePlacement: &v1.NodePlacement{},
+			}
 
 			BeforeEach(func() {
 
@@ -591,23 +594,31 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred(), "Should get virthandler daemonset")
 				// Save virt-handler number of desired pods
 				virtHandlerAvailablePods = ds.Status.DesiredNumberScheduled
-				ds.Spec.Template.Spec.Affinity = &k8sv1.Affinity{
-					NodeAffinity: &k8sv1.NodeAffinity{
-						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-								{MatchExpressions: []k8sv1.NodeSelectorRequirement{
-									{Key: "kubernetes.io/hostname", Operator: "NotIn", Values: []string{nodeName}},
-								}},
+
+				kv := tests.GetCurrentKv(virtClient)
+				dsOriginalConfiguration = kv.Spec.Workloads
+				kv.Spec.Workloads = &v1.ComponentConfig{
+					NodePlacement: &v1.NodePlacement{
+						Affinity: &k8sv1.Affinity{
+							NodeAffinity: &k8sv1.NodeAffinity{
+								RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+									NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+										{MatchExpressions: []k8sv1.NodeSelectorRequirement{
+											{Key: "kubernetes.io/hostname", Operator: "NotIn", Values: []string{nodeName}},
+										}},
+									},
+								},
 							},
 						},
 					},
 				}
-				_, err = virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Update(ds)
-				Expect(err).ToNot(HaveOccurred(), "Should update virthandler daemonset")
+				_, err = virtClient.KubeVirt(virtHandler.Namespace).Update(kv)
+				Expect(err).ToNot(HaveOccurred(), "Should update kubevirt infra placement")
+
 				Eventually(func() bool {
 					_, err := virtClient.CoreV1().Pods(virtHandler.Namespace).Get(virtHandler.Name, metav1.GetOptions{})
 					return errors.IsNotFound(err)
-				}, 90*time.Second, 1*time.Second).Should(BeTrue(), "The virthandler pod should be gone")
+				}, 120*time.Second, 1*time.Second).Should(BeTrue(), "The virthandler pod should be gone")
 			})
 
 			It("[test_id:1634]the node controller should mark the node as unschedulable when the virt-handler heartbeat has timedout", func() {
@@ -649,11 +660,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			AfterEach(func() {
 				// Restore virt-handler daemonset
-				ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get("virt-handler", metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get virthandler successfully")
-				ds.Spec.Template.Spec.Affinity = nil
-				_, err = virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Update(ds)
-				Expect(err).ToNot(HaveOccurred(), "Should update virthandler successfully")
+				kv := tests.GetCurrentKv(virtClient)
+				kv.Spec.Workloads = dsOriginalConfiguration
+				_, err = virtClient.KubeVirt(virtHandler.Namespace).Update(kv)
+				Expect(err).ToNot(HaveOccurred(), "Should update kubevirt infra placement")
 
 				// Wait until virt-handler ds will have expected number of pods
 				Eventually(func() bool {
