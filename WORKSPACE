@@ -334,10 +334,10 @@ container_pull(
 # Pull base image libvirt
 container_pull(
     name = "libvirt",
-    digest = "sha256:340da2900571f7c5124abfd7d58f488fc3e7e60f72fb780b8f5d8988a87a1b16",
+    digest = "sha256:a95f0d6e15796c4a7dc3e5358505691482eecd3f3286f3914bc744a5ce250cbd",
     registry = "index.docker.io",
     repository = "kubevirt/libvirt",
-    #tag = "20201111-ed64fb3",
+    #tag = "20201125-c4405e2",
 )
 
 # TODO: Update this once we have PPC builds of the base image available
