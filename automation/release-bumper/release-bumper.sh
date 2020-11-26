@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 CONFIG_FILE="hack/config"
 
 function main {
