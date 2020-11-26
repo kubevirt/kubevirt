@@ -20,8 +20,102 @@
 package libnet
 
 import (
+	"fmt"
+
 	"sigs.k8s.io/yaml"
 )
+
+type NetworkDataOption func(*CloudInitNetworkData) error
+type NetworkDataInterfaceOption func(*CloudInitInterface) error
+
+func NewNetworkData(options ...NetworkDataOption) (string, error) {
+	networkData := CloudInitNetworkData{
+		Version: 2,
+	}
+
+	for _, option := range options {
+		err := option(&networkData)
+		if err != nil {
+			return "", fmt.Errorf("failed defining network data when running options: %w", err)
+		}
+	}
+
+	nd, err := yaml.Marshal(&networkData)
+	if err != nil {
+		return "", err
+	}
+
+	return string(nd), nil
+}
+
+func WithEthernet(name string, options ...NetworkDataInterfaceOption) NetworkDataOption {
+	return func(networkData *CloudInitNetworkData) error {
+		if networkData.Ethernets == nil {
+			networkData.Ethernets = map[string]CloudInitInterface{}
+		}
+
+		networkDataInterface := CloudInitInterface{name: name}
+
+		for _, option := range options {
+			err := option(&networkDataInterface)
+			if err != nil {
+				return fmt.Errorf("failed defining network data ethernet device when running options: %w", err)
+			}
+		}
+
+		networkData.Ethernets[name] = networkDataInterface
+		return nil
+	}
+}
+
+func WithAddresses(addresses ...string) NetworkDataInterfaceOption {
+	return func(networkDataInterface *CloudInitInterface) error {
+		if networkDataInterface.Addresses == nil {
+			networkDataInterface.Addresses = []string{}
+		}
+		networkDataInterface.Addresses = append(networkDataInterface.Addresses, addresses...)
+		return nil
+	}
+}
+
+func WithDHCP4Enabled() NetworkDataInterfaceOption {
+	return func(networkDataInterface *CloudInitInterface) error {
+		enabled := true
+		networkDataInterface.DHCP4 = &enabled
+		return nil
+	}
+}
+
+func WithGateway6(gateway6 string) NetworkDataInterfaceOption {
+	return func(networkDataInterface *CloudInitInterface) error {
+		networkDataInterface.Gateway6 = gateway6
+		return nil
+	}
+}
+
+func WithNameserverFromCluster() NetworkDataInterfaceOption {
+	return func(networkDataInterface *CloudInitInterface) error {
+		dnsServerIP, err := ClusterDNSServiceIP()
+		if err != nil {
+			return fmt.Errorf("failed defining network data nameservers when retrieving cluster DNS service IP: %w", err)
+		}
+		networkDataInterface.Nameservers = CloudInitNameservers{
+			Addresses: []string{dnsServerIP},
+			Search:    SearchDomains(),
+		}
+		return nil
+	}
+}
+
+func WithMatchingMAC(macAddress string) NetworkDataInterfaceOption {
+	return func(networkDataInterface *CloudInitInterface) error {
+		networkDataInterface.Match = CloudInitMatch{
+			MACAddress: macAddress,
+		}
+		networkDataInterface.SetName = networkDataInterface.name
+		return nil
+	}
+}
 
 type CloudInitNetworkData struct {
 	Version   int                           `json:"version"`
@@ -29,6 +123,7 @@ type CloudInitNetworkData struct {
 }
 
 type CloudInitInterface struct {
+	name           string
 	AcceptRA       *bool                `json:"accept-ra,omitempty"`
 	Addresses      []string             `json:"addresses,omitempty"`
 	DHCP4          *bool                `json:"dhcp4,omitempty"`
@@ -38,13 +133,21 @@ type CloudInitInterface struct {
 	Gateway6       string               `json:"gateway6,omitempty"`
 	Nameservers    CloudInitNameservers `json:"nameservers,omitempty"`
 	MACAddress     string               `json:"macaddress,omitempty"`
+	Match          CloudInitMatch       `json:"match,omitempty"`
 	MTU            int                  `json:"mtu,omitempty"`
 	Routes         []CloudInitRoute     `json:"routes,omitempty"`
+	SetName        string               `json:"set-name,omitempty"`
 }
 
 type CloudInitNameservers struct {
 	Search    []string `json:"search,omitempty,flow"`
 	Addresses []string `json:"addresses,omitempty,flow"`
+}
+
+type CloudInitMatch struct {
+	Name       string `json:"name,omitempty"`
+	MACAddress string `json:"macaddress,omitempty"`
+	Driver     string `json:"driver,omitempty"`
 }
 
 type CloudInitRoute struct {
@@ -69,37 +172,12 @@ const (
 // The default configuration sets dynamic IPv4 (DHCP) and static IPv6 addresses,
 // inclusing DNS settings of the cluster nameserver IP and search domains.
 func CreateDefaultCloudInitNetworkData() (string, error) {
-	dnsServerIP, err := ClusterDNSServiceIP()
-	if err != nil {
-		return "", err
-	}
-
-	enabled := true
-	networkData, err := CreateCloudInitNetworkData(
-		&CloudInitNetworkData{
-			Version: 2,
-			Ethernets: map[string]CloudInitInterface{
-				"eth0": {
-					Addresses: []string{DefaultIPv6CIDR},
-					DHCP4:     &enabled,
-					Gateway6:  DefaultIPv6Gateway,
-					Nameservers: CloudInitNameservers{
-						Addresses: []string{dnsServerIP},
-						Search:    SearchDomains(),
-					},
-				},
-			},
-		},
+	return NewNetworkData(
+		WithEthernet("eth0",
+			WithDHCP4Enabled(),
+			WithAddresses(DefaultIPv6CIDR),
+			WithGateway6(DefaultIPv6Gateway),
+			WithNameserverFromCluster(),
+		),
 	)
-	if err != nil {
-		return "", err
-	}
-
-	return string(networkData), nil
-}
-
-// CreateCloudInitNetworkData generates a configuration for the Cloud-Init Network Data version 2 format
-// based on the inputed data.
-func CreateCloudInitNetworkData(networkData *CloudInitNetworkData) ([]byte, error) {
-	return yaml.Marshal(networkData)
 }
