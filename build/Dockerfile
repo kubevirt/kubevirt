@@ -6,6 +6,7 @@ RUN make build
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal
 ENV OPERATOR=/usr/local/bin/hyperconverged-cluster-operator \
+    WEBHOOK=/usr/local/bin/hyperconverged-cluster-webhook \
     CSV_MERGER=/usr/local/bin/csv-merger \
     USER_UID=1001 \
     USER_NAME=hyperconverged-cluster-operator
@@ -20,6 +21,7 @@ RUN mkdir -p ${HOME} && \
     chmod g+rw /etc/passwd
 
 COPY --from=builder /go/src/github.com/kubevirt/hyperconverged-cluster-operator/_out/hyperconverged-cluster-operator $OPERATOR
+COPY --from=builder /go/src/github.com/kubevirt/hyperconverged-cluster-operator/_out/hyperconverged-cluster-webhook $WEBHOOK
 COPY --from=builder /go/src/github.com/kubevirt/hyperconverged-cluster-operator/_out/csv-merger $CSV_MERGER
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
 USER ${USER_UID}
