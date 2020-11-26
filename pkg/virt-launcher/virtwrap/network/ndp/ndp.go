@@ -32,6 +32,7 @@ import (
 
 const (
 	routerAdvertisementMaxLifetime = 65535 * time.Second
+	routerAdvertisementPeriod      = 5 * time.Minute
 )
 
 type RouterAdvertisementDaemon struct {
@@ -63,6 +64,9 @@ func SingleClientRouterAdvertisementDaemon(serverIface string, ipv6CIDR string, 
 		ndpConn:   ndpConnection,
 	}
 
+	doneChannel := make(chan bool)
+	handler.PeriodicallySendRAs(doneChannel)
+
 	return handler.serve()
 }
 
@@ -86,6 +90,27 @@ func (rad *RouterAdvertisementDaemon) serve() error {
 			}
 		}
 	}
+}
+
+func (rad *RouterAdvertisementDaemon) PeriodicallySendRAs(doneChannel chan bool) {
+	ticker := time.NewTicker(routerAdvertisementPeriod)
+
+	go func() {
+		for {
+			select {
+			case <-doneChannel:
+				ticker.Stop()
+				return
+
+			case <-ticker.C:
+				err := rad.SendRouterAdvertisement()
+
+				if err != nil {
+					doneChannel <- true
+				}
+			}
+		}
+	}()
 }
 
 func (rad *RouterAdvertisementDaemon) SendRouterAdvertisement() error {
