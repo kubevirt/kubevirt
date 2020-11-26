@@ -6,6 +6,7 @@ SHA                := $(shell git describe --no-match  --always --abbrev=40 --di
 IMAGE_REGISTRY     ?= quay.io
 IMAGE_TAG          ?= latest
 OPERATOR_IMAGE     ?= kubevirt/hyperconverged-cluster-operator
+WEBHOOK_IMAGE      ?= kubevirt/hyperconverged-cluster-webhook
 REGISTRY_NAMESPACE ?=
 
 
@@ -24,9 +25,16 @@ sanity:
 	./hack/build-manifests.sh
 	git difftool -y --trust-exit-code --extcmd=./hack/diff-csv.sh
 
-build: $(SOURCES) ## Build binary from source
+build: build-operator build-csv-merger build-webhook
+
+build-operator: $(SOURCES) ## Build binary from source
 	go build -i -ldflags="-s -w" -o _out/hyperconverged-cluster-operator ./cmd/hyperconverged-cluster-operator
+
+build-csv-merger: ## Build binary from source
 	go build -i -ldflags="-s -w" -o _out/csv-merger tools/csv-merger/csv-merger.go
+
+build-webhook: $(SOURCES) ## Build binary from source
+	go build -i -ldflags="-s -w" -o _out/hyperconverged-cluster-webhook ./cmd/hyperconverged-cluster-webhook
 
 build-manifests:
 	./hack/build-manifests.sh
@@ -52,10 +60,13 @@ bundle-push: container-build-operator-courier
 hack-clean: ## Run ./hack/clean.sh
 	./hack/clean.sh
 
-container-build: container-build-operator container-build-operator-courier
+container-build: container-build-operator container-build-webhook container-build-operator-courier
 
 container-build-operator:
 	docker build -f build/Dockerfile -t $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
+
+container-build-webhook:
+	docker build -f build/webhook.Dockerfile -t $(IMAGE_REGISTRY)/$(WEBHOOK_IMAGE):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
 
 container-build-operator-courier:
 	docker build -f tools/operator-courier/Dockerfile -t hco-courier .
@@ -64,6 +75,9 @@ container-push: container-push-operator
 
 container-push-operator:
 	docker push $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG)
+
+container-push-webhook:
+	docker push $(IMAGE_REGISTRY)/$(WEBHOOK_IMAGE):$(IMAGE_TAG)
 
 cluster-up:
 	./cluster/up.sh
@@ -99,7 +113,7 @@ bundleRegistry:
 container-clusterserviceversion:
 	REGISTRY_NAMESPACE=$(REGISTRY_NAMESPACE) IMAGE_REGISTRY=$(IMAGE_REGISTRY) ./hack/upgrade-test-clusterserviceversion.sh
 
-build-push-all: container-build-operator container-push-operator container-build-operator-courier bundle-push
+build-push-all: container-build-operator container-push-operator container-build-webhook container-push-webhook container-build-operator-courier bundle-push
 
 upgrade-test:
 	./hack/upgrade-test.sh
@@ -140,14 +154,19 @@ deploy_cr:
 .PHONY: start \
 		clean \
 		build \
+		build-operator \
+		build-csv-merger \
+		build-webhook \
 		build-manifests \
 		build-manifests-prev \
 		help \
 		hack-clean \
 		container-build \
 		container-build-operator \
+		container-build-webhook \
 		container-push \
 		container-push-operator \
+		container-push-webhook \
 		container-build-operator-courier \
 		cluster-up \
 		cluster-down \
