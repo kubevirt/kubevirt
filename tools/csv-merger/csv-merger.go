@@ -95,6 +95,7 @@ var (
 	hppCsv              = flag.String("hpp-csv", "", "HostPath Provisioner Operator CSV String")
 	vmImportCsv         = flag.String("vmimport-csv", "", "Virtual Machine Import Operator CSV String")
 	operatorImage       = flag.String("operator-image-name", "", "HyperConverged Cluster Operator image")
+	webhookImage        = flag.String("webhook-image-name", "", "HyperConverged Cluster Webhook image")
 	imsConversionImage  = flag.String("ims-conversion-image-name", "", "IMS conversion image")
 	imsVMWareImage      = flag.String("ims-vmware-image-name", "", "IMS VMWare image")
 	smbios              = flag.String("smbios", "", "Custom SMBIOS string for KubeVirt ConfigMap")
@@ -233,6 +234,10 @@ func main() {
 
 	flag.Parse()
 
+	if webhookImage == nil || *webhookImage == "" {
+		*webhookImage = *operatorImage
+	}
+
 	if *crdDir != "" {
 		result := validateNoApiOverlap(*crdDir)
 		if result {
@@ -287,6 +292,7 @@ func main() {
 		installStrategyBase := components.GetInstallStrategyBase(
 			*namespace,
 			*operatorImage,
+			*webhookImage,
 			"IfNotPresent",
 			*imsConversionImage,
 			*imsVMWareImage,

@@ -7,7 +7,6 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/webhooks"
 	"github.com/spf13/pflag"
 	"os"
 	"runtime"
@@ -98,19 +97,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// TODO: remove this once we will move to OLM operator conditions
-	// Get the webhook mode
-	operatorWebhookMode, err := hcoutil.GetWebhookModeFromEnv()
-	if err != nil {
-		log.Error(err, "Failed to get operator webhook mode from the environment")
-		os.Exit(1)
-	}
-	if operatorWebhookMode {
-		log.Info("operatorWebhookMode: running only the validating webhook")
-	} else {
-		log.Info("operatorWebhookMode: running only the real operator")
-	}
-
 	if runInLocal {
 		depOperatorNs = operatorNsEnv
 	}
@@ -136,7 +122,7 @@ func main() {
 
 	// a lock is not needed in webhook mode
 	// TODO: remove this once we will move to OLM operator conditions
-	needLeaderElection := !operatorWebhookMode && !runInLocal
+	needLeaderElection := !runInLocal
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{
@@ -195,42 +181,23 @@ func main() {
 	}
 
 	readyCheck := hcoutil.GetHcoPing()
-	// TODO: remove this once we will move to OLM operator conditions
-	if operatorWebhookMode {
-		readyCheck = healthz.Ping
-	}
 
 	if err := mgr.AddReadyzCheck("ready", readyCheck); err != nil {
 		log.Error(err, "unable to add ready check")
 		os.Exit(1)
 	}
 
-	// TODO: remove this once we will move to OLM operator conditions
-	if !operatorWebhookMode {
-		// Setup all Controllers
-		if err := controller.AddToManager(mgr, ci); err != nil {
-			log.Error(err, "")
-			eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to register component; "+err.Error())
-			os.Exit(1)
-		}
+	// Setup all Controllers
+	if err := controller.AddToManager(mgr, ci); err != nil {
+		log.Error(err, "")
+		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to register component; "+err.Error())
+		os.Exit(1)
 	}
 
-	// TODO: remove this once we will move to OLM operator conditions
-	if operatorWebhookMode {
-		// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
-		// necessary to configure Prometheus to scrape metrics from this operator.
-		hwHandler := &webhooks.WebhookHandler{}
-		if err = (&hcov1beta1.HyperConverged{}).SetupWebhookWithManager(ctx, mgr, hwHandler); err != nil {
-			log.Error(err, "unable to create webhook", "webhook", "HyperConverged")
-			eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to create webhook")
-			os.Exit(1)
-		}
-	} else {
-		err = createPriorityClass(ctx, mgr)
-		if err != nil {
-			log.Error(err, "Failed creating PriorityClass")
-			os.Exit(1)
-		}
+	err = createPriorityClass(ctx, mgr)
+	if err != nil {
+		log.Error(err, "Failed creating PriorityClass")
+		os.Exit(1)
 	}
 
 	log.Info("Starting the Cmd.")

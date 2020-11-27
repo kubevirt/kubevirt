@@ -50,6 +50,7 @@ var (
 	vmImportCsv        = flag.String("vmimport-csv", "", "Virtual Machine Import Operator CSV String")
 	operatorNamespace  = flag.String("operator-namespace", "kubevirt-hyperconverged", "Name of the Operator")
 	operatorImage      = flag.String("operator-image", "", "HyperConverged Cluster Operator image")
+	webhookImage       = flag.String("webhook-image", "", "HyperConverged Cluster Webhook image")
 	imsConversionImage = flag.String("ims-conversion-image-name", "", "IMS conversion image")
 	imsVMWareImage     = flag.String("ims-vmware-image-name", "", "IMS VMWare image")
 	smbios             = flag.String("smbios", "", "Custom SMBIOS string for KubeVirt ConfigMap")
@@ -112,6 +113,10 @@ func main() {
 		*vmImportCsv,
 	}
 
+	if webhookImage == nil || *webhookImage == "" {
+		*webhookImage = *operatorImage
+	}
+
 	// these represent the bare necessities for the HCO manifests, that is,
 	// enough to deploy the HCO itself.
 	// 1 deployment
@@ -143,7 +148,7 @@ func main() {
 		),
 		components.GetDeploymentWebhook(
 			*operatorNamespace,
-			*operatorImage,
+			*webhookImage,
 			"IfNotPresent",
 			[]corev1.EnvVar{},
 		),

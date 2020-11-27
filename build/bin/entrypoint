@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/bash -e
 
 # This is documented here:
 # https://docs.openshift.com/container-platform/3.11/creating_images/guidelines.html#openshift-specific-guidelines
@@ -9,4 +9,4 @@ if ! whoami &>/dev/null; then
   fi
 fi
 
-exec ${OPERATOR} $@
+exec ${!APP} $@

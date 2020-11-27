@@ -4,6 +4,9 @@ package util
 const (
 	OperatorNamespaceEnv   = "OPERATOR_NAMESPACE"
 	OperatorWebhookModeEnv = "WEBHOOK_MODE"
+	ContainerAppName       = "APP"
+	ContainerOperatorApp   = "OPERATOR"
+	ContainerWebhookApp    = "WEBHOOK"
 	HcoKvIoVersionName     = "HCO_KV_IO_VERSION"
 	KubevirtVersionEnvV    = "KUBEVIRT_VERSION"
 	CdiVersionEnvV         = "CDI_VERSION"

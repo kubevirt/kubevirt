@@ -116,13 +116,21 @@ RunCmd "$CMD get pods -n kubevirt-hyperconverged -o json"
 
 cat <<EOF
 
-=============
-HCO pods logs
-=============
+=================================
+HyperConverged Operator pods logs
+=================================
 EOF
 
 namespace=kubevirt-hyperconverged
 RunCmd "$CMD logs -n $namespace -l name=hyperconverged-cluster-operator"
+
+cat <<EOF
+
+=================================
+HyperConverged Webhook pods logs
+=================================
+EOF
+RunCmd "$CMD logs -n $namespace -l name=hyperconverged-cluster-webhook"
 
 cat <<EOF
 

@@ -66,7 +66,7 @@ container-build-operator:
 	docker build -f build/Dockerfile -t $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
 
 container-build-webhook:
-	docker build -f build/webhook.Dockerfile -t $(IMAGE_REGISTRY)/$(WEBHOOK_IMAGE):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
+	docker build -f build/Dockerfile.webhook -t $(IMAGE_REGISTRY)/$(WEBHOOK_IMAGE):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
 
 container-build-operator-courier:
 	docker build -f tools/operator-courier/Dockerfile -t hco-courier .

@@ -5,7 +5,8 @@ COPY . .
 RUN make build-webhook
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal
-ENV OPERATOR=/usr/local/bin/hyperconverged-cluster-webhook \
+ENV WEBHOOK=/usr/local/bin/hyperconverged-cluster-webhook \
+    APP=WEBHOOK \
     USER_UID=1001 \
     USER_NAME=hyperconverged-cluster-webhook
 
