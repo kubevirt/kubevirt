@@ -184,7 +184,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *v1beta1.Mu
 }
 
 func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.ValidatingWebhookConfiguration {
-
+	kubevirtUpdatePath := KubeVirtUpdateValidatePath
 	vmiPathCreate := VMICreateValidatePath
 	vmiPathUpdate := VMIUpdateValidatePath
 	vmPath := VMValidatePath
@@ -215,6 +215,29 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 			},
 		},
 		Webhooks: []v1beta1.ValidatingWebhook{
+			{
+				AdmissionReviewVersions: []string{"v1beta1"},
+				Name:                    "kubevirt-update-validator.kubevirt.io",
+				FailurePolicy:           &failurePolicy,
+				SideEffects:             &sideEffectNone,
+				Rules: []v1beta1.RuleWithOperations{{
+					Operations: []v1beta1.OperationType{
+						v1beta1.Update,
+					},
+					Rule: v1beta1.Rule{
+						APIGroups:   []string{virtv1.GroupName},
+						APIVersions: virtv1.ApiSupportedWebhookVersions,
+						Resources:   []string{"kubevirts"},
+					},
+				}},
+				ClientConfig: v1beta1.WebhookClientConfig{
+					Service: &v1beta1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &kubevirtUpdatePath,
+					},
+				},
+			},
 			{
 				Name: "virt-launcher-eviction-interceptor.kubevirt.io",
 				// We don't want to block evictions in the cluster in a case where this webhook is down.
@@ -468,6 +491,8 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 		},
 	}
 }
+
+const KubeVirtUpdateValidatePath = "/kubevirt-validate-update"
 
 const VMICreateValidatePath = "/virtualmachineinstances-validate-create"
 
