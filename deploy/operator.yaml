@@ -52,7 +52,7 @@ spec:
         - name: CDI_VERSION
           value: v1.26.1
         - name: NETWORK_ADDONS_VERSION
-          value: v0.42.3
+          value: v0.42.4
         - name: SSP_VERSION
           value: v1.2.1
         - name: NMO_VERSION
@@ -167,7 +167,7 @@ spec:
         - name: LINUX_BRIDGE_MARKER_IMAGE
           value: quay.io/kubevirt/bridge-marker@sha256:e55f73526468fee46a35ae41aa860f492d208b8a7a132832c5b9a76d4a51566a
         - name: NMSTATE_HANDLER_IMAGE
-          value: quay.io/nmstate/kubernetes-nmstate-handler@sha256:444ab3349882ac58f594396529708146993b831c2e3e1d524eaa12e17e09f150
+          value: quay.io/nmstate/kubernetes-nmstate-handler@sha256:3feeb377a4a89caf37fdab45d13f93620e1cf5ff8cbc91aa19ae32cd5cfa3a32
         - name: OVS_CNI_IMAGE
           value: quay.io/kubevirt/ovs-cni-plugin@sha256:4101c52617efb54a45181548c257a08e3689f634b79b9dfcff42bffd8b25af53
         - name: OVS_MARKER_IMAGE
@@ -177,11 +177,11 @@ spec:
         - name: MACVTAP_CNI_IMAGE
           value: quay.io/kubevirt/macvtap-cni@sha256:407f75760fc096666becfa45d94f51757ebbe8f382e9e7b57ceeded0b8cfb6b8
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:8fe7a5ae4cde693cf1adf681af58bb3911157c92a260b01c58cd43b2211403b3
+          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:b59aa2b6ae71d6ea6b08aa666252c14ec17cd035cc78c1e5c0b61505d39071ba
         - name: OPERATOR_NAME
           value: cluster-network-addons-operator
         - name: OPERATOR_VERSION
-          value: v0.42.3
+          value: v0.42.4
         - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
@@ -195,7 +195,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: WATCH_NAMESPACE
-        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:8fe7a5ae4cde693cf1adf681af58bb3911157c92a260b01c58cd43b2211403b3
+        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:b59aa2b6ae71d6ea6b08aa666252c14ec17cd035cc78c1e5c0b61505d39071ba
         imagePullPolicy: IfNotPresent
         name: cluster-network-addons-operator
         resources: {}

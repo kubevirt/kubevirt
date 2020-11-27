@@ -8,7 +8,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:08c43546e5eb9cdf936d1638483cb313e2aed009eb7b45a0c65f08b2097c0918
-    createdAt: "2020-11-26 20:04:58"
+    createdAt: "2020-11-27 05:10:11"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -1730,7 +1730,7 @@ spec:
                 - name: CDI_VERSION
                   value: v1.26.1
                 - name: NETWORK_ADDONS_VERSION
-                  value: v0.42.3
+                  value: v0.42.4
                 - name: SSP_VERSION
                   value: v1.2.1
                 - name: NMO_VERSION
@@ -1833,7 +1833,7 @@ spec:
                 - name: LINUX_BRIDGE_MARKER_IMAGE
                   value: quay.io/kubevirt/bridge-marker@sha256:e55f73526468fee46a35ae41aa860f492d208b8a7a132832c5b9a76d4a51566a
                 - name: NMSTATE_HANDLER_IMAGE
-                  value: quay.io/nmstate/kubernetes-nmstate-handler@sha256:444ab3349882ac58f594396529708146993b831c2e3e1d524eaa12e17e09f150
+                  value: quay.io/nmstate/kubernetes-nmstate-handler@sha256:3feeb377a4a89caf37fdab45d13f93620e1cf5ff8cbc91aa19ae32cd5cfa3a32
                 - name: OVS_CNI_IMAGE
                   value: quay.io/kubevirt/ovs-cni-plugin@sha256:4101c52617efb54a45181548c257a08e3689f634b79b9dfcff42bffd8b25af53
                 - name: OVS_MARKER_IMAGE
@@ -1843,11 +1843,11 @@ spec:
                 - name: MACVTAP_CNI_IMAGE
                   value: quay.io/kubevirt/macvtap-cni@sha256:407f75760fc096666becfa45d94f51757ebbe8f382e9e7b57ceeded0b8cfb6b8
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/cluster-network-addons-operator@sha256:8fe7a5ae4cde693cf1adf681af58bb3911157c92a260b01c58cd43b2211403b3
+                  value: quay.io/kubevirt/cluster-network-addons-operator@sha256:b59aa2b6ae71d6ea6b08aa666252c14ec17cd035cc78c1e5c0b61505d39071ba
                 - name: OPERATOR_NAME
                   value: cluster-network-addons-operator
                 - name: OPERATOR_VERSION
-                  value: v0.42.3
+                  value: v0.42.4
                 - name: OPERATOR_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -1861,7 +1861,7 @@ spec:
                     fieldRef:
                       fieldPath: metadata.name
                 - name: WATCH_NAMESPACE
-                image: quay.io/kubevirt/cluster-network-addons-operator@sha256:8fe7a5ae4cde693cf1adf681af58bb3911157c92a260b01c58cd43b2211403b3
+                image: quay.io/kubevirt/cluster-network-addons-operator@sha256:b59aa2b6ae71d6ea6b08aa666252c14ec17cd035cc78c1e5c0b61505d39071ba
                 imagePullPolicy: IfNotPresent
                 name: cluster-network-addons-operator
                 resources: {}
@@ -2340,7 +2340,7 @@ spec:
     name: cdi-uploadproxy
   - image: docker.io/kubevirt/cdi-uploadserver@sha256:1a5e811ec425e65551f749727fb0c703f04b6bde7d2fd12b773122efd61c0310
     name: cdi-uploadserver
-  - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:8fe7a5ae4cde693cf1adf681af58bb3911157c92a260b01c58cd43b2211403b3
+  - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:b59aa2b6ae71d6ea6b08aa666252c14ec17cd035cc78c1e5c0b61505d39071ba
     name: cluster-network-addons-operator
   - image: quay.io/kubevirt/cni-default-plugins@sha256:3dd438117076016d6d2acd508b93f106ca80a28c0af6e2e914d812f9a1d55142
     name: cni-default-plugins
@@ -2352,7 +2352,7 @@ spec:
     name: hyperconverged-cluster-operator
   - image: quay.io/kubevirt/kubemacpool@sha256:79c4534d418c4a350a663e38499c22d54dc68c400f517aead4479f6d862b408e
     name: kubemacpool
-  - image: quay.io/nmstate/kubernetes-nmstate-handler@sha256:444ab3349882ac58f594396529708146993b831c2e3e1d524eaa12e17e09f150
+  - image: quay.io/nmstate/kubernetes-nmstate-handler@sha256:3feeb377a4a89caf37fdab45d13f93620e1cf5ff8cbc91aa19ae32cd5cfa3a32
     name: kubernetes-nmstate-handler
   - image: quay.io/fromani/kubevirt-ssp-operator-container@sha256:13ecfd8bc5779721378cfed69109bcc99392b0dcd589ddd600eb2648de9fce8c
     name: kubevirt-ssp-operator-container
