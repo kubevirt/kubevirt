@@ -25,8 +25,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -86,29 +84,19 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 
 		Context("Alpine import", func() {
 			BeforeEach(func() {
-				By("Enable featuregate=HonorWaitForFirstConsumer")
-				// in practice we might have HonorWaitForFirstConsumer twice in featureGates array, but this is not a problem
-				jsonpath := `-o=jsonpath="{.spec.config.featureGates}"`
-				out, _, err := tests.RunCommand("kubectl", "get", "cdis.cdi.kubevirt.io", "cdi", jsonpath)
+				cdis, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
-
-				// no feature Gates? we need to add the whole structure, else just add the flag
-				// Looks like the output might be quoted
-				if str, err := strconv.Unquote(strings.TrimSpace(out)); str == "" {
-					patch := `{"spec": { "config": {"featureGates":["HonorWaitForFirstConsumer"]}}}`
-					_, _, err = tests.RunCommand("kubectl", "patch", "cdis.cdi.kubevirt.io", "cdi", "-o=json", "--type=merge", "-p", patch)
-					Expect(err).ToNot(HaveOccurred())
-				} else {
-					patch := `[{"op": "add" , "path": "/spec/config/featureGates/0", "value": "HonorWaitForFirstConsumer"}]`
-					_, _, err = tests.RunCommand("kubectl", "patch", "cdis.cdi.kubevirt.io", "cdi", "--type=json", "-p", patch)
-					Expect(err).ToNot(HaveOccurred())
+				Expect(cdis.Items).To(HaveLen(1))
+				hasWaitForCustomerGate := false
+				for _, feature := range cdis.Items[0].Spec.Config.FeatureGates {
+					if feature == "HonorWaitForFirstConsumer" {
+						hasWaitForCustomerGate = true
+						break
+					}
 				}
-			})
-			AfterEach(func() {
-				By("Restore featuregates")
-				patch := `[{"op": "remove" , "path": "/spec/config/featureGates/0", "value": "HonorWaitForFirstConsumer"}]`
-				_, _, err = tests.RunCommand("kubectl", "patch", "cdis.cdi.kubevirt.io", "cdi", "--type=json", "-p", patch)
-				Expect(err).ToNot(HaveOccurred())
+				if !hasWaitForCustomerGate {
+					Skip("HonorWaitForFirstConsumer is disabled in CDI, skipping tests relying on it")
+				}
 			})
 			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
 
