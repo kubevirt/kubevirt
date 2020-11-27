@@ -467,7 +467,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		}
 
 		patchOps := []string{}
-		if podExists {
+		if vmiPodExists {
 			c.updateVolumeStatus(vmiCopy, pod)
 		}
 		logger := log.Log.Object(vmi)
@@ -697,7 +697,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	if err != nil {
 		return &syncErrorImpl{fmt.Errorf("failed to get attachment pods: %v", err), FailedHotplugSyncReason}
 	}
-	if pod.DeletionTimestamp == nil && c.needsHandleHotplug(hotplugVolumes, hotplugAttachmentPods) {
+	if pod.DeletionTimestamp == nil && !isWaitForFirstConsumer && c.needsHandleHotplug(hotplugVolumes, hotplugAttachmentPods) {
 		var hotplugSyncErr syncError = nil
 		hotplugSyncErr = c.handleHotplugVolumes(hotplugVolumes, hotplugAttachmentPods, vmi, pod)
 		if hotplugSyncErr != nil {
