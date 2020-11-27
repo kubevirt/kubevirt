@@ -37,6 +37,8 @@ import (
 	lmf "github.com/subgraph/libmacouflage"
 	"github.com/vishvananda/netlink"
 
+	"kubevirt.io/kubevirt/pkg/util/sysctl"
+
 	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -178,7 +180,7 @@ func (h *NetworkUtilsHandler) HasNatIptables(proto iptables.Protocol) bool {
 }
 
 func (h *NetworkUtilsHandler) ConfigureIpv6Forwarding() error {
-	_, err := exec.Command("sysctl", "net.ipv6.conf.all.forwarding=1").CombinedOutput()
+	err := sysctl.New().SetSysctl(sysctl.NetIPv6Forwarding, 1)
 	return err
 }
 
