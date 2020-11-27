@@ -73,6 +73,12 @@ var MigrationGroupVersionResource = metav1.GroupVersionResource{
 	Resource: "virtualmachineinstancemigrations",
 }
 
+var KubeVirtGroupVersionResource = metav1.GroupVersionResource{
+	Group:    v1.KubeVirtGroupVersionKind.Group,
+	Version:  v1.KubeVirtGroupVersionKind.Version,
+	Resource: "kubevirts",
+}
+
 type Informers struct {
 	VMIPresetInformer       cache.SharedIndexInformer
 	NamespaceLimitsInformer cache.SharedIndexInformer
