@@ -20,7 +20,6 @@
 package network
 
 import (
-	"net"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -106,8 +105,8 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 
 				It("should report PodIP/s IPv4 as its own on interface status", func() {
 					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-					Eventually(vmiIP).Should(WithTransform(removeCIDR, Equal(vmiPod.Status.PodIP)), "should contain VMI Status IP as Pod status ip")
-					Eventually(vmiIPs).Should(WithTransform(removeCIDRs, ContainElement(vmiPod.Status.PodIP)), "should contain IPv4 reported by guest agent")
+					Eventually(vmiIP).Should(Equal(vmiPod.Status.PodIP), "should contain VMI Status IP as Pod status ip")
+					Eventually(vmiIPs).Should(ContainElement(vmiPod.Status.PodIP), "should contain IPv4 reported by guest agent")
 				})
 
 				It("should report VMIs static IPv6 at interface status", func() {
@@ -237,20 +236,4 @@ func newFedoraWithGuestAgentAndDefaultInterface(iface v1.Interface) (*v1.Virtual
 		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 	)
 	return vmi, nil
-}
-
-func removeCIDRs(ips []string) []string {
-	ipAddresses := []string{}
-	for _, ip := range ips {
-		ipAddresses = append(ipAddresses, removeCIDR(ip))
-	}
-	return ipAddresses
-}
-
-func removeCIDR(ip string) string {
-	ipAddr, _, err := net.ParseCIDR(ip)
-	if err != nil {
-		return ip
-	}
-	return ipAddr.String()
 }
