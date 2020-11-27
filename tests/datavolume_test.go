@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -61,11 +63,9 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 		if !tests.HasCDI() {
 			Skip("Skip DataVolume tests when CDI is not present")
 		}
-
 	})
 
-	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-
+	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, timeout int) *v1.VirtualMachineInstance {
 		By("Starting a VirtualMachineInstance with DataVolume")
 		var obj *v1.VirtualMachineInstance
 		var err error
@@ -74,13 +74,42 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 			return err
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 
+		By("Waiting until the DV is ready")
+		tests.WaitForSuccessfulDataVolumeImport(dv, timeout)
+
 		By("Waiting until the VirtualMachineInstance will start")
 		tests.WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
 		return obj
 	}
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachineInstance with a DataVolume as a volume source", func() {
-		Context("using Alpine import", func() {
+
+		Context("Alpine import", func() {
+			BeforeEach(func() {
+				By("Enable featuregate=HonorWaitForFirstConsumer")
+				// in practice we might have HonorWaitForFirstConsumer twice in featureGates array, but this is not a problem
+				jsonpath := `-o=jsonpath="{.spec.config.featureGates}"`
+				out, _, err := tests.RunCommand("kubectl", "get", "cdis.cdi.kubevirt.io", "cdi", jsonpath)
+				Expect(err).ToNot(HaveOccurred())
+
+				// no feature Gates? we need to add the whole structure, else just add the flag
+				// Looks like the output might be quoted
+				if str, err := strconv.Unquote(strings.TrimSpace(out)); str == "" {
+					patch := `{"spec": { "config": {"featureGates":["HonorWaitForFirstConsumer"]}}}`
+					_, _, err = tests.RunCommand("kubectl", "patch", "cdis.cdi.kubevirt.io", "cdi", "-o=json", "--type=merge", "-p", patch)
+					Expect(err).ToNot(HaveOccurred())
+				} else {
+					patch := `[{"op": "add" , "path": "/spec/config/featureGates/0", "value": "HonorWaitForFirstConsumer"}]`
+					_, _, err = tests.RunCommand("kubectl", "patch", "cdis.cdi.kubevirt.io", "cdi", "--type=json", "-p", patch)
+					Expect(err).ToNot(HaveOccurred())
+				}
+			})
+			AfterEach(func() {
+				By("Restore featuregates")
+				patch := `[{"op": "remove" , "path": "/spec/config/featureGates/0", "value": "HonorWaitForFirstConsumer"}]`
+				_, _, err = tests.RunCommand("kubectl", "patch", "cdis.cdi.kubevirt.io", "cdi", "--type=json", "-p", patch)
+				Expect(err).ToNot(HaveOccurred())
+			})
 			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
 
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
@@ -89,11 +118,15 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).To(BeNil())
 
+				// This will only work on storage with binding mode WaitForFirstConsumer,
+				if tests.HasBindingModeWaitForFirstConsumer() {
+					tests.WaitForDataVolumePhaseWFFC(dataVolume.Namespace, dataVolume.Name, 30)
+				}
 				num := 2
 				By("Starting and stopping the VirtualMachineInstance a number of times")
 				for i := 1; i <= num; i++ {
-					vmi := runVMIAndExpectLaunch(vmi, 240)
-
+					tests.WaitForDataVolumeReadyToStartVMI(vmi, 140)
+					vmi := runVMIAndExpectLaunch(vmi, dataVolume, 500)
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
 					if i == num {
@@ -110,14 +143,18 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 			})
 
 			It("[test_id:5252]should be successfully started when using a PVC volume owned by a DataVolume", func() {
-
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
 
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).To(BeNil())
-
-				vmi = runVMIAndExpectLaunch(vmi, 240)
+				// This will only work on storage with binding mode WaitForFirstConsumer,
+				if tests.HasBindingModeWaitForFirstConsumer() {
+					tests.WaitForDataVolumePhaseWFFC(dataVolume.Namespace, dataVolume.Name, 30)
+				}
+				// with WFFC the run actually starts the import and then runs VM, so the timeout has t oinclude both
+				// import and start
+				vmi = runVMIAndExpectLaunch(vmi, dataVolume, 500)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -137,16 +174,6 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 			deleteDataVolume := func(dv *cdiv1.DataVolume) {
 				By("Deleting the DataVolume")
 				ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
-			}
-
-			waitForDv := func(dataVolume *cdiv1.DataVolume) {
-				Eventually(func() cdiv1.DataVolumePhase {
-					dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Get(dataVolume.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					return dv.Status.Phase
-				}, 30*time.Second, 1*time.Second).
-					Should(Equal(cdiv1.ImportInProgress), "Timed out waiting for DataVolume to enter ImportInProgress phase")
 			}
 
 			deleteDummyFile := func(fileName string) {
@@ -209,9 +236,8 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				defer deleteDataVolume(dataVolume)
 
 				By("Creating DataVolume with invalid URL")
-				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
+				dataVolume, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).To(BeNil())
-				waitForDv(dataVolume)
 
 				By("Creating a VM with an invalid DataVolume")
 				//  Add the invalid DataVolume to a VMI

@@ -254,6 +254,10 @@ type VirtualMachineInstanceConditionType string
 
 // These are valid conditions of VMIs.
 const (
+	// Provisioning means, a VMI depends on DataVolumes which are in Pending/WaitForFirstConsumer status,
+	// and some actions are taken to provision the PVCs for the DataVolumes
+	VirtualMachineInstanceProvisioning VirtualMachineInstanceConditionType = "Provisioning"
+
 	// VMIReady means the pod is able to service requests and should be added to the
 	// load balancing pools of all matching services.
 	VirtualMachineInstanceReady VirtualMachineInstanceConditionType = "Ready"
@@ -547,6 +551,8 @@ const (
 	KubeVirtGenerationAnnotation = "kubevirt.io/generation"
 	// This annotation represents that this object is for temporary use during updates
 	EphemeralBackupObject = "kubevirt.io/ephemeral-backup-object"
+	// This annotation represents that the annotated object is for temporary use during pod/volume provisioning
+	EphemeralProvisioningObject string = "kubevirt.io/ephemeral-provisioning"
 
 	// This label indicates the object is a part of the install strategy retrieval process.
 	InstallStrategyLabel = "kubevirt.io/install-strategy"

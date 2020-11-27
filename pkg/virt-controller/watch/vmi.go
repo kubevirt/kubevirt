@@ -25,6 +25,8 @@ import (
 	"reflect"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -305,9 +307,20 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		}
 	}
 
+	hasWffcDataVolume := false
+	// there is no reason to check for waitForFirstConsumer is there are failed DV's
+	if !hasFailedDataVolume {
+		for _, dataVolume := range dataVolumes {
+			if dataVolume.Status.Phase == cdiv1.WaitForFirstConsumer {
+				hasWffcDataVolume = true
+			}
+		}
+	}
+
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 	vmiCopy := vmi.DeepCopy()
-	podExists := podExists(pod)
+	vmiPodExists := podExists(pod) && !isTempPod(pod)
+	tempPodExists := podExists(pod) && isTempPod(pod)
 
 	vmiCopy, err := c.setActivePods(vmiCopy)
 	if err != nil {
@@ -315,9 +328,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	}
 
 	switch {
-
 	case vmi.IsUnprocessed():
-		if podExists {
+		if vmiPodExists {
 			vmiCopy.Status.Phase = virtv1.Scheduling
 		} else if vmi.DeletionTimestamp != nil {
 			vmiCopy.Status.Phase = virtv1.Failed
@@ -325,6 +337,27 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			vmiCopy.Status.Phase = virtv1.Failed
 		} else {
 			vmiCopy.Status.Phase = virtv1.Pending
+			if hasWffcDataVolume {
+				condition := virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceProvisioning,
+					Status: k8sv1.ConditionTrue,
+				}
+				if !conditionManager.HasCondition(vmiCopy, condition.Type) {
+					vmiCopy.Status.Conditions = append(vmiCopy.Status.Conditions, condition)
+				}
+				if tempPodExists {
+					// Add PodScheduled False condition to the VM
+					if cond := conditionManager.GetPodConditionWithStatus(pod, k8sv1.PodScheduled, k8sv1.ConditionFalse); cond != nil {
+						conditionManager.AddPodCondition(vmiCopy, cond)
+					} else if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)) {
+						// Remove PodScheduling condition from the VM
+						conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
+					}
+					if isPodDownOrGoingDown(pod) {
+						vmiCopy.Status.Phase = virtv1.Failed
+					}
+				}
+			}
 			if syncErr != nil && syncErr.Reason() == FailedPvcNotFoundReason {
 				condition := virtv1.VirtualMachineInstanceCondition{
 					Type:    virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled),
@@ -340,8 +373,12 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			}
 		}
 	case vmi.IsScheduling():
+		// Remove InstanceProvisioning condition from the VM
+		if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceProvisioning) {
+			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceProvisioning)
+		}
 		switch {
-		case podExists:
+		case vmiPodExists:
 			// ensure that the QOS class on the VMI matches to Pods QOS class
 			if pod.Status.QOSClass == "" {
 				vmiCopy.Status.QOSClass = nil
@@ -376,7 +413,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			} else if isPodDownOrGoingDown(pod) {
 				vmiCopy.Status.Phase = virtv1.Failed
 			}
-		case !podExists:
+		case !vmiPodExists:
 			// someone other than the controller deleted the pod unexpectedly
 			vmiCopy.Status.Phase = virtv1.Failed
 		}
@@ -395,7 +432,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 
 	case vmi.IsRunning():
 		// Keep PodReady condition in sync with the VMI
-		if !podExists {
+		if !vmiPodExists {
 			// Remove PodScheduling condition from the VM
 			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
 		} else if isPodDownOrGoingDown(pod) {
@@ -565,6 +602,10 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		return nil
 	}
 
+	dataVolumesReady, isWaitForFirstConsumer, syncErr := c.handleSyncDataVolumes(vmi, dataVolumes)
+	if syncErr != nil {
+		return syncErr
+	}
 	if !podExists(pod) {
 		// If we came ever that far to detect that we already created a pod, we don't create it again
 		if !vmi.IsUnprocessed() {
@@ -572,15 +613,18 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		}
 
 		// ensure that all dataVolumes associated with the VMI are ready before creating the pod
-		dataVolumesReady, syncErr := c.handleSyncDataVolumes(vmi, dataVolumes)
-		if syncErr != nil {
-			return syncErr
-		} else if !dataVolumesReady {
+		if !dataVolumesReady {
 			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while DataVolume populates")
 			return nil
 		}
-
-		templatePod, err := c.templateService.RenderLaunchManifest(vmi)
+		var templatePod *k8sv1.Pod
+		var err error
+		if isWaitForFirstConsumer {
+			log.Log.V(3).Object(vmi).Infof("Scheduling temporary pod for WaitForFirstConsumer DV")
+			templatePod, err = c.templateService.RenderLaunchManifestNoVm(vmi)
+		} else {
+			templatePod, err = c.templateService.RenderLaunchManifest(vmi)
+		}
 		if _, ok := err.(services.PvcNotFoundError); ok {
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedPvcNotFoundReason, "failed to render launch manifest: %v", err)
 			return &syncErrorImpl{fmt.Errorf("failed to render launch manifest: %v", err), FailedPvcNotFoundReason}
@@ -598,26 +642,43 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		}
 		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created virtual machine pod %s", pod.Name)
 		return nil
+	} else {
+		if isTempPod(pod) && !isWaitForFirstConsumer {
+			// DV is no longer in WaitForFirstConsumer phase, means that tempPod has done its job and should be deleted
+			vmiKey := controller.VirtualMachineKey(vmi)
+			c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(pod)})
+			err := c.clientset.CoreV1().Pods(vmi.Namespace).Delete(pod.Name, &v1.DeleteOptions{})
+			if err != nil && !k8serrors.IsNotFound(err) {
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDeletePodReason, "Failed to delete temporary pod %s", pod.Name)
+				c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
+				return &syncErrorImpl{fmt.Errorf("Failed to delete temporary pod: %v", err), FailedDeletePodReason}
+			}
+			c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, "Deleted temporary pod %s", pod.Name)
+			return nil
+		}
 	}
 	return nil
 }
 
-func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance, dataVolumes []*cdiv1.DataVolume) (bool, syncError) {
+func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance, dataVolumes []*cdiv1.DataVolume) (bool, bool, syncError) {
 
 	ready := true
+	wffc := false
 
 	for _, volume := range vmi.Spec.Volumes {
 		// Check both DVs and PVCs
 		if volume.VolumeSource.DataVolume != nil {
 			for _, dataVolume := range dataVolumes {
 				if dataVolume.Name == volume.VolumeSource.DataVolume.Name {
-					if dataVolume.Status.Phase != cdiv1.Succeeded {
+					if dataVolume.Status.Phase == cdiv1.WaitForFirstConsumer {
+						wffc = true
+					} else if dataVolume.Status.Phase != cdiv1.Succeeded {
 						log.Log.V(3).Object(vmi).Infof("DataVolume %s not ready. Phase=%s", dataVolume.Name, dataVolume.Status.Phase)
 						ready = false
 						// This isn't needed anymore because datavolumes are eventually consistent.
 						if dataVolume.Status.Phase == cdiv1.Failed {
 							c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDataVolumeImportReason, "DataVolume %s failed", dataVolume.Name)
-							return ready, &syncErrorImpl{fmt.Errorf("DataVolume %s for volume %s failed", dataVolume.Name, volume.Name), FailedDataVolumeImportReason}
+							return ready, wffc, &syncErrorImpl{fmt.Errorf("DataVolume %s for volume %s failed", dataVolume.Name, volume.Name), FailedDataVolumeImportReason}
 						}
 					}
 					break
@@ -629,25 +690,42 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 			pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName))
 			if pvcExists {
 				pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
-				populated, err := cdiv1.IsPopulated(pvc, func(name, namespace string) (*cdiv1.DataVolume, error) {
-					dv, exists, _ := c.dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, name))
-					if !exists {
-						return nil, fmt.Errorf("Unable to find datavolume %s/%s", namespace, name)
-					}
-					return dv.(*cdiv1.DataVolume), nil
-				})
+				populated, err := cdiv1.IsPopulated(pvc, dataVolumeByNameFunc(c.dataVolumeInformer, dataVolumes))
 				if err != nil {
-					return false, &syncErrorImpl{fmt.Errorf("Error determining if PVC %s is ready %v", pvc.Name, err), FailedDataVolumeImportReason}
+					return false, false, &syncErrorImpl{fmt.Errorf("Error determining if PVC %s is ready %v", pvc.Name, err), FailedDataVolumeImportReason}
 				}
 				if !populated {
-					log.Log.V(3).Object(vmi).Infof("PVC %s not ready.", pvc.Name)
-					ready = false
+					waitsForFirstConsumer, err := cdiv1.IsWaitForFirstConsumerBeforePopulating(pvc, dataVolumeByNameFunc(c.dataVolumeInformer, dataVolumes))
+					if err != nil {
+						return false, false, &syncErrorImpl{fmt.Errorf("Error determining if PVC %s is ready %v", pvc.Name, err), FailedDataVolumeImportReason}
+					}
+					if waitsForFirstConsumer {
+						wffc = true
+					} else {
+						log.Log.V(3).Object(vmi).Infof("PVC %s not ready.", pvc.Name)
+						ready = false
+					}
 				}
 			}
 		}
 	}
 
-	return ready, nil
+	return ready, wffc, nil
+}
+
+func dataVolumeByNameFunc(dataVolumeInformer cache.SharedIndexInformer, dataVolumes []*cdiv1.DataVolume) func(name string, namespace string) (*cdiv1.DataVolume, error) {
+	return func(name, namespace string) (*cdiv1.DataVolume, error) {
+		for _, dataVolume := range dataVolumes {
+			if dataVolume.Name == name && dataVolume.Namespace == namespace {
+				return dataVolume, nil
+			}
+		}
+		dv, exists, _ := dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, name))
+		if !exists {
+			return nil, fmt.Errorf("Unable to find datavolume %s/%s", namespace, name)
+		}
+		return dv.(*cdiv1.DataVolume), nil
+	}
 }
 
 func (c *VMIController) addDataVolume(obj interface{}) {
@@ -902,10 +980,12 @@ func (c *VMIController) listMatchingDataVolumes(vmi *virtv1.VirtualMachineInstan
 
 	dataVolumes := []*cdiv1.DataVolume{}
 	for _, volume := range vmi.Spec.Volumes {
-		if volume.VolumeSource.DataVolume == nil {
+		dataVolumeName := c.getDataVolumeName(vmi.Namespace, volume)
+		if dataVolumeName == nil {
 			continue
 		}
-		obj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, volume.VolumeSource.DataVolume.Name))
+
+		obj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, *dataVolumeName))
 
 		if err != nil {
 			return dataVolumes, err
@@ -916,6 +996,23 @@ func (c *VMIController) listMatchingDataVolumes(vmi *virtv1.VirtualMachineInstan
 	}
 
 	return dataVolumes, nil
+}
+
+func (c *VMIController) getDataVolumeName(namespace string, volume virtv1.Volume) *string {
+	if volume.VolumeSource.PersistentVolumeClaim != nil {
+		pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().
+			GetByKey(fmt.Sprintf("%s/%s", namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName))
+		if pvcExists {
+			pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
+			pvcOwner := v1.GetControllerOf(pvc)
+			if pvcOwner != nil && pvcOwner.Kind == "DataVolume" {
+				return &pvcOwner.Name
+			}
+		}
+	} else if volume.VolumeSource.DataVolume != nil {
+		return &volume.VolumeSource.DataVolume.Name
+	}
+	return nil
 }
 
 func (c *VMIController) allPodsDeleted(vmi *virtv1.VirtualMachineInstance) (bool, error) {
@@ -1037,5 +1134,9 @@ func (c *VMIController) currentPod(vmi *virtv1.VirtualMachineInstance) (*k8sv1.P
 	}
 
 	return curPod, nil
+}
 
+func isTempPod(pod *k8sv1.Pod) bool {
+	_, ok := pod.Annotations[virtv1.EphemeralProvisioningObject]
+	return ok
 }
