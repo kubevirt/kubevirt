@@ -1,0 +1,5 @@
+FROM centos:7
+
+COPY hyperconverged-cluster-webhook /usr/bin/
+
+ENTRYPOINT /usr/bin/hyperconverged-cluster-webhook

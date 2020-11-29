@@ -30,6 +30,19 @@ trap 'catch $? $LINENO' ERR TERM INT
 # Lastly, we take give the component CSVs to the csv-merger that combines all
 # of the manifests into a single, unified, ClusterServiceVersion.
 
+function get_image_digest() {
+  if [[ ! -f ./tools/digester/digester ]]; then
+    (
+      cd ./tools/digester
+      go build .
+    )
+  fi
+
+  local image
+  image=$(./tools/digester/digester -image "$1")
+  echo "${image}"
+}
+
 PROJECT_ROOT="$(readlink -e $(dirname "${BASH_SOURCE[0]}")/../)"
 source "${PROJECT_ROOT}"/hack/config
 source "${PROJECT_ROOT}"/deploy/images.env
@@ -284,6 +297,26 @@ for csv in "${csvs[@]}"; do
   grep -E "^ *image: [a-zA-Z0-9/\.:@\-]+$" ${csv}
 done
 
+if [[ -n ${OPERATOR_IMAGE} ]]; then
+  TEMP_IMAGE_NAME=$(get_image_digest "${OPERATOR_IMAGE}")
+  DIGEST_LIST="${DIGEST_LIST/${HCO_OPERATOR_IMAGE}/${TEMP_IMAGE_NAME}}"
+  HCO_OPERATOR_IMAGE=${TEMP_IMAGE_NAME}
+fi
+
+if [[ -n ${WEBHOOK_IMAGE} ]]; then
+  TEMP_IMAGE_NAME=$(get_image_digest "${WEBHOOK_IMAGE}")
+  if [[ -n ${HCO_WEBHOOK_IMAGE} ]]; then
+    DIGEST_LIST="${DIGEST_LIST/${HCO_WEBHOOK_IMAGE}/${TEMP_IMAGE_NAME}}"
+  else
+    DIGEST_LIST="${DIGEST_LIST},${TEMP_IMAGE_NAME}"
+  fi
+  HCO_WEBHOOK_IMAGE=${TEMP_IMAGE_NAME}
+fi
+
+if [[ -z ${HCO_WEBHOOK_IMAGE} ]]; then
+  HCO_WEBHOOK_IMAGE="${HCO_OPERATOR_IMAGE}"
+fi
+
 # Build and write deploy dir
 (cd ${PROJECT_ROOT}/tools/manifest-templator/ && go build)
 ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
@@ -307,7 +340,8 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --nmo-version="${NMO_VERSION}" \
   --hppo-version="${HPPO_VERSION}" \
   --vm-import-version="${VM_IMPORT_VERSION}" \
-  --operator-image="${HCO_OPERATOR_IMAGE}"
+  --operator-image="${HCO_OPERATOR_IMAGE}" \
+  --webhook-image="${HCO_WEBHOOK_IMAGE}"
 (cd ${PROJECT_ROOT}/tools/manifest-templator/ && go clean)
 
 # Build and merge CSVs
@@ -337,7 +371,8 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --hppo-version="${HPPO_VERSION}" \
   --vm-import-version="${VM_IMPORT_VERSION}" \
   --related-images-list="${DIGEST_LIST}" \
-  --operator-image-name="${HCO_OPERATOR_IMAGE}" > "${CSV_DIR}/${OPERATOR_NAME}.v${CSV_VERSION}.${CSV_EXT}"
+  --operator-image-name="${HCO_OPERATOR_IMAGE}" \
+  --webhook-image-name="${HCO_WEBHOOK_IMAGE}" > "${CSV_DIR}/${OPERATOR_NAME}.v${CSV_VERSION}.${CSV_EXT}"
 
 # Copy all CRDs into the CRD and CSV directories
 rm -f ${CRD_DIR}/*
@@ -361,5 +396,5 @@ cp -r "${CSV_DIR}" "${INDEX_IMAGE_DIR:?}/kubevirt-hyperconverged/"
 cp "${OLM_DIR}/bundle.Dockerfile" "${INDEX_IMAGE_DIR:?}/"
 
 INDEX_IMAGE_CSV="${INDEX_IMAGE_DIR}/kubevirt-hyperconverged/${CSV_VERSION}/kubevirt-hyperconverged-operator.v${CSV_VERSION}.${CSV_EXT}"
-sed -r -i "s|createdAt: \".*\$|createdAt: \"2020-10-23 08:58:25\"|; s|quay.io/kubevirt/hyperconverged-cluster-operator.*$|+IMAGE_TO_REPLACE+|" ${INDEX_IMAGE_CSV}
+sed -r -i "s|createdAt: \".*\$|createdAt: \"2020-10-23 08:58:25\"|; s|quay.io/kubevirt/hyperconverged-cluster-operator.*$|+IMAGE_TO_REPLACE+|; s|quay.io/kubevirt/hyperconverged-cluster-webhook.*$|+WEBHOOK_IMAGE_TO_REPLACE+|" ${INDEX_IMAGE_CSV}
 

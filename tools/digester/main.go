@@ -14,6 +14,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -63,6 +64,40 @@ func (i *Image) setDigest(digest string) {
 }
 
 func main() {
+
+	imageToDigest := flag.String("image", "", "single image in name:tag format; if exists, returns only one digest fo this image, instead of processing the CSV file.")
+
+	flag.Parse()
+
+	cli, err := docker.NewEnvClient()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	// Single image use-case
+	if imageToDigest != nil && *imageToDigest != "" {
+		if strings.Contains(*imageToDigest, "@sha256:") {
+			fmt.Printf("%s is already in a digest format\n", *imageToDigest)
+			os.Exit(1)
+		}
+		inspect, err := cli.DistributionInspect(ctx, *imageToDigest, "")
+		if err != nil {
+			fmt.Printf("Error while trying to get digest for %s; %s\n", *imageToDigest, err)
+			os.Exit(1)
+		}
+
+		digest := inspect.Descriptor.Digest.Hex()
+		loc := strings.LastIndex(*imageToDigest, ":")
+		imageName := (*imageToDigest)[:loc] + "@sha256:" + digest
+
+		fmt.Println(imageName)
+		os.Exit(0)
+	}
+
 	fmt.Println("Checking image digests")
 	f, err := os.Open(csvFile)
 	if err != nil {
@@ -88,12 +123,6 @@ func main() {
 		images = append(images, NewImage(line))
 	}
 
-	cli, err := docker.NewEnvClient()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
 	wg := &sync.WaitGroup{}
 	wg.Add(len(images) - 1) // the first "image" is the CSV title
 
@@ -109,9 +138,6 @@ func main() {
 		wg.Wait()
 		close(ch)
 	}()
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	defer cancel()
 
 	start := time.Now()
 	for i, image := range images[1:] {
