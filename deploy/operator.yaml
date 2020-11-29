@@ -112,7 +112,7 @@ spec:
         - name: APP
           value: WEBHOOK
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:60eecee0ed3ac42710f0ea2fdbcd643763cb4f68830ded0e7a74cc33413c9de1
+          value: quay.io/kubevirt/hyperconverged-cluster-webhook@sha256:3958b53411549f216b7ba05d9fc67fab64c7930d979bddf8df26f29bd860281c
         - name: OPERATOR_NAME
           value: hyperconverged-cluster-webhook
         - name: OPERATOR_NAMESPACE
@@ -122,7 +122,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: WATCH_NAMESPACE
-        image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:60eecee0ed3ac42710f0ea2fdbcd643763cb4f68830ded0e7a74cc33413c9de1
+        image: quay.io/kubevirt/hyperconverged-cluster-webhook@sha256:3958b53411549f216b7ba05d9fc67fab64c7930d979bddf8df26f29bd860281c
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 1

@@ -19,7 +19,7 @@ RUN mkdir -p ${HOME} && \
     # runtime user will need to be able to self-insert in /etc/passwd
     chmod g+rw /etc/passwd
 
-COPY --from=builder /go/src/github.com/kubevirt/hyperconverged-cluster-operator/_out/hyperconverged-cluster-webhook $APP
+COPY --from=builder /go/src/github.com/kubevirt/hyperconverged-cluster-operator/_out/hyperconverged-cluster-webhook $WEBHOOK
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
 USER ${USER_UID}
 

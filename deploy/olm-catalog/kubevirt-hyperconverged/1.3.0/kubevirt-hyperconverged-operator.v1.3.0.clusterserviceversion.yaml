@@ -8,7 +8,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:60eecee0ed3ac42710f0ea2fdbcd643763cb4f68830ded0e7a74cc33413c9de1
-    createdAt: "2020-11-27 12:05:46"
+    createdAt: "2020-11-29 16:30:50"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -1784,7 +1784,7 @@ spec:
                 - name: APP
                   value: WEBHOOK
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:60eecee0ed3ac42710f0ea2fdbcd643763cb4f68830ded0e7a74cc33413c9de1
+                  value: quay.io/kubevirt/hyperconverged-cluster-webhook@sha256:3958b53411549f216b7ba05d9fc67fab64c7930d979bddf8df26f29bd860281c
                 - name: OPERATOR_NAME
                   value: hyperconverged-cluster-webhook
                 - name: OPERATOR_NAMESPACE
@@ -1794,7 +1794,7 @@ spec:
                     fieldRef:
                       fieldPath: metadata.name
                 - name: WATCH_NAMESPACE
-                image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:60eecee0ed3ac42710f0ea2fdbcd643763cb4f68830ded0e7a74cc33413c9de1
+                image: quay.io/kubevirt/hyperconverged-cluster-webhook@sha256:3958b53411549f216b7ba05d9fc67fab64c7930d979bddf8df26f29bd860281c
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
                   failureThreshold: 1
@@ -2354,6 +2354,8 @@ spec:
     name: hostpath-provisioner-operator
   - image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:60eecee0ed3ac42710f0ea2fdbcd643763cb4f68830ded0e7a74cc33413c9de1
     name: hyperconverged-cluster-operator
+  - image: quay.io/kubevirt/hyperconverged-cluster-webhook@sha256:3958b53411549f216b7ba05d9fc67fab64c7930d979bddf8df26f29bd860281c
+    name: hyperconverged-cluster-webhook
   - image: quay.io/kubevirt/kubemacpool@sha256:79c4534d418c4a350a663e38499c22d54dc68c400f517aead4479f6d862b408e
     name: kubemacpool
   - image: quay.io/nmstate/kubernetes-nmstate-handler@sha256:3feeb377a4a89caf37fdab45d13f93620e1cf5ff8cbc91aa19ae32cd5cfa3a32

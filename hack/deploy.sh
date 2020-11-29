@@ -23,6 +23,7 @@ source hack/common.sh
 source hack/compare_scc.sh
 
 HCO_IMAGE=${HCO_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-operator:latest}
+WEBHOOK_IMAGE=${WEBHOOK_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-webhook:latest}
 HCO_NAMESPACE="kubevirt-hyperconverged"
 HCO_KIND="hyperconvergeds"
 HCO_RESOURCE_NAME="kubevirt-hyperconverged"
@@ -53,6 +54,7 @@ if [ -n "${IMAGE_FORMAT}" ]; then
 fi
 
 sed -i -r "s|: quay.io/kubevirt/hyperconverged-cluster-operator(@sha256)?:.*$|: ${HCO_IMAGE}|g" _out/operator.yaml
+sed -i -r "s|: quay.io/kubevirt/hyperconverged-cluster-webhook(@sha256)?:.*$|: ${WEBHOOK_IMAGE}|g" _out/operator.yaml
 
 WORKERS=$(${CMD} get nodes -l "node-role.kubernetes.io/master!=" -o name)
 WORKERS_ARR=(${WORKERS})

@@ -1784,7 +1784,7 @@ spec:
                 - name: APP
                   value: WEBHOOK
                 - name: OPERATOR_IMAGE
-                  value: +IMAGE_TO_REPLACE+
+                  value: +WEBHOOK_IMAGE_TO_REPLACE+
                 - name: OPERATOR_NAME
                   value: hyperconverged-cluster-webhook
                 - name: OPERATOR_NAMESPACE
@@ -1794,7 +1794,7 @@ spec:
                     fieldRef:
                       fieldPath: metadata.name
                 - name: WATCH_NAMESPACE
-                image: +IMAGE_TO_REPLACE+
+                image: +WEBHOOK_IMAGE_TO_REPLACE+
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
                   failureThreshold: 1
@@ -2354,6 +2354,8 @@ spec:
     name: hostpath-provisioner-operator
   - image: +IMAGE_TO_REPLACE+
     name: hyperconverged-cluster-operator
+  - image: +WEBHOOK_IMAGE_TO_REPLACE+
+    name: hyperconverged-cluster-webhook
   - image: quay.io/kubevirt/kubemacpool@sha256:79c4534d418c4a350a663e38499c22d54dc68c400f517aead4479f6d862b408e
     name: kubemacpool
   - image: quay.io/nmstate/kubernetes-nmstate-handler@sha256:3feeb377a4a89caf37fdab45d13f93620e1cf5ff8cbc91aa19ae32cd5cfa3a32
