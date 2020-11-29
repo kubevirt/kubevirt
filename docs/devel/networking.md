@@ -56,6 +56,8 @@ the following operations, in this order:
 The virt-launcher is an untrusted component of KubeVirt (since it wraps the
 libvirt process that will run third party workloads). As a result, it must be
 run with as little privileges as required.
+In particular, it should not assume having `CAP_NET_ADMIN` or `CAP_NET_RAW`
+capabilites.
 
 In this second phase, virt-launcher also has to select the correct
 `BindMechanism`, and afterwards will uses it to retrieve the configuration
