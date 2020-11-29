@@ -288,20 +288,11 @@ var _ = Describe("[Serial]Storage", func() {
 			})
 			It("should be successfully started and viriofs could be accessed", func() {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
-				waitForDataVolume := func(dataVolume *cdiv1.DataVolume) {
-					Eventually(func() cdiv1.DataVolumePhase {
-						dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Get(dataVolume.Name, metav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
-
-						return dv.Status.Phase
-					}, 160*time.Second, 1*time.Second).
-						Should(Equal(cdiv1.Succeeded), "Timed out waiting for DataVolume to complete")
-				}
 
 				vmi := tests.NewRandomVMIWithFSFromDataVolume(dataVolume.Name)
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).To(BeNil())
-				waitForDataVolume(dataVolume)
+				tests.WaitForDataVolumeReady(dataVolume.Namespace, dataVolume.Name, 30)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
 
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
@@ -318,7 +309,7 @@ var _ = Describe("[Serial]Storage", func() {
 				userData := fmt.Sprintf("%s\n%s", tests.GetGuestAgentUserData(), mountVirtiofsCommands)
 				tests.AddUserData(vmi, "cloud-init", userData)
 
-				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
 				// Wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
