@@ -862,16 +862,24 @@ var _ = Describe("[Serial]SRIOV", func() {
 			cidrA := "192.168.1.1/24"
 			cidrB := "192.168.1.2/24"
 			vmi1, vmi2 := createSriovVMs(cidrA, cidrB)
-			Expect(libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))).To(Succeed())
-			Expect(libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))).To(Succeed())
+			Eventually(func() error {
+				return libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))
+			}, 15*time.Second, time.Second).Should(Succeed())
+			Eventually(func() error {
+				return libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))
+			}, 15*time.Second, time.Second).Should(Succeed())
 		})
 
 		It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
 			cidrA := "fc00::1/64"
 			cidrB := "fc00::2/64"
 			vmi1, vmi2 := createSriovVMs(cidrA, cidrB)
-			Expect(libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))).To(Succeed())
-			Expect(libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))).To(Succeed())
+			Eventually(func() error {
+				return libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))
+			}, 15*time.Second, time.Second).Should(Succeed())
+			Eventually(func() error {
+				return libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))
+			}, 15*time.Second, time.Second).Should(Succeed())
 		})
 	})
 })
