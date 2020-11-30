@@ -703,24 +703,48 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			)
 
 			table.DescribeTable("IPv6", func(ports []v1.Port) {
+				libnet.SkipWhenNotDualStackCluster(virtClient)
+
 				var clientVMI *v1.VirtualMachineInstance
 
-				libnet.SkipWhenNotDualStackCluster(virtClient)
+				fedoraMasqueradeVMI := func(ports []v1.Port) *v1.VirtualMachineInstance {
+					userData := fmt.Sprintf(`#!/bin/bash
+                      echo "fedora" |passwd fedora --stdin
+                      sudo yum install -y screen`)
+
+					networkData, _ := libnet.NewNetworkData(
+						libnet.WithEthernet("eth0",
+							libnet.WithDHCP4Enabled(),
+							libnet.WithDHCP6Enabled(),
+							libnet.WithAcceptRA(),
+						),
+					)
+
+					vmi := libvmi.NewFedora(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithCloudInitNoCloudUserData(userData, false),
+						libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
+						libvmi.WithResourceMemory("1024M"),
+					)
+
+					return vmi
+				}
 
 				// Create the client only one time
 				if clientVMI == nil {
-					clientVMI = masqueradeVMI([]v1.Port{}, "")
+					clientVMI = fedoraMasqueradeVMI([]v1.Port{})
 					clientVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
 					Expect(err).ToNot(HaveOccurred())
-					clientVMI = tests.WaitUntilVMIReady(clientVMI, libnet.WithIPv6(console.LoginToCirros))
+					clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
 				}
 
-				serverVMI = masqueradeVMI(ports, "")
+				serverVMI = fedoraMasqueradeVMI(ports)
 
 				serverVMI.Labels = map[string]string{"expose": "server"}
 				serverVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
 				Expect(err).ToNot(HaveOccurred())
-				serverVMI = tests.WaitUntilVMIReady(serverVMI, libnet.WithIPv6(console.LoginToCirros))
+				serverVMI = tests.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
 				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 
