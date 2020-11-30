@@ -52,7 +52,10 @@ apiVersion: cdi.kubevirt.io/v1beta1
 kind: CDI
 metadata:
   name: ${cdi_namespace}
-spec: {}
+spec:
+  config:
+    featureGates:
+    - HonorWaitForFirstConsumer
 EOF
 
         # Ensure that cdi insecure registries are set

@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util"
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
+	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -88,6 +89,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var mockIsolationDetector *isolation.MockPodIsolationDetector
 	var mockIsolationResult *isolation.MockIsolationResult
 	var mockContainerDiskMounter *container_disk.MockMounter
+	var mockHotplugVolumeMounter *hotplug_volume.MockVolumeMounter
 
 	var vmiFeeder *testutils.VirtualMachineFeeder
 	var domainFeeder *testutils.DomainFeeder
@@ -177,6 +179,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockIsolationDetector.EXPECT().AdjustResources(gomock.Any()).Return(nil).AnyTimes()
 
 		mockContainerDiskMounter = container_disk.NewMockMounter(ctrl)
+		mockHotplugVolumeMounter = hotplug_volume.NewMockVolumeMounter(ctrl)
 		controller = NewController(recorder,
 			virtClient,
 			host,
@@ -194,6 +197,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			tlsConfig,
 			mockIsolationDetector,
 		)
+		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()
@@ -335,6 +339,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(exists).To(BeTrue())
 
 			mockQueue.Add(namespace + "/" + name)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
 			client.EXPECT().Close()
 			controller.Execute()
 
@@ -501,6 +506,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.phase1NetworkSetupCache[oldVMI.UID] = 1
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
 
 			controller.Execute()
 			Expect(mockQueue.Len()).To(Equal(0))
@@ -519,7 +525,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			controller.phase1NetworkSetupCache[vmi.UID] = 1
 			vmiFeeder.Add(vmi)
-
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
 			client.EXPECT().Close()
 			controller.Execute()
 			Expect(mockQueue.Len()).To(Equal(0))
@@ -717,6 +723,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
 			client.EXPECT().GetGuestInfo().Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 
 			controller.Execute()
 		})
@@ -768,6 +776,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
 			})
 			client.EXPECT().GetGuestInfo().Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 
 			controller.Execute()
 		})
@@ -821,6 +831,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
 			})
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 
 			controller.Execute()
 		})
@@ -859,6 +871,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 
 			controller.Execute()
 
@@ -898,6 +912,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*vmiCopy))
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 
 			controller.Execute()
 			// should not make another event entry unless something changes
@@ -950,6 +966,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*vmiCopy))
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 
 			controller.Execute()
 			expectEvent(string(v1.AccessCredentialsSyncFailed), true)
@@ -986,6 +1004,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
 
 			controller.Execute()
@@ -1006,6 +1026,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
 
 			controller.Execute()
@@ -1159,10 +1181,75 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 		})
 
+		Context("reacting to a VMI with hotplug", func() {
+			BeforeEach(func() {
+				controller.hotplugVolumeMounter = mockHotplugVolumeMounter
+			})
+
+			It("should call mount and unmount if VMI is running", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Running
+				vmiFeeder.Add(vmi)
+				domainFeeder.Add(domain)
+				vmiInterface.EXPECT().Update(gomock.Any())
+				mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
+				client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+
+				controller.Execute()
+			})
+
+			It("should call unmount first and fail, if it fails while VMI is running", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Running
+				vmiFeeder.Add(vmi)
+				domainFeeder.Add(domain)
+				vmiInterface.EXPECT().Update(gomock.Any())
+				mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(fmt.Errorf("Unable to unmount"))
+
+				controller.Execute()
+			})
+
+			It("should call mount and unmount, fail if mount fails", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Running
+				vmiFeeder.Add(vmi)
+				domainFeeder.Add(domain)
+				vmiInterface.EXPECT().Update(gomock.Any())
+				mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(fmt.Errorf("Error"))
+
+				controller.Execute()
+			})
+
+			It("should call unmountAll from processVmCleanup", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Running
+				vmiFeeder.Add(vmi)
+				domainFeeder.Add(domain)
+				mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
+				client.EXPECT().Close()
+				controller.processVmCleanup(vmi)
+			})
+		})
+
 		table.DescribeTable("should leave the VirtualMachineInstance alone if it is in the final phase", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Status.Phase = phase
 			vmiFeeder.Add(vmi)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
 			controller.Execute()
 			// expect no errors and no mock interactions
 			Expect(mockQueue.NumRequeues("default/testvmi")).To(Equal(0))
@@ -1275,6 +1362,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			updatedVmi := vmi.DeepCopy()
 			updatedVmi.Status.MigrationState.TargetNodeAddress = controller.ipAddress
 			updatedVmi.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPorts
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
 
 			client.EXPECT().Close()
 			controller.Execute()
@@ -1314,6 +1402,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			socket, err := net.Listen("unix", socketFile)
 			Expect(err).NotTo(HaveOccurred())
 			defer socket.Close()
+
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any()).Return(nil)
 
 			client.EXPECT().Ping().Return(fmt.Errorf("disconnected"))
 			client.EXPECT().Close()
@@ -2287,6 +2377,101 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].MAC).To(Equal(MAC))
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(sriovInterfaceName))
+			}).Return(vmi, nil)
+
+			controller.Execute()
+		})
+	})
+
+	Context("VirtualMachineInstance controller gets informed about disk information", func() {
+		It("should update existing volume status with target", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name:  "permvolume",
+					Phase: v1.VolumeReady,
+				},
+				{
+					Name:  "hpvolume",
+					Phase: v1.VolumeReady,
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "pod",
+						AttachPodUID:  "abcd",
+					},
+				},
+			}
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+
+			domain.Spec.Devices.Disks = []api.Disk{
+				{
+					Device: "disk",
+					Type:   "file",
+					Source: api.DiskSource{
+						File: "/var/run/kubevirt-private/vmi-disks/permvolume1/disk.img",
+					},
+					Target: api.DiskTarget{
+						Bus:    "virtio",
+						Device: "vda",
+					},
+					Driver: &api.DiskDriver{
+						Cache: "none",
+						Name:  "qemu",
+						Type:  "raw",
+					},
+					Alias: &api.Alias{
+						Name: "ua-permvolume",
+					},
+				},
+				{
+					Device: "disk",
+					Type:   "file",
+					Source: api.DiskSource{
+						File: "/var/run/kubevirt/hotplug-disks/hpvolume1/disk.img",
+					},
+					Target: api.DiskTarget{
+						Bus:    "scsi",
+						Device: "sda",
+					},
+					Driver: &api.DiskDriver{
+						Cache: "none",
+						Name:  "qemu",
+						Type:  "raw",
+					},
+					Alias: &api.Alias{
+						Name: "hpvolume",
+					},
+					Address: &api.Address{
+						Type:       "drive",
+						Bus:        "0",
+						Controller: "0",
+						Unit:       "0",
+					},
+				},
+			}
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(len(arg.(*v1.VirtualMachineInstance).Status.VolumeStatus)).To(Equal(2))
+				for _, status := range arg.(*v1.VirtualMachineInstance).Status.VolumeStatus {
+					if status.Name == "hpvolume" {
+						Expect(status.Target).To(Equal("sda"))
+					}
+					if status.Name == "permvolume" {
+						Expect(status.Target).To(Equal("vda"))
+					}
+				}
 			}).Return(vmi, nil)
 
 			controller.Execute()

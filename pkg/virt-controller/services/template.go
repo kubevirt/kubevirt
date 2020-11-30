@@ -30,6 +30,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
@@ -85,7 +86,7 @@ const ENV_VAR_VIRTIOFSD_DEBUG_LOGS = "VIRTIOFSD_DEBUG_LOGS"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
-
+	RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool) (*k8sv1.Pod, error)
 	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 }
 
@@ -95,6 +96,7 @@ type templateService struct {
 	virtLibDir                 string
 	ephemeralDiskDir           string
 	containerDiskDir           string
+	hotplugDiskDir             string
 	imagePullSecret            string
 	persistentVolumeClaimStore cache.Store
 	virtClient                 kubecli.KubevirtClient
@@ -345,6 +347,13 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		MountPath:        t.containerDiskDir,
 		MountPropagation: &prop,
 	})
+	if !vmi.Spec.Domain.Devices.DisableHotplug {
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+			Name:             "hotplug-disks",
+			MountPath:        t.hotplugDiskDir,
+			MountPropagation: &prop,
+		})
+	}
 
 	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 		Name:      "libvirt-runtime",
@@ -961,6 +970,14 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		},
 	})
+	if !vmi.Spec.Domain.Devices.DisableHotplug {
+		volumes = append(volumes, k8sv1.Volume{
+			Name: "hotplug-disks",
+			VolumeSource: k8sv1.VolumeSource{
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+			},
+		})
+	}
 
 	for k, v := range vmi.Spec.NodeSelector {
 		nodeSelector[k] = v
@@ -1188,6 +1205,101 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	}
 
 	return &pod, nil
+}
+
+func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool) (*k8sv1.Pod, error) {
+	zero := int64(0)
+	pod := &k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "hp-volume-",
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(ownerPod, schema.GroupVersionKind{
+					Group:   k8sv1.SchemeGroupVersion.Group,
+					Version: k8sv1.SchemeGroupVersion.Version,
+					Kind:    "Pod",
+				}),
+			},
+			Labels: map[string]string{
+				v1.AppLabel: "hotplug-disk",
+			},
+		},
+		Spec: k8sv1.PodSpec{
+			Containers: []k8sv1.Container{
+				{
+					Name:    "hotplug-disk",
+					Image:   t.launcherImage,
+					Command: []string{"/bin/sh", "-c", "tail -f /dev/null"},
+					Resources: k8sv1.ResourceRequirements{ //Took the request and limits from containerDisk init container.
+						Limits: map[k8sv1.ResourceName]resource.Quantity{
+							k8sv1.ResourceCPU:    resource.MustParse("100m"),
+							k8sv1.ResourceMemory: resource.MustParse("40M"),
+						},
+						Requests: map[k8sv1.ResourceName]resource.Quantity{
+							k8sv1.ResourceCPU:    resource.MustParse("10m"),
+							k8sv1.ResourceMemory: resource.MustParse("1M"),
+						},
+					},
+				},
+			},
+			SecurityContext: &k8sv1.PodSecurityContext{
+				SELinuxOptions: &k8sv1.SELinuxOptions{
+					Level: "s0",
+					Type:  t.clusterConfig.GetSELinuxLauncherType(),
+				},
+			},
+			Affinity: &k8sv1.Affinity{
+				PodAffinity: &k8sv1.PodAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
+						{
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: ownerPod.GetLabels(),
+							},
+							TopologyKey: "kubernetes.io/hostname",
+						},
+					},
+				},
+			},
+			Volumes: []k8sv1.Volume{
+				{
+					Name: volume.Name,
+					VolumeSource: k8sv1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: pvcName,
+							ReadOnly:  false,
+						},
+					},
+				},
+				{
+					Name: "hotplug-disks",
+					VolumeSource: k8sv1.VolumeSource{
+						EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+					},
+				},
+			},
+			HostNetwork:                   true,
+			TerminationGracePeriodSeconds: &zero,
+		},
+	}
+
+	if isBlock {
+		pod.Spec.Containers[0].VolumeDevices = []k8sv1.VolumeDevice{
+			{
+				Name:       volume.Name,
+				DevicePath: "/dev/hotplugblockdevice",
+			},
+		}
+		pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{
+			RunAsUser: &[]int64{0}[0],
+		}
+	} else {
+		pod.Spec.Containers[0].VolumeMounts = []k8sv1.VolumeMount{
+			{
+				Name:      volume.Name,
+				MountPath: "/pvc",
+			},
+		}
+	}
+	return pod, nil
 }
 
 func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability {
@@ -1426,6 +1538,7 @@ func NewTemplateService(launcherImage string,
 	virtLibDir string,
 	ephemeralDiskDir string,
 	containerDiskDir string,
+	hotplugDiskDir string,
 	imagePullSecret string,
 	persistentVolumeClaimCache cache.Store,
 	virtClient kubecli.KubevirtClient,
@@ -1439,6 +1552,7 @@ func NewTemplateService(launcherImage string,
 		virtLibDir:                 virtLibDir,
 		ephemeralDiskDir:           ephemeralDiskDir,
 		containerDiskDir:           containerDiskDir,
+		hotplugDiskDir:             hotplugDiskDir,
 		imagePullSecret:            imagePullSecret,
 		persistentVolumeClaimStore: persistentVolumeClaimCache,
 		virtClient:                 virtClient,

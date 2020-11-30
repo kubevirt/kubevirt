@@ -356,6 +356,8 @@ type Firmware struct {
 //
 // +k8s:openapi-gen=true
 type Devices struct {
+	// DisableHotplug disabled the ability to hotplug disks.
+	DisableHotplug bool `json:"disableHotplug,omitempty"`
 	// Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
 	Disks []Disk `json:"disks,omitempty"`
 	// Watchdog describes a watchdog device which can be added to the vmi.
@@ -624,6 +626,23 @@ type VolumeSource struct {
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
 	// +optional
 	ServiceAccount *ServiceAccountVolumeSource `json:"serviceAccount,omitempty"`
+}
+
+// HotplugVolumeSource Represents the source of a volume to mount which are capable
+// of being hotplugged on a live running VMI.
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type HotplugVolumeSource struct {
+	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
+	// Directly attached to the vmi via qemu.
+	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+	// +optional
+	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
+	// DataVolume represents the dynamic creation a PVC for this volume as well as
+	// the process of populating that PVC with a disk image.
+	// +optional
+	DataVolume *DataVolumeSource `json:"dataVolume,omitempty"`
 }
 
 //

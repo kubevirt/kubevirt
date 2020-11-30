@@ -45,6 +45,8 @@ type Connection interface {
 	DomainDefineXML(xml string) (VirDomain, error)
 	Close() (int, error)
 	DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) error
+	DomainEventDeviceAddedRegister(callback libvirt.DomainEventDeviceAddedCallback) error
+	DomainEventDeviceRemovedRegister(callback libvirt.DomainEventDeviceRemovedCallback) error
 	AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) error
 	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
 	NewStream(flags libvirt.StreamFlags) (Stream, error)
@@ -78,6 +80,8 @@ type LibvirtConnection struct {
 	reconnectLock *sync.Mutex
 
 	domainEventCallbacks                   []libvirt.DomainEventLifecycleCallback
+	domainDeviceAddedEventCallbacks        []libvirt.DomainEventDeviceAddedCallback
+	domainDeviceRemovedEventCallbacks      []libvirt.DomainEventDeviceRemovedCallback
 	domainEventMigrationIterationCallbacks []libvirt.DomainEventMigrationIterationCallback
 	agentEventCallbacks                    []libvirt.DomainEventAgentLifecycleCallback
 }
@@ -140,6 +144,28 @@ func (l *LibvirtConnection) DomainEventLifecycleRegister(callback libvirt.Domain
 
 	l.domainEventCallbacks = append(l.domainEventCallbacks, callback)
 	_, err = l.Connect.DomainEventLifecycleRegister(nil, callback)
+	l.checkConnectionLost(err)
+	return
+}
+
+func (l *LibvirtConnection) DomainEventDeviceAddedRegister(callback libvirt.DomainEventDeviceAddedCallback) (err error) {
+	if err = l.reconnectIfNecessary(); err != nil {
+		return
+	}
+
+	l.domainDeviceAddedEventCallbacks = append(l.domainDeviceAddedEventCallbacks, callback)
+	_, err = l.Connect.DomainEventDeviceAddedRegister(nil, callback)
+	l.checkConnectionLost(err)
+	return
+}
+
+func (l *LibvirtConnection) DomainEventDeviceRemovedRegister(callback libvirt.DomainEventDeviceRemovedCallback) (err error) {
+	if err = l.reconnectIfNecessary(); err != nil {
+		return
+	}
+
+	l.domainDeviceRemovedEventCallbacks = append(l.domainDeviceRemovedEventCallbacks, callback)
+	_, err = l.Connect.DomainEventDeviceRemovedRegister(nil, callback)
 	l.checkConnectionLost(err)
 	return
 }
@@ -312,6 +338,14 @@ func (l *LibvirtConnection) reconnectIfNecessary() (err error) {
 			log.Log.Info("Re-registered agent callback")
 			_, err = l.Connect.DomainEventAgentLifecycleRegister(nil, callback)
 		}
+		for _, callback := range l.domainDeviceAddedEventCallbacks {
+			log.Log.Info("Re-registered domain device added callback")
+			_, err = l.Connect.DomainEventDeviceAddedRegister(nil, callback)
+		}
+		for _, callback := range l.domainDeviceRemovedEventCallbacks {
+			log.Log.Info("Re-registered domain device removed callback")
+			_, err = l.Connect.DomainEventDeviceRemovedRegister(nil, callback)
+		}
 
 		log.Log.Error("Re-registered domain and agent callbacks for new connection")
 
@@ -357,6 +391,8 @@ type VirDomain interface {
 	Create() error
 	Suspend() error
 	Resume() error
+	AttachDevice(xml string) error
+	DetachDevice(xml string) error
 	DestroyFlags(flags libvirt.DomainDestroyFlags) error
 	ShutdownFlags(flags libvirt.DomainShutdownFlags) error
 	UndefineFlags(flags libvirt.DomainUndefineFlagsValues) error

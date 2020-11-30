@@ -137,6 +137,10 @@ func (c *VMController) runWorker() {
 	}
 }
 
+func (c *VMController) needsSync(key string) bool {
+	return c.expectations.SatisfiedExpectations(key) && c.dataVolumeExpectations.SatisfiedExpectations(key)
+}
+
 func (c *VMController) Execute() bool {
 	key, quit := c.Queue.Get()
 	if quit {
@@ -189,8 +193,6 @@ func (c *VMController) execute(key string) error {
 		logger.Error("Invalid controller spec, will not re-enqueue.")
 		return nil
 	}
-
-	needsSync := c.expectations.SatisfiedExpectations(key) && c.dataVolumeExpectations.SatisfiedExpectations(key)
 
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
@@ -248,7 +250,7 @@ func (c *VMController) execute(key string) error {
 	var createErr error
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
-	if needsSync && vm.ObjectMeta.DeletionTimestamp == nil {
+	if c.needsSync(key) && vm.ObjectMeta.DeletionTimestamp == nil {
 
 		dataVolumesReady, err := c.handleDataVolumes(vm, dataVolumes)
 		if err != nil {
@@ -257,6 +259,14 @@ func (c *VMController) execute(key string) error {
 			createErr = c.startStop(vm, vmi)
 		} else {
 			log.Log.Object(vm).V(3).Infof("Waiting on DataVolumes to be ready. %d datavolumes found", len(dataVolumes))
+		}
+
+		// Must check needsSync again here because a VMI can be created or
+		// deleted in the startStop function which impacts how we process
+		// hotplugged volumes
+		if c.needsSync(key) && createErr == nil {
+
+			createErr = c.handleVolumeRequests(vm, vmi)
 		}
 	}
 
@@ -518,6 +528,53 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 		}
 	}
 	return ready, nil
+}
+
+func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if len(vm.Status.VolumeRequests) == 0 {
+		return nil
+	}
+
+	vmCopy := vm.DeepCopy()
+	vmiVolumeMap := make(map[string]virtv1.Volume)
+	if vmi != nil {
+		for _, volume := range vmi.Spec.Volumes {
+			vmiVolumeMap[volume.Name] = volume
+		}
+	}
+
+	for _, request := range vm.Status.VolumeRequests {
+		vmCopy.Spec.Template.Spec = *controller.ApplyVolumeRequestOnVMISpec(&vmCopy.Spec.Template.Spec, &request)
+
+		if vmi != nil && vmi.DeletionTimestamp == nil {
+			if request.AddVolumeOptions != nil {
+				_, exists := vmiVolumeMap[request.AddVolumeOptions.Name]
+				if !exists {
+					err := c.clientset.VirtualMachineInstance(vmi.Namespace).AddVolume(vmi.Name, request.AddVolumeOptions)
+					if err != nil {
+						return err
+					}
+				}
+			} else if request.RemoveVolumeOptions != nil {
+				_, exists := vmiVolumeMap[request.RemoveVolumeOptions.Name]
+				if exists {
+					err := c.clientset.VirtualMachineInstance(vmi.Namespace).RemoveVolume(vmi.Name, request.RemoveVolumeOptions)
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+
+	if !reflect.DeepEqual(vm, vmCopy) {
+		_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
@@ -1174,6 +1231,49 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 				}
 			}
 		}
+	}
+
+	if len(vm.Status.VolumeRequests) > 0 {
+		volumeMap := make(map[string]virtv1.Volume)
+		diskMap := make(map[string]virtv1.Disk)
+
+		for _, volume := range vm.Spec.Template.Spec.Volumes {
+			volumeMap[volume.Name] = volume
+		}
+		for _, disk := range vm.Spec.Template.Spec.Domain.Devices.Disks {
+			diskMap[disk.Name] = disk
+		}
+
+		tmpVolRequests := vm.Status.VolumeRequests[:0]
+		for _, request := range vm.Status.VolumeRequests {
+
+			var added bool
+			var volName string
+
+			removeRequest := false
+
+			if request.AddVolumeOptions != nil {
+				volName = request.AddVolumeOptions.Name
+				added = true
+			} else if request.RemoveVolumeOptions != nil {
+				volName = request.RemoveVolumeOptions.Name
+				added = false
+			}
+
+			_, volExists := volumeMap[volName]
+			_, diskExists := diskMap[volName]
+
+			if added && volExists && diskExists {
+				removeRequest = true
+			} else if !added && !volExists && !diskExists {
+				removeRequest = true
+			}
+
+			if !removeRequest {
+				tmpVolRequests = append(tmpVolRequests, request)
+			}
+		}
+		vm.Status.VolumeRequests = tmpVolRequests
 	}
 
 	if vmRenamedAndDeleted {

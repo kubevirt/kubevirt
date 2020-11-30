@@ -74,7 +74,7 @@ var _ = Describe("[Serial]ImageUpload", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	validateDataVolume := func(targetName string) {
+	validateDataVolume := func(targetName string, _ string) {
 		By("Get DataVolume")
 		_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(tests.NamespaceTestDefault).Get(targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -116,7 +116,7 @@ var _ = Describe("[Serial]ImageUpload", func() {
 		deletePVC(targetName)
 	}
 
-	validatePVC := func(targetName string) {
+	validatePVC := func(targetName string, storageClass string) {
 		By("Don't DataVolume")
 		_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(tests.NamespaceTestDefault).Get(targetName, metav1.GetOptions{})
 		Expect(errors.IsNotFound(err)).To(BeTrue())
@@ -124,11 +124,15 @@ var _ = Describe("[Serial]ImageUpload", func() {
 		By("Get PVC")
 		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(tests.NamespaceTestDefault).Get(targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(*pvc.Spec.StorageClassName).To(Equal(tests.Config.StorageClassLocal))
+		Expect(*pvc.Spec.StorageClassName).To(Equal(storageClass))
 	}
 
-	Context("Upload an image and start a VMI with PVC", func() {
-		DescribeTable("[test_id:4621] Should succeed", func(resource, targetName string, validateFunc, deleteFunc func(string), startVM bool) {
+	Context("Upload an image and start a VMI with PVC on rook-ceph", func() {
+		DescribeTable("[test_id:4621] Should succeed", func(resource, targetName string, validateFunc func(string, string), deleteFunc func(string), startVM bool) {
+			sc, exists := tests.GetCephStorageClass()
+			if !exists {
+				Skip("Skip OCS tests when Ceph is not present")
+			}
 			defer deleteFunc(targetName)
 
 			By("Upload image")
@@ -139,7 +143,7 @@ var _ = Describe("[Serial]ImageUpload", func() {
 				"--size", pvcSize,
 				"--uploadproxy-url", fmt.Sprintf("https://127.0.0.1:%d", localUploadProxyPort),
 				"--wait-secs", "30",
-				"--storage-class", tests.Config.StorageClassLocal,
+				"--storage-class", sc,
 				"--insecure")
 			err := virtctlCmd()
 			if err != nil {
@@ -147,7 +151,7 @@ var _ = Describe("[Serial]ImageUpload", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			validateFunc(targetName)
+			validateFunc(targetName, sc)
 
 			if startVM {
 				By("Start VM")

@@ -38,6 +38,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -47,7 +48,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
@@ -151,11 +152,11 @@ var _ = Describe("[Serial]Operator", func() {
 		}
 
 		createCdi = func() {
-			_, err = virtClient.CdiClient().CdiV1alpha1().CDIs().Create(copyOriginalCDI())
+			_, err = virtClient.CdiClient().CdiV1beta1().CDIs().Create(copyOriginalCDI())
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() bool {
-				cdi, err := virtClient.CdiClient().CdiV1alpha1().CDIs().Get(originalCDI.Name, metav1.GetOptions{})
+				cdi, err := virtClient.CdiClient().CdiV1beta1().CDIs().Get(originalCDI.Name, metav1.GetOptions{})
 				if err != nil {
 					return false
 				} else if cdi.Status.Phase != sdkapi.PhaseDeployed {
@@ -541,7 +542,7 @@ var _ = Describe("[Serial]Operator", func() {
 		originalOperatorVersion = strings.TrimPrefix(version, "@")
 
 		if tests.HasDataVolumeCRD() {
-			cdiList, err := virtClient.CdiClient().CdiV1alpha1().CDIs().List(metav1.ListOptions{})
+			cdiList, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(cdiList.Items)).To(Equal(1))
 
@@ -684,7 +685,7 @@ spec:
 			// ensure we wait for cdi to finish deleting before restoring it
 			// in the event that cdi has the deletionTimestamp set.
 			Eventually(func() bool {
-				cdi, err := virtClient.CdiClient().CdiV1alpha1().CDIs().Get(originalCDI.Name, metav1.GetOptions{})
+				cdi, err := virtClient.CdiClient().CdiV1beta1().CDIs().Get(originalCDI.Name, metav1.GetOptions{})
 				if err != nil && errors.IsNotFound(err) {
 					// cdi isn't deleting and doesn't exist.
 					return true
@@ -701,7 +702,15 @@ spec:
 				return true
 			}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
-			if !cdiExists {
+			if cdiExists {
+				cdi, err := virtClient.CdiClient().CdiV1beta1().CDIs().Get(originalCDI.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if !equality.Semantic.DeepEqual(cdi.Spec, originalCDI.Spec) {
+					cdi.Spec = originalCDI.Spec
+					_, err := virtClient.CdiClient().CdiV1beta1().CDIs().Update(cdi)
+					Expect(err).ToNot(HaveOccurred())
+				}
+			} else if !cdiExists {
 				createCdi()
 			}
 		}
@@ -808,6 +817,30 @@ spec:
 
 			if !tests.HasCDI() {
 				Skip("Skip Update test when CDI is not present")
+			}
+
+			// Disable HonorWaitForFirstCustomer, since we don't know if previous versions
+			// already support this setting.
+			// TODO drop this step after a few releases after 0.36
+			cdis, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cdis.Items).To(HaveLen(1))
+			cdi := &cdis.Items[0]
+			if cdi.Spec.Config != nil {
+				features := []string{}
+				needsUpdate := false
+				for _, feature := range cdi.Spec.Config.FeatureGates {
+					if feature != "HonorWaitForFirstConsumer" {
+						features = append(features, feature)
+					} else {
+						needsUpdate = true
+					}
+				}
+				if needsUpdate {
+					cdi.Spec.Config.FeatureGates = features
+					_, err := virtClient.CdiClient().CdiV1beta1().CDIs().Update(cdi)
+					Expect(err).ToNot(HaveOccurred())
+				}
 			}
 
 			previousImageTag := flags.PreviousReleaseTag
@@ -1446,7 +1479,7 @@ spec:
 			// Delete CDI object
 			By("Deleting CDI install")
 			Eventually(func() error {
-				cdi, err := virtClient.CdiClient().CdiV1alpha1().CDIs().Get(originalCDI.Name, metav1.GetOptions{})
+				cdi, err := virtClient.CdiClient().CdiV1beta1().CDIs().Get(originalCDI.Name, metav1.GetOptions{})
 				if err != nil && errors.IsNotFound(err) {
 					// cdi is deleted
 					return nil
@@ -1455,7 +1488,7 @@ spec:
 				}
 
 				if cdi.DeletionTimestamp == nil {
-					err := virtClient.CdiClient().CdiV1alpha1().CDIs().Delete(originalCDI.Name, &metav1.DeleteOptions{})
+					err := virtClient.CdiClient().CdiV1beta1().CDIs().Delete(originalCDI.Name, &metav1.DeleteOptions{})
 					if err != nil {
 						return err
 					}

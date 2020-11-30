@@ -794,7 +794,7 @@ func AdjustKubeVirtResource() {
 		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
 	}
 
-	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"CPUManager", "LiveMigration", "ExperimentalIgnitionSupport", "Sidecar", "Snapshot"}
+	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"CPUManager", "LiveMigration", "ExperimentalIgnitionSupport", "Sidecar", "Snapshot", "HotplugVolumes"}
 	kv.Spec.Configuration.SELinuxLauncherType = "virt_launcher.process"
 
 	data, err := json.Marshal(kv.Spec)
@@ -1732,6 +1732,10 @@ func NewRandomDataVolumeWithHttpImportInStorageClass(imageUrl, namespace, storag
 	return newRandomDataVolumeWithHttpImport(imageUrl, namespace, storageClass, accessMode)
 }
 
+func NewRandomBlankDataVolume(namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
+	return newRandomBlankDataVolume(namespace, storageClass, accessMode, volumeMode)
+}
+
 func NewRandomVirtualMachineInstanceWithOCSDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode, volMode k8sv1.PersistentVolumeMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 	if !HasCDI() {
 		Skip("Skip DataVolume tests when CDI is not present")
@@ -1809,6 +1813,40 @@ func newRandomDataVolumeWithHttpImport(imageUrl, namespace, storageClass string,
 					},
 				},
 				StorageClassName: &storageClass,
+			},
+		},
+	}
+
+	dataVolume.TypeMeta = metav1.TypeMeta{
+		APIVersion: "cdi.kubevirt.io/v1alpha1",
+		Kind:       "DataVolume",
+	}
+
+	return dataVolume
+}
+
+func newRandomBlankDataVolume(namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
+	name := "test-datavolume-" + rand.String(12)
+	quantity, err := resource.ParseQuantity("64Mi")
+	PanicOnError(err)
+	dataVolume := &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: cdiv1.DataVolumeSource{
+				Blank: &cdiv1.DataVolumeBlankImage{},
+			},
+			PVC: &k8sv1.PersistentVolumeClaimSpec{
+				AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
+				Resources: k8sv1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						"storage": quantity,
+					},
+				},
+				StorageClassName: &storageClass,
+				VolumeMode:       &volumeMode,
 			},
 		},
 	}

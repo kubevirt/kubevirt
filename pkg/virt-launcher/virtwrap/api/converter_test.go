@@ -207,6 +207,7 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{k8sv1.ResourceMemory: resource.MustParse("8192Ki")}
+			vmi.Spec.Domain.Devices.DisableHotplug = true
 			vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 				{
 					Bus:  "virtio",
@@ -2159,7 +2160,7 @@ var _ = Describe("Converter", func() {
 				},
 			}
 			apiDisk := Disk{}
-			devicePerBus := map[string]int{}
+			devicePerBus := map[string]deviceNamer{}
 			numQueues := uint(2)
 			Convert_v1_Disk_To_api_Disk(&v1Disk, &apiDisk, devicePerBus, &numQueues)
 			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
@@ -2173,8 +2174,9 @@ var _ = Describe("Converter", func() {
 				},
 			}
 			apiDisk := Disk{}
-			devicePerBus := map[string]int{}
-			Convert_v1_Disk_To_api_Disk(&v1Disk, &apiDisk, devicePerBus, nil)
+			devicePerBus := map[string]deviceNamer{}
+			err := Convert_v1_Disk_To_api_Disk(&v1Disk, &apiDisk, devicePerBus, nil)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
 			Expect(apiDisk.Driver.Queues).To(BeNil(), "expected no queues to be requested")
 		})
@@ -2666,9 +2668,9 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.HostDevices[1].Mode).To(Equal("subsystem"))
 			Expect(domain.Spec.Devices.HostDevices[1].Model).To(Equal("vfio-pci"))
 			Expect(domain.Spec.Devices.HostDevices[1].Alias.Name).To(Equal("vgpu_name1"))
-
 		})
 	})
+
 	Context("HostDevices resource request", func() {
 		vmi := &v1.VirtualMachineInstance{
 			ObjectMeta: k8smeta.ObjectMeta{
@@ -2724,9 +2726,50 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.HostDevices[1].Mode).To(Equal("subsystem"))
 			Expect(domain.Spec.Devices.HostDevices[1].Model).To(Equal("vfio-pci"))
 			Expect(domain.Spec.Devices.HostDevices[1].Alias.Name).To(Equal("mdev_name"))
-
 		})
 	})
+
+	Context("hotplug", func() {
+		var vmi *v1.VirtualMachineInstance
+		var c *ConverterContext
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "mynamespace",
+				},
+			}
+
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			c = &ConverterContext{
+				VirtualMachine: vmi,
+				UseEmulation:   true,
+			}
+		})
+
+		It("should automatically add virtio-scsi controller", func() {
+			domain := vmiToDomain(vmi, c)
+			Expect(len(domain.Spec.Devices.Controllers)).To(Equal(3))
+			foundScsiController := false
+			for _, controller := range domain.Spec.Devices.Controllers {
+				if controller.Type == "scsi" {
+					foundScsiController = true
+					Expect(controller.Model).To(Equal("virtio-scsi"))
+
+				}
+			}
+			Expect(foundScsiController).To(BeTrue(), "did not find SCSI controller when expected")
+		})
+
+		It("should not automatically add virtio-scsi controller, if hotplug disabled", func() {
+			vmi.Spec.Domain.Devices.DisableHotplug = true
+			domain := vmiToDomain(vmi, c)
+			Expect(len(domain.Spec.Devices.Controllers)).To(Equal(2))
+		})
+	})
+
 })
 
 var _ = Describe("popSRIOVPCIAddress", func() {
@@ -2761,8 +2804,51 @@ var _ = Describe("popSRIOVPCIAddress", func() {
 	})
 })
 
+var _ = Describe("disk device naming", func() {
+	It("format device name should return correct value", func() {
+		res := FormatDeviceName("sd", 0)
+		Expect(res).To(Equal("sda"))
+		res = FormatDeviceName("sd", 1)
+		Expect(res).To(Equal("sdb"))
+		// 25 is z 26 starting at 0
+		res = FormatDeviceName("sd", 25)
+		Expect(res).To(Equal("sdz"))
+		res = FormatDeviceName("sd", 26*2-1)
+		Expect(res).To(Equal("sdaz"))
+		res = FormatDeviceName("sd", 26*26-1)
+		Expect(res).To(Equal("sdyz"))
+	})
+
+	It("makeDeviceName should generate proper name", func() {
+		prefixMap := make(map[string]deviceNamer)
+		res, index := makeDeviceName("test1", "virtio", prefixMap)
+		Expect(res).To(Equal("vda"))
+		Expect(index).To(Equal(0))
+		for i := 2; i < 10; i++ {
+			makeDeviceName(fmt.Sprintf("test%d", i), "virtio", prefixMap)
+		}
+		prefix := getPrefixFromBus("virtio")
+		delete(prefixMap[prefix].usedDeviceMap, "vdd")
+		By("Verifying next value is vdd")
+		res, index = makeDeviceName("something", "virtio", prefixMap)
+		Expect(index).To(Equal(3))
+		Expect(res).To(Equal("vdd"))
+		res, index = makeDeviceName("something_else", "virtio", prefixMap)
+		Expect(res).To(Equal("vdj"))
+		Expect(index).To(Equal(9))
+		By("verifying existing returns correct value")
+		res, index = makeDeviceName("something", "virtio", prefixMap)
+		Expect(res).To(Equal("vdd"))
+		Expect(index).To(Equal(3))
+		By("Verifying a new bus returns from start")
+		res, index = makeDeviceName("something", "scsi", prefixMap)
+		Expect(res).To(Equal("sda"))
+		Expect(index).To(Equal(0))
+	})
+})
+
 func diskToDiskXML(disk *v1.Disk) string {
-	devicePerBus := make(map[string]int)
+	devicePerBus := make(map[string]deviceNamer)
 	libvirtDisk := &Disk{}
 	Expect(Convert_v1_Disk_To_api_Disk(disk, libvirtDisk, devicePerBus, nil)).To(Succeed())
 	data, err := xml.MarshalIndent(libvirtDisk, "", "  ")

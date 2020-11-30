@@ -176,6 +176,7 @@ func (Firmware) SwaggerDoc() map[string]string {
 func (Devices) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                           "+k8s:openapi-gen=true",
+		"disableHotplug":             "DisableHotplug disabled the ability to hotplug disks.",
 		"disks":                      "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
 		"watchdog":                   "Watchdog describes a watchdog device which can be added to the vmi.",
 		"interfaces":                 "Interfaces describe network interfaces which are added to the vmi.",
@@ -309,6 +310,14 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"secret":                "SecretVolumeSource represents a reference to a secret data in the same namespace.\nMore info: https://kubernetes.io/docs/concepts/configuration/secret/\n+optional",
 		"downwardAPI":           "DownwardAPI represents downward API about the pod that should populate this volume\n+optional",
 		"serviceAccount":        "ServiceAccountVolumeSource represents a reference to a service account.\nThere can only be one volume of this type!\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/\n+optional",
+	}
+}
+
+func (HotplugVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                      "HotplugVolumeSource Represents the source of a volume to mount which are capable\nof being hotplugged on a live running VMI.\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
+		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+		"dataVolume":            "DataVolume represents the dynamic creation a PVC for this volume as well as\nthe process of populating that PVC with a disk image.\n+optional",
 	}
 }
 

@@ -161,6 +161,8 @@ type VirtualMachineInstanceInterface interface {
 	GuestOsInfo(name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
 	UserList(name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
 	FilesystemList(name string) (v1.VirtualMachineInstanceFileSystemList, error)
+	AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
+	RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 }
 
 type ReplicaSetInterface interface {
@@ -202,6 +204,8 @@ type VirtualMachineInterface interface {
 	Stop(name string) error
 	Migrate(name string) error
 	Rename(name string, options *v1.RenameOptions) error
+	AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
+	RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 }
 
 type VirtualMachineInstanceMigrationInterface interface {

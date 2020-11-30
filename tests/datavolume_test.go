@@ -25,8 +25,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -36,6 +34,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 
@@ -86,29 +85,19 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 
 		Context("Alpine import", func() {
 			BeforeEach(func() {
-				By("Enable featuregate=HonorWaitForFirstConsumer")
-				// in practice we might have HonorWaitForFirstConsumer twice in featureGates array, but this is not a problem
-				jsonpath := `-o=jsonpath="{.spec.config.featureGates}"`
-				out, _, err := tests.RunCommand("kubectl", "get", "cdis.cdi.kubevirt.io", "cdi", jsonpath)
+				cdis, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
-
-				// no feature Gates? we need to add the whole structure, else just add the flag
-				// Looks like the output might be quoted
-				if str, err := strconv.Unquote(strings.TrimSpace(out)); str == "" {
-					patch := `{"spec": { "config": {"featureGates":["HonorWaitForFirstConsumer"]}}}`
-					_, _, err = tests.RunCommand("kubectl", "patch", "cdis.cdi.kubevirt.io", "cdi", "-o=json", "--type=merge", "-p", patch)
-					Expect(err).ToNot(HaveOccurred())
-				} else {
-					patch := `[{"op": "add" , "path": "/spec/config/featureGates/0", "value": "HonorWaitForFirstConsumer"}]`
-					_, _, err = tests.RunCommand("kubectl", "patch", "cdis.cdi.kubevirt.io", "cdi", "--type=json", "-p", patch)
-					Expect(err).ToNot(HaveOccurred())
+				Expect(cdis.Items).To(HaveLen(1))
+				hasWaitForCustomerGate := false
+				for _, feature := range cdis.Items[0].Spec.Config.FeatureGates {
+					if feature == "HonorWaitForFirstConsumer" {
+						hasWaitForCustomerGate = true
+						break
+					}
 				}
-			})
-			AfterEach(func() {
-				By("Restore featuregates")
-				patch := `[{"op": "remove" , "path": "/spec/config/featureGates/0", "value": "HonorWaitForFirstConsumer"}]`
-				_, _, err = tests.RunCommand("kubectl", "patch", "cdis.cdi.kubevirt.io", "cdi", "--type=json", "-p", patch)
-				Expect(err).ToNot(HaveOccurred())
+				if !hasWaitForCustomerGate {
+					Skip("HonorWaitForFirstConsumer is disabled in CDI, skipping tests relying on it")
+				}
 			})
 			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
 
@@ -626,10 +615,16 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 			var createdVirtualMachine *v1.VirtualMachine
 			var cloneRole *rbacv1.Role
 			var cloneRoleBinding *rbacv1.RoleBinding
+			var storageClass string
 
 			BeforeEach(func() {
+				var exists bool
+				storageClass, exists = tests.GetCephStorageClass()
+				if !exists {
+					Skip("Skip OCS tests when Ceph is not present")
+				}
 				var err error
-				dv := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestAlternative, k8sv1.ReadWriteOnce)
+				dv := tests.NewRandomDataVolumeWithHttpImportInStorageClass(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestAlternative, storageClass, k8sv1.ReadWriteOnce)
 				dataVolume, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -665,7 +660,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				}
 			})
 
-			table.DescribeTable("deny then allow clone request", func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool) {
+			table.DescribeTable("deny then allow clone request on rook-ceph", func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool) {
 				vm := tests.NewRandomVMWithCloneDataVolume(dataVolume.Namespace, dataVolume.Name, tests.NamespaceTestDefault)
 				saVol := v1.Volume{
 					Name: "sa",
@@ -675,6 +670,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 						},
 					},
 				}
+				vm.Spec.DataVolumeTemplates[0].Spec.PVC.StorageClassName = pointer.StringPtr(storageClass)
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, saVol)
 
 				vmBytes, err := json.Marshal(vm)

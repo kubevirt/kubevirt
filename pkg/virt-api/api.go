@@ -189,7 +189,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Doc(fmt.Sprintf("KubeVirt \"%s\" Subresource API.", version.Version))
 		subws.Path(rest.GroupVersionBasePath(version))
 
-		subresourceApp := rest.NewSubresourceAPIApp(app.virtCli, app.consoleServerPort, app.handlerTLSConfiguration)
+		subresourceApp := rest.NewSubresourceAPIApp(app.virtCli, app.consoleServerPort, app.handlerTLSConfiguration, app.clusterConfig)
 
 		restartRouteBuilder := subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("restart")).
 			To(subresourceApp.RestartVMRequestHandler).
@@ -317,6 +317,38 @@ func (app *virtAPIApp) composeSubresources() {
 			Writes(v1.VirtualMachineInstanceFileSystemList{}).
 			Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceFileSystemList{}))
 
+		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("addvolume")).
+			To(subresourceApp.VMIAddVolumeRequestHandler).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation("vmi-addvolume").
+			Doc("Add a volume and disk to a running Virtual Machine Instance").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusBadRequest, "Bad Request", ""))
+
+		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("removevolume")).
+			To(subresourceApp.VMIRemoveVolumeRequestHandler).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation("vmi-removevolume").
+			Doc("Removes a volume and disk from a running Virtual Machine Instance").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusBadRequest, "Bad Request", ""))
+
+		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("addvolume")).
+			To(subresourceApp.VMAddVolumeRequestHandler).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation("vm-addvolume").
+			Doc("Add a volume and disk to a running Virtual Machine.").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusBadRequest, "Bad Request", ""))
+
+		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("removevolume")).
+			To(subresourceApp.VMRemoveVolumeRequestHandler).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation("vm-removevolume").
+			Doc("Removes a volume and disk from a running Virtual Machine.").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusBadRequest, "Bad Request", ""))
+
 		// Return empty api resource list.
 		// K8s expects to be able to retrieve a resource list for each aggregated
 		// app in order to discover what resources it provides. Without returning
@@ -377,6 +409,14 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/filesystemlist",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/addvolume",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/removevolume",
 						Namespaced: true,
 					},
 				}
@@ -562,7 +602,7 @@ func (app *virtAPIApp) registerValidatingWebhooks() {
 		validating_webhook.ServeVMICreate(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(components.VMIUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMIUpdate(w, r)
+		validating_webhook.ServeVMIUpdate(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(components.VMValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli)
@@ -586,7 +626,7 @@ func (app *virtAPIApp) registerValidatingWebhooks() {
 		validating_webhook.ServeVMRestores(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.StatusValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeStatusValidation(w, r)
+		validating_webhook.ServeStatusValidation(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(components.LauncherEvictionValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServePodEvictionInterceptor(w, r, app.clusterConfig, app.virtCli)

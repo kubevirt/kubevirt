@@ -192,7 +192,59 @@ type VirtualMachineInstanceStatus struct {
 	// ActivePods is a mapping of pod UID to node name.
 	// It is possible for multiple pods to be running for a single VMI during migration.
 	ActivePods map[types.UID]string `json:"activePods,omitempty"`
+
+	// VolumeStatus contains the statuses of all the volumes
+	// +optional
+	// +listType=atomic
+	VolumeStatus []VolumeStatus `json:"volumeStatus,omitempty"`
 }
+
+// VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.
+// +k8s:openapi-gen=true
+type VolumeStatus struct {
+	// Name is the name of the volume
+	Name string `json:"name"`
+	// Target is the target name used when adding the volume to the VM, eg: vda
+	Target string `json:"target"`
+	// Phase is the phase
+	Phase VolumePhase `json:"phase,omitempty"`
+	// Reason is a brief description of why we are in the current hotplug volume phase
+	Reason string `json:"reason,omitempty"`
+	// Message is a detailed message about the current hotplug volume phase
+	Message string `json:"message,omitempty"`
+	// If the volume is hotplug, this will contain the hotplug status.
+	HotplugVolume *HotplugVolumeStatus `json:"hotplugVolume,omitempty"`
+}
+
+// HotplugVolumeStatus represents the hotplug status of the volume
+// +k8s:openapi-gen=true
+type HotplugVolumeStatus struct {
+	// AttachPodName is the name of the pod used to attach the volume to the node.
+	AttachPodName string `json:"attachPodName,omitempty"`
+	// AttachPodUID is the UID of the pod used to attach the volume to the node.
+	AttachPodUID types.UID `json:"attachPodUID,omitempty"`
+}
+
+// VolumePhase indicates the current phase of the hotplug process.
+// +k8s:openapi-gen=true
+type VolumePhase string
+
+const (
+	// VolumePending means the Volume is pending and cannot be attached to the node yet.
+	VolumePending VolumePhase = "Pending"
+	// VolumeBound means the Volume is bound and can be attach to the node.
+	VolumeBound VolumePhase = "Bound"
+	// HotplugVolumeAttachedToNode means the volume has been attached to the node.
+	HotplugVolumeAttachedToNode VolumePhase = "AttachedToNode"
+	// HotplugVolumeMounted means the volume has been attached to the node and is mounted to the virt-launcher pod.
+	HotplugVolumeMounted VolumePhase = "MountedToPod"
+	// VolumeReady means the volume is ready to be used by the VirtualMachineInstance.
+	VolumeReady VolumePhase = "Ready"
+	// HotplugVolumeDetaching means the volume is being detached from the node, and the attachment pod is being removed.
+	HotplugVolumeDetaching VolumePhase = "Detaching"
+	// HotplugVolumeUnMounted means the volume has been unmounted from the virt-launcer pod.
+	HotplugVolumeUnMounted VolumePhase = "UnMountedFromPod"
+)
 
 func (v *VirtualMachineInstance) IsScheduling() bool {
 	return v.Status.Phase == Scheduling
@@ -284,6 +336,8 @@ const (
 	VirtualMachineInstanceReasonDisksNotMigratable = "DisksNotLiveMigratable"
 	// Reason means that VMI is not live migratioable because of it's network interfaces collection
 	VirtualMachineInstanceReasonInterfaceNotMigratable = "InterfaceNotLiveMigratable"
+	// Reason means that VMI is not live migratioable because of it's network interfaces collection
+	VirtualMachineInstanceReasonHotplugNotMigratable = "HotplugNotLiveMigratable"
 )
 
 const (
@@ -1033,6 +1087,11 @@ type VirtualMachineStatus struct {
 	// StateChangeRequests indicates a list of actions that should be taken on a VMI
 	// e.g. stop a specific VMI then start a new one.
 	StateChangeRequests []VirtualMachineStateChangeRequest `json:"stateChangeRequests,omitempty" optional:"true"`
+	// VolumeRequests indicates a list of volumes add or remove from the VMI template and
+	// hotplug on an active running VMI.
+	// +listType=atomic
+	VolumeRequests []VirtualMachineVolumeRequest `json:"volumeRequests,omitempty" optional:"true"`
+
 	// VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is
 	// supported by each volume.
 	VolumeSnapshotStatuses []VolumeSnapshotStatus `json:"volumeSnapshotStatuses,omitempty" optional:"true"`
@@ -1046,6 +1105,16 @@ type VolumeSnapshotStatus struct {
 	Enabled bool `json:"enabled"`
 	// Empty if snapshotting is enabled, contains reason otherwise
 	Reason string `json:"reason,omitempty" optional:"true"`
+}
+
+// +k8s:openapi-gen=true
+type VirtualMachineVolumeRequest struct {
+	// AddVolumeOptions when set indicates a volume should be added. The details
+	// within this field specify how to add the volume
+	AddVolumeOptions *AddVolumeOptions `json:"addVolumeOptions,omitempty" optional:"true"`
+	// RemoveVolumeOptions when set indicates a volume should be removed. The details
+	// within this field specify how to add the volume
+	RemoveVolumeOptions *RemoveVolumeOptions `json:"removeVolumeOptions,omitempty" optional:"true"`
 }
 
 // +k8s:openapi-gen=true
@@ -1459,6 +1528,27 @@ type RenameOptions struct {
 	metav1.TypeMeta `json:",inline"`
 	NewName         string  `json:"newName"`
 	OldName         *string `json:"oldName,omitempty"`
+}
+
+// AddVolumeOptions is provided when dynamically hot plugging a volume and disk
+// +k8s:openapi-gen=true
+type AddVolumeOptions struct {
+	// Name represents the name that will be used to map the
+	// disk to the corresponding volume. This overrides any name
+	// set inside the Disk struct itself.
+	Name string `json:"name"`
+	// Disk represents the hotplug disk that will be plugged into the running VMI
+	Disk *Disk `json:"disk"`
+	// VolumeSource represents the source of the volume to map to the disk.
+	VolumeSource *HotplugVolumeSource `json:"volumeSource"`
+}
+
+// RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk
+// +k8s:openapi-gen=true
+type RemoveVolumeOptions struct {
+	// Name represents the name that maps to both the disk and volume that
+	// should be removed
+	Name string `json:"name"`
 }
 
 // KubeVirtConfiguration holds all kubevirt configurations
