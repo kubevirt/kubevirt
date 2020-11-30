@@ -1,6 +1,8 @@
 package libnet
 
 import (
+	"net"
+
 	k8sv1 "k8s.io/api/core/v1"
 	netutils "k8s.io/utils/net"
 
@@ -26,6 +28,14 @@ func GetIp(ips []string, family k8sv1.IPFamily) string {
 		}
 	}
 	return ""
+}
+
+func RemoveCIDR(ipWIthCIDR string) (string, error) {
+	ip, _, err := net.ParseCIDR(ipWIthCIDR)
+	if err != nil {
+		return "", err
+	}
+	return ip.String(), nil
 }
 
 func getFamily(ip string) k8sv1.IPFamily {

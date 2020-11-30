@@ -818,6 +818,17 @@ var _ = Describe("[Serial]SRIOV", func() {
 			// it's hard to match them.
 		})
 
+		vmiIPsFor := func(vmi *v1.VirtualMachineInstance, interfaceName string) func() []string {
+			return func() []string {
+				var err error
+				vmiIfaceStatusByName := libvmi.IndexInterfaceStatusByName(vmi)
+				Expect(vmiIfaceStatusByName).To(HaveKey(interfaceName), "")
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should success retrieving VMI to get IP")
+				return vmiIfaceStatusByName[interfaceName].IPs
+			}
+		}
+
 		// createSriovVMs instantiates two VMs connected through SR-IOV.
 		// Note: test case assumes interconnectivity between SR-IOV
 		// interfaces. It can be achieved either by configuring the external switch
@@ -854,6 +865,15 @@ var _ = Describe("[Serial]SRIOV", func() {
 			Expect(err).NotTo(HaveOccurred())
 			vmi2, err = virtClient.VirtualMachineInstance(vmi2.Namespace).Get(vmi2.Name, &metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
+
+			ipA, err := libnet.RemoveCIDR(cidrA)
+			Expect(err).ToNot(HaveOccurred())
+			ipB, err := libnet.RemoveCIDR(cidrB)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Wait for IPs to be configured at VMIs")
+			Eventually(vmiIPsFor(vmi1, networkName)).Should(ContainElement(ipA))
+			Eventually(vmiIPsFor(vmi2, networkName)).Should(ContainElement(ipB))
 
 			return vmi1, vmi2
 		}
