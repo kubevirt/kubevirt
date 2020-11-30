@@ -696,31 +696,54 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				Expect(libnet.PingFromVMConsole(serverVMI, "8.8.8.8")).To(Succeed())
 				Expect(libnet.PingFromVMConsole(clientVMI, "google.com")).To(Succeed())
 
-				verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv4Protocol)
+				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv4Protocol)).To(Succeed())
 			}, table.Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080}}, defaultCIDR),
 				table.Entry("without a specific port number [IPv4]", []v1.Port{}, defaultCIDR),
 				table.Entry("with custom CIDR [IPv4]", []v1.Port{}, customCIDR),
 			)
 
 			table.DescribeTable("IPv6", func(ports []v1.Port) {
+				libnet.SkipWhenNotDualStackCluster(virtClient)
+
 				var clientVMI *v1.VirtualMachineInstance
 
-				libnet.SkipWhenNotDualStackCluster(virtClient)
+				fedoraMasqueradeVMI := func(ports []v1.Port) (*v1.VirtualMachineInstance, error) {
+
+					networkData, err := libnet.NewNetworkData(
+						libnet.WithEthernet("eth0",
+							libnet.WithDHCP4Enabled(),
+							libnet.WithDHCP6Enabled(),
+						),
+					)
+					if err != nil {
+						return nil, err
+					}
+
+					vmi := libvmi.NewFedora(
+						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
+					)
+
+					return vmi, nil
+				}
 
 				// Create the client only one time
 				if clientVMI == nil {
-					clientVMI = masqueradeVMI([]v1.Port{}, "")
+					clientVMI, err = fedoraMasqueradeVMI([]v1.Port{})
+					Expect(err).ToNot(HaveOccurred())
 					clientVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
 					Expect(err).ToNot(HaveOccurred())
-					clientVMI = tests.WaitUntilVMIReady(clientVMI, libnet.WithIPv6(console.LoginToCirros))
+					clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
 				}
 
-				serverVMI = masqueradeVMI(ports, "")
+				serverVMI, err = fedoraMasqueradeVMI(ports)
+				Expect(err).ToNot(HaveOccurred())
 
 				serverVMI.Labels = map[string]string{"expose": "server"}
 				serverVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
 				Expect(err).ToNot(HaveOccurred())
-				serverVMI = tests.WaitUntilVMIReady(serverVMI, libnet.WithIPv6(console.LoginToCirros))
+				serverVMI = tests.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
 				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 
@@ -734,7 +757,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				// https://github.com/kubevirt/project-infra/blob/master/github/ci/shared-deployments/files/docker-daemon-mirror.conf#L5
 				Expect(libnet.PingFromVMConsole(serverVMI, "2001:db8:1::1")).To(Succeed())
 
-				verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)
+				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
 			}, table.Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}),
 				table.Entry("without a specific port number [IPv6]", []v1.Port{}),
 			)
