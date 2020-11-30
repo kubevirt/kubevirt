@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	netutils "k8s.io/utils/net"
 	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -607,19 +606,11 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 	})
 
 	Context("VirtualMachineInstance with masquerade binding mechanism", func() {
-		const (
-			defaultCIDR = false
-			customCIDR  = true
-		)
-
-		var serverVMI *v1.VirtualMachineInstance
-		var clientVMI *v1.VirtualMachineInstance
-
-		masqueradeVMI := func(Ports []v1.Port, ipv4NetworkCIDR string) *v1.VirtualMachineInstance {
+		masqueradeVMI := func(ports []v1.Port, ipv4NetworkCIDR string) *v1.VirtualMachineInstance {
 			containerImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			userData := "#!/bin/bash\necho 'hello'\n"
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: Ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
 			net := v1.DefaultPodNetwork()
 			if ipv4NetworkCIDR != "" {
 				net.NetworkSource.Pod.VMNetworkCIDR = ipv4NetworkCIDR
@@ -629,70 +620,125 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			return vmi
 		}
 
-		table.DescribeTable("[Conformance][test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", func(ports []v1.Port, withCustomCIDR bool) {
-			var ipv4NetworkCIDR string
+		Context("[Conformance][test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", func() {
+			const (
+				defaultCIDR = false
+				customCIDR  = true
+			)
 
-			if withCustomCIDR {
-				ipv4NetworkCIDR = "10.10.10.0/24"
-			}
+			var serverVMI *v1.VirtualMachineInstance
 
-			// Create the client only one time
-			if clientVMI == nil {
-				clientVMI = masqueradeVMI([]v1.Port{}, ipv4NetworkCIDR)
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
-				Expect(err).ToNot(HaveOccurred())
-				clientVMI = tests.WaitUntilVMIReady(clientVMI, libnet.WithIPv6(console.LoginToCirros))
-			}
-
-			serverVMI = masqueradeVMI(ports, ipv4NetworkCIDR)
-			serverVMI.Labels = map[string]string{"expose": "server"}
-			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
-			Expect(err).ToNot(HaveOccurred())
-			serverVMI = tests.WaitUntilVMIReady(serverVMI, libnet.WithIPv6(console.LoginToCirros))
-			Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
-			Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
-
-			By("starting a tcp server")
-			tcpPort := 8080
-			tests.StartTCPServer(serverVMI, tcpPort)
-
-			for _, serverIP := range serverVMI.Status.Interfaces[0].IPs {
-				if netutils.IsIPv6String(serverIP) {
-					By("Checking ping (IPv6) from vmi to cluster nodes gateway")
-					// Cluster nodes subnet (docker network gateway)
-					// Docker network subnet cidr definition:
-					// https://github.com/kubevirt/project-infra/blob/master/github/ci/shared-deployments/files/docker-daemon-mirror.conf#L5
-					Expect(libnet.PingFromVMConsole(serverVMI, "2001:db8:1::1")).To(Succeed())
-				} else {
-					if ipv4NetworkCIDR == "" {
-						ipv4NetworkCIDR = api.DefaultVMCIDR
-					}
-					By("Checking ping (IPv4) to gateway")
-					ipAddr := gatewayIPFromCIDR(ipv4NetworkCIDR)
-					Expect(libnet.PingFromVMConsole(serverVMI, ipAddr)).To(Succeed())
-
-					By("Checking ping (IPv4) to google")
-					Expect(libnet.PingFromVMConsole(serverVMI, "8.8.8.8")).To(Succeed())
-					Expect(libnet.PingFromVMConsole(clientVMI, "google.com")).To(Succeed())
+			verifyClientServerConnectivity := func(clientVMI *v1.VirtualMachineInstance, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
+				serverIP := libnet.GetVmiPrimaryIpByFamily(serverVMI, ipFamily)
+				err := libnet.PingFromVMConsole(clientVMI, serverIP)
+				if err != nil {
+					return err
 				}
-
-				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
 
 				By("Connecting from the client vm")
 				err = console.SafeExpectBatch(clientVMI, createExpectConnectToServer(serverIP, tcpPort, true), 30)
-				Expect(err).ToNot(HaveOccurred())
+				if err != nil {
+					return err
+				}
 
 				By("Rejecting the connection from the client to unregistered port")
 				err = console.SafeExpectBatch(clientVMI, createExpectConnectToServer(serverIP, tcpPort+1, false), 30)
-				Expect(err).ToNot(HaveOccurred())
+				if err != nil {
+					return err
+				}
+
+				return nil
 			}
 
-			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(serverVMI.Name, &v13.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		}, table.Entry("with a specific port number", []v1.Port{{Name: "http", Port: 8080}}, defaultCIDR),
-			table.Entry("without a specific port number", []v1.Port{}, defaultCIDR),
-			table.Entry("with custom CIDR", []v1.Port{}, customCIDR),
-		)
+			AfterEach(func() {
+				err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(serverVMI.Name, &v13.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			table.DescribeTable("ipv4", func(ports []v1.Port, withCustomCIDR bool) {
+				var clientVMI *v1.VirtualMachineInstance
+				var networkCIDR string
+
+				if withCustomCIDR {
+					networkCIDR = "10.10.10.0/24"
+				}
+
+				// Create the client only one time
+				if clientVMI == nil {
+					clientVMI = masqueradeVMI([]v1.Port{}, networkCIDR)
+					_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
+					Expect(err).ToNot(HaveOccurred())
+					clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToCirros)
+				}
+
+				serverVMI = masqueradeVMI(ports, networkCIDR)
+
+				serverVMI.Labels = map[string]string{"expose": "server"}
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
+				Expect(err).ToNot(HaveOccurred())
+				serverVMI = tests.WaitUntilVMIReady(serverVMI, console.LoginToCirros)
+				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
+				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
+
+				By("starting a tcp server")
+				tcpPort := 8080
+				tests.StartTCPServer(serverVMI, tcpPort)
+
+				if networkCIDR == "" {
+					networkCIDR = api.DefaultVMCIDR
+				}
+
+				By("Checking ping (IPv4) to gateway")
+				ipAddr := gatewayIPFromCIDR(networkCIDR)
+				Expect(libnet.PingFromVMConsole(serverVMI, ipAddr)).To(Succeed())
+
+				By("Checking ping (IPv4) to google")
+				Expect(libnet.PingFromVMConsole(serverVMI, "8.8.8.8")).To(Succeed())
+				Expect(libnet.PingFromVMConsole(clientVMI, "google.com")).To(Succeed())
+
+				verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv4Protocol)
+			}, table.Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080}}, defaultCIDR),
+				table.Entry("without a specific port number [IPv4]", []v1.Port{}, defaultCIDR),
+				table.Entry("with custom CIDR [IPv4]", []v1.Port{}, customCIDR),
+			)
+
+			table.DescribeTable("IPv6", func(ports []v1.Port) {
+				var clientVMI *v1.VirtualMachineInstance
+
+				libnet.SkipWhenNotDualStackCluster(virtClient)
+
+				// Create the client only one time
+				if clientVMI == nil {
+					clientVMI = masqueradeVMI([]v1.Port{}, "")
+					clientVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
+					Expect(err).ToNot(HaveOccurred())
+					clientVMI = tests.WaitUntilVMIReady(clientVMI, libnet.WithIPv6(console.LoginToCirros))
+				}
+
+				serverVMI = masqueradeVMI(ports, "")
+
+				serverVMI.Labels = map[string]string{"expose": "server"}
+				serverVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
+				Expect(err).ToNot(HaveOccurred())
+				serverVMI = tests.WaitUntilVMIReady(serverVMI, libnet.WithIPv6(console.LoginToCirros))
+				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
+				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
+
+				By("starting a tcp server")
+				tcpPort := 8080
+				tests.StartTCPServer(serverVMI, tcpPort)
+
+				By("Checking ping (IPv6) from vmi to cluster nodes gateway")
+				// Cluster nodes subnet (docker network gateway)
+				// Docker network subnet cidr definition:
+				// https://github.com/kubevirt/project-infra/blob/master/github/ci/shared-deployments/files/docker-daemon-mirror.conf#L5
+				Expect(libnet.PingFromVMConsole(serverVMI, "2001:db8:1::1")).To(Succeed())
+
+				verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)
+			}, table.Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}),
+				table.Entry("without a specific port number [IPv6]", []v1.Port{}),
+			)
+		})
 
 		When("performing migration", func() {
 			var vmi *v1.VirtualMachineInstance
