@@ -1906,7 +1906,7 @@ func NewRandomVMI() *v1.VirtualMachineInstance {
 }
 
 func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
-	vmi := v1.NewMinimalVMIWithNS(namespace, "testvmi"+rand.String(48))
+	vmi := v1.NewMinimalVMIWithNS(namespace, "testvmi-"+rand.String(12))
 
 	t := defaultTestGracePeriod
 	vmi.Spec.TerminationGracePeriodSeconds = &t
