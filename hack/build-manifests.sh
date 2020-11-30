@@ -55,8 +55,8 @@ DEFAULT_CSV_GENERATOR="/usr/bin/csv-generator"
 
 INDEX_IMAGE_DIR=${DEPLOY_DIR}/index-image
 
-OPERATOR_NAME="${NAME:-kubevirt-hyperconverged-operator}"
-OPERATOR_NAMESPACE="${NAMESPACE:-kubevirt-hyperconverged}"
+OPERATOR_NAME="${OPERATOR_NAME:-kubevirt-hyperconverged-operator}"
+OPERATOR_NAMESPACE="${OPERATOR_NAMESPACE:-kubevirt-hyperconverged}"
 IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 
 # Important extensions
