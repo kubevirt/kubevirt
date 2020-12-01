@@ -320,11 +320,7 @@ func (c *EvacuationController) execute(key string) error {
 		return fmt.Errorf("failed to list VMIs on node: %v", err)
 	}
 
-	migrations, err := migrationutils.ListUnfinishedMigrations(c.migrationInformer)
-
-	if err != nil {
-		return fmt.Errorf("failed to list not finished migrations: %v", err)
-	}
+	migrations := migrationutils.ListUnfinishedMigrations(c.migrationInformer)
 
 	return c.sync(node, vmis, migrations)
 }

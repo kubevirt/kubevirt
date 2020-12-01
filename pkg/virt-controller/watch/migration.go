@@ -856,11 +856,7 @@ func (c *MigrationController) outboundMigrationsOnNode(node string, runningMigra
 func (c *MigrationController) findRunningMigrations() ([]*virtv1.VirtualMachineInstanceMigration, error) {
 
 	// Don't start new migrations if we wait for migration object updates because of new target pods
-	notFinishedMigrations, err := migrations.ListUnfinishedMigrations(c.migrationInformer)
-	if err != nil {
-		return nil, err
-	}
-
+	notFinishedMigrations := migrations.ListUnfinishedMigrations(c.migrationInformer)
 	var runningMigrations []*virtv1.VirtualMachineInstanceMigration
 	for _, migration := range notFinishedMigrations {
 		if migration.IsRunning() {

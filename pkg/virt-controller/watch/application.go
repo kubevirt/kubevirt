@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/snapshot"
+	workloadupdater "kubevirt.io/kubevirt/pkg/virt-controller/watch/workload-updater"
 )
 
 const (
@@ -137,6 +138,8 @@ type VirtControllerApp struct {
 
 	migrationController *MigrationController
 	migrationInformer   cache.SharedIndexInformer
+
+	workloadUpdateController *workloadupdater.WorkloadUpdateController
 
 	snapshotController        *snapshot.VMSnapshotController
 	restoreController         *snapshot.VMRestoreController
@@ -297,6 +300,7 @@ func Execute() {
 	app.initEvacuationController()
 	app.initSnapshotController()
 	app.initRestoreController()
+	app.initWorkloadUpdaterController()
 	go app.Run()
 
 	select {
@@ -405,6 +409,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		go vca.migrationController.Run(vca.migrationControllerThreads, stop)
 		go vca.snapshotController.Run(vca.snapshotControllerThreads, stop)
 		go vca.restoreController.Run(vca.restoreControllerThreads, stop)
+		go vca.workloadUpdateController.Run(stop)
 		cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
 		close(vca.readyChan)
 		leaderGauge.Set(1)
@@ -471,6 +476,18 @@ func (vca *VirtControllerApp) initDisruptionBudgetController() {
 		vca.clientSet,
 	)
 
+}
+
+func (vca *VirtControllerApp) initWorkloadUpdaterController() {
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "workload-update-controller")
+	vca.workloadUpdateController = workloadupdater.NewWorkloadUpdateController(
+		vca.vmiInformer,
+		vca.migrationInformer,
+		vca.kubeVirtInformer,
+		recorder,
+		vca.clientSet,
+		vca.clusterConfig,
+		vca.launcherImage)
 }
 
 func (vca *VirtControllerApp) initEvacuationController() {

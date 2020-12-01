@@ -197,6 +197,11 @@ type VirtualMachineInstanceStatus struct {
 	// +optional
 	// +listType=atomic
 	VolumeStatus []VolumeStatus `json:"volumeStatus,omitempty"`
+
+	// CurrentLauncherImage contains the launcher container image
+	// that is currently active for this vmi
+	// +optional
+	CurrentLauncherImage string `json:"currentLauncherImage,omitempty"`
 }
 
 // VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.
@@ -570,6 +575,9 @@ const (
 	// This annotation indicates that a migration is the result of an
 	// automated evacuation
 	EvacuationMigrationAnnotation string = "kubevirt.io/evacuationMigration"
+	// This annotation indicates that a migration is the result of an
+	// automated workload update
+	WorkloadUpdateMigrationAnnotation string = "kubevirt.io/workloadUpdateMigration"
 	// This label declares whether a particular node is available for
 	// scheduling virtual machine instances on it. Used on Node.
 	NodeSchedulable string = "kubevirt.io/schedulable"
