@@ -50,11 +50,10 @@ http_archive(
 
 http_archive(
     name = "com_github_atlassian_bazel_tools",
-    sha256 = "e4737fd3636d23f12cd3f9880b1cfa75c1bbdd4a967852785e227f3b0ab11844",
-    strip_prefix = "bazel-tools-7d296003f478325b4a933c2b1372426d3a0926f0",
+    sha256 = "29813b426161f1f09f940e62224f4e54e5737686f2bd22146807d933fa1fa768",
+    strip_prefix = "bazel-tools-82b58b374e3b1746d6d6a58a37f7ada4400a13ce",
     urls = [
-        "https://github.com/atlassian/bazel-tools/archive/7d296003f478325b4a933c2b1372426d3a0926f0.zip",
-        "https://storage.googleapis.com/builddeps/e4737fd3636d23f12cd3f9880b1cfa75c1bbdd4a967852785e227f3b0ab11844",
+        "https://github.com/atlassian/bazel-tools/archive/82b58b374e3b1746d6d6a58a37f7ada4400a13ce.zip",
     ],
 )
 
