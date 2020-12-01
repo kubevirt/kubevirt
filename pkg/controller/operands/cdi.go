@@ -81,12 +81,7 @@ func (h *cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists
 }
 
 func (h *cdiHooks) postFound(req *common.HcoRequest, exists runtime.Object) error {
-	err := h.ensureKubeVirtStorageConfig(req)
-	if err != nil {
-		return err
-	}
-
-	err = h.ensureKubeVirtStorageRole(req)
+	err := h.ensureKubeVirtStorageRole(req)
 	if err != nil {
 		return err
 	}
@@ -189,39 +184,6 @@ func (h *cdiHooks) ensureKubeVirtStorageRoleBinding(req *common.HcoRequest) erro
 	return nil
 }
 
-func (h *cdiHooks) ensureKubeVirtStorageConfig(req *common.HcoRequest) error {
-	kubevirtStorageConfig := NewKubeVirtStorageConfigForCR(req.Instance, req.Namespace)
-	if err := controllerutil.SetControllerReference(req.Instance, kubevirtStorageConfig, h.Scheme); err != nil {
-		return err
-	}
-
-	key, err := client.ObjectKeyFromObject(kubevirtStorageConfig)
-	if err != nil {
-		req.Logger.Error(err, "Failed to get object key for kubevirt storage config")
-	}
-
-	found := &corev1.ConfigMap{}
-	err = h.Client.Get(req.Ctx, key, found)
-	if err != nil && apierrors.IsNotFound(err) {
-		req.Logger.Info("Creating kubevirt storage config")
-		return h.Client.Create(req.Ctx, kubevirtStorageConfig)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	req.Logger.Info("KubeVirt storage config already exists", "KubeVirtConfig.Namespace", found.Namespace, "KubeVirtConfig.Name", found.Name)
-	// Add it to the list of RelatedObjects if found
-	objectRef, err := reference.GetReference(h.Scheme, found)
-	if err != nil {
-		return err
-	}
-	objectreferencesv1.SetObjectReference(&req.Instance.Status.RelatedObjects, *objectRef)
-
-	return nil
-}
-
 func NewKubeVirtStorageRoleForCR(cr *hcov1beta1.HyperConverged, namespace string) *rbacv1.Role {
 	labels := map[string]string{
 		"app": cr.Name,
@@ -268,11 +230,69 @@ func NewKubeVirtStorageRoleBindingForCR(cr *hcov1beta1.HyperConverged, namespace
 	}
 }
 
+// ************** CDI Storage Config Handler **************
+type storageConfigHandler genericOperand
+
+func newStorageConfigHandler(Client client.Client, Scheme *runtime.Scheme) *storageConfigHandler {
+	return &storageConfigHandler{
+		Client:                 Client,
+		Scheme:                 Scheme,
+		crType:                 "StorageConfigmap",
+		isCr:                   false,
+		removeExistingOwner:    false,
+		setControllerReference: true,
+		hooks:                  &storageConfigHooks{},
+	}
+}
+
+type storageConfigHooks struct{}
+
+func (h storageConfigHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
+	return NewKubeVirtStorageConfigForCR(hc, hc.Namespace)
+}
+func (h storageConfigHooks) getEmptyCr() runtime.Object                              { return &corev1.ConfigMap{} }
+func (h storageConfigHooks) validate() error                                         { return nil }
+func (h storageConfigHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error  { return nil }
+func (h storageConfigHooks) getConditions(_ runtime.Object) []conditionsv1.Condition { return nil }
+func (h storageConfigHooks) checkComponentVersion(_ runtime.Object) bool             { return true }
+func (h storageConfigHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
+	return &cr.(*corev1.ConfigMap).ObjectMeta
+}
+func (h *storageConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+	storageConfig, ok1 := required.(*corev1.ConfigMap)
+	found, ok2 := exists.(*corev1.ConfigMap)
+	if !ok1 || !ok2 {
+		return false, false, errors.New("can't convert to a ConfigMap")
+	}
+
+	// Merge old & new values. This is necessary in case the user has defined
+	// their own chosen values in the configmap.
+	needsUpdate := false
+	for key, value := range storageConfig.Data {
+		if found.Data[key] != value {
+			found.Data[key] = value
+			needsUpdate = true
+		}
+	}
+	if needsUpdate {
+		req.Logger.Info("Updating existing KubeVirt Storage Configmap to its default values")
+		err := Client.Update(req.Ctx, found)
+		if err != nil {
+			return false, false, err
+		}
+		return true, false, nil
+	}
+
+	return false, false, nil
+}
+
 func NewKubeVirtStorageConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
 	localSC := "local-sc"
 	if *(&cr.Spec.LocalStorageClassName) != "" {
 		localSC = *(&cr.Spec.LocalStorageClassName)
 	}
+
+	ocsRBD := "ocs-storagecluster-ceph-rbd"
 
 	labels := map[string]string{
 		hcoutil.AppLabel: cr.Name,
@@ -288,6 +308,8 @@ func NewKubeVirtStorageConfigForCR(cr *hcov1beta1.HyperConverged, namespace stri
 			"volumeMode":            "Filesystem",
 			localSC + ".accessMode": "ReadWriteOnce",
 			localSC + ".volumeMode": "Filesystem",
+			ocsRBD + ".accessMode":  "ReadWriteMany",
+			ocsRBD + ".volumeMode":  "Block",
 		},
 	}
 }

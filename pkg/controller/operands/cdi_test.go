@@ -346,9 +346,9 @@ var _ = Describe("CDI Operand", func() {
 		It("should create if not present", func() {
 			expectedResource := NewKubeVirtStorageConfigForCR(hco, commonTestUtils.Namespace)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := newCdiHandler(cl, commonTestUtils.GetScheme())
-			err := handler.hooks.(*cdiHooks).ensureKubeVirtStorageConfig(req)
-			Expect(err).To(BeNil())
+			handler := (*genericOperand)(newStorageConfigHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.Err).To(BeNil())
 
 			foundResource := &corev1.ConfigMap{}
 			Expect(
@@ -365,9 +365,9 @@ var _ = Describe("CDI Operand", func() {
 			expectedResource := NewKubeVirtStorageConfigForCR(hco, commonTestUtils.Namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
-			err := handler.hooks.(*cdiHooks).ensureKubeVirtStorageConfig(req)
-			Expect(err).To(BeNil())
+			handler := (*genericOperand)(newStorageConfigHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.Err).To(BeNil())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -375,6 +375,38 @@ var _ = Describe("CDI Operand", func() {
 			Expect(err).To(BeNil())
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
+		})
+
+		It("should update if created in the past with a different configuration", func() {
+			newKeys := [...]string{"ocs-storagecluster-ceph-rbd.accessMode", "ocs-storagecluster-ceph-rbd.volumeMode"}
+
+			expectedResource := NewKubeVirtStorageConfigForCR(hco, commonTestUtils.Namespace)
+			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+			outdatedResource := NewKubeVirtStorageConfigForCR(hco, commonTestUtils.Namespace)
+			outdatedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+			// remove value that wasn't there in the past
+			for _, k := range newKeys {
+				delete(outdatedResource.Data, k)
+			}
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, outdatedResource})
+			handler := (*genericOperand)(newStorageConfigHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &corev1.ConfigMap{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			for _, k := range newKeys {
+				Expect(expectedResource.Data).To(HaveKey(k))
+				Expect(outdatedResource.Data).To(Not(HaveKey(k)))
+				Expect(foundResource.Data).To(HaveKey(k))
+				Expect(foundResource.Data[k]).To(Equal(expectedResource.Data[k]))
+			}
 		})
 
 		It("volumeMode should be filesystem when platform is baremetal", func() {

@@ -41,6 +41,7 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshift
 		(*genericOperand)(newKvPriorityClassHandler(client, scheme)),
 		(*genericOperand)(newKubevirtHandler(client, scheme)),
 		(*genericOperand)(newCdiHandler(client, scheme)),
+		(*genericOperand)(newStorageConfigHandler(client, scheme)),
 		(*genericOperand)(newCnaHandler(client, scheme)),
 		(*genericOperand)(newVmImportHandler(client, scheme)),
 		(*genericOperand)(newImsConfigHandler(client, scheme)),
