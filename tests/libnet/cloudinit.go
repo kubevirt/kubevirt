@@ -191,9 +191,8 @@ func CreateDefaultCloudInitNetworkData() (string, error) {
 	return NewNetworkData(
 		WithEthernet("eth0",
 			WithDHCP4Enabled(),
-			WithAddresses(DefaultIPv6CIDR),
-			WithGateway6(DefaultIPv6Gateway),
-			WithNameserverFromCluster(),
+			WithDHCP6Enabled(),
+			WithAcceptRA(),
 		),
 	)
 }

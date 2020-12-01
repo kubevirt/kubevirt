@@ -90,8 +90,9 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 				BeforeEach(func() {
 					var err error
 
-					vmi, err = newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithBridgeBinding())
+					networkData, err := createStaticIpv6CloudInitNetworkData()
 					Expect(err).NotTo(HaveOccurred())
+					vmi = newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithBridgeBinding(), networkData)
 
 					vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 					Expect(err).NotTo(HaveOccurred())
@@ -133,8 +134,9 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 				var vmi *v1.VirtualMachineInstance
 
 				BeforeEach(func() {
-					tmpVmi, err := newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithMasqueradeBinding())
+					networkData, err := libnet.CreateDefaultCloudInitNetworkData()
 					Expect(err).NotTo(HaveOccurred())
+					tmpVmi := newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(), networkData)
 
 					tmpVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(tmpVmi)
 					Expect(err).NotTo(HaveOccurred())
@@ -223,17 +225,23 @@ func vmiWithMasqueradeBinding() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func newFedoraWithGuestAgentAndDefaultInterface(iface v1.Interface) (*v1.VirtualMachineInstance, error) {
-	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
-	if err != nil {
-		return nil, err
-	}
-
+func newFedoraWithGuestAgentAndDefaultInterface(iface v1.Interface, networkData string) *v1.VirtualMachineInstance {
 	vmi := libvmi.NewFedora(
 		libvmi.WithInterface(iface),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithCloudInitNoCloudUserData(tests.GetGuestAgentUserData(), false),
 		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 	)
-	return vmi, nil
+	return vmi
+}
+
+func createStaticIpv6CloudInitNetworkData() (string, error) {
+	return libnet.NewNetworkData(
+		libnet.WithEthernet("eth0",
+			libnet.WithDHCP4Enabled(),
+			libnet.WithAddresses(libnet.DefaultIPv6CIDR),
+			libnet.WithGateway6(libnet.DefaultIPv6Gateway),
+			libnet.WithNameserverFromCluster(),
+		),
+	)
 }

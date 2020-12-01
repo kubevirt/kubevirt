@@ -707,18 +707,12 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 				var clientVMI *v1.VirtualMachineInstance
 
-				fedoraMasqueradeVMI := func(ports []v1.Port) *v1.VirtualMachineInstance {
+				fedoraMasqueradeVMI := func(ports []v1.Port) (*v1.VirtualMachineInstance, error) {
 					userData := fmt.Sprintf(`#!/bin/bash
                       echo "fedora" |passwd fedora --stdin
                       sudo yum install -y screen`)
 
-					networkData, _ := libnet.NewNetworkData(
-						libnet.WithEthernet("eth0",
-							libnet.WithDHCP4Enabled(),
-							libnet.WithDHCP6Enabled(),
-							libnet.WithAcceptRA(),
-						),
-					)
+					networkData, err := libnet.CreateDefaultCloudInitNetworkData()
 
 					vmi := libvmi.NewFedora(
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
@@ -728,18 +722,20 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 						libvmi.WithResourceMemory("1024M"),
 					)
 
-					return vmi
+					return vmi, err
 				}
 
 				// Create the client only one time
 				if clientVMI == nil {
-					clientVMI = fedoraMasqueradeVMI([]v1.Port{})
+					clientVMI, err = fedoraMasqueradeVMI([]v1.Port{})
+					Expect(err).ToNot(HaveOccurred())
 					clientVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
 					Expect(err).ToNot(HaveOccurred())
 					clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
 				}
 
-				serverVMI = fedoraMasqueradeVMI(ports)
+				serverVMI, err = fedoraMasqueradeVMI(ports)
+				Expect(err).ToNot(HaveOccurred())
 
 				serverVMI.Labels = map[string]string{"expose": "server"}
 				serverVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
