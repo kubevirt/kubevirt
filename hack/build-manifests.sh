@@ -31,15 +31,15 @@ trap 'catch $? $LINENO' ERR TERM INT
 # of the manifests into a single, unified, ClusterServiceVersion.
 
 function get_image_digest() {
-  if [[ ! -f ./tools/digester/digester ]]; then
+  if [[ ! -f ${PROJECT_ROOT}/tools/digester/digester ]]; then
     (
-      cd ./tools/digester
+      cd "${PROJECT_ROOT}/tools/digester"
       go build .
     )
   fi
 
   local image
-  image=$(./tools/digester/digester -image "$1")
+  image=$("${PROJECT_ROOT}/tools/digester/digester" -image "$1" "$2")
   echo "${image}"
 }
 
@@ -94,16 +94,18 @@ function gen_csv() {
 }
 
 function create_virt_csv() {
+  local apiSha
+  local controllerSha
+  local launcherSha
+  local handlerSha
+
+  apiSha="${KUBEVIRT_API_IMAGE/*@/}"
+  controllerSha="${KUBEVIRT_CONTROLLER_IMAGE/*@/}"
+  launcherSha="${KUBEVIRT_LAUNCHER_IMAGE/*@/}"
+  handlerSha="${KUBEVIRT_HANDLER_IMAGE/*@/}"
+
   local operatorName="kubevirt"
   local dumpCRDsArg="--dumpCRDs"
-  local apiSha
-  apiSha="${KUBEVIRT_API_IMAGE/*@/}"
-  local controllerSha
-  controllerSha="${KUBEVIRT_CONTROLLER_IMAGE/*@/}"
-  local launcherSha
-  launcherSha="${KUBEVIRT_LAUNCHER_IMAGE/*@/}"
-  local handlerSha
-  handlerSha="${KUBEVIRT_HANDLER_IMAGE/*@/}"
   local operatorArgs
   operatorArgs=" \
     --namespace=${OPERATOR_NAMESPACE} \
@@ -397,4 +399,3 @@ cp "${OLM_DIR}/bundle.Dockerfile" "${INDEX_IMAGE_DIR:?}/"
 
 INDEX_IMAGE_CSV="${INDEX_IMAGE_DIR}/kubevirt-hyperconverged/${CSV_VERSION}/kubevirt-hyperconverged-operator.v${CSV_VERSION}.${CSV_EXT}"
 sed -r -i "s|createdAt: \".*\$|createdAt: \"2020-10-23 08:58:25\"|; s|quay.io/kubevirt/hyperconverged-cluster-operator.*$|+IMAGE_TO_REPLACE+|; s|quay.io/kubevirt/hyperconverged-cluster-webhook.*$|+WEBHOOK_IMAGE_TO_REPLACE+|" ${INDEX_IMAGE_CSV}
-

@@ -65,7 +65,9 @@ func (i *Image) setDigest(digest string) {
 
 func main() {
 
+	digestOnly := false
 	imageToDigest := flag.String("image", "", "single image in name:tag format; if exists, returns only one digest fo this image, instead of processing the CSV file.")
+	flag.BoolVar(&digestOnly, "d", false, "when using --image, digester will only print the digest hex itself, without the image name")
 
 	flag.Parse()
 
@@ -92,9 +94,12 @@ func main() {
 
 		digest := inspect.Descriptor.Digest.Hex()
 		loc := strings.LastIndex(*imageToDigest, ":")
-		imageName := (*imageToDigest)[:loc] + "@sha256:" + digest
-
-		fmt.Println(imageName)
+		if digestOnly {
+			fmt.Println(digest)
+		} else {
+			imageName := (*imageToDigest)[:loc] + "@sha256:" + digest
+			fmt.Println(imageName)
+		}
 		os.Exit(0)
 	}
 
