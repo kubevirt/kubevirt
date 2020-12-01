@@ -115,7 +115,7 @@ func (r *HyperConverged) ValidateDelete() error {
 		r.NewKubeVirt(),
 		r.NewCDI(),
 	} {
-		err := hcoutil.EnsureDeleted(ctx, cli, obj, r.Name, hcolog, true)
+		err := hcoutil.EnsureDeleted(ctx, cli, obj, r.Name, hcolog, true, false)
 		if err != nil {
 			hcolog.Error(err, "Delete validation failed", "GVK", obj.GetObjectKind().GroupVersionKind())
 			return err

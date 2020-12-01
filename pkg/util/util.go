@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 
@@ -212,12 +213,15 @@ func GetRuntimeObject(ctx context.Context, c client.Client, obj runtime.Object, 
 }
 
 // ComponentResourceRemoval removes the resource `obj` if it exists and belongs to the HCO
-func ComponentResourceRemoval(ctx context.Context, c client.Client, obj interface{}, hcoName string, logger logr.Logger, dryRun bool) error {
+// with wait=true it will wait, (util ctx timeout, please set it!) for the resource to be effectively deleted
+func ComponentResourceRemoval(ctx context.Context, c client.Client, obj interface{}, hcoName string, logger logr.Logger, dryRun bool, wait bool) error {
 	resource, err := toUnstructured(obj)
 	if err != nil {
 		logger.Error(err, "Failed to convert object to Unstructured")
 		return err
 	}
+
+	logger.Info("Removing resource", "name", resource.GetName(), "namespace", resource.GetNamespace(), "GVK", resource.GetObjectKind().GroupVersionKind(), "dryRun", dryRun)
 
 	err = c.Get(ctx, types.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, resource)
 	if err != nil {
@@ -239,14 +243,45 @@ func ComponentResourceRemoval(ctx context.Context, c client.Client, obj interfac
 	if dryRun {
 		opts.DryRun = []string{metav1.DryRunAll}
 	}
+	if wait {
+		foreground := metav1.DeletePropagationForeground
+		opts.PropagationPolicy = &foreground
+	}
 
-	logger.Info("Removing resource", "GVK", resource.GetObjectKind().GroupVersionKind(), "DryRun", dryRun)
+	dErr := c.Delete(ctx, resource, opts)
+	if dErr != nil {
+		if apierrors.IsNotFound(dErr) {
+			// to be idempotent if called on a object that was
+			// already marked for deletion in a previous reconciliation loop
+			return nil
+		}
+		// failure
+		return dErr
+	}
+	if !wait || dryRun {
+		return nil
+	}
 
-	return c.Delete(ctx, resource, opts)
+	for {
+		err = c.Get(ctx, types.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, resource)
+		if apierrors.IsNotFound(err) {
+			// success!
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			// failed to delete in time
+			return errors.New(fmt.Sprintf("timed out waiting for %q - %q to be deleted", resource.GetObjectKind(), resource.GetName()))
+		case <-time.After(100 * time.Millisecond):
+			// do nothing, try again
+		}
+	}
+	return errors.New(fmt.Sprintf("timed out waiting for %q - %q to be deleted", resource.GetObjectKind(), resource.GetName()))
 }
 
 // EnsureDeleted calls ComponentResourceRemoval if the runtime object exists
-func EnsureDeleted(ctx context.Context, c client.Client, obj runtime.Object, hcoName string, logger logr.Logger, dryRun bool) error {
+// with wait=true it will wait, (util ctx timeout, please set it!) for the resource to be effectively deleted
+func EnsureDeleted(ctx context.Context, c client.Client, obj runtime.Object, hcoName string, logger logr.Logger, dryRun bool, wait bool) error {
 	err := GetRuntimeObject(ctx, c, obj, logger)
 
 	if err != nil {
@@ -259,7 +294,7 @@ func EnsureDeleted(ctx context.Context, c client.Client, obj runtime.Object, hco
 		return err
 	}
 
-	return ComponentResourceRemoval(ctx, c, obj, hcoName, logger, dryRun)
+	return ComponentResourceRemoval(ctx, c, obj, hcoName, logger, dryRun, wait)
 }
 
 // EnsureCreated creates the runtime object if it does not exist

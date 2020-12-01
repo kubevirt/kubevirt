@@ -311,6 +311,11 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 			req.Dirty = req.Dirty || fin_dropped
 		}
 	} else {
+		if !req.HCOTriggered {
+			// this is just the effect of a delete request created by HCO
+			// in the previous iteration, ignore it
+			return reconcile.Result{}, nil
+		}
 		return r.ensureHcoDeleted(req)
 	}
 
