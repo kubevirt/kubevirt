@@ -602,6 +602,14 @@ var _ = Describe("[Serial]SRIOV", func() {
 		sriovResourceName = "openshift.io/sriov_net"
 	}
 
+	createNetworkAttachementDefinition := func(networkName string, namespace string, networkAttachmentDefinition string) error {
+		return virtClient.RestClient().
+			Post().
+			RequestURI(fmt.Sprintf(postUrl, namespace, networkName)).
+			Body([]byte(fmt.Sprintf(networkAttachmentDefinition, networkName, namespace, sriovResourceName))).
+			Do().Error()
+	}
+
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
@@ -613,25 +621,9 @@ var _ = Describe("[Serial]SRIOV", func() {
 			Skip("Sriov is not enabled in this environment. Skip these tests using - export FUNC_TEST_ARGS='--ginkgo.skip=SRIOV'")
 		}
 
-		// Create two sriov networks referring to the same resource name
-		result := virtClient.RestClient().
-			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, sriovnet1)).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, sriovnet1, tests.NamespaceTestDefault, sriovResourceName))).
-			Do()
-		Expect(result.Error()).NotTo(HaveOccurred())
-		result = virtClient.RestClient().
-			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, sriovnet2)).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, sriovnet2, tests.NamespaceTestDefault, sriovResourceName))).
-			Do()
-		Expect(result.Error()).NotTo(HaveOccurred())
-		result = virtClient.RestClient().
-			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, sriovnet3)).
-			Body([]byte(fmt.Sprintf(sriovLinkEnableConfCRD, sriovnet3, tests.NamespaceTestDefault, sriovResourceName))).
-			Do()
-		Expect(result.Error()).NotTo(HaveOccurred())
+		Expect(createNetworkAttachementDefinition(sriovnet1, tests.NamespaceTestDefault, sriovConfCRD)).To((Succeed()), "should successfully create the network")
+		Expect(createNetworkAttachementDefinition(sriovnet2, tests.NamespaceTestDefault, sriovConfCRD)).To((Succeed()), "should successfully create the network")
+		Expect(createNetworkAttachementDefinition(sriovnet3, tests.NamespaceTestDefault, sriovLinkEnableConfCRD)).To((Succeed()), "should successfully create the network")
 	})
 
 	BeforeEach(func() {
