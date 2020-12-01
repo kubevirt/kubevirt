@@ -45,7 +45,7 @@ func New(name string, opts ...Option) *kvirtv1.VirtualMachineInstance {
 
 // RandName returns a random name by concatanating the given name with a random string.
 func RandName(name string) string {
-	return name + rand.String(48)
+	return name + rand.String(5)
 }
 
 // WithTerminationGracePeriod specifies the termination grace period in seconds.
