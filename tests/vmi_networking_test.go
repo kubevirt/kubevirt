@@ -547,7 +547,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(dhcpVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(dhcpVMI, libnet.WithIPv6(console.LoginToFedora))
+			tests.WaitUntilVMIReady(dhcpVMI, console.LoginToFedora)
 
 			err = console.SafeExpectBatch(dhcpVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
