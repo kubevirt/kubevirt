@@ -7,13 +7,10 @@ import (
 
 	"golang.org/x/net/ipv6"
 
-	"github.com/vishvananda/netlink"
-
 	"github.com/insomniacslk/dhcp/dhcpv6"
 	"github.com/insomniacslk/dhcp/dhcpv6/server6"
 	"github.com/insomniacslk/dhcp/iana"
 
-	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 )
 
@@ -29,12 +26,7 @@ type DHCPv6Handler struct {
 
 func SingleClientDHCPv6Server(
 	clientIP net.IP,
-	serverIfaceName string,
-	dnsIPs [][]byte,
-	routes *[]netlink.Route,
-	searchDomains []string,
-	mtu uint16,
-	customDHCPOptions *v1.DHCPOptions) error {
+	serverIfaceName string) error {
 
 	log.Log.Info("Starting SingleClientDHCPv6Server")
 

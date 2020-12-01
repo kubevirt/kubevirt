@@ -374,11 +374,6 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInter
 			if err = DHCPv6Server(
 				nic.IPv6.IP,
 				bridgeInterfaceName,
-				nameservers,
-				nic.Routes,
-				searchDomains,
-				nic.Mtu,
-				dhcpOptions,
 			); err != nil {
 				log.Log.Errorf("failed to run DHCPv6: %v", err)
 				panic(err)
