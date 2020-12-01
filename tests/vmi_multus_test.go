@@ -166,7 +166,6 @@ var _ = Describe("[Serial]Multus", func() {
 
 	Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance using different types of interfaces.", func() {
 		Context("VirtualMachineInstance with cni ptp plugin interface", func() {
-
 			It("[test_id:1751]should create a virtual machine with one interface", func() {
 				By("checking virtual machine instance can ping 10.1.1.1 using ptp cni plugin")
 				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
@@ -240,7 +239,6 @@ var _ = Describe("[Serial]Multus", func() {
 		})
 
 		Context("VirtualMachineInstance with multus network as default network", func() {
-
 			It("[test_id:1751]should create a virtual machine with one interface with multus default network definition", func() {
 				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
@@ -277,7 +275,6 @@ var _ = Describe("[Serial]Multus", func() {
 		})
 
 		Context("VirtualMachineInstance with cni ptp plugin interface with custom MAC address", func() {
-
 			It("[test_id:1705]should configure valid custom MAC address on ptp interface when using tuning plugin", func() {
 				customMacAddress := "50:00:00:00:90:0d"
 				ptpInterface := v1.Interface{
@@ -328,7 +325,6 @@ var _ = Describe("[Serial]Multus", func() {
 		})
 
 		Context("VirtualMachineInstance with Linux bridge plugin interface", func() {
-
 			It("[test_id:1577]should create two virtual machines with one interface", func() {
 				By("checking virtual machine instance can ping the secondary virtual machine instance using Linux bridge CNI plugin")
 				interfaces := []v1.Interface{linuxBridgeInterface}
@@ -384,7 +380,6 @@ var _ = Describe("[Serial]Multus", func() {
 
 		Context("VirtualMachineInstance with Linux bridge CNI plugin interface and custom MAC address.", func() {
 			customMacAddress := "50:00:00:00:90:0d"
-
 			It("[test_id:676]should configure valid custom MAC address on Linux bridge CNI interface.", func() {
 				By("Creating a VM with Linux bridge CNI network interface and default MAC address.")
 				vmiTwo := libvmi.NewFedora(
@@ -432,8 +427,8 @@ var _ = Describe("[Serial]Multus", func() {
 				Expect(libnet.PingFromVMConsole(vmiOne, "10.1.1.2")).To(Succeed())
 			})
 		})
-		Context("Single VirtualMachineInstance with Linux bridge CNI plugin interface", func() {
 
+		Context("Single VirtualMachineInstance with Linux bridge CNI plugin interface", func() {
 			It("[test_id:1756]should report all interfaces in Status", func() {
 				interfaces := []v1.Interface{
 					defaultInterface,
@@ -768,7 +763,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			By("checking virtual machine instance has two interfaces")
 			checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
-
 		})
 
 		It("[test_id:3985]should create a virtual machine with sriov interface with custom MAC address", func() {
@@ -1115,15 +1109,6 @@ func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAdd
 	}
 
 	return setInterfaceUp(vmi, interfaceName)
-}
-
-func configureInterfaceStaticIPByMAC(vmi *v1.VirtualMachineInstance, interfaceMac, interfaceAddress string) error {
-	interfaceName, err := getInterfaceNameByMAC(vmi, interfaceMac)
-	if err != nil {
-		return fmt.Errorf("could not configure address %s for interface with mac %s on VMI %s: %w", interfaceAddress, interfaceMac, vmi.Name, err)
-	}
-
-	return configInterface(vmi, interfaceName, interfaceAddress)
 }
 
 func checkInterface(vmi *v1.VirtualMachineInstance, interfaceName string) error {
