@@ -106,18 +106,29 @@ var _ = Describe("Common Methods", func() {
 var _ = Describe("VIF", func() {
 	Context("String", func() {
 		It("returns correct string representation", func() {
-			addr, _ := netlink.ParseAddr("10.0.0.200/24")
-			mac, _ := net.ParseMAC("de:ad:00:00:be:ef")
-			gw := net.ParseIP("10.0.0.1")
-			vif := &VIF{
-				Name:      "test-vif",
-				IP:        *addr,
-				MAC:       mac,
-				Gateway:   gw,
-				Mtu:       1450,
-				TapDevice: "myTap0",
-			}
-			Expect(vif.String()).To(Equal("VIF: { Name: test-vif, IP: 10.0.0.200, Mask: ffffff00, MAC: de:ad:00:00:be:ef, Gateway: 10.0.0.1, MTU: 1450, IPAMDisabled: false, TapDevice: myTap0}"))
+			vif := createVIF()
+			Expect(vif.String()).To(Equal("VIF: { Name: test-vif, IP: 10.0.0.200, Mask: ffffff00, IPv6: <nil>, MAC: de:ad:00:00:be:ef, Gateway: 10.0.0.1, MTU: 1450, IPAMDisabled: false, TapDevice: myTap0}"))
+		})
+		It("returns correct string representation with ipv6", func() {
+			vif := createVIF()
+			ipv6Addr, _ := netlink.ParseAddr("fd10:0:2::2/120")
+			vif.IPv6 = *ipv6Addr
+			Expect(vif.String()).To(Equal("VIF: { Name: test-vif, IP: 10.0.0.200, Mask: ffffff00, IPv6: fd10:0:2::2/120, MAC: de:ad:00:00:be:ef, Gateway: 10.0.0.1, MTU: 1450, IPAMDisabled: false, TapDevice: myTap0}"))
 		})
 	})
 })
+
+func createVIF() *VIF {
+	addr, _ := netlink.ParseAddr("10.0.0.200/24")
+	mac, _ := net.ParseMAC("de:ad:00:00:be:ef")
+	gw := net.ParseIP("10.0.0.1")
+	vif := &VIF{
+		Name:      "test-vif",
+		IP:        *addr,
+		MAC:       mac,
+		Gateway:   gw,
+		Mtu:       1450,
+		TapDevice: "myTap0",
+	}
+	return vif
+}
