@@ -35,7 +35,7 @@ TEMP_OPERATOR_IMAGE=${DOCKER_PREFIX}/hyperconverged-cluster-operator
 TEMP_WEBHOOK_IMAGE=${DOCKER_PREFIX}/hyperconverged-cluster-webhook
 
 # Build HCO & HCO Webhook
-make container-build-operator container-push-operator container-build-webhook container-push-webhook
+OPERATOR_IMAGE=${TEMP_OPERATOR_IMAGE} WEBHOOK_IMAGE=${TEMP_WEBHOOK_IMAGE} make container-build-operator container-push-operator container-build-webhook container-push-webhook
 
 # Update image digests
 sed -i "s#docker.io/kubevirt/virt-#${kv_image/-*/-}#" deploy/images.csv
