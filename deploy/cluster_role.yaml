@@ -737,6 +737,14 @@ rules:
   verbs:
   - '*'
 - apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachineinstances/addvolume
+  - virtualmachineinstances/removevolume
+  verbs:
+  - get
+  - update
+- apiGroups:
   - cdi.kubevirt.io
   resources:
   - '*'
@@ -861,6 +869,8 @@ rules:
   resources:
   - virtualmachineinstances/pause
   - virtualmachineinstances/unpause
+  - virtualmachineinstances/addvolume
+  - virtualmachineinstances/removevolume
   verbs:
   - get
   - update
@@ -916,6 +926,8 @@ rules:
   resources:
   - virtualmachineinstances/pause
   - virtualmachineinstances/unpause
+  - virtualmachineinstances/addvolume
+  - virtualmachineinstances/removevolume
   verbs:
   - get
   - update

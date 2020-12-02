@@ -356,6 +356,8 @@ type Firmware struct {
 //
 // +k8s:openapi-gen=true
 type Devices struct {
+	// DisableHotplug disabled the ability to hotplug disks.
+	DisableHotplug bool `json:"disableHotplug,omitempty"`
 	// Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
 	Disks []Disk `json:"disks,omitempty"`
 	// Watchdog describes a watchdog device which can be added to the vmi.
@@ -388,10 +390,16 @@ type Devices struct {
 	NetworkInterfaceMultiQueue *bool `json:"networkInterfaceMultiqueue,omitempty"`
 	//Whether to attach a GPU device to the vmi.
 	// +optional
+	// +listType=atomic
 	GPUs []GPU `json:"gpus,omitempty"`
 	// Filesystems describes filesystem which is connected to the vmi.
 	// +optional
+	// +listType=atomic
 	Filesystems []Filesystem `json:"filesystems,omitempty"`
+	//Whether to attach a host device to the vmi.
+	// +optional
+	// +listType=atomic
+	HostDevices []HostDevice `json:"hostDevices,omitempty"`
 }
 
 //
@@ -425,6 +433,14 @@ type FilesystemVirtiofs struct{}
 type GPU struct {
 	// Name of the GPU device as exposed by a device plugin
 	Name       string `json:"name"`
+	DeviceName string `json:"deviceName"`
+}
+
+//
+// +k8s:openapi-gen=true
+type HostDevice struct {
+	Name string `json:"name"`
+	// DeviceName is the resource name of the host device exposed by a device plugin
 	DeviceName string `json:"deviceName"`
 }
 
@@ -486,7 +502,7 @@ type DiskTarget struct {
 	// ReadOnly.
 	// Defaults to false.
 	ReadOnly bool `json:"readonly,omitempty"`
-	// If specified, the virtual disk will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10
+	// If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10
 	// +optional
 	PciAddress string `json:"pciAddress,omitempty"`
 }
@@ -610,6 +626,23 @@ type VolumeSource struct {
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
 	// +optional
 	ServiceAccount *ServiceAccountVolumeSource `json:"serviceAccount,omitempty"`
+}
+
+// HotplugVolumeSource Represents the source of a volume to mount which are capable
+// of being hotplugged on a live running VMI.
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type HotplugVolumeSource struct {
+	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
+	// Directly attached to the vmi via qemu.
+	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+	// +optional
+	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
+	// DataVolume represents the dynamic creation a PVC for this volume as well as
+	// the process of populating that PVC with a disk image.
+	// +optional
+	DataVolume *DataVolumeSource `json:"dataVolume,omitempty"`
 }
 
 //
@@ -1032,7 +1065,7 @@ type Interface struct {
 	// Interfaces without a boot order are not tried.
 	// +optional
 	BootOrder *uint `json:"bootOrder,omitempty"`
-	// If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10
+	// If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10
 	// +optional
 	PciAddress string `json:"pciAddress,omitempty"`
 	// If specified the network interface will pass additional DHCP options to the VMI
@@ -1123,6 +1156,135 @@ type Port struct {
 	// Number of port to expose for the virtual machine.
 	// This must be a valid port number, 0 < x < 65536.
 	Port int32 `json:"port"`
+}
+
+//
+// +k8s:openapi-gen=true
+type AccessCredentialSecretSource struct {
+	// SecretName represents the name of the secret in the VMI's namespace
+	SecretName string `json:"secretName"`
+}
+
+//
+// +k8s:openapi-gen=true
+type ConfigDriveSSHPublicKeyAccessCredentialPropagation struct{}
+
+// AuthorizedKeysFile represents a path within the guest
+// that ssh public keys should be propagated to
+//
+// +k8s:openapi-gen=true
+type AuthorizedKeysFile struct {
+	// FilePath represents the place on the guest that the authorized_keys
+	// file should be writen to. This is expected to be a full path including
+	// both the base directory and file name.
+	FilePath string `json:"filePath"`
+}
+
+//
+// +k8s:openapi-gen=true
+type QemuGuestAgentUserPasswordAccessCredentialPropagation struct{}
+
+//
+// +k8s:openapi-gen=true
+type QemuGuestAgentSSHPublicKeyAccessCredentialPropagation struct {
+	// Users represents a list of guest users that should have the ssh public keys
+	// added to their authorized_keys file.
+	// +listType=set
+	Users []string `json:"users"`
+}
+
+// SSHPublicKeyAccessCredentialSource represents where to retrieve the ssh key
+// credentials
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type SSHPublicKeyAccessCredentialSource struct {
+	// Secret means that the access credential is pulled from a kubernetes secret
+	// +optional
+	Secret *AccessCredentialSecretSource `json:"secret,omitempty"`
+}
+
+// SSHPublicKeyAccessCredentialPropagationMethod represents the method used to
+// inject a ssh public key into the vm guest.
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type SSHPublicKeyAccessCredentialPropagationMethod struct {
+	// ConfigDrivePropagation means that the ssh public keys are injected
+	// into the VM using metadata using the configDrive cloud-init provider
+	// +optional
+	ConfigDrive *ConfigDriveSSHPublicKeyAccessCredentialPropagation `json:"configDrive,omitempty"`
+
+	// QemuGuestAgentAccessCredentailPropagation means ssh public keys are
+	// dynamically injected into the vm at runtime via the qemu guest agent.
+	// This feature requires the qemu guest agent to be running within the guest.
+	// +optional
+	QemuGuestAgent *QemuGuestAgentSSHPublicKeyAccessCredentialPropagation `json:"qemuGuestAgent,omitempty"`
+}
+
+// SSHPublicKeyAccessCredential represents a source and propagation method for
+// injecting ssh public keys into a vm guest
+//
+// +k8s:openapi-gen=true
+type SSHPublicKeyAccessCredential struct {
+	// Source represents where the public keys are pulled from
+	Source SSHPublicKeyAccessCredentialSource `json:"source"`
+
+	// PropagationMethod represents how the public key is injected into the vm guest.
+	PropagationMethod SSHPublicKeyAccessCredentialPropagationMethod `json:"propagationMethod"`
+}
+
+// UserPasswordAccessCredentialSource represents where to retrieve the user password
+// credentials
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type UserPasswordAccessCredentialSource struct {
+	// Secret means that the access credential is pulled from a kubernetes secret
+	// +optional
+	Secret *AccessCredentialSecretSource `json:"secret,omitempty"`
+}
+
+// UserPasswordAccessCredentialPropagationMethod represents the method used to
+// inject a user passwords into the vm guest.
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type UserPasswordAccessCredentialPropagationMethod struct {
+	// QemuGuestAgentAccessCredentailPropagation means passwords are
+	// dynamically injected into the vm at runtime via the qemu guest agent.
+	// This feature requires the qemu guest agent to be running within the guest.
+	// +optional
+	QemuGuestAgent *QemuGuestAgentUserPasswordAccessCredentialPropagation `json:"qemuGuestAgent,omitempty"`
+}
+
+// UserPasswordAccessCredential represents a source and propagation method for
+// injecting user passwords into a vm guest
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type UserPasswordAccessCredential struct {
+	// Source represents where the user passwords are pulled from
+	Source UserPasswordAccessCredentialSource `json:"source"`
+
+	// propagationMethod represents how the user passwords are injected into the vm guest.
+	PropagationMethod UserPasswordAccessCredentialPropagationMethod `json:"propagationMethod"`
+}
+
+// AccessCredential represents a credential source that can be used to
+// authorize remote access to the vm guest
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type AccessCredential struct {
+	// SSHPublicKey represents the source and method of applying a ssh public
+	// key into a guest virtual machine.
+	// +optional
+	SSHPublicKey *SSHPublicKeyAccessCredential `json:"sshPublicKey,omitempty"`
+	// UserPassword represents the source and method for applying a guest user's
+	// password
+	// +optional
+	UserPassword *UserPasswordAccessCredential `json:"userPassword,omitempty"`
 }
 
 // Network represents a network type and a resource that should be connected to the vm.

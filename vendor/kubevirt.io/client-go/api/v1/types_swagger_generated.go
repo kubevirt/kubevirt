@@ -35,6 +35,7 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 		"networks":                      "List of networks that can be attached to a vm's virtual interface.",
 		"dnsPolicy":                     "Set DNS policy for the pod.\nDefaults to \"ClusterFirst\".\nValid values are 'ClusterFirstWithHostNet', 'ClusterFirst', 'Default' or 'None'.\nDNS parameters given in DNSConfig will be merged with the policy selected with DNSPolicy.\nTo have DNS options set along with hostNetwork, you have to specify DNS policy\nexplicitly to 'ClusterFirstWithHostNet'.\n+optional",
 		"dnsConfig":                     "Specifies the DNS parameters of a pod.\nParameters specified here will be merged to the generated DNS\nconfiguration based on DNSPolicy.\n+optional",
+		"accessCredentials":             "Specifies a set of public keys to inject into the vm guest\n+listType=atomic\n+optional",
 	}
 }
 
@@ -52,6 +53,27 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"qosClass":           "The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements\nSee PodQOSClass type for available QOS classes\nMore info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md\n+optional",
 		"evacuationNodeName": "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want\nto evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.\n+optional",
 		"activePods":         "ActivePods is a mapping of pod UID to node name.\nIt is possible for multiple pods to be running for a single VMI during migration.",
+		"volumeStatus":       "VolumeStatus contains the statuses of all the volumes\n+optional\n+listType=atomic",
+	}
+}
+
+func (VolumeStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.\n+k8s:openapi-gen=true",
+		"name":          "Name is the name of the volume",
+		"target":        "Target is the target name used when adding the volume to the VM, eg: vda",
+		"phase":         "Phase is the phase",
+		"reason":        "Reason is a brief description of why we are in the current hotplug volume phase",
+		"message":       "Message is a detailed message about the current hotplug volume phase",
+		"hotplugVolume": "If the volume is hotplug, this will contain the hotplug status.",
+	}
+}
+
+func (HotplugVolumeStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "HotplugVolumeStatus represents the hotplug status of the volume\n+k8s:openapi-gen=true",
+		"attachPodName": "AttachPodName is the name of the pod used to attach the volume to the node.",
+		"attachPodUID":  "AttachPodUID is the UID of the pod used to attach the volume to the node.",
 	}
 }
 
@@ -112,7 +134,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"abortRequested":                 "Indicates that the migration has been requested to abort",
 		"abortStatus":                    "Indicates the final status of the live migration abortion",
 		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
-		"mode":                           "Lets us know if the vmi is currenly running pre or post copy migration",
+		"mode":                           "Lets us know if the vmi is currently running pre or post copy migration",
 	}
 }
 
@@ -263,6 +285,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"ready":                  "Ready indicates if the virtual machine is running and ready",
 		"conditions":             "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
 		"stateChangeRequests":    "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
+		"volumeRequests":         "VolumeRequests indicates a list of volumes add or remove from the VMI template and\nhotplug on an active running VMI.\n+listType=atomic",
 		"volumeSnapshotStatuses": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
 	}
 }
@@ -273,6 +296,14 @@ func (VolumeSnapshotStatus) SwaggerDoc() map[string]string {
 		"name":    "Volume name",
 		"enabled": "True if the volume supports snapshotting",
 		"reason":  "Empty if snapshotting is enabled, contains reason otherwise",
+	}
+}
+
+func (VirtualMachineVolumeRequest) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                    "+k8s:openapi-gen=true",
+		"addVolumeOptions":    "AddVolumeOptions when set indicates a volume should be added. The details\nwithin this field specify how to add the volume",
+		"removeVolumeOptions": "RemoveVolumeOptions when set indicates a volume should be removed. The details\nwithin this field specify how to add the volume",
 	}
 }
 
@@ -430,6 +461,22 @@ func (RenameOptions) SwaggerDoc() map[string]string {
 	}
 }
 
+func (AddVolumeOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":             "AddVolumeOptions is provided when dynamically hot plugging a volume and disk\n+k8s:openapi-gen=true",
+		"name":         "Name represents the name that will be used to map the\ndisk to the corresponding volume. This overrides any name\nset inside the Disk struct itself.",
+		"disk":         "Disk represents the hotplug disk that will be plugged into the running VMI",
+		"volumeSource": "VolumeSource represents the source of the volume to map to the disk.",
+	}
+}
+
+func (RemoveVolumeOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk\n+k8s:openapi-gen=true",
+		"name": "Name represents the name that maps to both the disk and volume that\nshould be removed",
+	}
+}
+
 func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "KubeVirtConfiguration holds all kubevirt configurations\n+k8s:openapi-gen=true",
@@ -449,6 +496,26 @@ func (MigrationConfiguration) SwaggerDoc() map[string]string {
 func (DeveloperConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "DeveloperConfiguration holds developer options\n+k8s:openapi-gen=true",
+	}
+}
+
+func (PermittedHostDevices) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                "PermittedHostDevices holds inforamtion about devices allowed for passthrough\n+k8s:openapi-gen=true",
+		"pciHostDevices":  "+listType=set",
+		"mediatedDevices": "+listType=set",
+	}
+}
+
+func (PciHostDevice) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "PciHostDevice represents a host PCI device allowed for passthrough\n+k8s:openapi-gen=true",
+	}
+}
+
+func (MediatedHostDevice) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "MediatedHostDevice represents a host mediated device allowed for passthrough\n+k8s:openapi-gen=true",
 	}
 }
 

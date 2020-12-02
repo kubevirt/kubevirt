@@ -176,6 +176,7 @@ func (Firmware) SwaggerDoc() map[string]string {
 func (Devices) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                           "+k8s:openapi-gen=true",
+		"disableHotplug":             "DisableHotplug disabled the ability to hotplug disks.",
 		"disks":                      "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
 		"watchdog":                   "Watchdog describes a watchdog device which can be added to the vmi.",
 		"interfaces":                 "Interfaces describe network interfaces which are added to the vmi.",
@@ -187,8 +188,9 @@ func (Devices) SwaggerDoc() map[string]string {
 		"rng":                        "Whether to have random number generator from host\n+optional",
 		"blockMultiQueue":            "Whether or not to enable virtio multi-queue for block devices\n+optional",
 		"networkInterfaceMultiqueue": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.\n+optional",
-		"gpus":                       "Whether to attach a GPU device to the vmi.\n+optional",
-		"filesystems":                "Filesystems describes filesystem which is connected to the vmi.\n+optional",
+		"gpus":                       "Whether to attach a GPU device to the vmi.\n+optional\n+listType=atomic",
+		"filesystems":                "Filesystems describes filesystem which is connected to the vmi.\n+optional\n+listType=atomic",
+		"hostDevices":                "Whether to attach a host device to the vmi.\n+optional\n+listType=atomic",
 	}
 }
 
@@ -222,6 +224,13 @@ func (GPU) SwaggerDoc() map[string]string {
 	}
 }
 
+func (HostDevice) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "+k8s:openapi-gen=true",
+		"deviceName": "DeviceName is the resource name of the host device exposed by a device plugin",
+	}
+}
+
 func (Disk) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                  "+k8s:openapi-gen=true",
@@ -250,7 +259,7 @@ func (DiskTarget) SwaggerDoc() map[string]string {
 		"":           "+k8s:openapi-gen=true",
 		"bus":        "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
 		"readonly":   "ReadOnly.\nDefaults to false.",
-		"pciAddress": "If specified, the virtual disk will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10\n+optional",
+		"pciAddress": "If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10\n+optional",
 	}
 }
 
@@ -301,6 +310,14 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"secret":                "SecretVolumeSource represents a reference to a secret data in the same namespace.\nMore info: https://kubernetes.io/docs/concepts/configuration/secret/\n+optional",
 		"downwardAPI":           "DownwardAPI represents downward API about the pod that should populate this volume\n+optional",
 		"serviceAccount":        "ServiceAccountVolumeSource represents a reference to a service account.\nThere can only be one volume of this type!\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/\n+optional",
+	}
+}
+
+func (HotplugVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                      "HotplugVolumeSource Represents the source of a volume to mount which are capable\nof being hotplugged on a live running VMI.\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
+		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+		"dataVolume":            "DataVolume represents the dynamic creation a PVC for this volume as well as\nthe process of populating that PVC with a disk image.\n+optional",
 	}
 }
 
@@ -505,7 +522,7 @@ func (Interface) SwaggerDoc() map[string]string {
 		"ports":       "List of ports to be forwarded to the virtual machine.",
 		"macAddress":  "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
 		"bootOrder":   "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach interface or disk that has a boot order must have a unique value.\nInterfaces without a boot order are not tried.\n+optional",
-		"pciAddress":  "If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10\n+optional",
+		"pciAddress":  "If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10\n+optional",
 		"dhcpOptions": "If specified the network interface will pass additional DHCP options to the VMI\n+optional",
 		"tag":         "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
 	}
@@ -571,6 +588,92 @@ func (Port) SwaggerDoc() map[string]string {
 		"name":     "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each\nnamed port in a pod must have a unique name. Name for the port that can be\nreferred to by services.\n+optional",
 		"protocol": "Protocol for port. Must be UDP or TCP.\nDefaults to \"TCP\".\n+optional",
 		"port":     "Number of port to expose for the virtual machine.\nThis must be a valid port number, 0 < x < 65536.",
+	}
+}
+
+func (AccessCredentialSecretSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "+k8s:openapi-gen=true",
+		"secretName": "SecretName represents the name of the secret in the VMI's namespace",
+	}
+}
+
+func (ConfigDriveSSHPublicKeyAccessCredentialPropagation) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
+func (AuthorizedKeysFile) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "AuthorizedKeysFile represents a path within the guest\nthat ssh public keys should be propagated to\n\n+k8s:openapi-gen=true",
+		"filePath": "FilePath represents the place on the guest that the authorized_keys\nfile should be writen to. This is expected to be a full path including\nboth the base directory and file name.",
+	}
+}
+
+func (QemuGuestAgentUserPasswordAccessCredentialPropagation) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
+func (QemuGuestAgentSSHPublicKeyAccessCredentialPropagation) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "+k8s:openapi-gen=true",
+		"users": "Users represents a list of guest users that should have the ssh public keys\nadded to their authorized_keys file.\n+listType=set",
+	}
+}
+
+func (SSHPublicKeyAccessCredentialSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "SSHPublicKeyAccessCredentialSource represents where to retrieve the ssh key\ncredentials\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
+		"secret": "Secret means that the access credential is pulled from a kubernetes secret\n+optional",
+	}
+}
+
+func (SSHPublicKeyAccessCredentialPropagationMethod) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":               "SSHPublicKeyAccessCredentialPropagationMethod represents the method used to\ninject a ssh public key into the vm guest.\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
+		"configDrive":    "ConfigDrivePropagation means that the ssh public keys are injected\ninto the VM using metadata using the configDrive cloud-init provider\n+optional",
+		"qemuGuestAgent": "QemuGuestAgentAccessCredentailPropagation means ssh public keys are\ndynamically injected into the vm at runtime via the qemu guest agent.\nThis feature requires the qemu guest agent to be running within the guest.\n+optional",
+	}
+}
+
+func (SSHPublicKeyAccessCredential) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                  "SSHPublicKeyAccessCredential represents a source and propagation method for\ninjecting ssh public keys into a vm guest\n\n+k8s:openapi-gen=true",
+		"source":            "Source represents where the public keys are pulled from",
+		"propagationMethod": "PropagationMethod represents how the public key is injected into the vm guest.",
+	}
+}
+
+func (UserPasswordAccessCredentialSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "UserPasswordAccessCredentialSource represents where to retrieve the user password\ncredentials\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
+		"secret": "Secret means that the access credential is pulled from a kubernetes secret\n+optional",
+	}
+}
+
+func (UserPasswordAccessCredentialPropagationMethod) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":               "UserPasswordAccessCredentialPropagationMethod represents the method used to\ninject a user passwords into the vm guest.\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
+		"qemuGuestAgent": "QemuGuestAgentAccessCredentailPropagation means passwords are\ndynamically injected into the vm at runtime via the qemu guest agent.\nThis feature requires the qemu guest agent to be running within the guest.\n+optional",
+	}
+}
+
+func (UserPasswordAccessCredential) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                  "UserPasswordAccessCredential represents a source and propagation method for\ninjecting user passwords into a vm guest\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
+		"source":            "Source represents where the user passwords are pulled from",
+		"propagationMethod": "propagationMethod represents how the user passwords are injected into the vm guest.",
+	}
+}
+
+func (AccessCredential) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":             "AccessCredential represents a credential source that can be used to\nauthorize remote access to the vm guest\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
+		"sshPublicKey": "SSHPublicKey represents the source and method of applying a ssh public\nkey into a guest virtual machine.\n+optional",
+		"userPassword": "UserPassword represents the source and method for applying a guest user's\npassword\n+optional",
 	}
 }
 
