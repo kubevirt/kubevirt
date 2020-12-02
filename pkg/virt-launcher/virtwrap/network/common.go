@@ -76,10 +76,11 @@ func (e *CriticalNetworkError) Error() string { return e.Msg }
 
 func (vif VIF) String() string {
 	return fmt.Sprintf(
-		"VIF: { Name: %s, IP: %s, Mask: %s, MAC: %s, Gateway: %s, MTU: %d, IPAMDisabled: %t, TapDevice: %s}",
+		"VIF: { Name: %s, IP: %s, Mask: %s, IPv6: %s, MAC: %s, Gateway: %s, MTU: %d, IPAMDisabled: %t, TapDevice: %s}",
 		vif.Name,
 		vif.IP.IP,
 		vif.IP.Mask,
+		vif.IPv6,
 		vif.MAC,
 		vif.Gateway,
 		vif.Mtu,
