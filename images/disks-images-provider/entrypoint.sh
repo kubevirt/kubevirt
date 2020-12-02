@@ -45,6 +45,16 @@ rm /images/fedora-cloud/disk.qcow2
 
 echo "copy all images to host mount directory"
 cp -R /images/* /hostImages/
+echo "make the alpine image ready for parallel use"
+cp -r /hostImages/alpine hostImages/alpine1
+cp -r /hostImages/alpine hostImages/alpine2
+cp -r /hostImages/alpine hostImages/alpine3
+rm -rf /hostImages/alpine
+echo "make the custom image ready for parallel use"
+cp -r /hostImages/custom hostImages/custom1
+cp -r /hostImages/custom hostImages/custom2
+cp -r /hostImages/custom hostImages/custom3
+rm -rf /hostImages/custom
 chmod -R 777 /hostImages
 
 # When the host is ubuntu, by default, selinux is not used, so chcon is not necessary.
