@@ -43,7 +43,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
 
+	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
+
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
@@ -891,16 +895,22 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				pvName = "test-nfs" + rand.String(48)
 				// Prepare a NFS backed PV
 				By("Starting an NFS POD")
-				os := string(cd.ContainerDiskFedora)
-				nfsPod := tests.CreateNFSTargetPOD(os)
+				nfsPod := storageframework.RenderNFSServer("nfsserver", tests.HostPathFedora)
+				nfsPod, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(nfsPod)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(ThisPod(nfsPod), 120).Should(BeInPhase(k8sv1.PodRunning))
+				nfsPod, err = ThisPod(nfsPod)()
+				Expect(err).ToNot(HaveOccurred())
 				nfsIP := libnet.GetPodIpByFamily(nfsPod, k8sv1.IPv4Protocol)
 				Expect(nfsIP).NotTo(BeEmpty())
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new NFS PV and PVC")
-				tests.CreateNFSPvAndPvc(pvName, "5Gi", nfsIP, os)
+				os := string(cd.ContainerDiskFedora)
+				tests.CreateNFSPvAndPvc(pvName, tests.NamespaceTestDefault, "5Gi", nfsIP, os)
 			})
 
 			AfterEach(func() {
+				By("Deleting NFS pod")
 				// PVs can't be reused
 				tests.DeletePvAndPvc(pvName)
 			})
@@ -964,12 +974,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-
-				By("Deleting NFS pod")
-				Expect(virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(tests.NFSTargetName, &metav1.DeleteOptions{})).To(Succeed())
-				By("Waiting for NFS pod to disappear")
-				tests.WaitForPodToDisappearWithTimeout(tests.NFSTargetName, 120)
-
 			},
 				table.Entry("[test_id:2653] with default migration configuration", nil, v1.MigrationPreCopy),
 				table.Entry("[test_id:5004] with postcopy", &v1.MigrationConfiguration{
