@@ -365,6 +365,7 @@ var _ = Describe("[Serial]Operator", func() {
 
 		patchKvNodePlacement = func(name string, path string, verb string, componentConfig *v1.ComponentConfig) {
 			var data []byte
+
 			componentConfigData, _ := json.Marshal(componentConfig)
 
 			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/%s", "value": %s}]`, verb, path, string(componentConfigData)))
@@ -383,6 +384,9 @@ var _ = Describe("[Serial]Operator", func() {
 			if kv.Spec.Infra != nil {
 				verb = "replace"
 			}
+			if infra == nil {
+				verb = "remove"
+			}
 
 			patchKvNodePlacement(name, "infra", verb, infra)
 		}
@@ -392,6 +396,9 @@ var _ = Describe("[Serial]Operator", func() {
 			verb := "add"
 			if kv.Spec.Workloads != nil {
 				verb = "replace"
+			}
+			if workloads == nil {
+				verb = "remove"
 			}
 
 			patchKvNodePlacement(name, "workloads", verb, workloads)
