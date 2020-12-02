@@ -764,7 +764,7 @@ func BeforeTestSuitSetup(_ []byte) {
 	worker := config.GinkgoConfig.ParallelNode
 	HostPathAlpine = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "alpine", worker))
 	HostPathCustom = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "custom", worker))
-	HostPathFedora = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "fedora-cloud", worker))
+	HostPathFedora = filepath.Join(HostPathBase, "fedora-cloud")
 
 	// Wait for schedulable nodes
 	virtClient, err := kubecli.GetKubevirtClient()
