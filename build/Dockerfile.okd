@@ -1,5 +1,5 @@
 FROM centos:7
 
-COPY hyperconverged-cluster-operator hyperconverged-cluster-webhook /usr/bin/
+COPY hyperconverged-cluster-operator /usr/bin/
 
 ENTRYPOINT /usr/bin/hyperconverged-cluster-operator
