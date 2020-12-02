@@ -123,7 +123,7 @@ var _ = Describe("[Serial]Windows VirtualMachineInstance", func() {
 		tests.PanicOnError(err)
 		tests.BeforeTestCleanup()
 		tests.SkipIfNoWindowsImage(virtClient)
-		tests.CreatePVC(tests.OSWindows, "30Gi", tests.Config.StorageClassWindows)
+		tests.CreatePVC(tests.OSWindows, "30Gi", tests.Config.StorageClassWindows, true)
 		windowsVMI = tests.NewRandomVMI()
 		windowsVMI.Spec = getWindowsVMISpec()
 		tests.AddExplicitPodNetworkInterface(windowsVMI)

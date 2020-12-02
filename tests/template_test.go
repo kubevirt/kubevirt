@@ -269,7 +269,7 @@ var _ = Describe("[Serial]Templates", func() {
 		Context("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]with RHEL Template", func() {
 			BeforeEach(func() {
 				tests.SkipIfNoRhelImage(virtClient)
-				tests.CreatePVC(tests.OSRhel, "15Gi", tests.Config.StorageClassRhel)
+				tests.CreatePVC(tests.OSRhel, "15Gi", tests.Config.StorageClassRhel, true)
 				AssertTemplateSetupSuccess(vmsgen.GetTestTemplateRHEL7(), nil)()
 			})
 
