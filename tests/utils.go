@@ -947,24 +947,33 @@ func CreateSecret(name string, data map[string]string) {
 }
 
 func CreateHostPathPVC(os, size string) {
-	CreatePVC(os, size, Config.StorageClassHostPath)
+	CreatePVC(os, size, Config.StorageClassHostPath, false)
 }
 
-func CreatePVC(os, size, storageClass string) {
+func CreatePVC(os, size, storageClass string, recycledPV bool) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newPVC(os, size, storageClass))
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newPVC(os, size, storageClass, recycledPV))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 }
 
-func newPVC(os, size, storageClass string) *k8sv1.PersistentVolumeClaim {
+func newPVC(os, size, storageClass string, recycledPV bool) *k8sv1.PersistentVolumeClaim {
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
 	name := fmt.Sprintf("disk-%s", os)
+
+	selector := map[string]string{
+		"kubevirt.io/test": os,
+	}
+
+	// If the PV is not recycled, it will have a namespace related test label which  we should match
+	if !recycledPV {
+		selector[cleanup.TestLabelForNamespace(NamespaceTestDefault)] = ""
+	}
 
 	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
@@ -976,10 +985,7 @@ func newPVC(os, size, storageClass string) *k8sv1.PersistentVolumeClaim {
 				},
 			},
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"kubevirt.io/test": os,
-					cleanup.TestLabelForNamespace(NamespaceTestDefault): "",
-				},
+				MatchLabels: selector,
 			},
 			StorageClassName: &storageClass,
 		},
