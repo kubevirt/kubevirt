@@ -42,7 +42,7 @@ sed -i "s#docker.io/kubevirt/virt-#${kv_image/-*/-}#" deploy/images.csv
 sed -i "s#^KUBEVIRT_VERSION=.*#KUBEVIRT_VERSION=\"${kv_tag}\"#" hack/config
 sed -i "s#quay.io/kubevirt/hyperconverged-cluster-operator#${TEMP_OPERATOR_IMAGE}#" deploy/images.csv
 sed -i "s#quay.io/kubevirt/hyperconverged-cluster-webhook#${TEMP_WEBHOOK_IMAGE}#" deploy/images.csv
-sed -i "s#^CSV_VERSION=.*#CSV_VERSION=\"${IMAGE_TAG}\"#" hack/config
+sed -i "s#CSV_VERSION#IMAGE_TAG#" deploy/images.csv
 (cd ./tools/digester && go build .)
 ./automation/digester/update_images.sh
 
