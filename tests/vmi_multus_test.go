@@ -44,6 +44,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/assert"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -866,6 +867,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			cidrA := "192.168.1.1/24"
 			cidrB := "192.168.1.2/24"
 			vmi1, vmi2 := createSriovVMs(cidrA, cidrB)
+
 			Eventually(func() error {
 				return libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))
 			}, 15*time.Second, time.Second).Should(Succeed())
@@ -878,6 +880,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 			cidrA := "fc00::1/64"
 			cidrB := "fc00::2/64"
 			vmi1, vmi2 := createSriovVMs(cidrA, cidrB)
+
+			assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642")
 			Eventually(func() error {
 				return libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))
 			}, 15*time.Second, time.Second).Should(Succeed())
