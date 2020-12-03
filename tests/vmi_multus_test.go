@@ -1342,11 +1342,10 @@ func defaultCloudInitNetworkData() string {
 	return networkData
 }
 
-func cloudInitNetworkDataWithStaticIPsByMac(nicName, macAddress, ipv4Address string) string {
+func cloudInitNetworkDataWithStaticIPsByMac(nicName, macAddress, ipAddress string) string {
 	networkData, err := libnet.NewNetworkData(
 		libnet.WithEthernet(nicName,
-			libnet.WithAddresses(ipv4Address, libnet.DefaultIPv6CIDR),
-			libnet.WithGateway6(libnet.DefaultIPv6Gateway),
+			libnet.WithAddresses(ipAddress),
 			libnet.WithNameserverFromCluster(),
 			libnet.WithMatchingMAC(macAddress),
 		),
@@ -1355,12 +1354,10 @@ func cloudInitNetworkDataWithStaticIPsByMac(nicName, macAddress, ipv4Address str
 	return networkData
 }
 
-func cloudInitNetworkDataWithStaticIPsByDevice(deviceName, ipv4Address string) string {
+func cloudInitNetworkDataWithStaticIPsByDevice(deviceName, ipAddress string) string {
 	networkData, err := libnet.NewNetworkData(
 		libnet.WithEthernet(deviceName,
-			libnet.WithAddresses(ipv4Address, libnet.DefaultIPv6CIDR),
-			libnet.WithGateway6(libnet.DefaultIPv6Gateway),
-			libnet.WithAddresses(ipv4Address),
+			libnet.WithAddresses(ipAddress),
 			libnet.WithNameserverFromCluster(),
 		),
 	)
