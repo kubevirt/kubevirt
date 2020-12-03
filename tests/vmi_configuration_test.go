@@ -1735,12 +1735,9 @@ var _ = Describe("Configurations", func() {
 
 			tests.AddEphemeralDisk(vmi, "ephemeral-disk3", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
-			tests.AddPVCDisk(vmi, "hostpath-pvc", "virtio", tests.DiskAlpineHostPath)
-			tests.AddPVCDisk(vmi, "block-pvc", "virtio", tests.BlockDiskForTest)
 			tmpHostDiskDir := tests.RandTmpDir()
 			tests.AddHostDisk(vmi, filepath.Join(tmpHostDiskDir, "test-disk.img"), v1.HostDiskExistsOrCreate, "hostdisk")
 			tests.RunVMIAndExpectLaunch(vmi, 60)
-
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -1769,23 +1766,9 @@ var _ = Describe("Configurations", func() {
 			Expect(disks[3].Alias.Name).To(Equal("cloud-init"))
 			Expect(disks[3].Driver.Cache).To(Equal(cacheNone))
 
-			By("checking if default cache 'none' has been set to pvc disk")
-			Expect(disks[4].Alias.Name).To(Equal("hostpath-pvc"))
-			// PVC is mounted as tmpfs on kind, which does not support direct I/O.
-			// As such, it behaves as plugging in a hostDisk - check disks[6].
-			if tests.IsRunningOnKindInfra() {
-				Expect(disks[4].Driver.Cache).To(Equal(cacheWritethrough))
-			} else {
-				Expect(disks[4].Driver.Cache).To(Equal(cacheNone))
-			}
-
-			By("checking if default cache 'none' has been set to block pvc")
-			Expect(disks[5].Alias.Name).To(Equal("block-pvc"))
-			Expect(disks[5].Driver.Cache).To(Equal(cacheNone))
-
 			By("checking if default cache 'writethrough' has been set to fs which does not support direct I/O")
-			Expect(disks[6].Alias.Name).To(Equal("hostdisk"))
-			Expect(disks[6].Driver.Cache).To(Equal(cacheWritethrough))
+			Expect(disks[4].Alias.Name).To(Equal("hostdisk"))
+			Expect(disks[4].Driver.Cache).To(Equal(cacheWritethrough))
 		})
 
 		It("[test_id:1683]should set appropriate IO modes", func() {
