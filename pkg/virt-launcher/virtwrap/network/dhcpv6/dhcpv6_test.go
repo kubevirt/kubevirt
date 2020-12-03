@@ -1,0 +1,105 @@
+package dhcpv6
+
+import (
+	"github.com/insomniacslk/dhcp/dhcpv6"
+	"github.com/insomniacslk/dhcp/iana"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
+	"net"
+)
+
+var _ = Describe("DHCPv6", func() {
+	Context("prepareDHCPv6Modifiers", func() {
+		It("should contain ianaAdrress and duid", func() {
+			clientIP := net.ParseIP("fd10:0:2::2")
+			serverInterfaceMac, _ := net.ParseMAC("12:34:56:78:9A:BC")
+			modifiers, err := prepareDHCPv6Modifiers(clientIP, serverInterfaceMac)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(modifiers)).To(Equal(2))
+
+			msg := &dhcpv6.Message{
+				MessageType: dhcpv6.MessageTypeAdvertise,
+			}
+			expectedIaAddr := dhcpv6.OptIAAddress{IPv6Addr: clientIP, PreferredLifetime: infiniteLease, ValidLifetime: infiniteLease}
+			modifiers[0](msg)
+			opt := msg.GetOneOption(dhcpv6.OptionIANA)
+			optIana := opt.(*dhcpv6.OptIANA)
+			Expect(len(optIana.Options.Addresses())).To(Equal(1))
+			Expect(optIana.Options.OneAddress().String()).To(Equal(expectedIaAddr.String()))
+
+			duid := dhcpv6.Duid{Type: dhcpv6.DUID_LL, HwType: iana.HWTypeEthernet, LinkLayerAddr: serverInterfaceMac}
+			expectedServerId := dhcpv6.OptServerID(duid)
+			modifiers[1](msg)
+			Expect(msg.GetOneOption(dhcpv6.OptionServerID).String()).To(Equal(expectedServerId.String()))
+		})
+	})
+	Context("buildResponse should build a response with", func() {
+		var handler *DHCPv6Handler
+
+		BeforeEach(func() {
+			clientIP := net.ParseIP("fd10:0:2::2")
+			serverInterfaceMac, _ := net.ParseMAC("12:34:56:78:9A:BC")
+			modifiers, err := prepareDHCPv6Modifiers(clientIP, serverInterfaceMac)
+			Expect(err).ToNot(HaveOccurred())
+
+			handler = &DHCPv6Handler{
+				clientIP:    clientIP,
+				serverIface: &net.Interface{},
+				modifiers:   modifiers,
+			}
+		})
+
+		It("advertise type on rapid commit solicit request", func() {
+			clientMessage, err := newMessage(dhcpv6.MessageTypeSolicit)
+			Expect(err).ToNot(HaveOccurred())
+			dhcpv6.WithRapidCommit(clientMessage)
+
+			replyMessage, err := handler.buildResponse(clientMessage)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(replyMessage.Type()).To(Equal(dhcpv6.MessageTypeReply))
+		})
+		It("reply type on solicit request", func() {
+			clientMessage, err := newMessage(dhcpv6.MessageTypeSolicit)
+			Expect(err).ToNot(HaveOccurred())
+
+			replyMessage, err := handler.buildResponse(clientMessage)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(replyMessage.Type()).To(Equal(dhcpv6.MessageTypeAdvertise))
+		})
+		It("reply type on any other request", func() {
+			clientMessage, err := newMessage(dhcpv6.MessageTypeRequest)
+			Expect(err).ToNot(HaveOccurred())
+
+			replyMessage, err := handler.buildResponse(clientMessage)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(replyMessage.Type()).To(Equal(dhcpv6.MessageTypeReply))
+		})
+		It("iana option containing the iaid from the request", func() {
+			clientMessage, err := newMessage(dhcpv6.MessageTypeSolicit)
+			iaId := [4]byte{5, 6, 7, 8}
+			clientMessage.UpdateOption(&dhcpv6.OptIANA{IaId: iaId})
+			Expect(err).ToNot(HaveOccurred())
+
+			replyMessage, err := handler.buildResponse(clientMessage)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(replyMessage.Options.OneIANA().IaId).To(Equal([4]byte{5, 6, 7, 8}))
+		})
+		It("the correct number of options", func() {
+			clientMessage, err := newMessage(dhcpv6.MessageTypeSolicit)
+			Expect(err).ToNot(HaveOccurred())
+
+			replyMessage, err := handler.buildResponse(clientMessage)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(replyMessage.Options.Options)).To(Equal(len(handler.modifiers) + 1))
+		})
+	})
+})
+
+func newMessage(messageType dhcpv6.MessageType) (*dhcpv6.Message, error) {
+	clientMac, _ := net.ParseMAC("34:56:78:9A:BC:DE")
+	duid := dhcpv6.Duid{Type: dhcpv6.DUID_LL, HwType: iana.HWTypeEthernet, LinkLayerAddr: clientMac}
+	clientMessage, err := dhcpv6.NewMessage(dhcpv6.WithIAID([4]byte{1, 2, 3, 4}), dhcpv6.WithClientID(duid))
+	clientMessage.MessageType = messageType
+	return clientMessage, err
+}

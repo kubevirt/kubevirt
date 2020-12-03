@@ -35,7 +35,7 @@ func SingleClientDHCPv6Server(
 		log.Log.Infof("DHCPv6 - couldn't get the server interface: %v", err)
 	}
 
-	modifiers, err := prepareDHCPModifiers(clientIP, iface.HardwareAddr)
+	modifiers, err := prepareDHCPv6Modifiers(clientIP, iface.HardwareAddr)
 
 	if err != nil {
 		log.Log.Infof("DHCPv6 - couldn't prepare modifiers: %v", err)
@@ -94,43 +94,49 @@ func (h *DHCPv6Handler) createConnection() (*FilteredConn, error) {
 func (h *DHCPv6Handler) ServeDHCPv6(conn net.PacketConn, peer net.Addr, m dhcpv6.DHCPv6) {
 	log.Log.V(4).Info("DHCPv6 serving a new request")
 
-	// TODO how can we make sure the request is from the vm? Is filtering requests arrived to the bridge interface enough?
+	// TODO if we extend the server to support bridge binding, we need to filter out non-vm requests
 
-	msg := m.(*dhcpv6.Message)
-
-	var response *dhcpv6.Message
-	var err error
-
-	switch msg.Type() {
-	case dhcpv6.MessageTypeSolicit:
-		log.Log.V(4).Info("DHCPv6 - the request has message type Solicit")
-		if msg.GetOneOption(dhcpv6.OptionRapidCommit) == nil {
-			response, err = dhcpv6.NewAdvertiseFromSolicit(msg, h.modifiers...)
-		} else {
-			log.Log.V(4).Info("DHCPv6 - replying with rapid commit")
-			response, err = dhcpv6.NewReplyFromMessage(msg, h.modifiers...)
-		}
-	default:
-		log.Log.V(4).Info("DHCPv6 - non Solicit request recieved")
-		response, err = dhcpv6.NewReplyFromMessage(msg, h.modifiers...)
-	}
-
-	ianaRequest := msg.Options.OneIANA()
-	ianaResponse := response.Options.OneIANA()
-	ianaResponse.IaId = ianaRequest.IaId
-	response.UpdateOption(ianaResponse)
-
+	response, err := h.buildResponse(m)
 	if err != nil {
-		log.Log.V(4).Errorf("DHCPv6 failed sending a response to the client: %v", err)
-		return
+		log.Log.V(4).Errorf("DHCPv6 failed building a response to the client: %v", err)
 	}
 
 	if _, err := conn.WriteTo(response.ToBytes(), peer); err != nil {
-		log.Log.V(4).Errorf("DHCPv6 cannot reply to client: %v", err)
+		log.Log.V(4).Errorf("DHCPv6 failed sending a response to the client: %v", err)
 	}
 }
 
-func prepareDHCPModifiers(
+func (h *DHCPv6Handler) buildResponse(msg dhcpv6.DHCPv6) (*dhcpv6.Message, error) {
+	var response *dhcpv6.Message
+	var err error
+
+	dhcpv6Msg := msg.(*dhcpv6.Message)
+	switch dhcpv6Msg.Type() {
+	case dhcpv6.MessageTypeSolicit:
+		log.Log.V(4).Info("DHCPv6 - the request has message type Solicit")
+		if dhcpv6Msg.GetOneOption(dhcpv6.OptionRapidCommit) == nil {
+			response, err = dhcpv6.NewAdvertiseFromSolicit(dhcpv6Msg, h.modifiers...)
+		} else {
+			log.Log.V(4).Info("DHCPv6 - replying with rapid commit")
+			response, err = dhcpv6.NewReplyFromMessage(dhcpv6Msg, h.modifiers...)
+		}
+	default:
+		log.Log.V(4).Info("DHCPv6 - non Solicit request received")
+		response, err = dhcpv6.NewReplyFromMessage(dhcpv6Msg, h.modifiers...)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	ianaRequest := dhcpv6Msg.Options.OneIANA()
+	ianaResponse := response.Options.OneIANA()
+	ianaResponse.IaId = ianaRequest.IaId
+	response.UpdateOption(ianaResponse)
+	return response, nil
+}
+
+func prepareDHCPv6Modifiers(
 	clientIP net.IP,
 	serverInterfaceMac net.HardwareAddr) ([]dhcpv6.Modifier, error) {
 
