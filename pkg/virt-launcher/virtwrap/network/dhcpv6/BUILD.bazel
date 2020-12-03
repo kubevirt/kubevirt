@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -14,5 +14,21 @@ go_library(
         "//vendor/github.com/insomniacslk/dhcp/dhcpv6/server6:go_default_library",
         "//vendor/github.com/insomniacslk/dhcp/iana:go_default_library",
         "//vendor/golang.org/x/net/ipv6:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "dhcpv6_suite_test.go",
+        "dhcpv6_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/insomniacslk/dhcp/dhcpv6:go_default_library",
+        "//vendor/github.com/insomniacslk/dhcp/iana:go_default_library",
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
     ],
 )
