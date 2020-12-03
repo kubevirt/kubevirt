@@ -1322,6 +1322,36 @@ var _ = Describe("Manager", func() {
 		})
 	})
 
+	Context("on failed GetDomainSpecWithRuntimeInfo", func() {
+		It("should fall back to returning domain spec without runtime info", func() {
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0, nil, "/usr/share/OVMF")
+
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+
+			vmi := newVMI(testNamespace, testVmName)
+
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+
+			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).ToNot(HaveOccurred())
+
+			gomock.InOrder(
+				// First call is via GetDomainSpecWithRuntimeInfo. Force an error
+				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return("", libvirt.Error{Code: libvirt.ERR_NO_DOMAIN}),
+				// Subsequent calls are via GetDomainSpec
+				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(libvirt.DOMAIN_XML_INACTIVE)).MaxTimes(2).Return(string(domainXml), nil),
+				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(libvirt.DOMAIN_XML_MIGRATABLE)).MaxTimes(2).Return(string(domainXml), nil),
+			)
+
+			// we need the non-typecast object to make the function we want to test available
+			libvirtmanager := manager.(*LibvirtDomainManager)
+
+			domSpec, err := libvirtmanager.getDomainSpec(mockDomain)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domSpec).ToNot(BeNil())
+		})
+	})
+
 	// TODO: test error reporting on non successful VirtualMachineInstance syncs and kill attempts
 
 	AfterEach(func() {
