@@ -54,6 +54,8 @@ github.com/emicklei/go-restful-openapi
 github.com/evanphx/json-patch
 # github.com/fsnotify/fsnotify v1.4.9
 github.com/fsnotify/fsnotify
+# github.com/ftrvxmtrx/fd v0.0.0-20150925145434-c6d800382fff
+github.com/ftrvxmtrx/fd
 # github.com/ghodss/yaml v1.0.0
 github.com/ghodss/yaml
 # github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8

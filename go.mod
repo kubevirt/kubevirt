@@ -15,6 +15,7 @@ require (
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.9
+	github.com/ftrvxmtrx/fd v0.0.0-20150925145434-c6d800382fff
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-kit/kit v0.9.0
 	github.com/go-openapi/errors v0.19.2

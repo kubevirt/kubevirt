@@ -24,6 +24,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/ftrvxmtrx/fd"
 	"github.com/mdlayher/ndp"
 	"golang.org/x/net/ipv6"
 )
@@ -77,17 +78,64 @@ func NewNDPConnection(ifaceName string) (*NDPConnection, error) {
 	}
 
 	listener := &NDPConnection{
-		iface:   iface,
-		conn:    ipv6Conn,
-		rawConn: icmpListener,
-		controlMsg: &ipv6.ControlMessage{
-			HopLimit: maxHops,
-			Src:      listenAddr.IP,
-			IfIndex:  iface.Index,
-		},
+		iface:      iface,
+		conn:       ipv6Conn,
+		rawConn:    icmpListener,
+		controlMsg: getIPv6ControlMsg(listenAddr.IP, iface),
 	}
 
 	return listener, nil
+}
+
+func importNDPConnection(openedFD *os.File, iface *net.Interface) (*NDPConnection, error) {
+	conn, err := net.FilePacketConn(openedFD)
+	if err != nil {
+		return nil, fmt.Errorf("could not get a PacketConnection from the bloody filer: %v", err)
+	}
+	ipv6Conn := ipv6.NewPacketConn(conn)
+	controlMsg := getIPv6ControlMsg(net.IPv6unspecified, iface)
+
+	ndpConn := &NDPConnection{
+		iface:      iface,
+		conn:       ipv6Conn,
+		controlMsg: controlMsg,
+	}
+
+	return ndpConn, nil
+}
+
+func getIPv6ControlMsg(listenAddr net.IP, iface *net.Interface) *ipv6.ControlMessage {
+	return &ipv6.ControlMessage{
+		HopLimit: maxHops,
+		Src:      listenAddr,
+		IfIndex:  iface.Index,
+	}
+}
+
+func (l *NDPConnection) Export(socketPath string) error {
+	socketListener, err := net.Listen("unix", socketPath)
+	if err != nil {
+		return fmt.Errorf("could not create a UNIX domain socket: %v", err)
+	}
+
+	defer socketListener.Close()
+	f, err := l.GetFD()
+	if err != nil {
+		return fmt.Errorf("could not get an opened file descriptor for out stupid ass server: %v", err)
+	}
+
+	socketTransferConnection, err := socketListener.Accept()
+	if err != nil {
+		return fmt.Errorf("could not listen on the UNIX domain socket: %v", err)
+	}
+	defer socketTransferConnection.Close()
+	listenConn := socketTransferConnection.(*net.UnixConn)
+	if err = fd.Put(listenConn, f); err != nil {
+		return fmt.Errorf("could not send the opened file descriptor across: %v", err)
+	}
+
+	_ = l.rawConn.Close()
+	return nil
 }
 
 func (l *NDPConnection) GetFD() (*os.File, error) {
