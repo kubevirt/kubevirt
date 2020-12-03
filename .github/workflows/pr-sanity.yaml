@@ -19,7 +19,6 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
       - uses: actions/setup-go@v2
@@ -43,7 +42,7 @@ jobs:
       - name: Send coverage
         env:
           COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: goveralls -coverprofile=pkg/controller/hyperconverged/hyperconverged.coverprofile -service=github
+        run: goveralls -coverprofile=./coverprofiles/cover.coverprofile -service=github
 
       - name: Verify the current manifests pass validation
         run: make container-build-operator-courier
