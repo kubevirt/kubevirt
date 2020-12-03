@@ -173,6 +173,10 @@ func parseArgs(args []string) error {
 		size = pvcSize
 	}
 
+	if accessMode == string(v1.ReadOnlyMany) {
+		return fmt.Errorf("cannot upload to a readonly volume, use either ReadWriteOnce or ReadWriteMany if supported")
+	}
+
 	// check deprecated invocation
 	if name != "" {
 		if len(args) != 0 {

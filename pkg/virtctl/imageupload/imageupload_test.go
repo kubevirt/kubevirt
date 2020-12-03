@@ -447,6 +447,16 @@ var _ = Describe("ImageUpload", func() {
 			Entry("PVC without upload annotation and no annotation map", pvcSpecNoAnnotationMap()),
 		)
 
+		It("Show error when uploading to ReadOnly volume", func() {
+			testInit(http.StatusOK)
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
+				"--insecure", "--image-path", imagePath, "--access-mode", string(v1.ReadOnlyMany))
+			err := cmd()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(Equal("cannot upload to a readonly volume, use either ReadWriteOnce or ReadWriteMany if supported"))
+			Expect(dvCreateCalled).To(BeFalse())
+		})
+
 		AfterEach(func() {
 			testDone()
 		})
