@@ -24,6 +24,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/ftrvxmtrx/fd"
 	"github.com/mdlayher/ndp"
 	"golang.org/x/net/ipv6"
 )
@@ -78,17 +79,85 @@ func NewNDPConnection(ifaceName string) (*NDPConnection, error) {
 	}
 
 	listener := &NDPConnection{
-		iface:   iface,
-		conn:    ipv6Conn,
-		rawConn: icmpListener,
-		controlMsg: &ipv6.ControlMessage{
-			HopLimit: maxHops,
-			Src:      listenAddr.IP,
-			IfIndex:  iface.Index,
-		},
+		iface:      iface,
+		conn:       ipv6Conn,
+		rawConn:    icmpListener,
+		controlMsg: getIPv6ControlMsg(listenAddr.IP, iface),
 	}
 
 	return listener, nil
+}
+
+func importNDPConnection(openedFD *os.File, iface *net.Interface) (*NDPConnection, error) {
+	conn, err := net.FilePacketConn(openedFD)
+	if err != nil {
+		return nil, fmt.Errorf("could not get a PacketConnection from the opened file descriptor: %v", err)
+	}
+	ipv6Conn := ipv6.NewPacketConn(conn)
+	controlMsg := getIPv6ControlMsg(net.IPv6unspecified, iface)
+
+	ndpConn := &NDPConnection{
+		iface:      iface,
+		conn:       ipv6Conn,
+		controlMsg: controlMsg,
+	}
+
+	return ndpConn, nil
+}
+
+func getIPv6ControlMsg(listenAddr net.IP, iface *net.Interface) *ipv6.ControlMessage {
+	return &ipv6.ControlMessage{
+		HopLimit: maxHops,
+		Src:      listenAddr,
+		IfIndex:  iface.Index,
+	}
+}
+
+func ImportConnection(socketPath string) (*os.File, error) {
+	c, err := net.Dial("unix", socketPath)
+	if err != nil {
+		return nil, fmt.Errorf("error dialing to unix domain socket at %s: %v", socketPath, err)
+	}
+	defer c.Close()
+	fdConn := c.(*net.UnixConn)
+
+	expectedFDNumber := 1
+	fds, err := fd.Get(fdConn, expectedFDNumber, []string{})
+	if err != nil || len(fds) == 0 {
+		return nil, fmt.Errorf("error importing the NDP connection: %v", err)
+	}
+
+	openedFD := fds[expectedFDNumber-1]
+	return openedFD, nil
+}
+
+func (l *NDPConnection) Export(socketPath string) error {
+	socketListener, err := net.Listen("unix", socketPath)
+	if err != nil {
+		return fmt.Errorf("could not create a UNIX domain socket: %v", err)
+	}
+
+	defer socketListener.Close()
+	icmpListenerFD, err := l.GetFD()
+	if err != nil {
+		return fmt.Errorf("could not get an opened file descriptor from the icmp listener: %v", err)
+	}
+
+	socketTransferConnection, err := socketListener.Accept()
+	if err != nil {
+		return fmt.Errorf("could not listen on the UNIX domain socket: %v", err)
+	}
+	defer socketTransferConnection.Close()
+	listenConn := socketTransferConnection.(*net.UnixConn)
+	if err = fd.Put(listenConn, icmpListenerFD); err != nil {
+		return fmt.Errorf("could not send the opened file descriptor across: %v", err)
+	}
+
+	defer func() {
+		_ = l.rawConn.Close()
+		_ = l.conn.Close()
+	}()
+	return nil
 }
 
 func (l *NDPConnection) GetFD() (*os.File, error) {
