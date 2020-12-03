@@ -901,6 +901,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	if c.UseEmulation {
 		logger := log.DefaultLogger()
 		logger.Infof("Using software emulation.")
+        domain.Spec.Type = "qemu"
 	} else {
 		if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
 			return fmt.Errorf("hardware emulation device '/dev/kvm' not present")
