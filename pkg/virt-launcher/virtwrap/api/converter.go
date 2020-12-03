@@ -898,16 +898,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		CPUs:      queueNumber,
 	}
 
-	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
-		if c.UseEmulation {
-			logger := log.DefaultLogger()
-			logger.Infof("Hardware emulation device '/dev/kvm' not present. Using software emulation.")
-			domain.Spec.Type = "qemu"
-		} else {
+	if c.UseEmulation {
+		logger := log.DefaultLogger()
+		logger.Infof("Using software emulation.")
+	} else {
+		if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
 			return fmt.Errorf("hardware emulation device '/dev/kvm' not present")
+		} else if err != nil {
+			return err
 		}
-	} else if err != nil {
-		return err
 	}
 
 	virtioNetProhibited := false
