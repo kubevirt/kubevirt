@@ -322,8 +322,11 @@ var _ = Describe("Manager", func() {
 			Expect(err).To(BeNil())
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockDomain, nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).AnyTimes().Return(string(oldXML), nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).AnyTimes().Return(string(oldXML), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().Return(string(oldXML), nil)
+			mockDomain.EXPECT().
+				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				AnyTimes().
+				Return("<kubevirt></kubevirt>", nil)
 			mockConn.EXPECT().DomainDefineXML(gomock.Any()).DoAndReturn(func(xml string) (cli.VirDomain, error) {
 				Expect(strings.Contains(xml, "<markedForGracefulShutdown>true</markedForGracefulShutdown>")).To(BeTrue())
 				return mockDomain, nil
@@ -368,8 +371,11 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetJobInfo().AnyTimes().Return(fake_jobinfo, nil)
 			mockDomain.EXPECT().AbortJob()
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).AnyTimes().Return(string(xml), nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).AnyTimes().Return(string(xml), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().Return(string(xml), nil)
+			mockDomain.EXPECT().
+				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				AnyTimes().
+				Return("<kubevirt></kubevirt>", nil)
 
 			liveMigrationMonitor(vmi, mockDomain, manager, options, migrationErrorChan)
 		})
@@ -410,8 +416,11 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetJobInfo().AnyTimes().Return(fake_jobinfo, nil)
 			mockDomain.EXPECT().AbortJob()
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).AnyTimes().Return(string(xml), nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).AnyTimes().Return(string(xml), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().Return(string(xml), nil)
+			mockDomain.EXPECT().
+				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				AnyTimes().
+				Return("<kubevirt></kubevirt>", nil)
 
 			liveMigrationMonitor(vmi, mockDomain, manager, options, migrationErrorChan)
 		})
@@ -460,18 +469,18 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetJobInfo().AnyTimes().DoAndReturn(func() (*libvirt.DomainJobInfo, error) {
 				return fake_jobinfo(), nil
 			})
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).AnyTimes().DoAndReturn(func(_ libvirt.DomainXMLFlags) (string, error) {
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).AnyTimes().DoAndReturn(func(_ libvirt.DomainXMLFlags) (string, error) {
 				xmlOriginal, err := xml.MarshalIndent(domainSpec, "", "\t")
 				Expect(err).To(BeNil())
 				return string(xmlOriginal), nil
 			})
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).AnyTimes().DoAndReturn(func(_ libvirt.DomainXMLFlags) (string, error) {
-				xmlOriginal, err := xml.MarshalIndent(domainSpec, "", "\t")
-				Expect(err).To(BeNil())
-				return string(xmlOriginal), nil
-			})
-			mockDomain.EXPECT().MigrateStartPostCopy(gomock.Eq(uint32(0))).Return(nil)
-
+			mockDomain.EXPECT().MigrateStartPostCopy(gomock.Eq(uint32(0))).AnyTimes().Return(nil)
+			mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				DoAndReturn(func(_ libvirt.DomainMetadataType, _ string, _ libvirt.DomainModificationImpact) (string, error) {
+					metadata, err := xml.MarshalIndent(domainSpec.Metadata, "", "\t")
+					Expect(err).ShouldNot(HaveOccurred())
+					return string(metadata), nil
+				}).AnyTimes()
 			mockConn.EXPECT().DomainDefineXML(gomock.Any()).AnyTimes().DoAndReturn(func(xml string) (cli.VirDomain, error) {
 				Expect(strings.Contains(xml, "<mode>PostCopy</mode>")).To(BeTrue())
 
@@ -531,12 +540,18 @@ var _ = Describe("Manager", func() {
 				AbortStatus: string(v1.MigrationAbortInProgress),
 			}
 
-			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockDomain, nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).AnyTimes().Return(string(xml), nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).AnyTimes().Return(string(xml), nil)
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).AnyTimes().Return(string(domainXml), nil)
+
+			metadataXml, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
+			mockDomain.EXPECT().
+				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				AnyTimes().
+				Return(string(metadataXml), nil)
+
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0, nil, "/usr/share/OVMF")
 			err = manager.CancelVMIMigration(vmi)
 			Expect(err).To(BeNil())
@@ -598,18 +613,25 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 
-			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			mockDomain.EXPECT().GetJobInfo().AnyTimes().Return(fake_jobinfo, nil)
 			gomock.InOrder(
 				mockConn.EXPECT().DomainDefineXML(gomock.Any()).Return(mockDomain, nil),
-				mockConn.EXPECT().DomainDefineXML(gomock.Any()).DoAndReturn(func(xml string) (cli.VirDomain, error) {
-					Expect(strings.Contains(xml, "MigrationFailed")).To(BeTrue())
+				mockConn.EXPECT().DomainDefineXML(gomock.Any()).DoAndReturn(func(domainXml string) (cli.VirDomain, error) {
+					Expect(strings.Contains(domainXml, "MigrationFailed")).To(BeTrue())
 					isMigrationFailedSet <- true
 					return mockDomain, nil
 				}),
 			)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(string(xml), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(string(domainXml), nil)
+
+			metadataXml, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
+			mockDomain.EXPECT().
+				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				AnyTimes().
+				Return(string(metadataXml), nil)
+
 			mockDomain.EXPECT().MigrateToURI3(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("MigrationFailed"))
 			options := &cmdclient.MigrationOptions{
 				Bandwidth:               resource.MustParse("64Mi"),
@@ -648,11 +670,17 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 
-			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(xml), nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(xml), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(domainXml), nil)
+
+			metadataXml, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
+			mockDomain.EXPECT().
+				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				AnyTimes().
+				Return(string(metadataXml), nil)
+
 			options := &cmdclient.MigrationOptions{
 				Bandwidth:               resource.MustParse("64Mi"),
 				ProgressTimeout:         150,
@@ -811,11 +839,14 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetName().Return("test", nil)
 			x, err := xml.MarshalIndent(api.NewMinimalDomainSpec("test"), "", "\t")
 			Expect(err).To(BeNil())
-			if !cli.IsDown(state) {
-				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
-			}
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(x), nil)
+
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(x), nil)
 			mockConn.EXPECT().ListAllDomains(gomock.Eq(libvirt.CONNECT_LIST_DOMAINS_ACTIVE|libvirt.CONNECT_LIST_DOMAINS_INACTIVE)).Return([]cli.VirDomain{mockDomain}, nil)
+
+			mockDomain.EXPECT().
+				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
+				AnyTimes().
+				Return("<kubevirt></kubevirt>", nil)
 
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0, nil, "/usr/share/OVMF")
 			doms, err := manager.ListAllDomains()
@@ -851,6 +882,36 @@ var _ = Describe("Manager", func() {
 
 			Expect(err).To(BeNil())
 			Expect(len(domStats)).To(Equal(1))
+		})
+	})
+
+	Context("on failed GetDomainSpecWithRuntimeInfo", func() {
+		It("should fall back to returning domain spec without runtime info", func() {
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0, nil, "/usr/share/OVMF")
+
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+
+			vmi := newVMI(testNamespace, testVmName)
+
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+
+			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).ToNot(HaveOccurred())
+
+			gomock.InOrder(
+				// First call is via GetDomainSpecWithRuntimeInfo. Force an error
+				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return("", libvirt.Error{Code: libvirt.ERR_NO_DOMAIN}),
+				// Subsequent calls are via GetDomainSpec
+				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(libvirt.DOMAIN_XML_INACTIVE)).MaxTimes(2).Return(string(domainXml), nil),
+				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(libvirt.DOMAIN_XML_MIGRATABLE)).MaxTimes(2).Return(string(domainXml), nil),
+			)
+
+			// we need the non-typecast object to make the function we want to test available
+			libvirtmanager := manager.(*LibvirtDomainManager)
+
+			domSpec, err := libvirtmanager.getDomainSpec(mockDomain)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domSpec).ToNot(BeNil())
 		})
 	})
 
