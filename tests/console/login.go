@@ -139,10 +139,15 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 		&expect.BSnd{S: "sudo su\n"},
 		&expect.BExp{R: PromptExpression},
 	})
-	res, err := expecter.ExpectBatch(b, 3*time.Minute)
+	res, err := expecter.ExpectBatch(b, 2*time.Minute)
 	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
-		return err
+		log.DefaultLogger().Object(vmi).Reason(err).Errorf("Login attempt failed: %+v", res)
+		// Try once more since sometimes the login prompt is ripped apart by asynchronous daemon updates
+		res, err := expecter.ExpectBatch(b, 1*time.Minute)
+		if err != nil {
+			log.DefaultLogger().Object(vmi).Reason(err).Errorf("Retried login attempt after two minutes failed: %+v", res)
+			return err
+		}
 	}
 
 	err = configureConsole(expecter, false)
