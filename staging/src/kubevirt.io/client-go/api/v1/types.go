@@ -1275,7 +1275,7 @@ type KubeVirtList struct {
 	Items           []KubeVirt `json:"items"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type KubeVirtSelfSignConfiguration struct {
 	CARotateInterval   *metav1.Duration `json:"caRotateInterval,omitempty"`
@@ -1283,13 +1283,13 @@ type KubeVirtSelfSignConfiguration struct {
 	CAOverlapInterval  *metav1.Duration `json:"caOverlapInterval,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type KubeVirtCertificateRotateStrategy struct {
 	SelfSigned *KubeVirtSelfSignConfiguration `json:"selfSigned,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type KubeVirtSpec struct {
 	// The image tag to use for the continer images installed.
@@ -1570,7 +1570,7 @@ type KubeVirtConfiguration struct {
 	PermittedHostDevices        *PermittedHostDevices   `json:"permittedHostDevices,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type SMBiosConfiguration struct {
 	Manufacturer string `json:"manufacturer,omitempty"`
@@ -1608,9 +1608,7 @@ type DeveloperConfiguration struct {
 // PermittedHostDevices holds inforamtion about devices allowed for passthrough
 // +k8s:openapi-gen=true
 type PermittedHostDevices struct {
-	// +listType=set
-	PciHostDevices []PciHostDevice `json:"pciHostDevices,omitempty"`
-	// +listType=set
+	PciHostDevices  []PciHostDevice      `json:"pciHostDevices,omitempty"`
 	MediatedDevices []MediatedHostDevice `json:"mediatedDevices,omitempty"`
 }
 

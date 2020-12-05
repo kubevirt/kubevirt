@@ -9782,15 +9782,13 @@
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.MediatedHostDevice"
-      },
-      "x-kubernetes-list-type": "set"
+      }
      },
      "pciHostDevices": {
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.PciHostDevice"
-      },
-      "x-kubernetes-list-type": "set"
+      }
      }
     }
    },
