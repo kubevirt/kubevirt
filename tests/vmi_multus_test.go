@@ -60,6 +60,12 @@ const (
 	macvtapNetworkConf     = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s", "annotations": {"k8s.v1.cni.cncf.io/resourceName": "macvtap.network.kubevirt.io/%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"type\": \"macvtap\"}"}}`
 )
 
+const (
+	sriovnet1 = "sriov"
+	sriovnet2 = "sriov2"
+	sriovnet3 = "sriov-link-enabled"
+)
+
 var _ = Describe("[Serial]Multus", func() {
 
 	var err error
@@ -609,20 +615,20 @@ var _ = Describe("[Serial]SRIOV", func() {
 		// Create two sriov networks referring to the same resource name
 		result := virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "sriov")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov", tests.NamespaceTestDefault, sriovResourceName))).
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, sriovnet1)).
+			Body([]byte(fmt.Sprintf(sriovConfCRD, sriovnet1, tests.NamespaceTestDefault, sriovResourceName))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 		result = virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "sriov2")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", tests.NamespaceTestDefault, sriovResourceName))).
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, sriovnet2)).
+			Body([]byte(fmt.Sprintf(sriovConfCRD, sriovnet2, tests.NamespaceTestDefault, sriovResourceName))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 		result = virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "sriov-link-enabled")).
-			Body([]byte(fmt.Sprintf(sriovLinkEnableConfCRD, "sriov-link-enabled", tests.NamespaceTestDefault, sriovResourceName))).
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, sriovnet3)).
+			Body([]byte(fmt.Sprintf(sriovLinkEnableConfCRD, sriovnet3, tests.NamespaceTestDefault, sriovResourceName))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 	})
@@ -704,13 +710,13 @@ var _ = Describe("[Serial]SRIOV", func() {
 		}
 
 		It("[test_id:1754]should create a virtual machine with sriov interface", func() {
-			vmi := getSriovVmi([]string{"sriov"}, defaultCloudInitNetworkData())
+			vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 			vmi = startVmi(vmi)
 			vmi = waitVmi(vmi)
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(validatePodKubevirtResourceName(virtClient, vmiPod, "sriov", sriovResourceName)).To(Succeed())
+			Expect(validatePodKubevirtResourceName(virtClient, vmiPod, sriovnet1, sriovResourceName)).To(Succeed())
 
 			checkDefaultInterfaceInPod(vmi)
 
@@ -723,7 +729,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 		})
 
 		It("[test_id:1754]should create a virtual machine with sriov interface with all pci devices on the root bus", func() {
-			vmi := getSriovVmi([]string{"sriov"}, defaultCloudInitNetworkData())
+			vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 			vmi.Annotations = map[string]string{
 				v1.PlacePCIDevicesOnRootComplex: "true",
 			}
@@ -732,7 +738,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(validatePodKubevirtResourceName(virtClient, vmiPod, "sriov", sriovResourceName)).To(Succeed())
+			Expect(validatePodKubevirtResourceName(virtClient, vmiPod, sriovnet1, sriovResourceName)).To(Succeed())
 
 			checkDefaultInterfaceInPod(vmi)
 
@@ -753,7 +759,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 		It("[test_id:3959]should create a virtual machine with sriov interface and dedicatedCPUs", func() {
 			// In addition to verifying that we can start a VMI with CPU pinning
 			// this also tests if we've correctly calculated the overhead for VFIO devices.
-			vmi := getSriovVmi([]string{"sriov"}, defaultCloudInitNetworkData())
+			vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Cores:                 2,
 				DedicatedCPUPlacement: true,
@@ -763,7 +769,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(validatePodKubevirtResourceName(virtClient, vmiPod, "sriov", sriovResourceName)).To(Succeed())
+			Expect(validatePodKubevirtResourceName(virtClient, vmiPod, sriovnet1, sriovResourceName)).To(Succeed())
 
 			checkDefaultInterfaceInPod(vmi)
 
@@ -774,8 +780,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 		It("[test_id:3985]should create a virtual machine with sriov interface with custom MAC address", func() {
 			const mac = "de:ad:00:00:be:ef"
-			const sriovNetworkName = "sriov"
-			vmi := getSriovVmi([]string{sriovNetworkName}, defaultCloudInitNetworkData())
+			vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
 
 			vmi = startVmi(vmi)
@@ -793,11 +798,11 @@ var _ = Describe("[Serial]SRIOV", func() {
 			By("checking virtual machine instance has an interface with the requested MAC address")
 			Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed())
 			By("checking virtual machine instance reports the expected network name")
-			Expect(getInterfaceNetworkNameByMAC(vmi, mac)).To(Equal(sriovNetworkName))
+			Expect(getInterfaceNetworkNameByMAC(vmi, mac)).To(Equal(sriovnet1))
 		})
 
 		It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
-			sriovNetworks := []string{"sriov", "sriov2"}
+			sriovNetworks := []string{sriovnet1, sriovnet2}
 			vmi := getSriovVmi(sriovNetworks, defaultCloudInitNetworkData())
 			vmi = startVmi(vmi)
 			vmi = waitVmi(vmi)
@@ -838,9 +843,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 			// start peer machines with sriov interfaces from the same resource pool
 			// manually configure IP/link on sriov interfaces because there is
 			// no DHCP server to serve the address to the guest
-			const networkName = "sriov-link-enabled"
-			vmi1 := getSriovVmi([]string{networkName}, cloudInitNetworkDataWithStaticIPsByMac(networkName, mac1.String(), cidrA))
-			vmi2 := getSriovVmi([]string{networkName}, cloudInitNetworkDataWithStaticIPsByMac(networkName, mac2.String(), cidrB))
+			vmi1 := getSriovVmi([]string{sriovnet3}, cloudInitNetworkDataWithStaticIPsByMac(sriovnet3, mac1.String(), cidrA))
+			vmi2 := getSriovVmi([]string{sriovnet3}, cloudInitNetworkDataWithStaticIPsByMac(sriovnet3, mac2.String(), cidrB))
 
 			vmi1.Spec.Domain.Devices.Interfaces[1].MacAddress = mac1.String()
 			vmi2.Spec.Domain.Devices.Interfaces[1].MacAddress = mac2.String()
