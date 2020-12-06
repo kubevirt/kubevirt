@@ -574,9 +574,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	// Make sure the port name is unique across all the interfaces
 	portForwardMap := make(map[string]struct{})
 
-	vifMQ := spec.Domain.Devices.NetworkInterfaceMultiQueue
-	isVirtioNicRequested := false
-
 	// Validate that each interface has a matching network
 	for idx, iface := range spec.Domain.Devices.Interfaces {
 
@@ -786,10 +783,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			}
 		}
 
-		if iface.Model == "virtio" || iface.Model == "" {
-			isVirtioNicRequested = true
-		}
-
 		if iface.DHCPOptions != nil {
 			for index, ip := range iface.DHCPOptions.NTPServers {
 				if net.ParseIP(ip).To4() == nil {
@@ -801,16 +794,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				}
 			}
 		}
-	}
-	// Network interface multiqueue can only be set for a virtio driver
-	if vifMQ != nil && *vifMQ && !isVirtioNicRequested {
-
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "virtio-net multiqueue request, but there are no virtio interfaces defined",
-			Field:   field.Child("domain", "devices", "networkInterfaceMultiqueue").String(),
-		})
-
 	}
 
 	// Validate that every network was assign to an interface

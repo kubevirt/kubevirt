@@ -1834,19 +1834,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("should reject vmi with a network multiqueue, without virtio nics", func() {
-			_true := true
-			vmi := v1.NewMinimalVMI("testvm")
-			nic := *v1.DefaultBridgeNetworkInterface()
-			nic.Model = "e1000"
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{nic}
-			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = &_true
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.networkInterfaceMultiqueue"))
-		})
-
 		It("should allow BlockMultiQueue with CPU settings", func() {
 			_true := true
 			vmi := v1.NewMinimalVMI("testvm")
