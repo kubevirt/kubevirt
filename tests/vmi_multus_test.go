@@ -63,7 +63,7 @@ const (
 const (
 	sriovnet1 = "sriov"
 	sriovnet2 = "sriov2"
-	sriovnet3 = "sriov-link-enabled"
+	sriovnet3 = "sriov3"
 )
 
 var _ = Describe("[Serial]Multus", func() {
