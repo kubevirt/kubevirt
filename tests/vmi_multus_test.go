@@ -868,6 +868,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 			Eventually(func() error {
 				return libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))
 			}, 15*time.Second, time.Second).Should(Succeed())
+
+			Expect(true).To(BeFalse())
 		})
 
 		It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
@@ -880,6 +882,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 			Eventually(func() error {
 				return libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))
 			}, 15*time.Second, time.Second).Should(Succeed())
+
+			Expect(true).To(BeFalse())
 		})
 	})
 })
