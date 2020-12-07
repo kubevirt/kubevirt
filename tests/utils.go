@@ -341,10 +341,23 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 		}
 	}
 
-	uid := w.object.(metav1.ObjectMetaAccessor).GetObjectMeta().GetName()
+	var selector []string
+	objectMeta := w.object.(metav1.ObjectMetaAccessor)
+	name := objectMeta.GetObjectMeta().GetName()
+	namespace := objectMeta.GetObjectMeta().GetNamespace()
+	uid := objectMeta.GetObjectMeta().GetUID()
+
+	selector = append(selector, fmt.Sprintf("involvedObject.name=%v", name))
+	if namespace != "" {
+		selector = append(selector, fmt.Sprintf("involvedObject.namespace=%v", namespace))
+	}
+	if uid != "" {
+		selector = append(selector, fmt.Sprintf("involvedObject.uid=%v", uid))
+	}
+
 	eventWatcher, err := cli.CoreV1().Events(k8sv1.NamespaceAll).
 		Watch(metav1.ListOptions{
-			FieldSelector:   fields.ParseSelectorOrDie("involvedObject.name=" + string(uid)).String(),
+			FieldSelector:   fields.ParseSelectorOrDie(strings.Join(selector, ",")).String(),
 			ResourceVersion: resourceVersion,
 		})
 	if err != nil {
