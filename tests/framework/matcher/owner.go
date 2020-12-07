@@ -6,6 +6,8 @@ import (
 	"github.com/onsi/gomega/types"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"kubevirt.io/kubevirt/tests/framework/matcher/helper"
 )
 
 func BeOwned() types.GomegaMatcher {
@@ -47,7 +49,7 @@ func (o ownedMatcher) NegatedFailureMessage(actual interface{}) (message string)
 }
 
 func toUnstructured(actual interface{}) (*unstructured.Unstructured, error) {
-	if isNil(actual) {
+	if helper.IsNil(actual) {
 		return nil, fmt.Errorf("object does not exist")
 	}
 	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(actual)
