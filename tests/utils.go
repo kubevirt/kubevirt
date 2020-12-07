@@ -1590,6 +1590,8 @@ func cleanNamespaces() {
 			continue
 		}
 
+		//Remove all Jobs
+		PanicOnError(virtCli.BatchV1().RESTClient().Delete().Namespace(namespace).Resource("jobs").Do().Error())
 		//Remove all HPA
 		PanicOnError(virtCli.AutoscalingV1().RESTClient().Delete().Namespace(namespace).Resource("horizontalpodautoscalers").Do().Error())
 
