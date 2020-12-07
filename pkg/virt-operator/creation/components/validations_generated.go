@@ -352,6 +352,7 @@ var CRDsValidation map[string]string = map[string]string{
                     - resourceName
                     type: object
                   type: array
+                  x-kubernetes-list-type: atomic
                 pciHostDevices:
                   items:
                     description: PciHostDevice represents a host PCI device allowed for passthrough
@@ -367,6 +368,7 @@ var CRDsValidation map[string]string = map[string]string{
                     - resourceName
                     type: object
                   type: array
+                  x-kubernetes-list-type: atomic
               type: object
             selinuxLauncherType:
               type: string
