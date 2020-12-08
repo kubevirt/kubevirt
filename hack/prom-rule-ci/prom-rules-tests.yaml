@@ -36,9 +36,9 @@ tests:
   # Some virt controllers are not ready
   - interval: 1m
     input_series:
-      - series: 'ready_virt_controller{namespace="ci", pod="virt-controller-1"}'
+      - series: 'kubevirt_ready_virt_controller{namespace="ci", pod="virt-controller-1"}'
         values: "1 1 1 1 1 1"
-      - series: 'ready_virt_controller{namespace="ci", pod="virt-controller-2"}'
+      - series: 'kubevirt_ready_virt_controller{namespace="ci", pod="virt-controller-2"}'
         values: "0 0 0 0 0 0"
       - series: 'up{namespace="ci", pod="virt-controller-1"}'
         values: "1 1 1 1 1 1"
@@ -55,7 +55,7 @@ tests:
   # All virt controllers are not ready
   - interval: 1m
     input_series:
-      - series: 'ready_virt_controller{namespace="ci", pod="virt-controller-1"}'
+      - series: 'kubevirt_ready_virt_controller{namespace="ci", pod="virt-controller-1"}'
         values: "0 0 0 0 0 0"
 
     alert_rule_test:
@@ -67,7 +67,7 @@ tests:
 
   - interval: 1m
     input_series:
-      - series: 'ready_virt_controller{namespace="ci", pod="virt-controller-1"}'
+      - series: 'kubevirt_ready_virt_controller{namespace="ci", pod="virt-controller-1"}'
         values: "0 0 0 0 0 0"
 
     alert_rule_test:

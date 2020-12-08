@@ -624,9 +624,9 @@ var _ = Describe("[Serial]Infrastructure", func() {
 						continue
 					}
 					switch data {
-					case "leading_virt_controller 1":
+					case "kubevirt_leading_virt_controller 1":
 						foundMetrics["leading"]++
-					case "ready_virt_controller 1":
+					case "kubevirt_ready_virt_controller 1":
 						foundMetrics["ready"]++
 					}
 				}
@@ -663,9 +663,9 @@ var _ = Describe("[Serial]Infrastructure", func() {
 						continue
 					}
 					switch data {
-					case "leading_virt_operator 1":
+					case "kubevirt_leading_virt_operator 1":
 						foundMetrics["leading"]++
-					case "ready_virt_operator 1":
+					case "kubevirt_ready_virt_operator 1":
 						foundMetrics["ready"]++
 					}
 				}
