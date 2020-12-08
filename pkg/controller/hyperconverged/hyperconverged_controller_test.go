@@ -586,7 +586,7 @@ var _ = Describe("HyperconvergedController", func() {
 				).To(BeNil())
 
 				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
-				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(15))
+				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(18))
 				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
 
 				// Now, delete HCO

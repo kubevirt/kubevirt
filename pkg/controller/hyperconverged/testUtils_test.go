@@ -3,6 +3,9 @@ package hyperconverged
 import (
 	"context"
 	"fmt"
+	"os"
+
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/go-logr/logr"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
@@ -20,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -71,6 +73,9 @@ type BasicExpected struct {
 	vmi                  *vmimportv1beta1.VMImportConfig
 	kvMtAg               *sspv1.KubevirtMetricsAggregation
 	imsConfig            *corev1.ConfigMap
+	mService             *corev1.Service
+	serviceMonitor       *monitoringv1.ServiceMonitor
+	promRule             *monitoringv1.PrometheusRule
 }
 
 func (be BasicExpected) toArray() []runtime.Object {
@@ -90,6 +95,9 @@ func (be BasicExpected) toArray() []runtime.Object {
 		be.vmi,
 		be.kvMtAg,
 		be.imsConfig,
+		be.mService,
+		be.serviceMonitor,
+		be.promRule,
 	}
 }
 
@@ -124,6 +132,9 @@ func getBasicDeployment() *BasicExpected {
 	res.hco = hco
 
 	res.pc = operands.NewKubeVirtPriorityClass(hco)
+	res.mService = operands.NewMetricsService(hco, namespace)
+	res.serviceMonitor = operands.NewServiceMonitor(hco, namespace)
+	res.promRule = operands.NewPrometheusRule(hco, namespace)
 	// These are all of the objects that we expect to "find" in the client because
 	// we already created them in a previous reconcile.
 	expectedKVConfig := operands.NewKubeVirtConfigForCR(hco, namespace)

@@ -2,6 +2,8 @@ package commonTestUtils
 
 import (
 	"context"
+
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	sspopv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis"
@@ -105,6 +107,7 @@ func GetScheme() *runtime.Scheme {
 		sspopv1.AddToScheme,
 		vmimportv1beta1.AddToScheme,
 		consolev1.AddToScheme,
+		monitoringv1.AddToScheme,
 	} {
 		Expect(f(s)).To(BeNil())
 	}

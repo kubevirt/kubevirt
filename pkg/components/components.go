@@ -564,10 +564,10 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 			},
 			Resources: []string{
 				"servicemonitors",
+				"prometheusrules",
 			},
 			Verbs: []string{
-				"get",
-				"create",
+				"*",
 			},
 		},
 		{

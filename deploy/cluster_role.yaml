@@ -300,9 +300,9 @@ rules:
   - monitoring.coreos.com
   resources:
   - servicemonitors
+  - prometheusrules
   verbs:
-  - get
-  - create
+  - '*'
 - apiGroups:
   - operators.coreos.com
   resources:

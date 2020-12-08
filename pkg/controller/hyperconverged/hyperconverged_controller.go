@@ -22,6 +22,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
@@ -74,7 +75,7 @@ var JSONPatchAnnotationNames = []string{
 // Add creates a new HyperConverged Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager, ci hcoutil.ClusterInfo) error {
-	return add(mgr, newReconciler(mgr, ci))
+	return add(mgr, newReconciler(mgr, ci), ci)
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -99,7 +100,7 @@ func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo) reconcile.Reconc
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) error {
 	// Create a new controller
 	c, err := controller.New("hyperconverged-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
@@ -120,8 +121,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch secondary resources
-	for _, resource := range []runtime.Object{
+	secondaryResources := []runtime.Object{
 		&kubevirtv1.KubeVirt{},
 		&cdiv1beta1.CDI{},
 		&networkaddonsv1.NetworkAddonsConfig{},
@@ -131,7 +131,17 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&sspv1.KubevirtMetricsAggregation{},
 		&schedulingv1.PriorityClass{},
 		&vmimportv1beta1.VMImportConfig{},
-	} {
+	}
+	if ci.IsOpenshift() {
+		secondaryResources = append(secondaryResources, []runtime.Object{
+			&corev1.Service{},
+			&monitoringv1.ServiceMonitor{},
+			&monitoringv1.PrometheusRule{},
+		}...)
+	}
+
+	// Watch secondary resources
+	for _, resource := range secondaryResources {
 		msg := fmt.Sprintf("Reconciling for %T", resource)
 		err = c.Watch(&source.Kind{Type: resource}, &handler.EnqueueRequestsFromMapFunc{
 			ToRequests: handler.ToRequestsFunc(

@@ -3,8 +3,6 @@ package operands
 import (
 	"context"
 	"fmt"
-	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"sync"
 	"time"
 
@@ -15,6 +13,8 @@ import (
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -53,6 +53,9 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshift
 			newNodeLabellerBundleHandler(client, scheme),
 			newTemplateValidatorHandler(client, scheme),
 			newMetricsAggregationHandler(client, scheme),
+			(*genericOperand)(newMetricsServiceHandler(client, scheme)),
+			(*genericOperand)(newMetricsServiceMonitorHandler(client, scheme)),
+			(*genericOperand)(newMonitoringPrometheusRuleHandler(client, scheme)),
 		}...)
 	}
 
