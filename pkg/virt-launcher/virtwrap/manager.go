@@ -1402,7 +1402,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 
 	//Look up all the disks to detach
 	for _, detachDisk := range getDetachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
-		logger.V(1).Infof("Detaching disk %s", *detachDisk.Alias)
+		logger.V(1).Infof("Detaching disk %s, target %s", *detachDisk.Alias, detachDisk.Target.Device)
 		detachBytes, err := xml.Marshal(detachDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling detached disk failed")
@@ -1423,7 +1423,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		if !allowAttach {
 			continue
 		}
-		logger.V(1).Infof("Attaching disk %s", *attachDisk.Alias)
+		logger.V(1).Infof("Attaching disk %s, target %s", *attachDisk.Alias, attachDisk.Target.Device)
 		attachBytes, err := xml.Marshal(attachDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling attached disk failed")
@@ -1455,16 +1455,21 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
-		} else {
-			log.DefaultLogger().V(1).Infof("stat error: %v", err)
-			return false, err
 		}
+		log.DefaultLogger().V(1).Infof("stat error: %v", err)
+		return false, err
 	}
-	log.DefaultLogger().V(1).Info("checking if device")
 	if (info.Mode() & os.ModeDevice) != 0 {
+		file, err := os.OpenFile(filename, os.O_RDONLY, 0777)
+		if err != nil {
+			log.DefaultLogger().V(1).Infof("Unable to open file: %v", err)
+			return false, nil
+		}
+		if err := file.Close(); err != nil {
+			return false, fmt.Errorf("Unable to close file: %s", file.Name())
+		}
 		return true, nil
 	}
-	log.DefaultLogger().V(1).Info("not device")
 	// Before attempting to attach, ensure we can open the file
 	file, err := os.OpenFile(filename, os.O_RDWR, 0660)
 	if err != nil {

@@ -2108,7 +2108,6 @@ func newDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[strin
 		}
 	}
 
-	log.DefaultLogger().Infof("volumeTargetMap: %v", volumeTargetMap)
 	for _, disk := range disks {
 		if disk.Disk == nil {
 			continue
@@ -2126,6 +2125,5 @@ func newDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[strin
 			namer.usedDeviceMap[volumeTargetMap[disk.Name]] = disk.Name
 		}
 	}
-	log.DefaultLogger().Infof("prefixMap: %v", prefixMap)
 	return prefixMap
 }
