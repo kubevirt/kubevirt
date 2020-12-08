@@ -43,8 +43,10 @@ const (
 )
 
 var (
-	shellSuccess = regexp.MustCompile(RetValue("0"))
-	shellFail    = regexp.MustCompile(RetValue("[1-9].*"))
+	ShellSuccess       = RetValue("0")
+	ShellFail          = RetValue("[1-9].*")
+	ShellSuccessRegexp = regexp.MustCompile(ShellSuccess)
+	ShellFailRegexp    = regexp.MustCompile(ShellFail)
 )
 
 // ExpectBatch runs the batch from `expected` connecting to the `vmi` console and
@@ -111,11 +113,11 @@ func RunCommand(vmi *v1.VirtualMachineInstance, command string, timeout time.Dur
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BCas{C: []expect.Caser{
 			&expect.Case{
-				R: shellSuccess,
+				R: ShellSuccessRegexp,
 				T: expect.OK(),
 			},
 			&expect.Case{
-				R: shellFail,
+				R: ShellFailRegexp,
 				T: expect.Fail(expect.NewStatus(codes.Unavailable, command+" failed")),
 			},
 		}},
