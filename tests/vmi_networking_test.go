@@ -708,18 +708,13 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				var clientVMI *v1.VirtualMachineInstance
 
 				fedoraMasqueradeVMI := func(ports []v1.Port) (*v1.VirtualMachineInstance, error) {
-					userData := fmt.Sprintf(`#!/bin/bash
-                      echo "fedora" |passwd fedora --stdin
-                      sudo yum install -y screen`)
 
 					networkData, err := libnet.CreateDefaultCloudInitNetworkData()
 
 					vmi := libvmi.NewFedora(
 						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-						libvmi.WithCloudInitNoCloudUserData(userData, false),
 						libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
-						libvmi.WithResourceMemory("1024M"),
 					)
 
 					return vmi, err

@@ -14,12 +14,12 @@ import (
 type server string
 
 const (
-	TCPServer  = server("\"Hello World!\"\n")
-	HTTPServer = server("\"HTTP/1.1 200 OK\\nContent-Length: 12\\n\\nHello World!\"\n")
+	TCPServer  = server("\"Hello World!\"")
+	HTTPServer = server("\"HTTP/1.1 200 OK\\nContent-Length: 12\\n\\nHello World!\"")
 )
 
 func (s server) composeNetcatServerCommand(port int) string {
-	return fmt.Sprintf("screen -d -m sudo nc -klp %d -e echo -e %s", port, string(s))
+		return fmt.Sprintf("sudo nc -klp %d -e echo -e %s &\n", port, string(s))
 }
 
 func StartTCPServer(vmi *v1.VirtualMachineInstance, port int) {
