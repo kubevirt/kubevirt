@@ -2164,10 +2164,6 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 				return fmt.Errorf("failed to adjust resources: %v", err)
 			}
 		} else if vmi.IsRunning() {
-			// Umount any disks no longer mounted
-			if err := d.hotplugVolumeMounter.Unmount(vmi); err != nil {
-				return err
-			}
 			if err := d.hotplugVolumeMounter.Mount(vmi); err != nil {
 				return err
 			}
@@ -2196,6 +2192,12 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			return err
 		}
 		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), "VirtualMachineInstance defined.")
+		if vmi.IsRunning() {
+			// Umount any disks no longer mounted
+			if err := d.hotplugVolumeMounter.Unmount(vmi); err != nil {
+				return err
+			}
+		}
 	}
 
 	return err
