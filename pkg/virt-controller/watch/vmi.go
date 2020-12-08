@@ -1485,7 +1485,9 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 				status.Reason = reason
 			} else {
 				status.HotplugVolume.AttachPodName = attachmentPod.Name
-				status.HotplugVolume.AttachPodUID = attachmentPod.UID
+				if len(attachmentPod.Status.ContainerStatuses) == 1 && attachmentPod.Status.ContainerStatuses[0].Ready {
+					status.HotplugVolume.AttachPodUID = attachmentPod.UID
+				}
 				if c.canMoveToAttachedPhase(status.Phase) {
 					status.Phase = virtv1.HotplugVolumeAttachedToNode
 					status.Message = fmt.Sprintf("Created hotplug attachment pod %s, for volume %s", attachmentPod.Name, volume.Name)

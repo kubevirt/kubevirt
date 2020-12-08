@@ -42,6 +42,10 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
+const (
+	guestDiskIdPrefix = "scsi-0QEMU_QEMU_HARDDISK_"
+)
+
 var _ = SIGDescribe("Hotplug", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -79,6 +83,7 @@ var _ = SIGDescribe("Hotplug", func() {
 						Bus: bus,
 					},
 				},
+				Serial: volumeName,
 			},
 			VolumeSource: volumeSource,
 		}
@@ -321,7 +326,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		for _, volumeStatus := range updatedVMI.Status.VolumeStatus {
 			if _, ok := nameMap[volumeStatus.Name]; ok && volumeStatus.HotplugVolume != nil {
 				Expect(volumeStatus.Target).ToNot(BeEmpty())
-				res = append(res, fmt.Sprintf("/dev/%s", volumeStatus.Target))
+				res = append(res, fmt.Sprintf("/dev/disk/by-id/%s%s", guestDiskIdPrefix, volumeStatus.Name))
 			}
 		}
 		return res
@@ -384,7 +389,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			table.DescribeTable("should add/remove volume", func(addVolumeFunc func(name, namespace, volumeName, claimName, bus string), removeVolumeFunc func(name, namespace, volumeName string), volumeMode corev1.PersistentVolumeMode, vmiOnly, waitToStart bool) {
 				By("Creating DataVolume")
-				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, corev1.ReadWriteOnce, volumeMode)
+				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, volumeMode)
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulDataVolumeImport(dv, 240)
@@ -443,7 +448,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				table.Entry("with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false, false),
 			)
 
-			table.PDescribeTable("Should be able to add and remove multiple volumes", func(addVolumeFunc func(name, namespace, volumeName, claimName, bus string), removeVolumeFunc func(name, namespace, volumeName string), volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
+			table.DescribeTable("Should be able to add and remove multiple volumes", func(addVolumeFunc func(name, namespace, volumeName, claimName, bus string), removeVolumeFunc func(name, namespace, volumeName string), volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				// By("Obtaining the serial console")
@@ -454,7 +459,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				for i := 0; i < 5; i++ {
 					volumeName := fmt.Sprintf("volume%d", i)
 					By("Creating DataVolume")
-					dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, corev1.ReadWriteOnce, volumeMode)
+					dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, volumeMode)
 					_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
 					Expect(err).To(BeNil())
 					tests.WaitForSuccessfulDataVolumeImport(dv, 240)
@@ -510,10 +515,10 @@ var _ = SIGDescribe("Hotplug", func() {
 			},
 				table.Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
 				table.Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
-				table.Entry("with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
+				table.PEntry("with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
 
-			table.PDescribeTable("Should be able to add and remove and re-add multiple volumes", func(addVolumeFunc func(name, namespace, volumeName, claimName, bus string), removeVolumeFunc func(name, namespace, volumeName string), volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
+			table.DescribeTable("Should be able to add and remove and re-add multiple volumes", func(addVolumeFunc func(name, namespace, volumeName, claimName, bus string), removeVolumeFunc func(name, namespace, volumeName string), volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
@@ -522,7 +527,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				for i := 0; i < 5; i++ {
 					volumeName := fmt.Sprintf("volume%d", i)
 					By("Creating DataVolume")
-					dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, corev1.ReadWriteOnce, volumeMode)
+					dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, volumeMode)
 					_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
 					Expect(err).To(BeNil())
 					tests.WaitForSuccessfulDataVolumeImport(dv, 240)
@@ -606,7 +611,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			},
 				table.Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
 				table.Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
-				table.Entry("with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
+				table.PEntry("with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
 		})
 
@@ -646,7 +651,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				volumeMode := corev1.PersistentVolumeFilesystem
 				addVolumeFunc := addDVVolumeVMI
 				By("Creating DataVolume")
-				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, corev1.ReadWriteOnce, volumeMode)
+				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, volumeMode)
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulDataVolumeImport(dv, 240)
@@ -698,7 +703,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				addVolumeFunc := addDVVolumeVMI
 				removeVolumeFunc := removeVolumeVMI
 				By("Creating DataVolume")
-				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, corev1.ReadWriteMany, volumeMode)
+				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteMany, volumeMode)
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulDataVolumeImport(dv, 240)
