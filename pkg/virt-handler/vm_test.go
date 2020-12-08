@@ -1202,7 +1202,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				controller.Execute()
 			})
 
-			It("should call unmount first and fail, if it fails while VMI is running", func() {
+			It("should call mount, fail if mount fails", func() {
 				vmi := v1.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
@@ -1211,21 +1211,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 				vmiFeeder.Add(vmi)
 				domainFeeder.Add(domain)
 				vmiInterface.EXPECT().Update(gomock.Any())
-				mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(fmt.Errorf("Unable to unmount"))
-
-				controller.Execute()
-			})
-
-			It("should call mount and unmount, fail if mount fails", func() {
-				vmi := v1.NewMinimalVMI("testvmi")
-				vmi.UID = vmiTestUUID
-				vmi.Status.Phase = v1.Running
-				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-				domain.Status.Status = api.Running
-				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
-				vmiInterface.EXPECT().Update(gomock.Any())
-				mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
 				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(fmt.Errorf("Error"))
 
 				controller.Execute()
