@@ -630,9 +630,9 @@ var _ = Describe("[Serial][owner:@sig-compute]Infrastructure", func() {
 						continue
 					}
 					switch data {
-					case "leading_virt_controller 1":
+					case "kubevirt_virt_controller_leading 1":
 						foundMetrics["leading"]++
-					case "ready_virt_controller 1":
+					case "kubevirt_virt_controller_ready 1":
 						foundMetrics["ready"]++
 					}
 				}
@@ -669,9 +669,9 @@ var _ = Describe("[Serial][owner:@sig-compute]Infrastructure", func() {
 						continue
 					}
 					switch data {
-					case "leading_virt_operator 1":
+					case "kubevirt_virt_operator_leading 1":
 						foundMetrics["leading"]++
-					case "ready_virt_operator 1":
+					case "kubevirt_virt_operator_ready 1":
 						foundMetrics["ready"]++
 					}
 				}

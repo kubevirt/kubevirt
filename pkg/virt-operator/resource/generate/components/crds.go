@@ -549,14 +549,14 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 				Name: "kubevirt.rules",
 				Rules: []promv1.Rule{
 					{
-						Record: "num_of_running_virt_api_servers",
+						Record: "kubevirt_virt_api_up_total",
 						Expr: intstr.FromString(
 							fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-api-.*'})", ns),
 						),
 					},
 					{
 						Alert: "VirtAPIDown",
-						Expr:  intstr.FromString("num_of_running_virt_api_servers == 0"),
+						Expr:  intstr.FromString("kubevirt_virt_api_up_total == 0"),
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary": "All virt-api servers are down.",
@@ -568,7 +568,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 					},
 					{
 						Alert: "LowVirtAPICount",
-						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (num_of_running_virt_api_servers < 2)"),
+						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (kubevirt_virt_api_up_total < 2)"),
 						For:   "60m",
 						Annotations: map[string]string{
 							"summary": "More than one virt-api should be running if more than one worker nodes exist.",
@@ -591,20 +591,20 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						},
 					},
 					{
-						Record: "num_of_running_virt_controllers",
+						Record: "kubevirt_virt_controller_up_total",
 						Expr: intstr.FromString(
 							fmt.Sprintf("sum(up{pod=~'virt-controller-.*', namespace='%s'})", ns),
 						),
 					},
 					{
-						Record: "num_of_ready_virt_controllers",
+						Record: "kubevirt_virt_controller_ready_total",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum(ready_virt_controller{namespace='%s'})", ns),
+							fmt.Sprintf("sum(kubevirt_virt_controller_ready{namespace='%s'})", ns),
 						),
 					},
 					{
 						Alert: "LowReadyVirtControllersCount",
-						Expr:  intstr.FromString("num_of_ready_virt_controllers <  num_of_running_virt_controllers"),
+						Expr:  intstr.FromString("kubevirt_virt_controller_ready_total <  kubevirt_virt_controller_up_total"),
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary": "Some virt controllers are running but not ready.",
@@ -612,7 +612,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 					},
 					{
 						Alert: "NoReadyVirtController",
-						Expr:  intstr.FromString("num_of_ready_virt_controllers == 0"),
+						Expr:  intstr.FromString("kubevirt_virt_controller_ready_total == 0"),
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary": "No ready virt-controller was detected for the last 5 min.",
@@ -620,7 +620,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 					},
 					{
 						Alert: "VirtControllerDown",
-						Expr:  intstr.FromString("num_of_running_virt_controllers == 0"),
+						Expr:  intstr.FromString("kubevirt_virt_controller_up_total == 0"),
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary": "No running virt-controller was detected for the last 5 min.",
@@ -628,7 +628,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 					},
 					{
 						Alert: "LowVirtControllersCount",
-						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (num_of_ready_virt_controllers < 2)"),
+						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (kubevirt_virt_controller_ready_total < 2)"),
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary": "More than one virt-controller should be ready if more than one worker node.",
@@ -675,14 +675,14 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						},
 					},
 					{
-						Record: "num_of_running_virt_operators",
+						Record: "kubevirt_virt_operator_up_total",
 						Expr: intstr.FromString(
 							fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-operator-.*'})", ns),
 						),
 					},
 					{
 						Alert: "VirtOperatorDown",
-						Expr:  intstr.FromString("num_of_running_virt_operators == 0"),
+						Expr:  intstr.FromString("kubevirt_virt_operator_up_total == 0"),
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary": "All virt-operator servers are down.",
@@ -690,7 +690,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 					},
 					{
 						Alert: "LowVirtOperatorCount",
-						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (num_of_running_virt_operators < 2)"),
+						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (kubevirt_virt_operator_up_total < 2)"),
 						For:   "60m",
 						Annotations: map[string]string{
 							"summary": "More than one virt-operator should be running if more than one worker nodes exist.",
@@ -737,20 +737,20 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						},
 					},
 					{
-						Record: "num_of_ready_virt_operators",
+						Record: "kubevirt_virt_operator_ready_total",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum(ready_virt_operator{namespace='%s'})", ns),
+							fmt.Sprintf("sum(kubevirt_virt_operator_ready{namespace='%s'})", ns),
 						),
 					},
 					{
-						Record: "num_of_leading_virt_operators",
+						Record: "kubevirt_virt_operator_leading_total",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum(ready_virt_operator{namespace='%s'})", ns),
+							fmt.Sprintf("sum(kubevirt_virt_operator_leading{namespace='%s'})", ns),
 						),
 					},
 					{
 						Alert: "LowReadyVirtOperatorsCount",
-						Expr:  intstr.FromString("num_of_ready_virt_operators <  num_of_running_virt_operators"),
+						Expr:  intstr.FromString("kubevirt_virt_operator_ready_total <  kubevirt_virt_operator_up_total"),
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary": "Some virt-operators are running but not ready.",
@@ -758,7 +758,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 					},
 					{
 						Alert: "NoReadyVirtOperator",
-						Expr:  intstr.FromString("num_of_running_virt_operators == 0"),
+						Expr:  intstr.FromString("kubevirt_virt_operator_up_total == 0"),
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary": "No ready virt-operator was detected for the last 5 min.",
@@ -766,14 +766,14 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 					},
 					{
 						Alert: "NoLeadingVirtOperator",
-						Expr:  intstr.FromString("num_of_leading_virt_operators == 0"),
+						Expr:  intstr.FromString("kubevirt_virt_operator_leading_total == 0"),
 						For:   "5m",
 						Annotations: map[string]string{
 							"summary": "No leading virt-operator was detected for the last 5 min.",
 						},
 					},
 					{
-						Record: "num_of_running_virt_handlers",
+						Record: "kubevirt_virt_handler_up_total",
 						Expr:   intstr.FromString(fmt.Sprintf("sum(up{pod=~'virt-handler-.*', namespace='%s'})", ns)),
 					},
 					{

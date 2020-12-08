@@ -174,3 +174,9 @@ A design proposal and its implementation history can be seen [here](https://docs
  # Other Metrics 
 ## kubevirt_vmi_cpu_affinity
 #### HELP kubevirt_vmi_cpu_affinity vcpu affinity details
+
+ # Other Metrics 
+## kubevirt_virt_controller_leading_total
+#### HELP kubevirt_virt_controller_leading Indication for an operating virt-controller.
+## kubevirt_virt_controller_ready_total
+#### HELP kubevirt_virt_controller_ready Indication for a virt-controller that is ready to take the lead.
