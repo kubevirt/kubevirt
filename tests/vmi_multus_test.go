@@ -59,6 +59,7 @@ const (
 	sriovConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 	sriovLinkEnableConfCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"link_state\": \"enable\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 	macvtapNetworkConf     = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s", "annotations": {"k8s.v1.cni.cncf.io/resourceName": "macvtap.network.kubevirt.io/%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"type\": \"macvtap\"}"}}`
+	sriovConfVlanCRD       = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"link_state\": \"enable\", \"vlan\": 200, \"ipam\":{}}"}}`
 )
 
 const (
@@ -877,6 +878,35 @@ var _ = Describe("[Serial]SRIOV", func() {
 			Eventually(func() error {
 				return libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))
 			}, 15*time.Second, time.Second).Should(Succeed())
+		})
+
+		Context("With VLAN", func() {
+			const (
+				cidrVlaned1          = "192.168.0.1/24"
+				sriovVlanNetworkName = "sriov-vlan"
+			)
+
+			BeforeEach(func() {
+				createNetworkAttachementDefinition(sriovVlanNetworkName, tests.NamespaceTestDefault, sriovConfVlanCRD)
+			})
+
+			It("should be able to ping between two VMIs with the same VLAN over SRIOV network", func() {
+				_, vlanedVMI2 := createSriovVMs(sriovVlanNetworkName, sriovVlanNetworkName, cidrVlaned1, "192.168.0.2/24")
+
+				By("pinging from vlanedVMI2 and the anonymous vmi over vlan")
+				Eventually(func() error {
+					return libnet.PingFromVMConsole(vlanedVMI2, cidrToIP(cidrVlaned1))
+				}, 15*time.Second, time.Second).ShouldNot(HaveOccurred())
+			})
+
+			It("should NOT be able to ping between Vlaned VMI and a non Vlaned VMI", func() {
+				_, nonVlanedVMI := createSriovVMs(sriovVlanNetworkName, sriovnet3, cidrVlaned1, "192.168.0.3/24")
+
+				By("pinging between nonVlanedVMIand the anonymous vmi")
+				Eventually(func() error {
+					return libnet.PingFromVMConsole(nonVlanedVMI, cidrToIP(cidrVlaned1))
+				}, 15*time.Second, time.Second).Should(HaveOccurred())
+			})
 		})
 	})
 })
