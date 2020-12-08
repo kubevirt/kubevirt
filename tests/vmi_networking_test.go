@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	netutils "k8s.io/utils/net"
 	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -768,9 +769,9 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
 				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 
-				By("starting a tcp server")
+				By("starting a http server")
 				tcpPort := 8080
-				tests.StartTCPServer(serverVMI, tcpPort)
+				tests.StartPythonHttpServer(serverVMI, tcpPort)
 
 				By("Checking ping (IPv6) from vmi to cluster nodes gateway")
 				// Cluster nodes subnet (docker network gateway)
@@ -1073,17 +1074,25 @@ func NewRandomVMIWithInvalidNetworkInterface() *v1.VirtualMachineInstance {
 }
 
 func createExpectConnectToServer(serverIP string, tcpPort int, expectSuccess bool) []expect.Batcher {
-	expectResult := "1"
+	expectResult := console.ShellFail
 	if expectSuccess {
-		expectResult = "0"
+		expectResult = console.ShellSuccess
+	}
+
+	var clientCommand string
+
+	if netutils.IsIPv6String(serverIP) {
+		clientCommand = fmt.Sprintf("curl %s\n", net.JoinHostPort(serverIP, strconv.Itoa(tcpPort)))
+	} else {
+		clientCommand = fmt.Sprintf("echo test | nc %s %d -i 1 -w 1 1> /dev/null\n", serverIP, tcpPort)
 	}
 	return []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: fmt.Sprintf("echo test | nc %s %d -i 1 -w 1 1> /dev/null\n", serverIP, tcpPort)},
+		&expect.BSnd{S: clientCommand},
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: console.RetValue(expectResult)},
+		&expect.BExp{R: expectResult},
 	}
 }
 
