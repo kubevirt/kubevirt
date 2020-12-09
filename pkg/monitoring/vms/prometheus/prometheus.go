@@ -179,6 +179,29 @@ func (metrics *vmiMetrics) updateMemory(vmStats *stats.DomainStats) {
 	}
 }
 
+func (metrics *vmiMetrics) updateCPU(vmStats *stats.DomainStats) {
+	if vmStats.Cpu.SystemSet {
+		cpuSystemLabels := []string{"node", "namespace", "name"}
+		cpuSystemLabels = append(cpuSystemLabels, metrics.k8sLabels...)
+		cpuSystemDesc := prometheus.NewDesc(
+			"kubevirt_vmi_cpu_system_seconds_total",
+			"system cpu time spent in seconds.",
+			cpuSystemLabels,
+			nil,
+		)
+
+		cpuSystemLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name}
+		cpuSystemLabelValues = append(cpuSystemLabelValues, metrics.k8sLabelValues...)
+		mv, err := prometheus.NewConstMetric(
+			cpuSystemDesc, prometheus.GaugeValue,
+			float64(vmStats.Cpu.System/1000000000),
+			cpuSystemLabelValues...,
+		)
+
+		tryToPushMetric(cpuSystemDesc, mv, err, metrics.ch)
+	}
+}
+
 func (metrics *vmiMetrics) updateVcpu(vmStats *stats.DomainStats) {
 	for vcpuId, vcpu := range vmStats.Vcpu {
 		// Initial vcpu metrics labels
@@ -202,7 +225,6 @@ func (metrics *vmiMetrics) updateVcpu(vmStats *stats.DomainStats) {
 				vcpuUsageLabelValues...,
 			)
 			tryToPushMetric(vcpuUsageDesc, mv, err, metrics.ch)
-
 		}
 
 		if !vcpu.WaitSet {
@@ -687,6 +709,7 @@ func (metrics *vmiMetrics) updateMetrics(vmStats *stats.DomainStats) {
 	metrics.updateKubernetesLabels()
 
 	metrics.updateMemory(vmStats)
+	metrics.updateCPU(vmStats)
 	metrics.updateVcpu(vmStats)
 	metrics.updateBlock(vmStats)
 	metrics.updateNetwork(vmStats)
