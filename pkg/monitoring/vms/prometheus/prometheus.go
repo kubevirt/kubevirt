@@ -212,6 +212,27 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 			tryToPushMetric(pageFaultDesc, mv, err, metrics.ch)
 		}
 	}
+
+	if mem.ActualBalloonSet {
+		actualBalloonLabels := []string{"node", "namespace", "name"}
+		actualBalloonLabels = append(actualBalloonLabels, metrics.k8sLabels...)
+		actualBalloonDesc := prometheus.NewDesc(
+			"kubevirt_vmi_memory_actual_balloon_bytes",
+			"current balloon bytes.",
+			actualBalloonLabels,
+			nil,
+		)
+
+		actualBalloonLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name}
+		actualBalloonLabelValues = append(actualBalloonLabelValues, metrics.k8sLabelValues...)
+
+		mv, err := prometheus.NewConstMetric(
+			actualBalloonDesc, prometheus.GaugeValue,
+			float64(mem.ActualBalloon)*1024,
+			actualBalloonLabelValues...,
+		)
+		tryToPushMetric(actualBalloonDesc, mv, err, metrics.ch)
+	}
 }
 
 func (metrics *vmiMetrics) updateCPU(cpu *stats.DomainStatsCPU) {
