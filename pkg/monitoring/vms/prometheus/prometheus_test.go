@@ -847,6 +847,30 @@ var _ = Describe("Prometheus", func() {
 			Expect(result).ToNot(BeNil())
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_cpu_user_seconds_total"))
 		})
+
+		It("should expose cpu total time metric", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu: &stats.DomainStatsCPU{
+					TimeSet: true,
+					Time:    1234,
+				},
+				Memory: &stats.DomainStatsMemory{},
+				Net:    []stats.DomainStatsNet{},
+				Vcpu:   []stats.DomainStatsVcpu{},
+			}
+
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			result := <-ch
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_cpu_usage_seconds_total"))
+		})
 	})
 })
 
