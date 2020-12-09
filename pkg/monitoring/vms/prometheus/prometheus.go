@@ -76,8 +76,8 @@ func tryToPushMetric(desc *prometheus.Desc, mv prometheus.Metric, err error, ch 
 	ch <- mv
 }
 
-func (metrics *vmiMetrics) updateMemory(vmStats *stats.DomainStats) {
-	if vmStats.Memory.RSSSet {
+func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
+	if mem.RSSSet {
 		// Initial label set for a given metric
 		memoryResidentLabels := []string{"node", "namespace", "name"}
 		// Kubernetes labels added afterwards
@@ -94,13 +94,13 @@ func (metrics *vmiMetrics) updateMemory(vmStats *stats.DomainStats) {
 		mv, err := prometheus.NewConstMetric(
 			memoryResidentDesc, prometheus.GaugeValue,
 			// the libvirt value is in KiB
-			float64(vmStats.Memory.RSS)*1024,
+			float64(mem.RSS)*1024,
 			memoryResidentLabelValues...,
 		)
 		tryToPushMetric(memoryResidentDesc, mv, err, metrics.ch)
 	}
 
-	if vmStats.Memory.AvailableSet {
+	if mem.AvailableSet {
 		memoryAvailableLabels := []string{"node", "namespace", "name"}
 		memoryAvailableLabels = append(memoryAvailableLabels, metrics.k8sLabels...)
 		memoryAvailableDesc := prometheus.NewDesc(
@@ -115,13 +115,13 @@ func (metrics *vmiMetrics) updateMemory(vmStats *stats.DomainStats) {
 		mv, err := prometheus.NewConstMetric(
 			memoryAvailableDesc, prometheus.GaugeValue,
 			// the libvirt value is in KiB
-			float64(vmStats.Memory.Available)*1024,
+			float64(mem.Available)*1024,
 			memoryAvailableLabelValues...,
 		)
 		tryToPushMetric(memoryAvailableDesc, mv, err, metrics.ch)
 	}
 
-	if vmStats.Memory.UnusedSet {
+	if mem.UnusedSet {
 		memoryUnusedLabels := []string{"node", "namespace", "name"}
 		memoryUnusedLabels = append(memoryUnusedLabels, metrics.k8sLabels...)
 		memoryUnusedDesc := prometheus.NewDesc(
@@ -136,13 +136,13 @@ func (metrics *vmiMetrics) updateMemory(vmStats *stats.DomainStats) {
 		mv, err := prometheus.NewConstMetric(
 			memoryUnusedDesc, prometheus.GaugeValue,
 			// the libvirt value is in KiB
-			float64(vmStats.Memory.Unused)*1024,
+			float64(mem.Unused)*1024,
 			memoryUnusedLabelValues...,
 		)
 		tryToPushMetric(memoryUnusedDesc, mv, err, metrics.ch)
 	}
 
-	if vmStats.Memory.SwapInSet || vmStats.Memory.SwapOutSet {
+	if mem.SwapInSet || mem.SwapOutSet {
 		swapTrafficLabels := []string{"node", "namespace", "name", "type"}
 		swapTrafficLabels = append(swapTrafficLabels, metrics.k8sLabels...)
 		swapTrafficDesc := prometheus.NewDesc(
@@ -152,33 +152,33 @@ func (metrics *vmiMetrics) updateMemory(vmStats *stats.DomainStats) {
 			nil,
 		)
 
-		if vmStats.Memory.SwapInSet {
+		if mem.SwapInSet {
 			swapTrafficInLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, "in"}
 			swapTrafficInLabelValues = append(swapTrafficInLabelValues, metrics.k8sLabelValues...)
 
 			mv, err := prometheus.NewConstMetric(
 				swapTrafficDesc, prometheus.GaugeValue,
 				// the libvirt value is in KiB
-				float64(vmStats.Memory.SwapIn)*1024,
+				float64(mem.SwapIn)*1024,
 				swapTrafficInLabelValues...,
 			)
 			tryToPushMetric(swapTrafficDesc, mv, err, metrics.ch)
 		}
-		if vmStats.Memory.SwapOutSet {
+		if mem.SwapOutSet {
 			swapTrafficOutLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, "out"}
 			swapTrafficOutLabelValues = append(swapTrafficOutLabelValues, metrics.k8sLabelValues...)
 
 			mv, err := prometheus.NewConstMetric(
 				swapTrafficDesc, prometheus.GaugeValue,
 				// the libvirt value is in KiB
-				float64(vmStats.Memory.SwapOut)*1024,
+				float64(mem.SwapOut)*1024,
 				swapTrafficOutLabelValues...,
 			)
 			tryToPushMetric(swapTrafficDesc, mv, err, metrics.ch)
 		}
 	}
 
-	if vmStats.Memory.MajorFaultSet || vmStats.Memory.MinorFaultSet {
+	if mem.MajorFaultSet || mem.MinorFaultSet {
 		pageFaultLabels := []string{"node", "namespace", "name", "type"}
 		pageFaultLabels = append(pageFaultLabels, metrics.k8sLabels...)
 		pageFaultDesc := prometheus.NewDesc(
@@ -188,25 +188,25 @@ func (metrics *vmiMetrics) updateMemory(vmStats *stats.DomainStats) {
 			nil,
 		)
 
-		if vmStats.Memory.MajorFaultSet {
+		if mem.MajorFaultSet {
 			pageFaultMajorLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, "major"}
 			pageFaultMajorLabelValues = append(pageFaultMajorLabelValues, metrics.k8sLabelValues...)
 
 			mv, err := prometheus.NewConstMetric(
 				pageFaultDesc, prometheus.GaugeValue,
-				float64(vmStats.Memory.MajorFault),
+				float64(mem.MajorFault),
 				pageFaultMajorLabelValues...,
 			)
 			tryToPushMetric(pageFaultDesc, mv, err, metrics.ch)
 		}
 
-		if vmStats.Memory.MinorFaultSet {
+		if mem.MinorFaultSet {
 			pageFaultMinorLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, "minor"}
 			pageFaultMinorLabelValues = append(pageFaultMinorLabelValues, metrics.k8sLabelValues...)
 
 			mv, err := prometheus.NewConstMetric(
 				pageFaultDesc, prometheus.GaugeValue,
-				float64(vmStats.Memory.MinorFault),
+				float64(mem.MinorFault),
 				pageFaultMinorLabelValues...,
 			)
 			tryToPushMetric(pageFaultDesc, mv, err, metrics.ch)
@@ -214,8 +214,8 @@ func (metrics *vmiMetrics) updateMemory(vmStats *stats.DomainStats) {
 	}
 }
 
-func (metrics *vmiMetrics) updateCPU(vmStats *stats.DomainStats) {
-	if vmStats.Cpu.SystemSet {
+func (metrics *vmiMetrics) updateCPU(cpu *stats.DomainStatsCPU) {
+	if cpu.SystemSet {
 		cpuSystemLabels := []string{"node", "namespace", "name"}
 		cpuSystemLabels = append(cpuSystemLabels, metrics.k8sLabels...)
 		cpuSystemDesc := prometheus.NewDesc(
@@ -229,14 +229,14 @@ func (metrics *vmiMetrics) updateCPU(vmStats *stats.DomainStats) {
 		cpuSystemLabelValues = append(cpuSystemLabelValues, metrics.k8sLabelValues...)
 		mv, err := prometheus.NewConstMetric(
 			cpuSystemDesc, prometheus.GaugeValue,
-			float64(vmStats.Cpu.System/1000000000),
+			float64(cpu.System/1000000000),
 			cpuSystemLabelValues...,
 		)
 
 		tryToPushMetric(cpuSystemDesc, mv, err, metrics.ch)
 	}
 
-	if vmStats.Cpu.UserSet {
+	if cpu.UserSet {
 		cpuUserLabels := []string{"node", "namespace", "name"}
 		cpuUserLabels = append(cpuUserLabels, metrics.k8sLabels...)
 		cpuUserDesc := prometheus.NewDesc(
@@ -250,14 +250,14 @@ func (metrics *vmiMetrics) updateCPU(vmStats *stats.DomainStats) {
 		cpuUserLabelValues = append(cpuUserLabelValues, metrics.k8sLabelValues...)
 		mv, err := prometheus.NewConstMetric(
 			cpuUserDesc, prometheus.GaugeValue,
-			float64(vmStats.Cpu.User/1000000000),
+			float64(cpu.User/1000000000),
 			cpuUserLabelValues...,
 		)
 
 		tryToPushMetric(cpuUserDesc, mv, err, metrics.ch)
 	}
 
-	if vmStats.Cpu.TimeSet {
+	if cpu.TimeSet {
 		cpuTimeLabels := []string{"node", "namespace", "name"}
 		cpuTimeLabels = append(cpuTimeLabels, metrics.k8sLabels...)
 		cpuTimeDesc := prometheus.NewDesc(
@@ -271,7 +271,7 @@ func (metrics *vmiMetrics) updateCPU(vmStats *stats.DomainStats) {
 		cpuTimeLabelValues = append(cpuTimeLabelValues, metrics.k8sLabelValues...)
 		mv, err := prometheus.NewConstMetric(
 			cpuTimeDesc, prometheus.GaugeValue,
-			float64(vmStats.Cpu.Time/1000000000),
+			float64(cpu.Time/1000000000),
 			cpuTimeLabelValues...,
 		)
 
@@ -799,8 +799,8 @@ type vmiMetrics struct {
 func (metrics *vmiMetrics) updateMetrics(vmStats *stats.DomainStats) {
 	metrics.updateKubernetesLabels()
 
-	metrics.updateMemory(vmStats)
-	metrics.updateCPU(vmStats)
+	metrics.updateMemory(vmStats.Memory)
+	metrics.updateCPU(vmStats.Cpu)
 	metrics.updateVcpu(vmStats)
 	metrics.updateBlock(vmStats)
 	metrics.updateNetwork(vmStats)
