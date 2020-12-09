@@ -1771,7 +1771,7 @@ var _ = Describe("Configurations", func() {
 			Expect(disks[4].Driver.Cache).To(Equal(cacheWritethrough))
 		})
 
-		It("[test_id:1683]should set appropriate IO modes", func() {
+		It("[test_id:5360]should set appropriate IO modes", func() {
 			tests.SkipPVCTestIfRunnigOnKindInfra()
 
 			vmi := tests.NewRandomVMI()
