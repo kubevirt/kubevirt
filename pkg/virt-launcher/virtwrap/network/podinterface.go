@@ -67,7 +67,7 @@ type BindMechanism interface {
 	// The following entry points require domain initialized for the
 	// binding and can be used in phase2 only.
 	decorateConfig() error
-	startDHCP(vmi *v1.VirtualMachineInstance) error
+	startDynamicIPServers(vmi *v1.VirtualMachineInstance) error
 }
 
 type podNICImpl struct{}
@@ -230,7 +230,7 @@ func ensureDHCP(vmi *v1.VirtualMachineInstance, driver BindMechanism, podInterfa
 	dhcpStartedFile := fmt.Sprintf("/var/run/kubevirt-private/dhcp_started-%s", podInterfaceName)
 	_, err := os.Stat(dhcpStartedFile)
 	if os.IsNotExist(err) {
-		if err := driver.startDHCP(vmi); err != nil {
+		if err := driver.startDynamicIPServers(vmi); err != nil {
 			return fmt.Errorf("failed to start DHCP server for interface %s", podInterfaceName)
 		}
 		newFile, err := os.Create(dhcpStartedFile)
@@ -435,7 +435,7 @@ func (b *BridgeBindMechanism) getFakeBridgeIP() (string, error) {
 	return "", fmt.Errorf("Failed to generate bridge fake address for interface %s", b.iface.Name)
 }
 
-func (b *BridgeBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
+func (b *BridgeBindMechanism) startDynamicIPServers(vmi *v1.VirtualMachineInstance) error {
 	if !b.vif.IPAMDisabled {
 		addr, err := b.getFakeBridgeIP()
 		if err != nil {
@@ -725,7 +725,7 @@ func configureVifV6Addresses(p *MasqueradeBindMechanism, err error) error {
 	return nil
 }
 
-func (p *MasqueradeBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
+func (p *MasqueradeBindMechanism) startDynamicIPServers(vmi *v1.VirtualMachineInstance) error {
 	return Handler.StartDHCP(p.vif, p.vif.Gateway, p.bridgeInterfaceName, p.iface.DHCPOptions, false)
 }
 
@@ -1120,7 +1120,7 @@ func (s *SlirpBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, lau
 	return nil
 }
 
-func (s *SlirpBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
+func (s *SlirpBindMechanism) startDynamicIPServers(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
@@ -1250,7 +1250,7 @@ func (m *MacvtapBindMechanism) setCachedVIF(pid, name string) error {
 	return nil
 }
 
-func (m *MacvtapBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
+func (m *MacvtapBindMechanism) startDynamicIPServers(vmi *v1.VirtualMachineInstance) error {
 	// macvtap will connect to the host's subnet
 	return nil
 }

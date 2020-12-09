@@ -102,12 +102,12 @@ func (_mr *_MockBindMechanismRecorder) decorateConfig() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "decorateConfig")
 }
 
-func (_m *MockBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "startDHCP", vmi)
+func (_m *MockBindMechanism) startDynamicIPServers(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "startDynamicIPServers", vmi)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockBindMechanismRecorder) startDHCP(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "startDHCP", arg0)
+func (_mr *_MockBindMechanismRecorder) startDynamicIPServers(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "startDynamicIPServers", arg0)
 }
