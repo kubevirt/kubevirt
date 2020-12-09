@@ -345,6 +345,27 @@ func (metrics *vmiMetrics) updateBlock(vmStats *stats.DomainStats) {
 				tryToPushMetric(storageTimesDesc, mv, err, metrics.ch)
 			}
 		}
+
+		if block.FlReqsSet {
+			storageFlushLabels := []string{"node", "namespace", "name", "drive", "type"}
+			storageFlushLabels = append(storageFlushLabels, metrics.k8sLabels...)
+			storageFlushDesc := prometheus.NewDesc(
+				"kubevirt_vmi_storage_requests_total",
+				"storage flush requests.",
+				storageFlushLabels,
+				nil,
+			)
+
+			storageFlushLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, block.Name, "flush"}
+			storageFlushLabelValues = append(storageFlushLabelValues, metrics.k8sLabelValues...)
+
+			mv, err := prometheus.NewConstMetric(
+				storageFlushDesc, prometheus.CounterValue,
+				float64(block.FlReqs),
+				storageFlushLabelValues...,
+			)
+			tryToPushMetric(storageFlushDesc, mv, err, metrics.ch)
+		}
 	}
 }
 
