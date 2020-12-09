@@ -10,6 +10,7 @@ import (
 	virtv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -20,21 +21,21 @@ type PodEvictionAdmitter struct {
 
 func (admitter *PodEvictionAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	if !admitter.ClusterConfig.LiveMigrationEnabled() {
-		return allowed()
+		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
 	launcher, err := admitter.VirtClient.CoreV1().Pods(ar.Request.Namespace).Get(ar.Request.Name, metav1.GetOptions{})
 	if err != nil {
-		return allowed()
+		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
 	if value, exists := launcher.GetLabels()[virtv1.AppLabel]; !exists || value != "virt-launcher" {
-		return allowed()
+		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
 	domainName, exists := launcher.GetAnnotations()[virtv1.DomainAnnotation]
 	if !exists {
-		return allowed()
+		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
 	vmi, err := admitter.VirtClient.VirtualMachineInstance(ar.Request.Namespace).Get(domainName, &metav1.GetOptions{})
@@ -43,7 +44,7 @@ func (admitter *PodEvictionAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1
 	}
 	if !vmi.IsEvictable() {
 		// we don't act on VMIs without an eviction strategy
-		return allowed()
+		return validating_webhooks.NewPassingAdmissionResponse()
 	} else if !vmi.IsMigratable() {
 		return denied(fmt.Sprintf(
 			"VMI %s is configured with an eviction strategy but is not live-migratable", vmi.Name))
@@ -60,7 +61,7 @@ func (admitter *PodEvictionAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1
 
 	// We can let the request go through because the pod is protected by a PDB if the VMI wants to be live-migrated on
 	// eviction. Otherwise, we can just evict it.
-	return allowed()
+	return validating_webhooks.NewPassingAdmissionResponse()
 }
 
 func (admitter *PodEvictionAdmitter) markVMI(ar *v1beta1.AdmissionReview, vmi *virtv1.VirtualMachineInstance, dryRun bool) (err error) {
@@ -80,8 +81,4 @@ func denied(message string) *v1beta1.AdmissionResponse {
 			Code:    http.StatusTooManyRequests,
 		},
 	}
-}
-
-func allowed() *v1beta1.AdmissionResponse {
-	return &v1beta1.AdmissionResponse{Allowed: true}
 }
