@@ -17,7 +17,7 @@
  *
  */
 
-package admitters
+package webhooks
 
 import (
 	"encoding/json"
@@ -31,7 +31,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 )
 
 // KubeVirtUpdateAdmitter validates KubeVirt updates
@@ -58,7 +58,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1be
 	}
 
 	if reflect.DeepEqual(newKV.Spec.Workloads, oldKV.Spec.Workloads) {
-		return allowed()
+		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
 	// reject update if it will move a virt-handler pod from a node that has
@@ -72,7 +72,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1be
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	return allowed()
+	return validating_webhooks.NewPassingAdmissionResponse()
 }
 
 func (admitter *KubeVirtUpdateAdmitter) validateWorkloadPlacementUpdate() ([]metav1.StatusCause, error) {
@@ -85,7 +85,7 @@ func (admitter *KubeVirtUpdateAdmitter) validateWorkloadPlacementUpdate() ([]met
 		return []metav1.StatusCause{
 			{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: "can't placement of workload pods while there are running vms",
+				Message: "can't update placement of workload pods while there are running vms",
 			},
 		}, nil
 	}
@@ -94,8 +94,8 @@ func (admitter *KubeVirtUpdateAdmitter) validateWorkloadPlacementUpdate() ([]met
 }
 
 func getAdmissionReviewKubeVirt(ar *v1beta1.AdmissionReview) (new *v1.KubeVirt, old *v1.KubeVirt, err error) {
-	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.KubeVirtGroupVersionResource.Group, webhooks.KubeVirtGroupVersionResource.Resource) {
-		return nil, nil, fmt.Errorf("expect resource to be '%s'", webhooks.KubeVirtGroupVersionResource)
+	if !webhookutils.ValidateRequestResource(ar.Request.Resource, KubeVirtGroupVersionResource.Group, KubeVirtGroupVersionResource.Resource) {
+		return nil, nil, fmt.Errorf("expect resource to be '%s'", KubeVirtGroupVersionResource)
 	}
 
 	raw := ar.Request.Object.Raw

@@ -744,6 +744,58 @@ spec:
 		waitForKv(kv)
 	})
 
+	Describe("Validation Webhooks", func() {
+		var kv *v1.KubeVirt
+		var workloads *v1.ComponentConfig
+
+		workloadPlacementUpdate := &v1.ComponentConfig{
+			NodePlacement: &v1.NodePlacement{
+				NodeSelector: map[string]string{
+					"nodeName": "node1",
+				},
+			},
+		}
+
+		BeforeEach(func() {
+			kv = tests.GetCurrentKv(virtClient)
+			workloads = kv.Spec.Workloads
+		})
+
+		AfterEach(func() {
+			kv = tests.GetCurrentKv(virtClient)
+			kv.Spec.Workloads = workloads
+
+			_, err := virtClient.KubeVirt(kv.Namespace).Update(kv)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should deny KV update when VMI is running", func() {
+			By("starting a VM")
+			vmi := tests.NewRandomVMI()
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).To(BeNil())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			By("updating workload placement")
+			placementBytes, err := json.Marshal(workloadPlacementUpdate)
+			Expect(err).ToNot(HaveOccurred())
+
+			ops := fmt.Sprintf(`[{ "op": "add", "path": "/spec/workloads", "value": %s }]`, string(placementBytes))
+			_, err = virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(ops))
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should allow KV update when there are no VMIs running", func() {
+			placementBytes, err := json.Marshal(workloadPlacementUpdate)
+			Expect(err).ToNot(HaveOccurred())
+
+			ops := fmt.Sprintf(`[{ "op": "add", "path": "/spec/workloads", "value": %s }]`, string(placementBytes))
+			kv, err := virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(ops))
+			Expect(err).To(BeNil())
+			Expect(kv.Spec.Workloads).To(Equal(workloadPlacementUpdate))
+		})
+	})
+
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should start a VM", func() {
 		It("[test_id:3144]using virt-launcher with a shasum", func() {
 

@@ -17,7 +17,7 @@
  *
  */
 
-package admitters
+package webhooks
 
 import (
 	"encoding/json"
