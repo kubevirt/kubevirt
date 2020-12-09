@@ -543,25 +543,39 @@ func (metrics *vmiMetrics) updateNetwork(vmStats *stats.DomainStats) {
 			}
 		}
 
-		if net.RxDropSet {
-			networkRxDropLabels := []string{"node", "namespace", "name", "interface"}
-			networkRxDropLabels = append(networkRxDropLabels, metrics.k8sLabels...)
-			networkRxDropDesc := prometheus.NewDesc(
-				"kubevirt_vmi_network_receive_packets_dropped_total",
-				"network rx packet drops.",
-				networkRxDropLabels,
+		if net.RxDropSet || net.TxDropSet {
+			networkDropLabels := []string{"node", "namespace", "name", "interface", "type"}
+			networkDropLabels = append(networkDropLabels, metrics.k8sLabels...)
+			networkDropDesc := prometheus.NewDesc(
+				"kubevirt_vmi_network_packets_dropped_total",
+				"network packet drops.",
+				networkDropLabels,
 				nil,
 			)
 
-			networkRxDropLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, net.Name}
-			networkRxDropLabelValues = append(networkRxDropLabelValues, metrics.k8sLabelValues...)
+			if net.RxDropSet {
+				networkRxDropLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, net.Name, "rx"}
+				networkRxDropLabelValues = append(networkRxDropLabelValues, metrics.k8sLabelValues...)
 
-			mv, err := prometheus.NewConstMetric(
-				networkRxDropDesc, prometheus.CounterValue,
-				float64(net.RxDrop),
-				networkRxDropLabelValues...,
-			)
-			tryToPushMetric(networkRxDropDesc, mv, err, metrics.ch)
+				mv, err := prometheus.NewConstMetric(
+					networkDropDesc, prometheus.CounterValue,
+					float64(net.RxDrop),
+					networkRxDropLabelValues...,
+				)
+				tryToPushMetric(networkDropDesc, mv, err, metrics.ch)
+			}
+
+			if net.TxDropSet {
+				networkTxDropLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, net.Name, "tx"}
+				networkTxDropLabelValues = append(networkTxDropLabelValues, metrics.k8sLabelValues...)
+
+				mv, err := prometheus.NewConstMetric(
+					networkDropDesc, prometheus.CounterValue,
+					float64(net.TxDrop),
+					networkTxDropLabelValues...,
+				)
+				tryToPushMetric(networkDropDesc, mv, err, metrics.ch)
+			}
 		}
 	}
 }
