@@ -611,6 +611,33 @@ var _ = Describe("Prometheus", func() {
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_requests_total"))
 		})
 
+		It("should handle block flush times metrics", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu:    &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{},
+				Block: []stats.DomainStatsBlock{
+					{
+						NameSet:    true,
+						Name:       "vda",
+						FlTimesSet: true,
+						FlTimes:    1000000,
+					},
+				},
+			}
+
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			result := <-ch
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_flush_total_time_milliseconds"))
+		})
+
 		It("should not expose nameless block metrics", func() {
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
