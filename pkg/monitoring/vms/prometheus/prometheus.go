@@ -200,6 +200,27 @@ func (metrics *vmiMetrics) updateCPU(vmStats *stats.DomainStats) {
 
 		tryToPushMetric(cpuSystemDesc, mv, err, metrics.ch)
 	}
+
+	if vmStats.Cpu.UserSet {
+		cpuUserLabels := []string{"node", "namespace", "name"}
+		cpuUserLabels = append(cpuUserLabels, metrics.k8sLabels...)
+		cpuUserDesc := prometheus.NewDesc(
+			"kubevirt_vmi_cpu_user_seconds_total",
+			"user cpu time spent in seconds.",
+			cpuUserLabels,
+			nil,
+		)
+
+		cpuUserLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name}
+		cpuUserLabelValues = append(cpuUserLabelValues, metrics.k8sLabelValues...)
+		mv, err := prometheus.NewConstMetric(
+			cpuUserDesc, prometheus.GaugeValue,
+			float64(vmStats.Cpu.User/1000000000),
+			cpuUserLabelValues...,
+		)
+
+		tryToPushMetric(cpuUserDesc, mv, err, metrics.ch)
+	}
 }
 
 func (metrics *vmiMetrics) updateVcpu(vmStats *stats.DomainStats) {
