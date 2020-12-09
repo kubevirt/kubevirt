@@ -153,7 +153,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				Eventually(func() (*corev1.PersistentVolumeClaim, error) {
 					return virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(dv.Name, metav1.GetOptions{})
-				}).Should(Not(BeNil()), 30)
+				}, 30).Should(Not(BeNil()))
 
 				vmi := tests.NewRandomVMI()
 
