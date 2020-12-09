@@ -147,4 +147,8 @@ type DomainStatsMemory struct {
 	SwapIn           uint64
 	SwapOutSet       bool
 	SwapOut          uint64
+	MajorFaultSet    bool
+	MajorFault       uint64
+	MinorFaultSet    bool
+	MinorFault       uint64
 }

@@ -92,6 +92,12 @@ func Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem []libvirt.Domai
 		case libvirt.DOMAIN_MEMORY_STAT_SWAP_OUT:
 			ret.SwapOutSet = true
 			ret.SwapOut = stat.Val
+		case libvirt.DOMAIN_MEMORY_STAT_MAJOR_FAULT:
+			ret.MajorFaultSet = true
+			ret.MajorFault = stat.Val
+		case libvirt.DOMAIN_MEMORY_STAT_MINOR_FAULT:
+			ret.MinorFaultSet = true
+			ret.MinorFault = stat.Val
 		}
 	}
 	return ret

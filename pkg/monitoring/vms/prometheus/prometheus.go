@@ -177,6 +177,41 @@ func (metrics *vmiMetrics) updateMemory(vmStats *stats.DomainStats) {
 			tryToPushMetric(swapTrafficDesc, mv, err, metrics.ch)
 		}
 	}
+
+	if vmStats.Memory.MajorFaultSet || vmStats.Memory.MinorFaultSet {
+		pageFaultLabels := []string{"node", "namespace", "name", "type"}
+		pageFaultLabels = append(pageFaultLabels, metrics.k8sLabels...)
+		pageFaultDesc := prometheus.NewDesc(
+			"kubevirt_vmi_memory_pgfault",
+			"The number of page faults.",
+			pageFaultLabels,
+			nil,
+		)
+
+		if vmStats.Memory.MajorFaultSet {
+			pageFaultMajorLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, "major"}
+			pageFaultMajorLabelValues = append(pageFaultMajorLabelValues, metrics.k8sLabelValues...)
+
+			mv, err := prometheus.NewConstMetric(
+				pageFaultDesc, prometheus.GaugeValue,
+				float64(vmStats.Memory.MajorFault),
+				pageFaultMajorLabelValues...,
+			)
+			tryToPushMetric(pageFaultDesc, mv, err, metrics.ch)
+		}
+
+		if vmStats.Memory.MinorFaultSet {
+			pageFaultMinorLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, "minor"}
+			pageFaultMinorLabelValues = append(pageFaultMinorLabelValues, metrics.k8sLabelValues...)
+
+			mv, err := prometheus.NewConstMetric(
+				pageFaultDesc, prometheus.GaugeValue,
+				float64(vmStats.Memory.MinorFault),
+				pageFaultMinorLabelValues...,
+			)
+			tryToPushMetric(pageFaultDesc, mv, err, metrics.ch)
+		}
+	}
 }
 
 func (metrics *vmiMetrics) updateCPU(vmStats *stats.DomainStats) {
