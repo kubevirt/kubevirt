@@ -17,6 +17,7 @@ container_image(
     name = "alpine-container-disk-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
     tars = [":alpine-image-tar"],
@@ -39,6 +40,7 @@ container_image(
     name = "cirros-container-disk-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
     tars = [":cirros-image-tar"],
@@ -62,6 +64,7 @@ container_image(
     name = "cirros-custom-container-disk-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
     tars = [":cirros-custom-image-tar"],
@@ -84,6 +87,7 @@ container_image(
     name = "fedora-cloud-container-disk-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
     tars = [":fedora-cloud-image-tar"],
@@ -104,6 +108,11 @@ pkg_tar(
 
 container_image(
     name = "microlivecd-container-disk-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
     tars = [":microlivecd-image-tar"],
     visibility = ["//visibility:public"],
 )
@@ -120,6 +129,7 @@ container_image(
     name = "virtio-container-disk-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
     tars = [":virtio-image-tar"],
@@ -130,6 +140,7 @@ container_image(
     name = "fedora-sriov-lane-container-disk-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
     base = select({
@@ -144,6 +155,8 @@ container_image(
 container_image(
     name = "fedora-with-test-tooling",
     architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
     base = select({
