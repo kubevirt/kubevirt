@@ -212,12 +212,34 @@ func initializeDirs(virtShareDir string,
 	}
 }
 
+func waitForLibvirtDomain(timeout time.Duration) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	done := make(chan bool)
+	go func() {
+		time.Sleep(timeout)
+		done <- true
+	}()
+	for {
+		select {
+		case <-done:
+			panic(fmt.Errorf("timed out waiting for domain to be defined"))
+		case <-ticker.C:
+			files, err := filepath.Glob("/etc/libvirt/qemu/*.xml")
+			if err == nil && files != nil {
+				return
+			}
+		}
+	}
+}
+
 func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan struct{}, domainManager virtwrap.DomainManager) *api.Domain {
 
-	ticker := time.NewTicker(timeout).C
+	ticker := time.NewTicker(timeout)
+	defer ticker.Stop()
 	select {
-	case <-ticker:
-		panic(fmt.Errorf("timed out waiting for domain to be defined"))
+	case <-ticker.C:
+		panic(fmt.Errorf("timed out waiting for domain to be started"))
 	case e := <-events:
 		if e.Object != nil && e.Type == watch.Added {
 			domain := e.Object.(*api.Domain)
@@ -303,6 +325,7 @@ func cleanupContainerDiskDirectory(ephemeralDiskDir string) {
 }
 
 func main() {
+	domainCreationTimeout := pflag.Duration("libvirt-domain-creation-timeout", defaultStartTimeout, "Amount of time to wait for libvirt domain creation")
 	qemuTimeout := pflag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
 	virtShareDir := pflag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	ephemeralDiskDir := pflag.String("ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks", "Base directory for ephemeral disk data")
@@ -431,6 +454,9 @@ func main() {
 	// This informs virt-controller that virt-launcher is ready to handle
 	// managing virtual machines.
 	markReady()
+
+	// Wait for the libvirt domain to be created.
+	waitForLibvirtDomain(*domainCreationTimeout)
 
 	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
 	if domain != nil {
