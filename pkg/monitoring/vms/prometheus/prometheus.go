@@ -390,7 +390,7 @@ func (metrics *vmiMetrics) updateBlock(vmStats *stats.DomainStats) {
 		}
 
 		if block.FlReqsSet {
-			storageFlushLabels := []string{"node", "namespace", "name", "drive", "type"}
+			storageFlushLabels := []string{"node", "namespace", "name", "drive"}
 			storageFlushLabels = append(storageFlushLabels, metrics.k8sLabels...)
 			storageFlushDesc := prometheus.NewDesc(
 				"kubevirt_vmi_storage_requests_total",
@@ -399,7 +399,7 @@ func (metrics *vmiMetrics) updateBlock(vmStats *stats.DomainStats) {
 				nil,
 			)
 
-			storageFlushLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, block.Name, "flush"}
+			storageFlushLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, block.Name}
 			storageFlushLabelValues = append(storageFlushLabelValues, metrics.k8sLabelValues...)
 
 			mv, err := prometheus.NewConstMetric(
@@ -523,7 +523,7 @@ func (metrics *vmiMetrics) updateNetwork(vmStats *stats.DomainStats) {
 		}
 
 		if net.RxDropSet {
-			networkRxDropLabels := []string{"node", "namespace", "name", "interface", "type"}
+			networkRxDropLabels := []string{"node", "namespace", "name", "interface"}
 			networkRxDropLabels = append(networkRxDropLabels, metrics.k8sLabels...)
 			networkRxDropDesc := prometheus.NewDesc(
 				"kubevirt_vmi_network_receive_packets_dropped_total",
@@ -532,7 +532,7 @@ func (metrics *vmiMetrics) updateNetwork(vmStats *stats.DomainStats) {
 				nil,
 			)
 
-			networkRxDropLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, net.Name, "rxdrop"}
+			networkRxDropLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, net.Name}
 			networkRxDropLabelValues = append(networkRxDropLabelValues, metrics.k8sLabelValues...)
 
 			mv, err := prometheus.NewConstMetric(
