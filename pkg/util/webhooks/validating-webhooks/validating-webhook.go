@@ -20,9 +20,7 @@ type AlwaysPassAdmitter struct {
 }
 
 func NewPassingAdmissionResponse() *v1beta1.AdmissionResponse {
-	reviewResponse := v1beta1.AdmissionResponse{}
-	reviewResponse.Allowed = true
-	return &reviewResponse
+	return &v1beta1.AdmissionResponse{Allowed: true}
 }
 
 func (*AlwaysPassAdmitter) Admit(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
