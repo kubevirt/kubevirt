@@ -476,6 +476,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces(queueNumber uint32, lau
 		return err
 	}
 
+	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
 	b.virtIface.MAC = &api.MAC{MAC: b.vif.MAC.String()}
 	b.virtIface.Target = &api.InterfaceTarget{
 		Device:  b.vif.TapDevice,
@@ -489,6 +490,7 @@ func (b *BridgePodInterface) decorateConfig() error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.Name == b.iface.Name {
+			ifaces[i].MTU = b.virtIface.MTU
 			ifaces[i].MAC = &api.MAC{MAC: b.vif.MAC.String()}
 			ifaces[i].Target = b.virtIface.Target
 			break
@@ -783,6 +785,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces(queueNumber uint32,
 		}
 	}
 
+	p.virtIface.MTU = &api.MTU{Size: strconv.Itoa(p.podNicLink.Attrs().MTU)}
 	p.virtIface.MAC = &api.MAC{MAC: p.vif.MAC.String()}
 	p.virtIface.Target = &api.InterfaceTarget{
 		Device:  p.vif.TapDevice,
@@ -796,6 +799,7 @@ func (p *MasqueradePodInterface) decorateConfig() error {
 	ifaces := p.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.Name == p.iface.Name {
+			ifaces[i].MTU = p.virtIface.MTU
 			ifaces[i].MAC = &api.MAC{MAC: p.vif.MAC.String()}
 			ifaces[i].Target = p.virtIface.Target
 			break
@@ -1186,6 +1190,7 @@ func (m *MacvtapPodInterface) discoverPodNetworkInterface() error {
 
 func (m *MacvtapPodInterface) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
 	m.virtIface.MAC = &api.MAC{MAC: m.vif.MAC.String()}
+	m.virtIface.MTU = &api.MTU{Size: strconv.Itoa(m.podNicLink.Attrs().MTU)}
 	m.virtIface.Target = &api.InterfaceTarget{
 		Device:  m.podInterfaceName,
 		Managed: "no",
@@ -1197,6 +1202,7 @@ func (m *MacvtapPodInterface) decorateConfig() error {
 	ifaces := m.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.Name == m.iface.Name {
+			ifaces[i].MTU = m.virtIface.MTU
 			ifaces[i].MAC = &api.MAC{MAC: m.vif.MAC.String()}
 			ifaces[i].Target = m.virtIface.Target
 			break
