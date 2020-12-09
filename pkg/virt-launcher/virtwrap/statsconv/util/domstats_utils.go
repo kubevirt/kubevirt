@@ -174,7 +174,9 @@ var Testdataexpected = `{
      "MajorFault": 0,
      "MajorFaultSet": false,
      "MinorFault": 0,
-     "MinorFaultSet": false
+     "MinorFaultSet": false,
+     "Usable": 0,
+     "UsableSet": false
    },
    "Name": "testName",
    "Net": [

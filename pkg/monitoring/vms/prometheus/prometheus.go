@@ -233,6 +233,27 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 		)
 		tryToPushMetric(actualBalloonDesc, mv, err, metrics.ch)
 	}
+
+	if mem.UsableSet {
+		usableLabels := []string{"node", "namespace", "name"}
+		usableLabels = append(usableLabels, metrics.k8sLabels...)
+		usableDesc := prometheus.NewDesc(
+			"kubevirt_vmi_memory_usable_bytes",
+			"The amount of memory which can be reclaimed by balloon without causing host swapping in bytes.",
+			usableLabels,
+			nil,
+		)
+
+		usableLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name}
+		usableLabelValues = append(usableLabelValues, metrics.k8sLabelValues...)
+
+		mv, err := prometheus.NewConstMetric(
+			usableDesc, prometheus.GaugeValue,
+			float64(mem.Usable)*1024,
+			usableLabelValues...,
+		)
+		tryToPushMetric(usableDesc, mv, err, metrics.ch)
+	}
 }
 
 func (metrics *vmiMetrics) updateCPU(cpu *stats.DomainStatsCPU) {

@@ -151,4 +151,6 @@ type DomainStatsMemory struct {
 	MajorFault       uint64
 	MinorFaultSet    bool
 	MinorFault       uint64
+	UsableSet        bool
+	Usable           uint64
 }
