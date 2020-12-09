@@ -229,8 +229,9 @@ const (
 )
 
 const (
-	capNetRaw  k8sv1.Capability = "NET_RAW"
-	capSysNice k8sv1.Capability = "SYS_NICE"
+	capNetAdmin k8sv1.Capability = "NET_ADMIN"
+	capNetRaw   k8sv1.Capability = "NET_RAW"
+	capSysNice  k8sv1.Capability = "SYS_NICE"
 )
 
 type ProcessFunc func(event *k8sv1.Event) (done bool)
@@ -4913,6 +4914,7 @@ func DetectLatestUpstreamOfficialTag() (string, error) {
 func IsLauncherCapabilityValid(capability k8sv1.Capability) bool {
 	switch capability {
 	case
+		capNetAdmin,
 		capSysNice:
 		return true
 	}
