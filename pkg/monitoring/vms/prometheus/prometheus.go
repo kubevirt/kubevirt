@@ -478,6 +478,27 @@ func (metrics *vmiMetrics) updateNetwork(vmStats *stats.DomainStats) {
 				tryToPushMetric(networkErrorsDesc, mv, err, metrics.ch)
 			}
 		}
+
+		if net.RxDropSet {
+			networkRxDropLabels := []string{"node", "namespace", "name", "interface", "type"}
+			networkRxDropLabels = append(networkRxDropLabels, metrics.k8sLabels...)
+			networkRxDropDesc := prometheus.NewDesc(
+				"kubevirt_vmi_network_receive_packets_dropped_total",
+				"network rx packet drops.",
+				networkRxDropLabels,
+				nil,
+			)
+
+			networkRxDropLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, net.Name, "rxdrop"}
+			networkRxDropLabelValues = append(networkRxDropLabelValues, metrics.k8sLabelValues...)
+
+			mv, err := prometheus.NewConstMetric(
+				networkRxDropDesc, prometheus.CounterValue,
+				float64(net.RxDrop),
+				networkRxDropLabelValues...,
+			)
+			tryToPushMetric(networkRxDropDesc, mv, err, metrics.ch)
+		}
 	}
 }
 

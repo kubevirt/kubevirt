@@ -696,6 +696,33 @@ var _ = Describe("Prometheus", func() {
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_errors_total"))
 		})
 
+		It("should handle network rx drop metrics", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu:    &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{},
+				Net: []stats.DomainStatsNet{
+					{
+						NameSet:   true,
+						Name:      "vnet0",
+						RxDropSet: true,
+						RxDrop:    1000,
+					},
+				},
+			}
+
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			result := <-ch
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_receive_packets_dropped_total"))
+		})
+
 		It("should not expose nameless network interface metrics", func() {
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
