@@ -199,7 +199,7 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 		queueNumber := uint32(0)
 		isMultiqueue := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
 		if isMultiqueue {
-			queueNumber, _ = api.CalculateNetworkQueueNumberAndGetCPUTopology(vmi)
+			queueNumber = api.CalculateNetworkQueues(vmi)
 		}
 		if err := driver.preparePodNetworkInterfaces(queueNumber, pid); err != nil {
 			log.Log.Reason(err).Error("failed to prepare pod networking")
