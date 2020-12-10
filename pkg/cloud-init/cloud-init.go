@@ -280,11 +280,14 @@ func readFileFromDir(basedir, secretFile string) (string, error) {
 // to the first CloudInitNoCloud volume with a UserDataSecretRef field set.
 func findCloudInitNoCloudSecretVolume(volumes []v1.Volume) *v1.Volume {
 	for _, volume := range volumes {
-		if volume.CloudInitNoCloud != nil && volume.CloudInitNoCloud.UserDataSecretRef != nil {
+		if volume.CloudInitNoCloud == nil {
+			continue
+		}
+		if volume.CloudInitNoCloud.UserDataSecretRef != nil ||
+			volume.CloudInitNoCloud.NetworkDataSecretRef != nil {
 			return &volume
 		}
 	}
-
 	return nil
 }
 
@@ -305,13 +308,14 @@ func readCloudInitData(userData, userDataBase64, networkData, networkDataBase64 
 	if err != nil {
 		return "", "", err
 	}
-	if readUserData == "" {
-		return "", "", fmt.Errorf("userDataBase64 or userData is required for a cloud-init data source")
-	}
 
 	readNetworkData, err := readRawOrBase64Data(networkData, networkDataBase64)
 	if err != nil {
 		return "", "", err
+	}
+
+	if readUserData == "" && readNetworkData == "" {
+		return "", "", fmt.Errorf("userDataBase64, userData, networkDataBase64 or networkData is required for a cloud-init data source")
 	}
 
 	return readUserData, readNetworkData, nil
@@ -506,8 +510,8 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 		return err
 	}
 
-	if data.UserData == "" {
-		return fmt.Errorf("UserData is required for cloud-init data source")
+	if data.UserData == "" && data.NetworkData == "" {
+		return fmt.Errorf("UserData or NetworkData is required for cloud-init data source")
 	}
 	userData := []byte(data.UserData)
 
