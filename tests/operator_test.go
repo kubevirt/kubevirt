@@ -107,6 +107,10 @@ var _ = Describe("[Serial]Operator", func() {
 		usesSha                           func(string) bool
 		ensureShasums                     func()
 		generatePreviousVersionVmYamls    func(string, string)
+		generateMigratableVMIs            func(int) []*v1.VirtualMachineInstance
+		startAllVMIs                      func([]*v1.VirtualMachineInstance)
+		deleteAllVMIs                     func([]*v1.VirtualMachineInstance)
+		verifyVMIsMigratable              func([]*v1.VirtualMachineInstance)
 	)
 
 	tests.BeforeAll(func() {
@@ -549,6 +553,79 @@ var _ = Describe("[Serial]Operator", func() {
 			originalCDI = &cdiList.Items[0]
 		}
 
+		generateMigratableVMIs = func(num int) []*v1.VirtualMachineInstance {
+
+			vmis := []*v1.VirtualMachineInstance{}
+			for i := 0; i < num; i++ {
+				vmis = append(vmis, tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros)))
+			}
+
+			return vmis
+		}
+
+		startAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
+			for _, vmi := range vmis {
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(BeNil(), "Create VMI successfully")
+				tests.WaitForSuccessfulVMIStart(vmi)
+			}
+		}
+
+		deleteAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
+			for _, vmi := range vmis {
+				err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil(), "Delete VMI successfully")
+			}
+		}
+
+		verifyVMIsMigratable = func(vmis []*v1.VirtualMachineInstance) {
+
+			vmiMigrationMap := make(map[string]*v1.VirtualMachineInstanceMigration)
+
+			for _, vmi := range vmis {
+				vmiMigrationMap[vmi.Name] = nil
+			}
+
+			Eventually(func() error {
+				By("Creating a migration object for each vmi")
+				migrationList, err := virtClient.VirtualMachineInstanceMigration(tests.NamespaceTestDefault).List(&metav1.ListOptions{})
+				Expect(err).To(BeNil(), "retrieving migrations")
+
+				for _, migration := range migrationList.Items {
+					existingMigration, ok := vmiMigrationMap[migration.Spec.VMIName]
+					if ok && existingMigration != nil && existingMigration.Status.Phase == v1.MigrationSucceeded {
+						continue
+					}
+
+					if migration.Status.Phase == v1.MigrationFailed {
+						// handles situations where we might hit global max
+						// depending on how many VMIs we try to migrate. By removing
+						// the failed migration entry, the test will re-attempt
+						vmiMigrationMap[migration.Spec.VMIName] = nil
+					} else {
+						vmiMigrationMap[migration.Spec.VMIName] = migration.DeepCopy()
+					}
+				}
+
+				allMigrationsCompleted := true
+				for vmiName, migration := range vmiMigrationMap {
+					if migration == nil {
+						allMigrationsCompleted = false
+						migration = tests.NewRandomMigration(vmiName, tests.NamespaceTestDefault)
+						_, _ = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+					} else if migration.Status.Phase != v1.MigrationSucceeded {
+						allMigrationsCompleted = false
+					}
+				}
+
+				if !allMigrationsCompleted {
+					return fmt.Errorf("Waiting on VMIs to finish migration")
+				}
+
+				return nil
+			}, 320, 1).Should(BeNil(), "All VMIs should update via live migration")
+		}
+
 		generatePreviousVersionVmYamls = func(previousImageRegistry string, previousImageTag string) {
 			ext, err := extclient.NewForConfig(virtClient.Config())
 			Expect(err).ToNot(HaveOccurred())
@@ -819,6 +896,8 @@ spec:
 				Skip("Skip Update test when CDI is not present")
 			}
 
+			migratableVMIs := generateMigratableVMIs(3)
+
 			// Disable HonorWaitForFirstCustomer, since we don't know if previous versions
 			// already support this setting.
 			// TODO drop this step after a few releases after 0.36
@@ -932,6 +1011,9 @@ spec:
 				}, 180*time.Second, 1*time.Second).Should(BeTrue())
 			}
 
+			By("Starting multiple migratable VMIs before performing update")
+			startAllVMIs(migratableVMIs)
+
 			// Update KubeVirt from the previous release to the testing target release.
 			By("Updating KubeVirtObject With Current Tag")
 			patchKvVersionAndRegistry(kv.Name, curVersion, curRegistry)
@@ -1033,6 +1115,12 @@ spec:
 					return false
 				}, 90*time.Second, 1*time.Second).Should(BeTrue())
 			}
+
+			By("Verifying all vmis can be migrated after update")
+			verifyVMIsMigratable(migratableVMIs)
+
+			By("Deleting migratable VMIs")
+			deleteAllVMIs(migratableVMIs)
 
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
