@@ -55,7 +55,9 @@ the following operations, in this order:
 ### Unprivileged VMI networking configuration
 The virt-launcher is an untrusted component of KubeVirt (since it wraps the
 libvirt process that will run third party workloads). As a result, it must be
-run with as little privileges as required.
+run with as little privileges as required. As of now, the only capabilities
+required by virt-launcher to configure networking is the `CAP_NET_ADMIN` and
+the `CAP_NET_RAW` capabilites.
 
 In this second phase, virt-launcher also has to select the correct
 `BindMechanism`, and afterwards will uses it to retrieve the configuration
