@@ -94,6 +94,15 @@ var _ = Describe("Evacuation", func() {
 		syncCaches(stop)
 	})
 
+	Context("migration object creation", func() {
+		It("should have expected values and annotations", func() {
+			migration := evacuation.GenerateNewMigration("my-vmi", "somenode")
+			Expect(migration.Spec.VMIName).To(Equal("my-vmi"))
+			Expect(migration.Annotations[v1.EvacuationMigrationAnnotation]).To(Equal("somenode"))
+		})
+
+	})
+
 	Context("no node eviction in progress", func() {
 
 		It("should do nothing with VMIs", func() {

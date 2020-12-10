@@ -339,7 +339,7 @@ func getMarkedForEvictionVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.V
 	return evictionCandidates
 }
 
-func generateNewMigration(vmiName string, key string) *virtv1.VirtualMachineInstanceMigration {
+func GenerateNewMigration(vmiName string, key string) *virtv1.VirtualMachineInstanceMigration {
 
 	annotations := map[string]string{
 		virtv1.EvacuationMigrationAnnotation: key,
@@ -419,7 +419,7 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	for _, vmi := range selectedCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
-			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(generateNewMigration(vmi.Name, node.Name))
+			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(GenerateNewMigration(vmi.Name, node.Name))
 			if err != nil {
 				c.migrationExpectations.CreationObserved(node.Name)
 				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreateVirtualMachineInstanceMigrationReason, "Error creating a Migration: %v", err)
