@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["dhcpv6.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcpv6",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/insomniacslk/dhcp/dhcpv6:go_default_library",
+        "//vendor/github.com/insomniacslk/dhcp/dhcpv6/server6:go_default_library",
+    ],
+)
