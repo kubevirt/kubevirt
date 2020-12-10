@@ -38,5 +38,9 @@ ${KUBECTL_BINARY} patch hco -n kubevirt-hyperconverged kubevirt-hyperconverged -
 ${KUBECTL_BINARY} patch hco -n kubevirt-hyperconverged kubevirt-hyperconverged -p '{"spec":{"workloads":{"nodePlacement":{"tolerations":[{"effect":"NoSchedule","key":"key","operator":"Equal","value":"value"}]}}}}' --type=merge
 # Read the HyperConverged CR
 ${KUBECTL_BINARY} get hco -n kubevirt-hyperconverged kubevirt-hyperconverged -o yaml
+
+# wait a bit to make sure the VMs are deleted
+sleep 60
+
 # Check the webhook, to see if it allow deleteing of the HyperConverged CR
 ${KUBECTL_BINARY} delete hco -n kubevirt-hyperconverged kubevirt-hyperconverged
