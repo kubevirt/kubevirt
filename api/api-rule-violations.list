@@ -153,8 +153,6 @@ API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,KubeVirtConfi
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,KubeVirtList,Items
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,KubeVirtStatus,Conditions
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,NodePlacement,Tolerations
-API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,PermittedHostDevices,MediatedDevices
-API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,PermittedHostDevices,PciHostDevices
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,VirtualMachineInstanceFileSystemInfo,Filesystems
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,VirtualMachineInstanceFileSystemList,Items
 API rule violation: list_type_missing,kubevirt.io/client-go/api/v1,VirtualMachineInstanceGuestAgentInfo,UserList
