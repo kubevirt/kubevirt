@@ -2,6 +2,9 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: images.config.openshift.io
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
 spec:
   group: config.openshift.io
   scope: Cluster
@@ -22,9 +25,9 @@ spec:
       description: Image governs policies related to imagestream imports and runtime
         configuration for external registries. It allows cluster admins to configure
         which registries OpenShift is allowed to import images from, extra CA trust
-        bundles for external registries, and policies to blacklist/whitelist registry
-        hostnames. When exposing OpenShift's image registry to the public, this also
-        lets cluster admins specify the external hostname.
+        bundles for external registries, and policies to block or allow registry hostnames.
+        When exposing OpenShift's image registry to the public, this also lets cluster
+        admins specify the external hostname.
       type: object
       required:
       - spec
@@ -101,19 +104,33 @@ spec:
               type: object
               properties:
                 allowedRegistries:
-                  description: "allowedRegistries are whitelisted for image pull/push.
-                    All other registries are blocked. \n Only one of BlockedRegistries
-                    or AllowedRegistries may be set."
+                  description: "allowedRegistries are the only registries permitted
+                    for image pull and push actions. All other registries are denied.
+                    \n Only one of BlockedRegistries or AllowedRegistries may be set."
                   type: array
                   items:
                     type: string
                 blockedRegistries:
-                  description: "blockedRegistries are blacklisted from image pull/push.
-                    All other registries are allowed. \n Only one of BlockedRegistries
-                    or AllowedRegistries may be set."
+                  description: "blockedRegistries cannot be used for image pull and
+                    push actions. All other registries are permitted. \n Only one
+                    of BlockedRegistries or AllowedRegistries may be set."
                   type: array
                   items:
                     type: string
+                containerRuntimeSearchRegistries:
+                  description: 'containerRuntimeSearchRegistries are registries that
+                    will be searched when pulling images that do not have fully qualified
+                    domains in their pull specs. Registries will be searched in the
+                    order provided in the list. Note: this search list only works
+                    with the container runtime, i.e CRI-O. Will NOT work with builds
+                    or imagestream imports.'
+                  type: array
+                  format: hostname
+                  minItems: 1
+                  uniqueItems: true
+                  items:
+                    type: string
+                  x-kubernetes-list-type: set
                 insecureRegistries:
                   description: insecureRegistries are registries which do not have
                     a valid TLS certificates or only support HTTP connections.

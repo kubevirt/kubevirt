@@ -9,6 +9,7 @@ import (
 	sspopv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	consolev1 "github.com/openshift/api/console/v1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -108,6 +109,7 @@ func GetScheme() *runtime.Scheme {
 		vmimportv1beta1.AddToScheme,
 		consolev1.AddToScheme,
 		monitoringv1.AddToScheme,
+		extv1.AddToScheme,
 	} {
 		Expect(f(s)).To(BeNil())
 	}

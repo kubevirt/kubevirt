@@ -2,6 +2,9 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: oauths.config.openshift.io
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
 spec:
   group: config.openshift.io
   names:
@@ -40,7 +43,7 @@ spec:
         metadata:
           type: object
         spec:
-          description: OAuthSpec contains desired cluster auth configuration
+          description: spec holds user settable values for configuration
           type: object
           properties:
             identityProviders:
@@ -636,18 +639,22 @@ spec:
                 tokens
               type: object
               properties:
+                accessTokenInactivityTimeout:
+                  description: accessTokenInactivityTimeout defines the token inactivity
+                    timeout for tokens granted by any client. The value represents
+                    the maximum amount of time that can occur between consecutive
+                    uses of the token. Tokens become invalid if they are not used
+                    within this temporal window. The user will need to acquire a new
+                    token to regain access once a token times out. Takes valid time
+                    duration string such as "5m", "1.5h" or "2h45m". The minimum allowed
+                    value for duration is 300s (5 minutes). If the timeout is configured
+                    per client, then that value takes precedence. If the timeout value
+                    is not specified and the client does not override the value, then
+                    tokens are valid until their lifetime.
+                  type: string
                 accessTokenInactivityTimeoutSeconds:
-                  description: 'accessTokenInactivityTimeoutSeconds defines the default
-                    token inactivity timeout for tokens granted by any client. The
-                    value represents the maximum amount of time that can occur between
-                    consecutive uses of the token. Tokens become invalid if they are
-                    not used within this temporal window. The user will need to acquire
-                    a new token to regain access once a token times out. Valid values
-                    are integer values:   x < 0  Tokens time out is enabled but tokens
-                    never timeout unless configured per client (e.g. `-1`)   x = 0  Tokens
-                    time out is disabled (default)   x > 0  Tokens time out if there
-                    is no activity for x seconds The current minimum allowed value
-                    for X is 300 (5 minutes)'
+                  description: 'accessTokenInactivityTimeoutSeconds - DEPRECATED:
+                    setting this field has no effect.'
                   type: integer
                   format: int32
                 accessTokenMaxAgeSeconds:
@@ -656,6 +663,6 @@ spec:
                   type: integer
                   format: int32
         status:
-          description: OAuthStatus shows current known state of OAuth server in the
-            cluster
+          description: status holds observed values from the cluster. They may not
+            be overridden.
           type: object

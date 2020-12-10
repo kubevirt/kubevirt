@@ -16,6 +16,7 @@ import (
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -27,6 +28,10 @@ const (
 	ErrHCOUninstall       = "ErrHCOUninstall"
 	uninstallHCOErrorMsg  = "The uninstall request failed on dependent components, please check their logs."
 	deleteTimeOut         = 30 * time.Second
+)
+
+var (
+	logger = logf.Log.WithName("operandHandlerInit")
 )
 
 type OperandHandler struct {
@@ -63,6 +68,19 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshift
 		client:       client,
 		operands:     operands,
 		eventEmitter: eventEmitter,
+	}
+}
+
+// The k8s client is not available when calling to NewOperandHandler.
+// Initial operations that need to read/write from the cluster can only be done when the client is already working.
+func (h *OperandHandler) FirstUseInitiation(scheme *runtime.Scheme, isOpenshiftCluster bool) {
+	if isOpenshiftCluster {
+		qsHandlers, err := getQuickStartHandlers(logger, h.client, scheme)
+		if err != nil {
+			logger.Error(err, "can't create ConsoleQuickStarts objects")
+		} else if len(qsHandlers) > 0 {
+			h.operands = append(h.operands, qsHandlers...)
+		}
 	}
 }
 

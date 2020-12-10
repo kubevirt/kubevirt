@@ -22,6 +22,7 @@ type Scheduler struct {
 }
 
 type SchedulerSpec struct {
+	// DEPRECATED: the scheduler Policy API has been deprecated and will be removed in a future release.
 	// policy is a reference to a ConfigMap containing scheduler policy which has
 	// user specified predicates and priorities. If this ConfigMap is not available
 	// scheduler will default to use DefaultAlgorithmProvider.
@@ -30,7 +31,8 @@ type SchedulerSpec struct {
 	Policy ConfigMapNameReference `json:"policy"`
 	// defaultNodeSelector helps set the cluster-wide default node selector to
 	// restrict pod placement to specific nodes. This is applied to the pods
-	// created in all namespaces without a specified nodeSelector value.
+	// created in all namespaces and creates an intersection with any existing
+	// nodeSelectors already set on a pod, additionally constraining that pod's selector.
 	// For example,
 	// defaultNodeSelector: "type=user-node,region=east" would set nodeSelector
 	// field in pod spec to "type=user-node,region=east" to all pods created

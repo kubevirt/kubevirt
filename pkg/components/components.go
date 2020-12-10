@@ -618,6 +618,7 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 			},
 			Resources: []string{
 				"consoleclidownloads",
+				"consolequickstarts",
 			},
 			Verbs: []string{
 				"get",

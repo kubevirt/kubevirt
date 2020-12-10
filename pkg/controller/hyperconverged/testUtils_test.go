@@ -6,7 +6,6 @@ import (
 	"os"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/go-logr/logr"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
@@ -30,7 +29,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 // Mock TestRequest to simulate Reconcile() being called on an event for a watched resource
@@ -45,13 +43,13 @@ var (
 
 func initReconciler(client client.Client) *ReconcileHyperConverged {
 	s := commonTestUtils.GetScheme()
-	operandHandler := operands.NewOperandHandler(client, s, true, &eventEmitterMock{})
+	operandHandler := operands.NewOperandHandler(client, s, true, &commonTestUtils.EventEmitterMock{})
 	// Create a ReconcileHyperConverged object with the scheme and fake client
 	return &ReconcileHyperConverged{
 		client:             client,
 		scheme:             s,
 		operandHandler:     operandHandler,
-		eventEmitter:       &eventEmitterMock{},
+		eventEmitter:       &commonTestUtils.EventEmitterMock{},
 		cliDownloadHandler: &operands.CLIDownloadHandler{Client: client, Scheme: s},
 		firstLoop:          true,
 	}
@@ -231,17 +229,6 @@ func doReconcile(cl client.Client, hco *hcov1beta1.HyperConverged) (*hcov1beta1.
 	).To(BeNil())
 
 	return foundResource, res.Requeue
-}
-
-type eventEmitterMock struct{}
-
-func (eventEmitterMock) Init(_ context.Context, _ manager.Manager, _ hcoutil.ClusterInfo, _ logr.Logger) {
-}
-
-func (eventEmitterMock) EmitEvent(_ runtime.Object, _, _, _ string) {
-}
-
-func (eventEmitterMock) UpdateClient(_ context.Context, _ client.Reader, _ logr.Logger) {
 }
 
 func getGenericCompletedConditions() []conditionsv1.Condition {

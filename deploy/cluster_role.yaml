@@ -334,6 +334,7 @@ rules:
   - console.openshift.io
   resources:
   - consoleclidownloads
+  - consolequickstarts
   verbs:
   - get
   - list

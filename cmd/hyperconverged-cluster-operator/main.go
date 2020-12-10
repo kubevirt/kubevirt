@@ -11,6 +11,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 	"github.com/spf13/pflag"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -155,6 +156,8 @@ func main() {
 		consolev1.AddToScheme,
 		openshiftconfigv1.AddToScheme,
 		monitoringv1.AddToScheme,
+		extv1.AddToScheme,
+		consolev1.AddToScheme,
 	} {
 		if err := f(mgr.GetScheme()); err != nil {
 			log.Error(err, "Failed to add to scheme")
@@ -173,10 +176,6 @@ func main() {
 	eventEmitter := hcoutil.GetEventEmitter()
 	// Set temporary configuration, until the regular client is ready
 	eventEmitter.Init(ctx, mgr, ci, log)
-	if err != nil {
-		log.Error(err, "failed to initiate event emitter")
-		os.Exit(1)
-	}
 
 	if err := mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
 		log.Error(err, "unable to add health check")
