@@ -355,12 +355,12 @@ func (_mr *_MockNetworkHandlerRecorder) CreateNDPConnection(arg0, arg1 interface
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateNDPConnection", arg0, arg1)
 }
 
-func (_m *MockNetworkHandler) CreateRADaemon(socketPath string, advitesementIfaceName string, ipv6CIDR string, currentRetry int) error {
-	ret := _m.ctrl.Call(_m, "CreateRADaemon", socketPath, advitesementIfaceName, ipv6CIDR, currentRetry)
+func (_m *MockNetworkHandler) CreateRADaemon(socketPath string, advitesementIfaceName string, ipv6CIDR string, routerSourceAddr net.HardwareAddr, currentRetry int) error {
+	ret := _m.ctrl.Call(_m, "CreateRADaemon", socketPath, advitesementIfaceName, ipv6CIDR, routerSourceAddr, currentRetry)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockNetworkHandlerRecorder) CreateRADaemon(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateRADaemon", arg0, arg1, arg2, arg3)
+func (_mr *_MockNetworkHandlerRecorder) CreateRADaemon(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateRADaemon", arg0, arg1, arg2, arg3, arg4)
 }

@@ -604,6 +604,10 @@ var _ = Describe("Pod Network", func() {
 		expectedSocketPath := fmt.Sprintf("/proc/self/root/var/run/kubevirt/sockets/%s", api.DefaultBridgeName)
 		maxRetryNumber := 5
 
+		BeforeEach(func() {
+			masqueradeBridgeTest.HardwareAddr = fakeMac
+		})
+
 		It("should succeed when DHCP and RA server started", func() {
 			domain := NewDomainWithBridgeInterface()
 			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
@@ -618,7 +622,10 @@ var _ = Describe("Pod Network", func() {
 			masq.vif.GatewayIpv6 = masqueradeIpv6GwAddr.IP.To16()
 			mockNetwork.EXPECT().StartDHCP(masq.vif, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(nil)
 
-			mockNetwork.EXPECT().CreateRADaemon(expectedSocketPath, api.DefaultBridgeName, api.DefaultVMIpv6CIDR, maxRetryNumber).Return(nil)
+			// on masquerade we need to mock 'get'ting the bridge, so we can
+			// retrieve its mac address, which will be advertised
+			mockNetwork.EXPECT().CreateRADaemon(expectedSocketPath, api.DefaultBridgeName, api.DefaultVMIpv6CIDR, fakeMac, maxRetryNumber).Return(nil)
+			mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(masqueradeBridgeTest, nil)
 
 			err = masq.startDynamicIPServers(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -638,7 +645,10 @@ var _ = Describe("Pod Network", func() {
 
 			err = fmt.Errorf("failed to start DHCP server")
 			mockNetwork.EXPECT().StartDHCP(masq.vif, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(err)
-			mockNetwork.EXPECT().CreateRADaemon(expectedSocketPath, api.DefaultBridgeName, api.DefaultVMIpv6CIDR, maxRetryNumber).Return(nil)
+			// on masquerade we need to mock 'get'ting the bridge, so we can
+			// retrieve its mac address, which will be advertised
+			mockNetwork.EXPECT().CreateRADaemon(expectedSocketPath, api.DefaultBridgeName, api.DefaultVMIpv6CIDR, fakeMac, maxRetryNumber).Return(nil)
+			mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(masqueradeBridgeTest, nil)
 
 			err = masq.startDynamicIPServers(vmi)
 			Expect(err).To(HaveOccurred())
@@ -660,7 +670,8 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().StartDHCP(masq.vif, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(nil)
 
 			err = fmt.Errorf("failed to start RA daemon")
-			mockNetwork.EXPECT().CreateRADaemon(expectedSocketPath, api.DefaultBridgeName, api.DefaultVMIpv6CIDR, maxRetryNumber).Return(err)
+			mockNetwork.EXPECT().CreateRADaemon(expectedSocketPath, api.DefaultBridgeName, api.DefaultVMIpv6CIDR, fakeMac, maxRetryNumber).Return(err)
+			mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(masqueradeBridgeTest, nil)
 
 			err = masq.startDynamicIPServers(vmi)
 			Expect(err).To(HaveOccurred())

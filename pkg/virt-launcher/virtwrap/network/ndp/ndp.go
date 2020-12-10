@@ -39,7 +39,7 @@ type RouterAdvertisementDaemon struct {
 	ndpConn   *NDPConnection
 }
 
-func RouterAdvertisementDaemonFromFD(openedFD *os.File, ifaceName string, ipv6CIDR string) (*RouterAdvertisementDaemon, error) {
+func RouterAdvertisementDaemonFromFD(openedFD *os.File, ifaceName string, ipv6CIDR string, routerMACAddr net.HardwareAddr) (*RouterAdvertisementDaemon, error) {
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		return nil, fmt.Errorf("could not find interface %s: %v", ifaceName, err)
@@ -57,7 +57,7 @@ func RouterAdvertisementDaemonFromFD(openedFD *os.File, ifaceName string, ipv6CI
 	prefixLength, _ := network.Mask.Size()
 	rad := &RouterAdvertisementDaemon{
 		ndpConn:   ndpConnection,
-		raOptions: prepareRAOptions(prefix, uint8(prefixLength)),
+		raOptions: prepareRAOptions(prefix, uint8(prefixLength), routerMACAddr),
 	}
 	return rad, nil
 }
@@ -95,7 +95,7 @@ func (rad *RouterAdvertisementDaemon) SendRouterAdvertisement() error {
 	return nil
 }
 
-func prepareRAOptions(prefix net.IP, prefixLength uint8) []ndp.Option {
+func prepareRAOptions(prefix net.IP, prefixLength uint8, routerMACAddr net.HardwareAddr) []ndp.Option {
 	prefixInfo := &ndp.PrefixInformation{
 		PrefixLength:                   prefixLength,
 		OnLink:                         true,
@@ -104,5 +104,11 @@ func prepareRAOptions(prefix net.IP, prefixLength uint8) []ndp.Option {
 		PreferredLifetime:              ndp.Infinity,
 		Prefix:                         prefix,
 	}
-	return []ndp.Option{prefixInfo}
+
+	sourceLinkLayerAddr := &ndp.LinkLayerAddress{
+		Addr:      routerMACAddr,
+		Direction: ndp.Source,
+	}
+
+	return []ndp.Option{prefixInfo, sourceLinkLayerAddr}
 }

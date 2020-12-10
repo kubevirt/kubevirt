@@ -738,11 +738,17 @@ func (p *MasqueradeBindMechanism) startDynamicIPServers(vmi *v1.VirtualMachineIn
 }
 
 func (p *MasqueradeBindMechanism) startRADaemon() error {
+	theBridge, err := Handler.LinkByName(p.bridgeInterfaceName)
+	if err != nil {
+		return err
+	}
+
 	targetPID := "self"
 	if err := Handler.CreateRADaemon(
 		GetNDPConnectionUnixSocketPath(targetPID, p.bridgeInterfaceName),
 		p.bridgeInterfaceName,
 		api.DefaultVMIpv6CIDR,
+		theBridge.Attrs().HardwareAddr,
 		5); err != nil {
 		return fmt.Errorf("failed to start the RA daemon in virt-launcher: %v", err)
 	}
