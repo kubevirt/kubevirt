@@ -10,10 +10,20 @@ func (DataVolume) SwaggerDoc() map[string]string {
 
 func (DataVolumeSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":            "DataVolumeSpec defines the DataVolume type specification",
-		"source":      "Source is the src of the data for the requested DataVolume",
-		"pvc":         "PVC is the PVC specification",
-		"contentType": "DataVolumeContentType options: \"kubevirt\", \"archive\"\n+kubebuilder:validation:Enum=\"kubevirt\";\"archive\"",
+		"":                "DataVolumeSpec defines the DataVolume type specification",
+		"source":          "Source is the src of the data for the requested DataVolume",
+		"pvc":             "PVC is the PVC specification",
+		"contentType":     "DataVolumeContentType options: \"kubevirt\", \"archive\"\n+kubebuilder:validation:Enum=\"kubevirt\";\"archive\"",
+		"checkpoints":     "Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.",
+		"finalCheckpoint": "FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.",
+	}
+}
+
+func (DataVolumeCheckpoint) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "DataVolumeCheckpoint defines a stage in a warm migration.",
+		"previous": "Previous is the identifier of the snapshot from the previous checkpoint.",
+		"current":  "Current is the identifier of the snapshot created for this checkpoint.",
 	}
 }
 

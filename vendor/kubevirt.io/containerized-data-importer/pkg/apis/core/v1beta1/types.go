@@ -49,6 +49,18 @@ type DataVolumeSpec struct {
 	//DataVolumeContentType options: "kubevirt", "archive"
 	// +kubebuilder:validation:Enum="kubevirt";"archive"
 	ContentType DataVolumeContentType `json:"contentType,omitempty"`
+	// Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.
+	Checkpoints []DataVolumeCheckpoint `json:"checkpoints,omitempty"`
+	// FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.
+	FinalCheckpoint bool `json:"finalCheckpoint,omitempty"`
+}
+
+// DataVolumeCheckpoint defines a stage in a warm migration.
+type DataVolumeCheckpoint struct {
+	// Previous is the identifier of the snapshot from the previous checkpoint.
+	Previous string `json:"previous"`
+	// Current is the identifier of the snapshot created for this checkpoint.
+	Current string `json:"current"`
 }
 
 // DataVolumeContentType represents the types of the imported data
@@ -225,6 +237,8 @@ const (
 	Failed DataVolumePhase = "Failed"
 	// Unknown represents a DataVolumePhase of Unknown
 	Unknown DataVolumePhase = "Unknown"
+	// Paused represents a DataVolumePhase of Paused
+	Paused DataVolumePhase = "Paused"
 
 	// DataVolumeReady is the condition that indicates if the data volume is ready to be consumed.
 	DataVolumeReady DataVolumeConditionType = "Ready"
