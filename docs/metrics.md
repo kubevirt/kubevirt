@@ -73,7 +73,7 @@ Extra labels:
 * `type` - Whether the error occurred when transmitting or receiving data. `tx` when transmitting and `rx` when receiving.
 
 #### kubevirt_vmi_network_traffic_packets_total
-#### HELP kubevirt_vmi_network_traffic_packets_total network traffic.
+#### HELP kubevirt_vmi_network_traffic_packets_total network traffic packets.
 
 The total amount of packets that are being transmitted and received.
 
@@ -127,8 +127,24 @@ A design proposal and its implementation history can be seen [here](https://docs
 
  # Other Metrics 
 ## kubevirt_vmi_vcpu_wait_seconds
-#### HELP kubevirt_vmi_vcpu_wait_seconds vcpu time spent by waiting on I/O
+#### HELP kubevirt_vmi_vcpu_wait_seconds vcpu time spent by waiting on I/O.
 ## leading_virt_controller
 #### HELP leading_virt_controller Indication for an operating virt-controller.
 ## ready_virt_controller
 #### HELP ready_virt_controller Indication for a virt-controller that is ready to take the lead.
+
+ # Other Metrics 
+## kubevirt_vmi_cpu_system_seconds_total
+#### HELP kubevirt_vmi_cpu_system_seconds_total system cpu time spent in seconds.
+## kubevirt_vmi_cpu_usage_seconds_total
+#### HELP kubevirt_vmi_cpu_usage_seconds_total total cpu time spent for this domain in seconds.
+## kubevirt_vmi_cpu_user_seconds_total
+#### HELP kubevirt_vmi_cpu_user_seconds_total user cpu time spent in seconds.
+## kubevirt_vmi_flush_total_time_milliseconds
+#### HELP kubevirt_vmi_flush_total_time_milliseconds total time (ms) spent on cache flushing.
+## kubevirt_vmi_memory_actual_balloon_bytes
+#### HELP kubevirt_vmi_memory_actual_balloon_bytes current balloon bytes.
+## kubevirt_vmi_network_packets_dropped_total
+#### HELP kubevirt_vmi_network_packets_dropped_total network packet drops.
+## kubevirt_vmi_storage_requests_total
+#### HELP kubevirt_vmi_storage_requests_total storage flush requests.

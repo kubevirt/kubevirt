@@ -206,7 +206,7 @@ var _ = Describe("Prometheus", func() {
 
 			Expect(result).ToNot(BeNil())
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_pgfault"))
-			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
+			Expect(dto.Counter.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
 		It("should handle minor page faults metrics", func() {
@@ -231,7 +231,7 @@ var _ = Describe("Prometheus", func() {
 
 			Expect(result).ToNot(BeNil())
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_pgfault"))
-			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
+			Expect(dto.Counter.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
 		It("should handle actual balloon metrics", func() {

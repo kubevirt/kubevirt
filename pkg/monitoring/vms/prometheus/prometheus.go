@@ -78,455 +78,216 @@ func tryToPushMetric(desc *prometheus.Desc, mv prometheus.Metric, err error, ch 
 
 func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 	if mem.RSSSet {
-		// Initial label set for a given metric
-		memoryResidentLabels := []string{"node", "namespace", "name"}
-		// Kubernetes labels added afterwards
-		memoryResidentLabels = append(memoryResidentLabels, metrics.k8sLabels...)
-		memoryResidentDesc := prometheus.NewDesc(
+		metrics.pushCommonMetric(
 			"kubevirt_vmi_memory_resident_bytes",
 			"resident set size of the process running the domain.",
-			memoryResidentLabels,
-			nil,
-		)
-
-		memoryResidentLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name}
-		memoryResidentLabelValues = append(memoryResidentLabelValues, metrics.k8sLabelValues...)
-		mv, err := prometheus.NewConstMetric(
-			memoryResidentDesc, prometheus.GaugeValue,
-			// the libvirt value is in KiB
+			prometheus.GaugeValue,
 			float64(mem.RSS)*1024,
-			memoryResidentLabelValues...,
 		)
-		tryToPushMetric(memoryResidentDesc, mv, err, metrics.ch)
 	}
 
 	if mem.AvailableSet {
-		memoryAvailableLabels := []string{"node", "namespace", "name"}
-		memoryAvailableLabels = append(memoryAvailableLabels, metrics.k8sLabels...)
-		memoryAvailableDesc := prometheus.NewDesc(
+		metrics.pushCommonMetric(
 			"kubevirt_vmi_memory_available_bytes",
 			"amount of usable memory as seen by the domain.",
-			memoryAvailableLabels,
-			nil,
-		)
-
-		memoryAvailableLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name}
-		memoryAvailableLabelValues = append(memoryAvailableLabelValues, metrics.k8sLabelValues...)
-		mv, err := prometheus.NewConstMetric(
-			memoryAvailableDesc, prometheus.GaugeValue,
-			// the libvirt value is in KiB
+			prometheus.GaugeValue,
 			float64(mem.Available)*1024,
-			memoryAvailableLabelValues...,
 		)
-		tryToPushMetric(memoryAvailableDesc, mv, err, metrics.ch)
 	}
 
 	if mem.UnusedSet {
-		memoryUnusedLabels := []string{"node", "namespace", "name"}
-		memoryUnusedLabels = append(memoryUnusedLabels, metrics.k8sLabels...)
-		memoryUnusedDesc := prometheus.NewDesc(
+		metrics.pushCommonMetric(
 			"kubevirt_vmi_memory_unused_bytes",
 			"amount of unused memory as seen by the domain.",
-			memoryUnusedLabels,
-			nil,
-		)
-
-		memoryUnusedLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name}
-		memoryUnusedLabelValues = append(memoryUnusedLabelValues, metrics.k8sLabelValues...)
-		mv, err := prometheus.NewConstMetric(
-			memoryUnusedDesc, prometheus.GaugeValue,
-			// the libvirt value is in KiB
+			prometheus.GaugeValue,
 			float64(mem.Unused)*1024,
-			memoryUnusedLabelValues...,
 		)
-		tryToPushMetric(memoryUnusedDesc, mv, err, metrics.ch)
 	}
 
 	if mem.SwapInSet || mem.SwapOutSet {
-		swapTrafficLabels := []string{"node", "namespace", "name", "type"}
-		swapTrafficLabels = append(swapTrafficLabels, metrics.k8sLabels...)
-		swapTrafficDesc := prometheus.NewDesc(
+		desc := metrics.newPrometheusDesc(
 			"kubevirt_vmi_memory_swap_traffic_bytes_total",
 			"swap memory traffic.",
-			swapTrafficLabels,
-			nil,
+			[]string{"type"},
 		)
 
 		if mem.SwapInSet {
-			swapTrafficInLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, "in"}
-			swapTrafficInLabelValues = append(swapTrafficInLabelValues, metrics.k8sLabelValues...)
-
-			mv, err := prometheus.NewConstMetric(
-				swapTrafficDesc, prometheus.GaugeValue,
-				// the libvirt value is in KiB
-				float64(mem.SwapIn)*1024,
-				swapTrafficInLabelValues...,
-			)
-			tryToPushMetric(swapTrafficDesc, mv, err, metrics.ch)
+			metrics.pushPrometheusMetric(desc, prometheus.GaugeValue, float64(mem.SwapIn)*1024, []string{"in"})
 		}
 		if mem.SwapOutSet {
-			swapTrafficOutLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, "out"}
-			swapTrafficOutLabelValues = append(swapTrafficOutLabelValues, metrics.k8sLabelValues...)
-
-			mv, err := prometheus.NewConstMetric(
-				swapTrafficDesc, prometheus.GaugeValue,
-				// the libvirt value is in KiB
-				float64(mem.SwapOut)*1024,
-				swapTrafficOutLabelValues...,
-			)
-			tryToPushMetric(swapTrafficDesc, mv, err, metrics.ch)
+			metrics.pushPrometheusMetric(desc, prometheus.GaugeValue, float64(mem.SwapOut)*1024, []string{"out"})
 		}
 	}
 
 	if mem.MajorFaultSet || mem.MinorFaultSet {
-		pageFaultLabels := []string{"node", "namespace", "name", "type"}
-		pageFaultLabels = append(pageFaultLabels, metrics.k8sLabels...)
-		pageFaultDesc := prometheus.NewDesc(
+		desc := metrics.newPrometheusDesc(
 			"kubevirt_vmi_memory_pgfault",
 			"The number of page faults.",
-			pageFaultLabels,
-			nil,
+			[]string{"type"},
 		)
 
 		if mem.MajorFaultSet {
-			pageFaultMajorLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, "major"}
-			pageFaultMajorLabelValues = append(pageFaultMajorLabelValues, metrics.k8sLabelValues...)
-
-			mv, err := prometheus.NewConstMetric(
-				pageFaultDesc, prometheus.GaugeValue,
-				float64(mem.MajorFault),
-				pageFaultMajorLabelValues...,
-			)
-			tryToPushMetric(pageFaultDesc, mv, err, metrics.ch)
+			metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(mem.MajorFault), []string{"major"})
 		}
 
 		if mem.MinorFaultSet {
-			pageFaultMinorLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, "minor"}
-			pageFaultMinorLabelValues = append(pageFaultMinorLabelValues, metrics.k8sLabelValues...)
-
-			mv, err := prometheus.NewConstMetric(
-				pageFaultDesc, prometheus.GaugeValue,
-				float64(mem.MinorFault),
-				pageFaultMinorLabelValues...,
-			)
-			tryToPushMetric(pageFaultDesc, mv, err, metrics.ch)
+			metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(mem.MinorFault), []string{"minor"})
 		}
 	}
 
 	if mem.ActualBalloonSet {
-		actualBalloonLabels := []string{"node", "namespace", "name"}
-		actualBalloonLabels = append(actualBalloonLabels, metrics.k8sLabels...)
-		actualBalloonDesc := prometheus.NewDesc(
+		metrics.pushCommonMetric(
 			"kubevirt_vmi_memory_actual_balloon_bytes",
 			"current balloon bytes.",
-			actualBalloonLabels,
-			nil,
-		)
-
-		actualBalloonLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name}
-		actualBalloonLabelValues = append(actualBalloonLabelValues, metrics.k8sLabelValues...)
-
-		mv, err := prometheus.NewConstMetric(
-			actualBalloonDesc, prometheus.GaugeValue,
+			prometheus.GaugeValue,
 			float64(mem.ActualBalloon)*1024,
-			actualBalloonLabelValues...,
 		)
-		tryToPushMetric(actualBalloonDesc, mv, err, metrics.ch)
 	}
 
 	if mem.UsableSet {
-		usableLabels := []string{"node", "namespace", "name"}
-		usableLabels = append(usableLabels, metrics.k8sLabels...)
-		usableDesc := prometheus.NewDesc(
+		metrics.pushCommonMetric(
 			"kubevirt_vmi_memory_usable_bytes",
 			"The amount of memory which can be reclaimed by balloon without causing host swapping in bytes.",
-			usableLabels,
-			nil,
-		)
-
-		usableLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name}
-		usableLabelValues = append(usableLabelValues, metrics.k8sLabelValues...)
-
-		mv, err := prometheus.NewConstMetric(
-			usableDesc, prometheus.GaugeValue,
+			prometheus.GaugeValue,
 			float64(mem.Usable)*1024,
-			usableLabelValues...,
 		)
-		tryToPushMetric(usableDesc, mv, err, metrics.ch)
 	}
 }
 
 func (metrics *vmiMetrics) updateCPU(cpu *stats.DomainStatsCPU) {
 	if cpu.SystemSet {
-		cpuSystemLabels := []string{"node", "namespace", "name"}
-		cpuSystemLabels = append(cpuSystemLabels, metrics.k8sLabels...)
-		cpuSystemDesc := prometheus.NewDesc(
+		metrics.pushCommonMetric(
 			"kubevirt_vmi_cpu_system_seconds_total",
 			"system cpu time spent in seconds.",
-			cpuSystemLabels,
-			nil,
-		)
-
-		cpuSystemLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name}
-		cpuSystemLabelValues = append(cpuSystemLabelValues, metrics.k8sLabelValues...)
-		mv, err := prometheus.NewConstMetric(
-			cpuSystemDesc, prometheus.GaugeValue,
+			prometheus.CounterValue,
 			float64(cpu.System/1000000000),
-			cpuSystemLabelValues...,
 		)
-
-		tryToPushMetric(cpuSystemDesc, mv, err, metrics.ch)
 	}
 
 	if cpu.UserSet {
-		cpuUserLabels := []string{"node", "namespace", "name"}
-		cpuUserLabels = append(cpuUserLabels, metrics.k8sLabels...)
-		cpuUserDesc := prometheus.NewDesc(
+		metrics.pushCommonMetric(
 			"kubevirt_vmi_cpu_user_seconds_total",
 			"user cpu time spent in seconds.",
-			cpuUserLabels,
-			nil,
-		)
-
-		cpuUserLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name}
-		cpuUserLabelValues = append(cpuUserLabelValues, metrics.k8sLabelValues...)
-		mv, err := prometheus.NewConstMetric(
-			cpuUserDesc, prometheus.GaugeValue,
+			prometheus.CounterValue,
 			float64(cpu.User/1000000000),
-			cpuUserLabelValues...,
 		)
-
-		tryToPushMetric(cpuUserDesc, mv, err, metrics.ch)
 	}
 
 	if cpu.TimeSet {
-		cpuTimeLabels := []string{"node", "namespace", "name"}
-		cpuTimeLabels = append(cpuTimeLabels, metrics.k8sLabels...)
-		cpuTimeDesc := prometheus.NewDesc(
+		metrics.pushCommonMetric(
 			"kubevirt_vmi_cpu_usage_seconds_total",
-			"total cpu time spent for this domain in seconds",
-			cpuTimeLabels,
-			nil,
-		)
-
-		cpuTimeLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name}
-		cpuTimeLabelValues = append(cpuTimeLabelValues, metrics.k8sLabelValues...)
-		mv, err := prometheus.NewConstMetric(
-			cpuTimeDesc, prometheus.GaugeValue,
+			"total cpu time spent for this domain in seconds.",
+			prometheus.CounterValue,
 			float64(cpu.Time/1000000000),
-			cpuTimeLabelValues...,
 		)
-
-		tryToPushMetric(cpuTimeDesc, mv, err, metrics.ch)
 	}
 }
 
 func (metrics *vmiMetrics) updateVcpu(vmStats *stats.DomainStats) {
-	for vcpuId, vcpu := range vmStats.Vcpu {
-		// Initial vcpu metrics labels
+	for vcpuID, vcpu := range vmStats.Vcpu {
+		svcpuID := fmt.Sprintf("%v", vcpuID)
+
 		if !vcpu.StateSet || !vcpu.TimeSet {
-			log.Log.V(4).Warningf("State or time not set for vcpu#%d", vcpuId)
+			log.Log.V(4).Warningf("State or time not set for vcpu#%d", vcpuID)
 		} else {
-			vcpuUsageLabels := []string{"node", "namespace", "name", "id", "state"}
-			vcpuUsageLabels = append(vcpuUsageLabels, metrics.k8sLabels...)
-			vcpuUsageDesc := prometheus.NewDesc(
+			metrics.pushCustomMetric(
 				"kubevirt_vmi_vcpu_seconds",
 				"Vcpu elapsed time.",
-				vcpuUsageLabels,
-				nil,
-			)
-
-			vcpuUsageLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, fmt.Sprintf("%v", vcpuId), humanReadableState(vcpu.State)}
-			vcpuUsageLabelValues = append(vcpuUsageLabelValues, metrics.k8sLabelValues...)
-			mv, err := prometheus.NewConstMetric(
-				vcpuUsageDesc, prometheus.GaugeValue,
+				prometheus.CounterValue,
 				float64(vcpu.Time/1000000000),
-				vcpuUsageLabelValues...,
+				[]string{"id", "state"},
+				[]string{svcpuID, humanReadableState(vcpu.State)},
 			)
-			tryToPushMetric(vcpuUsageDesc, mv, err, metrics.ch)
 		}
 
 		if !vcpu.WaitSet {
-			log.Log.V(4).Warningf("Wait not set for vcpu#%d", vcpuId)
+			log.Log.V(4).Warningf("Wait not set for vcpu#%d", vcpuID)
 			continue
 		}
 
-		vcpuWaitLabels := []string{"node", "namespace", "name", "id"}
-		vcpuWaitLabels = append(vcpuWaitLabels, metrics.k8sLabels...)
-
-		vcpuWaitLabelsValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name,
-			fmt.Sprintf("%v", vcpuId),
-		}
-		vcpuWaitLabelsValues = append(vcpuWaitLabelsValues, metrics.k8sLabelValues...)
-
-		vcpuWaitDesc := prometheus.NewDesc(
+		metrics.pushCustomMetric(
 			"kubevirt_vmi_vcpu_wait_seconds",
-			"vcpu time spent by waiting on I/O",
-			vcpuWaitLabels,
-			nil,
-		)
-
-		mv, err := prometheus.NewConstMetric(
-			vcpuWaitDesc, prometheus.GaugeValue,
+			"vcpu time spent by waiting on I/O.",
+			prometheus.CounterValue,
 			float64(vcpu.Wait/1000000),
-			vcpuWaitLabelsValues...,
+			[]string{"id"},
+			[]string{svcpuID},
 		)
-		tryToPushMetric(vcpuWaitDesc, mv, err, metrics.ch)
-
 	}
 }
 
 func (metrics *vmiMetrics) updateBlock(vmStats *stats.DomainStats) {
-	for blockId, block := range vmStats.Block {
+	for blockID, block := range vmStats.Block {
 		if !block.NameSet {
-			log.Log.V(4).Warningf("Name not set for block device#%d", blockId)
+			log.Log.V(4).Warningf("Name not set for block device#%d", blockID)
 			continue
 		}
 
 		if block.RdReqsSet || block.WrReqsSet {
-			// Initial label set for a given metric
-			storageIopsLabels := []string{"node", "namespace", "name", "drive", "type"}
-			// Kubernetes labels added afterwards
-			storageIopsLabels = append(storageIopsLabels, metrics.k8sLabels...)
-			storageIopsDesc := prometheus.NewDesc(
+			desc := metrics.newPrometheusDesc(
 				"kubevirt_vmi_storage_iops_total",
 				"I/O operation performed.",
-				storageIopsLabels,
-				nil,
+				[]string{"drive", "type"},
 			)
 
 			if block.RdReqsSet {
-				storageIopsReadLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, block.Name, "read"}
-				storageIopsReadLabelValues = append(storageIopsReadLabelValues, metrics.k8sLabelValues...)
-
-				mv, err := prometheus.NewConstMetric(
-					storageIopsDesc, prometheus.CounterValue,
-					float64(block.RdReqs),
-					storageIopsReadLabelValues...,
-				)
-				tryToPushMetric(storageIopsDesc, mv, err, metrics.ch)
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.RdReqs), []string{block.Name, "read"})
 			}
 			if block.WrReqsSet {
-				storageIopsWriteLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, block.Name, "write"}
-				storageIopsWriteLabelValues = append(storageIopsWriteLabelValues, metrics.k8sLabelValues...)
-
-				mv, err := prometheus.NewConstMetric(
-					storageIopsDesc, prometheus.CounterValue,
-					float64(block.WrReqs),
-					storageIopsWriteLabelValues...,
-				)
-				tryToPushMetric(storageIopsDesc, mv, err, metrics.ch)
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.WrReqs), []string{block.Name, "write"})
 			}
 		}
 
 		if block.RdBytesSet || block.WrBytesSet {
-			storageTrafficLabels := []string{"node", "namespace", "name", "drive", "type"}
-			storageTrafficLabels = append(storageTrafficLabels, metrics.k8sLabels...)
-			storageTrafficDesc := prometheus.NewDesc(
+			desc := metrics.newPrometheusDesc(
 				"kubevirt_vmi_storage_traffic_bytes_total",
 				"storage traffic.",
-				storageTrafficLabels,
-				nil,
+				[]string{"drive", "type"},
 			)
 
 			if block.RdBytesSet {
-				storageTrafficReadLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, block.Name, "read"}
-				storageTrafficReadLabelValues = append(storageTrafficReadLabelValues, metrics.k8sLabelValues...)
-
-				mv, err := prometheus.NewConstMetric(
-					storageTrafficDesc, prometheus.CounterValue,
-					float64(block.RdBytes),
-					storageTrafficReadLabelValues...,
-				)
-				tryToPushMetric(storageTrafficDesc, mv, err, metrics.ch)
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.RdBytes), []string{block.Name, "read"})
 			}
 			if block.WrBytesSet {
-				storageTrafficWriteLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, block.Name, "write"}
-				storageTrafficWriteLabelValues = append(storageTrafficWriteLabelValues, metrics.k8sLabelValues...)
-
-				mv, err := prometheus.NewConstMetric(
-					storageTrafficDesc, prometheus.CounterValue,
-					float64(block.WrBytes),
-					storageTrafficWriteLabelValues...,
-				)
-				tryToPushMetric(storageTrafficDesc, mv, err, metrics.ch)
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.WrBytes), []string{block.Name, "write"})
 			}
 		}
 
 		if block.RdTimesSet || block.WrTimesSet {
-			storageTimesLabels := []string{"node", "namespace", "name", "drive", "type"}
-			storageTimesLabels = append(storageTimesLabels, metrics.k8sLabels...)
-			storageTimesDesc := prometheus.NewDesc(
+			desc := metrics.newPrometheusDesc(
 				"kubevirt_vmi_storage_times_ms_total",
 				"storage operation time.",
-				storageTimesLabels,
-				nil,
+				[]string{"drive", "type"},
 			)
 
 			if block.RdTimesSet {
-				storageTimesReadLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, block.Name, "read"}
-				storageTimesReadLabelValues = append(storageTimesReadLabelValues, metrics.k8sLabelValues...)
-
-				mv, err := prometheus.NewConstMetric(
-					storageTimesDesc, prometheus.CounterValue,
-					float64(block.RdTimes),
-					storageTimesReadLabelValues...,
-				)
-				tryToPushMetric(storageTimesDesc, mv, err, metrics.ch)
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.RdTimes), []string{block.Name, "read"})
 			}
 			if block.WrTimesSet {
-				storageTimesWriteLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, block.Name, "write"}
-				storageTimesWriteLabelValues = append(storageTimesWriteLabelValues, metrics.k8sLabelValues...)
-
-				mv, err := prometheus.NewConstMetric(
-					storageTimesDesc, prometheus.CounterValue,
-					float64(block.WrTimes),
-					storageTimesWriteLabelValues...,
-				)
-				tryToPushMetric(storageTimesDesc, mv, err, metrics.ch)
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.WrTimes), []string{block.Name, "write"})
 			}
 		}
 
 		if block.FlReqsSet {
-			storageFlushLabels := []string{"node", "namespace", "name", "drive"}
-			storageFlushLabels = append(storageFlushLabels, metrics.k8sLabels...)
-			storageFlushDesc := prometheus.NewDesc(
+			metrics.pushCustomMetric(
 				"kubevirt_vmi_storage_requests_total",
 				"storage flush requests.",
-				storageFlushLabels,
-				nil,
-			)
-
-			storageFlushLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, block.Name}
-			storageFlushLabelValues = append(storageFlushLabelValues, metrics.k8sLabelValues...)
-
-			mv, err := prometheus.NewConstMetric(
-				storageFlushDesc, prometheus.CounterValue,
+				prometheus.CounterValue,
 				float64(block.FlReqs),
-				storageFlushLabelValues...,
+				[]string{"drive"},
+				[]string{block.Name},
 			)
-			tryToPushMetric(storageFlushDesc, mv, err, metrics.ch)
 		}
 
 		if block.FlTimesSet {
-			flushTimesLabels := []string{"node", "namespace", "name", "drive"}
-			flushTimesLabels = append(flushTimesLabels, metrics.k8sLabels...)
-			flushTimesDesc := prometheus.NewDesc(
+			metrics.pushCustomMetric(
 				"kubevirt_vmi_flush_total_time_milliseconds",
 				"total time (ms) spent on cache flushing.",
-				flushTimesLabels,
-				nil,
-			)
-
-			flushTimesLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, block.Name}
-			flushTimesLabelValues = append(flushTimesLabelValues, metrics.k8sLabelValues...)
-
-			mv, err := prometheus.NewConstMetric(
-				flushTimesDesc, prometheus.CounterValue,
+				prometheus.CounterValue,
 				float64(block.FlTimes)/1000000,
-				flushTimesLabelValues...,
+				[]string{"drive"},
+				[]string{block.Name},
 			)
-			tryToPushMetric(flushTimesDesc, mv, err, metrics.ch)
 		}
 	}
 }
@@ -538,141 +299,63 @@ func (metrics *vmiMetrics) updateNetwork(vmStats *stats.DomainStats) {
 		}
 
 		if net.RxBytesSet || net.TxBytesSet {
-			// Initial label set for a given metric
-			networkTrafficBytesLabels := []string{"node", "namespace", "name", "interface", "type"}
-			// Kubernetes labels added afterwards
-			networkTrafficBytesLabels = append(networkTrafficBytesLabels, metrics.k8sLabels...)
-			networkTrafficBytesDesc := prometheus.NewDesc(
+			desc := metrics.newPrometheusDesc(
 				"kubevirt_vmi_network_traffic_bytes_total",
 				"network traffic.",
-				networkTrafficBytesLabels,
-				nil,
+				[]string{"interface", "type"},
 			)
 
 			if net.RxBytesSet {
-				networkTrafficBytesRxLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, net.Name, "rx"}
-				networkTrafficBytesRxLabelValues = append(networkTrafficBytesRxLabelValues, metrics.k8sLabelValues...)
-
-				mv, err := prometheus.NewConstMetric(
-					networkTrafficBytesDesc, prometheus.CounterValue,
-					float64(net.RxBytes),
-					networkTrafficBytesRxLabelValues...,
-				)
-				tryToPushMetric(networkTrafficBytesDesc, mv, err, metrics.ch)
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.RxBytes), []string{net.Name, "rx"})
 			}
 			if net.TxBytesSet {
-				networkTrafficBytesTxLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, net.Name, "tx"}
-				networkTrafficBytesTxLabelValues = append(networkTrafficBytesTxLabelValues, metrics.k8sLabelValues...)
-
-				mv, err := prometheus.NewConstMetric(
-					networkTrafficBytesDesc, prometheus.CounterValue,
-					float64(net.TxBytes),
-					networkTrafficBytesTxLabelValues...,
-				)
-				tryToPushMetric(networkTrafficBytesDesc, mv, err, metrics.ch)
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.TxBytes), []string{net.Name, "tx"})
 			}
 		}
 
 		if net.RxPktsSet || net.TxPktsSet {
-			networkTrafficPktsLabels := []string{"node", "namespace", "name", "interface", "type"}
-			networkTrafficPktsLabels = append(networkTrafficPktsLabels, metrics.k8sLabels...)
-			networkTrafficPktsDesc := prometheus.NewDesc(
+			desc := metrics.newPrometheusDesc(
 				"kubevirt_vmi_network_traffic_packets_total",
-				"network traffic.",
-				networkTrafficPktsLabels,
-				nil,
+				"network traffic packets.",
+				[]string{"interface", "type"},
 			)
 
 			if net.RxPktsSet {
-				networkTrafficPktsRxLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, net.Name, "rx"}
-				networkTrafficPktsRxLabelValues = append(networkTrafficPktsRxLabelValues, metrics.k8sLabelValues...)
-
-				mv, err := prometheus.NewConstMetric(
-					networkTrafficPktsDesc, prometheus.CounterValue,
-					float64(net.RxPkts),
-					networkTrafficPktsRxLabelValues...,
-				)
-				tryToPushMetric(networkTrafficPktsDesc, mv, err, metrics.ch)
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.RxPkts), []string{net.Name, "rx"})
 			}
 			if net.TxPktsSet {
-				networkTrafficPktsTxLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, net.Name, "tx"}
-				networkTrafficPktsTxLabelValues = append(networkTrafficPktsTxLabelValues, metrics.k8sLabelValues...)
-
-				mv, err := prometheus.NewConstMetric(
-					networkTrafficPktsDesc, prometheus.CounterValue,
-					float64(net.TxPkts),
-					networkTrafficPktsTxLabelValues...,
-				)
-				tryToPushMetric(networkTrafficPktsDesc, mv, err, metrics.ch)
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.TxPkts), []string{net.Name, "tx"})
 			}
 		}
 
 		if net.RxErrsSet || net.TxErrsSet {
-			networkErrorsLabels := []string{"node", "namespace", "name", "interface", "type"}
-			networkErrorsLabels = append(networkErrorsLabels, metrics.k8sLabels...)
-			networkErrorsDesc := prometheus.NewDesc(
+			desc := metrics.newPrometheusDesc(
 				"kubevirt_vmi_network_errors_total",
 				"network errors.",
-				networkErrorsLabels,
-				nil,
+				[]string{"interface", "type"},
 			)
 
 			if net.RxErrsSet {
-				networkErrorsRxLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, net.Name, "rx"}
-				networkErrorsRxLabelValues = append(networkErrorsRxLabelValues, metrics.k8sLabelValues...)
-
-				mv, err := prometheus.NewConstMetric(
-					networkErrorsDesc, prometheus.CounterValue,
-					float64(net.RxErrs),
-					networkErrorsRxLabelValues...,
-				)
-				tryToPushMetric(networkErrorsDesc, mv, err, metrics.ch)
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.RxErrs), []string{net.Name, "rx"})
 			}
 			if net.TxErrsSet {
-				networkErrorsTxLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, net.Name, "tx"}
-				networkErrorsTxLabelValues = append(networkErrorsTxLabelValues, metrics.k8sLabelValues...)
-
-				mv, err := prometheus.NewConstMetric(
-					networkErrorsDesc, prometheus.CounterValue,
-					float64(net.TxErrs),
-					networkErrorsTxLabelValues...,
-				)
-				tryToPushMetric(networkErrorsDesc, mv, err, metrics.ch)
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.TxErrs), []string{net.Name, "tx"})
 			}
 		}
 
 		if net.RxDropSet || net.TxDropSet {
-			networkDropLabels := []string{"node", "namespace", "name", "interface", "type"}
-			networkDropLabels = append(networkDropLabels, metrics.k8sLabels...)
-			networkDropDesc := prometheus.NewDesc(
+			desc := metrics.newPrometheusDesc(
 				"kubevirt_vmi_network_packets_dropped_total",
 				"network packet drops.",
-				networkDropLabels,
-				nil,
+				[]string{"interface", "type"},
 			)
 
 			if net.RxDropSet {
-				networkRxDropLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, net.Name, "rx"}
-				networkRxDropLabelValues = append(networkRxDropLabelValues, metrics.k8sLabelValues...)
-
-				mv, err := prometheus.NewConstMetric(
-					networkDropDesc, prometheus.CounterValue,
-					float64(net.RxDrop),
-					networkRxDropLabelValues...,
-				)
-				tryToPushMetric(networkDropDesc, mv, err, metrics.ch)
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.RxDrop), []string{net.Name, "rx"})
 			}
 
 			if net.TxDropSet {
-				networkTxDropLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, net.Name, "tx"}
-				networkTxDropLabelValues = append(networkTxDropLabelValues, metrics.k8sLabelValues...)
-
-				mv, err := prometheus.NewConstMetric(
-					networkDropDesc, prometheus.CounterValue,
-					float64(net.TxDrop),
-					networkTxDropLabelValues...,
-				)
-				tryToPushMetric(networkDropDesc, mv, err, metrics.ch)
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.TxDrop), []string{net.Name, "tx"})
 			}
 		}
 	}
@@ -867,6 +550,30 @@ func (metrics *vmiMetrics) updateMetrics(vmStats *stats.DomainStats) {
 	metrics.updateVcpu(vmStats)
 	metrics.updateBlock(vmStats)
 	metrics.updateNetwork(vmStats)
+}
+
+func (metrics *vmiMetrics) newPrometheusDesc(name string, help string, customLabels []string) *prometheus.Desc {
+	labels := []string{"node", "namespace", "name"} // Common labels
+	labels = append(labels, customLabels...)
+	labels = append(labels, metrics.k8sLabels...)
+	return prometheus.NewDesc(name, help, labels, nil)
+}
+
+func (metrics *vmiMetrics) pushPrometheusMetric(desc *prometheus.Desc, valueType prometheus.ValueType, value float64, customLabelValues []string) {
+	labelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name}
+	labelValues = append(labelValues, customLabelValues...)
+	labelValues = append(labelValues, metrics.k8sLabelValues...)
+	mv, err := prometheus.NewConstMetric(desc, valueType, value, labelValues...)
+	tryToPushMetric(desc, mv, err, metrics.ch)
+}
+
+func (metrics *vmiMetrics) pushCommonMetric(name string, help string, valueType prometheus.ValueType, value float64) {
+	metrics.pushCustomMetric(name, help, valueType, value, nil, nil)
+}
+
+func (metrics *vmiMetrics) pushCustomMetric(name string, help string, valueType prometheus.ValueType, value float64, customLabels []string, customLabelValues []string) {
+	desc := metrics.newPrometheusDesc(name, help, customLabels)
+	metrics.pushPrometheusMetric(desc, valueType, value, customLabelValues)
 }
 
 func (metrics *vmiMetrics) updateKubernetesLabels() {
