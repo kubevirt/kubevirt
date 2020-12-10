@@ -122,7 +122,8 @@ type NetworkHandler interface {
 	CreateRouterAdvertiser(
 		socketPath string,
 		advitesementIfaceName string,
-		ipv6CIDR string) error
+		ipv6CIDR string,
+		routerSourceAddr net.HardwareAddr) error
 }
 
 type NetworkUtilsHandler struct{}
@@ -515,13 +516,13 @@ func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
 	return nil
 }
 
-func (h *NetworkUtilsHandler) CreateRouterAdvertiser(socketPath string, advertisementIfaceName string, ipv6CIDR string) error {
+func (h *NetworkUtilsHandler) CreateRouterAdvertiser(socketPath string, advertisementIfaceName string, ipv6CIDR string, routerSourceAddr net.HardwareAddr) error {
 	openedFD, err := ndp.ImportConnection(socketPath)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to import the NDP connection: %v", err)
 	}
 
-	routerAdvertiser, err := ndp.CreateRouterAdvertisementServerFromFD(openedFD, advertisementIfaceName, ipv6CIDR)
+	routerAdvertiser, err := ndp.CreateRouterAdvertisementServerFromFD(openedFD, advertisementIfaceName, ipv6CIDR, routerSourceAddr)
 	if err != nil {
 		return fmt.Errorf("failed to re-create the RouterAdvertisement daemon on virt-launcher: %v", err)
 	}

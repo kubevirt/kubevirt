@@ -791,11 +791,17 @@ func (b *MasqueradeBindMechanism) startDynamicIPServers(vmi *v1.VirtualMachineIn
 }
 
 func (b *MasqueradeBindMechanism) startRouterAdvertiser() error {
+	theBridge, err := Handler.LinkByName(b.bridgeInterfaceName)
+	if err != nil {
+		return err
+	}
+
 	targetPID := "self"
 	if err := Handler.CreateRouterAdvertiser(
 		getNDPConnectionUnixSocketPath(targetPID, b.bridgeInterfaceName),
 		b.bridgeInterfaceName,
-		api.DefaultVMIpv6CIDR); err != nil {
+		api.DefaultVMIpv6CIDR,
+		theBridge.Attrs().HardwareAddr); err != nil {
 		return fmt.Errorf("failed to start the Router Advertiser in virt-launcher: %v", err)
 	}
 
