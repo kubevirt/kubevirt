@@ -62,6 +62,15 @@ func (h *cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists
 	if !ok1 || !ok2 {
 		return false, false, errors.New("can't convert to CDI")
 	}
+
+	// HCO reconciles the CR for CDI excluding the `spec.CDIConfig`,
+	if found.Spec.Config != nil {
+		cdi.Spec.Config = &cdiv1beta1.CDIConfigSpec{}
+		found.Spec.Config.DeepCopyInto(cdi.Spec.Config)
+	}
+
+	setDefaultFeatureGates(&cdi.Spec)
+
 	if !reflect.DeepEqual(found.Spec, cdi.Spec) {
 		overwritten := false
 		if req.HCOTriggered {
@@ -78,6 +87,22 @@ func (h *cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists
 		return true, overwritten, nil
 	}
 	return false, false, nil
+}
+
+func setDefaultFeatureGates(spec *cdiv1beta1.CDISpec) {
+	featureGate := "HonorWaitForFirstConsumer"
+
+	if spec.Config == nil {
+		spec.Config = &cdiv1beta1.CDIConfigSpec{}
+	} else {
+		for _, value := range spec.Config.FeatureGates {
+			if value == featureGate {
+				return
+			}
+		}
+	}
+
+	spec.Config.FeatureGates = append(spec.Config.FeatureGates, featureGate)
 }
 
 func (h *cdiHooks) postFound(req *common.HcoRequest, exists runtime.Object) error {
@@ -99,6 +124,7 @@ func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) *cdiv1beta1.CDI {
 
 	spec := cdiv1beta1.CDISpec{
 		UninstallStrategy: &uninstallStrategy,
+		Config:            &cdiv1beta1.CDIConfigSpec{FeatureGates: []string{"HonorWaitForFirstConsumer"}},
 	}
 
 	if hc.Spec.Infra.NodePlacement != nil {

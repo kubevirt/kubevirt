@@ -271,6 +271,76 @@ var _ = Describe("CDI Operand", func() {
 			Expect(req.Conditions).To(BeEmpty())
 		})
 
+		It("should only set featureGate on Spec.Config if directly set on CDI CR", func() {
+			expectedResource := NewCDI(hco)
+			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+
+			// mock a reconciliation triggered by a change in CDI CR
+			req.HCOTriggered = false
+
+			// modify a cfg
+			storageClass := "aa"
+			proxyURLOverride := "proxyOverride"
+			expectedResource.Spec.Config = &cdiv1beta1.CDIConfigSpec{
+				UploadProxyURLOverride:   &proxyURLOverride,
+				ScratchSpaceStorageClass: &storageClass,
+				PodResourceRequirements:  &corev1.ResourceRequirements{},
+				FeatureGates:             []string{"SomeFeatureGate"},
+				FilesystemOverhead:       &cdiv1beta1.FilesystemOverhead{Global: "5"},
+			}
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
+			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeTrue())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &cdiv1beta1.CDI{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					foundResource),
+			).To(BeNil())
+			Expect(foundResource.Spec.Config).ToNot(BeNil())
+			// contains all that was found
+			Expect(*foundResource.Spec.Config.UploadProxyURLOverride).To(Equal(*expectedResource.Spec.Config.UploadProxyURLOverride))
+			Expect(*foundResource.Spec.Config.ScratchSpaceStorageClass).To(Equal(*expectedResource.Spec.Config.ScratchSpaceStorageClass))
+			Expect(*foundResource.Spec.Config.PodResourceRequirements).To(Equal(*expectedResource.Spec.Config.PodResourceRequirements))
+			Expect(*foundResource.Spec.Config.FilesystemOverhead).To(Equal(*expectedResource.Spec.Config.FilesystemOverhead))
+			Expect(foundResource.Spec.Config.FeatureGates).To(ContainElement("SomeFeatureGate"))
+			// additionally contains HonorWaitForFirstConsumer
+			Expect(foundResource.Spec.Config.FeatureGates).To(ContainElement("HonorWaitForFirstConsumer"))
+
+		})
+
+		It("should add HonorWaitForFirstConsumer featuregate if Spec.Config if empty", func() {
+			expectedResource := NewCDI(hco)
+			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+			expectedResource.Spec.Config = nil
+
+			// mock a reconciliation triggered by a change in CDI CR
+			req.HCOTriggered = false
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
+			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Overwritten).To(BeTrue())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &cdiv1beta1.CDI{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					foundResource),
+			).To(BeNil())
+			Expect(foundResource.Spec.Config).ToNot(BeNil())
+			Expect(foundResource.Spec.Config.FeatureGates).To(ContainElement("HonorWaitForFirstConsumer"))
+		})
+
 		It("should handle conditions", func() {
 			expectedResource := NewCDI(hco)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
