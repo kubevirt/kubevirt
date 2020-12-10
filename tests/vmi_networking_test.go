@@ -728,6 +728,22 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 					return vmi, nil
 				}
 
+				configureIpv6 := func(vmi *v1.VirtualMachineInstance) error {
+					err := console.RunCommand(vmi, "dhclient -6 eth0", 30*time.Second)
+					if err != nil {
+						return err
+					}
+					err = console.RunCommand(vmi, "ip -6 route add fd10:0:2::/120 dev eth0", 5*time.Second)
+					if err != nil {
+						return err
+					}
+					err = console.RunCommand(vmi, "ip -6 route add default via fd10:0:2::1", 5*time.Second)
+					if err != nil {
+						return err
+					}
+					return nil
+				}
+
 				// Create the client only one time
 				if clientVMI == nil {
 					clientVMI, err = fedoraMasqueradeVMI([]v1.Port{})
@@ -735,6 +751,8 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 					clientVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
 					Expect(err).ToNot(HaveOccurred())
 					clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
+
+					Expect(configureIpv6(clientVMI)).To(Succeed(), "failed to configure ipv6 on client vmi")
 				}
 
 				serverVMI, err = fedoraMasqueradeVMI(ports)
@@ -744,6 +762,9 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				serverVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
 				Expect(err).ToNot(HaveOccurred())
 				serverVMI = tests.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
+
+				Expect(configureIpv6(serverVMI)).To(Succeed(), "failed to configure ipv6  on server vmi")
+
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
 				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 
