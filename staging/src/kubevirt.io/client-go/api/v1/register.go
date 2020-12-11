@@ -32,10 +32,15 @@ const GroupName = "kubevirt.io"
 const SubresourceGroupName = "subresources.kubevirt.io"
 
 var (
-	ApiLatestVersion            = "v1alpha3"
-	ApiSupportedWebhookVersions = []string{"v1alpha3"}
+	ApiLatestVersion            = "v1"
+	ApiSupportedWebhookVersions = []string{"v1alpha3", "v1"}
 	ApiStorageVersion           = "v1alpha3"
 	ApiSupportedVersions        = []extv1beta1.CustomResourceDefinitionVersion{
+		{
+			Name:    "v1",
+			Served:  true,
+			Storage: false,
+		},
 		{
 			Name:    "v1alpha3",
 			Served:  true,
@@ -53,11 +58,11 @@ var (
 
 	// GroupVersions is group version list used to register these objects
 	// The preferred group version is the first item in the list.
-	GroupVersions = []schema.GroupVersion{GroupVersion}
+	GroupVersions = []schema.GroupVersion{{Group: GroupName, Version: "v1"}, {Group: GroupName, Version: "v1alpha3"}}
 
 	// SubresourceGroupVersions is group version list used to register these objects
 	// The preferred group version is the first item in the list.
-	SubresourceGroupVersions = []schema.GroupVersion{{Group: SubresourceGroupName, Version: "v1alpha3"}}
+	SubresourceGroupVersions = []schema.GroupVersion{{Group: SubresourceGroupName, Version: ApiLatestVersion}, {Group: SubresourceGroupName, Version: ApiStorageVersion}}
 
 	// SubresourceStorageGroupVersion is the group version our api is persistented internally as
 	SubresourceStorageGroupVersion = schema.GroupVersion{Group: SubresourceGroupName, Version: ApiStorageVersion}
