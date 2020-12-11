@@ -11,6 +11,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -85,8 +86,26 @@ func createSecret(clusterApi kubernetes.Interface, namespace, secretName string,
 	}
 
 	err := wait.Poll(time.Second*5, time.Minute*3, func() (bool, error) {
+		_, err := clusterApi.CoreV1().Secrets(namespace).Get(secret.Name, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return true, nil
+			}
+			return false, nil
+		}
+		return false, fmt.Errorf("secret %s already exists", secret.Name)
+	})
+
+	if err != nil {
+		return err
+	}
+
+	err = wait.Poll(time.Second*5, time.Minute*3, func() (bool, error) {
 		_, err := clusterApi.CoreV1().Secrets(namespace).Create(secret)
 		if err != nil {
+			if errors.IsAlreadyExists(err) {
+				return true, nil
+			}
 			log.Printf("failed to create secret '%s': %v", secret.Name, err)
 			return false, nil
 		}
