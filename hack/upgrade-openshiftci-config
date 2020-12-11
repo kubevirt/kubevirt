@@ -23,3 +23,6 @@ SUBSCRIPTION_CONFIG=$(cat <<EOF
 EOF
 )
 export CMD="oc"
+
+echo "oc version"
+${CMD} version || true
