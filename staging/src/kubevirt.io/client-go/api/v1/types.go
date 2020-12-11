@@ -567,6 +567,9 @@ const (
 	// Machine Instance migration job. Needed because with CRDs we can't use field
 	// selectors. Used on VirtualMachineInstance.
 	MigrationTargetNodeNameLabel string = "kubevirt.io/migrationTargetNodeName"
+	// This annotation indicates that a migration is the result of an
+	// automated evacuation
+	EvacuationMigrationAnnotation string = "kubevirt.io/evacuationMigration"
 	// This label declares whether a particular node is available for
 	// scheduling virtual machine instances on it. Used on Node.
 	NodeSchedulable string = "kubevirt.io/schedulable"

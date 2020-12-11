@@ -165,16 +165,26 @@ func (c *EvacuationController) nodeFromVMI(obj interface{}) string {
 
 func (c *EvacuationController) addMigration(obj interface{}) {
 	migration := obj.(*virtv1.VirtualMachineInstanceMigration)
-	o, exists, err := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
-	if err != nil {
-		return
-	}
-	if exists {
-		node := c.nodeFromVMI(o)
-		if node != "" {
-			c.migrationExpectations.CreationObserved(node)
-			c.Queue.Add(node)
+
+	node := ""
+
+	// only observe the migration expectation if our controller created it
+	key, ok := migration.Annotations[virtv1.EvacuationMigrationAnnotation]
+	if ok {
+		c.migrationExpectations.CreationObserved(key)
+		node = key
+	} else {
+		o, exists, err := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+		if err != nil {
+			return
 		}
+		if exists {
+			node = c.nodeFromVMI(o)
+		}
+	}
+
+	if node != "" {
+		c.Queue.Add(node)
 	}
 }
 
@@ -329,6 +339,22 @@ func getMarkedForEvictionVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.V
 	return evictionCandidates
 }
 
+func GenerateNewMigration(vmiName string, key string) *virtv1.VirtualMachineInstanceMigration {
+
+	annotations := map[string]string{
+		virtv1.EvacuationMigrationAnnotation: key,
+	}
+	return &virtv1.VirtualMachineInstanceMigration{
+		ObjectMeta: v1.ObjectMeta{
+			Annotations:  annotations,
+			GenerateName: "kubevirt-evacuation-",
+		},
+		Spec: virtv1.VirtualMachineInstanceMigrationSpec{
+			VMIName: vmiName,
+		},
+	}
+}
+
 func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.VirtualMachineInstance, activeMigrations []*virtv1.VirtualMachineInstanceMigration) error {
 	// If the node has no drain taint, we have nothing to do
 	taintKey := *c.clusterConfig.GetMigrationConfiguration().NodeDrainTaintKey
@@ -393,14 +419,7 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	for _, vmi := range selectedCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
-			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(&virtv1.VirtualMachineInstanceMigration{
-				ObjectMeta: v1.ObjectMeta{
-					GenerateName: "kubevirt-evacuation-",
-				},
-				Spec: virtv1.VirtualMachineInstanceMigrationSpec{
-					VMIName: vmi.Name,
-				},
-			})
+			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(GenerateNewMigration(vmi.Name, node.Name))
 			if err != nil {
 				c.migrationExpectations.CreationObserved(node.Name)
 				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreateVirtualMachineInstanceMigrationReason, "Error creating a Migration: %v", err)
