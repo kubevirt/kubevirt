@@ -1302,6 +1302,55 @@ type KubeVirtCertificateRotateStrategy struct {
 
 //
 // +k8s:openapi-gen=true
+type WorkloadUpdateMethod string
+
+const (
+	// WorkloadUpdateMethodLiveMigrate allows VMIs which are capable of being
+	// migrated to automatically migrate during automated workload updates.
+	WorkloadUpdateMethodLiveMigrate WorkloadUpdateMethod = "LiveMigrate"
+	// WorkloadUpdateMethodShutdown results in a VMIs being forced shutdown.
+	// Depending on whether a VMI is backed by a VM or not, this will either result
+	// in a restart of the VM by rescheduling a new VMI, or the shutdown via deletion
+	// of a standalone VMI object.
+	WorkloadUpdateMethodShutdown WorkloadUpdateMethod = "Shutdown"
+)
+
+//
+// KubeVirtWorkloadUpdateStrategy defines options related to updating a KubeVirt install
+//
+// +k8s:openapi-gen=true
+type KubeVirtWorkloadUpdateStrategy struct {
+	// WorkloadUpdateMethods defines the methods that can be used to disrupt workloads
+	// during automated workload updates.
+	// When multiple methods are present, the least disruptive method takes
+	// precedence over more disruptive methods. For example if both LiveMigrate and Shutdown
+	// methods are listed, only VMs which are not live migratable will be restarted/shutdown
+	//
+	// Defaults to LiveMigrate when list is empty
+	//
+	// +listType=atomic
+	// +optional
+	WorkloadUpdateMethods []WorkloadUpdateMethod `json:"workloadUpdateMethods,omitempty"`
+
+	// BatchShutdownCount Represents the number of VMIs that can be forced updated per
+	// the BatchForceInteral interval
+	//
+	// Defaults to 10
+	//
+	// +optional
+	BatchShutdownCount *int `json:"batchShutdownCount,omitempty"`
+
+	// BatchShutdownInterval Represents the interval to wait before issuing the next
+	// batch of shutdowns
+	//
+	// Defaults to 1 minute
+	//
+	// +optional
+	BatchShutdownInterval *metav1.Duration `json:"batchShutdownInterval,omitempty"`
+}
+
+//
+// +k8s:openapi-gen=true
 type KubeVirtSpec struct {
 	// The image tag to use for the continer images installed.
 	// Defaults to the same tag as the operator's container image.
@@ -1320,6 +1369,10 @@ type KubeVirtSpec struct {
 	// The name of the Prometheus service account that needs read-access to KubeVirt endpoints
 	// Defaults to prometheus-k8s
 	MonitorAccount string `json:"monitorAccount,omitempty"`
+
+	// WorkloadUpdateStrategy defines at the cluster level how to handle
+	// automated workload updates
+	WorkloadUpdateStrategy KubeVirtWorkloadUpdateStrategy `json:"workloadUpdateStrategy,omitempty"`
 
 	// Specifies if kubevirt can be deleted if workloads are still present.
 	// This is mainly a precaution to avoid accidental data loss

@@ -10290,6 +10290,10 @@
       "description": "Specifies if kubevirt can be deleted if workloads are still present. This is mainly a precaution to avoid accidental data loss",
       "type": "string"
      },
+     "workloadUpdateStrategy": {
+      "description": "WorkloadUpdateStrategy defines at the cluster level how to handle automated workload updates",
+      "$ref": "#/definitions/v1.KubeVirtWorkloadUpdateStrategy"
+     },
      "workloads": {
       "description": "selectors and tolerations that should apply to KubeVirt workloads",
       "$ref": "#/definitions/v1.ComponentConfig"
@@ -10336,6 +10340,29 @@
      },
      "targetKubeVirtVersion": {
       "type": "string"
+     }
+    }
+   },
+   "v1.KubeVirtWorkloadUpdateStrategy": {
+    "description": "KubeVirtWorkloadUpdateStrategy defines options related to updating a KubeVirt install",
+    "type": "object",
+    "properties": {
+     "batchShutdownCount": {
+      "description": "BatchShutdownCount Represents the number of VMIs that can be forced updated per the BatchForceInteral interval\n\nDefaults to 10",
+      "type": "integer",
+      "format": "int32"
+     },
+     "batchShutdownInterval": {
+      "description": "BatchShutdownInterval Represents the interval to wait before issuing the next batch of shutdowns\n\nDefaults to 1 minute",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+     },
+     "workloadUpdateMethods": {
+      "description": "WorkloadUpdateMethods defines the methods that can be used to disrupt workloads during automated workload updates. When multiple methods are present, the least disruptive method takes precedence over more disruptive methods. For example if both LiveMigrate and Shutdown methods are listed, only VMs which are not live migratable will be restarted/shutdown\n\nDefaults to LiveMigrate when list is empty",
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "atomic"
      }
     }
    },

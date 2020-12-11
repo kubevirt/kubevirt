@@ -368,20 +368,30 @@ func (KubeVirtCertificateRotateStrategy) SwaggerDoc() map[string]string {
 	}
 }
 
+func (KubeVirtWorkloadUpdateStrategy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                      "KubeVirtWorkloadUpdateStrategy defines options related to updating a KubeVirt install\n\n+k8s:openapi-gen=true",
+		"workloadUpdateMethods": "WorkloadUpdateMethods defines the methods that can be used to disrupt workloads\nduring automated workload updates.\nWhen multiple methods are present, the least disruptive method takes\nprecedence over more disruptive methods. For example if both LiveMigrate and Shutdown\nmethods are listed, only VMs which are not live migratable will be restarted/shutdown\n\nDefaults to LiveMigrate when list is empty\n\n+listType=atomic\n+optional",
+		"batchShutdownCount":    "BatchShutdownCount Represents the number of VMIs that can be forced updated per\nthe BatchForceInteral interval\n\nDefaults to 10\n\n+optional",
+		"batchShutdownInterval": "BatchShutdownInterval Represents the interval to wait before issuing the next\nbatch of shutdowns\n\nDefaults to 1 minute\n\n+optional",
+	}
+}
+
 func (KubeVirtSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                  "+k8s:openapi-gen=true",
-		"imageTag":          "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
-		"imageRegistry":     "The image registry to pull the container images from\nDefaults to the same registry the operator's container image is pulled from.",
-		"imagePullPolicy":   "The ImagePullPolicy to use.",
-		"monitorNamespace":  "The namespace Prometheus is deployed in\nDefaults to openshift-monitor",
-		"monitorAccount":    "The name of the Prometheus service account that needs read-access to KubeVirt endpoints\nDefaults to prometheus-k8s",
-		"uninstallStrategy": "Specifies if kubevirt can be deleted if workloads are still present.\nThis is mainly a precaution to avoid accidental data loss",
-		"productVersion":    "Designate the apps.kubevirt.io/version label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductVersion is not specified, KubeVirt's version will be used.",
-		"productName":       "Designate the apps.kubevirt.io/part-of label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductName is not specified, the part-of label will be omitted.",
-		"configuration":     "holds kubevirt configurations.\nsame as the virt-configMap",
-		"infra":             "selectors and tolerations that should apply to KubeVirt infrastructure components\n+optional",
-		"workloads":         "selectors and tolerations that should apply to KubeVirt workloads\n+optional",
+		"":                       "+k8s:openapi-gen=true",
+		"imageTag":               "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
+		"imageRegistry":          "The image registry to pull the container images from\nDefaults to the same registry the operator's container image is pulled from.",
+		"imagePullPolicy":        "The ImagePullPolicy to use.",
+		"monitorNamespace":       "The namespace Prometheus is deployed in\nDefaults to openshift-monitor",
+		"monitorAccount":         "The name of the Prometheus service account that needs read-access to KubeVirt endpoints\nDefaults to prometheus-k8s",
+		"workloadUpdateStrategy": "WorkloadUpdateStrategy defines at the cluster level how to handle\nautomated workload updates",
+		"uninstallStrategy":      "Specifies if kubevirt can be deleted if workloads are still present.\nThis is mainly a precaution to avoid accidental data loss",
+		"productVersion":         "Designate the apps.kubevirt.io/version label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductVersion is not specified, KubeVirt's version will be used.",
+		"productName":            "Designate the apps.kubevirt.io/part-of label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductName is not specified, the part-of label will be omitted.",
+		"configuration":          "holds kubevirt configurations.\nsame as the virt-configMap",
+		"infra":                  "selectors and tolerations that should apply to KubeVirt infrastructure components\n+optional",
+		"workloads":              "selectors and tolerations that should apply to KubeVirt workloads\n+optional",
 	}
 }
 

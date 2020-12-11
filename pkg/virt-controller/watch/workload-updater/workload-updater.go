@@ -8,6 +8,7 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -29,13 +30,20 @@ const (
 	FailedCreateVirtualMachineInstanceMigrationReason = "FailedCreate"
 	// SuccessfulCreateVirtualMachineInstanceMigrationReason is added in an event if creating a VirtualMachineInstanceMigration succeeded.
 	SuccessfulCreateVirtualMachineInstanceMigrationReason = "SuccessfulCreate"
+	// FailedDeleteVirtualMachineReason is added in an event if a deletion of a VMI fails
+	FailedDeleteVirtualMachineInstanceReason = "FailedDelete"
+	// SuccessfulDeleteVirtualMachineReason is added in an event if a deletion of a VMI fails
+	SuccessfulDeleteVirtualMachineInstanceReason = "SuccessfulDelete"
 )
 
-// time to wait before re-enqueing when max migration count is encountered
-const reEnqueueIntervalSeconds = 10
+// time to wait before re-enqueing when outdated VMIs are still detected
+const reEnqueueIntervalSeconds = 30
 
 // ensures we don't execute more than once every 5 seconds
 const throttleIntervalSeconds = 5
+
+const defaultBatchDeletionIntervalSeconds = 60
+const defaultBatchDeletionCount = 10
 
 type WorkloadUpdateController struct {
 	clientset             kubecli.KubevirtClient
@@ -48,16 +56,27 @@ type WorkloadUpdateController struct {
 	clusterConfig         *virtconfig.ClusterConfig
 	launcherImage         string
 
+	// This lock protects cached data within this struct
+	// that is dynamic. The lock is held for the duration
+	// of the reconcile loop. The reconcile loop is already
+	// single threaded and only a single KubeVirt object
+	// may exist in the cluster at once. This lock is simply
+	// protection in the event that those assumptions ever
+	// change.
+	cacheLock sync.Mutex
+
 	// loop can become quite chatty during the update process. This optimization
 	// throttles how quickly the loop can fire since each loop execution is acting at
 	// a cluster wide level.
 	reconcileThrottleMap map[string]time.Time
-	mapLock              sync.Mutex
+
+	lastDeletionBatch time.Time
 }
 
 type updateData struct {
 	allOutdatedVMIs        []*virtv1.VirtualMachineInstance
 	migratableOutdatedVMIs []*virtv1.VirtualMachineInstance
+	shutdownOutdatedVMIs   []*virtv1.VirtualMachineInstance
 
 	numActiveMigrations int
 }
@@ -242,7 +261,17 @@ func (c *WorkloadUpdateController) isOutdated(vmi *virtv1.VirtualMachineInstance
 	return true
 }
 
-func (c *WorkloadUpdateController) getUpdateData() *updateData {
+func isMigratable(vmi *virtv1.VirtualMachineInstance) bool {
+	for _, c := range vmi.Status.Conditions {
+		if c.Type == virtv1.VirtualMachineInstanceIsMigratable && c.Status == k8sv1.ConditionTrue {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateData {
 	data := &updateData{}
 
 	lookup := make(map[string]bool)
@@ -253,14 +282,38 @@ func (c *WorkloadUpdateController) getUpdateData() *updateData {
 		lookup[migration.Namespace+"/"+migration.Spec.VMIName] = true
 	}
 
+	automatedMigrationAllowed := false
+	automatedShutdownAllowed := false
+
+	if len(kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods) == 0 {
+		// migrate is the default
+		automatedMigrationAllowed = true
+	}
+
+	for _, method := range kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods {
+		if method == virtv1.WorkloadUpdateMethodLiveMigrate {
+			automatedMigrationAllowed = true
+		} else if method == virtv1.WorkloadUpdateMethodShutdown {
+			automatedShutdownAllowed = true
+		}
+	}
+
 	data.numActiveMigrations = len(migrations)
 
 	objs := c.vmiInformer.GetStore().List()
 	for _, obj := range objs {
 		vmi := obj.(*virtv1.VirtualMachineInstance)
-		if c.isOutdated(vmi) {
-			data.allOutdatedVMIs = append(data.allOutdatedVMIs, vmi)
+		if !vmi.IsRunning() || vmi.IsFinal() || vmi.DeletionTimestamp != nil {
+			// only consider running VMIs that aren't being shutdown
+			continue
+		} else if !c.isOutdated(vmi) {
+			continue
+		}
 
+		// add label to outdated vmis for sorting
+		data.allOutdatedVMIs = append(data.allOutdatedVMIs, vmi)
+
+		if automatedMigrationAllowed && isMigratable(vmi) {
 			// don't consider VMIs with migrations inflight as migratable for our dataset
 			if migrationutils.IsMigrating(vmi) {
 				continue
@@ -268,14 +321,9 @@ func (c *WorkloadUpdateController) getUpdateData() *updateData {
 				continue
 			}
 
-			// make sure the vmi has the migration condition set to true
-			// in order to consider it migratable
-			for _, c := range vmi.Status.Conditions {
-				if c.Type == virtv1.VirtualMachineInstanceIsMigratable && c.Status == k8sv1.ConditionTrue {
-					data.migratableOutdatedVMIs = append(data.migratableOutdatedVMIs, vmi)
-					break
-				}
-			}
+			data.migratableOutdatedVMIs = append(data.migratableOutdatedVMIs, vmi)
+		} else if automatedShutdownAllowed {
+			data.shutdownOutdatedVMIs = append(data.shutdownOutdatedVMIs, vmi)
 		}
 	}
 	return data
@@ -284,14 +332,15 @@ func (c *WorkloadUpdateController) getUpdateData() *updateData {
 func (c *WorkloadUpdateController) execute(key string) error {
 	obj, exists, err := c.kubeVirtInformer.GetStore().GetByKey(key)
 
+	c.cacheLock.Lock()
+	defer c.cacheLock.Unlock()
+
 	if err != nil {
 		return err
 	} else if !exists {
 		c.migrationExpectations.DeleteExpectations(key)
 
-		c.mapLock.Lock()
 		delete(c.reconcileThrottleMap, key)
-		c.mapLock.Unlock()
 		return nil
 	}
 
@@ -303,7 +352,7 @@ func (c *WorkloadUpdateController) execute(key string) error {
 	}
 
 	now := time.Now()
-	c.mapLock.Lock()
+
 	ts, ok := c.reconcileThrottleMap[key]
 	if !ok {
 		c.reconcileThrottleMap[key] = now.Add(time.Duration(throttleIntervalSeconds) * time.Second)
@@ -311,7 +360,6 @@ func (c *WorkloadUpdateController) execute(key string) error {
 		c.queue.AddAfter(key, time.Duration(throttleIntervalSeconds)*time.Second)
 		return nil
 	}
-	c.mapLock.Unlock()
 
 	kv := obj.(*virtv1.KubeVirt)
 
@@ -320,23 +368,48 @@ func (c *WorkloadUpdateController) execute(key string) error {
 		return nil
 	} else if kv.Status.ObservedDeploymentID != kv.Status.TargetDeploymentID {
 		return nil
+	} else if !c.clusterConfig.AutomatedWorkloadUpdateEnabled() {
+		return nil
 	}
 
-	data := c.getUpdateData()
+	data := c.getUpdateData(kv)
 
 	return c.sync(kv, data)
 }
 
 func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt, data *updateData) error {
 
-	// nothing to do
-	if len(data.migratableOutdatedVMIs) == 0 {
-		return nil
-	}
-
 	key, err := controller.KeyFunc(kv)
 	if err != nil {
 		return err
+	}
+
+	// Randomizes list so we don't always re-attempt the same vmis in
+	// the event that some are having difficulty being relocated
+	rand.Shuffle(len(data.migratableOutdatedVMIs), func(i, j int) {
+		data.migratableOutdatedVMIs[i], data.migratableOutdatedVMIs[j] = data.migratableOutdatedVMIs[j], data.migratableOutdatedVMIs[i]
+	})
+
+	batchDeletionInterval := time.Duration(defaultBatchDeletionIntervalSeconds) * time.Second
+	batchDeletionCount := defaultBatchDeletionCount
+
+	if kv.Spec.WorkloadUpdateStrategy.BatchShutdownCount != nil {
+		batchDeletionCount = *kv.Spec.WorkloadUpdateStrategy.BatchShutdownCount
+	}
+
+	if kv.Spec.WorkloadUpdateStrategy.BatchShutdownInterval != nil {
+		batchDeletionInterval = kv.Spec.WorkloadUpdateStrategy.BatchShutdownInterval.Duration
+	}
+
+	now := time.Now()
+
+	nextBatch := c.lastDeletionBatch.Add(batchDeletionInterval)
+	if now.After(nextBatch) {
+		batchDeletionCount = int(math.Min(float64(batchDeletionCount), float64(len(data.shutdownOutdatedVMIs))))
+		c.lastDeletionBatch = now
+		log.Log.Infof("workload updated is force shutting down %d VMIs", batchDeletionCount)
+	} else {
+		batchDeletionCount = 0
 	}
 
 	// This is a best effort attempt at not creating a bunch of pending migrations
@@ -345,33 +418,33 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt, data *updateData) e
 	// optimizing here by not introducing new migration objects we know can't be processed
 	// right now.
 	maxParallelMigrations := int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster)
-	if data.numActiveMigrations >= maxParallelMigrations {
-		c.queue.AddAfter(key, time.Duration(reEnqueueIntervalSeconds)*time.Second)
-		return nil
-	}
-
 	maxNewMigrations := maxParallelMigrations - data.numActiveMigrations
-	if maxNewMigrations == 0 {
-		c.queue.AddAfter(key, 1*time.Minute)
-		return nil
+	if maxNewMigrations < 0 {
+		maxNewMigrations = 0
 	}
 
-	count := int(math.Min(float64(maxNewMigrations), float64(len(data.migratableOutdatedVMIs))))
+	migrateCount := int(math.Min(float64(maxNewMigrations), float64(len(data.migratableOutdatedVMIs))))
+	migrationCandidates := []*virtv1.VirtualMachineInstance{}
+	if migrateCount > 0 {
+		migrationCandidates = data.migratableOutdatedVMIs[0:migrateCount]
+		log.Log.Infof("workload updated is migrating %d VMIs", migrateCount)
+	}
 
-	migrationCandidates := data.migratableOutdatedVMIs[0:count]
-	rand.Shuffle(len(migrationCandidates), func(i, j int) {
-		migrationCandidates[i], migrationCandidates[j] = migrationCandidates[j], migrationCandidates[i]
-	})
+	deletionCandidates := []*virtv1.VirtualMachineInstance{}
+	if batchDeletionCount > 0 {
+		deletionCandidates = data.shutdownOutdatedVMIs[0:batchDeletionCount]
+	}
 
+	wgLen := len(migrationCandidates) + len(deletionCandidates)
 	wg := &sync.WaitGroup{}
-	wg.Add(len(migrationCandidates))
+	wg.Add(wgLen)
+	errChan := make(chan error, wgLen)
 
-	errChan := make(chan error, count)
-
-	c.migrationExpectations.ExpectCreations(key, count)
+	c.migrationExpectations.ExpectCreations(key, migrateCount)
 	annotations := map[string]string{
 		virtv1.WorkloadUpdateMigrationAnnotation: "",
 	}
+
 	for _, vmi := range migrationCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
@@ -385,12 +458,29 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt, data *updateData) e
 				},
 			})
 			if err != nil {
+				log.Log.Object(vmi).Reason(err).Errorf("Failed to migrate vmi as part of workload update")
 				c.migrationExpectations.CreationObserved(key)
-				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreateVirtualMachineInstanceMigrationReason, "Error creating a Migration: %v", err)
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreateVirtualMachineInstanceMigrationReason, "Error creating a Migration for automated workload update: %v", err)
 				errChan <- err
 				return
 			} else {
-				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulCreateVirtualMachineInstanceMigrationReason, "Created Migration %s", createdMigration.Name)
+				log.Log.Object(vmi).Infof("Migrated vmi as part of workload update")
+				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulCreateVirtualMachineInstanceMigrationReason, "Created Migration %s for automated workload update", createdMigration.Name)
+			}
+		}(vmi)
+	}
+
+	for _, vmi := range deletionCandidates {
+		go func(vmi *virtv1.VirtualMachineInstance) {
+			defer wg.Done()
+			err := c.clientset.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &v1.DeleteOptions{})
+			if err != nil && !errors.IsNotFound(err) {
+				log.Log.Object(vmi).Reason(err).Errorf("Failed to delete vmi as part of workload update")
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDeleteVirtualMachineInstanceReason, "Error deleting VMI during automated workload update: %v", err)
+				errChan <- err
+			} else {
+				log.Log.Object(vmi).Infof("Deleted vmi as part of workload update")
+				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulDeleteVirtualMachineInstanceReason, "Initiated shutdown of VMI as part of automated workload update: %v", err)
 			}
 		}(vmi)
 	}
@@ -402,5 +492,13 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt, data *updateData) e
 		return err
 	default:
 	}
+
+	// Rather than enqueing based on VMI activity, we keep periodically poping the loop
+	// until all VMIs are updated. Watching all VMI activity is very chatty for this controller
+	// when we don't need to be that efficent in how quickly the updates are being processed.
+	if len(data.shutdownOutdatedVMIs) != 0 || len(data.migratableOutdatedVMIs) != 0 {
+		c.queue.AddAfter(key, reEnqueueIntervalSeconds)
+	}
+
 	return nil
 }

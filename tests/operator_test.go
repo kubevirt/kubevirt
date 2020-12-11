@@ -45,6 +45,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -110,9 +111,11 @@ var _ = Describe("[Serial]Operator", func() {
 		getVirtLauncherSha                func() string
 		generatePreviousVersionVmYamls    func(string, string)
 		generateMigratableVMIs            func(int) []*v1.VirtualMachineInstance
+		generateNonMigratableVMIs         func(int) []*v1.VirtualMachineInstance
 		startAllVMIs                      func([]*v1.VirtualMachineInstance)
 		deleteAllVMIs                     func([]*v1.VirtualMachineInstance)
 		verifyVMIsUpdated                 func([]*v1.VirtualMachineInstance, string)
+		verifyVMIsDeleted                 func([]*v1.VirtualMachineInstance)
 	)
 
 	tests.BeforeAll(func() {
@@ -580,6 +583,21 @@ var _ = Describe("[Serial]Operator", func() {
 			return vmis
 		}
 
+		generateNonMigratableVMIs = func(num int) []*v1.VirtualMachineInstance {
+
+			vmis := []*v1.VirtualMachineInstance{}
+			for i := 0; i < num; i++ {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				// Remove the masquerade interface to use the default bridge one
+				// bridge interface isn't allowed to migrate
+				vmi.Spec.Domain.Devices.Interfaces = nil
+				vmi.Spec.Networks = nil
+				vmis = append(vmis, vmi)
+			}
+
+			return vmis
+		}
+
 		startAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
 			for _, vmi := range vmis {
 				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -593,6 +611,22 @@ var _ = Describe("[Serial]Operator", func() {
 				err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).To(BeNil(), "Delete VMI successfully")
 			}
+		}
+
+		verifyVMIsDeleted = func(vmis []*v1.VirtualMachineInstance) {
+
+			Eventually(func() error {
+				for _, vmi := range vmis {
+					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					if err == nil {
+						return fmt.Errorf("waiting for vmi %s/%s to delete as part of update", vmi.Namespace, vmi.Name)
+					} else if !errors.IsNotFound(err) {
+						return err
+					}
+				}
+				return nil
+			}, 320, 1).Should(BeNil(), "All VMIs should delete automatically")
+
 		}
 
 		verifyVMIsUpdated = func(vmis []*v1.VirtualMachineInstance, imageTag string) {
@@ -956,13 +990,13 @@ spec:
 		// running a VM/VMI using that previous release
 		// Updating KubeVirt to the target tested code
 		// Ensuring VM/VMI is still operational after the update from previous release.
-		FIt("[test_id:3145]from previous release to target tested release", func() {
+		It("[test_id:3145]from previous release to target tested release", func() {
 
 			if !tests.HasCDI() {
 				Skip("Skip Update test when CDI is not present")
 			}
 
-			migratableVMIs := generateMigratableVMIs(10)
+			migratableVMIs := generateMigratableVMIs(3)
 			launcherSha := getVirtLauncherSha()
 			Expect(launcherSha).ToNot(Equal(""))
 
@@ -1360,13 +1394,14 @@ spec:
 			allPodsAreReady(kv)
 		})
 
-		It("[test_id:3150]should be able to update kubevirt install with custom image tag", func() {
+		FIt("[test_id:3150]should be able to update kubevirt install with custom image tag", func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
 			}
 
-			vmis := generateMigratableVMIs(10)
+			vmis := generateMigratableVMIs(7)
+			vmisNonMigratable := generateNonMigratableVMIs(3)
 
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
@@ -1381,6 +1416,11 @@ spec:
 			By("Creating KubeVirt Object")
 			kv := copyOriginalKv()
 			kv.Name = "kubevirt-alt-install"
+			kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
+				PermitBridgeInterfaceOnPodNetwork: pointer.BoolPtr(true),
+			}
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodShutdown}
+
 			createKv(kv)
 
 			By("Creating KubeVirt Object Created and Ready Condition")
@@ -1394,6 +1434,7 @@ spec:
 
 			By("Starting multiple migratable VMIs before performing update")
 			startAllVMIs(vmis)
+			startAllVMIs(vmisNonMigratable)
 
 			By("Updating KubeVirtObject With Alt Tag")
 			patchKvVersion(kv.Name, flags.KubeVirtVersionTagAlt)
@@ -1406,6 +1447,9 @@ spec:
 
 			By("Verifying infrastructure Is Updated")
 			allPodsAreReady(kv)
+
+			By("Verifying all non-migratable vmi workloads are deleted")
+			verifyVMIsDeleted(vmisNonMigratable)
 
 			By("Verifying all migratable vmi workloads are updated via live migration")
 			verifyVMIsUpdated(vmis, flags.KubeVirtVersionTagAlt)

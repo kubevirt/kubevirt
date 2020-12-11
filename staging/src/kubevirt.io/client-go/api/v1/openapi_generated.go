@@ -366,6 +366,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.KubeVirtSelfSignConfiguration":                              schema_kubevirtio_client_go_api_v1_KubeVirtSelfSignConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.KubeVirtSpec":                                               schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref),
 		"kubevirt.io/client-go/api/v1.KubeVirtStatus":                                             schema_kubevirtio_client_go_api_v1_KubeVirtStatus(ref),
+		"kubevirt.io/client-go/api/v1.KubeVirtWorkloadUpdateStrategy":                             schema_kubevirtio_client_go_api_v1_KubeVirtWorkloadUpdateStrategy(ref),
 		"kubevirt.io/client-go/api/v1.LogVerbosity":                                               schema_kubevirtio_client_go_api_v1_LogVerbosity(ref),
 		"kubevirt.io/client-go/api/v1.LunTarget":                                                  schema_kubevirtio_client_go_api_v1_LunTarget(ref),
 		"kubevirt.io/client-go/api/v1.Machine":                                                    schema_kubevirtio_client_go_api_v1_Machine(ref),
@@ -16481,6 +16482,12 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"workloadUpdateStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "WorkloadUpdateStrategy defines at the cluster level how to handle automated workload updates",
+							Ref:         ref("kubevirt.io/client-go/api/v1.KubeVirtWorkloadUpdateStrategy"),
+						},
+					},
 					"uninstallStrategy": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Specifies if kubevirt can be deleted if workloads are still present. This is mainly a precaution to avoid accidental data loss",
@@ -16534,7 +16541,7 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.ComponentConfig", "kubevirt.io/client-go/api/v1.CustomizeComponents", "kubevirt.io/client-go/api/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/client-go/api/v1.KubeVirtConfiguration"},
+			"kubevirt.io/client-go/api/v1.ComponentConfig", "kubevirt.io/client-go/api/v1.CustomizeComponents", "kubevirt.io/client-go/api/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/client-go/api/v1.KubeVirtConfiguration", "kubevirt.io/client-go/api/v1.KubeVirtWorkloadUpdateStrategy"},
 	}
 }
 
@@ -16622,6 +16629,53 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtStatus(ref common.ReferenceCallb
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/api/v1.KubeVirtCondition"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_KubeVirtWorkloadUpdateStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KubeVirtWorkloadUpdateStrategy defines options related to updating a KubeVirt install",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"workloadUpdateMethods": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "WorkloadUpdateMethods defines the methods that can be used to disrupt workloads during automated workload updates. When multiple methods are present, the least disruptive method takes precedence over more disruptive methods. For example if both LiveMigrate and Shutdown methods are listed, only VMs which are not live migratable will be restarted/shutdown\n\nDefaults to LiveMigrate when list is empty",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"batchShutdownCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BatchShutdownCount Represents the number of VMIs that can be forced updated per the BatchForceInteral interval\n\nDefaults to 10",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"batchShutdownInterval": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BatchShutdownInterval Represents the interval to wait before issuing the next batch of shutdowns\n\nDefaults to 1 minute",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
 	}
 }
 

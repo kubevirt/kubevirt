@@ -24,19 +24,20 @@ package virtconfig
 */
 
 const (
-	CPUManager            = "CPUManager"
-	IgnitionGate          = "ExperimentalIgnitionSupport"
-	LiveMigrationGate     = "LiveMigration"
-	CPUNodeDiscoveryGate  = "CPUNodeDiscovery"
-	HypervStrictCheckGate = "HypervStrictCheck"
-	SidecarGate           = "Sidecar"
-	GPUGate               = "GPU"
-	HostDevicesGate       = "HostDevices"
-	SnapshotGate          = "Snapshot"
-	HotplugVolumesGate    = "HotplugVolumes"
-	HostDiskGate          = "HostDisk"
-	VirtIOFSGate          = "ExperimentalVirtiofsSupport"
-	MacvtapGate           = "Macvtap"
+	CPUManager              = "CPUManager"
+	IgnitionGate            = "ExperimentalIgnitionSupport"
+	LiveMigrationGate       = "LiveMigration"
+	CPUNodeDiscoveryGate    = "CPUNodeDiscovery"
+	HypervStrictCheckGate   = "HypervStrictCheck"
+	SidecarGate             = "Sidecar"
+	GPUGate                 = "GPU"
+	HostDevicesGate         = "HostDevices"
+	SnapshotGate            = "Snapshot"
+	HotplugVolumesGate      = "HotplugVolumes"
+	HostDiskGate            = "HostDisk"
+	VirtIOFSGate            = "ExperimentalVirtiofsSupport"
+	MacvtapGate             = "Macvtap"
+	AutomatedWorkloadUpdate = "AutomatedWorkloadUpdate"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -94,6 +95,10 @@ func (config *ClusterConfig) VirtiofsEnabled() bool {
 
 func (config *ClusterConfig) MacvtapEnabled() bool {
 	return config.isFeatureGateEnabled(MacvtapGate)
+}
+
+func (config *ClusterConfig) AutomatedWorkloadUpdateEnabled() bool {
+	return config.isFeatureGateEnabled(AutomatedWorkloadUpdate)
 }
 
 func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {
