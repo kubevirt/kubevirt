@@ -22,6 +22,7 @@ package network
 import (
 	"io/ioutil"
 	"net"
+	"os"
 	"strings"
 
 	. "github.com/onsi/ginkgo"
@@ -36,6 +37,7 @@ var _ = Describe("Common Methods", func() {
 	Context("Functions Read and Write from cache", func() {
 		It("should persist interface payload", func() {
 			tmpDir, _ := ioutil.TempDir("", "commontest")
+			defer os.RemoveAll(tmpDir)
 			setInterfaceCacheFile(tmpDir + "/cache-%s.json")
 
 			ifaceName := "iface_name"
@@ -52,6 +54,7 @@ var _ = Describe("Common Methods", func() {
 		})
 		It("should persist qemu arg payload", func() {
 			tmpDir, _ := ioutil.TempDir("", "commontest")
+			defer os.RemoveAll(tmpDir)
 			setInterfaceCacheFile(tmpDir + "/cache-%s.json")
 
 			qemuArgName := "iface_name"
