@@ -32,6 +32,7 @@ import (
 
 const (
 	routerAdvertisementMaxLifetime = 65535 * time.Second // check RFC 4861, section 4.2; 16 bit integer.
+	routerAdvertisementPeriod      = 5 * time.Minute
 )
 
 type RouterAdvertisementDaemon struct {
@@ -75,6 +76,24 @@ func (rad *RouterAdvertisementDaemon) Serve() error {
 			err = rad.SendRouterAdvertisement()
 			if err != nil {
 				return err
+			}
+		}
+	}
+}
+
+func (rad *RouterAdvertisementDaemon) PeriodicallySendRAs() {
+	doneChannel := make(chan struct{})
+	ticker := time.NewTicker(routerAdvertisementPeriod)
+
+	for {
+		select {
+		case <-doneChannel:
+			ticker.Stop()
+			return
+
+		case <-ticker.C:
+			if err := rad.SendRouterAdvertisement(); err != nil {
+				log.Log.Warningf("failed to send periodic RouterAdvertisement: %v", err)
 			}
 		}
 	}

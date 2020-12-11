@@ -590,6 +590,10 @@ func (h *NetworkUtilsHandler) CreateRADaemon(socketPath string, advertisementIfa
 		}
 	}()
 
+	go func() {
+		raDaemon.PeriodicallySendRAs()
+	}()
+
 	return nil
 }
 
