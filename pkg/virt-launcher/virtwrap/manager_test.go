@@ -72,6 +72,7 @@ var _ = Describe("Manager", func() {
 		if err != nil {
 			panic(err)
 		}
+		defer os.RemoveAll(tmpDir)
 		ephemeraldiskutils.MockDefaultOwnershipManager()
 		cloudinit.SetIsoCreationFunction(isoCreationFunc)
 	})
