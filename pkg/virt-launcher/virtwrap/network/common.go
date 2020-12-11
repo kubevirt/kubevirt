@@ -533,6 +533,10 @@ func (h *NetworkUtilsHandler) CreateRouterAdvertiser(socketPath string, advertis
 		}
 	}()
 
+	go func() {
+		routerAdvertiser.PeriodicallySendRAs()
+	}()
+
 	return nil
 }
 
