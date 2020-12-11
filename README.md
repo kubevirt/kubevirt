@@ -30,7 +30,7 @@ The deployment is completed when HCO custom resource reports its condition as `A
 For more explanation and advanced options for HCO deployment using kustomize, refer to [kustomize deployment documentation](deploy/kustomize/README.md).
 
 ## Installing Unreleased Bundles Using Marketplace
-The hyperconverged cluster operator will publish the lastest bundles to [quay/kubevirt-hyperconvered/hco-operatohub](https://quay.io/application/kubevirt-hyperconverged/hco-operatorhub)
+The hyperconverged cluster operator will publish the latest bundles to [quay.io/kubevirt-hyperconvered/hco-operatohub](https://quay.io/application/kubevirt-hyperconverged/hco-operatorhub)
 before publishing to operatorhub.io.
 
 Make the unreleased bundles available in Marketplace by adding the app registry:
