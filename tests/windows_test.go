@@ -279,7 +279,6 @@ var _ = Describe("[Serial]Windows VirtualMachineInstance", func() {
 		})
 
 		AfterEach(func() {
-			os.RemoveAll(workDir)
 			if workDir != "" {
 				err = os.RemoveAll(workDir)
 				Expect(err).ToNot(HaveOccurred())
