@@ -2831,7 +2831,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 		})
 
 		It("should accept hostDisk volumes if the feature gate is enabled", func() {
@@ -2849,8 +2849,73 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
-			Expect(len(causes)).To(Equal(0))
+			Expect(causes).To(BeEmpty())
 		})
+
+		It("should reject CloudInitNoCloud volume if either userData or networkData is missing", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk",
+			})
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testdisk",
+				VolumeSource: v1.VolumeSource{
+					CloudInitNoCloud: &v1.CloudInitNoCloudSource{},
+				},
+			})
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+			Expect(causes).To(HaveLen(1))
+		})
+
+		It("should accept CloudInitNoCloud volume if it has only a userData source", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk",
+			})
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testdisk",
+				VolumeSource: v1.VolumeSource{
+					CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: " "},
+				},
+			})
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should accept CloudInitNoCloud volume if it has only a networkData source", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk",
+			})
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testdisk",
+				VolumeSource: v1.VolumeSource{
+					CloudInitNoCloud: &v1.CloudInitNoCloudSource{NetworkData: " "},
+				},
+			})
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should accept CloudInitNoCloud volume if it has both userData and networkData sources", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk",
+			})
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testdisk",
+				VolumeSource: v1.VolumeSource{
+					CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: " ", NetworkData: " "},
+				},
+			})
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+			Expect(causes).To(BeEmpty())
+		})
+
 	})
 
 	Context("with bootloader", func() {
