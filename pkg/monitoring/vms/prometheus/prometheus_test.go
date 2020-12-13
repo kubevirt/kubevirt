@@ -20,6 +20,8 @@
 package prometheus
 
 import (
+	"fmt"
+
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -931,6 +933,39 @@ var _ = Describe("Prometheus", func() {
 			result := <-ch
 			Expect(result).ToNot(BeNil())
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_vcpu_wait_seconds"))
+		})
+
+		It("should expose vcpu to cpu pinning metric", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu:       &stats.DomainStatsCPU{},
+				Memory:    &stats.DomainStatsMemory{},
+				Net:       []stats.DomainStatsNet{},
+				Vcpu:      []stats.DomainStatsVcpu{},
+				CPUMapSet: true,
+				CPUMap:    [][]bool{{true, false, true}},
+			}
+
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			result := <-ch
+			dto := &io_prometheus_client.Metric{}
+			result.Write(dto)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_cpu_affinity"))
+			s := ""
+			for _, lp := range dto.GetLabel() {
+				s += fmt.Sprintf("%v=%v ", lp.GetName(), lp.GetValue())
+			}
+			Expect(s).To(ContainSubstring("vcpu_0_cpu_0=true"))
+			Expect(s).To(ContainSubstring("vcpu_0_cpu_1=false"))
+			Expect(s).To(ContainSubstring("vcpu_0_cpu_2=true"))
 		})
 	})
 })

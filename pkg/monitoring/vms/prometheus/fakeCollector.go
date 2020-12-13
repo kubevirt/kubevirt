@@ -45,6 +45,7 @@ func (fc fakeCollector) Collect(ch chan<- prometheus.Metric) {
 	out.Memory.UsableSet = true
 	out.Memory.MinorFaultSet = true
 	out.Memory.MajorFaultSet = true
+	out.CPUMapSet = true
 
 	vmi := k6tv1.VirtualMachineInstance{
 		Status: k6tv1.VirtualMachineInstanceStatus{
