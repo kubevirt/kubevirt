@@ -183,6 +183,26 @@ func (metrics *vmiMetrics) updateCPU(cpu *stats.DomainStatsCPU) {
 	}
 }
 
+func (metrics *vmiMetrics) updateCPUAffinity(cpuMap [][]bool) {
+	affinityLabels := []string{}
+	affinityValues := []string{}
+
+	for vidx := 0; vidx < len(cpuMap); vidx++ {
+		for cidx := 0; cidx < len(cpuMap[vidx]); cidx++ {
+			affinityLabels = append(affinityLabels, fmt.Sprintf("vcpu_%v_cpu_%v", vidx, cidx))
+			affinityValues = append(affinityValues, fmt.Sprintf("%t", cpuMap[vidx][cidx]))
+		}
+	}
+
+	metrics.pushCustomMetric(
+		"kubevirt_vmi_cpu_affinity",
+		"vcpu affinity details",
+		prometheus.CounterValue, 1,
+		affinityLabels,
+		affinityValues,
+	)
+}
+
 func (metrics *vmiMetrics) updateVcpu(vmStats *stats.DomainStats) {
 	for vcpuID, vcpu := range vmStats.Vcpu {
 		svcpuID := fmt.Sprintf("%v", vcpuID)
@@ -550,6 +570,10 @@ func (metrics *vmiMetrics) updateMetrics(vmStats *stats.DomainStats) {
 	metrics.updateVcpu(vmStats)
 	metrics.updateBlock(vmStats)
 	metrics.updateNetwork(vmStats)
+
+	if vmStats.CPUMapSet {
+		metrics.updateCPUAffinity(vmStats.CPUMap)
+	}
 }
 
 func (metrics *vmiMetrics) newPrometheusDesc(name string, help string, customLabels []string) *prometheus.Desc {

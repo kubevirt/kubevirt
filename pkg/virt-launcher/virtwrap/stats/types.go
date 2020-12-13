@@ -58,6 +58,9 @@ type DomainStats struct {
 	Net   []DomainStatsNet
 	Block []DomainStatsBlock
 	// omitted from libvirt-go: Perf
+	// extra stats
+	CPUMapSet bool
+	CPUMap    [][]bool
 }
 
 type DomainStatsCPU struct {

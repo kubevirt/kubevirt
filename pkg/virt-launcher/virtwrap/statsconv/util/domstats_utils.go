@@ -236,7 +236,9 @@ var Testdataexpected = `{
        "WaitSet": true,
        "Wait": 1500
      }
-   ]
+   ],
+   "CPUMapSet": false,
+   "CPUMap": null
  }`
 
 func LoadStats() ([]libvirt.DomainStats, error) {
