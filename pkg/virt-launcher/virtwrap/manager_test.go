@@ -1118,7 +1118,6 @@ var _ = Describe("Manager", func() {
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0, nil, "/usr/share/OVMF")
 
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
-			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 
 			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())

@@ -117,7 +117,7 @@ func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineIns
 }
 
 // GetDomainSpecWithRuntimeInfo return the active domain XML with runtime information embedded
-func GetDomainSpecWithRuntimeInfo(status libvirt.DomainState, dom cli.VirDomain) (*api.DomainSpec, error) {
+func GetDomainSpecWithRuntimeInfo(dom cli.VirDomain) (*api.DomainSpec, error) {
 
 	// get libvirt xml with runtime status
 	activeSpec, err := GetDomainSpecWithFlags(dom, 0)
