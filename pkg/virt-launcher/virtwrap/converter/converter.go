@@ -93,7 +93,7 @@ type ConverterContext struct {
 	HotplugVolumes        map[string]v1.VolumeStatus
 	PermanentVolumes      map[string]v1.VolumeStatus
 	DiskType              map[string]*containerdisk.DiskInfo
-	SRIOVDevices          map[string][]string
+	SRIOVDevices          []api.HostDevice
 	SMBios                *cmdv1.SMBios
 	GpuDevices            []string
 	VgpuDevices           []string
@@ -840,41 +840,6 @@ func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *
 	}
 }
 
-func filterAddress(addrs []string, addr string) []string {
-	var res []string
-	for _, a := range addrs {
-		if a != addr {
-			res = append(res, a)
-		}
-	}
-	return res
-}
-
-func reserveAddress(addrsMap map[string][]string, addr string) {
-	// Sometimes the same address is available to multiple networks,
-	// specifically when two networks refer to the same resourceName. In this
-	// case, we should make sure that a reserved address is removed from *all*
-	// per-network lists of available devices, to avoid configuring the same
-	// device ID for multiple interfaces.
-	for networkName, addrs := range addrsMap {
-		addrsMap[networkName] = filterAddress(addrs, addr)
-	}
-	return
-}
-
-// Get the next PCI address available to a particular SR-IOV network. The
-// function makes sure that the allocated address is not allocated to next
-// callers, whether they request an address for the same network or another
-// network that is backed by the same resourceName.
-func popSRIOVPCIAddress(networkName string, addrsMap map[string][]string) (string, map[string][]string, error) {
-	if len(addrsMap[networkName]) > 0 {
-		addr := addrsMap[networkName][0]
-		reserveAddress(addrsMap, addr)
-		return addr, addrsMap, nil
-	}
-	return "", addrsMap, fmt.Errorf("no more SR-IOV PCI addresses to allocate")
-}
-
 func getInterfaceType(iface *v1.Interface) string {
 	if iface.Slirp != nil {
 		// Slirp configuration works only with e1000 or rtl8139
@@ -1483,11 +1448,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 	networks := indexNetworksByName(vmi.Spec.Networks)
 
-	sriovPciAddresses := make(map[string][]string)
-	for key, value := range c.SRIOVDevices {
-		sriovPciAddresses[key] = append([]string{}, value...)
-	}
-
 	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		net, isExist := networks[iface.Name]
 		if !isExist {
@@ -1495,95 +1455,87 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 
 		if iface.SRIOV != nil {
-			var pciAddr string
-			pciAddr, sriovPciAddresses, err = popSRIOVPCIAddress(iface.Name, sriovPciAddresses)
-			if err != nil {
-				return fmt.Errorf("failed to configure SRIOV %s: %v", iface.Name, err)
-			}
-			hostDev, err := createSRIOVHostDevice(pciAddr, iface.PciAddress, iface.BootOrder)
-			if err != nil {
-				return fmt.Errorf("failed to configure SRIOV %s: %v", iface.Name, err)
-			}
-			log.Log.Infof("SR-IOV PCI device allocated: %s", pciAddr)
-			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, *hostDev)
-		} else {
-			ifaceType := getInterfaceType(&vmi.Spec.Domain.Devices.Interfaces[i])
-			domainIface := api.Interface{
-				Model: &api.Model{
-					Type: translateModel(c, ifaceType),
-				},
-				Alias: &api.Alias{
-					Name: iface.Name,
-				},
-			}
-
-			// if UseEmulation unset and at least one NIC model is virtio,
-			// /dev/vhost-net must be present as we should have asked for it.
-			var virtioNetMQRequested bool
-			if mq := vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue; mq != nil {
-				virtioNetMQRequested = *mq
-			}
-			if ifaceType == "virtio" && virtioNetProhibited {
-				return fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
-			} else if ifaceType == "virtio" && virtioNetMQRequested {
-				queueCount := uint(CalculateNetworkQueues(vmi))
-				domainIface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: &queueCount}
-			}
-
-			// Add a pciAddress if specified
-			if iface.PciAddress != "" {
-				addr, err := device.NewPciAddressField(iface.PciAddress)
-				if err != nil {
-					return fmt.Errorf("failed to configure interface %s: %v", iface.Name, err)
-				}
-				domainIface.Address = addr
-			}
-
-			if iface.Bridge != nil || iface.Masquerade != nil {
-				// TODO:(ihar) consider abstracting interface type conversion /
-				// detection into drivers
-
-				// use "ethernet" interface type, since we're using pre-configured tap devices
-				// https://libvirt.org/formatdomain.html#elementsNICSEthernet
-				domainIface.Type = "ethernet"
-				if iface.BootOrder != nil {
-					domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
-				} else {
-					domainIface.Rom = &api.Rom{Enabled: "no"}
-				}
-			} else if iface.Slirp != nil {
-				domainIface.Type = "user"
-
-				// Create network interface
-				if domain.Spec.QEMUCmd == nil {
-					domain.Spec.QEMUCmd = &api.Commandline{}
-				}
-
-				if domain.Spec.QEMUCmd.QEMUArg == nil {
-					domain.Spec.QEMUCmd.QEMUArg = make([]api.Arg, 0)
-				}
-
-				// TODO: (seba) Need to change this if multiple interface can be connected to the same network
-				// append the ports from all the interfaces connected to the same network
-				err := createSlirpNetwork(iface, *net, domain)
-				if err != nil {
-					return err
-				}
-			} else if iface.Macvtap != nil {
-				if net.Multus == nil {
-					return fmt.Errorf("macvtap interface %s requires Multus meta-cni", iface.Name)
-				}
-
-				domainIface.Type = "ethernet"
-				if iface.BootOrder != nil {
-					domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
-				} else {
-					domainIface.Rom = &api.Rom{Enabled: "no"}
-				}
-			}
-			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
+			continue
 		}
+
+		ifaceType := getInterfaceType(&vmi.Spec.Domain.Devices.Interfaces[i])
+		domainIface := api.Interface{
+			Model: &api.Model{
+				Type: translateModel(c, ifaceType),
+			},
+			Alias: &api.Alias{
+				Name: iface.Name,
+			},
+		}
+
+		// if UseEmulation unset and at least one NIC model is virtio,
+		// /dev/vhost-net must be present as we should have asked for it.
+		var virtioNetMQRequested bool
+		if mq := vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue; mq != nil {
+			virtioNetMQRequested = *mq
+		}
+		if ifaceType == "virtio" && virtioNetProhibited {
+			return fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
+		} else if ifaceType == "virtio" && virtioNetMQRequested {
+			queueCount := uint(CalculateNetworkQueues(vmi))
+			domainIface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: &queueCount}
+		}
+
+		// Add a pciAddress if specified
+		if iface.PciAddress != "" {
+			addr, err := device.NewPciAddressField(iface.PciAddress)
+			if err != nil {
+				return fmt.Errorf("failed to configure interface %s: %v", iface.Name, err)
+			}
+			domainIface.Address = addr
+		}
+
+		if iface.Bridge != nil || iface.Masquerade != nil {
+			// TODO:(ihar) consider abstracting interface type conversion /
+			// detection into drivers
+
+			// use "ethernet" interface type, since we're using pre-configured tap devices
+			// https://libvirt.org/formatdomain.html#elementsNICSEthernet
+			domainIface.Type = "ethernet"
+			if iface.BootOrder != nil {
+				domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
+			} else {
+				domainIface.Rom = &api.Rom{Enabled: "no"}
+			}
+		} else if iface.Slirp != nil {
+			domainIface.Type = "user"
+
+			// Create network interface
+			if domain.Spec.QEMUCmd == nil {
+				domain.Spec.QEMUCmd = &api.Commandline{}
+			}
+
+			if domain.Spec.QEMUCmd.QEMUArg == nil {
+				domain.Spec.QEMUCmd.QEMUArg = make([]api.Arg, 0)
+			}
+
+			// TODO: (seba) Need to change this if multiple interface can be connected to the same network
+			// append the ports from all the interfaces connected to the same network
+			err := createSlirpNetwork(iface, *net, domain)
+			if err != nil {
+				return err
+			}
+		} else if iface.Macvtap != nil {
+			if net.Multus == nil {
+				return fmt.Errorf("macvtap interface %s requires Multus meta-cni", iface.Name)
+			}
+
+			domainIface.Type = "ethernet"
+			if iface.BootOrder != nil {
+				domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
+			} else {
+				domainIface.Rom = &api.Rom{Enabled: "no"}
+			}
+		}
+		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 	}
+
+	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.SRIOVDevices...)
 
 	// Add Ignition Command Line if present
 	ignitiondata, _ := vmi.Annotations[v1.IgnitionAnnotation]
@@ -1786,32 +1738,6 @@ func indexNetworksByName(networks []v1.Network) map[string]*v1.Network {
 		netsByName[network.Name] = network.DeepCopy()
 	}
 	return netsByName
-}
-
-func createSRIOVHostDevice(hostPCIAddress string, guestPCIAddress string, bootOrder *uint) (*api.HostDevice, error) {
-	hostAddr, err := device.NewPciAddressField(hostPCIAddress)
-	if err != nil {
-		return nil, err
-	}
-	hostDev := &api.HostDevice{
-		Source:  api.HostDeviceSource{Address: hostAddr},
-		Type:    "pci",
-		Managed: "no",
-	}
-
-	if guestPCIAddress != "" {
-		addr, err := device.NewPciAddressField(guestPCIAddress)
-		if err != nil {
-			return nil, err
-		}
-		hostDev.Address = addr
-	}
-
-	if bootOrder != nil {
-		hostDev.BootOrder = &api.BootOrder{Order: *bootOrder}
-	}
-
-	return hostDev, nil
 }
 
 func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *api.Domain) error {

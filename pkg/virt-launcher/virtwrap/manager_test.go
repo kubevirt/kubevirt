@@ -1373,53 +1373,6 @@ var _ = Describe("Manager", func() {
 	})
 })
 
-var _ = Describe("resourceNameToEnvvar", func() {
-	It("handles resource name with dots and slashes", func() {
-		Expect(resourceNameToEnvvar("intel.com/sriov_test")).To(Equal("PCIDEVICE_INTEL_COM_SRIOV_TEST"))
-	})
-})
-
-var _ = Describe("getSRIOVPCIAddresses", func() {
-	getSRIOVInterfaceList := func() []v1.Interface {
-		return []v1.Interface{
-			v1.Interface{
-				Name: "testnet",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					SRIOV: &v1.InterfaceSRIOV{},
-				},
-			},
-		}
-	}
-
-	It("returns empty map when empty interfaces", func() {
-		Expect(len(getSRIOVPCIAddresses([]v1.Interface{}))).To(Equal(0))
-	})
-	It("returns empty map when interface is not sriov", func() {
-		ifaces := []v1.Interface{v1.Interface{Name: "testnet"}}
-		Expect(len(getSRIOVPCIAddresses(ifaces))).To(Equal(0))
-	})
-	It("returns map with empty device id list when variables are not set", func() {
-		addrs := getSRIOVPCIAddresses(getSRIOVInterfaceList())
-		Expect(len(addrs)).To(Equal(1))
-		Expect(len(addrs["testnet"])).To(Equal(0))
-	})
-	It("gracefully handles a single address value", func() {
-		os.Setenv("PCIDEVICE_INTEL_COM_TESTNET_POOL", "0000:81:11.1")
-		os.Setenv("KUBEVIRT_RESOURCE_NAME_testnet", "intel.com/testnet_pool")
-		addrs := getSRIOVPCIAddresses(getSRIOVInterfaceList())
-		Expect(len(addrs)).To(Equal(1))
-		Expect(addrs["testnet"][0]).To(Equal("0000:81:11.1"))
-	})
-	It("returns multiple PCI addresses", func() {
-		os.Setenv("PCIDEVICE_INTEL_COM_TESTNET_POOL", "0000:81:11.1,0001:02:00.0")
-		os.Setenv("KUBEVIRT_RESOURCE_NAME_testnet", "intel.com/testnet_pool")
-		addrs := getSRIOVPCIAddresses(getSRIOVInterfaceList())
-		Expect(len(addrs["testnet"])).To(Equal(2))
-		Expect(addrs["testnet"][0]).To(Equal("0000:81:11.1"))
-		Expect(addrs["testnet"][1]).To(Equal("0001:02:00.0"))
-	})
-})
-
 var _ = Describe("getEnvAddressListByPrefix with gpu prefix", func() {
 	It("returns empty if PCI address is not set", func() {
 		Expect(len(getEnvAddressListByPrefix(gpuEnvPrefix))).To(Equal(0))
