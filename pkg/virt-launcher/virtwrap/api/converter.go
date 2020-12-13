@@ -891,11 +891,12 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	// CPU topology will be created everytime, because user can specify
 	// number of cores in vmi.Spec.Domain.Resources.Requests/Limits, not only
 	// in vmi.Spec.Domain.CPU
-	queueNumber, cpuTopology := CalculateNetworkQueueNumberAndGetCPUTopology(vmi)
+	cpuTopology := getCPUTopology(vmi)
+	cpuCount := calculateRequestedVCPUs(cpuTopology)
 	domain.Spec.CPU.Topology = cpuTopology
 	domain.Spec.VCPU = &VCPU{
 		Placement: "static",
-		CPUs:      queueNumber,
+		CPUs:      cpuCount,
 	}
 
 	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
@@ -1154,12 +1155,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	var numBlkQueues *uint
 	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
 	virtioNetMQRequested := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
-	vcpus := uint(queueNumber)
+	vcpus := uint(cpuCount)
 	if vcpus == 0 {
 		vcpus = uint(1)
 	}
 	if virtioNetMQRequested {
-		numQueues = &vcpus
+		nq := uint(CalculateNetworkQueues(vmi))
+		numQueues = &nq
 	}
 	if virtioBlkMQRequested {
 		numBlkQueues = &vcpus
@@ -1722,7 +1724,7 @@ func calculateRequestedVCPUs(cpuTopology *CPUTopology) uint32 {
 	return cpuTopology.Cores * cpuTopology.Sockets * cpuTopology.Threads
 }
 
-func CalculateNetworkQueueNumberAndGetCPUTopology(vmi *v1.VirtualMachineInstance) (uint32, *CPUTopology) {
+func CalculateNetworkQueues(vmi *v1.VirtualMachineInstance) uint32 {
 	cpuTopology := getCPUTopology(vmi)
 	queueNumber := calculateRequestedVCPUs(cpuTopology)
 
@@ -1730,7 +1732,7 @@ func CalculateNetworkQueueNumberAndGetCPUTopology(vmi *v1.VirtualMachineInstance
 		log.Log.V(3).Infof("Capped the number of queues to be the current maximum of tap device queues: %d", multiQueueMaxQueues)
 		queueNumber = multiQueueMaxQueues
 	}
-	return queueNumber, cpuTopology
+	return queueNumber
 }
 
 func formatDomainCPUTune(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) error {
