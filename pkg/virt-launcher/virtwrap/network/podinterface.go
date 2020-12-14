@@ -783,9 +783,11 @@ func configureVifV6Addresses(b *MasqueradeBindMechanism, err error) error {
 }
 
 func (b *MasqueradeBindMechanism) startDynamicIPServers(vmi *v1.VirtualMachineInstance) error {
-	if err := b.startRouterAdvertiser(); err != nil {
-		log.Log.Criticalf("could not start the Router Advertiser: %v", err)
-		return err
+	if b.vif.IPv6.IPNet != nil {
+		if err := b.startRouterAdvertiser(); err != nil {
+			log.Log.Criticalf("could not start the Router Advertiser: %v", err)
+			return err
+		}
 	}
 	return Handler.StartDHCP(b.vif, b.vif.Gateway, b.bridgeInterfaceName, b.iface.DHCPOptions, false)
 }
