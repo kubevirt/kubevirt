@@ -47,6 +47,8 @@ const (
 	LibvirtBlockMigrationPort  = 49153
 )
 
+const staticMasqueradeBridgeMAC = "02:00:00:00:00:00"
+
 type BindMechanism interface {
 	discoverPodNetworkInterface() error
 	preparePodNetworkInterface() error
@@ -904,11 +906,16 @@ func (b *MasqueradeBindMechanism) createBridge() error {
 		return err
 	}
 
+	mac, err := net.ParseMAC(staticMasqueradeBridgeMAC)
+	if err != nil {
+		return err
+	}
 	// Create a bridge
 	bridge := &netlink.Bridge{
 		LinkAttrs: netlink.LinkAttrs{
-			Name: b.bridgeInterfaceName,
-			MTU:  int(b.dhcpConfig.Mtu),
+			Name:         b.bridgeInterfaceName,
+			MTU:          int(b.dhcpConfig.Mtu),
+			HardwareAddr: mac,
 		},
 	}
 	err = b.handler.LinkAdd(bridge)

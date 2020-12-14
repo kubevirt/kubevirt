@@ -129,10 +129,12 @@ var _ = Describe("Pod Network", func() {
 			},
 		}
 
+		masqueradeBridgeMAC, _ := net.ParseMAC(staticMasqueradeBridgeMAC)
 		masqueradeBridgeTest = &netlink.Bridge{
 			LinkAttrs: netlink.LinkAttrs{
-				Name: api.DefaultBridgeName,
-				MTU:  mtu,
+				Name:         api.DefaultBridgeName,
+				MTU:          mtu,
+				HardwareAddr: masqueradeBridgeMAC,
 			},
 		}
 
