@@ -27,6 +27,7 @@ import (
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
 	kubev1 "k8s.io/api/core/v1"
@@ -511,7 +512,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.NetworkDataBase64).To(BeEmpty())
 			})
 
-			It("[test_id:3187]should have cloud-init userdata and network-config from separate k8s secrets", func() {
+			table.DescribeTable("[test_id:3187]should have cloud-init userdata and network-config from separate k8s secrets", func(userDataLabel string, networkDataLabel string) {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", "", false)
 
@@ -542,7 +543,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						Type: "Opaque",
 						Data: map[string][]byte{
 							// The client encrypts the secret for us
-							"userdata": []byte(testUserData),
+							userDataLabel: []byte(testUserData),
 						},
 					}
 					By("Creating a secret with network data")
@@ -557,7 +558,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						Type: "Opaque",
 						Data: map[string][]byte{
 							// The client encrypts the secret for us
-							"networkdata": []byte(testNetworkData),
+							networkDataLabel: []byte(testNetworkData),
 						},
 					}
 					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(&uSecret)
@@ -588,8 +589,10 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.UserDataBase64).To(BeEmpty())
 				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.NetworkData).To(BeEmpty())
 				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.NetworkDataBase64).To(BeEmpty())
-			})
-
+			},
+				table.Entry("with lowercase labels", "userdata", "networkdata"),
+				table.Entry("with camelCase labels", "userData", "networkData"),
+			)
 		})
 
 	})
