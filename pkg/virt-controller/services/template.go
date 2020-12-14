@@ -567,6 +567,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 					SubPath:   "userdata",
 					ReadOnly:  true,
 				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "userData"),
+					SubPath:   "userData",
+					ReadOnly:  true,
+				})
 			}
 			if volume.CloudInitNoCloud.NetworkDataSecretRef != nil {
 				// attach a secret referenced by the networkdata
@@ -583,6 +589,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 					Name:      volumeName,
 					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkdata"),
 					SubPath:   "networkdata",
+					ReadOnly:  true,
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkData"),
+					SubPath:   "networkData",
 					ReadOnly:  true,
 				})
 			}
@@ -606,6 +618,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 					SubPath:   "userdata",
 					ReadOnly:  true,
 				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "userData"),
+					SubPath:   "userData",
+					ReadOnly:  true,
+				})
 			}
 			if volume.CloudInitConfigDrive.NetworkDataSecretRef != nil {
 				// attach a secret referenced by the networkdata
@@ -622,6 +640,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 					Name:      volumeName,
 					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkdata"),
 					SubPath:   "networkdata",
+					ReadOnly:  true,
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkData"),
+					SubPath:   "networkData",
 					ReadOnly:  true,
 				})
 			}
