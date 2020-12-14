@@ -333,6 +333,13 @@ func main() {
 
 			strategySpec := csvStruct.Spec.InstallStrategy.StrategySpec
 
+			// temporary workaround for https://bugzilla.redhat.com/1907381
+			// a custom .spec.template.annotations["description"] it's causing a failure on OLM
+			// TODO: remove this once fixed on OLM side
+			for _, deployment := range strategySpec.DeploymentSpecs {
+				delete(deployment.Spec.Template.Annotations, "description")
+			}
+
 			installStrategyBase.DeploymentSpecs = append(installStrategyBase.DeploymentSpecs, strategySpec.DeploymentSpecs...)
 			installStrategyBase.ClusterPermissions = append(installStrategyBase.ClusterPermissions, strategySpec.ClusterPermissions...)
 			installStrategyBase.Permissions = append(installStrategyBase.Permissions, strategySpec.Permissions...)
