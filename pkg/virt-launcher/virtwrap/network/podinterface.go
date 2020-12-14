@@ -47,6 +47,11 @@ import (
 
 var bridgeFakeIP = "169.254.75.1%d/32"
 
+// the hardcoded MAC must be as low as possible, to prevent libvirt from
+// assigning a lower MAC to a tap device attached to the bridge - which
+// would trigger the bridge's MAC to update.
+const hardcodedMasqueradeMAC = "02:00:00:00:00:00"
+
 type BindMechanism interface {
 	discoverPodNetworkInterface() error
 	preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error
@@ -904,11 +909,13 @@ func (p *MasqueradeBindMechanism) createBridge() error {
 		return err
 	}
 
+	mac, _ := net.ParseMAC(hardcodedMasqueradeMAC)
 	// Create a bridge
 	bridge := &netlink.Bridge{
 		LinkAttrs: netlink.LinkAttrs{
-			Name: p.bridgeInterfaceName,
-			MTU:  int(p.vif.Mtu),
+			Name:         p.bridgeInterfaceName,
+			MTU:          int(p.vif.Mtu),
+			HardwareAddr: mac,
 		},
 	}
 	err = Handler.LinkAdd(bridge)

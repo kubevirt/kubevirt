@@ -887,14 +887,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))
 
-				Eventually(func() error {
-					err := ping(podIP)
-					if err != nil {
-						return err
-					}
-
-					return nil
-				}, 120*time.Second).Should(Succeed())
+				Expect(ping(podIP)).To(Succeed())
 
 				By("Restarting the vmi")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
