@@ -112,7 +112,9 @@ func (c *ClusterConfig) configAddedDeleted(obj interface{}) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.configModifiedCallback != nil {
-		go c.configModifiedCallback()
+		for _, callback := range c.configModifiedCallback {
+			go callback()
+		}
 	}
 }
 
@@ -121,7 +123,9 @@ func (c *ClusterConfig) configUpdated(old, cur interface{}) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.configModifiedCallback != nil {
-		go c.configModifiedCallback()
+		for _, callback := range c.configModifiedCallback {
+			go callback()
+		}
 	}
 }
 
@@ -143,7 +147,10 @@ func (c *ClusterConfig) crdAddedDeleted(obj interface{}) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.configModifiedCallback != nil {
-		go c.configModifiedCallback()
+		for _, callback := range c.configModifiedCallback {
+			go callback()
+
+		}
 	}
 }
 
@@ -219,14 +226,16 @@ type ClusterConfig struct {
 	defaultConfig                    *v1.KubeVirtConfiguration
 	lastInvalidConfigResourceVersion string
 	lastValidConfigResourceVersion   string
-	configModifiedCallback           ConfigModifiedFn
+	configModifiedCallback           []ConfigModifiedFn
 }
 
 func (c *ClusterConfig) SetConfigModifiedCallback(cb ConfigModifiedFn) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	c.configModifiedCallback = cb
-	go c.configModifiedCallback()
+	c.configModifiedCallback = append(c.configModifiedCallback, cb)
+	for _, callback := range c.configModifiedCallback {
+		go callback()
+	}
 }
 
 // This struct is for backward compatibility and is deprecated, no new fields should be added
