@@ -22,6 +22,7 @@ package network
 import (
 	"io/ioutil"
 	"net"
+	"os"
 	"strings"
 
 	. "github.com/onsi/ginkgo"
@@ -35,12 +36,14 @@ var _ = Describe("Common Methods", func() {
 	pid := "self"
 	Context("Functions Read and Write from cache", func() {
 		It("should persist interface payload", func() {
-			tmpDir, _ := ioutil.TempDir("", "commontest")
+			tmpDir, err := ioutil.TempDir("", "commontest")
+			Expect(err).ToNot(HaveOccurred())
+			defer os.RemoveAll(tmpDir)
 			setInterfaceCacheFile(tmpDir + "/cache-%s.json")
 
 			ifaceName := "iface_name"
 			iface := api.Interface{Type: "fake_type", Source: api.InterfaceSource{Bridge: "fake_br"}}
-			err := writeToCachedFile(&iface, interfaceCacheFile, pid, ifaceName)
+			err = writeToCachedFile(&iface, interfaceCacheFile, pid, ifaceName)
 			Expect(err).ToNot(HaveOccurred())
 
 			var cached_iface api.Interface
@@ -51,12 +54,14 @@ var _ = Describe("Common Methods", func() {
 			Expect(iface).To(Equal(cached_iface))
 		})
 		It("should persist qemu arg payload", func() {
-			tmpDir, _ := ioutil.TempDir("", "commontest")
+			tmpDir, err := ioutil.TempDir("", "commontest")
+			Expect(err).ToNot(HaveOccurred())
+			defer os.RemoveAll(tmpDir)
 			setInterfaceCacheFile(tmpDir + "/cache-%s.json")
 
 			qemuArgName := "iface_name"
 			qemuArg := api.Arg{Value: "test_value"}
-			err := writeToCachedFile(&qemuArg, interfaceCacheFile, pid, qemuArgName)
+			err = writeToCachedFile(&qemuArg, interfaceCacheFile, pid, qemuArgName)
 			Expect(err).ToNot(HaveOccurred())
 
 			var cached_qemuArg api.Arg
