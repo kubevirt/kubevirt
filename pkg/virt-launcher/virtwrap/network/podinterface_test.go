@@ -666,6 +666,8 @@ var _ = Describe("Pod Network", func() {
 
 			masq.vif.Gateway = masqueradeGwAddr.IP.To4()
 			masq.vif.GatewayIpv6 = masqueradeIpv6GwAddr.IP.To16()
+			masqueradeIpv6VmAddr, _ = netlink.ParseAddr("fd10:0:2::2/120")
+			masq.vif.IPv6 = *masqueradeIpv6VmAddr
 
 			mockNetwork.EXPECT().StartDHCP(masq.vif, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(nil)
 

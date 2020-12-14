@@ -730,9 +730,11 @@ func configureVifV6Addresses(p *MasqueradeBindMechanism, err error) error {
 }
 
 func (p *MasqueradeBindMechanism) startDynamicIPServers(vmi *v1.VirtualMachineInstance) error {
-	if err := p.startRADaemon(); err != nil {
-		log.Log.Criticalf("could not start the RA daemon: %v", err)
-		return err
+	if p.vif.IPv6.IPNet != nil {
+		if err := p.startRADaemon(); err != nil {
+			log.Log.Criticalf("could not start the RA daemon: %v", err)
+			return err
+		}
 	}
 	return Handler.StartDHCP(p.vif, p.vif.Gateway, p.bridgeInterfaceName, p.iface.DHCPOptions, false)
 }
