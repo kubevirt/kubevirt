@@ -26,7 +26,6 @@ else
     export KUBECTL_BINARY="cluster/kubectl.sh"
 fi
 
-
 ./${TEST_OUT_PATH}/func-tests.test -ginkgo.v -kubeconfig="${KUBECONFIG}" -installed-namespace=kubevirt-hyperconverged -cdi-namespace=kubevirt-hyperconverged
 
 if [ -f ${CSV_FILE} ]; then
@@ -41,6 +40,8 @@ ${KUBECTL_BINARY} get hco -n kubevirt-hyperconverged kubevirt-hyperconverged -o 
 
 # wait a bit to make sure the VMs are deleted
 sleep 60
+
+KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/test_quick_start.sh
 
 # Check the webhook, to see if it allow deleteing of the HyperConverged CR
 ${KUBECTL_BINARY} delete hco -n kubevirt-hyperconverged kubevirt-hyperconverged

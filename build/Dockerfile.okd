@@ -1,5 +1,6 @@
 FROM centos:7
 
 COPY hyperconverged-cluster-operator /usr/bin/
+COPY hack/testFiles/test_quickstart.yaml quickStart/
 
 ENTRYPOINT /usr/bin/hyperconverged-cluster-operator

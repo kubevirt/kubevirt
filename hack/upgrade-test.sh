@@ -244,8 +244,15 @@ Msg "verify new operator version reported after the upgrade"
 ./hack/retry.sh 15 30 "CMD=${CMD} HCO_RESOURCE_NAME=${HCO_RESOURCE_NAME} HCO_NAMESPACE=${HCO_NAMESPACE} TARGET_VERSION=${TARGET_VERSION} hack/check_hco_version.sh"
 
 Msg "Ensure that HCO detected the cluster as OpenShift"
-HCO_POD=$( ${CMD} get pods -n ${HCO_NAMESPACE} -l "name=hyperconverged-cluster-operator" --field-selector=status.phase=Running -o name | head -n1)
-${CMD} logs -n ${HCO_NAMESPACE} "${HCO_POD}" | grep "Cluster type = openshift"
+for hco_pod in $( ${CMD} get pods -n ${HCO_NAMESPACE} -l "name=hyperconverged-cluster-operator" --field-selector=status.phase=Running -o name); do
+  pod_version=$( ${CMD} get ${hco_pod} -n ${HCO_NAMESPACE} -o json | jq -r '.spec.containers[0].env[] | select(.name=="HCO_KV_IO_VERSION") | .value')
+  if [[ ${pod_version} == ${TARGET_VERSION} ]]; then
+    ${CMD} logs -n ${HCO_NAMESPACE} "${hco_pod}" | grep "Cluster type = openshift"
+    found_new_running_hco_pod="true"
+  fi
+done
+
+[[ -n ${found_new_running_hco_pod} ]]
 
 echo "----- Images after upgrade"
 # TODO: compare all of them with the list of images in RelatedImages in the new CSV
@@ -253,6 +260,8 @@ ${CMD} get deployments -n ${HCO_NAMESPACE} -o yaml | grep image | grep -v imageP
 ${CMD} get pod $HCO_CATALOGSOURCE_POD -n ${HCO_CATALOG_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
 
 dump_sccs_after
+
+KUBECTL_BINARY=${CMD} ./hack/test_quick_start.sh
 
 Msg "brutally delete HCO removing the namespace where it's running"
 source hack/test_delete_ns.sh
