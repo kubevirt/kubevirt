@@ -94,7 +94,7 @@ func FileExists(path string) (bool, error) {
 }
 func Md5CheckSum(filePath string) ([]byte, error) {
 
-	file, err := os.Open(filePath)
+	file, err := os.Open(filepath.Clean(filePath))
 	if err != nil {
 		return nil, err
 	}

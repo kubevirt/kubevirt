@@ -191,15 +191,6 @@ func (mon *monitor) RunForever(startTimeout time.Duration, signalStopChan chan s
 	mon.monitorLoop(startTimeout, signalStopChan)
 }
 
-func readProcCmdline(pathname string) ([]string, error) {
-	content, err := ioutil.ReadFile(pathname)
-	if err != nil {
-		return nil, err
-	}
-
-	return strings.Split(string(content), "\x00"), nil
-}
-
 func pidExists(pid int) (bool, error) {
 	path := fmt.Sprintf("/proc/%d/cmdline", pid)
 
@@ -221,6 +212,7 @@ func FindPid(commandNamePrefix string) (int, error) {
 	}
 
 	for _, entry := range entries {
+		// #nosec No risk for path injection. Reading specific entries under /proc
 		content, err := ioutil.ReadFile(entry)
 		if err != nil {
 			return 0, err
