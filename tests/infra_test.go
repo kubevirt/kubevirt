@@ -803,7 +803,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			for _, key := range keys {
 				if strings.Contains(key, `drive="vdb"`) {
 					value := metrics[key]
-					Expect(value).To(BeNumerically(">", float64(0.0)))
+					Expect(value).To(BeNumerically(">=", float64(0.0)))
 				}
 			}
 		},
