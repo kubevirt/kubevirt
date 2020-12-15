@@ -621,6 +621,43 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			return vmi
 		}
 
+		fedoraMasqueradeVMI := func(ports []v1.Port) (*v1.VirtualMachineInstance, error) {
+
+			networkData, err := libnet.NewNetworkData(
+				libnet.WithEthernet("eth0",
+					libnet.WithDHCP4Enabled(),
+					libnet.WithDHCP6Enabled(),
+				),
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			vmi := libvmi.NewFedora(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
+			)
+
+			return vmi, nil
+		}
+
+		configureIpv6 := func(vmi *v1.VirtualMachineInstance) error {
+			err := console.RunCommand(vmi, "dhclient -6 eth0", 30*time.Second)
+			if err != nil {
+				return err
+			}
+			err = console.RunCommand(vmi, "ip -6 route add fd10:0:2::/120 dev eth0", 5*time.Second)
+			if err != nil {
+				return err
+			}
+			err = console.RunCommand(vmi, "ip -6 route add default via fd10:0:2::1", 5*time.Second)
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+
 		Context("[Conformance][test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", func() {
 			const (
 				defaultCIDR = false
@@ -708,43 +745,6 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 				var clientVMI *v1.VirtualMachineInstance
 
-				fedoraMasqueradeVMI := func(ports []v1.Port) (*v1.VirtualMachineInstance, error) {
-
-					networkData, err := libnet.NewNetworkData(
-						libnet.WithEthernet("eth0",
-							libnet.WithDHCP4Enabled(),
-							libnet.WithDHCP6Enabled(),
-						),
-					)
-					if err != nil {
-						return nil, err
-					}
-
-					vmi := libvmi.NewFedora(
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-						libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
-					)
-
-					return vmi, nil
-				}
-
-				configureIpv6 := func(vmi *v1.VirtualMachineInstance) error {
-					err := console.RunCommand(vmi, "dhclient -6 eth0", 30*time.Second)
-					if err != nil {
-						return err
-					}
-					err = console.RunCommand(vmi, "ip -6 route add fd10:0:2::/120 dev eth0", 5*time.Second)
-					if err != nil {
-						return err
-					}
-					err = console.RunCommand(vmi, "ip -6 route add default via fd10:0:2::1", 5*time.Second)
-					if err != nil {
-						return err
-					}
-					return nil
-				}
-
 				// Create the client only one time
 				if clientVMI == nil {
 					clientVMI, err = fedoraMasqueradeVMI([]v1.Port{})
@@ -826,34 +826,6 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				if !tests.HasLiveMigration() {
 					Skip("LiveMigration feature gate is not enabled in kubevirt-config")
 				}
-
-				var err error
-
-				By("Create VMI")
-				vmi = masqueradeVMI([]v1.Port{}, "")
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
-
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				virtHandlerPod, err := getVirtHandlerPod()
-				Expect(err).ToNot(HaveOccurred())
-				virtHandlerIPs = virtHandlerPod.Status.PodIPs
-
-				By("Check connectivity")
-				for _, podIP := range virtHandlerIPs {
-					Expect(ping(podIP.IP)).To(Succeed())
-				}
-
-				By("Execute migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				runMigrationAndExpectCompletion(migration, migrationWaitTime)
-
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.Status.Phase).To(Equal(v1.Running))
 			})
 
 			AfterEach(func() {
@@ -871,7 +843,51 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				}
 			})
 
-			It("[Conformance] preserves connectivity", func() {
+			table.DescribeTable("[Conformance] preserves connectivity", func(ipFamily k8sv1.IPFamily) {
+				if ipFamily == k8sv1.IPv6Protocol {
+					libnet.SkipWhenNotDualStackCluster(virtClient)
+				}
+
+				var err error
+				var loginMethod console.LoginToFactory
+
+				By("Create VMI")
+				if ipFamily == k8sv1.IPv4Protocol {
+					vmi = masqueradeVMI([]v1.Port{}, "")
+					loginMethod = console.LoginToCirros
+				} else {
+					vmi, err = fedoraMasqueradeVMI([]v1.Port{})
+					Expect(err).ToNot(HaveOccurred(), "Error creating fedora masquerade vmi")
+					loginMethod = console.LoginToFedora
+				}
+
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitUntilVMIReady(vmi, loginMethod)
+
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				if ipFamily == k8sv1.IPv6Protocol {
+					err = configureIpv6(vmi)
+					Expect(err).ToNot(HaveOccurred(), "failed to configure ipv6 on vmi")
+				}
+
+				virtHandlerPod, err := getVirtHandlerPod()
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Check connectivity")
+				podIP := libnet.GetPodIpByFamily(virtHandlerPod, ipFamily)
+				Expect(ping(podIP)).To(Succeed())
+
+				By("Execute migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				runMigrationAndExpectCompletion(migration, migrationWaitTime)
+
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Phase).To(Equal(v1.Running))
+
 				Eventually(func() error {
 					for _, podIP := range virtHandlerIPs {
 						err := ping(podIP.IP)
@@ -881,7 +897,10 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 					}
 					return nil
 				}, 120*time.Second).Should(Succeed())
-			})
+			},
+				table.Entry("IPv4", k8sv1.IPv4Protocol),
+				table.Entry("IPv6", k8sv1.IPv6Protocol),
+			)
 		})
 
 		Context("MTU verification", func() {
