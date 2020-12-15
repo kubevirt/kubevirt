@@ -814,7 +814,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 		// Note: test case assumes interconnectivity between SR-IOV
 		// interfaces. It can be achieved either by configuring the external switch
 		// properly, or via in-PF switching for VFs (works for some NIC models)
-		createSriovVMs := func(cidrA, cidrB string) (*v1.VirtualMachineInstance, *v1.VirtualMachineInstance) {
+		createSriovVMs := func(networkNameA, networkNameB, cidrA, cidrB string) (*v1.VirtualMachineInstance, *v1.VirtualMachineInstance) {
 			// Explicitly choose different random mac addresses instead of relying on kubemacpool to do it:
 			// 1) we don't at the moment deploy kubemacpool in kind providers
 			// 2) even if we would do, it's probably a good idea to have the suite not depend on this fact
@@ -830,8 +830,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 			// start peer machines with sriov interfaces from the same resource pool
 			// manually configure IP/link on sriov interfaces because there is
 			// no DHCP server to serve the address to the guest
-			vmi1 := getSriovVmi([]string{sriovnet3}, cloudInitNetworkDataWithStaticIPsByMac(sriovnet3, mac1.String(), cidrA))
-			vmi2 := getSriovVmi([]string{sriovnet3}, cloudInitNetworkDataWithStaticIPsByMac(sriovnet3, mac2.String(), cidrB))
+			vmi1 := getSriovVmi([]string{networkNameA}, cloudInitNetworkDataWithStaticIPsByMac(networkNameA, mac1.String(), cidrA))
+			vmi2 := getSriovVmi([]string{networkNameB}, cloudInitNetworkDataWithStaticIPsByMac(networkNameB, mac2.String(), cidrB))
 
 			vmi1.Spec.Domain.Devices.Interfaces[1].MacAddress = mac1.String()
 			vmi2.Spec.Domain.Devices.Interfaces[1].MacAddress = mac2.String()
@@ -852,7 +852,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 		It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {
 			cidrA := "192.168.1.1/24"
 			cidrB := "192.168.1.2/24"
-			vmi1, vmi2 := createSriovVMs(cidrA, cidrB)
+			//create two vms on the smae sriov network
+			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, cidrA, cidrB)
 
 			assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642")
 			Eventually(func() error {
@@ -866,7 +867,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 		It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
 			cidrA := "fc00::1/64"
 			cidrB := "fc00::2/64"
-			vmi1, vmi2 := createSriovVMs(cidrA, cidrB)
+			//create two vms on the smae sriov network
+			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, cidrA, cidrB)
 
 			assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642")
 			Eventually(func() error {
