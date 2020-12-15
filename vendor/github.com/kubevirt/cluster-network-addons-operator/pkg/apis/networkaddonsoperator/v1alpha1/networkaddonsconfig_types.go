@@ -10,7 +10,7 @@ import (
 
 // NetworkAddonsConfig is the Schema for the networkaddonsconfigs API
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=networkaddonsconfigs,scope=Namespaced
+// +kubebuilder:resource:path=networkaddonsconfigs,scope=Cluster
 // +k8s:openapi-gen=true
 type NetworkAddonsConfig struct {
 	metav1.TypeMeta   `json:",inline"`
