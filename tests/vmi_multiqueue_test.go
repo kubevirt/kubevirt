@@ -71,7 +71,7 @@ var _ = Describe("[Serial]MultiQueue", func() {
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
 			By("Creating and starting the VMI")
-			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 

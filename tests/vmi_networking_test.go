@@ -625,12 +625,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 		fedoraMasqueradeVMI := func(ports []v1.Port) (*v1.VirtualMachineInstance, error) {
 
-			networkData, err := libnet.NewNetworkData(
-				libnet.WithEthernet("eth0",
-					libnet.WithDHCP4Enabled(),
-					libnet.WithDHCP6Enabled(),
-				),
-			)
+			networkData, err := libnet.CreateDefaultCloudInitNetworkData()
 			if err != nil {
 				return nil, err
 			}
@@ -921,14 +916,8 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				var err error
 
 				By("Create masquerade VMI")
-				networkData, err := libnet.CreateDefaultCloudInitNetworkData()
-				Expect(err).NotTo(HaveOccurred())
-
-				vmi = libvmi.NewFedora(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
-				)
+				vmi, err = fedoraMasqueradeVMI([]v1.Port{})
+				Expect(err).ToNot(HaveOccurred(), "Error creating fedora masquerade vmi")
 
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())

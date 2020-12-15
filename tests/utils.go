@@ -2019,8 +2019,8 @@ func NewRandomVMIWithEphemeralDiskHighMemory(containerImage string) *v1.VirtualM
 	return vmi
 }
 
-func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, userData string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
+func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, userData string, networkData string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(containerImage, userData, networkData, false)
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 	return vmi
@@ -2238,19 +2238,19 @@ func NewRandomVMIWithPVCFS(claimName string) *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
+func NewRandomFedoraVMIWithDmidecode(networkData string) *v1.VirtualMachineInstance {
 	userData := `#!/bin/bash
 	    echo "fedora" |passwd fedora --stdin
 	`
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling), userData)
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling), userData, networkData)
 	return vmi
 }
 
-func NewRandomFedoraVMIWithVirtWhatCpuidHelper() *v1.VirtualMachineInstance {
+func NewRandomFedoraVMIWithVirtWhatCpuidHelper(networkData string) *v1.VirtualMachineInstance {
 	userData := `#!/bin/bash
 	    echo "fedora" |passwd fedora --stdin
 	`
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling), userData)
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling), userData, networkData)
 	return vmi
 }
 
