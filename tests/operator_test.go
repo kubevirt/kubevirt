@@ -644,7 +644,8 @@ var _ = Describe("[Serial]Operator", func() {
 						return fmt.Errorf("waiting for migration %s to complete for vmi %s/%s", string(vmi.Status.MigrationState.MigrationUID), vmi.Namespace, vmi.Name)
 					}
 
-					if !strings.Contains(vmi.Status.CurrentLauncherImage, imageTag) {
+					_, hasOutdatedLabel := vmi.Labels[v1.OutdatedLauncherImageLabel]
+					if hasOutdatedLabel {
 						return fmt.Errorf("waiting for vmi %s/%s to have update launcher image in status", vmi.Namespace, vmi.Name)
 					}
 				}

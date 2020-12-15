@@ -767,7 +767,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 	// 1. Marking vmi.Status.MigationState as completed
 	// 2. Update the vmi.Status.NodeName to reflect the target node's name
 	// 3. Update the VMI's NodeNameLabel annotation to reflect the target node's name
-	// 4. Clear the CurrentLauncherImage field which virt-controller will detect
+	// 4. Clear the OutdatedLauncherImageLabel label which virt-controller will detect
 	//    and accurately based on the version used on the target pod
 	//
 	// After a migration, the VMI's phase is no longer owned by this node. Only the
@@ -810,10 +810,10 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			// At this point we know that the migration has completed and that
 			// the target node has seen the domain event.
 			vmi.Labels[v1.NodeNameLabel] = migrationHost
+			delete(vmi.Labels, v1.OutdatedLauncherImageLabel)
 			vmi.Status.NodeName = migrationHost
 			// clean the evacuation node name since have already migrated to a new node
 			vmi.Status.EvacuationNodeName = ""
-			vmi.Status.CurrentLauncherImage = ""
 			vmi.Status.MigrationState.Completed = true
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to node %s.", migrationHost))
 		}

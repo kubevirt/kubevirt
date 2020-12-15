@@ -197,11 +197,6 @@ type VirtualMachineInstanceStatus struct {
 	// +optional
 	// +listType=atomic
 	VolumeStatus []VolumeStatus `json:"volumeStatus,omitempty"`
-
-	// CurrentLauncherImage contains the launcher container image
-	// that is currently active for this vmi
-	// +optional
-	CurrentLauncherImage string `json:"currentLauncherImage,omitempty"`
 }
 
 // VolumeStatus represents information about the status of volumes attached to the VirtualMachineInstance.
@@ -585,6 +580,8 @@ const (
 	// if a particular node is alive and hence should be available for new
 	// virtual machine instance scheduling. Used on Node.
 	VirtHandlerHeartbeat string = "kubevirt.io/heartbeat"
+	// This label indicates what launcher image a VMI is currently running with.
+	OutdatedLauncherImageLabel string = "kubevirt.io/outdatedLauncherImage"
 	// Namespace recommended by Kubernetes for commonly recognized labels
 	AppLabelPrefix = "app.kubernetes.io"
 	// This label is commonly used by 3rd party management tools to identify
@@ -1449,6 +1446,7 @@ type KubeVirtStatus struct {
 	ObservedKubeVirtVersion  string              `json:"observedKubeVirtVersion,omitempty" optional:"true"`
 	ObservedDeploymentConfig string              `json:"observedDeploymentConfig,omitempty" optional:"true"`
 	ObservedDeploymentID     string              `json:"observedDeploymentID,omitempty" optional:"true"`
+	OutdatedVMIWorkloads     *int                `json:"outdatedVMIWorkloads,omitempty" optional:"true"`
 }
 
 // KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.

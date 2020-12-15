@@ -1264,6 +1264,8 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         operatorVersion:
           type: string
+        outdatedVMIWorkloads:
+          type: integer
         phase:
           description: KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.
           type: string
@@ -4907,9 +4909,6 @@ var CRDsValidation map[string]string = map[string]string{
             - type
             type: object
           type: array
-        currentLauncherImage:
-          description: CurrentLauncherImage contains the launcher container image that is currently active for this vmi
-          type: string
         evacuationNodeName:
           description: EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want to evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.
           type: string

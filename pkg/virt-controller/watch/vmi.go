@@ -403,15 +403,6 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
 			}
 
-			// initialize the container image being used by the compute container
-			// so we can detect out of date workloads
-			for _, container := range pod.Spec.Containers {
-				if container.Name == "compute" && container.Image != vmi.Status.CurrentLauncherImage {
-					vmiCopy.Status.CurrentLauncherImage = container.Image
-					break
-				}
-			}
-
 			if isPodReady(pod) && vmi.DeletionTimestamp == nil {
 				// fail vmi creation if CPU pinning has been requested but the Pod QOS is not Guaranteed
 				podQosClass := pod.Status.QOSClass
@@ -536,15 +527,41 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		}
 
 		if vmiPodExists {
+			var foundImage string
+
+			if vmiCopy.Labels == nil {
+				vmiCopy.Labels = map[string]string{}
+			}
+
 			for _, container := range pod.Spec.Containers {
-				if container.Name == "compute" && container.Image != vmi.Status.CurrentLauncherImage {
-					verb := "add"
-					if vmi.Status.CurrentLauncherImage != "" {
-						verb = "replace"
-						patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/currentLauncherImage", "value": "%s" }`, vmi.Status.CurrentLauncherImage))
-					}
-					patchOps = append(patchOps, fmt.Sprintf(`{ "op": "%s", "path": "/status/currentLauncherImage", "value": "%s" }`, verb, container.Image))
+				if container.Name == "compute" {
+					foundImage = container.Image
 					break
+				}
+			}
+
+			if foundImage != c.templateService.GetLauncherImage() {
+				vmiCopy.Labels[virtv1.OutdatedLauncherImageLabel] = ""
+			} else {
+				delete(vmiCopy.Labels, virtv1.OutdatedLauncherImageLabel)
+			}
+
+			if !reflect.DeepEqual(vmi.Labels, vmiCopy.Labels) {
+				labelBytes, err := json.Marshal(vmiCopy.Labels)
+				if err != nil {
+					return err
+				}
+				origLabelBytes, err := json.Marshal(vmi.Labels)
+				if err != nil {
+					return err
+				}
+
+				if vmi.Labels == nil {
+					patchOps = append(patchOps, fmt.Sprintf(`{ "op": "add", "path": "/metadata/labels", "value": %s }`, string(labelBytes)))
+				} else {
+					patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/metadata/labels", "value": %s }`, string(origLabelBytes)))
+					patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/labels", "value": %s }`, string(labelBytes)))
+
 				}
 			}
 		}

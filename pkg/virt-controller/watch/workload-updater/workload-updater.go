@@ -10,6 +10,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -23,6 +25,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
 const (
@@ -37,7 +40,7 @@ const (
 )
 
 // time to wait before re-enqueing when outdated VMIs are still detected
-const reEnqueueIntervalSeconds = 30
+const periodicReEnqueueIntervalSeconds = 30
 
 // ensures we don't execute more than once every 5 seconds
 const throttleIntervalSeconds = 5
@@ -55,6 +58,7 @@ type WorkloadUpdateController struct {
 	kubeVirtInformer      cache.SharedIndexInformer
 	clusterConfig         *virtconfig.ClusterConfig
 	launcherImage         string
+	statusUpdater         *status.KVStatusUpdater
 
 	// This lock protects cached data within this struct
 	// that is dynamic. The lock is held for the duration
@@ -98,6 +102,7 @@ func NewWorkloadUpdateController(
 		kubeVirtInformer:      kubeVirtInformer,
 		recorder:              recorder,
 		clientset:             clientset,
+		statusUpdater:         status.NewKubeVirtStatusUpdater(clientset),
 		migrationExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		clusterConfig:         clusterConfig,
 		launcherImage:         launcherImage,
@@ -252,13 +257,16 @@ func (c *WorkloadUpdateController) isOutdated(vmi *virtv1.VirtualMachineInstance
 	// This could be due to a migration, or the VMI is still
 	// initializing. virt-controller will set it for us once
 	// either the VMI is either running or done migrating.
-	if vmi.Status.CurrentLauncherImage == "" {
-		return false
-	} else if vmi.Status.CurrentLauncherImage == c.launcherImage {
+	if vmi.Labels == nil {
 		return false
 	}
 
-	return true
+	_, labelExists := vmi.Labels[virtv1.OutdatedLauncherImageLabel]
+	if labelExists {
+		return true
+	}
+
+	return false
 }
 
 func isMigratable(vmi *virtv1.VirtualMachineInstance) bool {
@@ -368,8 +376,6 @@ func (c *WorkloadUpdateController) execute(key string) error {
 		return nil
 	} else if kv.Status.ObservedDeploymentID != kv.Status.TargetDeploymentID {
 		return nil
-	} else if !c.clusterConfig.AutomatedWorkloadUpdateEnabled() {
-		return nil
 	}
 
 	data := c.getUpdateData(kv)
@@ -382,6 +388,50 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt, data *updateData) e
 	key, err := controller.KeyFunc(kv)
 	if err != nil {
 		return err
+	}
+
+	// update outdated workload count on kv
+	if kv.Status.OutdatedVMIWorkloads == nil || *kv.Status.OutdatedVMIWorkloads != len(data.allOutdatedVMIs) {
+		l := len(data.allOutdatedVMIs)
+		kvCopy := kv.DeepCopy()
+		kvCopy.Status.OutdatedVMIWorkloads = &l
+
+		oldJson, err := json.Marshal(kv.Status.OutdatedVMIWorkloads)
+		if err != nil {
+			return err
+		}
+
+		newJson, err := json.Marshal(kvCopy.Status.OutdatedVMIWorkloads)
+		if err != nil {
+			return err
+		}
+
+		patch := ""
+		if kv.Status.OutdatedVMIWorkloads == nil {
+			update := fmt.Sprintf(`{ "op": "add", "path": "/status/outdatedVMIWorkloads", "value": %s}`, string(newJson))
+			patch = fmt.Sprintf("[%s]", update)
+		} else {
+			test := fmt.Sprintf(`{ "op": "test", "path": "/status/outdatedVMIWorkloads", "value": %s}`, string(oldJson))
+			update := fmt.Sprintf(`{ "op": "replace", "path": "/status/outdatedVMIWorkloads", "value": %s}`, string(newJson))
+			patch = fmt.Sprintf("[%s, %s]", test, update)
+		}
+
+		err = c.statusUpdater.PatchStatus(kv, types.JSONPatchType, []byte(patch))
+		if err != nil {
+			return fmt.Errorf("unable to patch kubevirt obj status to update the outdatedVMIWorkloads valued: %v", err)
+		}
+	}
+
+	// There's nothing to do beyond this point if automated workload updates are not enabled
+	if !c.clusterConfig.AutomatedWorkloadUpdateEnabled() {
+		return nil
+	}
+
+	// Rather than enqueing based on VMI activity, we keep periodically poping the loop
+	// until all VMIs are updated. Watching all VMI activity is chatty for this controller
+	// when we don't need to be that efficent in how quickly the updates are being processed.
+	if len(data.shutdownOutdatedVMIs) != 0 || len(data.migratableOutdatedVMIs) != 0 {
+		c.queue.AddAfter(key, periodicReEnqueueIntervalSeconds)
 	}
 
 	// Randomizes list so we don't always re-attempt the same vmis in
@@ -404,10 +454,9 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt, data *updateData) e
 	now := time.Now()
 
 	nextBatch := c.lastDeletionBatch.Add(batchDeletionInterval)
-	if now.After(nextBatch) {
+	if now.After(nextBatch) && len(data.shutdownOutdatedVMIs) > 0 {
 		batchDeletionCount = int(math.Min(float64(batchDeletionCount), float64(len(data.shutdownOutdatedVMIs))))
 		c.lastDeletionBatch = now
-		log.Log.Infof("workload updated is force shutting down %d VMIs", batchDeletionCount)
 	} else {
 		batchDeletionCount = 0
 	}
@@ -433,6 +482,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt, data *updateData) e
 	deletionCandidates := []*virtv1.VirtualMachineInstance{}
 	if batchDeletionCount > 0 {
 		deletionCandidates = data.shutdownOutdatedVMIs[0:batchDeletionCount]
+		log.Log.Infof("workload updated is force shutting down %d VMIs", batchDeletionCount)
 	}
 
 	wgLen := len(migrationCandidates) + len(deletionCandidates)
@@ -441,16 +491,14 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt, data *updateData) e
 	errChan := make(chan error, wgLen)
 
 	c.migrationExpectations.ExpectCreations(key, migrateCount)
-	annotations := map[string]string{
-		virtv1.WorkloadUpdateMigrationAnnotation: "",
-	}
-
 	for _, vmi := range migrationCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
 			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(&virtv1.VirtualMachineInstanceMigration{
 				ObjectMeta: v1.ObjectMeta{
-					Annotations:  annotations,
+					Annotations: map[string]string{
+						virtv1.WorkloadUpdateMigrationAnnotation: "",
+					},
 					GenerateName: "kubevirt-workload-update-",
 				},
 				Spec: virtv1.VirtualMachineInstanceMigrationSpec{
@@ -491,13 +539,6 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt, data *updateData) e
 	case err := <-errChan:
 		return err
 	default:
-	}
-
-	// Rather than enqueing based on VMI activity, we keep periodically poping the loop
-	// until all VMIs are updated. Watching all VMI activity is very chatty for this controller
-	// when we don't need to be that efficent in how quickly the updates are being processed.
-	if len(data.shutdownOutdatedVMIs) != 0 || len(data.migratableOutdatedVMIs) != 0 {
-		c.queue.AddAfter(key, reEnqueueIntervalSeconds)
 	}
 
 	return nil
