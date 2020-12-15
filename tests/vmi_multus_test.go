@@ -868,6 +868,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			cidrB := "192.168.1.2/24"
 			vmi1, vmi2 := createSriovVMs(cidrA, cidrB)
 
+			assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642")
 			Eventually(func() error {
 				return libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))
 			}, 15*time.Second, time.Second).Should(Succeed())
