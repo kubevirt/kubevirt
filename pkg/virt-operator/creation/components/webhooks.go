@@ -476,7 +476,11 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 					Rule: v1beta1.Rule{
 						APIGroups:   []string{virtv1.GroupName},
 						APIVersions: virtv1.ApiSupportedWebhookVersions,
-						Resources:   []string{"*/status"},
+						Resources: []string{
+							"virtualmachines/status",
+							"virtualmachineinstancereplicasets/status",
+							"virtualmachineinstancemigrations/status",
+						},
 					},
 				}},
 				ClientConfig: v1beta1.WebhookClientConfig{
