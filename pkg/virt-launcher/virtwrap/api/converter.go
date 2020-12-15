@@ -1530,7 +1530,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 					},
 				},
 				Type:    "pci",
-				Managed: "yes",
+				Managed: "no",
 			}
 
 			if iface.PciAddress != "" {
