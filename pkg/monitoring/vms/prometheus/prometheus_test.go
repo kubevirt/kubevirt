@@ -207,7 +207,7 @@ var _ = Describe("Prometheus", func() {
 			result.Write(dto)
 
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_pgfault"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_pgmajfault"))
 			Expect(dto.Counter.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
@@ -232,7 +232,7 @@ var _ = Describe("Prometheus", func() {
 			result.Write(dto)
 
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_pgfault"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_pgminfault"))
 			Expect(dto.Counter.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
@@ -849,7 +849,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_packets_dropped_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_receive_packets_dropped_total"))
 		})
 
 		It("should handle network tx drop metrics", func() {
@@ -876,7 +876,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_packets_dropped_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_transmit_packets_dropped_total"))
 		})
 
 		It("should not expose nameless network interface metrics", func() {

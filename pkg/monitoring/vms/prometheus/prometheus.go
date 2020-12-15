@@ -119,20 +119,22 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 		}
 	}
 
-	if mem.MajorFaultSet || mem.MinorFaultSet {
-		desc := metrics.newPrometheusDesc(
-			"kubevirt_vmi_memory_pgfault",
-			"The number of page faults.",
-			[]string{"type"},
+	if mem.MajorFaultSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_pgmajfault",
+			"The number of page faults when disk IO was required.",
+			prometheus.CounterValue,
+			float64(mem.MajorFault),
 		)
+	}
 
-		if mem.MajorFaultSet {
-			metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(mem.MajorFault), []string{"major"})
-		}
-
-		if mem.MinorFaultSet {
-			metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(mem.MinorFault), []string{"minor"})
-		}
+	if mem.MinorFaultSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_pgminfault",
+			"The number of other page faults, when disk IO was not required.",
+			prometheus.CounterValue,
+			float64(mem.MinorFault),
+		)
 	}
 
 	if mem.ActualBalloonSet {
@@ -363,20 +365,26 @@ func (metrics *vmiMetrics) updateNetwork(vmStats *stats.DomainStats) {
 			}
 		}
 
-		if net.RxDropSet || net.TxDropSet {
-			desc := metrics.newPrometheusDesc(
-				"kubevirt_vmi_network_packets_dropped_total",
-				"network packet drops.",
-				[]string{"interface", "type"},
+		if net.RxDropSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_network_receive_packets_dropped_total",
+				"The number of rx packets dropped on vNIC interfaces.",
+				prometheus.CounterValue,
+				float64(net.RxDrop),
+				[]string{"interface"},
+				[]string{net.Name},
 			)
+		}
 
-			if net.RxDropSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.RxDrop), []string{net.Name, "rx"})
-			}
-
-			if net.TxDropSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(net.TxDrop), []string{net.Name, "tx"})
-			}
+		if net.TxDropSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_network_transmit_packets_dropped_total",
+				"The number of tx packets dropped on vNIC interfaces.",
+				prometheus.CounterValue,
+				float64(net.TxDrop),
+				[]string{"interface"},
+				[]string{net.Name},
+			)
 		}
 	}
 }

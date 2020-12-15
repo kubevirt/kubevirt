@@ -148,3 +148,9 @@ A design proposal and its implementation history can be seen [here](https://docs
 #### HELP kubevirt_vmi_network_packets_dropped_total network packet drops.
 ## kubevirt_vmi_storage_requests_total
 #### HELP kubevirt_vmi_storage_requests_total storage flush requests.
+
+ # Other Metrics 
+## kubevirt_vmi_network_receive_packets_dropped_total
+#### HELP kubevirt_vmi_network_receive_packets_dropped_total The number of rx packets dropped on vNIC interfaces.
+## kubevirt_vmi_network_transmit_packets_dropped_total
+#### HELP kubevirt_vmi_network_transmit_packets_dropped_total The number of tx packets dropped on vNIC interfaces.
