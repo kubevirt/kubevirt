@@ -2318,13 +2318,21 @@ var _ = Describe("Configurations", func() {
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
 				node = nodes.Items[1].Name
 
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
+				networkData, err := libnet.CreateDefaultCloudInitNetworkData()
+				Expect(err).NotTo(HaveOccurred(), "should have been able to get the networkData for a fedora VM")
+				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(
 					cd.ContainerDiskFor(
-						cd.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
+						cd.ContainerDiskFedora),
+					"#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n",
+					networkData,
+					false)
 
-				cpuvmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
+				cpuvmi = tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(
 					cd.ContainerDiskFor(
-						cd.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
+						cd.ContainerDiskFedora),
+					"#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n",
+					networkData,
+					false)
 				cpuvmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
 					DedicatedCPUPlacement: true,
@@ -2357,7 +2365,7 @@ var _ = Describe("Configurations", func() {
 				Expect(node1).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithIPv6(console.LoginToFedora)(cpuvmi)).To(Succeed())
+				Expect(console.LoginToFedora(cpuvmi)).To(Succeed())
 
 				By("Starting a VirtualMachineInstance without dedicated cpus")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -2367,7 +2375,7 @@ var _ = Describe("Configurations", func() {
 				Expect(node2).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 			})
 
 			It("[test_id:832]should start a vm with cpu pinning after a vm with no cpu pinning on same node", func() {
@@ -2380,7 +2388,7 @@ var _ = Describe("Configurations", func() {
 				Expect(node2).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Starting a VirtualMachineInstance with dedicated cpus")
 				cpuvmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuvmi)
@@ -2390,7 +2398,7 @@ var _ = Describe("Configurations", func() {
 				Expect(node1).To(Equal(node))
 
 				By("Expecting the VirtualMachineInstance console")
-				Expect(libnet.WithIPv6(console.LoginToFedora)(cpuvmi)).To(Succeed())
+				Expect(console.LoginToFedora(cpuvmi)).To(Succeed())
 			})
 		})
 	})
@@ -2398,7 +2406,9 @@ var _ = Describe("Configurations", func() {
 	Context("[rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check Chassis value", func() {
 
 		It("[Serial][test_id:2927]Test Chassis value in a newly created VM", func() {
-			vmi := tests.NewRandomFedoraVMIWithDmidecode()
+			networkData, err := libnet.CreateDefaultCloudInitNetworkData()
+			Expect(err).NotTo(HaveOccurred(), "should have been able to get the networkData for a fedora VM")
+			vmi := tests.NewRandomFedoraVMIWithDmidecode(networkData)
 			vmi.Spec.Domain.Chassis = &v1.Chassis{
 				Asset: "Test-123",
 			}
@@ -2414,7 +2424,7 @@ var _ = Describe("Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<entry name='asset'>Test-123</entry>"))
 
 			By("Expecting console")
-			Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Check value in VM with dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
@@ -2430,7 +2440,9 @@ var _ = Describe("Configurations", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			vmi = tests.NewRandomFedoraVMIWithDmidecode()
+			networkData, err := libnet.CreateDefaultCloudInitNetworkData()
+			Expect(err).NotTo(HaveOccurred(), "should have been able to get the networkData for a fedora VM")
+			vmi = tests.NewRandomFedoraVMIWithDmidecode(networkData)
 		})
 
 		It("[test_id:2751]test default SMBios", func() {
@@ -2455,7 +2467,7 @@ var _ = Describe("Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<entry name='manufacturer'>KubeVirt</entry>"))
 
 			By("Expecting console")
-			Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Check values in dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
@@ -2491,7 +2503,7 @@ var _ = Describe("Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<entry name='version'>1.0</entry>"))
 
 			By("Expecting console")
-			Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Check values in dmidecode")
 
@@ -2511,7 +2523,7 @@ var _ = Describe("Configurations", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			vmi = tests.NewRandomFedoraVMIWithDmidecode()
+			vmi = tests.NewRandomFedoraVMIWithDmidecode("")
 		})
 
 		table.DescribeTable("For various bus types", func(bus string, errMsg string) {
@@ -2623,7 +2635,11 @@ var _ = Describe("Configurations", func() {
 				Skip("Skip KVM MSR prescence test on kind")
 			}
 
-			vmi = tests.NewRandomFedoraVMIWithVirtWhatCpuidHelper()
+			By("Creating the cloud-init network configuration")
+			networkData, err := libnet.CreateDefaultCloudInitNetworkData()
+			Expect(err).NotTo(HaveOccurred(), "should have been able to get the networkData for a fedora VM")
+
+			vmi = tests.NewRandomFedoraVMIWithVirtWhatCpuidHelper(networkData)
 		})
 
 		It("[test_id:5271]test cpuid hidden", func() {
@@ -2631,7 +2647,7 @@ var _ = Describe("Configurations", func() {
 				KVM: &v1.FeatureKVM{Hidden: true},
 			}
 
-			By("Starting a VirtualMachineInstance")
+			By("Creating and starting the VMI")
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
@@ -2642,7 +2658,7 @@ var _ = Describe("Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<hidden state='on'/>"))
 
 			By("Expecting console")
-			Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Check virt-what-cpuid-helper does not match KVM")
 			Expect(console.ExpectBatch(vmi, []expect.Batcher{
@@ -2660,7 +2676,7 @@ var _ = Describe("Configurations", func() {
 			tests.WaitForSuccessfulVMIStart(vmi)
 
 			By("Expecting console")
-			Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Check virt-what-cpuid-helper matches KVM")
 			Expect(console.ExpectBatch(vmi, []expect.Batcher{

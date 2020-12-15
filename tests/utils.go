@@ -2072,8 +2072,8 @@ func NewRandomVMIWithEphemeralDiskHighMemory(containerImage string) *v1.VirtualM
 	return vmi
 }
 
-func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, userData string) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
+func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, userData string, networkData string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(containerImage, userData, networkData, false)
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 	return vmi
@@ -2280,25 +2280,25 @@ func NewRandomVMIWithPVCFS(claimName string) *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
+func NewRandomFedoraVMIWithDmidecode(networkData string) *v1.VirtualMachineInstance {
 	dmidecodeUserData := fmt.Sprintf(`#!/bin/bash
 	    echo "fedora" |passwd fedora --stdin
 	    mkdir -p /usr/local/bin
 	    curl %s > /usr/local/bin/dmidecode
 	    chmod +x /usr/local/bin/dmidecode
 	`, GetUrl(DmidecodeHttpUrl))
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), dmidecodeUserData)
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), dmidecodeUserData, networkData)
 	return vmi
 }
 
-func NewRandomFedoraVMIWithVirtWhatCpuidHelper() *v1.VirtualMachineInstance {
+func NewRandomFedoraVMIWithVirtWhatCpuidHelper(networkData string) *v1.VirtualMachineInstance {
 	userData := fmt.Sprintf(`#!/bin/bash
 	    echo "fedora" |passwd fedora --stdin
 	    mkdir -p /usr/local/bin
 	    curl %s > /usr/local/bin/virt-what-cpuid-helper
 	    chmod +x /usr/local/bin/virt-what-cpuid-helper
 	`, GetUrl(VirtWhatCpuidHelperHttpUrl))
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), userData)
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), userData, networkData)
 	return vmi
 }
 

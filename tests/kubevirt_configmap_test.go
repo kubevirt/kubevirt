@@ -72,7 +72,7 @@ var _ = Describe("[Serial]KubeVirtConfigmapConfiguration", func() {
 
 	It("[test_id:4671]test kubevirt config-map is used for configuration when present", func() {
 
-		vmi := tests.NewRandomFedoraVMIWithDmidecode()
+		vmi := tests.NewRandomFedoraVMIWithDmidecode("")
 
 		test_smbios := &v1.SMBiosConfiguration{Family: "configmap", Product: "test", Manufacturer: "None", Sku: "2.0", Version: "2.0"}
 		smbiosJson, err := json.Marshal(test_smbios)

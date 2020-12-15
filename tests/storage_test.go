@@ -276,15 +276,17 @@ var _ = Describe("Storage", func() {
                                        touch %s
                                `, virtiofsMountPath, fs.Name, virtiofsMountPath, virtiofsTestFile)
 				userData := fmt.Sprintf("%s\n%s", tests.GetGuestAgentUserData(), mountVirtiofsCommands)
-				tests.AddUserData(vmi, "cloud-init", userData)
+				networkData, err := libnet.CreateDefaultCloudInitNetworkData()
+				Expect(err).NotTo(HaveOccurred(), "should have been able to get the networkData for a fedora VM")
 
+				tests.AddCloudInitNoCloudData(vmi, "cloud-init", userData, networkData, true)
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
 				// Wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+				Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 				By("Checking that virtio-fs is mounted")
 				listVirtioFSDisk := fmt.Sprintf("ls -l %s/*disk* | wc -l\n", virtiofsMountPath)

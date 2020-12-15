@@ -934,7 +934,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
 				`, secretDiskSerial)
 				userData := fmt.Sprintf("%s\n%s", tests.GetGuestAgentUserData(), mountSvcAccCommands)
-				tests.AddUserData(vmi, "cloud-init", userData)
+				networkData, err := libnet.CreateDefaultCloudInitNetworkData()
+				Expect(err).NotTo(HaveOccurred(), "should have been able to get the networkData for a fedora VM")
+
+				tests.AddCloudInitNoCloudData(vmi, "cloud-init", userData, networkData, true)
 
 				tests.AddServiceAccountDisk(vmi, "default")
 				disks := vmi.Spec.Domain.Devices.Disks
@@ -946,7 +949,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+				Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration for iteration")
@@ -1376,7 +1379,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					vmi = runVMIAndExpectLaunch(vmi, 240)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
-					Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
 					tests.WaitAgentConnected(virtClient, vmi)
