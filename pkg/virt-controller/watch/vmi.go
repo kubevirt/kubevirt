@@ -529,10 +529,6 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		if vmiPodExists {
 			var foundImage string
 
-			if vmiCopy.Labels == nil {
-				vmiCopy.Labels = map[string]string{}
-			}
-
 			for _, container := range pod.Spec.Containers {
 				if container.Name == "compute" {
 					foundImage = container.Image
@@ -540,10 +536,15 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				}
 			}
 
-			if foundImage != c.templateService.GetLauncherImage() {
+			if foundImage != "" && foundImage != c.templateService.GetLauncherImage() {
+				if vmiCopy.Labels == nil {
+					vmiCopy.Labels = map[string]string{}
+				}
 				vmiCopy.Labels[virtv1.OutdatedLauncherImageLabel] = ""
 			} else {
-				delete(vmiCopy.Labels, virtv1.OutdatedLauncherImageLabel)
+				if vmiCopy.Labels != nil {
+					delete(vmiCopy.Labels, virtv1.OutdatedLauncherImageLabel)
+				}
 			}
 
 			if !reflect.DeepEqual(vmi.Labels, vmiCopy.Labels) {

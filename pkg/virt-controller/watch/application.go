@@ -486,8 +486,7 @@ func (vca *VirtControllerApp) initWorkloadUpdaterController() {
 		vca.kubeVirtInformer,
 		recorder,
 		vca.clientSet,
-		vca.clusterConfig,
-		vca.launcherImage)
+		vca.clusterConfig)
 }
 
 func (vca *VirtControllerApp) initEvacuationController() {
