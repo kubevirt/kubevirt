@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"net"
 	"os"
 
@@ -157,7 +158,9 @@ func main() {
 
 	server := grpc.NewServer([]grpc.ServerOption{}...)
 
-	//hooksV1alpha1.Version,
+	if version == "" {
+		panic(fmt.Errorf("usage: \n        /example-hook-sidecar --version v1alpha1|v1alpha2"))
+	}
 	hooksInfo.RegisterInfoServer(server, infoServer{Version: version})
 	hooksV1alpha1.RegisterCallbacksServer(server, v1alpha1Server{})
 	hooksV1alpha2.RegisterCallbacksServer(server, v1alpha2Server{})
