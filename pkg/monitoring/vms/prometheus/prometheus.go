@@ -154,6 +154,15 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 			float64(mem.Usable)*1024,
 		)
 	}
+
+	if mem.TotalSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_used_total_bytes",
+			"The amount of memory in bytes used by the domain.",
+			prometheus.GaugeValue,
+			float64(mem.Total)*1024,
+		)
+	}
 }
 
 func (metrics *vmiMetrics) updateCPU(cpu *stats.DomainStatsCPU) {
@@ -205,13 +214,17 @@ func (metrics *vmiMetrics) updateCPUAffinity(cpuMap [][]bool) {
 	)
 }
 
-func (metrics *vmiMetrics) updateVcpu(vmStats *stats.DomainStats) {
-	for vcpuID, vcpu := range vmStats.Vcpu {
+func (metrics *vmiMetrics) updateVcpu(vCpuStats []stats.DomainStatsVcpu) {
+	affinityDesc := metrics.newPrometheusDesc(
+		"kubevirt_vmi_cpu_affinity",
+		"vcpu affinity details.",
+		[]string{"type"},
+	)
+
+	for vcpuID, vcpu := range vCpuStats {
 		svcpuID := fmt.Sprintf("%v", vcpuID)
 
-		if !vcpu.StateSet || !vcpu.TimeSet {
-			log.Log.V(4).Warningf("State or time not set for vcpu#%d", vcpuID)
-		} else {
+		if vcpu.TimeSet && vcpu.StateSet {
 			metrics.pushCustomMetric(
 				"kubevirt_vmi_vcpu_seconds",
 				"Vcpu elapsed time.",
@@ -222,19 +235,32 @@ func (metrics *vmiMetrics) updateVcpu(vmStats *stats.DomainStats) {
 			)
 		}
 
-		if !vcpu.WaitSet {
-			log.Log.V(4).Warningf("Wait not set for vcpu#%d", vcpuID)
-			continue
+		if vcpu.WaitSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_vcpu_wait_seconds",
+				"vcpu time spent by waiting on I/O.",
+				prometheus.CounterValue,
+				float64(vcpu.Wait/1000000),
+				[]string{"id"},
+				[]string{svcpuID},
+			)
 		}
 
-		metrics.pushCustomMetric(
-			"kubevirt_vmi_vcpu_wait_seconds",
-			"vcpu time spent by waiting on I/O.",
-			prometheus.CounterValue,
-			float64(vcpu.Wait/1000000),
-			[]string{"id"},
-			[]string{svcpuID},
-		)
+		if vcpu.CpuMapSet {
+			for pcpuID, isSet := range vcpu.CpuMap {
+				value := 0
+				if isSet {
+					value = 1
+				}
+
+				metrics.pushPrometheusMetric(
+					affinityDesc,
+					prometheus.GaugeValue,
+					float64(value),
+					[]string{fmt.Sprintf("vcpu_%v_cpu_%v", vcpuID, pcpuID)},
+				)
+			}
+		}
 	}
 }
 
@@ -575,13 +601,9 @@ func (metrics *vmiMetrics) updateMetrics(vmStats *stats.DomainStats) {
 
 	metrics.updateMemory(vmStats.Memory)
 	metrics.updateCPU(vmStats.Cpu)
-	metrics.updateVcpu(vmStats)
+	metrics.updateVcpu(vmStats.Vcpu)
 	metrics.updateBlock(vmStats)
 	metrics.updateNetwork(vmStats)
-
-	if vmStats.CPUMapSet {
-		metrics.updateCPUAffinity(vmStats.CPUMap)
-	}
 }
 
 func (metrics *vmiMetrics) newPrometheusDesc(name string, help string, customLabels []string) *prometheus.Desc {

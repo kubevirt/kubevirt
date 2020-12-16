@@ -176,7 +176,9 @@ var Testdataexpected = `{
      "MinorFault": 0,
      "MinorFaultSet": false,
      "Usable": 0,
-     "UsableSet": false
+     "UsableSet": false,
+     "Total": 0,
+     "TotalSet": true
    },
    "Name": "testName",
    "Net": [
@@ -209,7 +211,9 @@ var Testdataexpected = `{
        "Time": 23810000000,
        "TimeSet": true,
        "WaitSet": false,
-       "Wait": 0
+       "Wait": 0,
+       "CpuMapSet": false,
+       "CpuMap": []
      },
      {
        "State": 1,
@@ -217,8 +221,9 @@ var Testdataexpected = `{
        "Time": 17800000000,
        "TimeSet": true,
        "WaitSet": false,
-       "Wait": 0
-
+       "Wait": 0,
+       "CpuMapSet": false,
+       "CpuMap": []
      },
      {
        "State": 1,
@@ -226,7 +231,9 @@ var Testdataexpected = `{
        "Time": 23310000000,
        "TimeSet": true,
        "WaitSet": false,
-       "Wait": 0
+       "Wait": 0,
+       "CpuMapSet": false,
+       "CpuMap": []
      },
      {
        "State": 1,
@@ -234,11 +241,11 @@ var Testdataexpected = `{
        "Time": 17360000000,
        "TimeSet": true,
        "WaitSet": true,
-       "Wait": 1500
+       "Wait": 1500,
+       "CpuMapSet": false,
+       "CpuMap": []
      }
-   ],
-   "CPUMapSet": false,
-   "CPUMap": null
+   ]
  }`
 
 func LoadStats() ([]libvirt.DomainStats, error) {

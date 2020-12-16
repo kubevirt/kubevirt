@@ -263,8 +263,7 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 			return list, err
 		}
 
-		stat := &stats.DomainStats{}
-		err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(statsconv.DomainIdentifier(domStat.Domain), &domStats[i], memStats, stat)
+		domInfo, err := domStat.Domain.GetInfo()
 		if err != nil {
 			return list, err
 		}
@@ -274,8 +273,11 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 			return list, err
 		}
 
-		stat.CPUMap = cpuMap
-		stat.CPUMapSet = true
+		stat := &stats.DomainStats{}
+		err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(statsconv.DomainIdentifier(domStat.Domain), &domStat, memStats, domInfo, cpuMap, stat)
+		if err != nil {
+			return list, err
+		}
 
 		list = append(list, stat)
 		domStat.Domain.Free()

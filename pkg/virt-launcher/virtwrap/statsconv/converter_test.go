@@ -54,12 +54,14 @@ var _ = Describe("StatsConverter", func() {
 		It("should handle empty input", func() {
 			in := &libvirt.DomainStats{}
 			inMem := []libvirt.DomainMemoryStat{}
+			inDomInfo := libvirt.DomainInfo{}
+			inCpuMap := [][]bool{}
 			out := stats.DomainStats{}
 			mockDomainIdent.EXPECT().GetName().Return("testName", nil)
 			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)
 			ident := DomainIdentifier(mockDomainIdent)
 
-			err := Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, &out)
+			err := Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, &inDomInfo, inCpuMap, &out)
 
 			Expect(err).To(BeNil())
 			Expect(out.Name).To(Equal("testName"))
@@ -69,12 +71,14 @@ var _ = Describe("StatsConverter", func() {
 		It("should handle valid input", func() {
 			in := &testStats[0]
 			inMem := []libvirt.DomainMemoryStat{}
+			inDomInfo := libvirt.DomainInfo{}
+			inCpuMap := [][]bool{}
 			out := stats.DomainStats{}
 			mockDomainIdent.EXPECT().GetName().Return("testName", nil)
 			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)
 			ident := DomainIdentifier(mockDomainIdent)
 
-			err := Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, &out)
+			err := Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, &inDomInfo, inCpuMap, &out)
 
 			Expect(err).To(BeNil())
 			// very very basic sanity check
@@ -88,12 +92,14 @@ var _ = Describe("StatsConverter", func() {
 		It("should convert valid input", func() {
 			in := &testStats[0]
 			inMem := []libvirt.DomainMemoryStat{}
+			inDomInfo := libvirt.DomainInfo{}
+			inCpuMap := [][]bool{}
 			out := stats.DomainStats{}
 			mockDomainIdent.EXPECT().GetName().Return("testName", nil)
 			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)
 			ident := DomainIdentifier(mockDomainIdent)
 
-			err := Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, &out)
+			err := Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, &inDomInfo, inCpuMap, &out)
 
 			Expect(err).To(BeNil())
 

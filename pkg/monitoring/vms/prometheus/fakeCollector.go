@@ -27,10 +27,12 @@ func (fc fakeCollector) Collect(ch chan<- prometheus.Metric) {
 
 	in := &libstatst[0]
 	inMem := []libvirt.DomainMemoryStat{}
+	inDomInfo := libvirt.DomainInfo{}
+	inCpuMap := [][]bool{}
 	out := stats.DomainStats{}
 	ident := statsconv.DomainIdentifier(&fakeIdentifier{})
 
-	if err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, &out); err != nil {
+	if err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, &inDomInfo, inCpuMap, &out); err != nil {
 		panic(err)
 	}
 

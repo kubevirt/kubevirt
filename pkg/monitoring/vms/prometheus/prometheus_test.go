@@ -286,6 +286,31 @@ var _ = Describe("Prometheus", func() {
 			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
+		It("should handle the total memory metrics", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu: &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{
+					TotalSet: true,
+					Total:    1,
+				},
+			}
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			result := <-ch
+			dto := &io_prometheus_client.Metric{}
+			result.Write(dto)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_used_total_bytes"))
+			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
+		})
+
 		It("should handle vcpu metrics", func() {
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
@@ -1029,36 +1054,48 @@ var _ = Describe("Prometheus", func() {
 		})
 
 		It("should expose vcpu to cpu pinning metric", func() {
-			ch := make(chan prometheus.Metric, 1)
+			cpuMap := []bool{true, false, true}
+
+			ch := make(chan prometheus.Metric, len(cpuMap))
 			defer close(ch)
 
 			ps := prometheusScraper{ch: ch}
 
 			vmStats := &stats.DomainStats{
-				Cpu:       &stats.DomainStatsCPU{},
-				Memory:    &stats.DomainStatsMemory{},
-				Net:       []stats.DomainStatsNet{},
-				Vcpu:      []stats.DomainStatsVcpu{},
-				CPUMapSet: true,
-				CPUMap:    [][]bool{{true, false, true}},
+				Cpu:    &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{},
+				Net:    []stats.DomainStatsNet{},
+				Vcpu: []stats.DomainStatsVcpu{
+					{
+						CpuMapSet: true,
+						CpuMap:    cpuMap,
+					},
+				},
 			}
 
 			vmi := k6tv1.VirtualMachineInstance{}
 			ps.Report("test", &vmi, vmStats)
 
-			result := <-ch
-			dto := &io_prometheus_client.Metric{}
-			result.Write(dto)
+			for pcIdx, isSet := range cpuMap {
+				result := <-ch
+				dto := &io_prometheus_client.Metric{}
+				result.Write(dto)
 
-			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_cpu_affinity"))
-			s := ""
-			for _, lp := range dto.GetLabel() {
-				s += fmt.Sprintf("%v=%v ", lp.GetName(), lp.GetValue())
+				Expect(result).ToNot(BeNil())
+				Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_cpu_affinity"))
+
+				for _, lp := range dto.GetLabel() {
+					if lp.GetName() == "type" {
+						Expect(lp.GetValue()).To(Equal(fmt.Sprintf("vcpu_%v_cpu_%v", 0, pcIdx)))
+					}
+				}
+
+				gaugeVal := 0
+				if isSet {
+					gaugeVal = 1
+				}
+				Expect(dto.Gauge.GetValue()).To(Equal(float64(gaugeVal)))
 			}
-			Expect(s).To(ContainSubstring("vcpu_0_cpu_0=true"))
-			Expect(s).To(ContainSubstring("vcpu_0_cpu_1=false"))
-			Expect(s).To(ContainSubstring("vcpu_0_cpu_2=true"))
 		})
 	})
 })

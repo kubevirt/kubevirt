@@ -154,3 +154,7 @@ A design proposal and its implementation history can be seen [here](https://docs
 #### HELP kubevirt_vmi_network_receive_packets_dropped_total The number of rx packets dropped on vNIC interfaces.
 ## kubevirt_vmi_network_transmit_packets_dropped_total
 #### HELP kubevirt_vmi_network_transmit_packets_dropped_total The number of tx packets dropped on vNIC interfaces.
+
+ # Other Metrics 
+## kubevirt_vmi_memory_used_total_bytes
+#### HELP kubevirt_vmi_memory_used_total_bytes The amount of memory in bytes used by the domain.

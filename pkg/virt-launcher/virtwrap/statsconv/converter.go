@@ -32,7 +32,7 @@ type DomainIdentifier interface {
 	GetUUIDString() (string, error)
 }
 
-func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in *libvirt.DomainStats, inMem []libvirt.DomainMemoryStat, out *stats.DomainStats) error {
+func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in *libvirt.DomainStats, inMem []libvirt.DomainMemoryStat, inDomInfo *libvirt.DomainInfo, inCpuMap [][]bool, out *stats.DomainStats) error {
 	name, err := ident.GetName()
 	if err != nil {
 		return err
@@ -46,8 +46,8 @@ func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in
 	out.UUID = uuid
 
 	out.Cpu = Convert_libvirt_DomainStatsCpu_To_stats_DomainStatsCpu(in.Cpu)
-	out.Memory = Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem)
-	out.Vcpu = Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in.Vcpu)
+	out.Memory = Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem, inDomInfo)
+	out.Vcpu = Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in.Vcpu, inCpuMap)
 	out.Net = Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in.Net)
 	out.Block = Convert_libvirt_DomainStatsBlock_To_stats_DomainStatsBlock(in.Block)
 
@@ -69,8 +69,11 @@ func Convert_libvirt_DomainStatsCpu_To_stats_DomainStatsCpu(in *libvirt.DomainSt
 	}
 }
 
-func Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem []libvirt.DomainMemoryStat) *stats.DomainStatsMemory {
-	ret := &stats.DomainStatsMemory{}
+func Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem []libvirt.DomainMemoryStat, inDomInfo *libvirt.DomainInfo) *stats.DomainStatsMemory {
+	ret := &stats.DomainStatsMemory{
+		TotalSet: true,
+		Total:    inDomInfo.Memory,
+	}
 	for _, stat := range inMem {
 		tag := libvirt.DomainMemoryStatTags(stat.Tag)
 		switch tag {
@@ -106,16 +109,26 @@ func Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem []libvirt.Domai
 	return ret
 }
 
-func Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in []libvirt.DomainStatsVcpu) []stats.DomainStatsVcpu {
+func Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in []libvirt.DomainStatsVcpu, inCpuMap [][]bool) []stats.DomainStatsVcpu {
+	cpuMapSet := false
+	if len(inCpuMap) == len(in) {
+		cpuMapSet = true
+	}
 	ret := make([]stats.DomainStatsVcpu, 0, len(in))
-	for _, inItem := range in {
+	for vcIdx, inItem := range in {
+		cpuMap := []bool{}
+		if cpuMapSet {
+			cpuMap = inCpuMap[vcIdx]
+		}
 		ret = append(ret, stats.DomainStatsVcpu{
-			StateSet: inItem.StateSet,
-			State:    int(inItem.State),
-			TimeSet:  inItem.TimeSet,
-			Time:     inItem.Time,
-			WaitSet:  inItem.WaitSet,
-			Wait:     inItem.Wait,
+			StateSet:  inItem.StateSet,
+			State:     int(inItem.State),
+			TimeSet:   inItem.TimeSet,
+			Time:      inItem.Time,
+			WaitSet:   inItem.WaitSet,
+			Wait:      inItem.Wait,
+			CpuMapSet: cpuMapSet,
+			CpuMap:    cpuMap,
 		})
 	}
 	return ret
