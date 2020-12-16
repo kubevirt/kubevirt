@@ -9981,6 +9981,21 @@
      }
     }
    },
+   "v1.GuestAgentCommandInfo": {
+    "description": "List of commands that QEMU guest agent supports",
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "enabled": {
+      "type": "boolean"
+     },
+     "name": {
+      "type": "string"
+     }
+    }
+   },
    "v1.HPETTimer": {
     "type": "object",
     "properties": {
@@ -10322,6 +10337,7 @@
       "$ref": "#/definitions/v1.SMBiosConfiguration"
      },
      "supportedGuestAgentVersions": {
+      "description": "deprecated",
       "type": "array",
       "items": {
        "type": "string"
@@ -11325,6 +11341,14 @@
      "os": {
       "description": "OS contains the guest operating system information",
       "$ref": "#/definitions/v1.VirtualMachineInstanceGuestOSInfo"
+     },
+     "supportedCommands": {
+      "description": "Return command list the guest agent supports",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.GuestAgentCommandInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
      },
      "timezone": {
       "description": "Timezone is guest os current timezone",

@@ -436,6 +436,7 @@ var CRDsValidation map[string]string = map[string]string{
                   type: string
               type: object
             supportedGuestAgentVersions:
+              description: deprecated
               items:
                 type: string
               type: array
