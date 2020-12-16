@@ -84,7 +84,7 @@ func (h qsHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 		return false, false, errors.New("can't convert to ConsoleQuickStart")
 	}
 
-	if !reflect.DeepEqual(found.Spec, h.required.Spec) && !req.UpgradeMode {
+	if !reflect.DeepEqual(found.Spec, h.required.Spec) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing ConsoleQuickStart's Spec to new opinionated values", "name", h.required.Name)
 		} else {
@@ -127,7 +127,7 @@ func checkCrdExists(ctx context.Context, Client client.Client, logger log.Logger
 	return true, nil
 }
 
-func getQuickStartHandlers(logger log.Logger, Client client.Client, Scheme *runtime.Scheme) ([]Operand, error) {
+func getQuickStartHandlers(logger log.Logger, Client client.Client, Scheme *runtime.Scheme, hc *hcov1beta1.HyperConverged) ([]Operand, error) {
 	crdExists, err := checkCrdExists(context.TODO(), Client, logger)
 	if err != nil {
 		return nil, err
@@ -168,6 +168,7 @@ func getQuickStartHandlers(logger log.Logger, Client client.Client, Scheme *runt
 			if err != nil {
 				logger.Info("Can't generate a ConsoleQuickStart object from yaml file", "file name", path)
 			} else {
+				qs.Labels = getLabels(hc)
 				handlers = append(handlers, newQuickStartHandler(Client, Scheme, qs))
 			}
 		}

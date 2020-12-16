@@ -3,6 +3,7 @@ package operands
 import (
 	"context"
 	"fmt"
+	consolev1 "github.com/openshift/api/console/v1"
 	"sync"
 	"time"
 
@@ -35,9 +36,11 @@ var (
 )
 
 type OperandHandler struct {
-	client       client.Client
-	operands     []Operand
-	eventEmitter hcoutil.EventEmitter
+	client   client.Client
+	operands []Operand
+	// save for deletions
+	quickStartObjects []*consolev1.ConsoleQuickStart
+	eventEmitter      hcoutil.EventEmitter
 }
 
 func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshiftCluster bool, eventEmitter hcoutil.EventEmitter) *OperandHandler {
@@ -73,9 +76,15 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshift
 
 // The k8s client is not available when calling to NewOperandHandler.
 // Initial operations that need to read/write from the cluster can only be done when the client is already working.
-func (h *OperandHandler) FirstUseInitiation(scheme *runtime.Scheme, isOpenshiftCluster bool) {
+func (h *OperandHandler) FirstUseInitiation(scheme *runtime.Scheme, isOpenshiftCluster bool, hc *hcov1beta1.HyperConverged) {
 	if isOpenshiftCluster {
-		qsHandlers, err := getQuickStartHandlers(logger, h.client, scheme)
+		qsHandlers, err := getQuickStartHandlers(logger, h.client, scheme, hc)
+		if numQs := len(qsHandlers); numQs > 0 {
+			h.quickStartObjects = make([]*consolev1.ConsoleQuickStart, numQs)
+			for i, op := range qsHandlers {
+				h.quickStartObjects[i] = op.(*genericOperand).hooks.getFullCr(hc).(*consolev1.ConsoleQuickStart)
+			}
+		}
 		if err != nil {
 			logger.Error(err, "can't create ConsoleQuickStarts objects")
 		} else if len(qsHandlers) > 0 {
@@ -131,6 +140,10 @@ func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 		NewKubeVirtCommonTemplateBundle(req.Instance),
 		NewConsoleCLIDownload(req.Instance),
 		NewVMImportForCR(req.Instance),
+	}
+
+	for _, qs := range h.quickStartObjects {
+		resources = append(resources, qs)
 	}
 
 	wg.Add(len(resources))

@@ -223,7 +223,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		// reload eventEmitter. The client should now find all the required resources
 		r.eventEmitter.UpdateClient(req.Ctx, r.client, req.Logger)
 
-		r.operandHandler.FirstUseInitiation(r.scheme, hcoutil.GetClusterInfo().IsOpenshift())
+		r.operandHandler.FirstUseInitiation(r.scheme, hcoutil.GetClusterInfo().IsOpenshift(), req.Instance)
 	}
 
 	res, err := r.doReconcile(req)

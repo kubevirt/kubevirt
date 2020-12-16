@@ -98,8 +98,14 @@ func NewHyperConvergedConfig() *sdkapi.NodePlacement {
 	}
 }
 
+var testScheme *runtime.Scheme
+
 func GetScheme() *runtime.Scheme {
-	s := scheme.Scheme
+	if testScheme != nil {
+		return testScheme
+	}
+
+	testScheme = scheme.Scheme
 
 	for _, f := range []func(*runtime.Scheme) error{
 		apis.AddToScheme,
@@ -111,8 +117,8 @@ func GetScheme() *runtime.Scheme {
 		monitoringv1.AddToScheme,
 		extv1.AddToScheme,
 	} {
-		Expect(f(s)).To(BeNil())
+		Expect(f(testScheme)).To(BeNil())
 	}
 
-	return s
+	return testScheme
 }

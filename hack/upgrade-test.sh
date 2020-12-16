@@ -231,7 +231,7 @@ Msg "verify the hyperconverged-cluster deployment is using the new image"
 
 set -x
 SEARCH_PHRASE="${OPENSHIFT_BUILD_NAMESPACE}/stable"
-./hack/retry.sh 30 30 "${CMD} get -n ${HCO_NAMESPACE} deployment ${HCO_DEPLOYMENT_NAME} -o jsonpath=\"{ .spec.template.spec.containers[0].image }\" | grep ${SEARCH_PHRASE}"
+./hack/retry.sh 60 30 "${CMD} get -n ${HCO_NAMESPACE} deployment ${HCO_DEPLOYMENT_NAME} -o jsonpath=\"{ .spec.template.spec.containers[0].image }\" | grep ${SEARCH_PHRASE}"
 
 Msg "wait that cluster is operational after upgrade"
 timeout 20m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'

@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestHyperconverged(t *testing.T) {
+func TestOperators(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Operands Suite")
 }
