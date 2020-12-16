@@ -602,17 +602,23 @@ var _ = Describe("Create", func() {
 		})
 
 		// Node Selectors
-		It("should succeed if nodePlacement is nil", func() {
+		It("should succeed if componentConfig is nil", func() {
 			// if componentConfig is nil
 			injectPlacementMetadata(nil, podSpec)
-			// if componentConfig.NodePlacement is nil
+			Expect(len(podSpec.NodeSelector)).To(Equal(1))
+			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
+		})
+
+		It("should succeed if nodePlacement is nil", func() {
 			componentConfig.NodePlacement = nil
 			injectPlacementMetadata(componentConfig, podSpec)
-			Expect(len(podSpec.NodeSelector)).To(Equal(0))
+			Expect(len(podSpec.NodeSelector)).To(Equal(1))
+			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
 		})
 
 		It("should succeed if podSpec is nil", func() {
 			orig := componentConfig.DeepCopy()
+			orig.NodePlacement.NodeSelector = map[string]string{kubernetesOSLabel: kubernetesOSLinux}
 			injectPlacementMetadata(componentConfig, nil)
 			Expect(reflect.DeepEqual(orig, componentConfig)).To(BeTrue())
 		})
@@ -621,8 +627,9 @@ var _ = Describe("Create", func() {
 			nodePlacement.NodeSelector = make(map[string]string)
 			nodePlacement.NodeSelector["foo"] = "bar"
 			injectPlacementMetadata(componentConfig, podSpec)
-			Expect(len(podSpec.NodeSelector)).To(Equal(1))
+			Expect(len(podSpec.NodeSelector)).To(Equal(2))
 			Expect(podSpec.NodeSelector["foo"]).To(Equal("bar"))
+			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
 		})
 
 		It("should merge NodeSelectors when podSpec is not empty", func() {
@@ -631,9 +638,10 @@ var _ = Describe("Create", func() {
 			podSpec.NodeSelector = make(map[string]string)
 			podSpec.NodeSelector["existing"] = "value"
 			injectPlacementMetadata(componentConfig, podSpec)
-			Expect(len(podSpec.NodeSelector)).To(Equal(2))
+			Expect(len(podSpec.NodeSelector)).To(Equal(3))
 			Expect(podSpec.NodeSelector["foo"]).To(Equal("bar"))
 			Expect(podSpec.NodeSelector["existing"]).To(Equal("value"))
+			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
 		})
 
 		It("should favor podSpec if NodeSelectors collide", func() {
@@ -642,16 +650,40 @@ var _ = Describe("Create", func() {
 			podSpec.NodeSelector = make(map[string]string)
 			podSpec.NodeSelector["foo"] = "from-podspec"
 			injectPlacementMetadata(componentConfig, podSpec)
-			Expect(len(podSpec.NodeSelector)).To(Equal(1))
+			Expect(len(podSpec.NodeSelector)).To(Equal(2))
 			Expect(podSpec.NodeSelector["foo"]).To(Equal("from-podspec"))
+			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
+		})
+
+		It("should set OS label if not defined", func() {
+			nodePlacement.NodeSelector = make(map[string]string)
+			injectPlacementMetadata(componentConfig, podSpec)
+			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
+		})
+
+		It("should favor NodeSelector OS label if present", func() {
+			nodePlacement.NodeSelector = make(map[string]string)
+			nodePlacement.NodeSelector[kubernetesOSLabel] = "linux-custom"
+			injectPlacementMetadata(componentConfig, podSpec)
+			Expect(len(podSpec.NodeSelector)).To(Equal(1))
+			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal("linux-custom"))
+		})
+
+		It("should favor podSpec OS label if present", func() {
+			podSpec.NodeSelector = make(map[string]string)
+			podSpec.NodeSelector[kubernetesOSLabel] = "linux-custom"
+			injectPlacementMetadata(componentConfig, podSpec)
+			Expect(len(podSpec.NodeSelector)).To(Equal(1))
+			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal("linux-custom"))
 		})
 
 		It("should preserve NodeSelectors if nodePlacement has none", func() {
 			podSpec.NodeSelector = make(map[string]string)
 			podSpec.NodeSelector["foo"] = "from-podspec"
 			injectPlacementMetadata(componentConfig, podSpec)
-			Expect(len(podSpec.NodeSelector)).To(Equal(1))
+			Expect(len(podSpec.NodeSelector)).To(Equal(2))
 			Expect(podSpec.NodeSelector["foo"]).To(Equal("from-podspec"))
+			Expect(podSpec.NodeSelector[kubernetesOSLabel]).To(Equal(kubernetesOSLinux))
 		})
 
 		// tolerations

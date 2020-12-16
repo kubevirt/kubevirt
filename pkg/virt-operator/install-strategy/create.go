@@ -151,26 +151,37 @@ func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, vers
 	}
 }
 
+const (
+	kubernetesOSLabel = "kubernetes.io/os"
+	kubernetesOSLinux = "linux"
+)
+
 // Merge all Tolerations, Affinity and NodeSelectos from NodePlacement into pod spec
 func injectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev1.PodSpec) {
-	if componentConfig == nil || componentConfig.NodePlacement == nil {
-		return
-	}
 	if podSpec == nil {
 		podSpec = &corev1.PodSpec{}
 	}
-	nodePlacement := componentConfig.NodePlacement
-	if len(nodePlacement.NodeSelector) != 0 {
-		if len(podSpec.NodeSelector) == 0 {
-			podSpec.NodeSelector = make(map[string]string)
+	if componentConfig == nil || componentConfig.NodePlacement == nil {
+		componentConfig = &v1.ComponentConfig{
+			NodePlacement: &v1.NodePlacement{},
 		}
-		// podSpec.NodeSelector
-		for nsKey, nsVal := range nodePlacement.NodeSelector {
-			// Favor podSpec over NodePlacement. This prevents cluster admin from clobbering
-			// node selectors that KubeVirt intentionally set.
-			if _, ok := podSpec.NodeSelector[nsKey]; !ok {
-				podSpec.NodeSelector[nsKey] = nsVal
-			}
+	}
+	nodePlacement := componentConfig.NodePlacement
+	if len(nodePlacement.NodeSelector) == 0 {
+		nodePlacement.NodeSelector = make(map[string]string)
+	}
+	if _, ok := nodePlacement.NodeSelector[kubernetesOSLabel]; !ok {
+		nodePlacement.NodeSelector[kubernetesOSLabel] = kubernetesOSLinux
+	}
+	if len(podSpec.NodeSelector) == 0 {
+		podSpec.NodeSelector = make(map[string]string, len(nodePlacement.NodeSelector))
+	}
+	// podSpec.NodeSelector
+	for nsKey, nsVal := range nodePlacement.NodeSelector {
+		// Favor podSpec over NodePlacement. This prevents cluster admin from clobbering
+		// node selectors that KubeVirt intentionally set.
+		if _, ok := podSpec.NodeSelector[nsKey]; !ok {
+			podSpec.NodeSelector[nsKey] = nsVal
 		}
 	}
 
