@@ -983,7 +983,7 @@ func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 
 	vmi.ObjectMeta.Annotations = map[string]string{
-		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf("[{\"image\": \"%s/example-hook-sidecar:%s\"}]", DockerPrefix, DockerTag),
+		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf("[{\"args\": [\"--version\", \"v1alpha2\"], \"image\": \"%s/example-hook-sidecar:%s\"}]", DockerPrefix, DockerTag),
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 	}
 	return vmi
