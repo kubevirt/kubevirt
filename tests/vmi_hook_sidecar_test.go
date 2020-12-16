@@ -40,7 +40,10 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-const hookSidecarImage = "example-hook-sidecar"
+const (
+	hookSidecarImage     = "example-hook-sidecar"
+	sidecarContainerName = "hook-sidecar-0"
+)
 
 var _ = Describe("HookSidecars", func() {
 
@@ -59,6 +62,15 @@ var _ = Describe("HookSidecars", func() {
 	})
 
 	Describe("[rfe_id:2667][crit:medium][vendor:cnv-qe@redhat.com][level:component] VMI definition", func() {
+		getVMIPod := func(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
+			podSelector := tests.UnfinishedVMIPodSelector(vmi)
+			vmiPods, err := virtClient.CoreV1().Pods(vmi.GetNamespace()).List(podSelector)
+
+			if err != nil || len(vmiPods.Items) != 1 {
+				return nil, fmt.Errorf("could not retrieve the VMI pod: %v", err)
+			}
+			return &vmiPods.Items[0], nil
+		}
 
 		Context("with SM BIOS hook sidecar", func() {
 			It("[test_id:3155]should successfully start with hook sidecar annotation", func() {
@@ -102,6 +114,28 @@ var _ = Describe("HookSidecars", func() {
 				Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))
 				Expect(domainXml).Should(ContainSubstring("<entry name='manufacturer'>Radical Edward</entry>"))
 			}, 300)
+
+			It("should not start with hook sidecar annotation when the version is not provided", func() {
+				By("Starting a VMI")
+				vmi.ObjectMeta.Annotations = RenderInvalidSMBiosSidecar()
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).NotTo(HaveOccurred(), "the request to create the VMI should be accepted")
+
+				Eventually(func() bool {
+					vmiPod, err := getVMIPod(vmi)
+					Expect(err).NotTo(HaveOccurred(), "must be able to retrieve the VMI virt-launcher pod")
+
+					for _, container := range vmiPod.Status.ContainerStatuses {
+						if container.Name == sidecarContainerName && container.State.Terminated != nil {
+							terminated := container.State.Terminated
+							return terminated.ExitCode != 0 && terminated.Reason == "Error"
+						}
+					}
+					return false
+				}, 15*time.Second, time.Second).Should(
+					BeTrue(),
+					fmt.Sprintf("the %s container must fail if it was not provided the hook version to advertise itself", sidecarContainerName))
+			}, 30)
 		})
 
 		Context("[Serial]with sidecar feature gate disabled", func() {
@@ -128,7 +162,7 @@ func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 		Pods(namespace).
 		GetLogs(podName, &k8sv1.PodLogOptions{
 			TailLines: &tailLines,
-			Container: "hook-sidecar-0",
+			Container: sidecarContainerName,
 		}).
 		DoRaw()
 	Expect(err).To(BeNil())
@@ -154,6 +188,13 @@ func getVmDomainXml(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstan
 func RenderSidecar(version string) map[string]string {
 	return map[string]string{
 		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"args": ["--version", "%s"],"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, version, flags.KubeVirtUtilityRepoPrefix, hookSidecarImage, flags.KubeVirtUtilityVersionTag),
+		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
+	}
+}
+
+func RenderInvalidSMBiosSidecar() map[string]string {
+	return map[string]string{
+		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, flags.KubeVirtUtilityRepoPrefix, hookSidecarImage, flags.KubeVirtUtilityVersionTag),
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 	}
 }
