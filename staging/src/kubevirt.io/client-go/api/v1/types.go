@@ -1646,22 +1646,23 @@ type RemoveVolumeOptions struct {
 // KubeVirtConfiguration holds all kubevirt configurations
 // +k8s:openapi-gen=true
 type KubeVirtConfiguration struct {
-	CPUModel                    string                  `json:"cpuModel,omitempty"`
-	CPURequest                  *resource.Quantity      `json:"cpuRequest,omitempty"`
-	DeveloperConfiguration      *DeveloperConfiguration `json:"developerConfiguration,omitempty"`
-	EmulatedMachines            []string                `json:"emulatedMachines,omitempty"`
-	ImagePullPolicy             k8sv1.PullPolicy        `json:"imagePullPolicy,omitempty"`
-	MigrationConfiguration      *MigrationConfiguration `json:"migrations,omitempty"`
-	MachineType                 string                  `json:"machineType,omitempty"`
-	NetworkConfiguration        *NetworkConfiguration   `json:"network,omitempty"`
-	OVMFPath                    string                  `json:"ovmfPath,omitempty"`
-	SELinuxLauncherType         string                  `json:"selinuxLauncherType,omitempty"`
-	SMBIOSConfig                *SMBiosConfiguration    `json:"smbios,omitempty"`
-	SupportedGuestAgentVersions []string                `json:"supportedGuestAgentVersions,omitempty"`
-	MemBalloonStatsPeriod       *uint32                 `json:"memBalloonStatsPeriod,omitempty"`
-	PermittedHostDevices        *PermittedHostDevices   `json:"permittedHostDevices,omitempty"`
-	MinCPUModel                 string                  `json:"minCPUModel,omitempty"`
-	ObsoleteCPUModels           map[string]bool         `json:"obsoleteCPUModels,omitempty"`
+	CPUModel               string                  `json:"cpuModel,omitempty"`
+	CPURequest             *resource.Quantity      `json:"cpuRequest,omitempty"`
+	DeveloperConfiguration *DeveloperConfiguration `json:"developerConfiguration,omitempty"`
+	EmulatedMachines       []string                `json:"emulatedMachines,omitempty"`
+	ImagePullPolicy        k8sv1.PullPolicy        `json:"imagePullPolicy,omitempty"`
+	MigrationConfiguration *MigrationConfiguration `json:"migrations,omitempty"`
+	MachineType            string                  `json:"machineType,omitempty"`
+	NetworkConfiguration   *NetworkConfiguration   `json:"network,omitempty"`
+	OVMFPath               string                  `json:"ovmfPath,omitempty"`
+	SELinuxLauncherType    string                  `json:"selinuxLauncherType,omitempty"`
+	SMBIOSConfig           *SMBiosConfiguration    `json:"smbios,omitempty"`
+	// deprecated
+	SupportedGuestAgentVersions []string              `json:"supportedGuestAgentVersions,omitempty"`
+	MemBalloonStatsPeriod       *uint32               `json:"memBalloonStatsPeriod,omitempty"`
+	PermittedHostDevices        *PermittedHostDevices `json:"permittedHostDevices,omitempty"`
+	MinCPUModel                 string                `json:"minCPUModel,omitempty"`
+	ObsoleteCPUModels           map[string]bool       `json:"obsoleteCPUModels,omitempty"`
 }
 
 //
