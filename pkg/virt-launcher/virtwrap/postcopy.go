@@ -18,10 +18,11 @@ func (l *LibvirtDomainManager) updateVMIMigrationMode(dom cli.VirDomain, vmi *v1
 
 	domainSpec.Metadata.KubeVirt.Migration.Mode = mode
 
-	_, err = l.setDomainSpecWithHooks(vmi, domainSpec)
+	d, err := l.setDomainSpecWithHooks(vmi, domainSpec)
 	if err != nil {
 		return err
 	}
+	defer d.Free()
 
 	return nil
 }

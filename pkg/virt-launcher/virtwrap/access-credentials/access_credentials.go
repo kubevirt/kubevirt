@@ -476,7 +476,11 @@ func (l *AccessCredentialManager) reportAccessCredentialResult(vmi *v1.VirtualMa
 		return nil
 	}
 
-	_, err = util.SetDomainSpecStrWithHooks(l.virConn, vmi, domainSpec)
+	d, err := util.SetDomainSpecStrWithHooks(l.virConn, vmi, domainSpec)
+	if err != nil {
+		return err
+	}
+	defer d.Free()
 	return err
 }
 
