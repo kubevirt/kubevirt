@@ -210,10 +210,11 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 		StartTimestamp: &now,
 		Mode:           migrationMode,
 	}
-	_, err = l.setDomainSpecWithHooks(vmi, domainSpec)
+	d, err := l.setDomainSpecWithHooks(vmi, domainSpec)
 	if err != nil {
 		return false, err
 	}
+	defer d.Free()
 	return false, nil
 }
 
@@ -305,10 +306,11 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 		domainSpec.Metadata.KubeVirt.Migration.Completed = true
 		domainSpec.Metadata.KubeVirt.Migration.EndTimestamp = &now
 	}
-	_, err = l.setDomainSpecWithHooks(vmi, domainSpec)
+	d, err := l.setDomainSpecWithHooks(vmi, domainSpec)
 	if err != nil {
 		return err
 	}
+	defer d.Free()
 	return nil
 
 }
@@ -463,6 +465,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
 			return
 		}
+		defer dom.Free()
 
 		migrateFlags := prepareMigrationFlags(isBlockMigration, options.UnsafeMigration, options.AllowAutoConverge, options.AllowPostCopy)
 		if options.UnsafeMigration {
@@ -489,7 +492,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		// start live migration tracking
 		migrationErrorChan := make(chan error, 1)
 		defer close(migrationErrorChan)
-		go liveMigrationMonitor(vmi, dom, l, options, migrationErrorChan)
+		go liveMigrationMonitor(vmi, l, options, migrationErrorChan)
 
 		err = dom.MigrateToURI3(dstURI, params, migrateFlags)
 		if err != nil {
@@ -516,30 +519,11 @@ func (l *LibvirtDomainManager) SetGuestTime(vmi *v1.VirtualMachineInstance) erro
 		log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
 		return err
 	}
-	// try setting the guest time. Fail early if agent is not configured.
-	l.setGuestTime(vmi, dom)
-	return nil
-}
 
-func (l *LibvirtDomainManager) getGuestTimeContext() context.Context {
-	l.setGuestTimeLock.Lock()
-	defer l.setGuestTimeLock.Unlock()
+	go func() {
+		defer dom.Free()
 
-	// cancel the already running setGuestTime go-routine if such exist
-	if l.setGuestTimeContextPtr != nil {
-		l.setGuestTimeContextPtr.cancel()
-	}
-	// create a new context and store it
-	ctx, cancel := context.WithCancel(context.Background())
-	l.setGuestTimeContextPtr = &contextStore{ctx: ctx, cancel: cancel}
-	return ctx
-}
-
-func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) {
-	// get new context
-	ctx := l.getGuestTimeContext()
-
-	go func(ctx context.Context, vmi *v1.VirtualMachineInstance, dom cli.VirDomain) {
+		ctx := l.getGuestTimeContext()
 		timeout := time.After(60 * time.Second)
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
@@ -581,7 +565,23 @@ func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance, dom 
 				}
 			}
 		}
-	}(ctx, vmi, dom)
+	}()
+
+	return nil
+}
+
+func (l *LibvirtDomainManager) getGuestTimeContext() context.Context {
+	l.setGuestTimeLock.Lock()
+	defer l.setGuestTimeLock.Unlock()
+
+	// cancel the already running setGuestTime go-routine if such exist
+	if l.setGuestTimeContextPtr != nil {
+		l.setGuestTimeContextPtr.cancel()
+	}
+	// create a new context and store it
+	ctx, cancel := context.WithCancel(context.Background())
+	l.setGuestTimeContextPtr = &contextStore{ctx: ctx, cancel: cancel}
+	return ctx
 }
 
 func getVMIEphemeralDisksTotalSize() *resource.Quantity {
@@ -621,9 +621,19 @@ func getVMIMigrationDataSize(vmi *v1.VirtualMachineInstance) int64 {
 	return memory.ScaledValue(resource.Giga)
 }
 
-func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationErr chan error) {
+func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationErr chan error) {
 
 	logger := log.Log.Object(vmi)
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		logger.Reason(err).Error("Live migration failed.")
+		l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
+		return
+	}
+	defer dom.Free()
+
 	start := time.Now().UTC().Unix()
 	lastProgressUpdate := start
 	progressWatermark := int64(0)
@@ -784,6 +794,7 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 			log.Log.Object(vmi).Reason(err).Warning("failed to cancel migration, domain not found ")
 			return
 		}
+		defer dom.Free()
 		stats, err := dom.GetJobInfo()
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("failed to get domain job info")
@@ -1340,6 +1351,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 			if err != nil {
 				return nil, err
 			}
+			defer dom.Free()
 			logger.Info("Domain defined.")
 		} else {
 			logger.Reason(err).Error("Getting the domain failed.")
@@ -1360,6 +1372,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		if err != nil {
 			return nil, err
 		}
+		defer dom.Free()
 	}
 
 	// TODO Suspend, Pause, ..., for now we only support reaching the running state
@@ -1651,7 +1664,9 @@ func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) error 
 		l.paused.remove(vmi.UID)
 		// Try to set guest time after this commands execution.
 		// This operation is not disruptive.
-		l.setGuestTime(vmi, dom)
+		if err := l.SetGuestTime(vmi); err != nil {
+			return err
+		}
 
 	} else {
 		logger.Infof("Domain is not paused for %s", vmi.GetObjectMeta().GetName())
@@ -1691,10 +1706,11 @@ func (l *LibvirtDomainManager) MarkGracefulShutdownVMI(vmi *v1.VirtualMachineIns
 		domainSpec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown = &t
 	}
 
-	_, err = l.setDomainSpecWithHooks(vmi, domainSpec)
+	d, err := l.setDomainSpecWithHooks(vmi, domainSpec)
 	if err != nil {
 		return err
 	}
+	defer d.Free()
 	return nil
 
 }
@@ -1739,11 +1755,12 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 
 			now := metav1.Now()
 			domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &now
-			_, err = l.setDomainSpecWithHooks(vmi, domSpec)
+			d, err := l.setDomainSpecWithHooks(vmi, domSpec)
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Error("Unable to update grace period start time on domain xml")
 				return err
 			}
+			defer d.Free()
 		}
 	}
 
