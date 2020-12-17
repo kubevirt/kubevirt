@@ -69,6 +69,39 @@ func (c *Customizer) GenericApplyPatches(objects interface{}) error {
 	return nil
 }
 
+func (c *Customizer) Apply(targetStrategy *InstallStrategy) error {
+	err := c.GenericApplyPatches(targetStrategy.deployments)
+	if err != nil {
+		return err
+	}
+	err = c.GenericApplyPatches(targetStrategy.services)
+	if err != nil {
+		return err
+	}
+	err = c.GenericApplyPatches(targetStrategy.daemonSets)
+	if err != nil {
+		return err
+	}
+	err = c.GenericApplyPatches(targetStrategy.validatingWebhookConfigurations)
+	if err != nil {
+		return err
+	}
+	err = c.GenericApplyPatches(targetStrategy.mutatingWebhookConfigurations)
+	if err != nil {
+		return err
+	}
+	err = c.GenericApplyPatches(targetStrategy.apiServices)
+	if err != nil {
+		return err
+	}
+	err = c.GenericApplyPatches(targetStrategy.certificateSecrets)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func applyPatches(obj runtime.Object, patches []v1.CustomizeComponentsPatch) error {
 	if len(patches) == 0 {
 		return nil

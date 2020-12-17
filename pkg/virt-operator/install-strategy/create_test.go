@@ -165,7 +165,13 @@ var _ = Describe("Create", func() {
 		})
 
 		It("should not fail creation", func() {
-			err = syncPodDisruptionBudgetForDeployment(deployment, clientset, kv, expectations, stores)
+			r := &Reconciler{
+				clientset:    clientset,
+				kv:           kv,
+				expectations: expectations,
+				stores:       stores,
+			}
+			err = r.syncPodDisruptionBudgetForDeployment(deployment)
 
 			Expect(created).To(BeTrue())
 			Expect(patched).To(BeFalse())
@@ -174,8 +180,13 @@ var _ = Describe("Create", func() {
 
 		It("should not fail patching", func() {
 			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
-
-			err = syncPodDisruptionBudgetForDeployment(deployment, clientset, kv, expectations, stores)
+			r := &Reconciler{
+				clientset:    clientset,
+				kv:           kv,
+				expectations: expectations,
+				stores:       stores,
+			}
+			err = r.syncPodDisruptionBudgetForDeployment(deployment)
 
 			Expect(patched).To(BeTrue())
 			Expect(created).To(BeFalse())
@@ -189,8 +200,13 @@ var _ = Describe("Create", func() {
 
 			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
 			injectOperatorMetadata(kv, &cachedPodDisruptionBudget.ObjectMeta, Version, Registry, Id, true)
-
-			err = syncPodDisruptionBudgetForDeployment(deployment, clientset, kv, expectations, stores)
+			r := &Reconciler{
+				clientset:    clientset,
+				kv:           kv,
+				expectations: expectations,
+				stores:       stores,
+			}
+			err = r.syncPodDisruptionBudgetForDeployment(deployment)
 
 			Expect(created).To(BeFalse())
 			Expect(patched).To(BeFalse())
@@ -199,8 +215,13 @@ var _ = Describe("Create", func() {
 
 		It("should return create error", func() {
 			shouldCreateFail = true
-
-			err = syncPodDisruptionBudgetForDeployment(deployment, clientset, kv, expectations, stores)
+			r := &Reconciler{
+				clientset:    clientset,
+				kv:           kv,
+				expectations: expectations,
+				stores:       stores,
+			}
+			err = r.syncPodDisruptionBudgetForDeployment(deployment)
 
 			Expect(err).To(HaveOccurred())
 			Expect(created).To(BeFalse())
@@ -210,8 +231,13 @@ var _ = Describe("Create", func() {
 		It("should return patch error", func() {
 			shouldPatchFail = true
 			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
-
-			err = syncPodDisruptionBudgetForDeployment(deployment, clientset, kv, expectations, stores)
+			r := &Reconciler{
+				clientset:    clientset,
+				kv:           kv,
+				expectations: expectations,
+				stores:       stores,
+			}
+			err = r.syncPodDisruptionBudgetForDeployment(deployment)
 
 			Expect(err).To(HaveOccurred())
 			Expect(created).To(BeFalse())
@@ -258,7 +284,15 @@ var _ = Describe("Create", func() {
 				return true, crd, nil
 			})
 
-			Expect(createOrUpdateCrds(kv, targetStrategy, stores, clientset, expectations)).To(Succeed())
+			r := &Reconciler{
+				kv:             kv,
+				targetStrategy: targetStrategy,
+				stores:         stores,
+				clientset:      clientset,
+				expectations:   expectations,
+			}
+
+			Expect(r.createOrUpdateCrds()).To(Succeed())
 		})
 
 		It("should not roll out subresources on existing CRDs after the control-plane rollover", func() {
@@ -301,7 +335,15 @@ var _ = Describe("Create", func() {
 				return true, crd, nil
 			})
 
-			Expect(rolloutNonCompatibleCRDChanges(kv, targetStrategy, stores, clientset, expectations)).To(Succeed())
+			r := &Reconciler{
+				kv:             kv,
+				targetStrategy: targetStrategy,
+				stores:         stores,
+				clientset:      clientset,
+				expectations:   expectations,
+			}
+
+			Expect(r.rolloutNonCompatibleCRDChanges()).To(Succeed())
 		})
 	})
 
@@ -327,7 +369,11 @@ var _ = Describe("Create", func() {
 			service.Spec.Type = corev1.ServiceTypeClusterIP
 			service.Spec.ClusterIP = ""
 
-			ops, deleteAndReplace, err := generateServicePatch(kv, cachedService, service)
+			r := &Reconciler{
+				kv: kv,
+			}
+
+			ops, deleteAndReplace, err := r.generateServicePatch(cachedService, service)
 			Expect(err).To(BeNil())
 			Expect(deleteAndReplace).To(BeFalse())
 			Expect(ops).ToNot(Equal(""))
@@ -353,7 +399,11 @@ var _ = Describe("Create", func() {
 			service.Spec.Type = corev1.ServiceTypeClusterIP
 			service.Spec.ClusterIP = "10.10.10.11"
 
-			_, deleteAndReplace, err := generateServicePatch(kv, cachedService, service)
+			r := &Reconciler{
+				kv: kv,
+			}
+
+			_, deleteAndReplace, err := r.generateServicePatch(cachedService, service)
 			Expect(err).To(BeNil())
 			Expect(deleteAndReplace).To(BeTrue())
 		})
@@ -376,7 +426,11 @@ var _ = Describe("Create", func() {
 			service := &corev1.Service{}
 			service.Spec.Type = corev1.ServiceTypeNodePort
 
-			_, deleteAndReplace, err := generateServicePatch(kv, cachedService, service)
+			r := &Reconciler{
+				kv: kv,
+			}
+
+			_, deleteAndReplace, err := r.generateServicePatch(cachedService, service)
 			Expect(err).To(BeNil())
 			Expect(deleteAndReplace).To(BeTrue())
 		})
@@ -836,7 +890,13 @@ var _ = Describe("Create", func() {
 		executeTest := func(scc *secv1.SecurityContextConstraints, expectedPatch string) {
 			setupPrependReactor(scc.ObjectMeta.Name, []byte(expectedPatch))
 			stores.SCCCache.Add(scc)
-			err = removeKvServiceAccountsFromDefaultSCC(namespace, virtClient, stores)
+
+			r := &Reconciler{
+				clientset: virtClient,
+				stores:    stores,
+			}
+
+			err = r.removeKvServiceAccountsFromDefaultSCC(namespace)
 			Expect(err).ToNot(HaveOccurred(), "Should successfully remove only the kubevirt service accounts")
 		}
 

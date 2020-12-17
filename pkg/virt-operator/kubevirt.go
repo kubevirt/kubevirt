@@ -638,7 +638,7 @@ func (c *KubeVirtController) execute(key string) error {
 	if kv.DeletionTimestamp != nil {
 		syncError = c.syncDeletion(kvCopy)
 	} else {
-		syncError = c.syncDeployment(kvCopy)
+		syncError = c.syncInstallation(kvCopy)
 	}
 
 	// set timestamps on conditions if they changed
@@ -954,7 +954,7 @@ func isUpdating(kv *v1.KubeVirt) bool {
 	return false
 }
 
-func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
+func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 	var targetStrategy *installstrategy.InstallStrategy
 	var targetPending bool
 	var err error
@@ -1006,8 +1006,15 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 		return err
 	}
 
-	// deploy
-	synced, err := installstrategy.SyncAll(c.queue, kv, targetStrategy, c.stores, c.clientset, c.aggregatorClient, &c.kubeVirtExpectations)
+	reconciler, err := installstrategy.NewReconciler(kv, targetStrategy, c.stores, c.clientset, c.aggregatorClient, &c.kubeVirtExpectations)
+	if err != nil {
+		// deployment failed
+		util.UpdateConditionsFailedError(kv, err)
+		logger.Errorf("Failed to create reconciler: %v", err)
+		return err
+	}
+
+	synced, err := reconciler.Sync(c.queue)
 
 	if err != nil {
 		// deployment failed
