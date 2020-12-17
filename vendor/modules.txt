@@ -140,7 +140,7 @@ github.com/gophercloud/gophercloud/openstack/identity/v2/tokens
 github.com/gophercloud/gophercloud/openstack/identity/v3/tokens
 github.com/gophercloud/gophercloud/openstack/utils
 github.com/gophercloud/gophercloud/pagination
-# github.com/gorilla/websocket v1.4.0
+# github.com/gorilla/websocket v1.4.2
 github.com/gorilla/websocket
 # github.com/hashicorp/golang-lru v0.5.4
 github.com/hashicorp/golang-lru
@@ -292,7 +292,7 @@ github.com/vishvananda/netns
 github.com/wadey/gocovmerge
 # github.com/willf/bitset v1.1.11-0.20200630133818-d5bec3311243
 github.com/willf/bitset
-# golang.org/x/crypto v0.0.0-20200423211502-4bdfaf469ed5
+# golang.org/x/crypto v0.0.0-20201216223049-8b5274cf687f
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
 golang.org/x/crypto/chacha20
@@ -335,9 +335,12 @@ golang.org/x/oauth2/jwt
 # golang.org/x/sys v0.0.0-20200915050820-6d893a6b696e
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
+golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/text v0.3.3
+# golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
+golang.org/x/term
+# golang.org/x/text v0.3.4
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/htmlindex
@@ -812,8 +815,12 @@ kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1alpha1
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1alpha1/fake
+kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1beta1
+kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1beta1/fake
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1alpha1
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1alpha1/fake
+kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1beta1
+kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1beta1/fake
 kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned
 kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/fake
 kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/scheme
