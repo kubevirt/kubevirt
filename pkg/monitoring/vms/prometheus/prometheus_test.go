@@ -157,7 +157,7 @@ var _ = Describe("Prometheus", func() {
 			result.Write(dto)
 
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_swap_traffic_bytes_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_swap_in_traffic_bytes_total"))
 			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
@@ -182,7 +182,7 @@ var _ = Describe("Prometheus", func() {
 			result.Write(dto)
 
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_swap_traffic_bytes_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_swap_out_traffic_bytes_total"))
 			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
@@ -473,7 +473,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_iops_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_iops_read_total"))
 		})
 
 		It("should handle block write iops metrics", func() {
@@ -500,7 +500,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_iops_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_iops_write_total"))
 		})
 
 		It("should handle block read bytes metrics", func() {
@@ -527,7 +527,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_traffic_bytes_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_read_traffic_bytes_total"))
 		})
 
 		It("should handle block write bytes metrics", func() {
@@ -554,7 +554,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_traffic_bytes_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_write_traffic_bytes_total"))
 		})
 
 		It("should handle block read time metrics", func() {
@@ -581,7 +581,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_times_ms_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_read_times_ms_total"))
 		})
 
 		It("should handle block write time metrics", func() {
@@ -608,7 +608,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_times_ms_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_write_times_ms_total"))
 		})
 
 		It("should handle block flush requests metrics", func() {
@@ -635,7 +635,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_requests_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_flush_requests_total"))
 		})
 
 		It("should handle block flush times metrics", func() {
@@ -662,7 +662,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_flush_total_time_milliseconds"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_flush_times_ms_total"))
 		})
 
 		It("should not expose nameless block metrics", func() {
@@ -689,7 +689,7 @@ var _ = Describe("Prometheus", func() {
 		})
 
 		It("should handle network rx traffic bytes metrics", func() {
-			ch := make(chan prometheus.Metric, 1)
+			ch := make(chan prometheus.Metric, 2)
 			defer close(ch)
 
 			ps := prometheusScraper{ch: ch}
@@ -711,12 +711,24 @@ var _ = Describe("Prometheus", func() {
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
+			dto1 := &io_prometheus_client.Metric{}
+			result.Write(dto1)
+
 			Expect(result).ToNot(BeNil())
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_traffic_bytes_total"))
+
+			result = <-ch
+			dto2 := &io_prometheus_client.Metric{}
+			result.Write(dto2)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_receive_bytes_total"))
+
+			Expect(dto1.Counter.GetValue()).To(Equal(dto2.Counter.GetValue()))
 		})
 
 		It("should handle network tx traffic bytes metrics", func() {
-			ch := make(chan prometheus.Metric, 1)
+			ch := make(chan prometheus.Metric, 2)
 			defer close(ch)
 
 			ps := prometheusScraper{ch: ch}
@@ -738,8 +750,20 @@ var _ = Describe("Prometheus", func() {
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
+			dto1 := &io_prometheus_client.Metric{}
+			result.Write(dto1)
+
 			Expect(result).ToNot(BeNil())
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_traffic_bytes_total"))
+
+			result = <-ch
+			dto2 := &io_prometheus_client.Metric{}
+			result.Write(dto2)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_transmit_bytes_total"))
+
+			Expect(dto1.Counter.GetValue()).To(Equal(dto2.Counter.GetValue()))
 		})
 
 		It("should handle network rx packets metrics", func() {
@@ -766,7 +790,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_traffic_packets_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_receive_packets_total"))
 		})
 
 		It("should handle network tx traffic bytes metrics", func() {
@@ -793,7 +817,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_traffic_packets_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_transmit_packets_total"))
 		})
 
 		It("should handle network rx errors metrics", func() {
@@ -820,7 +844,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_errors_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_receive_errors_total"))
 		})
 
 		It("should handle network tx traffic bytes metrics", func() {
@@ -847,7 +871,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_errors_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_transmit_errors_total"))
 		})
 
 		It("should handle network rx drop metrics", func() {
