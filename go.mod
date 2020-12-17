@@ -36,10 +36,10 @@ require (
 	k8s.io/apimachinery v0.19.4
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20200805222855-6aeccd4b50c6
-	kubevirt.io/client-go v0.36.0-rc.0
+	kubevirt.io/client-go v0.36.0
 	kubevirt.io/containerized-data-importer v1.27.0
 	kubevirt.io/controller-lifecycle-operator-sdk v0.1.1
-	kubevirt.io/kubevirt v0.36.0-rc.0
+	kubevirt.io/kubevirt v0.36.0
 	sigs.k8s.io/controller-runtime v0.6.3
 	sigs.k8s.io/controller-tools v0.4.0
 )
@@ -125,7 +125,7 @@ replace (
 	github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.3.1
 	github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.0.0-20190424153033-d3245f150225
-	kubevirt.io/client-go => kubevirt.io/client-go v0.36.0-rc.0
+	kubevirt.io/client-go => kubevirt.io/client-go v0.36.0
 )
 
 // Aligning with https://github.com/kubevirt/containerized-data-importer/blob/release-v1.27.0

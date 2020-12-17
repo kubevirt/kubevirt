@@ -181,7 +181,7 @@ EOF
 ./hack/retry.sh 20 30 "${CMD} get subscription -n ${HCO_NAMESPACE} | grep -v EOF"
 ./hack/retry.sh 20 30 "${CMD} get pods -n ${HCO_NAMESPACE} | grep hco-operator"
 
-${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="1200s"
+${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} ${HCO_WH_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="1200s"
 
 # Creating a CR immediately after HCO pod started can
 # cause a connection error "validate-hco.kubevirt.io" webhook.
