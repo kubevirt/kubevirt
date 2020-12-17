@@ -35,13 +35,13 @@ var _ = Describe("Workload Updater", func() {
 	var vmiSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
 	var migrationInformer cache.SharedIndexInformer
-	//var migrationSource *framework.FakeControllerSource
+	var migrationSource *framework.FakeControllerSource
 	var kubeVirtSource *framework.FakeControllerSource
 	var kubeVirtInformer cache.SharedIndexInformer
 	var recorder *record.FakeRecorder
 	var mockQueue *testutils.MockWorkQueue
 	var kubeClient *fake.Clientset
-	//var migrationFeeder *testutils.MigrationFeeder
+	var migrationFeeder *testutils.MigrationFeeder
 
 	var controller *WorkloadUpdateController
 
@@ -77,8 +77,7 @@ var _ = Describe("Workload Updater", func() {
 				return []string{obj.(*v1.VirtualMachineInstance).Status.NodeName}, nil
 			},
 		})
-		migrationInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
-		//migrationInformer, migrationSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
+		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
 		recorder = record.NewFakeRecorder(200)
 		config, _, _, _ := testutils.NewFakeClusterConfig(&v12.ConfigMap{
 			Data: map[string]string{"feature-gates": "AutomatedWorkloadUpdate"},
@@ -90,7 +89,7 @@ var _ = Describe("Workload Updater", func() {
 		controller = NewWorkloadUpdateController(vmiInformer, migrationInformer, kubeVirtInformer, recorder, virtClient, config)
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)
 		controller.queue = mockQueue
-		//migrationFeeder = testutils.NewMigrationFeeder(mockQueue, migrationSource)
+		migrationFeeder = testutils.NewMigrationFeeder(mockQueue, migrationSource)
 
 		// Set up mock client
 		virtClient.EXPECT().VirtualMachineInstanceMigration(v12.NamespaceDefault).Return(migrationInterface).AnyTimes()
@@ -201,6 +200,37 @@ var _ = Describe("Workload Updater", func() {
 
 			migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(int(virtconfig.ParallelMigrationsPerClusterDefault))
 			vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil).Times(defaultBatchDeletionCount)
+
+			controller.Execute()
+			testutils.ExpectEvents(recorder, reasons...)
+		})
+
+		It("should detect in-flight migrations when only migrate VMIs up to the global max migration count", func() {
+			kv := newKubeVirt(50)
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodShutdown}
+			addKubeVirt(kv)
+
+			reasons := []string{}
+			for i := 0; i < 50; i++ {
+				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, true)
+				vmiSource.Add(vmi)
+				// create enough migrations to only allow one more active one to be created
+				if i < int(virtconfig.ParallelMigrationsPerClusterDefault)-1 {
+					migrationFeeder.Add(newMigration(fmt.Sprintf("vmim-%d", i), vmi.Name, v1.MigrationRunning))
+				} else if i < int(virtconfig.ParallelMigrationsPerClusterDefault) {
+					migrationFeeder.Add(newMigration(fmt.Sprintf("vmim-%d", i), vmi.Name, v1.MigrationSucceeded))
+					// expect only a single migration to occur due to global limit
+					reasons = append(reasons, SuccessfulCreateVirtualMachineInstanceMigrationReason)
+				} else {
+					migrationFeeder.Add(newMigration(fmt.Sprintf("vmim-%d", i), vmi.Name, v1.MigrationSucceeded))
+				}
+			}
+
+			// wait for informer to catch up since we aren't watching for vmis directly
+			time.Sleep(1 * time.Second)
+
+			//migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).AnyTimes()
+			migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(1)
 
 			controller.Execute()
 			testutils.ExpectEvents(recorder, reasons...)

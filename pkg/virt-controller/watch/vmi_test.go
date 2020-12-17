@@ -1220,6 +1220,55 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			controller.Execute()
 		})
 
+		It("should add outdated label if pod's image is outdated and VMI is in running state", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Running
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Status.Conditions = []k8sv1.PodCondition{{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue}}
+
+			pod.Spec.Containers = append(pod.Spec.Containers, k8sv1.Container{
+				Image: "madeup",
+				Name:  "compute",
+			})
+
+			addVirtualMachine(vmi)
+			addActivePods(vmi, pod.UID, "")
+			podFeeder.Add(pod)
+
+			patch := `[ { "op": "test", "path": "/status/conditions", "value": null }, { "op": "replace", "path": "/status/conditions", "value": [{"type":"Ready","status":"True","lastProbeTime":null,"lastTransitionTime":null}] }, { "op": "add", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} } ]`
+
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
+
+			controller.Execute()
+		})
+		It("should remove outdated label if pod's image up-to-date and VMI is in running state", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Running
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Status.Conditions = []k8sv1.PodCondition{{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue}}
+
+			if vmi.Labels == nil {
+				vmi.Labels = make(map[string]string)
+			}
+
+			vmi.Labels[v1.OutdatedLauncherImageLabel] = ""
+
+			pod.Spec.Containers = append(pod.Spec.Containers, k8sv1.Container{
+				Image: controller.templateService.GetLauncherImage(),
+				Name:  "compute",
+			})
+
+			addVirtualMachine(vmi)
+			addActivePods(vmi, pod.UID, "")
+			podFeeder.Add(pod)
+
+			patch := `[ { "op": "test", "path": "/status/conditions", "value": null }, { "op": "replace", "path": "/status/conditions", "value": [{"type":"Ready","status":"True","lastProbeTime":null,"lastTransitionTime":null}] }, { "op": "test", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} }, { "op": "replace", "path": "/metadata/labels", "value": {} } ]`
+
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
+
+			controller.Execute()
+		})
+
 		It("should add a ready condition if it is present on the pod and the VMI is in running state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = v1.Running

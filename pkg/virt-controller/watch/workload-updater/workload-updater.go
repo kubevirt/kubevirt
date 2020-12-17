@@ -147,7 +147,7 @@ func (c *WorkloadUpdateController) addMigration(obj interface{}) {
 	}
 
 	key, err := c.getKubeVirtKey()
-	if err != nil {
+	if key == "" || err != nil {
 		return
 	}
 
@@ -164,7 +164,7 @@ func (c *WorkloadUpdateController) addMigration(obj interface{}) {
 
 func (c *WorkloadUpdateController) deleteMigration(obj interface{}) {
 	key, err := c.getKubeVirtKey()
-	if err != nil {
+	if key == "" || err != nil {
 		return
 	}
 
@@ -173,7 +173,7 @@ func (c *WorkloadUpdateController) deleteMigration(obj interface{}) {
 
 func (c *WorkloadUpdateController) updateMigration(old, curr interface{}) {
 	key, err := c.getKubeVirtKey()
-	if err != nil {
+	if key == "" || err != nil {
 		return
 	}
 
