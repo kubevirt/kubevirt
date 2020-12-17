@@ -229,6 +229,7 @@ func (l *LibvirtConnection) QemuAgentCommand(command string, domainName string) 
 	if err != nil {
 		return "", err
 	}
+	defer domain.Free()
 	result, err := domain.QemuAgentCommand(command, libvirt.DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, uint32(0))
 	return result, err
 }
