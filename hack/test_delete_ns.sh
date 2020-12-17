@@ -24,6 +24,20 @@ function test_delete_ns(){
         echo "Trying to delete kubevirt-hyperconverged namespace when the hyperconverged CR is still there"
         # this should fail with a clear error message
         DELETE_ERROR_TEXT="$(${CMD} delete namespace kubevirt-hyperconverged 2>&1 || true)"
+
+        # try to mitigate CI flakiness when we randomly get
+        # "x509: certificate signed by unknown authority" errors
+        if [[ $DELETE_ERROR_TEXT == *"x509: certificate signed by unknown authority"* ]]; then
+          # gave it time to recovery
+          sleep 300
+          DELETE_ERROR_TEXT="$(${CMD} delete namespace kubevirt-hyperconverged 2>&1 || true)"
+        fi
+        # and eventually try again...
+        if [[ $DELETE_ERROR_TEXT == *"x509: certificate signed by unknown authority"* ]]; then
+          sleep 300
+          DELETE_ERROR_TEXT="$(${CMD} delete namespace kubevirt-hyperconverged 2>&1 || true)"
+        fi
+
         echo "${DELETE_ERROR_TEXT}" | grep "denied the request: HyperConverged CR is still present, please remove it before deleting the containing namespace"
 
         echo "kubevirt-hyperconverged namespace should be still there"

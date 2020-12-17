@@ -65,6 +65,16 @@ done
 
 cat <<EOF
 
+======================
+ClusterServiceVersions
+======================
+EOF
+
+RunCmd "${CMD} get clusterserviceversions -n kubevirt-hyperconverged"
+RunCmd "${CMD} get clusterserviceversions -n kubevirt-hyperconverged -o yaml"
+
+cat <<EOF
+
 ============
 InstallPlans
 ============
