@@ -79,9 +79,7 @@ var _ = Describe("Workload Updater", func() {
 		})
 		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
 		recorder = record.NewFakeRecorder(200)
-		config, _, _, _ := testutils.NewFakeClusterConfig(&v12.ConfigMap{
-			Data: map[string]string{"feature-gates": "AutomatedWorkloadUpdate"},
-		})
+		config, _, _, _ := testutils.NewFakeClusterConfig(&v12.ConfigMap{})
 
 		kubeVirtInformer, _ = testutils.NewFakeInformerFor(&v1.KubeVirt{})
 		kubeVirtInformer, kubeVirtSource = testutils.NewFakeInformerFor(&v1.KubeVirt{})
@@ -113,6 +111,7 @@ var _ = Describe("Workload Updater", func() {
 			vmiSource.Add(vmi)
 			time.Sleep(1 * time.Second)
 			kv := newKubeVirt(1)
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodShutdown}
 			addKubeVirt(kv)
 
 			migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
@@ -126,6 +125,7 @@ var _ = Describe("Workload Updater", func() {
 			vmiSource.Add(vmi)
 			time.Sleep(1 * time.Second)
 			kv := newKubeVirt(1)
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodShutdown}
 			addKubeVirt(kv)
 
 			kv.Status.ObservedDeploymentID = "something new"
@@ -266,8 +266,7 @@ var _ = Describe("Workload Updater", func() {
 			testutils.ExpectEvents(recorder, reasons...)
 		})
 
-		It("should only migrate VMIs and leave non migratable alone when shutdown method isn't set", func() {
-			reasons := []string{}
+		It("should do nothing if no method is set", func() {
 			for i := 0; i < 50; i++ {
 				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, true)
 				vmiSource.Add(vmi)
@@ -276,20 +275,13 @@ var _ = Describe("Workload Updater", func() {
 				vmi := newVirtualMachine(fmt.Sprintf("testvm-%d", i), false, true)
 				vmiSource.Add(vmi)
 			}
-			for i := 0; i < int(virtconfig.ParallelMigrationsPerClusterDefault); i++ {
-				reasons = append(reasons, SuccessfulCreateVirtualMachineInstanceMigrationReason)
-			}
 
 			// wait for informer to catch up since we aren't watching
 			// for vmis directly
 			time.Sleep(1 * time.Second)
 			kv := newKubeVirt(100)
 			addKubeVirt(kv)
-
-			migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(int(virtconfig.ParallelMigrationsPerClusterDefault))
-
 			controller.Execute()
-			testutils.ExpectEvents(recorder, reasons...)
 		})
 
 		It("should shutdown VMIs and not migrate when only shutdown method is set", func() {

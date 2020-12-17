@@ -294,11 +294,6 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 	automatedMigrationAllowed := false
 	automatedShutdownAllowed := false
 
-	if len(kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods) == 0 {
-		// migrate is the default
-		automatedMigrationAllowed = true
-	}
-
 	for _, method := range kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods {
 		if method == virtv1.WorkloadUpdateMethodLiveMigrate {
 			automatedMigrationAllowed = true
@@ -422,11 +417,6 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 		if err != nil {
 			return fmt.Errorf("unable to patch kubevirt obj status to update the outdatedVMIWorkloads valued: %v", err)
 		}
-	}
-
-	// There's nothing to do beyond this point if automated workload updates are not enabled
-	if !c.clusterConfig.AutomatedWorkloadUpdateEnabled() {
-		return nil
 	}
 
 	// Rather than enqueing based on VMI activity, we keep periodically poping the loop

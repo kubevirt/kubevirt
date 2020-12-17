@@ -842,7 +842,7 @@ var CRDsValidation map[string]string = map[string]string{
               description: "BatchShutdownInterval Represents the interval to wait before issuing the next batch of shutdowns \n Defaults to 1 minute"
               type: string
             workloadUpdateMethods:
-              description: "WorkloadUpdateMethods defines the methods that can be used to disrupt workloads during automated workload updates. When multiple methods are present, the least disruptive method takes precedence over more disruptive methods. For example if both LiveMigrate and Shutdown methods are listed, only VMs which are not live migratable will be restarted/shutdown \n Defaults to LiveMigrate when list is empty"
+              description: "WorkloadUpdateMethods defines the methods that can be used to disrupt workloads during automated workload updates. When multiple methods are present, the least disruptive method takes precedence over more disruptive methods. For example if both LiveMigrate and Shutdown methods are listed, only VMs which are not live migratable will be restarted/shutdown \n An empty list defaults to no automated workload updating"
               items:
                 type: string
               type: array

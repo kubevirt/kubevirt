@@ -370,7 +370,7 @@ func (KubeVirtCertificateRotateStrategy) SwaggerDoc() map[string]string {
 func (KubeVirtWorkloadUpdateStrategy) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                      "KubeVirtWorkloadUpdateStrategy defines options related to updating a KubeVirt install\n\n+k8s:openapi-gen=true",
-		"workloadUpdateMethods": "WorkloadUpdateMethods defines the methods that can be used to disrupt workloads\nduring automated workload updates.\nWhen multiple methods are present, the least disruptive method takes\nprecedence over more disruptive methods. For example if both LiveMigrate and Shutdown\nmethods are listed, only VMs which are not live migratable will be restarted/shutdown\n\nDefaults to LiveMigrate when list is empty\n\n+listType=atomic\n+optional",
+		"workloadUpdateMethods": "WorkloadUpdateMethods defines the methods that can be used to disrupt workloads\nduring automated workload updates.\nWhen multiple methods are present, the least disruptive method takes\nprecedence over more disruptive methods. For example if both LiveMigrate and Shutdown\nmethods are listed, only VMs which are not live migratable will be restarted/shutdown\n\nAn empty list defaults to no automated workload updating\n\n+listType=atomic\n+optional",
 		"batchShutdownCount":    "BatchShutdownCount Represents the number of VMIs that can be forced updated per\nthe BatchForceInteral interval\n\nDefaults to 10\n\n+optional",
 		"batchShutdownInterval": "BatchShutdownInterval Represents the interval to wait before issuing the next\nbatch of shutdowns\n\nDefaults to 1 minute\n\n+optional",
 	}

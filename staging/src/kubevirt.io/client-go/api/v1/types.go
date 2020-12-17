@@ -1323,7 +1323,7 @@ type KubeVirtWorkloadUpdateStrategy struct {
 	// precedence over more disruptive methods. For example if both LiveMigrate and Shutdown
 	// methods are listed, only VMs which are not live migratable will be restarted/shutdown
 	//
-	// Defaults to LiveMigrate when list is empty
+	// An empty list defaults to no automated workload updating
 	//
 	// +listType=atomic
 	// +optional
