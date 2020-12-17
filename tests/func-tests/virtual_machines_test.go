@@ -3,18 +3,23 @@ package tests_test
 import (
 	"encoding/json"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
-	"kubevirt.io/kubevirt/tests/flags"
 	"time"
 
-	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
+	corev1 "k8s.io/api/core/v1"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	testscore "kubevirt.io/kubevirt/tests"
 
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
+	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
+	"kubevirt.io/kubevirt/tests/flags"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+
+	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
 const timeout = 360 * time.Second
@@ -51,6 +56,23 @@ var _ = Describe("Virtual Machines", func() {
 				"nmstate-handler": false,
 				"ovs-cni-marker":  false,
 				"virt-handler":    false,
+			}
+
+			var cnaoCR networkaddonsv1.NetworkAddonsConfig
+
+			s := scheme.Scheme
+			_ = apis.AddToScheme(s)
+			s.AddKnownTypes(networkaddonsv1.SchemeGroupVersion)
+			opts := k8smetav1.GetOptions{}
+			err = client.RestClient().Get().
+				Resource("networkaddonsconfigs").
+				Name("cluster").
+				VersionedParams(&opts, scheme.ParameterCodec).
+				Timeout(10 * time.Second).
+				Do().Into(&cnaoCR)
+
+			if cnaoCR.Spec.Ovs == nil {
+				delete(expectedWorkloadsPods, "ovs-cni-marker")
 			}
 
 			pods, err := client.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(k8smetav1.ListOptions{

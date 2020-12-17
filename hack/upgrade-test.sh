@@ -92,7 +92,7 @@ function cleanup() {
 trap "cleanup" INT TERM EXIT
 
 
-Msg "clean cluster"
+Msg "Clean cluster"
 
 if [ -n "$KUBEVIRT_PROVIDER" ]; then
   make cluster-clean
@@ -110,13 +110,13 @@ ${CMD} wait deployment packageserver --for condition=Available -n openshift-oper
 ${CMD} wait deployment catalog-operator --for condition=Available -n openshift-operator-lifecycle-manager --timeout="1200s"
 
 if [ -n "$KUBEVIRT_PROVIDER" ]; then
-  Msg "build images for STDCI"
+  Msg "Build images for STDCI"
   ./hack/upgrade-test-build-images.sh
 else
   Msg "Openshift CI detected." "Image build skipped. Images are built through Prow."
 fi
 
-Msg "create catalogsource and subscription to install HCO"
+Msg "Create catalogsource and subscription to install HCO"
 
 ${CMD} create ns ${HCO_NAMESPACE} || true
 ${CMD} get pods -n ${HCO_NAMESPACE}
@@ -195,7 +195,7 @@ ${CMD} wait -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} --for condition
 ${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="30m"
 ${CMD} wait deployment ${HCO_WH_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="30m"
 
-Msg "check that cluster is operational before upgrade"
+Msg "Check that cluster is operational before upgrade"
 timeout 10m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
 
 ${CMD} get subscription -n ${HCO_NAMESPACE} -o yaml
@@ -204,6 +204,11 @@ ${CMD} get pods -n ${HCO_NAMESPACE}
 echo "----- Images before upgrade"
 ${CMD} get deployments -n ${HCO_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
 ${CMD} get pod $HCO_CATALOGSOURCE_POD -n ${HCO_CATALOG_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
+
+
+echo "----- HCO deployOVS annotation and OVS state in CNAO CR before the upgrade"
+PREVIOUS_OVS_ANNOTATION=$(${CMD} get ${HCO_KIND} ${HCO_RESOURCE_NAME} -n ${HCO_NAMESPACE} -o jsonpath='{.metadata.annotations.deployOVS}')
+PREVIOUS_OVS_STATE=$(${CMD} get networkaddonsconfigs cluster -o jsonpath='{.spec.ovs}')
 
 # Create a new version based off of latest. The new version appends ".1" to the latest version.
 # The new version replaces the hco-operator image from quay.io with the image pushed to the local registry.
@@ -217,7 +222,7 @@ ${CMD} patch subscription ${HCO_SUBSCRIPTION_NAME} -n ${HCO_NAMESPACE} -p "{\"sp
 # Verify the subscription has changed to the new version
 #  currentCSV: kubevirt-hyperconverged-operator.v100.0.0
 #  installedCSV: kubevirt-hyperconverged-operator.v100.0.0
-Msg "verify the subscription's currentCSV and installedCSV have moved to the new version"
+Msg "Verify the subscription's currentCSV and installedCSV have moved to the new version"
 
 sleep 60
 ${CMD} get pods -n ${HCO_NAMESPACE}
@@ -227,20 +232,20 @@ ${CMD} wait deployment ${HCO_WH_DEPLOYMENT_NAME} --for condition=Available -n ${
 ./hack/retry.sh 30 60 "${CMD} get subscriptions -n ${HCO_NAMESPACE} -o yaml | grep currentCSV   | grep v${TARGET_VERSION}"
 ./hack/retry.sh  2 30 "${CMD} get subscriptions -n ${HCO_NAMESPACE} -o yaml | grep installedCSV | grep v${TARGET_VERSION}"
 
-Msg "verify the hyperconverged-cluster deployment is using the new image"
+Msg "Verify the hyperconverged-cluster deployment is using the new image"
 
 set -x
 SEARCH_PHRASE="${OPENSHIFT_BUILD_NAMESPACE}/stable"
 ./hack/retry.sh 60 30 "${CMD} get -n ${HCO_NAMESPACE} deployment ${HCO_DEPLOYMENT_NAME} -o jsonpath=\"{ .spec.template.spec.containers[0].image }\" | grep ${SEARCH_PHRASE}"
 
-Msg "wait that cluster is operational after upgrade"
+Msg "Wait that cluster is operational after upgrade"
 timeout 20m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
 
 echo "----- Pod after upgrade"
-Msg "verify that the hyperconverged-cluster Pod is using the new image"
+Msg "Verify that the hyperconverged-cluster Pod is using the new image"
 ./hack/retry.sh 10 30 "CMD=${CMD} HCO_NAMESPACE=${HCO_NAMESPACE} ./hack/check_pod_upgrade.sh"
 
-Msg "verify new operator version reported after the upgrade"
+Msg "Verify new operator version reported after the upgrade"
 ./hack/retry.sh 15 30 "CMD=${CMD} HCO_RESOURCE_NAME=${HCO_RESOURCE_NAME} HCO_NAMESPACE=${HCO_NAMESPACE} TARGET_VERSION=${TARGET_VERSION} hack/check_hco_version.sh"
 
 Msg "Ensure that HCO detected the cluster as OpenShift"
@@ -263,7 +268,11 @@ dump_sccs_after
 
 KUBECTL_BINARY=${CMD} ./hack/test_quick_start.sh
 
-Msg "brutally delete HCO removing the namespace where it's running"
+Msg "Check that OVS is deployed or not deployed according to deployOVS annotation in HCO CR."
+./hack/retry.sh 10 10 "CMD=${CMD} PREVIOUS_OVS_ANNOTATION=${PREVIOUS_OVS_ANNOTATION}\
+ PREVIOUS_OVS_STATE=${PREVIOUS_OVS_STATE} ./hack/check_upgrade_ovs.sh"
+
+Msg "Brutally delete HCO removing the namespace where it's running"
 source hack/test_delete_ns.sh
 test_delete_ns
 

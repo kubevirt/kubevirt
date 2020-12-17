@@ -61,12 +61,33 @@ func (h *cnaHooks) updateCr(req *common.HcoRequest, Client client.Client, exists
 		return false, false, errors.New("can't convert to CNA")
 	}
 
+	// If deployOVS annotation doesn't exists prior the upgrade - set this annotation to true;
+	// Otherwise - remain the value as it is.
+	if req.UpgradeMode {
+		_, exists := req.Instance.Annotations["deployOVS"]
+		if !exists {
+			if req.Instance.Annotations == nil {
+				req.Instance.Annotations = map[string]string{}
+			}
+			if found.Spec.Ovs != nil {
+				req.Instance.Annotations["deployOVS"] = "true"
+				req.Logger.Info("deployOVS annotation is set to true.")
+			} else {
+				req.Instance.Annotations["deployOVS"] = "false"
+				req.Logger.Info("deployOVS annotation is set to false.")
+			}
+
+			req.Dirty = true
+		}
+	}
+
 	if !reflect.DeepEqual(found.Spec, networkAddons.Spec) && !req.UpgradeMode {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing Network Addons's Spec to new opinionated values")
 		} else {
 			req.Logger.Info("Reconciling an externally updated Network Addons's Spec to its opinionated values")
 		}
+
 		networkAddons.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
@@ -83,11 +104,11 @@ func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) *networkadd
 	cnaoSpec := networkaddonsshared.NetworkAddonsConfigSpec{
 		Multus:      &networkaddonsshared.Multus{},
 		LinuxBridge: &networkaddonsshared.LinuxBridge{},
-		Ovs:         &networkaddonsshared.Ovs{},
 		NMState:     &networkaddonsshared.NMState{},
 		KubeMacPool: &networkaddonsshared.KubeMacPool{},
 	}
 
+	cnaoSpec.Ovs = hcoAnnotation2CnaoSpec(hc.ObjectMeta.Annotations)
 	cnaoInfra := hcoConfig2CnaoPlacement(hc.Spec.Infra.NodePlacement)
 	cnaoWorkloads := hcoConfig2CnaoPlacement(hc.Spec.Workloads.NodePlacement)
 	if cnaoInfra != nil || cnaoWorkloads != nil {
@@ -145,4 +166,12 @@ func hcoConfig2CnaoPlacement(hcoConf *sdkapi.NodePlacement) *networkaddonsshared
 		return nil
 	}
 	return cnaoPlacement
+}
+
+func hcoAnnotation2CnaoSpec(hcoAnnotations map[string]string) *networkaddonsshared.Ovs {
+	val, exists := hcoAnnotations["deployOVS"]
+	if exists && val == "true" {
+		return &networkaddonsshared.Ovs{}
+	}
+	return nil
 }

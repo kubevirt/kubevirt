@@ -921,9 +921,12 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 		map[string]interface{}{
 			"apiVersion": "hco.kubevirt.io/v1beta1",
 			"kind":       "HyperConverged",
-			"metadata": map[string]string{
+			"metadata": map[string]interface{}{
 				"name":      "kubevirt-hyperconverged",
 				"namespace": namespace,
+				"annotations": map[string]string{
+					"deployOVS": "false",
+				},
 			},
 			"spec": map[string]interface{}{
 				"BareMetalPlatform": false,

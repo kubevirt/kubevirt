@@ -12,6 +12,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	"github.com/openshift/custom-resource-status/testlib"
@@ -361,6 +362,57 @@ var _ = Describe("CNA Operand", func() {
 
 			Expect(req.Conditions).To(BeEmpty())
 		})
+
+		type ovsAnnotationParams struct {
+			annotationExists  bool
+			annotationValue   string
+			ovsDeployExpected bool
+		}
+		table.DescribeTable("when reconciling ovs-cni", func(o ovsAnnotationParams) {
+			hcoOVSConfig := commonTestUtils.NewHco()
+			hcoOVSConfig.Annotations = map[string]string{}
+
+			if o.annotationExists {
+				hcoOVSConfig.Annotations["deployOVS"] = o.annotationValue
+			}
+
+			existingResource := NewNetworkAddons(hcoOVSConfig)
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			if o.ovsDeployExpected {
+				Expect(existingResource.Spec.Ovs).ToNot(BeNil(), "Ovs spec should be added")
+			} else {
+				Expect(existingResource.Spec.Ovs).To(BeNil(), "Ovs spec should not be added")
+			}
+		},
+			table.Entry("should have ovs if deployOVS annotation is set to true", ovsAnnotationParams{
+				annotationExists:  true,
+				annotationValue:   "true",
+				ovsDeployExpected: true,
+			}),
+			table.Entry("should not have ovs if deployOVS annotation is not set to true", ovsAnnotationParams{
+				annotationExists:  true,
+				annotationValue:   "false",
+				ovsDeployExpected: false,
+			}),
+			table.Entry("should not have ovs if deployOVS annotation does not exist", ovsAnnotationParams{
+				annotationExists:  false,
+				annotationValue:   "",
+				ovsDeployExpected: false,
+			}),
+		)
 
 		It("should handle conditions", func() {
 			expectedResource := NewNetworkAddons(hco)
