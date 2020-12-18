@@ -100,6 +100,9 @@ deps-update-patch:
 deps-update:
 	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh && ./hack/dep-prune.sh && ./hack/bazel-generate.sh"
 
+rpm-deps:
+	SYNC_VENDOR=true hack/dockerized " ./hack/rpm-deps.sh"
+
 build-verify:
 	hack/build-verify.sh
 
