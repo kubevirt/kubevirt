@@ -579,39 +579,55 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var virtHandlerAvailablePods int32
 
 			BeforeEach(func() {
+				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nodes.Items).ToNot(BeEmpty())
 
-				// Schedule a vmi and make sure that virt-handler gets evicted from the node where the vmi was started
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo hi!")
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
-				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
-				nodeName = tests.WaitForSuccessfulVMIStart(vmi)
-				virtHandler, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
-				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client")
-				ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get("virt-handler", metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get virthandler daemonset")
-				// Save virt-handler number of desired pods
-				virtHandlerAvailablePods = ds.Status.DesiredNumberScheduled
-				ds.Spec.Template.Spec.Affinity = &k8sv1.Affinity{
-					NodeAffinity: &k8sv1.NodeAffinity{
-						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-								{MatchExpressions: []k8sv1.NodeSelectorRequirement{
-									{Key: "kubernetes.io/hostname", Operator: "NotIn", Values: []string{nodeName}},
-								}},
+				node := nodes.Items[0]
+				nodeName = node.GetName()
+
+				kv := tests.GetCurrentKv(virtClient)
+				kv.Spec.Workloads = &v1.ComponentConfig{
+					NodePlacement: &v1.NodePlacement{
+						Affinity: &k8sv1.Affinity{
+							NodeAffinity: &k8sv1.NodeAffinity{
+								RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+									NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+										{MatchExpressions: []k8sv1.NodeSelectorRequirement{
+											{Key: "kubernetes.io/hostname", Operator: "NotIn", Values: []string{nodeName}},
+										}},
+									},
+								},
 							},
 						},
 					},
 				}
-				_, err = virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Update(ds)
-				Expect(err).ToNot(HaveOccurred(), "Should update virthandler daemonset")
+				_, err = virtClient.KubeVirt(kv.Namespace).Update(kv)
+				Expect(err).ToNot(HaveOccurred(), "Should update kubevirt infra placement")
+
+				// Schedule a vmi and make sure that virt-handler gets evicted from the node where the vmi was started
+				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo hi!")
+				vmi.Spec.NodeSelector = map[string]string{
+					"kubernetes.io/hostname": nodeName,
+				}
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+
+				virtHandler, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client")
+
+				ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get("virt-handler", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Should get virthandler daemonset")
+				// Save virt-handler number of desired pods
+				virtHandlerAvailablePods = ds.Status.DesiredNumberScheduled
+
 				Eventually(func() bool {
 					_, err := virtClient.CoreV1().Pods(virtHandler.Namespace).Get(virtHandler.Name, metav1.GetOptions{})
 					return errors.IsNotFound(err)
-				}, 90*time.Second, 1*time.Second).Should(BeTrue(), "The virthandler pod should be gone")
+				}, 120*time.Second, 1*time.Second).Should(BeTrue(), "The virthandler pod should be gone")
 			})
 
 			It("[test_id:1634]the node controller should mark the node as unschedulable when the virt-handler heartbeat has timedout", func() {
-
 				// Update virt-handler heartbeat, to trigger a timeout
 				data := []byte(fmt.Sprintf(`{"metadata": { "labels": { "%s": "true" }, "annotations": {"%s": "%s"}}}`, v1.NodeSchedulable, v1.VirtHandlerHeartbeat, nowAsJSONWithOffset(-10*time.Minute)))
 				_, err = virtClient.CoreV1().Nodes().Patch(nodeName, types.StrategicMergePatchType, data)
@@ -645,15 +661,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				failedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(failedVMI.Status.Reason).To(Equal(watch.NodeUnresponsiveReason))
+
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 			AfterEach(func() {
-				// Restore virt-handler daemonset
-				ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get("virt-handler", metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get virthandler successfully")
-				ds.Spec.Template.Spec.Affinity = nil
-				_, err = virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Update(ds)
-				Expect(err).ToNot(HaveOccurred(), "Should update virthandler successfully")
+				tests.RestoreKubeVirtResource()
 
 				// Wait until virt-handler ds will have expected number of pods
 				Eventually(func() bool {
