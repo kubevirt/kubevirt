@@ -191,6 +191,7 @@ var _ = Describe("HotplugVolume block devices", func() {
 			podIsolationDetector: &mockIsolationDetector{},
 			mountRecords:         make(map[types.UID]*vmiMountTargetRecord),
 			mountStateDir:        tempDir,
+			skipSafetyCheck:      true,
 		}
 		record = &vmiMountTargetRecord{}
 
@@ -258,11 +259,14 @@ var _ = Describe("HotplugVolume block devices", func() {
 		}
 		err = os.MkdirAll(filepath.Join(tempDir, slicePath), 0755)
 		Expect(err).ToNot(HaveOccurred())
+		devicesFile := filepath.Join(tempDir, slicePath, "devices.list")
 		allowFile := filepath.Join(tempDir, slicePath, "devices.allow")
 		denyFile := filepath.Join(tempDir, slicePath, "devices.deny")
 		_, err := os.Create(allowFile)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = os.Create(denyFile)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = os.Create(devicesFile)
 		Expect(err).ToNot(HaveOccurred())
 		err = os.MkdirAll(filepath.Dir(deviceFile), 0755)
 		Expect(err).ToNot(HaveOccurred())
@@ -302,8 +306,8 @@ var _ = Describe("HotplugVolume block devices", func() {
 		Expect(err).ToNot(HaveOccurred())
 		major, minor, perm, err := m.getSourceMajorMinor(vmi, "fghij")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(major).To(Equal(6))
-		Expect(minor).To(Equal(6))
+		Expect(major).To(Equal(int64(6)))
+		Expect(minor).To(Equal(int64(6)))
 		Expect(perm).To(Equal("0777"))
 	})
 
@@ -313,8 +317,8 @@ var _ = Describe("HotplugVolume block devices", func() {
 		Expect(err).ToNot(HaveOccurred())
 		major, minor, perm, err := m.getSourceMajorMinor(vmi, "fghij")
 		Expect(err).To(HaveOccurred())
-		Expect(major).To(Equal(-1))
-		Expect(minor).To(Equal(-1))
+		Expect(major).To(Equal(int64(-1)))
+		Expect(minor).To(Equal(int64(-1)))
 		Expect(perm).To(Equal(""))
 	})
 
@@ -352,8 +356,8 @@ var _ = Describe("HotplugVolume block devices", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 		// Values are translated to hex (245->580, 32->50)
-		Expect(major).To(Equal(majorRes))
-		Expect(minor).To(Equal(minorRes))
+		Expect(int64(major)).To(Equal(majorRes))
+		Expect(int64(minor)).To(Equal(minorRes))
 		Expect(perm).To(Equal(permRes))
 	},
 		table.Entry("Should return values if stat command successful", func(fileName string) ([]byte, error) {
@@ -428,8 +432,11 @@ var _ = Describe("HotplugVolume block devices", func() {
 
 	It("should write properly to allow/deny files if able", func() {
 		allowFile := filepath.Join(tempDir, "devices.allow")
+		listFile := filepath.Join(tempDir, "devices.list")
 		denyFile := filepath.Join(tempDir, "devices.deny")
 		_, err := os.Create(allowFile)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = os.Create(listFile)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = os.Create(denyFile)
 		Expect(err).ToNot(HaveOccurred())
@@ -458,10 +465,10 @@ var _ = Describe("HotplugVolume block devices", func() {
 
 	It("Should attempt to create a block device file if it doesn't exist", func() {
 		testFile := filepath.Join(tempDir, "testfile")
-		testMajor := 100
-		testMinor := 53
+		testMajor := int64(100)
+		testMinor := int64(53)
 		testPerm := "0664"
-		mknodCommand = func(deviceName string, major, minor int, blockDevicePermissions string) ([]byte, error) {
+		mknodCommand = func(deviceName string, major, minor int64, blockDevicePermissions string) ([]byte, error) {
 			Expect(deviceName).To(Equal(testFile))
 			Expect(major).To(Equal(testMajor))
 			Expect(minor).To(Equal(testMinor))
@@ -472,7 +479,7 @@ var _ = Describe("HotplugVolume block devices", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(res).To(Equal(testFile))
 
-		mknodCommand = func(deviceName string, major, minor int, blockDevicePermissions string) ([]byte, error) {
+		mknodCommand = func(deviceName string, major, minor int64, blockDevicePermissions string) ([]byte, error) {
 			Expect(deviceName).To(Equal(testFile))
 			Expect(major).To(Equal(testMajor))
 			Expect(minor).To(Equal(testMinor))
@@ -486,12 +493,12 @@ var _ = Describe("HotplugVolume block devices", func() {
 
 	It("Should not attempt to create a block device file if it exists", func() {
 		testFile := filepath.Join(tempDir, "testfile")
-		testMajor := 100
-		testMinor := 53
+		testMajor := int64(100)
+		testMinor := int64(53)
 		testPerm := "0664"
 		_, err = os.Create(testFile)
 		Expect(err).ToNot(HaveOccurred())
-		mknodCommand = func(deviceName string, major, minor int, blockDevicePermissions string) ([]byte, error) {
+		mknodCommand = func(deviceName string, major, minor int64, blockDevicePermissions string) ([]byte, error) {
 			Fail("Should not get called")
 			return nil, nil
 		}
@@ -513,9 +520,12 @@ var _ = Describe("HotplugVolume block devices", func() {
 		}
 		deviceFileName := filepath.Join(tempDir, "devicefile")
 		denyFile := filepath.Join(expectedCgroupPath, "devices.deny")
+		listFile := filepath.Join(expectedCgroupPath, "devices.list")
 		_, err := os.Create(deviceFileName)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = os.Create(denyFile)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = os.Create(listFile)
 		Expect(err).ToNot(HaveOccurred())
 		err = m.unmountBlockHotplugVolumes(deviceFileName, vmi)
 		Expect(err).ToNot(HaveOccurred())
@@ -562,25 +572,6 @@ var _ = Describe("HotplugVolume block devices", func() {
 		err = m.unmountBlockHotplugVolumes(deviceFileName, vmi)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("Error detecting"))
-	})
-
-	It("Should return error if writing to deny file fails", func() {
-		slicePath := "slice"
-		expectedCgroupPath := filepath.Join(tempDir, slicePath)
-		m.podIsolationDetector = &mockIsolationDetector{
-			slice: slicePath,
-		}
-		err = os.MkdirAll(expectedCgroupPath, 0755)
-		Expect(err).ToNot(HaveOccurred())
-		statCommand = func(fileName string) ([]byte, error) {
-			return []byte("245,32,0664,block special file"), nil
-		}
-		deviceFileName := filepath.Join(tempDir, "devicefile")
-		_, err := os.Create(deviceFileName)
-		Expect(err).ToNot(HaveOccurred())
-		err = m.unmountBlockHotplugVolumes(deviceFileName, vmi)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("devices.deny: no such file or directory"))
 	})
 })
 
@@ -752,6 +743,7 @@ var _ = Describe("HotplugVolume volumes", func() {
 			podIsolationDetector: &mockIsolationDetector{},
 			mountRecords:         make(map[types.UID]*vmiMountTargetRecord),
 			mountStateDir:        tempDir,
+			skipSafetyCheck:      true,
 		}
 
 		deviceBasePath = func(sourceUID types.UID) string {
@@ -826,10 +818,13 @@ var _ = Describe("HotplugVolume volumes", func() {
 		err = os.MkdirAll(filepath.Join(tempDir, slicePath), 0755)
 		Expect(err).ToNot(HaveOccurred())
 		allowFile := filepath.Join(tempDir, slicePath, "devices.allow")
+		listFile := filepath.Join(tempDir, slicePath, "devices.list")
 		denyFile := filepath.Join(tempDir, slicePath, "devices.deny")
 		_, err := os.Create(allowFile)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = os.Create(denyFile)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = os.Create(listFile)
 		Expect(err).ToNot(HaveOccurred())
 		err = ioutil.WriteFile(deviceFile, []byte("test"), 0644)
 		Expect(err).ToNot(HaveOccurred())
@@ -949,10 +944,13 @@ var _ = Describe("HotplugVolume volumes", func() {
 		err = os.MkdirAll(filepath.Join(tempDir, slicePath), 0755)
 		Expect(err).ToNot(HaveOccurred())
 		allowFile := filepath.Join(tempDir, slicePath, "devices.allow")
+		listFile := filepath.Join(tempDir, slicePath, "devices.list")
 		denyFile := filepath.Join(tempDir, slicePath, "devices.deny")
 		_, err := os.Create(allowFile)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = os.Create(denyFile)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = os.Create(listFile)
 		Expect(err).ToNot(HaveOccurred())
 		err = ioutil.WriteFile(deviceFile, []byte("test"), 0644)
 		Expect(err).ToNot(HaveOccurred())

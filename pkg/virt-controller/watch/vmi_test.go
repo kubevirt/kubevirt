@@ -1596,6 +1596,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						},
 					},
 				})
+				pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{
+					{
+						Ready: true,
+					},
+				}
 				res = append(res, pod)
 			}
 			return res
