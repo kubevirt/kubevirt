@@ -1,7 +1,9 @@
 package hotplug_volume
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -9,6 +11,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,6 +20,10 @@ import (
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+
+	"github.com/opencontainers/runc/libcontainer/cgroups/devices"
+	"github.com/opencontainers/runc/libcontainer/cgroups/fscommon"
+	"github.com/opencontainers/runc/libcontainer/configs"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -41,8 +48,8 @@ var (
 		return exec.Command("/usr/bin/stat", fileName, "-L", "-c%t,%T,%a,%F").CombinedOutput()
 	}
 
-	mknodCommand = func(deviceName string, major, minor int, blockDevicePermissions string) ([]byte, error) {
-		return exec.Command("/usr/bin/mknod", "--mode", fmt.Sprintf("0%s", blockDevicePermissions), deviceName, "b", strconv.Itoa(major), strconv.Itoa(minor)).CombinedOutput()
+	mknodCommand = func(deviceName string, major, minor int64, blockDevicePermissions string) ([]byte, error) {
+		return exec.Command("/usr/bin/mknod", "--mode", fmt.Sprintf("0%s", blockDevicePermissions), deviceName, "b", strconv.FormatInt(major, 10), strconv.FormatInt(minor, 10)).CombinedOutput()
 	}
 
 	mountCommand = func(sourcePath, targetPath string) ([]byte, error) {
@@ -69,6 +76,7 @@ type volumeMounter struct {
 	mountStateDir        string
 	mountRecords         map[types.UID]*vmiMountTargetRecord
 	mountRecordsLock     sync.Mutex
+	skipSafetyCheck      bool
 }
 
 // VolumeMounter is the interface used to mount and unmount volumes to/from a running virtlauncher pod.
@@ -228,7 +236,7 @@ func (m *volumeMounter) Mount(vmi *v1.VirtualMachineInstance) error {
 		}
 		logger.V(4).Infof("Hotplug check volume name: %s", volumeStatus.Name)
 		sourceUID := volumeStatus.HotplugVolume.AttachPodUID
-		if sourceUID != "" {
+		if sourceUID != types.UID("") {
 			if m.isBlockVolume(sourceUID) {
 				logger.V(4).Infof("Mounting block volume: %s", volumeStatus.Name)
 				if err := m.mountBlockHotplugVolume(vmi, volumeStatus.Name, sourceUID, record); err != nil {
@@ -276,15 +284,15 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 	deviceName := filepath.Join(targetPath, volume)
 
 	if isBlockExists, _ := isBlockDevice(deviceName); !isBlockExists {
+		computeCGroupPath, err := m.getTargetCgroupPath(vmi)
+		if err != nil {
+			return err
+		}
 		sourceMajor, sourceMinor, permissions, err := m.getSourceMajorMinor(vmi, sourceUID)
 		if err != nil {
 			return err
 		}
 		if err := m.writePathToMountRecord(deviceName, vmi, record); err != nil {
-			return err
-		}
-		computeCGroupPath, err := m.getTargetCgroupPath(vmi)
-		if err != nil {
 			return err
 		}
 		// allow block devices
@@ -294,13 +302,12 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		if _, err = m.createBlockDeviceFile(deviceName, sourceMajor, sourceMinor, permissions); err != nil {
 			return err
 		}
-		return nil
 	}
 	return nil
 }
 
-func (m *volumeMounter) getSourceMajorMinor(vmi *v1.VirtualMachineInstance, sourceUID types.UID) (int, int, string, error) {
-	result := make([]int, 2)
+func (m *volumeMounter) getSourceMajorMinor(vmi *v1.VirtualMachineInstance, sourceUID types.UID) (int64, int64, string, error) {
+	result := make([]int64, 2)
 	perms := ""
 	if sourceUID != types.UID("") {
 		basepath := deviceBasePath(sourceUID)
@@ -350,7 +357,6 @@ func (m *volumeMounter) isBlockFile(fileName string) bool {
 	// Stat the file and see if there is no error
 	out, err := statCommand(fileName)
 	if err != nil {
-		log.DefaultLogger().Errorf("Error statting block device file: %s, %v", out, err)
 		// Not a block device skip to next file
 		return false
 	}
@@ -362,7 +368,7 @@ func (m *volumeMounter) isBlockFile(fileName string) bool {
 	return strings.TrimSpace(split[3]) == "block special file"
 }
 
-func (m *volumeMounter) getBlockFileMajorMinor(fileName string) (int, int, string, error) {
+func (m *volumeMounter) getBlockFileMajorMinor(fileName string) (int64, int64, string, error) {
 	result := make([]int, 2)
 	// Stat the file and see if there is no error
 	out, err := statCommand(fileName)
@@ -386,7 +392,7 @@ func (m *volumeMounter) getBlockFileMajorMinor(fileName string) (int, int, strin
 		}
 		result[i] = int(val)
 	}
-	return result[0], result[1], split[2], nil
+	return int64(result[0]), int64(result[1]), split[2], nil
 }
 
 // getTargetCgroupPath returns the container cgroup path of the compute container in the pod.
@@ -408,32 +414,70 @@ func (m *volumeMounter) getTargetCgroupPath(vmi *v1.VirtualMachineInstance) (str
 	return virtlauncherCgroupPath, nil
 }
 
-func (m *volumeMounter) removeBlockMajorMinor(major, minor int, path string) error {
-	denyPath := filepath.Join(path, "devices.deny")
-	return m.updateBlockMajorMinor(major, minor, denyPath)
+func (m *volumeMounter) removeBlockMajorMinor(major, minor int64, path string) error {
+	return m.updateBlockMajorMinor(major, minor, path, false)
 }
 
-func (m *volumeMounter) allowBlockMajorMinor(major, minor int, path string) error {
-	// example: echo 'b 252:16 rwm' > /sys/fs/cgroup/devices/kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-pod1f94197e_915d_43cf_ba30_6d6beaac7a61.slice/docker-a4ae23f2aa0794cf9c59e2f579fd809c44fda85d1ae305a9cda066f129a6267f.scope/devices.allow
-	allowPath := filepath.Join(path, "devices.allow")
-	return m.updateBlockMajorMinor(major, minor, allowPath)
+func (m *volumeMounter) allowBlockMajorMinor(major, minor int64, path string) error {
+	return m.updateBlockMajorMinor(major, minor, path, true)
 }
 
-func (m *volumeMounter) updateBlockMajorMinor(major, minor int, fileName string) error {
-	permission := fmt.Sprintf("b %d:%d rwm", major, minor)
-	file, err := os.OpenFile(fileName, os.O_WRONLY, os.ModeAppend)
-	if err != nil {
-		return err
+func (m *volumeMounter) updateBlockMajorMinor(major, minor int64, path string, allow bool) error {
+	deviceRule := &configs.DeviceRule{
+		Type:        configs.BlockDevice,
+		Major:       major,
+		Minor:       minor,
+		Permissions: "rwm",
+		Allow:       allow,
 	}
-	defer file.Close()
-	_, err = file.WriteString(permission)
-	if err != nil {
+	if err := m.updateDevicesList(path, deviceRule); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (m *volumeMounter) createBlockDeviceFile(deviceName string, major, minor int, blockDevicePermissions string) (string, error) {
+func (m *volumeMounter) loadEmulator(path string) (*devices.Emulator, error) {
+	list, err := fscommon.ReadFile(path, "devices.list")
+	if err != nil {
+		return nil, err
+	}
+	return devices.EmulatorFromList(bytes.NewBufferString(list))
+}
+
+func (m *volumeMounter) updateDevicesList(path string, rule *configs.DeviceRule) error {
+	// Create the target emulator for comparison later.
+	target, err := m.loadEmulator(path)
+	if err != nil {
+		return err
+	}
+	target.Apply(*rule)
+
+	file := "devices.deny"
+	if rule.Allow {
+		file = "devices.allow"
+	}
+	if err := fscommon.WriteFile(path, file, rule.CgroupString()); err != nil {
+		return err
+	}
+
+	// Final safety check -- ensure that the resulting state is what was
+	// requested. This is only really correct for white-lists, but for
+	// black-lists we can at least check that the cgroup is in the right mode.
+	currentAfter, err := m.loadEmulator(path)
+	if err != nil {
+		return err
+	}
+	if !m.skipSafetyCheck {
+		if !target.IsBlacklist() && !reflect.DeepEqual(currentAfter, target) {
+			return errors.New("resulting devices cgroup doesn't precisely match target")
+		} else if target.IsBlacklist() != currentAfter.IsBlacklist() {
+			return errors.New("resulting devices cgroup doesn't match target mode")
+		}
+	}
+	return nil
+}
+
+func (m *volumeMounter) createBlockDeviceFile(deviceName string, major, minor int64, blockDevicePermissions string) (string, error) {
 	exists, err := diskutils.FileExists(deviceName)
 	if err != nil {
 		return "", err
@@ -451,7 +495,8 @@ func (m *volumeMounter) createBlockDeviceFile(deviceName string, major, minor in
 func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, record *vmiMountTargetRecord) error {
 	sourcePath, err := m.getSourcePodFilePath(sourceUID)
 	if err != nil {
-		return err
+		log.DefaultLogger().Infof("Error finding source path: %v", err)
+		return nil
 	}
 
 	virtlauncherUID := m.findVirtlauncherUID(vmi)
