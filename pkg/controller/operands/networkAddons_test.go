@@ -3,7 +3,6 @@ package operands
 import (
 	"context"
 	"fmt"
-	"time"
 
 	networkaddonsshared "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
@@ -17,7 +16,6 @@ import (
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	"github.com/openshift/custom-resource-status/testlib"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
@@ -259,106 +257,6 @@ var _ = Describe("CNA Operand", func() {
 			Expect(foundResource.Spec.PlacementConfiguration.Workloads.Tolerations).To(HaveLen(2))
 			Expect(foundResource.Spec.PlacementConfiguration.Infra.NodeSelector["key1"]).Should(Equal("value1"))
 			Expect(foundResource.Spec.PlacementConfiguration.Workloads.NodeSelector["key2"]).Should(Equal("value2"))
-
-			Expect(req.Conditions).To(BeEmpty())
-		})
-
-		It("should add cert configuration if missing in CNAO", func() {
-			existingResource := NewNetworkAddons(hco)
-
-			hco.Spec.CertConfig = &hcov1beta1.HyperConvergedCertConfig{
-				CARotateInterval:   metav1.Duration{Duration: 1 * time.Hour},
-				CAOverlapInterval:  metav1.Duration{Duration: 2 * time.Hour},
-				CertRotateInterval: metav1.Duration{Duration: 3 * time.Hour},
-			}
-
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
-			res := handler.ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
-
-			Expect(existingResource.Spec.SelfSignConfiguration).To(BeNil())
-			Expect(foundResource.Spec.SelfSignConfiguration).ToNot(BeNil())
-			Expect(foundResource.Spec.SelfSignConfiguration.CARotateInterval).Should(Equal("1h0m0s"))
-			Expect(foundResource.Spec.SelfSignConfiguration.CAOverlapInterval).Should(Equal("2h0m0s"))
-			Expect(foundResource.Spec.SelfSignConfiguration.CertRotateInterval).Should(Equal("3h0m0s"))
-			Expect(req.Conditions).To(BeEmpty())
-		})
-
-		It("should remove cert configuration if missing in HCO CR", func() {
-			hcoCertConfig := commonTestUtils.NewHco()
-			hcoCertConfig.Spec.CertConfig = &hcov1beta1.HyperConvergedCertConfig{
-				CARotateInterval:   metav1.Duration{Duration: 1 * time.Hour},
-				CAOverlapInterval:  metav1.Duration{Duration: 2 * time.Hour},
-				CertRotateInterval: metav1.Duration{Duration: 3 * time.Hour},
-			}
-
-			existingResource := NewNetworkAddons(hcoCertConfig)
-
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
-			res := handler.ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
-
-			Expect(existingResource.Spec.SelfSignConfiguration).ToNot(BeNil())
-			Expect(foundResource.Spec.SelfSignConfiguration).To(BeNil())
-
-			Expect(req.Conditions).To(BeEmpty())
-		})
-
-		It("should modify cert configuration according to HCO CR", func() {
-			hco.Spec.CertConfig = &hcov1beta1.HyperConvergedCertConfig{
-				CARotateInterval:   metav1.Duration{Duration: 1 * time.Hour},
-				CAOverlapInterval:  metav1.Duration{Duration: 2 * time.Hour},
-				CertRotateInterval: metav1.Duration{Duration: 3 * time.Hour},
-			}
-			existingResource := NewNetworkAddons(hco)
-
-			hco.Spec.CertConfig.CARotateInterval = metav1.Duration{Duration: 4 * time.Hour}
-			hco.Spec.CertConfig.CAOverlapInterval = metav1.Duration{Duration: 5 * time.Hour}
-			hco.Spec.CertConfig.CertRotateInterval = metav1.Duration{Duration: 6 * time.Hour}
-
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
-			res := handler.ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &networkaddonsv1.NetworkAddonsConfig{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
-
-			Expect(existingResource.Spec.SelfSignConfiguration).ToNot(BeNil())
-			Expect(existingResource.Spec.SelfSignConfiguration.CARotateInterval).Should(Equal("1h0m0s"))
-			Expect(existingResource.Spec.SelfSignConfiguration.CAOverlapInterval).Should(Equal("2h0m0s"))
-			Expect(existingResource.Spec.SelfSignConfiguration.CertRotateInterval).Should(Equal("3h0m0s"))
-
-			Expect(foundResource.Spec.SelfSignConfiguration).ToNot(BeNil())
-			Expect(foundResource.Spec.SelfSignConfiguration.CARotateInterval).Should(Equal("4h0m0s"))
-			Expect(foundResource.Spec.SelfSignConfiguration.CAOverlapInterval).Should(Equal("5h0m0s"))
-			Expect(foundResource.Spec.SelfSignConfiguration.CertRotateInterval).Should(Equal("6h0m0s"))
 
 			Expect(req.Conditions).To(BeEmpty())
 		})

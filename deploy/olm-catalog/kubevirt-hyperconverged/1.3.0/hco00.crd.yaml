@@ -150,19 +150,6 @@ spec:
               bareMetalPlatform:
                 description: BareMetalPlatform indicates whether the infrastructure is baremetal.
                 type: boolean
-              certConfig:
-                description: certConfig holds the rotation policy for internal, self-signed certificates
-                properties:
-                  caOverlapInterval:
-                    description: CAOverlapInterval defines the duration of CA Certificates at CABundle
-                    type: string
-                  caRotateInterval:
-                    description: CARotateInterval defines the duration for CA and certificate
-                    type: string
-                  certRotateInterval:
-                    description: CertRotateInterval defines the duration of service certificate
-                    type: string
-                type: object
               infra:
                 description: infra HyperConvergedConfig influences the pod configuration (currently only placement) for all the infra components needed on the virtualization enabled cluster but not necessarely directly on each node running VMs/VMIs.
                 properties:
