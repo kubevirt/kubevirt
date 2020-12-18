@@ -159,11 +159,21 @@ http_file(
     ],
 )
 
+http_archive(
+    name = "bazeldnf",
+    sha256 = "5ca9b15e07243f936d7ff665738bfb12e1911d850dfaa3fbcba1e75b31650430",
+    strip_prefix = "bazeldnf-0.0.5",
+    urls = [
+        "https://github.com/rmohr/bazeldnf/archive/v0.0.5.tar.gz",
+    ],
+)
+
 load(
     "@io_bazel_rules_go//go:deps.bzl",
     "go_register_toolchains",
     "go_rules_dependencies",
 )
+load("@bazeldnf//:deps.bzl", "bazeldnf_dependencies", "rpm")
 
 go_rules_dependencies()
 
@@ -676,3 +686,5 @@ go_repository(
     sum = "h1:go1bK/D/BFZV2I8cIQd1NKEZ+0owSTG1fDTci4IqFcE=",
     version = "v0.0.0-20200804184101-5ec99f83aff1",
 )
+
+bazeldnf_dependencies()
