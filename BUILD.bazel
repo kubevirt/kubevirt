@@ -29,6 +29,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 load("@bazel_gazelle//:def.bzl", "gazelle")
 load("@io_bazel_rules_go//go:def.bzl", "nogo")
 load("@com_github_atlassian_bazel_tools//goimports:def.bzl", "goimports")
+load("@bazeldnf//:def.bzl", "bazeldnf")
 
 goimports(
     name = "goimports",
@@ -83,6 +84,8 @@ gazelle(
     name = "gazelle",
     build_tags = ["selinux"],
 )
+
+bazeldnf(name = "bazeldnf")
 
 load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
 
