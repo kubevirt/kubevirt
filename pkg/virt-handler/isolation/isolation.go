@@ -405,6 +405,17 @@ func (r *realIsolationResult) ParentMountInfoFor(mountInfo *MountInfo) (*MountIn
 	return nil, fmt.Errorf("no parent entry for %v found in the mount namespace of %d", mountInfo.DeviceContainingFile, r.pid)
 }
 
+// FullPath takes the mount info from a container and composes the full path starting from
+// the root mount of the given process.
+func (r *realIsolationResult) FullPath(mountInfo *MountInfo) (path string, err error) {
+	parentMountInfo, err := r.ParentMountInfoFor(mountInfo)
+	if err != nil {
+		return
+	}
+	path = filepath.Join(r.MountRoot(), parentMountInfo.Root, parentMountInfo.MountPoint, mountInfo.Root)
+	return
+}
+
 func (r *realIsolationResult) NetNamespace() string {
 	return fmt.Sprintf("/proc/%d/ns/net", r.pid)
 }
