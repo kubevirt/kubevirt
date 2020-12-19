@@ -232,11 +232,11 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 				if err != nil {
 					return fmt.Errorf("failed to detect root mount info of containerDisk  %v: %v", volume.Name, err)
 				}
-				nodeMountInfo, err := nodeRes.ParentMountInfoFor(mountInfo)
+				rootPath, err := nodeRes.FullPath(mountInfo)
 				if err != nil {
 					return fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
 				}
-				sourceFile, err := containerdisk.GetImage(filepath.Join(nodeRes.MountRoot(), nodeMountInfo.Root, nodeMountInfo.MountPoint, mountInfo.Root), volume.ContainerDisk.Path)
+				sourceFile, err := containerdisk.GetImage(rootPath, volume.ContainerDisk.Path)
 				if err != nil {
 					return fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
 				}
