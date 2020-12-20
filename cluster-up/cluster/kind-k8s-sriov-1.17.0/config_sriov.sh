@@ -1,35 +1,107 @@
 #!/bin/bash
-set -xe
 
+set -ex
+
+if [ "$(id -u)" -ne 0 ]; then
+  echo "This script requires sudo privileges"
+  exit 1
+fi
+
+source cluster-up/hack/common.sh
 source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
 
-MANIFESTS_DIR="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/manifests"
-CERTCREATOR_PATH="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/certcreator"
-KUBECONFIG_PATH="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig"
+function get_pf_names() {
+  local pf_net_devices=( $(ls /sys/class/net/*/device/sriov_numvfs) )
+  local pf_names=()
+  for pf in "${pf_net_devices[@]}"; do
+    pf_name="${pf%%/device/*}"
+    pf_name="${pf_name##*/}"
 
-MASTER_NODE="${CLUSTER_NAME}-control-plane"
-WORKER_NODE_ROOT="${CLUSTER_NAME}-worker"
+    if [ $(echo "${PF_BLACKLIST[@]}" | grep "${pf_name}") ]; then
+      continue
+    fi
 
-OPERATOR_GIT_HASH=8d3c30de8ec5a9a0c9eeb84ea0aa16ba2395cd68  # release-4.4
-SRIOV_OPERATOR_NAMESPACE="sriov-network-operator"
+    pf_names+=( $pf_name )
+  done
 
-# The first worker needs to be handled specially as it has no ending number, and sort will not work
-# We add the 0 to it and we remove it if it's the candidate worker
-WORKER=$(_kubectl get nodes | grep $WORKER_NODE_ROOT | sed "s/\b$WORKER_NODE_ROOT\b/${WORKER_NODE_ROOT}0/g" | sort -r | awk 'NR==1 {print $1}')
-if [[ -z "$WORKER" ]]; then
-  SRIOV_NODE=$MASTER_NODE
-else
-  SRIOV_NODE=$WORKER
+  echo "${pf_names[@]}"
+}
+
+function attach_pf_to_network_namespace() {
+  local -r current_pf=$1 
+  local -r current_node=$2
+
+  echo "[$current_node] Attaching PF '$current_pf' to node network namespace"
+  
+  pid="$(docker inspect -f '{{.State.Pid}}' $current_node)"
+  current_node_network_namespace=$current_node
+
+  # Create symlink to current worker node (container) network-namespace
+  # at /var/run/netns (consumned by iplink) so it will be visibale by iplink.
+  # This is necessary since docker does not creating the requierd
+  # symlink for a container network-namesapce.
+  ln -sf /proc/$pid/ns/net "/var/run/netns/$current_node_network_namespace"
+
+  # Move current PF to current node network-namespace
+  ip link set $current_pf netns $current_node_network_namespace
+
+  # Ensure current PF is up
+  ip netns exec $current_node_network_namespace ip link set up dev $current_pf
+
+  ip netns exec $current_node_network_namespace ip link show
+}
+
+CRI=${CRI:-docker}
+
+PF_BLACKLIST=${PF_BLACKLIST:-none}
+SRIOV_WORKER_NODES_LABEL=${SRIOV_WORKER_NODES_LABEL:-none}
+
+echo "SRIOV Pysical Functions interfaces names"
+pf_names=( $(get_pf_names) )
+if [ ${#pf_names[@]} -eq 0 ];then
+  echo "No PF's found"
+  exit 1
 fi
+echo "${pf_names[@]}"
 
-# this is to remove the ending 0 in case the candidate worker is the first one
-if [[ "$SRIOV_NODE" == "${WORKER_NODE_ROOT}0" ]]; then
-  SRIOV_NODE=${WORKER_NODE_ROOT}
+echo "Worker nodes"
+nodes=( $(_kubectl get nodes -l node-role.kubernetes.io/worker -o custom-columns=:.metadata.name --no-headers) )
+if [ ${#nodes[@]} -eq 0 ];then
+  echo "No worker nodes found"
+  exit 1
 fi
+echo "${nodes[@]}"
 
-NODE_PFS=($(move_sriov_pfs_netns_to_node $SRIOV_NODE))
+echo "Move PF's to worker nodes network namespaces"
+mkdir -p /var/run/netns/
+pf_count="${#pf_names[@]}"
+for i in $(seq $pf_count); do
+  index=$((i-1))
 
-SRIOV_NODE_CMD="docker exec -it -d ${SRIOV_NODE}"
-${SRIOV_NODE_CMD} mount -o remount,rw /sys     # kind remounts it as readonly when it starts, we need it to be writeable
-${SRIOV_NODE_CMD} chmod 666 /dev/vfio/vfio
-_kubectl label node $SRIOV_NODE sriov=true
+  current_pf="${pf_names[$index]}"
+  if [ -z $current_pf ]; then
+    echo "All PF's were attached"
+    break
+  fi
+
+  current_node="${nodes[$index]}"
+  if [ -z $current_node ]; then
+    echo "All workers were configured"
+    break
+  fi
+
+  attach_pf_to_network_namespace $current_pf $current_node
+
+  _kubectl label node $current_node $SRIOV_WORKER_NODES_LABEL
+
+  node_exec="$CRI exec $current_node"
+  # KIND mounts sysfs as readonly
+  ${node_exec} mount -o remount,rw /sys
+
+  # Ensure vfio binary is executable
+  ${node_exec} chmod 666 /dev/vfio/vfio
+
+  # Prepare SRIOV Virtual Functions
+  ${CRI} cp "${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/configure_vfs.sh" $current_node:/
+  ${node_exec} bash -c "./configure_vfs.sh"
+done
