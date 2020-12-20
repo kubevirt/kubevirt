@@ -2129,7 +2129,7 @@ spec:
                 - name: OPERATOR_NAME
                   value: hostpath-provisioner-operator
                 - name: PROVISIONER_IMAGE
-                  value: quay.io/kubevirt/hostpath-provisioner@sha256:9d92c216bc50d7fbfc787f315ad77dabd2ac26d981702efd545a1dd1f2b37c6c
+                  value: quay.io/kubevirt/hostpath-provisioner@sha256:3838d8e713d2e85a807a9c302501b25c248ba3f3c1602fe50480e6510de43e11
                 - name: PULL_POLICY
                   value: IfNotPresent
                 image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:a51e9b075a60600244757386f5894b314170543edb1d7f4738f4860a19602072
@@ -2361,7 +2361,7 @@ spec:
     name: cluster-network-addons-operator
   - image: quay.io/kubevirt/cni-default-plugins@sha256:3dd438117076016d6d2acd508b93f106ca80a28c0af6e2e914d812f9a1d55142
     name: cni-default-plugins
-  - image: quay.io/kubevirt/hostpath-provisioner@sha256:9d92c216bc50d7fbfc787f315ad77dabd2ac26d981702efd545a1dd1f2b37c6c
+  - image: quay.io/kubevirt/hostpath-provisioner@sha256:3838d8e713d2e85a807a9c302501b25c248ba3f3c1602fe50480e6510de43e11
     name: hostpath-provisioner
   - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:a51e9b075a60600244757386f5894b314170543edb1d7f4738f4860a19602072
     name: hostpath-provisioner-operator
