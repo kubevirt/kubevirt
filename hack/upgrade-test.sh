@@ -41,7 +41,7 @@
 # to verify that it is updated to the new operator image from 
 # the local registry.
 
-MAX_STEPS=13
+MAX_STEPS=14
 CUR_STEP=1
 RELEASE_DELTA="${RELEASE_DELTA:-1}"
 HCO_DEPLOYMENT_NAME=hco-operator
@@ -269,7 +269,7 @@ dump_sccs_after
 KUBECTL_BINARY=${CMD} ./hack/test_quick_start.sh
 
 Msg "Check that OVS is deployed or not deployed according to deployOVS annotation in HCO CR."
-./hack/retry.sh 10 10 "CMD=${CMD} PREVIOUS_OVS_ANNOTATION=${PREVIOUS_OVS_ANNOTATION}\
+./hack/retry.sh 40 15 "CMD=${CMD} PREVIOUS_OVS_ANNOTATION=${PREVIOUS_OVS_ANNOTATION}\
  PREVIOUS_OVS_STATE=${PREVIOUS_OVS_STATE} ./hack/check_upgrade_ovs.sh"
 
 Msg "Brutally delete HCO removing the namespace where it's running"

@@ -282,9 +282,23 @@ type CDISpec struct {
 	Infra sdkapi.NodePlacement `json:"infra,omitempty"`
 	// Restrict on which nodes CDI workload pods will be scheduled
 	Workloads sdkapi.NodePlacement `json:"workload,omitempty"`
+	// Clone strategy override: should we use a host-assisted copy even if snapshots are available?
+	// +kubebuilder:validation:Enum="copy";"snapshot"
+	CloneStrategyOverride *CDICloneStrategy `json:"cloneStrategyOverride,omitempty"`
 	// CDIConfig at CDI level
 	Config *CDIConfigSpec `json:"config,omitempty"`
 }
+
+// CDICloneStrategy defines the preferred method for performing a CDI clone (override snapshot?)
+type CDICloneStrategy string
+
+const (
+	// CloneStrategyHostAssisted specifies slower, host-assisted copy
+	CloneStrategyHostAssisted = "copy"
+
+	// CloneStrategySnapshot specifies snapshot-based copying
+	CloneStrategySnapshot = "snapshot"
+)
 
 // CDIUninstallStrategy defines the state to leave CDI on uninstall
 type CDIUninstallStrategy string
