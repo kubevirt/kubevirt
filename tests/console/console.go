@@ -53,14 +53,21 @@ var (
 // wait `timeout` for the batch to return.
 // NOTE: there is a safer version that validates sended commands `SafeExpectBatch` refer to it about limitations.
 func ExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, timeout time.Duration) error {
+	_, err := ExpectBatchWithResponse(vmi, expected, timeout)
+	return err
+}
+// ExpectBatchWithResponse runs the batch from `expected` connecting to the `vmi` console and
+// wait `timeout` for the batch to return with response.
+// NOTE: there is a safer version that validates sended commands `SafeExpectBatch` refer to it about limitations.
+func ExpectBatchWithResponse(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, timeout time.Duration) ([]expect.BatchRes, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	expecter, _, err := NewExpecter(virtClient, vmi, 30*time.Second)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer expecter.Close()
 
@@ -68,7 +75,7 @@ func ExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, time
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("%v", resp)
 	}
-	return err
+	return resp, err
 }
 
 // SafeExpectBatch runs the batch from `expected` connecting to a VMI's console and
@@ -105,7 +112,15 @@ func SafeExpectBatchWithResponse(vmi *v1.VirtualMachineInstance, expected []expe
 // and wait `timeout` for command to return.
 // NOTE: The safer version `ExpectBatchWithValidatedSend` is not used here since it does not support cases.
 func RunCommand(vmi *v1.VirtualMachineInstance, command string, timeout time.Duration) error {
-	err := ExpectBatch(vmi, []expect.Batcher{
+	_, err := RunCommandWithResponse(vmi,command,timeout)
+	return err
+}
+
+// RunCommandWithResponse runs the command line from `command connecting to an already logged in console at vmi
+// and wait `timeout` for command to return with response.
+// NOTE: The safer version `ExpectBatchWithValidatedSend` is not used here since it does not support cases.
+func RunCommandWithResponse(vmi *v1.VirtualMachineInstance, command string, timeout time.Duration) ([]expect.BatchRes, error) {
+	resp, err := ExpectBatchWithResponse(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: PromptExpression},
 		&expect.BSnd{S: command + "\n"},
@@ -123,9 +138,9 @@ func RunCommand(vmi *v1.VirtualMachineInstance, command string, timeout time.Dur
 		}},
 	}, timeout)
 	if err != nil {
-		return fmt.Errorf("Failed to run [%s] at VMI %s, error: %v", command, vmi.Name, err)
+		return resp, fmt.Errorf("Failed to run [%s] at VMI %s, error: %v", command, vmi.Name, err)
 	}
-	return nil
+	return nil, nil
 }
 
 // SecureBootExpecter should be called on a VMI that has EFI enabled
