@@ -59,7 +59,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 
 	var patch []patchOperation
 
-	// Patch the spec with defaults if we deal with a create operation
+	// Patch the spec, metadata and status with defaults if we deal with a create operation
 	if ar.Request.Operation == admissionv1.Create {
 		informers := webhooks.GetInformers()
 
@@ -115,6 +115,9 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		// Add foreground finalizer
 		newVMI.Finalizers = append(newVMI.Finalizers, v1.VirtualMachineInstanceFinalizer)
 
+		// Set the phase to pending to avoid blank status
+		newVMI.Status.Phase = v1.Pending
+
 		var value interface{}
 		value = newVMI.Spec
 		patch = append(patch, patchOperation{
@@ -127,6 +130,13 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		patch = append(patch, patchOperation{
 			Op:    "replace",
 			Path:  "/metadata",
+			Value: value,
+		})
+
+		value = newVMI.Status
+		patch = append(patch, patchOperation{
+			Op:    "replace",
+			Path:  "/status",
 			Value: value,
 		})
 	} else if ar.Request.Operation == admissionv1.Update {
