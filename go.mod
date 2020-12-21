@@ -30,7 +30,7 @@ require (
 	github.com/google/gofuzz v1.0.0
 	github.com/google/goterm v0.0.0-20190311235235-ce302be1d114 // indirect
 	github.com/gophercloud/gophercloud v0.4.0 // indirect
-	github.com/gorilla/websocket v1.4.0
+	github.com/gorilla/websocket v1.4.2
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20191119172530-79f836b90111
 	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
 	github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1
@@ -54,9 +54,10 @@ require (
 	github.com/subgraph/libmacouflage v0.0.1
 	github.com/vishvananda/netlink v1.1.1-0.20200914145417-7484f55b2263
 	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad
-	golang.org/x/crypto v0.0.0-20200423211502-4bdfaf469ed5
+	golang.org/x/crypto v0.0.0-20201216223049-8b5274cf687f
 	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
 	golang.org/x/sys v0.0.0-20200915050820-6d893a6b696e
+	golang.org/x/text v0.3.4 // indirect
 	google.golang.org/grpc v1.30.0
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
