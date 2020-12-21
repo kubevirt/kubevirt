@@ -29,6 +29,7 @@ go_test(
         "isolation_suite_test.go",
         "isolation_test.go",
     ],
+    data = glob(["testdata/**"]),
     embed = [":go_default_library"],
     deps = [
         "//pkg/virt-handler/cmd-client:go_default_library",
