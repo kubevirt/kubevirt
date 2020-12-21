@@ -30,6 +30,7 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/multierr"
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -850,14 +851,10 @@ var _ = Describe("[Serial]SRIOV", func() {
 			//create two vms on the smae sriov network
 			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, cidrA, cidrB)
 
-			assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642", func() {
-				Eventually(func() error {
-					return libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))
-				}, 15*time.Second, time.Second).Should(Succeed())
-				Eventually(func() error {
-					return libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))
-				}, 15*time.Second, time.Second).Should(Succeed())
-			})
+			//assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642")
+			Eventually(func() error {
+				return  multierr.Append(libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB)), libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA)))
+			}, 15*time.Second, time.Second).Should(Succeed())
 		})
 
 		It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
@@ -866,14 +863,10 @@ var _ = Describe("[Serial]SRIOV", func() {
 			//create two vms on the smae sriov network
 			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, cidrA, cidrB)
 
-			assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642", func() {
-				Eventually(func() error {
-					return libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))
-				}, 15*time.Second, time.Second).Should(Succeed())
-				Eventually(func() error {
-					return libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))
-				}, 15*time.Second, time.Second).Should(Succeed())
-			})
+			//assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642")
+			Eventually(func() error {
+				return  multierr.Append(libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB)), libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA)))
+			}, 15*time.Second, time.Second).Should(Succeed())
 		})
 
 		Context("With VLAN", func() {
