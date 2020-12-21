@@ -75,6 +75,11 @@ type MountInfo struct {
 	MountPoint           string
 }
 
+// The unit test suite overwrites this function
+var mountInfoFunc = func(pid int) string {
+	return fmt.Sprintf("/proc/%d/mountinfo", pid)
+}
+
 type socketBasedIsolationDetector struct {
 	socketDir  string
 	controller []string
@@ -259,7 +264,7 @@ func (r *realIsolationResult) MountNamespace() string {
 }
 
 func (r *realIsolationResult) mountInfo() string {
-	return fmt.Sprintf("/proc/%d/mountinfo", r.pid)
+	return mountInfoFunc(r.pid)
 }
 
 // MountInfoRoot returns information about the root entry in /proc/mountinfo
