@@ -11,3 +11,12 @@ repositories:
 - arch: ppc64le
   metalink: https://mirrors.fedoraproject.org/metalink?repo=updates-released-f32&arch=ppc64le
   name: 32-ppc64le-update-repo
+- arch: x86_64
+  baseurl: https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-8.el8/fedora-32-x86_64/
+  name: kubevirt/libvirt-copr-x86_64
+- arch: x86_64
+  baseurl: https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-kvm-5.1.0-16.el8/fedora-32-x86_64/
+  name: kubevirt/qemu-copr-x86_64
+- arch: x86_64
+  baseurl: https://download.copr.fedorainfracloud.org/results/@kubevirt/seabios-1.14.0-1.el8/fedora-32-x86_64/
+  name: kubevirt/seabios-copr-x86_64
