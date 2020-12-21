@@ -210,6 +210,11 @@ echo "----- HCO deployOVS annotation and OVS state in CNAO CR before the upgrade
 PREVIOUS_OVS_ANNOTATION=$(${CMD} get ${HCO_KIND} ${HCO_RESOURCE_NAME} -n ${HCO_NAMESPACE} -o jsonpath='{.metadata.annotations.deployOVS}')
 PREVIOUS_OVS_STATE=$(${CMD} get networkaddonsconfigs cluster -o jsonpath='{.spec.ovs}')
 
+# Before starting the upgrade, make sure the CSV is installed properly.
+Msg "Read the CSV to make sure the deployment is done"
+./hack/retry.sh 30 10 "${CMD} get ClusterServiceVersion  -n ${HCO_NAMESPACE} kubevirt-hyperconverged-operator.v${INITIAL_CHANNEL} -o jsonpath='{ .status.phase }' | grep 'Succeeded'"
+
+
 # Create a new version based off of latest. The new version appends ".1" to the latest version.
 # The new version replaces the hco-operator image from quay.io with the image pushed to the local registry.
 # We create a new CSV based off of the latest version and update the replaces attribute so that the new
@@ -240,6 +245,11 @@ SEARCH_PHRASE="${OPENSHIFT_BUILD_NAMESPACE}/stable"
 
 Msg "Wait that cluster is operational after upgrade"
 timeout 20m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
+
+# Make sure the CSV is installed properly.
+Msg "Read the CSV to make sure the deployment is done"
+./hack/retry.sh 30 10 "${CMD} get ClusterServiceVersion  -n ${HCO_NAMESPACE} kubevirt-hyperconverged-operator.v${TARGET_VERSION} -o jsonpath='{ .status.phase }' | grep 'Succeeded'"
+
 
 echo "----- Pod after upgrade"
 Msg "Verify that the hyperconverged-cluster Pod is using the new image"
