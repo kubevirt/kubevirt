@@ -100,85 +100,18 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
-genrule(
-    name = "libvirt-shared-libs",
-    srcs = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@libvirt_libs_ppc64le//file"],
-        "//conditions:default": ["@libvirt_libs//file"],
-    }),
-    outs = [
-        "libvirt.so.0",
-        "libvirt-lxc.so.0",
-        "libvirt-qemu.so.0",
-        "libvirt.so.0.6001.0",
-        "libvirt-lxc.so.0.6001.0",
-        "libvirt-qemu.so.0.6001.0",
-    ],
-    cmd = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": "\n".join([
-            "rpm2archive $(location @libvirt_libs_ppc64le//file)",
-            "tar -xzf $(location @libvirt_libs_ppc64le//file).tgz",
-            "cp -R usr/lib64/*.so.0* $(@D)",
-        ]),
-        "//conditions:default": "\n".join([
-            "rpm2archive $(location @libvirt_libs//file)",
-            "tar -xzf $(location @libvirt_libs//file).tgz",
-            "cp -R usr/lib64/*.so.0* $(@D)",
-        ]),
-    }),
-)
-
 cc_library(
     name = "libvirt-libs",
     srcs = [
-        ":libvirt-shared-libs",
+        "//rpm:libvirt-libs_x86_64/usr/lib64",
     ],
     hdrs = [
-        ":libvirt-devel-headers",
+        "//rpm:libvirt-libs_x86_64/usr/include/libvirt",
     ],
     include_prefix = "libvirt",
     linkstatic = 1,
+    strip_include_prefix = "/rpm/libvirt-libs_x86_64/",
     visibility = ["//visibility:public"],
-)
-
-genrule(
-    name = "libvirt-devel-headers",
-    srcs = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@libvirt_devel_ppc64le//file"],
-        "//conditions:default": ["@libvirt_devel//file"],
-    }),
-    outs = [
-        "libvirt-admin.h",
-        "libvirt-common.h",
-        "libvirt-domain.h",
-        "libvirt-domain-checkpoint.h",
-        "libvirt-domain-snapshot.h",
-        "libvirt-event.h",
-        "libvirt.h",
-        "libvirt-host.h",
-        "libvirt-interface.h",
-        "libvirt-lxc.h",
-        "libvirt-network.h",
-        "libvirt-nodedev.h",
-        "libvirt-nwfilter.h",
-        "libvirt-qemu.h",
-        "libvirt-secret.h",
-        "libvirt-storage.h",
-        "libvirt-stream.h",
-        "virterror.h",
-    ],
-    cmd = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": "\n".join([
-            "rpm2archive $(location @libvirt_devel_ppc64le//file)",
-            "tar -xzf $(location @libvirt_devel_ppc64le//file).tgz",
-            "cp -R usr/include/libvirt $(@D)",
-        ]),
-        "//conditions:default": "\n".join([
-            "rpm2archive $(location @libvirt_devel//file)",
-            "tar -xzf $(location @libvirt_devel//file).tgz",
-            "cp -R usr/include/libvirt/* $(@D)",
-        ]),
-    }),
 )
 
 load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
@@ -217,10 +150,7 @@ load(
 
 container_image(
     name = "passwd-image",
-    base = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": "@fedora_ppc64le//image",
-        "//conditions:default": "@fedora//image",
-    }),
+    base = "@go_image_base//image",
     tars = [":passwd-tar"],
     user = "1001",
     visibility = ["//visibility:public"],
