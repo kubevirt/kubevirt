@@ -56,6 +56,7 @@ func ExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, time
 	_, err := ExpectBatchWithResponse(vmi, expected, timeout)
 	return err
 }
+
 // ExpectBatchWithResponse runs the batch from `expected` connecting to the `vmi` console and
 // wait `timeout` for the batch to return with response.
 // NOTE: there is a safer version that validates sended commands `SafeExpectBatch` refer to it about limitations.
@@ -112,7 +113,7 @@ func SafeExpectBatchWithResponse(vmi *v1.VirtualMachineInstance, expected []expe
 // and wait `timeout` for command to return.
 // NOTE: The safer version `ExpectBatchWithValidatedSend` is not used here since it does not support cases.
 func RunCommand(vmi *v1.VirtualMachineInstance, command string, timeout time.Duration) error {
-	_, err := RunCommandWithResponse(vmi,command,timeout)
+	_, err := RunCommandWithResponse(vmi, command, timeout)
 	return err
 }
 

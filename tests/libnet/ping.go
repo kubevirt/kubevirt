@@ -48,9 +48,9 @@ func PingFromVMConsole(vmi *v1.VirtualMachineInstance, ipAddr string, args ...st
 	args = append([]string{pingString, ipAddr}, args...)
 	cmdCheck := strings.Join(args, " ")
 
-	err := console.RunCommand(vmi, cmdCheck, maxCommandTimeout)
+	resp, err := console.RunCommandWithResponse(vmi, cmdCheck, maxCommandTimeout)
 	if err != nil {
-		return fmt.Errorf("Failed to ping VMI %s, error: %v", vmi.Name, err)
+		return fmt.Errorf("Failed to ping VMI %s, error: %v, response: %v", vmi.Name, err, resp)
 	}
 	return nil
 }
