@@ -853,7 +853,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			//assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642")
 			Eventually(func() error {
-				return  multierr.Append(libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB)), libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA)))
+				return multierr.Append(libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB)), libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA)))
 			}, 15*time.Second, time.Second).Should(Succeed())
 		})
 
@@ -865,7 +865,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			//assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642")
 			Eventually(func() error {
-				return  multierr.Append(libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB)), libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA)))
+				return multierr.Append(libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB)), libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA)))
 			}, 15*time.Second, time.Second).Should(Succeed())
 		})
 

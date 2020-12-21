@@ -141,7 +141,7 @@ func RunCommandWithResponse(vmi *v1.VirtualMachineInstance, command string, time
 	if err != nil {
 		return resp, fmt.Errorf("Failed to run [%s] at VMI %s, error: %v", command, vmi.Name, err)
 	}
-	return nil, nil
+	return resp, nil
 }
 
 // SecureBootExpecter should be called on a VMI that has EFI enabled

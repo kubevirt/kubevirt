@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["stdlib.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/honnef.co/go/tools/deprecated",
+    importpath = "honnef.co/go/tools/deprecated",
+    visibility = ["//visibility:public"],
+)
