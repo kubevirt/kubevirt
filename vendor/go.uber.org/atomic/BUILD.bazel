@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "bool.go",
+        "bool_ext.go",
+        "doc.go",
+        "duration.go",
+        "duration_ext.go",
+        "error.go",
+        "error_ext.go",
+        "float64.go",
+        "float64_ext.go",
+        "gen.go",
+        "int32.go",
+        "int64.go",
+        "nocmp.go",
+        "string.go",
+        "string_ext.go",
+        "uint32.go",
+        "uint64.go",
+        "value.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/go.uber.org/atomic",
+    importpath = "go.uber.org/atomic",
+    visibility = ["//visibility:public"],
+)

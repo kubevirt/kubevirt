@@ -54,6 +54,7 @@ require (
 	github.com/subgraph/libmacouflage v0.0.1
 	github.com/vishvananda/netlink v1.1.1-0.20200914145417-7484f55b2263
 	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad
+	go.uber.org/multierr v1.6.0
 	golang.org/x/crypto v0.0.0-20200423211502-4bdfaf469ed5
 	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
 	golang.org/x/sys v0.0.0-20200915050820-6d893a6b696e

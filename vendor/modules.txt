@@ -308,6 +308,10 @@ github.com/vishvananda/netns
 github.com/wadey/gocovmerge
 # github.com/willf/bitset v1.1.11-0.20200630133818-d5bec3311243
 github.com/willf/bitset
+# go.uber.org/atomic v1.7.0
+go.uber.org/atomic
+# go.uber.org/multierr v1.6.0
+go.uber.org/multierr
 # golang.org/x/crypto v0.0.0-20200423211502-4bdfaf469ed5
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
