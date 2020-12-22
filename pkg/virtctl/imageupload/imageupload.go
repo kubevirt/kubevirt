@@ -82,6 +82,7 @@ var (
 	storageClass   string
 	imagePath      string
 	accessMode     string
+	volumeMode     string
 
 	uploadPodWaitSecs uint
 	blockVolume       bool
@@ -133,7 +134,8 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringVar(&size, "size", "", "The size of the DataVolume to create (ex. 10Gi, 500Mi).")
 	cmd.Flags().StringVar(&storageClass, "storage-class", "", "The storage class for the PVC.")
 	cmd.Flags().StringVar(&accessMode, "access-mode", "ReadWriteOnce", "The access mode for the PVC.")
-	cmd.Flags().BoolVar(&blockVolume, "block-volume", false, "Create a PVC with VolumeMode=Block (default Filesystem).")
+	cmd.Flags().StringVar(&volumeMode, "volume-mode", "", "The volume mode for the PVC, either Block or Filesystem.")
+	cmd.Flags().BoolVar(&blockVolume, "block-volume", false, "DEPRECATED - Create a PVC with VolumeMode=Block (default Filesystem).")
 	cmd.Flags().StringVar(&imagePath, "image-path", "", "Path to the local VM image.")
 	cmd.MarkFlagRequired("image-path")
 	cmd.Flags().BoolVar(&noCreate, "no-create", false, "Don't attempt to create a new DataVolume/PVC.")
@@ -177,6 +179,12 @@ func parseArgs(args []string) error {
 		return fmt.Errorf("cannot upload to a readonly volume, use either ReadWriteOnce or ReadWriteMany if supported")
 	}
 
+	var err error
+	volumeMode, err = normalizeVolumeMode(volumeMode, blockVolume)
+	if err != nil {
+		return err
+	}
+
 	// check deprecated invocation
 	if name != "" {
 		if len(args) != 0 {
@@ -204,6 +212,25 @@ func parseArgs(args []string) error {
 	name = args[1]
 
 	return nil
+}
+
+func normalizeVolumeMode(volumeMode string, blockVolume bool) (string, error) {
+	if volumeMode != "" {
+		fmt.Printf("--block-volume is deprecated and its value is overwritten by --volume-mode\n")
+
+		if volumeMode != string(v1.PersistentVolumeBlock) && volumeMode != string(v1.PersistentVolumeFilesystem) {
+			return "", fmt.Errorf("can not use %s for volume mode, use either %s or %s", volumeMode, string(v1.PersistentVolumeBlock), string(v1.PersistentVolumeFilesystem))
+		}
+
+		return volumeMode, nil
+	}
+
+	if blockVolume && volumeMode == "" {
+		fmt.Printf("--block-volume is deprecated, use --volume-mode instead\n")
+		return string(v1.PersistentVolumeBlock), nil
+	}
+
+	return string(v1.PersistentVolumeFilesystem), nil
 }
 
 func (c *command) run(cmd *cobra.Command, args []string) error {
@@ -240,12 +267,12 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 		var obj metav1.Object
 
 		if createPVC {
-			obj, err = createUploadPVC(virtClient, namespace, name, size, storageClass, accessMode, blockVolume)
+			obj, err = createUploadPVC(virtClient, namespace, name, size, storageClass, accessMode, volumeMode)
 			if err != nil {
 				return err
 			}
 		} else {
-			obj, err = createUploadDataVolume(virtClient, namespace, name, size, storageClass, accessMode, blockVolume)
+			obj, err = createUploadDataVolume(virtClient, namespace, name, size, storageClass, accessMode, volumeMode)
 			if err != nil {
 				return err
 			}
@@ -475,8 +502,8 @@ func waitUploadProcessingComplete(client kubernetes.Interface, namespace, name s
 	return err
 }
 
-func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size, storageClass, accessMode string, blockVolume bool) (*cdiv1.DataVolume, error) {
-	pvcSpec, err := createPVCSpec(size, storageClass, accessMode, blockVolume)
+func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size, storageClass, accessMode, volumeMode string) (*cdiv1.DataVolume, error) {
+	pvcSpec, err := createPVCSpec(size, storageClass, accessMode, volumeMode)
 	if err != nil {
 		return nil, err
 	}
@@ -502,8 +529,8 @@ func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size
 	return dv, nil
 }
 
-func createUploadPVC(client kubernetes.Interface, namespace, name, size, storageClass, accessMode string, blockVolume bool) (*v1.PersistentVolumeClaim, error) {
-	pvcSpec, err := createPVCSpec(size, storageClass, accessMode, blockVolume)
+func createUploadPVC(client kubernetes.Interface, namespace, name, size, storageClass, accessMode, volumeMode string) (*v1.PersistentVolumeClaim, error) {
+	pvcSpec, err := createPVCSpec(size, storageClass, accessMode, volumeMode)
 	if err != nil {
 		return nil, err
 	}
@@ -527,7 +554,7 @@ func createUploadPVC(client kubernetes.Interface, namespace, name, size, storage
 	return pvc, nil
 }
 
-func createPVCSpec(size, storageClass, accessMode string, blockVolume bool) (*v1.PersistentVolumeClaimSpec, error) {
+func createPVCSpec(size, storageClass, accessMode, volumeMode string) (*v1.PersistentVolumeClaimSpec, error) {
 	quantity, err := resource.ParseQuantity(size)
 	if err != nil {
 		return nil, fmt.Errorf("validation failed for size=%s: %s", size, err)
@@ -549,10 +576,8 @@ func createPVCSpec(size, storageClass, accessMode string, blockVolume bool) (*v1
 		spec.AccessModes = []v1.PersistentVolumeAccessMode{v1.PersistentVolumeAccessMode(accessMode)}
 	}
 
-	if blockVolume {
-		volMode := v1.PersistentVolumeBlock
-		spec.VolumeMode = &volMode
-	}
+	volMode := v1.PersistentVolumeMode(volumeMode)
+	spec.VolumeMode = &volMode
 
 	return spec, nil
 }
