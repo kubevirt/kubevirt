@@ -43,7 +43,7 @@ func PingFromVMConsole(vmi *v1.VirtualMachineInstance, ipAddr string, args ...st
 	}
 
 	if len(args) == 0 {
-		args = []string{"-c 1", "-w 5"}
+		args = []string{"-c 5", "-w 10"}
 	}
 	args = append([]string{pingString, ipAddr}, args...)
 	cmdCheck := strings.Join(args, " ")
