@@ -397,6 +397,12 @@ func (r *realIsolationResult) ParentMountInfoFor(mountInfo *MountInfo) (*MountIn
 // FullPath takes the mount info from a container and composes the full path starting from
 // the root mount of the given process.
 func (r *realIsolationResult) FullPath(mountInfo *MountInfo) (path string, err error) {
+	// Handle btrfs subvolumes: mountInfo.Root seems to already provide the needed path
+	if strings.HasPrefix(mountInfo.Root, "/@") {
+		path = filepath.Join(r.MountRoot(), strings.TrimPrefix(mountInfo.Root, "/@"))
+		return
+	}
+
 	parentMountInfo, err := r.ParentMountInfoFor(mountInfo)
 	if err != nil {
 		return
