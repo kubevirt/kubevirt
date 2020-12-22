@@ -139,7 +139,7 @@ func NewHelloWorldJobUDP(host string, port string, checkConnectivityCmdPrefixes 
 // This pod tries to contact the host on the provided port, over HTTP.
 // On success - it expects to receive "Hello World!".
 func NewHelloWorldJobHTTP(host string, port string, checkConnectivityCmdPrefixes ...string) *batchv1.Job {
-	check := fmt.Sprintf(`set -x; %sx="$(head -n 1 < <(curl %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, strings.Join(checkConnectivityCmdPrefixes, ";"), FormatIPForURL(host), port)
+	check := fmt.Sprintf(`set -x; %sx="$(head -n 1 < <(curl --http0.9 %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, strings.Join(checkConnectivityCmdPrefixes, ";"), FormatIPForURL(host), port)
 	return newHelloWorldJob(check)
 }
 
