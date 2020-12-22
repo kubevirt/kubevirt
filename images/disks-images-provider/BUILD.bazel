@@ -3,29 +3,6 @@ load(
     "container_image",
 )
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-load("@io_bazel_rules_container_rpm//rpm:rpm.bzl", "rpm_image")
-
-rpm_image(
-    name = "qemu-img-image",
-    base = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": "@fedora_ppc64le//image",
-        "//conditions:default": "@fedora//image",
-    }),
-    rpms = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": [
-            "@qemu-img_ppc64le//file",
-            "@capstone_ppc64le//file",
-            "@libaio_ppc64le//file",
-            "@libstdc_ppc64le//file",
-        ],
-        "//conditions:default": [
-            "@qemu-img//file",
-            "@capstone//file",
-            "@libaio//file",
-            "@libstdc//file",
-        ],
-    }),
-)
 
 genrule(
     name = "alpine-img",
@@ -111,7 +88,7 @@ container_image(
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
         "//conditions:default": "amd64",
     }),
-    base = ":qemu-img-image",
+    base = "//images:kubevirt-testing-base",
     directory = "/",
     entrypoint = ["/entrypoint.sh"],
     files = ["entrypoint.sh"],

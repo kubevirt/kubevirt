@@ -9,9 +9,6 @@ container_image(
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
         "//conditions:default": "amd64",
     }),
-    base = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": "@kubevirt-testing_ppc64le//image",
-        "//conditions:default": "@kubevirt-testing//image",
-    }),
+    base = "//images:kubevirt-testing-base",
     visibility = ["//visibility:public"],
 )
