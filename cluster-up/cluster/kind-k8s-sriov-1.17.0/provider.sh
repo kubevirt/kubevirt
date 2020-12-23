@@ -10,8 +10,10 @@ function set_kind_params() {
     export KUBECTL_PATH="${KUBECTL_PATH:-/kind/bin/kubectl}"
 }
 
+export SRIOV_WORKER_NODES_LABEL="sriov=true"
+
 function up() {
-    if [[ "$KUBEVIRT_NUM_NODES" -ne 2 ]]; then
+    if [[ "$KUBEVIRT_NUM_NODES" -lt 2 ]]; then
         echo 'SR-IOV cluster can be only started with 2 nodes'
         exit 1
     fi
@@ -29,6 +31,7 @@ function up() {
     _kubectl delete sc standard
 
     ${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/config_sriov.sh
+    ${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/deploy_sriov_components.sh
 }
 
 set_kind_params
