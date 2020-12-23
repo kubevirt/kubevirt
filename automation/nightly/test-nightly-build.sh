@@ -24,7 +24,6 @@ git clone https://github.com/kubevirt/kubevirt.git
 (cd kubevirt; git checkout "${latest_kubevirt_commit}")
 go mod edit -replace kubevirt.io/client-go=./kubevirt/staging/src/kubevirt.io/client-go
 go mod vendor
-go mod tidy
 
 # set envs
 build_date="$(date +%Y%m%d)"
