@@ -8,15 +8,26 @@ jobs:
     if: (github.repository == 'kubevirt/hyperconverged-cluster-operator')
     runs-on: ubuntu-latest
     steps:
+      - name: check for existing PR
+        run: |-
+          if curl -s -L  https://api.github.com/repos/kubevirt/hyperconverged-cluster-operator/pulls | jq .[].title | grep -q "Update Image Digests"; then
+            echo "There is an existing PR with name 'Update Image Digests'; skipping; To run again, close the existing PR"
+          else
+            echo "NEW_PR=true" >> $GITHUB_ENV
+          fi
+
       - uses: actions/checkout@v2
+        if: ${{ env.NEW_PR }}
         with:
           ref: master
 
       - uses: actions/setup-go@v2
+        if: ${{ env.NEW_PR }}
         with:
           go-version: '^1.15' # The Go version to download (if necessary) and use.
 
       - name: Get dependencies
+        if: ${{ env.NEW_PR }}
         working-directory: tools/digester
         run: |
           go get -v -t -d ./...
@@ -26,10 +37,12 @@ jobs:
           fi
 
       - name: Build the degister app
+        if: ${{ env.NEW_PR }}
         working-directory: tools/digester
         run: go build -v .
 
       - name: Run the degister app to update the digests
+        if: ${{ env.NEW_PR }}
         run: |
           ./automation/digester/update_images.sh
           if ! git diff --quiet --exit-code; then
