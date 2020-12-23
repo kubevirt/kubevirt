@@ -847,8 +847,8 @@ github.com/kubernetes-csi/csi-lib-utils v0.7.0/go.mod h1:bze+2G9+cmoHxN6+WyG1qT4
 github.com/kubernetes-csi/csi-test v2.0.0+incompatible/go.mod h1:YxJ4UiuPWIhMBkxUKY5c267DyA0uDZ/MtAimhx/2TA0=
 github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1 h1:t5bmB3Y8nCaLA4aFrIpX0zjHEF/HUkJp6f5rm7BsVzM=
 github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1/go.mod h1:dV5oB3U62KBdlf9ADWkMmjGd3USauqQtwIm2OZb5mqI=
-github.com/kubevirt/cluster-network-addons-operator v0.43.0 h1:r0QcGpBA+jTqMPyx+xus2TCk+TVq2j9Qag9PNtVzJwA=
-github.com/kubevirt/cluster-network-addons-operator v0.43.0/go.mod h1:qtYFyYlmjk8egulFv39Sy2Bji2igdM2U2SdRxZFTMss=
+github.com/kubevirt/cluster-network-addons-operator v0.44.0 h1:zR5OTl2YcJZOrSEbsoSXFlrRnl65DzNcaoMFmGqrwMs=
+github.com/kubevirt/cluster-network-addons-operator v0.44.0/go.mod h1:qtYFyYlmjk8egulFv39Sy2Bji2igdM2U2SdRxZFTMss=
 github.com/kubevirt/kubevirt-ssp-operator v1.2.1 h1:rwMm1eR0RUKvXLF4F9www1XinD3BsroB7cw84fsNbAQ=
 github.com/kubevirt/kubevirt-ssp-operator v1.2.1/go.mod h1:r8NvAzhRVvq7l8rnT5YGFXk9usDtlJ3QB2tttSXqPCc=
 github.com/kubevirt/vm-import-operator v0.2.5 h1:HAwCn/LEoDh1Xsb7nX3yRZ6+Cf+Q0P348HZNG3Wfwp0=

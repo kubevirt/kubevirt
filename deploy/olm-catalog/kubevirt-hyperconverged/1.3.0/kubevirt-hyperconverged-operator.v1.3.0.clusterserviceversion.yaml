@@ -8,7 +8,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:0849ed82f0ea486ff5f0dd67ccf67d85e7a41bab263a2916311c530042dd9be6
-    createdAt: "2020-12-20 10:42:21"
+    createdAt: "2020-12-23 05:22:33"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -1745,7 +1745,7 @@ spec:
                 - name: CDI_VERSION
                   value: v1.28.0
                 - name: NETWORK_ADDONS_VERSION
-                  value: v0.43.0
+                  value: v0.44.0
                 - name: SSP_VERSION
                   value: v1.2.1
                 - name: NMO_VERSION
@@ -1846,11 +1846,11 @@ spec:
                 - name: MULTUS_IMAGE
                   value: nfvpe/multus@sha256:ac1266b87ba44c09dc2a336f0d5dad968fccd389ce1944a85e87b32cd21f7224
                 - name: LINUX_BRIDGE_IMAGE
-                  value: quay.io/kubevirt/cni-default-plugins@sha256:3dd438117076016d6d2acd508b93f106ca80a28c0af6e2e914d812f9a1d55142
+                  value: quay.io/kubevirt/cni-default-plugins@sha256:606eaa06262ad6edd5aa809491c7e46b9ddbc9c52ba8c47e89e734e3e80cd311
                 - name: LINUX_BRIDGE_MARKER_IMAGE
-                  value: quay.io/kubevirt/bridge-marker@sha256:6132543df838d324020d25979f088138534ca396f7ca995d5af76181fc8080e3
+                  value: quay.io/kubevirt/bridge-marker@sha256:799459f8509a06ea643aa2f6ac02826721a641333aacab07e53166139a5a66c3
                 - name: NMSTATE_HANDLER_IMAGE
-                  value: quay.io/nmstate/kubernetes-nmstate-handler@sha256:3c72659270d8777484d422b3deab821df169f7260b304ca3b9e9c50c449cb714
+                  value: quay.io/nmstate/kubernetes-nmstate-handler@sha256:d5155de6aa6cf97c2feb5f4171384e63ce957362a66d47ec14982cbabca5169c
                 - name: OVS_CNI_IMAGE
                   value: quay.io/kubevirt/ovs-cni-plugin@sha256:d43d34ed4b1bd0b107c2049d21e33f9f870c36e5bf6dc1d80ab567271735c8da
                 - name: OVS_MARKER_IMAGE
@@ -1860,11 +1860,11 @@ spec:
                 - name: MACVTAP_CNI_IMAGE
                   value: quay.io/kubevirt/macvtap-cni@sha256:f20d5e56f8b8c1ab7e5a64e536b66f65aa688b2d1dc0b37e3c26c2af2b481266
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/cluster-network-addons-operator@sha256:3f0a125b2912a944da89bfa2184e3af0ab84a7ddd71518b3a13f6836e98ea05e
+                  value: quay.io/kubevirt/cluster-network-addons-operator@sha256:38dadf3624c30092b67aa74487b3f744c835f9a17f33b4408f1f1bab3a79004d
                 - name: OPERATOR_NAME
                   value: cluster-network-addons-operator
                 - name: OPERATOR_VERSION
-                  value: v0.43.0
+                  value: v0.44.0
                 - name: OPERATOR_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -1878,7 +1878,7 @@ spec:
                     fieldRef:
                       fieldPath: metadata.name
                 - name: WATCH_NAMESPACE
-                image: quay.io/kubevirt/cluster-network-addons-operator@sha256:3f0a125b2912a944da89bfa2184e3af0ab84a7ddd71518b3a13f6836e98ea05e
+                image: quay.io/kubevirt/cluster-network-addons-operator@sha256:38dadf3624c30092b67aa74487b3f744c835f9a17f33b4408f1f1bab3a79004d
                 imagePullPolicy: IfNotPresent
                 name: cluster-network-addons-operator
                 resources: {}
@@ -2032,22 +2032,22 @@ spec:
                 - name: OPERATOR_VERSION
                   value: v1.28.0
                 - name: CONTROLLER_IMAGE
-                  value: docker.io/kubevirt/cdi-controller@sha256:bf414007b8999bd93f355414f99be5cb393399bc2b962476110610a98e0d1f28
+                  value: docker.io/kubevirt/cdi-controller@sha256:bbd22f481ec1dd1eaf63af9888d107c3f67507e578600da8a5429540c78527bc
                 - name: IMPORTER_IMAGE
-                  value: docker.io/kubevirt/cdi-importer@sha256:16b743b1926781635a8b6154bf0fd80227c33680391cb7591e14b2cdd54c51e7
+                  value: docker.io/kubevirt/cdi-importer@sha256:d16dd224def1713a51278f6f164a04c7e9b38364b794f14d18c2d8d14ab04eb3
                 - name: CLONER_IMAGE
-                  value: docker.io/kubevirt/cdi-cloner@sha256:34b146dffc0fd58a73db19c89c8415cd01eebe6cddb8376d8609504709c02530
+                  value: docker.io/kubevirt/cdi-cloner@sha256:c8946ef116d4d2fccf08b895faf07d9bb85f76d315e4380416261db9970306f1
                 - name: APISERVER_IMAGE
-                  value: docker.io/kubevirt/cdi-apiserver@sha256:cf2e3183b7a81a371b2bb73690026b05ea53d8d049f51ccac5585b8907879615
+                  value: docker.io/kubevirt/cdi-apiserver@sha256:02d0363e32cd28145a9802cad2c0adc077e67715d55a948c0bc92ae2adf08813
                 - name: UPLOAD_SERVER_IMAGE
-                  value: docker.io/kubevirt/cdi-uploadserver@sha256:ce8e515fc33458f0f4f000bcdc0215153b987183966e6c4bda5e4268e30bfcbc
+                  value: docker.io/kubevirt/cdi-uploadserver@sha256:3915ba0501fa0e3ee9ae178d6617d0c1ac5f34a83243f723421c42de99e705e5
                 - name: UPLOAD_PROXY_IMAGE
-                  value: docker.io/kubevirt/cdi-uploadproxy@sha256:58a1c314e53c059f942e17492595f6719d59c758bd0a6647ac2263858bab3078
+                  value: docker.io/kubevirt/cdi-uploadproxy@sha256:9e5ae41e3da07c30ac9a0326c89f2d64021abfc5d74ee6c4b750d6915f02eeb5
                 - name: VERBOSITY
                   value: "1"
                 - name: PULL_POLICY
                   value: IfNotPresent
-                image: docker.io/kubevirt/cdi-operator@sha256:692b290446911187a933f205b41a828b1756cd7a505cf98c36b2e54978f71901
+                image: docker.io/kubevirt/cdi-operator@sha256:8e9a4d4a819c11e53b9ebc316590aeb0515ffd92a92f0281d8c2d90fd819e711
                 imagePullPolicy: IfNotPresent
                 name: cdi-operator
                 ports:
@@ -2341,25 +2341,25 @@ spec:
   provider:
     name: KubeVirt project
   relatedImages:
-  - image: quay.io/kubevirt/bridge-marker@sha256:6132543df838d324020d25979f088138534ca396f7ca995d5af76181fc8080e3
+  - image: quay.io/kubevirt/bridge-marker@sha256:799459f8509a06ea643aa2f6ac02826721a641333aacab07e53166139a5a66c3
     name: bridge-marker
-  - image: docker.io/kubevirt/cdi-apiserver@sha256:cf2e3183b7a81a371b2bb73690026b05ea53d8d049f51ccac5585b8907879615
+  - image: docker.io/kubevirt/cdi-apiserver@sha256:02d0363e32cd28145a9802cad2c0adc077e67715d55a948c0bc92ae2adf08813
     name: cdi-apiserver
-  - image: docker.io/kubevirt/cdi-cloner@sha256:34b146dffc0fd58a73db19c89c8415cd01eebe6cddb8376d8609504709c02530
+  - image: docker.io/kubevirt/cdi-cloner@sha256:c8946ef116d4d2fccf08b895faf07d9bb85f76d315e4380416261db9970306f1
     name: cdi-cloner
-  - image: docker.io/kubevirt/cdi-controller@sha256:bf414007b8999bd93f355414f99be5cb393399bc2b962476110610a98e0d1f28
+  - image: docker.io/kubevirt/cdi-controller@sha256:bbd22f481ec1dd1eaf63af9888d107c3f67507e578600da8a5429540c78527bc
     name: cdi-controller
-  - image: docker.io/kubevirt/cdi-importer@sha256:16b743b1926781635a8b6154bf0fd80227c33680391cb7591e14b2cdd54c51e7
+  - image: docker.io/kubevirt/cdi-importer@sha256:d16dd224def1713a51278f6f164a04c7e9b38364b794f14d18c2d8d14ab04eb3
     name: cdi-importer
-  - image: docker.io/kubevirt/cdi-operator@sha256:692b290446911187a933f205b41a828b1756cd7a505cf98c36b2e54978f71901
+  - image: docker.io/kubevirt/cdi-operator@sha256:8e9a4d4a819c11e53b9ebc316590aeb0515ffd92a92f0281d8c2d90fd819e711
     name: cdi-operator
-  - image: docker.io/kubevirt/cdi-uploadproxy@sha256:58a1c314e53c059f942e17492595f6719d59c758bd0a6647ac2263858bab3078
+  - image: docker.io/kubevirt/cdi-uploadproxy@sha256:9e5ae41e3da07c30ac9a0326c89f2d64021abfc5d74ee6c4b750d6915f02eeb5
     name: cdi-uploadproxy
-  - image: docker.io/kubevirt/cdi-uploadserver@sha256:ce8e515fc33458f0f4f000bcdc0215153b987183966e6c4bda5e4268e30bfcbc
+  - image: docker.io/kubevirt/cdi-uploadserver@sha256:3915ba0501fa0e3ee9ae178d6617d0c1ac5f34a83243f723421c42de99e705e5
     name: cdi-uploadserver
-  - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:3f0a125b2912a944da89bfa2184e3af0ab84a7ddd71518b3a13f6836e98ea05e
+  - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:38dadf3624c30092b67aa74487b3f744c835f9a17f33b4408f1f1bab3a79004d
     name: cluster-network-addons-operator
-  - image: quay.io/kubevirt/cni-default-plugins@sha256:3dd438117076016d6d2acd508b93f106ca80a28c0af6e2e914d812f9a1d55142
+  - image: quay.io/kubevirt/cni-default-plugins@sha256:606eaa06262ad6edd5aa809491c7e46b9ddbc9c52ba8c47e89e734e3e80cd311
     name: cni-default-plugins
   - image: quay.io/kubevirt/hostpath-provisioner@sha256:3838d8e713d2e85a807a9c302501b25c248ba3f3c1602fe50480e6510de43e11
     name: hostpath-provisioner
@@ -2371,7 +2371,7 @@ spec:
     name: hyperconverged-cluster-webhook
   - image: quay.io/kubevirt/kubemacpool@sha256:e68811ce7697ab0f1257f307fcd63b08b6295de7f300e01a982e4e624bfa7398
     name: kubemacpool
-  - image: quay.io/nmstate/kubernetes-nmstate-handler@sha256:3c72659270d8777484d422b3deab821df169f7260b304ca3b9e9c50c449cb714
+  - image: quay.io/nmstate/kubernetes-nmstate-handler@sha256:d5155de6aa6cf97c2feb5f4171384e63ce957362a66d47ec14982cbabca5169c
     name: kubernetes-nmstate-handler
   - image: quay.io/fromani/kubevirt-ssp-operator-container@sha256:13ecfd8bc5779721378cfed69109bcc99392b0dcd589ddd600eb2648de9fce8c
     name: kubevirt-ssp-operator-container

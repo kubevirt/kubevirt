@@ -42,6 +42,12 @@ spec:
           spec:
             description: CDISpec defines our specification for the CDI installation
             properties:
+              cloneStrategyOverride:
+                description: 'Clone strategy override: should we use a host-assisted copy even if snapshots are available?'
+                enum:
+                - copy
+                - snapshot
+                type: string
               config:
                 description: CDIConfig at CDI level
                 properties:
@@ -919,6 +925,12 @@ spec:
           spec:
             description: CDISpec defines our specification for the CDI installation
             properties:
+              cloneStrategyOverride:
+                description: 'Clone strategy override: should we use a host-assisted copy even if snapshots are available?'
+                enum:
+                - copy
+                - snapshot
+                type: string
               config:
                 description: CDIConfig at CDI level
                 properties:
@@ -964,6 +976,9 @@ spec:
                         description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                         type: object
                     type: object
+                  preallocation:
+                    description: Preallocation controls whether storage for DataVolumes should be allocated in advance.
+                    type: boolean
                   scratchSpaceStorageClass:
                     description: 'Override the storage class to used for scratch space during transfer operations. The scratch space storage class is determined in the following order: 1. value of scratchSpaceStorageClass, if that doesn''t exist, use the default storage class, if there is no default storage class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space'
                     type: string
