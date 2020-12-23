@@ -61,12 +61,14 @@ type DomainStats struct {
 }
 
 type DomainStatsCPU struct {
-	TimeSet   bool
-	Time      uint64
-	UserSet   bool
-	User      uint64
-	SystemSet bool
-	System    uint64
+	TimeSet           bool
+	Time              uint64
+	UserSet           bool
+	User              uint64
+	SystemSet         bool
+	System            uint64
+	CpuTimePercentSet bool
+	CpuTimePercent    float64
 }
 
 type DomainStatsVcpu struct {

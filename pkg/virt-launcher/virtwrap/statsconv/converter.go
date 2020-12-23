@@ -32,7 +32,7 @@ type DomainIdentifier interface {
 	GetUUIDString() (string, error)
 }
 
-func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in *libvirt.DomainStats, inMem []libvirt.DomainMemoryStat, inDomInfo *libvirt.DomainInfo, inCpuMap [][]bool, out *stats.DomainStats) error {
+func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in *libvirt.DomainStats, inMem []libvirt.DomainMemoryStat, inDomInfo *libvirt.DomainInfo, inCpuTimePct float64, inCpuTimePctSet bool, inCpuMap [][]bool, out *stats.DomainStats) error {
 	name, err := ident.GetName()
 	if err != nil {
 		return err
@@ -45,7 +45,7 @@ func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in
 	}
 	out.UUID = uuid
 
-	out.Cpu = Convert_libvirt_DomainStatsCpu_To_stats_DomainStatsCpu(in.Cpu)
+	out.Cpu = Convert_libvirt_DomainStatsCpu_To_stats_DomainStatsCpu(in.Cpu, inCpuTimePct, inCpuTimePctSet)
 	out.Memory = Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem, inDomInfo)
 	out.Vcpu = Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in.Vcpu, inCpuMap)
 	out.Net = Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in.Net)
@@ -54,18 +54,20 @@ func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in
 	return nil
 }
 
-func Convert_libvirt_DomainStatsCpu_To_stats_DomainStatsCpu(in *libvirt.DomainStatsCPU) *stats.DomainStatsCPU {
+func Convert_libvirt_DomainStatsCpu_To_stats_DomainStatsCpu(in *libvirt.DomainStatsCPU, inCpuTimePct float64, inCpuTimePctSet bool) *stats.DomainStatsCPU {
 	if in == nil {
 		return &stats.DomainStatsCPU{}
 	}
 
 	return &stats.DomainStatsCPU{
-		TimeSet:   in.TimeSet,
-		Time:      in.Time,
-		UserSet:   in.UserSet,
-		User:      in.User,
-		SystemSet: in.SystemSet,
-		System:    in.System,
+		TimeSet:           in.TimeSet,
+		Time:              in.Time,
+		UserSet:           in.UserSet,
+		User:              in.User,
+		SystemSet:         in.SystemSet,
+		System:            in.System,
+		CpuTimePercent:    inCpuTimePct,
+		CpuTimePercentSet: inCpuTimePctSet,
 	}
 }
 

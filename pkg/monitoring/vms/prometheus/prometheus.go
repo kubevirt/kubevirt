@@ -195,6 +195,15 @@ func (metrics *vmiMetrics) updateCPU(cpu *stats.DomainStatsCPU) {
 			float64(cpu.Time/1000000000),
 		)
 	}
+
+	if cpu.CpuTimePercentSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_cpu_total_percent",
+			"Gets the percentage of total available CPU.",
+			prometheus.GaugeValue,
+			float64(cpu.CpuTimePercent),
+		)
+	}
 }
 
 func (metrics *vmiMetrics) updateVcpu(vCpuStats []stats.DomainStatsVcpu) {

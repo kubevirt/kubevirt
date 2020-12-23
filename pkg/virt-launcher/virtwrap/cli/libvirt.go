@@ -69,15 +69,21 @@ type VirStream struct {
 	*libvirt.Stream
 }
 
+type DomCpuTime struct {
+	CpuTime    uint64
+	SampleTime time.Time
+}
+
 type LibvirtConnection struct {
-	Connect       *libvirt.Connect
-	user          string
-	pass          string
-	uri           string
-	alive         bool
-	stop          chan struct{}
-	reconnect     chan bool
-	reconnectLock *sync.Mutex
+	Connect          *libvirt.Connect
+	user             string
+	pass             string
+	uri              string
+	alive            bool
+	stop             chan struct{}
+	reconnect        chan bool
+	reconnectLock    *sync.Mutex
+	domainCpuTimeMap map[string]DomCpuTime
 
 	domainEventCallbacks                   []libvirt.DomainEventLifecycleCallback
 	domainDeviceAddedEventCallbacks        []libvirt.DomainEventDeviceAddedCallback
@@ -254,8 +260,16 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 		return nil, err
 	}
 
+	nodeCpus := 0.0
+	nodeInfo, err := l.Connect.GetNodeInfo()
+	if err == nil {
+		nodeCpus = float64(nodeInfo.Cpus)
+	}
+
+	domCpuTimeMap := make(map[string]DomCpuTime, len(domStats))
+
 	var list []*stats.DomainStats
-	for i, domStat := range domStats {
+	for _, domStat := range domStats {
 		var err error
 
 		memStats, err := domStat.Domain.MemoryStats(uint32(libvirt.DOMAIN_MEMORY_STAT_NR), 0)
@@ -273,8 +287,17 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 			return list, err
 		}
 
+		domIdent := statsconv.DomainIdentifier(domStat.Domain)
+
+		uuid, err := domIdent.GetUUIDString()
+		if err != nil {
+			return list, err
+		}
+
+		cpuTimePct, cpuTimePctSet := l.calcCpuTimePercentStat(uuid, domInfo, nodeCpus, domCpuTimeMap)
+
 		stat := &stats.DomainStats{}
-		err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(statsconv.DomainIdentifier(domStat.Domain), &domStat, memStats, domInfo, cpuMap, stat)
+		err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(domIdent, &domStat, memStats, domInfo, cpuTimePct, cpuTimePctSet, cpuMap, stat)
 		if err != nil {
 			return list, err
 		}
@@ -283,7 +306,33 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 		domStat.Domain.Free()
 	}
 
+	l.domainCpuTimeMap = domCpuTimeMap
+
 	return list, nil
+}
+
+// Calculates the cpu used by domain for statistics
+func (l *LibvirtConnection) calcCpuTimePercentStat(uuid string, domInfo *libvirt.DomainInfo, nodeCpus float64, domCpuTimeMap map[string]DomCpuTime) (float64, bool) {
+	domCpuTimeOld, ok := l.domainCpuTimeMap[uuid]
+	if !ok {
+		return 0, false
+	}
+
+	domCpuTimeNew := DomCpuTime{
+		CpuTime:    domInfo.CpuTime,
+		SampleTime: time.Now(),
+	}
+
+	domCpuTimeMap[uuid] = domCpuTimeNew
+
+	sampleTimeDiffSec := domCpuTimeNew.SampleTime.Sub(domCpuTimeOld.SampleTime).Seconds()
+
+	if nodeCpus > 0 && sampleTimeDiffSec > 0 && domCpuTimeOld.CpuTime > 0 {
+		cpuTimeDiff := float64(domCpuTimeNew.CpuTime - domCpuTimeOld.CpuTime)
+		return (100 * cpuTimeDiff) / (sampleTimeDiffSec * nodeCpus * 1e9), true
+	}
+
+	return 0, false
 }
 
 // Installs a watchdog which will check periodically if the libvirt connection is still alive.
