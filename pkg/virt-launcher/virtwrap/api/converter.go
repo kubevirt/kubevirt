@@ -1152,18 +1152,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	currentAutoThread := defaultIOThread
 	currentDedicatedThread := uint(autoThreads + 1)
 
-	var numQueues *uint
 	var numBlkQueues *uint
 	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
-	virtioNetMQRequested := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
 	vcpus := uint(cpuCount)
 	if vcpus == 0 {
 		vcpus = uint(1)
 	}
-	if virtioNetMQRequested {
-		nq := uint(CalculateNetworkQueues(vmi))
-		numQueues = &nq
-	}
+
 	if virtioBlkMQRequested {
 		numBlkQueues = &vcpus
 	}
@@ -1470,31 +1465,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
-	networks := map[string]*v1.Network{}
-	cniNetworks := map[string]int{}
-	multusNetworkIndex := 1
-	for _, network := range vmi.Spec.Networks {
-		numberOfSources := 0
-		if network.Pod != nil {
-			numberOfSources++
-		}
-		if network.Multus != nil {
-			if network.Multus.Default {
-				// default network is eth0
-				cniNetworks[network.Name] = 0
-			} else {
-				cniNetworks[network.Name] = multusNetworkIndex
-				multusNetworkIndex++
-			}
-			numberOfSources++
-		}
-		if numberOfSources == 0 {
-			return fmt.Errorf("fail network %s must have a network type", network.Name)
-		} else if numberOfSources > 1 {
-			return fmt.Errorf("fail network %s must have only one network type", network.Name)
-		}
-		networks[network.Name] = network.DeepCopy()
+	if err := validateNetworksTypes(vmi.Spec.Networks); err != nil {
+		return err
 	}
+
+	networks := indexNetworksByName(vmi.Spec.Networks)
 
 	sriovPciAddresses := make(map[string][]string)
 	for key, value := range c.SRIOVDevices {
@@ -1511,41 +1486,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			var pciAddr string
 			pciAddr, sriovPciAddresses, err = popSRIOVPCIAddress(iface.Name, sriovPciAddresses)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to configure SRIOV %s: %v", iface.Name, err)
 			}
-
-			dbsfFields, err := util.ParsePciAddress(pciAddr)
+			hostDev, err := createSRIOVHostDevice(pciAddr, iface.PciAddress, iface.BootOrder)
 			if err != nil {
-				return err
-			}
-
-			hostDev := HostDevice{
-				Source: HostDeviceSource{
-					Address: &Address{
-						Type:     "pci",
-						Domain:   "0x" + dbsfFields[0],
-						Bus:      "0x" + dbsfFields[1],
-						Slot:     "0x" + dbsfFields[2],
-						Function: "0x" + dbsfFields[3],
-					},
-				},
-				Type:    "pci",
-				Managed: "no",
-			}
-
-			if iface.PciAddress != "" {
-				addr, err := decoratePciAddressField(iface.PciAddress)
-				if err != nil {
-					return fmt.Errorf("failed to configure SRIOV %s: %v", iface.Name, err)
-				}
-				hostDev.Address = addr
-			}
-
-			if iface.BootOrder != nil {
-				hostDev.BootOrder = &BootOrder{Order: *iface.BootOrder}
+				return fmt.Errorf("failed to configure SRIOV %s: %v", iface.Name, err)
 			}
 			log.Log.Infof("SR-IOV PCI device allocated: %s", pciAddr)
-			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDev)
+			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, *hostDev)
 		} else {
 			ifaceType := getInterfaceType(&iface)
 			domainIface := Interface{
@@ -1559,10 +1507,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 			// if UseEmulation unset and at least one NIC model is virtio,
 			// /dev/vhost-net must be present as we should have asked for it.
+			var virtioNetMQRequested bool
+			if mq := vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue; mq != nil {
+				virtioNetMQRequested = *mq
+			}
 			if ifaceType == "virtio" && virtioNetProhibited {
 				return fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
 			} else if ifaceType == "virtio" && virtioNetMQRequested {
-				domainIface.Driver = &InterfaceDriver{Name: "vhost", Queues: numQueues}
+				queueCount := uint(CalculateNetworkQueues(vmi))
+				domainIface.Driver = &InterfaceDriver{Name: "vhost", Queues: &queueCount}
 			}
 
 			// Add a pciAddress if specified
@@ -1801,6 +1754,52 @@ func formatDomainIOThreadPin(vmi *v1.VirtualMachineInstance, domain *Domain, c *
 		}
 	}
 	return nil
+}
+
+func validateNetworksTypes(networks []v1.Network) error {
+	for _, network := range networks {
+		switch {
+		case network.Pod != nil && network.Multus != nil:
+			return fmt.Errorf("network %s must have only one network type", network.Name)
+		case network.Pod == nil && network.Multus == nil:
+			return fmt.Errorf("network %s must have a network type", network.Name)
+		}
+	}
+	return nil
+}
+
+func indexNetworksByName(networks []v1.Network) map[string]*v1.Network {
+	netsByName := map[string]*v1.Network{}
+	for _, network := range networks {
+		netsByName[network.Name] = network.DeepCopy()
+	}
+	return netsByName
+}
+
+func createSRIOVHostDevice(hostPCIAddress string, guestPCIAddress string, bootOrder *uint) (*HostDevice, error) {
+	hostAddr, err := decoratePciAddressField(hostPCIAddress)
+	if err != nil {
+		return nil, err
+	}
+	hostDev := &HostDevice{
+		Source:  HostDeviceSource{Address: hostAddr},
+		Type:    "pci",
+		Managed: "no",
+	}
+
+	if guestPCIAddress != "" {
+		addr, err := decoratePciAddressField(guestPCIAddress)
+		if err != nil {
+			return nil, err
+		}
+		hostDev.Address = addr
+	}
+
+	if bootOrder != nil {
+		hostDev.BootOrder = &BootOrder{Order: *bootOrder}
+	}
+
+	return hostDev, nil
 }
 
 func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *Domain) error {
