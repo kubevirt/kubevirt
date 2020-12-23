@@ -1,18 +1,13 @@
 #!/bin/bash
 
-set -xe
+set -ex
 
 source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
 
 MANIFESTS_DIR="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/manifests"
-CERTCREATOR_PATH="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/certcreator"
-KUBECONFIG_PATH="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig"
+CI_CONFIGS_DIR="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER"
 
-MASTER_NODE="${CLUSTER_NAME}-control-plane"
-WORKER_NODE_ROOT="${CLUSTER_NAME}-worker"
-
-OPERATOR_GIT_HASH=8d3c30de8ec5a9a0c9eeb84ea0aa16ba2395cd68  # release-4.4
-SRIOV_OPERATOR_NAMESPACE="sriov-network-operator"
+SRIOV_WORKER_NODES_LABEL=${SRIOV_WORKER_NODES_LABEL:-none}
 
 # This function gets a command and invoke it repeatedly
 # until the command return code is zero
@@ -40,59 +35,6 @@ function retry {
   return 1
 }
 
-function wait_for_daemonSet {
-  local name=$1
-  local namespace=$2
-  local required_replicas=$3
-
-  if [[ $namespace != "" ]];then
-    namespace="-n $namespace"
-  fi
-
-  if (( required_replicas < 0 )); then
-      echo "DaemonSet $name ready replicas number is not valid: $required_replicas"
-      return 1
-  fi
-
-  local -r tries=30
-  local -r wait_time=10
-  wait_message="Waiting for DaemonSet $name to have $required_replicas ready replicas"
-  error_message="DaemonSet $name did not have $required_replicas ready replicas"
-  action="_kubectl get daemonset $namespace $name -o jsonpath='{.status.numberReady}' | grep -w $required_replicas"
-
-  if ! retry "$tries" "$wait_time" "$action" "$wait_message";then
-    echo $error_message
-    return 1
-  fi
-
-  return  0
-}
-
-function wait_k8s_object {
-  local -r object_type=$1
-  local -r name=$2
-  local namespace=$3
-
-  local -r tries=60
-  local -r wait_time=3
-
-  local -r wait_message="Waiting for $object_type $name"
-  local -r error_message="$object_type $name at $namespace namespace found"
-
-  if [[ $namespace != "" ]];then
-    namespace="-n $namespace"
-  fi
-
-  local -r action="_kubectl get $object_type $name $namespace -o custom-columns=NAME:.metadata.name --no-headers"
-
-  if ! retry "$tries" "$wait_time" "$action" "$wait_message";then
-    echo $error_message
-    return  1
-  fi
-
-  return 0
-}
-
 function _check_all_pods_ready() {
   all_pods_ready_condition=$(_kubectl get pods -A --no-headers -o custom-columns=':.status.conditions[?(@.type == "Ready")].status')
   if [ "$?" -eq 0 ]; then
@@ -105,8 +47,7 @@ function _check_all_pods_ready() {
   return 1
 }
 
-# not using kubectl wait since with the sriov operator the pods get restarted a couple of times and this is
-# more reliable
+# Using kubectl wait is not realiable if pods restarts
 function wait_pods_ready {
   local -r tries=30
   local -r wait_time=10
@@ -152,85 +93,23 @@ function wait_allocatable_resource {
   return 0
 }
 
-function deploy_multus {
-  echo 'Deploying Multus'
-  _kubectl create -f $MANIFESTS_DIR/multus.yaml
+_kubectl apply -f $MANIFESTS_DIR/multus.yaml
 
-  echo 'Waiting for Multus deployment to become ready'
-  daemonset_name=$(cat $MANIFESTS_DIR/multus.yaml | grep -i daemonset -A 3 | grep -Po '(?<=name:) \S*amd64$')
-  daemonset_namespace=$(cat $MANIFESTS_DIR/multus.yaml | grep -i daemonset -A 3 | grep -Po '(?<=namespace:) \S*$' | head -1)
-  required_replicas=$(_kubectl get daemonset $daemonset_name -n $daemonset_namespace -o jsonpath='{.status.desiredNumberScheduled}')
-  wait_for_daemonSet $daemonset_name $daemonset_namespace $required_replicas
-
-  return 0
-}
-
-function deploy_sriov_operator {
-  echo 'Downloading the SR-IOV operator'
-  operator_path=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/sriov-network-operator-${OPERATOR_GIT_HASH}
-  if [ ! -d $operator_path ]; then
-    curl -LSs https://github.com/openshift/sriov-network-operator/archive/${OPERATOR_GIT_HASH}/sriov-network-operator.tar.gz | tar xz -C ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/
-  fi
-
-  echo 'Installing the SR-IOV operator'
-  pushd $operator_path
-    export RELEASE_VERSION=4.4
-    export SRIOV_NETWORK_OPERATOR_IMAGE=quay.io/openshift/origin-sriov-network-operator:${RELEASE_VERSION}
-    export SRIOV_NETWORK_CONFIG_DAEMON_IMAGE=quay.io/openshift/origin-sriov-network-config-daemon:${RELEASE_VERSION}
-    export SRIOV_NETWORK_WEBHOOK_IMAGE=quay.io/openshift/origin-sriov-network-webhook:${RELEASE_VERSION}
-    export NETWORK_RESOURCES_INJECTOR_IMAGE=quay.io/openshift/origin-sriov-dp-admission-controller:${RELEASE_VERSION}
-    export SRIOV_CNI_IMAGE=quay.io/openshift/origin-sriov-cni:${RELEASE_VERSION}
-    export SRIOV_DEVICE_PLUGIN_IMAGE=quay.io/openshift/origin-sriov-network-device-plugin:${RELEASE_VERSION}
-    export OPERATOR_EXEC=${KUBECTL}
-    make deploy-setup-k8s SHELL=/bin/bash  # on prow nodes the default shell is dash and some commands are not working
-  popd
-
-  echo 'Generating webhook certificates for the SR-IOV operator webhooks'
-  pushd "${CERTCREATOR_PATH}"
-    go run . -namespace sriov-network-operator -secret operator-webhook-service -hook operator-webhook -kubeconfig $KUBECONFIG_PATH
-    go run . -namespace sriov-network-operator -secret network-resources-injector-secret -hook network-resources-injector -kubeconfig $KUBECONFIG_PATH
-  popd
-
-  echo 'Setting caBundle for SR-IOV webhooks'
-  wait_k8s_object "validatingwebhookconfiguration" "operator-webhook-config"
-  _kubectl patch validatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CERTCREATOR_PATH/operator-webhook.cert)"'" }}]}'
-
-  wait_k8s_object "mutatingwebhookconfiguration"   "operator-webhook-config"
-  _kubectl patch mutatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CERTCREATOR_PATH/operator-webhook.cert)"'" }}]}'
-
-  wait_k8s_object "mutatingwebhookconfiguration"   "network-resources-injector-config"
-  _kubectl patch mutatingwebhookconfiguration network-resources-injector-config --patch '{"webhooks":[{"name":"network-resources-injector-config.k8s.io", "clientConfig": { "caBundle": "'"$(cat $CERTCREATOR_PATH/network-resources-injector.cert)"'" }}]}'
-
-  return 0
-}
-
-function apply_sriov_node_policy {
-  local -r policy_file=$1
-
-  # Substitute $NODE_PF and $NODE_PF_NUM_VFS and create SriovNetworkNodePolicy CR
-  local -r policy=$(envsubst < $policy_file)
-  echo "Applying SriovNetworkNodeConfigPolicy:"
-  echo "$policy"
-  _kubectl create -f - <<< "$policy"
-
-  return 0
-}
-
-deploy_multus
+_kubectl kustomize $MANIFESTS_DIR > $CI_CONFIGS_DIR/sriov-components.yaml
+_kubectl apply -f $CI_CONFIGS_DIR/sriov-components.yaml
 wait_pods_ready
-
-deploy_sriov_operator
-wait_pods_ready
-
-policy="$MANIFESTS_DIR/network_config_policy.yaml"
-apply_sriov_node_policy "$policy"
 
 # Verify that sriov node has sriov VFs allocatable resource
-resource_name=$(sed -n 's/.*resourceName: *//p' $policy)
-wait_allocatable_resource $SRIOV_NODE "openshift.io/$resource_name" $NODE_PF_NUM_VFS
-wait_pods_ready
+
+resource_prefix=$(sed -nE 's/.*--resource-prefix=(.*)/\1/p' $CI_CONFIGS_DIR/sriov-components.yaml | head -1)
+resource_name=$(sed -nE 's/.*"resourceName":.*"(.*)".*/\1/p' $CI_CONFIGS_DIR/sriov-components.yaml)
+numvfs=$(cat $(ls /sys/bus/pci/devices/*/sriov_numvfs | head -1))
+for node in $(_kubectl get nodes -l $SRIOV_WORKER_NODES_LABEL -o custom-columns=:.metadata.name --no-headers); do
+  wait_allocatable_resource $node "$resource_prefix/$resource_name" $numvfs
+done
 
 _kubectl get nodes
-_kubectl get pods -n $SRIOV_OPERATOR_NAMESPACE
+_kubectl get pods -A
+
 echo
 echo "$KUBEVIRT_PROVIDER cluster is ready"
