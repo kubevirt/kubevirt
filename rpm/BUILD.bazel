@@ -262,6 +262,7 @@ rpmtree(
         "@polkit-libs-0__0.116-7.fc32.x86_64//rpm",
         "@polkit-pkla-compat-0__0.1-16.fc32.x86_64//rpm",
         "@popt-0__1.16-19.fc32.x86_64//rpm",
+        "@procps-ng-0__3.3.16-1.fc32.x86_64//rpm",
         "@psmisc-0__23.3-3.fc32.x86_64//rpm",
         "@python-pip-wheel-0__19.3.1-4.fc32.x86_64//rpm",
         "@python-setuptools-wheel-0__41.6.0-2.fc32.x86_64//rpm",

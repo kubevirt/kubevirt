@@ -68,6 +68,7 @@ bazel run \
     selinux-policy selinux-policy-targeted \
     nftables \
     findutils \
+    procps-ng \
     iptables
 
 # remove all RPMs which are no longer referenced by a rpmtree
