@@ -42,3 +42,4 @@ _ci-configs/
 .history
 hack/builder/manifests/
 *~
+.bazeldnf/

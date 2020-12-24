@@ -98,6 +98,7 @@ _rsync \
     --exclude 'cluster-up/cluster/**/.kubeconfig' \
     --exclude "_out" \
     --exclude ".vagrant" \
+    --exclude ".bazeldnf" \
     ${KUBEVIRT_DIR}/ \
     "rsync://root@127.0.0.1:${RSYNCD_PORT}/build"
 
@@ -163,6 +164,7 @@ _rsync \
     --exclude "vendor" \
     --exclude ".vagrant" \
     --exclude ".git" \
+    --exclude ".bazeldnf" \
     "rsync://root@127.0.0.1:${RSYNCD_PORT}/build" \
     ${KUBEVIRT_DIR}/
 
