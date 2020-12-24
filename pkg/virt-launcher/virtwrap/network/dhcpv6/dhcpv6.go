@@ -78,10 +78,22 @@ func (h *DHCPv6Handler) ServeDHCPv6(conn net.PacketConn, peer net.Addr, m dhcpv6
 
 	// TODO if we extend the server to support bridge binding, we need to filter out non-vm requests
 
+	response, err := h.buildResponse(m)
+	if err != nil {
+		log.Log.V(4).Reason(err).Error("DHCPv6 failed building a response to the client")
+
+	}
+
+	if _, err := conn.WriteTo(response.ToBytes(), peer); err != nil {
+		log.Log.V(4).Reason(err).Error("DHCPv6 failed sending a response to the client")
+	}
+}
+
+func (h *DHCPv6Handler) buildResponse(msg dhcpv6.DHCPv6) (*dhcpv6.Message, error) {
 	var response *dhcpv6.Message
 	var err error
 
-	dhcpv6Msg := m.(*dhcpv6.Message)
+	dhcpv6Msg := msg.(*dhcpv6.Message)
 	switch dhcpv6Msg.Type() {
 	case dhcpv6.MessageTypeSolicit:
 		log.Log.V(4).Info("DHCPv6 - the request has message type Solicit")
@@ -92,23 +104,19 @@ func (h *DHCPv6Handler) ServeDHCPv6(conn net.PacketConn, peer net.Addr, m dhcpv6
 			response, err = dhcpv6.NewReplyFromMessage(dhcpv6Msg, h.modifiers...)
 		}
 	default:
-		log.Log.V(4).Info("DHCPv6 - non Solicit request recieved")
+		log.Log.V(4).Info("DHCPv6 - non Solicit request received")
 		response, err = dhcpv6.NewReplyFromMessage(dhcpv6Msg, h.modifiers...)
 	}
 
-	ianaRequest := msg.Options.OneIANA()
+	if err != nil {
+		return nil, err
+	}
+
+	ianaRequest := dhcpv6Msg.Options.OneIANA()
 	ianaResponse := response.Options.OneIANA()
 	ianaResponse.IaId = ianaRequest.IaId
 	response.UpdateOption(ianaResponse)
-
-	if err != nil {
-		log.Log.V(4).Errorf("DHCPv6 failed sending a response to the client: %v", err)
-		return
-	}
-
-	if _, err := conn.WriteTo(response.ToBytes(), peer); err != nil {
-		log.Log.V(4).Errorf("DHCPv6 cannot reply to client: %v", err)
-	}
+	return response, nil
 }
 
 func prepareDHCPv6Modifiers(clientIP net.IP, serverInterfaceMac net.HardwareAddr) []dhcpv6.Modifier {
