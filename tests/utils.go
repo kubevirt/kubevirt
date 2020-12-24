@@ -2855,10 +2855,10 @@ func WaitForPodToDisappearWithTimeout(podName string, seconds int) {
 func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance, seconds int) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	EventuallyWithOffset(1, func() bool {
+	EventuallyWithOffset(1, func() error {
 		_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-		return errors.IsNotFound(err)
-	}, seconds, 1*time.Second).Should(BeTrue())
+		return err
+	}, seconds, 1*time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), "The VMI should be gone within the given timeout")
 }
 
 func WaitForMigrationToDisappearWithTimeout(migration *v1.VirtualMachineInstanceMigration, seconds int) {
