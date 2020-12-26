@@ -3,16 +3,17 @@ package operands
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
+	"path"
+	"time"
+
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
-	"io"
 	"k8s.io/apimachinery/pkg/runtime"
-	"os"
-	"path"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-	"time"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var _ = Describe("QuickStart tests", func() {
@@ -20,7 +21,7 @@ var _ = Describe("QuickStart tests", func() {
 	schemeForTest := commonTestUtils.GetScheme()
 
 	var (
-		logger            = logf.ZapLoggerTo(GinkgoWriter, true).WithName("quickstart_test")
+		logger            = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("quickstart_test")
 		testFilesLocation = getTestFilesLocation()
 		hco               = commonTestUtils.NewHco()
 	)

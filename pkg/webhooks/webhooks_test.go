@@ -3,6 +3,10 @@ package webhooks
 import (
 	"context"
 	"errors"
+	"os"
+	"testing"
+	"time"
+
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
@@ -17,10 +21,7 @@ import (
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
-	"os"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-	"testing"
-	"time"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -36,7 +37,7 @@ const (
 )
 
 var (
-	logger = logf.ZapLoggerTo(GinkgoWriter, true).WithName("hyperconverged-resource")
+	logger = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("hyperconverged-resource")
 )
 
 func TestWebhook(t *testing.T) {

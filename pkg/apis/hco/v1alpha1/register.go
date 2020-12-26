@@ -8,7 +8,7 @@ package v1alpha1
 import (
 	hcoutils "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
 var (
