@@ -45,9 +45,6 @@ func NewPCIAddressPool(ifaces []v1.Interface) *PCIAddressPool {
 
 func (p *PCIAddressPool) load(ifaces []v1.Interface) {
 	for _, iface := range ifaces {
-		if iface.SRIOV == nil {
-			continue
-		}
 		p.networkToAddresses[iface.Name] = []string{}
 		resourceEnvVarName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", iface.Name)
 		resourceName, isSet := os.LookupEnv(resourceEnvVarName)
