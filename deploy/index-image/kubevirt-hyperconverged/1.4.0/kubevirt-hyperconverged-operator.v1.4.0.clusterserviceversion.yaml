@@ -79,7 +79,7 @@ metadata:
     operators.operatorframework.io/internal-objects: '["v2vvmwares.v2v.kubevirt.io","ovirtproviders.v2v.kubevirt.io","networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io","kubevirts.kubevirt.io","kubevirtcommontemplatesbundles.ssp.kubevirt.io","kubevirtmetricsaggregations.ssp.kubevirt.io","kubevirtnodelabellerbundles.ssp.kubevirt.io","kubevirttemplatevalidators.ssp.kubevirt.io","cdis.cdi.kubevirt.io","nodemaintenances.nodemaintenance.kubevirt.io","vmimportconfigs.v2v.kubevirt.io"]'
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: "false"
-  name: kubevirt-hyperconverged-operator.v1.3.0
+  name: kubevirt-hyperconverged-operator.v1.4.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -1739,7 +1739,7 @@ spec:
                     Product: None
                 - name: MACHINETYPE
                 - name: HCO_KV_IO_VERSION
-                  value: 1.3.0
+                  value: 1.4.0
                 - name: KUBEVIRT_VERSION
                   value: v0.36.0
                 - name: CDI_VERSION
@@ -2405,12 +2405,12 @@ spec:
     name: vm-import-operator
   - image: quay.io/kubevirt/vm-import-virtv2v@sha256:97caccb965d771afefd901c71381b6c1126e4177b477d47f2ca5ca57c5b06593
     name: vm-import-virtv2v
-  replaces: kubevirt-hyperconverged-operator.v1.2.0
+  replaces: kubevirt-hyperconverged-operator.v1.3.0
   selector:
     matchLabels:
       alm-owner-kubevirt: kubevirt-hyperconverged
       operated-by: kubevirt-hyperconverged
-  version: 1.3.0
+  version: 1.4.0
   webhookdefinitions:
   - admissionReviewVersions:
     - v1beta1

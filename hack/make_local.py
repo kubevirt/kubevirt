@@ -5,7 +5,7 @@ import sys
 import re
 from os import environ, linesep
 
-CSV_VERSION = '1.3.0'
+CSV_VERSION = '1.4.0'
 
 
 def get_env(line):
