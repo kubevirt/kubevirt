@@ -84,4 +84,10 @@ for pf in $pfs; do
         configure_vf_driver $vf $SUPPORTED_DRIVER
     done
     set -e
+
+    echo "###### bebug"
+    ip link show
+    for vf in $vfs_sys_devices; do
+        ls -l  $vf/driver
+    done
 done
