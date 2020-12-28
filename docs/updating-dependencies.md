@@ -57,6 +57,18 @@ More information can be found at [bazeldnf](https://github.com/rmohr/bazeldnf).
 
 Works the same way like for the RPM test dependencies.
 
+## Verifying RPMs
+
+`bazeldnf` does some initial checks based on sha256. Notably the metalink,
+repomd.xml and the packages XML are verified.  These checks happen whenever
+`make rpm-deps` is run. However, since we have no guarantee to still have the
+same RPMs available on subsequent runs, it is hard to check based on this the
+validity of the content in CI. RPM repos use therefore GPG signing to verify
+the origin of the content.
+
+Therefore, local and CI verification based on gpg keys can be performend by
+executing the `make verify-rpm-deps` command.
+
 ## Onboarding new architectures
 
 * Create architecture specific entries in [repo.yaml](repo.yaml) and
