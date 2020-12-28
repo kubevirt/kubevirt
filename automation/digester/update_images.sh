@@ -2,6 +2,11 @@
 
 set -ex
 
+(
+  cd ./tools/digester
+  go build .
+)
+
 source ./hack/config
 
 while IFS= read -r line; do

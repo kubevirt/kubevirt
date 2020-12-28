@@ -30,10 +30,6 @@ function main {
   update_versions
 
   echo INFO: Updating image digest list...
-  (
-    cd ./tools/digester
-    go build .
-  )
   ./automation/digester/update_images.sh
 
   echo INFO: Executing "build-manifests.sh"...

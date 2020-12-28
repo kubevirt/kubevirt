@@ -226,7 +226,15 @@ func writeEnvFile(images []*Image) error {
 		}
 		imageList[i] = imageDigest
 	}
-	_, err = writer.WriteString(fmt.Sprintf("DIGEST_LIST=%s\n", strings.Join(imageList, ",")))
+
+	half := len(imageList) / 2
+
+	_, err = writer.WriteString(fmt.Sprintf("DIGEST_LIST=%s,", strings.Join(imageList[:half], ",")))
+	if err != nil {
+		return err
+	}
+
+	_, err = writer.WriteString(fmt.Sprintf("%s\n", strings.Join(imageList[half:], ",")))
 	if err != nil {
 		return err
 	}
