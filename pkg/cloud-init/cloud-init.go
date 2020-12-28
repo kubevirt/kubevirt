@@ -573,7 +573,6 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 	if isEqual {
 		diskutils.RemoveFile(isoStaging)
 	} else {
-		diskutils.RemoveFile(iso)
 		err = os.Rename(isoStaging, iso)
 		if err != nil {
 			log.Log.Reason(err).Errorf("Cloud-init failed to rename file %s to %s", isoStaging, iso)
