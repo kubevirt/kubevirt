@@ -3,10 +3,12 @@ package components
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"time"
+
 	"golang.org/x/tools/go/packages"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"time"
 
 	"sigs.k8s.io/controller-tools/pkg/loader"
 	"sigs.k8s.io/controller-tools/pkg/markers"
@@ -36,6 +38,7 @@ const (
 	hcoNameWebhook      = "hyperconverged-cluster-webhook"
 	hcoDeploymentName   = "hco-operator"
 	hcoWhDeploymentName = "hco-webhook"
+	certVolume          = "apiservice-cert"
 )
 
 func GetDeploymentOperator(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion string, env []corev1.EnvVar) appsv1.Deployment {
@@ -55,7 +58,7 @@ func GetDeploymentOperator(namespace, image, imagePullPolicy, conversionContaine
 }
 
 func GetDeploymentWebhook(namespace, image, imagePullPolicy string, env []corev1.EnvVar) appsv1.Deployment {
-	return appsv1.Deployment{
+	deploy := appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
 			Kind:       "Deployment",
@@ -67,6 +70,35 @@ func GetDeploymentWebhook(namespace, image, imagePullPolicy string, env []corev1
 			},
 		},
 		Spec: GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, env),
+	}
+
+	InjectVolumesForWebHookCerts(&deploy)
+	return deploy
+}
+
+func GetServiceWebhook(namespace string) v1.Service {
+	return v1.Service{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: hcoNameWebhook + "-service",
+		},
+		Spec: v1.ServiceSpec{
+			Selector: map[string]string{
+				"name": hcoNameWebhook,
+			},
+			Ports: []v1.ServicePort{
+				{
+					Name:       strconv.Itoa(util.WebhookPort),
+					Port:       util.WebhookPort,
+					Protocol:   corev1.ProtocolTCP,
+					TargetPort: intstr.FromInt(util.WebhookPort),
+				},
+			},
+			Type: corev1.ServiceTypeClusterIP,
+		},
 	}
 }
 
@@ -1180,6 +1212,38 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 				Required: []csvv1alpha1.CRDDescription{},
 			},
 		},
+	}
+}
+
+func InjectVolumesForWebHookCerts(deploy *appsv1.Deployment) {
+	defaultMode := int32(420)
+	volume := v1.Volume{
+		Name: certVolume,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName:  deploy.Name + "-service-cert",
+				DefaultMode: &defaultMode,
+				Items: []corev1.KeyToPath{
+					{
+						Key:  "tls.crt",
+						Path: hcov1beta1.WebhookCertName,
+					},
+					{
+						Key:  "tls.key",
+						Path: hcov1beta1.WebhookKeyName,
+					},
+				},
+			},
+		},
+	}
+	deploy.Spec.Template.Spec.Volumes = append(deploy.Spec.Template.Spec.Volumes, volume)
+
+	for index, container := range deploy.Spec.Template.Spec.Containers {
+		deploy.Spec.Template.Spec.Containers[index].VolumeMounts = append(container.VolumeMounts,
+			corev1.VolumeMount{
+				Name:      "apiservice-cert",
+				MountPath: hcov1beta1.WebhookCertDir,
+			})
 	}
 }
 

@@ -23,9 +23,12 @@ source hack/common.sh
 "${CMD}" delete -f _out/hco.cr.yaml --ignore-not-found || true
 "${CMD}" wait --for=delete hyperconverged.hco.kubevirt.io/kubevirt-hyperconverged || true
 # TODO: delete hangs on machine.crd.yaml. Only delete the ones that don't hang
+
 # from _out/crds/.
 "${CMD}" delete -f _out/crds --ignore-not-found || true
 "${CMD}" delete -f _out/operator.yaml --ignore-not-found || true
+
+"${CMD}" delete -f _out/webhooks.yaml --ignore-not-found || true
 
 # Delete kubevirt-operator
 "${CMD}" delete -n kubevirt apiservice v1alpha3.kubevirt.io --ignore-not-found || true
@@ -51,6 +54,9 @@ source hack/common.sh
 "${CMD}" delete -f _out/cluster_role_binding.yaml --ignore-not-found || true
 "${CMD}" delete -f _out/cluster_role.yaml --ignore-not-found || true
 "${CMD}" delete -f _out/service_account.yaml --ignore-not-found || true
+
+# Remove cert-manager
+"${CMD}" delete -f _out/cert-manager.yaml --ignore-not-found || true
 
 # Delete namespace at the end
 # "${CMD}" delete ns kubevirt-hyperconverged --ignore-not-found || true

@@ -142,7 +142,20 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
         resources: {}
+        volumeMounts:
+        - mountPath: /apiserver.local.config/certificates
+          name: apiservice-cert
       serviceAccountName: hyperconverged-cluster-operator
+      volumes:
+      - name: apiservice-cert
+        secret:
+          defaultMode: 420
+          items:
+          - key: tls.crt
+            path: apiserver.crt
+          - key: tls.key
+            path: apiserver.key
+          secretName: hyperconverged-cluster-webhook-service-cert
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -445,10 +458,23 @@ spec:
         imagePullPolicy: Always
         name: node-maintenance-operator
         resources: {}
+        volumeMounts:
+        - mountPath: /apiserver.local.config/certificates
+          name: apiservice-cert
       serviceAccountName: node-maintenance-operator
       tolerations:
       - effect: NoSchedule
         key: node-role.kubernetes.io/master
+      volumes:
+      - name: apiservice-cert
+        secret:
+          defaultMode: 420
+          items:
+          - key: tls.crt
+            path: apiserver.crt
+          - key: tls.key
+            path: apiserver.key
+          secretName: node-maintenance-operator-service-cert
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -536,3 +562,31 @@ spec:
       securityContext:
         runAsNonRoot: true
       serviceAccountName: vm-import-operator
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hyperconverged-cluster-webhook-service
+spec:
+  ports:
+  - name: "4343"
+    port: 4343
+    protocol: TCP
+    targetPort: 4343
+  selector:
+    name: hyperconverged-cluster-webhook
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-maintenance-operator-service
+spec:
+  ports:
+  - name: "8443"
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    name: node-maintenance-operator
+  type: ClusterIP

@@ -24,6 +24,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"strconv"
 
 	"github.com/ghodss/yaml"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
@@ -35,6 +36,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // flags for the command line arguments we accept
@@ -153,6 +155,13 @@ func main() {
 			[]corev1.EnvVar{},
 		),
 	}
+
+	services := []v1.Service{
+		components.GetServiceWebhook(
+			*operatorNamespace,
+		),
+	}
+
 	serviceAccounts := map[string]v1.ServiceAccount{
 		"hyperconverged-cluster-operator": components.GetServiceAccount(*operatorNamespace),
 	}
@@ -176,13 +185,39 @@ func main() {
 				panic(err)
 			}
 
+			for _, webhook := range csvStruct.Spec.WebhookDefinitions {
+				services = append(services, v1.Service{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "Service",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: webhook.DeploymentName + "-service",
+					},
+					Spec: v1.ServiceSpec{
+						Selector: map[string]string{
+							"name": webhook.DeploymentName,
+						},
+						Ports: []v1.ServicePort{
+							{
+								Name:       strconv.Itoa(int(webhook.ContainerPort)),
+								Port:       webhook.ContainerPort,
+								Protocol:   corev1.ProtocolTCP,
+								TargetPort: intstr.FromInt(int(webhook.ContainerPort)),
+							},
+						},
+						Type: corev1.ServiceTypeClusterIP,
+					},
+				})
+			}
+
 			strategySpec := csvStruct.Spec.InstallStrategy.StrategySpec
 
 			// CSVs only contain the deployment spec, we must wrap
 			// the spec with the Type and Object Meta to make it a valid
 			// manifest
 			for _, deploymentSpec := range strategySpec.DeploymentSpecs {
-				deployments = append(deployments, appsv1.Deployment{
+				deploy := appsv1.Deployment{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: "apps/v1",
 						Kind:       "Deployment",
@@ -194,7 +229,9 @@ func main() {
 						},
 					},
 					Spec: deploymentSpec.Spec,
-				})
+				}
+				injectWebhookMounts(csvStruct.Spec.WebhookDefinitions, &deploy)
+				deployments = append(deployments, deploy)
 			}
 
 			// Every permission we encounter in a CSV means we need to (potentially)
@@ -324,6 +361,11 @@ func main() {
 		util.MarshallObject(deployment, operatorYaml)
 	}
 
+	// Write out deployments
+	for _, service := range services {
+		util.MarshallObject(service, operatorYaml)
+	}
+
 	// Write out rbac
 	// since maps are not ordered we must enforce one before writing
 	var keys []string
@@ -345,5 +387,13 @@ func main() {
 	}
 	for _, clusterRoleBinding := range clusterRoleBindings {
 		util.MarshallObject(clusterRoleBinding, crbYaml)
+	}
+}
+
+func injectWebhookMounts(webhookDefs []csvv1alpha1.WebhookDescription, deploy *appsv1.Deployment) {
+	for _, webhook := range webhookDefs {
+		if webhook.DeploymentName == deploy.Name {
+			components.InjectVolumesForWebHookCerts(deploy)
+		}
 	}
 }

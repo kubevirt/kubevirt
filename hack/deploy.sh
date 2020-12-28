@@ -117,11 +117,14 @@ function debug(){
     exit 1
 }
 
+# Deploy cert-manager for webhooks
+"${CMD}" apply -f _out/cert-manager.yaml
+
 # Deploy local manifests
-"${CMD}" create -f _out/cluster_role.yaml
-"${CMD}" create -f _out/service_account.yaml
-"${CMD}" create -f _out/cluster_role_binding.yaml
-"${CMD}" create -f _out/crds/
+"${CMD}" apply -f _out/cluster_role.yaml
+"${CMD}" apply -f _out/service_account.yaml
+"${CMD}" apply -f _out/cluster_role_binding.yaml
+"${CMD}" apply -f _out/crds/
 
 sleep 20
 if [[ "$(${CMD} get crd ${HCO_CRD_NAME} -o=jsonpath='{.status.conditions[?(@.type=="NonStructuralSchema")].status}')" == "True" ]];
@@ -130,18 +133,26 @@ then
     "${CMD}" get crd ${HCO_CRD_NAME} -o go-template='{{ range .status.conditions }}{{ .type }}{{ "\t" }}{{ .status }}{{ "\t" }}{{ .message }}{{ "\n" }}{{ end }}'
 fi
 
+# note that generated certificates are necessary for webhook deployments
+# manifest-templator does not add them into operator.yaml at the moment. 
+# when a new webhook (deployed by OLM in production) is introduced, 
+# it must be added into webhooks.yaml as well.
+echo "Creating resources for webhooks"
+"${CMD}" apply -f _out/webhooks.yaml
+
 if [ "${CI}" != "true" ]; then
-	"${CMD}" create -f _out/operator.yaml
+	"${CMD}" apply -f _out/operator.yaml
 else
 	sed -E 's|^(\s*)- name: KVM_EMULATION$|\1- name: KVM_EMULATION\n\1  value: "true"|' < _out/operator.yaml > _out/operator-ci.yaml
 	cat _out/operator-ci.yaml
-	"${CMD}" create -f _out/operator-ci.yaml
+	"${CMD}" apply -f _out/operator-ci.yaml
 fi
 
 # Wait for the HCO to be ready
 sleep 20
 
-"${CMD}" wait deployment/hyperconverged-cluster-operator --for=condition=Available --timeout="1080s" || CONTAINER_ERRORED+="${op}"
+"${CMD}" wait deployment/hyperconverged-cluster-operator --for=condition=Available --timeout="1080s" || CONTAINER_ERRORED+="hyperconverged-cluster-operator "
+"${CMD}" wait deployment/hyperconverged-cluster-webhook --for=condition=Available --timeout="1080s" || CONTAINER_ERRORED+="hyperconverged-cluster-webhook "
 
 # avoid checking the availability of virt-operator here because it will become available only when
 # HCO will create its priorityClass and this will happen only when wi will have HCO cr
@@ -149,7 +160,7 @@ for op in cdi-operator cluster-network-addons-operator kubevirt-ssp-operator nod
     "${CMD}" wait deployment/"${op}" --for=condition=Available --timeout="540s" || CONTAINER_ERRORED+="${op} "
 done
 
-"${CMD}" create -f _out/hco.cr.yaml
+"${CMD}" apply -f _out/hco.cr.yaml
 sleep 10
 # Give 30 minutes to available condition become true
 if ! timeout 30m bash -c -- "until "${CMD}" get -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} -o go-template='{{ range .status.conditions }}{{ if eq .type \"Available\" }}{{ .status }}{{ end }}{{ end }}' | grep True; do sleep 1; done";

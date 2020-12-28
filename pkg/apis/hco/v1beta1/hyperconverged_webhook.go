@@ -31,7 +31,7 @@ var (
 )
 
 type WebhookHandlerIfs interface {
-	Init(logger logr.Logger, cli client.Client, namespace string)
+	Init(logger logr.Logger, cli client.Client, namespace string, isOpenshift bool)
 	ValidateCreate(hc *HyperConverged) error
 	ValidateUpdate(requested *HyperConverged, exists *HyperConverged) error
 	ValidateDelete(hc *HyperConverged) error
@@ -40,7 +40,7 @@ type WebhookHandlerIfs interface {
 
 var whHandler WebhookHandlerIfs
 
-func (r *HyperConverged) SetupWebhookWithManager(ctx context.Context, mgr ctrl.Manager, handler WebhookHandlerIfs) error {
+func (r *HyperConverged) SetupWebhookWithManager(ctx context.Context, mgr ctrl.Manager, handler WebhookHandlerIfs, isOpenshift bool) error {
 	operatorNsEnv, nserr := hcoutil.GetOperatorNamespaceFromEnv()
 	if nserr != nil {
 		hcolog.Error(nserr, "failed to get operator namespace from the environment")
@@ -49,7 +49,7 @@ func (r *HyperConverged) SetupWebhookWithManager(ctx context.Context, mgr ctrl.M
 
 	// Make sure the certificates are mounted, this should be handled by the OLM
 	whHandler = handler
-	whHandler.Init(hcolog, mgr.GetClient(), operatorNsEnv)
+	whHandler.Init(hcolog, mgr.GetClient(), operatorNsEnv, isOpenshift)
 
 	certs := []string{filepath.Join(WebhookCertDir, WebhookCertName), filepath.Join(WebhookCertDir, WebhookKeyName)}
 	for _, fname := range certs {

@@ -27,15 +27,17 @@ const (
 )
 
 type WebhookHandler struct {
-	logger    logr.Logger
-	cli       client.Client
-	namespace string
+	logger      logr.Logger
+	cli         client.Client
+	namespace   string
+	isOpenshift bool
 }
 
-func (wh *WebhookHandler) Init(logger logr.Logger, cli client.Client, namespace string) {
+func (wh *WebhookHandler) Init(logger logr.Logger, cli client.Client, namespace string, isOpenshift bool) {
 	wh.logger = logger
 	wh.cli = cli
 	wh.namespace = namespace
+	wh.isOpenshift = isOpenshift
 }
 
 func (wh WebhookHandler) ValidateCreate(hc *v1beta1.HyperConverged) error {
@@ -68,11 +70,16 @@ func (wh WebhookHandler) ValidateUpdate(requested *v1beta1.HyperConverged, exist
 			operands.NewKubeVirt(requested),
 			operands.NewCDI(requested),
 			operands.NewNetworkAddons(requested),
-			operands.NewKubeVirtCommonTemplateBundle(requested),
-			operands.NewKubeVirtNodeLabellerBundleForCR(requested, requested.Namespace),
-			operands.NewKubeVirtTemplateValidatorForCR(requested, requested.Namespace),
-			operands.NewKubeVirtMetricsAggregationForCR(requested, requested.Namespace),
 			operands.NewVMImportForCR(requested),
+		}
+
+		if wh.isOpenshift {
+			resources = append(resources,
+				operands.NewKubeVirtCommonTemplateBundle(requested),
+				operands.NewKubeVirtNodeLabellerBundleForCR(requested, requested.Namespace),
+				operands.NewKubeVirtTemplateValidatorForCR(requested, requested.Namespace),
+				operands.NewKubeVirtMetricsAggregationForCR(requested, requested.Namespace),
+			)
 		}
 
 		wg.Add(len(resources))
