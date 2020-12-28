@@ -32,6 +32,8 @@ type pool interface {
 	Pop(key string) (value string, err error)
 }
 
+const AliasPrefix = "sriov-"
+
 func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
 	SRIOVInterfaces := filterVMISRIOVInterfaces(vmi)
 	return CreateHostDevicesFromIfacesAndPool(SRIOVInterfaces, NewPCIAddressPool(SRIOVInterfaces))
@@ -62,6 +64,7 @@ func createHostDevice(iface v1.Interface, hostPCIAddress string) (*api.HostDevic
 		return nil, fmt.Errorf("failed to create SRIOV device for %s, host PCI: %v", iface.Name, err)
 	}
 	hostDev := &api.HostDevice{
+		Alias:   api.NewUserDefinedAlias(AliasPrefix + iface.Name),
 		Source:  api.HostDeviceSource{Address: hostAddr},
 		Type:    "pci",
 		Managed: "no",

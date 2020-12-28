@@ -30,6 +30,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/sriov"
 )
 
+const (
+	netname1 = "net1"
+	netname2 = "net2"
+)
+
 var _ = Describe("SRIOV HostDevice", func() {
 	It("creates no device given no interfaces", func() {
 		vmi := &v1.VirtualMachineInstance{}
@@ -76,9 +81,8 @@ var _ = Describe("SRIOV HostDevice", func() {
 	})
 
 	It("fails to create a device given two interfaces but only one host PCI", func() {
-		const netname = "net1"
-		iface1 := newSRIOVInterface(netname)
-		iface2 := newSRIOVInterface(netname)
+		iface1 := newSRIOVInterface(netname1)
+		iface2 := newSRIOVInterface(netname1)
 		pool := newPCIAddressPoolStub("0000:81:01.0")
 
 		_, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
@@ -87,21 +91,22 @@ var _ = Describe("SRIOV HostDevice", func() {
 	})
 
 	It("creates 2 devices that are connected to the same network", func() {
-		const netname = "net1"
-		iface1 := newSRIOVInterface(netname)
-		iface2 := newSRIOVInterface(netname)
+		iface1 := newSRIOVInterface(netname1)
+		iface2 := newSRIOVInterface(netname1)
 		pool := newPCIAddressPoolStub("0000:81:01.0", "0000:81:01.1")
 
 		devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
 
 		hostPCIAddress1 := api.Address{Type: "pci", Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 		expectHostDevice1 := api.HostDevice{
+			Alias:   newSRIOVAlias(netname1),
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress1},
 			Type:    "pci",
 			Managed: "no",
 		}
 		hostPCIAddress2 := api.Address{Type: "pci", Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x1"}
 		expectHostDevice2 := api.HostDevice{
+			Alias:   newSRIOVAlias(netname1),
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress2},
 			Type:    "pci",
 			Managed: "no",
@@ -110,20 +115,22 @@ var _ = Describe("SRIOV HostDevice", func() {
 	})
 
 	It("creates 2 devices that are connected to different networks", func() {
-		iface1 := newSRIOVInterface("net1")
-		iface2 := newSRIOVInterface("net2")
+		iface1 := newSRIOVInterface(netname1)
+		iface2 := newSRIOVInterface(netname2)
 		pool := newPCIAddressPoolStub("0000:81:01.0", "0000:81:02.0")
 
 		devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface1, iface2}, pool)
 
 		hostPCIAddress1 := api.Address{Type: "pci", Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 		expectHostDevice1 := api.HostDevice{
+			Alias:   newSRIOVAlias(netname1),
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress1},
 			Type:    "pci",
 			Managed: "no",
 		}
 		hostPCIAddress2 := api.Address{Type: "pci", Domain: "0x0000", Bus: "0x81", Slot: "0x02", Function: "0x0"}
 		expectHostDevice2 := api.HostDevice{
+			Alias:   newSRIOVAlias(netname2),
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress2},
 			Type:    "pci",
 			Managed: "no",
@@ -132,7 +139,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 	})
 
 	It("creates 1 device that includes guest PCI addresses", func() {
-		iface := newSRIOVInterface("net1")
+		iface := newSRIOVInterface(netname1)
 		iface.PciAddress = "0000:01:01.0"
 		pool := newPCIAddressPoolStub("0000:81:01.0", "0000:81:02.0")
 
@@ -141,6 +148,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 		hostPCIAddress1 := api.Address{Type: "pci", Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 		guestPCIAddress1 := api.Address{Type: "pci", Domain: "0x0000", Bus: "0x01", Slot: "0x01", Function: "0x0"}
 		expectHostDevice1 := api.HostDevice{
+			Alias:   newSRIOVAlias(netname1),
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress1},
 			Type:    "pci",
 			Managed: "no",
@@ -150,7 +158,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 	})
 
 	It("creates 1 device that includes boot-order", func() {
-		iface := newSRIOVInterface("net1")
+		iface := newSRIOVInterface(netname1)
 		val := uint(1)
 		iface.BootOrder = &val
 		pool := newPCIAddressPoolStub("0000:81:01.0", "0000:81:02.0")
@@ -159,6 +167,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 
 		hostPCIAddress1 := api.Address{Type: "pci", Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 		expectHostDevice1 := api.HostDevice{
+			Alias:     newSRIOVAlias(netname1),
 			Source:    api.HostDeviceSource{Address: &hostPCIAddress1},
 			Type:      "pci",
 			Managed:   "no",
@@ -167,6 +176,10 @@ var _ = Describe("SRIOV HostDevice", func() {
 		Expect(devices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
 	})
 })
+
+func newSRIOVAlias(netName string) *api.Alias {
+	return api.NewUserDefinedAlias(sriov.AliasPrefix + netName)
+}
 
 type stubPCIAddressPool struct {
 	pciAddresses []string
