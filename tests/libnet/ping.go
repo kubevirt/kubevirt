@@ -53,9 +53,8 @@ func PingFromVMConsole(vmi *v1.VirtualMachineInstance, ipAddr string, args ...st
 	respIPAddress, _ := console.RunCommandWithResponse(vmi, "ip address", maxCommandTimeout)
 	resp, err := console.RunCommandWithResponse(vmi, cmdCheck, maxCommandTimeout)
 	if err != nil {
-		respGoogle, err := console.RunCommandWithResponse(vmi, "ping google.com", maxCommandTimeout)
-		return fmt.Errorf("Failed to ping VMI %s, error: %v, response: %v, ip route: %v\n, ip link: %v\n, ip address: %v\n, ping to google resppnse: %v\n",
-			vmi.Name, err, resp, respIPRoute, respIPLink, respIPAddress, respGoogle)
+		return fmt.Errorf("Failed to ping VMI %s, error: %v, response: %v, ip route: %v\n, ip link: %v\n, ip address: %v",
+			vmi.Name, err, resp, respIPRoute, respIPLink, respIPAddress)
 	}
 	return nil
 }

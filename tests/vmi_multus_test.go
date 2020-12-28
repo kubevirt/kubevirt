@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -848,13 +849,23 @@ var _ = Describe("[Serial]SRIOV", func() {
 		It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {
 			cidrA := "192.168.1.1/24"
 			cidrB := "192.168.1.2/24"
+			cidrDebug := "192.168.0.100/24"
+			//add ip for the pf to debug ping
+			_, err := RunOnNode("sriov-worker", fmt.Sprintf("ip addr add %s dev enp4s0f0", cidrToIP(cidrDebug)))
+			Expect(err).ToNot(HaveOccurred())
+
 			//create two vms on the smae sriov network
 			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, cidrA, cidrB)
 
 			//assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642")
 			Eventually(func() error {
-				return multierr.Append(libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB)), libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA)))
+				return multierr.Combine(libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB)), libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA)),
+					libnet.PingFromVMConsole(vmi1, cidrToIP(cidrDebug)), libnet.PingFromVMConsole(vmi2, cidrToIP(cidrDebug)))
 			}, 15*time.Second, time.Second).Should(Succeed())
+
+			//delete the ip that was added
+			_, err = RunOnNode("sriov-worker", fmt.Sprintf("ip addr del %s dev enp4s0f0", "192.168.0.100"))
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
@@ -886,7 +897,6 @@ var _ = Describe("[Serial]SRIOV", func() {
 				Eventually(func() error {
 					return multierr.Append(libnet.PingFromVMConsole(vlanedVMI2, cidrToIP(cidrVlaned1)), libnet.PingFromVMConsole(vlanedVMI1, cidrToIP("192.168.0.2/24")))
 				}, 15*time.Second, time.Second).Should(Succeed())
-
 
 				Eventually(func() error {
 					return libnet.PingFromVMConsole(vlanedVMI2, cidrToIP(cidrVlaned1))
@@ -1323,6 +1333,7 @@ func checkSriovEnabled(virtClient kubecli.KubevirtClient, sriovResourceName stri
 		for k, v := range resourceList {
 			if string(k) == sriovResourceName {
 				if v.Value() > 0 {
+
 					return true
 				}
 			}
@@ -1377,4 +1388,15 @@ func cloudInitNetworkDataWithStaticIPsByDevice(deviceName, ipAddress string) str
 	)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should successfully create static IPs by device name cloud init network data")
 	return networkData
+}
+
+func RunOnNode(node string, command string) (string, error) {
+	out, err := exec.Command("docker", "exec", "sriov-worker", "sh", "-c", command).CombinedOutput()
+	if err != nil {
+		panic(fmt.Sprintf("failed to run docker exec command error output: %s", string(out)))
+	}
+	outString := string(out)
+	outLines := strings.Split(outString, "\n")
+	outStrippedString := strings.Join(outLines, "\n")
+	return outStrippedString, err
 }
