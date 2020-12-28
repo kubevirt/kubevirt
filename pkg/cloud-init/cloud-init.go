@@ -564,20 +564,10 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 		return err
 	}
 
-	isEqual, err := diskutils.FilesAreEqual(iso, isoStaging)
+	err = os.Rename(isoStaging, iso)
 	if err != nil {
+		log.Log.Reason(err).Errorf("Cloud-init failed to rename file %s to %s", isoStaging, iso)
 		return err
-	}
-
-	// Only replace the dynamically generated iso if it has a different checksum
-	if isEqual {
-		diskutils.RemoveFile(isoStaging)
-	} else {
-		err = os.Rename(isoStaging, iso)
-		if err != nil {
-			log.Log.Reason(err).Errorf("Cloud-init failed to rename file %s to %s", isoStaging, iso)
-			return err
-		}
 	}
 
 	log.Log.V(2).Infof("generated nocloud iso file %s", iso)
