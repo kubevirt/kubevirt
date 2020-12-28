@@ -11,8 +11,7 @@ QEMU_VERSION=15:5.1.0-16
 
 # Define some base packages to avoid dependency flipping
 # since some dependencies can be satisfied by multiple packages
-basesystem="glibc-langpack-en coreutils-single libcurl-minimal curl-minimal"
-testbasesystem="${basesystem} generic-logos-httpd"
+basesystem="glibc-langpack-en coreutils-single libcurl-minimal curl-minimal fedora-logos-httpd"
 
 # get latest repo data from repo.yaml
 bazel run \
@@ -23,7 +22,7 @@ bazel run \
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree --public --name testimage_x86_64 \
-    $testbasesystem \
+    $basesystem \
     qemu-img \
     qemu-guest-agent \
     stress \
@@ -40,7 +39,7 @@ bazel run \
 bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- rpmtree --public --arch=ppc64le --name testimage_ppc64le \
-    $testbasesystem \
+    $basesystem \
     qemu-img \
     qemu-guest-agent \
     stress \
