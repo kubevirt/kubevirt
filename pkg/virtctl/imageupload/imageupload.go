@@ -210,7 +210,8 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 	if err := parseArgs(args); err != nil {
 		return err
 	}
-	// #nosec No risk for path injection. This is used only to upload an image not to read info
+	// #nosec G304 No risk for path injection as this funtion exectues with
+	// the same previliges as those of virtctl user who supplies imagePath
 	file, err := os.Open(imagePath)
 	if err != nil {
 		return err
