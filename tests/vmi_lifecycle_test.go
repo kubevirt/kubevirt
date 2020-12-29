@@ -655,14 +655,20 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, 20*time.Second, 1*time.Second).Should(Equal("false"), "The node should not be schedulable")
 
 				By("moving stuck vmis to failed state")
-				Eventually(func() v1.VirtualMachineInstancePhase {
+				Eventually(func() error {
 					failedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get vmi successfully")
-					return failedVMI.Status.Phase
-				}, 180*time.Second, 1*time.Second).Should(Equal(v1.Failed))
-				failedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(failedVMI.Status.Reason).To(Equal(watch.NodeUnresponsiveReason))
+					if failedVMI.Status.Phase != v1.Failed {
+						return fmt.Errorf("stuck vmi is not in failed state. Current phase: %s", failedVMI.Status.Phase)
+					}
+
+					failedVMI, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					if failedVMI.Status.Reason != watch.NodeUnresponsiveReason {
+						return fmt.Errorf("stuck vmi failed on different reason then unresponsive node. Current reason: %s", failedVMI.Status.Reason)
+					}
+					return nil
+				}, 180*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
