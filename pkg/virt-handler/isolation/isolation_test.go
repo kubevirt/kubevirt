@@ -16,6 +16,14 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
+var (
+	mountInfoTestData = map[string]string{
+		"overlay":      "/proc/1/root/var/lib/docker/overlay2/f15d9ce07df72e80d809aa99ab4a171f2f3636f65f0653e75db8ca0befd8ae02/merged",
+		"devicemapper": "/proc/1/root/var/lib/docker/devicemapper/mnt/d0990551ba8254871a449b2ff0d9063061ae96a2c195d7a850b62f030eae1710/rootfs",
+		"btrfs":        "/proc/1/root/var/lib/containers/storage/btrfs/subvolumes/e9a94e2cde75c54834378d4835d4eda6bebb56b02068b9254780de6f9344ad0e",
+	}
+)
+
 var _ = Describe("Isolation", func() {
 
 	Context("With an existing socket", func() {
@@ -97,6 +105,38 @@ var _ = Describe("Isolation", func() {
 			result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.NetNamespace()).To(Equal(fmt.Sprintf("/proc/%d/ns/net", os.Getpid())))
+		})
+
+		It("Should detect the root mount info of the test suite", func() {
+			result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
+			Expect(err).ToNot(HaveOccurred())
+			mountInfo, err := result.MountInfoRoot()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mountInfo.MountPoint).To(Equal("/"))
+		})
+
+		It("Should detect the full path of the mount on a node", func() {
+			// Restore the overwritten function
+			defer func(f func(int) string) { mountInfoFunc = f }(mountInfoFunc)
+
+			for testCase, want := range mountInfoTestData {
+				mountInfoFunc = func(pid int) string {
+					Expect(pid).To(SatisfyAny(Equal(1), Equal(os.Getpid())))
+					base := filepath.Join("testdata", "mountinfo")
+					if pid == 1 {
+						return filepath.Join(base, fmt.Sprintf("%s_host", testCase))
+					}
+					return filepath.Join(base, fmt.Sprintf("%s_launcher", testCase))
+				}
+
+				result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
+				Expect(err).ToNot(HaveOccurred())
+				mountInfo, err := result.MountInfoRoot()
+				Expect(err).ToNot(HaveOccurred())
+				fullPath, err := NodeIsolationResult().FullPath(mountInfo)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(fullPath).To(Equal(want))
+			}
 		})
 
 		AfterEach(func() {
