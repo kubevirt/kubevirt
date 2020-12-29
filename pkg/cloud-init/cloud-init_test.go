@@ -537,4 +537,21 @@ var _ = Describe("CloudInit", func() {
 			})
 		})
 	})
+	Describe("GenerateLocalData", func() {
+		It("should cleanly run twice", func() {
+			namespace := "fake-namespace"
+			domain := "fake-domain"
+			userData := "fake\nuser\ndata\n"
+			source := &v1.CloudInitNoCloudSource{
+				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+			}
+			cloudInitData, err := readCloudInitNoCloudSource(source)
+			Expect(err).NotTo(HaveOccurred())
+			err = GenerateLocalData(domain, namespace, cloudInitData)
+			Expect(err).NotTo(HaveOccurred())
+			err = GenerateLocalData(domain, namespace, cloudInitData)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+	})
 })
