@@ -438,6 +438,7 @@ type Input struct {
 	Bus     string   `xml:"bus,attr"`
 	Alias   *Alias   `xml:"alias,omitempty"`
 	Address *Address `xml:"address,emitempty"`
+	Model   string   `xml:"model,attr,omitempty"`
 }
 
 // BEGIN HostDevice -----------------------------
@@ -495,6 +496,7 @@ type Disk struct {
 	BackingStore *BackingStore `xml:"backingStore,omitempty"`
 	BootOrder    *BootOrder    `xml:"boot,omitempty"`
 	Address      *Address      `xml:"address,omitempty"`
+	Model        string        `xml:"model,attr,omitempty"`
 }
 
 type DiskAuth struct {

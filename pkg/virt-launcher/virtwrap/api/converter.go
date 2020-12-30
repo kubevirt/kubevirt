@@ -98,6 +98,7 @@ type ConverterContext struct {
 	EmulatorThreadCpu     *int
 	OVMFPath              string
 	MemBalloonStatsPeriod uint
+	UseVirtioTransitional bool
 }
 
 // pop next device ID or address from a list
@@ -145,7 +146,7 @@ func Convert_HostDevices_And_GPU(devices v1.Devices, domain *Domain, c *Converte
 
 }
 
-func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, prefixMap map[string]deviceNamer, numQueues *uint) error {
+func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk *Disk, prefixMap map[string]deviceNamer, numQueues *uint) error {
 	if diskDevice.Disk != nil {
 		var unit int
 		disk.Device = "disk"
@@ -173,6 +174,9 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, prefixMap map[
 				return fmt.Errorf("failed to configure disk %s: %v", diskDevice.Name, err)
 			}
 			disk.Address = addr
+		}
+		if diskDevice.Disk.Bus == "virtio" {
+			disk.Model = translateModel(c, "virtio")
 		}
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
@@ -659,10 +663,10 @@ func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *Watchdog
 	return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", source.Name)
 }
 
-func Convert_v1_Rng_To_api_Rng(source *v1.Rng, rng *Rng, _ *ConverterContext) error {
+func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *Rng, c *ConverterContext) error {
 
 	// default rng model for KVM/QEMU virtualization
-	rng.Model = "virtio"
+	rng.Model = translateModel(c, "virtio")
 
 	// default backend model, random
 	rng.Backend = &RngBackend{
@@ -675,7 +679,7 @@ func Convert_v1_Rng_To_api_Rng(source *v1.Rng, rng *Rng, _ *ConverterContext) er
 	return nil
 }
 
-func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *Input, _ *ConverterContext) error {
+func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *Input, c *ConverterContext) error {
 	if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
 		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
 	}
@@ -691,6 +695,7 @@ func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *Input, _ 
 	inputDevice.Bus = input.Bus
 	inputDevice.Type = input.Type
 	inputDevice.Alias = &Alias{Name: input.Name}
+	inputDevice.Model = translateModel(c, input.Bus)
 	return nil
 }
 
@@ -821,7 +826,7 @@ func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *MemBalloon, c *Conv
 		ballooning.Model = "none"
 		ballooning.Stats = nil
 	} else {
-		ballooning.Model = "virtio"
+		ballooning.Model = translateModel(c, "virtio")
 		if c.MemBalloonStatsPeriod != 0 {
 			ballooning.Stats = &Stats{Period: c.MemBalloonStatsPeriod}
 		}
@@ -1167,7 +1172,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := Disk{}
 
-		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, prefixMap, numBlkQueues)
+		err := Convert_v1_Disk_To_api_Disk(c, &disk, &newDisk, prefixMap, numBlkQueues)
 		if err != nil {
 			return err
 		}
@@ -1498,7 +1503,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			ifaceType := getInterfaceType(&iface)
 			domainIface := Interface{
 				Model: &Model{
-					Type: ifaceType,
+					Type: translateModel(c, ifaceType),
 				},
 				Alias: &Alias{
 					Name: iface.Name,
@@ -2129,4 +2134,17 @@ func newDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[strin
 		}
 	}
 	return prefixMap
+}
+
+func translateModel(ctx *ConverterContext, bus string) string {
+	switch bus {
+	case "virtio":
+		if ctx.UseVirtioTransitional {
+			return "virtio-transitional"
+		} else {
+			return "virtio-non-transitional"
+		}
+	default:
+		return bus
+	}
 }

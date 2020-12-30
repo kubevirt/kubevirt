@@ -73,7 +73,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 			}
-			var convertedDisk = `<Disk device="disk" type="">
+			var convertedDisk = `<Disk device="disk" type="" model="virtio-non-transitional">
   <source></source>
   <target bus="virtio" dev="vda"></target>
   <driver name="qemu" type=""></driver>
@@ -119,7 +119,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 			}
-			var convertedDisk = `<Disk device="disk" type="">
+			var convertedDisk = `<Disk device="disk" type="" model="virtio-non-transitional">
   <source></source>
   <target bus="virtio" dev="vda"></target>
   <driver name="qemu" type=""></driver>
@@ -454,7 +454,7 @@ var _ = Describe("Converter", func() {
   <devices>
     <interface type="ethernet">
       <source></source>
-      <model type="virtio"></model>
+      <model type="virtio-non-transitional"></model>
       <alias name="ua-default"></alias>
       <rom enabled="no"></rom>
     </interface>
@@ -470,13 +470,13 @@ var _ = Describe("Converter", func() {
       <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
     </graphics>
     %s
-    <disk device="disk" type="file">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
       <driver name="qemu" type="raw" iothread="2"></driver>
       <alias name="ua-myvolume"></alias>
     </disk>
-    <disk device="disk" type="file">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
       <driver name="qemu" type="raw" iothread="3"></driver>
@@ -556,7 +556,7 @@ var _ = Describe("Converter", func() {
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
-    <input type="tablet" bus="virtio">
+    <input type="tablet" bus="virtio" model="virtio-non-transitional">
       <alias name="ua-tablet0"></alias>
     </input>
     <serial type="unix">
@@ -569,7 +569,7 @@ var _ = Describe("Converter", func() {
     <watchdog model="i6300esb" action="poweroff">
       <alias name="ua-mywatchdog"></alias>
     </watchdog>
-    <rng model="virtio">
+    <rng model="virtio-non-transitional">
       <backend model="random">/dev/urandom</backend>
     </rng>
   </devices>
@@ -619,15 +619,15 @@ var _ = Describe("Converter", func() {
   <iothreads>3</iothreads>
 </domain>`, domainType, "%s")
 		var convertedDomainWith5Period = fmt.Sprintf(convertedDomain,
-			`<memballoon model="virtio">
+			`<memballoon model="virtio-non-transitional">
       <stats period="5"></stats>
     </memballoon>`)
 		var convertedDomainWith0Period = fmt.Sprintf(convertedDomain,
-			`<memballoon model="virtio"></memballoon>`)
+			`<memballoon model="virtio-non-transitional"></memballoon>`)
 		var convertedDomainWithFalseAutoattach = fmt.Sprintf(convertedDomain,
 			`<memballoon model="none"></memballoon>`)
 		convertedDomain = fmt.Sprintf(convertedDomain,
-			`<memballoon model="virtio">
+			`<memballoon model="virtio-non-transitional">
       <stats period="10"></stats>
     </memballoon>`)
 
@@ -654,7 +654,7 @@ var _ = Describe("Converter", func() {
   <devices>
     <interface type="ethernet">
       <source></source>
-      <model type="virtio"></model>
+      <model type="virtio-non-transitional"></model>
       <alias name="ua-default"></alias>
       <rom enabled="no"></rom>
     </interface>
@@ -670,13 +670,13 @@ var _ = Describe("Converter", func() {
       <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
     </graphics>
     %s
-    <disk device="disk" type="file">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
       <driver name="qemu" type="raw" iothread="2"></driver>
       <alias name="ua-myvolume"></alias>
     </disk>
-    <disk device="disk" type="file">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
       <driver name="qemu" type="raw" iothread="3"></driver>
@@ -756,7 +756,7 @@ var _ = Describe("Converter", func() {
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
-    <input type="tablet" bus="virtio">
+    <input type="tablet" bus="virtio" model="virtio-non-transitional">
       <alias name="ua-tablet0"></alias>
     </input>
     <serial type="unix">
@@ -769,7 +769,7 @@ var _ = Describe("Converter", func() {
     <watchdog model="i6300esb" action="poweroff">
       <alias name="ua-mywatchdog"></alias>
     </watchdog>
-    <rng model="virtio">
+    <rng model="virtio-non-transitional">
       <backend model="random">/dev/urandom</backend>
     </rng>
   </devices>
@@ -820,16 +820,16 @@ var _ = Describe("Converter", func() {
 </domain>`, domainType, "%s")
 
 		var convertedDomainppc64leWith5Period = fmt.Sprintf(convertedDomainppc64le,
-			`<memballoon model="virtio">
+			`<memballoon model="virtio-non-transitional">
       <stats period="5"></stats>
     </memballoon>`)
 		var convertedDomainppc64leWith0Period = fmt.Sprintf(convertedDomainppc64le,
-			`<memballoon model="virtio"></memballoon>`)
+			`<memballoon model="virtio-non-transitional"></memballoon>`)
 
 		var convertedDomainppc64leWithFalseAutoattach = fmt.Sprintf(convertedDomainppc64le,
 			`<memballoon model="none"></memballoon>`)
 		convertedDomainppc64le = fmt.Sprintf(convertedDomainppc64le,
-			`<memballoon model="virtio">
+			`<memballoon model="virtio-non-transitional">
       <stats period="10"></stats>
     </memballoon>`)
 
@@ -858,7 +858,7 @@ var _ = Describe("Converter", func() {
     <interface type="ethernet">
       <address type="pci" domain="0x0000" bus="0x00" slot="0x02" function="0x0"></address>
       <source></source>
-      <model type="virtio"></model>
+      <model type="virtio-non-transitional"></model>
       <alias name="ua-default"></alias>
       <rom enabled="no"></rom>
     </interface>
@@ -877,18 +877,18 @@ var _ = Describe("Converter", func() {
     <graphics type="vnc">
       <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
     </graphics>
-    <memballoon model="virtio">
+    <memballoon model="virtio-non-transitional">
       <stats period="10"></stats>
       <address type="pci" domain="0x0000" bus="0x00" slot="0x0a" function="0x0"></address>
     </memballoon>
-    <disk device="disk" type="file">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
       <driver name="qemu" type="raw" iothread="2"></driver>
       <alias name="ua-myvolume"></alias>
       <address type="pci" domain="0x0000" bus="0x00" slot="0x05" function="0x0"></address>
     </disk>
-    <disk device="disk" type="file">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
       <driver name="qemu" type="raw" iothread="3"></driver>
@@ -969,7 +969,7 @@ var _ = Describe("Converter", func() {
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
-    <input type="tablet" bus="virtio">
+    <input type="tablet" bus="virtio" model="virtio-non-transitional">
       <alias name="ua-tablet0"></alias>
       <address type="pci" domain="0x0000" bus="0x00" slot="0x07" function="0x0"></address>
     </input>
@@ -984,7 +984,7 @@ var _ = Describe("Converter", func() {
       <alias name="ua-mywatchdog"></alias>
       <address type="pci" domain="0x0000" bus="0x00" slot="0x08" function="0x0"></address>
     </watchdog>
-    <rng model="virtio">
+    <rng model="virtio-non-transitional">
       <backend model="random">/dev/urandom</backend>
       <address type="pci" domain="0x0000" bus="0x00" slot="0x09" function="0x0"></address>
     </rng>
@@ -1631,7 +1631,7 @@ var _ = Describe("Converter", func() {
 			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
 			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(2))
 			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
-			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("virtio"))
+			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("virtio-non-transitional"))
 			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("user"))
 			Expect(domain.Spec.Devices.Interfaces[1].Model.Type).To(Equal("e1000"))
 		})
@@ -2112,8 +2112,10 @@ var _ = Describe("Converter", func() {
 
 	Context("virtio block multi-queue", func() {
 		var vmi *v1.VirtualMachineInstance
+		var context *ConverterContext
 
 		BeforeEach(func() {
+			context = &ConverterContext{UseVirtioTransitional: false}
 			vmi = &v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
 					Name:      "testvmi",
@@ -2162,7 +2164,7 @@ var _ = Describe("Converter", func() {
 			apiDisk := Disk{}
 			devicePerBus := map[string]deviceNamer{}
 			numQueues := uint(2)
-			Convert_v1_Disk_To_api_Disk(&v1Disk, &apiDisk, devicePerBus, &numQueues)
+			Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues)
 			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
 			Expect(*(apiDisk.Driver.Queues)).To(Equal(expectedQueues), "expected queues to be 2")
 		})
@@ -2175,7 +2177,7 @@ var _ = Describe("Converter", func() {
 			}
 			apiDisk := Disk{}
 			devicePerBus := map[string]deviceNamer{}
-			err := Convert_v1_Disk_To_api_Disk(&v1Disk, &apiDisk, devicePerBus, nil)
+			err := Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
 			Expect(apiDisk.Driver.Queues).To(BeNil(), "expected no queues to be requested")
@@ -2850,7 +2852,7 @@ var _ = Describe("disk device naming", func() {
 func diskToDiskXML(disk *v1.Disk) string {
 	devicePerBus := make(map[string]deviceNamer)
 	libvirtDisk := &Disk{}
-	Expect(Convert_v1_Disk_To_api_Disk(disk, libvirtDisk, devicePerBus, nil)).To(Succeed())
+	Expect(Convert_v1_Disk_To_api_Disk(&ConverterContext{UseVirtioTransitional: false}, disk, libvirtDisk, devicePerBus, nil)).To(Succeed())
 	data, err := xml.MarshalIndent(libvirtDisk, "", "  ")
 	Expect(err).ToNot(HaveOccurred())
 	return string(data)

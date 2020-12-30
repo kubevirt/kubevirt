@@ -904,15 +904,16 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 	}
 	// Map the VirtualMachineInstance to the Domain
 	c := &api.ConverterContext{
-		Architecture:      runtime.GOARCH,
-		VirtualMachine:    vmi,
-		UseEmulation:      useEmulation,
-		CPUSet:            podCPUSet,
-		IsBlockPVC:        isBlockPVCMap,
-		IsBlockDV:         isBlockDVMap,
-		DiskType:          diskInfo,
-		EmulatorThreadCpu: emulatorThreadCpu,
-		OVMFPath:          l.ovmfPath,
+		Architecture:          runtime.GOARCH,
+		VirtualMachine:        vmi,
+		UseEmulation:          useEmulation,
+		CPUSet:                podCPUSet,
+		IsBlockPVC:            isBlockPVCMap,
+		IsBlockDV:             isBlockDVMap,
+		DiskType:              diskInfo,
+		EmulatorThreadCpu:     emulatorThreadCpu,
+		OVMFPath:              l.ovmfPath,
+		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		return fmt.Errorf("conversion failed: %v", err)
@@ -1301,21 +1302,22 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 
 	// Map the VirtualMachineInstance to the Domain
 	c := &api.ConverterContext{
-		Architecture:      runtime.GOARCH,
-		VirtualMachine:    vmi,
-		UseEmulation:      useEmulation,
-		CPUSet:            podCPUSet,
-		IsBlockPVC:        isBlockPVCMap,
-		IsBlockDV:         isBlockDVMap,
-		HotplugVolumes:    hotplugVolumes,
-		PermanentVolumes:  permanentVolumes,
-		DiskType:          diskInfo,
-		SRIOVDevices:      getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
-		GpuDevices:        getEnvAddressListByPrefix(gpuEnvPrefix),
-		VgpuDevices:       getEnvAddressListByPrefix(vgpuEnvPrefix),
-		HostDevices:       getDevicesForAssignment(vmi.Spec.Domain.Devices),
-		EmulatorThreadCpu: emulatorThreadCpu,
-		OVMFPath:          l.ovmfPath,
+		Architecture:          runtime.GOARCH,
+		VirtualMachine:        vmi,
+		UseEmulation:          useEmulation,
+		CPUSet:                podCPUSet,
+		IsBlockPVC:            isBlockPVCMap,
+		IsBlockDV:             isBlockDVMap,
+		HotplugVolumes:        hotplugVolumes,
+		PermanentVolumes:      permanentVolumes,
+		DiskType:              diskInfo,
+		SRIOVDevices:          getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
+		GpuDevices:            getEnvAddressListByPrefix(gpuEnvPrefix),
+		VgpuDevices:           getEnvAddressListByPrefix(vgpuEnvPrefix),
+		HostDevices:           getDevicesForAssignment(vmi.Spec.Domain.Devices),
+		EmulatorThreadCpu:     emulatorThreadCpu,
+		OVMFPath:              l.ovmfPath,
+		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 	}
 	if options != nil {
 		if options.VirtualMachineSMBios != nil {
