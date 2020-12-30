@@ -20,7 +20,10 @@
 package sriov
 
 import (
+	"encoding/xml"
 	"fmt"
+	"strings"
+	"time"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -32,7 +35,11 @@ type pool interface {
 	Pop(key string) (value string, err error)
 }
 
-const AliasPrefix = "sriov-"
+const (
+	AliasPrefix = "sriov-"
+
+	MaxConcurrentHotPlugDevicesEvents = 32
+)
 
 func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
 	SRIOVInterfaces := filterVMISRIOVInterfaces(vmi)
@@ -84,4 +91,103 @@ func createHostDevice(iface v1.Interface, hostPCIAddress string) (*api.HostDevic
 	}
 
 	return hostDev, nil
+}
+
+type deviceDetacher interface {
+	DetachDevice(xmlData string) error
+}
+
+type eventRegistrar interface {
+	Register() error
+	Deregister() error
+	EventChannel() <-chan interface{}
+}
+
+func SafelyDetachHostDevices(domainSpec *api.DomainSpec, eventDetach eventRegistrar, dom deviceDetacher, timeout time.Duration) error {
+	sriovDevices := FilterHostDevices(domainSpec)
+	if len(sriovDevices) == 0 {
+		log.Log.Info("No SR-IOV host-devices to detach.")
+		return nil
+	}
+
+	if err := eventDetach.Register(); err != nil {
+		return fmt.Errorf("failed to detach host-devices: %v", err)
+	}
+	defer func() {
+		if err := eventDetach.Deregister(); err != nil {
+			log.Log.Reason(err).Errorf("failed to detach host-devices: %v", err)
+		}
+	}()
+
+	if err := detachHostDevices(dom, sriovDevices); err != nil {
+		return err
+	}
+
+	return waitHostDevicesToDetach(eventDetach, sriovDevices, timeout)
+}
+
+func FilterHostDevices(domainSpec *api.DomainSpec) []api.HostDevice {
+	var hostDevices []api.HostDevice
+
+	for _, hostDevice := range domainSpec.Devices.HostDevices {
+		if hostDevice.Alias != nil && strings.HasPrefix(hostDevice.Alias.GetName(), AliasPrefix) {
+			hostDevices = append(hostDevices, hostDevice)
+		}
+	}
+	return hostDevices
+}
+
+func detachHostDevices(dom deviceDetacher, hostDevices []api.HostDevice) error {
+	for _, hostDev := range hostDevices {
+		devXML, err := xml.Marshal(hostDev)
+		if err != nil {
+			return fmt.Errorf("failed to encode (xml) hostdev %v, err: %v", hostDev, err)
+		}
+		err = dom.DetachDevice(string(devXML))
+		if err != nil {
+			return fmt.Errorf("failed to detach hostdev %s, err: %v", devXML, err)
+		}
+		log.Log.Infof("Successfully hot-unplug hostdev: %s (%v)", hostDev.Alias.GetName(), hostDev.Source.Address)
+	}
+	return nil
+}
+
+func waitHostDevicesToDetach(eventDetach eventRegistrar, hostDevices []api.HostDevice, timeout time.Duration) error {
+	var detachedHostDevices []string
+	var desiredDetachCount = len(hostDevices)
+
+	for {
+		select {
+		case deviceAlias := <-eventDetach.EventChannel():
+			if dev := deviceLookup(hostDevices, deviceAlias.(string)); dev != nil {
+				detachedHostDevices = append(detachedHostDevices, dev.Alias.GetName())
+			}
+			if desiredDetachCount == len(detachedHostDevices) {
+				return nil
+			}
+		case <-time.After(timeout):
+
+			return fmt.Errorf(
+				"failed to wait for host-devices detach, timeout reached: %v/%v",
+				detachedHostDevices, hostDevicesNames(hostDevices))
+		}
+	}
+}
+
+func hostDevicesNames(hostDevices []api.HostDevice) []string {
+	var names []string
+	for _, dev := range hostDevices {
+		names = append(names, dev.Alias.GetName())
+	}
+	return names
+}
+
+func deviceLookup(hostDevices []api.HostDevice, deviceAlias string) *api.HostDevice {
+	deviceAlias = strings.TrimPrefix(deviceAlias, api.UserAliasPrefix)
+	for _, dev := range hostDevices {
+		if dev.Alias.GetName() == deviceAlias {
+			return &dev
+		}
+	}
+	return nil
 }
