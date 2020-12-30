@@ -356,6 +356,10 @@ type Firmware struct {
 //
 // +k8s:openapi-gen=true
 type Devices struct {
+	// Fall back to legacy virtio 0.9 support if virtio bus is selected on devices.
+	// This is helpful for old machines like CentOS6 or RHEL6 which
+	// do not understand virtio_non_transitional (virtio 1.0).
+	UseVirtioTransitional *bool `json:"useVirtioTransitional,omitempty"`
 	// DisableHotplug disabled the ability to hotplug disks.
 	DisableHotplug bool `json:"disableHotplug,omitempty"`
 	// Disks describes disks, cdroms, floppy and luns which are connected to the vmi.

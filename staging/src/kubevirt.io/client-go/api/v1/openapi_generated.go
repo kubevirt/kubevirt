@@ -14423,6 +14423,13 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"useVirtioTransitional": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Fall back to legacy virtio 0.9 support if virtio bus is selected on devices. This is helpful for old machines like CentOS6 or RHEL6 which do not understand virtio_non_transitional (virtio 1.0).",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"disableHotplug": {
 						SchemaProps: spec.SchemaProps{
 							Description: "DisableHotplug disabled the ability to hotplug disks.",

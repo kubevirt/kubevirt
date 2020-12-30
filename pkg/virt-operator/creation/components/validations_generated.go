@@ -2313,6 +2313,9 @@ var CRDsValidation map[string]string = map[string]string{
                         rng:
                           description: Whether to have random number generator from host
                           type: object
+                        useVirtioTransitional:
+                          description: Fall back to legacy virtio 0.9 support if virtio bus is selected on devices. This is helpful for old machines like CentOS6 or RHEL6 which do not understand virtio_non_transitional (virtio 1.0).
+                          type: boolean
                         watchdog:
                           description: Watchdog describes a watchdog device which can be added to the vmi.
                           properties:
@@ -4084,6 +4087,9 @@ var CRDsValidation map[string]string = map[string]string{
                 rng:
                   description: Whether to have random number generator from host
                   type: object
+                useVirtioTransitional:
+                  description: Fall back to legacy virtio 0.9 support if virtio bus is selected on devices. This is helpful for old machines like CentOS6 or RHEL6 which do not understand virtio_non_transitional (virtio 1.0).
+                  type: boolean
                 watchdog:
                   description: Watchdog describes a watchdog device which can be added to the vmi.
                   properties:
@@ -5448,6 +5454,9 @@ var CRDsValidation map[string]string = map[string]string{
                 rng:
                   description: Whether to have random number generator from host
                   type: object
+                useVirtioTransitional:
+                  description: Fall back to legacy virtio 0.9 support if virtio bus is selected on devices. This is helpful for old machines like CentOS6 or RHEL6 which do not understand virtio_non_transitional (virtio 1.0).
+                  type: boolean
                 watchdog:
                   description: Watchdog describes a watchdog device which can be added to the vmi.
                   properties:
@@ -6609,6 +6618,9 @@ var CRDsValidation map[string]string = map[string]string{
                         rng:
                           description: Whether to have random number generator from host
                           type: object
+                        useVirtioTransitional:
+                          description: Fall back to legacy virtio 0.9 support if virtio bus is selected on devices. This is helpful for old machines like CentOS6 or RHEL6 which do not understand virtio_non_transitional (virtio 1.0).
+                          type: boolean
                         watchdog:
                           description: Watchdog describes a watchdog device which can be added to the vmi.
                           properties:
@@ -8665,6 +8677,9 @@ var CRDsValidation map[string]string = map[string]string{
                                     rng:
                                       description: Whether to have random number generator from host
                                       type: object
+                                    useVirtioTransitional:
+                                      description: Fall back to legacy virtio 0.9 support if virtio bus is selected on devices. This is helpful for old machines like CentOS6 or RHEL6 which do not understand virtio_non_transitional (virtio 1.0).
+                                      type: boolean
                                     watchdog:
                                       description: Watchdog describes a watchdog device which can be added to the vmi.
                                       properties:
