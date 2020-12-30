@@ -30,7 +30,8 @@ func ExpectVirtioTransitionalOnly(dom *api.DomainSpec) {
 	hit = false
 	for _, input := range dom.Devices.Inputs {
 		if strings.HasPrefix(input.Model, "virtio") {
-			ExpectWithOffset(1, input.Model).To(Equal("virtio-transitional"))
+			// All our input types only exist only as virtio 1.0 and only accept virtio
+			ExpectWithOffset(1, input.Model).To(Equal("virtio"))
 			hit = true
 		}
 	}
