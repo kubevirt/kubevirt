@@ -33,6 +33,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+
 	"github.com/fsnotify/fsnotify"
 	"github.com/golang/mock/gomock"
 	libvirt "libvirt.org/libvirt-go"
@@ -68,13 +70,13 @@ var _ = Describe("AccessCredentials", func() {
 
 	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
 		domain := &api.Domain{}
-		c := &api.ConverterContext{
+		c := &converter.ConverterContext{
 			Architecture:   runtime.GOARCH,
 			VirtualMachine: vmi,
 			UseEmulation:   true,
 			SMBios:         &cmdv1.SMBios{},
 		}
-		Expect(api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
+		Expect(converter.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 		return &domain.Spec

@@ -40,6 +40,7 @@ import (
 
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	eventsclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -130,7 +131,7 @@ type migrationDisks struct {
 }
 
 type hostDeviceTypePrefix struct {
-	Type   api.HostDeviceType
+	Type   converter.HostDeviceType
 	Prefix string
 }
 
@@ -472,7 +473,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 			log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
 		}
 
-		bandwidth, err := api.QuantityToMebiByte(options.Bandwidth)
+		bandwidth, err := converter.QuantityToMebiByte(options.Bandwidth)
 
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Live migration failed. Invalid bandwidth supplied.")
@@ -886,7 +887,7 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 			if err != nil {
 				return err
 			}
-			info, err := api.GetImageInfo(image)
+			info, err := converter.GetImageInfo(image)
 			if err != nil {
 				return err
 			}
@@ -903,7 +904,7 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 
 	}
 	// Map the VirtualMachineInstance to the Domain
-	c := &api.ConverterContext{
+	c := &converter.ConverterContext{
 		Architecture:          runtime.GOARCH,
 		VirtualMachine:        vmi,
 		UseEmulation:          useEmulation,
@@ -915,7 +916,7 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 		OVMFPath:              l.ovmfPath,
 		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 	}
-	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
+	if err := converter.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		return fmt.Errorf("conversion failed: %v", err)
 	}
 
@@ -1081,11 +1082,11 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	// set drivers cache mode
 	for i := range domain.Spec.Devices.Disks {
-		err := api.SetDriverCacheMode(&domain.Spec.Devices.Disks[i])
+		err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i])
 		if err != nil {
 			return domain, err
 		}
-		api.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
+		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
 	}
 
 	if err := l.credManager.HandleQemuAgentAccessCredentials(vmi); err != nil {
@@ -1153,12 +1154,12 @@ func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
 	return networkToAddressesMap
 }
 
-func updateDeviceResourcesMap(supportedDevice hostDeviceTypePrefix, resourceToAddressesMap map[string]api.HostDevicesList, resourceName string) {
+func updateDeviceResourcesMap(supportedDevice hostDeviceTypePrefix, resourceToAddressesMap map[string]converter.HostDevicesList, resourceName string) {
 	varName := kutil.ResourceNameToEnvVar(supportedDevice.Prefix, resourceName)
 	addrString, isSet := os.LookupEnv(varName)
 	if isSet {
 		addrs := parseDeviceAddress(addrString)
-		device := api.HostDevicesList{
+		device := converter.HostDevicesList{
 			Type:     supportedDevice.Type,
 			AddrList: addrs,
 		}
@@ -1170,18 +1171,18 @@ func updateDeviceResourcesMap(supportedDevice hostDeviceTypePrefix, resourceToAd
 
 // There is an overlap between HostDevices and GPUs. Both can provide PCI devices and MDEVs
 // However, both will be mapped to a hostdev struct with some differences.
-func getDevicesForAssignment(devices v1.Devices) map[string]api.HostDevicesList {
+func getDevicesForAssignment(devices v1.Devices) map[string]converter.HostDevicesList {
 	supportedHostDeviceTypes := []hostDeviceTypePrefix{
 		{
-			Type:   api.HostDevicePCI,
+			Type:   converter.HostDevicePCI,
 			Prefix: PCI_RESOURCE_PREFIX,
 		},
 		{
-			Type:   api.HostDeviceMDEV,
+			Type:   converter.HostDeviceMDEV,
 			Prefix: MDEV_RESOURCE_PREFIX,
 		},
 	}
-	resourceToAddressesMap := make(map[string]api.HostDevicesList)
+	resourceToAddressesMap := make(map[string]converter.HostDevicesList)
 
 	for _, supportedHostDeviceType := range supportedHostDeviceTypes {
 		for _, hostDev := range devices.HostDevices {
@@ -1284,7 +1285,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 			if err != nil {
 				return nil, err
 			}
-			info, err := api.GetImageInfo(image)
+			info, err := converter.GetImageInfo(image)
 			if err != nil {
 				return nil, err
 			}
@@ -1301,7 +1302,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	}
 
 	// Map the VirtualMachineInstance to the Domain
-	c := &api.ConverterContext{
+	c := &converter.ConverterContext{
 		Architecture:          runtime.GOARCH,
 		VirtualMachine:        vmi,
 		UseEmulation:          useEmulation,
@@ -1325,12 +1326,12 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		}
 		c.MemBalloonStatsPeriod = uint(options.MemBalloonStatsPeriod)
 	}
-	if err := api.CheckEFI_OVMFRoms(vmi, c); err != nil {
+	if err := converter.CheckEFI_OVMFRoms(vmi, c); err != nil {
 		logger.Error("EFI OVMF roms missing")
 		return nil, err
 	}
 
-	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
+	if err := converter.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		logger.Error("Conversion failed.")
 		return nil, err
 	}
@@ -1535,7 +1536,7 @@ func getAttachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 var isHotplugBlockDeviceVolume = isHotplugBlockDeviceVolumeFunc
 
 func isHotplugBlockDeviceVolumeFunc(volumeName string) bool {
-	path := api.GetHotplugBlockDeviceVolumePath(volumeName)
+	path := converter.GetHotplugBlockDeviceVolumePath(volumeName)
 	fileInfo, err := os.Stat(path)
 	if err == nil {
 		if !fileInfo.IsDir() && (fileInfo.Mode()&os.ModeDevice) != 0 {
@@ -1549,7 +1550,7 @@ func isHotplugBlockDeviceVolumeFunc(volumeName string) bool {
 var isBlockDeviceVolume = isBlockDeviceVolumeFunc
 
 func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
-	path := api.GetBlockDeviceVolumePath(volumeName)
+	path := converter.GetBlockDeviceVolumePath(volumeName)
 	fileInfo, err := os.Stat(path)
 	if err == nil {
 		if (fileInfo.Mode() & os.ModeDevice) != 0 {
@@ -1559,7 +1560,7 @@ func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
 	}
 	if os.IsNotExist(err) {
 		// cross check: is it a filesystem volume
-		path = api.GetFilesystemVolumePath(volumeName)
+		path = converter.GetFilesystemVolumePath(volumeName)
 		fileInfo, err := os.Stat(path)
 		if err == nil {
 			if fileInfo.Mode().IsRegular() {

@@ -38,6 +38,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	libvirt "libvirt.org/libvirt-go"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 
@@ -95,7 +97,7 @@ var _ = Describe("Manager", func() {
 			}
 		}
 
-		c := &api.ConverterContext{
+		c := &converter.ConverterContext{
 			Architecture:     runtime.GOARCH,
 			VirtualMachine:   vmi,
 			UseEmulation:     true,
@@ -103,7 +105,7 @@ var _ = Describe("Manager", func() {
 			HotplugVolumes:   hotplugVolumes,
 			PermanentVolumes: permanentVolumes,
 		}
-		Expect(api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
+		Expect(converter.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 		return &domain.Spec

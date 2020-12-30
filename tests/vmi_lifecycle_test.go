@@ -39,6 +39,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -1200,11 +1202,11 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 
 				domain := &api.Domain{}
-				context := &api.ConverterContext{
+				context := &converter.ConverterContext{
 					VirtualMachine: newVMI,
 					UseEmulation:   true,
 				}
-				api.Convert_v1_VirtualMachine_To_api_Domain(newVMI, domain, context)
+				converter.Convert_v1_VirtualMachine_To_api_Domain(newVMI, domain, context)
 
 				expectedType := ""
 				if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {

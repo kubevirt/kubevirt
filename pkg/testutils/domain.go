@@ -1,0 +1,40 @@
+package testutils
+
+import (
+	"strings"
+
+	. "github.com/onsi/gomega"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+)
+
+func ExpectVirtioTransitionalOnly(dom *api.DomainSpec) {
+	hit := false
+	for _, disk := range dom.Devices.Disks {
+		if disk.Target.Bus == "virtio" {
+			ExpectWithOffset(1, disk.Model).To(Equal("virtio-transitional"))
+			hit = true
+		}
+	}
+	ExpectWithOffset(1, hit).To(BeTrue())
+
+	hit = false
+	for _, ifc := range dom.Devices.Interfaces {
+		if strings.HasPrefix(ifc.Model.Type, "virtio") {
+			ExpectWithOffset(1, ifc.Model.Type).To(Equal("virtio-transitional"))
+			hit = true
+		}
+	}
+	ExpectWithOffset(1, hit).To(BeTrue())
+
+	hit = false
+	for _, input := range dom.Devices.Inputs {
+		if strings.HasPrefix(input.Model, "virtio") {
+			ExpectWithOffset(1, input.Model).To(Equal("virtio-transitional"))
+			hit = true
+		}
+	}
+	ExpectWithOffset(1, hit).To(BeTrue())
+	ExpectWithOffset(1, dom.Devices.Rng.Model).To(Equal("virtio-transitional"))
+	ExpectWithOffset(1, dom.Devices.Ballooning.Model).To(Equal("virtio-transitional"))
+}

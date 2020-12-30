@@ -186,6 +186,7 @@ go_test(
         "//pkg/virt-controller/watch:go_default_library",
         "//pkg/virt-handler/device-manager:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter:go_default_library",
         "//pkg/virt-operator/creation/components:go_default_library",
         "//pkg/virt-operator/util:go_default_library",
         "//pkg/virtctl/expose:go_default_library",
