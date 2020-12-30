@@ -32,6 +32,8 @@ import (
 
 	netutils "k8s.io/utils/net"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+
 	"kubevirt.io/kubevirt/pkg/util"
 
 	"github.com/coreos/go-iptables/iptables"
@@ -199,7 +201,7 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 		queueNumber := uint32(0)
 		isMultiqueue := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
 		if isMultiqueue {
-			queueNumber = api.CalculateNetworkQueues(vmi)
+			queueNumber = converter.CalculateNetworkQueues(vmi)
 		}
 		if err := driver.preparePodNetworkInterfaces(queueNumber, pid); err != nil {
 			log.Log.Reason(err).Error("failed to prepare pod networking")
