@@ -559,7 +559,7 @@ var _ = Describe("Converter", func() {
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
-    <input type="tablet" bus="virtio" model="virtio-non-transitional">
+    <input type="tablet" bus="virtio" model="virtio">
       <alias name="ua-tablet0"></alias>
     </input>
     <serial type="unix">
@@ -759,7 +759,7 @@ var _ = Describe("Converter", func() {
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
-    <input type="tablet" bus="virtio" model="virtio-non-transitional">
+    <input type="tablet" bus="virtio" model="virtio">
       <alias name="ua-tablet0"></alias>
     </input>
     <serial type="unix">
@@ -972,7 +972,7 @@ var _ = Describe("Converter", func() {
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
-    <input type="tablet" bus="virtio" model="virtio-non-transitional">
+    <input type="tablet" bus="virtio" model="virtio">
       <alias name="ua-tablet0"></alias>
       <address type="pci" domain="0x0000" bus="0x00" slot="0x07" function="0x0"></address>
     </input>
