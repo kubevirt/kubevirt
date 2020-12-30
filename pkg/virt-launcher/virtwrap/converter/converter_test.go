@@ -465,7 +465,7 @@ var _ = Describe("Converter", func() {
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
     </channel>
     <controller type="usb" index="0" model="none"></controller>
-    <controller type="virtio-serial" index="0"></controller>
+    <controller type="virtio-serial" index="0" model="virtio-non-transitional"></controller>
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
@@ -665,7 +665,7 @@ var _ = Describe("Converter", func() {
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
     </channel>
     <controller type="usb" index="0" model="qemu-xhci"></controller>
-    <controller type="virtio-serial" index="0"></controller>
+    <controller type="virtio-serial" index="0" model="virtio-non-transitional"></controller>
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
@@ -871,7 +871,7 @@ var _ = Describe("Converter", func() {
     <controller type="usb" index="0" model="none">
       <address type="pci" domain="0x0000" bus="0x00" slot="0x03" function="0x0"></address>
     </controller>
-    <controller type="virtio-serial" index="0">
+    <controller type="virtio-serial" index="0" model="virtio-non-transitional">
       <address type="pci" domain="0x0000" bus="0x00" slot="0x04" function="0x0"></address>
     </controller>
     <video>
