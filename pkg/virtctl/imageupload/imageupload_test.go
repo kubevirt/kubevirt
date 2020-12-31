@@ -422,30 +422,10 @@ var _ = Describe("ImageUpload", func() {
 			validateBlockDataVolume()
 		})
 
-		It("Create a VolumeMode=Block PVC by specifying both block-volume and volume-mode", func() {
-			testInit(http.StatusOK)
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
-				"--insecure", "--image-path", imagePath, "--block-volume", "--volume-mode", string(v1.PersistentVolumeBlock))
-			Expect(cmd()).To(BeNil())
-			Expect(dvCreateCalled).To(BeTrue())
-			validateBlockPVC()
-			validateBlockDataVolume()
-		})
-
 		It("Create a VolumeMode=Filesystem PVC by specifying volume-mode", func() {
 			testInit(http.StatusOK)
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--insecure", "--image-path", imagePath, "--volume-mode", string(v1.PersistentVolumeFilesystem))
-			Expect(cmd()).To(BeNil())
-			Expect(dvCreateCalled).To(BeTrue())
-			validatePVC()
-			validateDataVolume()
-		})
-
-		It("Create a VolumeMode=Filesystem PVC by specifying both block-volume and volume-mode", func() {
-			testInit(http.StatusOK)
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
-				"--insecure", "--image-path", imagePath, "--block-volume", "--volume-mode", string(v1.PersistentVolumeFilesystem))
 			Expect(cmd()).To(BeNil())
 			Expect(dvCreateCalled).To(BeTrue())
 			validatePVC()

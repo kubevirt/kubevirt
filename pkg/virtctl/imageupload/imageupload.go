@@ -134,8 +134,9 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringVar(&size, "size", "", "The size of the DataVolume to create (ex. 10Gi, 500Mi).")
 	cmd.Flags().StringVar(&storageClass, "storage-class", "", "The storage class for the PVC.")
 	cmd.Flags().StringVar(&accessMode, "access-mode", "ReadWriteOnce", "The access mode for the PVC.")
-	cmd.Flags().StringVar(&volumeMode, "volume-mode", "", "The volume mode for the PVC, either Block or Filesystem.")
-	cmd.Flags().BoolVar(&blockVolume, "block-volume", false, "DEPRECATED - Create a PVC with VolumeMode=Block (default Filesystem).")
+	cmd.Flags().StringVar(&volumeMode, "volume-mode", "Filesystem", "The volume mode for the PVC, either Block or Filesystem.")
+	cmd.Flags().BoolVar(&blockVolume, "block-volume", false, "Create a PVC with VolumeMode=Block (default Filesystem).")
+	cmd.Flags().MarkDeprecated("block-volume", "please use --volume-mode instead")
 	cmd.Flags().StringVar(&imagePath, "image-path", "", "Path to the local VM image.")
 	cmd.MarkFlagRequired("image-path")
 	cmd.Flags().BoolVar(&noCreate, "no-create", false, "Don't attempt to create a new DataVolume/PVC.")
@@ -166,7 +167,7 @@ type command struct {
 	clientConfig clientcmd.ClientConfig
 }
 
-func parseArgs(args []string) error {
+func parseArgs(cmd *cobra.Command, args []string) error {
 	if len(size) > 0 && len(pvcSize) > 0 && size != pvcSize {
 		return fmt.Errorf("--pvc-size deprecated, use --size")
 	}
@@ -179,10 +180,19 @@ func parseArgs(args []string) error {
 		return fmt.Errorf("cannot upload to a readonly volume, use either ReadWriteOnce or ReadWriteMany if supported")
 	}
 
-	var err error
-	volumeMode, err = normalizeVolumeMode(volumeMode, blockVolume)
-	if err != nil {
-		return err
+	if cmd.Flags().Lookup("block-volume").Changed && cmd.Flags().Lookup("volume-mode").Changed {
+		return fmt.Errorf("'--block-volume' and '--volume-mode' are mutually exclusive")
+	} else if cmd.Flags().Lookup("block-volume").Changed {
+		if blockVolume {
+			volumeMode = string(v1.PersistentVolumeBlock)
+		} else {
+			volumeMode = string(v1.PersistentVolumeFilesystem)
+		}
+	} else {
+		volumeMode = string(v1.PersistentVolumeMode(volumeMode))
+		if volumeMode != string(v1.PersistentVolumeBlock) && volumeMode != string(v1.PersistentVolumeFilesystem) {
+			return fmt.Errorf("can not use %s for volume mode, use either %s or %s", volumeMode, string(v1.PersistentVolumeBlock), string(v1.PersistentVolumeFilesystem))
+		}
 	}
 
 	// check deprecated invocation
@@ -214,27 +224,8 @@ func parseArgs(args []string) error {
 	return nil
 }
 
-func normalizeVolumeMode(volumeMode string, blockVolume bool) (string, error) {
-	if volumeMode != "" {
-		fmt.Printf("--block-volume is deprecated and its value is overwritten by --volume-mode\n")
-
-		if volumeMode != string(v1.PersistentVolumeBlock) && volumeMode != string(v1.PersistentVolumeFilesystem) {
-			return "", fmt.Errorf("can not use %s for volume mode, use either %s or %s", volumeMode, string(v1.PersistentVolumeBlock), string(v1.PersistentVolumeFilesystem))
-		}
-
-		return volumeMode, nil
-	}
-
-	if blockVolume && volumeMode == "" {
-		fmt.Printf("--block-volume is deprecated, use --volume-mode instead\n")
-		return string(v1.PersistentVolumeBlock), nil
-	}
-
-	return string(v1.PersistentVolumeFilesystem), nil
-}
-
 func (c *command) run(cmd *cobra.Command, args []string) error {
-	if err := parseArgs(args); err != nil {
+	if err := parseArgs(cmd, args); err != nil {
 		return err
 	}
 	// #nosec No risk for path injection. This is used only to upload an image not to read info
