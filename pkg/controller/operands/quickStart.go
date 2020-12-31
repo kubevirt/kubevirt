@@ -52,7 +52,7 @@ type qsHooks struct {
 }
 
 func (h qsHooks) getFullCr(_ *hcov1beta1.HyperConverged) runtime.Object {
-	return h.required
+	return h.required.DeepCopy()
 }
 
 func (h qsHooks) getEmptyCr() runtime.Object {
