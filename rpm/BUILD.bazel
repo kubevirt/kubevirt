@@ -15,6 +15,11 @@ bazeldnf(
 
 rpmtree(
     name = "launcherbase_x86_64",
+    capabilities = {
+        "/usr/libexec/qemu-kvm": [
+            "cap_net_bind_service",
+        ],
+    },
     rpms = [
         "@acl-0__2.2.53-5.fc32.x86_64//rpm",
         "@alsa-lib-0__1.2.3.2-1.fc32.x86_64//rpm",
@@ -632,6 +637,11 @@ rpmtree(
 
 rpmtree(
     name = "testimage_x86_64",
+    capabilities = {
+        "/usr/libexec/qemu-kvm": [
+            "cap_net_bind_service",
+        ],
+    },
     rpms = [
         "@acl-0__2.2.53-5.fc32.x86_64//rpm",
         "@alternatives-0__1.11-6.fc32.x86_64//rpm",
