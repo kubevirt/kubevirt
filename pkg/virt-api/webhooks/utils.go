@@ -123,7 +123,7 @@ func newInformers() *Informers {
 	}
 }
 
-func GetAllowedServiceAccounts() map[string]struct{} {
+func IsKubeVirtServiceAccount(serviceAccount string) bool {
 	ns, err := clientutil.GetNamespace()
 	logger := log.DefaultLogger()
 
@@ -132,11 +132,8 @@ func GetAllowedServiceAccounts() map[string]struct{} {
 		ns = "kubevirt"
 	}
 
-	// system:serviceaccount:{namespace}:{kubevirt-component}
-	prefix := fmt.Sprintf("%s:%s:%s", "system", "serviceaccount", ns)
-	return map[string]struct{}{
-		fmt.Sprintf("%s:%s", prefix, rbac.ApiServiceAccountName):        {},
-		fmt.Sprintf("%s:%s", prefix, rbac.HandlerServiceAccountName):    {},
-		fmt.Sprintf("%s:%s", prefix, rbac.ControllerServiceAccountName): {},
-	}
+	prefix := fmt.Sprintf("system:serviceaccount:%s", ns)
+	return serviceAccount == fmt.Sprintf("%s:%s", prefix, rbac.ApiServiceAccountName) ||
+		serviceAccount == fmt.Sprintf("%s:%s", prefix, rbac.HandlerServiceAccountName) ||
+		serviceAccount == fmt.Sprintf("%s:%s", prefix, rbac.ControllerServiceAccountName)
 }

@@ -1034,8 +1034,7 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 	labels := metadata.Labels
 	// Validate kubevirt.io labels presence. Restricted labels allowed
 	// to be created only by known service accounts
-	allowed := webhooks.GetAllowedServiceAccounts()
-	if _, ok := allowed[accountName]; !ok {
+	if !webhooks.IsKubeVirtServiceAccount(accountName) {
 		if len(filterKubevirtLabels(labels)) > 0 {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,

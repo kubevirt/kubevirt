@@ -469,8 +469,7 @@ func validateStateChangeRequests(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMac
 		}
 
 		if getRenameRequest(existingVM) != nil {
-			allowed := webhooks.GetAllowedServiceAccounts()
-			if _, ok := allowed[ar.UserInfo.Username]; ok {
+			if webhooks.IsKubeVirtServiceAccount(ar.UserInfo.Username) {
 				if !reflect.DeepEqual(existingVM.Spec, vm.Spec) {
 					return []metav1.StatusCause{{
 						Type:    metav1.CauseTypeFieldValueNotSupported,
