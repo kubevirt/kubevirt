@@ -31,7 +31,6 @@ import (
 	"sync"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/util"
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 
@@ -1989,9 +1988,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 			podJson, err := json.Marshal(podCacheInterface)
 			Expect(err).ToNot(HaveOccurred())
-			err = os.MkdirAll(fmt.Sprintf(util.VMIInterfaceDir, vmi.UID), 0755)
+			err = network.CreateVirtHandlerCacheDir(vmi.UID)
 			Expect(err).ToNot(HaveOccurred())
-			vmiInterfacepath := fmt.Sprintf(util.VMIInterfacepath, vmi.UID, interfaceName)
+			vmiInterfacepath := fmt.Sprintf(network.VirtHandlerCachePattern, vmi.UID, interfaceName)
 			f, err := os.Create(vmiInterfacepath)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = f.WriteString(string(podJson))
@@ -2053,9 +2052,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 			podJson, err := json.Marshal(podCacheInterface)
 			Expect(err).ToNot(HaveOccurred())
-			err = os.MkdirAll(fmt.Sprintf(util.VMIInterfaceDir, vmi.UID), 0755)
+			err = network.CreateVirtHandlerCacheDir(vmi.UID)
 			Expect(err).ToNot(HaveOccurred())
-			vmiInterfacepath := fmt.Sprintf(util.VMIInterfacepath, vmi.UID, interfaceName)
+			vmiInterfacepath := fmt.Sprintf(network.VirtHandlerCachePattern, vmi.UID, interfaceName)
 			f, err := os.Create(vmiInterfacepath)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = f.WriteString(string(podJson))

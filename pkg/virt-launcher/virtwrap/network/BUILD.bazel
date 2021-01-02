@@ -5,8 +5,10 @@ go_library(
     srcs = [
         "common.go",
         "generated_mock_common.go",
+        "generated_mock_infocache.go",
         "generated_mock_network.go",
         "generated_mock_podinterface.go",
+        "infocache.go",
         "network.go",
         "podinterface.go",
     ],
@@ -28,6 +30,7 @@ go_library(
         "//vendor/github.com/opencontainers/selinux/go-selinux:go_default_library",
         "//vendor/github.com/subgraph/libmacouflage:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/utils/net:go_default_library",
     ],
 )
@@ -42,7 +45,6 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//pkg/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
@@ -51,5 +53,6 @@ go_test(
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
     ],
 )

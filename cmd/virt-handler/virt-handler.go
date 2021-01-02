@@ -69,6 +69,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
@@ -257,8 +258,7 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	// Directory to store notwork information related to VMIs
-	err = os.MkdirAll(util.NetworkInfoDir, 0755)
+	err = network.CreateVirtHandlerNetworkInfoCache()
 	if err != nil {
 		panic(err)
 	}

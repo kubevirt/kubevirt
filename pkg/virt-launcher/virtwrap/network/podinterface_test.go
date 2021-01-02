@@ -28,14 +28,14 @@ import (
 	"os"
 	"runtime"
 
-	"kubevirt.io/kubevirt/pkg/util"
-
 	"github.com/coreos/go-iptables/iptables"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -81,7 +81,7 @@ var _ = Describe("Pod Network", func() {
 
 	BeforeEach(func() {
 		tmpDir, _ := ioutil.TempDir("", "networktest")
-		setInterfaceCacheFile(tmpDir + "/cache-iface-%s.json")
+		mockVirtLauncherCachedPattern(tmpDir + "/cache-iface-%s.json")
 		setVifCacheFile(tmpDir + "/cache-vif-%s.json")
 
 		ctrl = gomock.NewController(GinkgoT())
@@ -790,13 +790,13 @@ var _ = Describe("Pod Network", func() {
 	})
 
 	It("should write interface to cache file", func() {
-		uid := "test-1234"
+		uid := types.UID("test-1234")
 		address1 := &net.IPNet{IP: net.IPv4(1, 2, 3, 4)}
 		address2 := &net.IPNet{IP: net.IPv4(169, 254, 0, 0)}
 		fakeAddr1 := netlink.Addr{IPNet: address1}
 		fakeAddr2 := netlink.Addr{IPNet: address2}
 		addrList := []netlink.Addr{fakeAddr1, fakeAddr2}
-		err := os.MkdirAll(fmt.Sprintf(util.VMIInterfaceDir, uid), 0755)
+		err := CreateVirtHandlerCacheDir(uid)
 		Expect(err).ToNot(HaveOccurred())
 
 		iface := &v1.Interface{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
@@ -804,10 +804,10 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_ALL).Return(addrList, nil)
 		mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
-		err = setPodInterfaceCache(iface, primaryPodInterfaceName, uid)
+		err = setPodInterfaceCache(iface, primaryPodInterfaceName, string(uid))
 		Expect(err).ToNot(HaveOccurred())
 
-		data, err := ioutil.ReadFile(fmt.Sprintf(util.VMIInterfacepath, uid, iface.Name))
+		data, err := ioutil.ReadFile(fmt.Sprintf(VirtHandlerCachePattern, string(uid), iface.Name))
 		Expect(err).ToNot(HaveOccurred())
 		var podData *PodCacheInterface
 		err = json.Unmarshal(data, &podData)

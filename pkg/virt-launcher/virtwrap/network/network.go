@@ -27,16 +27,13 @@ package network
 
 import (
 	"fmt"
-	"os"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const primaryPodInterfaceName = "eth0"
 
-var interfaceCacheFile = "/proc/%s/root/var/run/kubevirt-private/interface-cache-%s.json"
 var vifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
 var podNICFactory = newpodNIC
 
@@ -97,8 +94,7 @@ func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string
 }
 
 func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int) error {
-	// Create a dir with VMI UID under network-info-dir to store network files
-	err := os.MkdirAll(fmt.Sprintf(util.VMIInterfaceDir, vmi.ObjectMeta.UID), 0755)
+	err := CreateVirtHandlerCacheDir(vmi.ObjectMeta.UID)
 	if err != nil {
 		return err
 	}

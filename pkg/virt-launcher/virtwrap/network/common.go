@@ -23,9 +23,7 @@ package network
 
 import (
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -534,40 +532,6 @@ func initHandler() {
 	}
 }
 
-func writeToCachedFile(inter interface{}, fileName, pid, name string) error {
-	buf, err := json.MarshalIndent(&inter, "", "  ")
-	if err != nil {
-		return fmt.Errorf("error marshaling cached object: %v", err)
-	}
-
-	fileName = getInterfaceCacheFile(fileName, pid, name)
-	err = ioutil.WriteFile(fileName, buf, 0644)
-	if err != nil {
-		return fmt.Errorf("error writing cached object: %v", err)
-	}
-	return nil
-}
-
-func readFromCachedFile(pid, name, fileName string, inter interface{}) (bool, error) {
-	buf, err := ioutil.ReadFile(getInterfaceCacheFile(fileName, pid, name))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-		return false, err
-	}
-
-	err = json.Unmarshal(buf, &inter)
-	if err != nil {
-		return false, fmt.Errorf("error unmarshaling cached object: %v", err)
-	}
-	return true, nil
-}
-
-func getInterfaceCacheFile(filePath, pid, name string) string {
-	return fmt.Sprintf(filePath, pid, name)
-}
-
 // filter out irrelevant routes
 func filterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []netlink.Route) {
 	for _, route := range routes {
@@ -584,11 +548,6 @@ func filterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []
 		filteredRoutes = append(filteredRoutes, route)
 	}
 	return
-}
-
-// only used by unit test suite
-func setInterfaceCacheFile(path string) {
-	interfaceCacheFile = path
 }
 
 func setVifCacheFile(path string) {
