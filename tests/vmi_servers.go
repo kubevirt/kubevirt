@@ -32,6 +32,11 @@ func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int) {
 	HTTPServer.Start(vmi, port)
 }
 
+func StartPythonHttpServer(vmi *v1.VirtualMachineInstance, port int) {
+	serverCommand := fmt.Sprintf("python3 -m http.server %d --bind ::0 &\n", port)
+	Expect(console.RunCommand(vmi, serverCommand, 60*time.Second)).To(Succeed())
+}
+
 func (s server) Start(vmi *v1.VirtualMachineInstance, port int) {
 	Expect(console.RunCommand(vmi, s.composeNetcatServerCommand(port), 60*time.Second)).To(Succeed())
 }
