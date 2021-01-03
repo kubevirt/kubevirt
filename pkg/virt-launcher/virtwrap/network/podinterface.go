@@ -1227,8 +1227,8 @@ func (m *MacvtapPodInterface) loadCachedInterface(uid, name string) (bool, error
 	return false, nil
 }
 
-func (m *MacvtapPodInterface) setCachedInterface(uid, name string) error {
-	err := writeToCachedFile(m.virtIface, interfaceCacheFile, uid, name)
+func (m *MacvtapPodInterface) setCachedInterface(pid, name string) error {
+	err := writeToCachedFile(m.virtIface, interfaceCacheFile, pid, name)
 	return err
 }
 
