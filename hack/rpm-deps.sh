@@ -78,6 +78,12 @@ bazel run \
     --config=${ARCHITECTURE} \
     //:bazeldnf -- prune
 
+# FIXME: For an unknown reason the run target afterwards can get
+# out dated tar files, build them explicitly first.
+bazel build \
+    --config=${ARCHITECTURE} \
+    //rpm:libvirt-devel_x86_64
+
 # update tar2files targets which act as an adapter between rpms
 # and cc_library which we need for virt-launcher and virt-handler
 bazel run \
