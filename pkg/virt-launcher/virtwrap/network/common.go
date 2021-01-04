@@ -419,7 +419,12 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInter
 
 func (h *NetworkUtilsHandler) CreateAndExportNDPConnection(advertisementIfaceName string, launcherPID int) error {
 	log.Log.Infof("Starting Router Advertiser on network Nic: %s", advertisementIfaceName)
-	ndpConnection, err := ndp.NewNDPConnection(advertisementIfaceName)
+	ndpConnectionMaker, err := ndp.NewSELinuxAwareNDPConnectionMaker(launcherPID, advertisementIfaceName)
+	if err != nil {
+		return fmt.Errorf("failed to create the NDP connection maker: %v", err)
+	}
+
+	ndpConnection, err := ndpConnectionMaker.Generate()
 	if err != nil {
 		return fmt.Errorf("failed to create the Router Advertiser: %v", err)
 	}

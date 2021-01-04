@@ -42,11 +42,11 @@ type ContextExecutor struct {
 }
 
 func NewContextExecutor(pid int, cmd *exec.Cmd) (*ContextExecutor, error) {
-	desiredLabel, err := getLabelForPID(pid)
+	desiredLabel, err := GetLabelForPID(pid)
 	if err != nil {
 		return nil, err
 	}
-	originalLabel, err := getLabelForPID(os.Getpid())
+	originalLabel, err := GetLabelForPID(os.Getpid())
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func NewContextExecutor(pid int, cmd *exec.Cmd) (*ContextExecutor, error) {
 }
 
 func (ce ContextExecutor) Execute() error {
-	if isSELinuxEnabled() {
+	if IsSELinuxEnabled() {
 		if err := ce.setDesiredContext(); err != nil {
 			return err
 		}
@@ -86,12 +86,12 @@ func (ce ContextExecutor) resetContext() error {
 	return selinux.SetExecLabel(ce.originalLabel)
 }
 
-func isSELinuxEnabled() bool {
+func IsSELinuxEnabled() bool {
 	_, selinuxEnabled, err := NewSELinux()
 	return err == nil && selinuxEnabled
 }
 
-func getLabelForPID(pid int) (string, error) {
+func GetLabelForPID(pid int) (string, error) {
 	fileLabel, err := selinux.FileLabel(fmt.Sprintf("/proc/%d/attr/current", pid))
 	if err != nil {
 		return "", fmt.Errorf("could not retrieve pid %d selinux label: %v", pid, err)
