@@ -457,7 +457,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces(queueNumber uint32, lau
 	}
 
 	tapDeviceName := generateTapDeviceName(podInterfaceName)
-	err := createAndBindTapToBridge(b.vif, tapDeviceName, b.bridgeInterfaceName, queueNumber, launcherPID, int(b.vif.Mtu))
+	err := createAndBindTapToBridge(tapDeviceName, b.bridgeInterfaceName, queueNumber, launcherPID, int(b.vif.Mtu))
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -481,7 +481,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces(queueNumber uint32, lau
 	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
 	b.virtIface.MAC = &api.MAC{MAC: b.vif.MAC.String()}
 	b.virtIface.Target = &api.InterfaceTarget{
-		Device:  b.vif.TapDevice,
+		Device:  tapDeviceName,
 		Managed: "no",
 	}
 
@@ -748,7 +748,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces(queueNumber uint32,
 	}
 
 	tapDeviceName := generateTapDeviceName(podInterfaceName)
-	err = createAndBindTapToBridge(p.vif, tapDeviceName, p.bridgeInterfaceName, queueNumber, launcherPID, int(p.vif.Mtu))
+	err = createAndBindTapToBridge(tapDeviceName, p.bridgeInterfaceName, queueNumber, launcherPID, int(p.vif.Mtu))
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -790,7 +790,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces(queueNumber uint32,
 	p.virtIface.MTU = &api.MTU{Size: strconv.Itoa(p.podNicLink.Attrs().MTU)}
 	p.virtIface.MAC = &api.MAC{MAC: p.vif.MAC.String()}
 	p.virtIface.Target = &api.InterfaceTarget{
-		Device:  p.vif.TapDevice,
+		Device:  tapDeviceName,
 		Managed: "no",
 	}
 
@@ -1259,12 +1259,11 @@ func (m *MacvtapPodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-func createAndBindTapToBridge(virtualInterface *VIF, deviceName string, bridgeIfaceName string, queueNumber uint32, launcherPID int, mtu int) error {
+func createAndBindTapToBridge(deviceName string, bridgeIfaceName string, queueNumber uint32, launcherPID int, mtu int) error {
 	err := Handler.CreateTapDevice(deviceName, queueNumber, launcherPID, mtu)
 	if err != nil {
 		return err
 	}
-	virtualInterface.TapDevice = deviceName
 	return Handler.BindTapDeviceToBridge(deviceName, bridgeIfaceName)
 }
 

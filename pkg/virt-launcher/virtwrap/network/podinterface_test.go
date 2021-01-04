@@ -119,11 +119,10 @@ var _ = Describe("Pod Network", func() {
 		bridgeAddr, _ = netlink.ParseAddr(fmt.Sprintf(bridgeFakeIP, 0))
 		tapDeviceName = "tap0"
 		testNic = &VIF{Name: podInterface,
-			IP:        fakeAddr,
-			MAC:       fakeMac,
-			Mtu:       uint16(mtu),
-			Gateway:   gw,
-			TapDevice: tapDeviceName,
+			IP:      fakeAddr,
+			MAC:     fakeMac,
+			Mtu:     uint16(mtu),
+			Gateway: gw,
 		}
 
 		masqueradeGwStr = "10.0.2.1/30"
