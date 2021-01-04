@@ -1259,7 +1259,7 @@ func gracefulShutdownTriggerFromNamespaceName(baseDir string, namespace string, 
 // VMIs running with the old graceful shutdown trigger logic
 func vmGracefulShutdownTriggerClear(baseDir string, vmi *v1.VirtualMachineInstance) error {
 	triggerFile := gracefulShutdownTriggerFromNamespaceName(baseDir, vmi.Namespace, vmi.Name)
-	return diskutils.RemoveFile(triggerFile)
+	return diskutils.RemoveFilesIfExist(triggerFile)
 }
 
 // Legacy, remove once we're certain we are no longer supporting

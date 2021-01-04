@@ -65,7 +65,7 @@ func WatchdogFileRemove(baseDir string, vmi *v1.VirtualMachineInstance) error {
 	file := WatchdogFileFromNamespaceName(baseDir, namespace, domain)
 
 	log.Log.V(3).Infof("Remove watchdog file %s", file)
-	return diskutils.RemoveFile(file)
+	return diskutils.RemoveFilesIfExist(file)
 }
 
 func WatchdogFileUpdate(watchdogFile string, uid string) error {

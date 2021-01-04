@@ -34,18 +34,27 @@ var _ = Describe("FileExists", func() {
 		Expect(FileExists("no one would ever have this file")).To(BeFalse())
 	})
 })
-var _ = Describe("RemoveFile", func() {
+var _ = Describe("RemoveFilesIfExist", func() {
 	It("silently ignores non-existing file", func() {
-		// Ingnoring missing files is typically a sloppy behavior. This test
-		// documents it, not aproves of its usage.
-		Expect(RemoveFile("no one would ever have this file")).To(BeNil())
+		Expect(RemoveFilesIfExist("no one would ever have this file")).To(BeNil())
 	})
 	It("removes a file", func() {
 		tmpfile, err := ioutil.TempFile("", "file_to_remove")
 		Expect(err).To(BeNil())
 		defer tmpfile.Close()
 		Expect(FileExists(tmpfile.Name())).To(BeTrue())
-		Expect(RemoveFile(tmpfile.Name())).To(BeNil())
+		Expect(RemoveFilesIfExist(tmpfile.Name())).To(BeNil())
 		Expect(FileExists(tmpfile.Name())).To(BeFalse())
+	})
+	It("removes multiple files", func() {
+		tmpfile1, err := ioutil.TempFile("", "file_to_remove1")
+		Expect(err).To(BeNil())
+		defer tmpfile1.Close()
+		tmpfile2, err := ioutil.TempFile("", "file_to_remove2")
+		Expect(err).To(BeNil())
+		defer tmpfile2.Close()
+		Expect(RemoveFilesIfExist(tmpfile1.Name(), tmpfile2.Name())).To(BeNil())
+		Expect(FileExists(tmpfile1.Name())).To(BeFalse())
+		Expect(FileExists(tmpfile2.Name())).To(BeFalse())
 	})
 })
