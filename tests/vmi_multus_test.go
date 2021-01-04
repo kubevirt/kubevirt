@@ -1222,11 +1222,11 @@ func getInterfaceNetworkNameByMAC(vmi *v1.VirtualMachineInstance, macAddress str
 func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 
 	// Fetching the kubevirt-operator image from the pod makes this independent from the installation method / image used
-	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: "kubevirt.io=virt-operator"})
+	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: "kubevirt.io=virt-handler"})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(pods.Items).ToNot(BeEmpty())
 
-	virtOperatorImage := pods.Items[0].Spec.Containers[0].Image
+	virtHandlerImage := pods.Items[0].Spec.Containers[0].Image
 
 	// Privileged DaemonSet configuring host networking as needed
 	networkConfigDaemonSet := appsv1.DaemonSet{
@@ -1252,7 +1252,7 @@ func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 							Name: "network-config",
 							// Reuse image which is already installed in the cluster. All we need is chroot.
 							// Local OKD cluster doesn't allow us to pull from the outside.
-							Image: virtOperatorImage,
+							Image: virtHandlerImage,
 							Command: []string{
 								"sh",
 								"-c",
