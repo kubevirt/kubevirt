@@ -1201,15 +1201,16 @@ func (m *MacvtapPodInterface) discoverPodNetworkInterface() error {
 		m.virtIface.MAC = &api.MAC{MAC: mac.String()}
 	}
 
-	return nil
-}
-
-func (m *MacvtapPodInterface) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
 	m.virtIface.MTU = &api.MTU{Size: strconv.Itoa(m.podNicLink.Attrs().MTU)}
 	m.virtIface.Target = &api.InterfaceTarget{
 		Device:  m.podInterfaceName,
 		Managed: "no",
 	}
+
+	return nil
+}
+
+func (m *MacvtapPodInterface) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
 	return nil
 }
 
