@@ -297,20 +297,26 @@ func getPhase1Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 }
 
 func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) (BindMechanism, error) {
-	populateMacAddress := func(vif *VIF, iface *v1.Interface) error {
+	retrieveMacAddress := func(iface *v1.Interface) (*net.HardwareAddr, error) {
 		if iface.MacAddress != "" {
 			macAddress, err := net.ParseMAC(iface.MacAddress)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			vif.MAC = macAddress
+			return &macAddress, nil
 		}
-		return nil
+		return nil, nil
 	}
 
 	if iface.Bridge != nil {
+		mac, err := retrieveMacAddress(iface)
+		if err != nil {
+			return nil, err
+		}
 		vif := &VIF{Name: podInterfaceName}
-		populateMacAddress(vif, iface)
+		if mac != nil {
+			vif.MAC = *mac
+		}
 		return &BridgePodInterface{iface: iface,
 			virtIface:           &api.Interface{},
 			vmi:                 vmi,
@@ -320,8 +326,14 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 			bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName)}, nil
 	}
 	if iface.Masquerade != nil {
+		mac, err := retrieveMacAddress(iface)
+		if err != nil {
+			return nil, err
+		}
 		vif := &VIF{Name: podInterfaceName}
-		populateMacAddress(vif, iface)
+		if mac != nil {
+			vif.MAC = *mac
+		}
 		return &MasqueradePodInterface{iface: iface,
 			virtIface:           &api.Interface{},
 			vmi:                 vmi,
@@ -336,13 +348,18 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 		return &SlirpPodInterface{vmi: vmi, iface: iface, domain: domain}, nil
 	}
 	if iface.Macvtap != nil {
-		vif := &VIF{Name: podInterfaceName}
-		populateMacAddress(vif, iface)
+		mac, err := retrieveMacAddress(iface)
+		if err != nil {
+			return nil, err
+		}
+		virtIface := &api.Interface{}
+		if mac != nil {
+			virtIface.MAC = &api.MAC{MAC: mac.String()}
+		}
 		return &MacvtapPodInterface{
 			vmi:              vmi,
-			vif:              vif,
 			iface:            iface,
-			virtIface:        &api.Interface{},
+			virtIface:        virtIface,
 			domain:           domain,
 			podInterfaceName: podInterfaceName,
 		}, nil
@@ -1159,7 +1176,6 @@ func (s *SlirpPodInterface) setCachedInterface(pid, name string) error {
 
 type MacvtapPodInterface struct {
 	vmi              *v1.VirtualMachineInstance
-	vif              *VIF
 	iface            *v1.Interface
 	virtIface        *api.Interface
 	domain           *api.Domain
@@ -1175,21 +1191,20 @@ func (m *MacvtapPodInterface) discoverPodNetworkInterface() error {
 	}
 	m.podNicLink = link
 
-	if len(m.vif.MAC) == 0 {
+	if m.virtIface.MAC == nil {
 		// Get interface MAC address
 		mac, err := Handler.GetMacDetails(m.podInterfaceName)
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to get MAC for %s", m.podInterfaceName)
 			return err
 		}
-		m.vif.MAC = mac
+		m.virtIface.MAC = &api.MAC{MAC: mac.String()}
 	}
 
 	return nil
 }
 
 func (m *MacvtapPodInterface) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
-	m.virtIface.MAC = &api.MAC{MAC: m.vif.MAC.String()}
 	m.virtIface.MTU = &api.MTU{Size: strconv.Itoa(m.podNicLink.Attrs().MTU)}
 	m.virtIface.Target = &api.InterfaceTarget{
 		Device:  m.podInterfaceName,
@@ -1203,7 +1218,7 @@ func (m *MacvtapPodInterface) decorateConfig() error {
 	for i, iface := range ifaces {
 		if iface.Alias.Name == m.iface.Name {
 			ifaces[i].MTU = m.virtIface.MTU
-			ifaces[i].MAC = &api.MAC{MAC: m.vif.MAC.String()}
+			ifaces[i].MAC = m.virtIface.MAC
 			ifaces[i].Target = m.virtIface.Target
 			break
 		}
@@ -1233,23 +1248,11 @@ func (m *MacvtapPodInterface) setCachedInterface(uid, name string) error {
 }
 
 func (m *MacvtapPodInterface) loadCachedVIF(pid, name string) (bool, error) {
-	buf, err := ioutil.ReadFile(getVifFilePath(pid, name))
-	if err != nil {
-		return false, err
-	}
-	err = json.Unmarshal(buf, &m.vif)
-	if err != nil {
-		return false, err
-	}
 	return true, nil
 }
 
 func (m *MacvtapPodInterface) setCachedVIF(pid, name string) error {
-	buf, err := json.MarshalIndent(&m.vif, "", "  ")
-	if err != nil {
-		return fmt.Errorf("error marshaling vif object: %v", err)
-	}
-	return writeVifFile(buf, pid, name)
+	return nil
 }
 
 func (m *MacvtapPodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error {
