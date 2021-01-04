@@ -30,13 +30,14 @@ import (
 // XFail skips the test once it fails and leaves a XFAIL label on the message.
 // It is useful to mark tests as XFail when one wants them to run even though they fail,
 // monitoring and collecting information.
-func XFail(reason string) {
+func XFail(reason string, f func()) {
+	defer RegisterFailHandler(Fail)
 	RegisterFailHandler(func(m string, offset ...int) {
-		defer RegisterFailHandler(Fail)
 		depth := 0
 		if len(offset) > 0 {
 			depth = offset[0]
 		}
 		Skip(fmt.Sprintf("[XFAIL] %s, failure: %s", reason, m), depth+1)
 	})
+	f()
 }

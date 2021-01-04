@@ -856,13 +856,14 @@ var _ = Describe("[Serial]SRIOV", func() {
 			//create two vms on the smae sriov network
 			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, cidrA, cidrB)
 
-			assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642")
-			Eventually(func() error {
-				return libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))
-			}, 15*time.Second, time.Second).Should(Succeed())
-			Eventually(func() error {
-				return libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))
-			}, 15*time.Second, time.Second).Should(Succeed())
+			assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642", func() {
+				Eventually(func() error {
+					return libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))
+				}, 15*time.Second, time.Second).Should(Succeed())
+				Eventually(func() error {
+					return libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))
+				}, 15*time.Second, time.Second).Should(Succeed())
+			})
 		})
 
 		It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
@@ -871,13 +872,14 @@ var _ = Describe("[Serial]SRIOV", func() {
 			//create two vms on the smae sriov network
 			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, cidrA, cidrB)
 
-			assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642")
-			Eventually(func() error {
-				return libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))
-			}, 15*time.Second, time.Second).Should(Succeed())
-			Eventually(func() error {
-				return libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))
-			}, 15*time.Second, time.Second).Should(Succeed())
+			assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642", func() {
+				Eventually(func() error {
+					return libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))
+				}, 15*time.Second, time.Second).Should(Succeed())
+				Eventually(func() error {
+					return libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))
+				}, 15*time.Second, time.Second).Should(Succeed())
+			})
 		})
 
 		Context("With VLAN", func() {
