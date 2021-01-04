@@ -1573,15 +1573,14 @@ func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
 }
 
 func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
-	state, _, err := dom.GetState()
-	if err != nil {
-		return nil, err
-	}
-
-	domainSpec, err := util.GetDomainSpecWithRuntimeInfo(state, dom)
+	domainSpec, err := util.GetDomainSpecWithRuntimeInfo(dom)
 	if err != nil {
 		// Return without runtime info only for cases we know for sure it's not supposed to be there
 		if domainerrors.IsNotFound(err) || domainerrors.IsInvalidOperation(err) {
+			state, _, err := dom.GetState()
+			if err != nil {
+				return nil, err
+			}
 			return util.GetDomainSpec(state, dom)
 		}
 	}
