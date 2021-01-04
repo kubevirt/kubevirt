@@ -47,7 +47,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
-	kvselinux "kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcpv6"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/ndp"
@@ -394,6 +393,17 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInter
 
 func (h *NetworkUtilsHandler) CreateNDPConnection(bridgeInterfaceName string, launcherPID int) error {
 	log.Log.Infof("Starting RA daemon on network Nic: %s", bridgeInterfaceName)
+
+	if isSELinuxEnabled() {
+		if err := setVirtHandlerSELinuxSocketContext(launcherPID); err != nil {
+			return fmt.Errorf("error setting next socket's selinux context: %v", err)
+		}
+
+		defer func() {
+			_ = resetVirtHandlerSELinuxSocketContext()
+		}()
+	}
+
 	ndpConnection, err := ndp.NewNDPConnection(bridgeInterfaceName)
 	if err != nil {
 		return fmt.Errorf("failed to create the RouterAdvertisement daemon: %v", err)
@@ -471,11 +481,6 @@ func (tmc *tapDeviceMaker) makeTapDevice() error {
 		return fmt.Errorf("failed to create tap device %s: %v", tmc.tapName, err)
 	}
 	return nil
-}
-
-func isSELinuxEnabled() bool {
-	_, selinuxEnabled, err := kvselinux.NewSELinux()
-	return err == nil && selinuxEnabled
 }
 
 func setVirtLauncherSELinuxContext(virtLauncherPID int) error {

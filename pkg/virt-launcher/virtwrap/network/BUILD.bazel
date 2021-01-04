@@ -9,6 +9,7 @@ go_library(
         "generated_mock_podinterface.go",
         "network.go",
         "podinterface.go",
+        "selinux_context_executor.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network",
     visibility = ["//visibility:public"],
