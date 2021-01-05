@@ -89,8 +89,9 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 				)
 				BeforeEach(func() {
 					var err error
-
-					vmi, err = newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithBridgeBinding())
+					networkData, err := libnet.CreateDefaultCloudInitNetworkData()
+					Expect(err).NotTo(HaveOccurred())
+					vmi, err = newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithBridgeBinding(), networkData)
 					Expect(err).NotTo(HaveOccurred())
 
 					vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -133,7 +134,9 @@ var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 				var vmi *v1.VirtualMachineInstance
 
 				BeforeEach(func() {
-					tmpVmi, err := newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithMasqueradeBinding())
+					networkData, err := libnet.CreateDynamicIPv6CloudInitNetworkData()
+					Expect(err).NotTo(HaveOccurred())
+					tmpVmi, err := newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(), networkData)
 					Expect(err).NotTo(HaveOccurred())
 
 					tmpVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(tmpVmi)
@@ -223,12 +226,7 @@ func vmiWithMasqueradeBinding() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func newFedoraWithGuestAgentAndDefaultInterface(iface v1.Interface) (*v1.VirtualMachineInstance, error) {
-	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
-	if err != nil {
-		return nil, err
-	}
-
+func newFedoraWithGuestAgentAndDefaultInterface(iface v1.Interface, networkData string) (*v1.VirtualMachineInstance, error) {
 	vmi := libvmi.NewFedora(
 		libvmi.WithInterface(iface),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),

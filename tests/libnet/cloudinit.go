@@ -197,3 +197,19 @@ func CreateDefaultCloudInitNetworkData() (string, error) {
 		),
 	)
 }
+
+// CreateDynamicIPv6CloudInitNetworkData generates a configuration for the
+// Cloud-Init Network Data, in version 2 format.
+// The configuration sets dynamic IPv4 (DHCP) and IPv6 (stateful dhcpv6)
+// addresses, inclusing DNS settings of the cluster nameserver IP and search
+// domains.
+func CreateDynamicIPv6CloudInitNetworkData() (string, error) {
+	return NewNetworkData(
+		WithEthernet("eth0",
+			WithDHCP4Enabled(),
+			WithDHCP6Enabled(),
+			WithAcceptRA(),
+			WithNameserverFromCluster(),
+		),
+	)
+}
