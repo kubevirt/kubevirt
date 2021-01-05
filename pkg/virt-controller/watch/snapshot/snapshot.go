@@ -468,8 +468,8 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 		},
 		Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
 			VirtualMachineSnapshotName: &vmSnapshot.Name,
-			Source:        source.Spec(),
-			VolumeBackups: volumeBackups,
+			Source:                     source.Spec(),
+			VolumeBackups:              volumeBackups,
 		},
 	}
 

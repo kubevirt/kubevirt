@@ -85,8 +85,8 @@ type AccessCredentialManager struct {
 
 func NewManager(connection cli.Connection, domainModifyLock *sync.Mutex) *AccessCredentialManager {
 	return &AccessCredentialManager{
-		virConn: connection,
-		stopCh:  make(chan struct{}),
+		virConn:                    connection,
+		stopCh:                     make(chan struct{}),
 		resyncCheckIntervalSeconds: 15,
 		domainModifyLock:           domainModifyLock,
 	}
