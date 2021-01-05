@@ -13,9 +13,24 @@ function up() {
         exit 1
     fi
 
+echo 'Vfs on host
+ls -la /sys/bus/pci/devices/*/virtfn*'
+echo `ls -la /sys/bus/pci/devices/*/virtfn*`
+echo 'Pfs on host
+ls -la /sys/bus/pci/devices/*/physfn*'
+echo `ls -la /sys/bus/pci/devices/*/physfn*`
+
     # print hardware info for easier debugging based on logs
     echo 'Available NICs'
     docker run --rm --cap-add=SYS_RAWIO quay.io/phoracek/lspci@sha256:0f3cacf7098202ef284308c64e3fc0ba441871a846022bb87d65ff130c79adb1 sh -c "lspci | egrep -i 'network|ethernet'"
+    echo ""
+
+echo 'Vfs on kind node'
+    docker run --rm --cap-add=SYS_RAWIO quay.io/phoracek/lspci@sha256:0f3cacf7098202ef284308c64e3fc0ba441871a846022bb87d65ff130c79adb1 sh -c "ls -la /sys/bus/pci/devices/*/virtfn*"
+    echo ""
+
+echo 'Pfs on kind node'
+    docker run --rm --cap-add=SYS_RAWIO quay.io/phoracek/lspci@sha256:0f3cacf7098202ef284308c64e3fc0ba441871a846022bb87d65ff130c79adb1 sh -c "ls -la /sys/bus/pci/devices/*/physfn*"
     echo ""
 
     cp $KIND_MANIFESTS_DIR/kind.yaml ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
