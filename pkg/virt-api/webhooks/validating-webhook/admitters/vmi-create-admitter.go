@@ -988,7 +988,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("GPU %s is not permitted in kubevirt-host-device-plugin-config", hostDev.DeviceName),
+					Message: fmt.Sprintf("GPU %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName),
 					Field:   field.Child("GPUs").String(),
 				})
 			}
@@ -997,7 +997,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("HostDevice %s is not permitted in kubevirt-host-device-plugin-config", hostDev.DeviceName),
+					Message: fmt.Sprintf("HostDevice %s is not permitted in permittedHostDevices configuration", hostDev.DeviceName),
 					Field:   field.Child("HostDevices").String(),
 				})
 			}
