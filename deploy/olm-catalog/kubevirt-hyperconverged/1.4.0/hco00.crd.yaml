@@ -150,6 +150,11 @@ spec:
               bareMetalPlatform:
                 description: BareMetalPlatform indicates whether the infrastructure is baremetal.
                 type: boolean
+              featureGates:
+                additionalProperties:
+                  type: boolean
+                description: featureGates HyperConvergedFeatureGates contain a list of feature enabler flags. Setting a flag to `true` will enable the feature. Setting `false` or removing the feature gate, disables the feature. optional+
+                type: object
               infra:
                 description: infra HyperConvergedConfig influences the pod configuration (currently only placement) for all the infra components needed on the virtualization enabled cluster but not necessarely directly on each node running VMs/VMIs.
                 properties:

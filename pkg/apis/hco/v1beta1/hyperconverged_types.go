@@ -40,6 +40,11 @@ type HyperConvergedSpec struct {
 	// +optional
 	Workloads HyperConvergedConfig `json:"workloads,omitempty"`
 
+	// featureGates HyperConvergedFeatureGates contain a list of feature enabler flags. Setting a flag to `true` will enable
+	// the feature. Setting `false` or removing the feature gate, disables the feature.
+	// optional+
+	FeatureGates HyperConvergedFeatureGates `json:"featureGates,omitempty"`
+
 	// operator version
 	Version string `json:"version,omitempty"`
 }
@@ -49,6 +54,25 @@ type HyperConvergedConfig struct {
 	// NodePlacement describes node scheduling configuration.
 	// +optional
 	NodePlacement *sdkapi.NodePlacement `json:"nodePlacement,omitempty"`
+}
+
+type HyperConvergedFeatureGates map[string]bool
+
+func (fgs HyperConvergedFeatureGates) IsEnabled(fgName string) bool {
+	fg, found := fgs[fgName]
+	return fg && found
+}
+
+// get list of feature gates from a specific operand list
+func (fgs HyperConvergedFeatureGates) GetFeatureGateList(candidates []string) []string {
+	res := make([]string, 0, len(fgs))
+	for _, fg := range candidates {
+		if fgs.IsEnabled(fg) {
+			res = append(res, fg)
+		}
+	}
+
+	return res
 }
 
 // HyperConvergedStatus defines the observed state of HyperConverged

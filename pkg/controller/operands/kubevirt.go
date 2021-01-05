@@ -16,10 +16,24 @@ import (
 	"os"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 const (
 	kubevirtDefaultNetworkInterfaceValue = "masquerade"
+)
+
+const (
+	kvHotplugVolumes = "HotplugVolumes"
+	cmFeatureGates   = "DataVolumes,SRIOV,LiveMigration,CPUManager,CPUNodeDiscovery,Sidecar,Snapshot"
+)
+
+var (
+	// managedKvFeatureGates - list of KV feature gates that can be set/clear by adding/remove them
+	// from HyperConverged CR
+	managedKvFeatureGates = []string{
+		kvHotplugVolumes,
+	}
 )
 
 // ************  KubeVirt Handler  **************
@@ -83,6 +97,15 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) *kubevirtv1.Kube
 		UninstallStrategy: kubevirtv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist,
 		Infra:             hcoConfig2KvConfig(hc.Spec.Infra),
 		Workloads:         hcoConfig2KvConfig(hc.Spec.Workloads),
+	}
+
+	fgs := hc.Spec.FeatureGates.GetFeatureGateList(managedKvFeatureGates)
+	if len(fgs) > 0 {
+		if spec.Configuration.DeveloperConfiguration == nil {
+			spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{}
+		}
+
+		spec.Configuration.DeveloperConfiguration.FeatureGates = fgs
 	}
 
 	return &kubevirtv1.KubeVirt{
@@ -159,8 +182,8 @@ func (h *kvConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, e
 		return false, false, errors.New("can't convert to ConfigMap")
 	}
 
+	changed := false
 	if req.UpgradeMode {
-		changed := false
 		// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey,
 		// virtconfig.FeatureGatesKey and virtconfig.UseEmulationKey are going to be manipulated
 		// and only on HCO upgrades.
@@ -189,16 +212,48 @@ func (h *kvConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, e
 				changed = true
 			}
 		}
+	} else { // not in upgrade mode
 
-		if changed {
-			err := Client.Update(req.Ctx, found)
-			if err != nil {
-				req.Logger.Error(err, "Failed updating the kubevirt config map")
-				return false, false, err
+		// Add/remove managed KV feature gates without modifying any other feature gates, that may be changed by the user:
+		// 1. first, get the current feature gate list from the config map, and split the list into the ist string to a
+		//    slice of FGs
+		foundFgSplit := strings.Split(found.Data[virtconfig.FeatureGatesKey], ",")
+		resultFg := make([]string, 0, len(foundFgSplit))
+		fgChanged := false
+		// 2. Remove only managed FGs from the list, if are not in the HC CR
+		for _, fg := range foundFgSplit {
+			// Remove if not in HC CR
+			if hcoutil.ContainsString(managedKvFeatureGates, fg) && !req.Instance.Spec.FeatureGates.IsEnabled(fg) {
+				fgChanged = true
+				continue
 			}
-			return true, false, nil
+			resultFg = append(resultFg, fg)
+		}
+
+		// 3. Add managed FGs if set in the HC CR
+		for _, fg := range req.Instance.Spec.FeatureGates.GetFeatureGateList(managedKvFeatureGates) {
+			if !hcoutil.ContainsString(foundFgSplit, fg) {
+				resultFg = append(resultFg, fg)
+				fgChanged = true
+			}
+		}
+
+		// 4. If a managed FG added/removed, rebuild a new list. Else, use the current one.
+		if fgChanged {
+			changed = true
+			found.Data[virtconfig.FeatureGatesKey] = strings.Join(resultFg, ",")
 		}
 	}
+
+	if changed {
+		err := Client.Update(req.Ctx, found)
+		if err != nil {
+			req.Logger.Error(err, "Failed updating the kubevirt config map")
+			return false, false, err
+		}
+		return true, false, nil
+	}
+
 	return false, false, nil
 }
 
@@ -300,6 +355,11 @@ func translateKubeVirtConds(orig []kubevirtv1.KubeVirtCondition) []conditionsv1.
 }
 
 func NewKubeVirtConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
+	featureGates := cmFeatureGates
+	if managedFeatureGates := cr.Spec.FeatureGates.GetFeatureGateList(managedKvFeatureGates); len(managedFeatureGates) > 0 {
+		featureGates = fmt.Sprintf("%s,%s", featureGates, strings.Join(managedFeatureGates, ","))
+	}
+
 	labels := map[string]string{
 		hcoutil.AppLabel: cr.Name,
 	}
@@ -316,7 +376,7 @@ func NewKubeVirtConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *co
 		// TODO: This is going to change in the next HCO release where the whole configMap is going
 		// to be continuously reconciled
 		Data: map[string]string{
-			virtconfig.FeatureGatesKey:        "DataVolumes,SRIOV,LiveMigration,CPUManager,CPUNodeDiscovery,Sidecar,Snapshot",
+			virtconfig.FeatureGatesKey:        featureGates,
 			virtconfig.SELinuxLauncherTypeKey: "virt_launcher.process",
 			virtconfig.NetworkInterfaceKey:    kubevirtDefaultNetworkInterfaceValue,
 		},

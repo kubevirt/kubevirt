@@ -317,3 +317,12 @@ func EnsureCreated(ctx context.Context, c client.Client, obj runtime.Object, log
 
 	return nil
 }
+
+func ContainsString(s []string, word string) bool {
+	for _, w := range s {
+		if w == word {
+			return true
+		}
+	}
+	return false
+}

@@ -112,6 +112,21 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedConfig"),
 						},
 					},
+					"featureGates": {
+						SchemaProps: spec.SchemaProps{
+							Description: "featureGates HyperConvergedFeatureGates contain a list of feature enabler flags. Setting a flag to `true` will enable the feature. Setting `false` or removing the feature gate, disables the feature. optional+",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"boolean"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 					"version": {
 						SchemaProps: spec.SchemaProps{
 							Description: "operator version",
@@ -137,7 +152,6 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref common.ReferenceCallba
 					"conditions": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-list-type":       "set",
 								"x-kubernetes-patch-merge-key": "type",
 								"x-kubernetes-patch-strategy":  "merge",
 							},
@@ -155,11 +169,6 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref common.ReferenceCallba
 						},
 					},
 					"relatedObjects": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
 							Description: "RelatedObjects is a list of objects created and maintained by this operator. Object references will be added to this list after they have been created AND found in the cluster.",
 							Type:        []string{"array"},
