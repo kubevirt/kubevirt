@@ -42,10 +42,12 @@ import (
 	"k8s.io/utils/pointer"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/assert"
 	"kubevirt.io/kubevirt/tests/console"
@@ -850,6 +852,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 			cidrA := "192.168.1.1/24"
 			cidrB := "192.168.1.2/24"
 			cidrDebug := "192.168.0.100/24"
+			const maxCommandTimeout = 10 * time.Second
+
 			//add ip for the pf to debug ping
 			_, err := RunOnNode("sriov-worker", fmt.Sprintf("ip addr add %s dev enp4s0f0", cidrToIP(cidrDebug)))
 			Expect(err).ToNot(HaveOccurred())
@@ -859,24 +863,64 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			//assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642")
 			Eventually(func() error {
-				return multierr.Combine(libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB)), libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA)),
-					libnet.PingFromVMConsole(vmi1, cidrToIP(cidrDebug)), libnet.PingFromVMConsole(vmi2, cidrToIP(cidrDebug)))
-			}, 15*time.Second, time.Second).Should(Succeed())
+				vm1respIPRoute, _ := console.RunCommandWithResponse(vmi1, "ip route", maxCommandTimeout)
+				vm1respIPLink, _ := console.RunCommandWithResponse(vmi1, "ip link", maxCommandTimeout)
+				vm1respIPAddress, _ := console.RunCommandWithResponse(vmi1, "ip address", maxCommandTimeout)
+				vm1respIPNeigh, _ := console.RunCommandWithResponse(vmi1, "ip neigh", maxCommandTimeout)
 
-			//delete the ip that was added
-			_, err = RunOnNode("sriov-worker", fmt.Sprintf("ip addr del %s dev enp4s0f0", "192.168.0.100"))
-			Expect(err).ToNot(HaveOccurred())
+				log.DefaultLogger().Object(vmi1).Infof("VM1:\n ip route:\n%v\nip link:\n%v\nip address:\n%v\n ip neigh:\v%v\n",
+					vm1respIPRoute, vm1respIPLink, vm1respIPAddress, vm1respIPNeigh)
+
+				vm2respIPRoute, _ := console.RunCommandWithResponse(vmi2, "ip route", maxCommandTimeout)
+				vm2respIPLink, _ := console.RunCommandWithResponse(vmi2, "ip link", maxCommandTimeout)
+				vm2respIPAddress, _ := console.RunCommandWithResponse(vmi2, "ip address", maxCommandTimeout)
+				vm2respIPNeigh, _ := console.RunCommandWithResponse(vmi2, "ip neigh", maxCommandTimeout)
+
+				log.DefaultLogger().Object(vmi1).Infof("VM1:\n ip route:\n%v\nip link:\n%v\nip address:\n%v\n ip neigh:\v%v\n",
+					vm2respIPRoute, vm2respIPLink, vm2respIPAddress, vm2respIPNeigh)
+
+				err1 := multierr.Combine(checkInterfaceUP(vmi1, "sriov3"), checkInterfaceUP(vmi2, "sriov3"), libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB)), libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA)),
+					libnet.PingFromVMConsole(vmi1, cidrToIP(cidrDebug)), libnet.PingFromVMConsole(vmi2, cidrToIP(cidrDebug)))
+
+				_, err2 := RunOnNode("sriov-worker", fmt.Sprintf("ip addr del %s dev enp4s0f0", "192.168.0.100"))
+				err = multierr.Append(err1, err2)
+
+				return err
+			}, 15*time.Second, time.Second).ShouldNot(HaveOccurred())
+
+			Expect(false).To(BeTrue(), "deliberately fail the test to collect the logs")
 		})
 
 		It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
 			cidrA := "fc00::1/64"
 			cidrB := "fc00::2/64"
+			const maxCommandTimeout = 10 * time.Second
+
 			//create two vms on the smae sriov network
 			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, cidrA, cidrB)
 
 			//assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642")
 			Eventually(func() error {
-				return multierr.Append(libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB)), libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA)))
+
+				vm1respIPRoute, _ := console.RunCommandWithResponse(vmi1, "ip route", maxCommandTimeout)
+				vm1respIPLink, _ := console.RunCommandWithResponse(vmi1, "ip link", maxCommandTimeout)
+				vm1respIPAddress, _ := console.RunCommandWithResponse(vmi1, "ip address", maxCommandTimeout)
+				vm1respIPNeigh, _ := console.RunCommandWithResponse(vmi1, "ip neigh", maxCommandTimeout)
+
+				log.DefaultLogger().Object(vmi1).Infof("VM1:\n ip route:\n%v\nip link:\n%v\nip address:\n%v\n ip neigh:\v%v\n",
+					vm1respIPRoute, vm1respIPLink, vm1respIPAddress, vm1respIPNeigh)
+
+				vm2respIPRoute, _ := console.RunCommandWithResponse(vmi2, "ip route", maxCommandTimeout)
+				vm2respIPLink, _ := console.RunCommandWithResponse(vmi2, "ip link", maxCommandTimeout)
+				vm2respIPAddress, _ := console.RunCommandWithResponse(vmi2, "ip address", maxCommandTimeout)
+				vm2respIPNeigh, _ := console.RunCommandWithResponse(vmi2, "ip neigh", maxCommandTimeout)
+
+				log.DefaultLogger().Object(vmi1).Infof("VM1:\n ip route:\n%v\nip link:\n%v\nip address:\n%v\n ip neigh:\v%v\n",
+					vm2respIPRoute, vm2respIPLink, vm2respIPAddress, vm2respIPNeigh)
+
+				err := multierr.Combine(checkInterfaceUP(vmi1, "sriov3"), checkInterfaceUP(vmi2, "sriov3"), libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB)), libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA)))
+
+				return err
 			}, 15*time.Second, time.Second).Should(Succeed())
 		})
 
@@ -884,6 +928,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			const (
 				cidrVlaned1          = "192.168.0.1/24"
 				sriovVlanNetworkName = "sriov-vlan"
+				maxCommandTimeout = 10 * time.Second
 			)
 
 			BeforeEach(func() {
@@ -895,12 +940,25 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 				By("pinging from vlanedVMI2 and the anonymous vmi over vlan")
 				Eventually(func() error {
-					return multierr.Append(libnet.PingFromVMConsole(vlanedVMI2, cidrToIP(cidrVlaned1)), libnet.PingFromVMConsole(vlanedVMI1, cidrToIP("192.168.0.2/24")))
-				}, 15*time.Second, time.Second).Should(Succeed())
+					vm1respIPRoute, _ := console.RunCommandWithResponse(vlanedVMI1, "ip route", maxCommandTimeout)
+					vm1respIPLink, _ := console.RunCommandWithResponse(vlanedVMI1, "ip link", maxCommandTimeout)
+					vm1respIPAddress, _ := console.RunCommandWithResponse(vlanedVMI1, "ip address", maxCommandTimeout)
+					vm1respIPNeigh, _ := console.RunCommandWithResponse(vlanedVMI1, "ip neigh", maxCommandTimeout)
 
-				Eventually(func() error {
-					return libnet.PingFromVMConsole(vlanedVMI2, cidrToIP(cidrVlaned1))
-				}, 15*time.Second, time.Second).ShouldNot(HaveOccurred())
+					log.DefaultLogger().Object(vlanedVMI1).Infof("VM1:\n ip route:\n%v\nip link:\n%v\nip address:\n%v\n ip neigh:\v%v\n",
+						vm1respIPRoute, vm1respIPLink, vm1respIPAddress, vm1respIPNeigh)
+
+					vm2respIPRoute, _ := console.RunCommandWithResponse(vlanedVMI2, "ip route", maxCommandTimeout)
+					vm2respIPLink, _ := console.RunCommandWithResponse(vlanedVMI2, "ip link", maxCommandTimeout)
+					vm2respIPAddress, _ := console.RunCommandWithResponse(vlanedVMI2, "ip address", maxCommandTimeout)
+					vm2respIPNeigh, _ := console.RunCommandWithResponse(vlanedVMI2, "ip neigh", maxCommandTimeout)
+
+					log.DefaultLogger().Object(vlanedVMI1).Infof("VM1:\n ip route:\n%v\nip link:\n%v\nip address:\n%v\n ip neigh:\v%v\n",
+						vm2respIPRoute, vm2respIPLink, vm2respIPAddress, vm2respIPNeigh)
+
+					return multierr.Combine(checkInterfaceUP(vlanedVMI1, "sriov3"), checkInterfaceUP(vlanedVMI2, "sriov3"),
+						libnet.PingFromVMConsole(vlanedVMI2, cidrToIP(cidrVlaned1)), libnet.PingFromVMConsole(vlanedVMI1, cidrToIP("192.168.0.2/24")))
+				}, 15*time.Second, time.Second).Should(Succeed())
 			})
 
 			It("should NOT be able to ping between Vlaned VMI and a non Vlaned VMI", func() {
@@ -1155,6 +1213,17 @@ func checkInterface(vmi *v1.VirtualMachineInstance, interfaceName string) error 
 
 	if err != nil {
 		return fmt.Errorf("could not check interface: interface %s was not found in the VMI %s: %w", interfaceName, vmi.Name, err)
+	}
+
+	return nil
+}
+
+func checkInterfaceUP(vmi *v1.VirtualMachineInstance, interfaceName string) error {
+	cmdCheck := fmt.Sprintf("ip addr | grep UP | grep %s\n", interfaceName)
+	err := runSafeCommand(vmi, cmdCheck)
+
+	if err != nil {
+		return fmt.Errorf("interface %s was not UP in the VMI %s: %w", interfaceName, vmi.Name, err)
 	}
 
 	return nil
