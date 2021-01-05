@@ -45,6 +45,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
+	"kubevirt.io/kubevirt/tests/checks"
+	util2 "kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -115,9 +118,9 @@ var _ = Describe("[Serial]Operator", func() {
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util2.PanicOnError(err)
 		config, err := kubecli.GetConfig()
-		tests.PanicOnError(err)
+		util2.PanicOnError(err)
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = tests.GetK8sCmdClient()
@@ -504,7 +507,7 @@ var _ = Describe("[Serial]Operator", func() {
 		deleteAllKvAndWait = func(ignoreOriginal bool) {
 			Eventually(func() error {
 
-				kvs := tests.GetKvList(virtClient)
+				kvs := util2.GetKvList(virtClient)
 
 				deleteCount := 0
 				for _, kv := range kvs {
@@ -553,7 +556,7 @@ var _ = Describe("[Serial]Operator", func() {
 		// make sure virt deployments use shasums before we start
 		ensureShasums()
 
-		originalKv = tests.GetCurrentKv(virtClient)
+		originalKv = util2.GetCurrentKv(virtClient)
 
 		// save the operator sha
 		_, _, _, _, version := parseOperatorImage()
@@ -749,7 +752,7 @@ spec:
 	AfterEach(func() {
 		deleteAllKvAndWait(true)
 
-		kvs := tests.GetKvList(virtClient)
+		kvs := util2.GetKvList(virtClient)
 		if len(kvs) == 0 {
 			createKv(copyOriginalKv())
 		}
@@ -815,7 +818,7 @@ spec:
 	})
 
 	It("[test_id:1746]should have created and available condition", func() {
-		kv := tests.GetCurrentKv(virtClient)
+		kv := util2.GetCurrentKv(virtClient)
 
 		By("verifying that created and available condition is present")
 		waitForKv(kv)
@@ -834,12 +837,12 @@ spec:
 		}
 
 		BeforeEach(func() {
-			kv = tests.GetCurrentKv(virtClient)
+			kv = util2.GetCurrentKv(virtClient)
 			workloads = kv.Spec.Workloads
 		})
 
 		AfterEach(func() {
-			kv = tests.GetCurrentKv(virtClient)
+			kv = util2.GetCurrentKv(virtClient)
 			kv.Spec.Workloads = workloads
 
 			_, err := virtClient.KubeVirt(kv.Namespace).Update(kv)
@@ -1548,7 +1551,7 @@ spec:
 		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", func() {
 
 			BeforeEach(func() {
-				if !tests.IsOpenShift() {
+				if !checks.IsOpenShift() {
 					Skip("OpenShift operator tests should not be started on k8s")
 				}
 			})
@@ -1624,7 +1627,7 @@ spec:
 			if !tests.HasDataVolumeCRD() {
 				Skip("Can't test DataVolume support when DataVolume CRD isn't present")
 			}
-			tests.SkipIfVersionBelow("Skipping dynamic cdi test in versions below 1.13 because crd garbage collection is broken", "1.13")
+			checks.SkipIfVersionBelow("Skipping dynamic cdi test in versions below 1.13 because crd garbage collection is broken", "1.13")
 
 			// This tests starting infrastructure with and without the DataVolumes feature gate
 			vm = tests.NewRandomVMWithDataVolume(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault)

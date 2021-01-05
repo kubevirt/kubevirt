@@ -36,6 +36,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/tests/checks"
+	"kubevirt.io/kubevirt/tests/util"
+
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -56,7 +59,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
 		if !tests.HasCDI() {
@@ -489,7 +492,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 		It("[test_id:838]deleting VM with cascade=false should orphan DataVolumes and VMI owned by VM.", func() {
 
 			// Cascade=false delete fails in ocp 3.11 with CRDs that contain multiple versions.
-			tests.SkipIfOpenShiftAndBelowOrEqualVersion("cascade=false delete does not work with CRD multi version support in ocp 3.11", "1.11.0")
+			checks.SkipIfOpenShiftAndBelowOrEqualVersion("cascade=false delete does not work with CRD multi version support in ocp 3.11", "1.11.0")
 
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
 			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
@@ -573,7 +576,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 
 			It("[test_id:3192]should remove owner references on DataVolume if VM is orphan deleted.", func() {
 				// Cascade=false delete fails in ocp 3.11 with CRDs that contain multiple versions.
-				tests.SkipIfOpenShiftAndBelowOrEqualVersion("cascade=false delete does not work with CRD multi version support in ocp 3.11", "1.11.0")
+				checks.SkipIfOpenShiftAndBelowOrEqualVersion("cascade=false delete does not work with CRD multi version support in ocp 3.11", "1.11.0")
 
 				vm := tests.NewRandomVMWithDataVolume(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault)
 				vm, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)

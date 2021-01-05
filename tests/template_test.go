@@ -35,6 +35,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"kubevirt.io/kubevirt/tests/checks"
+	"kubevirt.io/kubevirt/tests/util"
+
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -60,9 +63,9 @@ var _ = Describe("[Serial]Templates", func() {
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
-		tests.SkipIfNoCmd("oc")
+		checks.SkipIfNoCmd("oc")
 		tests.BeforeTestCleanup()
 		SetDefaultEventuallyTimeout(120 * time.Second)
 		SetDefaultEventuallyPollingInterval(2 * time.Second)
@@ -268,7 +271,7 @@ var _ = Describe("[Serial]Templates", func() {
 
 		Context("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]with RHEL Template", func() {
 			BeforeEach(func() {
-				tests.SkipIfNoRhelImage(virtClient)
+				checks.SkipIfNoRhelImage(virtClient)
 				AssertTemplateSetupSuccess(vmsgen.GetTestTemplateRHEL7(), nil)()
 			})
 

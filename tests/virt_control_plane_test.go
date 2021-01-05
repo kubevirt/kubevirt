@@ -29,6 +29,8 @@ import (
 	"k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -150,7 +152,7 @@ var _ = Describe("[Serial][ref_id:2717]KubeVirt control plane resilience", func(
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
 
-			nodeList = tests.GetAllSchedulableNodes(virtCli).Items
+			nodeList = util.GetAllSchedulableNodes(virtCli).Items
 			for _, node := range nodeList {
 				setNodeUnschedulable(node.Name)
 			}

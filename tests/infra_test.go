@@ -41,6 +41,10 @@ import (
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	netutils "k8s.io/utils/net"
 
+	"kubevirt.io/kubevirt/tests/checks"
+
+	"kubevirt.io/kubevirt/tests/util"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -73,7 +77,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 	)
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
 		if aggregatorClient == nil {
 			config, err := kubecli.GetConfig()
@@ -290,7 +294,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 				Expect(len(pods.Items)).To(BeNumerically(">", 0), "no kubevirt pods found")
 
 				By("finding all schedulable nodes")
-				schedulableNodesList := tests.GetAllSchedulableNodes(virtClient)
+				schedulableNodesList := util.GetAllSchedulableNodes(virtClient)
 				schedulableNodes := map[string]*k8sv1.Node{}
 				for _, node := range schedulableNodesList.Items {
 					schedulableNodes[node.Name] = node.DeepCopy()
@@ -726,7 +730,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 		table.DescribeTable("should throttle the Prometheus metrics access", func(family k8sv1.IPFamily) {
 			if family == k8sv1.IPv6Protocol {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
+				checks.SkipIfNotDualStack()
 			}
 
 			ip := getSupportedIP(metricsIPs, family)
@@ -774,7 +778,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 		table.DescribeTable("should include the metrics for a running VM", func(family k8sv1.IPFamily) {
 			if family == k8sv1.IPv6Protocol {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
+				checks.SkipIfNotDualStack()
 			}
 
 			ip := getSupportedIP(metricsIPs, family)
@@ -792,7 +796,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 		table.DescribeTable("should include the storage metrics for a running VM", func(family k8sv1.IPFamily) {
 			if family == k8sv1.IPv6Protocol {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
+				checks.SkipIfNotDualStack()
 			}
 
 			ip := getSupportedIP(metricsIPs, family)
@@ -813,7 +817,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 		table.DescribeTable("should include metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
 			if family == k8sv1.IPv6Protocol {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
+				checks.SkipIfNotDualStack()
 			}
 
 			ip := getSupportedIP(metricsIPs, family)
@@ -841,7 +845,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 		table.DescribeTable("should include VMI infos for a running VM", func(family k8sv1.IPFamily) {
 			if family == k8sv1.IPv6Protocol {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
+				checks.SkipIfNotDualStack()
 			}
 
 			ip := getSupportedIP(metricsIPs, family)
@@ -880,7 +884,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 		table.DescribeTable("should include VMI phase metrics for all running VMs", func(family k8sv1.IPFamily) {
 			if family == k8sv1.IPv6Protocol {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
+				checks.SkipIfNotDualStack()
 			}
 
 			ip := getSupportedIP(metricsIPs, family)
@@ -901,7 +905,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 		table.DescribeTable("should include kubernetes labels to VMI metrics", func(family k8sv1.IPFamily) {
 			if family == k8sv1.IPv6Protocol {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
+				checks.SkipIfNotDualStack()
 			}
 
 			ip := getSupportedIP(metricsIPs, family)
@@ -926,7 +930,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 		// explicit test fo swap metrics as test_id:4144 doesn't catch if they are missing
 		table.DescribeTable("should include swap metrics", func(family k8sv1.IPFamily) {
 			if family == k8sv1.IPv6Protocol {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
+				checks.SkipIfNotDualStack()
 			}
 
 			ip := getSupportedIP(metricsIPs, family)
@@ -1005,22 +1009,22 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 func getLeader() string {
 	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	util.PanicOnError(err)
 
 	controllerEndpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(leaderelectionconfig.DefaultEndpointName, metav1.GetOptions{})
-	tests.PanicOnError(err)
+	util.PanicOnError(err)
 
 	var record resourcelock.LeaderElectionRecord
 	if recordBytes, found := controllerEndpoint.Annotations[resourcelock.LeaderElectionRecordAnnotationKey]; found {
 		err := json.Unmarshal([]byte(recordBytes), &record)
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 	}
 	return record.HolderIdentity
 }
 
 func getNewLeaderPod(virtClient kubecli.KubevirtClient) *k8sv1.Pod {
 	labelSelector, err := labels.Parse(fmt.Sprint(v1.AppLabel + "=virt-controller"))
-	tests.PanicOnError(err)
+	util.PanicOnError(err)
 	fieldSelector := fields.ParseSelectorOrDie("status.phase=" + string(k8sv1.PodRunning))
 	controllerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
 		metav1.ListOptions{LabelSelector: labelSelector.String(), FieldSelector: fieldSelector.String()})

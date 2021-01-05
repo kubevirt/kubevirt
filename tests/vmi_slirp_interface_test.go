@@ -30,6 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -70,9 +72,9 @@ var _ = Describe("[Serial]Slirp Networking", func() {
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
-		kv := tests.GetCurrentKv(virtClient)
+		kv := util.GetCurrentKv(virtClient)
 		currentConfiguration = kv.Spec.Configuration
 
 		setSlirpEnabled(true)

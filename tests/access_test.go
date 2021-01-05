@@ -28,6 +28,8 @@ import (
 	authv1 "k8s.io/api/authorization/v1"
 	authClientV1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 
+	"kubevirt.io/kubevirt/tests/checks"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -44,7 +46,7 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	BeforeEach(func() {
 		k8sClient = tests.GetK8sCmdClient()
-		tests.SkipIfNoCmd(k8sClient)
+		checks.SkipIfNoCmd(k8sClient)
 		virtClient, err := kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 		authClient, err = authClientV1.NewForConfig(virtClient.Config())
@@ -246,8 +248,8 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	Describe("[Serial][rfe_id:2919][crit:high][vendor:cnv-qe@redhat.com][level:component] With regular OpenShift user", func() {
 		BeforeEach(func() {
-			tests.SkipIfNoCmd("oc")
-			if !tests.IsOpenShift() {
+			checks.SkipIfNoCmd("oc")
+			if !checks.IsOpenShift() {
 				Skip("Skip tests which require an openshift managed test user if not running on openshift")
 			}
 		})

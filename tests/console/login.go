@@ -6,6 +6,7 @@ import (
 	"time"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/tests/util"
 
 	expect "github.com/google/goexpect"
 	"google.golang.org/grpc/codes"
@@ -21,9 +22,7 @@ type LoginToFactory func(*v1.VirtualMachineInstance) error
 // LoginToCirros performs a console login to a Cirros base VM
 func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		panic(err)
-	}
+	util.PanicOnError(err)
 	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return err
@@ -67,10 +66,7 @@ func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
 // LoginToAlpine performs a console login to an Alpine base VM
 func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		panic(err)
-	}
-
+	util.PanicOnError(err)
 	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return err
@@ -98,10 +94,7 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 // LoginToFedora performs a console login to a Fedora base VM
 func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		panic(err)
-	}
-
+	util.PanicOnError(err)
 	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {
 		return err
@@ -160,9 +153,7 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 // OnPrivilegedPrompt performs a console check that the prompt is privileged.
 func OnPrivilegedPrompt(vmi *v1.VirtualMachineInstance, timeout int) bool {
 	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		panic(err)
-	}
+	util.PanicOnError(err)
 
 	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
 	if err != nil {

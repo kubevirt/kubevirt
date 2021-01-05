@@ -34,6 +34,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"kubevirt.io/kubevirt/tests/checks"
+	"kubevirt.io/kubevirt/tests/util"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -120,9 +123,9 @@ var _ = Describe("[Serial]Windows VirtualMachineInstance", func() {
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
+		util.PanicOnError(err)
 
-		tests.SkipIfNoWindowsImage(virtClient)
+		checks.SkipIfNoWindowsImage(virtClient)
 	})
 
 	BeforeEach(func() {
@@ -271,7 +274,7 @@ var _ = Describe("[Serial]Windows VirtualMachineInstance", func() {
 		var workDir string
 		var yamlFile string
 		BeforeEach(func() {
-			tests.SkipIfNoCmd("kubectl")
+			checks.SkipIfNoCmd("kubectl")
 			workDir, err = ioutil.TempDir("", tests.TempDirPrefix+"-")
 			Expect(err).ToNot(HaveOccurred())
 			yamlFile, err = tests.GenerateVMIJson(windowsVMI, workDir)
