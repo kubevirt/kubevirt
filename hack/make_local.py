@@ -18,7 +18,7 @@ def gen_local_deployments(outdir):
         csv = yaml.safe_load(csv_file)
 
     with open(f'{outdir}/local.yaml', 'w') as out:
-        csv = [x for x in csv['spec']['install']['spec']['deployments'] if x['name'] != 'hco-operator']
+        csv = [x for x in csv['spec']['install']['spec']['deployments']]
         for c in csv:
             c.update({
                 'apiVersion': 'apps/v1',
@@ -48,6 +48,8 @@ def get_env_file(outdir, frmt='txt'):
             vars.append('WEBHOOK_MODE=false')
             vars = map(lambda s: get_env(s), vars)
             var_str = f"{sep.join(vars)}{sep}WATCH_NAMESPACE=kubevirt-hyperconverged{sep}OSDK_FORCE_RUN_MODE=local{sep}OPERATOR_NAMESPACE=kubevirt-hyperconverged"
+            var_str = var_str + f"{sep}WEBHOOK_CERT_DIR=./_local/certs"
+            var_str = var_str + f"{sep}HCO_KV_IO_VERSION={CSV_VERSION}"
             var_str = var_str.replace("CONVERSION_CONTAINER_VERSION=", "CONVERSION_CONTAINER=").replace("VMWARE_CONTAINER_VERSION=", "VMWARE_CONTAINER=")
             out.write(var_str)
 

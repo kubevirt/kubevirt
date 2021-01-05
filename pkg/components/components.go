@@ -1242,7 +1242,7 @@ func InjectVolumesForWebHookCerts(deploy *appsv1.Deployment) {
 		deploy.Spec.Template.Spec.Containers[index].VolumeMounts = append(container.VolumeMounts,
 			corev1.VolumeMount{
 				Name:      "apiservice-cert",
-				MountPath: hcov1beta1.WebhookCertDir,
+				MountPath: hcov1beta1.DefaultWebhookCertDir,
 			})
 	}
 }

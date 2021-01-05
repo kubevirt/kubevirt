@@ -21,7 +21,9 @@ import (
 )
 
 const (
-	WebhookCertDir  = "/apiserver.local.config/certificates"
+	webHookCertDirEnv     = "WEBHOOK_CERT_DIR"
+	DefaultWebhookCertDir = "/apiserver.local.config/certificates"
+
 	WebhookCertName = "apiserver.crt"
 	WebhookKeyName  = "apiserver.key"
 )
@@ -29,6 +31,15 @@ const (
 var (
 	hcolog = logf.Log.WithName("hyperconverged-resource")
 )
+
+func GetWebhookCertDir() string {
+	webhookCertDir := os.Getenv(webHookCertDirEnv)
+	if webhookCertDir != "" {
+		return webhookCertDir
+	}
+
+	return DefaultWebhookCertDir
+}
 
 type WebhookHandlerIfs interface {
 	Init(logger logr.Logger, cli client.Client, namespace string, isOpenshift bool)
@@ -51,7 +62,8 @@ func (r *HyperConverged) SetupWebhookWithManager(ctx context.Context, mgr ctrl.M
 	whHandler = handler
 	whHandler.Init(hcolog, mgr.GetClient(), operatorNsEnv, isOpenshift)
 
-	certs := []string{filepath.Join(WebhookCertDir, WebhookCertName), filepath.Join(WebhookCertDir, WebhookKeyName)}
+	webhookCertDir := GetWebhookCertDir()
+	certs := []string{filepath.Join(webhookCertDir, WebhookCertName), filepath.Join(webhookCertDir, WebhookKeyName)}
 	for _, fname := range certs {
 		if _, err := os.Stat(fname); err != nil {
 			hcolog.Error(err, "CSV certificates were not found, skipping webhook initialization")
@@ -95,7 +107,7 @@ func (r *HyperConverged) SetupWebhookWithManager(ctx context.Context, mgr ctrl.M
 	bldr := ctrl.NewWebhookManagedBy(mgr).For(r)
 
 	srv := mgr.GetWebhookServer()
-	srv.CertDir = WebhookCertDir
+	srv.CertDir = GetWebhookCertDir()
 	srv.CertName = WebhookCertName
 	srv.KeyName = WebhookKeyName
 	srv.Port = hcoutil.WebhookPort

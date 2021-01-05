@@ -1,6 +1,9 @@
 # Run HCO Locally From an IDE
+
 ***NOTE***: metrics is not supported when running locally.
+
 ## Pre-Requirements
+
 ### Kubernetes
 The local HCO is going to run from an IDE, but it should communicate with a running kubernetes cluster.
 
@@ -17,6 +20,7 @@ Running HCO locally tested with
   ```
   Then, the `KUBECONFIG` environment variable should be set to `_kubevirtci/_ci-configs/k8s-1.17/.kubeconfig`.
 
+
 ### Local Deployments
 It is required to deploy some CRDs and deployments before running the HCO itself, by running:
 ```shell script
@@ -32,9 +36,15 @@ generate an env file instead by setting `FORMAT` to `env`:
 $ FORMAT=env make local
 ``` 
 
-This will genrate the `local/envs.env` file instead of `_local/envs.txt`.
+This will generate the `local/envs.env` file instead of `_local/envs.txt`.
+
+`make local` command respects these variables as well: `DEBUG_WEBHOOK` and `DEBUG_WEBHOOK`. If you want to run only webhook locally, you can use this command
+```shell script
+$ FORMAT=env DEBUG_WEBHOOK=true DEBUG_OPERATOR=false make local
+```
 
 ## Running HCO from an IDE
+
 ### Running From goland (or Intellij with golang plugin)
 
 Add new "Go Build" run configuration.
@@ -62,6 +72,7 @@ use this new env file.
 Now it is possible to run or debug as any golang software.
 
 ![](../images/running_local_from_goland.png)
+
 ### Running from microsoft VS Code
 Use the following `launch.json` file for configurations:
 ```json5
@@ -96,4 +107,34 @@ environment.
 Now it is possible to run HCO from VS Code.
 
 ![](../images/run_local_from_vscode.png)
- 
+
+
+
+## Opening a tunnel for webhook
+
+  To be able to receive requests from k8s cluster to your local process, you have to open a tunnel between your local environment and the cluster.
+
+  `Telepresence` is an open source tool that lets you run a single service locally, while connecting that service to a remote Kubernetes cluster. For more information, see https://www.telepresence.io/discussion/overview
+
+  Install telepresence by following the doc here https://www.telepresence.io/reference/install
+
+  Before running webhook, *in another terminal*, create a telepresence deployment into the cluster by running
+  ```shell script
+  telepresence -n kubevirt-hyperconverged --new-deployment  hyperconverged-cluster-webhook-service  --expose 4343
+  ```
+  
+  If you receive `AlreadyExists` error from telepresence because of earlier run, delete the leftovers with the commands below.
+  ```shell script
+  kubectl -n kubevirt-hyperconverged delete pod hyperconverged-cluster-webhook-service --ignore-not-found
+  kubectl -n kubevirt-hyperconverged delete service hyperconverged-cluster-webhook-service --ignore-not-found
+  ```
+
+  Then run the `/cmd/hyperconverged-cluster-webhook/main.go` as you run the operator explained above.
+
+## Creating HyperConverged CR
+
+After preparing your environment, you can create the HyperConverged CR with the command below.
+
+```shell script
+kubectl -n kubevirt-hyperconverged create -f deploy/hco.cr.yaml
+```
