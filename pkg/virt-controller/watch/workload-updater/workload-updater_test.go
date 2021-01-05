@@ -21,6 +21,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
+	io_prometheus_client "github.com/prometheus/client_model/go"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -64,6 +66,7 @@ var _ = Describe("Workload Updater", func() {
 	}
 
 	BeforeEach(func() {
+		outdatedVMIWorkloads.Set(0.0)
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -133,7 +136,15 @@ var _ = Describe("Workload Updater", func() {
 			Expect(recorder.Events).To(BeEmpty())
 		})
 
-		It("should update out of date value on kv", func() {
+		It("should update out of date value on kv and report prometheus metric", func() {
+
+			By("Checking prometheus metric before sync")
+			dto := &io_prometheus_client.Metric{}
+			outdatedVMIWorkloads.Write(dto)
+
+			zero := 0.0
+			Expect(dto.GetGauge().Value).To(Equal(&zero), "outdated vmi workload reported should be equal to zero")
+
 			reasons := []string{}
 			for i := 0; i < 50; i++ {
 				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, true)
@@ -172,6 +183,14 @@ var _ = Describe("Workload Updater", func() {
 
 			controller.Execute()
 			testutils.ExpectEvents(recorder, reasons...)
+
+			By("Checking prometheus metric")
+			dto = &io_prometheus_client.Metric{}
+			outdatedVMIWorkloads.Write(dto)
+
+			val := 100.0
+			Expect(dto.GetGauge().Value).To(Equal(&val))
+
 		})
 
 		It("should migrate VMIs up to the global max migration count and delete up to delete batch count", func() {
