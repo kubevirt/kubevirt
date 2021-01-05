@@ -1119,10 +1119,11 @@ func (s *SlirpPodInterface) decorateConfig() error {
 	// remove slirp interface from domain spec devices interfaces
 	var foundIface *api.Interface
 	ifaces := s.domain.Spec.Devices.Interfaces
-	for i, iface := range ifaces {
+	for i, iface_ := range ifaces {
+		iface := iface_
 		if iface.Alias.Name == s.iface.Name {
 			s.domain.Spec.Devices.Interfaces = append(ifaces[:i], ifaces[i+1:]...)
-			foundIface = &ifaces[i]
+			foundIface = &iface
 			break
 		}
 	}
