@@ -794,7 +794,12 @@ func AdjustKubeVirtResource() {
 	PanicOnError(err)
 
 	kv := GetCurrentKv(virtClient)
+
 	originalKV = kv.DeepCopy()
+
+	if !flags.ApplyDefaulte2eConfiguration {
+		return
+	}
 
 	// Rotate very often during the tests to ensure that things are working
 	kv.Spec.CertificateRotationStrategy = v1.KubeVirtCertificateRotateStrategy{SelfSigned: &v1.KubeVirtSelfSignConfiguration{
