@@ -468,8 +468,8 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 		},
 		Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
 			VirtualMachineSnapshotName: &vmSnapshot.Name,
-			Source:                     source.Spec(),
-			VolumeBackups:              volumeBackups,
+			Source:        source.Spec(),
+			VolumeBackups: volumeBackups,
 		},
 	}
 
@@ -637,7 +637,8 @@ func (ctrl *VMSnapshotController) updateVolumeSnapshotStatuses(vm *kubevirtv1.Vi
 
 	vmCopy := vm.DeepCopy()
 	var statuses []kubevirtv1.VolumeSnapshotStatus
-	for _, volume := range vmCopy.Spec.Template.Spec.Volumes {
+	for _, volume_ := range vmCopy.Spec.Template.Spec.Volumes {
+		volume := volume_
 		log.Log.V(3).Infof("Update volume snapshot status for volume [%s]", volume.Name)
 		status := ctrl.getVolumeSnapshotStatus(vmCopy, &volume)
 		statuses = append(statuses, status)

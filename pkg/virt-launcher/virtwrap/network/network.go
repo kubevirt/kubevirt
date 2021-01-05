@@ -113,7 +113,8 @@ func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance, pid int) error
 		return err
 	}
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+	for _, iface_ := range vmi.Spec.Domain.Devices.Interfaces {
+		iface := iface_
 		networkInterfaceFactory, err := getNetworkInterfaceFactory(networks, iface.Name)
 		if err != nil {
 			return err
@@ -129,7 +130,8 @@ func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance, pid int) error
 
 func SetupNetworkInterfacesPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+	for _, iface_ := range vmi.Spec.Domain.Devices.Interfaces {
+		iface := iface_
 		vif, err := getNetworkInterfaceFactory(networks, iface.Name)
 		if err != nil {
 			return err

@@ -1459,7 +1459,8 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 		return err
 	}
 	newStatus := make([]virtv1.VolumeStatus, 0)
-	for _, volume := range vmi.Spec.Volumes {
+	for _, volume_ := range vmi.Spec.Volumes {
+		volume := volume_
 		status := virtv1.VolumeStatus{}
 		if _, ok := oldStatusMap[volume.Name]; ok {
 			// Already have the status, modify if needed

@@ -461,8 +461,8 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
-	for _, volume := range spec.Volumes {
-		volumeNameMap[volume.Name] = &volume
+	for i, volume := range spec.Volumes {
+		volumeNameMap[volume.Name] = &spec.Volumes[i]
 	}
 
 	// used to validate uniqueness of boot orders among disks and interfaces

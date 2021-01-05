@@ -492,8 +492,9 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 	if err != nil {
 		return ready, err
 	}
-	for _, template := range vm.Spec.DataVolumeTemplates {
+	for _, template_ := range vm.Spec.DataVolumeTemplates {
 		var curDataVolume *cdiv1.DataVolume
+		template := template_
 		exists := false
 		for _, curDataVolume = range dataVolumes {
 			if curDataVolume.Name == template.Name {
@@ -543,7 +544,8 @@ func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virt
 		}
 	}
 
-	for _, request := range vm.Status.VolumeRequests {
+	for _, request_ := range vm.Status.VolumeRequests {
+		request := request_
 		vmCopy.Spec.Template.Spec = *controller.ApplyVolumeRequestOnVMISpec(&vmCopy.Spec.Template.Spec, &request)
 
 		if vmi != nil && vmi.DeletionTimestamp == nil {

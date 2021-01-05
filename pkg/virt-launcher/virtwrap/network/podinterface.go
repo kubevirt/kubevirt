@@ -1122,7 +1122,7 @@ func (s *SlirpPodInterface) decorateConfig() error {
 	for i, iface := range ifaces {
 		if iface.Alias.Name == s.iface.Name {
 			s.domain.Spec.Devices.Interfaces = append(ifaces[:i], ifaces[i+1:]...)
-			foundIface = &iface
+			foundIface = &ifaces[i]
 			break
 		}
 	}
