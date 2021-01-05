@@ -2235,6 +2235,15 @@ func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
 	)
 }
 
+func NewRandomFedoraVMIWitGuestAgentNetworkData(networkData string) *v1.VirtualMachineInstance {
+	return libvmi.NewFedora(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithCloudInitNoCloudUserData(GetGuestAgentUserData(), false),
+		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
+	)
+}
+
 func AddPVCFS(vmi *v1.VirtualMachineInstance, name string, claimName string) *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
 		Name:     name,

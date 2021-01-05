@@ -59,7 +59,9 @@ var _ = Describe("[Serial]MultiQueue", func() {
 		})
 
 		It("[test_id:4599]should be able to successfully boot fedora to the login prompt with networking mutiqueues enabled without being blocked by selinux", func() {
-			vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+			networkData, err := libnet.CreateDynamicIPv6CloudInitNetworkData()
+			Expect(err).NotTo(HaveOccurred())
+			vmi := tests.NewRandomFedoraVMIWitGuestAgentNetworkData(networkData)
 			numCpus := 3
 			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
@@ -71,7 +73,7 @@ var _ = Describe("[Serial]MultiQueue", func() {
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
 			By("Creating and starting the VMI")
-			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 
