@@ -1,32 +1,30 @@
 # Local Storage Placement for VM Disks
 
+This document describes a special handling of `DataVolumes` in the `WaitForFirstConsumer` state (`WaitForFirstConsumer` state is available from [CDI v1.21.0](https://github.com/kubevirt/containerized-data-importer/releases/tag/v1.21.0)).
 
-## Introduction
+## Use-case
+
+When the `Virtual Machine` has a `DataVolume` disk (or disks) then bind Local Storage `PVC` to a `PV` on the same `node` where the `VMI` is going to be scheduled.
+
+## The problem
 
 Virtual Machines are able to have a DataVolume disks that are based on Local Storage PVs. Local Storage PVs are bound to a specific node.
-It might happen to have an `Unschedulable` `VMI`, when the PVC is bound to a PV on a different node than virt-launcher pod. 
+Since DataVolumes involve preparing storage with an image before being consumed by the VMI, 
+it's possible to result in an Unschedulable VMI in the event that a VMI can not be scheduled to the node the local storage PV was previously pinned to. 
 
 When the VM with a DataVolumeTemplate is defined a DataVolume is created from the template and the `CDI` creates a worker Pod to import/upload/clone data to the PVC (specified in a template).
 To run a VMI kubevirt creates a virtlauncher pod with all the VMI requirements. Kubernetes uses the virtlauncher pod requirements to schedule it on a specific node.
 Worker Pod might have different constraints than a kubevirt VM. When the VM is scheduled on a different node than the PVC it becomes unusable. 
 This is especially problematic when using a VM with DataVolumeTemplate with many disks managed by CDI. 
 
-This document describes a special handling of `DataVolumes` in the `WaitForFirstConsumer` state (available from [CDI v1.21.0](https://github.com/kubevirt/containerized-data-importer/releases/tag/v1.21.0)).
-
-
-## Use-case
-
-When the `Virtual Machine` has a `DataVolume` disk (or disks) then bind Local Storage `PVC` to a `PV` on the same `node` where the `VMI` is going to be scheduled. 
-
-## Design Overview
+## The solution
 
 The solution is to leverage Kubernetes pod scheduler to bind the PVC to a PV on a correct node.
 By using a StorageClass with `volumeBindingMode` set to `WaitForFirstConsumer` the binding and provisioning of PV is delayed until a Pod using the PersistentVolumeClaim is created. 
 Kubevirt can schedule a special ephemeral pod that becomes a first consumer of the PersistentVolumeClaim.
 Its only purpose is to be scheduled to a node capable of running VM and by using PVCs to trigger kubernetes to provision and bind PV's on the same node.
 After PVC are bound the `CDI` can do its work and Kubevirt can start the actual VM. 
- 
- 
+  
 ## Implementation
 
 ### Flow
