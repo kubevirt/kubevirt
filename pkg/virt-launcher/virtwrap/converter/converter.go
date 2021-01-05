@@ -1174,7 +1174,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
-	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+	for _, disk_ := range vmi.Spec.Domain.Devices.Disks {
+		disk := disk_
 		newDisk := api.Disk{}
 
 		err := Convert_v1_Disk_To_api_Disk(c, &disk, &newDisk, prefixMap, numBlkQueues)
@@ -1278,7 +1279,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	isUSBDevicePresent := false
 	if vmi.Spec.Domain.Devices.Inputs != nil {
 		inputDevices := make([]api.Input, 0)
-		for _, input := range vmi.Spec.Domain.Devices.Inputs {
+		for _, input_ := range vmi.Spec.Domain.Devices.Inputs {
+			input := input_
 			inputDevice := api.Input{}
 			err := Convert_v1_Input_To_api_InputDevice(&input, &inputDevice, c)
 			if err != nil {
@@ -1487,7 +1489,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		sriovPciAddresses[key] = append([]string{}, value...)
 	}
 
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+	for _, iface_ := range vmi.Spec.Domain.Devices.Interfaces {
+		iface := iface_
 		net, isExist := networks[iface.Name]
 		if !isExist {
 			return fmt.Errorf("failed to find network %s", iface.Name)

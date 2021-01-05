@@ -85,8 +85,8 @@ type AccessCredentialManager struct {
 
 func NewManager(connection cli.Connection, domainModifyLock *sync.Mutex) *AccessCredentialManager {
 	return &AccessCredentialManager{
-		virConn:                    connection,
-		stopCh:                     make(chan struct{}),
+		virConn: connection,
+		stopCh:  make(chan struct{}),
 		resyncCheckIntervalSeconds: 15,
 		domainModifyLock:           domainModifyLock,
 	}
@@ -546,7 +546,8 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 		}
 
 		// Step 1. Populate Secrets and filepath Map
-		for _, accessCred := range vmi.Spec.AccessCredentials {
+		for _, accessCred_ := range vmi.Spec.AccessCredentials {
+			accessCred := accessCred_
 			secretName := getSecret(&accessCred)
 			if secretName == "" {
 				continue

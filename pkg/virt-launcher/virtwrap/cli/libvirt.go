@@ -212,8 +212,8 @@ func (l *LibvirtConnection) ListAllDomains(flags libvirt.ConnectListAllDomainsFl
 		return nil, err
 	}
 	doms := make([]VirDomain, len(virDoms))
-	for i, d := range virDoms {
-		doms[i] = &d
+	for i := range virDoms {
+		doms[i] = &virDoms[i]
 	}
 	return doms, nil
 }
@@ -255,7 +255,8 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 	}
 
 	var list []*stats.DomainStats
-	for _, domStat := range domStats {
+	for _, domStat_ := range domStats {
+		domStat := domStat_
 		var err error
 
 		memStats, err := domStat.Domain.MemoryStats(uint32(libvirt.DOMAIN_MEMORY_STAT_NR), 0)
