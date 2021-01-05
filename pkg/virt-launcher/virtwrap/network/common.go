@@ -37,6 +37,8 @@ import (
 	lmf "github.com/subgraph/libmacouflage"
 	"github.com/vishvananda/netlink"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+
 	"kubevirt.io/kubevirt/pkg/util/sysctl"
 
 	netutils "k8s.io/utils/net"
@@ -44,7 +46,6 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	kvselinux "kubevirt.io/kubevirt/pkg/virt-handler/selinux"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcpv6"
 )
@@ -342,7 +343,7 @@ func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, erro
 
 func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {
 	log.Log.V(4).Infof("StartDHCP network Nic: %+v", nic)
-	nameservers, searchDomains, err := api.GetResolvConfDetailsFromPod()
+	nameservers, searchDomains, err := converter.GetResolvConfDetailsFromPod()
 	if err != nil {
 		return fmt.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
 	}

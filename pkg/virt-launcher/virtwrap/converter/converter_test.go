@@ -17,7 +17,7 @@
  *
  */
 
-package api
+package converter
 
 import (
 	"encoding/xml"
@@ -32,6 +32,9 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -51,7 +54,7 @@ var _ = Describe("Converter", func() {
 				Timer: &v1.Timer{},
 			}
 
-			var convertClock Clock
+			var convertClock api.Clock
 			Convert_v1_Clock_To_api_Clock(clock, &convertClock, &ConverterContext{})
 			data, err := xml.MarshalIndent(convertClock, "", "  ")
 			Expect(err).ToNot(HaveOccurred())
@@ -73,7 +76,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 			}
-			var convertedDisk = `<Disk device="disk" type="">
+			var convertedDisk = `<Disk device="disk" type="" model="virtio-non-transitional">
   <source></source>
   <target bus="virtio" dev="vda"></target>
   <driver name="qemu" type=""></driver>
@@ -119,7 +122,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 			}
-			var convertedDisk = `<Disk device="disk" type="">
+			var convertedDisk = `<Disk device="disk" type="" model="virtio-non-transitional">
   <source></source>
   <target bus="virtio" dev="vda"></target>
   <driver name="qemu" type=""></driver>
@@ -454,7 +457,7 @@ var _ = Describe("Converter", func() {
   <devices>
     <interface type="ethernet">
       <source></source>
-      <model type="virtio"></model>
+      <model type="virtio-non-transitional"></model>
       <alias name="ua-default"></alias>
       <rom enabled="no"></rom>
     </interface>
@@ -462,7 +465,7 @@ var _ = Describe("Converter", func() {
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
     </channel>
     <controller type="usb" index="0" model="none"></controller>
-    <controller type="virtio-serial" index="0"></controller>
+    <controller type="virtio-serial" index="0" model="virtio-non-transitional"></controller>
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
@@ -470,13 +473,13 @@ var _ = Describe("Converter", func() {
       <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
     </graphics>
     %s
-    <disk device="disk" type="file">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
       <driver name="qemu" type="raw" iothread="2"></driver>
       <alias name="ua-myvolume"></alias>
     </disk>
-    <disk device="disk" type="file">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
       <driver name="qemu" type="raw" iothread="3"></driver>
@@ -556,7 +559,7 @@ var _ = Describe("Converter", func() {
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
-    <input type="tablet" bus="virtio">
+    <input type="tablet" bus="virtio" model="virtio">
       <alias name="ua-tablet0"></alias>
     </input>
     <serial type="unix">
@@ -569,7 +572,7 @@ var _ = Describe("Converter", func() {
     <watchdog model="i6300esb" action="poweroff">
       <alias name="ua-mywatchdog"></alias>
     </watchdog>
-    <rng model="virtio">
+    <rng model="virtio-non-transitional">
       <backend model="random">/dev/urandom</backend>
     </rng>
   </devices>
@@ -654,7 +657,7 @@ var _ = Describe("Converter", func() {
   <devices>
     <interface type="ethernet">
       <source></source>
-      <model type="virtio"></model>
+      <model type="virtio-non-transitional"></model>
       <alias name="ua-default"></alias>
       <rom enabled="no"></rom>
     </interface>
@@ -662,7 +665,7 @@ var _ = Describe("Converter", func() {
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
     </channel>
     <controller type="usb" index="0" model="qemu-xhci"></controller>
-    <controller type="virtio-serial" index="0"></controller>
+    <controller type="virtio-serial" index="0" model="virtio-non-transitional"></controller>
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
@@ -670,13 +673,13 @@ var _ = Describe("Converter", func() {
       <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
     </graphics>
     %s
-    <disk device="disk" type="file">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
       <driver name="qemu" type="raw" iothread="2"></driver>
       <alias name="ua-myvolume"></alias>
     </disk>
-    <disk device="disk" type="file">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
       <driver name="qemu" type="raw" iothread="3"></driver>
@@ -756,7 +759,7 @@ var _ = Describe("Converter", func() {
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
-    <input type="tablet" bus="virtio">
+    <input type="tablet" bus="virtio" model="virtio">
       <alias name="ua-tablet0"></alias>
     </input>
     <serial type="unix">
@@ -769,7 +772,7 @@ var _ = Describe("Converter", func() {
     <watchdog model="i6300esb" action="poweroff">
       <alias name="ua-mywatchdog"></alias>
     </watchdog>
-    <rng model="virtio">
+    <rng model="virtio-non-transitional">
       <backend model="random">/dev/urandom</backend>
     </rng>
   </devices>
@@ -858,7 +861,7 @@ var _ = Describe("Converter", func() {
     <interface type="ethernet">
       <address type="pci" domain="0x0000" bus="0x00" slot="0x02" function="0x0"></address>
       <source></source>
-      <model type="virtio"></model>
+      <model type="virtio-non-transitional"></model>
       <alias name="ua-default"></alias>
       <rom enabled="no"></rom>
     </interface>
@@ -868,7 +871,7 @@ var _ = Describe("Converter", func() {
     <controller type="usb" index="0" model="none">
       <address type="pci" domain="0x0000" bus="0x00" slot="0x03" function="0x0"></address>
     </controller>
-    <controller type="virtio-serial" index="0">
+    <controller type="virtio-serial" index="0" model="virtio-non-transitional">
       <address type="pci" domain="0x0000" bus="0x00" slot="0x04" function="0x0"></address>
     </controller>
     <video>
@@ -881,14 +884,14 @@ var _ = Describe("Converter", func() {
       <stats period="10"></stats>
       <address type="pci" domain="0x0000" bus="0x00" slot="0x0a" function="0x0"></address>
     </memballoon>
-    <disk device="disk" type="file">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
       <driver name="qemu" type="raw" iothread="2"></driver>
       <alias name="ua-myvolume"></alias>
       <address type="pci" domain="0x0000" bus="0x00" slot="0x05" function="0x0"></address>
     </disk>
-    <disk device="disk" type="file">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
       <driver name="qemu" type="raw" iothread="3"></driver>
@@ -969,7 +972,7 @@ var _ = Describe("Converter", func() {
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
-    <input type="tablet" bus="virtio">
+    <input type="tablet" bus="virtio" model="virtio">
       <alias name="ua-tablet0"></alias>
       <address type="pci" domain="0x0000" bus="0x00" slot="0x07" function="0x0"></address>
     </input>
@@ -984,7 +987,7 @@ var _ = Describe("Converter", func() {
       <alias name="ua-mywatchdog"></alias>
       <address type="pci" domain="0x0000" bus="0x00" slot="0x08" function="0x0"></address>
     </watchdog>
-    <rng model="virtio">
+    <rng model="virtio-non-transitional">
       <backend model="random">/dev/urandom</backend>
       <address type="pci" domain="0x0000" bus="0x00" slot="0x09" function="0x0"></address>
     </rng>
@@ -1059,6 +1062,14 @@ var _ = Describe("Converter", func() {
 				GpuDevices:            []string{},
 				MemBalloonStatsPeriod: 10,
 			}
+		})
+
+		It("should use virtio-transitional models if requested", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+			c.UseVirtioTransitional = true
+			dom := vmiToDomain(vmi, c)
+			testutils.ExpectVirtioTransitionalOnly(&dom.Spec)
 		})
 
 		table.DescribeTable("should be converted to a libvirt Domain with vmi defaults set", func(arch string, domain string) {
@@ -1276,7 +1287,7 @@ var _ = Describe("Converter", func() {
 		It("should set disk pci address when specified", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:81:01.0"
-			test_address := Address{
+			test_address := api.Address{
 				Type:     "pci",
 				Domain:   "0x0000",
 				Bus:      "0x81",
@@ -1291,15 +1302,15 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:81:01.0"
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed())
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed())
 		})
 
 		It("should add a virtio-scsi controller if a scsci disk is present", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
-			dom := &Domain{}
+			dom := &api.Domain{}
 			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, dom, c)).To(Succeed())
-			Expect(dom.Spec.Devices.Controllers).To(ContainElement(Controller{
+			Expect(dom.Spec.Devices.Controllers).To(ContainElement(api.Controller{
 				Type:  "scsi",
 				Index: "0",
 				Model: "virtio-scsi",
@@ -1309,9 +1320,9 @@ var _ = Describe("Converter", func() {
 		It("should not add a virtio-scsi controller if no scsi disk is present", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "sata"
-			dom := &Domain{}
+			dom := &api.Domain{}
 			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, dom, c)).To(Succeed())
-			Expect(dom.Spec.Devices.Controllers).ToNot(ContainElement(Controller{
+			Expect(dom.Spec.Devices.Controllers).ToNot(ContainElement(api.Controller{
 				Type:  "scsi",
 				Index: "0",
 				Model: "virtio-scsi",
@@ -1349,19 +1360,19 @@ var _ = Describe("Converter", func() {
 		It("should fail when input device is set to ps2 bus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = "ps2"
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed(), "Expect error")
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed(), "Expect error")
 		})
 
 		It("should fail when input device is set to keyboard type", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Type = "keyboard"
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed(), "Expect error")
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed(), "Expect error")
 		})
 
 		It("should succeed when input device is set to usb bus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = "usb"
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).To(Succeed(), "Expect success")
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &api.Domain{}, c)).To(Succeed(), "Expect success")
 		})
 
 		It("should succeed when input device bus is empty", func() {
@@ -1386,7 +1397,7 @@ var _ = Describe("Converter", func() {
 		})
 
 		When("NIC PCI address is specified on VMI", func() {
-			expectedPCIAddress := Address{
+			expectedPCIAddress := api.Address{
 				Type:     "pci",
 				Domain:   "0x0000",
 				Bus:      "0x81",
@@ -1551,13 +1562,13 @@ var _ = Describe("Converter", func() {
 			net.Pod = nil
 			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, *iface)
 			vmi.Spec.Networks = append(vmi.Spec.Networks, *net)
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed())
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed())
 		})
 
 		It("should add tcp if protocol not exist", func() {
 			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{v1.Port{Port: 80}}}
 			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
-			qemuArg := Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
+			qemuArg := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
 			err := configPortForward(&qemuArg, iface)
 			Expect(err).ToNot(HaveOccurred())
@@ -1566,7 +1577,7 @@ var _ = Describe("Converter", func() {
 		It("should not fail for duplicate port with different protocol configuration", func() {
 			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
 			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
-			qemuArg := Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
+			qemuArg := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
 			err := configPortForward(&qemuArg, iface)
 			Expect(err).ToNot(HaveOccurred())
@@ -1631,7 +1642,7 @@ var _ = Describe("Converter", func() {
 			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
 			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(2))
 			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
-			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("virtio"))
+			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("virtio-non-transitional"))
 			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("user"))
 			Expect(domain.Spec.Devices.Interfaces[1].Model.Type).To(Equal("e1000"))
 		})
@@ -1856,7 +1867,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Networks = []v1.Network{podNetwork}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
 
-			domain := &Domain{}
+			domain := &api.Domain{}
 			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(HaveOccurred(), "conversion should fail because a macvtap interface requires a multus network attachment")
 		})
 	})
@@ -2112,8 +2123,10 @@ var _ = Describe("Converter", func() {
 
 	Context("virtio block multi-queue", func() {
 		var vmi *v1.VirtualMachineInstance
+		var context *ConverterContext
 
 		BeforeEach(func() {
+			context = &ConverterContext{UseVirtioTransitional: false}
 			vmi = &v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
 					Name:      "testvmi",
@@ -2159,10 +2172,10 @@ var _ = Describe("Converter", func() {
 					Disk: &v1.DiskTarget{Bus: "virtio"},
 				},
 			}
-			apiDisk := Disk{}
+			apiDisk := api.Disk{}
 			devicePerBus := map[string]deviceNamer{}
 			numQueues := uint(2)
-			Convert_v1_Disk_To_api_Disk(&v1Disk, &apiDisk, devicePerBus, &numQueues)
+			Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues)
 			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
 			Expect(*(apiDisk.Driver.Queues)).To(Equal(expectedQueues), "expected queues to be 2")
 		})
@@ -2173,9 +2186,9 @@ var _ = Describe("Converter", func() {
 					Disk: &v1.DiskTarget{},
 				},
 			}
-			apiDisk := Disk{}
+			apiDisk := api.Disk{}
 			devicePerBus := map[string]deviceNamer{}
-			err := Convert_v1_Disk_To_api_Disk(&v1Disk, &apiDisk, devicePerBus, nil)
+			err := Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
 			Expect(apiDisk.Driver.Queues).To(BeNil(), "expected no queues to be requested")
@@ -2223,18 +2236,18 @@ var _ = Describe("Converter", func() {
 				SMBios:       &cmdv1.SMBios{},
 			}
 			domain := vmiToDomain(vmi, c)
-			domain.Spec.IOThreads = &IOThreads{}
+			domain.Spec.IOThreads = &api.IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
 
 			err := formatDomainIOThreadPin(vmi, domain, c)
 			Expect(err).ToNot(HaveOccurred())
-			expectedLayout := []CPUTuneIOThreadPin{
-				CPUTuneIOThreadPin{IOThread: 1, CPUSet: "5,6,7"},
-				CPUTuneIOThreadPin{IOThread: 2, CPUSet: "8,9,10"},
-				CPUTuneIOThreadPin{IOThread: 3, CPUSet: "11,12,13"},
-				CPUTuneIOThreadPin{IOThread: 4, CPUSet: "14,15,16"},
-				CPUTuneIOThreadPin{IOThread: 5, CPUSet: "17,18"},
-				CPUTuneIOThreadPin{IOThread: 6, CPUSet: "19,20"},
+			expectedLayout := []api.CPUTuneIOThreadPin{
+				api.CPUTuneIOThreadPin{IOThread: 1, CPUSet: "5,6,7"},
+				api.CPUTuneIOThreadPin{IOThread: 2, CPUSet: "8,9,10"},
+				api.CPUTuneIOThreadPin{IOThread: 3, CPUSet: "11,12,13"},
+				api.CPUTuneIOThreadPin{IOThread: 4, CPUSet: "14,15,16"},
+				api.CPUTuneIOThreadPin{IOThread: 5, CPUSet: "17,18"},
+				api.CPUTuneIOThreadPin{IOThread: 6, CPUSet: "19,20"},
 			}
 			isExpectedThreadsLayout := reflect.DeepEqual(expectedLayout, domain.Spec.CPUTune.IOThreadPin)
 			Expect(isExpectedThreadsLayout).To(BeTrue())
@@ -2245,18 +2258,18 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			c := &ConverterContext{CPUSet: []int{5, 6}, UseEmulation: true}
 			domain := vmiToDomain(vmi, c)
-			domain.Spec.IOThreads = &IOThreads{}
+			domain.Spec.IOThreads = &api.IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
 
 			err := formatDomainIOThreadPin(vmi, domain, c)
 			Expect(err).ToNot(HaveOccurred())
-			expectedLayout := []CPUTuneIOThreadPin{
-				CPUTuneIOThreadPin{IOThread: 1, CPUSet: "6"},
-				CPUTuneIOThreadPin{IOThread: 2, CPUSet: "5"},
-				CPUTuneIOThreadPin{IOThread: 3, CPUSet: "6"},
-				CPUTuneIOThreadPin{IOThread: 4, CPUSet: "5"},
-				CPUTuneIOThreadPin{IOThread: 5, CPUSet: "6"},
-				CPUTuneIOThreadPin{IOThread: 6, CPUSet: "5"},
+			expectedLayout := []api.CPUTuneIOThreadPin{
+				api.CPUTuneIOThreadPin{IOThread: 1, CPUSet: "6"},
+				api.CPUTuneIOThreadPin{IOThread: 2, CPUSet: "5"},
+				api.CPUTuneIOThreadPin{IOThread: 3, CPUSet: "6"},
+				api.CPUTuneIOThreadPin{IOThread: 4, CPUSet: "5"},
+				api.CPUTuneIOThreadPin{IOThread: 5, CPUSet: "6"},
+				api.CPUTuneIOThreadPin{IOThread: 6, CPUSet: "5"},
 			}
 			isExpectedThreadsLayout := reflect.DeepEqual(expectedLayout, domain.Spec.CPUTune.IOThreadPin)
 			Expect(isExpectedThreadsLayout).To(BeTrue())
@@ -2849,8 +2862,8 @@ var _ = Describe("disk device naming", func() {
 
 func diskToDiskXML(disk *v1.Disk) string {
 	devicePerBus := make(map[string]deviceNamer)
-	libvirtDisk := &Disk{}
-	Expect(Convert_v1_Disk_To_api_Disk(disk, libvirtDisk, devicePerBus, nil)).To(Succeed())
+	libvirtDisk := &api.Disk{}
+	Expect(Convert_v1_Disk_To_api_Disk(&ConverterContext{UseVirtioTransitional: false}, disk, libvirtDisk, devicePerBus, nil)).To(Succeed())
 	data, err := xml.MarshalIndent(libvirtDisk, "", "  ")
 	Expect(err).ToNot(HaveOccurred())
 	return string(data)
@@ -2863,15 +2876,15 @@ func vmiToDomainXML(vmi *v1.VirtualMachineInstance, c *ConverterContext) string 
 	return string(data)
 }
 
-func vmiToDomain(vmi *v1.VirtualMachineInstance, c *ConverterContext) *Domain {
-	domain := &Domain{}
+func vmiToDomain(vmi *v1.VirtualMachineInstance, c *ConverterContext) *api.Domain {
+	domain := &api.Domain{}
 	Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
-	NewDefaulter(c.Architecture).SetObjectDefaults_Domain(domain)
+	api.NewDefaulter(c.Architecture).SetObjectDefaults_Domain(domain)
 	return domain
 }
 
-func xmlToDomainSpec(data string) *DomainSpec {
-	newDomain := &DomainSpec{}
+func xmlToDomainSpec(data string) *api.DomainSpec {
+	newDomain := &api.DomainSpec{}
 	err := xml.Unmarshal([]byte(data), newDomain)
 	newDomain.XMLName.Local = ""
 	newDomain.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
@@ -2879,7 +2892,7 @@ func xmlToDomainSpec(data string) *DomainSpec {
 	return newDomain
 }
 
-func vmiToDomainXMLToDomainSpec(vmi *v1.VirtualMachineInstance, c *ConverterContext) *DomainSpec {
+func vmiToDomainXMLToDomainSpec(vmi *v1.VirtualMachineInstance, c *ConverterContext) *api.DomainSpec {
 	return xmlToDomainSpec(vmiToDomainXML(vmi, c))
 }
 

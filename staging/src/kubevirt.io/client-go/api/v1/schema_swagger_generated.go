@@ -176,6 +176,7 @@ func (Firmware) SwaggerDoc() map[string]string {
 func (Devices) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                           "+k8s:openapi-gen=true",
+		"useVirtioTransitional":      "Fall back to legacy virtio 0.9 support if virtio bus is selected on devices.\nThis is helpful for old machines like CentOS6 or RHEL6 which\ndo not understand virtio_non_transitional (virtio 1.0).",
 		"disableHotplug":             "DisableHotplug disabled the ability to hotplug disks.",
 		"disks":                      "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
 		"watchdog":                   "Watchdog describes a watchdog device which can be added to the vmi.",
