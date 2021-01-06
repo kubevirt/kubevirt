@@ -13,7 +13,7 @@ set +o allexport
 export WEBHOOK_MODE=false
 
 mkdir -p "${LOCAL_DIR}"
-./hack/make_local.py "${LOCAL_DIR}" "${FORMAT}"
+./hack/generate_local_env.py "${LOCAL_DIR}" "${FORMAT}"
 
 # don't deploy operator, webhook and the HCO CR.
 sed "s/\(^.*\/hco.cr.yaml$\)/### \1/" deploy/deploy.sh > _local/deploy.sh
@@ -23,7 +23,6 @@ chmod +x _local/deploy.sh
 
 kubectl config set-context --current --namespace=${hco_namespace}
 _local/deploy.sh
-# kubectl apply -f _local/local.yaml
 
 if [ "${DEBUG_OPERATOR}" == "true" ]; then
   kubectl --namespace=${hco_namespace} scale deploy hyperconverged-cluster-operator --replicas=0
