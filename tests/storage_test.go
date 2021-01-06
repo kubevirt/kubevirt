@@ -27,7 +27,9 @@ import (
 	"strings"
 	"time"
 
-	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"k8s.io/apimachinery/pkg/api/errors"
+
+	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
@@ -38,6 +40,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+
+	virtv1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 
@@ -56,46 +63,46 @@ const (
 
 type VMICreationFunc func(string) *v1.VirtualMachineInstance
 
-var _ = Describe("[Serial]Storage", func() {
+var _ = Describe("Storage", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
-	var originalKVConfiguration v1.KubeVirtConfiguration
-
-	tests.BeforeAll(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
-
-		kv := tests.GetCurrentKv(virtClient)
-		originalKVConfiguration = kv.Spec.Configuration
-	})
 
 	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		Expect(err).ToNot(HaveOccurred())
 		tests.BeforeTestCleanup()
 	})
 
 	Describe("Starting a VirtualMachineInstance", func() {
 		var vmi *v1.VirtualMachineInstance
 
+		BeforeEach(func() {
+			vmi = nil
+		})
+
 		initNFS := func() *k8sv1.Pod {
 			tests.SkipNFSTestIfRunnigOnKindInfra()
 
 			// Prepare a NFS backed PV
 			By("Starting an NFS POD")
-			os := string(cd.ContainerDiskAlpine)
-			nfsPod := tests.CreateNFSTargetPOD(os)
-
+			nfsPod := storageframework.RenderNFSServer("nfsserver", tests.HostPathAlpine)
+			nfsPod, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(nfsPod)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisPod(nfsPod), 120).Should(BeInPhase(k8sv1.PodRunning))
+			nfsPod, err = ThisPod(nfsPod)()
+			Expect(err).ToNot(HaveOccurred())
 			return nfsPod
 		}
 
 		createNFSPvAndPvc := func(ipFamily k8sv1.IPFamily, nfsPod *k8sv1.Pod) string {
-			pvName := "test-nfs" + rand.String(48)
+			pvName := fmt.Sprintf("test-nfs%s", rand.String(48))
 
 			// create a new PV and PVC (PVs can't be reused)
 			By("create a new NFS PV and PVC")
 			nfsIP := libnet.GetPodIpByFamily(nfsPod, ipFamily)
 			ExpectWithOffset(1, nfsIP).NotTo(BeEmpty())
 			os := string(cd.ContainerDiskAlpine)
-			tests.CreateNFSPvAndPvc(pvName, "5Gi", nfsIP, os)
+			tests.CreateNFSPvAndPvc(pvName, tests.NamespaceTestDefault, "5Gi", nfsIP, os)
 			return pvName
 		}
 
@@ -104,39 +111,6 @@ var _ = Describe("[Serial]Storage", func() {
 			Context("should be successfully", func() {
 				var pvName string
 				var nfsPod *k8sv1.Pod
-
-				AfterEach(func() {
-					if vmi != nil {
-						By("Deleting the VMI")
-						Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-
-						By("Waiting for VMI to disappear")
-						tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-
-						vmi = nil
-					}
-				})
-
-				AfterEach(func() {
-					if nfsPod != nil {
-						By("Deleting NFS pod")
-						Expect(virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(tests.NFSTargetName, &metav1.DeleteOptions{})).To(Succeed())
-
-						By("Waiting for NFS pod to disappear")
-						tests.WaitForPodToDisappearWithTimeout(tests.NFSTargetName, 120)
-
-						nfsPod = nil
-					}
-				})
-
-				AfterEach(func() {
-					if pvName != "" && pvName != tests.DiskAlpineHostPath {
-						// PVs can't be reused
-						By("Deleting PV and PVC")
-						tests.DeletePvAndPvc(pvName)
-						pvName = ""
-					}
-				})
 
 				table.DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily) {
 					tests.SkipPVCTestIfRunnigOnKindInfra()
@@ -154,6 +128,7 @@ var _ = Describe("[Serial]Storage", func() {
 						pvName = tests.DiskAlpineHostPath
 					}
 					vmi = newVMI(pvName)
+
 					tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 120, ignoreWarnings)
 
 					By("Checking that the VirtualMachineInstance console has expected output")
@@ -278,21 +253,15 @@ var _ = Describe("[Serial]Storage", func() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
 				dataVolume = tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
-				tests.EnableFeatureGate(virtconfig.VirtIOFSGate)
 			})
 
-			AfterEach(func() {
-				err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
-				tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
-			})
-			It("should be successfully started and viriofs could be accessed", func() {
+			It("should be successfully started and virtiofs could be accessed", func() {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
 
 				vmi := tests.NewRandomVMIWithFSFromDataVolume(dataVolume.Name)
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).To(BeNil())
-				tests.WaitForDataVolumeReady(dataVolume.Namespace, dataVolume.Name, 30)
+				Eventually(ThisDV(dataVolume), 160, 1).Should(Or(BeInPhase(cdiv1.Succeeded), BeInPhase(v1beta1.WaitForFirstConsumer)), "Timed out waiting for DataVolume to complete")
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
 
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
@@ -346,6 +315,11 @@ var _ = Describe("[Serial]Storage", func() {
 				var pvName string
 				var nfsPod *k8sv1.Pod
 
+				BeforeEach(func() {
+					nfsPod = nil
+					pvName = ""
+				})
+
 				AfterEach(func() {
 					if vmi != nil {
 						By("Deleting the VMI")
@@ -353,20 +327,6 @@ var _ = Describe("[Serial]Storage", func() {
 
 						By("Waiting for VMI to disappear")
 						tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-
-						vmi = nil
-					}
-				})
-
-				AfterEach(func() {
-					if nfsPod != nil {
-						By("Deleting NFS pod")
-						Expect(virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(tests.NFSTargetName, &metav1.DeleteOptions{})).To(Succeed())
-
-						By("Waiting for NFS pod to disappear")
-						tests.WaitForPodToDisappearWithTimeout(tests.NFSTargetName, 120)
-
-						nfsPod = nil
 					}
 				})
 
@@ -375,7 +335,6 @@ var _ = Describe("[Serial]Storage", func() {
 						// PVs can't be reused
 						By("Deleting PV and PVC")
 						tests.DeletePvAndPvc(pvName)
-						pvName = ""
 					}
 				})
 
@@ -496,11 +455,31 @@ var _ = Describe("[Serial]Storage", func() {
 						}, 200)).To(Succeed())
 					}
 
-					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+					err = virtClient.VirtualMachineInstance(obj.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
-
-					tests.WaitForVirtualMachineToDisappearWithTimeout(obj, 120)
+					Eventually(ThisVMI(obj), 120).Should(BeGone())
 				}
+			})
+		})
+
+		Context("[Serial]With feature gates disabled for", func() {
+			It("[test_id:4620]HostDisk, it should fail to start a VMI", func() {
+				tests.DisableFeatureGate(virtconfig.HostDiskGate)
+				vmi = tests.NewRandomVMIWithHostDisk("somepath", v1.HostDiskExistsOrCreate, "")
+				virtClient, err := kubecli.GetKubevirtClient()
+				Expect(err).ToNot(HaveOccurred())
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("HostDisk feature gate is not enabled"))
+			})
+			It("VirtioFS, it should fail to start a VMI", func() {
+				tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
+				vmi := tests.NewRandomVMIWithFSFromDataVolume("something")
+				virtClient, err := kubecli.GetKubevirtClient()
+				Expect(err).ToNot(HaveOccurred())
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("virtiofs feature gate is not enabled"))
 			})
 		})
 
@@ -508,57 +487,38 @@ var _ = Describe("[Serial]Storage", func() {
 
 			Context("With a HostDisk defined", func() {
 
-				hostDiskDir := tests.RandTmpDir()
+				var hostDiskDir string
 				var nodeName string
-				var currentKvConfiguration v1.KubeVirtConfiguration
 
 				BeforeEach(func() {
+					if !tests.HasFeature(virtconfig.HostDiskGate) {
+						Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
+					}
+					hostDiskDir = tests.RandTmpDir()
 					nodeName = ""
-					kv := tests.GetCurrentKv(virtClient)
-					currentKvConfiguration = kv.Spec.Configuration
-
-					tests.EnableFeatureGate(virtconfig.HostDiskGate)
 				})
 
 				AfterEach(func() {
-					currentKvConfiguration.DeveloperConfiguration.FeatureGates = originalKVConfiguration.DeveloperConfiguration.FeatureGates
-					kv := tests.UpdateKubeVirtConfigValueAndWait(currentKvConfiguration)
-					currentKvConfiguration = kv.Spec.Configuration
-
-					// Delete all VMIs and wait until they disappear to ensure that no disk is in use and that we can delete the whole folder
-					Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do().Error()).ToNot(HaveOccurred())
-					Eventually(func() int {
-						vmis, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&metav1.ListOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						return len(vmis.Items)
-					}, 120, 1).Should(BeZero())
+					if vmi != nil {
+						err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+						if err != nil && !errors.IsNotFound(err) {
+							Expect(err).ToNot(HaveOccurred())
+						}
+						Eventually(ThisVMI(vmi), 30).Should(Or(BeGone(), BeInPhase(virtv1.Failed), BeInPhase(virtv1.Succeeded)))
+					}
 					if nodeName != "" {
 						tests.RemoveHostDiskImage(hostDiskDir, nodeName)
 					}
 				})
 
-				Context("Without the HostDisk feature gate enabled", func() {
-					BeforeEach(func() {
-						tests.DisableFeatureGate(virtconfig.HostDiskGate)
-					})
-
-					It("[test_id:4620]Should fail to start a VMI", func() {
-						diskName := "disk-" + uuid.NewRandom().String() + ".img"
-						diskPath := filepath.Join(hostDiskDir, diskName)
-						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, "")
-						virtClient, err := kubecli.GetKubevirtClient()
-						Expect(err).ToNot(HaveOccurred())
-						_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-						Expect(err).To(HaveOccurred())
-						Expect(err.Error()).To(ContainSubstring("HostDisk feature gate is not enabled"))
-					})
-				})
-
 				Context("With 'DiskExistsOrCreate' type", func() {
-					diskName := "disk-" + uuid.NewRandom().String() + ".img"
-					diskPath := filepath.Join(hostDiskDir, diskName)
+					var diskName string
+					var diskPath string
+					BeforeEach(func() {
+						diskName = fmt.Sprintf("disk-%s.img", uuid.NewRandom().String())
+						diskPath = filepath.Join(hostDiskDir, diskName)
+					})
 
-					// Not a candidate for NFS testing due to usage of host disk
 					table.DescribeTable("Should create a disk image and start", func(driver string) {
 						By("Starting VirtualMachineInstance")
 						// do not choose a specific node to run the test
@@ -583,7 +543,6 @@ var _ = Describe("[Serial]Storage", func() {
 						table.Entry("[test_id:3057]with sata driver", "sata"),
 					)
 
-					// Not a candidate for NFS testing due to usage of host disk
 					It("[test_id:3107]should start with multiple hostdisks in the same directory", func() {
 						By("Starting VirtualMachineInstance")
 						// do not choose a specific node to run the test
@@ -617,12 +576,11 @@ var _ = Describe("[Serial]Storage", func() {
 				})
 
 				Context("With 'DiskExists' type", func() {
-					diskName := "disk-" + uuid.NewRandom().String() + ".img"
-					diskPath := filepath.Join(hostDiskDir, diskName)
-					// it is mandatory to run a pod which is creating a disk image
-					// on the same node with a HostDisk VMI
-
+					var diskPath string
+					var diskName string
 					BeforeEach(func() {
+						diskName = fmt.Sprintf("disk-%s.img", uuid.NewRandom().String())
+						diskPath = filepath.Join(hostDiskDir, diskName)
 						// create a disk image before test
 						job := tests.CreateHostDiskImage(diskPath)
 						job, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(job)
@@ -638,7 +596,6 @@ var _ = Describe("[Serial]Storage", func() {
 						Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodSucceeded))
 					})
 
-					// Not a candidate for NFS testing due to usage of host disk
 					It("[test_id:2306]Should use existing disk image and start", func() {
 						By("Starting VirtualMachineInstance")
 						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExists, nodeName)
@@ -656,7 +613,6 @@ var _ = Describe("[Serial]Storage", func() {
 						Expect(output).To(ContainSubstring(diskName))
 					})
 
-					// Not a candidate for NFS testing due to usage of host disk
 					It("[test_id:847]Should fail with a capacity option", func() {
 						By("Starting VirtualMachineInstance")
 						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExists, nodeName)
@@ -672,7 +628,6 @@ var _ = Describe("[Serial]Storage", func() {
 				})
 
 				Context("With unknown hostDisk type", func() {
-					// Not a candidate for NFS testing due to usage of host disk
 					It("[test_id:852]Should fail to start VMI", func() {
 						By("Starting VirtualMachineInstance")
 						vmi = tests.NewRandomVMIWithHostDisk("/data/unknown.img", "unknown", "")
@@ -704,7 +659,7 @@ var _ = Describe("[Serial]Storage", func() {
 				It("[test_id:868]Should initialize an empty PVC by creating a disk.img", func() {
 					for _, pvc := range pvcs {
 						By("starting VirtualMachineInstance")
-						vmi = tests.NewRandomVMIWithPVC("disk-" + pvc)
+						vmi = tests.NewRandomVMIWithPVC(fmt.Sprintf("disk-%s", pvc))
 						tests.RunVMIAndExpectLaunch(vmi, 90)
 
 						By("Checking if disk.img exists")
@@ -729,13 +684,8 @@ var _ = Describe("[Serial]Storage", func() {
 				var diskPath string
 				var pod *k8sv1.Pod
 				var diskSize int
-				var currentKvConfiguration v1.KubeVirtConfiguration
 
 				BeforeEach(func() {
-					By("Enabling the HostDisk feature gate")
-					kv := tests.EnableFeatureGate(virtconfig.HostDiskGate)
-					currentKvConfiguration = kv.Spec.Configuration
-
 					By("Creating a hostPath pod which prepares a mounted directory which goes away when the pod dies")
 					tmpDir := tests.RandTmpDir()
 					mountDir = filepath.Join(tmpDir, "mount")
@@ -774,22 +724,15 @@ var _ = Describe("[Serial]Storage", func() {
 
 				})
 
-				AfterEach(func() {
-					config := originalKVConfiguration.DeepCopy()
-					currentKvConfiguration.DeveloperConfiguration.FeatureGates = config.DeveloperConfiguration.FeatureGates
-					kv := tests.UpdateKubeVirtConfigValueAndWait(currentKvConfiguration)
-					currentKvConfiguration = kv.Spec.Configuration
-				})
-
 				configureToleration := func(toleration int) {
 					By("By configuring toleration")
-					currentKvConfiguration.DeveloperConfiguration.LessPVCSpaceToleration = toleration
-					kv := tests.UpdateKubeVirtConfigValueAndWait(currentKvConfiguration)
-					currentKvConfiguration = kv.Spec.Configuration
+					cfg := tests.GetCurrentKv(virtClient).Spec.Configuration
+					cfg.DeveloperConfiguration.LessPVCSpaceToleration = toleration
+					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 				}
 
 				// Not a candidate for NFS test due to usage of host disk
-				It("[test_id:3108]Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", func() {
+				It("[Serial][test_id:3108]Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", func() {
 
 					configureToleration(10)
 
@@ -807,7 +750,7 @@ var _ = Describe("[Serial]Storage", func() {
 				})
 
 				// Not a candidate for NFS test due to usage of host disk
-				It("[test_id:3109]Should initialize an empty PVC with a disk.img when disk is too small but within toleration", func() {
+				It("[Serial][test_id:3109]Should initialize an empty PVC with a disk.img when disk is too small but within toleration", func() {
 
 					configureToleration(30)
 
@@ -849,7 +792,7 @@ var _ = Describe("[Serial]Storage", func() {
 
 		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component]With Alpine ISCSI PVC (using ISCSI IPv4 address)", func() {
 
-			pvName := "test-iscsi-lun" + rand.String(48)
+			pvName := fmt.Sprintf("test-iscsi-lun%s", rand.String(48))
 
 			BeforeEach(func() {
 				// Start a ISCSI POD and service
@@ -980,6 +923,5 @@ var _ = Describe("[Serial]Storage", func() {
 			})
 
 		})
-
 	})
 })

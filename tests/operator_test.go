@@ -271,7 +271,7 @@ var _ = Describe("[Serial]Operator", func() {
 				Expect(podsReadyAndOwned).ToNot(Equal(0))
 
 				return nil
-			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		}
 
 		waitForUpdateCondition = func(kv *v1.KubeVirt) {
