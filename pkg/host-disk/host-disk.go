@@ -47,7 +47,7 @@ const (
 // Used by tests.
 func setDiskDirectory(dir string) error {
 	pvcBaseDir = dir
-	return os.MkdirAll(dir, 0755)
+	return os.MkdirAll(dir, 0750)
 }
 
 func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.KubevirtClient) error {

@@ -22,13 +22,12 @@ package ignition
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"os"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 var ignitionLocalDir = "/var/run/libvirt/ignition-dir"
@@ -41,7 +40,7 @@ func GetIgnitionSource(vmi *v1.VirtualMachineInstance) string {
 }
 
 func SetLocalDirectory(dir string) error {
-	err := os.MkdirAll(dir, 0755)
+	err := util.MkdirAllWithNosec(dir)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Unable to initialize Ignition local cache directory (%s). %v", dir, err))
 	}
@@ -66,7 +65,7 @@ func GenerateIgnitionLocalData(vmi *v1.VirtualMachineInstance, namespace string)
 	precond.MustNotBeNil(vmi.Annotations[v1.IgnitionAnnotation])
 
 	domainBasePath := GetDomainBasePath(vmi.Name, namespace)
-	err := os.MkdirAll(domainBasePath, 0755)
+	err := util.MkdirAllWithNosec(domainBasePath)
 	if err != nil {
 		log.Log.V(2).Reason(err).Errorf("unable to create Ignition base path %s", domainBasePath)
 		return err
@@ -74,7 +73,7 @@ func GenerateIgnitionLocalData(vmi *v1.VirtualMachineInstance, namespace string)
 
 	ignitionFile := fmt.Sprintf("%s/%s", domainBasePath, IgnitionFile)
 	ignitionData := []byte(vmi.Annotations[v1.IgnitionAnnotation])
-	err = ioutil.WriteFile(ignitionFile, ignitionData, 0644)
+	err = util.WriteFileWithNosec(ignitionFile, ignitionData)
 	if err != nil {
 		return err
 	}

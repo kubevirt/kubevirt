@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc"
 
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const (
@@ -65,7 +66,7 @@ func DialSocketWithTimeout(socketPath string, timeout int) (*grpc.ClientConn, er
 func CreateSocket(socketPath string) (net.Listener, error) {
 	os.RemoveAll(socketPath)
 
-	err := os.MkdirAll(filepath.Dir(socketPath), 0755)
+	err := util.MkdirAllWithNosec(filepath.Dir(socketPath))
 	if err != nil {
 		log.Log.Reason(err).Errorf("unable to create directory for unix socket %v", socketPath)
 		return nil, err

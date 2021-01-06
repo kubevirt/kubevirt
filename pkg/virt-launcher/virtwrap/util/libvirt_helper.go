@@ -334,7 +334,7 @@ func startQEMUSeaBiosLogging(stopChan chan struct{}) {
 		return
 	}
 
-	QEMUPipe, err := os.OpenFile(QEMUSeaBiosDebugPipe, os.O_RDONLY, 0666)
+	QEMUPipe, err := os.OpenFile(QEMUSeaBiosDebugPipe, os.O_RDONLY, 0600)
 
 	if err != nil {
 		log.Log.Reason(err).Error(fmt.Sprintf("%s failed to open %s", logLinePrefix, QEMUSeaBiosDebugPipe))
@@ -433,6 +433,7 @@ func SetupLibvirt() (err error) {
 		if err != nil {
 			return err
 		}
+		// #nosec G302: Poor file permissions used with chmod. Safe to use the common permission setting for the specific system file
 		err = os.Chmod("/dev/kvm", 0660)
 		if err != nil {
 			return err
@@ -441,7 +442,7 @@ func SetupLibvirt() (err error) {
 		return err
 	}
 
-	qemuConf, err := os.OpenFile("/etc/libvirt/qemu.conf", os.O_APPEND|os.O_WRONLY, 0644)
+	qemuConf, err := os.OpenFile("/etc/libvirt/qemu.conf", os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}
@@ -461,7 +462,7 @@ func SetupLibvirt() (err error) {
 	}
 
 	// Let libvirt log to stderr
-	libvirtConf, err := os.OpenFile("/etc/libvirt/libvirtd.conf", os.O_APPEND|os.O_WRONLY, 0644)
+	libvirtConf, err := util.OpenFileWithNosec("/etc/libvirt/libvirtd.conf", os.O_APPEND|os.O_WRONLY)
 	if err != nil {
 		return err
 	}

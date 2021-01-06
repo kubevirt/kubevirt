@@ -211,12 +211,12 @@ func (m *volumeMounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, rec
 		return err
 	}
 
-	err = os.MkdirAll(filepath.Dir(recordFile), 0755)
+	err = os.MkdirAll(filepath.Dir(recordFile), 0750)
 	if err != nil {
 		return err
 	}
 
-	err = ioutil.WriteFile(recordFile, bytes, 0644)
+	err = ioutil.WriteFile(recordFile, bytes, 0600)
 	if err != nil {
 		return err
 	}
