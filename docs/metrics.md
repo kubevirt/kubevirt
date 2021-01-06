@@ -132,3 +132,7 @@ A design proposal and its implementation history can be seen [here](https://docs
 #### HELP leading_virt_controller Indication for an operating virt-controller.
 ## ready_virt_controller
 #### HELP ready_virt_controller Indication for a virt-controller that is ready to take the lead.
+
+ # Other Metrics 
+## kubevirt_vmi_outdated_count
+#### HELP kubevirt_vmi_outdated_count Indication for the number of VirtualMachineInstance workloads that are not running within the most up-to-date version of the virt-launcher environment.

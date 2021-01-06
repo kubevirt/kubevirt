@@ -462,7 +462,7 @@ func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkip
 }
 
 // NewPrometheusRuleCR returns a PrometheusRule with a group of alerts for the KubeVirt deployment.
-func NewPrometheusRuleCR(namespace string) *promv1.PrometheusRule {
+func NewPrometheusRuleCR(namespace string, workloadUpdatesEnabled bool) *promv1.PrometheusRule {
 	return &promv1.PrometheusRule{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: promv1.SchemeGroupVersion.String(),
@@ -476,13 +476,13 @@ func NewPrometheusRuleCR(namespace string) *promv1.PrometheusRule {
 				"k8s-app":                "kubevirt",
 			},
 		},
-		Spec: *NewPrometheusRuleSpec(namespace),
+		Spec: *NewPrometheusRuleSpec(namespace, workloadUpdatesEnabled),
 	}
 }
 
 // NewPrometheusRuleSpec makes a prometheus rule spec for kubevirt
-func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
-	return &promv1.PrometheusRuleSpec{
+func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.PrometheusRuleSpec {
+	ruleSpec := &promv1.PrometheusRuleSpec{
 		Groups: []promv1.RuleGroup{
 			{
 				Name: "kubevirt.rules",
@@ -770,6 +770,20 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 			},
 		},
 	}
+
+	if workloadUpdatesEnabled {
+		ruleSpec.Groups[0].Rules = append(ruleSpec.Groups[0].Rules, promv1.Rule{
+
+			Alert: "OutdatedVMIWorkloads",
+			Expr:  intstr.FromString("kubevirt_vmi_outdated_count != 0"),
+			For:   "1440m",
+			Annotations: map[string]string{
+				"summary": "Some running VMIs are still active in outdated pods after KubeVirt control plane update has completed.",
+			},
+		})
+	}
+
+	return ruleSpec
 }
 
 // Used by manifest generation
