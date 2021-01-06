@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"sync"
 
 	restful "github.com/emicklei/go-restful"
@@ -93,6 +94,7 @@ type virtAPIApp struct {
 	clusterConfig    *virtconfig.ClusterConfig
 
 	namespace               string
+	host                    string
 	tlsConfig               *tls.Config
 	certificate             *tls.Certificate
 	consoleServerPort       int
@@ -698,8 +700,14 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory, 
 }
 
 func (app *virtAPIApp) Run() {
+	host, err := os.Hostname()
+	if err != nil {
+		panic(fmt.Errorf("unable to get hostname: %v", err))
+	}
+	app.host = host
+
 	// get client Cert
-	err := app.readRequestHeader()
+	err = app.readRequestHeader()
 	if err != nil {
 		panic(err)
 	}
@@ -742,6 +750,7 @@ func (app *virtAPIApp) Run() {
 		configMapInformer.HasSynced)
 
 	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, app.namespace)
+	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 
 	go app.certmanager.Start()
 	go app.handlerCertManager.Start()
@@ -752,6 +761,13 @@ func (app *virtAPIApp) Run() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+// Update virt-api log verbosity on relevant config changes
+func (app *virtAPIApp) shouldChangeLogVerbosity() {
+	verbosity := app.clusterConfig.GetVirtHandlerVerbosity(app.host)
+	log.Log.SetVerbosityLevel(int(verbosity))
+	log.Log.V(4).Infof("set verbosity to %d", verbosity)
 }
 
 func (app *virtAPIApp) AddFlags() {
