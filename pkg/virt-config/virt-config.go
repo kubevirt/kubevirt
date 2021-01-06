@@ -62,6 +62,11 @@ const (
 	DefaultOVMFPath                                 = "/usr/share/OVMF"
 	DefaultMemBalloonStatsPeriod             uint32 = 10
 	DefaultCPUAllocationRatio                       = 10
+    DefaultVirtAPILogVerbosity                      = 2
+    DefaultVirtControllerLogVerbosity               = 2
+    DefaultVirtHandlerLogVerbosity                  = 2
+    DefaultVirtLauncherLogVerbosity                 = 2
+    DefaultVirtOperatorLogVerbosity                 = 2
 )
 
 // Set default machine type and supported emulated machines based on architecture
