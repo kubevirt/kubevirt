@@ -20,8 +20,10 @@
 package network
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net"
+	"os"
 	"strings"
 
 	. "github.com/onsi/ginkgo"
@@ -35,12 +37,14 @@ var _ = Describe("Common Methods", func() {
 	pid := "self"
 	Context("Functions Read and Write from cache", func() {
 		It("should persist interface payload", func() {
-			tmpDir, _ := ioutil.TempDir("", "commontest")
+			tmpDir, err := ioutil.TempDir("", "commontest")
+			Expect(err).ToNot(HaveOccurred())
+			defer os.RemoveAll(tmpDir)
 			setInterfaceCacheFile(tmpDir + "/cache-%s.json")
 
 			ifaceName := "iface_name"
 			iface := api.Interface{Type: "fake_type", Source: api.InterfaceSource{Bridge: "fake_br"}}
-			err := writeToCachedFile(&iface, interfaceCacheFile, pid, ifaceName)
+			err = writeToCachedFile(&iface, interfaceCacheFile, pid, ifaceName)
 			Expect(err).ToNot(HaveOccurred())
 
 			var cached_iface api.Interface
@@ -51,12 +55,14 @@ var _ = Describe("Common Methods", func() {
 			Expect(iface).To(Equal(cached_iface))
 		})
 		It("should persist qemu arg payload", func() {
-			tmpDir, _ := ioutil.TempDir("", "commontest")
+			tmpDir, err := ioutil.TempDir("", "commontest")
+			Expect(err).ToNot(HaveOccurred())
+			defer os.RemoveAll(tmpDir)
 			setInterfaceCacheFile(tmpDir + "/cache-%s.json")
 
 			qemuArgName := "iface_name"
 			qemuArg := api.Arg{Value: "test_value"}
-			err := writeToCachedFile(&qemuArg, interfaceCacheFile, pid, qemuArgName)
+			err = writeToCachedFile(&qemuArg, interfaceCacheFile, pid, qemuArgName)
 			Expect(err).ToNot(HaveOccurred())
 
 			var cached_qemuArg api.Arg
@@ -104,20 +110,44 @@ var _ = Describe("Common Methods", func() {
 })
 
 var _ = Describe("VIF", func() {
+	const ipv4Cidr = "10.0.0.200/24"
+	const ipv4Address = "10.0.0.200"
+	const ipv4Mask = "ffffff00"
+	const ipv6Cidr = "fd10:0:2::2/120"
+	const mac = "de:ad:00:00:be:ef"
+	const ipv4Gateway = "10.0.0.1"
+	const mtu = 1450
+	const tapName = "myTap0"
+	const vifName = "test-vif"
+
 	Context("String", func() {
 		It("returns correct string representation", func() {
-			addr, _ := netlink.ParseAddr("10.0.0.200/24")
-			mac, _ := net.ParseMAC("de:ad:00:00:be:ef")
-			gw := net.ParseIP("10.0.0.1")
-			vif := &VIF{
-				Name:      "test-vif",
-				IP:        *addr,
-				MAC:       mac,
-				Gateway:   gw,
-				Mtu:       1450,
-				TapDevice: "myTap0",
-			}
-			Expect(vif.String()).To(Equal("VIF: { Name: test-vif, IP: 10.0.0.200, Mask: ffffff00, MAC: de:ad:00:00:be:ef, Gateway: 10.0.0.1, MTU: 1450, IPAMDisabled: false, TapDevice: myTap0}"))
+			vif := createDummyVIF(vifName, ipv4Cidr, ipv4Gateway, "", mac, tapName, mtu)
+			Expect(vif.String()).To(Equal(fmt.Sprintf("VIF: { Name: %s, IP: %s, Mask: %s, IPv6: <nil>, MAC: %s, Gateway: %s, MTU: %d, IPAMDisabled: false, TapDevice: %s}", vifName, ipv4Address, ipv4Mask, mac, ipv4Gateway, mtu, tapName)))
+		})
+		It("returns correct string representation with ipv6", func() {
+			vif := createDummyVIF(vifName, ipv4Cidr, ipv4Gateway, ipv6Cidr, mac, tapName, mtu)
+			Expect(vif.String()).To(Equal(fmt.Sprintf("VIF: { Name: %s, IP: %s, Mask: %s, IPv6: %s, MAC: %s, Gateway: %s, MTU: %d, IPAMDisabled: false, TapDevice: %s}", vifName, ipv4Address, ipv4Mask, ipv6Cidr, mac, ipv4Gateway, mtu, tapName)))
 		})
 	})
 })
+
+func createDummyVIF(vifName, ipv4cidr, ipv4gateway, ipv6cidr, macStr, tapName string, mtu uint16) *VIF {
+	addr, _ := netlink.ParseAddr(ipv4cidr)
+	mac, _ := net.ParseMAC(macStr)
+	gw := net.ParseIP(ipv4gateway)
+	vif := &VIF{
+		Name:      vifName,
+		IP:        *addr,
+		MAC:       mac,
+		Gateway:   gw,
+		Mtu:       mtu,
+		TapDevice: tapName,
+	}
+	if ipv6cidr != "" {
+		ipv6Addr, _ := netlink.ParseAddr(ipv6cidr)
+		vif.IPv6 = *ipv6Addr
+	}
+
+	return vif
+}

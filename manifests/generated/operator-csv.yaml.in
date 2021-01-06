@@ -7,7 +7,7 @@ metadata:
 
             [
               {
-                "apiVersion":"kubevirt.io/v1alpha3",
+                "apiVersion":"kubevirt.io/v1",
                 "kind":"KubeVirt",
                 "metadata": {
                   "name":"kubevirt",
@@ -88,7 +88,7 @@ spec:
         path: operatorVersion
         x-descriptors:
         - urn:alm:descriptor:text
-      version: v1alpha3
+      version: v1
   description: |2
 
     **KubeVirt** is a virtual machine management add-on for Kubernetes.

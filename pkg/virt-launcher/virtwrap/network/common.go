@@ -37,6 +37,8 @@ import (
 	lmf "github.com/subgraph/libmacouflage"
 	"github.com/vishvananda/netlink"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+
 	"kubevirt.io/kubevirt/pkg/util/sysctl"
 
 	netutils "k8s.io/utils/net"
@@ -44,8 +46,8 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	kvselinux "kubevirt.io/kubevirt/pkg/virt-handler/selinux"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcpv6"
 )
 
 const (
@@ -75,10 +77,11 @@ func (e *CriticalNetworkError) Error() string { return e.Msg }
 
 func (vif VIF) String() string {
 	return fmt.Sprintf(
-		"VIF: { Name: %s, IP: %s, Mask: %s, MAC: %s, Gateway: %s, MTU: %d, IPAMDisabled: %t, TapDevice: %s}",
+		"VIF: { Name: %s, IP: %s, Mask: %s, IPv6: %s, MAC: %s, Gateway: %s, MTU: %d, IPAMDisabled: %t, TapDevice: %s}",
 		vif.Name,
 		vif.IP.IP,
 		vif.IP.Mask,
+		vif.IPv6,
 		vif.MAC,
 		vif.Gateway,
 		vif.Mtu,
@@ -238,6 +241,7 @@ func (h *NetworkUtilsHandler) NftablesNewChain(proto iptables.Protocol, table, c
 
 func (h *NetworkUtilsHandler) NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error {
 	cmd := append([]string{"add", "rule", Handler.GetNFTIPString(proto), table, chain}, rulespec...)
+	// #nosec No risk for attacket injection. CMD variables are predefined strings
 	output, err := exec.Command("nft", cmd...).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to apped new nfrule error %s", string(output))
@@ -339,7 +343,7 @@ func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, erro
 
 func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {
 	log.Log.V(4).Infof("StartDHCP network Nic: %+v", nic)
-	nameservers, searchDomains, err := api.GetResolvConfDetailsFromPod()
+	nameservers, searchDomains, err := converter.GetResolvConfDetailsFromPod()
 	if err != nil {
 		return fmt.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
 	}
@@ -364,6 +368,18 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInter
 			panic(err)
 		}
 	}()
+
+	if nic.IPv6.IPNet != nil {
+		go func() {
+			if err = DHCPv6Server(
+				nic.IPv6.IP,
+				bridgeInterfaceName,
+			); err != nil {
+				log.Log.Reason(err).Error("failed to run DHCPv6")
+				panic(err)
+			}
+		}()
+	}
 
 	return nil
 }
@@ -403,6 +419,7 @@ func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int
 		"--queue-number", fmt.Sprintf("%d", queueNumber),
 		"--mtu", fmt.Sprintf("%d", mtu),
 	}
+	// #nosec No risk for attacket injection. createTapDeviceArgs includes predefined strings
 	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
 
 	return &tapDeviceMaker{
@@ -509,6 +526,7 @@ func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
 var SetupPodNetworkPhase1 = SetupNetworkInterfacesPhase1
 var SetupPodNetworkPhase2 = SetupNetworkInterfacesPhase2
 var DHCPServer = dhcp.SingleClientDHCPServer
+var DHCPv6Server = dhcpv6.SingleClientDHCPv6Server
 
 func initHandler() {
 	if Handler == nil {

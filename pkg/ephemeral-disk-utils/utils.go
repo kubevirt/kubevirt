@@ -20,11 +20,7 @@
 package ephemeraldiskutils
 
 import (
-	"bytes"
-	// #nosec md5 here is used only as hash to compare files and not for cryptographic
-	"crypto/md5"
 	"fmt"
-	"io"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -33,7 +29,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/pkg/util"
 )
 
 // TODO this should be part of structs, instead of a global
@@ -91,57 +86,6 @@ func FileExists(path string) (bool, error) {
 		err = nil
 	}
 	return exists, err
-}
-func Md5CheckSum(filePath string) ([]byte, error) {
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer util.CloseIOAndCheckErr(file, nil)
-
-	// #nosec CWE: 326 - Use of weak cryptographic primitive (http://cwe.mitre.org/data/definitions/326.html)
-	// reason: sha1 is not used for encryption but for creating a hash value
-	hash := md5.New()
-	_, err = io.Copy(hash, file)
-
-	if err != nil {
-		return nil, err
-	}
-
-	result := hash.Sum(nil)
-	return result, nil
-}
-
-func FilesAreEqual(path1 string, path2 string) (bool, error) {
-	exists, err := FileExists(path1)
-	if err != nil {
-		log.Log.Reason(err).Errorf("unexpected error encountered while attempting to determine if %s exists", path1)
-		return false, err
-	} else if exists == false {
-		return false, nil
-	}
-
-	exists, err = FileExists(path2)
-	if err != nil {
-		log.Log.Reason(err).Errorf("unexpected error encountered while attempting to determine if %s exists", path2)
-		return false, err
-	} else if exists == false {
-		return false, nil
-	}
-
-	sum1, err := Md5CheckSum(path1)
-	if err != nil {
-		log.Log.Reason(err).Errorf("calculating md5 checksum failed for %s", path1)
-		return false, err
-	}
-	sum2, err := Md5CheckSum(path2)
-	if err != nil {
-		log.Log.Reason(err).Errorf("calculating md5 checksum failed for %s", path2)
-		return false, err
-	}
-
-	return bytes.Equal(sum1, sum2), nil
 }
 
 // Lists all vmis ephemeral disk has local data for

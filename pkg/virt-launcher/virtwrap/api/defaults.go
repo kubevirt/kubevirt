@@ -1,7 +1,6 @@
 package api
 
 const (
-	resolvConf        = "/etc/resolv.conf"
 	DefaultProtocol   = "TCP"
 	DefaultVMCIDR     = "10.0.2.0/24"
 	DefaultVMIpv6CIDR = "fd10:0:2::/120"

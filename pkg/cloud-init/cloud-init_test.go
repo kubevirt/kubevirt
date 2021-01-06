@@ -323,6 +323,14 @@ var _ = Describe("CloudInit", func() {
 					verifyCloudInitNoCloudIso(cloudInitData)
 				})
 
+				It("should succeed to verify networkData if there is no userData", func() {
+					networkData := "fake\nnetwork\ndata\n"
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						NetworkData: networkData,
+					}
+					verifyCloudInitNoCloudIso(cloudInitData)
+				})
+
 				It("should fail to verify bad cloudInitNoCloud UserDataBase64", func() {
 					source := &v1.CloudInitNoCloudSource{
 						UserDataBase64: "#######garbage******",
@@ -340,13 +348,10 @@ var _ = Describe("CloudInit", func() {
 					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
 				})
 
-				It("should fail to verify networkData without userData", func() {
-					networkData := "FakeNetwork"
-					source := &v1.CloudInitNoCloudSource{
-						NetworkData: networkData,
-					}
+				It("should fail to verify if there is no userData nor networkData", func() {
+					source := &v1.CloudInitNoCloudSource{}
 					_, err := readCloudInitNoCloudSource(source)
-					Expect(err).Should(MatchError("userDataBase64 or userData is required for a cloud-init data source"))
+					Expect(err).Should(MatchError("userDataBase64, userData, networkDataBase64 or networkData is required for a cloud-init data source"))
 				})
 
 				Context("with secretRefs", func() {
@@ -464,15 +469,6 @@ var _ = Describe("CloudInit", func() {
 					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
 				})
 
-				It("should fail to verify networkData without userData", func() {
-					networkData := "FakeNetwork"
-					source := &v1.CloudInitConfigDriveSource{
-						NetworkData: networkData,
-					}
-					_, err := readCloudInitConfigDriveSource(source)
-					Expect(err).Should(MatchError("userDataBase64 or userData is required for a cloud-init data source"))
-				})
-
 				Context("with secretRefs", func() {
 					createCloudInitConfigDriveVolume := func(name, secret string) *v1.Volume {
 						return &v1.Volume{
@@ -540,5 +536,22 @@ var _ = Describe("CloudInit", func() {
 				})
 			})
 		})
+	})
+	Describe("GenerateLocalData", func() {
+		It("should cleanly run twice", func() {
+			namespace := "fake-namespace"
+			domain := "fake-domain"
+			userData := "fake\nuser\ndata\n"
+			source := &v1.CloudInitNoCloudSource{
+				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+			}
+			cloudInitData, err := readCloudInitNoCloudSource(source)
+			Expect(err).NotTo(HaveOccurred())
+			err = GenerateLocalData(domain, namespace, cloudInitData)
+			Expect(err).NotTo(HaveOccurred())
+			err = GenerateLocalData(domain, namespace, cloudInitData)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 	})
 })

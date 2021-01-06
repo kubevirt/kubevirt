@@ -107,6 +107,10 @@ var _ = Describe("[Serial]Operator", func() {
 		usesSha                           func(string) bool
 		ensureShasums                     func()
 		generatePreviousVersionVmYamls    func(string, string)
+		generateMigratableVMIs            func(int) []*v1.VirtualMachineInstance
+		startAllVMIs                      func([]*v1.VirtualMachineInstance)
+		deleteAllVMIs                     func([]*v1.VirtualMachineInstance)
+		verifyVMIsMigratable              func([]*v1.VirtualMachineInstance)
 	)
 
 	tests.BeforeAll(func() {
@@ -267,7 +271,7 @@ var _ = Describe("[Serial]Operator", func() {
 				Expect(podsReadyAndOwned).ToNot(Equal(0))
 
 				return nil
-			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		}
 
 		waitForUpdateCondition = func(kv *v1.KubeVirt) {
@@ -381,6 +385,10 @@ var _ = Describe("[Serial]Operator", func() {
 		patchKvInfra = func(name string, infra *v1.ComponentConfig) {
 			kv := copyOriginalKv()
 			verb := "add"
+			if infra == nil {
+				verb = "remove"
+			}
+
 			if kv.Spec.Infra != nil {
 				verb = "replace"
 			}
@@ -394,6 +402,10 @@ var _ = Describe("[Serial]Operator", func() {
 		patchKvWorkloads = func(name string, workloads *v1.ComponentConfig) {
 			kv := copyOriginalKv()
 			verb := "add"
+			if workloads == nil {
+				verb = "remove"
+			}
+
 			if kv.Spec.Workloads != nil {
 				verb = "replace"
 			}
@@ -554,6 +566,79 @@ var _ = Describe("[Serial]Operator", func() {
 			Expect(len(cdiList.Items)).To(Equal(1))
 
 			originalCDI = &cdiList.Items[0]
+		}
+
+		generateMigratableVMIs = func(num int) []*v1.VirtualMachineInstance {
+
+			vmis := []*v1.VirtualMachineInstance{}
+			for i := 0; i < num; i++ {
+				vmis = append(vmis, tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros)))
+			}
+
+			return vmis
+		}
+
+		startAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
+			for _, vmi := range vmis {
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(BeNil(), "Create VMI successfully")
+				tests.WaitForSuccessfulVMIStart(vmi)
+			}
+		}
+
+		deleteAllVMIs = func(vmis []*v1.VirtualMachineInstance) {
+			for _, vmi := range vmis {
+				err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil(), "Delete VMI successfully")
+			}
+		}
+
+		verifyVMIsMigratable = func(vmis []*v1.VirtualMachineInstance) {
+
+			vmiMigrationMap := make(map[string]*v1.VirtualMachineInstanceMigration)
+
+			for _, vmi := range vmis {
+				vmiMigrationMap[vmi.Name] = nil
+			}
+
+			Eventually(func() error {
+				By("Creating a migration object for each vmi")
+				migrationList, err := virtClient.VirtualMachineInstanceMigration(tests.NamespaceTestDefault).List(&metav1.ListOptions{})
+				Expect(err).To(BeNil(), "retrieving migrations")
+
+				for _, migration := range migrationList.Items {
+					existingMigration, ok := vmiMigrationMap[migration.Spec.VMIName]
+					if ok && existingMigration != nil && existingMigration.Status.Phase == v1.MigrationSucceeded {
+						continue
+					}
+
+					if migration.Status.Phase == v1.MigrationFailed {
+						// handles situations where we might hit global max
+						// depending on how many VMIs we try to migrate. By removing
+						// the failed migration entry, the test will re-attempt
+						vmiMigrationMap[migration.Spec.VMIName] = nil
+					} else {
+						vmiMigrationMap[migration.Spec.VMIName] = migration.DeepCopy()
+					}
+				}
+
+				allMigrationsCompleted := true
+				for vmiName, migration := range vmiMigrationMap {
+					if migration == nil {
+						allMigrationsCompleted = false
+						migration = tests.NewRandomMigration(vmiName, tests.NamespaceTestDefault)
+						_, _ = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+					} else if migration.Status.Phase != v1.MigrationSucceeded {
+						allMigrationsCompleted = false
+					}
+				}
+
+				if !allMigrationsCompleted {
+					return fmt.Errorf("Waiting on VMIs to finish migration")
+				}
+
+				return nil
+			}, 320, 1).Should(BeNil(), "All VMIs should update via live migration")
 		}
 
 		generatePreviousVersionVmYamls = func(previousImageRegistry string, previousImageTag string) {
@@ -736,6 +821,58 @@ spec:
 		waitForKv(kv)
 	})
 
+	Describe("Validation Webhooks", func() {
+		var kv *v1.KubeVirt
+		var workloads *v1.ComponentConfig
+
+		workloadPlacementUpdate := &v1.ComponentConfig{
+			NodePlacement: &v1.NodePlacement{
+				NodeSelector: map[string]string{
+					"nodeName": "node1",
+				},
+			},
+		}
+
+		BeforeEach(func() {
+			kv = tests.GetCurrentKv(virtClient)
+			workloads = kv.Spec.Workloads
+		})
+
+		AfterEach(func() {
+			kv = tests.GetCurrentKv(virtClient)
+			kv.Spec.Workloads = workloads
+
+			_, err := virtClient.KubeVirt(kv.Namespace).Update(kv)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should deny KV update when VMI is running", func() {
+			By("starting a VM")
+			vmi := tests.NewRandomVMI()
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).To(BeNil())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			By("updating workload placement")
+			placementBytes, err := json.Marshal(workloadPlacementUpdate)
+			Expect(err).ToNot(HaveOccurred())
+
+			ops := fmt.Sprintf(`[{ "op": "add", "path": "/spec/workloads", "value": %s }]`, string(placementBytes))
+			_, err = virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(ops))
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should allow KV update when there are no VMIs running", func() {
+			placementBytes, err := json.Marshal(workloadPlacementUpdate)
+			Expect(err).ToNot(HaveOccurred())
+
+			ops := fmt.Sprintf(`[{ "op": "add", "path": "/spec/workloads", "value": %s }]`, string(placementBytes))
+			kv, err := virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(ops))
+			Expect(err).To(BeNil())
+			Expect(kv.Spec.Workloads).To(Equal(workloadPlacementUpdate))
+		})
+	})
+
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should start a VM", func() {
 		It("[test_id:3144]using virt-launcher with a shasum", func() {
 
@@ -825,6 +962,8 @@ spec:
 			if !tests.HasCDI() {
 				Skip("Skip Update test when CDI is not present")
 			}
+
+			migratableVMIs := generateMigratableVMIs(3)
 
 			// Disable HonorWaitForFirstCustomer, since we don't know if previous versions
 			// already support this setting.
@@ -939,6 +1078,9 @@ spec:
 				}, 180*time.Second, 1*time.Second).Should(BeTrue())
 			}
 
+			By("Starting multiple migratable VMIs before performing update")
+			startAllVMIs(migratableVMIs)
+
 			// Update KubeVirt from the previous release to the testing target release.
 			By("Updating KubeVirtObject With Current Tag")
 			patchKvVersionAndRegistry(kv.Name, curVersion, curRegistry)
@@ -1040,6 +1182,12 @@ spec:
 					return false
 				}, 90*time.Second, 1*time.Second).Should(BeTrue())
 			}
+
+			By("Verifying all vmis can be migrated after update")
+			verifyVMIsMigratable(migratableVMIs)
+
+			By("Deleting migratable VMIs")
+			deleteAllVMIs(migratableVMIs)
 
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
@@ -1628,7 +1776,7 @@ spec:
 		patchData := []byte(fmt.Sprint(`[{ "op": "replace", "path": "/metadata/labels", "value": {} }]`))
 		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(components.VirtApiCertSecretName, types.JSONPatchType, patchData)
 		Expect(err).ToNot(HaveOccurred())
-		_, err = aggregatorClient.ApiregistrationV1beta1().APIServices().Patch("v1alpha3.subresources.kubevirt.io", types.JSONPatchType, patchData)
+		_, err = aggregatorClient.ApiregistrationV1beta1().APIServices().Patch(fmt.Sprintf("%s.subresources.kubevirt.io", v1.ApiLatestVersion), types.JSONPatchType, patchData)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(components.VirtAPIValidatingWebhookName, types.JSONPatchType, patchData)
 		Expect(err).ToNot(HaveOccurred())
@@ -1642,7 +1790,7 @@ spec:
 			return secret.Labels
 		}, 20*time.Second, 1*time.Second).Should(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))
 		Eventually(func() map[string]string {
-			apiService, err := aggregatorClient.ApiregistrationV1beta1().APIServices().Get("v1alpha3.subresources.kubevirt.io", metav1.GetOptions{})
+			apiService, err := aggregatorClient.ApiregistrationV1beta1().APIServices().Get(fmt.Sprintf("%s.subresources.kubevirt.io", v1.ApiLatestVersion), metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return apiService.Labels
 		}, 20*time.Second, 1*time.Second).Should(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))

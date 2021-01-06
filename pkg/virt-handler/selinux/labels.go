@@ -17,6 +17,7 @@ type execFunc = func(binary string, args ...string) ([]byte, error)
 type copyPolicy = func(policyName string, dir string) (err error)
 
 func defaultExecFunc(binary string, args ...string) ([]byte, error) {
+	// #nosec No risk for attacket injection. args get specific selinux exec parameters
 	return exec.Command(binary, args...).CombinedOutput()
 }
 
@@ -122,7 +123,7 @@ func (se *SELinuxImpl) selinux(args ...string) (out []byte, err error) {
 
 func defaultCopyPolicyFunc(policyName string, dir string) (err error) {
 	sourceFile := "/" + policyName + ".cil"
-
+	// #nosec No risk for path injection. Using static string path
 	input, err := ioutil.ReadFile(sourceFile)
 	if err != nil {
 		return fmt.Errorf("failed to read a policy file %v: %v ", sourceFile, err)

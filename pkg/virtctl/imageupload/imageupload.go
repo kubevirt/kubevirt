@@ -173,6 +173,10 @@ func parseArgs(args []string) error {
 		size = pvcSize
 	}
 
+	if accessMode == string(v1.ReadOnlyMany) {
+		return fmt.Errorf("cannot upload to a readonly volume, use either ReadWriteOnce or ReadWriteMany if supported")
+	}
+
 	// check deprecated invocation
 	if name != "" {
 		if len(args) != 0 {
@@ -206,7 +210,8 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 	if err := parseArgs(args); err != nil {
 		return err
 	}
-
+	// #nosec G304 No risk for path injection as this funtion exectues with
+	// the same previliges as those of virtctl user who supplies imagePath
 	file, err := os.Open(imagePath)
 	if err != nil {
 		return err

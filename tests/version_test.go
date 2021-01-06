@@ -48,9 +48,9 @@ var _ = Describe("Version", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(info.Compiler).To(Equal(runtime.Compiler))
 			Expect(info.Platform).To(Equal(fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)))
-			Expect(info.GitVersion).To(Not(Equal("v0.0.0-master+$Format:%h$")))
-			Expect(info.GitCommit).To(Not(Equal("$Format:%H$")))
-			Expect(info.BuildDate).To(Not(Equal("1970-01-01T00:00:00Z")))
+			Expect(info.GitVersion).To(Not(SatisfyAny(Equal("v0.0.0-master+$Format:%h$"), Equal("{gitVersion}"))))
+			Expect(info.GitCommit).To(Not(SatisfyAny(Equal("$Format:%H$"), Equal("{gitCommit}"))))
+			Expect(info.BuildDate).To(Not(SatisfyAny(Equal("1970-01-01T00:00:00Z"), Equal("{buildDate}"))))
 		})
 	})
 

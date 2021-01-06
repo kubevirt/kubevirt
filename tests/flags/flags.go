@@ -44,6 +44,7 @@ var ConfigFile = ""
 var SkipShasumCheck bool
 var SkipDualStackTests bool
 var ArtifactsDir string
+var ApplyDefaulte2eConfiguration bool
 
 var DeployTestingInfrastructureFlag = false
 var PathToTestingInfrastrucureManifests = ""
@@ -70,6 +71,7 @@ func init() {
 	flag.StringVar(&ArtifactsDir, "artifacts", os.Getenv("ARTIFACTS"), "Directory for storing reporter artifacts like junit files or logs")
 	flag.BoolVar(&SkipShasumCheck, "skip-shasums-check", false, "Skip tests with sha sums.")
 	flag.BoolVar(&SkipDualStackTests, "skip-dual-stack-test", false, "Skip test that actively checks for the presence of IPv6 address in the cluster pods.")
+	flag.BoolVar(&ApplyDefaulte2eConfiguration, "apply-default-e2e-configuration", false, "Apply the default e2e test configuration (feature gates, selinux contexts, ...)")
 }
 
 func NormalizeFlags() {

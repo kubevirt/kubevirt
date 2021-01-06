@@ -200,6 +200,12 @@ type virtLauncherCriticalNetworkError struct {
 
 func (e *virtLauncherCriticalNetworkError) Error() string { return e.msg }
 
+type virtLauncherCriticalSecurebootError struct {
+	msg string
+}
+
+func (e *virtLauncherCriticalSecurebootError) Error() string { return e.msg }
+
 func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, ln net.Listener, virtShareDir string, vmi *v1.VirtualMachineInstance) {
 
 	fdChan := make(chan net.Conn, 100)
@@ -468,7 +474,7 @@ func (d *VirtualMachineController) getPodInterfacefromFileCache(uid types.UID, i
 	if exists {
 		return result, nil
 	}
-
+	// #nosec No risk for path injection. ifacepath is composed of static values from pkg/util
 	content, err := ioutil.ReadFile(ifacepath)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to read from cache file: %s", err.Error())
@@ -930,6 +936,10 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 
 	if _, ok := syncError.(*virtLauncherCriticalNetworkError); ok {
 		log.Log.Errorf("virt-launcher crashed due to a network error. Updating VMI %s status to Failed", vmi.Name)
+		vmi.Status.Phase = v1.Failed
+	}
+	if _, ok := syncError.(*virtLauncherCriticalSecurebootError); ok {
+		log.Log.Errorf("virt-launcher does not support the Secure Boot setting. Updating VMI %s status to Failed", vmi.Name)
 		vmi.Status.Phase = v1.Failed
 	}
 	condManager.CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
@@ -2154,10 +2164,6 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 				return fmt.Errorf("failed to adjust resources: %v", err)
 			}
 		} else if vmi.IsRunning() {
-			// Umount any disks no longer mounted
-			if err := d.hotplugVolumeMounter.Unmount(vmi); err != nil {
-				return err
-			}
 			if err := d.hotplugVolumeMounter.Mount(vmi); err != nil {
 				return err
 			}
@@ -2179,9 +2185,19 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 
 		err = client.SyncVirtualMachine(vmi, options)
 		if err != nil {
+			isSecbootError := strings.Contains(err.Error(), "EFI OVMF roms missing")
+			if isSecbootError {
+				return &virtLauncherCriticalSecurebootError{fmt.Sprintf("mismatch of Secure Boot setting and bootloaders: %v", err)}
+			}
 			return err
 		}
 		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), "VirtualMachineInstance defined.")
+		if vmi.IsRunning() {
+			// Umount any disks no longer mounted
+			if err := d.hotplugVolumeMounter.Unmount(vmi); err != nil {
+				return err
+			}
+		}
 	}
 
 	return err
@@ -2355,7 +2371,7 @@ func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan
 
 func (d *VirtualMachineController) updateNodeCpuManagerLabel(cpuManagerPath string) {
 	var cpuManagerOptions map[string]interface{}
-
+	// #nosec No risk for path injection. cpuManagerPath is composed of static values from pkg/util
 	content, err := ioutil.ReadFile(cpuManagerPath)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)

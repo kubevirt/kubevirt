@@ -74,6 +74,7 @@ func (h *DeviceUtilsHandler) GetDeviceDriver(basepath string, pciAddress string)
 func (h *DeviceUtilsHandler) GetDeviceNumaNode(basepath string, pciAddress string) (numaNode int) {
 	numaNode = -1
 	numaNodePath := filepath.Join(basepath, pciAddress, "numa_node")
+	// #nosec No risk for path injection. Reading static path of NUMA node info
 	numaNodeStr, err := ioutil.ReadFile(numaNodePath)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("failed to read numa_node %s for device %s", numaNodePath, pciAddress)
@@ -89,6 +90,7 @@ func (h *DeviceUtilsHandler) GetDeviceNumaNode(basepath string, pciAddress strin
 }
 
 func (h *DeviceUtilsHandler) GetDevicePCIID(basepath string, pciAddress string) (string, error) {
+	// #nosec No risk for path injection. Reading static path of PCI data
 	file, err := os.Open(filepath.Join(basepath, pciAddress, "uevent"))
 	if err != nil {
 		return "", err

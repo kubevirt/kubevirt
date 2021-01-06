@@ -267,6 +267,7 @@ func findCloudInitConfigDriveSecretVolume(volumes []v1.Volume) *v1.Volume {
 
 func readFileFromDir(basedir, secretFile string) (string, error) {
 	userDataSecretFile := filepath.Join(basedir, secretFile)
+	// #nosec No risk for path injection: basedir & secretFile are static strings
 	userDataSecret, err := ioutil.ReadFile(userDataSecretFile)
 	if err != nil {
 		log.Log.V(2).Reason(err).
@@ -280,11 +281,14 @@ func readFileFromDir(basedir, secretFile string) (string, error) {
 // to the first CloudInitNoCloud volume with a UserDataSecretRef field set.
 func findCloudInitNoCloudSecretVolume(volumes []v1.Volume) *v1.Volume {
 	for _, volume := range volumes {
-		if volume.CloudInitNoCloud != nil && volume.CloudInitNoCloud.UserDataSecretRef != nil {
+		if volume.CloudInitNoCloud == nil {
+			continue
+		}
+		if volume.CloudInitNoCloud.UserDataSecretRef != nil ||
+			volume.CloudInitNoCloud.NetworkDataSecretRef != nil {
 			return &volume
 		}
 	}
-
 	return nil
 }
 
@@ -305,13 +309,14 @@ func readCloudInitData(userData, userDataBase64, networkData, networkDataBase64 
 	if err != nil {
 		return "", "", err
 	}
-	if readUserData == "" {
-		return "", "", fmt.Errorf("userDataBase64 or userData is required for a cloud-init data source")
-	}
 
 	readNetworkData, err := readRawOrBase64Data(networkData, networkDataBase64)
 	if err != nil {
 		return "", "", err
+	}
+
+	if readUserData == "" && readNetworkData == "" {
+		return "", "", fmt.Errorf("userDataBase64, userData, networkDataBase64 or networkData is required for a cloud-init data source")
 	}
 
 	return readUserData, readNetworkData, nil
@@ -373,6 +378,7 @@ func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
 	args = append(args, "-rock")
 	args = append(args, inDir)
 
+	// #nosec No risk for attacket injection. Parameters are predefined strings
 	cmd := exec.Command("genisoimage", args...)
 
 	err := cmd.Start()
@@ -505,8 +511,8 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 		return err
 	}
 
-	if data.UserData == "" {
-		return fmt.Errorf("UserData is required for cloud-init data source")
+	if data.UserData == "" && data.NetworkData == "" {
+		return fmt.Errorf("UserData or NetworkData is required for cloud-init data source")
 	}
 	userData := []byte(data.UserData)
 
@@ -558,22 +564,10 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 		return err
 	}
 
-	isEqual, err := diskutils.FilesAreEqual(iso, isoStaging)
+	err = os.Rename(isoStaging, iso)
 	if err != nil {
+		log.Log.Reason(err).Errorf("Cloud-init failed to rename file %s to %s", isoStaging, iso)
 		return err
-	}
-
-	// Only replace the dynamically generated iso if it has a different checksum
-	if isEqual {
-		diskutils.RemoveFile(isoStaging)
-	} else {
-		diskutils.RemoveFile(iso)
-		err = os.Rename(isoStaging, iso)
-		if err != nil {
-			// This error is not something we need to block iso creation for.
-			log.Log.Reason(err).Errorf("Cloud-init failed to rename file %s to %s", isoStaging, iso)
-			return err
-		}
 	}
 
 	log.Log.V(2).Infof("generated nocloud iso file %s", iso)

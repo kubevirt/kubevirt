@@ -117,7 +117,7 @@ func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineIns
 }
 
 // GetDomainSpecWithRuntimeInfo return the active domain XML with runtime information embedded
-func GetDomainSpecWithRuntimeInfo(status libvirt.DomainState, dom cli.VirDomain) (*api.DomainSpec, error) {
+func GetDomainSpecWithRuntimeInfo(dom cli.VirDomain) (*api.DomainSpec, error) {
 
 	// get libvirt xml with runtime status
 	activeSpec, err := GetDomainSpecWithFlags(dom, 0)
@@ -251,6 +251,7 @@ func StartVirtlog(stopChan chan struct{}, domainName string) {
 			var args []string
 			args = append(args, "-f")
 			args = append(args, "/etc/libvirt/virtlogd.conf")
+			// #nosec No risk for attacket injection. Args  are predefined strings
 			cmd := exec.Command("/usr/sbin/virtlogd", args...)
 
 			exitChan := make(chan struct{})
@@ -272,7 +273,7 @@ func StartVirtlog(stopChan chan struct{}, domainName string) {
 					}
 					time.Sleep(time.Second)
 				}
-
+				// #nosec No risk for path injection. logfile has a static basedir
 				file, err := os.Open(logfile)
 				if err != nil {
 					log.Log.Reason(err).Error("failed to catch virtlogd logs")

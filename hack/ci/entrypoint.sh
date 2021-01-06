@@ -36,7 +36,7 @@ function deploy_release() {
 }
 
 function test_kubevirt_nightly() {
-    export DOCKER_PREFIX='kubevirtnightlybuilds'
+    export DOCKER_PREFIX='quay.io/kubevirt'
     local release_url
     release_date=$(get_latest_release_date_for_kubevirt_nightly)
     release_url="$(get_release_url_for_kubevirt_nightly "$release_date")"

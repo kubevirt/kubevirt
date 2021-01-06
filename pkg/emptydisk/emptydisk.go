@@ -24,6 +24,7 @@ func CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) error {
 				return err
 			}
 			if _, err := os.Stat(file); os.IsNotExist(err) {
+				// #nosec No risk for attacket injection. Parameters are predefined strings
 				if err := exec.Command("qemu-img", "create", "-f", "qcow2", file, size).Run(); err != nil {
 					return err
 				}

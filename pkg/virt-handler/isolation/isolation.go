@@ -75,6 +75,11 @@ type MountInfo struct {
 	MountPoint           string
 }
 
+// The unit test suite overwrites this function
+var mountInfoFunc = func(pid int) string {
+	return fmt.Sprintf("/proc/%d/mountinfo", pid)
+}
+
 type socketBasedIsolationDetector struct {
 	socketDir  string
 	controller []string
@@ -113,29 +118,13 @@ func (s *socketBasedIsolationDetector) Whitelist(controller []string) PodIsolati
 }
 
 func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (IsolationResult, error) {
-	var pid int
-	var slice string
-	var err error
-	var controller []string
-
 	// Look up the socket of the virt-launcher Pod which was created for that VM, and extract the PID from it
 	socket, err := cmdclient.FindSocketOnHost(vm)
 	if err != nil {
 		return nil, err
 	}
 
-	if pid, err = s.getPid(socket); err != nil {
-		log.Log.Object(vm).Reason(err).Errorf("Could not get owner Pid of socket %s", socket)
-		return nil, err
-	}
-
-	// Look up the cgroup slice based on the whitelisted controller
-	if controller, slice, err = s.getSlice(pid); err != nil {
-		log.Log.Object(vm).Reason(err).Errorf("Could not get cgroup slice for Pid %d", pid)
-		return nil, err
-	}
-
-	return NewIsolationResult(pid, slice, controller), nil
+	return s.DetectForSocket(vm, socket)
 }
 
 // standard golang libraries don't provide API to set runtime limits
@@ -275,7 +264,7 @@ func (r *realIsolationResult) MountNamespace() string {
 }
 
 func (r *realIsolationResult) mountInfo() string {
-	return fmt.Sprintf("/proc/%d/mountinfo", r.pid)
+	return mountInfoFunc(r.pid)
 }
 
 // MountInfoRoot returns information about the root entry in /proc/mountinfo
@@ -403,6 +392,23 @@ func (r *realIsolationResult) ParentMountInfoFor(mountInfo *MountInfo) (*MountIn
 		}
 	}
 	return nil, fmt.Errorf("no parent entry for %v found in the mount namespace of %d", mountInfo.DeviceContainingFile, r.pid)
+}
+
+// FullPath takes the mount info from a container and composes the full path starting from
+// the root mount of the given process.
+func (r *realIsolationResult) FullPath(mountInfo *MountInfo) (path string, err error) {
+	// Handle btrfs subvolumes: mountInfo.Root seems to already provide the needed path
+	if strings.HasPrefix(mountInfo.Root, "/@") {
+		path = filepath.Join(r.MountRoot(), strings.TrimPrefix(mountInfo.Root, "/@"))
+		return
+	}
+
+	parentMountInfo, err := r.ParentMountInfoFor(mountInfo)
+	if err != nil {
+		return
+	}
+	path = filepath.Join(r.MountRoot(), parentMountInfo.Root, parentMountInfo.MountPoint, mountInfo.Root)
+	return
 }
 
 func (r *realIsolationResult) NetNamespace() string {

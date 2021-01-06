@@ -61,6 +61,7 @@ const virtiofsDebugLogs = "virtiofsdDebugLogs"
 
 const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
 
+const CAP_NET_ADMIN = "NET_ADMIN"
 const CAP_NET_RAW = "NET_RAW"
 const CAP_SYS_ADMIN = "SYS_ADMIN"
 const CAP_SYS_NICE = "SYS_NICE"
@@ -372,23 +373,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		},
 	})
 
-	if util.IsVFIOVMI(vmi) && !util.IsSRIOVVmi(vmi) {
-		// libvirt needs this volume to access PCI device config;
-		// note that the volume should not be read-only because libvirt
-		// opens the config for writing
-		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-			Name:      "pci-devices",
-			MountPath: "/sys/devices/",
-		})
-		volumes = append(volumes, k8sv1.Volume{
-			Name: "pci-devices",
-			VolumeSource: k8sv1.VolumeSource{
-				HostPath: &k8sv1.HostPathVolumeSource{
-					Path: "/sys/devices/",
-				},
-			},
-		})
-	}
 	serviceAccountName := ""
 
 	for _, volume := range vmi.Spec.Volumes {
@@ -1303,8 +1287,14 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, 
 }
 
 func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability {
-	// CAP_SYS_NICE capability to allow setting cpu affinity
-	res := []k8sv1.Capability{CAP_SYS_NICE}
+	res := []k8sv1.Capability{}
+	if (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
+		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
+		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
+		res = append(res, CAP_NET_ADMIN)
+	}
+	// add a CAP_SYS_NICE capability to allow setting cpu affinity
+	res = append(res, CAP_SYS_NICE)
 
 	// add CAP_SYS_ADMIN capability to allow virtiofs
 	if util.IsVMIVirtiofsEnabled(vmi) {

@@ -32,7 +32,7 @@ deploy:
     branch: master
     condition: $TRAVIS_CPU_ARCH = amd64
 - provider: script
-  script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && DOCKER_PREFIX="index.docker.io/kubevirt"
+  script: docker login -u="$QUAY_USERNAME" -p="$QUAY_PASSWORD" quay.io && DOCKER_PREFIX="quay.io/kubevirt"
     DOCKER_TAG="$TRAVIS_TAG" QUAY_REPOSITORY="kubevirt" PACKAGE_NAME="kubevirt-operatorhub"
     sh -c 'make bazel-push-images && make manifests'
   skip_cleanup: true

@@ -118,15 +118,12 @@ var _ = Describe("[Serial]Windows VirtualMachineInstance", func() {
 
 	var windowsVMI *v1.VirtualMachineInstance
 
-	tests.BeforeAll(func() {
+	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
-
-		tests.SkipIfNoWindowsImage(virtClient)
-	})
-
-	BeforeEach(func() {
 		tests.BeforeTestCleanup()
+		tests.SkipIfNoWindowsImage(virtClient)
+		tests.CreatePVC(tests.OSWindows, "30Gi", tests.Config.StorageClassWindows, true)
 		windowsVMI = tests.NewRandomVMI()
 		windowsVMI.Spec = getWindowsVMISpec()
 		tests.AddExplicitPodNetworkInterface(windowsVMI)
@@ -279,7 +276,6 @@ var _ = Describe("[Serial]Windows VirtualMachineInstance", func() {
 		})
 
 		AfterEach(func() {
-			os.RemoveAll(workDir)
 			if workDir != "" {
 				err = os.RemoveAll(workDir)
 				Expect(err).ToNot(HaveOccurred())

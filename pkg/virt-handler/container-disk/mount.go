@@ -109,7 +109,7 @@ func (m *mounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*vmiMoun
 	}
 
 	// if not there, see if record is on disk, this can happen if virt-handler restarts
-	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))
+	recordFile := filepath.Join(m.mountStateDir, filepath.Clean(string(vmi.UID)))
 
 	exists, err := diskutils.FileExists(recordFile)
 	if err != nil {
@@ -118,6 +118,7 @@ func (m *mounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*vmiMoun
 
 	if exists {
 		record := vmiMountTargetRecord{}
+		// #nosec No risk for path injection. Using static base and cleaned filename
 		bytes, err := ioutil.ReadFile(recordFile)
 		if err != nil {
 			return nil, err
@@ -231,11 +232,11 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 				if err != nil {
 					return fmt.Errorf("failed to detect root mount info of containerDisk  %v: %v", volume.Name, err)
 				}
-				nodeMountInfo, err := nodeRes.ParentMountInfoFor(mountInfo)
+				rootPath, err := nodeRes.FullPath(mountInfo)
 				if err != nil {
 					return fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
 				}
-				sourceFile, err := containerdisk.GetImage(filepath.Join(nodeRes.MountRoot(), nodeMountInfo.Root, nodeMountInfo.MountPoint), volume.ContainerDisk.Path)
+				sourceFile, err := containerdisk.GetImage(rootPath, volume.ContainerDisk.Path)
 				if err != nil {
 					return fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
 				}
@@ -290,6 +291,7 @@ func (m *mounter) legacyUnmount(vmi *v1.VirtualMachineInstance) error {
 			if mounted, err := isolation.NodeIsolationResult().IsMounted(path); err != nil {
 				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", path, err)
 			} else if mounted {
+				// #nosec No risk for attacket injection. Parameters are predefined strings
 				out, err := exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "umount", path).CombinedOutput()
 				if err != nil {
 					return fmt.Errorf("failed to unmount containerDisk %v: %v : %v", path, string(out), err)
@@ -333,6 +335,7 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", path, err)
 			} else if mounted {
 				log.DefaultLogger().Object(vmi).Infof("unmounting container disk at path %s", path)
+				// #nosec No risk for attacket injection. Parameters are predefined strings
 				out, err := exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "umount", path).CombinedOutput()
 				if err != nil {
 					return fmt.Errorf("failed to unmount containerDisk %v: %v : %v", path, string(out), err)

@@ -27,8 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/util/cluster"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -39,21 +37,25 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	kubevirt_hooks_v1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util/cluster"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
+
+type VMICreationFuncWithEFI func() *v1.VirtualMachineInstance
 
 var _ = Describe("Configurations", func() {
 
@@ -88,7 +90,21 @@ var _ = Describe("Configurations", func() {
 			}
 			Expect(rootPortController).To(HaveLen(0), "libvirt should not add additional buses to the root one")
 		})
+	})
 
+	Context("when requesting virtio-transitional models", func() {
+		It("should start and run the guest", func() {
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: "virtio", Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
+			vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "watchdog", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionPoweroff}}}
+			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.BoolPtr(true)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			testutils.ExpectVirtioTransitionalOnly(domSpec)
+		})
 	})
 
 	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should", func() {
@@ -502,38 +518,36 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func() {
+		table.DescribeTable("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func(vmiNew VMICreationFuncWithEFI, loginTo console.LoginToFactory, msg string, fileName string) {
+			vmi := vmiNew()
+			By("Starting a VirtualMachineInstance")
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
-			It("[Serial][test_id:1668]should use EFI", func() {
-				vmi := tests.NewRandomVMIWithEFIBootloader()
+			tests.WaitForVMIStartOrFailed(vmi, 180, true)
+			vmiMeta, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-				By("Starting a VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-
-				By("Checking if UEFI is enabled")
+			switch vmiMeta.Status.Phase {
+			case v1.Failed:
+				// This Error is expected to be handled
+				By("Getting virt-launcher logs")
+				logs := func() string { return getVirtLauncherLogs(virtClient, vmi) }
+				Eventually(logs,
+					30*time.Second,
+					500*time.Millisecond).
+					Should(ContainSubstring("EFI OVMF roms missing"))
+			default:
+				tests.WaitUntilVMIReady(vmi, loginTo)
+				By(msg)
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring("OVMF_CODE.fd"))
-			})
-
-			It("[Serial][test_id:4437]should enable EFI secure boot", func() {
-				vmi := tests.NewRandomVMIWithSecureBoot()
-
-				By("Starting a VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Checking if SecureBoot is enabled in Linux")
-				tests.WaitUntilVMIReady(vmi, console.SecureBootExpecter)
-
-				By("Checking if SecureBoot is enabled in the libvirt XML")
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring("OVMF_CODE.secboot.fd"))
-			})
-		})
+				Expect(domXml).To(ContainSubstring(fileName))
+			}
+		},
+			table.Entry("[Serial][test_id:1668]should use EFI", tests.NewRandomVMIWithEFIBootloader, console.LoginToAlpine, "Checking if UEFI is enabled", "OVMF_CODE.fd"),
+			table.Entry("[Serial][test_id:4437]should enable EFI secure boot", tests.NewRandomVMIWithSecureBoot, console.SecureBootExpecter, "Checking if SecureBoot is enabled in the libvirt XML", "OVMF_CODE.secboot.fd"),
+		)
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging guest memory from requested memory", func() {
 			It("[test_id:1669]should show the requested guest memory inside the VMI", func() {
@@ -1735,12 +1749,9 @@ var _ = Describe("Configurations", func() {
 
 			tests.AddEphemeralDisk(vmi, "ephemeral-disk3", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
-			tests.AddPVCDisk(vmi, "hostpath-pvc", "virtio", tests.DiskAlpineHostPath)
-			tests.AddPVCDisk(vmi, "block-pvc", "virtio", tests.BlockDiskForTest)
 			tmpHostDiskDir := tests.RandTmpDir()
 			tests.AddHostDisk(vmi, filepath.Join(tmpHostDiskDir, "test-disk.img"), v1.HostDiskExistsOrCreate, "hostdisk")
 			tests.RunVMIAndExpectLaunch(vmi, 60)
-
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -1769,26 +1780,12 @@ var _ = Describe("Configurations", func() {
 			Expect(disks[3].Alias.Name).To(Equal("cloud-init"))
 			Expect(disks[3].Driver.Cache).To(Equal(cacheNone))
 
-			By("checking if default cache 'none' has been set to pvc disk")
-			Expect(disks[4].Alias.Name).To(Equal("hostpath-pvc"))
-			// PVC is mounted as tmpfs on kind, which does not support direct I/O.
-			// As such, it behaves as plugging in a hostDisk - check disks[6].
-			if tests.IsRunningOnKindInfra() {
-				Expect(disks[4].Driver.Cache).To(Equal(cacheWritethrough))
-			} else {
-				Expect(disks[4].Driver.Cache).To(Equal(cacheNone))
-			}
-
-			By("checking if default cache 'none' has been set to block pvc")
-			Expect(disks[5].Alias.Name).To(Equal("block-pvc"))
-			Expect(disks[5].Driver.Cache).To(Equal(cacheNone))
-
 			By("checking if default cache 'writethrough' has been set to fs which does not support direct I/O")
-			Expect(disks[6].Alias.Name).To(Equal("hostdisk"))
-			Expect(disks[6].Driver.Cache).To(Equal(cacheWritethrough))
+			Expect(disks[4].Alias.Name).To(Equal("hostdisk"))
+			Expect(disks[4].Driver.Cache).To(Equal(cacheWritethrough))
 		})
 
-		It("[test_id:1683]should set appropriate IO modes", func() {
+		It("[test_id:5360]should set appropriate IO modes", func() {
 			tests.SkipPVCTestIfRunnigOnKindInfra()
 
 			vmi := tests.NewRandomVMI()
