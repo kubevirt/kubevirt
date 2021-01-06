@@ -184,3 +184,11 @@ func (c *ClusterConfig) GetVirtAPIVerbosity(nodeName string) uint {
 	}
 	return logConf.VirtAPI
 }
+
+func (c *ClusterConfig) GetVirtControllerVerbosity(nodeName string) uint {
+	logConf := c.GetConfig().DeveloperConfiguration.LogVerbosity
+	if level := logConf.NodeVerbosity[nodeName]; level != 0 {
+		return level
+	}
+	return logConf.VirtController
+}
