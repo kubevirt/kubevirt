@@ -1240,12 +1240,12 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, 
 							k8sv1.ResourceMemory: resource.MustParse("1M"),
 						},
 					},
-				},
-			},
-			SecurityContext: &k8sv1.PodSecurityContext{
-				SELinuxOptions: &k8sv1.SELinuxOptions{
-					Level: "s0",
-					Type:  t.clusterConfig.GetSELinuxLauncherType(),
+					SecurityContext: &k8sv1.SecurityContext{
+						SELinuxOptions: &k8sv1.SELinuxOptions{
+							Level: "s0",
+							Type:  t.clusterConfig.GetSELinuxLauncherType(),
+						},
+					},
 				},
 			},
 			Affinity: &k8sv1.Affinity{
