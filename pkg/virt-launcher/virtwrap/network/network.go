@@ -113,14 +113,13 @@ func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance, pid int) error
 		return err
 	}
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
-	for _, iface_ := range vmi.Spec.Domain.Devices.Interfaces {
-		iface := iface_
+	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		networkInterfaceFactory, err := getNetworkInterfaceFactory(networks, iface.Name)
 		if err != nil {
 			return err
 		}
 		podInterfaceName = getPodInterfaceName(networks, cniNetworks, iface.Name)
-		err = NetworkInterface.PlugPhase1(networkInterfaceFactory, vmi, &iface, networks[iface.Name], podInterfaceName, pid)
+		err = NetworkInterface.PlugPhase1(networkInterfaceFactory, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], podInterfaceName, pid)
 		if err != nil {
 			return err
 		}
@@ -130,14 +129,13 @@ func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance, pid int) error
 
 func SetupNetworkInterfacesPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
-	for _, iface_ := range vmi.Spec.Domain.Devices.Interfaces {
-		iface := iface_
+	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		vif, err := getNetworkInterfaceFactory(networks, iface.Name)
 		if err != nil {
 			return err
 		}
 		podInterfaceName = getPodInterfaceName(networks, cniNetworks, iface.Name)
-		err = NetworkInterface.PlugPhase2(vif, vmi, &iface, networks[iface.Name], domain, podInterfaceName)
+		err = NetworkInterface.PlugPhase2(vif, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], domain, podInterfaceName)
 		if err != nil {
 			return err
 		}

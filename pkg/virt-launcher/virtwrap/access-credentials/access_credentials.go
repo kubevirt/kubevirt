@@ -546,8 +546,8 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 		}
 
 		// Step 1. Populate Secrets and filepath Map
-		for _, accessCred_ := range vmi.Spec.AccessCredentials {
-			accessCred := accessCred_
+		for _, accessCred := range vmi.Spec.AccessCredentials {
+			accessCred := accessCred
 			secretName := getSecret(&accessCred)
 			if secretName == "" {
 				continue
