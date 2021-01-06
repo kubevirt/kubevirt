@@ -102,7 +102,7 @@ func InitializeGhostRecordCache(directoryPath string) error {
 
 	ghostRecordGlobalCache = make(map[string]ghostRecord)
 	ghostRecordDir = directoryPath
-	err := os.MkdirAll(ghostRecordDir, 0755)
+	err := util.MkdirAllWithNosec(ghostRecordDir)
 	if err != nil {
 		return err
 	}

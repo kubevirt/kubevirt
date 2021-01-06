@@ -77,7 +77,7 @@ func getVifFilePath(pid, name string) string {
 }
 
 func writeVifFile(buf []byte, pid, name string) error {
-	err := ioutil.WriteFile(getVifFilePath(pid, name), buf, 0644)
+	err := ioutil.WriteFile(getVifFilePath(pid, name), buf, 0600)
 	if err != nil {
 		return fmt.Errorf("error writing vif object: %v", err)
 	}

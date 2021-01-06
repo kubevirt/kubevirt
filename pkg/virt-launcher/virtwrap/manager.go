@@ -956,7 +956,7 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, option
 }
 
 var updateHostsFile = func(entry string) (err error) {
-	file, err := os.OpenFile("/etc/hosts", os.O_WRONLY|os.O_APPEND, 0644)
+	file, err := kutil.OpenFileWithNosec("/etc/hosts", os.O_WRONLY|os.O_APPEND)
 	if err != nil {
 		return fmt.Errorf("failed opening file: %s", err)
 	}
@@ -1569,7 +1569,7 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 		return false, err
 	}
 	if (info.Mode() & os.ModeDevice) != 0 {
-		file, err := os.OpenFile(filename, os.O_RDONLY, 0777)
+		file, err := os.OpenFile(filename, os.O_RDONLY, 0600)
 		if err != nil {
 			log.DefaultLogger().V(1).Infof("Unable to open file: %v", err)
 			return false, nil
@@ -1580,7 +1580,7 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 		return true, nil
 	}
 	// Before attempting to attach, ensure we can open the file
-	file, err := os.OpenFile(filename, os.O_RDWR, 0660)
+	file, err := os.OpenFile(filename, os.O_RDWR, 0600)
 	if err != nil {
 		return false, nil
 	}

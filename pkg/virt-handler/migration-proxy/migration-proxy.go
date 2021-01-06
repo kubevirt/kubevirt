@@ -31,6 +31,7 @@ import (
 	"sync"
 
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 )
 
@@ -377,7 +378,7 @@ func (m *migrationProxy) createTcpListener() error {
 func (m *migrationProxy) createUnixListener() error {
 
 	os.RemoveAll(m.unixSocketPath)
-	err := os.MkdirAll(filepath.Dir(m.unixSocketPath), 0755)
+	err := util.MkdirAllWithNosec(filepath.Dir(m.unixSocketPath))
 	if err != nil {
 		log.Log.Reason(err).Error("unable to create directory for unix socket")
 		return err

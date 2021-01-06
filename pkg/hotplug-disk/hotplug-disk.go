@@ -60,7 +60,7 @@ func GetFileSystemDiskTargetPathFromHostView(virtlauncherPodUID types.UID, volum
 	diskPath := filepath.Join(targetPath, volumeName)
 	exists, _ := diskutils.FileExists(diskPath)
 	if !exists && create {
-		err = os.Mkdir(diskPath, 0755)
+		err = os.Mkdir(diskPath, 0750)
 		if err != nil {
 			return diskPath, err
 		}
@@ -73,7 +73,7 @@ func GetFileSystemDiskTargetPathFromHostView(virtlauncherPodUID types.UID, volum
 // a directory under this, that contains the volume name. block volumes will be in this directory as a block device.
 func SetLocalDirectory(dir string) error {
 	mountBaseDir = dir
-	return os.MkdirAll(dir, 0755)
+	return os.MkdirAll(dir, 0750)
 }
 
 // SetKubeletPodsDirectory sets the base directory of where the kubelet stores its pods.
