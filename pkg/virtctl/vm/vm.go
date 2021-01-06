@@ -20,9 +20,13 @@
 package vm
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 
@@ -34,19 +38,25 @@ import (
 )
 
 const (
-	COMMAND_START       = "start"
-	COMMAND_STOP        = "stop"
-	COMMAND_RESTART     = "restart"
-	COMMAND_MIGRATE     = "migrate"
-	COMMAND_RENAME      = "rename"
-	COMMAND_GUESTOSINFO = "guestosinfo"
-	COMMAND_USERLIST    = "userlist"
-	COMMAND_FSLIST      = "fslist"
+	COMMAND_START        = "start"
+	COMMAND_STOP         = "stop"
+	COMMAND_RESTART      = "restart"
+	COMMAND_MIGRATE      = "migrate"
+	COMMAND_RENAME       = "rename"
+	COMMAND_GUESTOSINFO  = "guestosinfo"
+	COMMAND_USERLIST     = "userlist"
+	COMMAND_FSLIST       = "fslist"
+	COMMAND_ADDVOLUME    = "addvolume"
+	COMMAND_REMOVEVOLUME = "removevolume"
 )
 
 var (
 	forceRestart bool
 	gracePeriod  int = -1
+	volumeName   string
+	diskName     string
+	serial       string
+	persist		 bool
 )
 
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -171,6 +181,68 @@ func NewFSListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	return cmd
 }
 
+func NewAddVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "addvolume VMI",
+		Short:   "add a volume to a running VM",
+		Example: usageAddVolume(),
+		Args:    templates.ExactArgs("addvolume", 1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := Command{command: COMMAND_ADDVOLUME, clientConfig: clientConfig}
+			return c.Run(args)
+		},
+	}
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	cmd.Flags().StringVar(&volumeName, "volume-name", "", "name used in volumes section of spec")
+	cmd.MarkFlagRequired("volume-name")
+	cmd.Flags().StringVar(&diskName, "disk-name", "", "name used in disks section of domain spec")
+	cmd.Flags().StringVar(&serial, "serial", "", "serial number you want to assign to the disk")
+	cmd.Flags().BoolVar(&persist, "persist", false, "if set, the added volume will be persisted in the VM spec (if it exists)")
+
+	return cmd
+}
+
+func NewRemoveVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "removevolume VMI",
+		Short:   "remove a volume from a running VM",
+		Example: usage(COMMAND_REMOVEVOLUME),
+		Args:    templates.ExactArgs("removevolume", 1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := Command{command: COMMAND_REMOVEVOLUME, clientConfig: clientConfig}
+			return c.Run(args)
+		},
+	}
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	cmd.Flags().StringVar(&volumeName, "volume-name", "", "name used in volumes section of spec")
+	cmd.MarkFlagRequired("volume-name")
+	cmd.Flags().BoolVar(&persist, "persist", false, "if set, the added volume will be persisted in the VM spec (if it exists)")
+	return cmd
+}
+
+func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.KubevirtClient) (*v1.HotplugVolumeSource, error) {
+	//Check if data volume exists.
+	_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
+	if err == nil {
+		return &v1.HotplugVolumeSource{
+			DataVolume: &v1.DataVolumeSource{
+				Name: volumeName,
+			},
+		}, nil
+	}
+	// DataVolume not found, try PVC
+	_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
+	if err == nil {
+		return &v1.HotplugVolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: volumeName,
+			},
+		}, nil
+	}
+	// Neither return error
+	return nil, fmt.Errorf("Volume %s is not a DataVolume or PersistentVolumeClaim", volumeName)
+}
+
 type Command struct {
 	clientConfig clientcmd.ClientConfig
 	command      string
@@ -191,6 +263,22 @@ func usage(cmd string) string {
 
 	usage := fmt.Sprintf("  # %s a virtual machine called 'myvm':\n", strings.Title(cmd))
 	usage += fmt.Sprintf("  {{ProgramName}} %s myvm", cmd)
+	return usage
+}
+
+func usageAddVolume() string {
+	usage := `  #Dynamically attach a volume to a running VM.
+  {{ProgramName}} addvolume fedora-dv --volume-name=example-dv
+
+  #Dynamically attach a volume to a running VM giving it a serial number to identify the volume inside the guest.
+  {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --serial=1234567890
+
+  #Dynamically attach a volume to a running VM and persisting it in the VM spec. At next VM restart the volume will be attached like any other volume.
+  {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --persist
+
+  #Dynamically attach a volume to a running VM and setting the disk name in disks section of the VMI spec.
+  {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --disk-name=example-disk
+  `
 	return usage
 }
 
@@ -286,6 +374,53 @@ func (o *Command) Run(args []string) error {
 		}
 
 		fmt.Printf("%s\n", string(data))
+		return nil
+	case COMMAND_ADDVOLUME:
+		volumeSource, err := getVolumeSourceFromVolume(volumeName, namespace, virtClient)
+		if err != nil {
+			return fmt.Errorf("Error adding volume, %v", err)
+		}
+		if diskName == "" {
+			diskName = volumeName
+		}
+		hotplugRequest := &v1.AddVolumeOptions{
+			Name: volumeName,
+			Disk: &v1.Disk{
+				Name: diskName,
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: "scsi",
+					},
+				},
+			},
+			VolumeSource: volumeSource,
+		}
+		if serial != "" {
+			hotplugRequest.Disk.Serial = serial
+		}
+		if !persist {
+			err = virtClient.VirtualMachineInstance(namespace).AddVolume(args[0], hotplugRequest)
+		} else {
+			err = virtClient.VirtualMachine(namespace).AddVolume(args[0], hotplugRequest)
+		}
+		if err != nil {
+			return fmt.Errorf("Error adding volume, %v", err)
+		}
+		return nil
+	case COMMAND_REMOVEVOLUME:
+		var err error
+		if !persist {
+			err = virtClient.VirtualMachineInstance(namespace).RemoveVolume(args[0], &v1.RemoveVolumeOptions{
+				Name: volumeName,
+			})
+		} else {
+			err = virtClient.VirtualMachine(namespace).RemoveVolume(args[0], &v1.RemoveVolumeOptions{
+				Name: volumeName,
+			})
+		}
+		if err != nil {
+			return fmt.Errorf("Error removing volume, %v", err)
+		}
 		return nil
 	}
 
