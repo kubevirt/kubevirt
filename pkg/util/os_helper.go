@@ -20,6 +20,7 @@
 package util
 
 import (
+	"bufio"
 	"io"
 	"io/ioutil"
 	"os"
@@ -39,6 +40,21 @@ func CloseIOAndCheckErr(c io.Closer, err *error) {
 			*err = ferr
 		}
 	}
+}
+
+// ScanLine tries to read the first line from a file. The text is returned without the end-of-line symbols.
+func ScanLine(filepath string) (line string, err error) {
+	file, err := os.Open(filepath)
+	if err != nil {
+		return
+	}
+	defer CloseIOAndCheckErr(file, nil)
+	scanner := bufio.NewScanner(file)
+	if scanner.Scan() {
+		line = scanner.Text()
+	}
+	err = scanner.Err()
+	return
 }
 
 // The following helper functions wrap nosec annotations with os file functions that potentially assign files or directories

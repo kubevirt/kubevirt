@@ -20,32 +20,10 @@
 package util
 
 import (
-	"bufio"
-	"fmt"
-	"os"
-
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 )
 
 func GetPodCPUSet() ([]int, error) {
-	var cpuset string
-	file, err := os.Open(cgroup.CPUSetPath())
-	if err != nil {
-		return nil, err
-	}
-	defer util.CloseIOAndCheckErr(file, nil)
-	scanner := bufio.NewScanner(file)
-	if scanner.Scan() {
-		cpuset = scanner.Text()
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-	cpusList, err := hardware.ParseCPUSetLine(cpuset)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse cpuset file: %v", err)
-	}
-	return cpusList, nil
+	return hardware.ParseCPUSetFile(cgroup.CPUSetPath())
 }

@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const (
@@ -61,6 +62,18 @@ func ParseCPUSetLine(cpusetLine string) (cpusList []int, err error) {
 		}
 	}
 	return
+}
+
+func ParseCPUSetFile(file string) ([]int, error) {
+	line, err := util.ScanLine(file)
+	if err != nil {
+		return nil, err
+	}
+	cpusList, err := ParseCPUSetLine(line)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse cpuset file: %v", err)
+	}
+	return cpusList, nil
 }
 
 //GetNumberOfVCPUs returns number of vCPUs
