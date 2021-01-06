@@ -62,11 +62,11 @@ const (
 	DefaultOVMFPath                                 = "/usr/share/OVMF"
 	DefaultMemBalloonStatsPeriod             uint32 = 10
 	DefaultCPUAllocationRatio                       = 10
-    DefaultVirtAPILogVerbosity                      = 2
-    DefaultVirtControllerLogVerbosity               = 2
-    DefaultVirtHandlerLogVerbosity                  = 2
-    DefaultVirtLauncherLogVerbosity                 = 2
-    DefaultVirtOperatorLogVerbosity                 = 2
+	DefaultVirtAPILogVerbosity                      = 2
+	DefaultVirtControllerLogVerbosity               = 2
+	DefaultVirtHandlerLogVerbosity                  = 2
+	DefaultVirtLauncherLogVerbosity                 = 2
+	DefaultVirtOperatorLogVerbosity                 = 2
 )
 
 // Set default machine type and supported emulated machines based on architecture
@@ -167,4 +167,12 @@ func (c *ClusterConfig) GetCPUAllocationRatio() int {
 
 func (c *ClusterConfig) GetPermittedHostDevices() *v1.PermittedHostDevices {
 	return c.GetConfig().PermittedHostDevices
+}
+
+func (c *ClusterConfig) GetVirtHandlerVerbosity(nodeName string) uint {
+	logConf := c.GetConfig().DeveloperConfiguration.LogVerbosity
+	if level := logConf.NodeVerbosity[nodeName]; level != 0 {
+		return level
+	}
+	return logConf.VirtHandler
 }

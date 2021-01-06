@@ -188,13 +188,13 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 			LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
 			NodeSelectors:          nodeSelectorsDefault,
 			CPUAllocationRatio:     DefaultCPUAllocationRatio,
-            LogVerbosity: &v1.LogVerbosity{
-                VirtAPI: DefaultVirtAPILogVerbosity,
-                VirtOperator: DefaultVirtOperatorLogVerbosity,
-                VirtController: DefaultVirtControllerLogVerbosity,
-                VirtHandler: DefaultVirtHandlerLogVerbosity,
-                VirtLauncher: DefaultVirtLauncherLogVerbosity,
-            },
+			LogVerbosity: &v1.LogVerbosity{
+				VirtAPI:        DefaultVirtAPILogVerbosity,
+				VirtOperator:   DefaultVirtOperatorLogVerbosity,
+				VirtController: DefaultVirtControllerLogVerbosity,
+				VirtHandler:    DefaultVirtHandlerLogVerbosity,
+				VirtLauncher:   DefaultVirtLauncherLogVerbosity,
+			},
 		},
 		MigrationConfiguration: &v1.MigrationConfiguration{
 			ParallelMigrationsPerCluster:      &parallelMigrationsPerClusterDefault,
