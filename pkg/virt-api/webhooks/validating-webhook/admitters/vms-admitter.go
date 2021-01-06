@@ -329,8 +329,8 @@ func (admitter *VMsAdmitter) validateVolumeRequests(ar *v1beta1.AdmissionRequest
 	}
 
 	newSpec := vm.Spec.Template.Spec.DeepCopy()
-	for _, volumeRequest_ := range vm.Status.VolumeRequests {
-		volumeRequest := volumeRequest_
+	for _, volumeRequest := range vm.Status.VolumeRequests {
+		volumeRequest := volumeRequest
 		name := ""
 		if volumeRequest.AddVolumeOptions != nil && volumeRequest.RemoveVolumeOptions != nil {
 			return []metav1.StatusCause{{

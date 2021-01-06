@@ -492,9 +492,8 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 	if err != nil {
 		return ready, err
 	}
-	for _, template_ := range vm.Spec.DataVolumeTemplates {
+	for i, template := range vm.Spec.DataVolumeTemplates {
 		var curDataVolume *cdiv1.DataVolume
-		template := template_
 		exists := false
 		for _, curDataVolume = range dataVolumes {
 			if curDataVolume.Name == template.Name {
@@ -505,7 +504,7 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 		if !exists {
 			// ready = false because encountered DataVolume that is not created yet
 			ready = false
-			newDataVolume := createDataVolumeManifest(&template, vm)
+			newDataVolume := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[i], vm)
 
 			if err = c.authorizeDataVolume(vm, newDataVolume); err != nil {
 				c.recorder.Eventf(vm, k8score.EventTypeWarning, UnauthorizedDataVolumeCreateReason, "Not authorized to create DataVolume %s: %v", newDataVolume.Name, err)
@@ -544,9 +543,8 @@ func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virt
 		}
 	}
 
-	for _, request_ := range vm.Status.VolumeRequests {
-		request := request_
-		vmCopy.Spec.Template.Spec = *controller.ApplyVolumeRequestOnVMISpec(&vmCopy.Spec.Template.Spec, &request)
+	for i, request := range vm.Status.VolumeRequests {
+		vmCopy.Spec.Template.Spec = *controller.ApplyVolumeRequestOnVMISpec(&vmCopy.Spec.Template.Spec, &vm.Status.VolumeRequests[i])
 
 		if vmi != nil && vmi.DeletionTimestamp == nil {
 			if request.AddVolumeOptions != nil {

@@ -1459,8 +1459,7 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 		return err
 	}
 	newStatus := make([]virtv1.VolumeStatus, 0)
-	for _, volume_ := range vmi.Spec.Volumes {
-		volume := volume_
+	for i, volume := range vmi.Spec.Volumes {
 		status := virtv1.VolumeStatus{}
 		if _, ok := oldStatusMap[volume.Name]; ok {
 			// Already have the status, modify if needed
@@ -1480,7 +1479,7 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 				status.HotplugVolume.AttachPodName = ""
 				status.HotplugVolume.AttachPodUID = ""
 				// Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
-				phase, reason, message := c.getVolumePhaseMessageReason(&volume, vmi.Namespace)
+				phase, reason, message := c.getVolumePhaseMessageReason(&vmi.Spec.Volumes[i], vmi.Namespace)
 				status.Phase = phase
 				status.Message = message
 				status.Reason = reason
