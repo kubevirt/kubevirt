@@ -1117,22 +1117,21 @@ func (s *SlirpPodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error {
 
 func (s *SlirpPodInterface) decorateConfig() error {
 	// remove slirp interface from domain spec devices interfaces
-	var foundIface *api.Interface
+	var foundIfaceModelType string
 	ifaces := s.domain.Spec.Devices.Interfaces
-	for i, iface_ := range ifaces {
-		iface := iface_
+	for i, iface := range ifaces {
 		if iface.Alias.Name == s.iface.Name {
 			s.domain.Spec.Devices.Interfaces = append(ifaces[:i], ifaces[i+1:]...)
-			foundIface = &iface
+			foundIfaceModelType = iface.Model.Type
 			break
 		}
 	}
 
-	if foundIface == nil {
+	if foundIfaceModelType == "" {
 		return fmt.Errorf("failed to find interface %s in vmi spec", s.iface.Name)
 	}
 
-	qemuArg := fmt.Sprintf("%s,netdev=%s,id=%s", foundIface.Model.Type, s.iface.Name, s.iface.Name)
+	qemuArg := fmt.Sprintf("%s,netdev=%s,id=%s", foundIfaceModelType, s.iface.Name, s.iface.Name)
 	if s.iface.MacAddress != "" {
 		// We assume address was already validated in API layer so just pass it to libvirt as-is.
 		qemuArg += fmt.Sprintf(",mac=%s", s.iface.MacAddress)
