@@ -4,7 +4,7 @@ Provides a pre-deployed k8s cluster with version 1.17.0 that runs using [kind](h
 The KubeVirt containers are built on the local machine and are then pushed to a registry which is exposed at
 `localhost:5000`.
 
-This version also expects to have sriov-enabed nics on the current host, and will move all the physical interfaces and virtual interfaces into the `kind`'s cluster master node so that they can be used through multus.
+This version also expects to have sriov-enabled nics on the current host, and will move all the physical interfaces and virtual interfaces into the `kind`'s cluster master node so that they can be used through multus.
 
 ## Bringing the cluster up
 
@@ -17,8 +17,9 @@ The cluster can be accessed as usual:
 
 ```bash
 $ cluster-up/kubectl.sh get nodes
-NAME                  STATUS    ROLES     AGE       VERSION
-sriov-control-plane   Ready     master    2m33s     v1.17.0
+NAME                  STATUS   ROLES    AGE     VERSION
+sriov-control-plane   Ready    master   6m14s   v1.17.0
+sriov-worker          Ready    worker   5m36s   v1.17.0
 ```
 
 ## Bringing the cluster down
@@ -42,3 +43,25 @@ export KUBECTL_PATH="/usr/bin/kubectl"
 ```
 This allows users to test or use custom images / different kind versions before making them official.
 See https://github.com/kubernetes-sigs/kind/releases for details about node images according to the kind version.
+
+## Running multi sriov clusters locally
+Kubevirtci sriov provider supports running two clusters side by side with few known limitations.
+
+General considerations:
+
+- A sriov PF must be available for the cluster.
+In order to achieve that, there are two options:
+1. `PF_BLACKLIST` the non used PFs, in order to prevent them from being allocated.
+2. Assign just one PF for each cluster by using `export PF_COUNT_PER_NODE=1` (this is the default value).
+- The cluster names must be different.
+This can be achieved by setting `export CLUSTER_NAME=sriov2` on the 2nd cluster.
+The default `CLUSTER_NAME` is `sriov`.
+The 2nd cluster registry would be exposed at `localhost:5001` automatically, once the `CLUSTER_NAME`
+is set to a non default value.
+- Each cluster should be created on its own git clone folder, i.e
+`/root/project/kubevirtci1`
+`/root/project/kubevirtci2`
+- In case only one PF exists, for example if running on prow which will assign only one (or two if configured) PF per job in its own DinD,
+Kubevirtci is agnostic and nothing needs to be done, since all conditions above are met.
+- Kubevirtci supports starting `cluster-up` simultaneously, since it is capable of handling race conditions,
+when allocating PFs.

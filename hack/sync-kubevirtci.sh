@@ -37,6 +37,10 @@ if [[ -f "${version_file}" ]] && [[ $(cat ${version_file}) == ${kubevirtci_git_h
 else
     echo "cluster-up git commit hash was updated"
 fi
+
+## REMOVE
+exit 0
+
 if [[ "$download_cluster_up" == true ]]; then
     echo "downloading cluster-up"
     rm -rf cluster-up
