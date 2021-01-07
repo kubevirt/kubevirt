@@ -131,14 +131,14 @@ func (s *AsyncAgentStore) GetSysInfo() api.DomainSysInfo {
 }
 
 // GetGA returns guest agent record with its version if present
-func (s *AsyncAgentStore) GetGA() string {
+func (s *AsyncAgentStore) GetGA() AgentInfo {
 	data, ok := s.store.Load(GET_AGENT)
-	agent := ""
+	agent := AgentInfo{}
 	if !ok {
 		return agent
 	}
 
-	agent = data.(string)
+	agent = data.(AgentInfo)
 	return agent
 }
 
@@ -361,7 +361,7 @@ func executeAgentCommands(commands []AgentCommand, con cli.Connection, agentStor
 		case GET_AGENT:
 			agent, err := parseAgent(cmdResult)
 			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent version %s", err.Error())
+				log.Log.Errorf("Cannot parse guest agent information %s", err.Error())
 			}
 			agentStore.Store(GET_AGENT, agent)
 		}
