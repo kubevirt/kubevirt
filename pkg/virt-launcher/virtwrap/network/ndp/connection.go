@@ -146,18 +146,18 @@ func (l *NDPConnection) GetFD() (*os.File, error) {
 	return l.rawConn.File()
 }
 
-func (l *NDPConnection) ReadFrom() (ndp.Message, *ipv6.ControlMessage, error) {
+func (l *NDPConnection) ReadFrom() (ndp.Message, error) {
 	buf := make([]byte, 512)
-	n, cm, _, err := l.conn.ReadFrom(buf)
+	n, _, _, err := l.conn.ReadFrom(buf)
 	if err != nil || n == 0 {
-		return nil, nil, fmt.Errorf("failed to read NDP. n bytes: %d, err: %v", n, err)
+		return nil, fmt.Errorf("failed to read NDP. n bytes: %d, err: %v", n, err)
 	}
 
 	msg, err := ndp.ParseMessage(buf[:n])
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshall NDP msg: %v", err)
+		return nil, fmt.Errorf("failed to unmarshall NDP msg: %v", err)
 	}
-	return msg, cm, err
+	return msg, err
 }
 
 func (l *NDPConnection) WriteTo(msg ndp.Message, dst net.IP) error {

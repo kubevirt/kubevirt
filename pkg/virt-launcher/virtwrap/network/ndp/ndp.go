@@ -65,7 +65,7 @@ func RouterAdvertisementDaemonFromFD(openedFD *os.File, ifaceName string, ipv6CI
 
 func (rad *RouterAdvertisementDaemon) Serve() error {
 	for {
-		msg, _, err := rad.ndpConn.ReadFrom()
+		msg, err := rad.ndpConn.ReadFrom()
 		if err != nil {
 			return err
 		}
