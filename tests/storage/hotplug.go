@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
@@ -364,12 +365,29 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 	})
 
-	Context("[Serial] rook-ceph", func() {
+	Context("rook-ceph", func() {
 		Context("Online VM", func() {
 			var (
 				vm *kubevirtv1.VirtualMachine
 				sc string
 			)
+
+			findCPUManagerWorkerNode := func() string {
+				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{
+					LabelSelector: "node-role.kubernetes.io/worker",
+				})
+				Expect(err).ToNot(HaveOccurred())
+				for _, node := range nodes.Items {
+					nodeLabels := node.GetLabels()
+
+					for label, val := range nodeLabels {
+						if label == v1.CPUManager && val == "true" {
+							return node.Name
+						}
+					}
+				}
+				return ""
+			}
 
 			BeforeEach(func() {
 				exists := false
@@ -379,6 +397,11 @@ var _ = SIGDescribe("Hotplug", func() {
 				}
 
 				template := tests.NewRandomFedoraVMIWitGuestAgent()
+				node := findCPUManagerWorkerNode()
+				if node != "" {
+					template.Spec.NodeSelector = make(map[string]string)
+					template.Spec.NodeSelector[corev1.LabelHostname] = node
+				}
 				vm = createVirtualMachine(true, template)
 				Eventually(func() bool {
 					vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
@@ -515,7 +538,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			},
 				table.Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
 				table.Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
-				table.PEntry("with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
+				table.Entry("with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
 
 			table.DescribeTable("Should be able to add and remove and re-add multiple volumes", func(addVolumeFunc func(name, namespace, volumeName, claimName, bus string), removeVolumeFunc func(name, namespace, volumeName string), volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
@@ -611,7 +634,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			},
 				table.Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
 				table.Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
-				table.PEntry("with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
+				table.Entry("with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
 		})
 
