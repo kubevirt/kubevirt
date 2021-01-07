@@ -697,7 +697,10 @@ func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input
 	inputDevice.Bus = input.Bus
 	inputDevice.Type = input.Type
 	inputDevice.Alias = &api.Alias{Name: input.Name}
-	inputDevice.Model = translateModel(c, input.Bus)
+
+	if input.Bus == "virtio" {
+		inputDevice.Model = "virtio"
+	}
 	return nil
 }
 
