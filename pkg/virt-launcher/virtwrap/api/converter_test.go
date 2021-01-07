@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -1059,6 +1060,41 @@ var _ = Describe("Converter", func() {
 				GpuDevices:            []string{},
 				MemBalloonStatsPeriod: 10,
 			}
+		})
+		
+		It("should use virtio-transitional models if requested", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+			c.UseVirtioTransitional = true
+			dom := vmiToDomain(vmi, c)
+			hit := false
+			for _, disk := range dom.Spec.Devices.Disks {
+				if disk.Target.Bus == "virtio" {
+					Expect(disk.Model).To(Equal("virtio-transitional"))
+					hit = true
+				}
+			}
+			Expect(hit).To(BeTrue())
+
+			hit = false
+			for _, ifc := range dom.Spec.Devices.Interfaces {
+				if strings.HasPrefix(ifc.Model.Type, "virtio") {
+					Expect(ifc.Model.Type).To(Equal("virtio-transitional"))
+					hit = true
+				}
+			}
+			Expect(hit).To(BeTrue())
+
+			hit = false
+			for _, input := range dom.Spec.Devices.Inputs {
+				if strings.HasPrefix(input.Model, "virtio") {
+					Expect(input.Model).To(Equal("virtio-transitional"))
+					hit = true
+				}
+			}
+			Expect(hit).To(BeTrue())
+			Expect(dom.Spec.Devices.Rng.Model).To(Equal("virtio-transitional"))
+			Expect(dom.Spec.Devices.Ballooning.Model).To(Equal("virtio-transitional"))
 		})
 
 		table.DescribeTable("should be converted to a libvirt Domain with vmi defaults set", func(arch string, domain string) {
