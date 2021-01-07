@@ -70,10 +70,10 @@ function get_operator_json() {
     fi
  
     if [ "$has_reconcile" != "0" ]; then
-        # if present: extract APPLICATION_AVAILABLE value : check that it has a valid value (either True or False)
+        # if present: extract RECONCILE_COMPLETED value : check that it has a valid value (either True, False or Unknown)
         RECONCILE_COMPLETED=`printf '%s' "$HCO_DATA" | sed -e 's/.*ReconcileComplete: "\([^"]*\)".*$/\1/'`
         RECONCILE_COMPLETED_DATA=`printf '%s'  "$HCO_DATA" | sed -e 's/.*ReconcileComplete: "\([^"]*\)" "\([^"]*\)" "\([^"]*\)".*$/Status: \1 Reason: \2 Message: \3/'`
-        if [ "$RECONCILE_COMPLETED" != 'True' ] && [ "$RECONCILE_COMPLETED" != 'False' ] && [ "$RECONCILE_COMPLETED" != 'Unknown' ]  ; then
+        if [ "$RECONCILE_COMPLETED" != 'True' ] && [ "$RECONCILE_COMPLETED" != 'False' ] && [ "$RECONCILE_COMPLETED" != 'Unknown' ] ; then
             echo "Error: ReconcileComplete not valid: $RECONCILE_COMPLETED_DATA"
             echo "Error: ReconcileComplete not valid: '${RECONCILE_COMPLETED}'"
             echo "HCO_DATA: $HCO_DATA"
@@ -85,10 +85,10 @@ function get_operator_json() {
         fi
     fi
 
-    # extract APPLICATION_AVAILABLE value : check that it has a valid value (either True or False)
+    # extract APPLICATION_AVAILABLE value : check that it has a valid value (either True, False or Unknown)
     APPLICATION_AVAILABLE_DATA=`printf '%s' "$HCO_DATA" | sed -e 's/.*ApplicationAvailable: "\([^"]*\)" "\([^"]*\)" "\([^"]*\)".*$/Status: \1 Reason: \2 Message: \3/'`
     APPLICATION_AVAILABLE=`printf '%s' "$HCO_DATA" | sed -e 's/.*ApplicationAvailable: "\([^"]*\)".*$/\1/'`
-    if [ "$APPLICATION_AVAILABLE" != 'True' ] && [ "$APPLICATION_AVAILABLE" != 'False' ]; then
+    if [ "$APPLICATION_AVAILABLE" != 'True' ] && [ "$APPLICATION_AVAILABLE" != 'False' ] && [ "$APPLICATION_AVAILABLE" != 'Unknown' ] ; then
         echo "Error: ApplicationAvailable not valid: $APPLICATION_AVAILABLE_DATA"
         echo "Error: ApplicationAvailable not valid: $APPLICATION_AVAILABLE"
         EXIT_STATUS=1
@@ -96,10 +96,10 @@ function get_operator_json() {
         return
     fi
     
-    # extract OPERATION_PROGRESSING value : check that it has a valid value (either True or False)
+    # extract OPERATION_PROGRESSING value : check that it has a valid value (either True, False or Unknown)
     OPERATION_PROGRESSING_DATA=`printf '%s' "$HCO_DATA" | sed -e 's/.*ApplicationProgressing: "\([^"]*\)" "\([^"]*\)" "\([^"]*\)".*$/Status: \1 Reason: \2 Message: \3/'`
     OPERATION_PROGRESSING=`printf '%s' "$HCO_DATA" | sed -e 's/.*ApplicationProgressing: "\([^"]*\)".*$/\1/'`
-    if [ "$OPERATION_PROGRESSING" != 'True' ] && [ "$OPERATION_PROGRESSING" != 'False' ]; then
+    if [ "$OPERATION_PROGRESSING" != 'True' ] && [ "$OPERATION_PROGRESSING" != 'False' ] && [ "$OPERATION_PROGRESSING" != 'Unknown' ] ; then
         echo "Error: OperationProgressing not valid: $OPERATION_PROGRESSING_DATA"
         echo "Error: OperationProgressing not valid: $OPERATION_PROGRESSING"
         EXIT_STATUS=1
@@ -107,10 +107,10 @@ function get_operator_json() {
         return
     fi
     
-    # extract APPLICATION_DEGRADED value : check that it has a valid value (either True or False)
+    # extract APPLICATION_DEGRADED value : check that it has a valid value (either True, False or Unknown)
     APPLICATION_DEGRADED_DATA=`printf '%s' "$HCO_DATA" | sed -e 's/.*ApplicationDegraded: "\([^"]*\)" "\([^"]*\)" "\([^"]*\)".*$/Status: \1 Reason: \2 Message: \3/'`
     APPLICATION_DEGRADED=`printf '%s' "$HCO_DATA" | sed -e 's/.*ApplicationDegraded: "\([^"]*\)".*$/\1/'`
-    if [ "$APPLICATION_DEGRADED" != 'True' ] && [ "$APPLICATION_DEGRADED" != 'False' ]; then
+    if [ "$APPLICATION_DEGRADED" != 'True' ] && [ "$APPLICATION_DEGRADED" != 'False' ] && [ "$APPLICATION_DEGRADED" != 'Unknown' ] ; then
         echo "Error: ApplicationDegraded not valid: $APPLICATION_DEGRADED_DATA"
         echo "Error: ApplicationDegraded not valid: $APPLICATION_DEGRADED"
         EXIT_STATUS=1
