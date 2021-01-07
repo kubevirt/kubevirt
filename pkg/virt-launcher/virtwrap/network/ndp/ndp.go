@@ -65,7 +65,7 @@ func CreateRouterAdvertisementServerFromFD(openedFD *os.File, ifaceName string, 
 
 func (rad *RouterAdvertiser) Serve() error {
 	for {
-		msg, _, err := rad.ndpConn.ReadFrom()
+		msg, err := rad.ndpConn.ReadFrom()
 		if err != nil {
 			return err
 		}
