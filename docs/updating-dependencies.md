@@ -53,7 +53,32 @@ COPR repo:
 
 More information can be found at [bazeldnf](https://github.com/rmohr/bazeldnf). 
 
-## Updating libvirt-devel RPM dependencies
+## Updating libvirt and libvirt-devel RPM dependencies
 
-This is at this moment still a manual task where one manually updates the
-dependencies defined in the [WORKSPACE](WORKSPACE).
+Works the same way like for the RPM test dependencies.
+
+## Verifying RPMs
+
+`bazeldnf` does some initial checks based on sha256. Notably the metalink,
+repomd.xml and the packages XML are verified.  These checks happen whenever
+`make rpm-deps` is run. However, since we have no guarantee to still have the
+same RPMs available on subsequent runs, it is hard to check based on this the
+validity of the content in CI. RPM repos use therefore GPG signing to verify
+the origin of the content.
+
+Therefore, local and CI verification based on gpg keys can be performend by
+executing the `make verify-rpm-deps` command.
+
+## Onboarding new architectures
+
+* Create architecture specific entries in [repo.yaml](repo.yaml) and
+[hack/rpm-deps.sh](hack/rpm-deps.sh).
+* Adjust the select clauses on all container entries to choose the right
+  target architecture and the right base image.
+* Add architecture specific entries to [.bazelrc](.bazelrc)
+
+For x86_64 libvirt-devel dependencies exist for linking and unit-testing.
+Updating or adding such targets for other architectures is only necessary if
+the unit tests are supposed to be executed on the target platform. Otherwise it
+is sufficient to only create images for the target-platform with libvirt
+dependencies installed.

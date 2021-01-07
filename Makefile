@@ -103,6 +103,12 @@ deps-update:
 rpm-deps:
 	SYNC_VENDOR=true hack/dockerized " ./hack/rpm-deps.sh"
 
+verify-rpm-deps:
+	SYNC_VENDOR=true hack/dockerized " ./hack/verify-rpm-deps.sh"
+
+verify-deps:
+	SYNC_VENDOR=true hack/dockerized " ./hack/verify-deps.sh"
+
 build-verify:
 	hack/build-verify.sh
 
