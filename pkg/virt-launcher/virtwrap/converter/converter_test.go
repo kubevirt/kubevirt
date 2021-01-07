@@ -17,7 +17,7 @@
  *
  */
 
-package api
+package converter
 
 import (
 	"encoding/xml"
@@ -25,7 +25,6 @@ import (
 	"os"
 	"path"
 	"reflect"
-	"strings"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -36,6 +35,8 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("Converter", func() {
@@ -52,7 +53,7 @@ var _ = Describe("Converter", func() {
 				Timer: &v1.Timer{},
 			}
 
-			var convertClock Clock
+			var convertClock api.Clock
 			Convert_v1_Clock_To_api_Clock(clock, &convertClock, &ConverterContext{})
 			data, err := xml.MarshalIndent(convertClock, "", "  ")
 			Expect(err).ToNot(HaveOccurred())
@@ -1061,40 +1062,13 @@ var _ = Describe("Converter", func() {
 				MemBalloonStatsPeriod: 10,
 			}
 		})
-		
+
 		It("should use virtio-transitional models if requested", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			c.UseVirtioTransitional = true
 			dom := vmiToDomain(vmi, c)
-			hit := false
-			for _, disk := range dom.Spec.Devices.Disks {
-				if disk.Target.Bus == "virtio" {
-					Expect(disk.Model).To(Equal("virtio-transitional"))
-					hit = true
-				}
-			}
-			Expect(hit).To(BeTrue())
-
-			hit = false
-			for _, ifc := range dom.Spec.Devices.Interfaces {
-				if strings.HasPrefix(ifc.Model.Type, "virtio") {
-					Expect(ifc.Model.Type).To(Equal("virtio-transitional"))
-					hit = true
-				}
-			}
-			Expect(hit).To(BeTrue())
-
-			hit = false
-			for _, input := range dom.Spec.Devices.Inputs {
-				if strings.HasPrefix(input.Model, "virtio") {
-					Expect(input.Model).To(Equal("virtio-transitional"))
-					hit = true
-				}
-			}
-			Expect(hit).To(BeTrue())
-			Expect(dom.Spec.Devices.Rng.Model).To(Equal("virtio-transitional"))
-			Expect(dom.Spec.Devices.Ballooning.Model).To(Equal("virtio-transitional"))
+			testutils.ExpectVirtioTransitionalOnly(&dom.Spec)
 		})
 
 		table.DescribeTable("should be converted to a libvirt Domain with vmi defaults set", func(arch string, domain string) {
@@ -1141,7 +1115,7 @@ var _ = Describe("Converter", func() {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 				spec := vmiToDomain(vmi, c).Spec.DeepCopy()
-				Expect(PlacePCIDevicesOnRootComplex(spec)).To(Succeed())
+				Expect(api.PlacePCIDevicesOnRootComplex(spec)).To(Succeed())
 				data, err := xml.MarshalIndent(spec, "", "  ")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(data)).To(Equal(convertedDomainWithDevicesOnRootBus))
@@ -1312,7 +1286,7 @@ var _ = Describe("Converter", func() {
 		It("should set disk pci address when specified", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:81:01.0"
-			test_address := Address{
+			test_address := api.Address{
 				Type:     "pci",
 				Domain:   "0x0000",
 				Bus:      "0x81",
@@ -1327,15 +1301,15 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:81:01.0"
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed())
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed())
 		})
 
 		It("should add a virtio-scsi controller if a scsci disk is present", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
-			dom := &Domain{}
+			dom := &api.Domain{}
 			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, dom, c)).To(Succeed())
-			Expect(dom.Spec.Devices.Controllers).To(ContainElement(Controller{
+			Expect(dom.Spec.Devices.Controllers).To(ContainElement(api.Controller{
 				Type:  "scsi",
 				Index: "0",
 				Model: "virtio-scsi",
@@ -1345,9 +1319,9 @@ var _ = Describe("Converter", func() {
 		It("should not add a virtio-scsi controller if no scsi disk is present", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "sata"
-			dom := &Domain{}
+			dom := &api.Domain{}
 			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, dom, c)).To(Succeed())
-			Expect(dom.Spec.Devices.Controllers).ToNot(ContainElement(Controller{
+			Expect(dom.Spec.Devices.Controllers).ToNot(ContainElement(api.Controller{
 				Type:  "scsi",
 				Index: "0",
 				Model: "virtio-scsi",
@@ -1385,19 +1359,19 @@ var _ = Describe("Converter", func() {
 		It("should fail when input device is set to ps2 bus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = "ps2"
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed(), "Expect error")
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed(), "Expect error")
 		})
 
 		It("should fail when input device is set to keyboard type", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Type = "keyboard"
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed(), "Expect error")
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed(), "Expect error")
 		})
 
 		It("should succeed when input device is set to usb bus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = "usb"
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).To(Succeed(), "Expect success")
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &api.Domain{}, c)).To(Succeed(), "Expect success")
 		})
 
 		It("should succeed when input device bus is empty", func() {
@@ -1422,7 +1396,7 @@ var _ = Describe("Converter", func() {
 		})
 
 		When("NIC PCI address is specified on VMI", func() {
-			expectedPCIAddress := Address{
+			expectedPCIAddress := api.Address{
 				Type:     "pci",
 				Domain:   "0x0000",
 				Bus:      "0x81",
@@ -1587,13 +1561,13 @@ var _ = Describe("Converter", func() {
 			net.Pod = nil
 			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, *iface)
 			vmi.Spec.Networks = append(vmi.Spec.Networks, *net)
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed())
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed())
 		})
 
 		It("should add tcp if protocol not exist", func() {
 			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{v1.Port{Port: 80}}}
 			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
-			qemuArg := Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
+			qemuArg := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
 			err := configPortForward(&qemuArg, iface)
 			Expect(err).ToNot(HaveOccurred())
@@ -1602,7 +1576,7 @@ var _ = Describe("Converter", func() {
 		It("should not fail for duplicate port with different protocol configuration", func() {
 			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
 			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
-			qemuArg := Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
+			qemuArg := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
 			err := configPortForward(&qemuArg, iface)
 			Expect(err).ToNot(HaveOccurred())
@@ -1892,7 +1866,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Networks = []v1.Network{podNetwork}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
 
-			domain := &Domain{}
+			domain := &api.Domain{}
 			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(HaveOccurred(), "conversion should fail because a macvtap interface requires a multus network attachment")
 		})
 	})
@@ -2197,10 +2171,11 @@ var _ = Describe("Converter", func() {
 					Disk: &v1.DiskTarget{Bus: "virtio"},
 				},
 			}
-			apiDisk := Disk{}
+			apiDisk := api.Disk{}
 			devicePerBus := map[string]deviceNamer{}
 			numQueues := uint(2)
-			Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues)
+			err := Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
 			Expect(*(apiDisk.Driver.Queues)).To(Equal(expectedQueues), "expected queues to be 2")
 		})
@@ -2211,7 +2186,7 @@ var _ = Describe("Converter", func() {
 					Disk: &v1.DiskTarget{},
 				},
 			}
-			apiDisk := Disk{}
+			apiDisk := api.Disk{}
 			devicePerBus := map[string]deviceNamer{}
 			err := Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, nil)
 			Expect(err).ToNot(HaveOccurred())
@@ -2261,18 +2236,18 @@ var _ = Describe("Converter", func() {
 				SMBios:       &cmdv1.SMBios{},
 			}
 			domain := vmiToDomain(vmi, c)
-			domain.Spec.IOThreads = &IOThreads{}
+			domain.Spec.IOThreads = &api.IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
 
 			err := formatDomainIOThreadPin(vmi, domain, c)
 			Expect(err).ToNot(HaveOccurred())
-			expectedLayout := []CPUTuneIOThreadPin{
-				CPUTuneIOThreadPin{IOThread: 1, CPUSet: "5,6,7"},
-				CPUTuneIOThreadPin{IOThread: 2, CPUSet: "8,9,10"},
-				CPUTuneIOThreadPin{IOThread: 3, CPUSet: "11,12,13"},
-				CPUTuneIOThreadPin{IOThread: 4, CPUSet: "14,15,16"},
-				CPUTuneIOThreadPin{IOThread: 5, CPUSet: "17,18"},
-				CPUTuneIOThreadPin{IOThread: 6, CPUSet: "19,20"},
+			expectedLayout := []api.CPUTuneIOThreadPin{
+				api.CPUTuneIOThreadPin{IOThread: 1, CPUSet: "5,6,7"},
+				api.CPUTuneIOThreadPin{IOThread: 2, CPUSet: "8,9,10"},
+				api.CPUTuneIOThreadPin{IOThread: 3, CPUSet: "11,12,13"},
+				api.CPUTuneIOThreadPin{IOThread: 4, CPUSet: "14,15,16"},
+				api.CPUTuneIOThreadPin{IOThread: 5, CPUSet: "17,18"},
+				api.CPUTuneIOThreadPin{IOThread: 6, CPUSet: "19,20"},
 			}
 			isExpectedThreadsLayout := reflect.DeepEqual(expectedLayout, domain.Spec.CPUTune.IOThreadPin)
 			Expect(isExpectedThreadsLayout).To(BeTrue())
@@ -2283,18 +2258,18 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			c := &ConverterContext{CPUSet: []int{5, 6}, UseEmulation: true}
 			domain := vmiToDomain(vmi, c)
-			domain.Spec.IOThreads = &IOThreads{}
+			domain.Spec.IOThreads = &api.IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
 
 			err := formatDomainIOThreadPin(vmi, domain, c)
 			Expect(err).ToNot(HaveOccurred())
-			expectedLayout := []CPUTuneIOThreadPin{
-				CPUTuneIOThreadPin{IOThread: 1, CPUSet: "6"},
-				CPUTuneIOThreadPin{IOThread: 2, CPUSet: "5"},
-				CPUTuneIOThreadPin{IOThread: 3, CPUSet: "6"},
-				CPUTuneIOThreadPin{IOThread: 4, CPUSet: "5"},
-				CPUTuneIOThreadPin{IOThread: 5, CPUSet: "6"},
-				CPUTuneIOThreadPin{IOThread: 6, CPUSet: "5"},
+			expectedLayout := []api.CPUTuneIOThreadPin{
+				api.CPUTuneIOThreadPin{IOThread: 1, CPUSet: "6"},
+				api.CPUTuneIOThreadPin{IOThread: 2, CPUSet: "5"},
+				api.CPUTuneIOThreadPin{IOThread: 3, CPUSet: "6"},
+				api.CPUTuneIOThreadPin{IOThread: 4, CPUSet: "5"},
+				api.CPUTuneIOThreadPin{IOThread: 5, CPUSet: "6"},
+				api.CPUTuneIOThreadPin{IOThread: 6, CPUSet: "5"},
 			}
 			isExpectedThreadsLayout := reflect.DeepEqual(expectedLayout, domain.Spec.CPUTune.IOThreadPin)
 			Expect(isExpectedThreadsLayout).To(BeTrue())
@@ -2887,7 +2862,7 @@ var _ = Describe("disk device naming", func() {
 
 func diskToDiskXML(disk *v1.Disk) string {
 	devicePerBus := make(map[string]deviceNamer)
-	libvirtDisk := &Disk{}
+	libvirtDisk := &api.Disk{}
 	Expect(Convert_v1_Disk_To_api_Disk(&ConverterContext{UseVirtioTransitional: false}, disk, libvirtDisk, devicePerBus, nil)).To(Succeed())
 	data, err := xml.MarshalIndent(libvirtDisk, "", "  ")
 	Expect(err).ToNot(HaveOccurred())
@@ -2901,15 +2876,15 @@ func vmiToDomainXML(vmi *v1.VirtualMachineInstance, c *ConverterContext) string 
 	return string(data)
 }
 
-func vmiToDomain(vmi *v1.VirtualMachineInstance, c *ConverterContext) *Domain {
-	domain := &Domain{}
+func vmiToDomain(vmi *v1.VirtualMachineInstance, c *ConverterContext) *api.Domain {
+	domain := &api.Domain{}
 	Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
-	NewDefaulter(c.Architecture).SetObjectDefaults_Domain(domain)
+	api.NewDefaulter(c.Architecture).SetObjectDefaults_Domain(domain)
 	return domain
 }
 
-func xmlToDomainSpec(data string) *DomainSpec {
-	newDomain := &DomainSpec{}
+func xmlToDomainSpec(data string) *api.DomainSpec {
+	newDomain := &api.DomainSpec{}
 	err := xml.Unmarshal([]byte(data), newDomain)
 	newDomain.XMLName.Local = ""
 	newDomain.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
@@ -2917,7 +2892,7 @@ func xmlToDomainSpec(data string) *DomainSpec {
 	return newDomain
 }
 
-func vmiToDomainXMLToDomainSpec(vmi *v1.VirtualMachineInstance, c *ConverterContext) *DomainSpec {
+func vmiToDomainXMLToDomainSpec(vmi *v1.VirtualMachineInstance, c *ConverterContext) *api.DomainSpec {
 	return xmlToDomainSpec(vmiToDomainXML(vmi, c))
 }
 

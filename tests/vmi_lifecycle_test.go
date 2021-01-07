@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -1186,11 +1188,11 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 
 				domain := &api.Domain{}
-				context := &api.ConverterContext{
+				context := &converter.ConverterContext{
 					VirtualMachine: newVMI,
 					UseEmulation:   true,
 				}
-				api.Convert_v1_VirtualMachine_To_api_Domain(newVMI, domain, context)
+				converter.Convert_v1_VirtualMachine_To_api_Domain(newVMI, domain, context)
 
 				expectedType := ""
 				if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {

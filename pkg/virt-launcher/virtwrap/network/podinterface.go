@@ -30,6 +30,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+
 	netutils "k8s.io/utils/net"
 
 	"kubevirt.io/kubevirt/pkg/util"
@@ -199,7 +201,7 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 		queueNumber := uint32(0)
 		isMultiqueue := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
 		if isMultiqueue {
-			queueNumber, _ = api.CalculateNetworkQueueNumberAndGetCPUTopology(vmi)
+			queueNumber, _ = converter.CalculateNetworkQueueNumberAndGetCPUTopology(vmi)
 		}
 		if err := driver.preparePodNetworkInterfaces(queueNumber, pid); err != nil {
 			log.Log.Reason(err).Error("failed to prepare pod networking")
