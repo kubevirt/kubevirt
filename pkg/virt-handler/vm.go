@@ -105,6 +105,26 @@ const (
 	VMISignalDeletion = "Signaled Deletion"
 )
 
+var RequiredGuestAgentCommands = []string{
+	"guest-ping",
+	"guest-get-time",
+	"guest-info",
+	"guest-shutdown",
+	"guest-file-open",
+	"guest-file-close",
+	"guest-file-read",
+	"guest-file-write",
+	"guest-network-get-interfaces",
+	"guest-get-fsinfo",
+	"guest-set-user-password",
+	"guest-exec-status",
+	"guest-exec",
+	"guest-get-host-name",
+	"guest-get-users",
+	"guest-get-timezone",
+	"guest-get-osinfo",
+}
+
 type launcherClientInfo struct {
 	client              cmdclient.LauncherClient
 	socketFile          string
@@ -1051,12 +1071,21 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 			return err
 		}
 
-		var match = false
-		for _, version := range d.clusterConfig.GetSupportedAgentVersions() {
-			match = match || regexp.MustCompile(version).MatchString(guestInfo.GAVersion)
+		var supported = false
+
+		// For current versions, virt-launcher's supported commands will always contain data.
+		// For backwards compatibility: during upgrade from a previous version of KubeVirt,
+		// virt-launcher might not provide any supported commands. If the list of supported
+		// commands is empty, fall back to previous behavior.
+		if len(guestInfo.SupportedCommands) > 0 {
+			supported = isGuestAgentSupported(vmi, guestInfo.SupportedCommands)
+		} else {
+			for _, version := range d.clusterConfig.GetSupportedAgentVersions() {
+				supported = supported || regexp.MustCompile(version).MatchString(guestInfo.GAVersion)
+			}
 		}
 
-		if !match {
+		if !supported {
 			if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceUnsupportedAgent) {
 				agentCondition := v1.VirtualMachineInstanceCondition{
 					Type:          v1.VirtualMachineInstanceUnsupportedAgent,
@@ -1119,6 +1148,25 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	}
 
 	return nil
+}
+
+func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAgentCommandInfo) bool {
+	var found bool
+	for _, cmd := range RequiredGuestAgentCommands {
+		found = false
+		for _, foundCmd := range commands {
+			if cmd == foundCmd.Name && foundCmd.Enabled {
+				found = true
+				break
+			}
+		}
+		if found == false {
+			return false
+		}
+	}
+	// TODO: add support for situational commands
+
+	return true
 }
 
 func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.VirtualMachineInstance, hasHotplug bool) (*v1.VirtualMachineInstanceCondition, bool) {

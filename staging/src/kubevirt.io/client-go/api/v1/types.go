@@ -1559,6 +1559,9 @@ type VirtualMachineInstanceGuestAgentInfo struct {
 	metav1.TypeMeta `json:",inline"`
 	// GAVersion is a version of currently installed guest agent
 	GAVersion string `json:"guestAgentVersion,omitempty"`
+	// Return command list the guest agent supports
+	// +listType=atomic
+	SupportedCommands []GuestAgentCommandInfo `json:"supportedCommands,omitempty"`
 	// Hostname represents FQDN of a guest
 	Hostname string `json:"hostname,omitempty"`
 	// OS contains the guest operating system information
@@ -1569,6 +1572,14 @@ type VirtualMachineInstanceGuestAgentInfo struct {
 	UserList []VirtualMachineInstanceGuestOSUser `json:"userList,omitempty"`
 	// FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage
 	FSInfo VirtualMachineInstanceFileSystemInfo `json:"fsInfo,omitempty"`
+}
+
+// List of commands that QEMU guest agent supports
+//
+// +k8s:openapi-gen=true
+type GuestAgentCommandInfo struct {
+	Name    string `json:"name"`
+	Enabled bool   `json:"enabled,omitempty"`
 }
 
 // VirtualMachineInstanceGuestOSUserList comprises the list of all active users on guest machine

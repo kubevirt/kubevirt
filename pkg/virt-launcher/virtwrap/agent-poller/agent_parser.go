@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"regexp"
 
+	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -72,7 +73,8 @@ type Filesystem struct {
 // AgentInfo from the guest VM serves the purpose
 // of checking the GA presence and version compatibility
 type AgentInfo struct {
-	Version string `json:"version"`
+	Version           string                     `json:"version"`
+	SupportedCommands []v1.GuestAgentCommandInfo `json:"supported_commands,omitempty"`
 }
 
 // parseGuestOSInfo parse agent reply string, extract guest os info
@@ -194,16 +196,16 @@ func parseUsers(agentReply string) ([]api.User, error) {
 }
 
 // parseAgent gets the agent version from response
-func parseAgent(agentReply string) (string, error) {
-	result := AgentInfo{}
+func parseAgent(agentReply string) (AgentInfo, error) {
+	gaInfo := AgentInfo{}
 	response := stripAgentResponse(agentReply)
 
-	err := json.Unmarshal([]byte(response), &result)
+	err := json.Unmarshal([]byte(response), &gaInfo)
 	if err != nil {
-		return "", err
+		return AgentInfo{}, err
 	}
 
-	return result.Version, nil
+	return gaInfo, nil
 }
 
 // MergeAgentStatusesWithDomainData merge QEMU interfaces with agent interfaces

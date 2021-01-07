@@ -2103,9 +2103,12 @@ func (l *LibvirtDomainManager) GetGuestInfo() (v1.VirtualMachineInstanceGuestAge
 	fsInfo := l.agentData.GetFS(10)
 	userInfo := l.agentData.GetUsers(10)
 
+	gaInfo := l.agentData.GetGA()
+
 	guestInfo := v1.VirtualMachineInstanceGuestAgentInfo{
-		GAVersion: l.agentData.GetGA(),
-		Hostname:  sysInfo.Hostname,
+		GAVersion:         gaInfo.Version,
+		SupportedCommands: gaInfo.SupportedCommands,
+		Hostname:          sysInfo.Hostname,
 		OS: v1.VirtualMachineInstanceGuestOSInfo{
 			Name:          sysInfo.OSInfo.Name,
 			KernelRelease: sysInfo.OSInfo.KernelRelease,
