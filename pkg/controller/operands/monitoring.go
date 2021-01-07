@@ -8,6 +8,7 @@ import (
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -62,7 +63,9 @@ func (h *metricsServiceHooks) updateCr(req *common.HcoRequest, Client client.Cli
 		return false, false, errors.New("can't convert to Service")
 	}
 
-	if !reflect.DeepEqual(found.Spec.Ports, service.Spec.Ports) || !reflect.DeepEqual(found.Spec.Selector, service.Spec.Selector) {
+	if !reflect.DeepEqual(found.Spec.Ports, service.Spec.Ports) ||
+		!reflect.DeepEqual(found.Spec.Selector, service.Spec.Selector) ||
+		!reflect.DeepEqual(found.Labels, service.Labels) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing metrics Service Spec to new opinionated values")
 		} else {
@@ -70,6 +73,7 @@ func (h *metricsServiceHooks) updateCr(req *common.HcoRequest, Client client.Cli
 		}
 		found.Spec.Ports = service.Spec.Ports
 		found.Spec.Selector = service.Spec.Selector
+		util.DeepCopyLabels(&service.ObjectMeta, &found.ObjectMeta)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
 			return false, false, err
@@ -100,7 +104,7 @@ func NewMetricsService(hc *hcov1beta1.HyperConverged, namespace string) *corev1.
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hc.Name + metricsSuffix,
-			Labels:    getLabels(hc),
+			Labels:    getLabels(hc, hcoutil.AppComponentMonitoring),
 			Namespace: namespace,
 		},
 		Spec: spec,
@@ -145,13 +149,15 @@ func (h *metricsServiceMonitorHooks) updateCr(req *common.HcoRequest, Client cli
 	if !ok1 || !ok2 {
 		return false, false, errors.New("can't convert to ServiceMonitor")
 	}
-	if !reflect.DeepEqual(found.Spec, monitor.Spec) {
+	if !reflect.DeepEqual(found.Spec, monitor.Spec) ||
+		!reflect.DeepEqual(found.Labels, monitor.Labels) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing metrics ServiceMonitor Spec to new opinionated values")
 		} else {
 			req.Logger.Info("Reconciling an externally updated metrics ServiceMonitor Spec to its opinionated values")
 		}
 		monitor.Spec.DeepCopyInto(&found.Spec)
+		util.DeepCopyLabels(&monitor.ObjectMeta, &found.ObjectMeta)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
 			return false, false, err
@@ -163,8 +169,7 @@ func (h *metricsServiceMonitorHooks) updateCr(req *common.HcoRequest, Client cli
 
 // NewServiceMonitor creates ServiceMonitor resource to expose metrics endpoint
 func NewServiceMonitor(hc *hcov1beta1.HyperConverged, namespace string) *monitoringv1.ServiceMonitor {
-	labels := getLabels(hc)
-
+	labels := getLabels(hc, hcoutil.AppComponentMonitoring)
 	spec := monitoringv1.ServiceMonitorSpec{
 		Selector: metav1.LabelSelector{
 			MatchLabels: labels,
@@ -216,13 +221,15 @@ func (h *prometheusRuleHooks) updateCr(req *common.HcoRequest, Client client.Cli
 	if !ok1 || !ok2 {
 		return false, false, errors.New("can't convert to PrometheusRule")
 	}
-	if !reflect.DeepEqual(found.Spec, rule.Spec) {
+	if !reflect.DeepEqual(found.Spec, rule.Spec) ||
+		!reflect.DeepEqual(found.Labels, rule.Labels) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing PrometheusRule Spec to new opinionated values")
 		} else {
 			req.Logger.Info("Reconciling an externally updated PrometheusRule Spec to its opinionated values")
 		}
 		rule.Spec.DeepCopyInto(&found.Spec)
+		util.DeepCopyLabels(&rule.ObjectMeta, &found.ObjectMeta)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
 			return false, false, err
@@ -259,7 +266,7 @@ func NewPrometheusRule(hc *hcov1beta1.HyperConverged, namespace string) *monitor
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hc.Name + "-prometheus-rule",
-			Labels:    getLabels(hc),
+			Labels:    getLabels(hc, hcoutil.AppComponentMonitoring),
 			Namespace: namespace,
 		},
 		Spec: spec,

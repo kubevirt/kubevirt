@@ -3,6 +3,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    app.kubernetes.io/component: deployment
+    app.kubernetes.io/part-of: hyperconverged-cluster
+    app.kubernetes.io/version: 1.4.0
     name: hyperconverged-cluster-operator
   name: hyperconverged-cluster-operator
 spec:
@@ -15,6 +18,9 @@ spec:
   template:
     metadata:
       labels:
+        app.kubernetes.io/component: deployment
+        app.kubernetes.io/part-of: hyperconverged-cluster
+        app.kubernetes.io/version: 1.4.0
         name: hyperconverged-cluster-operator
     spec:
       containers:
@@ -89,6 +95,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    app.kubernetes.io/component: deployment
+    app.kubernetes.io/part-of: hyperconverged-cluster
+    app.kubernetes.io/version: 1.4.0
     name: hyperconverged-cluster-webhook
   name: hyperconverged-cluster-webhook
 spec:
@@ -101,6 +110,9 @@ spec:
   template:
     metadata:
       labels:
+        app.kubernetes.io/component: deployment
+        app.kubernetes.io/part-of: hyperconverged-cluster
+        app.kubernetes.io/version: 1.4.0
         name: hyperconverged-cluster-webhook
     spec:
       containers:
@@ -161,6 +173,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    app.kubernetes.io/component: network
+    app.kubernetes.io/part-of: hyperconverged-cluster
+    app.kubernetes.io/version: 1.4.0
     name: cluster-network-addons-operator
   name: cluster-network-addons-operator
 spec:
@@ -175,6 +190,9 @@ spec:
       annotations:
         description: cluster-network-addons-operator manages the lifecycle of different Kubernetes network components on top of Kubernetes cluster
       labels:
+        app.kubernetes.io/component: network
+        app.kubernetes.io/part-of: hyperconverged-cluster
+        app.kubernetes.io/version: 1.4.0
         name: cluster-network-addons-operator
     spec:
       containers:
@@ -226,6 +244,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    app.kubernetes.io/component: compute
+    app.kubernetes.io/part-of: hyperconverged-cluster
+    app.kubernetes.io/version: 1.4.0
     name: virt-operator
   name: virt-operator
 spec:
@@ -240,6 +261,9 @@ spec:
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ""
       labels:
+        app.kubernetes.io/component: compute
+        app.kubernetes.io/part-of: hyperconverged-cluster
+        app.kubernetes.io/version: 1.4.0
         kubevirt.io: virt-operator
         prometheus.kubevirt.io: ""
       name: virt-operator
@@ -319,6 +343,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    app.kubernetes.io/component: schedule
+    app.kubernetes.io/part-of: hyperconverged-cluster
+    app.kubernetes.io/version: 1.4.0
     name: kubevirt-ssp-operator
   name: kubevirt-ssp-operator
 spec:
@@ -330,6 +357,9 @@ spec:
   template:
     metadata:
       labels:
+        app.kubernetes.io/component: schedule
+        app.kubernetes.io/part-of: hyperconverged-cluster
+        app.kubernetes.io/version: 1.4.0
         name: kubevirt-ssp-operator
     spec:
       containers:
@@ -364,6 +394,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: hyperconverged-cluster
+    app.kubernetes.io/version: 1.4.0
     name: cdi-operator
   name: cdi-operator
 spec:
@@ -376,6 +409,9 @@ spec:
   template:
     metadata:
       labels:
+        app.kubernetes.io/component: storage
+        app.kubernetes.io/part-of: hyperconverged-cluster
+        app.kubernetes.io/version: 1.4.0
         name: cdi-operator
         operator.cdi.kubevirt.io: ""
     spec:
@@ -422,6 +458,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    app.kubernetes.io/component: network
+    app.kubernetes.io/part-of: hyperconverged-cluster
+    app.kubernetes.io/version: 1.4.0
     name: node-maintenance-operator
   name: node-maintenance-operator
 spec:
@@ -433,6 +472,9 @@ spec:
   template:
     metadata:
       labels:
+        app.kubernetes.io/component: network
+        app.kubernetes.io/part-of: hyperconverged-cluster
+        app.kubernetes.io/version: 1.4.0
         name: node-maintenance-operator
     spec:
       affinity:
@@ -480,6 +522,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: hyperconverged-cluster
+    app.kubernetes.io/version: 1.4.0
     name: hostpath-provisioner-operator
   name: hostpath-provisioner-operator
 spec:
@@ -492,6 +537,9 @@ spec:
   template:
     metadata:
       labels:
+        app.kubernetes.io/component: storage
+        app.kubernetes.io/part-of: hyperconverged-cluster
+        app.kubernetes.io/version: 1.4.0
         name: hostpath-provisioner-operator
         operator.hostpath-provisioner.kubevirt.io: ""
     spec:
@@ -521,6 +569,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    app.kubernetes.io/component: import
+    app.kubernetes.io/part-of: hyperconverged-cluster
+    app.kubernetes.io/version: 1.4.0
     name: vm-import-operator
   name: vm-import-operator
 spec:
@@ -533,6 +584,9 @@ spec:
   template:
     metadata:
       labels:
+        app.kubernetes.io/component: import
+        app.kubernetes.io/part-of: hyperconverged-cluster
+        app.kubernetes.io/version: 1.4.0
         name: vm-import-operator
         operator.v2v.kubevirt.io: ""
     spec:

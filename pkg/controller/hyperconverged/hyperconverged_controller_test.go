@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"os"
 	"time"
 
@@ -238,6 +239,83 @@ var _ = Describe("HyperconvergedController", func() {
 					Reason:  "KubevirtTemplateValidatorConditions",
 					Message: "KubevirtTemplateValidator resource has no conditions",
 				})))
+			})
+
+			It("should label all managed resources", func() {
+				hco := &hcov1beta1.HyperConverged{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: namespace,
+					},
+					Spec: hcov1beta1.HyperConvergedSpec{},
+					Status: hcov1beta1.HyperConvergedStatus{
+						Conditions: []conditionsv1.Condition{
+							{
+								Type:    hcov1beta1.ConditionReconcileComplete,
+								Status:  corev1.ConditionTrue,
+								Reason:  reconcileCompleted,
+								Message: reconcileCompletedMessage,
+							},
+						},
+					},
+				}
+				// These are all of the objects that we expect to "find" in the client because
+				// we already created them in a previous reconcile.
+				expectedKVConfig := operands.NewKubeVirtConfigForCR(hco, namespace)
+				expectedKVConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVConfig.Namespace, expectedKVConfig.Name)
+				expectedKVStorageConfig := operands.NewKubeVirtStorageConfigForCR(hco, namespace)
+				expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
+				expectedKVStorageRole := operands.NewKubeVirtStorageRoleForCR(hco, namespace)
+				expectedKVStorageRole.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/roles/%s", expectedKVStorageRole.Namespace, expectedKVStorageRole.Name)
+				expectedKVStorageRoleBinding := operands.NewKubeVirtStorageRoleBindingForCR(hco, namespace)
+				expectedKVStorageRoleBinding.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/rolebindings/%s", expectedKVStorageRoleBinding.Namespace, expectedKVStorageRoleBinding.Name)
+				expectedKV := operands.NewKubeVirt(hco, namespace)
+				expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)
+				expectedCDI := operands.NewCDI(hco)
+				expectedCDI.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cdis/%s", expectedCDI.Namespace, expectedCDI.Name)
+				expectedCNA := operands.NewNetworkAddons(hco)
+				expectedCNA.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cnas/%s", expectedCNA.Namespace, expectedCNA.Name)
+				expectedKVCTB := operands.NewKubeVirtCommonTemplateBundle(hco)
+				expectedKVCTB.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/ctbs/%s", expectedKVCTB.Namespace, expectedKVCTB.Name)
+				expectedKVNLB := operands.NewKubeVirtNodeLabellerBundleForCR(hco, namespace)
+				expectedKVNLB.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/nlb/%s", expectedKVNLB.Namespace, expectedKVNLB.Name)
+				expectedKVTV := operands.NewKubeVirtTemplateValidatorForCR(hco, namespace)
+				expectedKVTV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/tv/%s", expectedKVTV.Namespace, expectedKVTV.Name)
+				// Add all of the objects to the client
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedKVConfig, expectedKVStorageConfig, expectedKVStorageRole, expectedKVStorageRoleBinding, expectedKV, expectedCDI, expectedCNA, expectedKVCTB, expectedKVNLB, expectedKVTV})
+				r := initReconciler(cl)
+
+				// Do the reconcile
+				res, err := r.Reconcile(request)
+				Expect(err).To(BeNil())
+				Expect(res).Should(Equal(reconcile.Result{}))
+
+				// Get the HCO
+				foundResource := &hcov1beta1.HyperConverged{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				// Check whether related objects have the labels or not
+				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
+				for _, relatedObj := range foundResource.Status.RelatedObjects {
+					foundRelatedObj := &unstructured.Unstructured{}
+					foundRelatedObj.SetGroupVersionKind(relatedObj.GetObjectKind().GroupVersionKind())
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: relatedObj.Name, Namespace: relatedObj.Namespace},
+							foundRelatedObj),
+					).To(BeNil())
+
+					foundLabels := foundRelatedObj.GetLabels()
+					Expect(foundLabels[hcoutil.AppLabel]).Should(Equal(hco.Name))
+					Expect(foundLabels[hcoutil.AppLabelPartOf]).Should(Equal(hcoutil.HyperConvergedCluster))
+					Expect(foundLabels[hcoutil.AppLabelManagedBy]).Should(Equal(hcoutil.OperatorName))
+					Expect(foundLabels[hcoutil.AppLabelVersion]).Should(Equal(version.Version))
+					Expect(foundLabels[hcoutil.AppLabelComponent]).ShouldNot(BeNil())
+				}
 			})
 
 			It("should complete when components are finished", func() {
@@ -686,16 +764,22 @@ var _ = Describe("HyperconvergedController", func() {
 		})
 
 		Context("Upgrade Mode", func() {
-			expected := getBasicDeployment()
-			origConditions := expected.hco.Status.Conditions
-			okConds := expected.hco.Status.Conditions
-
 			const (
 				oldVersion          = "1.3.0"
 				newVersion          = "1.4.0" // TODO: avoid hard-coding values
 				oldComponentVersion = "1.4.0"
 				newComponentVersion = "1.4.3"
 			)
+
+			// this is used for version label and the tests below
+			// assumes there is no change in labels. Therefore, it should be
+			// set before getBasicDeployment so that the existing resource can
+			// have the correct labels
+			os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
+
+			expected := getBasicDeployment()
+			origConditions := expected.hco.Status.Conditions
+			okConds := expected.hco.Status.Conditions
 
 			BeforeEach(func() {
 				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.Conversion_image)
@@ -719,8 +803,6 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.kvNlb.Status.ObservedVersion = newComponentVersion
 				expected.kvTv.Status.ObservedVersion = newComponentVersion
 				expected.kvMtAg.Status.ObservedVersion = newComponentVersion
-
-				os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
 
 				expected.hco.Status.Conditions = origConditions
 			})

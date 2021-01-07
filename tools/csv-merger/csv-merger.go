@@ -24,6 +24,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"io/ioutil"
 	"log"
 	"os"
@@ -255,14 +256,35 @@ func main() {
 			panic(errors.New("Must specify spec-displayname and spec-description"))
 		}
 
-		csvs := []string{
-			*cnaCsv,
-			*virtCsv,
-			*sspCsv,
-			*cdiCsv,
-			*nmoCsv,
-			*hppCsv,
-			*vmImportCsv,
+		componentsWithCsvs := []util.CsvWithComponent{
+			{
+				Csv:       *cnaCsv,
+				Component: hcoutil.AppComponentNetwork,
+			},
+			{
+				Csv:       *virtCsv,
+				Component: hcoutil.AppComponentCompute,
+			},
+			{
+				Csv:       *sspCsv,
+				Component: hcoutil.AppComponentSchedule,
+			},
+			{
+				Csv:       *cdiCsv,
+				Component: hcoutil.AppComponentStorage,
+			},
+			{
+				Csv:       *nmoCsv,
+				Component: hcoutil.AppComponentNetwork,
+			},
+			{
+				Csv:       *hppCsv,
+				Component: hcoutil.AppComponentStorage,
+			},
+			{
+				Csv:       *vmImportCsv,
+				Component: hcoutil.AppComponentImport,
+			},
 		}
 
 		version := semver.MustParse(*csvVersion)
@@ -309,6 +331,8 @@ func main() {
 			envVars,
 		)
 
+		overwriteDeploymentSpecLabels(installStrategyBase.DeploymentSpecs, hcoutil.AppComponentDeployment)
+
 		relatedImageSet := newRelatedImageSet()
 
 		for _, image := range strings.Split(*relatedImagesList, ",") {
@@ -317,12 +341,12 @@ func main() {
 			}
 		}
 
-		for i, csvStr := range csvs {
-			if csvStr == "" {
+		for i, c := range componentsWithCsvs {
+			if c.Csv == "" {
 				csvNames := []string{"CNA", "KubeVirt", "SSP", "CDI", "NMO", "HPP", "VM Import"}
 				log.Panicf("ERROR: the %s CSV was empty", csvNames[i])
 			}
-			csvBytes := []byte(csvStr)
+			csvBytes := []byte(c.Csv)
 
 			csvStruct := &ClusterServiceVersionExtended{}
 
@@ -340,7 +364,9 @@ func main() {
 				delete(deployment.Spec.Template.Annotations, "description")
 			}
 
+			overwriteDeploymentSpecLabels(strategySpec.DeploymentSpecs, c.Component)
 			installStrategyBase.DeploymentSpecs = append(installStrategyBase.DeploymentSpecs, strategySpec.DeploymentSpecs...)
+
 			installStrategyBase.ClusterPermissions = append(installStrategyBase.ClusterPermissions, strategySpec.ClusterPermissions...)
 			installStrategyBase.Permissions = append(installStrategyBase.Permissions, strategySpec.Permissions...)
 
@@ -454,6 +480,27 @@ func main() {
 		panic("Unsupported output mode: " + *outputMode)
 	}
 
+}
+
+func overwriteDeploymentSpecLabels(specs []csvv1alpha1.StrategyDeploymentSpec, component hcoutil.AppComponent) {
+	for i, _ := range specs {
+		if specs[i].Label == nil {
+			specs[i].Label = make(map[string]string)
+		}
+		if specs[i].Spec.Template.Labels == nil {
+			specs[i].Spec.Template.Labels = make(map[string]string)
+		}
+		overwriteWithStandardLabels(specs[i].Spec.Template.Labels, *hcoKvIoVersion, component)
+		overwriteWithStandardLabels(specs[i].Label, *hcoKvIoVersion, component)
+	}
+
+}
+
+func overwriteWithStandardLabels(labels map[string]string, version string, component hcoutil.AppComponent) {
+	labels[hcoutil.AppLabelManagedBy] = "olm"
+	labels[hcoutil.AppLabelVersion] = version
+	labels[hcoutil.AppLabelPartOf] = hcoutil.HyperConvergedCluster
+	labels[hcoutil.AppLabelComponent] = string(component)
 }
 
 // TODO: get rid of this once RelatedImageSet officially

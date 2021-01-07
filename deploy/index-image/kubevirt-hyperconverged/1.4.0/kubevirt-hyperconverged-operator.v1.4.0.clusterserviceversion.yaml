@@ -359,6 +359,7 @@ spec:
           - watch
           - create
           - delete
+          - update
         - apiGroups:
           - apiextensions.k8s.io
           resources:
@@ -1695,7 +1696,13 @@ spec:
           - '*'
         serviceAccountName: vm-import-operator
       deployments:
-      - name: hco-operator
+      - label:
+          app.kubernetes.io/component: deployment
+          app.kubernetes.io/managed-by: olm
+          app.kubernetes.io/part-of: hyperconverged-cluster
+          app.kubernetes.io/version: 1.4.0
+          name: hyperconverged-cluster-operator
+        name: hco-operator
         spec:
           replicas: 1
           selector:
@@ -1706,6 +1713,10 @@ spec:
           template:
             metadata:
               labels:
+                app.kubernetes.io/component: deployment
+                app.kubernetes.io/managed-by: olm
+                app.kubernetes.io/part-of: hyperconverged-cluster
+                app.kubernetes.io/version: 1.4.0
                 name: hyperconverged-cluster-operator
             spec:
               containers:
@@ -1775,7 +1786,13 @@ spec:
                   periodSeconds: 5
                 resources: {}
               serviceAccountName: hyperconverged-cluster-operator
-      - name: hco-webhook
+      - label:
+          app.kubernetes.io/component: deployment
+          app.kubernetes.io/managed-by: olm
+          app.kubernetes.io/part-of: hyperconverged-cluster
+          app.kubernetes.io/version: 1.4.0
+          name: hyperconverged-cluster-webhook
+        name: hco-webhook
         spec:
           replicas: 1
           selector:
@@ -1786,6 +1803,10 @@ spec:
           template:
             metadata:
               labels:
+                app.kubernetes.io/component: deployment
+                app.kubernetes.io/managed-by: olm
+                app.kubernetes.io/part-of: hyperconverged-cluster
+                app.kubernetes.io/version: 1.4.0
                 name: hyperconverged-cluster-webhook
             spec:
               containers:
@@ -1828,7 +1849,12 @@ spec:
                   periodSeconds: 5
                 resources: {}
               serviceAccountName: hyperconverged-cluster-operator
-      - name: cluster-network-addons-operator
+      - label:
+          app.kubernetes.io/component: network
+          app.kubernetes.io/managed-by: olm
+          app.kubernetes.io/part-of: hyperconverged-cluster
+          app.kubernetes.io/version: 1.4.0
+        name: cluster-network-addons-operator
         spec:
           replicas: 1
           selector:
@@ -1839,6 +1865,10 @@ spec:
           template:
             metadata:
               labels:
+                app.kubernetes.io/component: network
+                app.kubernetes.io/managed-by: olm
+                app.kubernetes.io/part-of: hyperconverged-cluster
+                app.kubernetes.io/version: 1.4.0
                 name: cluster-network-addons-operator
             spec:
               containers:
@@ -1885,7 +1915,12 @@ spec:
               securityContext:
                 runAsNonRoot: true
               serviceAccountName: cluster-network-addons-operator
-      - name: virt-operator
+      - label:
+          app.kubernetes.io/component: compute
+          app.kubernetes.io/managed-by: olm
+          app.kubernetes.io/part-of: hyperconverged-cluster
+          app.kubernetes.io/version: 1.4.0
+        name: virt-operator
         spec:
           replicas: 2
           selector:
@@ -1898,6 +1933,10 @@ spec:
               annotations:
                 scheduler.alpha.kubernetes.io/critical-pod: ""
               labels:
+                app.kubernetes.io/component: compute
+                app.kubernetes.io/managed-by: olm
+                app.kubernetes.io/part-of: hyperconverged-cluster
+                app.kubernetes.io/version: 1.4.0
                 kubevirt.io: virt-operator
                 prometheus.kubevirt.io: ""
               name: virt-operator
@@ -1972,7 +2011,12 @@ spec:
                 secret:
                   optional: true
                   secretName: kubevirt-operator-certs
-      - name: kubevirt-ssp-operator
+      - label:
+          app.kubernetes.io/component: schedule
+          app.kubernetes.io/managed-by: olm
+          app.kubernetes.io/part-of: hyperconverged-cluster
+          app.kubernetes.io/version: 1.4.0
+        name: kubevirt-ssp-operator
         spec:
           replicas: 1
           selector:
@@ -1982,6 +2026,10 @@ spec:
           template:
             metadata:
               labels:
+                app.kubernetes.io/component: schedule
+                app.kubernetes.io/managed-by: olm
+                app.kubernetes.io/part-of: hyperconverged-cluster
+                app.kubernetes.io/version: 1.4.0
                 name: kubevirt-ssp-operator
             spec:
               containers:
@@ -2011,7 +2059,12 @@ spec:
                   name: metrics
                 resources: {}
               serviceAccountName: kubevirt-ssp-operator
-      - name: cdi-operator
+      - label:
+          app.kubernetes.io/component: storage
+          app.kubernetes.io/managed-by: olm
+          app.kubernetes.io/part-of: hyperconverged-cluster
+          app.kubernetes.io/version: 1.4.0
+        name: cdi-operator
         spec:
           replicas: 1
           selector:
@@ -2022,6 +2075,10 @@ spec:
           template:
             metadata:
               labels:
+                app.kubernetes.io/component: storage
+                app.kubernetes.io/managed-by: olm
+                app.kubernetes.io/part-of: hyperconverged-cluster
+                app.kubernetes.io/version: 1.4.0
                 name: cdi-operator
                 operator.cdi.kubevirt.io: ""
             spec:
@@ -2063,7 +2120,12 @@ spec:
               tolerations:
               - key: CriticalAddonsOnly
                 operator: Exists
-      - name: node-maintenance-operator
+      - label:
+          app.kubernetes.io/component: network
+          app.kubernetes.io/managed-by: olm
+          app.kubernetes.io/part-of: hyperconverged-cluster
+          app.kubernetes.io/version: 1.4.0
+        name: node-maintenance-operator
         spec:
           replicas: 1
           selector:
@@ -2073,6 +2135,10 @@ spec:
           template:
             metadata:
               labels:
+                app.kubernetes.io/component: network
+                app.kubernetes.io/managed-by: olm
+                app.kubernetes.io/part-of: hyperconverged-cluster
+                app.kubernetes.io/version: 1.4.0
                 name: node-maintenance-operator
             spec:
               affinity:
@@ -2102,7 +2168,12 @@ spec:
               tolerations:
               - effect: NoSchedule
                 key: node-role.kubernetes.io/master
-      - name: hostpath-provisioner-operator
+      - label:
+          app.kubernetes.io/component: storage
+          app.kubernetes.io/managed-by: olm
+          app.kubernetes.io/part-of: hyperconverged-cluster
+          app.kubernetes.io/version: 1.4.0
+        name: hostpath-provisioner-operator
         spec:
           replicas: 1
           selector:
@@ -2113,6 +2184,10 @@ spec:
           template:
             metadata:
               labels:
+                app.kubernetes.io/component: storage
+                app.kubernetes.io/managed-by: olm
+                app.kubernetes.io/part-of: hyperconverged-cluster
+                app.kubernetes.io/version: 1.4.0
                 name: hostpath-provisioner-operator
                 operator.hostpath-provisioner.kubevirt.io: ""
             spec:
@@ -2137,7 +2212,12 @@ spec:
                 name: hostpath-provisioner-operator
                 resources: {}
               serviceAccountName: hostpath-provisioner-operator
-      - name: vm-import-operator
+      - label:
+          app.kubernetes.io/component: import
+          app.kubernetes.io/managed-by: olm
+          app.kubernetes.io/part-of: hyperconverged-cluster
+          app.kubernetes.io/version: 1.4.0
+        name: vm-import-operator
         spec:
           replicas: 1
           selector:
@@ -2148,6 +2228,10 @@ spec:
           template:
             metadata:
               labels:
+                app.kubernetes.io/component: import
+                app.kubernetes.io/managed-by: olm
+                app.kubernetes.io/part-of: hyperconverged-cluster
+                app.kubernetes.io/version: 1.4.0
                 name: vm-import-operator
                 operator.v2v.kubevirt.io: ""
             spec:

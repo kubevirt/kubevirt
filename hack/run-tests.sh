@@ -43,5 +43,7 @@ sleep 60
 
 KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/test_quick_start.sh
 
+./hack/retry.sh 10 30 "KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_labels.sh"
+
 # Check the webhook, to see if it allow deleteing of the HyperConverged CR
 ./hack/retry.sh 10 30 "${KUBECTL_BINARY} delete hco -n kubevirt-hyperconverged kubevirt-hyperconverged"

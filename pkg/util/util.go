@@ -326,3 +326,12 @@ func ContainsString(s []string, word string) bool {
 	}
 	return false
 }
+
+var hcoKvIoVersion string
+
+func GetHcoKvIoVersion() string {
+	if hcoKvIoVersion == "" {
+		hcoKvIoVersion = os.Getenv(HcoKvIoVersionName)
+	}
+	return hcoKvIoVersion
+}

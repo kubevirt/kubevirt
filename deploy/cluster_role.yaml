@@ -266,6 +266,7 @@ rules:
   - watch
   - create
   - delete
+  - update
 - apiGroups:
   - apiextensions.k8s.io
   resources:

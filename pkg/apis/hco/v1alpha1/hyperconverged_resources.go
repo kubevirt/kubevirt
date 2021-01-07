@@ -19,7 +19,7 @@ func (r *HyperConverged) getNamespace(defaultNamespace string, opts []string) st
 	return defaultNamespace
 }
 
-func (r *HyperConverged) getLabels() map[string]string {
+func (r *HyperConverged) getLabels(component hcoutil.AppComponent) map[string]string {
 	hcoName := hcoutil.HyperConvergedName
 
 	if r.Name != "" {
@@ -27,7 +27,11 @@ func (r *HyperConverged) getLabels() map[string]string {
 	}
 
 	return map[string]string{
-		hcoutil.AppLabel: hcoName,
+		hcoutil.AppLabel:          hcoName,
+		hcoutil.AppLabelManagedBy: hcoutil.OperatorName,
+		hcoutil.AppLabelVersion:   hcoutil.GetHcoKvIoVersion(),
+		hcoutil.AppLabelPartOf:    hcoutil.HyperConvergedCluster,
+		hcoutil.AppLabelComponent: string(component),
 	}
 }
 
@@ -35,7 +39,7 @@ func (r *HyperConverged) NewKubeVirt(opts ...string) *kubevirtv1.KubeVirt {
 	return &kubevirtv1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kubevirt-" + r.Name,
-			Labels:    r.getLabels(),
+			Labels:    r.getLabels(hcoutil.AppComponentCompute),
 			Namespace: r.getNamespace(r.Namespace, opts),
 		},
 		Spec: kubevirtv1.KubeVirtSpec{
@@ -49,7 +53,7 @@ func (r *HyperConverged) NewCDI(opts ...string) *cdiv1alpha1.CDI {
 	return &cdiv1alpha1.CDI{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cdi-" + r.Name,
-			Labels:    r.getLabels(),
+			Labels:    r.getLabels(hcoutil.AppComponentStorage),
 			Namespace: r.getNamespace(hcoutil.UndefinedNamespace, opts),
 		},
 		Spec: cdiv1alpha1.CDISpec{
@@ -62,7 +66,7 @@ func (r *HyperConverged) NewNetworkAddons(opts ...string) *networkaddonsv1alpha1
 	return &networkaddonsv1alpha1.NetworkAddonsConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      networkaddonsnames.OPERATOR_CONFIG,
-			Labels:    r.getLabels(),
+			Labels:    r.getLabels(hcoutil.AppComponentNetwork),
 			Namespace: r.getNamespace(hcoutil.UndefinedNamespace, opts),
 		},
 		Spec: networkaddonsshared.NetworkAddonsConfigSpec{
@@ -79,7 +83,7 @@ func (r *HyperConverged) NewKubeVirtCommonTemplateBundle(opts ...string) *sspv1.
 	return &sspv1.KubevirtCommonTemplatesBundle{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "common-templates-" + r.Name,
-			Labels:    r.getLabels(),
+			Labels:    r.getLabels(hcoutil.AppComponentSchedule),
 			Namespace: r.getNamespace(hcoutil.OpenshiftNamespace, opts),
 		},
 	}
@@ -93,7 +97,7 @@ func (r *HyperConverged) NewKubeVirtPriorityClass() *schedulingv1.PriorityClass 
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "kubevirt-cluster-critical",
-			Labels: r.getLabels(),
+			Labels: r.getLabels(hcoutil.AppComponentSchedule),
 		},
 		// 1 billion is the highest value we can set
 		// https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass

@@ -2,8 +2,11 @@ package operands
 
 import (
 	"errors"
+	"reflect"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
@@ -14,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/reference"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -71,7 +73,8 @@ func (h *cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists
 
 	setDefaultFeatureGates(&cdi.Spec)
 
-	if !reflect.DeepEqual(found.Spec, cdi.Spec) {
+	if !reflect.DeepEqual(found.Spec, cdi.Spec) ||
+		!reflect.DeepEqual(found.Labels, cdi.Labels) {
 		overwritten := false
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing CDI's Spec to new opinionated values")
@@ -79,6 +82,7 @@ func (h *cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists
 			req.Logger.Info("Reconciling an externally updated CDI's Spec to its opinionated values")
 			overwritten = true
 		}
+		util.DeepCopyLabels(&cdi.ObjectMeta, &found.ObjectMeta)
 		cdi.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
@@ -137,7 +141,7 @@ func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) *cdiv1beta1.CDI {
 	return &cdiv1beta1.CDI{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cdi-" + hc.Name,
-			Labels:    getLabels(hc),
+			Labels:    getLabels(hc, hcoutil.AppComponentStorage),
 			Namespace: getNamespace(hcoutil.UndefinedNamespace, opts),
 		},
 		Spec: spec,
@@ -164,6 +168,12 @@ func (h *cdiHooks) ensureKubeVirtStorageRole(req *common.HcoRequest) error {
 
 	if err != nil {
 		return err
+	}
+
+	if !reflect.DeepEqual(found.Labels, kubevirtStorageRole.Labels) {
+		req.Logger.Info("Updating KubeVirt storage role for labels")
+		util.DeepCopyLabels(&kubevirtStorageRole.ObjectMeta, &found.ObjectMeta)
+		return h.Client.Update(req.Ctx, found)
 	}
 
 	req.Logger.Info("KubeVirt storage role already exists", "KubeVirtConfig.Namespace", found.Namespace, "KubeVirtConfig.Name", found.Name)
@@ -199,6 +209,12 @@ func (h *cdiHooks) ensureKubeVirtStorageRoleBinding(req *common.HcoRequest) erro
 		return err
 	}
 
+	if !reflect.DeepEqual(found.Labels, kubevirtStorageRoleBinding.Labels) {
+		req.Logger.Info("Updating KubeVirt storage rolebinding for labels")
+		util.DeepCopyLabels(&kubevirtStorageRoleBinding.ObjectMeta, &found.ObjectMeta)
+		return h.Client.Update(req.Ctx, found)
+	}
+
 	req.Logger.Info("KubeVirt storage rolebinding already exists", "KubeVirtConfig.Namespace", found.Namespace, "KubeVirtConfig.Name", found.Name)
 	// Add it to the list of RelatedObjects if found
 	objectRef, err := reference.GetReference(h.Scheme, found)
@@ -211,13 +227,10 @@ func (h *cdiHooks) ensureKubeVirtStorageRoleBinding(req *common.HcoRequest) erro
 }
 
 func NewKubeVirtStorageRoleForCR(cr *hcov1beta1.HyperConverged, namespace string) *rbacv1.Role {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hco.kubevirt.io:config-reader",
-			Labels:    labels,
+			Labels:    getLabels(cr, hcoutil.AppComponentStorage),
 			Namespace: namespace,
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -232,13 +245,10 @@ func NewKubeVirtStorageRoleForCR(cr *hcov1beta1.HyperConverged, namespace string
 }
 
 func NewKubeVirtStorageRoleBindingForCR(cr *hcov1beta1.HyperConverged, namespace string) *rbacv1.RoleBinding {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hco.kubevirt.io:config-reader",
-			Labels:    labels,
+			Labels:    getLabels(cr, hcoutil.AppComponentStorage),
 			Namespace: namespace,
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -300,6 +310,12 @@ func (h *storageConfigHooks) updateCr(req *common.HcoRequest, Client client.Clie
 			needsUpdate = true
 		}
 	}
+
+	if !reflect.DeepEqual(found.Labels, storageConfig.Labels) {
+		util.DeepCopyLabels(&storageConfig.ObjectMeta, &found.ObjectMeta)
+		needsUpdate = true
+	}
+
 	if needsUpdate {
 		req.Logger.Info("Updating existing KubeVirt Storage Configmap to its default values")
 		err := Client.Update(req.Ctx, found)
@@ -320,13 +336,10 @@ func NewKubeVirtStorageConfigForCR(cr *hcov1beta1.HyperConverged, namespace stri
 
 	ocsRBD := "ocs-storagecluster-ceph-rbd"
 
-	labels := map[string]string{
-		hcoutil.AppLabel: cr.Name,
-	}
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kubevirt-storage-class-defaults",
-			Labels:    labels,
+			Labels:    getLabels(cr, hcoutil.AppComponentStorage),
 			Namespace: namespace,
 		},
 		Data: map[string]string{

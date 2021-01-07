@@ -2,16 +2,18 @@ package operands
 
 import (
 	"errors"
+	"os"
+	"reflect"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"os"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -59,12 +61,14 @@ func (h *vmImportHooks) updateCr(req *common.HcoRequest, Client client.Client, e
 		return false, false, errors.New("can't convert to vmImport")
 	}
 
-	if !reflect.DeepEqual(found.Spec, vmImport.Spec) {
+	if !reflect.DeepEqual(found.Spec, vmImport.Spec) ||
+		!reflect.DeepEqual(found.Labels, vmImport.Labels) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing vmImport's Spec to new opinionated values")
 		} else {
 			req.Logger.Info("Reconciling an externally updated vmImport's Spec to its opinionated values")
 		}
+		util.DeepCopyLabels(&vmImport.ObjectMeta, &found.ObjectMeta)
 		vmImport.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
@@ -78,10 +82,6 @@ func (h *vmImportHooks) updateCr(req *common.HcoRequest, Client client.Client, e
 
 // NewVMImportForCR returns a VM import CR
 func NewVMImportForCR(cr *hcov1beta1.HyperConverged) *vmimportv1beta1.VMImportConfig {
-	labels := map[string]string{
-		hcoutil.AppLabel: cr.Name,
-	}
-
 	spec := vmimportv1beta1.VMImportConfigSpec{}
 	if cr.Spec.Infra.NodePlacement != nil {
 		cr.Spec.Infra.NodePlacement.DeepCopyInto(&spec.Infra)
@@ -89,7 +89,7 @@ func NewVMImportForCR(cr *hcov1beta1.HyperConverged) *vmimportv1beta1.VMImportCo
 	return &vmimportv1beta1.VMImportConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "vmimport-" + cr.Name,
-			Labels: labels,
+			Labels: getLabels(cr, hcoutil.AppComponentImport),
 		},
 		Spec: spec,
 	}
@@ -150,6 +150,12 @@ func (h *imsConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, 
 			needsUpdate = true
 		}
 	}
+
+	if !reflect.DeepEqual(found.Labels, imsConfig.Labels) {
+		util.DeepCopyLabels(&imsConfig.ObjectMeta, &found.ObjectMeta)
+		needsUpdate = true
+	}
+
 	if needsUpdate {
 		req.Logger.Info("Updating existing IMS Configmap to its default values")
 		err := Client.Update(req.Ctx, found)
@@ -163,13 +169,10 @@ func (h *imsConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, 
 }
 
 func NewIMSConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
-	labels := map[string]string{
-		hcoutil.AppLabel: cr.Name,
-	}
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "v2v-vmware",
-			Labels:    labels,
+			Labels:    getLabels(cr, hcoutil.AppComponentImport),
 			Namespace: namespace,
 		},
 		Data: map[string]string{

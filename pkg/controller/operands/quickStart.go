@@ -14,6 +14,7 @@ import (
 	log "github.com/go-logr/logr"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	consolev1 "github.com/openshift/api/console/v1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -84,12 +85,14 @@ func (h qsHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 		return false, false, errors.New("can't convert to ConsoleQuickStart")
 	}
 
-	if !reflect.DeepEqual(found.Spec, h.required.Spec) {
+	if !reflect.DeepEqual(found.Spec, h.required.Spec) ||
+		!reflect.DeepEqual(found.Labels, h.required.Labels) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing ConsoleQuickStart's Spec to new opinionated values", "name", h.required.Name)
 		} else {
 			req.Logger.Info("Reconciling an externally updated ConsoleQuickStart's Spec to its opinionated values", "name", h.required.Name)
 		}
+		util.DeepCopyLabels(&h.required.ObjectMeta, &found.ObjectMeta)
 		h.required.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
@@ -168,7 +171,7 @@ func getQuickStartHandlers(logger log.Logger, Client client.Client, Scheme *runt
 			if err != nil {
 				logger.Info("Can't generate a ConsoleQuickStart object from yaml file", "file name", path)
 			} else {
-				qs.Labels = getLabels(hc)
+				qs.Labels = getLabels(hc, util.AppComponentCompute)
 				handlers = append(handlers, newQuickStartHandler(Client, Scheme, qs))
 			}
 		}

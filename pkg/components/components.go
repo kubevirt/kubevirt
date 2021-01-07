@@ -57,7 +57,7 @@ func GetDeploymentOperator(namespace, image, imagePullPolicy, conversionContaine
 	}
 }
 
-func GetDeploymentWebhook(namespace, image, imagePullPolicy string, env []corev1.EnvVar) appsv1.Deployment {
+func GetDeploymentWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion string, env []corev1.EnvVar) appsv1.Deployment {
 	deploy := appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -69,7 +69,7 @@ func GetDeploymentWebhook(namespace, image, imagePullPolicy string, env []corev1
 				"name": hcoNameWebhook,
 			},
 		},
-		Spec: GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, env),
+		Spec: GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion, env),
 	}
 
 	InjectVolumesForWebHookCerts(&deploy)
@@ -115,9 +115,7 @@ func GetDeploymentSpecOperator(namespace, image, imagePullPolicy, conversionCont
 		},
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{
-					"name": hcoName,
-				},
+				Labels: getLabels(hcoName, hcoKvIoVersion),
 			},
 			Spec: corev1.PodSpec{
 				ServiceAccountName: hcoName,
@@ -252,6 +250,15 @@ func GetDeploymentSpecOperator(namespace, image, imagePullPolicy, conversionCont
 	}
 }
 
+func getLabels(name, hcoKvIoVersion string) map[string]string {
+	return map[string]string{
+		"name":                    name,
+		hcoutil.AppLabelVersion:   hcoKvIoVersion,
+		hcoutil.AppLabelPartOf:    hcoutil.HyperConvergedCluster,
+		hcoutil.AppLabelComponent: hcoutil.AppComponentDeployment,
+	}
+}
+
 // Currently we are abusing the pod readiness to signal to OLM that HCO is not ready
 // for an upgrade. This has a lot of side effects, one of this is the validating webhook
 // being not able to receive traffic when exposed by a pod that is not reporting ready=true.
@@ -267,7 +274,7 @@ func GetDeploymentSpecOperator(namespace, image, imagePullPolicy, conversionCont
 // A deeper code refactor to produce two distinct binaries is not worth now because we are going to
 // use OLM operator conditions soon.
 // TODO: remove this once we will move to OLM operator conditions
-func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy string, env []corev1.EnvVar) appsv1.DeploymentSpec {
+func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion string, env []corev1.EnvVar) appsv1.DeploymentSpec {
 	return appsv1.DeploymentSpec{
 		Replicas: int32Ptr(1),
 		Selector: &metav1.LabelSelector{
@@ -280,9 +287,7 @@ func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy string, env []co
 		},
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{
-					"name": hcoNameWebhook,
-				},
+				Labels: getLabels(hcoNameWebhook, hcoKvIoVersion),
 			},
 			Spec: corev1.PodSpec{
 				ServiceAccountName: hcoName,
@@ -542,6 +547,7 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 				"watch",
 				"create",
 				"delete",
+				"update",
 			},
 		},
 		{
@@ -929,12 +935,14 @@ func GetInstallStrategyBase(namespace, image, webhookImage, imagePullPolicy, con
 	return &csvv1alpha1.StrategyDetailsDeployment{
 		DeploymentSpecs: []csvv1alpha1.StrategyDeploymentSpec{
 			csvv1alpha1.StrategyDeploymentSpec{
-				Name: hcoDeploymentName,
-				Spec: GetDeploymentSpecOperator(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion, env),
+				Name:  hcoDeploymentName,
+				Spec:  GetDeploymentSpecOperator(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion, env),
+				Label: getLabels(hcoName, hcoKvIoVersion),
 			},
 			csvv1alpha1.StrategyDeploymentSpec{
-				Name: hcoWhDeploymentName,
-				Spec: GetDeploymentSpecWebhook(namespace, webhookImage, imagePullPolicy, env),
+				Name:  hcoWhDeploymentName,
+				Spec:  GetDeploymentSpecWebhook(namespace, webhookImage, imagePullPolicy, hcoKvIoVersion, env),
+				Label: getLabels(hcoNameWebhook, hcoKvIoVersion),
 			},
 		},
 		Permissions: []csvv1alpha1.StrategyDeploymentPermissions{},

@@ -21,6 +21,7 @@ package main
 
 import (
 	"flag"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"os"
 	"path"
 	"sort"
@@ -105,14 +106,35 @@ func main() {
 	defer v2voVirtCrd.Close()
 
 	// the CSVs we expect to handle
-	csvs := []string{
-		*cnaCsv,
-		*virtCsv,
-		*sspCsv,
-		*cdiCsv,
-		*nmoCsv,
-		*hppCsv,
-		*vmImportCsv,
+	componentsWithCsvs := []util.CsvWithComponent{
+		{
+			Csv:       *cnaCsv,
+			Component: hcoutil.AppComponentNetwork,
+		},
+		{
+			Csv:       *virtCsv,
+			Component: hcoutil.AppComponentCompute,
+		},
+		{
+			Csv:       *sspCsv,
+			Component: hcoutil.AppComponentSchedule,
+		},
+		{
+			Csv:       *cdiCsv,
+			Component: hcoutil.AppComponentStorage,
+		},
+		{
+			Csv:       *nmoCsv,
+			Component: hcoutil.AppComponentNetwork,
+		},
+		{
+			Csv:       *hppCsv,
+			Component: hcoutil.AppComponentStorage,
+		},
+		{
+			Csv:       *vmImportCsv,
+			Component: hcoutil.AppComponentImport,
+		},
 	}
 
 	if webhookImage == nil || *webhookImage == "" {
@@ -152,8 +174,13 @@ func main() {
 			*operatorNamespace,
 			*webhookImage,
 			"IfNotPresent",
+			*hcoKvIoVersion,
 			[]corev1.EnvVar{},
 		),
+	}
+	// hco-operator and hco-webhook
+	for i, _ := range deployments {
+		overwriteDeploymentLabels(&deployments[i], hcoutil.AppComponentDeployment)
 	}
 
 	services := []v1.Service{
@@ -174,9 +201,9 @@ func main() {
 		components.GetClusterRoleBinding(*operatorNamespace),
 	}
 
-	for _, csvStr := range csvs {
-		if csvStr != "" {
-			csvBytes := []byte(csvStr)
+	for _, csvStr := range componentsWithCsvs {
+		if csvStr.Csv != "" {
+			csvBytes := []byte(csvStr.Csv)
 
 			csvStruct := &csvv1alpha1.ClusterServiceVersion{}
 
@@ -231,6 +258,7 @@ func main() {
 					Spec: deploymentSpec.Spec,
 				}
 				injectWebhookMounts(csvStruct.Spec.WebhookDefinitions, &deploy)
+				overwriteDeploymentLabels(&deploy, csvStr.Component)
 				deployments = append(deployments, deploy)
 			}
 
@@ -396,4 +424,22 @@ func injectWebhookMounts(webhookDefs []csvv1alpha1.WebhookDescription, deploy *a
 			components.InjectVolumesForWebHookCerts(deploy)
 		}
 	}
+}
+
+func overwriteDeploymentLabels(deploy *appsv1.Deployment, component hcoutil.AppComponent) {
+	if deploy.Labels == nil {
+		deploy.Labels = make(map[string]string)
+	}
+	if deploy.Spec.Template.Labels == nil {
+		deploy.Spec.Template.Labels = make(map[string]string)
+	}
+	overwriteWithStandardLabels(deploy.Spec.Template.Labels, *hcoKvIoVersion, component)
+	overwriteWithStandardLabels(deploy.Labels, *hcoKvIoVersion, component)
+}
+
+func overwriteWithStandardLabels(labels map[string]string, version string, component hcoutil.AppComponent) {
+	// managed-by label is not set here since we don't know who is going to deploy the generated yaml files
+	labels[hcoutil.AppLabelVersion] = version
+	labels[hcoutil.AppLabelPartOf] = hcoutil.HyperConvergedCluster
+	labels[hcoutil.AppLabelComponent] = string(component)
 }

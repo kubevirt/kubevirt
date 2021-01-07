@@ -282,6 +282,10 @@ Msg "Check that OVS is deployed or not deployed according to deployOVS annotatio
 ./hack/retry.sh 40 15 "CMD=${CMD} PREVIOUS_OVS_ANNOTATION=${PREVIOUS_OVS_ANNOTATION}\
  PREVIOUS_OVS_STATE=${PREVIOUS_OVS_STATE} ./hack/check_upgrade_ovs.sh"
 
+Msg "Check that managed objects has correct labels"
+./hack/retry.sh 10 30 "KUBECTL_BINARY=${CMD} ./hack/check_labels.sh"
+
+
 Msg "Brutally delete HCO removing the namespace where it's running"
 source hack/test_delete_ns.sh
 test_delete_ns

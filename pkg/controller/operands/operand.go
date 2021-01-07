@@ -2,8 +2,9 @@ package operands
 
 import (
 	"fmt"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"os"
+
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
@@ -263,7 +264,7 @@ func getNamespace(defaultNamespace string, opts []string) string {
 	return defaultNamespace
 }
 
-func getLabels(hc *hcov1beta1.HyperConverged) map[string]string {
+func getLabels(hc *hcov1beta1.HyperConverged, component hcoutil.AppComponent) map[string]string {
 	hcoName := hcov1beta1.HyperConvergedName
 
 	if hc.Name != "" {
@@ -271,6 +272,10 @@ func getLabels(hc *hcov1beta1.HyperConverged) map[string]string {
 	}
 
 	return map[string]string{
-		hcoutil.AppLabel: hcoName,
+		hcoutil.AppLabel:          hcoName,
+		hcoutil.AppLabelManagedBy: hcoutil.OperatorName,
+		hcoutil.AppLabelVersion:   hcoutil.GetHcoKvIoVersion(),
+		hcoutil.AppLabelPartOf:    hcoutil.HyperConvergedCluster,
+		hcoutil.AppLabelComponent: string(component),
 	}
 }

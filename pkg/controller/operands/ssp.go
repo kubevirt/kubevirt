@@ -3,11 +3,13 @@ package operands
 import (
 	"errors"
 	"fmt"
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	"reflect"
+
+	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
@@ -94,12 +96,14 @@ func (h *commonTemplateBundleHooks) updateCr(req *common.HcoRequest, Client clie
 	if !ok1 || !ok2 {
 		return false, false, errors.New("can't convert to Kubevirt Common Templates Bundle")
 	}
-	if !reflect.DeepEqual(kvCTB.Spec, found.Spec) {
+	if !reflect.DeepEqual(kvCTB.Spec, found.Spec) ||
+		!reflect.DeepEqual(kvCTB.Labels, found.Labels) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing KubeVirt Common Templates Bundle's Spec to new opinionated values")
 		} else {
 			req.Logger.Info("Reconciling an externally updated KubeVirt Common Templates Bundle's Spec to its opinionated values")
 		}
+		util.DeepCopyLabels(&kvCTB.ObjectMeta, &found.ObjectMeta)
 		kvCTB.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
@@ -119,7 +123,7 @@ func NewKubeVirtCommonTemplateBundle(hc *hcov1beta1.HyperConverged, opts ...stri
 	return &sspv1.KubevirtCommonTemplatesBundle{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "common-templates-" + hc.Name,
-			Labels:    getLabels(hc),
+			Labels:    getLabels(hc, hcoutil.AppComponentSchedule),
 			Namespace: getNamespace(hcoutil.OpenshiftNamespace, opts),
 		},
 	}
@@ -171,12 +175,14 @@ func (h *nodeLabellerBundleHooks) updateCr(req *common.HcoRequest, Client client
 	if !ok1 || !ok2 {
 		return false, false, errors.New("can't convert to KubeVirt Node Labeller Bundle")
 	}
-	if !reflect.DeepEqual(kvNLB.Spec, found.Spec) {
+	if !reflect.DeepEqual(kvNLB.Spec, found.Spec) ||
+		!reflect.DeepEqual(kvNLB.Labels, found.Labels) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing KubeVirt Node Labeller Bundle's Spec to new opinionated values")
 		} else {
 			req.Logger.Info("Reconciling an externally updated KubeVirt Node Labeller Bundle's Spec to its opinionated values")
 		}
+		util.DeepCopyLabels(&kvNLB.ObjectMeta, &found.ObjectMeta)
 		kvNLB.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
@@ -194,10 +200,6 @@ func (h nodeLabellerBundleHandler) Ensure(req *common.HcoRequest) *EnsureResult 
 }
 
 func NewKubeVirtNodeLabellerBundleForCR(cr *hcov1beta1.HyperConverged, namespace string) *sspv1.KubevirtNodeLabellerBundle {
-	labels := map[string]string{
-		hcoutil.AppLabel: cr.Name,
-	}
-
 	spec := sspv1.ComponentSpec{
 		// UseKVM: isKVMAvailable(),
 	}
@@ -224,7 +226,7 @@ func NewKubeVirtNodeLabellerBundleForCR(cr *hcov1beta1.HyperConverged, namespace
 	return &sspv1.KubevirtNodeLabellerBundle{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "node-labeller-" + cr.Name,
-			Labels:    labels,
+			Labels:    getLabels(cr, hcoutil.AppComponentSchedule),
 			Namespace: namespace,
 		},
 		Spec: spec,
@@ -278,12 +280,14 @@ func (h *templateValidatorHooks) updateCr(req *common.HcoRequest, Client client.
 		return false, false, errors.New("can't convert to KubeVirt Template Validator")
 	}
 
-	if !reflect.DeepEqual(kvTV.Spec, found.Spec) {
+	if !reflect.DeepEqual(kvTV.Spec, found.Spec) ||
+		!reflect.DeepEqual(kvTV.Labels, found.Labels) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing KubeVirt Template Validator's Spec to new opinionated values")
 		} else {
 			req.Logger.Info("Reconciling an externally updated KubeVirt Template Validator's Spec to its opinionated values")
 		}
+		util.DeepCopyLabels(&kvTV.ObjectMeta, &found.ObjectMeta)
 		kvTV.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
@@ -300,10 +304,6 @@ func (h templateValidatorHandler) Ensure(req *common.HcoRequest) *EnsureResult {
 }
 
 func NewKubeVirtTemplateValidatorForCR(cr *hcov1beta1.HyperConverged, namespace string) *sspv1.KubevirtTemplateValidator {
-	labels := map[string]string{
-		hcoutil.AppLabel: cr.Name,
-	}
-
 	spec := sspv1.TemplateValidatorSpec{}
 	if cr.Spec.Infra.NodePlacement != nil {
 		if cr.Spec.Infra.NodePlacement.Affinity != nil {
@@ -327,7 +327,7 @@ func NewKubeVirtTemplateValidatorForCR(cr *hcov1beta1.HyperConverged, namespace 
 	return &sspv1.KubevirtTemplateValidator{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "template-validator-" + cr.Name,
-			Labels:    labels,
+			Labels:    getLabels(cr, hcoutil.AppComponentSchedule),
 			Namespace: namespace,
 		},
 		Spec: spec,
@@ -381,12 +381,14 @@ func (h *metricsAggregationHooks) updateCr(req *common.HcoRequest, Client client
 		return false, false, errors.New("can't convert to KubeVirt Metrics Aggregation")
 	}
 
-	if !reflect.DeepEqual(kubevirtMetricsAggregation.Spec, found.Spec) {
+	if !reflect.DeepEqual(kubevirtMetricsAggregation.Spec, found.Spec) ||
+		!reflect.DeepEqual(kubevirtMetricsAggregation.Labels, found.Labels) {
 		if req.HCOTriggered {
 			req.Logger.Info("Updating existing KubeVirt Template Validator's Spec to new opinionated values")
 		} else {
 			req.Logger.Info("Reconciling an externally updated KubeVirt Template Validator's Spec to its opinionated values")
 		}
+		util.DeepCopyLabels(&kubevirtMetricsAggregation.ObjectMeta, &found.ObjectMeta)
 		kubevirtMetricsAggregation.Spec.DeepCopyInto(&found.Spec)
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
@@ -472,13 +474,10 @@ func (h *metricsAggregationHandler) Ensure(req *common.HcoRequest) *EnsureResult
 }
 
 func NewKubeVirtMetricsAggregationForCR(cr *hcov1beta1.HyperConverged, namespace string) *sspv1.KubevirtMetricsAggregation {
-	labels := map[string]string{
-		hcoutil.AppLabel: cr.Name,
-	}
 	return &sspv1.KubevirtMetricsAggregation{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "metrics-aggregation-" + cr.Name,
-			Labels:    labels,
+			Labels:    getLabels(cr, hcoutil.AppComponentSchedule),
 			Namespace: namespace,
 		},
 	}
