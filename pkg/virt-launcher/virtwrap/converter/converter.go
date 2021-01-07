@@ -1424,6 +1424,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
 			Type:  "virtio-serial",
 			Index: "0",
+			Model: translateModel(c, "virtio"),
 		})
 
 		var serialPort uint = 0
