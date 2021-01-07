@@ -210,7 +210,7 @@ var _ = Describe("DHCP", func() {
 				"4wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
 			}
 			ip := net.ParseIP("192.168.2.1")
-			options, err := prepareDHCPOptions(ip.DefaultMask(), ip, nil, nil, searchDomains, 1500, "myhost", nil)
+			options, err := prepareDHCPOptions(ip.DefaultMask(), ip, nil, nil, searchDomains, "myhost", nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(options[dhcp4.OptionDomainName]).To(Equal([]byte("14wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com")))
 		})
@@ -234,7 +234,7 @@ var _ = Describe("DHCP", func() {
 				PrivateOptions: []v1.DHCPPrivateOptions{v1.DHCPPrivateOptions{Option: 240, Value: "private.options.kubevirt.io"}},
 			}
 
-			options, err := prepareDHCPOptions(ip.DefaultMask(), ip, nil, nil, searchDomains, 1500, "myhost", dhcpOptions)
+			options, err := prepareDHCPOptions(ip.DefaultMask(), ip, nil, nil, searchDomains, "myhost", dhcpOptions)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(options[dhcp4.OptionBootFileName]).To(Equal([]byte("config")))

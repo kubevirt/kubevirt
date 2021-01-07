@@ -116,22 +116,21 @@ var _ = Describe("VIF", func() {
 	const ipv6Cidr = "fd10:0:2::2/120"
 	const mac = "de:ad:00:00:be:ef"
 	const ipv4Gateway = "10.0.0.1"
-	const mtu = 1450
 	const vifName = "test-vif"
 
 	Context("String", func() {
 		It("returns correct string representation", func() {
-			vif := createDummyVIF(vifName, ipv4Cidr, ipv4Gateway, "", mac, mtu)
-			Expect(vif.String()).To(Equal(fmt.Sprintf("VIF: { Name: %s, IP: %s, Mask: %s, IPv6: <nil>, MAC: %s, Gateway: %s, MTU: %d, IPAMDisabled: false}", vifName, ipv4Address, ipv4Mask, mac, ipv4Gateway, mtu)))
+			vif := createDummyVIF(vifName, ipv4Cidr, ipv4Gateway, "", mac)
+			Expect(vif.String()).To(Equal(fmt.Sprintf("VIF: { Name: %s, IP: %s, Mask: %s, IPv6: <nil>, MAC: %s, Gateway: %s, IPAMDisabled: false}", vifName, ipv4Address, ipv4Mask, mac, ipv4Gateway)))
 		})
 		It("returns correct string representation with ipv6", func() {
-			vif := createDummyVIF(vifName, ipv4Cidr, ipv4Gateway, ipv6Cidr, mac, mtu)
-			Expect(vif.String()).To(Equal(fmt.Sprintf("VIF: { Name: %s, IP: %s, Mask: %s, IPv6: %s, MAC: %s, Gateway: %s, MTU: %d, IPAMDisabled: false}", vifName, ipv4Address, ipv4Mask, ipv6Cidr, mac, ipv4Gateway, mtu)))
+			vif := createDummyVIF(vifName, ipv4Cidr, ipv4Gateway, ipv6Cidr, mac)
+			Expect(vif.String()).To(Equal(fmt.Sprintf("VIF: { Name: %s, IP: %s, Mask: %s, IPv6: %s, MAC: %s, Gateway: %s, IPAMDisabled: false}", vifName, ipv4Address, ipv4Mask, ipv6Cidr, mac, ipv4Gateway)))
 		})
 	})
 })
 
-func createDummyVIF(vifName, ipv4cidr, ipv4gateway, ipv6cidr, macStr string, mtu uint16) *VIF {
+func createDummyVIF(vifName, ipv4cidr, ipv4gateway, ipv6cidr, macStr string) *VIF {
 	addr, _ := netlink.ParseAddr(ipv4cidr)
 	mac, _ := net.ParseMAC(macStr)
 	gw := net.ParseIP(ipv4gateway)
@@ -140,7 +139,6 @@ func createDummyVIF(vifName, ipv4cidr, ipv4gateway, ipv6cidr, macStr string, mtu
 		IP:      *addr,
 		MAC:     mac,
 		Gateway: gw,
-		Mtu:     mtu,
 	}
 	if ipv6cidr != "" {
 		ipv6Addr, _ := netlink.ParseAddr(ipv6cidr)

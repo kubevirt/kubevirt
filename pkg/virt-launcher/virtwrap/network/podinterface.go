@@ -415,9 +415,6 @@ func (b *BridgePodInterface) discoverPodNetworkInterface() error {
 		return fmt.Errorf("MTU value out of range ")
 	}
 
-	// Get interface MTU
-	b.vif.Mtu = uint16(b.podNicLink.Attrs().MTU)
-
 	if !b.vif.IPAMDisabled {
 		// Handle interface routes
 		if err := b.setInterfaceRoutes(); err != nil {
@@ -474,7 +471,8 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces(queueNumber uint32, lau
 	}
 
 	tapDeviceName := generateTapDeviceName(podInterfaceName)
-	err := createAndBindTapToBridge(tapDeviceName, b.bridgeInterfaceName, queueNumber, launcherPID, int(b.vif.Mtu))
+	podNicLinkMtu := b.podNicLink.Attrs().MTU
+	err := createAndBindTapToBridge(tapDeviceName, b.bridgeInterfaceName, queueNumber, launcherPID, podNicLinkMtu)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -495,7 +493,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces(queueNumber uint32, lau
 		return err
 	}
 
-	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
+	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(podNicLinkMtu)}
 	b.virtIface.MAC = &api.MAC{MAC: b.vif.MAC.String()}
 	b.virtIface.Target = &api.InterfaceTarget{
 		Device:  tapDeviceName,
@@ -653,9 +651,6 @@ func (p *MasqueradePodInterface) discoverPodNetworkInterface() error {
 		return fmt.Errorf("MTU value out of range ")
 	}
 
-	// Get interface MTU
-	p.vif.Mtu = uint16(p.podNicLink.Attrs().MTU)
-
 	err = configureVifV4Addresses(p, err)
 	if err != nil {
 		return err
@@ -733,11 +728,12 @@ func (p *MasqueradePodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error
 
 func (p *MasqueradePodInterface) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
 	// Create an master bridge interface
+	podNicLinkMtu := p.podNicLink.Attrs().MTU
 	bridgeNicName := fmt.Sprintf("%s-nic", p.bridgeInterfaceName)
 	bridgeNic := &netlink.Dummy{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: bridgeNicName,
-			MTU:  int(p.vif.Mtu),
+			MTU:  podNicLinkMtu,
 		},
 	}
 	err := Handler.LinkAdd(bridgeNic)
@@ -765,7 +761,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces(queueNumber uint32,
 	}
 
 	tapDeviceName := generateTapDeviceName(podInterfaceName)
-	err = createAndBindTapToBridge(tapDeviceName, p.bridgeInterfaceName, queueNumber, launcherPID, int(p.vif.Mtu))
+	err = createAndBindTapToBridge(tapDeviceName, p.bridgeInterfaceName, queueNumber, launcherPID, podNicLinkMtu)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -804,7 +800,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces(queueNumber uint32,
 		}
 	}
 
-	p.virtIface.MTU = &api.MTU{Size: strconv.Itoa(p.podNicLink.Attrs().MTU)}
+	p.virtIface.MTU = &api.MTU{Size: strconv.Itoa(podNicLinkMtu)}
 	p.virtIface.MAC = &api.MAC{MAC: p.vif.MAC.String()}
 	p.virtIface.Target = &api.InterfaceTarget{
 		Device:  tapDeviceName,
@@ -883,7 +879,6 @@ func (p *MasqueradePodInterface) createBridge() error {
 	bridge := &netlink.Bridge{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: p.bridgeInterfaceName,
-			MTU:  int(p.vif.Mtu),
 		},
 	}
 	err = Handler.LinkAdd(bridge)

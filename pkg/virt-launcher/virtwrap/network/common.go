@@ -64,7 +64,6 @@ type VIF struct {
 	Gateway      net.IP
 	GatewayIpv6  net.IP
 	Routes       *[]netlink.Route
-	Mtu          uint16
 	IPAMDisabled bool
 }
 
@@ -76,14 +75,13 @@ func (e *CriticalNetworkError) Error() string { return e.Msg }
 
 func (vif VIF) String() string {
 	return fmt.Sprintf(
-		"VIF: { Name: %s, IP: %s, Mask: %s, IPv6: %s, MAC: %s, Gateway: %s, MTU: %d, IPAMDisabled: %t}",
+		"VIF: { Name: %s, IP: %s, Mask: %s, IPv6: %s, MAC: %s, Gateway: %s, IPAMDisabled: %t}",
 		vif.Name,
 		vif.IP.IP,
 		vif.IP.Mask,
 		vif.IPv6,
 		vif.MAC,
 		vif.Gateway,
-		vif.Mtu,
 		vif.IPAMDisabled,
 	)
 }
@@ -359,7 +357,6 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInter
 			nameservers,
 			nic.Routes,
 			searchDomains,
-			nic.Mtu,
 			dhcpOptions,
 		); err != nil {
 			log.Log.Errorf("failed to run DHCP: %v", err)

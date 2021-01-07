@@ -21,7 +21,6 @@ package dhcp
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"net"
 	"os"
@@ -57,7 +56,6 @@ func SingleClientDHCPServer(
 	dnsIPs [][]byte,
 	routes *[]netlink.Route,
 	searchDomains []string,
-	mtu uint16,
 	customDHCPOptions *v1.DHCPOptions) error {
 
 	log.Log.Info("Starting SingleClientDHCPServer")
@@ -67,7 +65,7 @@ func SingleClientDHCPServer(
 		return fmt.Errorf("reading the pods hostname failed: %v", err)
 	}
 
-	options, err := prepareDHCPOptions(clientMask, routerIP, dnsIPs, routes, searchDomains, mtu, hostname, customDHCPOptions)
+	options, err := prepareDHCPOptions(clientMask, routerIP, dnsIPs, routes, searchDomains, hostname, customDHCPOptions)
 	if err != nil {
 		return err
 	}
@@ -98,18 +96,13 @@ func prepareDHCPOptions(
 	dnsIPs [][]byte,
 	routes *[]netlink.Route,
 	searchDomains []string,
-	mtu uint16,
 	hostname string,
 	customDHCPOptions *v1.DHCPOptions) (dhcp.Options, error) {
-
-	mtuArray := make([]byte, 2)
-	binary.BigEndian.PutUint16(mtuArray, mtu)
 
 	dhcpOptions := dhcp.Options{
 		dhcp.OptionSubnetMask:       []byte(clientMask),
 		dhcp.OptionRouter:           []byte(routerIP),
 		dhcp.OptionDomainNameServer: bytes.Join(dnsIPs, nil),
-		dhcp.OptionInterfaceMTU:     mtuArray,
 	}
 
 	netRoutes := formClasslessRoutes(routes)
