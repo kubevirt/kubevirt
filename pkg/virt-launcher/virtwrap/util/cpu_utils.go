@@ -25,5 +25,6 @@ import (
 )
 
 func GetPodCPUSet() ([]int, error) {
-	return hardware.ParseCPUSetFile(cgroup.CPUSetPath())
+	topo := hardware.NewPodCPUTopo(cgroup.CPUSetPath())
+	return hardware.GroupCPUThreads(topo)
 }

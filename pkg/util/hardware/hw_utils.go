@@ -21,17 +21,55 @@ package hardware
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const (
+	topoBaseDir           = "/sys/devices/system/cpu"
+	threadSiblingsListFmt = "cpu%d/topology/thread_siblings_list" // deprecated
+	coreCPUsListFmt       = "cpu%d/topology/core_cpus_list"
+
 	PCI_ADDRESS_PATTERN = `^([\da-fA-F]{4}):([\da-fA-F]{2}):([\da-fA-F]{2})\.([0-7]{1})$`
 )
+
+type CPUSet map[int]bool
+
+func NewCPUSet(cpus []int) CPUSet {
+	cpuSet := CPUSet{}
+	for _, cpu := range cpus {
+		cpuSet.Add(cpu)
+	}
+	return cpuSet
+}
+
+func (s CPUSet) Has(cpu int) bool {
+	return s[cpu]
+}
+
+func (s CPUSet) Add(cpu int) {
+	s[cpu] = true
+}
+
+func (s CPUSet) Remove(cpu int) {
+	delete(s, cpu)
+}
+
+func (s CPUSet) Empty() bool {
+	return len(s) == 0
+}
+
+type CPUTopology interface {
+	GetCPUs() ([]int, error)
+	GetCPUSiblings(cpu int) ([]int, error)
+}
 
 // Parse linux cpuset into an array of ints
 // See: http://man7.org/linux/man-pages/man7/cpuset.7.html#FORMATS
@@ -76,6 +114,48 @@ func ParseCPUSetFile(file string) ([]int, error) {
 	return cpusList, nil
 }
 
+func GroupCPUThreads(topo CPUTopology) ([]int, error) {
+	cpus, err := topo.GetCPUs()
+	if err != nil {
+		return nil, err
+	}
+
+	cpuSet := NewCPUSet(cpus)
+	res := make([]int, 0, len(cpus))
+
+	appendAndFinish := func(cpu int) bool {
+		res = append(res, cpu)
+		cpuSet.Remove(cpu)
+		return cpuSet.Empty()
+	}
+
+	for _, cpu := range cpus {
+		if !cpuSet.Has(cpu) {
+			continue
+		}
+
+		if appendAndFinish(cpu) {
+			return res, nil
+		}
+
+		siblings, err := topo.GetCPUSiblings(cpu)
+		if err != nil {
+			log.DefaultLogger().Reason(err).Error("Error while reading CPU topology")
+			return cpus, nil
+		}
+		for _, sibling := range siblings {
+			if !cpuSet.Has(sibling) {
+				continue
+			}
+
+			if appendAndFinish(sibling) {
+				return res, nil
+			}
+		}
+	}
+	return res, nil
+}
+
 //GetNumberOfVCPUs returns number of vCPUs
 //It counts sockets*cores*threads
 func GetNumberOfVCPUs(cpuSpec *v1.CPU) int64 {
@@ -95,6 +175,31 @@ func GetNumberOfVCPUs(cpuSpec *v1.CPU) int64 {
 		}
 	}
 	return int64(vCPUs)
+}
+
+type sysCPUTopo struct {
+	cpusetPath  string
+	topoBaseDir string
+}
+
+func NewPodCPUTopo(cpusetPath string) CPUTopology {
+	return NewPodCPUTopoWithBaseDir(cpusetPath, topoBaseDir)
+}
+
+func NewPodCPUTopoWithBaseDir(cpusetPath, topoBaseDir string) CPUTopology {
+	return &sysCPUTopo{cpusetPath, topoBaseDir}
+}
+
+func (t *sysCPUTopo) GetCPUs() ([]int, error) {
+	return ParseCPUSetFile(t.cpusetPath)
+}
+
+func (t *sysCPUTopo) GetCPUSiblings(cpu int) ([]int, error) {
+	file := filepath.Join(t.topoBaseDir, fmt.Sprintf(coreCPUsListFmt, cpu))
+	if _, err := os.Stat(file); os.IsNotExist(err) {
+		file = filepath.Join(t.topoBaseDir, fmt.Sprintf(threadSiblingsListFmt, cpu))
+	}
+	return ParseCPUSetFile(file)
 }
 
 // ParsePciAddress returns an array of PCI DBSF fields (domain, bus, slot, function)
