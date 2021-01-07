@@ -279,7 +279,7 @@ var _ = Describe("Qemu agent poller", func() {
             }`
 
 			agent, err := parseAgent(jsonInput)
-			expectedAgent := "4.1"
+			expectedAgent := AgentInfo{Version: "4.1"}
 
 			Expect(err).ToNot(HaveOccurred(), "agent version should be parsed normally")
 			Expect(agent).To(Equal(expectedAgent))
