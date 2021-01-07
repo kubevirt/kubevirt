@@ -27,6 +27,10 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/utils/pointer"
+
+	"kubevirt.io/kubevirt/pkg/testutils"
+
 	"kubevirt.io/kubevirt/pkg/util/cluster"
 
 	expect "github.com/google/goexpect"
@@ -90,7 +94,21 @@ var _ = Describe("Configurations", func() {
 			}
 			Expect(rootPortController).To(HaveLen(0), "libvirt should not add additional buses to the root one")
 		})
+	})
 
+	Context("when requesting virtio-transitional models", func() {
+		It("should start and run the guest", func() {
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: "virtio", Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
+			vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "watchdog", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionPoweroff}}}
+			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.BoolPtr(true)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			testutils.ExpectVirtioTransitionalOnly(domSpec)
+		})
 	})
 
 	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should", func() {
