@@ -302,8 +302,34 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		if _, err = m.createBlockDeviceFile(deviceName, sourceMajor, sourceMinor, permissions); err != nil {
 			return err
 		}
+	} else if isBlockExists && !m.volumeStatusReady(volume, vmi) {
+		// Block device exists already, but the volume is not ready yet, ensure that the device is allowed.
+		computeCGroupPath, err := m.getTargetCgroupPath(vmi)
+		if err != nil {
+			return err
+		}
+		sourceMajor, sourceMinor, _, err := m.getSourceMajorMinor(vmi, sourceUID)
+		if err != nil {
+			return err
+		}
+		if err := m.allowBlockMajorMinor(sourceMajor, sourceMinor, computeCGroupPath); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func (m *volumeMounter) volumeStatusReady(volumeName string, vmi *v1.VirtualMachineInstance) bool {
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.Name == volumeName && volumeStatus.HotplugVolume != nil {
+			if volumeStatus.Phase != v1.VolumeReady {
+				log.DefaultLogger().Infof("Volume %s is not ready, but the target block device exists", volumeName)
+			}
+			return volumeStatus.Phase == v1.VolumeReady
+		}
+	}
+	// This should never happen, it should always find the volume status in the VMI.
+	return true
 }
 
 func (m *volumeMounter) getSourceMajorMinor(vmi *v1.VirtualMachineInstance, sourceUID types.UID) (int64, int64, string, error) {
