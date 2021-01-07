@@ -43,7 +43,7 @@ sleep 10
 VIRT_POD=`oc get pods -n kubevirt | grep virt-operator | head -1 | awk '{ print $1 }'`
 CDI_POD=`oc get pods -n cdi | grep cdi-operator | head -1 | awk '{ print $1 }'`
 NETWORK_ADDONS_POD=`oc get pods -n cluster-network-addons-operator | grep cluster-network-addons-operator | head -1 | awk '{ print $1 }'`
-SSP_POD=`oc get pods -n kubevirt-hyperconverged | grep kubevirt-ssp-operator | head -1 | awk '{ print $1 }'`
+SSP_POD=`oc get pods -n kubevirt-hyperconverged | grep ssp-operator | head -1 | awk '{ print $1 }'`
 VM_IMPORT_POD=`oc get pods -n kubevirt-hyperconverged | grep vm-import-operator | head -1 | awk '{ print $1 }'`
 oc wait pod $VIRT_POD --for condition=Ready -n kubevirt --timeout="${WAIT_TIMEOUT}"
 oc wait pod $CDI_POD --for condition=Ready -n cdi --timeout="${WAIT_TIMEOUT}"

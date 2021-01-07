@@ -12,7 +12,6 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
-	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -22,6 +21,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -65,11 +66,8 @@ type BasicExpected struct {
 	kv                   *kubevirtv1.KubeVirt
 	cdi                  *cdiv1beta1.CDI
 	cna                  *networkaddonsv1.NetworkAddonsConfig
-	kvCtb                *sspv1.KubevirtCommonTemplatesBundle
-	kvNlb                *sspv1.KubevirtNodeLabellerBundle
-	kvTv                 *sspv1.KubevirtTemplateValidator
+	ssp                  *sspv1beta1.SSP
 	vmi                  *vmimportv1beta1.VMImportConfig
-	kvMtAg               *sspv1.KubevirtMetricsAggregation
 	imsConfig            *corev1.ConfigMap
 	mService             *corev1.Service
 	serviceMonitor       *monitoringv1.ServiceMonitor
@@ -87,11 +85,8 @@ func (be BasicExpected) toArray() []runtime.Object {
 		be.kv,
 		be.cdi,
 		be.cna,
-		be.kvCtb,
-		be.kvNlb,
-		be.kvTv,
+		be.ssp,
 		be.vmi,
-		be.kvMtAg,
 		be.imsConfig,
 		be.mService,
 		be.serviceMonitor,
@@ -178,29 +173,15 @@ func getBasicDeployment() *BasicExpected {
 	expectedCNA.Status.Conditions = getGenericCompletedConditions()
 	res.cna = expectedCNA
 
-	expectedKVCTB := operands.NewKubeVirtCommonTemplateBundle(hco)
-	expectedKVCTB.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/ctbs/%s", expectedKVCTB.Namespace, expectedKVCTB.Name)
-	expectedKVCTB.Status.Conditions = getGenericCompletedConditions()
-	res.kvCtb = expectedKVCTB
-
-	expectedKVNLB := operands.NewKubeVirtNodeLabellerBundleForCR(hco, namespace)
-	expectedKVNLB.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/nlb/%s", expectedKVNLB.Namespace, expectedKVNLB.Name)
-	expectedKVNLB.Status.Conditions = getGenericCompletedConditions()
-	res.kvNlb = expectedKVNLB
-
-	expectedKVTV := operands.NewKubeVirtTemplateValidatorForCR(hco, namespace)
-	expectedKVTV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/tv/%s", expectedKVTV.Namespace, expectedKVTV.Name)
-	expectedKVTV.Status.Conditions = getGenericCompletedConditions()
-	res.kvTv = expectedKVTV
+	expectedSSP := operands.NewSSP(hco)
+	expectedSSP.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/ctbs/%s", expectedSSP.Namespace, expectedSSP.Name)
+	expectedSSP.Status.Conditions = getGenericCompletedConditions()
+	res.ssp = expectedSSP
 
 	expectedVMI := operands.NewVMImportForCR(hco)
 	expectedVMI.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/vmimportconfigs/%s", expectedVMI.Namespace, expectedVMI.Name)
 	expectedVMI.Status.Conditions = getGenericCompletedConditions()
 	res.vmi = expectedVMI
-
-	kvMtAg := operands.NewKubeVirtMetricsAggregationForCR(hco, namespace)
-	kvMtAg.Status.Conditions = getGenericCompletedConditions()
-	res.kvMtAg = kvMtAg
 
 	res.imsConfig = operands.NewIMSConfigForCR(hco, namespace)
 	res.imsConfig.Data["v2v-conversion-image"] = commonTestUtils.Conversion_image

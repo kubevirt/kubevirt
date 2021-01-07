@@ -52,6 +52,7 @@ CRD_DIR="${DEPLOY_DIR}/crds"
 OLM_DIR="${DEPLOY_DIR}/olm-catalog"
 CSV_DIR="${OLM_DIR}/kubevirt-hyperconverged/${CSV_VERSION}"
 DEFAULT_CSV_GENERATOR="/usr/bin/csv-generator"
+SSP_CSV_GENERATOR="/csv-generator"
 
 INDEX_IMAGE_DIR=${DEPLOY_DIR}/index-image
 
@@ -154,7 +155,7 @@ function create_ssp_csv() {
     --operator-version=${SSP_VERSION} \
   "
 
-  gen_csv ${DEFAULT_CSV_GENERATOR} ${operatorName} "${SSP_OPERATOR_IMAGE}" ${dumpCRDsArg} ${operatorArgs}
+  gen_csv ${SSP_CSV_GENERATOR} ${operatorName} "${SSP_OPERATOR_IMAGE}" ${dumpCRDsArg} ${operatorArgs}
   echo "${operatorName}"
 }
 

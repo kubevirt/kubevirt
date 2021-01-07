@@ -262,6 +262,9 @@ type BundleLookup struct {
 	// Conditions represents the overall state of a BundleLookup.
 	// +optional
 	Conditions []BundleLookupCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	// The effective properties of the unpacked bundle.
+	// +optional
+	Properties string `json:"properties,omitempty"`
 }
 
 // GetCondition returns the BundleLookupCondition of the given type if it exists in the BundleLookup's Conditions.

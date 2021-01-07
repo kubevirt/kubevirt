@@ -57,10 +57,7 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshift
 
 	if isOpenshiftCluster {
 		operands = append(operands, []Operand{
-			newCommonTemplateBundleHandler(client, scheme),
-			newNodeLabellerBundleHandler(client, scheme),
-			newTemplateValidatorHandler(client, scheme),
-			newMetricsAggregationHandler(client, scheme),
+			newSspHandler(client, scheme),
 			(*genericOperand)(newMetricsServiceHandler(client, scheme)),
 			(*genericOperand)(newMetricsServiceMonitorHandler(client, scheme)),
 			(*genericOperand)(newMonitoringPrometheusRuleHandler(client, scheme)),
@@ -137,7 +134,7 @@ func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 		NewKubeVirt(req.Instance),
 		NewCDI(req.Instance),
 		NewNetworkAddons(req.Instance),
-		NewKubeVirtCommonTemplateBundle(req.Instance),
+		NewSSP(req.Instance),
 		NewConsoleCLIDownload(req.Instance),
 		NewVMImportForCR(req.Instance),
 	}

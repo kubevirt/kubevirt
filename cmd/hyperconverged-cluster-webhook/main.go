@@ -18,7 +18,6 @@ import (
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	sspopv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
@@ -28,6 +27,7 @@ import (
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -139,7 +139,7 @@ func main() {
 		apis.AddToScheme,
 		cdiv1beta1.AddToScheme,
 		networkaddons.AddToScheme,
-		sspopv1.AddToScheme,
+		sspv1beta1.AddToScheme,
 		csvv1alpha1.AddToScheme,
 		vmimportv1beta1.AddToScheme,
 		admissionregistrationv1.AddToScheme,

@@ -11,23 +11,21 @@ import (
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
-	sspopv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis"
-	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 const (
@@ -52,7 +50,7 @@ var _ = Describe("webhooks handler", func() {
 		cdiv1beta1.AddToScheme,
 		kubevirtv1.AddToScheme,
 		networkaddons.AddToScheme,
-		sspopv1.AddToScheme,
+		sspv1beta1.AddToScheme,
 		vmimportv1beta1.AddToScheme,
 	} {
 		Expect(f(s)).To(BeNil())
@@ -266,11 +264,11 @@ var _ = Describe("webhooks handler", func() {
 			Expect(err).Should(Equal(ErrFakeNetworkError))
 		})
 
-		It("should return error if KubeVirtCommonTemplateBundle CR is missing", func() {
+		It("should return error if SSP CR is missing", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
 			cli := getFakeClient(s, hco)
-			Expect(cli.Delete(ctx, operands.NewKubeVirtCommonTemplateBundle(hco))).To(BeNil())
+			Expect(cli.Delete(ctx, operands.NewSSP(hco))).To(BeNil())
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -290,7 +288,7 @@ var _ = Describe("webhooks handler", func() {
 			Expect(apierrors.IsNotFound(err)).To(BeTrue())
 		})
 
-		It("should return error if dry-run update of KubeVirtCommonTemplateBundle CR returns error", func() {
+		It("should return error if dry-run update of SSP CR returns error", func() {
 			hco := &v1beta1.HyperConverged{
 				Spec: v1beta1.HyperConvergedSpec{
 					Infra: v1beta1.HyperConvergedConfig{
@@ -302,7 +300,7 @@ var _ = Describe("webhooks handler", func() {
 				},
 			}
 			c := getFakeClient(s, hco)
-			cli := errorClient{c, kubevirtCommonTemplateBundleUpdateFailure}
+			cli := errorClient{c, sspUpdateFailure}
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -313,160 +311,8 @@ var _ = Describe("webhooks handler", func() {
 
 			err := wh.ValidateUpdate(newHco, hco)
 			Expect(err).NotTo(BeNil())
-			Expect(err).Should(Equal(ErrFakeCommonTemplateBundleError))
+			Expect(err).Should(Equal(ErrFakeSspError))
 
-		})
-
-		It("should return error if KubeVirtNodeLabellerBundle CR is missing", func() {
-			hco := &v1beta1.HyperConverged{}
-			ctx := context.TODO()
-			cli := getFakeClient(s, hco)
-			Expect(cli.Delete(ctx, operands.NewKubeVirtNodeLabellerBundleForCR(hco, hco.Namespace))).To(BeNil())
-			wh := &WebhookHandler{}
-			wh.Init(logger, cli, HcoValidNamespace, true)
-
-			newHco := &v1beta1.HyperConverged{
-				Spec: v1beta1.HyperConvergedSpec{
-					Infra: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-					Workloads: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-				},
-			}
-
-			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
-			Expect(apierrors.IsNotFound(err)).To(BeTrue())
-		})
-
-		It("should return error if dry-run update of KubeVirtNodeLabellerBundle CR returns error", func() {
-			hco := &v1beta1.HyperConverged{
-				Spec: v1beta1.HyperConvergedSpec{
-					Infra: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-					Workloads: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-				},
-			}
-			c := getFakeClient(s, hco)
-			cli := errorClient{c, kubevirtNodeLabellerBundleUpdateFailure}
-			wh := &WebhookHandler{}
-			wh.Init(logger, cli, HcoValidNamespace, true)
-
-			newHco := &v1beta1.HyperConverged{}
-			hco.DeepCopyInto(newHco)
-			// change something in workloads to trigger dry-run update
-			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
-
-			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
-			Expect(err).Should(Equal(ErrFakeNodeLabellerBundleError))
-
-		})
-
-		It("should return error if KubeVirtTemplateValidator CR is missing", func() {
-			hco := &v1beta1.HyperConverged{}
-			ctx := context.TODO()
-			cli := getFakeClient(s, hco)
-			Expect(cli.Delete(ctx, operands.NewKubeVirtTemplateValidatorForCR(hco, hco.Namespace))).To(BeNil())
-			wh := &WebhookHandler{}
-			wh.Init(logger, cli, HcoValidNamespace, true)
-
-			newHco := &v1beta1.HyperConverged{
-				Spec: v1beta1.HyperConvergedSpec{
-					Infra: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-					Workloads: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-				},
-			}
-
-			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
-			Expect(apierrors.IsNotFound(err)).To(BeTrue())
-		})
-
-		It("should return error if dry-run update of KubeVirtTemplateValidator CR returns error", func() {
-			hco := &v1beta1.HyperConverged{
-				Spec: v1beta1.HyperConvergedSpec{
-					Infra: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-					Workloads: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-				},
-			}
-			c := getFakeClient(s, hco)
-			cli := errorClient{c, kubevirtTemplateValidatorUpdateFailure}
-			wh := &WebhookHandler{}
-			wh.Init(logger, cli, HcoValidNamespace, true)
-
-			newHco := &v1beta1.HyperConverged{}
-			hco.DeepCopyInto(newHco)
-			// change something in workloads to trigger dry-run update
-			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
-
-			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
-			Expect(err).Should(Equal(ErrFakeTemplateValidatorError))
-
-		})
-
-		It("should return error if NewKubeVirtMetricsAggregation CR is missing", func() {
-			hco := &v1beta1.HyperConverged{}
-			ctx := context.TODO()
-			cli := getFakeClient(s, hco)
-			Expect(cli.Delete(ctx, operands.NewKubeVirtMetricsAggregationForCR(hco, hco.Namespace))).To(BeNil())
-			wh := &WebhookHandler{}
-			wh.Init(logger, cli, HcoValidNamespace, true)
-
-			newHco := &v1beta1.HyperConverged{
-				Spec: v1beta1.HyperConvergedSpec{
-					Infra: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-					Workloads: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-				},
-			}
-
-			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
-			Expect(apierrors.IsNotFound(err)).To(BeTrue())
-		})
-
-		It("should return error if dry-run update of NewKubeVirtMetricsAggregation CR returns error", func() {
-			hco := &v1beta1.HyperConverged{
-				Spec: v1beta1.HyperConvergedSpec{
-					Infra: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-					Workloads: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-				},
-			}
-			c := getFakeClient(s, hco)
-			cli := errorClient{c, kubevirtMetricsAggregationUpdateFailure}
-			wh := &WebhookHandler{}
-			wh.Init(logger, cli, HcoValidNamespace, true)
-
-			newHco := &v1beta1.HyperConverged{}
-			hco.DeepCopyInto(newHco)
-			// change something in workloads to trigger dry-run update
-			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
-
-			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
-			Expect(err).Should(Equal(ErrFakeMetricsAggregationError))
 		})
 
 		It("should return error if VMImport CR is missing", func() {
@@ -546,29 +392,6 @@ var _ = Describe("webhooks handler", func() {
 		})
 
 		// plain-k8s tests
-		It("should not return error in plain-k8s if KubeVirtCommonTemplateBundle CR is missing", func() {
-			hco := &v1beta1.HyperConverged{}
-			ctx := context.TODO()
-			cli := getFakeClient(s, hco)
-			Expect(cli.Delete(ctx, operands.NewKubeVirtCommonTemplateBundle(hco))).To(BeNil())
-			wh := &WebhookHandler{}
-			wh.Init(logger, cli, HcoValidNamespace, false)
-
-			newHco := &v1beta1.HyperConverged{
-				Spec: v1beta1.HyperConvergedSpec{
-					Infra: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-					Workloads: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-				},
-			}
-
-			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).To(BeNil())
-		})
-
 		It("should return error in plain-k8s if KV CR is missing", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
@@ -617,31 +440,6 @@ var _ = Describe("webhooks handler", func() {
 			err := wh.ValidateUpdate(newHco, hco)
 			Expect(err).NotTo(BeNil())
 			Expect(err).Should(Equal(ErrFakeVMImportError))
-		})
-
-		It("should not return error if dry-run update of NewKubeVirtMetricsAggregation CR returns error", func() {
-			hco := &v1beta1.HyperConverged{
-				Spec: v1beta1.HyperConvergedSpec{
-					Infra: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-					Workloads: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-				},
-			}
-			c := getFakeClient(s, hco)
-			cli := errorClient{c, kubevirtMetricsAggregationUpdateFailure}
-			wh := &WebhookHandler{}
-			wh.Init(logger, cli, HcoValidNamespace, false)
-
-			newHco := &v1beta1.HyperConverged{}
-			hco.DeepCopyInto(newHco)
-			// change something in workloads to trigger dry-run update
-			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
-
-			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).To(BeNil())
 		})
 
 	})
@@ -744,10 +542,7 @@ func getFakeClient(s *runtime.Scheme, hco *v1beta1.HyperConverged) client.Client
 		operands.NewKubeVirt(hco),
 		operands.NewCDI(hco),
 		operands.NewNetworkAddons(hco),
-		operands.NewKubeVirtCommonTemplateBundle(hco),
-		operands.NewKubeVirtNodeLabellerBundleForCR(hco, hco.Namespace),
-		operands.NewKubeVirtTemplateValidatorForCR(hco, hco.Namespace),
-		operands.NewKubeVirtMetricsAggregationForCR(hco, hco.Namespace),
+		operands.NewSSP(hco),
 		operands.NewVMImportForCR(hco))
 }
 
@@ -758,10 +553,7 @@ const (
 	kvUpdateFailure
 	cdiUpdateFailure
 	networkUpdateFailure
-	kubevirtCommonTemplateBundleUpdateFailure
-	kubevirtNodeLabellerBundleUpdateFailure
-	kubevirtTemplateValidatorUpdateFailure
-	kubevirtMetricsAggregationUpdateFailure
+	sspUpdateFailure
 	vmImportUpdateFailure
 	timeoutError
 )
@@ -772,14 +564,11 @@ type errorClient struct {
 }
 
 var (
-	ErrFakeKvError                   = errors.New("fake KubeVirt error")
-	ErrFakeCdiError                  = errors.New("fake CDI error")
-	ErrFakeNetworkError              = errors.New("fake Network error")
-	ErrFakeCommonTemplateBundleError = errors.New("fake CommonTemplateBundle error")
-	ErrFakeNodeLabellerBundleError   = errors.New("fake NodeLabellerBundle error")
-	ErrFakeTemplateValidatorError    = errors.New("fake TemplateValidator error")
-	ErrFakeMetricsAggregationError   = errors.New("fake MetricsAggregation error")
-	ErrFakeVMImportError             = errors.New("fake VMImport error")
+	ErrFakeKvError       = errors.New("fake KubeVirt error")
+	ErrFakeCdiError      = errors.New("fake CDI error")
+	ErrFakeNetworkError  = errors.New("fake Network error")
+	ErrFakeSspError      = errors.New("fake SSP error")
+	ErrFakeVMImportError = errors.New("fake VMImport error")
 )
 
 func (ec errorClient) Update(ctx context.Context, obj runtime.Object, opts ...client.UpdateOption) error {
@@ -796,21 +585,9 @@ func (ec errorClient) Update(ctx context.Context, obj runtime.Object, opts ...cl
 		if ec.failure == networkUpdateFailure {
 			return ErrFakeNetworkError
 		}
-	case *sspv1.KubevirtCommonTemplatesBundle:
-		if ec.failure == kubevirtCommonTemplateBundleUpdateFailure {
-			return ErrFakeCommonTemplateBundleError
-		}
-	case *sspv1.KubevirtNodeLabellerBundle:
-		if ec.failure == kubevirtNodeLabellerBundleUpdateFailure {
-			return ErrFakeNodeLabellerBundleError
-		}
-	case *sspv1.KubevirtTemplateValidator:
-		if ec.failure == kubevirtTemplateValidatorUpdateFailure {
-			return ErrFakeTemplateValidatorError
-		}
-	case *sspv1.KubevirtMetricsAggregation:
-		if ec.failure == kubevirtMetricsAggregationUpdateFailure {
-			return ErrFakeMetricsAggregationError
+	case *sspv1beta1.SSP:
+		if ec.failure == sspUpdateFailure {
+			return ErrFakeSspError
 		}
 	case *vmimportv1beta1.VMImportConfig:
 		if ec.failure == vmImportUpdateFailure {

@@ -112,8 +112,8 @@ var _ = Describe("CDI Operand", func() {
 		It("should add node placement if missing in CDI", func() {
 			existingResource := NewCDI(hco)
 
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
@@ -150,8 +150,8 @@ var _ = Describe("CDI Operand", func() {
 		It("should remove node placement if missing in HCO CR", func() {
 
 			hcoNodePlacement := commonTestUtils.NewHco()
-			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
-			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 			existingResource := NewCDI(hcoNodePlacement)
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
@@ -187,8 +187,8 @@ var _ = Describe("CDI Operand", func() {
 		})
 
 		It("should modify node placement according to HCO CR", func() {
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 			existingResource := NewCDI(hco)
 
 			// now, modify HCO's node placement
@@ -224,8 +224,8 @@ var _ = Describe("CDI Operand", func() {
 		})
 
 		It("should overwrite node placement if directly set on CDI CR", func() {
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 			existingResource := NewCDI(hco)
 
 			// mock a reconciliation triggered by a change in CDI CR

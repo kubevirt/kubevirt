@@ -44,8 +44,7 @@ source hack/common.sh
 "${CMD}" delete ns cluster-network-addons-operator --ignore-not-found || true
 
 # Delete ssp-operator
-"${CMD}" delete -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-crd.yaml --ignore-not-found || true
-"${CMD}" delete -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator.yaml --ignore-not-found || true
+"${CMD}" delete -f "${SSP_OPERATOR_URL}" --ignore-not-found || true
 
 # Delete vm-import-operator
 "${CMD}" delete -f "${VM_IMPORT_URL_PREFIX}"/operator.yaml --ignore-not-found || true

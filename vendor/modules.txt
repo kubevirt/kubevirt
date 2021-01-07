@@ -11,7 +11,7 @@ github.com/beorn7/perks/quantile
 github.com/blang/semver
 # github.com/cespare/xxhash/v2 v2.1.1
 github.com/cespare/xxhash/v2
-# github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc
+# github.com/coreos/prometheus-operator v0.41.1
 ## explicit
 github.com/coreos/prometheus-operator/pkg/apis/monitoring
 github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1
@@ -28,7 +28,6 @@ github.com/fsnotify/fsnotify
 ## explicit
 github.com/ghodss/yaml
 # github.com/go-kit/kit v0.10.0 => github.com/go-kit/kit v0.3.0
-## explicit
 github.com/go-kit/kit/log
 # github.com/go-logfmt/logfmt v0.5.0
 ## explicit
@@ -46,7 +45,7 @@ github.com/go-openapi/jsonreference
 # github.com/go-openapi/spec v0.19.7
 ## explicit
 github.com/go-openapi/spec
-# github.com/go-openapi/swag v0.19.5
+# github.com/go-openapi/swag v0.19.9
 github.com/go-openapi/swag
 # github.com/go-stack/stack v1.8.0
 github.com/go-stack/stack
@@ -100,10 +99,6 @@ github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperat
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1
 github.com/kubevirt/cluster-network-addons-operator/pkg/names
-# github.com/kubevirt/kubevirt-ssp-operator v1.2.1
-## explicit
-github.com/kubevirt/kubevirt-ssp-operator/pkg/apis
-github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1
 # github.com/kubevirt/vm-import-operator v0.2.5
 ## explicit
 github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1
@@ -145,7 +140,7 @@ github.com/onsi/ginkgo/reporters/stenographer
 github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable
 github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty
 github.com/onsi/ginkgo/types
-# github.com/onsi/gomega v1.10.3
+# github.com/onsi/gomega v1.10.4
 ## explicit
 github.com/onsi/gomega
 github.com/onsi/gomega/format
@@ -169,7 +164,7 @@ github.com/openshift/api/security/v1
 github.com/openshift/custom-resource-status/conditions/v1
 github.com/openshift/custom-resource-status/objectreferences/v1
 github.com/openshift/custom-resource-status/testlib
-# github.com/operator-framework/api v0.3.13
+# github.com/operator-framework/api v0.3.20
 ## explicit
 github.com/operator-framework/api/pkg/lib/version
 github.com/operator-framework/api/pkg/operators
@@ -218,8 +213,7 @@ go.uber.org/zap/zapcore
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/mod v0.2.0
 golang.org/x/mod/semver
-# golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
-## explicit
+# golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/html
@@ -512,7 +506,7 @@ k8s.io/klog/v2
 ## explicit
 k8s.io/kube-openapi/pkg/common
 k8s.io/kube-openapi/pkg/util/proto
-# k8s.io/utils v0.0.0-20200720150651-0bdb4ca86cbc
+# k8s.io/utils v0.0.0-20200821003339-5e75c0163111
 k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
@@ -533,6 +527,9 @@ kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api
 # kubevirt.io/kubevirt v0.36.0
 ## explicit
 kubevirt.io/kubevirt/pkg/virt-config
+# kubevirt.io/ssp-operator v0.0.0-20201204192040-4623f45d34ea
+## explicit
+kubevirt.io/ssp-operator/api/v1beta1
 # sigs.k8s.io/controller-runtime v0.6.3
 ## explicit
 sigs.k8s.io/controller-runtime

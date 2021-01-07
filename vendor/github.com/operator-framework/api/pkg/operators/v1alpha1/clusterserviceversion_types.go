@@ -12,6 +12,7 @@ import (
 	rbac "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/operator-framework/api/pkg/lib/version"
 )
@@ -161,16 +162,22 @@ const (
 	ValidatingAdmissionWebhook WebhookAdmissionType = "ValidatingAdmissionWebhook"
 	// MutatingAdmissionWebhook is for mutating admission webhooks
 	MutatingAdmissionWebhook WebhookAdmissionType = "MutatingAdmissionWebhook"
+	// ConversionWebhook is for conversion webhooks
+	ConversionWebhook WebhookAdmissionType = "ConversionWebhook"
 )
 
 // WebhookDescription provides details to OLM about required webhooks
 // +k8s:openapi-gen=true
 type WebhookDescription struct {
 	GenerateName string `json:"generateName"`
-	// +kubebuilder:validation:Enum=ValidatingAdmissionWebhook;MutatingAdmissionWebhook
-	Type                    WebhookAdmissionType                            `json:"type"`
-	DeploymentName          string                                          `json:"deploymentName,omitempty"`
+	// +kubebuilder:validation:Enum=ValidatingAdmissionWebhook;MutatingAdmissionWebhook;ConversionWebhook
+	Type           WebhookAdmissionType `json:"type"`
+	DeploymentName string               `json:"deploymentName,omitempty"`
+	// +kubebuilder:validation:Maximum=65535
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:default=443
 	ContainerPort           int32                                           `json:"containerPort,omitempty"`
+	TargetPort              *intstr.IntOrString                             `json:"targetPort,omitempty"`
 	Rules                   []admissionregistrationv1.RuleWithOperations    `json:"rules,omitempty"`
 	FailurePolicy           *admissionregistrationv1.FailurePolicyType      `json:"failurePolicy,omitempty"`
 	MatchPolicy             *admissionregistrationv1.MatchPolicyType        `json:"matchPolicy,omitempty"`

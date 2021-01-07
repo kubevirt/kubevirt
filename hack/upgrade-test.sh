@@ -41,7 +41,7 @@
 # to verify that it is updated to the new operator image from 
 # the local registry.
 
-MAX_STEPS=14
+MAX_STEPS=15
 CUR_STEP=1
 RELEASE_DELTA="${RELEASE_DELTA:-1}"
 HCO_DEPLOYMENT_NAME=hco-operator
@@ -185,7 +185,7 @@ ${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} ${HCO_WH_DEPLOYMENT_NAME} --for co
 
 # Creating a CR immediately after HCO pod started can
 # cause a connection error "validate-hco.kubevirt.io" webhook.
-# Give it a bit of time to cirrectly start the webhook.
+# Give it a bit of time to correctly start the webhook.
 sleep 30
 CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE})
 HCO_API_VERSION=$( ${CMD} get -n ${HCO_NAMESPACE} "${CSV}" -o jsonpath="{ .spec.customresourcedefinitions.owned[?(@.kind=='HyperConverged')].version }")
@@ -248,7 +248,7 @@ timeout 20m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
 
 # Make sure the CSV is installed properly.
 Msg "Read the CSV to make sure the deployment is done"
-./hack/retry.sh 30 10 "${CMD} get ClusterServiceVersion  -n ${HCO_NAMESPACE} kubevirt-hyperconverged-operator.v${TARGET_VERSION} -o jsonpath='{ .status.phase }' | grep 'Succeeded'"
+./hack/retry.sh 90 10 "${CMD} get ClusterServiceVersion  -n ${HCO_NAMESPACE} kubevirt-hyperconverged-operator.v${TARGET_VERSION} -o jsonpath='{ .status.phase }' | grep 'Succeeded'"
 
 
 echo "----- Pod after upgrade"
@@ -266,6 +266,9 @@ for hco_pod in $( ${CMD} get pods -n ${HCO_NAMESPACE} -l "name=hyperconverged-cl
     found_new_running_hco_pod="true"
   fi
 done
+
+Msg "Ensure that old SSP operator resources are removed from the cluster"
+./hack/retry.sh 5 30 "CMD=${CMD} HCO_RESOURCE_NAME=${HCO_RESOURCE_NAME} HCO_NAMESPACE=${HCO_NAMESPACE} ./hack/check_old_ssp_removed.sh"
 
 [[ -n ${found_new_running_hco_pod} ]]
 

@@ -8,7 +8,6 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
@@ -75,10 +75,7 @@ func (wh WebhookHandler) ValidateUpdate(requested *v1beta1.HyperConverged, exist
 
 		if wh.isOpenshift {
 			resources = append(resources,
-				operands.NewKubeVirtCommonTemplateBundle(requested),
-				operands.NewKubeVirtNodeLabellerBundleForCR(requested, requested.Namespace),
-				operands.NewKubeVirtTemplateValidatorForCR(requested, requested.Namespace),
-				operands.NewKubeVirtMetricsAggregationForCR(requested, requested.Namespace),
+				operands.NewSSP(requested),
 			)
 		}
 
@@ -138,20 +135,8 @@ func (wh WebhookHandler) updateOperatorCr(ctx context.Context, hc *v1beta1.Hyper
 		required := operands.NewNetworkAddons(hc)
 		required.Spec.DeepCopyInto(&existing.Spec)
 
-	case *sspv1.KubevirtCommonTemplatesBundle:
-		required := operands.NewKubeVirtCommonTemplateBundle(hc)
-		required.Spec.DeepCopyInto(&existing.Spec)
-
-	case *sspv1.KubevirtNodeLabellerBundle:
-		required := operands.NewKubeVirtNodeLabellerBundleForCR(hc, hc.Namespace)
-		required.Spec.DeepCopyInto(&existing.Spec)
-
-	case *sspv1.KubevirtTemplateValidator:
-		required := operands.NewKubeVirtTemplateValidatorForCR(hc, hc.Namespace)
-		required.Spec.DeepCopyInto(&existing.Spec)
-
-	case *sspv1.KubevirtMetricsAggregation:
-		required := operands.NewKubeVirtMetricsAggregationForCR(hc, hc.Namespace)
+	case *sspv1beta1.SSP:
+		required := operands.NewSSP(hc)
 		required.Spec.DeepCopyInto(&existing.Spec)
 
 	case *vmimportv1beta1.VMImportConfig:

@@ -3,22 +3,31 @@ package operands
 import (
 	"context"
 	"fmt"
+	"os"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
+	v1 "github.com/openshift/custom-resource-status/objectreferences/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	lifecycleapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
+	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
+
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("SSP Operands", func() {
 
-	Context("KubeVirtCommonTemplatesBundle", func() {
+	Context("SSP", func() {
 		var hco *hcov1beta1.HyperConverged
 		var req *common.HcoRequest
 
@@ -28,9 +37,9 @@ var _ = Describe("SSP Operands", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := NewKubeVirtCommonTemplateBundle(hco)
+			expectedResource := NewSSP(hco)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := newCommonTemplateBundleHandler(cl, commonTestUtils.GetScheme())
+			handler := newSspHandler(cl, commonTestUtils.GetScheme())
 			res := handler.ensure(req)
 			Expect(res.Created).To(BeTrue())
 			Expect(res.Updated).To(BeFalse())
@@ -38,7 +47,7 @@ var _ = Describe("SSP Operands", func() {
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
-			foundResource := &sspv1.KubevirtCommonTemplatesBundle{}
+			foundResource := &sspv1beta1.SSP{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
@@ -50,10 +59,10 @@ var _ = Describe("SSP Operands", func() {
 		})
 
 		It("should find if present", func() {
-			expectedResource := NewKubeVirtCommonTemplateBundle(hco)
+			expectedResource := NewSSP(hco)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := newCommonTemplateBundleHandler(cl, commonTestUtils.GetScheme())
+			handler := newSspHandler(cl, commonTestUtils.GetScheme())
 			res := handler.ensure(req)
 			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeFalse())
@@ -70,14 +79,21 @@ var _ = Describe("SSP Operands", func() {
 		})
 
 		It("should reconcile to default", func() {
-			existingResource := NewKubeVirtCommonTemplateBundle(hco)
+			expectedResource := NewSSP(hco)
+			existingResource := expectedResource.DeepCopy()
 			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
 
-			existingResource.Spec.Version = "Non default value"
+			replicas := int32(defaultTemplateValidatorReplicas * 2) // non-default value
+			existingResource.Spec.TemplateValidator.Replicas = &replicas
+			existingResource.Spec.CommonTemplates.Namespace = "foobar"
+			existingResource.Spec.NodeLabeller.Placement = &lifecycleapi.NodePlacement{
+				NodeSelector: map[string]string{"foo": "bar"},
+			}
+
 			req.HCOTriggered = false // mock a reconciliation triggered by a change in NewKubeVirtCommonTemplateBundle CR
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := newCommonTemplateBundleHandler(cl, commonTestUtils.GetScheme())
+			handler := newSspHandler(cl, commonTestUtils.GetScheme())
 			res := handler.ensure(req)
 			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -85,807 +101,421 @@ var _ = Describe("SSP Operands", func() {
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).To(BeNil())
 
-			foundResource := &sspv1.KubevirtCommonTemplatesBundle{}
+			foundResource := &sspv1beta1.SSP{}
 			Expect(
 				cl.Get(context.TODO(),
 					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
 			).To(BeNil())
-			Expect(foundResource.Spec.Version).To(BeEmpty())
+			Expect(foundResource.Spec).To(Equal(expectedResource.Spec))
 		})
 
-		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
+		Context("Node placement", func() {
 
-		// TODO: temporary avoid checking conditions on KubevirtCommonTemplatesBundle because it's currently
-		// broken on k8s. Revert this when we will be able to fix it
-		/*
-			It("should handle conditions", func() {
-				expectedResource := newKubeVirtCommonTemplateBundleForCR(hco, OpenshiftNamespace)
-				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-				expectedResource.Status.Conditions = []conditionsv1.Condition{
-					conditionsv1.Condition{
-						Type:    conditionsv1.ConditionAvailable,
-						Status:  corev1.ConditionFalse,
-						Reason:  "Foo",
-						Message: "Bar",
-					},
-					conditionsv1.Condition{
-						Type:    conditionsv1.ConditionProgressing,
-						Status:  corev1.ConditionTrue,
-						Reason:  "Foo",
-						Message: "Bar",
-					},
-					conditionsv1.Condition{
-						Type:    conditionsv1.ConditionDegraded,
-						Status:  corev1.ConditionTrue,
-						Reason:  "Foo",
-						Message: "Bar",
-					},
-				}
-				cl := initClient([]runtime.Object{hco, expectedResource})
-				r := initReconciler(cl)
-				Expect(r.ensureKubeVirtCommonTemplateBundle(req)).To(BeNil())
+			It("should add node placement if missing", func() {
+				existingResource := NewSSP(hco, commonTestUtils.Namespace)
 
-				// Check HCO's status
-				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
-				objectRef, err := reference.GetReference(r.scheme, expectedResource)
-				Expect(err).To(BeNil())
-				// ObjectReference should have been added
-				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
-				// Check conditions
-				Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionAvailable,
-					Status:  corev1.ConditionFalse,
-					Reason:  "KubevirtCommonTemplatesBundleNotAvailable",
-					Message: "KubevirtCommonTemplatesBundle is not available: Bar",
-				})))
-				Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionProgressing,
-					Status:  corev1.ConditionTrue,
-					Reason:  "KubevirtCommonTemplatesBundleProgressing",
-					Message: "KubevirtCommonTemplatesBundle is progressing: Bar",
-				})))
-				Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionUpgradeable,
-					Status:  corev1.ConditionFalse,
-					Reason:  "KubevirtCommonTemplatesBundleProgressing",
-					Message: "KubevirtCommonTemplatesBundle is progressing: Bar",
-				})))
-				Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionDegraded,
-					Status:  corev1.ConditionTrue,
-					Reason:  "KubevirtCommonTemplatesBundleDegraded",
-					Message: "KubevirtCommonTemplatesBundle is degraded: Bar",
-				})))
-			})
-		*/
-	})
+				hco.Spec.Workloads.NodePlacement = commonTestUtils.NewNodePlacement()
+				hco.Spec.Infra.NodePlacement = commonTestUtils.NewOtherNodePlacement()
 
-	Context("KubeVirtNodeLabellerBundle", func() {
-		var hco *hcov1beta1.HyperConverged
-		var req *common.HcoRequest
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := newSspHandler(cl, commonTestUtils.GetScheme())
+				res := handler.ensure(req)
+				Expect(res.Created).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).To(BeNil())
 
-		BeforeEach(func() {
-			hco = commonTestUtils.NewHco()
-			req = commonTestUtils.NewReq(hco)
-		})
+				foundResource := &sspv1beta1.SSP{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
 
-		It("should create if not present", func() {
-			expectedResource := NewKubeVirtNodeLabellerBundleForCR(hco, commonTestUtils.Namespace)
-			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme())
-			res := handler.ensure(req)
-			Expect(res.Created).To(BeTrue())
-			Expect(res.Updated).To(BeFalse())
-			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-					foundResource),
-			).To(BeNil())
-			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
-			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
-		})
-
-		It("should find if present", func() {
-			expectedResource := NewKubeVirtNodeLabellerBundleForCR(hco, commonTestUtils.Namespace)
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme())
-			res := handler.ensure(req)
-			Expect(res.Created).To(BeFalse())
-			Expect(res.Updated).To(BeFalse())
-			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			// Check HCO's status
-			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
-			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
-			// ObjectReference should have been added
-			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
-		})
-
-		It("should reconcile to default", func() {
-			existingResource := NewKubeVirtNodeLabellerBundleForCR(hco, commonTestUtils.Namespace)
-			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
-
-			existingResource.Spec.Version = "Non default value"
-			req.HCOTriggered = false // mock a reconciliation triggered by a change in NewKubeVirtNodeLabellerBundle CR
-
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme())
-			res := handler.ensure(req)
-			Expect(res.Created).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Overwritten).To(BeTrue())
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
-			Expect(foundResource.Spec.Version).To(BeEmpty())
-		})
-
-		It("should add node placement if missing in KubeVirtNodeLabellerBundle", func() {
-			existingResource := NewKubeVirtNodeLabellerBundleForCR(hco, commonTestUtils.Namespace)
-
-			hco.Spec.Workloads.NodePlacement = commonTestUtils.NewHyperConvergedConfig()
-
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme())
-			res := handler.ensure(req)
-			Expect(res.Created).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
-
-			Expect(existingResource.Spec.Affinity.NodeAffinity).To(BeNil())
-			Expect(existingResource.Spec.Affinity.PodAffinity).To(BeNil())
-			Expect(existingResource.Spec.Affinity.PodAntiAffinity).To(BeNil())
-			Expect(foundResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
-			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("value1"))
-			Expect(foundResource.Spec.NodeSelector["key2"]).Should(Equal("value2"))
-
-			Expect(foundResource.Spec.Tolerations).Should(Equal(hco.Spec.Workloads.NodePlacement.Tolerations))
-
-			Expect(req.Conditions).To(BeEmpty())
-		})
-
-		It("should remove node placement if missing in HCO CR", func() {
-
-			hcoNodePlacement := commonTestUtils.NewHco()
-			hcoNodePlacement.Spec.Workloads.NodePlacement = commonTestUtils.NewHyperConvergedConfig()
-			existingResource := NewKubeVirtNodeLabellerBundleForCR(hcoNodePlacement, commonTestUtils.Namespace)
-
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme())
-			res := handler.ensure(req)
-			Expect(res.Created).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
-
-			Expect(existingResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
-			Expect(foundResource.Spec.Affinity.NodeAffinity).To(BeNil())
-
-			Expect(req.Conditions).To(BeEmpty())
-		})
-
-		It("should modify node placement according to HCO CR", func() {
-
-			hco.Spec.Workloads.NodePlacement = commonTestUtils.NewHyperConvergedConfig()
-			existingResource := NewKubeVirtNodeLabellerBundleForCR(hco, commonTestUtils.Namespace)
-
-			// now, modify HCO's node placement
-			seconds3 := int64(3)
-			hco.Spec.Workloads.NodePlacement.Tolerations = append(hco.Spec.Workloads.NodePlacement.Tolerations, corev1.Toleration{
-				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+				Expect(existingResource.Spec.NodeLabeller.Placement).To(BeZero())
+				Expect(existingResource.Spec.TemplateValidator.Placement).To(BeZero())
+				Expect(*foundResource.Spec.NodeLabeller.Placement).To(Equal(*hco.Spec.Workloads.NodePlacement))
+				Expect(*foundResource.Spec.TemplateValidator.Placement).To(Equal(*hco.Spec.Infra.NodePlacement))
+				Expect(req.Conditions).To(BeEmpty())
 			})
 
-			hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
+			It("should remove node placement if missing in HCO CR", func() {
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme())
-			res := handler.ensure(req)
-			Expect(res.Created).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+				hcoNodePlacement := commonTestUtils.NewHco()
+				hcoNodePlacement.Spec.Workloads.NodePlacement = commonTestUtils.NewNodePlacement()
+				hcoNodePlacement.Spec.Infra.NodePlacement = commonTestUtils.NewOtherNodePlacement()
+				existingResource := NewSSP(hcoNodePlacement, commonTestUtils.Namespace)
 
-			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := newSspHandler(cl, commonTestUtils.GetScheme())
+				res := handler.ensure(req)
+				Expect(res.Created).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).To(BeNil())
 
-			Expect(existingResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
-			Expect(existingResource.Spec.Tolerations).To(HaveLen(2))
-			Expect(existingResource.Spec.NodeSelector["key1"]).Should(Equal("value1"))
+				foundResource := &sspv1beta1.SSP{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
 
-			Expect(foundResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
-			Expect(foundResource.Spec.Tolerations).To(HaveLen(3))
-			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("something else"))
-
-			Expect(req.Conditions).To(BeEmpty())
-		})
-
-		It("should overwrite node placement if directly set on NewKubeVirtNodeLabellerBundle CR", func() {
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
-			existingResource := NewKubeVirtNodeLabellerBundleForCR(hco, commonTestUtils.Namespace)
-
-			// mock a reconciliation triggered by a change in NewKubeVirtNodeLabellerBundle CR
-			req.HCOTriggered = false
-
-			// now, modify VMImport node placement
-			seconds3 := int64(3)
-			existingResource.Spec.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
-				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+				Expect(existingResource.Spec.NodeLabeller.Placement).ToNot(BeZero())
+				Expect(existingResource.Spec.TemplateValidator.Placement).ToNot(BeZero())
+				Expect(foundResource.Spec.NodeLabeller.Placement).To(BeZero())
+				Expect(foundResource.Spec.TemplateValidator.Placement).To(BeZero())
+				Expect(req.Conditions).To(BeEmpty())
 			})
 
-			existingResource.Spec.NodeSelector["key1"] = "BADvalue1"
+			It("should modify node placement according to HCO CR", func() {
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := newNodeLabellerBundleHandler(cl, commonTestUtils.GetScheme())
-			res := handler.ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Overwritten).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+				hco.Spec.Workloads.NodePlacement = commonTestUtils.NewNodePlacement()
+				hco.Spec.Infra.NodePlacement = commonTestUtils.NewOtherNodePlacement()
+				existingResource := NewSSP(hco, commonTestUtils.Namespace)
 
-			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
+				// now, modify HCO's node placement
+				seconds12 := int64(12)
+				hco.Spec.Workloads.NodePlacement.Tolerations = append(hco.Spec.Workloads.NodePlacement.Tolerations, corev1.Toleration{
+					Key: "key12", Operator: "operator12", Value: "value12", Effect: "effect12", TolerationSeconds: &seconds12,
+				})
+				hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
 
-			Expect(existingResource.Spec.Tolerations).To(HaveLen(3))
-			Expect(existingResource.Spec.NodeSelector["key1"]).Should(Equal("BADvalue1"))
+				seconds34 := int64(34)
+				hco.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
+					Key: "key34", Operator: "operator34", Value: "value34", Effect: "effect34", TolerationSeconds: &seconds34,
+				})
+				hco.Spec.Infra.NodePlacement.NodeSelector["key3"] = "something entirely else"
 
-			Expect(foundResource.Spec.Tolerations).To(HaveLen(2))
-			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("value1"))
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := newSspHandler(cl, commonTestUtils.GetScheme())
+				res := handler.ensure(req)
+				Expect(res.Created).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).To(BeNil())
 
-			Expect(req.Conditions).To(BeEmpty())
+				foundResource := &sspv1beta1.SSP{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(existingResource.Spec.NodeLabeller.Placement.Affinity.NodeAffinity).ToNot(BeZero())
+				Expect(existingResource.Spec.NodeLabeller.Placement.Tolerations).To(HaveLen(2))
+				Expect(existingResource.Spec.NodeLabeller.Placement.NodeSelector["key1"]).Should(Equal("value1"))
+				Expect(existingResource.Spec.TemplateValidator.Placement.Affinity.NodeAffinity).ToNot(BeZero())
+				Expect(existingResource.Spec.TemplateValidator.Placement.Tolerations).To(HaveLen(2))
+				Expect(existingResource.Spec.TemplateValidator.Placement.NodeSelector["key3"]).Should(Equal("value3"))
+
+				Expect(foundResource.Spec.NodeLabeller.Placement.Affinity.NodeAffinity).ToNot(BeNil())
+				Expect(foundResource.Spec.NodeLabeller.Placement.Tolerations).To(HaveLen(3))
+				Expect(foundResource.Spec.NodeLabeller.Placement.NodeSelector["key1"]).Should(Equal("something else"))
+				Expect(foundResource.Spec.TemplateValidator.Placement.Affinity.NodeAffinity).ToNot(BeNil())
+				Expect(foundResource.Spec.TemplateValidator.Placement.Tolerations).To(HaveLen(3))
+				Expect(foundResource.Spec.TemplateValidator.Placement.NodeSelector["key3"]).Should(Equal("something entirely else"))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+
+			It("should overwrite node placement if directly set on SSP CR", func() {
+				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewOtherNodePlacement()}
+				existingResource := NewSSP(hco, commonTestUtils.Namespace)
+
+				// mock a reconciliation triggered by a change in NewKubeVirtNodeLabellerBundle CR
+				req.HCOTriggered = false
+
+				// now, modify NodeLabeller node placement
+				seconds12 := int64(12)
+				existingResource.Spec.NodeLabeller.Placement.Tolerations = append(hco.Spec.Workloads.NodePlacement.Tolerations, corev1.Toleration{
+					Key: "key12", Operator: "operator12", Value: "value12", Effect: "effect12", TolerationSeconds: &seconds12,
+				})
+				existingResource.Spec.NodeLabeller.Placement.NodeSelector["key1"] = "BADvalue1"
+
+				// and modify TemplateValidator node placement
+				seconds34 := int64(34)
+				existingResource.Spec.TemplateValidator.Placement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
+					Key: "key34", Operator: "operator34", Value: "value34", Effect: "effect34", TolerationSeconds: &seconds34,
+				})
+				existingResource.Spec.TemplateValidator.Placement.NodeSelector["key3"] = "BADvalue3"
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := newSspHandler(cl, commonTestUtils.GetScheme())
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeTrue())
+				Expect(res.Err).To(BeNil())
+
+				foundResource := &sspv1beta1.SSP{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(existingResource.Spec.NodeLabeller.Placement.Tolerations).To(HaveLen(3))
+				Expect(existingResource.Spec.NodeLabeller.Placement.NodeSelector["key1"]).Should(Equal("BADvalue1"))
+				Expect(existingResource.Spec.TemplateValidator.Placement.Tolerations).To(HaveLen(3))
+				Expect(existingResource.Spec.TemplateValidator.Placement.NodeSelector["key3"]).Should(Equal("BADvalue3"))
+
+				Expect(foundResource.Spec.NodeLabeller.Placement.Tolerations).To(HaveLen(2))
+				Expect(foundResource.Spec.NodeLabeller.Placement.NodeSelector["key1"]).Should(Equal("value1"))
+				Expect(foundResource.Spec.TemplateValidator.Placement.Tolerations).To(HaveLen(2))
+				Expect(foundResource.Spec.TemplateValidator.Placement.NodeSelector["key3"]).Should(Equal("value3"))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
 		})
 
-		// TODO: temporary avoid checking conditions on KubevirtNodeLabellerBundle because it's currently
-		// broken on k8s. Revert this when we will be able to fix it
-		/*
-			It("should handle conditions", func() {
-				expectedResource := NewKubeVirtNodeLabellerBundleForCR(hco, namespace)
-				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-				expectedResource.Status.Conditions = []conditionsv1.Condition{
-					conditionsv1.Condition{
-						Type:    conditionsv1.ConditionAvailable,
-						Status:  corev1.ConditionFalse,
-						Reason:  "Foo",
-						Message: "Bar",
+		Context("SSP Upgrade", func() {
+
+			It("shouldn't remove old CRDs if upgrade isn't done", func() {
+				oldCrds := oldSSPCrdsAsObjects()
+				cl := commonTestUtils.InitClient(oldCrds)
+
+				// Simulate ongoing upgrade
+				req.SetUpgradeMode(true)
+
+				handler := newSspHandler(cl, commonTestUtils.GetScheme())
+				res := handler.ensure(req)
+
+				Expect(res.Created).To(BeTrue())
+				Expect(res.Updated).To(BeFalse())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).To(BeNil())
+
+				foundCrds := apiextensionsv1.CustomResourceDefinitionList{}
+				Expect(cl.List(context.TODO(), &foundCrds)).To(BeNil())
+				Expect(foundCrds.Items).To(HaveLen(len(oldCrds)))
+			})
+
+			It("should remove old CRDs if general upgrade is done", func() {
+				oldCrds := oldSSPCrdsAsObjects()
+				cl := commonTestUtils.InitClient(oldCrds)
+
+				// Simulate no upgrade
+				req.SetUpgradeMode(false)
+
+				handler := newSspHandler(cl, commonTestUtils.GetScheme())
+				res := handler.ensure(req)
+
+				Expect(res.Created).To(BeTrue())
+				Expect(res.Updated).To(BeFalse())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).To(BeNil())
+
+				foundCrds := apiextensionsv1.CustomResourceDefinitionList{}
+				Expect(cl.List(context.TODO(), &foundCrds)).To(BeNil())
+				Expect(foundCrds.Items).To(BeEmpty())
+			})
+
+			It("should remove old CRDs if SSP upgrade is done", func() {
+				existingResource := NewSSP(hco, commonTestUtils.Namespace)
+				existingResource.Status.Conditions = []conditionsv1.Condition{
+					{
+						Type:   conditionsv1.ConditionAvailable,
+						Status: corev1.ConditionTrue,
 					},
-					conditionsv1.Condition{
-						Type:    conditionsv1.ConditionProgressing,
-						Status:  corev1.ConditionTrue,
-						Reason:  "Foo",
-						Message: "Bar",
+					{
+						Type:   conditionsv1.ConditionDegraded,
+						Status: corev1.ConditionFalse,
 					},
-					conditionsv1.Condition{
-						Type:    conditionsv1.ConditionDegraded,
-						Status:  corev1.ConditionTrue,
-						Reason:  "Foo",
-						Message: "Bar",
+					{
+						Type:   conditionsv1.ConditionProgressing,
+						Status: corev1.ConditionFalse,
 					},
 				}
-				cl := initClient([]runtime.Object{hco, expectedResource})
-				r := initReconciler(cl)
-				Expect(r.ensureKubeVirtNodeLabellerBundle(req)).To(BeNil())
 
-				// Check HCO's status
-				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
-				objectRef, err := reference.GetReference(r.scheme, expectedResource)
-				Expect(err).To(BeNil())
-				// ObjectReference should have been added
-				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
-				// Check conditions
-				Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionAvailable,
-					Status:  corev1.ConditionFalse,
-					Reason:  "KubevirtNodeLabellerBundleNotAvailable",
-					Message: "KubevirtNodeLabellerBundle is not available: Bar",
-				})))
-				Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionProgressing,
-					Status:  corev1.ConditionTrue,
-					Reason:  "KubevirtNodeLabellerBundleProgressing",
-					Message: "KubevirtNodeLabellerBundle is progressing: Bar",
-				})))
-				Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionUpgradeable,
-					Status:  corev1.ConditionFalse,
-					Reason:  "KubevirtNodeLabellerBundleProgressing",
-					Message: "KubevirtNodeLabellerBundle is progressing: Bar",
-				})))
-				Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    conditionsv1.ConditionDegraded,
-					Status:  corev1.ConditionTrue,
-					Reason:  "KubevirtNodeLabellerBundleDegraded",
-					Message: "KubevirtNodeLabellerBundle is degraded: Bar",
-				})))
-			})
-		*/
+				// Set the expected SSP version that indicates upgrade complete.
+				// Note: the value doesn't really matter, even when we move beyond 2.6
+				const expectedSSPVersion = "2.6"
+				os.Setenv(hcoutil.SspVersionEnvV, expectedSSPVersion)
+				existingResource.Status.ObservedVersion = expectedSSPVersion
 
-		//It("should request KVM without any extra setting", func() {
-		//	os.Unsetenv("KVM_EMULATION")
-		//
-		//	expectedResource := NewKubeVirtNodeLabellerBundleForCR(hco, namespace)
-		//	Expect(expectedResource.Spec.UseKVM).To(BeTrue())
-		//})
-		//
-		//It("should not request KVM if emulation requested", func() {
-		//	err := os.Setenv("KVM_EMULATION", "true")
-		//	Expect(err).NotTo(HaveOccurred())
-		//	defer os.Unsetenv("KVM_EMULATION")
-		//
-		//	expectedResource := NewKubeVirtNodeLabellerBundleForCR(hco, namespace)
-		//	Expect(expectedResource.Spec.UseKVM).To(BeFalse())
-		//})
+				oldCrds := oldSSPCrdsAsObjects()
+				objects := append(oldCrds, existingResource)
+				cl := commonTestUtils.InitClient(objects)
 
-		//It("should request KVM if emulation value not set", func() {
-		//	err := os.Setenv("KVM_EMULATION", "")
-		//	Expect(err).NotTo(HaveOccurred())
-		//	defer os.Unsetenv("KVM_EMULATION")
-		//
-		//	expectedResource := NewKubeVirtNodeLabellerBundleForCR(hco, namespace)
-		//	Expect(expectedResource.Spec.UseKVM).To(BeTrue())
-		//})
-	})
+				// Simulate ongoing upgrade
+				req.SetUpgradeMode(true)
 
-	Context("KubeVirtTemplateValidator", func() {
-		var hco *hcov1beta1.HyperConverged
-		var req *common.HcoRequest
+				handler := newSspHandler(cl, commonTestUtils.GetScheme())
+				res := handler.ensure(req)
 
-		BeforeEach(func() {
-			hco = commonTestUtils.NewHco()
-			req = commonTestUtils.NewReq(hco)
-		})
+				Expect(res.Created).To(BeFalse())
+				Expect(res.Updated).To(BeFalse())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.UpgradeDone).To(BeTrue())
+				Expect(res.Err).To(BeNil())
 
-		It("should create if not present", func() {
-			expectedResource := NewKubeVirtTemplateValidatorForCR(hco, commonTestUtils.Namespace)
-			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme())
-			res := handler.ensure(req)
-			Expect(res.Created).To(BeTrue())
-			Expect(res.Updated).To(BeFalse())
-			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &sspv1.KubevirtTemplateValidator{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-					foundResource),
-			).To(BeNil())
-			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
-			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
-		})
-
-		It("should find if present", func() {
-			expectedResource := NewKubeVirtTemplateValidatorForCR(hco, commonTestUtils.Namespace)
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme())
-			res := handler.ensure(req)
-			Expect(res.Created).To(BeFalse())
-			Expect(res.Updated).To(BeFalse())
-			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			// Check HCO's status
-			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
-			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
-			// ObjectReference should have been added
-			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
-		})
-
-		It("should reconcile to default", func() {
-			existingResource := NewKubeVirtTemplateValidatorForCR(hco, commonTestUtils.Namespace)
-			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
-
-			existingResource.Spec.TemplateValidatorReplicas = 5 // set non-default value
-			req.HCOTriggered = false                            // mock a reconciliation triggered by a change in NewKubeVirtTemplateValidator CR
-
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme())
-			res := handler.ensure(req)
-			Expect(res.Created).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Overwritten).To(BeTrue())
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &sspv1.KubevirtTemplateValidator{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
-			Expect(foundResource.Spec.TemplateValidatorReplicas).To(BeZero())
-		})
-
-		It("should add node placement if missing in KubeVirtTemplateValidator", func() {
-			existingResource := NewKubeVirtTemplateValidatorForCR(hco, commonTestUtils.Namespace)
-
-			hco.Spec.Infra.NodePlacement = commonTestUtils.NewHyperConvergedConfig()
-
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme())
-			res := handler.ensure(req)
-			Expect(res.Created).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &sspv1.KubevirtTemplateValidator{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
-
-			Expect(existingResource.Spec.Affinity.NodeAffinity).To(BeNil())
-			Expect(existingResource.Spec.Affinity.PodAffinity).To(BeNil())
-			Expect(existingResource.Spec.Affinity.PodAntiAffinity).To(BeNil())
-			Expect(foundResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
-			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("value1"))
-			Expect(foundResource.Spec.NodeSelector["key2"]).Should(Equal("value2"))
-
-			Expect(foundResource.Spec.Tolerations).Should(Equal(hco.Spec.Infra.NodePlacement.Tolerations))
-
-			Expect(req.Conditions).To(BeEmpty())
-		})
-
-		It("should remove node placement if missing in HCO CR", func() {
-
-			hcoNodePlacement := commonTestUtils.NewHco()
-			hcoNodePlacement.Spec.Infra.NodePlacement = commonTestUtils.NewHyperConvergedConfig()
-			existingResource := NewKubeVirtTemplateValidatorForCR(hcoNodePlacement, commonTestUtils.Namespace)
-
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme())
-			res := handler.ensure(req)
-			Expect(res.Created).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &sspv1.KubevirtTemplateValidator{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
-
-			Expect(existingResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
-			Expect(foundResource.Spec.Affinity.NodeAffinity).To(BeNil())
-
-			Expect(req.Conditions).To(BeEmpty())
-		})
-
-		It("should modify node placement according to HCO CR", func() {
-
-			hco.Spec.Infra.NodePlacement = commonTestUtils.NewHyperConvergedConfig()
-			existingResource := NewKubeVirtTemplateValidatorForCR(hco, commonTestUtils.Namespace)
-
-			// now, modify HCO's node placement
-			seconds3 := int64(3)
-			hco.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
-				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+				foundCrds := apiextensionsv1.CustomResourceDefinitionList{}
+				Expect(cl.List(context.TODO(), &foundCrds)).To(BeNil())
+				Expect(foundCrds.Items).To(BeEmpty())
 			})
 
-			hco.Spec.Infra.NodePlacement.NodeSelector["key1"] = "something else"
+			It("should remove old related objects if upgrade is done", func() {
+				// Simulate no upgrade
+				req.SetUpgradeMode(false)
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme())
-			res := handler.ensure(req)
-			Expect(res.Created).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+				// Initialize RelatedObjects with a bunch of objects
+				// including old SSP ones.
+				for _, objRef := range oldSSPRelatedObjects() {
+					v1.SetObjectReference(&hco.Status.RelatedObjects, objRef)
+				}
+				for _, objRef := range otherRelatedObjects() {
+					v1.SetObjectReference(&hco.Status.RelatedObjects, objRef)
+				}
 
-			foundResource := &sspv1.KubevirtTemplateValidator{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
+				cl := commonTestUtils.InitClient(nil)
+				handler := newSspHandler(cl, commonTestUtils.GetScheme())
+				res := handler.ensure(req)
 
-			Expect(existingResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
-			Expect(existingResource.Spec.Tolerations).To(HaveLen(2))
-			Expect(existingResource.Spec.NodeSelector["key1"]).Should(Equal("value1"))
+				Expect(res.Created).To(BeTrue())
+				Expect(res.Updated).To(BeFalse())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).To(BeNil())
 
-			Expect(foundResource.Spec.Affinity.NodeAffinity).ToNot(BeNil())
-			Expect(foundResource.Spec.Tolerations).To(HaveLen(3))
-			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("something else"))
-
-			Expect(req.Conditions).To(BeEmpty())
-		})
-
-		It("should overwrite node placement if directly set on NewKubeVirtTemplateValidator CR", func() {
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewHyperConvergedConfig()}
-			existingResource := NewKubeVirtTemplateValidatorForCR(hco, commonTestUtils.Namespace)
-
-			// mock a reconciliation triggered by a change in NewKubeVirtTemplateValidator CR
-			req.HCOTriggered = false
-
-			// now, modify NewKubeVirtTemplateValidator node placement
-			seconds3 := int64(3)
-			existingResource.Spec.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
-				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+				Expect(hco.Status.RelatedObjects).To(HaveLen(len(otherRelatedObjects())))
+				for _, objRef := range oldSSPRelatedObjects() {
+					Expect(hco.Status.RelatedObjects).ToNot(ContainElement(objRef))
+				}
 			})
 
-			existingResource.Spec.NodeSelector["key1"] = "BADvalue1"
+			It("should retry removing old related objects when they fail to be removed from the status", func() {
+				// Simulate no upgrade
+				req.SetUpgradeMode(false)
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := newTemplateValidatorHandler(cl, commonTestUtils.GetScheme())
-			res := handler.ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Overwritten).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+				// Initialize RelatedObjects with a bunch of objects
+				// including old SSP ones.
+				for _, objRef := range oldSSPRelatedObjects() {
+					v1.SetObjectReference(&hco.Status.RelatedObjects, objRef)
+				}
+				for _, objRef := range otherRelatedObjects() {
+					v1.SetObjectReference(&hco.Status.RelatedObjects, objRef)
+				}
 
-			foundResource := &sspv1.KubevirtTemplateValidator{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
+				cl := commonTestUtils.InitClient(nil)
+				handler := newSspHandler(cl, commonTestUtils.GetScheme())
+				res := handler.ensure(req)
 
-			Expect(existingResource.Spec.Tolerations).To(HaveLen(3))
-			Expect(existingResource.Spec.NodeSelector["key1"]).Should(Equal("BADvalue1"))
+				Expect(res.Created).To(BeTrue())
+				Expect(res.Updated).To(BeFalse())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).To(BeNil())
 
-			Expect(foundResource.Spec.Tolerations).To(HaveLen(2))
-			Expect(foundResource.Spec.NodeSelector["key1"]).Should(Equal("value1"))
+				// Now simulate "status update failure",
+				// i.e. related objects aren't removed.
+				for _, objRef := range oldSSPRelatedObjects() {
+					v1.SetObjectReference(&hco.Status.RelatedObjects, objRef)
+				}
 
-			Expect(req.Conditions).To(BeEmpty())
+				// Simulate another reconciliation cycle
+				res = handler.ensure(req)
+
+				Expect(res.Created).To(BeFalse())
+				Expect(res.Updated).To(BeFalse())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).To(BeNil())
+
+				// len+1 because the (new) SSP object is now added to RelatedObjects
+				Expect(hco.Status.RelatedObjects).To(HaveLen(len(otherRelatedObjects()) + 1))
+				for _, objRef := range oldSSPRelatedObjects() {
+					Expect(hco.Status.RelatedObjects).ToNot(ContainElement(objRef))
+				}
+			})
 		})
-
-		// TODO: temporary avoid checking conditions on KubevirtTemplateValidator because it's currently
-		// broken on k8s. Revert this when we will be able to fix it
-		/*It("should handle conditions", func() {
-			expectedResource := newKubeVirtTemplateValidatorForCR(hco, namespace)
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			expectedResource.Status.Conditions = []conditionsv1.Condition{
-				conditionsv1.Condition{
-					Type:    conditionsv1.ConditionAvailable,
-					Status:  corev1.ConditionFalse,
-					Reason:  "Foo",
-					Message: "Bar",
-				},
-				conditionsv1.Condition{
-					Type:    conditionsv1.ConditionProgressing,
-					Status:  corev1.ConditionTrue,
-					Reason:  "Foo",
-					Message: "Bar",
-				},
-				conditionsv1.Condition{
-					Type:    conditionsv1.ConditionDegraded,
-					Status:  corev1.ConditionTrue,
-					Reason:  "Foo",
-					Message: "Bar",
-				},
-			}
-			cl := initClient([]runtime.Object{hco, expectedResource})
-			r := initReconciler(cl)
-			Expect(r.ensureKubeVirtTemplateValidator(req)).To(BeNil())
-
-			// Check HCO's status
-			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
-			objectRef, err := reference.GetReference(r.scheme, expectedResource)
-			Expect(err).To(BeNil())
-			// ObjectReference should have been added
-			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
-			// Check conditions
-			Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionAvailable,
-				Status:  corev1.ConditionFalse,
-				Reason:  "KubevirtTemplateValidatorNotAvailable",
-				Message: "KubevirtTemplateValidator is not available: Bar",
-			})))
-			Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionProgressing,
-				Status:  corev1.ConditionTrue,
-				Reason:  "KubevirtTemplateValidatorProgressing",
-				Message: "KubevirtTemplateValidator is progressing: Bar",
-			})))
-			Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionUpgradeable,
-				Status:  corev1.ConditionFalse,
-				Reason:  "KubevirtTemplateValidatorProgressing",
-				Message: "KubevirtTemplateValidator is progressing: Bar",
-			})))
-			Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionDegraded,
-				Status:  corev1.ConditionTrue,
-				Reason:  "KubevirtTemplateValidatorDegraded",
-				Message: "KubevirtTemplateValidator is degraded: Bar",
-			})))
-		})*/
-	})
-
-	Context("KubeVirtMetricsAggregation", func() {
-		var hco *hcov1beta1.HyperConverged
-		var req *common.HcoRequest
-
-		BeforeEach(func() {
-			hco = commonTestUtils.NewHco()
-			req = commonTestUtils.NewReq(hco)
-		})
-
-		It("should create if not present", func() {
-			expectedResource := NewKubeVirtMetricsAggregationForCR(hco, commonTestUtils.Namespace)
-			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := newMetricsAggregationHandler(cl, commonTestUtils.GetScheme())
-			res := handler.ensure(req)
-			Expect(res.Created).To(BeTrue())
-			Expect(res.Updated).To(BeFalse())
-			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &sspv1.KubevirtMetricsAggregation{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-					foundResource),
-			).To(BeNil())
-			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
-			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
-		})
-
-		It("should find if present", func() {
-			expectedResource := NewKubeVirtMetricsAggregationForCR(hco, commonTestUtils.Namespace)
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := newMetricsAggregationHandler(cl, commonTestUtils.GetScheme())
-			res := handler.ensure(req)
-			Expect(res.Created).To(BeFalse())
-			Expect(res.Updated).To(BeFalse())
-			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			// Check HCO's status
-			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
-			objectRef, err := reference.GetReference(handler.Scheme, expectedResource)
-			Expect(err).To(BeNil())
-			// ObjectReference should have been added
-			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
-		})
-
-		It("should reconcile to default", func() {
-			existingResource := NewKubeVirtMetricsAggregationForCR(hco, commonTestUtils.Namespace)
-			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
-
-			existingResource.Spec.Version = "non-default value"
-			req.HCOTriggered = false // mock a reconciliation triggered by a change in NewKubeVirtMetricsAggregation CR
-
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := newMetricsAggregationHandler(cl, commonTestUtils.GetScheme())
-			res := handler.ensure(req)
-			Expect(res.Created).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Overwritten).To(BeTrue())
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &sspv1.KubevirtMetricsAggregation{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
-			Expect(foundResource.Spec.Version).To(BeEmpty())
-		})
-
-		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
-
-		// TODO: temporary avoid checking conditions on KubevirtTemplateValidator because it's currently
-		// broken on k8s. Revert this when we will be able to fix it
-		/*It("should handle conditions", func() {
-			expectedResource := newKubeVirtTemplateValidatorForCR(hco, namespace)
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			expectedResource.Status.Conditions = []conditionsv1.Condition{
-				conditionsv1.Condition{
-					Type:    conditionsv1.ConditionAvailable,
-					Status:  corev1.ConditionFalse,
-					Reason:  "Foo",
-					Message: "Bar",
-				},
-				conditionsv1.Condition{
-					Type:    conditionsv1.ConditionProgressing,
-					Status:  corev1.ConditionTrue,
-					Reason:  "Foo",
-					Message: "Bar",
-				},
-				conditionsv1.Condition{
-					Type:    conditionsv1.ConditionDegraded,
-					Status:  corev1.ConditionTrue,
-					Reason:  "Foo",
-					Message: "Bar",
-				},
-			}
-			cl := initClient([]runtime.Object{hco, expectedResource})
-			r := initReconciler(cl)
-			Expect(r.ensureKubeVirtTemplateValidator(req)).To(BeNil())
-
-			// Check HCO's status
-			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
-			objectRef, err := reference.GetReference(r.scheme, expectedResource)
-			Expect(err).To(BeNil())
-			// ObjectReference should have been added
-			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
-			// Check conditions
-			Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionAvailable,
-				Status:  corev1.ConditionFalse,
-				Reason:  "KubevirtTemplateValidatorNotAvailable",
-				Message: "KubevirtTemplateValidator is not available: Bar",
-			})))
-			Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionProgressing,
-				Status:  corev1.ConditionTrue,
-				Reason:  "KubevirtTemplateValidatorProgressing",
-				Message: "KubevirtTemplateValidator is progressing: Bar",
-			})))
-			Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionUpgradeable,
-				Status:  corev1.ConditionFalse,
-				Reason:  "KubevirtTemplateValidatorProgressing",
-				Message: "KubevirtTemplateValidator is progressing: Bar",
-			})))
-			Expect(req.Conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-				Type:    conditionsv1.ConditionDegraded,
-				Status:  corev1.ConditionTrue,
-				Reason:  "KubevirtTemplateValidatorDegraded",
-				Message: "KubevirtTemplateValidator is degraded: Bar",
-			})))
-		})*/
 	})
 })
+
+func oldSSPCrds() []*apiextensionsv1.CustomResourceDefinition {
+	names := []string{
+		"kubevirtcommontemplatesbundles.ssp.kubevirt.io",
+		"kubevirtmetricsaggregations.ssp.kubevirt.io",
+		"kubevirtnodelabellerbundles.ssp.kubevirt.io",
+		"kubevirttemplatevalidators.ssp.kubevirt.io",
+		"kubevirtcommontemplatesbundles.kubevirt.io",
+		"kubevirtmetricsaggregations.kubevirt.io",
+		"kubevirtnodelabellerbundles.kubevirt.io",
+		"kubevirttemplatevalidators.kubevirt.io",
+	}
+
+	crds := make([]*apiextensionsv1.CustomResourceDefinition, 0, len(names))
+	for _, name := range names {
+		crd := &apiextensionsv1.CustomResourceDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
+			},
+		}
+		crds = append(crds, crd)
+	}
+
+	return crds
+}
+
+func oldSSPCrdsAsObjects() []runtime.Object {
+	crds := oldSSPCrds()
+	objs := make([]runtime.Object, 0, len(crds))
+	for _, crd := range crds {
+		objs = append(objs, crd)
+	}
+
+	return objs
+}
+
+func oldSSPRelatedObjects() []corev1.ObjectReference {
+	return []corev1.ObjectReference{
+		{
+			APIVersion: "ssp.kubevirt.io/v1",
+			Kind:       "KubevirtCommonTemplatesBundle",
+			Name:       "common-templates-kubevirt-hyperconverged",
+			Namespace:  "openshift",
+		},
+		{
+			APIVersion: "ssp.kubevirt.io/v1",
+			Kind:       "KubevirtNodeLabellerBundle",
+			Name:       "node-labeller-kubevirt-hyperconverged",
+			Namespace:  "kubevirt-hyperconverged",
+		},
+		{
+			APIVersion: "ssp.kubevirt.io/v1",
+			Kind:       "KubevirtTemplateValidator",
+			Name:       "template-validator-kubevirt-hyperconverged",
+			Namespace:  "kubevirt-hyperconverged",
+		},
+		{
+			APIVersion: "ssp.kubevirt.io/v1",
+			Kind:       "KubevirtMetricsAggregation",
+			Name:       "metrics-aggregation-kubevirt-hyperconverged",
+			Namespace:  "kubevirt-hyperconverged",
+		},
+	}
+}
+
+func otherRelatedObjects() []corev1.ObjectReference {
+	return []corev1.ObjectReference{
+		{
+			APIVersion: "kubevirt.io/v1alpha3",
+			Kind:       "Kubevirt",
+			Name:       "kubevirt-kubevirt-hyperconverged",
+			Namespace:  "openshift",
+		},
+		{
+			APIVersion: "cdi.kubevirt.io/v1beta1",
+			Kind:       "CDI",
+			Name:       "cdi-kubevirt-hyperconverged",
+			Namespace:  "kubevirt-hyperconverged",
+		},
+	}
+}

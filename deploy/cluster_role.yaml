@@ -67,6 +67,41 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   labels:
+    name: ssp-operator
+  name: ssp-operator
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - configmaps/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
     name: cdi-operator
   name: cdi-operator
 rules:
@@ -1010,126 +1045,94 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    name: kubevirt-ssp-operator
-  name: kubevirt-ssp-operator
+    name: ssp-operator
+  name: ssp-operator
 rules:
 - apiGroups:
-  - kubevirt.io
-  - ssp.kubevirt.io
-  - template.openshift.io
+  - admissionregistration.k8s.io
   resources:
-  - '*'
+  - validatingwebhookconfigurations
   verbs:
   - create
+  - delete
   - get
   - list
   - patch
   - update
   - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - list
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  verbs:
+  - create
   - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - cdi.kubevirt.io
   resources:
   - datavolumes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cdi.kubevirt.io
+  resources:
   - datavolumes/source
   verbs:
   - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-  - delete
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - prometheusrules
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - watch
-  - delete
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - servicemonitors
-  verbs:
-  - get
-  - create
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterroles
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-  - patch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterrolebindings
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-  - patch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - roles
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-  - patch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - rolebindings
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-  - patch
-- apiGroups:
-  - extensions
-  - apps
-  resources:
-  - deployments
-  - deployments/finalizers
-  - replicasets
-  - daemonsets
-  verbs:
-  - create
-  - update
-  - get
-  - list
-  - patch
-  - watch
-  - delete
 - apiGroups:
   - ""
   resources:
-  - serviceaccounts
   - configmaps
-  - persistentvolumeclaims
-  - services
-  - services/finalizers
+  - serviceaccounts
   verbs:
   - create
-  - update
-  - get
-  - patch
-  - list
-  - watch
   - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -1141,7 +1144,18 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - pods
+  - persistentvolumeclaims
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - persistentvolumeclaims/status
   verbs:
   - get
@@ -1150,33 +1164,67 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - namespaces
+  - serviceaccounts
+  - services
   verbs:
   - create
+  - delete
   - get
   - list
   - patch
+  - update
   - watch
 - apiGroups:
-  - admissionregistration.k8s.io
+  - monitoring.coreos.com
   resources:
-  - validatingwebhookconfigurations
+  - prometheusrules
   verbs:
   - create
+  - delete
   - get
   - list
   - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - security.openshift.io
   resources:
   - securitycontextconstraints
   verbs:
+  - create
+  - delete
   - get
   - list
-  - create
-  - watch
   - patch
+  - update
+  - watch
 - apiGroups:
   - security.openshift.io
   resourceNames:
@@ -1185,6 +1233,92 @@ rules:
   - securitycontextconstraints
   verbs:
   - use
+- apiGroups:
+  - ssp.kubevirt.io
+  resources:
+  - kubevirtcommontemplatesbundles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ssp.kubevirt.io
+  resources:
+  - kubevirtmetricsaggregations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ssp.kubevirt.io
+  resources:
+  - kubevirtnodelabellerbundles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ssp.kubevirt.io
+  resources:
+  - kubevirttemplatevalidators
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ssp.kubevirt.io
+  resources:
+  - ssps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ssp.kubevirt.io
+  resources:
+  - ssps/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ssp.kubevirt.io
+  resources:
+  - ssps/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - template.openshift.io
+  resources:
+  - templates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

@@ -97,3 +97,47 @@ webhooks:
     scope: Cluster
   sideEffects: None
   timeoutSeconds: 15
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ssp-operator-service-cert
+spec:
+  secretName: ssp-operator-service-cert
+  dnsNames:
+  - ssp-operator-service.kubevirt-hyperconverged.svc
+  issuerRef:
+    name: selfsigned
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: vssp.kb.io
+  annotations:
+    cert-manager.io/inject-ca-from: kubevirt-hyperconverged/ssp-operator-service-cert
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    # caBundle: WILL BE INJECTED BY CERT-MANAGER BECAUSE OF THE ANNOTATION
+    service:
+      name: ssp-operator-service
+      namespace: kubevirt-hyperconverged
+      path: /validate-ssp-kubevirt-io-v1beta1-ssp
+      port: 8443
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  name: vssp.kb.io
+  objectSelector: {}
+  rules:
+  - apiGroups:
+    - ssp.kubevirt.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - ssps
+  sideEffects: None
+  timeoutSeconds: 10

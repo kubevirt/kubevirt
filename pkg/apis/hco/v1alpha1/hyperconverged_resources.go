@@ -5,7 +5,6 @@ import (
 	networkaddonsv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
 	networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
@@ -75,16 +74,6 @@ func (r *HyperConverged) NewNetworkAddons(opts ...string) *networkaddonsv1alpha1
 			Ovs:         &networkaddonsshared.Ovs{},
 			NMState:     &networkaddonsshared.NMState{},
 			KubeMacPool: &networkaddonsshared.KubeMacPool{},
-		},
-	}
-}
-
-func (r *HyperConverged) NewKubeVirtCommonTemplateBundle(opts ...string) *sspv1.KubevirtCommonTemplatesBundle {
-	return &sspv1.KubevirtCommonTemplatesBundle{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "common-templates-" + r.Name,
-			Labels:    r.getLabels(hcoutil.AppComponentSchedule),
-			Namespace: r.getNamespace(hcoutil.OpenshiftNamespace, opts),
 		},
 	}
 }

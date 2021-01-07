@@ -35,6 +35,22 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   labels:
+    name: ssp-operator
+  name: ssp-operator
+  namespace: kubevirt-hyperconverged
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ssp-operator
+subjects:
+- kind: ServiceAccount
+  name: ssp-operator
+  namespace: kubevirt-hyperconverged
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
     name: cdi-operator
   name: cdi-operator
   namespace: kubevirt-hyperconverged
@@ -112,15 +128,15 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels:
-    name: kubevirt-ssp-operator
-  name: kubevirt-ssp-operator
+    name: ssp-operator
+  name: ssp-operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kubevirt-ssp-operator
+  name: ssp-operator
 subjects:
 - kind: ServiceAccount
-  name: kubevirt-ssp-operator
+  name: ssp-operator
   namespace: kubevirt-hyperconverged
 ---
 apiVersion: rbac.authorization.k8s.io/v1

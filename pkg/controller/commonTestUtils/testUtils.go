@@ -4,14 +4,13 @@ import (
 	"context"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
-	sspopv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	consolev1 "github.com/openshift/api/console/v1"
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
@@ -19,7 +18,9 @@ import (
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -66,7 +67,7 @@ func NewReq(inst *hcov1beta1.HyperConverged) *common.HcoRequest {
 	}
 }
 
-func NewHyperConvergedConfig() *sdkapi.NodePlacement {
+func NewNodePlacement() *sdkapi.NodePlacement {
 	seconds1, seconds2 := int64(1), int64(2)
 	return &sdkapi.NodePlacement{
 		NodeSelector: map[string]string{
@@ -98,6 +99,38 @@ func NewHyperConvergedConfig() *sdkapi.NodePlacement {
 	}
 }
 
+func NewOtherNodePlacement() *sdkapi.NodePlacement {
+	seconds3, seconds4 := int64(3), int64(4)
+	return &sdkapi.NodePlacement{
+		NodeSelector: map[string]string{
+			"key3": "value3",
+			"key4": "value4",
+		},
+		Affinity: &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{
+						{
+							MatchExpressions: []corev1.NodeSelectorRequirement{
+								{Key: "key3", Operator: "operator3", Values: []string{"value31, value32"}},
+								{Key: "key4", Operator: "operator4", Values: []string{"value41, value42"}},
+							},
+							MatchFields: []corev1.NodeSelectorRequirement{
+								{Key: "key3", Operator: "operator3", Values: []string{"value31, value32"}},
+								{Key: "key4", Operator: "operator4", Values: []string{"value41, value42"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		Tolerations: []corev1.Toleration{
+			{Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3},
+			{Key: "key4", Operator: "operator4", Value: "value4", Effect: "effect4", TolerationSeconds: &seconds4},
+		},
+	}
+}
+
 var testScheme *runtime.Scheme
 
 func GetScheme() *runtime.Scheme {
@@ -111,11 +144,11 @@ func GetScheme() *runtime.Scheme {
 		apis.AddToScheme,
 		cdiv1beta1.AddToScheme,
 		networkaddons.AddToScheme,
-		sspopv1.AddToScheme,
+		sspv1beta1.AddToScheme,
 		vmimportv1beta1.AddToScheme,
 		consolev1.AddToScheme,
 		monitoringv1.AddToScheme,
-		extv1.AddToScheme,
+		apiextensionsv1.AddToScheme,
 	} {
 		Expect(f(testScheme)).To(BeNil())
 	}
