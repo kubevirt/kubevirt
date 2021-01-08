@@ -31,7 +31,7 @@ import (
 const (
 	CPUSET_PATH = "/sys/fs/cgroup/cpuset/cpuset.cpus"
 
-	PCI_ADDRESS_PATTERN = `^([\da-fA-F]{4}):([\da-fA-F]{2}):([\da-fA-F]{2}).([0-7]{1})$`
+	PCI_ADDRESS_PATTERN = `^([\da-fA-F]{4}):([\da-fA-F]{2}):([\da-fA-F]{2})\.([0-7]{1})$`
 )
 
 // Parse linux cpuset into an array of ints
