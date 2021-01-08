@@ -2,7 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -117,20 +116,24 @@ func NewHelloWorldJob(host string, port string, checkConnectivityCmdPrefixes ...
 }
 
 // NewHelloWorldJobUDP takes a DNS entry or an IP and a port which it will use create a pod
-// which tries to contact the host on the provided port. It expects to receive "Hello World!" to succeed.
+// which tries to contact the host on the provided port. It expects to receive "Hello UDP World!" to succeed.
 // Note that in case of UDP, the server will not see the connection unless something is sent over it
-// However, netcat does not work well with UDP and closes before the answer arrives, for that another netcat call is needed,
-// this time as a UDP listener
-func NewHelloWorldJobUDP(host string, port string, checkConnectivityCmdPrefixes ...string) *batchv1.Job {
-	localPort, err := strconv.Atoi(port)
-	if err != nil {
-		return nil
-	}
-	// local port is used to catch the reply - any number can be used
-	// we make it different than the port to be safe if both are running on the same machine
-	localPort--
-	check := fmt.Sprintf(`set -x; trap "kill 0" EXIT; %sx="$(head -n 1 < <(echo | nc -up %d %s %s -i 3 -w 3 & nc -ul %d))"; echo "$x" ; if [ "$x" = "Hello UDP World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`,
-		strings.Join(checkConnectivityCmdPrefixes, ";"), localPort, host, port, localPort)
+// However, netcat does not work well with UDP and closes before the answer arrives, we make netcat wait until
+// the defined timeout is expired to prevent this from happening.
+func NewHelloWorldJobUDP(host, port string, checkConnectivityCmdPrefixes ...string) *batchv1.Job {
+	timeout := 5
+	check := fmt.Sprintf(`set -x
+%s
+x=$(cat <(echo) <(sleep %[2]d) | nc -u %s %s -i %[2]d -w %[2]d | head -n 1)
+echo "$x"
+if [ "$x" = "Hello UDP World!" ]; then
+  echo "succeeded"
+  exit 0
+else
+  echo "failed"
+  exit 1
+fi`,
+		strings.Join(checkConnectivityCmdPrefixes, ";"), timeout, host, port)
 
 	return newHelloWorldJob(check)
 }
