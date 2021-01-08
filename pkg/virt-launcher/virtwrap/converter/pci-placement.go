@@ -1,8 +1,12 @@
-package api
+package converter
 
-import "fmt"
+import (
+	"fmt"
 
-func PlacePCIDevicesOnRootComplex(spec *DomainSpec) (err error) {
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+)
+
+func PlacePCIDevicesOnRootComplex(spec *api.DomainSpec) (err error) {
 	assigner := newRootSlotAssigner()
 	for i, iface := range spec.Devices.Interfaces {
 		spec.Devices.Interfaces[i].Address, err = assigner.PlacePCIDeviceAtNextSlot(iface.Address)
@@ -97,9 +101,9 @@ type pciRootSlotAssigner struct {
 	slot int
 }
 
-func (p *pciRootSlotAssigner) PlacePCIDeviceAtNextSlot(address *Address) (*Address, error) {
+func (p *pciRootSlotAssigner) PlacePCIDeviceAtNextSlot(address *api.Address) (*api.Address, error) {
 	if address == nil {
-		address = &Address{}
+		address = &api.Address{}
 	}
 	if address.Type != "pci" && address.Type != "" {
 		return address, nil

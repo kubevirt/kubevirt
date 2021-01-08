@@ -29,6 +29,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -94,7 +96,7 @@ var _ = Describe("Manager", func() {
 			}
 		}
 
-		c := &api.ConverterContext{
+		c := &converter.ConverterContext{
 			Architecture:     runtime.GOARCH,
 			VirtualMachine:   vmi,
 			UseEmulation:     true,
@@ -102,7 +104,7 @@ var _ = Describe("Manager", func() {
 			HotplugVolumes:   hotplugVolumes,
 			PermanentVolumes: permanentVolumes,
 		}
-		Expect(api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
+		Expect(converter.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 		return &domain.Spec
