@@ -329,6 +329,48 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when unset, GetOVMFPath should return the default", "", virtconfig.DefaultOVMFPath),
 	)
 
+	It("verifies that SetConfigModifiedCallback works as expected ", func() {
+		var callbackSet1, callbackSet2 bool
+		callback1 := func() {
+			callbackSet1 = true
+		}
+		callback2 := func() {
+			callbackSet2 = true
+		}
+		KV := &v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				ResourceVersion: rand.String(10),
+				Name:            "kubevirt",
+				Namespace:       "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						LogVerbosity: &v1.LogVerbosity{
+							VirtLauncher: 3,
+						},
+					},
+				},
+			},
+			Status: v1.KubeVirtStatus{
+				Phase: v1.KubeVirtPhaseDeploying,
+			},
+		}
+		clusterConfig, _, _, kubeVirtInformer := testutils.NewFakeClusterConfigUsingKV(KV)
+		callbackSet1 = false
+		callbackSet2 = false
+		clusterConfig.SetConfigModifiedCallback(callback1)
+		clusterConfig.SetConfigModifiedCallback(callback2)
+
+		Expect(clusterConfig.GetVirtLauncherVerbosity()).To(Equal(uint(3)))
+		KV.Spec.Configuration.DeveloperConfiguration.LogVerbosity.VirtLauncher = 6
+		testutils.UpdateFakeKubeVirtClusterConfig(kubeVirtInformer, KV)
+		Expect(clusterConfig.GetVirtLauncherVerbosity()).To(Equal(uint(6)))
+		Eventually(func() bool {
+			return callbackSet1 && callbackSet2
+		}).Should(BeTrue())
+	})
+
 	It("Should still get GetPermittedHostDevices after invalid update", func() {
 		expectedDevices := `{"pciHostDevices":[{"pciVendorSelector":"10DE:1EB8","resourceName":"nvidia.com/TU104GL_Tesla_T4"}],"mediatedDevices":[{"mdevNameSelector":"GRID T4-1Q","resourceName":"nvidia.com/GRID_T4-1Q"}]}`
 		invalidPermittedHostDevicesConfig := "something wrong"
@@ -391,7 +433,7 @@ var _ = Describe("ConfigMap", func() {
 			func(c *v1.KubeVirtConfiguration) interface{} {
 				return c.DeveloperConfiguration
 			},
-			`{"featureGates":["test1","test2"],"pvcTolerateLessSpaceUpToPercent":5,"memoryOvercommit":150,"nodeSelectors":{"test":"test"},"useEmulation":true,"cpuAllocationRatio":25}`),
+			`{"featureGates":["test1","test2"],"pvcTolerateLessSpaceUpToPercent":5,"memoryOvercommit":150,"nodeSelectors":{"test":"test"},"useEmulation":true,"cpuAllocationRatio":25,"logVerbosity":{"virtAPI":2,"virtController":2,"virtHandler":2,"virtLauncher":2,"virtOperator":2}}`),
 		table.Entry("when networkConfiguration set, should equal to result",
 			v1.KubeVirtConfiguration{
 				NetworkConfiguration: &v1.NetworkConfiguration{

@@ -192,3 +192,8 @@ func (c *ClusterConfig) GetVirtControllerVerbosity(nodeName string) uint {
 	}
 	return logConf.VirtController
 }
+
+func (c *ClusterConfig) GetVirtLauncherVerbosity() uint {
+	logConf := c.GetConfig().DeveloperConfiguration.LogVerbosity
+	return logConf.VirtLauncher
+}

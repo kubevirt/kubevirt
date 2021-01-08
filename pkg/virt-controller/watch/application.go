@@ -322,7 +322,7 @@ func (vca *VirtControllerApp) configModificationCallback() {
 func (vca *VirtControllerApp) shouldChangeLogVerbosity() {
 	verbosity := vca.clusterConfig.GetVirtHandlerVerbosity(vca.host)
 	log.Log.SetVerbosityLevel(int(verbosity))
-	log.Log.V(4).Infof("set verbosity to %d", verbosity)
+	log.Log.V(2).Infof("set log verbosity to %d", verbosity)
 }
 
 func (vca *VirtControllerApp) Run() {

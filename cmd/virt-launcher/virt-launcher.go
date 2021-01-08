@@ -26,6 +26,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -328,6 +329,16 @@ func main() {
 	pflag.Parse()
 
 	log.InitializeLogging("virt-launcher")
+
+	// check if virt-launcher verbosity should be changed
+	if verbosityStr, ok := os.LookupEnv("VIRT_LAUNCHER_LOG_VERBOSITY"); ok {
+		if verbosity, err := strconv.Atoi(verbosityStr); err == nil {
+			log.Log.SetVerbosityLevel(verbosity)
+			log.Log.V(2).Infof("set log verbosity to %d", verbosity)
+		} else {
+			log.Log.Warningf("failed to set log verbosity. The value of logVerbosity label should be an integer, got %s instead.", verbosityStr)
+		}
+	}
 
 	if !*noFork {
 		exitCode, err := ForkAndMonitor(*containerDiskDir)

@@ -377,7 +377,7 @@ func (app *virtHandlerApp) Run() {
 func (app *virtHandlerApp) shouldChangeLogVerbosity() {
 	verbosity := app.clusterConfig.GetVirtHandlerVerbosity(app.HostOverride)
 	log.Log.SetVerbosityLevel(int(verbosity))
-	log.Log.V(4).Infof("set verbosity to %d", verbosity)
+	log.Log.V(2).Infof("set verbosity to %d", verbosity)
 }
 
 func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
