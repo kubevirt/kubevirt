@@ -14,7 +14,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/pkg/util"
+	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests"
@@ -129,7 +129,7 @@ var _ = Describe("[Serial]GPU", func() {
 				Expect(domSpec.Devices.HostDevices[n].Type).To(Equal("pci"))
 				Expect(domSpec.Devices.HostDevices[n].Managed).To(Equal("yes"))
 				Expect(domSpec.Devices.HostDevices[n].Mode).To(Equal("subsystem"))
-				dbsfFields, err := util.ParsePciAddress(addr)
+				dbsfFields, err := hwutil.ParsePciAddress(addr)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domSpec.Devices.HostDevices[n].Source.Address.Domain).To(Equal("0x" + dbsfFields[0]))
 				Expect(domSpec.Devices.HostDevices[n].Source.Address.Bus).To(Equal("0x" + dbsfFields[1]))

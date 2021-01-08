@@ -50,6 +50,7 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/util"
+	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
 
@@ -1964,7 +1965,7 @@ func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
 }
 
 func decoratePciAddressField(addressField string) (*api.Address, error) {
-	dbsfFields, err := util.ParsePciAddress(addressField)
+	dbsfFields, err := hwutil.ParsePciAddress(addressField)
 	if err != nil {
 		return nil, err
 	}
