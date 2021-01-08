@@ -82,4 +82,34 @@ var _ = Describe("Hardware utils test", func() {
 			Expect(vCPUs).To(Equal(int64(4)), "Expect vCPUs")
 		})
 	})
+
+	Context("parse PCI address", func() {
+		It("shoud return an array of PCI DBSF fields (domain, bus, slot, function) or an error for malformed address", func() {
+			testData := []struct {
+				addr        string
+				expectation []string
+			}{
+				{"05EA:Fc:1d.6", []string{"05EA", "Fc", "1d", "6"}},
+				{"", nil},
+				{"invalid address", nil},
+				{" 05EA:Fc:1d.6", nil}, // leading symbol
+				{"05EA:Fc:1d.6 ", nil}, // trailing symbol
+				{"00Z0:00:1d.6", nil},  // invalid digit in domain
+				{"0000:z0:1d.6", nil},  // invalid digit in bus
+				{"0000:00:Zd.6", nil},  // invalid digit in slot
+				{"05EA:Fc:1d:6", nil},  // colon ':' instead of dot '.' after slot
+				{"0000:00:1d.9", nil},  // invalid function
+			}
+
+			for _, t := range testData {
+				res, err := ParsePciAddress(t.addr)
+				Expect(res).To(Equal(t.expectation))
+				if t.expectation == nil {
+					Expect(err).To(HaveOccurred())
+				} else {
+					Expect(err).ToNot(HaveOccurred())
+				}
+			}
+		})
+	})
 })
