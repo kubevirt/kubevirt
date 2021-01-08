@@ -456,7 +456,7 @@ var _ = Describe("Converter", func() {
   <devices>
     <interface type="ethernet">
       <source></source>
-       <model type="virtio-non-transitional"></model>
+      <model type="virtio-non-transitional"></model>
       <alias name="ua-default"></alias>
       <rom enabled="no"></rom>
     </interface>
@@ -472,13 +472,13 @@ var _ = Describe("Converter", func() {
       <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
     </graphics>
     %s
-     <disk device="disk" type="file" model="virtio-non-transitional">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
       <driver name="qemu" type="raw" iothread="2"></driver>
       <alias name="ua-myvolume"></alias>
     </disk>
-     <disk device="disk" type="file" model="virtio-non-transitional">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
       <driver name="qemu" type="raw" iothread="3"></driver>
@@ -558,7 +558,7 @@ var _ = Describe("Converter", func() {
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
-      <input type="tablet" bus="virtio" model="virtio">
+    <input type="tablet" bus="virtio" model="virtio">
       <alias name="ua-tablet0"></alias>
     </input>
     <serial type="unix">
@@ -1115,7 +1115,7 @@ var _ = Describe("Converter", func() {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 				spec := vmiToDomain(vmi, c).Spec.DeepCopy()
-				Expect(api.PlacePCIDevicesOnRootComplex(spec)).To(Succeed())
+				Expect(PlacePCIDevicesOnRootComplex(spec)).To(Succeed())
 				data, err := xml.MarshalIndent(spec, "", "  ")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(data)).To(Equal(convertedDomainWithDevicesOnRootBus))
