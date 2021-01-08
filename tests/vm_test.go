@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/cluster"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -998,7 +999,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 
 				It("[test_id:4119]should migrate a running VM", func() {
-					nodes := tests.GetAllSchedulableNodes(virtClient)
+					nodes := cluster.GetAllSchedulableNodes(virtClient)
 					if len(nodes.Items) < 2 {
 						Skip("Migration tests require at least 2 nodes")
 					}

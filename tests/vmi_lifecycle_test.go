@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/cluster"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -491,7 +492,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			It("[test_id:1633]should indicate that a node is ready for vmis", func() {
 
 				By("adding a heartbeat annotation and a schedulable label to the node")
-				nodes := tests.GetAllSchedulableNodes(virtClient)
+				nodes := cluster.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				for _, node := range nodes.Items {
 					Expect(node.Annotations[v1.VirtHandlerHeartbeat]).ToNot(HaveLen(0), "Nodes should have be ready for VMI")
@@ -689,7 +690,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var nodes *k8sv1.NodeList
 			var err error
 			BeforeEach(func() {
-				nodes = tests.GetAllSchedulableNodes(virtClient)
+				nodes = cluster.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 				// Taint first node with "NoSchedule"
@@ -737,7 +738,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var err error
 
 			BeforeEach(func() {
-				nodes = tests.GetAllSchedulableNodes(virtClient)
+				nodes = cluster.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 			})
 
@@ -866,7 +867,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var originalLabels map[string]string
 
 			BeforeEach(func() {
-				nodes := tests.GetAllSchedulableNodes(virtClient)
+				nodes := cluster.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 				node = &nodes.Items[0]
@@ -1068,7 +1069,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		Context("with non default namespace", func() {
 			table.DescribeTable("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]should log libvirt start and stop lifecycle events of the domain", func(namespace *string) {
 
-				nodes := tests.GetAllSchedulableNodes(virtClient)
+				nodes := cluster.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				node := nodes.Items[0].Name
 
@@ -1307,7 +1308,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("[test_id:1648]Should provide KVM via plugin framework", func() {
-				nodeList := tests.GetAllSchedulableNodes(virtClient)
+				nodeList := cluster.GetAllSchedulableNodes(virtClient)
 
 				if len(nodeList.Items) == 0 {
 					Skip("There are no compute nodes in cluster")
@@ -1454,7 +1455,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 		Context("with grace period greater than 0", func() {
 			It("[test_id:1655]should run graceful shutdown", func() {
-				nodes := tests.GetAllSchedulableNodes(virtClient)
+				nodes := cluster.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				node := nodes.Items[0].Name
 

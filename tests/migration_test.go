@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	migrations "kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/cluster"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -154,7 +155,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			Skip("LiveMigration feature gate is not enabled in kubevirt-config")
 		}
 
-		nodes := tests.GetAllSchedulableNodes(virtClient)
+		nodes := cluster.GetAllSchedulableNodes(virtClient)
 		Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 		if len(nodes.Items) < 2 {
@@ -1200,7 +1201,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				// launch killer pod on every node that isn't the vmi's node
 				By("Starting our migration killer pods")
-				nodes := tests.GetAllSchedulableNodes(virtClient)
+				nodes := cluster.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				for idx, entry := range nodes.Items {
 					if entry.Name == vmi.Status.NodeName {
@@ -1888,7 +1889,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 
 				By("selecting a node as the source")
-				sourceNode := tests.GetAllSchedulableNodes(virtClient).Items[0]
+				sourceNode := cluster.GetAllSchedulableNodes(virtClient).Items[0]
 				tests.AddLabelToNode(sourceNode.Name, "tests.kubevirt.io", "target")
 
 				By("starting four VMIs on that node")
@@ -1903,7 +1904,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}
 
 				By("selecting a node as the target")
-				targetNode := tests.GetAllSchedulableNodes(virtClient).Items[1]
+				targetNode := cluster.GetAllSchedulableNodes(virtClient).Items[1]
 				tests.AddLabelToNode(targetNode.Name, "tests.kubevirt.io", "target")
 
 				By("tainting the source node as non-schedulabele")

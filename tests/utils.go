@@ -35,6 +35,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	cluster2 "kubevirt.io/kubevirt/tests/cluster"
 	"net"
 	"net/http"
 	"os"
@@ -583,7 +584,7 @@ func BeforeTestCleanup() {
 func CleanNodes() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	nodes := GetAllSchedulableNodes(virtCli).Items
+	nodes := cluster2.GetAllSchedulableNodes(virtCli).Items
 
 	clusterDrainKey := GetNodeDrainKey()
 
@@ -770,7 +771,7 @@ func BeforeTestSuitSetup(_ []byte) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	Eventually(func() int {
-		nodes := GetAllSchedulableNodes(virtClient)
+		nodes := cluster2.GetAllSchedulableNodes(virtClient)
 		if len(nodes.Items) > 0 {
 			idx := rand.Intn(len(nodes.Items))
 			schedulableNode = nodes.Items[idx].Name
@@ -3743,12 +3744,6 @@ func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.Res
 		}
 	}
 	return nil
-}
-
-func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
-	nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
-	Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
-	return nodes
 }
 
 // SkipIfVersionBelow will skip tests if it runs on an environment with k8s version below specified
