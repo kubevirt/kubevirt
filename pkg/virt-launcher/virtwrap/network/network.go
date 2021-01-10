@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-const podInterface = "eth0"
+const primaryPodInterfaceName = "eth0"
 
 var interfaceCacheFile = "/proc/%s/root/var/run/kubevirt-private/interface-cache-%s.json"
 var qemuArgCacheFile = "/proc/%s/root/var/run/kubevirt-private/qemu-arg-%s.json"
@@ -100,7 +100,7 @@ func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string
 		// multus pod interfaces named netX
 		return fmt.Sprintf("net%d", cniNetworks[ifaceName])
 	} else {
-		return podInterface
+		return primaryPodInterfaceName
 	}
 }
 
