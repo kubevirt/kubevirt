@@ -46,8 +46,6 @@ type PodCacheInterface struct {
 	PodIPs []string      `json:"podIPs,omitempty"`
 }
 
-type plugFunction func(vif NetworkInterface, vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
-
 // Network configuration is split into two parts, or phases, each executed in a
 // different context.
 // Phase1 is run by virt-handler and heavylifts most configuration steps. It
