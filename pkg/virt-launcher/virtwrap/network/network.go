@@ -41,8 +41,6 @@ var qemuArgCacheFile = "/proc/%s/root/var/run/kubevirt-private/qemu-arg-%s.json"
 var vifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
 var NetworkInterfaceFactory = getNetworkClass
 
-var podInterfaceName = podInterface
-
 type PodCacheInterface struct {
 	Iface  *v1.Interface `json:"iface,omitempty"`
 	PodIP  string        `json:"podIP,omitempty"`
@@ -118,7 +116,7 @@ func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance, pid int) error
 		if err != nil {
 			return err
 		}
-		podInterfaceName = getPodInterfaceName(networks, cniNetworks, iface.Name)
+		podInterfaceName := getPodInterfaceName(networks, cniNetworks, iface.Name)
 		err = NetworkInterface.PlugPhase1(networkInterfaceFactory, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], podInterfaceName, pid)
 		if err != nil {
 			return err
@@ -134,7 +132,7 @@ func SetupNetworkInterfacesPhase2(vmi *v1.VirtualMachineInstance, domain *api.Do
 		if err != nil {
 			return err
 		}
-		podInterfaceName = getPodInterfaceName(networks, cniNetworks, iface.Name)
+		podInterfaceName := getPodInterfaceName(networks, cniNetworks, iface.Name)
 		err = NetworkInterface.PlugPhase2(vif, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], domain, podInterfaceName)
 		if err != nil {
 			return err

@@ -473,7 +473,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces(queueNumber uint32, lau
 		return err
 	}
 
-	tapDeviceName := generateTapDeviceName(podInterfaceName)
+	tapDeviceName := generateTapDeviceName(b.podInterfaceName)
 	err := createAndBindTapToBridge(tapDeviceName, b.bridgeInterfaceName, queueNumber, launcherPID, int(b.vif.Mtu))
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
@@ -764,7 +764,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces(queueNumber uint32,
 		return err
 	}
 
-	tapDeviceName := generateTapDeviceName(podInterfaceName)
+	tapDeviceName := generateTapDeviceName(p.podInterfaceName)
 	err = createAndBindTapToBridge(tapDeviceName, p.bridgeInterfaceName, queueNumber, launcherPID, int(p.vif.Mtu))
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
