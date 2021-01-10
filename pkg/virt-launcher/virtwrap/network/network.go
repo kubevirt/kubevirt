@@ -37,7 +37,6 @@ import (
 const primaryPodInterfaceName = "eth0"
 
 var interfaceCacheFile = "/proc/%s/root/var/run/kubevirt-private/interface-cache-%s.json"
-var qemuArgCacheFile = "/proc/%s/root/var/run/kubevirt-private/qemu-arg-%s.json"
 var vifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
 var NetworkInterfaceFactory = getNetworkClass
 
