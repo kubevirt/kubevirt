@@ -38,7 +38,7 @@ const primaryPodInterfaceName = "eth0"
 
 var interfaceCacheFile = "/proc/%s/root/var/run/kubevirt-private/interface-cache-%s.json"
 var vifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
-var NetworkInterfaceFactory = getNetworkClass
+var NetworkInterfaceFactory = getNewNetworkInterface
 
 type PodCacheInterface struct {
 	Iface  *v1.Interface `json:"iface,omitempty"`
@@ -134,8 +134,7 @@ func SetupNetworkInterfacesPhase2(vmi *v1.VirtualMachineInstance, domain *api.Do
 	return nil
 }
 
-// a factory to get suitable network interface
-func getNetworkClass(network *v1.Network) (NetworkInterface, error) {
+func getNewNetworkInterface(network *v1.Network) (NetworkInterface, error) {
 	if network.Pod != nil || network.Multus != nil {
 		return new(PodInterface), nil
 	}

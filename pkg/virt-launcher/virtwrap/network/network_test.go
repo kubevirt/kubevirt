@@ -40,7 +40,7 @@ var _ = Describe("Network", func() {
 		mockNetworkInterface = NewMockNetworkInterface(ctrl)
 	})
 	AfterEach(func() {
-		NetworkInterfaceFactory = getNetworkClass
+		NetworkInterfaceFactory = getNewNetworkInterface
 	})
 
 	Context("interface configuration", func() {
