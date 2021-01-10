@@ -85,11 +85,7 @@ func getNetworkInterfaceFactory(networks map[string]*v1.Network, ifaceName strin
 	if !ok {
 		return nil, fmt.Errorf("failed to find a network %s", ifaceName)
 	}
-	vif, err := NetworkInterfaceFactory(network)
-	if err != nil {
-		return nil, err
-	}
-	return vif, nil
+	return NetworkInterfaceFactory(network)
 }
 
 func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string]int, ifaceName string) string {
