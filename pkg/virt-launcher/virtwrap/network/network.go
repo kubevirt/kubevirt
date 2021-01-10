@@ -80,7 +80,7 @@ func getNetworksAndCniNetworks(vmi *v1.VirtualMachineInstance) (map[string]*v1.N
 	return networks, cniNetworks
 }
 
-func getNetworkInterfaceFactory(networks map[string]*v1.Network, ifaceName string) (NetworkInterface, error) {
+func invokeNetworkInterfaceFactory(networks map[string]*v1.Network, ifaceName string) (NetworkInterface, error) {
 	network, ok := networks[ifaceName]
 	if !ok {
 		return nil, fmt.Errorf("failed to find a network %s", ifaceName)
@@ -105,12 +105,12 @@ func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance, pid int) error
 	}
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
 	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		networkInterfaceFactory, err := getNetworkInterfaceFactory(networks, iface.Name)
+		networkInterface, err := invokeNetworkInterfaceFactory(networks, iface.Name)
 		if err != nil {
 			return err
 		}
 		podInterfaceName := getPodInterfaceName(networks, cniNetworks, iface.Name)
-		err = NetworkInterface.PlugPhase1(networkInterfaceFactory, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], podInterfaceName, pid)
+		err = NetworkInterface.PlugPhase1(networkInterface, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], podInterfaceName, pid)
 		if err != nil {
 			return err
 		}
@@ -121,7 +121,7 @@ func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance, pid int) error
 func SetupNetworkInterfacesPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
 	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		vif, err := getNetworkInterfaceFactory(networks, iface.Name)
+		vif, err := invokeNetworkInterfaceFactory(networks, iface.Name)
 		if err != nil {
 			return err
 		}
