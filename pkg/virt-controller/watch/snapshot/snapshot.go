@@ -637,9 +637,9 @@ func (ctrl *VMSnapshotController) updateVolumeSnapshotStatuses(vm *kubevirtv1.Vi
 
 	vmCopy := vm.DeepCopy()
 	var statuses []kubevirtv1.VolumeSnapshotStatus
-	for _, volume := range vmCopy.Spec.Template.Spec.Volumes {
+	for i, volume := range vmCopy.Spec.Template.Spec.Volumes {
 		log.Log.V(3).Infof("Update volume snapshot status for volume [%s]", volume.Name)
-		status := ctrl.getVolumeSnapshotStatus(vmCopy, &volume)
+		status := ctrl.getVolumeSnapshotStatus(vmCopy, &vmCopy.Spec.Template.Spec.Volumes[i])
 		statuses = append(statuses, status)
 	}
 

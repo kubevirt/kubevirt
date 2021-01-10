@@ -1174,10 +1174,10 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
-	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+	for i, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := api.Disk{}
 
-		err := Convert_v1_Disk_To_api_Disk(c, &disk, &newDisk, prefixMap, numBlkQueues)
+		err := Convert_v1_Disk_To_api_Disk(c, &vmi.Spec.Domain.Devices.Disks[i], &newDisk, prefixMap, numBlkQueues)
 		if err != nil {
 			return err
 		}
@@ -1278,9 +1278,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	isUSBDevicePresent := false
 	if vmi.Spec.Domain.Devices.Inputs != nil {
 		inputDevices := make([]api.Input, 0)
-		for _, input := range vmi.Spec.Domain.Devices.Inputs {
+		for i := range vmi.Spec.Domain.Devices.Inputs {
 			inputDevice := api.Input{}
-			err := Convert_v1_Input_To_api_InputDevice(&input, &inputDevice, c)
+			err := Convert_v1_Input_To_api_InputDevice(&vmi.Spec.Domain.Devices.Inputs[i], &inputDevice, c)
 			if err != nil {
 				return err
 			}
@@ -1487,7 +1487,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		sriovPciAddresses[key] = append([]string{}, value...)
 	}
 
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		net, isExist := networks[iface.Name]
 		if !isExist {
 			return fmt.Errorf("failed to find network %s", iface.Name)
@@ -1506,7 +1506,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			log.Log.Infof("SR-IOV PCI device allocated: %s", pciAddr)
 			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, *hostDev)
 		} else {
-			ifaceType := getInterfaceType(&iface)
+			ifaceType := getInterfaceType(&vmi.Spec.Domain.Devices.Interfaces[i])
 			domainIface := api.Interface{
 				Model: &api.Model{
 					Type: translateModel(c, ifaceType),
