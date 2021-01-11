@@ -72,8 +72,6 @@ type BindMechanism interface {
 
 type PodInterface struct{}
 
-func (l *PodInterface) Unplug() {}
-
 func getVifFilePath(pid, name string) string {
 	return fmt.Sprintf(vifCacheFile, pid, name)
 }

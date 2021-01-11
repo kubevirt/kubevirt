@@ -50,11 +50,3 @@ func (_m *MockNetworkInterface) PlugPhase2(vmi *v1.VirtualMachineInstance, iface
 func (_mr *_MockNetworkInterfaceRecorder) PlugPhase2(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PlugPhase2", arg0, arg1, arg2, arg3, arg4)
 }
-
-func (_m *MockNetworkInterface) Unplug() {
-	_m.ctrl.Call(_m, "Unplug")
-}
-
-func (_mr *_MockNetworkInterfaceRecorder) Unplug() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unplug")
-}
