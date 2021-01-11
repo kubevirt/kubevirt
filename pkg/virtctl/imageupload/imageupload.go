@@ -262,11 +262,17 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Using existing PVC %s/%s\n", namespace, pvc.Name)
 	}
 
-	err = waitUploadServerReady(virtClient, namespace, name, uploadReadyWaitInterval, time.Duration(uploadPodWaitSecs)*time.Second)
-	if err != nil {
-		return err
+	if createPVC {
+		err = waitUploadServerReady(virtClient, namespace, name, uploadReadyWaitInterval, time.Duration(uploadPodWaitSecs)*time.Second)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = waitDvUploadScheduled(virtClient, namespace, name, uploadReadyWaitInterval, time.Duration(uploadPodWaitSecs)*time.Second)
+		if err != nil {
+			return err
+		}
 	}
-
 	if uploadProxyURL == "" {
 		uploadProxyURL, err = getUploadProxyURL(virtClient.CdiClient())
 		if err != nil {
@@ -421,6 +427,40 @@ func getUploadToken(client cdiClientset.Interface, namespace, name string) (stri
 	}
 
 	return response.Status.Token, nil
+}
+
+func waitDvUploadScheduled(client kubecli.KubevirtClient, namespace, name string, interval, timeout time.Duration) error {
+	loggedStatus := false
+	//
+	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
+		dv, err := client.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(name, metav1.GetOptions{})
+
+		if err != nil {
+			// DataVolume controller may not have created the DV yet ? TODO:
+			if k8serrors.IsNotFound(err) {
+				return false, nil
+			}
+
+			return false, err
+		}
+
+		if dv.Status.Phase == cdiv1.WaitForFirstConsumer {
+			return false, fmt.Errorf("cannot upload to DataVolume in WaitForFirstConsumer state, make sure the PVC is Bound")
+		}
+		done := dv.Status.Phase == cdiv1.UploadReady
+		if !done && !loggedStatus {
+			fmt.Printf("Waiting for PVC %s upload pod to be ready...\n", name)
+			loggedStatus = true
+		}
+
+		if done && loggedStatus {
+			fmt.Printf("Pod now ready\n")
+		}
+
+		return done, nil
+	})
+
+	return err
 }
 
 func waitUploadServerReady(client kubernetes.Interface, namespace, name string, interval, timeout time.Duration) error {
