@@ -527,7 +527,7 @@ kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api
 # kubevirt.io/kubevirt v0.36.0
 ## explicit
 kubevirt.io/kubevirt/pkg/virt-config
-# kubevirt.io/ssp-operator v0.0.0-20201204192040-4623f45d34ea
+# kubevirt.io/ssp-operator v0.1.0
 ## explicit
 kubevirt.io/ssp-operator/api/v1beta1
 # sigs.k8s.io/controller-runtime v0.6.3

@@ -21,6 +21,10 @@ import (
 	lifecycleapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 )
 
+const (
+	OperatorPausedAnnotation = "kubevirt.io/operator.paused"
+)
+
 type TemplateValidator struct {
 	// Replicas is the number of replicas of the template validator pod
 	//+kubebuilder:validation:Minimum=0
@@ -58,6 +62,9 @@ type SSPSpec struct {
 // SSPStatus defines the observed state of SSP
 type SSPStatus struct {
 	lifecycleapi.Status `json:",inline"`
+
+	// Paused is true when the operator notices paused annotation.
+	Paused bool `json:"paused,omitempty"`
 }
 
 // +kubebuilder:object:root=true
