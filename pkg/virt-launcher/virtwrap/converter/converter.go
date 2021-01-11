@@ -105,6 +105,7 @@ type ConverterContext struct {
 	OVMFPath              string
 	MemBalloonStatsPeriod uint
 	UseVirtioTransitional bool
+	EphemeraldiskCreator  ephemeraldisk.EphemeralDiskCreatorInterface
 	VolumesDiscardIgnore  []string
 }
 
@@ -763,7 +764,7 @@ func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.Contain
 	disk.Driver.Type = "qcow2"
 	disk.Driver.ErrorPolicy = "stop"
 	disk.Driver.Discard = "unmap"
-	disk.Source.File = ephemeraldisk.GetFilePath(volumeName)
+	disk.Source.File = c.EphemeraldiskCreator.GetFilePath(volumeName)
 	disk.BackingStore = &api.BackingStore{
 		Format: &api.BackingStoreFormat{},
 		Source: &api.DiskSource{},
@@ -783,7 +784,7 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, disk *api.D
 	disk.Driver.Type = "qcow2"
 	disk.Driver.ErrorPolicy = "stop"
 	disk.Driver.Discard = "unmap"
-	disk.Source.File = ephemeraldisk.GetFilePath(volumeName)
+	disk.Source.File = c.EphemeraldiskCreator.GetFilePath(volumeName)
 	disk.BackingStore = &api.BackingStore{
 		Format: &api.BackingStoreFormat{},
 		Source: &api.DiskSource{},

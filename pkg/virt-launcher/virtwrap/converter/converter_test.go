@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
@@ -74,6 +75,7 @@ var _ = Describe("getOptimalBlockIO", func() {
 var _ = Describe("Converter", func() {
 
 	TestSmbios := &cmdv1.SMBios{}
+	EphemeralDiskImageCreator := &fake.MockEphemeralDiskImageCreator{BaseDir: "/var/run/libvirt/kubevirt-ephemeral-disk/"}
 
 	Context("with timezone", func() {
 		It("Should set timezone attribute", func() {
@@ -1411,6 +1413,7 @@ var _ = Describe("Converter", func() {
 				SMBios:                TestSmbios,
 				GpuDevices:            []string{},
 				MemBalloonStatsPeriod: 10,
+				EphemeraldiskCreator:  EphemeralDiskImageCreator,
 			}
 		})
 
@@ -2556,7 +2559,7 @@ var _ = Describe("Converter", func() {
 				},
 			}
 
-			domain := vmiToDomain(&vmi, &ConverterContext{UseEmulation: true})
+			domain := vmiToDomain(&vmi, &ConverterContext{UseEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator})
 			Expect(domain.Spec.IOThreads).ToNot(BeNil())
 			Expect(int(domain.Spec.IOThreads.IOThreads)).To(Equal(threadCount))
 			for idx, disk := range domain.Spec.Devices.Disks {
