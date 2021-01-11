@@ -408,11 +408,11 @@ var _ = Describe("Pod Network", func() {
 					},
 				}
 				vmi := newVMI("testnamespace", "testVmName")
-				podiface := PodInterface{}
-				err := podiface.PlugPhase1(vmi, iface, net, "fakeiface", pid)
+				podnic := podNICImpl{}
+				err := podnic.PlugPhase1(vmi, iface, net, "fakeiface", pid)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = podiface.PlugPhase2(vmi, iface, net, domain, "fakeiface")
+				err = podnic.PlugPhase2(vmi, iface, net, domain, "fakeiface")
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})

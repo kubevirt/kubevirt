@@ -38,7 +38,7 @@ const primaryPodInterfaceName = "eth0"
 
 var interfaceCacheFile = "/proc/%s/root/var/run/kubevirt-private/interface-cache-%s.json"
 var vifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
-var NetworkInterfaceFactory = getNewNetworkInterface
+var podNICFactory = newpodNIC
 
 type PodCacheInterface struct {
 	Iface  *v1.Interface `json:"iface,omitempty"`
@@ -61,7 +61,7 @@ type PodCacheInterface struct {
 // downgrade privileges for virt-launcher, specifically, to remove NET_ADMIN
 // capability. Future patches should address that. See:
 // https://github.com/kubevirt/kubevirt/issues/3085
-type NetworkInterface interface {
+type podNIC interface {
 	PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error
 	PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
 }
@@ -79,12 +79,12 @@ func getNetworksAndCniNetworks(vmi *v1.VirtualMachineInstance) (map[string]*v1.N
 	return networks, cniNetworks
 }
 
-func invokeNetworkInterfaceFactory(networks map[string]*v1.Network, ifaceName string) (NetworkInterface, error) {
+func invokePodNICFactory(networks map[string]*v1.Network, ifaceName string) (podNIC, error) {
 	network, ok := networks[ifaceName]
 	if !ok {
 		return nil, fmt.Errorf("failed to find a network %s", ifaceName)
 	}
-	return NetworkInterfaceFactory(network)
+	return podNICFactory(network)
 }
 
 func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string]int, ifaceName string) string {
@@ -104,12 +104,12 @@ func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int) error {
 	}
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
 	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		networkInterface, err := invokeNetworkInterfaceFactory(networks, iface.Name)
+		podnic, err := invokePodNICFactory(networks, iface.Name)
 		if err != nil {
 			return err
 		}
 		podInterfaceName := getPodInterfaceName(networks, cniNetworks, iface.Name)
-		err = NetworkInterface.PlugPhase1(networkInterface, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], podInterfaceName, pid)
+		err = podNIC.PlugPhase1(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], podInterfaceName, pid)
 		if err != nil {
 			return err
 		}
@@ -120,12 +120,12 @@ func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int) error {
 func SetupPodNetworkPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
 	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		vif, err := invokeNetworkInterfaceFactory(networks, iface.Name)
+		podnic, err := invokePodNICFactory(networks, iface.Name)
 		if err != nil {
 			return err
 		}
 		podInterfaceName := getPodInterfaceName(networks, cniNetworks, iface.Name)
-		err = NetworkInterface.PlugPhase2(vif, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], domain, podInterfaceName)
+		err = podNIC.PlugPhase2(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], domain, podInterfaceName)
 		if err != nil {
 			return err
 		}
@@ -133,9 +133,9 @@ func SetupPodNetworkPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain) e
 	return nil
 }
 
-func getNewNetworkInterface(network *v1.Network) (NetworkInterface, error) {
+func newpodNIC(network *v1.Network) (podNIC, error) {
 	if network.Pod != nil || network.Multus != nil {
-		return new(PodInterface), nil
+		return new(podNICImpl), nil
 	}
 	return nil, fmt.Errorf("Network not implemented")
 }

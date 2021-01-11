@@ -70,7 +70,7 @@ type BindMechanism interface {
 	startDHCP(vmi *v1.VirtualMachineInstance) error
 }
 
-type PodInterface struct{}
+type podNICImpl struct{}
 
 func getVifFilePath(pid, name string) string {
 	return fmt.Sprintf(vifCacheFile, pid, name)
@@ -164,7 +164,7 @@ func sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
 	return []string{ipv6, ipv4}, nil
 }
 
-func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error {
+func (l *podNICImpl) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error {
 	initHandler()
 
 	// There is nothing to plug for SR-IOV devices
@@ -242,7 +242,7 @@ func ensureDHCP(vmi *v1.VirtualMachineInstance, driver BindMechanism, podInterfa
 	return nil
 }
 
-func (l *PodInterface) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error {
+func (l *podNICImpl) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error {
 	precond.MustNotBeNil(domain)
 	initHandler()
 
