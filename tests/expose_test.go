@@ -727,7 +727,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				job = runHelloWorldJob(serviceIP, servicePort, vm.Namespace)
 
 				By("Waiting for the job to report a failed connection attempt.")
-				Expect(tests.WaitForJobToFail(job, 120*time.Second)).To(Succeed())
+				Expect(tests.WaitForJobToFail(job, 240*time.Second)).To(Succeed())
 			},
 				table.Entry("[test_id:343] over default IPv4 IP family", k8sv1.IPv4Protocol),
 				table.Entry("over IPv6 IP family", k8sv1.IPv6Protocol),
