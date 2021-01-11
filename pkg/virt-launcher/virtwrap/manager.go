@@ -473,7 +473,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		return domain, fmt.Errorf("preparing ephemeral images failed: %v", err)
 	}
 	// create empty disks if they exist
-	if err := emptydisk.CreateTemporaryDisks(vmi); err != nil {
+	if err := emptydisk.NewEmptyDiskCreator().CreateTemporaryDisks(vmi); err != nil {
 		return domain, fmt.Errorf("creating empty disks failed: %v", err)
 	}
 	// create ConfigMap disks if they exists
