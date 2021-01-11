@@ -739,7 +739,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 func generateBatchJobSpec(host string, port string, clientBuilder func(host string, port string, checkConnectivityCmdPrefixes ...string) *batchv1.Job) *batchv1.Job {
 	if net.IsIPv6String(host) {
 		// TODO - remove this if condition code once https://github.com/kubevirt/kubevirt/issues/4428 is fixed
-		return clientBuilder(host, port, fmt.Sprintf("ping -c1 %s;", host))
+		return clientBuilder(host, port, fmt.Sprintf("ping -w 20 %s;", host))
 	}
 	return clientBuilder(host, port)
 }
