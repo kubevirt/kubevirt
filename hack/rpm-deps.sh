@@ -11,7 +11,7 @@ QEMU_VERSION=15:5.1.0-16
 
 # Define some base packages to avoid dependency flipping
 # since some dependencies can be satisfied by multiple packages
-basesystem="glibc-langpack-en coreutils-single libcurl-minimal curl-minimal fedora-logos-httpd"
+basesystem="glibc-langpack-en coreutils-single libcurl-minimal curl-minimal fedora-logos-httpd vim-minimal"
 
 # get latest repo data from repo.yaml
 bazel run \
