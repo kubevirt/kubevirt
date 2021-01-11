@@ -20,13 +20,19 @@
 package hardware
 
 import (
+	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
 	v1 "kubevirt.io/client-go/api/v1"
 )
 
-const CPUSET_PATH = "/sys/fs/cgroup/cpuset/cpuset.cpus"
+const (
+	CPUSET_PATH = "/sys/fs/cgroup/cpuset/cpuset.cpus"
+
+	PCI_ADDRESS_PATTERN = `^([\da-fA-F]{4}):([\da-fA-F]{2}):([\da-fA-F]{2})\.([0-7]{1})$`
+)
 
 // Parse linux cpuset into an array of ints
 // See: http://man7.org/linux/man-pages/man7/cpuset.7.html#FORMATS
@@ -78,4 +84,17 @@ func GetNumberOfVCPUs(cpuSpec *v1.CPU) int64 {
 		}
 	}
 	return int64(vCPUs)
+}
+
+// ParsePciAddress returns an array of PCI DBSF fields (domain, bus, slot, function)
+func ParsePciAddress(pciAddress string) ([]string, error) {
+	pciAddrRegx, err := regexp.Compile(PCI_ADDRESS_PATTERN)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile pci address pattern, %v", err)
+	}
+	res := pciAddrRegx.FindStringSubmatch(pciAddress)
+	if len(res) == 0 {
+		return nil, fmt.Errorf("failed to parse pci address %s", pciAddress)
+	}
+	return res[1:], nil
 }
