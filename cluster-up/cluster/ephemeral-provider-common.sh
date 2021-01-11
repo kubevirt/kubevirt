@@ -2,6 +2,9 @@
 
 set -e
 
+KUBEVIRT_WITH_ETC_IN_MEMORY=${KUBEVIRT_WITH_ETC_IN_MEMORY:-false}
+KUBEVIRT_WITH_ETC_CAPACITY=${KUBEVIRT_WITH_ETC_CAPACITY:-none}
+
 if [ -z "${KUBEVIRTCI_TAG}" ] && [ -z "${KUBEVIRTCI_GOCLI_CONTAINER}" ]; then
     echo "FATAL: either KUBEVIRTCI_TAG or KUBEVIRTCI_GOCLI_CONTAINER must be set"
     exit 1
@@ -58,6 +61,14 @@ function _add_common_params() {
     if [ -n "${KUBEVIRTCI_PROVISION_CHECK}" ]; then
         params=" --container-registry= --container-suffix=:latest $params"
     fi
+
+    if [ $KUBEVIRT_WITH_ETC_IN_MEMORY == "true" ]; then
+        params=" --run-etcd-on-memory $params"
+        if [ $KUBEVIRT_WITH_ETC_CAPACITY != "none" ]; then
+          params=" --etcd-capacity $KUBEVIRT_WITH_ETC_CAPACITY $params"
+        fi
+    fi
+
     echo $params
 }
 

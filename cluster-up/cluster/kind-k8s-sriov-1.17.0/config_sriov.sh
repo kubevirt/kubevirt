@@ -262,6 +262,10 @@ ${SRIOV_NODE_CMD} mount -o remount,rw /sys     # kind remounts it as readonly wh
 ${SRIOV_NODE_CMD} chmod 666 /dev/vfio/vfio
 _kubectl label node $SRIOV_NODE sriov=true
 
+for pf in "${NODE_PFS[@]}"; do
+  docker exec $SRIOV_NODE bash -c "echo 0 > /sys/class/net/$pf/device/sriov_numvfs"
+done
+
 deploy_multus
 wait_pods_ready
 
