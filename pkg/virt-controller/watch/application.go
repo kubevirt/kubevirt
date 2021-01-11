@@ -74,7 +74,8 @@ const (
 
 	ephemeralDiskDir = virtShareDir + "-ephemeral-disks"
 
-	defaultControllerThreads = 3
+	defaultControllerThreads    = 3
+	defaultVMIControllerThreads = 10
 
 	defaultLauncherSubGid                 = 107
 	defaultSnapshotControllerResyncPeriod = 5 * time.Minute
@@ -561,7 +562,7 @@ func (vca *VirtControllerApp) AddFlags() {
 	flag.IntVar(&vca.nodeControllerThreads, "node-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for node controller")
 
-	flag.IntVar(&vca.vmiControllerThreads, "vmi-controller-threads", defaultControllerThreads,
+	flag.IntVar(&vca.vmiControllerThreads, "vmi-controller-threads", defaultVMIControllerThreads,
 		"Number of goroutines to run for vmi controller")
 
 	flag.IntVar(&vca.rsControllerThreads, "rs-controller-threads", defaultControllerThreads,
