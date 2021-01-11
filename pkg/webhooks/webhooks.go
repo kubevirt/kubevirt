@@ -47,6 +47,18 @@ func (wh WebhookHandler) ValidateCreate(hc *v1beta1.HyperConverged) error {
 		return fmt.Errorf("invalid namespace for v1beta1.HyperConverged - please use the %s namespace", wh.namespace)
 	}
 
+	if _, err := operands.NewKubeVirt(hc); err != nil {
+		return err
+	}
+
+	if _, err := operands.NewCDI(hc); err != nil {
+		return err
+	}
+
+	if _, err := operands.NewNetworkAddons(hc); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -57,19 +69,33 @@ func (wh WebhookHandler) ValidateUpdate(requested *v1beta1.HyperConverged, exist
 	ctx, cancel := context.WithTimeout(context.Background(), updateDryRunTimeOut)
 	defer cancel()
 
-	if !reflect.DeepEqual(
-		exists.Spec,
-		requested.Spec) {
+	if !reflect.DeepEqual(exists.Spec, requested.Spec) || !reflect.DeepEqual(exists.Annotations, requested.Annotations) {
+
+		kv, err := operands.NewKubeVirt(requested)
+		if err != nil {
+			return err
+		}
+
+		cdi, err := operands.NewCDI(requested)
+		if err != nil {
+			return err
+		}
+
+		cna, err := operands.NewNetworkAddons(requested)
+		if err != nil {
+			return err
+		}
 
 		wg := sync.WaitGroup{}
 		errorCh := make(chan error)
 		done := make(chan bool)
 
 		opts := &client.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
+
 		resources := []runtime.Object{
-			operands.NewKubeVirt(requested),
-			operands.NewCDI(requested),
-			operands.NewNetworkAddons(requested),
+			kv,
+			cdi,
+			cna,
 			operands.NewVMImportForCR(requested),
 		}
 
@@ -124,15 +150,24 @@ func (wh WebhookHandler) updateOperatorCr(ctx context.Context, hc *v1beta1.Hyper
 
 	switch existing := exists.(type) {
 	case *kubevirtv1.KubeVirt:
-		required := operands.NewKubeVirt(hc)
+		required, err := operands.NewKubeVirt(hc)
+		if err != nil {
+			return err
+		}
 		required.Spec.DeepCopyInto(&existing.Spec)
 
 	case *cdiv1beta1.CDI:
-		required := operands.NewCDI(hc)
+		required, err := operands.NewCDI(hc)
+		if err != nil {
+			return err
+		}
 		required.Spec.DeepCopyInto(&existing.Spec)
 
 	case *networkaddonsv1.NetworkAddonsConfig:
-		required := operands.NewNetworkAddons(hc)
+		required, err := operands.NewNetworkAddons(hc)
+		if err != nil {
+			return err
+		}
 		required.Spec.DeepCopyInto(&existing.Spec)
 
 	case *sspv1beta1.SSP:
@@ -158,9 +193,19 @@ func (wh WebhookHandler) ValidateDelete(hc *v1beta1.HyperConverged) error {
 
 	ctx := context.TODO()
 
+	kv, err := operands.NewKubeVirt(hc)
+	if err != nil {
+		return err
+	}
+
+	cdi, err := operands.NewCDI(hc)
+	if err != nil {
+		return err
+	}
+
 	for _, obj := range []runtime.Object{
-		operands.NewKubeVirt(hc),
-		operands.NewCDI(hc),
+		kv,
+		cdi,
 	} {
 		err := hcoutil.EnsureDeleted(ctx, wh.cli, obj, hc.Name, wh.logger, true, false)
 		if err != nil {

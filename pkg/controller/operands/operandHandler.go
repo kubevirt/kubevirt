@@ -79,7 +79,13 @@ func (h *OperandHandler) FirstUseInitiation(scheme *runtime.Scheme, isOpenshiftC
 		if numQs := len(qsHandlers); numQs > 0 {
 			h.quickStartObjects = make([]*consolev1.ConsoleQuickStart, numQs)
 			for i, op := range qsHandlers {
-				h.quickStartObjects[i] = op.(*genericOperand).hooks.getFullCr(hc).(*consolev1.ConsoleQuickStart)
+				qs, err := op.(*genericOperand).hooks.getFullCr(hc)
+				if err != nil {
+					logger.Error(err, "can't create ConsoleQuickStarts object")
+					continue
+				}
+
+				h.quickStartObjects[i] = qs.(*consolev1.ConsoleQuickStart)
 			}
 		}
 		if err != nil {
@@ -131,9 +137,9 @@ func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 	done := make(chan bool)
 
 	resources := []runtime.Object{
-		NewKubeVirt(req.Instance),
-		NewCDI(req.Instance),
-		NewNetworkAddons(req.Instance),
+		NewKubeVirtWithNameOnly(req.Instance),
+		NewCDIWithNameOnly(req.Instance),
+		NewNetworkAddonsWithNameOnly(req.Instance),
 		NewSSP(req.Instance),
 		NewConsoleCLIDownload(req.Instance),
 		NewVMImportForCR(req.Instance),

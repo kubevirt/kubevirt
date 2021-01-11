@@ -1,11 +1,14 @@
 package operands
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
-	"os"
-
+	jsonpatch "github.com/evanphx/json-patch"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strings"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
@@ -45,7 +48,7 @@ type genericOperand struct {
 // Set of resource handler hooks, to be implement in each handler
 type hcoResourceHooks interface {
 	// Generate the required resource, with all the required fields)
-	getFullCr(*hcov1beta1.HyperConverged) runtime.Object
+	getFullCr(*hcov1beta1.HyperConverged) (runtime.Object, error)
 	// Generate an empty resource, to be used as the input of the client.Get method. After calling this method, it will
 	// contains the actual values in K8s.
 	getEmptyCr() runtime.Object
@@ -64,10 +67,15 @@ type hcoResourceHooks interface {
 }
 
 func (h *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
-	cr := h.hooks.getFullCr(req.Instance)
+	cr, err := h.hooks.getFullCr(req.Instance)
+	if err != nil {
+		return &EnsureResult{
+			Err: err,
+		}
+	}
 
 	res := NewEnsureResult(cr)
-	if err := h.hooks.validate(); err != nil {
+	if err = h.hooks.validate(); err != nil {
 		return res.Error(err)
 	}
 
@@ -278,4 +286,42 @@ func getLabels(hc *hcov1beta1.HyperConverged, component hcoutil.AppComponent) ma
 		hcoutil.AppLabelPartOf:    hcoutil.HyperConvergedCluster,
 		hcoutil.AppLabelComponent: string(component),
 	}
+}
+
+func applyAnnotationPatch(obj runtime.Object, annotation string) error {
+	patches, err := jsonpatch.DecodePatch([]byte(annotation))
+	if err != nil {
+		return err
+	}
+
+	for _, patch := range patches {
+		path, err := patch.Path()
+		if err != nil {
+			return err
+		}
+
+		if !strings.HasPrefix(path, "/spec/") {
+			return errors.New("can only modify spec fields")
+		}
+	}
+
+	specBytes, err := json.Marshal(obj)
+	if err != nil {
+		return err
+	}
+	patchedBytes, err := patches.Apply(specBytes)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(patchedBytes, obj)
+}
+
+func applyPatchToSpec(hc *hcov1beta1.HyperConverged, annotationName string, obj runtime.Object) error {
+	if jsonpathAnnotation, ok := hc.Annotations[annotationName]; ok {
+		if err := applyAnnotationPatch(obj, jsonpathAnnotation); err != nil {
+			return fmt.Errorf("invalid jsonPatch in the %s annotation: %v", annotationName, err)
+		}
+	}
+
+	return nil
 }

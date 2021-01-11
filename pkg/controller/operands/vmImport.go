@@ -36,8 +36,8 @@ func newVmImportHandler(Client client.Client, Scheme *runtime.Scheme) *vmImportH
 
 type vmImportHooks struct{}
 
-func (h vmImportHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
-	return NewVMImportForCR(hc)
+func (h vmImportHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+	return NewVMImportForCR(hc), nil
 }
 func (h vmImportHooks) getEmptyCr() runtime.Object                             { return &vmimportv1beta1.VMImportConfig{} }
 func (h vmImportHooks) validate() error                                        { return nil }
@@ -112,8 +112,8 @@ func newImsConfigHandler(Client client.Client, Scheme *runtime.Scheme) *imsConfi
 
 type imsConfigHooks struct{}
 
-func (h imsConfigHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
-	return NewIMSConfigForCR(hc, hc.Namespace)
+func (h imsConfigHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+	return NewIMSConfigForCR(hc, hc.Namespace), nil
 }
 func (h imsConfigHooks) getEmptyCr() runtime.Object { return &corev1.ConfigMap{} }
 func (h imsConfigHooks) validate() error {

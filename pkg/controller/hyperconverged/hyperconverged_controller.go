@@ -64,7 +64,7 @@ const (
 	secondaryCRPrefix = "hco-controlled-cr-"
 )
 
-// Annotations used to patch operand CRs with unsupported/unofficial/hidden features.
+// JSONPatchAnnotationNames - annotations used to patch operand CRs with unsupported/unofficial/hidden features.
 // The presence of any of these annotations raises the hcov1beta1.ConditionTaintedConfiguration condition.
 var JSONPatchAnnotationNames = []string{
 	common.JSONPatchKVAnnotationName,

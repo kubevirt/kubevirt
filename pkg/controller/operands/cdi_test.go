@@ -12,6 +12,7 @@ import (
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	"github.com/openshift/custom-resource-status/testlib"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
@@ -31,7 +32,7 @@ var _ = Describe("CDI Operand", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := NewCDI(hco)
+			expectedResource := NewCDIWithNameOnly(hco)
 			cl := commonTestUtils.InitClient([]runtime.Object{})
 			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
@@ -50,7 +51,8 @@ var _ = Describe("CDI Operand", func() {
 		})
 
 		It("should find if present", func() {
-			expectedResource := NewCDI(hco)
+			expectedResource, err := NewCDI(hco)
+			Expect(err).ToNot(HaveOccurred())
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
@@ -86,9 +88,11 @@ var _ = Describe("CDI Operand", func() {
 		})
 
 		It("should set default UninstallStrategy if missing", func() {
-			expectedResource := NewCDI(hco)
+			expectedResource, err := NewCDI(hco)
+			Expect(err).ToNot(HaveOccurred())
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			missingUSResource := NewCDI(hco)
+			missingUSResource, err := NewCDI(hco)
+			Expect(err).ToNot(HaveOccurred())
 			missingUSResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", missingUSResource.Namespace, missingUSResource.Name)
 			missingUSResource.Spec.UninstallStrategy = nil
 
@@ -110,7 +114,8 @@ var _ = Describe("CDI Operand", func() {
 		})
 
 		It("should add node placement if missing in CDI", func() {
-			existingResource := NewCDI(hco)
+			existingResource, err := NewCDI(hco)
+			Expect(err).ToNot(HaveOccurred())
 
 			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
@@ -152,7 +157,8 @@ var _ = Describe("CDI Operand", func() {
 			hcoNodePlacement := commonTestUtils.NewHco()
 			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			existingResource := NewCDI(hcoNodePlacement)
+			existingResource, err := NewCDI(hcoNodePlacement)
+			Expect(err).ToNot(HaveOccurred())
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
@@ -189,7 +195,8 @@ var _ = Describe("CDI Operand", func() {
 		It("should modify node placement according to HCO CR", func() {
 			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			existingResource := NewCDI(hco)
+			existingResource, err := NewCDI(hco)
+			Expect(err).ToNot(HaveOccurred())
 
 			// now, modify HCO's node placement
 			seconds3 := int64(3)
@@ -226,7 +233,8 @@ var _ = Describe("CDI Operand", func() {
 		It("should overwrite node placement if directly set on CDI CR", func() {
 			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			existingResource := NewCDI(hco)
+			existingResource, err := NewCDI(hco)
+			Expect(err).ToNot(HaveOccurred())
 
 			// mock a reconciliation triggered by a change in CDI CR
 			req.HCOTriggered = false
@@ -272,7 +280,8 @@ var _ = Describe("CDI Operand", func() {
 		})
 
 		It("should only set featureGate on Spec.Config if directly set on CDI CR", func() {
-			expectedResource := NewCDI(hco)
+			expectedResource, err := NewCDI(hco)
+			Expect(err).ToNot(HaveOccurred())
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 
 			// mock a reconciliation triggered by a change in CDI CR
@@ -316,7 +325,8 @@ var _ = Describe("CDI Operand", func() {
 		})
 
 		It("should add HonorWaitForFirstConsumer featuregate if Spec.Config if empty", func() {
-			expectedResource := NewCDI(hco)
+			expectedResource, err := NewCDI(hco)
+			Expect(err).ToNot(HaveOccurred())
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			expectedResource.Spec.Config = nil
 
@@ -342,7 +352,8 @@ var _ = Describe("CDI Operand", func() {
 		})
 
 		It("should handle conditions", func() {
-			expectedResource := NewCDI(hco)
+			expectedResource, err := NewCDI(hco)
+			Expect(err).ToNot(HaveOccurred())
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			expectedResource.Status.Conditions = []conditionsv1.Condition{
 				conditionsv1.Condition{
@@ -401,6 +412,183 @@ var _ = Describe("CDI Operand", func() {
 				Reason:  "CDIDegraded",
 				Message: "CDI is degraded: Bar",
 			}))
+		})
+
+		Context("Jsonpatch Annotation", func() {
+			It("Should create CDI object with changes from the annotation", func() {
+				hco.Annotations = map[string]string{common.JSONPatchCDIAnnotationName: `[
+					{
+						"op": "add",
+						"path": "/spec/config/featureGates/-",
+						"value": "fg1"
+					},
+					{
+						"op": "add",
+						"path": "/spec/config/filesystemOverhead",
+						"value": {"global": "50", "storageClass": {"AAA": "75", "BBB": "25"}}
+					}
+				]`}
+
+				cdi, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(cdi.Spec.Config.FeatureGates).To(HaveLen(2))
+				Expect(cdi.Spec.Config.FeatureGates).To(ContainElement("fg1"))
+				Expect(cdi.Spec.Config.FilesystemOverhead).ToNot(BeNil())
+				Expect(cdi.Spec.Config.FilesystemOverhead.Global).Should(BeEquivalentTo("50"))
+				Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass).To(HaveLen(2))
+				Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["AAA"]).Should(BeEquivalentTo("75"))
+				Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["BBB"]).Should(BeEquivalentTo("25"))
+			})
+
+			It("Should fail to create CDI object with wrong jsonPatch", func() {
+				hco.Annotations = map[string]string{common.JSONPatchCDIAnnotationName: `[
+					{
+						"op": "notExists",
+						"path": "/spec/config/featureGates/-",
+						"value": "fg1"
+					}
+				]`}
+
+				_, err := NewCDI(hco)
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("Ensure func should create CDI object with changes from the annotation", func() {
+				hco.Annotations = map[string]string{common.JSONPatchCDIAnnotationName: `[
+					{
+						"op": "add",
+						"path": "/spec/config/featureGates/-",
+						"value": "fg1"
+					},
+					{
+						"op": "add",
+						"path": "/spec/config/filesystemOverhead",
+						"value": {"global": "50", "storageClass": {"AAA": "75", "BBB": "25"}}
+					}
+				]`}
+
+				expectedResource := NewCDIWithNameOnly(hco)
+				cl := commonTestUtils.InitClient([]runtime.Object{})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).To(BeNil())
+
+				cdi := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						cdi),
+				).ToNot(HaveOccurred())
+
+				Expect(cdi.Spec.Config.FeatureGates).To(HaveLen(2))
+				Expect(cdi.Spec.Config.FeatureGates).To(ContainElement("fg1"))
+				Expect(cdi.Spec.Config.FilesystemOverhead).ToNot(BeNil())
+				Expect(cdi.Spec.Config.FilesystemOverhead.Global).Should(BeEquivalentTo("50"))
+				Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass).To(HaveLen(2))
+				Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["AAA"]).Should(BeEquivalentTo("75"))
+				Expect(cdi.Spec.Config.FilesystemOverhead.StorageClass["BBB"]).Should(BeEquivalentTo("25"))
+			})
+
+			It("Ensure func should fail to create CDI object with wrong jsonPatch", func() {
+				hco.Annotations = map[string]string{common.JSONPatchCDIAnnotationName: `[
+					{
+						"op": "notExists",
+						"path": "/spec/config/featureGates/-",
+						"value": "fg1"
+					}
+				]`}
+
+				expectedResource := NewCDIWithNameOnly(hco)
+				cl := commonTestUtils.InitClient([]runtime.Object{})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).To(HaveOccurred())
+
+				cdi := &cdiv1beta1.CDI{}
+
+				err := cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					cdi)
+
+				Expect(err).To(HaveOccurred())
+				Expect(errors.IsNotFound(err)).To(BeTrue())
+			})
+
+			It("Ensure func should update CDI object with changes from the annotation", func() {
+				existsCdi, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Annotations = map[string]string{common.JSONPatchCDIAnnotationName: `[
+					{
+						"op": "add",
+						"path": "/spec/cloneStrategyOverride",
+						"value": "copy"
+					},
+					{
+						"op": "add",
+						"path": "/spec/ImagePullPolicy",
+						"value": "Always"
+					}
+				]`}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existsCdi})
+
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).ToNot(HaveOccurred())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.UpgradeDone).To(BeFalse())
+
+				cdi := &cdiv1beta1.CDI{}
+
+				expectedResource := NewCDIWithNameOnly(hco)
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						cdi),
+				).ToNot(HaveOccurred())
+
+				Expect(cdi.Spec.ImagePullPolicy).Should(BeEquivalentTo("Always"))
+				Expect(cdi.Spec.CloneStrategyOverride).ToNot(BeNil())
+				Expect(*cdi.Spec.CloneStrategyOverride).Should(BeEquivalentTo("copy"))
+			})
+
+			It("Ensure func should fail to update CDI object with wrong jsonPatch", func() {
+				existsCdi, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Annotations = map[string]string{common.JSONPatchCDIAnnotationName: `[
+					{
+						"op": "notExistsOp",
+						"path": "/spec/cloneStrategyOverride",
+						"value": "copy"
+					},
+					{
+						"op": "add",
+						"path": "/spec/ImagePullPolicy",
+						"value": "Always"
+					}
+				]`}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existsCdi})
+
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).To(HaveOccurred())
+
+				cdi := &cdiv1beta1.CDI{}
+
+				expectedResource := NewCDIWithNameOnly(hco)
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						cdi),
+				).ToNot(HaveOccurred())
+
+				Expect(cdi.Spec.ImagePullPolicy).Should(BeEmpty())
+				Expect(cdi.Spec.CloneStrategyOverride).To(BeNil())
+			})
 		})
 	})
 

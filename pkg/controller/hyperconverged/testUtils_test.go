@@ -145,7 +145,9 @@ func getBasicDeployment() *BasicExpected {
 	expectedKVStorageRoleBinding.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/rolebindings/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
 	res.kvStorageRoleBinding = expectedKVStorageRoleBinding
 
-	expectedKV := operands.NewKubeVirt(hco, namespace)
+	expectedKV, err := operands.NewKubeVirt(hco, namespace)
+	Expect(err).ToNot(HaveOccurred())
+
 	expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)
 	expectedKV.Status.Conditions = []kubevirtv1.KubeVirtCondition{
 		{
@@ -163,12 +165,14 @@ func getBasicDeployment() *BasicExpected {
 	}
 	res.kv = expectedKV
 
-	expectedCDI := operands.NewCDI(hco)
+	expectedCDI, err := operands.NewCDI(hco)
+	Expect(err).ToNot(HaveOccurred())
 	expectedCDI.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cdis/%s", expectedCDI.Namespace, expectedCDI.Name)
 	expectedCDI.Status.Conditions = getGenericCompletedConditions()
 	res.cdi = expectedCDI
 
-	expectedCNA := operands.NewNetworkAddons(hco)
+	expectedCNA, err := operands.NewNetworkAddons(hco)
+	Expect(err).ToNot(HaveOccurred())
 	expectedCNA.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cnas/%s", expectedCNA.Namespace, expectedCNA.Name)
 	expectedCNA.Status.Conditions = getGenericCompletedConditions()
 	res.cna = expectedCNA

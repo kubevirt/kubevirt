@@ -115,8 +115,8 @@ func (handler *sspHandler) ensure(req *common.HcoRequest) *EnsureResult {
 
 type sspHooks struct{}
 
-func (h sspHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
-	return NewSSP(hc)
+func (h sspHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+	return NewSSP(hc), nil
 }
 func (h sspHooks) getEmptyCr() runtime.Object                         { return &sspv1beta1.SSP{} }
 func (h sspHooks) validate() error                                    { return nil }

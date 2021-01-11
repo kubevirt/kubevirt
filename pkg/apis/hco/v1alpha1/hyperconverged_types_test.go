@@ -16,7 +16,7 @@ const (
 
 func TestHyperConvergedStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "HyperConvergedStatus Suite")
+	RunSpecs(t, "v1alpha1.HyperConvergedStatus Suite")
 }
 
 var _ = Describe("HyperconvergedTypes", func() {

@@ -54,7 +54,7 @@ func newKubevirtHandler(Client client.Client, Scheme *runtime.Scheme) *kubevirtH
 
 type kubevirtHooks struct{}
 
-func (h kubevirtHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
+func (h kubevirtHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
 	return NewKubeVirt(hc)
 }
 func (h kubevirtHooks) getEmptyCr() runtime.Object                         { return &kubevirtv1.KubeVirt{} }
@@ -95,7 +95,7 @@ func (h *kubevirtHooks) updateCr(req *common.HcoRequest, Client client.Client, e
 	return false, false, nil
 }
 
-func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) *kubevirtv1.KubeVirt {
+func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtv1.KubeVirt, error) {
 	spec := kubevirtv1.KubeVirtSpec{
 		UninstallStrategy: kubevirtv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist,
 		Infra:             hcoConfig2KvConfig(hc.Spec.Infra),
@@ -111,13 +111,23 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) *kubevirtv1.Kube
 		spec.Configuration.DeveloperConfiguration.FeatureGates = fgs
 	}
 
+	kv := NewKubeVirtWithNameOnly(hc, opts...)
+	kv.Spec = spec
+
+	if err := applyPatchToSpec(hc, common.JSONPatchKVAnnotationName, kv); err != nil {
+		return nil, err
+	}
+
+	return kv, nil
+}
+
+func NewKubeVirtWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *kubevirtv1.KubeVirt {
 	return &kubevirtv1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kubevirt-" + hc.Name,
 			Labels:    getLabels(hc, hcoutil.AppComponentCompute),
 			Namespace: getNamespace(hc.Namespace, opts),
 		},
-		Spec: spec,
 	}
 }
 
@@ -166,8 +176,8 @@ func newKvConfigHandler(Client client.Client, Scheme *runtime.Scheme) *kvConfigH
 
 type kvConfigHooks struct{}
 
-func (h kvConfigHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
-	return NewKubeVirtConfigForCR(hc, hc.Namespace)
+func (h kvConfigHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+	return NewKubeVirtConfigForCR(hc, hc.Namespace), nil
 }
 func (h kvConfigHooks) getEmptyCr() runtime.Object                            { return &corev1.ConfigMap{} }
 func (h kvConfigHooks) validate() error                                       { return nil }
@@ -282,8 +292,8 @@ func newKvPriorityClassHandler(Client client.Client, Scheme *runtime.Scheme) *kv
 
 type kvPriorityClassHooks struct{}
 
-func (h kvPriorityClassHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
-	return NewKubeVirtPriorityClass(hc)
+func (h kvPriorityClassHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+	return NewKubeVirtPriorityClass(hc), nil
 }
 func (h kvPriorityClassHooks) getEmptyCr() runtime.Object                              { return &schedulingv1.PriorityClass{} }
 func (h kvPriorityClassHooks) validate() error                                         { return nil }
@@ -365,6 +375,7 @@ func translateKubeVirtConds(orig []kubevirtv1.KubeVirtCondition) []conditionsv1.
 
 func NewKubeVirtConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
 	featureGates := cmFeatureGates
+
 	if managedFeatureGates := cr.Spec.FeatureGates.GetFeatureGateList(managedKvFeatureGates); len(managedFeatureGates) > 0 {
 		featureGates = fmt.Sprintf("%s,%s", featureGates, strings.Join(managedFeatureGates, ","))
 	}

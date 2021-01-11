@@ -3,7 +3,6 @@ package operands
 import (
 	"context"
 	"fmt"
-
 	networkaddonsshared "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
@@ -16,6 +15,7 @@ import (
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	"github.com/openshift/custom-resource-status/testlib"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
@@ -34,7 +34,8 @@ var _ = Describe("CNA Operand", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := NewNetworkAddons(hco)
+			expectedResource, err := NewNetworkAddons(hco)
+			Expect(err).ToNot(HaveOccurred())
 			cl := commonTestUtils.InitClient([]runtime.Object{})
 			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
@@ -56,7 +57,8 @@ var _ = Describe("CNA Operand", func() {
 		})
 
 		It("should find if present", func() {
-			expectedResource := NewNetworkAddons(hco)
+			expectedResource, err := NewNetworkAddons(hco)
+			Expect(err).ToNot(HaveOccurred())
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
@@ -92,7 +94,8 @@ var _ = Describe("CNA Operand", func() {
 		})
 
 		It("should find reconcile to default", func() {
-			existingResource := NewNetworkAddons(hco)
+			existingResource, err := NewNetworkAddons(hco)
+			Expect(err).ToNot(HaveOccurred())
 			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
 			existingResource.Spec.ImagePullPolicy = corev1.PullAlways // set non-default value
 
@@ -115,7 +118,8 @@ var _ = Describe("CNA Operand", func() {
 		})
 
 		It("should add node placement if missing in CNAO", func() {
-			existingResource := NewNetworkAddons(hco)
+			existingResource, err := NewNetworkAddons(hco)
+			Expect(err).ToNot(HaveOccurred())
 
 			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{commonTestUtils.NewNodePlacement()}
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{commonTestUtils.NewNodePlacement()}
@@ -152,7 +156,8 @@ var _ = Describe("CNA Operand", func() {
 			hcoNodePlacement := commonTestUtils.NewHco()
 			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			existingResource := NewNetworkAddons(hcoNodePlacement)
+			existingResource, err := NewNetworkAddons(hcoNodePlacement)
+			Expect(err).ToNot(HaveOccurred())
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
@@ -178,7 +183,8 @@ var _ = Describe("CNA Operand", func() {
 
 			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			existingResource := NewNetworkAddons(hco)
+			existingResource, err := NewNetworkAddons(hco)
+			Expect(err).ToNot(HaveOccurred())
 
 			// now, modify HCO's node placement
 			seconds3 := int64(3)
@@ -216,7 +222,8 @@ var _ = Describe("CNA Operand", func() {
 		It("should overwrite node placement if directly set on CNAO CR", func() {
 			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			existingResource := NewNetworkAddons(hco)
+			existingResource, err := NewNetworkAddons(hco)
+			Expect(err).ToNot(HaveOccurred())
 
 			// mock a reconciliation triggered by a change in CNAO CR
 			req.HCOTriggered = false
@@ -274,7 +281,8 @@ var _ = Describe("CNA Operand", func() {
 				hcoOVSConfig.Annotations["deployOVS"] = o.annotationValue
 			}
 
-			existingResource := NewNetworkAddons(hcoOVSConfig)
+			existingResource, err := NewNetworkAddons(hcoOVSConfig)
+			Expect(err).ToNot(HaveOccurred())
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
@@ -313,7 +321,8 @@ var _ = Describe("CNA Operand", func() {
 		)
 
 		It("should handle conditions", func() {
-			expectedResource := NewNetworkAddons(hco)
+			expectedResource, err := NewNetworkAddons(hco)
+			Expect(err).ToNot(HaveOccurred())
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			expectedResource.Status.Conditions = []conditionsv1.Condition{
 				conditionsv1.Condition{
@@ -372,6 +381,173 @@ var _ = Describe("CNA Operand", func() {
 				Reason:  "NetworkAddonsConfigDegraded",
 				Message: "NetworkAddonsConfig is degraded: Bar",
 			}))
+		})
+
+		Context("jsonpath Annotation", func() {
+			It("Should create CNA object with changes from the annotation", func() {
+				hco.Annotations = map[string]string{common.JSONPatchCNAOAnnotationName: `[
+					{
+						"op": "add",
+						"path": "/spec/kubeMacPool",
+						"value": {"rangeStart": "1.1.1.1.1.1", "rangeEnd": "5.5.5.5.5.5" }
+					},
+					{
+						"op": "add",
+						"path": "/spec/imagePullPolicy",
+						"value": "Always"
+					}
+				]`}
+
+				cna, err := NewNetworkAddons(hco)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(cna).ToNot(BeNil())
+				Expect(cna.Spec.KubeMacPool.RangeStart).Should(Equal("1.1.1.1.1.1"))
+				Expect(cna.Spec.KubeMacPool.RangeEnd).Should(Equal("5.5.5.5.5.5"))
+				Expect(cna.Spec.ImagePullPolicy).To(BeEquivalentTo("Always"))
+			})
+
+			It("Should fail to create CNA object with wrong jsonPatch", func() {
+				hco.Annotations = map[string]string{common.JSONPatchCNAOAnnotationName: `[
+					{
+						"op": "notExists",
+						"path": "/spec/kubeMacPool",
+						"value": {"rangeStart": "1.1.1.1.1.1", "rangeEnd": "5.5.5.5.5.5" }
+					}
+				]`}
+
+				_, err := NewNetworkAddons(hco)
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("Ensure func should create CNA object with changes from the annotation", func() {
+				hco.Annotations = map[string]string{common.JSONPatchCNAOAnnotationName: `[
+					{
+						"op": "add",
+						"path": "/spec/kubeMacPool",
+						"value": {"rangeStart": "1.1.1.1.1.1", "rangeEnd": "5.5.5.5.5.5" }
+					},
+					{
+						"op": "add",
+						"path": "/spec/imagePullPolicy",
+						"value": "Always"
+					}
+				]`}
+
+				expectedResource := NewNetworkAddonsWithNameOnly(hco)
+				cl := commonTestUtils.InitClient([]runtime.Object{})
+				handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).To(BeNil())
+
+				cna := &networkaddonsv1.NetworkAddonsConfig{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						cna),
+				).ToNot(HaveOccurred())
+
+				Expect(cna).ToNot(BeNil())
+				Expect(cna.Spec.KubeMacPool.RangeStart).Should(Equal("1.1.1.1.1.1"))
+				Expect(cna.Spec.KubeMacPool.RangeEnd).Should(Equal("5.5.5.5.5.5"))
+				Expect(cna.Spec.ImagePullPolicy).To(BeEquivalentTo("Always"))
+			})
+
+			It("Ensure func should fail to create CNA object with wrong jsonPatch", func() {
+				hco.Annotations = map[string]string{common.JSONPatchCNAOAnnotationName: `[
+					{
+						"op": "notExists",
+						"path": "/spec/kubeMacPool",
+						"value": {"rangeStart": "1.1.1.1.1.1", "rangeEnd": "5.5.5.5.5.5" }
+					}
+				]`}
+
+				expectedResource := NewNetworkAddonsWithNameOnly(hco)
+				cl := commonTestUtils.InitClient([]runtime.Object{})
+				handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).To(HaveOccurred())
+
+				cna := &networkaddonsv1.NetworkAddonsConfig{}
+
+				err := cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					cna)
+
+				Expect(err).To(HaveOccurred())
+				Expect(errors.IsNotFound(err)).To(BeTrue())
+			})
+
+			It("Ensure func should update CNA object with changes from the annotation", func() {
+				existsCna, err := NewNetworkAddons(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Annotations = map[string]string{common.JSONPatchCNAOAnnotationName: `[
+					{
+						"op": "add",
+						"path": "/spec/kubeMacPool",
+						"value": {"rangeStart": "1.1.1.1.1.1", "rangeEnd": "5.5.5.5.5.5" }
+					},
+					{
+						"op": "add",
+						"path": "/spec/imagePullPolicy",
+						"value": "Always"
+					}
+				]`}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existsCna})
+
+				handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).ToNot(HaveOccurred())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.UpgradeDone).To(BeFalse())
+
+				cna := &networkaddonsv1.NetworkAddonsConfig{}
+
+				expectedResource := NewNetworkAddonsWithNameOnly(hco)
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						cna),
+				).ToNot(HaveOccurred())
+
+				Expect(cna.Spec.KubeMacPool.RangeStart).Should(Equal("1.1.1.1.1.1"))
+				Expect(cna.Spec.KubeMacPool.RangeEnd).Should(Equal("5.5.5.5.5.5"))
+				Expect(cna.Spec.ImagePullPolicy).To(BeEquivalentTo("Always"))
+			})
+
+			It("Ensure func should fail to update CNA object with wrong jsonPatch", func() {
+				existsCna, err := NewNetworkAddons(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Annotations = map[string]string{common.JSONPatchCNAOAnnotationName: `[
+					{
+						"op": "notExists",
+						"path": "/spec/kubeMacPool",
+						"value": {"rangeStart": "1.1.1.1.1.1", "rangeEnd": "5.5.5.5.5.5" }
+					}
+				]`}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existsCna})
+
+				handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).To(HaveOccurred())
+
+				cna := &networkaddonsv1.NetworkAddonsConfig{}
+
+				expectedResource := NewNetworkAddonsWithNameOnly(hco)
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						cna),
+				).ToNot(HaveOccurred())
+
+				Expect(cna.Spec.KubeMacPool.RangeStart).To(BeEmpty())
+				Expect(cna.Spec.KubeMacPool.RangeEnd).To(BeEmpty())
+				Expect(cna.Spec.ImagePullPolicy).To(BeEmpty())
+			})
 		})
 	})
 

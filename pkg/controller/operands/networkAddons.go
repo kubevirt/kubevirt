@@ -36,7 +36,7 @@ func newCnaHandler(Client client.Client, Scheme *runtime.Scheme) *cnaHandler {
 
 type cnaHooks struct{}
 
-func (h cnaHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
+func (h cnaHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
 	return NewNetworkAddons(hc)
 }
 func (h cnaHooks) getEmptyCr() runtime.Object                         { return &networkaddonsv1.NetworkAddonsConfig{} }
@@ -108,7 +108,7 @@ func (h *cnaHooks) updateCr(req *common.HcoRequest, Client client.Client, exists
 	return false, false, nil
 }
 
-func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) *networkaddonsv1.NetworkAddonsConfig {
+func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) (*networkaddonsv1.NetworkAddonsConfig, error) {
 
 	cnaoSpec := networkaddonsshared.NetworkAddonsConfigSpec{
 		Multus:      &networkaddonsshared.Multus{},
@@ -127,13 +127,23 @@ func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) *networkadd
 		}
 	}
 
+	cna := NewNetworkAddonsWithNameOnly(hc, opts...)
+	cna.Spec = cnaoSpec
+
+	if err := applyPatchToSpec(hc, common.JSONPatchCNAOAnnotationName, cna); err != nil {
+		return nil, err
+	}
+
+	return cna, nil
+}
+
+func NewNetworkAddonsWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *networkaddonsv1.NetworkAddonsConfig {
 	return &networkaddonsv1.NetworkAddonsConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      networkaddonsnames.OPERATOR_CONFIG,
 			Labels:    getLabels(hc, hcoutil.AppComponentNetwork),
 			Namespace: getNamespace(hcoutil.UndefinedNamespace, opts),
 		},
-		Spec: cnaoSpec,
 	}
 }
 

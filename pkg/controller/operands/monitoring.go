@@ -44,8 +44,8 @@ func newMetricsServiceHandler(Client client.Client, Scheme *runtime.Scheme) *met
 
 type metricsServiceHooks struct{}
 
-func (h metricsServiceHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
-	return NewMetricsService(hc, hc.Namespace)
+func (h metricsServiceHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+	return NewMetricsService(hc, hc.Namespace), nil
 }
 func (h metricsServiceHooks) getEmptyCr() runtime.Object                              { return &corev1.Service{} }
 func (h metricsServiceHooks) validate() error                                         { return nil }
@@ -127,8 +127,8 @@ func newMetricsServiceMonitorHandler(Client client.Client, Scheme *runtime.Schem
 
 type metricsServiceMonitorHooks struct{}
 
-func (h metricsServiceMonitorHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
-	return NewServiceMonitor(hc, hc.Namespace)
+func (h metricsServiceMonitorHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+	return NewServiceMonitor(hc, hc.Namespace), nil
 }
 func (h metricsServiceMonitorHooks) getEmptyCr() runtime.Object {
 	return &monitoringv1.ServiceMonitor{}
@@ -203,8 +203,8 @@ func newMonitoringPrometheusRuleHandler(Client client.Client, Scheme *runtime.Sc
 
 type prometheusRuleHooks struct{}
 
-func (h prometheusRuleHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
-	return NewPrometheusRule(hc, hc.Namespace)
+func (h prometheusRuleHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+	return NewPrometheusRule(hc, hc.Namespace), nil
 }
 func (h prometheusRuleHooks) getEmptyCr() runtime.Object                              { return &monitoringv1.PrometheusRule{} }
 func (h prometheusRuleHooks) validate() error                                         { return nil }

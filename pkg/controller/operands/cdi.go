@@ -42,7 +42,7 @@ type cdiHooks struct {
 	Scheme *runtime.Scheme
 }
 
-func (h cdiHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
+func (h cdiHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
 	return NewCDI(hc)
 }
 func (h cdiHooks) getEmptyCr() runtime.Object { return &cdiv1beta1.CDI{} }
@@ -123,7 +123,7 @@ func (h *cdiHooks) postFound(req *common.HcoRequest, exists runtime.Object) erro
 	return nil
 }
 
-func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) *cdiv1beta1.CDI {
+func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) (*cdiv1beta1.CDI, error) {
 	uninstallStrategy := cdiv1beta1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist
 
 	spec := cdiv1beta1.CDISpec{
@@ -138,13 +138,23 @@ func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) *cdiv1beta1.CDI {
 		hc.Spec.Workloads.NodePlacement.DeepCopyInto(&spec.Workloads)
 	}
 
+	cdi := NewCDIWithNameOnly(hc, opts...)
+	cdi.Spec = spec
+
+	if err := applyPatchToSpec(hc, common.JSONPatchCDIAnnotationName, cdi); err != nil {
+		return nil, err
+	}
+
+	return cdi, nil
+}
+
+func NewCDIWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *cdiv1beta1.CDI {
 	return &cdiv1beta1.CDI{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cdi-" + hc.Name,
 			Labels:    getLabels(hc, hcoutil.AppComponentStorage),
 			Namespace: getNamespace(hcoutil.UndefinedNamespace, opts),
 		},
-		Spec: spec,
 	}
 }
 
@@ -283,8 +293,8 @@ func newStorageConfigHandler(Client client.Client, Scheme *runtime.Scheme) *stor
 
 type storageConfigHooks struct{}
 
-func (h storageConfigHooks) getFullCr(hc *hcov1beta1.HyperConverged) runtime.Object {
-	return NewKubeVirtStorageConfigForCR(hc, hc.Namespace)
+func (h storageConfigHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+	return NewKubeVirtStorageConfigForCR(hc, hc.Namespace), nil
 }
 func (h storageConfigHooks) getEmptyCr() runtime.Object                              { return &corev1.ConfigMap{} }
 func (h storageConfigHooks) validate() error                                         { return nil }

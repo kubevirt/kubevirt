@@ -14,6 +14,8 @@ import (
 	"github.com/openshift/custom-resource-status/testlib"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -404,7 +406,8 @@ var _ = Describe("KubeVirt Operand", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := NewKubeVirt(hco, commonTestUtils.Namespace)
+			expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
+			Expect(err).ToNot(HaveOccurred())
 			cl := commonTestUtils.InitClient([]runtime.Object{})
 			handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
@@ -423,7 +426,8 @@ var _ = Describe("KubeVirt Operand", func() {
 		})
 
 		It("should find if present", func() {
-			expectedResource := NewKubeVirt(hco, commonTestUtils.Namespace)
+			expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
+			Expect(err).ToNot(HaveOccurred())
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
@@ -459,9 +463,11 @@ var _ = Describe("KubeVirt Operand", func() {
 		})
 
 		It("should set default UninstallStrategy if missing", func() {
-			expectedResource := NewKubeVirt(hco, commonTestUtils.Namespace)
+			expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
+			Expect(err).ToNot(HaveOccurred())
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			missingUSResource := NewKubeVirt(hco, commonTestUtils.Namespace)
+			missingUSResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
+			Expect(err).ToNot(HaveOccurred())
 			missingUSResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", missingUSResource.Namespace, missingUSResource.Name)
 			missingUSResource.Spec.UninstallStrategy = ""
 
@@ -483,7 +489,8 @@ var _ = Describe("KubeVirt Operand", func() {
 		})
 
 		It("should add node placement if missing in KubeVirt", func() {
-			existingResource := NewKubeVirt(hco)
+			existingResource, err := NewKubeVirt(hco)
+			Expect(err).ToNot(HaveOccurred())
 
 			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
@@ -524,7 +531,8 @@ var _ = Describe("KubeVirt Operand", func() {
 			hcoNodePlacement := commonTestUtils.NewHco()
 			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			existingResource := NewKubeVirt(hcoNodePlacement)
+			existingResource, err := NewKubeVirt(hcoNodePlacement)
+			Expect(err).ToNot(HaveOccurred())
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
@@ -553,7 +561,8 @@ var _ = Describe("KubeVirt Operand", func() {
 		It("should modify node placement according to HCO CR", func() {
 			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			existingResource := NewKubeVirt(hco)
+			existingResource, err := NewKubeVirt(hco)
+			Expect(err).ToNot(HaveOccurred())
 
 			// now, modify HCO's node placement
 			seconds3 := int64(3)
@@ -599,7 +608,8 @@ var _ = Describe("KubeVirt Operand", func() {
 		It("should overwrite node placement if directly set on KV CR", func() {
 			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			existingResource := NewKubeVirt(hco)
+			existingResource, err := NewKubeVirt(hco)
+			Expect(err).ToNot(HaveOccurred())
 
 			// mock a reconciliation triggered by a change in KV CR
 			req.HCOTriggered = false
@@ -662,7 +672,8 @@ var _ = Describe("KubeVirt Operand", func() {
 					fgDisabled: false,
 				}
 
-				existingResource := NewKubeVirt(hco)
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
 				By("KV CR should contain the fgEnabled feature gate", func() {
 					Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 					Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(fgEnabled))
@@ -672,12 +683,14 @@ var _ = Describe("KubeVirt Operand", func() {
 			})
 
 			It("should not add the feature gates if FeatureGates map is nil", func() {
-				existingResource := NewKubeVirt(hco)
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(existingResource.Spec.Configuration.DeveloperConfiguration).To(BeNil())
 			})
 
 			It("should add feature gates if they are set to true", func() {
-				existingResource := NewKubeVirt(hco)
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
 
 				hco.Spec.FeatureGates = map[string]bool{
 					fgEnabled:  true,
@@ -708,7 +721,8 @@ var _ = Describe("KubeVirt Operand", func() {
 			})
 
 			It("should handle existing feature gates on update", func() {
-				existingResource := NewKubeVirt(hco)
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
 				existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
 					FeatureGates: []string{fgMissing, fgDisabled, fgNoChange},
 				}
@@ -759,7 +773,8 @@ var _ = Describe("KubeVirt Operand", func() {
 			})
 
 			It("should remove all KV feature gates if there are no managed KV feature gates in HC", func() {
-				existingResource := NewKubeVirt(hco)
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
 				existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
 					FeatureGates: []string{fgMissing, fgDisabled, fgNoChange},
 				}
@@ -784,7 +799,8 @@ var _ = Describe("KubeVirt Operand", func() {
 		})
 
 		It("should handle conditions", func() {
-			expectedResource := NewKubeVirt(hco, commonTestUtils.Namespace)
+			expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
+			Expect(err).ToNot(HaveOccurred())
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			expectedResource.Status.Conditions = []kubevirtv1.KubeVirtCondition{
 				kubevirtv1.KubeVirtCondition{
@@ -844,6 +860,212 @@ var _ = Describe("KubeVirt Operand", func() {
 				Message: "KubeVirt is degraded: Bar",
 			}))
 		})
+
+		Context("jsonpath Annotation", func() {
+			It("Should create KV object with changes from the annotation", func() {
+
+				hco.Annotations = map[string]string{common.JSONPatchKVAnnotationName: `[
+					{
+						"op": "add",
+						"path": "/spec/configuration/cpuRequest",
+						"value": "12m"
+					},
+					{
+						"op": "add",
+						"path": "/spec/configuration/developerConfiguration",
+						"value": {"featureGates": ["fg1"]}
+					},
+					{
+						"op": "add",
+						"path": "/spec/configuration/developerConfiguration/featureGates/-",
+						"value": "fg2"
+					}
+				]`}
+
+				kv, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv).ToNot(BeNil())
+				Expect(kv.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(2))
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement("fg1"))
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement("fg2"))
+				Expect(kv.Spec.Configuration.CPURequest).ToNot(BeNil())
+
+				quantity, err := resource.ParseQuantity("12m")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Spec.Configuration.CPURequest).ToNot(BeNil())
+				Expect(*kv.Spec.Configuration.CPURequest).Should(Equal(quantity))
+			})
+
+			It("Should fail to create KV object with wrong jsonPatch", func() {
+				hco.Annotations = map[string]string{common.JSONPatchKVAnnotationName: `[
+					{
+						"op": "notExists",
+						"path": "/spec/config/featureGates/-",
+						"value": "fg1"
+					}
+				]`}
+
+				_, err := NewKubeVirt(hco)
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("Ensure func should create KV object with changes from the annotation", func() {
+				hco.Annotations = map[string]string{common.JSONPatchKVAnnotationName: `[
+					{
+						"op": "add",
+						"path": "/spec/configuration/cpuRequest",
+						"value": "12m"
+					},
+					{
+						"op": "add",
+						"path": "/spec/configuration/developerConfiguration",
+						"value": {"featureGates": ["fg1"]}
+					},
+					{
+						"op": "add",
+						"path": "/spec/configuration/developerConfiguration/featureGates/-",
+						"value": "fg2"
+					}
+				]`}
+
+				expectedResource := NewKubeVirtWithNameOnly(hco)
+				cl := commonTestUtils.InitClient([]runtime.Object{hco})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Created).To(BeTrue())
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).To(BeNil())
+
+				kv := &kubevirtv1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						kv),
+				).ToNot(HaveOccurred())
+
+				Expect(kv).ToNot(BeNil())
+				Expect(kv.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(2))
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement("fg1"))
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement("fg2"))
+				Expect(kv.Spec.Configuration.CPURequest).ToNot(BeNil())
+
+				quantity, err := resource.ParseQuantity("12m")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Spec.Configuration.CPURequest).ToNot(BeNil())
+				Expect(*kv.Spec.Configuration.CPURequest).Should(Equal(quantity))
+			})
+
+			It("Ensure func should fail to create KV object with wrong jsonPatch", func() {
+				hco.Annotations = map[string]string{common.JSONPatchKVAnnotationName: `[
+					{
+						"op": "notExists",
+						"path": "/spec/configuration/developerConfiguration",
+						"value": {"featureGates": ["fg1"]}
+					}
+				]`}
+
+				expectedResource := NewKubeVirtWithNameOnly(hco)
+				cl := commonTestUtils.InitClient([]runtime.Object{hco})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).To(HaveOccurred())
+
+				kv := &kubevirtv1.KubeVirt{}
+
+				err := cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					kv)
+
+				Expect(err).To(HaveOccurred())
+				Expect(errors.IsNotFound(err)).To(BeTrue())
+			})
+
+			It("Ensure func should update KV object with changes from the annotation", func() {
+				existsCdi, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Annotations = map[string]string{common.JSONPatchKVAnnotationName: `[
+					{
+						"op": "add",
+						"path": "/spec/configuration/cpuRequest",
+						"value": "12m"
+					},
+					{
+						"op": "add",
+						"path": "/spec/configuration/developerConfiguration",
+						"value": {"featureGates": ["fg1"]}
+					},
+					{
+						"op": "add",
+						"path": "/spec/configuration/developerConfiguration/featureGates/-",
+						"value": "fg2"
+					}
+				]`}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existsCdi})
+
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).ToNot(HaveOccurred())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.UpgradeDone).To(BeFalse())
+
+				kv := &kubevirtv1.KubeVirt{}
+
+				expectedResource := NewKubeVirtWithNameOnly(hco)
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						kv),
+				).ToNot(HaveOccurred())
+
+				Expect(kv.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(2))
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement("fg1"))
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement("fg2"))
+				Expect(kv.Spec.Configuration.CPURequest).ToNot(BeNil())
+
+				quantity, err := resource.ParseQuantity("12m")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Spec.Configuration.CPURequest).ToNot(BeNil())
+				Expect(*kv.Spec.Configuration.CPURequest).Should(Equal(quantity))
+			})
+
+			It("Ensure func should fail to update KV object with wrong jsonPatch", func() {
+				existsKv, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Annotations = map[string]string{common.JSONPatchKVAnnotationName: `[
+					{
+						"op": "notExistsOp",
+						"path": "/spec/configuration/cpuRequest",
+						"value": "12m"
+					}
+				]`}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existsKv})
+
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).To(HaveOccurred())
+
+				kv := &kubevirtv1.KubeVirt{}
+
+				expectedResource := NewKubeVirtWithNameOnly(hco)
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						kv),
+				).ToNot(HaveOccurred())
+
+				Expect(kv.Spec.Configuration.DeveloperConfiguration).To(BeNil())
+				Expect(kv.Spec.Configuration.CPURequest).To(BeNil())
+
+			})
+		})
+
 	})
 })
 

@@ -3,6 +3,8 @@ package webhooks
 import (
 	"context"
 	"errors"
+	"fmt"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"os"
 	"testing"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,6 +26,7 @@ import (
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -43,6 +47,53 @@ func TestWebhook(t *testing.T) {
 	RunSpecs(t, "Webhooks Suite")
 }
 
+const (
+	validKvAnnotation = `[
+					{
+						"op": "add",
+						"path": "/spec/configuration/cpuRequest",
+						"value": "12m"
+					},
+					{
+						"op": "add",
+						"path": "/spec/configuration/developerConfiguration",
+						"value": {"featureGates": ["fg1"]}
+					},
+					{
+						"op": "add",
+						"path": "/spec/configuration/developerConfiguration/featureGates/-",
+						"value": "fg2"
+					}
+			]`
+	validCdiAnnotation = `[
+				{
+					"op": "add",
+					"path": "/spec/config/featureGates/-",
+					"value": "fg1"
+				},
+				{
+					"op": "add",
+					"path": "/spec/config/filesystemOverhead",
+					"value": {"global": "50", "storageClass": {"AAA": "75", "BBB": "25"}}
+				}
+			]`
+	validCnaAnnotation = `[
+					{
+						"op": "add",
+						"path": "/spec/kubeMacPool",
+						"value": {"rangeStart": "1.1.1.1.1.1", "rangeEnd": "5.5.5.5.5.5" }
+					},
+					{
+						"op": "add",
+						"path": "/spec/imagePullPolicy",
+						"value": "Always"
+					}
+			]`
+	invalidKvAnnotation  = `[{"op": "wrongOp", "path": "/spec/configuration/cpuRequest", "value": "12m"}]`
+	invalidCdiAnnotation = `[{"op": "wrongOp", "path": "/spec/config/featureGates/-", "value": "fg1"}]`
+	invalidCnaAnnotation = `[{"op": "wrongOp", "path": "/spec/kubeMacPool", "value": {"rangeStart": "1.1.1.1.1.1", "rangeEnd": "5.5.5.5.5.5" }}]`
+)
+
 var _ = Describe("webhooks handler", func() {
 	s := scheme.Scheme
 	for _, f := range []func(*runtime.Scheme) error{
@@ -56,18 +107,18 @@ var _ = Describe("webhooks handler", func() {
 		Expect(f(s)).To(BeNil())
 	}
 
-	Context("Check validating webhook", func() {
+	Context("Check create validation webhook", func() {
+		var cr *v1beta1.HyperConverged
 		BeforeEach(func() {
 			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).To(BeNil())
+			cr = &v1beta1.HyperConverged{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      ResourceName,
+					Namespace: HcoValidNamespace,
+				},
+				Spec: v1beta1.HyperConvergedSpec{},
+			}
 		})
-
-		cr := &v1beta1.HyperConverged{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      ResourceName,
-				Namespace: HcoValidNamespace,
-			},
-			Spec: v1beta1.HyperConvergedSpec{},
-		}
 
 		cli := fake.NewFakeClientWithScheme(s)
 		wh := &WebhookHandler{}
@@ -84,16 +135,52 @@ var _ = Describe("webhooks handler", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		// TODO: add tests for update validation with existing workload
+		It("should accept creation of a resource with a valid kv annotation", func() {
+			cr.Annotations = map[string]string{common.JSONPatchKVAnnotationName: validKvAnnotation}
+			err := wh.ValidateCreate(cr)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject creation of a resource with an invalid kv annotation", func() {
+			cr.Annotations = map[string]string{common.JSONPatchKVAnnotationName: invalidKvAnnotation}
+			err := wh.ValidateCreate(cr)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should accept creation of a resource with a valid cdi annotation", func() {
+			cr.Annotations = map[string]string{common.JSONPatchCDIAnnotationName: validCdiAnnotation}
+			err := wh.ValidateCreate(cr)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject creation of a resource with an invalid cdi annotation", func() {
+			cr.Annotations = map[string]string{common.JSONPatchCDIAnnotationName: invalidCdiAnnotation}
+			err := wh.ValidateCreate(cr)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should accept creation of a resource with a valid cna annotation", func() {
+			cr.Annotations = map[string]string{common.JSONPatchCNAOAnnotationName: validCnaAnnotation}
+			err := wh.ValidateCreate(cr)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject creation of a resource with an invalid cna annotation", func() {
+			cr.Annotations = map[string]string{common.JSONPatchCNAOAnnotationName: invalidCnaAnnotation}
+			err := wh.ValidateCreate(cr)
+			Expect(err).To(HaveOccurred())
+		})
 	})
 
-	Context("validate update webhook", func() {
+	Context("validate update validation webhook", func() {
 
 		It("should return error if KV CR is missing", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
 			cli := getFakeClient(s, hco)
-			Expect(cli.Delete(ctx, operands.NewKubeVirt(hco))).To(BeNil())
+			kv, err := operands.NewKubeVirt(hco)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cli.Delete(ctx, kv)).To(BeNil())
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -108,8 +195,8 @@ var _ = Describe("webhooks handler", func() {
 				},
 			}
 
-			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
+			err = wh.ValidateUpdate(newHco, hco)
+			Expect(err).To(HaveOccurred())
 			Expect(apierrors.IsNotFound(err)).To(BeTrue())
 		})
 
@@ -143,7 +230,9 @@ var _ = Describe("webhooks handler", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
 			cli := getFakeClient(s, hco)
-			Expect(cli.Delete(ctx, operands.NewCDI(hco))).To(BeNil())
+			cdi, err := operands.NewCDI(hco)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cli.Delete(ctx, cdi)).To(BeNil())
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -158,8 +247,8 @@ var _ = Describe("webhooks handler", func() {
 				},
 			}
 
-			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
+			err = wh.ValidateUpdate(newHco, hco)
+			Expect(err).To(HaveOccurred())
 			Expect(apierrors.IsNotFound(err)).To(BeTrue())
 		})
 
@@ -218,7 +307,9 @@ var _ = Describe("webhooks handler", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
 			cli := getFakeClient(s, hco)
-			Expect(cli.Delete(ctx, operands.NewNetworkAddons(hco))).To(BeNil())
+			cna, err := operands.NewNetworkAddons(hco)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cli.Delete(ctx, cna)).To(BeNil())
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -233,7 +324,7 @@ var _ = Describe("webhooks handler", func() {
 				},
 			}
 
-			err := wh.ValidateUpdate(newHco, hco)
+			err = wh.ValidateUpdate(newHco, hco)
 			Expect(err).NotTo(BeNil())
 			Expect(apierrors.IsNotFound(err)).To(BeTrue())
 		})
@@ -391,57 +482,113 @@ var _ = Describe("webhooks handler", func() {
 			Expect(err).Should(Equal(context.DeadlineExceeded))
 		})
 
-		// plain-k8s tests
-		It("should return error in plain-k8s if KV CR is missing", func() {
-			hco := &v1beta1.HyperConverged{}
-			ctx := context.TODO()
-			cli := getFakeClient(s, hco)
-			Expect(cli.Delete(ctx, operands.NewKubeVirt(hco))).To(BeNil())
-			wh := &WebhookHandler{}
-			wh.Init(logger, cli, HcoValidNamespace, false)
+		Context("plain-k8s tests", func() {
+			It("should return error in plain-k8s if KV CR is missing", func() {
+				hco := &v1beta1.HyperConverged{}
+				ctx := context.TODO()
+				cli := getFakeClient(s, hco)
+				kv, err := operands.NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.Delete(ctx, kv)).To(BeNil())
+				wh := &WebhookHandler{}
+				wh.Init(logger, cli, HcoValidNamespace, false)
 
-			newHco := &v1beta1.HyperConverged{
-				Spec: v1beta1.HyperConvergedSpec{
-					Infra: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
+				newHco := &v1beta1.HyperConverged{
+					Spec: v1beta1.HyperConvergedSpec{
+						Infra: v1beta1.HyperConvergedConfig{
+							NodePlacement: newHyperConvergedConfig(),
+						},
+						Workloads: v1beta1.HyperConvergedConfig{
+							NodePlacement: newHyperConvergedConfig(),
+						},
 					},
-					Workloads: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
+				}
+
+				err = wh.ValidateUpdate(newHco, hco)
+				Expect(err).NotTo(BeNil())
+				Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			})
+
+			It("should return error in plain-k8s if dry-run update of VMImport CR returns error", func() {
+				hco := &v1beta1.HyperConverged{
+					Spec: v1beta1.HyperConvergedSpec{
+						Infra: v1beta1.HyperConvergedConfig{
+							NodePlacement: newHyperConvergedConfig(),
+						},
+						Workloads: v1beta1.HyperConvergedConfig{
+							NodePlacement: newHyperConvergedConfig(),
+						},
 					},
+				}
+				c := getFakeClient(s, hco)
+				cli := errorClient{c, vmImportUpdateFailure}
+				wh := &WebhookHandler{}
+				wh.Init(logger, cli, HcoValidNamespace, true)
+
+				newHco := &v1beta1.HyperConverged{}
+				hco.DeepCopyInto(newHco)
+				// change something in workloads to trigger dry-run update
+				newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
+
+				err := wh.ValidateUpdate(newHco, hco)
+				Expect(err).NotTo(BeNil())
+				Expect(err).Should(Equal(ErrFakeVMImportError))
+			})
+		})
+	})
+
+	Context("unsupported annotation", func() {
+		var hco *v1beta1.HyperConverged
+		BeforeEach(func() {
+			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).To(BeNil())
+			hco = &v1beta1.HyperConverged{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      ResourceName,
+					Namespace: HcoValidNamespace,
 				},
+				Spec: v1beta1.HyperConvergedSpec{},
 			}
-
-			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
-			Expect(apierrors.IsNotFound(err)).To(BeTrue())
 		})
 
-		It("should return error in plain-k8s if dry-run update of VMImport CR returns error", func() {
-			hco := &v1beta1.HyperConverged{
-				Spec: v1beta1.HyperConvergedSpec{
-					Infra: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-					Workloads: v1beta1.HyperConvergedConfig{
-						NodePlacement: newHyperConvergedConfig(),
-					},
-				},
-			}
-			c := getFakeClient(s, hco)
-			cli := errorClient{c, vmImportUpdateFailure}
-			wh := &WebhookHandler{}
-			wh.Init(logger, cli, HcoValidNamespace, true)
+		DescribeTable("should accept if annotation is valid",
+			func(annotationName, annotation string) {
+				cli := getFakeClient(s, hco)
+				wh := &WebhookHandler{}
+				wh.Init(logger, cli, HcoValidNamespace, true)
 
-			newHco := &v1beta1.HyperConverged{}
-			hco.DeepCopyInto(newHco)
-			// change something in workloads to trigger dry-run update
-			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
+				newHco := &v1beta1.HyperConverged{}
+				hco.DeepCopyInto(newHco)
+				hco.Annotations = map[string]string{annotationName: annotation}
 
-			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
-			Expect(err).Should(Equal(ErrFakeVMImportError))
-		})
+				err := wh.ValidateUpdate(newHco, hco)
+				Expect(err).ToNot(HaveOccurred())
+			},
+			Entry("should accept if kv annotation is valid", common.JSONPatchKVAnnotationName, validKvAnnotation),
+			Entry("should accept if cdi annotation is valid", common.JSONPatchCDIAnnotationName, validCdiAnnotation),
+			Entry("should accept if cna annotation is valid", common.JSONPatchCNAOAnnotationName, validCnaAnnotation),
+		)
 
+		DescribeTable("should reject if annotation is invalid",
+			func(annotationName, annotation string) {
+				c := getFakeClient(s, hco)
+				cli := errorClient{c, timeoutError}
+				wh := &WebhookHandler{}
+				wh.Init(logger, cli, HcoValidNamespace, true)
+
+				newHco := &v1beta1.HyperConverged{}
+				hco.DeepCopyInto(newHco)
+				newHco.Annotations = map[string]string{annotationName: annotation}
+
+				err := wh.ValidateUpdate(newHco, hco)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("invalid jsonPatch in the %s", annotationName))
+				fmt.Fprintf(GinkgoWriter, "Expected error: %v\n", err)
+
+			},
+			Entry("should reject if kv annotation is invalid", common.JSONPatchKVAnnotationName, invalidKvAnnotation),
+			Entry("should reject if cdi annotation is invalid", common.JSONPatchCDIAnnotationName, invalidCdiAnnotation),
+			Entry("should reject if cna annotation is invalid", common.JSONPatchCNAOAnnotationName, invalidCnaAnnotation),
+		)
 	})
 
 	Context("Check mutating webhook for namespace deletion", func() {
@@ -488,19 +635,18 @@ var _ = Describe("webhooks handler", func() {
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
 
-			other_ns := &corev1.Namespace{
+			otherNs := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: ResourceInvalidNamespace,
 				},
 			}
 
-			allowed, err := wh.HandleMutatingNsDelete(other_ns, false)
+			allowed, err := wh.HandleMutatingNsDelete(otherNs, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(allowed).To(BeTrue())
 		})
 
 	})
-
 })
 
 func newHyperConvergedConfig() *sdkapi.NodePlacement {
@@ -536,12 +682,21 @@ func newHyperConvergedConfig() *sdkapi.NodePlacement {
 }
 
 func getFakeClient(s *runtime.Scheme, hco *v1beta1.HyperConverged) client.Client {
+	kv, err := operands.NewKubeVirt(hco)
+	Expect(err).ToNot(HaveOccurred())
+
+	cdi, err := operands.NewCDI(hco)
+	Expect(err).ToNot(HaveOccurred())
+
+	cna, err := operands.NewNetworkAddons(hco)
+	Expect(err).ToNot(HaveOccurred())
+
 	return fake.NewFakeClientWithScheme(
 		s,
 		hco,
-		operands.NewKubeVirt(hco),
-		operands.NewCDI(hco),
-		operands.NewNetworkAddons(hco),
+		kv,
+		cdi,
+		cna,
 		operands.NewSSP(hco),
 		operands.NewVMImportForCR(hco))
 }

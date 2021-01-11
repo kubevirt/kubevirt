@@ -52,8 +52,8 @@ type qsHooks struct {
 	required *consolev1.ConsoleQuickStart
 }
 
-func (h qsHooks) getFullCr(_ *hcov1beta1.HyperConverged) runtime.Object {
-	return h.required.DeepCopy()
+func (h qsHooks) getFullCr(_ *hcov1beta1.HyperConverged) (runtime.Object, error) {
+	return h.required.DeepCopy(), nil
 }
 
 func (h qsHooks) getEmptyCr() runtime.Object {
@@ -64,8 +64,8 @@ func (h qsHooks) getEmptyCr() runtime.Object {
 	}
 }
 
-func (h qsHooks) validate() error                                    { return nil }
-func (h qsHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
+func (h qsHooks) validate() error                                        { return nil }
+func (h qsHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
 func (h qsHooks) getConditions(_ runtime.Object) []conditionsv1.Condition {
 	return nil
 }
