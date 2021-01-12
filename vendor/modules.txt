@@ -132,6 +132,8 @@ github.com/google/goexpect
 github.com/google/gofuzz
 # github.com/google/goterm v0.0.0-20190311235235-ce302be1d114
 github.com/google/goterm/term
+# github.com/google/renameio v0.1.0
+github.com/google/renameio
 # github.com/google/uuid v1.1.1
 github.com/google/uuid
 # github.com/googleapis/gnostic v0.4.1 => github.com/googleapis/gnostic v0.3.1
@@ -282,6 +284,8 @@ github.com/operator-framework/operator-marketplace/pkg/appregistry
 github.com/operator-framework/operator-marketplace/pkg/datastore
 # github.com/pborman/uuid v1.2.0
 github.com/pborman/uuid
+# github.com/pkg/diff v0.0.0-20190930165518-531926345625
+github.com/pkg/diff
 # github.com/pkg/errors v0.9.1
 github.com/pkg/errors
 # github.com/prometheus/client_golang v1.7.1
@@ -892,6 +896,12 @@ kubevirt.io/qe-tools/pkg/ginkgo-reporters
 kubevirt.io/qe-tools/pkg/polarion-xml
 # libvirt.org/libvirt-go v6.5.0+incompatible
 libvirt.org/libvirt-go
+# mvdan.cc/editorconfig v0.1.1-0.20200121172147-e40951bde157
+mvdan.cc/editorconfig
+# mvdan.cc/sh/v3 v3.1.1
+mvdan.cc/sh/v3/cmd/shfmt
+mvdan.cc/sh/v3/fileutil
+mvdan.cc/sh/v3/syntax
 # sigs.k8s.io/controller-runtime v0.6.2
 sigs.k8s.io/controller-runtime/pkg/runtime/scheme
 sigs.k8s.io/controller-runtime/pkg/scheme
