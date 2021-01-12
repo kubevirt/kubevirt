@@ -5774,6 +5774,7 @@ rpm(
         "https://download-cc-rdu01.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/procps-ng-3.3.16-2.fc32.ppc64le.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/procps-ng-3.3.16-2.fc32.ppc64le.rpm",
         "https://pubmirror2.math.uh.edu/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/procps-ng-3.3.16-2.fc32.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/71bc98a89df9891edf10bb08833c063972c15f5997a11bbaa94d21d3e395e961",
     ],
 )
 
@@ -5785,6 +5786,7 @@ rpm(
         "https://sjc.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/p/procps-ng-3.3.16-2.fc32.x86_64.rpm",
         "https://mirror.genesisadaptive.com/fedora/updates/32/Everything/x86_64/Packages/p/procps-ng-3.3.16-2.fc32.x86_64.rpm",
         "https://mirror.umd.edu/fedora/linux/updates/32/Everything/x86_64/Packages/p/procps-ng-3.3.16-2.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/9d360e29f7a54d585853407d778b194ebe299663e83d59394ac122ae1687f61a",
     ],
 )
 
@@ -6573,6 +6575,7 @@ rpm(
         "https://download-cc-rdu01.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/v/vim-minimal-8.2.2146-2.fc32.ppc64le.rpm",
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/v/vim-minimal-8.2.2146-2.fc32.ppc64le.rpm",
         "https://pubmirror2.math.uh.edu/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/v/vim-minimal-8.2.2146-2.fc32.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/134adf9ed3ae4e375ef7f1f6d2299e63a940a2fc6f7655c640ae11e062eda3ea",
     ],
 )
 
@@ -6584,6 +6587,7 @@ rpm(
         "https://sjc.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/v/vim-minimal-8.2.2146-2.fc32.x86_64.rpm",
         "https://mirror.genesisadaptive.com/fedora/updates/32/Everything/x86_64/Packages/v/vim-minimal-8.2.2146-2.fc32.x86_64.rpm",
         "https://mirror.umd.edu/fedora/linux/updates/32/Everything/x86_64/Packages/v/vim-minimal-8.2.2146-2.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/1cf36a5d4a96954167ebd75ca34a21b0b6fd00a7935820528b515ab936ee6393",
     ],
 )
 
