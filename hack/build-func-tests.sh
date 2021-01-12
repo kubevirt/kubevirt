@@ -22,7 +22,8 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
-mkdir -p "${TESTS_OUT_DIR}/tests"
+rm -rf "${TESTS_OUT_DIR}"
+mkdir -p "${TESTS_OUT_DIR}"
 bazel run \
     :build-ginkgo -- ${TESTS_OUT_DIR}/ginkgo
 bazel run \
