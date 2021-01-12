@@ -33,15 +33,20 @@ kubevirt_logo_path="assets/kubevirt_logo.png"
 rm -rf ${MANIFESTS_OUT_DIR}
 rm -rf ${MANIFEST_TEMPLATES_OUT_DIR}
 
-(cd ${KUBEVIRT_DIR}/tools/manifest-templator/ && go_build)
+rm -rf "${TESTS_OUT_DIR}/tools"
+mkdir -p "${TESTS_OUT_DIR}/tools"
+templator=${TESTS_OUT_DIR}/tools/manifest-templator
+
+bazel run \
+    --config=${ARCHITECTURE} \
+    //:build-manifest-templator -- ${templator}
 
 # first process file includes only
 args=$(cd ${KUBEVIRT_DIR}/manifests && find . -type f -name "*.yaml.in" -not -path "./generated/*")
 for arg in $args; do
     infile=${KUBEVIRT_DIR}/manifests/${arg}
     outfile=${KUBEVIRT_DIR}/manifests/${arg}.tmp
-
-    ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
+    ${templator} \
         --process-files \
         --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
         --input-file=${infile} >${outfile}
@@ -70,7 +75,7 @@ for arg in $args; do
     outfile=${final_out_dir}/${manifest}
     template_outfile=${final_templates_out_dir}/${manifest}.j2
 
-    ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
+    ${templator} \
         --process-vars \
         --namespace=${namespace} \
         --cdi-namespace=${cdi_namespace} \
@@ -98,7 +103,7 @@ for arg in $args; do
         continue
     fi
 
-    ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
+    ${templator} \
         --process-vars \
         --namespace="{{ namespace }}" \
         --cdi-namespace="{{ cdi_namespace }}" \
