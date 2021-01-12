@@ -514,6 +514,22 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 						},
 					},
 					{
+						Record: "num_of_kvm_available_nodes",
+						Expr:   intstr.FromString("num_of_allocatable_nodes - count(kube_node_status_allocatable{resource=\"devices_kubevirt_io_kvm\"} == 0)"),
+					},
+					{
+						Alert: "LowKVMNodesCount",
+						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (num_of_kvm_available_nodes < 3)"),
+						For:   "5m",
+						Annotations: map[string]string{
+							"description": "Low number of nodes with KVM resource available.",
+							"summary":     "At list two nodes with kvm resource required for VM life migration.",
+						},
+						Labels: map[string]string{
+							"severity": "warning",
+						},
+					},
+					{
 						Record: "num_of_running_virt_controllers",
 						Expr: intstr.FromString(
 							fmt.Sprintf("sum(up{pod=~'virt-controller-.*', namespace='%s'})", ns),
