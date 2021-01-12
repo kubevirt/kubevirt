@@ -71,14 +71,6 @@ func getNetworksAndCniNetworks(vmi *v1.VirtualMachineInstance) (map[string]*v1.N
 	return networks, cniNetworks
 }
 
-func invokePodNICFactory(networks map[string]*v1.Network, ifaceName string, cacheFactory cache.InterfaceCacheFactory) (podNIC, error) {
-	network, ok := networks[ifaceName]
-	if !ok {
-		return nil, fmt.Errorf("failed to find a network %s", ifaceName)
-	}
-	return podNICFactory(network, cacheFactory)
-}
-
 func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string]int, ifaceName string) string {
 	if networks[ifaceName].Multus != nil && !networks[ifaceName].Multus.Default {
 		// multus pod interfaces named netX
@@ -91,12 +83,16 @@ func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string
 func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int, cacheFactory cache.InterfaceCacheFactory) error {
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
 	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		podnic, err := invokePodNICFactory(networks, iface.Name, cacheFactory)
+		network, ok := networks[iface.Name]
+		if !ok {
+			return fmt.Errorf("failed to find a network %s", iface.Name)
+		}
+		podnic, err := podNICFactory(network, cacheFactory)
 		if err != nil {
 			return err
 		}
 		podInterfaceName := getPodInterfaceName(networks, cniNetworks, iface.Name)
-		err = podNIC.PlugPhase1(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], podInterfaceName, pid)
+		err = podNIC.PlugPhase1(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], network, podInterfaceName, pid)
 		if err != nil {
 			return err
 		}
@@ -107,12 +103,16 @@ func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int, cacheFactory
 func SetupPodNetworkPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain, cacheFactory cache.InterfaceCacheFactory) error {
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
 	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		podnic, err := invokePodNICFactory(networks, iface.Name, cacheFactory)
+		network, ok := networks[iface.Name]
+		if !ok {
+			return fmt.Errorf("failed to find a network %s", iface.Name)
+		}
+		podnic, err := podNICFactory(network, cacheFactory)
 		if err != nil {
 			return err
 		}
 		podInterfaceName := getPodInterfaceName(networks, cniNetworks, iface.Name)
-		err = podNIC.PlugPhase2(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], domain, podInterfaceName)
+		err = podNIC.PlugPhase2(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], network, domain, podInterfaceName)
 		if err != nil {
 			return err
 		}
