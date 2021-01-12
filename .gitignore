@@ -43,3 +43,4 @@ _ci-configs/
 hack/builder/manifests/
 *~
 .bazeldnf/
+user.bazelrc
