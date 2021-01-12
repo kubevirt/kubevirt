@@ -176,7 +176,7 @@ func initializeDirs(ephemeralDiskDir string,
 		panic(err)
 	}
 
-	err = hotplugdisk.SetLocalDirectory(hotplugDiskDir)
+	err = hotplugdisk.CreateLocalDirectory(hotplugDiskDir)
 	if err != nil {
 		panic(err)
 	}

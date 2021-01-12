@@ -31,22 +31,25 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
-var (
-	orgTargetPodBasePath = targetPodBasePath
-	orgPodsBaseDir       = podsBaseDir
-)
-
 var _ = Describe("HotplugDisk", func() {
 	var (
-		tempDir string
-		err     error
+		tempDir     string
+		err         error
+		hotplug     *hotplugDiskManager
+		podsBaseDir string
 	)
 
 	BeforeEach(func() {
 		// Create some directories and files in temporary location.
 		tempDir, err = ioutil.TempDir("/tmp", "hp-disk-test")
 		Expect(err).ToNot(HaveOccurred())
-		err = os.MkdirAll(filepath.Join(tempDir, "abcd"), os.FileMode(0755))
+		podsBaseDir = filepath.Join(tempDir, "podsBaseDir")
+		err = os.MkdirAll(filepath.Join(podsBaseDir), os.FileMode(0755))
+		hotplug = &hotplugDiskManager{
+			podsBaseDir:       podsBaseDir,
+			targetPodBasePath: nil,
+		}
+
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -54,42 +57,27 @@ var _ = Describe("HotplugDisk", func() {
 		if tempDir != "" {
 			os.RemoveAll(tempDir)
 		}
-		targetPodBasePath = orgTargetPodBasePath
-		SetKubeletPodsDirectory(orgPodsBaseDir)
 	})
 
 	It("GetHotplugTargetPodPathOnHost should return the correct path", func() {
 		testUID := types.UID("abcd")
-		SetKubeletPodsDirectory(tempDir)
-		targetPodBasePath = func(podUID types.UID) string {
-			Expect(podUID).To(Equal(testUID))
-			return string(testUID)
-		}
-		_, err := GetHotplugTargetPodPathOnHost(testUID)
+		_ = os.MkdirAll(TargetPodBasePath(podsBaseDir, testUID), 0755)
+		_, err := hotplug.GetHotplugTargetPodPathOnHost(testUID)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("GetHotplugTargetPodPathOnHost should return error on incorrect path", func() {
 		testUID := types.UID("abcde")
-		SetKubeletPodsDirectory(tempDir)
-		targetPodBasePath = func(podUID types.UID) string {
-			Expect(podUID).To(Equal(testUID))
-			return string(testUID)
-		}
-		_, err := GetHotplugTargetPodPathOnHost(testUID)
+		_, err := hotplug.GetHotplugTargetPodPathOnHost(testUID)
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("GetFileSystemDiskTargetPathFromHostView should create the volume directory", func() {
 		testUID := types.UID("abcd")
-		SetKubeletPodsDirectory(tempDir)
-		targetPodBasePath = func(podUID types.UID) string {
-			Expect(podUID).To(Equal(testUID))
-			return string(testUID)
-		}
-		res, err := GetFileSystemDiskTargetPathFromHostView(testUID, "testvolume", true)
+		_ = os.MkdirAll(TargetPodBasePath(podsBaseDir, testUID), 0755)
+		res, err := hotplug.GetFileSystemDiskTargetPathFromHostView(testUID, "testvolume", true)
 		Expect(err).ToNot(HaveOccurred())
-		testPath := filepath.Join(tempDir, string(testUID), "testvolume")
+		testPath := filepath.Join(TargetPodBasePath(podsBaseDir, testUID), "testvolume")
 		exists, _ := diskutils.FileExists(testPath)
 		Expect(exists).To(BeTrue())
 		Expect(res).To(Equal(testPath))
@@ -97,26 +85,17 @@ var _ = Describe("HotplugDisk", func() {
 
 	It("GetFileSystemDiskTargetPathFromHostView should return the volume directory", func() {
 		testUID := types.UID("abcd")
-		SetKubeletPodsDirectory(tempDir)
-		targetPodBasePath = func(podUID types.UID) string {
-			Expect(podUID).To(Equal(testUID))
-			return string(testUID)
-		}
-		testPath := filepath.Join(tempDir, string(testUID), "testvolume")
+		_ = os.MkdirAll(TargetPodBasePath(podsBaseDir, testUID), 0755)
+		testPath := filepath.Join(TargetPodBasePath(podsBaseDir, testUID), "testvolume")
 		err = os.MkdirAll(testPath, os.FileMode(0755))
-		res, err := GetFileSystemDiskTargetPathFromHostView(testUID, "testvolume", false)
+		res, err := hotplug.GetFileSystemDiskTargetPathFromHostView(testUID, "testvolume", false)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(res).To(Equal(testPath))
 	})
 
 	It("GetFileSystemDiskTargetPathFromHostView should fail on invalid UID", func() {
 		testUID := types.UID("abcde")
-		SetKubeletPodsDirectory(tempDir)
-		targetPodBasePath = func(podUID types.UID) string {
-			Expect(podUID).To(Equal(testUID))
-			return string(testUID)
-		}
-		_, err := GetFileSystemDiskTargetPathFromHostView(testUID, "testvolume", false)
+		_, err := hotplug.GetFileSystemDiskTargetPathFromHostView(testUID, "testvolume", false)
 		Expect(err).To(HaveOccurred())
 	})
 })
