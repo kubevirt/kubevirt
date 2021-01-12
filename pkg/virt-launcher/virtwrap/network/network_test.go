@@ -53,12 +53,12 @@ var _ = Describe("Network", func() {
 			defaultNet := v1.DefaultPodNetwork()
 
 			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, defaultNet, primaryPodInterfaceName, pid)
-			err := SetupNetworkInterfacesPhase1(vm, pid)
+			err := SetupPodNetworkPhase1(vm, pid)
 			Expect(err).To(BeNil())
 		})
 		It("should accept empty network list", func() {
 			vmi := newVMI("testnamespace", "testVmName")
-			err := SetupNetworkInterfacesPhase1(vmi, pid)
+			err := SetupPodNetworkPhase1(vmi, pid)
 			Expect(err).To(BeNil())
 		})
 		It("should configure networking with multus", func() {
@@ -77,7 +77,7 @@ var _ = Describe("Network", func() {
 			vm.Spec.Networks = []v1.Network{*cniNet}
 
 			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, cniNet, multusInterfaceName, pid)
-			err := SetupNetworkInterfacesPhase1(vm, pid)
+			err := SetupPodNetworkPhase1(vm, pid)
 			Expect(err).To(BeNil())
 		})
 		It("should configure networking with multus and a default multus network", func() {
@@ -134,7 +134,7 @@ var _ = Describe("Network", func() {
 			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[0], additionalCNINet1, "net1", pid)
 			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[1], cniNet, "eth0", pid)
 			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[2], additionalCNINet2, "net2", pid)
-			err := SetupNetworkInterfacesPhase1(vm, pid)
+			err := SetupPodNetworkPhase1(vm, pid)
 			Expect(err).To(BeNil())
 		})
 	})
