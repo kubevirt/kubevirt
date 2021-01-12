@@ -22,7 +22,9 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
-shfmt -i 4 -w ${KUBEVIRT_DIR}/hack/ ${KUBEVIRT_DIR}/images/
+bazel run \
+    --config=${ARCHITECTURE} \
+    //vendor/mvdan.cc/sh/v3/cmd/shfmt:shfmt -- -i 4 -w ${KUBEVIRT_DIR}/hack/ ${KUBEVIRT_DIR}/images/
 bazel run \
     --config=${ARCHITECTURE} \
     //:gazelle -- pkg/ tools/ tests/ cmd/
