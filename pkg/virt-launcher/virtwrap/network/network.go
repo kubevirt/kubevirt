@@ -98,10 +98,7 @@ func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int, cacheFactory
 		if err != nil {
 			return err
 		}
-		podnic, err := podNICFactory(network, cacheFactory)
-		if err != nil {
-			return err
-		}
+		podnic := podNICFactory(cacheFactory)
 		podInterfaceName := getPodInterfaceName(networks, cniNetworks, iface.Name)
 		err = podNIC.PlugPhase1(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], network, podInterfaceName, pid)
 		if err != nil {
@@ -122,10 +119,7 @@ func SetupPodNetworkPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain, c
 		if err != nil {
 			return err
 		}
-		podnic, err := podNICFactory(network, cacheFactory)
-		if err != nil {
-			return err
-		}
+		podnic := podNICFactory(cacheFactory)
 		podInterfaceName := getPodInterfaceName(networks, cniNetworks, iface.Name)
 		err = podNIC.PlugPhase2(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], network, domain, podInterfaceName)
 		if err != nil {
@@ -135,6 +129,6 @@ func SetupPodNetworkPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain, c
 	return nil
 }
 
-func newpodNIC(network *v1.Network, cacheFactory cache.InterfaceCacheFactory) (podNIC, error) {
-	return &podNICImpl{cacheFactory: cacheFactory}, nil
+func newpodNIC(cacheFactory cache.InterfaceCacheFactory) podNIC {
+	return &podNICImpl{cacheFactory: cacheFactory}
 }
