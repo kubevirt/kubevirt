@@ -16664,9 +16664,9 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtWorkloadUpdateStrategy(ref commo
 							},
 						},
 					},
-					"batchShutdownCount": {
+					"batchShutdownSize": {
 						SchemaProps: spec.SchemaProps{
-							Description: "BatchShutdownCount Represents the number of VMIs that can be forced updated per the BatchForceInteral interval\n\nDefaults to 10",
+							Description: "BatchShutdownSize Represents the number of VMIs that can be forced updated per the BatchShutdownInteral interval\n\nDefaults to 10",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},

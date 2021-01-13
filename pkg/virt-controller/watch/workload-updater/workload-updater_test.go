@@ -342,7 +342,7 @@ var _ = Describe("Workload Updater", func() {
 			time.Sleep(1 * time.Second)
 			kv := newKubeVirt(50)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodShutdown}
-			kv.Spec.WorkloadUpdateStrategy.BatchShutdownCount = &batchDeletions
+			kv.Spec.WorkloadUpdateStrategy.BatchShutdownSize = &batchDeletions
 			addKubeVirt(kv)
 
 			vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil).Times(batchDeletions)
@@ -370,7 +370,7 @@ var _ = Describe("Workload Updater", func() {
 			time.Sleep(1 * time.Second)
 			kv := newKubeVirt(batchDeletions * 2)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodShutdown}
-			kv.Spec.WorkloadUpdateStrategy.BatchShutdownCount = &batchDeletions
+			kv.Spec.WorkloadUpdateStrategy.BatchShutdownSize = &batchDeletions
 			kv.Spec.WorkloadUpdateStrategy.BatchShutdownInterval = &metav1.Duration{
 				Duration: batchInterval,
 			}
@@ -414,7 +414,7 @@ var _ = Describe("Workload Updater", func() {
 			time.Sleep(1 * time.Second)
 			kv := newKubeVirt(batchDeletions * 2)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodShutdown}
-			kv.Spec.WorkloadUpdateStrategy.BatchShutdownCount = &batchDeletions
+			kv.Spec.WorkloadUpdateStrategy.BatchShutdownSize = &batchDeletions
 			kv.Spec.WorkloadUpdateStrategy.BatchShutdownInterval = &metav1.Duration{
 				Duration: batchInterval,
 			}

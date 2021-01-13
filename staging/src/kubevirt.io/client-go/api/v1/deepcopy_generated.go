@@ -1859,8 +1859,8 @@ func (in *KubeVirtWorkloadUpdateStrategy) DeepCopyInto(out *KubeVirtWorkloadUpda
 		*out = make([]WorkloadUpdateMethod, len(*in))
 		copy(*out, *in)
 	}
-	if in.BatchShutdownCount != nil {
-		in, out := &in.BatchShutdownCount, &out.BatchShutdownCount
+	if in.BatchShutdownSize != nil {
+		in, out := &in.BatchShutdownSize, &out.BatchShutdownSize
 		*out = new(int)
 		**out = **in
 	}

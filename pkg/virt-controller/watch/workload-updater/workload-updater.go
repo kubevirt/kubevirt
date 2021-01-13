@@ -36,7 +36,7 @@ const (
 	SuccessfulCreateVirtualMachineInstanceMigrationReason = "SuccessfulCreate"
 	// FailedDeleteVirtualMachineReason is added in an event if a deletion of a VMI fails
 	FailedDeleteVirtualMachineInstanceReason = "FailedDelete"
-	// SuccessfulDeleteVirtualMachineReason is added in an event if a deletion of a VMI fails
+	// SuccessfulDeleteVirtualMachineReason is added in an event if a deletion of a VMI Succeeds
 	SuccessfulDeleteVirtualMachineInstanceReason = "SuccessfulDelete"
 )
 
@@ -208,7 +208,10 @@ func (c *WorkloadUpdateController) updateKubeVirt(old, curr interface{}) {
 
 func (c *WorkloadUpdateController) enqueueKubeVirt(obj interface{}) {
 	logger := log.Log
-	kv := obj.(*virtv1.KubeVirt)
+	kv, ok := obj.(*virtv1.KubeVirt)
+	if !ok {
+		return
+	}
 	key, err := controller.KeyFunc(kv)
 	if err != nil {
 		logger.Object(kv).Reason(err).Error("Failed to extract key from KubeVirt.")
@@ -284,16 +287,6 @@ func (c *WorkloadUpdateController) isOutdated(vmi *virtv1.VirtualMachineInstance
 	return false
 }
 
-func isMigratable(vmi *virtv1.VirtualMachineInstance) bool {
-	for _, c := range vmi.Status.Conditions {
-		if c.Type == virtv1.VirtualMachineInstanceIsMigratable && c.Status == k8sv1.ConditionTrue {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateData {
 	data := &updateData{}
 
@@ -328,10 +321,9 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 			continue
 		}
 
-		// add label to outdated vmis for sorting
 		data.allOutdatedVMIs = append(data.allOutdatedVMIs, vmi)
 
-		if automatedMigrationAllowed && isMigratable(vmi) {
+		if automatedMigrationAllowed && vmi.IsMigratable() {
 			// don't consider VMIs with migrations inflight as migratable for our dataset
 			if migrationutils.IsMigrating(vmi) {
 				continue
@@ -451,8 +443,8 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 	batchDeletionInterval := time.Duration(defaultBatchDeletionIntervalSeconds) * time.Second
 	batchDeletionCount := defaultBatchDeletionCount
 
-	if kv.Spec.WorkloadUpdateStrategy.BatchShutdownCount != nil {
-		batchDeletionCount = *kv.Spec.WorkloadUpdateStrategy.BatchShutdownCount
+	if kv.Spec.WorkloadUpdateStrategy.BatchShutdownSize != nil {
+		batchDeletionCount = *kv.Spec.WorkloadUpdateStrategy.BatchShutdownSize
 	}
 
 	if kv.Spec.WorkloadUpdateStrategy.BatchShutdownInterval != nil {

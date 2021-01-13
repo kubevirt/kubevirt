@@ -1329,13 +1329,13 @@ type KubeVirtWorkloadUpdateStrategy struct {
 	// +optional
 	WorkloadUpdateMethods []WorkloadUpdateMethod `json:"workloadUpdateMethods,omitempty"`
 
-	// BatchShutdownCount Represents the number of VMIs that can be forced updated per
-	// the BatchForceInteral interval
+	// BatchShutdownSize Represents the number of VMIs that can be forced updated per
+	// the BatchShutdownInteral interval
 	//
 	// Defaults to 10
 	//
 	// +optional
-	BatchShutdownCount *int `json:"batchShutdownCount,omitempty"`
+	BatchShutdownSize *int `json:"batchShutdownSize,omitempty"`
 
 	// BatchShutdownInterval Represents the interval to wait before issuing the next
 	// batch of shutdowns
