@@ -96,6 +96,12 @@ func main() {
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
 	pflag.Parse()
 
+	if path := os.Getenv("BUILD_WORKSPACE_DIRECTORY"); path != "" {
+		if err := os.Chdir(path); err != nil {
+			panic(err)
+		}
+	}
+
 	if !(*processFiles || *processVars) {
 		panic("at least one of process-files or process-vars must be true")
 	}

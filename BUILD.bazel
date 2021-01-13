@@ -306,6 +306,16 @@ genrule(
 )
 
 genrule(
+    name = "build-manifest-templator",
+    srcs = [
+        "//tools/manifest-templator",
+    ],
+    outs = ["manifest-templator-copier"],
+    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
     name = "build-junit-merger",
     srcs = [
         "//tools/junit-merger",
