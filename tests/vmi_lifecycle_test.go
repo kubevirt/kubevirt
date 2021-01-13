@@ -1554,44 +1554,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Expect(event).To(BeNil(), "virt-handler tried to sync on a VirtualMachineInstance in final state")
 		})
 	})
-
-	Describe("Defaults", func() {
-		Context("FSGroup", func() {
-			It("[test_id:4120]Should run with qemu as supplemental group", func() {
-				By("Starting VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-				Expect(err).To(BeNil(), "Create VMI successfully")
-				tests.WaitForSuccessfulVMIStart(vmi)
-
-				By("Checking supplemental groups of PID 1")
-				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(pod).NotTo(BeNil())
-				output, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					pod,
-					pod.Spec.Containers[0].Name,
-					[]string{"ps", "-o", "supgrp", "1"},
-				)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(output).To(ContainSubstring("qemu"))
-
-				By("Looking up qemu's UID")
-				output, err = tests.ExecuteCommandOnPod(
-					virtClient,
-					pod,
-					pod.Spec.Containers[0].Name,
-					[]string{"id", "-g", "qemu"},
-				)
-				Expect(err).ToNot(HaveOccurred())
-
-				qemuGroup, err := strconv.Atoi(strings.TrimSpace(output))
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(pod.Spec.SecurityContext.FSGroup).ToNot(BeNil())
-				Expect(int(*pod.Spec.SecurityContext.FSGroup)).To(Equal(qemuGroup))
-			})
-		})
-	})
 })
 
 func renderPkillAllPod(processName string) *k8sv1.Pod {
