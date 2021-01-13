@@ -523,7 +523,7 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 						For:   "5m",
 						Annotations: map[string]string{
 							"description": "Low number of nodes with KVM resource available.",
-							"summary":     "At list two nodes with kvm resource required for VM life migration.",
+							"summary":     "At least two nodes with kvm resource required for VM life migration.",
 						},
 						Labels: map[string]string{
 							"severity": "warning",
