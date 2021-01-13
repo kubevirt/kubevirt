@@ -20,18 +20,6 @@ script:
 
 deploy:
 - provider: script
-  script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && DOCKER_PREFIX="index.docker.io/kubevirt" DOCKER_TAG="latest" make bazel-push-images
-  skip_cleanup: true
-  on:
-    branch: master
-    condition: $TRAVIS_CPU_ARCH = amd64
-- provider: script
-  script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && DOCKER_PREFIX="index.docker.io/kubevirt" DOCKER_TAG="latest" make functest-image-push
-  skip_cleanup: true
-  on:
-    branch: master
-    condition: $TRAVIS_CPU_ARCH = amd64
-- provider: script
   script: docker login -u="$QUAY_USERNAME" -p="$QUAY_PASSWORD" quay.io && DOCKER_PREFIX="quay.io/kubevirt"
     DOCKER_TAG="$TRAVIS_TAG" QUAY_REPOSITORY="kubevirt" PACKAGE_NAME="kubevirt-operatorhub"
     sh -c 'make bazel-push-images && make manifests'
@@ -116,10 +104,6 @@ env:
   - secure: "rWM5uf1pMw+s+19YfzPgr/iT0j9o50eR1NPCLR7lkZhXMtNMxE8I3XOhapMXHHcTQ/kyxvaRzO48Q1SeVOK5QkI47YG4y6Zmyg/tGiUyymYHsaXk3a1GIB9f7J+oRTv5wZLx25Ss/JMMWuL5B74I57iFkqWE8EClvr8UZ6TqYniVLXdD9VPcYL1wkVHjkEyHg75PAR6U31SRSgQtDVQq6BHVGnjLWM+JfKcg4G+J90CxHbFyOJXfYw+HjP74ZDIKViu06SfZZV1zEecmf9xweYFo+dQpFXUMacMskVxcEfe1Qv9PE/H6XLJJ2pYz7g+Xviuy1CSdpo7Wmic4b8VkSxckKGXoH9GsW/PLSobVCcjAPi4hlZfxCjUXZsESVXEnipti7bUDbdCHDQ3Yffaa6BoIkOAs59DWnoBlgd9D7rPq9aRPxrSs3e+VYviKNgTKDnYJR7IDtzS1l9ebdczEHOdFMaCWZvEOFh4IbnkTZHecnknih2EMRaycEsB53IXgCx519ofQy9EdPwJLNrCvcTyeiyIc0PQYjfr41wEeGxuTMNbePLRr2DOGdNvieSzmJTlPyuMFa7Rc0alUsULUJDOT2Yjw56ybGOnatz3XtPZYpszYDSBP6QSV3mInCFglZqP0iloddcKCSDRKDm/lYCvKC6ltPI6wvF6BLZoslwo="
   # QUAY_PASSWORD
   - secure: "Hq/NJhkWh1G7q0Rxwl+w+sqyugSrGx+nVBPB3JjI2oxksQAc6AgAniJf/xpMTs1EZD0e5cOkXVsYeTpkFa062Y8MoM/8+VElUGbgL5VoI1/JxtMW8eXKpQiLaXi5BiEJwa17cCvLEXWb5rDFXLcbxLYiAv2QAMrOY3D6SOMxBYRvrHc1tDxukk2RUaCP8I+ROsUxyxDxItIOxJEDvOAV6+x25i6WYKmdgmudJUaWkifzyOoioiiJVLdmYD49hYQddywCCc63ut07rYsG6jJL7Q0o35ko+x1nFfXNFYI1ESfcuwZy7/ZuitJRCgh/8J9LCLOdXiWwkukX/RJAe9Z72zM3RgG13eGZQC5Mr46bYCepRp3wh1IuRaThGsJUZdSXOVnlpFK1vwikfrZo5mYhPNGIMEk2E46wsyIKkZmyAkuo3agUb/VdKumUk+c+Cw29oifOHXoPtTqqc4b3H4lkbdYa174d6wf19OudHaa3SyX/+LcyugCpswefsVa/vZExJKvYZdG9r5XIF2vk4DRS1iZKp//7oojzS1Rlxub0PtpqH8Sruzk4D+ocAHjirHyP6PNYaHvmugguuJ+RlR1eDm83lzAllqn9YBMJJ+q50Z8TUX1U4RsRsfj0L3YuIFdS011+4GDrxaz90UCLa3l1gyW5dyd8jC6yaeCDHIYT+pE="
-  # DOCKER_PASS
-  - secure: dgqV8rjscJmensslnxAyjgFqWMffZwQYAAObtuJdpPwdyGBSCA9LUH0J++raGo++35JzbyGukdGZgKBAUVKyydFcStmIUfi7dB2eljMYU8dnTvlDWEP6PwhuQXdDDjbDqCDAWH8mfjza4qFw/XgHXw+dy2EikMKewE6IzfUquk3xyfkh3mutNTETu7E78yKfxh4bDejyakaJKADFzm2hvhJv/+pzkJuALGbG4v7qW1inW6/Qug+QK8ZYIIaNM/UmZOVgcnrt4+3UcCS2NS3bMFdibAZKNQVD6g0Jht+S6/RQIhT4zaW7eaKDAKhjUETKbZ4Xv/77h6huwAy9DxtKu/gWQ/7rp1xt6JU3oheVV705qxvA8mm7P61rqe4GaanTyOWQuIvKteVxIHuZKGkrtQS4Own3lgydLmkgM7u3cR33JA4tolZcf2kWXRFU8vwOlCM8Vsb7NJfu/yJ/0xuFJ/HNO6FLUZz3p2M2wW6WY17V0YKE7KXXiKhj3rv3RbsFBFfGiTXyk/nk0czQhA9e/87JepTTlZf3R9QSLoHs+cR4fEE+oAZOyAUeU5N1C703772YEjrxtXczE3qm4dUFS7UXNcjeYjWsLpMSbuqa49yYPMPCynu5ohSTTwjhweRFSJf7xmp18t3bMfGKiHx8rBCqCNDpC6fuTM5v/C5c1K4=
-  # DOCKER_USER
-  - secure: GDzAdyMI1IssB8je9PsidxUJ55Bp2+gTKh0bB+Syy50BWz81yxWsK0oHvM65h1DTPKv30lnwAvaOLy21uEBBuWNoyCCkMIdc9HeUwpi+Ilex9D84vDtf5c4tx3pIxpzNPOfm/7wWQDYI9o2eeGIY0B3WGufiUlelWC3i1Uq3r2OTfufxwMpwIyuHydU8VOvyromdiZ2VNZcCAmrpVONd+UBmxrvJoIINVN80XH7tlpSfdKC70VJGLyp3bwSPBHl8LkI1nkEwMB+1La+EPYmfE4hfHDiAeRYqiIEKR9VYmjh2O6Lo8VDMebLzC/kH8S1zQt71PN/Oknqu60jenPMz6gr4sKt17uE4+BH+7Ef+jp4uFqwYV7rGCg7vbE/fE3nW2GBcpXCNZZsVvKg+u3TrquvssszUZyNQmy2NOoeqdM6F4D1h5mqhyp/Rrg5VFpiwN92CLI0yfoCPHbZcLs8DLcZuxTDVhjoatUnTUs68hPFaY0q9SpFwRAsb6tVyuoMG2fHpBd7oZCZVrnQzHslrFulpzVqbm28x+jrPVBRTGmak79eZrckQ92FyLQQONiYP6g+V9dMiJ4tho4P5U84z2Ty8IQZTC7UDw+2ZpVNNud+NTGSal/K+eJ1XzPRDO0N3qZ6uOQG1kOkIn29Kh7/PqxLEcbZf4Ay5sL4IwzTrmx4=
 
 notifications:
   irc:
