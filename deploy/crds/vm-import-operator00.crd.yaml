@@ -856,10 +856,10 @@ spec:
                 type: object
             type: object
           status:
-            description: ' defines the status of the VMImportConfig installation'
+            description: ' defines the status of the installation'
             properties:
               conditions:
-                description: A list of current conditions of the VMImportConfigresource
+                description: A list of current conditions of the resource
                 items:
                   description: Condition represents the state of the operator's reconciliation functionality.
                   properties:
@@ -884,16 +884,16 @@ spec:
                   type: object
                 type: array
               observedVersion:
-                description: The observed version of the VMImportConfig resource
+                description: The observed version of the resource
                 type: string
               operatorVersion:
-                description: The version of the VMImportConfig resource as defined by the operator
+                description: The version of the resource as defined by the operator
                 type: string
               phase:
-                description: Phase is the current phase of the VMImportConfig deployment
+                description: Phase is the current phase of the deployment
                 type: string
               targetVersion:
-                description: The desired version of the VMImportConfig resource
+                description: The desired version of the resource
                 type: string
             type: object
         type: object

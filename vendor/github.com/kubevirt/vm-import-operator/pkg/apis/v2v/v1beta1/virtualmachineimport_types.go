@@ -22,6 +22,12 @@ type VirtualMachineImportSpec struct {
 	Source          VirtualMachineImportSourceSpec `json:"source"`
 
 	// +optional
+	Warm bool `json:"warm"`
+
+	// +optional
+	FinalizeDate *metav1.Time `json:"finalizeDate,omitempty"`
+
+	// +optional
 	TargetVMName *string `json:"targetVmName,omitempty"`
 
 	// +optional
@@ -113,6 +119,21 @@ type VirtualMachineImportStatus struct {
 
 	// +optional
 	DataVolumes []DataVolumeItem `json:"dataVolumes,omitempty"`
+
+	// +optional
+	WarmImport VirtualMachineWarmImportStatus `json:"warmImport"`
+}
+
+type VirtualMachineWarmImportStatus struct {
+	// +optional
+	NextStageTime *metav1.Time `json:"nextStageTime,omitempty"`
+
+	Successes           int `json:"successes"`
+	Failures            int `json:"failures"`
+	ConsecutiveFailures int `json:"consecutiveFailures"`
+
+	// +optional
+	RootSnapshot *string `json:"rootSnapshot,omitempty"`
 }
 
 // VirtualMachineImportConditionType defines the condition of VM import
@@ -155,6 +176,9 @@ const (
 	// GuestConversionFailed represents a failure to complete a virt-v2v conversion on the target VM.
 	GuestConversionFailed SucceededConditionReason = "GuestConversionFailed"
 
+	// WarmImportFailed represents a failure to complete a warm import on the target VM.
+	WarmImportFailed SucceededConditionReason = "WarmImportFailed"
+
 	// VirtualMachineReady represents the completion of the vm import
 	VirtualMachineReady SucceededConditionReason = "VirtualMachineReady"
 
@@ -191,6 +215,12 @@ const (
 
 	// ValidationReportedWarnings represents the existence of warnings related to resource mapping validation
 	ValidationReportedWarnings ValidConditionReason = "ValidationReportedWarnings"
+
+	// InvalidTargetVMName represents the target VM name being an invalid k8s name
+	InvalidTargetVMName ValidConditionReason = "InvalidTargetVMName"
+
+	// DuplicateTargetVMName
+	DuplicateTargetVMName ValidConditionReason = "DuplicateTargetVMName"
 )
 
 // MappingRulesVerifiedReason defines the reasons for the MappingRulesVerified condition of VM import
@@ -223,6 +253,12 @@ const (
 
 	// CopyingDisks represents the creation of data volumes based on source VM disks
 	CopyingDisks ProcessingConditionReason = "CopyingDisks"
+
+	// CopyingStage represents a stage of a warm migration
+	CopyingStage ProcessingConditionReason = "CopyingStage"
+
+	// CopyingPaused represents waiting for the next warm migration stage
+	CopyingPaused ProcessingConditionReason = "CopyingPaused"
 
 	// ConvertingGuest represents the guest conversion process
 	ConvertingGuest ProcessingConditionReason = "ConvertingGuest"

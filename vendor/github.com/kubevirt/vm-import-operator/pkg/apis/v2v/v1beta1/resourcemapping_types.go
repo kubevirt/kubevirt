@@ -93,6 +93,8 @@ type StorageResourceMappingItem struct {
 
 	// +optional
 	VolumeMode *corev1.PersistentVolumeMode `json:"volumeMode,omitempty"`
+	// +optional
+	AccessMode *corev1.PersistentVolumeAccessMode `json:"accessMode,omitempty"`
 }
 
 // ResourceMappingStatus defines the observed state of ResourceMapping
