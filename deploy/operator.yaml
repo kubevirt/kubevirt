@@ -62,7 +62,7 @@ spec:
         - name: NETWORK_ADDONS_VERSION
           value: v0.44.1
         - name: SSP_VERSION
-          value: v0.1.0
+          value: v0.1.1
         - name: NMO_VERSION
           value: v0.7.0
         - name: HPPO_VERSION
@@ -374,8 +374,8 @@ spec:
         - name: NODE_LABELLER_IMAGE
         - name: CPU_PLUGIN_IMAGE
         - name: OPERATOR_VERSION
-          value: v0.1.0
-        image: quay.io/kubevirt/ssp-operator@sha256:3b5910dba2be6befd98644b579349ca2f99ef7775002c2035a16572099c5d835
+          value: v0.1.1
+        image: quay.io/kubevirt/ssp-operator@sha256:224887f65c1cc4e738735a8d01dbf0d9f9e6e8322bcbb3bdd847b774340e73bc
         name: manager
         ports:
         - containerPort: 9443

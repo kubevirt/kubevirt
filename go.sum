@@ -1739,12 +1739,13 @@ kubevirt.io/containerized-data-importer v1.28.0 h1:MWPqgI9FGiRsAPxHWGMdM89c1oAJU
 kubevirt.io/containerized-data-importer v1.28.0/go.mod h1:9Rh/R77LF9L6FUugX6v+WHktVgwGhHvtSDzAvlNoHq4=
 kubevirt.io/controller-lifecycle-operator-sdk v0.1.1 h1:dqURkr5Q5f4qJM7uLHL0akFxTatt0MUekKL0xifmVjs=
 kubevirt.io/controller-lifecycle-operator-sdk v0.1.1/go.mod h1:M+UuZsp90mmKUVGb5zXDZtIIY1noY5pJk9i2YCQwSnk=
+kubevirt.io/cpu-nfd-plugin v0.1.1/go.mod h1:4H0Zo8BEreXyuPEIJpaNAkUMbsPqeq7nFBYsRI9IIJc=
 kubevirt.io/kubevirt v0.36.0 h1:yp73WPfBtRotwL7l4WIb7siI72EjNOEC00MPEAazj6I=
 kubevirt.io/kubevirt v0.36.0/go.mod h1:3/gOZWe65FBRRg7gwbQ0cZuRIVHZNnRmFAdOcYtZ13c=
 kubevirt.io/qe-tools v0.1.6 h1:S6z9CATmgV2/z9CWetij++Rhu7l/Z4ObZqerLdNMo0Y=
 kubevirt.io/qe-tools v0.1.6/go.mod h1:PJyH/YXC4W0AmxfheDmXWMbLNsMSboVGXKpMAwfKzVE=
-kubevirt.io/ssp-operator v0.1.0 h1:HPjFsnF9GvGn6g6fXXXnBTFF5viUZv67RaJxCqXzcO4=
-kubevirt.io/ssp-operator v0.1.0/go.mod h1:dPFo0xpTeTTdqiyX27mYhz4DYt1TL3ZApbA+by26RLs=
+kubevirt.io/ssp-operator v0.1.1 h1:RCcrHzTs3nD8aAvpU9MUYcs04M4PO448h2PR1tGhGS4=
+kubevirt.io/ssp-operator v0.1.1/go.mod h1:OVwHmTnfypFfkJsPqxZ9+wGoSmChJmq3x8rGA1tT7p0=
 libvirt.org/libvirt-go v6.5.0+incompatible/go.mod h1:CPoljLoiC2aEw+62g1rZXl2oXAJaNsrq4YCSmJOELek=
 libvirt.org/libvirt-go-xml v6.6.0+incompatible/go.mod h1:FL+H1+hKNWDdkKQGGS4sGCZJ3pGWcjt6VbxZvPlQJkY=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
