@@ -119,6 +119,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *v1beta1.Mu
 	vmPath := VMMutatePath
 	vmiPath := VMIMutatePath
 	migrationPath := MigrationMutatePath
+	failurePolicy := v1beta1.Fail
 
 	return &v1beta1.MutatingWebhookConfiguration{
 		TypeMeta: metav1.TypeMeta{
@@ -137,8 +138,9 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *v1beta1.Mu
 		},
 		Webhooks: []v1beta1.MutatingWebhook{
 			{
-				Name:        "virtualmachines-mutator.kubevirt.io",
-				SideEffects: &sideEffectNone,
+				Name:          "virtualmachines-mutator.kubevirt.io",
+				SideEffects:   &sideEffectNone,
+				FailurePolicy: &failurePolicy,
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Create,
@@ -159,8 +161,9 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *v1beta1.Mu
 				},
 			},
 			{
-				Name:        "virtualmachineinstances-mutator.kubevirt.io",
-				SideEffects: &sideEffectNone,
+				Name:          "virtualmachineinstances-mutator.kubevirt.io",
+				SideEffects:   &sideEffectNone,
+				FailurePolicy: &failurePolicy,
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Create,
@@ -181,8 +184,9 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *v1beta1.Mu
 				},
 			},
 			{
-				Name:        "migrations-mutator.kubevirt.io",
-				SideEffects: &sideEffectNone,
+				Name:          "migrations-mutator.kubevirt.io",
+				SideEffects:   &sideEffectNone,
+				FailurePolicy: &failurePolicy,
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Create,
