@@ -24,6 +24,7 @@ package api
 import (
 	"encoding/xml"
 	"fmt"
+	"strings"
 
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -661,29 +662,50 @@ type InterfaceTarget struct {
 }
 
 type Alias struct {
-	Name string `xml:"name,attr"`
+	name        string
+	userDefined bool
 }
 
-type UserAlias Alias
+// Package private, responsible to interact with xml.Encoder and xml.Decoder
+type userAliasXML struct {
+	Name string `xml:"name,attr"`
+}
 
 type Rom struct {
 	Enabled string `xml:"enabled,attr"`
 }
 
+func NewAlias(aliasName string) *Alias {
+	return &Alias{name: aliasName}
+}
+
+func NewUserDefinedAlias(aliasName string) *Alias {
+	return &Alias{name: aliasName, userDefined: true}
+}
+
+func (alias Alias) GetName() string {
+	return alias.name
+}
+
 func (alias Alias) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	userAlias := UserAlias(alias)
-	userAlias.Name = UserAliasPrefix + userAlias.Name
-	return e.EncodeElement(userAlias, start)
+	userAliasXml := userAliasXML{Name: alias.name}
+	if alias.userDefined {
+		userAliasXml.Name = UserAliasPrefix + userAliasXml.Name
+	}
+	return e.EncodeElement(userAliasXml, start)
 }
 
 func (alias *Alias) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	var userAlias UserAlias
-	err := d.DecodeElement(&userAlias, &start)
+	var userAliasXml userAliasXML
+	err := d.DecodeElement(&userAliasXml, &start)
 	if err != nil {
 		return err
 	}
-	*alias = Alias(userAlias)
-	alias.Name = alias.Name[len(UserAliasPrefix):]
+	*alias = Alias{name: userAliasXml.Name}
+	if strings.HasPrefix(alias.name, UserAliasPrefix) {
+		alias.userDefined = true
+		alias.name = strings.TrimPrefix(alias.name, UserAliasPrefix)
+	}
 	return nil
 }
 

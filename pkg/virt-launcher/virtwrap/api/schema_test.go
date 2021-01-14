@@ -22,12 +22,14 @@ package api
 import (
 	"encoding/xml"
 	"fmt"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
+var exampleXMLwithDeviceWithoutUserAliasPrefix string
 var exampleXMLwithNoneMemballoon string
 var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
   <name>mynamespace_testvmi</name>
@@ -189,6 +191,7 @@ var _ = Describe("Schema", func() {
 		`<memballoon model="virtio">
       <stats period="10"></stats>
     </memballoon>`)
+	exampleXMLwithDeviceWithoutUserAliasPrefix = strings.Replace(exampleXML, "alias name=\"ua-tablet0\"", "alias name=\"tablet0\"", 1)
 
 	exampleXMLppc64lewithNoneMemballoon = fmt.Sprintf(exampleXMLppc64le,
 		`<memballoon model="none"></memballoon>`)
@@ -212,9 +215,7 @@ var _ = Describe("Schema", func() {
 					Name: "iqn.2013-07.com.example:iscsi-nopool/2",
 					Host: &DiskSourceHost{Name: "example.com", Port: "3260"}},
 				Target: DiskTarget{Device: "vda"},
-				Alias: &Alias{
-					Name: "mydisk",
-				},
+				Alias:  NewUserDefinedAlias("mydisk"),
 			},
 			{Type: "file",
 				Device: "disk",
@@ -224,9 +225,7 @@ var _ = Describe("Schema", func() {
 					File: "/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso",
 				},
 				Target: DiskTarget{Device: "vdb"},
-				Alias: &Alias{
-					Name: "mydisk1",
-				},
+				Alias:  NewUserDefinedAlias("mydisk1"),
 			},
 			{Type: "block",
 				Device: "disk",
@@ -236,19 +235,15 @@ var _ = Describe("Schema", func() {
 					Dev: "/dev/testdev",
 				},
 				Target: DiskTarget{Device: "vdc"},
-				Alias: &Alias{
-					Name: "mydisk2",
-				},
+				Alias:  NewUserDefinedAlias("mydisk2"),
 			},
 		}
 
 		exampleDomain.Spec.Devices.Inputs = []Input{
 			{
-				Type: "tablet",
-				Bus:  "virtio",
-				Alias: &Alias{
-					Name: "tablet0",
-				},
+				Type:  "tablet",
+				Bus:   "virtio",
+				Alias: NewUserDefinedAlias("tablet0"),
 			},
 		}
 
@@ -263,9 +258,7 @@ var _ = Describe("Schema", func() {
 		exampleDomain.Spec.Devices.Watchdog = &Watchdog{
 			Model:  "i6300esb",
 			Action: "poweroff",
-			Alias: &Alias{
-				Name: "mywatchdog",
-			},
+			Alias:  NewUserDefinedAlias("mywatchdog"),
 		}
 		exampleDomain.Spec.Devices.Rng = &Rng{
 			Model:   "virtio",
@@ -359,6 +352,11 @@ var _ = Describe("Schema", func() {
 			table.Entry("for ppc64le", "ppc64le", exampleXMLppc64le),
 			table.Entry("for amd64", "amd64", exampleXML),
 		)
+		It("Unmarshal into struct for amd64 when device alias name has no user alias prefix", func() {
+			exampleDomainWithDeviceWithoutUserAliasPrefix := exampleDomain.DeepCopy()
+			exampleDomainWithDeviceWithoutUserAliasPrefix.Spec.Devices.Inputs[0].Alias = NewAlias("tablet0")
+			unmarshalTest("amd64", exampleXMLwithDeviceWithoutUserAliasPrefix, exampleDomainWithDeviceWithoutUserAliasPrefix)
+		})
 		table.DescribeTable("Marshal into xml", func(arch string, domainStr string) {
 			marshalTest(arch, domainStr, exampleDomain)
 		},

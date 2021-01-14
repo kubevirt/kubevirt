@@ -213,7 +213,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 	if numQueues != nil && disk.Target.Bus == "virtio" {
 		disk.Driver.Queues = numQueues
 	}
-	disk.Alias = &api.Alias{Name: diskDevice.Name}
+	disk.Alias = api.NewUserDefinedAlias(diskDevice.Name)
 	if diskDevice.BootOrder != nil {
 		disk.BootOrder = &api.BootOrder{Order: *diskDevice.BootOrder}
 	}
@@ -442,7 +442,7 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *Convert
 		return Convert_v1_Config_To_api_Disk(source.Name, disk, config.ServiceAccount)
 	}
 
-	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.Name)
+	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.GetName())
 }
 
 // Convert_v1_Hotplug_Volume_To_api_Disk convers a hotplug volume to an api disk
@@ -460,7 +460,7 @@ func Convert_v1_Hotplug_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c 
 	if source.DataVolume != nil {
 		return Convert_v1_Hotplug_DataVolume_To_api_Disk(source.Name, disk, c)
 	}
-	return fmt.Errorf("hotplug disk %s references an unsupported source", disk.Alias.Name)
+	return fmt.Errorf("hotplug disk %s references an unsupported source", disk.Alias.GetName())
 }
 
 func Convert_v1_Config_To_api_Disk(volumeName string, disk *api.Disk, configType config.Type) error {
@@ -574,7 +574,7 @@ func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.D
 
 func Convert_v1_CloudInitSource_To_api_Disk(source v1.VolumeSource, disk *api.Disk, c *ConverterContext) error {
 	if disk.Type == "lun" {
-		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.Name)
+		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.GetName())
 	}
 
 	var dataSource cloudinit.DataSourceType
@@ -601,7 +601,7 @@ func Convert_v1_IgnitionData_To_api_Disk(disk *api.Disk, c *ConverterContext) er
 
 func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSource, disk *api.Disk, c *ConverterContext) error {
 	if disk.Type == "lun" {
-		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.Name)
+		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.GetName())
 	}
 
 	disk.Type = "file"
@@ -613,7 +613,7 @@ func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSo
 
 func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.ContainerDiskSource, disk *api.Disk, c *ConverterContext, diskIndex int) error {
 	if disk.Type == "lun" {
-		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.Name)
+		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.GetName())
 	}
 	disk.Type = "file"
 	disk.Driver.Type = "qcow2"
@@ -655,9 +655,7 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, source *v1.
 }
 
 func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *api.Watchdog, _ *ConverterContext) error {
-	watchdog.Alias = &api.Alias{
-		Name: source.Name,
-	}
+	watchdog.Alias = api.NewUserDefinedAlias(source.Name)
 	if source.I6300ESB != nil {
 		watchdog.Model = "i6300esb"
 		watchdog.Action = string(source.I6300ESB.Action)
@@ -697,7 +695,7 @@ func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input
 
 	inputDevice.Bus = input.Bus
 	inputDevice.Type = input.Type
-	inputDevice.Alias = &api.Alias{Name: input.Name}
+	inputDevice.Alias = api.NewUserDefinedAlias(input.Name)
 
 	if input.Bus == "virtio" {
 		inputDevice.Model = "virtio"
@@ -1512,9 +1510,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				Model: &api.Model{
 					Type: translateModel(c, ifaceType),
 				},
-				Alias: &api.Alias{
-					Name: iface.Name,
-				},
+				Alias: api.NewUserDefinedAlias(iface.Name),
 			}
 
 			// if UseEmulation unset and at least one NIC model is virtio,
@@ -2002,7 +1998,7 @@ func createHostDevicesFromPCIAddress(pciAddr string, name string) (api.HostDevic
 		Type:    "pci",
 		Managed: "yes",
 	}
-	hostDev.Alias = &api.Alias{Name: name}
+	hostDev.Alias = api.NewUserDefinedAlias(name)
 
 	return hostDev, nil
 }
@@ -2020,7 +2016,7 @@ func createHostDevicesFromMdevUUID(mdevUUID string, name string) (api.HostDevice
 		Mode:  "subsystem",
 		Model: "vfio-pci",
 	}
-	hostDev.Alias = &api.Alias{Name: name}
+	hostDev.Alias = api.NewUserDefinedAlias(name)
 
 	return hostDev, nil
 }
