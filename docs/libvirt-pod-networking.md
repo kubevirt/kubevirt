@@ -6,7 +6,7 @@ Author: Fabian Deutsch \<fabiand@redhat.com\>
 
 Today, networking in KubeVirt is not integrated with Kubernetes. In order to
 have network connectivity inside the VMI, a user must create a specific VMI Spec
-that induces a particular libvirt domxml, in order to reuse a pre-exising host
+that induces a particular libvirt domxml, in order to reuse a pre-existing host
 network interface.
 
 This is obviously suboptimal:

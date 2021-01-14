@@ -4,7 +4,7 @@
    * [Overview](#overview)
    * [Cadence and Timeline](#cadence-and-timeline)
    * [Versioning](#versioning)
-   * [Annoucement](#announcement)
+   * [Announcement](#announcement)
    * [Handling Release Blockers](#handling-release-blockers)
       * [Release Blocker Criteria](#release-blocker-criteria)
       * [Setting a Release Blocker](#setting-a-release-blocker)
