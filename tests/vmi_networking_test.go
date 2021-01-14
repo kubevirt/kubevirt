@@ -787,7 +787,6 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 		When("performing migration", func() {
 			var vmi *v1.VirtualMachineInstance
-			var virtHandlerIPs []k8sv1.PodIP
 
 			ping := func(ipAddr string) error {
 				return libnet.PingFromVMConsole(vmi, ipAddr, "-c 1", "-w 2")
@@ -889,12 +888,11 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))
 
 				Eventually(func() error {
-					for _, podIP := range virtHandlerIPs {
-						err := ping(podIP.IP)
-						if err != nil {
-							return err
-						}
+					err := ping(podIP)
+					if err != nil {
+						return err
 					}
+
 					return nil
 				}, 120*time.Second).Should(Succeed())
 			},
