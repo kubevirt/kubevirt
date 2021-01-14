@@ -19175,6 +19175,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 							Format:      "",
 						},
 					},
+					"launcherContainerImageVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LauncherContainerImageVersion indicates what container image is currently active for the vmi.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"evacuationNodeName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want to evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.",

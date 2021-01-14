@@ -47,6 +47,8 @@ var _ = Describe("Workload Updater", func() {
 
 	var controller *WorkloadUpdateController
 
+	var expectedImage string
+
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
 		go migrationInformer.Run(stop)
@@ -66,6 +68,9 @@ var _ = Describe("Workload Updater", func() {
 	}
 
 	BeforeEach(func() {
+
+		expectedImage = "cur-image"
+
 		outdatedVMIWorkloads.Set(0.0)
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
@@ -87,7 +92,7 @@ var _ = Describe("Workload Updater", func() {
 		kubeVirtInformer, _ = testutils.NewFakeInformerFor(&v1.KubeVirt{})
 		kubeVirtInformer, kubeVirtSource = testutils.NewFakeInformerFor(&v1.KubeVirt{})
 
-		controller = NewWorkloadUpdateController(vmiInformer, migrationInformer, kubeVirtInformer, recorder, virtClient, config)
+		controller = NewWorkloadUpdateController(expectedImage, vmiInformer, migrationInformer, kubeVirtInformer, recorder, virtClient, config)
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)
 		controller.queue = mockQueue
 		migrationFeeder = testutils.NewMigrationFeeder(mockQueue, migrationSource)
@@ -110,7 +115,7 @@ var _ = Describe("Workload Updater", func() {
 
 	Context("workload update in progress", func() {
 		It("should migrate the VMI", func() {
-			vmi := newVirtualMachine("testvm", true, true)
+			vmi := newVirtualMachine("testvm", true, "madeup")
 			vmiSource.Add(vmi)
 			time.Sleep(1 * time.Second)
 			kv := newKubeVirt(1)
@@ -124,7 +129,7 @@ var _ = Describe("Workload Updater", func() {
 		})
 
 		It("should do nothing if deployment is updating", func() {
-			vmi := newVirtualMachine("testvm", true, true)
+			vmi := newVirtualMachine("testvm", true, "madeup")
 			vmiSource.Add(vmi)
 			time.Sleep(1 * time.Second)
 			kv := newKubeVirt(1)
@@ -147,16 +152,16 @@ var _ = Describe("Workload Updater", func() {
 
 			reasons := []string{}
 			for i := 0; i < 50; i++ {
-				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, true)
+				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup")
 				vmiSource.Add(vmi)
 			}
 			for i := 0; i < 50; i++ {
-				vmi := newVirtualMachine(fmt.Sprintf("testvm-non-migratable-%d", i), false, true)
+				vmi := newVirtualMachine(fmt.Sprintf("testvm-non-migratable-%d", i), false, "madeup")
 				vmiSource.Add(vmi)
 			}
 			// add vmis that are not outdated to ensure they are not counted as outdated in count
 			for i := 0; i < 100; i++ {
-				vmi := newVirtualMachine(fmt.Sprintf("testvm-up-to-date-%d", i), false, false)
+				vmi := newVirtualMachine(fmt.Sprintf("testvm-up-to-date-%d", i), false, expectedImage)
 				vmiSource.Add(vmi)
 			}
 			for i := 0; i < int(virtconfig.ParallelMigrationsPerClusterDefault); i++ {
@@ -196,11 +201,11 @@ var _ = Describe("Workload Updater", func() {
 		It("should migrate VMIs up to the global max migration count and delete up to delete batch count", func() {
 			reasons := []string{}
 			for i := 0; i < 50; i++ {
-				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, true)
+				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup")
 				vmiSource.Add(vmi)
 			}
 			for i := 0; i < 50; i++ {
-				vmi := newVirtualMachine(fmt.Sprintf("testvm-%d", i), false, true)
+				vmi := newVirtualMachine(fmt.Sprintf("testvm-%d", i), false, "madeup")
 				vmiSource.Add(vmi)
 			}
 			for i := 0; i < int(virtconfig.ParallelMigrationsPerClusterDefault); i++ {
@@ -231,7 +236,7 @@ var _ = Describe("Workload Updater", func() {
 
 			reasons := []string{}
 			for i := 0; i < 50; i++ {
-				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, true)
+				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup")
 				vmiSource.Add(vmi)
 				// create enough migrations to only allow one more active one to be created
 				if i < int(virtconfig.ParallelMigrationsPerClusterDefault)-1 {
@@ -257,18 +262,18 @@ var _ = Describe("Workload Updater", func() {
 
 		It("should migrate/shutdown outdated VMIs and leave up to date VMIs alone", func() {
 			reasons := []string{}
-			vmi := newVirtualMachine("testvm-outdated-migratable", true, true)
+			vmi := newVirtualMachine("testvm-outdated-migratable", true, "madeup")
 			reasons = append(reasons, SuccessfulCreateVirtualMachineInstanceMigrationReason)
 			vmiSource.Add(vmi)
 
-			vmi = newVirtualMachine("testvm-outdated-non-migratable", false, true)
+			vmi = newVirtualMachine("testvm-outdated-non-migratable", false, "madeup")
 			reasons = append(reasons, SuccessfulDeleteVirtualMachineInstanceReason)
 			vmiSource.Add(vmi)
 
 			for i := 0; i < 50; i++ {
-				vmi = newVirtualMachine(fmt.Sprintf("testvm-up-to-date-migratable-%d", i), true, false)
+				vmi = newVirtualMachine(fmt.Sprintf("testvm-up-to-date-migratable-%d", i), true, expectedImage)
 				vmiSource.Add(vmi)
-				vmi = newVirtualMachine(fmt.Sprintf("testvm-up-to-date-non-migratable-%d", i), false, false)
+				vmi = newVirtualMachine(fmt.Sprintf("testvm-up-to-date-non-migratable-%d", i), false, expectedImage)
 				vmiSource.Add(vmi)
 			}
 
@@ -287,11 +292,11 @@ var _ = Describe("Workload Updater", func() {
 
 		It("should do nothing if no method is set", func() {
 			for i := 0; i < 50; i++ {
-				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, true)
+				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup")
 				vmiSource.Add(vmi)
 			}
 			for i := 0; i < 50; i++ {
-				vmi := newVirtualMachine(fmt.Sprintf("testvm-%d", i), false, true)
+				vmi := newVirtualMachine(fmt.Sprintf("testvm-%d", i), false, "madeup")
 				vmiSource.Add(vmi)
 			}
 
@@ -306,7 +311,7 @@ var _ = Describe("Workload Updater", func() {
 		It("should shutdown VMIs and not migrate when only shutdown method is set", func() {
 			reasons := []string{}
 			for i := 0; i < 50; i++ {
-				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, true)
+				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup")
 				vmiSource.Add(vmi)
 			}
 			for i := 0; i < defaultBatchDeletionCount; i++ {
@@ -330,7 +335,7 @@ var _ = Describe("Workload Updater", func() {
 			batchDeletions := 30
 			reasons := []string{}
 			for i := 0; i < 50; i++ {
-				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, true)
+				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-%d", i), true, "madeup")
 				vmiSource.Add(vmi)
 			}
 			for i := 0; i < batchDeletions; i++ {
@@ -362,7 +367,7 @@ var _ = Describe("Workload Updater", func() {
 			}
 
 			for i := 0; i < batchDeletions*2; i++ {
-				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-1-%d", i), true, true)
+				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-1-%d", i), true, "madeup")
 				vmiSource.Add(vmi)
 			}
 			// wait for informer to catch up since we aren't watching
@@ -406,7 +411,7 @@ var _ = Describe("Workload Updater", func() {
 			}
 
 			for i := 0; i < batchDeletions*2; i++ {
-				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-1-%d", i), true, true)
+				vmi := newVirtualMachine(fmt.Sprintf("testvm-migratable-1-%d", i), true, "madeup")
 				vmiSource.Add(vmi)
 			}
 			// wait for informer to catch up since we aren't watching
@@ -471,13 +476,11 @@ func newKubeVirt(expectedNumOutdated int) *v1.KubeVirt {
 	}
 }
 
-func newVirtualMachine(name string, isMigratable bool, isOutdated bool) *v1.VirtualMachineInstance {
+func newVirtualMachine(name string, isMigratable bool, image string) *v1.VirtualMachineInstance {
 	vmi := v1.NewMinimalVMI("testvm")
 	vmi.Name = name
 	vmi.Namespace = v12.NamespaceDefault
-	if isOutdated {
-		vmi.Labels = map[string]string{v1.OutdatedLauncherImageLabel: ""}
-	}
+	vmi.Status.LauncherContainerImageVersion = image
 	vmi.Status.Phase = v1.Running
 	vmi.UID = "1234"
 	if isMigratable {

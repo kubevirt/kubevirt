@@ -184,6 +184,9 @@ type VirtualMachineInstanceStatus struct {
 	// +optional
 	QOSClass *k8sv1.PodQOSClass `json:"qosClass,omitempty"`
 
+	// LauncherContainerImageVersion indicates what container image is currently active for the vmi.
+	LauncherContainerImageVersion string `json:"launcherContainerImageVersion,omitempty"`
+
 	// EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want
 	// to evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.
 	// +optional

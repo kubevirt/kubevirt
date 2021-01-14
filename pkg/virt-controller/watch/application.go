@@ -481,6 +481,7 @@ func (vca *VirtControllerApp) initDisruptionBudgetController() {
 func (vca *VirtControllerApp) initWorkloadUpdaterController() {
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "workload-update-controller")
 	vca.workloadUpdateController = workloadupdater.NewWorkloadUpdateController(
+		vca.launcherImage,
 		vca.vmiInformer,
 		vca.migrationInformer,
 		vca.kubeVirtInformer,

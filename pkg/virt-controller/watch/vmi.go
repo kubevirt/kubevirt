@@ -309,6 +309,25 @@ func conditionsEqual(a []virtv1.VirtualMachineInstanceCondition, b []virtv1.Virt
 	return true
 }
 
+func (c *VMIController) setLauncherContainerInfo(vmi *virtv1.VirtualMachineInstance, curPodImage string) *virtv1.VirtualMachineInstance {
+
+	if curPodImage != "" && curPodImage != c.templateService.GetLauncherImage() {
+		if vmi.Labels == nil {
+			vmi.Labels = map[string]string{}
+		}
+		vmi.Labels[virtv1.OutdatedLauncherImageLabel] = ""
+	} else {
+		if vmi.Labels != nil {
+			delete(vmi.Labels, virtv1.OutdatedLauncherImageLabel)
+		}
+	}
+
+	vmi.Status.LauncherContainerImageVersion = curPodImage
+
+	return vmi
+
+}
+
 func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr syncError) error {
 
 	hasFailedDataVolume := false
@@ -536,14 +555,14 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				}
 			}
 
-			if foundImage != "" && foundImage != c.templateService.GetLauncherImage() {
-				if vmiCopy.Labels == nil {
-					vmiCopy.Labels = map[string]string{}
-				}
-				vmiCopy.Labels[virtv1.OutdatedLauncherImageLabel] = ""
-			} else {
-				if vmiCopy.Labels != nil {
-					delete(vmiCopy.Labels, virtv1.OutdatedLauncherImageLabel)
+			vmiCopy = c.setLauncherContainerInfo(vmiCopy, foundImage)
+
+			if vmiCopy.Status.LauncherContainerImageVersion != vmi.Status.LauncherContainerImageVersion {
+				if vmi.Status.LauncherContainerImageVersion == "" {
+					patchOps = append(patchOps, fmt.Sprintf(`{ "op": "add", "path": "/status/launcherContainerImageVersion", "value": "%s" }`, vmiCopy.Status.LauncherContainerImageVersion))
+				} else {
+					patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/launcherContainerImageVersion", "value": "%s" }`, vmi.Status.LauncherContainerImageVersion))
+					patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/launcherContainerImageVersion", "value": "%s" }`, vmiCopy.Status.LauncherContainerImageVersion))
 				}
 			}
 

@@ -4963,6 +4963,9 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
             type: object
           type: array
+        launcherContainerImageVersion:
+          description: LauncherContainerImageVersion indicates what container image is currently active for the vmi.
+          type: string
         migrationMethod:
           description: 'Represents the method using which the vmi can be migrated: live migration or block migration'
           type: string
