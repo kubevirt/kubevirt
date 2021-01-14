@@ -895,6 +895,17 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 					return nil
 				}, 120*time.Second).Should(Succeed())
+
+				By("Restarting the vmi")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "sudo reboot\n"},
+					&expect.BExp{R: "reboot: Restarting system"},
+				}, 10)).To(Succeed(), "failed to restart the vmi")
+				tests.WaitUntilVMIReady(vmi, loginMethod)
+				if ipFamily == k8sv1.IPv6Protocol {
+					Expect(configureIpv6(vmi)).To(Succeed(), "failed to configure ipv6 on vmi after restart")
+				}
+				Expect(ping(podIP)).To(Succeed())
 			},
 				table.Entry("IPv4", k8sv1.IPv4Protocol),
 				table.Entry("IPv6", k8sv1.IPv6Protocol),
