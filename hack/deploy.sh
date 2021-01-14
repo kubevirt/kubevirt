@@ -119,6 +119,7 @@ function debug(){
 
 # Deploy cert-manager for webhooks
 "${CMD}" apply -f _out/cert-manager.yaml
+"${CMD}" -n cert-manager wait deployment/cert-manager-webhook --for=condition=Available --timeout="300s"
 
 # Deploy local manifests
 "${CMD}" apply -f _out/cluster_role.yaml

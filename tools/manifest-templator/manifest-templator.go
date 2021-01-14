@@ -222,9 +222,7 @@ func main() {
 						Name: webhook.DeploymentName + "-service",
 					},
 					Spec: v1.ServiceSpec{
-						Selector: map[string]string{
-							"name": webhook.DeploymentName,
-						},
+						Selector: getSelectorOfWebhookDeployment(webhook.DeploymentName, csvStruct.Spec.InstallStrategy.StrategySpec.DeploymentSpecs),
 						Ports: []v1.ServicePort{
 							{
 								Name:       strconv.Itoa(int(webhook.ContainerPort)),
@@ -416,6 +414,16 @@ func main() {
 	for _, clusterRoleBinding := range clusterRoleBindings {
 		util.MarshallObject(clusterRoleBinding, crbYaml)
 	}
+}
+
+func getSelectorOfWebhookDeployment(deployment string, specs []csvv1alpha1.StrategyDeploymentSpec) map[string]string {
+	for _, ds := range specs {
+		if ds.Name == deployment {
+			return ds.Spec.Selector.MatchLabels
+		}
+	}
+
+	panic("no deployment spec for webhook:" + deployment)
 }
 
 func injectWebhookMounts(webhookDefs []csvv1alpha1.WebhookDescription, deploy *appsv1.Deployment) {
