@@ -791,6 +791,16 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 					}
 					return nil
 				}, 120*time.Second).Should(Succeed())
+
+				By("Restarting the vmi")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "sudo reboot\n"},
+					&expect.BExp{R: "reboot: Restarting system"},
+				}, 10)).To(Succeed(), "failed to restart the vmi")
+				tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToCirros))
+				for _, podIP := range virtHandlerIPs {
+					Expect(ping(podIP.IP)).To(Succeed())
+				}
 			})
 		})
 
