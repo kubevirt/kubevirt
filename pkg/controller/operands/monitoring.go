@@ -25,7 +25,7 @@ const (
 	operatorNameEnv      = "OPERATOR_NAME"
 	metricsSuffix        = "-operator-metrics"
 	alertRuleGroup       = "kubevirt.hyperconverged.rules"
-	outOfBandUpdateAlert = "Kubevirt_hyperconverged_out-of-band_CR_modification_detected"
+	outOfBandUpdateAlert = "KubevirtHyperconvergedClusterOperatorCRModification"
 )
 
 type metricsServiceHandler genericOperand
