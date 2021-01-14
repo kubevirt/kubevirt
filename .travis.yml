@@ -100,14 +100,6 @@ deploy:
   on:
     branch: master
     condition: $TRAVIS_CPU_ARCH = amd64
-- provider: script
-  script: DOCKER_TAG="$TRAVIS_TAG" QUAY_REPOSITORY="kubevirt" PACKAGE_NAME="kubevirt-operatorhub" make olm-push
-  skip_cleanup: true
-  file:
-  on:
-    tags: true
-    condition: $TRAVIS_CPU_ARCH = amd64
-
 env:
   global:
   # api-reference token
