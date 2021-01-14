@@ -727,14 +727,6 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces(queueNumber uint32,
 		return err
 	}
 
-	if p.iface.MacAddress == "" {
-		p.vif.MAC, err = Handler.GenerateRandomMac()
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to generate random mac address")
-			return err
-		}
-	}
-
 	err = Handler.LinkSetUp(bridgeNic)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", bridgeNic.Name)
@@ -786,7 +778,9 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces(queueNumber uint32,
 	}
 
 	p.virtIface.MTU = &api.MTU{Size: strconv.Itoa(p.podNicLink.Attrs().MTU)}
-	p.virtIface.MAC = &api.MAC{MAC: p.vif.MAC.String()}
+	if p.vif.MAC != nil {
+		p.virtIface.MAC = &api.MAC{MAC: p.vif.MAC.String()}
+	}
 	p.virtIface.Target = &api.InterfaceTarget{
 		Device:  p.vif.TapDevice,
 		Managed: "no",
@@ -800,7 +794,7 @@ func (p *MasqueradePodInterface) decorateConfig() error {
 	for i, iface := range ifaces {
 		if iface.Alias.Name == p.iface.Name {
 			ifaces[i].MTU = p.virtIface.MTU
-			ifaces[i].MAC = &api.MAC{MAC: p.vif.MAC.String()}
+			ifaces[i].MAC = p.virtIface.MAC
 			ifaces[i].Target = p.virtIface.Target
 			break
 		}
