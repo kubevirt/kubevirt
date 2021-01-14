@@ -204,10 +204,12 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		}
 	}
 	disk.Driver = &api.DiskDriver{
-		Name:  "qemu",
-		Cache: string(diskDevice.Cache),
-		IO:    string(diskDevice.IO),
+		Name:        "qemu",
+		Cache:       string(diskDevice.Cache),
+		IO:          string(diskDevice.IO),
+		ErrorPolicy: "stop",
 	}
+
 	if numQueues != nil && disk.Target.Bus == "virtio" {
 		disk.Driver.Queues = numQueues
 	}
@@ -464,6 +466,7 @@ func Convert_v1_Hotplug_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c 
 func Convert_v1_Config_To_api_Disk(volumeName string, disk *api.Disk, configType config.Type) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
+	disk.Driver.ErrorPolicy = "stop"
 	switch configType {
 	case config.ConfigMap:
 		disk.Source.File = config.GetConfigMapDiskPath(volumeName)
@@ -536,6 +539,7 @@ func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *C
 func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, c *ConverterContext) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
+	disk.Driver.ErrorPolicy = "stop"
 	disk.Source.File = GetFilesystemVolumePath(volumeName)
 	return nil
 }
@@ -544,6 +548,7 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.
 func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, c *ConverterContext) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
+	disk.Driver.ErrorPolicy = "stop"
 	disk.Source.File = GetHotplugFilesystemVolumePath(volumeName)
 	return nil
 }
@@ -551,6 +556,7 @@ func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, di
 func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, c *ConverterContext) error {
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
+	disk.Driver.ErrorPolicy = "stop"
 	disk.Source.Dev = GetBlockDeviceVolumePath(volumeName)
 	return nil
 }
@@ -559,6 +565,7 @@ func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk,
 func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, c *ConverterContext) error {
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
+	disk.Driver.ErrorPolicy = "stop"
 	disk.Source.Dev = GetHotplugBlockDeviceVolumePath(volumeName)
 	return nil
 }
@@ -566,6 +573,7 @@ func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *a
 func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.Disk, c *ConverterContext) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
+	disk.Driver.ErrorPolicy = "stop"
 	disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
 	return nil
 }
@@ -587,6 +595,15 @@ func Convert_v1_CloudInitSource_To_api_Disk(source v1.VolumeSource, disk *api.Di
 	disk.Source.File = cloudinit.GetIsoFilePath(dataSource, c.VirtualMachine.Name, c.VirtualMachine.Namespace)
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
+	disk.Driver.ErrorPolicy = "stop"
+	return nil
+}
+
+func Convert_v1_IgnitionData_To_api_Disk(disk *api.Disk, c *ConverterContext) error {
+	disk.Source.File = fmt.Sprintf("%s/%s", ignition.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace), c.VirtualMachine.Annotations[v1.IgnitionAnnotation])
+	disk.Type = "file"
+	disk.Driver.Type = "raw"
+	disk.Driver.ErrorPolicy = "stop"
 	return nil
 }
 
@@ -598,6 +615,7 @@ func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSo
 	disk.Type = "file"
 	disk.Driver.Type = "qcow2"
 	disk.Source.File = emptydisk.FilePathForVolumeName(volumeName)
+	disk.Driver.ErrorPolicy = "stop"
 
 	return nil
 }
@@ -608,6 +626,7 @@ func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.Contain
 	}
 	disk.Type = "file"
 	disk.Driver.Type = "qcow2"
+	disk.Driver.ErrorPolicy = "stop"
 	disk.Source.File = ephemeraldisk.GetFilePath(volumeName)
 	disk.BackingStore = &api.BackingStore{
 		Format: &api.BackingStoreFormat{},
@@ -626,6 +645,7 @@ func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.Contain
 func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, source *v1.EphemeralVolumeSource, disk *api.Disk, c *ConverterContext) error {
 	disk.Type = "file"
 	disk.Driver.Type = "qcow2"
+	disk.Driver.ErrorPolicy = "stop"
 	disk.Source.File = ephemeraldisk.GetFilePath(volumeName)
 	disk.BackingStore = &api.BackingStore{
 		Format: &api.BackingStoreFormat{},
