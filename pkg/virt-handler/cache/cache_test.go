@@ -240,6 +240,7 @@ var _ = Describe("Domain informer", func() {
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 
 			err := AddGhostRecord("test1-namespace", "test1", "somefile1", "1234-1")
+			Expect(err).ToNot(HaveOccurred())
 			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
 
 			// ensure we can connect to the server first.
@@ -439,6 +440,7 @@ var _ = Describe("Domain informer", func() {
 			// This file doesn't have a unix sock server behind it
 			// verify list still completes regardless
 			f, err := os.Create(filepath.Join(socketsDir, "default_fakevm_sock"))
+			Expect(err).ToNot(HaveOccurred())
 			f.Close()
 			runCMDServer(wg, socketPath, domainManager, stopChan, nil)
 			// ensure we can connect to the server first.
