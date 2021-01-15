@@ -35,6 +35,7 @@ var _ = Describe("Mediated Device", func() {
 	BeforeEach(func() {
 		By("creating a temporary fake mdev directory tree")
 		fakeMdevBasePath, err := ioutil.TempDir("/tmp", "mdevs")
+		Expect(err).ToNot(HaveOccurred())
 		mdevBasePath = fakeMdevBasePath
 		mdevTypePath := filepath.Join(fakeMdevBasePath, fakeMdevUUID+"real", "mdev_type")
 		err = os.MkdirAll(mdevTypePath, 0700)
