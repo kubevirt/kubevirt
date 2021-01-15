@@ -34,10 +34,15 @@ func newVmImportHandler(Client client.Client, Scheme *runtime.Scheme) *vmImportH
 	}
 }
 
-type vmImportHooks struct{}
+type vmImportHooks struct {
+	cache *vmimportv1beta1.VMImportConfig
+}
 
-func (h vmImportHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
-	return NewVMImportForCR(hc), nil
+func (h *vmImportHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+	if h.cache == nil {
+		h.cache = NewVMImportForCR(hc)
+	}
+	return h.cache, nil
 }
 func (h vmImportHooks) getEmptyCr() runtime.Object                             { return &vmimportv1beta1.VMImportConfig{} }
 func (h vmImportHooks) validate() error                                        { return nil }
@@ -51,6 +56,9 @@ func (h vmImportHooks) checkComponentVersion(cr runtime.Object) bool {
 }
 func (h vmImportHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*vmimportv1beta1.VMImportConfig).ObjectMeta
+}
+func (h *vmImportHooks) reset() {
+	h.cache = nil
 }
 
 func (h *vmImportHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
@@ -132,6 +140,8 @@ func (h imsConfigHooks) checkComponentVersion(_ runtime.Object) bool            
 func (h imsConfigHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*corev1.ConfigMap).ObjectMeta
 }
+func (h imsConfigHooks) reset() {}
+
 func (h *imsConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	imsConfig, ok1 := required.(*corev1.ConfigMap)
 	found, ok2 := exists.(*corev1.ConfigMap)

@@ -200,6 +200,8 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		pRequest = reconcile.Request{
 			NamespacedName: hco,
 		}
+	} else {
+		r.operandHandler.Reset()
 	}
 
 	req := common.NewHcoRequest(pRequest, log, r.upgradeMode, hcoTriggered)

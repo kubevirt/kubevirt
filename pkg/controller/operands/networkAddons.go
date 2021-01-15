@@ -34,11 +34,21 @@ func newCnaHandler(Client client.Client, Scheme *runtime.Scheme) *cnaHandler {
 	}
 }
 
-type cnaHooks struct{}
-
-func (h cnaHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
-	return NewNetworkAddons(hc)
+type cnaHooks struct {
+	cache *networkaddonsv1.NetworkAddonsConfig
 }
+
+func (h *cnaHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+	if h.cache == nil {
+		cna, err := NewNetworkAddons(hc)
+		if err != nil {
+			return nil, err
+		}
+		h.cache = cna
+	}
+	return h.cache, nil
+}
+
 func (h cnaHooks) getEmptyCr() runtime.Object                         { return &networkaddonsv1.NetworkAddonsConfig{} }
 func (h cnaHooks) validate() error                                    { return nil }
 func (h cnaHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
@@ -51,6 +61,9 @@ func (h cnaHooks) checkComponentVersion(cr runtime.Object) bool {
 }
 func (h cnaHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*networkaddonsv1.NetworkAddonsConfig).ObjectMeta
+}
+func (h *cnaHooks) reset() {
+	h.cache = nil
 }
 
 func (h *cnaHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {

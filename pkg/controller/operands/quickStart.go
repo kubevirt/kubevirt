@@ -78,6 +78,8 @@ func (h qsHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*consolev1.ConsoleQuickStart).ObjectMeta
 }
 
+func (h qsHooks) reset() {}
+
 func (h qsHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, _ runtime.Object) (bool, bool, error) {
 	found, ok := exists.(*consolev1.ConsoleQuickStart)
 

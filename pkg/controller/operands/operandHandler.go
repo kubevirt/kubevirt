@@ -201,3 +201,9 @@ func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 
 	return nil
 }
+
+func (h *OperandHandler) Reset() {
+	for _, op := range h.operands {
+		op.reset()
+	}
+}

@@ -24,6 +24,7 @@ import (
 
 type Operand interface {
 	ensure(req *common.HcoRequest) *EnsureResult
+	reset()
 }
 
 // Handles a specific resource (a CR, a configMap and so on), to be run during reconciliation
@@ -64,6 +65,8 @@ type hcoResourceHooks interface {
 	checkComponentVersion(runtime.Object) bool
 	// cast he specific resource to *metav1.ObjectMeta
 	getObjectMeta(runtime.Object) *metav1.ObjectMeta
+	// reset handler cached, if exists
+	reset()
 }
 
 func (h *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
@@ -165,6 +168,10 @@ func (h *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
 	}
 	// For resources that are not CRs, such as priority classes or a config map, there is no new version to upgrade
 	return res.SetUpgradeDone(req.ComponentUpgradeInProgress)
+}
+
+func (h *genericOperand) reset() {
+	h.hooks.reset()
 }
 
 // handleComponentConditions - read and process a sub-component conditions.

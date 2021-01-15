@@ -40,10 +40,18 @@ func newCdiHandler(Client client.Client, Scheme *runtime.Scheme) *cdiHandler {
 type cdiHooks struct {
 	Client client.Client
 	Scheme *runtime.Scheme
+	cache  *cdiv1beta1.CDI
 }
 
-func (h cdiHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
-	return NewCDI(hc)
+func (h *cdiHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+	if h.cache == nil {
+		cdi, err := NewCDI(hc)
+		if err != nil {
+			return nil, err
+		}
+		h.cache = cdi
+	}
+	return h.cache, nil
 }
 func (h cdiHooks) getEmptyCr() runtime.Object { return &cdiv1beta1.CDI{} }
 func (h cdiHooks) validate() error            { return nil }
@@ -56,6 +64,9 @@ func (h cdiHooks) checkComponentVersion(cr runtime.Object) bool {
 }
 func (h cdiHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*cdiv1beta1.CDI).ObjectMeta
+}
+func (h *cdiHooks) reset() {
+	h.cache = nil
 }
 
 func (h *cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
@@ -304,6 +315,7 @@ func (h storageConfigHooks) checkComponentVersion(_ runtime.Object) bool        
 func (h storageConfigHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*corev1.ConfigMap).ObjectMeta
 }
+func (h storageConfigHooks) reset() {}
 func (h *storageConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	storageConfig, ok1 := required.(*corev1.ConfigMap)
 	found, ok2 := exists.(*corev1.ConfigMap)

@@ -549,6 +549,57 @@ var _ = Describe("CNA Operand", func() {
 				Expect(cna.Spec.ImagePullPolicy).To(BeEmpty())
 			})
 		})
+
+		Context("Cache", func() {
+			cl := commonTestUtils.InitClient([]runtime.Object{})
+			handler := newCnaHandler(cl, commonTestUtils.GetScheme())
+
+			It("should start with empty cache", func() {
+				Expect(handler.hooks.(*cnaHooks).cache).To(BeNil())
+			})
+
+			It("should update the cache when reading full CR", func() {
+				cr, err := handler.hooks.getFullCr(hco)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(cr).ToNot(BeNil())
+				Expect(handler.hooks.(*cnaHooks).cache).ToNot(BeNil())
+
+				By("compare pointers to make sure cache is working", func() {
+					Expect(handler.hooks.(*cnaHooks).cache == cr).Should(BeTrue())
+
+					crII, err := handler.hooks.getFullCr(hco)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(crII).ToNot(BeNil())
+					Expect(cr == crII).Should(BeTrue())
+				})
+			})
+
+			It("should remove the cache on reset", func() {
+				handler.hooks.(*cnaHooks).reset()
+				Expect(handler.hooks.(*cnaHooks).cache).To(BeNil())
+			})
+
+			It("check that reset actually cause creating of a new cached instance", func() {
+				crI, err := handler.hooks.getFullCr(hco)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(crI).ToNot(BeNil())
+				Expect(handler.hooks.(*cnaHooks).cache).ToNot(BeNil())
+
+				handler.hooks.(*cnaHooks).reset()
+				Expect(handler.hooks.(*cnaHooks).cache).To(BeNil())
+
+				crII, err := handler.hooks.getFullCr(hco)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(crII).ToNot(BeNil())
+				Expect(handler.hooks.(*cnaHooks).cache).ToNot(BeNil())
+
+				Expect(crI == crII).To(BeFalse())
+				Expect(handler.hooks.(*cnaHooks).cache == crI).To(BeFalse())
+				Expect(handler.hooks.(*cnaHooks).cache == crII).To(BeTrue())
+			})
+
+		})
+
 	})
 
 	Context("hcoConfig2CnaoPlacement", func() {

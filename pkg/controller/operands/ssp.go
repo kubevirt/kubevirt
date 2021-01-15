@@ -113,10 +113,15 @@ func (handler *sspHandler) ensure(req *common.HcoRequest) *EnsureResult {
 	return res
 }
 
-type sspHooks struct{}
+type sspHooks struct {
+	cache *sspv1beta1.SSP
+}
 
-func (h sspHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
-	return NewSSP(hc), nil
+func (h *sspHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+	if h.cache == nil {
+		h.cache = NewSSP(hc)
+	}
+	return h.cache, nil
 }
 func (h sspHooks) getEmptyCr() runtime.Object                         { return &sspv1beta1.SSP{} }
 func (h sspHooks) validate() error                                    { return nil }
@@ -130,6 +135,9 @@ func (h sspHooks) checkComponentVersion(cr runtime.Object) bool {
 }
 func (h sspHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*sspv1beta1.SSP).ObjectMeta
+}
+func (h *sspHooks) reset() {
+	h.cache = nil
 }
 
 func (h *sspHooks) updateCr(req *common.HcoRequest, client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {

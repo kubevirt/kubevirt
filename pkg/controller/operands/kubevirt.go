@@ -52,11 +52,21 @@ func newKubevirtHandler(Client client.Client, Scheme *runtime.Scheme) *kubevirtH
 	}
 }
 
-type kubevirtHooks struct{}
-
-func (h kubevirtHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
-	return NewKubeVirt(hc)
+type kubevirtHooks struct {
+	cache *kubevirtv1.KubeVirt
 }
+
+func (h *kubevirtHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+	if h.cache == nil {
+		kv, err := NewKubeVirt(hc)
+		if err != nil {
+			return nil, err
+		}
+		h.cache = kv
+	}
+	return h.cache, nil
+}
+
 func (h kubevirtHooks) getEmptyCr() runtime.Object                         { return &kubevirtv1.KubeVirt{} }
 func (h kubevirtHooks) validate() error                                    { return nil }
 func (h kubevirtHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
@@ -69,6 +79,9 @@ func (h kubevirtHooks) checkComponentVersion(cr runtime.Object) bool {
 }
 func (h kubevirtHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*kubevirtv1.KubeVirt).ObjectMeta
+}
+func (h *kubevirtHooks) reset() {
+	h.cache = nil
 }
 
 func (h *kubevirtHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
@@ -187,6 +200,7 @@ func (h kvConfigHooks) checkComponentVersion(runtime.Object) bool             { 
 func (h kvConfigHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*corev1.ConfigMap).ObjectMeta
 }
+func (h kvConfigHooks) reset() {}
 
 func (h *kvConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	kubevirtConfig, ok1 := required.(*corev1.ConfigMap)
@@ -303,6 +317,7 @@ func (h kvPriorityClassHooks) checkComponentVersion(_ runtime.Object) bool      
 func (h kvPriorityClassHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*schedulingv1.PriorityClass).ObjectMeta
 }
+func (h kvPriorityClassHooks) reset() {}
 
 func (h *kvPriorityClassHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	pc, ok1 := required.(*schedulingv1.PriorityClass)
