@@ -139,3 +139,11 @@ replace github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503
 replace vbom.ml/util => github.com/fvbommel/util v0.0.0-20180919145318-efcd4e0f9787
 
 replace bitbucket.org/ww/goautoneg => github.com/munnerz/goautoneg v0.0.0-20120707110453-a547fc61f48d
+
+// Fixes various security issues forcing newer versions of affected dependencies,
+// prune the list once not explicitly required
+replace (
+	github.com/dgrijalva/jwt-go => github.com/dgrijalva/jwt-go/v4 v4.0.0-preview1
+	github.com/gorilla/websocket => github.com/gorilla/websocket v1.4.2
+	golang.org/x/crypto/ssh/terminal => golang.org/x/crypto/ssh/terminal v0.0.0-20201221181555-eec23a3978ad
+)
