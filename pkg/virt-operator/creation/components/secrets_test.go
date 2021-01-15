@@ -141,6 +141,7 @@ var _ = Describe("Certificate Management", func() {
 			crtSecret := NewCertSecrets("test", "test")[0]
 			Expect(PopulateSecretWithCertificate(crtSecret, caCrt, duration)).To(Succeed())
 			crt, err := LoadCertificates(crtSecret)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(crt.Leaf.NotBefore).To(Equal(caCrt.Leaf.NotBefore))
 		})
 
@@ -154,6 +155,7 @@ var _ = Describe("Certificate Management", func() {
 			crtSecret := NewCertSecrets("test", "test")[0]
 			Expect(PopulateSecretWithCertificate(crtSecret, caCrt, crtDuration)).To(Succeed())
 			crt, err := LoadCertificates(crtSecret)
+			Expect(err).NotTo(HaveOccurred())
 
 			//deadline := now.Add(time.Duration(float64(crtDuration.Duration) * 0.8))
 			Expect(crt.Leaf.NotAfter.Unix()).To(BeNumerically("==", now.Add(crtDuration.Duration).Unix(), 3))
@@ -172,6 +174,7 @@ var _ = Describe("Certificate Management", func() {
 			crtSecret := NewCertSecrets("test", "test")[0]
 			Expect(PopulateSecretWithCertificate(crtSecret, caCrt, crtDuration)).To(Succeed())
 			crt, err := LoadCertificates(crtSecret)
+			Expect(err).NotTo(HaveOccurred())
 
 			deadline := now.Add(time.Duration(float64(crtDuration.Duration) * 0.8))
 			// Generating certificates may take a little bit of time to execute (entropy, ...). Since we can't
