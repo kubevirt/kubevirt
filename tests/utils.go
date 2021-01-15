@@ -432,7 +432,7 @@ func DoScaleDeployment(namespace string, name string, desired int32) (error, int
 		return err, -1
 	}
 	scale := &autoscalingv1.Scale{Spec: autoscalingv1.ScaleSpec{Replicas: desired}, ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
-	scale, err = virtCli.AppsV1().Deployments(namespace).UpdateScale(name, scale)
+	_, err = virtCli.AppsV1().Deployments(namespace).UpdateScale(name, scale)
 	if err != nil {
 		return err, -1
 	}
