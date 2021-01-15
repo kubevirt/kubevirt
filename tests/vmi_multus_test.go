@@ -853,7 +853,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 		It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {
 			cidrA := "192.168.1.1/24"
 			cidrB := "192.168.1.2/24"
-			//create two vms on the smae sriov network
+			//create two vms on the same sriov network
 			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, cidrA, cidrB)
 
 			assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642", func() {
@@ -869,7 +869,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 		It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
 			cidrA := "fc00::1/64"
 			cidrB := "fc00::2/64"
-			//create two vms on the smae sriov network
+			//create two vms on the same sriov network
 			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, cidrA, cidrB)
 
 			assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642", func() {
