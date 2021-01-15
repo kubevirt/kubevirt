@@ -1024,6 +1024,7 @@ func getNewLeaderPod(virtClient kubecli.KubevirtClient) *k8sv1.Pod {
 	fieldSelector := fields.ParseSelectorOrDie("status.phase=" + string(k8sv1.PodRunning))
 	controllerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
 		metav1.ListOptions{LabelSelector: labelSelector.String(), FieldSelector: fieldSelector.String()})
+	tests.PanicOnError(err)
 	leaderPodName := getLeader()
 	for _, pod := range controllerPods.Items {
 		if pod.Name != leaderPodName {
