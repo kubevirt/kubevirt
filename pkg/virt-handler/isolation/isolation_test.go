@@ -129,6 +129,13 @@ var _ = Describe("Isolation", func() {
 					return filepath.Join(base, fmt.Sprintf("%s_launcher", testCase))
 				}
 
+				mounted, err := NodeIsolationResult().IsMounted("/")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(mounted).To(BeTrue())
+				mounted, err = NodeIsolationResult().IsMounted("???")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(mounted).To(BeFalse())
+
 				result, err := NewSocketBasedIsolationDetector(tmpDir).Whitelist([]string{"devices"}).Detect(vm)
 				Expect(err).ToNot(HaveOccurred())
 				mountInfo, err := result.MountInfoRoot()
