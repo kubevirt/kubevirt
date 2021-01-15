@@ -486,7 +486,7 @@ var _ = Describe("HotplugVolume block devices", func() {
 			Expect(blockDevicePermissions).To(Equal(testPerm))
 			return []byte("Yay"), fmt.Errorf("Error creating block file")
 		}
-		res, err = m.createBlockDeviceFile(testFile, testMajor, testMinor, testPerm)
+		_, err = m.createBlockDeviceFile(testFile, testMajor, testMinor, testPerm)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("Error creating block file"))
 	})
