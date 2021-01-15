@@ -914,9 +914,9 @@ func EnsureKVMPresent() {
 				virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(pod.Spec.NodeName, metav1.GetOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-				kvmAllocatable, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
-				vhostNetAllocatable, ok := virtHandlerNode.Status.Allocatable[services.VhostNetDevice]
-				ready = ready && ok
+				kvmAllocatable, ok1 := virtHandlerNode.Status.Allocatable[services.KvmDevice]
+				vhostNetAllocatable, ok2 := virtHandlerNode.Status.Allocatable[services.VhostNetDevice]
+				ready = ready && ok1 && ok2
 				ready = ready && (kvmAllocatable.Value() > 0) && (vhostNetAllocatable.Value() > 0)
 			}
 			return ready
