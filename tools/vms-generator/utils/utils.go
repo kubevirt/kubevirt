@@ -819,6 +819,9 @@ func toUnstructured(object runtime.Object) *unstructured.Unstructured {
 	}
 	var objmap map[string]interface{}
 	err = json.Unmarshal(raw, &objmap)
+	if err != nil {
+		panic(err)
+	}
 
 	return &unstructured.Unstructured{Object: objmap}
 }
