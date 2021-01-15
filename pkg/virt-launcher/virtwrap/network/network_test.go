@@ -52,7 +52,7 @@ var _ = Describe("Network", func() {
 			iface := v1.DefaultBridgeNetworkInterface()
 			defaultNet := v1.DefaultPodNetwork()
 
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, defaultNet, podInterface, pid)
+			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, defaultNet, primaryPodInterfaceName, pid)
 			err := SetupNetworkInterfacesPhase1(vm, pid)
 			Expect(err).To(BeNil())
 		})
