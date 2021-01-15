@@ -238,6 +238,9 @@ func (l *AccessCredentialManager) agentGuestExec(domName string, command string,
 
 	cmdExec := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "%s", "arg": [ %s ], "capture-output":true } }`, command, argsStr)
 	output, err := l.virConn.QemuAgentCommand(cmdExec, domName)
+	if err != nil {
+		return "", err
+	}
 	execRes := &execReturn{}
 	err = json.Unmarshal([]byte(output), execRes)
 	if err != nil {
@@ -253,6 +256,9 @@ func (l *AccessCredentialManager) agentGuestExec(domName string, command string,
 	for i := 10; i > 0; i-- {
 		cmdExecStatus := fmt.Sprintf(`{"execute": "guest-exec-status", "arguments": { "pid": %d } }`, execRes.Return.Pid)
 		output, err := l.virConn.QemuAgentCommand(cmdExecStatus, domName)
+		if err != nil {
+			return "", err
+		}
 		execStatusRes := &execStatusReturn{}
 		err = json.Unmarshal([]byte(output), execStatusRes)
 		if err != nil {
