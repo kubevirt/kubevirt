@@ -380,6 +380,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			By("Checking event list")
 			evList, err := virtClient.CoreV1().Events(tests.NamespaceTestDefault).List(k8smetav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			for _, event := range evList.Items {
 				if event.InvolvedObject.GetObjectKind() == newVmi.GetObjectKind() &&
 					event.InvolvedObject.Name == newVmi.GetName() {
