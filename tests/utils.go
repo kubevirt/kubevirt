@@ -2949,6 +2949,7 @@ func WaitUntilVMIReadyWithContext(ctx context.Context, vmi *v1.VirtualMachineIns
 
 	// Fetch the new VirtualMachineInstance with updated status
 	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
 	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
@@ -4223,6 +4224,7 @@ func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.Kub
 
 	kv := GetCurrentKv(virtClient)
 	old, err := json.Marshal(kv)
+	Expect(err).ToNot(HaveOccurred())
 
 	if reflect.DeepEqual(kv.Spec.Configuration, kvConfig) {
 		return kv
@@ -4235,6 +4237,7 @@ func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.Kub
 	updatedKV := kv.DeepCopy()
 	updatedKV.Spec.Configuration = kvConfig
 	newJson, err := json.Marshal(updatedKV)
+	Expect(err).ToNot(HaveOccurred())
 
 	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, kv)
 	Expect(err).ToNot(HaveOccurred())
@@ -4259,6 +4262,7 @@ func UpdateCDIConfigMap(cdiConfig *k8sv1.ConfigMap) *k8sv1.ConfigMap {
 	currentConfig, err := virtClient.CoreV1().ConfigMaps(flags.ContainerizedDataImporterNamespace).Get(cdiConfig.Name, metav1.GetOptions{})
 	PanicOnError(err)
 	old, err := json.Marshal(currentConfig)
+	Expect(err).ToNot(HaveOccurred())
 
 	if reflect.DeepEqual(currentConfig.Data, cdiConfig.Data) {
 		return currentConfig
@@ -4271,6 +4275,7 @@ func UpdateCDIConfigMap(cdiConfig *k8sv1.ConfigMap) *k8sv1.ConfigMap {
 	updatedConfig := currentConfig.DeepCopy()
 	updatedConfig.Data = cdiConfig.Data
 	newJson, err := json.Marshal(updatedConfig)
+	Expect(err).ToNot(HaveOccurred())
 
 	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, currentConfig)
 	Expect(err).ToNot(HaveOccurred())
