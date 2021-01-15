@@ -121,7 +121,7 @@ func readNewStatus(rc io.ReadCloser, oldStatus []string, timeout time.Duration) 
 // Create a command with output/error redirection.
 // Returns (cmd, stdout, stderr)
 func createCommandWithNSAndRedirect(namespace, cmdName string, args ...string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
-	cmdName, cmd, err := tests.CreateCommandWithNS(namespace, cmdName, args...)
+	_, cmd, err := tests.CreateCommandWithNS(namespace, cmdName, args...)
 
 	if err != nil {
 		return nil, nil, nil, err
