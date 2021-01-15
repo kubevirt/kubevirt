@@ -161,13 +161,13 @@ func (l *AccessCredentialManager) writeGuestFile(contents string, domName string
 	}
 
 	cmdWriteFile := fmt.Sprintf(`{"execute": "guest-file-write", "arguments": { "handle": %d, "buf-b64": "%s" } }`, openRes.Return, base64Str)
-	output, err = l.virConn.QemuAgentCommand(cmdWriteFile, domName)
+	_, err = l.virConn.QemuAgentCommand(cmdWriteFile, domName)
 	if err != nil {
 		return err
 	}
 
 	cmdCloseFile := fmt.Sprintf(`{"execute": "guest-file-close", "arguments": { "handle": %d } }`, openRes.Return)
-	output, err = l.virConn.QemuAgentCommand(cmdCloseFile, domName)
+	_, err = l.virConn.QemuAgentCommand(cmdCloseFile, domName)
 	if err != nil {
 		return err
 	}
@@ -217,7 +217,7 @@ func (l *AccessCredentialManager) readGuestFile(domName string, filePath string)
 	}
 
 	cmdCloseFile := fmt.Sprintf(`{"execute": "guest-file-close", "arguments": { "handle": %d } }`, openRes.Return)
-	output, err = l.virConn.QemuAgentCommand(cmdCloseFile, domName)
+	_, err = l.virConn.QemuAgentCommand(cmdCloseFile, domName)
 	if err != nil {
 		return contents, err
 	}
