@@ -653,6 +653,7 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 		}
 		diskFile := filepath.Join(path, "disk.img")
 		_, err := os.Create(diskFile)
+		Expect(err).ToNot(HaveOccurred())
 		hotplugdisk.SetKubeletPodsDirectory(tempDir)
 		targetPodPath := filepath.Join(tempDir, string(m.findVirtlauncherUID(vmi)), "volumes/kubernetes.io~empty-dir/hotplug-disks")
 		err = os.MkdirAll(targetPodPath, 0755)
