@@ -379,4 +379,4 @@ which implicitly highly encourages IPv6 communication towards the VM instance.
 
 On a final note, there is a difference that impacts the user experience when
 using masquerade binding for IPv6 addresses; the VMI IP must be [manually
-configured by the user](https://kubevirt.io/user-guide/#/creation/interfaces-and-networks?id=masquerade-ipv6-support).
+configured by the user](https://kubevirt.io/user-guide/#/creation/interfaces-and-networks?id=masquerade-ipv4-and-ipv6-dual-stack-support).
