@@ -26,18 +26,52 @@ The safe function name should give good indication on when this function should 
 Annotate the call with a `//#nosec ` comment only within this unsafe function implementation
 
 ### Example  
-The rule “G304: Potential file inclusion via variable” warns about the risk of unsafe path injection by an attacker. For example, when using `ioutil.ReadFile(fileName)` if an attacker can obtian access to inject/change `fileName`, then using a combination of `/../` (e.g., `fileName="/safe/path/../../private/path"`) he might be able to access private files.
+The  rule  “G304:  Potential  file  inclusion  via  variable”  warns  about  the  risk  of  unsafe  path  injection  by  an  attacker.  For  example,  when  using  `ioutil.ReadFile(fileName)`  if  an  attacker  can  can inject/change  `fileName`,  then  using  a  combination  of  `/../`  (e.g.,  `fileName="/safe/path/../../private/path"`)  he  might  be  able  to  access  private  files.
 
-**Suggested fix** 
-Define a new "safe” version of `ioutil.ReadFile()` that function will validate that `fileName` is not risky (as much as possible) and then call the "unsafe" original `ioutil.ReadFile()`. Only this call within the "safe" function should be annotated with `// #nosec `.
+Let's look at the following 
+```go
+func callerExample(){
+    ...    
+    expampleFunc("/fixed/static/safe/path/file.txt")
+    ...
+}
 
+func expampleFunc(fileName string){
+    ...    
+    ioutil.ReadFile(fileName)
+    ...
+}
 ```
-func ValidatePathAndReadFile(filename string) ([]byte, error)
-	...
- 	 // Validate that the path is not risky, for example by using filepath.Clean(), detect ".." in filename, etc..
-		
-	...
-     // #nosec using ioutil.ReadFile only for safe file path
-	 return  ioutil.ReadFile(filename)
+
+**Bad fix: silencing the specific warning**
+You should avoid annotating the specific line that generated the "false positive" warning  as illustrated here:
+```go
+func expampleFunc(fileName string){
+    ...   
+    // #nosec: fileName is a fixed static path and can't be injected 
+    ioutil.ReadFile(fileName)
+    ...
+}
+```
+The problem is that because the warning was silenced we won't get warning in case in the future the  `callerExample()` function will be changed and pass a filename that is injectable.  
+  
+**Recommended fix**  
+Define  a  new  "safe”  version  of  `ioutil.ReadFile()`  and use it instead of the original function. The new function should validate  that the file path  is  not  risky  (as  much  as  possible)  and  then  call  the  "unsafe"  original  `ioutil.ReadFile()`.  Only  this  call  within  the  "safe"  function  should  be  annotated  with  `//  #nosec` .
+
+```go
+func expampleFunc(fileName string){
+    ...    
+    ValidatePathAndReadFile(fileName)
+    ...
+}
+
+func ValidatePathAndReadFile(filename  string)  ([]byte,  error) {
+
+    if !string.HasPrefix(filepath.Clean(filename), "/safe/basepath") {
+       return nil, fmt.Errorf("unsafe filename")
+    }
+
+    // #nosec filename is known to be safe now
+    return ioutil.ReadFile(filename)
 }
 ```
