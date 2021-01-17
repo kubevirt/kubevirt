@@ -24,19 +24,21 @@ package virtconfig
 */
 
 const (
-	CPUManager            = "CPUManager"
-	IgnitionGate          = "ExperimentalIgnitionSupport"
-	LiveMigrationGate     = "LiveMigration"
-	CPUNodeDiscoveryGate  = "CPUNodeDiscovery"
-	HypervStrictCheckGate = "HypervStrictCheck"
-	SidecarGate           = "Sidecar"
-	GPUGate               = "GPU"
-	HostDevicesGate       = "HostDevices"
-	SnapshotGate          = "Snapshot"
-	HotplugVolumesGate    = "HotplugVolumes"
-	HostDiskGate          = "HostDisk"
-	VirtIOFSGate          = "ExperimentalVirtiofsSupport"
-	MacvtapGate           = "Macvtap"
+	CPUManager        = "CPUManager"
+	IgnitionGate      = "ExperimentalIgnitionSupport"
+	LiveMigrationGate = "LiveMigration"
+	// SRIOVLiveMigrationGate enable's Live Migration for VM's with SRIOV interfaces.
+	SRIOVLiveMigrationGate = "SRIOVLiveMigration"
+	CPUNodeDiscoveryGate   = "CPUNodeDiscovery"
+	HypervStrictCheckGate  = "HypervStrictCheck"
+	SidecarGate            = "Sidecar"
+	GPUGate                = "GPU"
+	HostDevicesGate        = "HostDevices"
+	SnapshotGate           = "Snapshot"
+	HotplugVolumesGate     = "HotplugVolumes"
+	HostDiskGate           = "HostDisk"
+	VirtIOFSGate           = "ExperimentalVirtiofsSupport"
+	MacvtapGate            = "Macvtap"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -57,7 +59,12 @@ func (config *ClusterConfig) IgnitionEnabled() bool {
 }
 
 func (config *ClusterConfig) LiveMigrationEnabled() bool {
-	return config.isFeatureGateEnabled(LiveMigrationGate)
+	return config.isFeatureGateEnabled(LiveMigrationGate) ||
+		config.isFeatureGateEnabled(SRIOVLiveMigrationGate)
+}
+
+func (config *ClusterConfig) SRIOVLiveMigrationEnabled() bool {
+	return config.isFeatureGateEnabled(SRIOVLiveMigrationGate)
 }
 
 func (config *ClusterConfig) HypervStrictCheckEnabled() bool {

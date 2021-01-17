@@ -482,4 +482,22 @@ var _ = Describe("ConfigMap", func() {
 		emulation = clusterConfig.IsUseEmulation()
 		Expect(emulation).To(BeFalse())
 	})
+
+	table.DescribeTable("when feature-gate", func(openFeatureGates string, isLiveMigrationEnabled, isSRIOVLiveMigrationEnabled bool) {
+		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.FeatureGatesKey: openFeatureGates},
+		})
+
+		Expect(clusterConfig.LiveMigrationEnabled()).To(Equal(isLiveMigrationEnabled))
+		Expect(clusterConfig.SRIOVLiveMigrationEnabled()).To(Equal(isSRIOVLiveMigrationEnabled))
+	},
+		table.Entry("LiveMigration and SRIOVLiveMigration are closed, both should be closed",
+			"", false, false),
+		table.Entry("LiveMigration and SRIOVLiveMigration are open, both should be open",
+			virtconfig.LiveMigrationGate+","+virtconfig.SRIOVLiveMigrationGate, true, true),
+		table.Entry("SRIOVLiveMigration is open, LiveMigration should be open",
+			virtconfig.SRIOVLiveMigrationGate, true, true),
+		table.Entry("LiveMigration is open, SRIOVLiveMigration should be close",
+			virtconfig.LiveMigrationGate, true, false),
+	)
 })
