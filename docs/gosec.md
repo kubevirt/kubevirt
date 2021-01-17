@@ -33,11 +33,11 @@ Define a new "safe” version of `ioutil.ReadFile()` that function will validate
 
 ```
 func ValidatePathAndReadFile(filename string) ([]byte, error)
-		....
-	 	 // Validate that the path is not risky, for example by using filepath.Clean(), detect ".." in filename, etc..
+	...
+ 	 // Validate that the path is not risky, for example by using filepath.Clean(), detect ".." in filename, etc..
 		
-		....
-    	 // #nosec using exec.Command only for non injectable parameters
-		 return		 ioutil.ReadFile(filename)
+	...
+     // #nosec using ioutil.ReadFile only for safe file path
+	 return  ioutil.ReadFile(filename)
 }
 ```
