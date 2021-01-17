@@ -1733,8 +1733,8 @@ kubevirt.io/client-go v0.36.0/go.mod h1:ZR+pS7E7iROhKVSGO4y6PCMGy/iEYzMAUEo4Ky0/
 kubevirt.io/containerized-data-importer v1.26.1 h1:QryIvQ8Dp4ciUe6TgD/+5Tg/9h4jn+BLRxC9+hLxeLA=
 kubevirt.io/containerized-data-importer v1.26.1/go.mod h1:gV0UGj0JybVFobLjkUzRxFJFgeUUhZb7zs1HgvnDsOQ=
 kubevirt.io/containerized-data-importer v1.27.0/go.mod h1:gV0UGj0JybVFobLjkUzRxFJFgeUUhZb7zs1HgvnDsOQ=
-kubevirt.io/containerized-data-importer v1.28.0 h1:MWPqgI9FGiRsAPxHWGMdM89c1oAJUjTEp83kGhpi/BI=
-kubevirt.io/containerized-data-importer v1.28.0/go.mod h1:9Rh/R77LF9L6FUugX6v+WHktVgwGhHvtSDzAvlNoHq4=
+kubevirt.io/containerized-data-importer v1.28.1 h1:WVDqAXrwckwPOAvtbhFNnqHuLKT5eZ6/awie94pIQ14=
+kubevirt.io/containerized-data-importer v1.28.1/go.mod h1:9Rh/R77LF9L6FUugX6v+WHktVgwGhHvtSDzAvlNoHq4=
 kubevirt.io/controller-lifecycle-operator-sdk v0.1.1 h1:dqURkr5Q5f4qJM7uLHL0akFxTatt0MUekKL0xifmVjs=
 kubevirt.io/controller-lifecycle-operator-sdk v0.1.1/go.mod h1:M+UuZsp90mmKUVGb5zXDZtIIY1noY5pJk9i2YCQwSnk=
 kubevirt.io/cpu-nfd-plugin v0.1.1/go.mod h1:4H0Zo8BEreXyuPEIJpaNAkUMbsPqeq7nFBYsRI9IIJc=
