@@ -642,6 +642,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  labels:
+    name: ssp-operator
   name: ssp-operator-service
 spec:
   ports:
@@ -656,6 +658,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  labels:
+    name: node-maintenance-operator
   name: node-maintenance-operator-service
 spec:
   ports:

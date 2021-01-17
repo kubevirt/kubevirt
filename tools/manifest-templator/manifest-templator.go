@@ -220,6 +220,9 @@ func main() {
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: webhook.DeploymentName + "-service",
+						Labels: map[string]string{
+							"name": webhook.DeploymentName,
+						},
 					},
 					Spec: v1.ServiceSpec{
 						Selector: getSelectorOfWebhookDeployment(webhook.DeploymentName, csvStruct.Spec.InstallStrategy.StrategySpec.DeploymentSpecs),

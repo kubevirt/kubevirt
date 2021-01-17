@@ -9,6 +9,8 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: hyperconverged-cluster-webhook-service-cert
+  labels:
+    name: hyperconverged-cluster-webhook
 spec:
   secretName: hyperconverged-cluster-webhook-service-cert
   dnsNames:
@@ -22,6 +24,8 @@ metadata:
   name: validate-hco.kubevirt.io
   annotations:
     cert-manager.io/inject-ca-from: kubevirt-hyperconverged/hyperconverged-cluster-webhook-service-cert
+  labels:
+    name: hyperconverged-cluster-webhook
 webhooks:
 - admissionReviewVersions:
   - v1beta1
@@ -57,6 +61,8 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: node-maintenance-operator-service-cert
+  labels:
+    name: node-maintenance-operator
 spec:
   secretName: node-maintenance-operator-service-cert
   dnsNames:
@@ -70,6 +76,8 @@ metadata:
   name: nodemaintenance-validation.kubevirt.io
   annotations:
     cert-manager.io/inject-ca-from: kubevirt-hyperconverged/node-maintenance-operator-service-cert
+  labels:
+    name: node-maintenance-operator
 webhooks:
 - admissionReviewVersions:
   - v1beta1
@@ -102,6 +110,8 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: ssp-operator-service-cert
+  labels:
+    name: ssp-operator
 spec:
   secretName: ssp-operator-service-cert
   dnsNames:
@@ -115,6 +125,8 @@ metadata:
   name: vssp.kb.io
   annotations:
     cert-manager.io/inject-ca-from: kubevirt-hyperconverged/ssp-operator-service-cert
+  labels:
+    name: ssp-operator
 webhooks:
 - admissionReviewVersions:
   - v1beta1

@@ -28,6 +28,7 @@ HCO_NAMESPACE="kubevirt-hyperconverged"
 HCO_KIND="hyperconvergeds"
 HCO_RESOURCE_NAME="kubevirt-hyperconverged"
 HCO_CRD_NAME="hyperconvergeds.hco.kubevirt.io"
+ENABLE_SSP=${ENABLE_SSP:-false}
 
 CI=""
 if [ "$1" == "CI" ]; then
@@ -117,15 +118,21 @@ function debug(){
     exit 1
 }
 
+# In case SSP is disabled, apply with a label selector to filter out its resources.
+LABEL_SELECTOR_ARG=""
+if [ "$ENABLE_SSP" != "true" ]; then
+    LABEL_SELECTOR_ARG="-l name!=ssp-operator"
+fi
+
 # Deploy cert-manager for webhooks
 "${CMD}" apply -f _out/cert-manager.yaml
 "${CMD}" -n cert-manager wait deployment/cert-manager-webhook --for=condition=Available --timeout="300s"
 
 # Deploy local manifests
-"${CMD}" apply -f _out/cluster_role.yaml
-"${CMD}" apply -f _out/service_account.yaml
-"${CMD}" apply -f _out/cluster_role_binding.yaml
-"${CMD}" apply -f _out/crds/
+"${CMD}" apply $LABEL_SELECTOR_ARG -f _out/cluster_role.yaml
+"${CMD}" apply $LABEL_SELECTOR_ARG -f _out/service_account.yaml
+"${CMD}" apply $LABEL_SELECTOR_ARG -f _out/cluster_role_binding.yaml
+"${CMD}" apply $LABEL_SELECTOR_ARG -f _out/crds/
 
 sleep 20
 if [[ "$(${CMD} get crd ${HCO_CRD_NAME} -o=jsonpath='{.status.conditions[?(@.type=="NonStructuralSchema")].status}')" == "True" ]];
@@ -139,14 +146,14 @@ fi
 # when a new webhook (deployed by OLM in production) is introduced, 
 # it must be added into webhooks.yaml as well.
 echo "Creating resources for webhooks"
-"${CMD}" apply -f _out/webhooks.yaml
+"${CMD}" apply $LABEL_SELECTOR_ARG -f _out/webhooks.yaml
 
 if [ "${CI}" != "true" ]; then
-	"${CMD}" apply -f _out/operator.yaml
+	"${CMD}" apply $LABEL_SELECTOR_ARG -f _out/operator.yaml
 else
 	sed -E 's|^(\s*)- name: KVM_EMULATION$|\1- name: KVM_EMULATION\n\1  value: "true"|' < _out/operator.yaml > _out/operator-ci.yaml
 	cat _out/operator-ci.yaml
-	"${CMD}" apply -f _out/operator-ci.yaml
+	"${CMD}" apply $LABEL_SELECTOR_ARG -f _out/operator-ci.yaml
 fi
 
 # Wait for the HCO to be ready
@@ -155,9 +162,22 @@ sleep 20
 "${CMD}" wait deployment/hyperconverged-cluster-operator --for=condition=Available --timeout="1080s" || CONTAINER_ERRORED+="hyperconverged-cluster-operator "
 "${CMD}" wait deployment/hyperconverged-cluster-webhook --for=condition=Available --timeout="1080s" || CONTAINER_ERRORED+="hyperconverged-cluster-webhook "
 
-# avoid checking the availability of virt-operator here because it will become available only when
-# HCO will create its priorityClass and this will happen only when wi will have HCO cr
-for op in cdi-operator cluster-network-addons-operator ssp-operator node-maintenance-operator vm-import-operator; do
+# Gather a list of operators to wait for.
+# Avoid checking the availability of virt-operator here because it will become available only when
+# HCO will create its priorityClass and this will happen only when wi will have HCO cr.
+# Check on ssp-operator only if it's enabled.
+OPERATORS=(
+    "cdi-operator"
+    "cluster-network-addons-operator"
+    "node-maintenance-operator"
+    "vm-import-operator"
+)
+
+if [ "$ENABLE_SSP" = "true" ]; then
+    OPERATORS+="ssp-operator"
+fi
+
+for op in "${OPERATORS[@]}"; do
     "${CMD}" wait deployment/"${op}" --for=condition=Available --timeout="540s" || CONTAINER_ERRORED+="${op} "
 done
 
