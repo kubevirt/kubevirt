@@ -104,7 +104,7 @@ var _ = Describe("Notify", func() {
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
 				mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).Return(`<kubevirt></kubevirt>`, nil)
 
-				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent, nil, nil)
+				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent, nil, nil, nil)
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -135,7 +135,7 @@ var _ = Describe("Notify", func() {
 				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_NOSTATE, -1, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
 
-				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, client, deleteNotificationSent, nil, nil)
+				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, client, deleteNotificationSent, nil, nil, nil)
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -179,7 +179,7 @@ var _ = Describe("Notify", func() {
 					},
 				}
 
-				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, interfaceStatus, nil)
+				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, interfaceStatus, nil, nil)
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -211,7 +211,7 @@ var _ = Describe("Notify", func() {
 					Name: guestOsName,
 				}
 
-				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, &osInfoStatus)
+				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, &osInfoStatus, nil)
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -233,6 +233,7 @@ var _ = Describe("Notify", func() {
 		var stop chan struct{}
 		var stopped bool
 		var eventChan chan watch.Event
+		var deleteNotificationSent chan watch.Event
 		var client *Notifier
 		var recorder *record.FakeRecorder
 		var vmiStore cache.Store
@@ -240,6 +241,7 @@ var _ = Describe("Notify", func() {
 		BeforeEach(func() {
 			stop = make(chan struct{})
 			eventChan = make(chan watch.Event, 100)
+			deleteNotificationSent = make(chan watch.Event, 100)
 			stopped = false
 			shareDir, err = ioutil.TempDir("", "kubevirt-share")
 			Expect(err).ToNot(HaveOccurred())
@@ -282,6 +284,42 @@ var _ = Describe("Notify", func() {
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s", eventType, eventReason, eventMessage)))
 			close(done)
 		}, 5)
+
+		It("Should generate a k8s event on IO errors", func(done Done) {
+			faultDisk := []libvirt.DomainDiskError{
+				libvirt.DomainDiskError{
+					Disk:  "vda",
+					Error: libvirt.DOMAIN_DISK_ERROR_NO_SPACE,
+				},
+			}
+			domain := api.NewMinimalDomain("test")
+			domain.Status.Reason = api.ReasonPausedIOError
+			x, err := xml.Marshal(domain.Spec)
+			Expect(err).ToNot(HaveOccurred())
+
+			ctrl := gomock.NewController(GinkgoT())
+			mockCon := cli.NewMockConnection(ctrl)
+			mockDomain := cli.NewMockVirDomain(ctrl)
+			mockCon.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil).AnyTimes()
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, int(libvirt.DOMAIN_PAUSED_IOERROR), nil)
+			mockDomain.EXPECT().Free()
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+			mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).Return(`<kubevirt></kubevirt>`, nil)
+			mockDomain.EXPECT().GetDiskErrors(uint32(0)).Return(faultDisk, nil)
+
+			vmi := v1.NewMinimalVMI("fake-vmi")
+			vmi.UID = "4321"
+			vmiStore.Add(vmi)
+			eventType := "Warning"
+			eventReason := "IOerror"
+			eventMessage := "VM Paused due to not enough space on volume: "
+			eventCallback(mockCon, domain, libvirtEvent{}, client, deleteNotificationSent, nil, nil, vmi)
+			event := <-recorder.Events
+			Expect(event).To(Equal(fmt.Sprintf("%s %s %s", eventType, eventReason, eventMessage)))
+			close(done)
+
+		}, 20)
+
 	})
 
 	Describe("Version mismatch", func() {

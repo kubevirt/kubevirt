@@ -450,6 +450,17 @@ func (_mr *_MockVirDomainRecorder) GetJobInfo() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetJobInfo")
 }
 
+func (_m *MockVirDomain) GetDiskErrors(flags uint32) ([]libvirt_go.DomainDiskError, error) {
+	ret := _m.ctrl.Call(_m, "GetDiskErrors", flags)
+	ret0, _ := ret[0].([]libvirt_go.DomainDiskError)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirDomainRecorder) GetDiskErrors(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDiskErrors", arg0)
+}
+
 func (_m *MockVirDomain) SetTime(secs int64, nsecs uint, flags libvirt_go.DomainSetTimeFlags) error {
 	ret := _m.ctrl.Call(_m, "SetTime", secs, nsecs, flags)
 	ret0, _ := ret[0].(error)

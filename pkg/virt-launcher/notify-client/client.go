@@ -12,7 +12,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
@@ -28,6 +27,7 @@ import (
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
@@ -199,7 +199,7 @@ func newWatchEventError(err error) watch.Event {
 }
 
 func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
-	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo) {
+	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance) {
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {
@@ -248,6 +248,28 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 		watchEvent := watch.Event{Type: watch.Modified, Object: domain}
 		client.SendDomainEvent(watchEvent)
 		updateEvents(watchEvent, domain, events)
+	case api.ReasonPausedIOError:
+		domainDisksWithErrors, err := d.GetDiskErrors(0)
+		if err != nil {
+			log.Log.Reason(err).Error("Could not get disks with errors")
+		}
+		for _, disk := range domainDisksWithErrors {
+			volumeName := converter.GetVolumeNameByTarget(domain, disk.Disk)
+			var reasonError string
+			switch disk.Error {
+			case libvirt.DOMAIN_DISK_ERROR_NONE:
+				continue
+			case libvirt.DOMAIN_DISK_ERROR_UNSPEC:
+				reasonError = fmt.Sprintf("VM Paused due to IO error at the volume: %s", volumeName)
+			case libvirt.DOMAIN_DISK_ERROR_NO_SPACE:
+				reasonError = fmt.Sprintf("VM Paused due to not enough space on volume: %s", volumeName)
+			}
+			err = client.SendK8sEvent(vmi, "Warning", "IOerror", reasonError)
+			if err != nil {
+				log.Log.Reason(err).Error(fmt.Sprintf("Could not send k8s event"))
+			}
+			client.SendDomainEvent(newWatchEventError(fmt.Errorf(reasonError)))
+		}
 	default:
 		if libvirtEvent.Event != nil {
 			if libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_DEFINED && libvirt.DomainEventDefinedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
@@ -294,7 +316,7 @@ func updateEventsClosure() func(event watch.Event, domain *api.Domain, events ch
 func (n *Notifier) StartDomainNotifier(
 	domainConn cli.Connection,
 	deleteNotificationSent chan watch.Event,
-	vmiUID types.UID,
+	vmi *v1.VirtualMachineInstance,
 	domainName string,
 	agentStore *agentpoller.AsyncAgentStore,
 	qemuAgentSysInterval time.Duration,
@@ -313,7 +335,7 @@ func (n *Notifier) StartDomainNotifier(
 
 	agentPoller := agentpoller.CreatePoller(
 		domainConn,
-		vmiUID,
+		vmi.UID,
 		domainName,
 		agentStore,
 		qemuAgentSysInterval,
@@ -329,8 +351,8 @@ func (n *Notifier) StartDomainNotifier(
 		for {
 			select {
 			case event := <-eventChan:
-				domainCache = util.NewDomainFromName(event.Domain, vmiUID)
-				eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo)
+				domainCache = util.NewDomainFromName(event.Domain, vmi.UID)
+				eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi)
 				log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
 				if event.AgentEvent != nil {
 					if event.AgentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
@@ -347,7 +369,7 @@ func (n *Notifier) StartDomainNotifier(
 				}
 
 				eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
-					interfaceStatuses, guestOsInfo)
+					interfaceStatuses, guestOsInfo, vmi)
 			case <-reconnectChan:
 				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
 			}
@@ -434,7 +456,6 @@ func (n *Notifier) StartDomainNotifier(
 }
 
 func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error {
-
 	err := n.connect()
 	if err != nil {
 		return err
