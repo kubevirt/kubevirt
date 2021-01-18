@@ -407,7 +407,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					Skip("Skip OCS tests when Ceph is not present")
 				}
 
-				template := tests.NewRandomFedoraVMIWitGuestAgent()
+				template := tests.NewRandomFedoraVMIWithGuestAgent()
 				node := findCPUManagerWorkerNode()
 				if node != "" {
 					template.Spec.NodeSelector = make(map[string]string)
@@ -793,7 +793,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					Skip("Skip OCS tests when Ceph is not present")
 				}
 
-				vmi = tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 			})
 

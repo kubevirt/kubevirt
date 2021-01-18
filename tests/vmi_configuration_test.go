@@ -1144,7 +1144,7 @@ var _ = Describe("Configurations", func() {
 
 			prepareAgentVM := func() *v1.VirtualMachineInstance {
 				// TODO: actually review this once the VM image is present
-				agentVMI := tests.NewRandomFedoraVMIWitGuestAgent()
+				agentVMI := tests.NewRandomFedoraVMIWithGuestAgent()
 
 				By("Starting a VirtualMachineInstance")
 				agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
@@ -1215,7 +1215,7 @@ var _ = Describe("Configurations", func() {
 
 				By("Terminating guest agent and waiting for it to disappear.")
 				Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
-					&expect.BSnd{S: "systemctl stop guestagent\n"},
+					&expect.BSnd{S: "systemctl stop qemu-guest-agent\n"},
 					&expect.BExp{R: console.PromptExpression},
 				}, 400)).To(Succeed())
 
@@ -1310,7 +1310,7 @@ var _ = Describe("Configurations", func() {
 
 				By("Terminating guest agent and waiting for it to disappear.")
 				Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
-					&expect.BSnd{S: "systemctl stop guestagent\n"},
+					&expect.BSnd{S: "systemctl stop qemu-guest-agent\n"},
 					&expect.BExp{R: console.PromptExpression},
 				}, 400)).To(Succeed())
 
@@ -2587,7 +2587,7 @@ var _ = Describe("Configurations", func() {
 
 		BeforeEach(func() {
 			var bootOrder uint = 1
-			vmi = tests.NewRandomFedoraVMIWitGuestAgent()
+			vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("1024M")
 			vmi.Spec.Domain.Devices.Disks[0].BootOrder = &bootOrder
 		})

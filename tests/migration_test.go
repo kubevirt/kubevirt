@@ -554,17 +554,17 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 
 			It("[test_id:3237]should complete a migration", func() {
-				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
-				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
-
 				// Need to wait for cloud init to finnish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				runStressTest(vmi)
 
@@ -586,7 +586,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		})
 		Context("with setting guest time", func() {
 			It("[test_id:4114]should set an updated time after a migration", func() {
-				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
@@ -933,7 +933,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					mkdir /mnt/servacc
 					mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
 				`, secretDiskSerial)
-				userData := fmt.Sprintf("%s\n%s", tests.GetGuestAgentUserData(), mountSvcAccCommands)
+				userData := fmt.Sprintf("%s\n%s", tests.DeprecatedGetGuestAgentUserData(), mountSvcAccCommands)
 				tests.AddUserData(vmi, "cloud-init", userData)
 
 				tests.AddServiceAccountDisk(vmi, "default")
@@ -991,7 +991,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 
 			It("[test_id:2303][posneg:negative] should secure migrations with TLS", func() {
-				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
@@ -1094,7 +1094,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 
-				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
 				By("Starting the VirtualMachineInstance")
@@ -1152,7 +1152,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
 			PIt("[test_id:2227] should abort a vmi migration without progress", func() {
-				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
 				By("Starting the VirtualMachineInstance")
@@ -1183,7 +1183,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 
 			It(" Should detect a failed migration", func() {
-				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
 				By("Starting the VirtualMachineInstance")
@@ -1331,7 +1331,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				type vmiBuilder func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume)
 
 				newVirtualMachineInstanceWithFedoraContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-					return tests.NewRandomFedoraVMIWitGuestAgent(), nil
+					return tests.NewRandomFedoraVMIWithGuestAgent(), nil
 				}
 
 				newVirtualMachineInstanceWithFedoraOCSDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
@@ -1346,7 +1346,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					}
 
 					By("Starting an iSCSI POD")
-					iscsiTargetPod := tests.CreateISCSITargetPOD(cd.ContainerDiskFedora)
+					iscsiTargetPod := tests.CreateISCSITargetPOD(cd.ContainerDiskFedoraTestTooling)
 					iscsiTargetIPAddress := libnet.GetPodIpByFamily(iscsiTargetPod, k8sv1.IPv4Protocol)
 					Expect(iscsiTargetIPAddress).NotTo(BeEmpty())
 
@@ -1363,7 +1363,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					Expect(err).ToNot(HaveOccurred())
 					tests.WaitForSuccessfulDataVolumeImport(dv, 600)
 					vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
-					tests.AddUserData(vmi, "disk1", tests.GetGuestAgentUserData())
+					tests.AddUserData(vmi, "disk1", tests.GetFedoraToolsGuestAgentUserData())
 					return vmi, dv
 				}
 
@@ -1407,7 +1407,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					table.Entry("[test_id:2731] with OCS Disk (using ISCSI IPv4 address)", newVirtualMachineInstanceWithFedoraOCSDisk),
 				)
 				It("[test_id:3241]should be able to cancel a migration right after posting it", func() {
-					vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+					vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 					By("Starting the VirtualMachineInstance")
@@ -1957,7 +1957,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 })
 
 func fedoraVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
-	vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+	vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 	strategy := v1.EvictionStrategyLiveMigrate
 	vmi.Spec.EvictionStrategy = &strategy
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)

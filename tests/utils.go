@@ -2223,14 +2223,14 @@ func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus string, 
 	return vmi
 }
 
-func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
+func NewRandomFedoraVMIWithGuestAgent() *v1.VirtualMachineInstance {
 	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
 	Expect(err).NotTo(HaveOccurred())
 
-	return libvmi.NewFedora(
+	return libvmi.NewTestToolingFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithCloudInitNoCloudUserData(GetGuestAgentUserData(), false),
+		libvmi.WithCloudInitNoCloudUserData(GetFedoraToolsGuestAgentUserData(), false),
 		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 	)
 }
@@ -2302,7 +2302,14 @@ func NewRandomFedoraVMIWithVirtWhatCpuidHelper() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func GetGuestAgentUserData() string {
+func GetFedoraToolsGuestAgentUserData() string {
+	return `#!/bin/bash
+            sudo setenforce Permissive
+	    sudo systemctl start qemu-guest-agent
+`
+}
+
+func DeprecatedGetGuestAgentUserData() string {
 	guestAgentUrl := GetUrl(GuestAgentHttpUrl)
 	return fmt.Sprintf(`#!/bin/bash
                 echo "fedora" |passwd fedora --stdin
