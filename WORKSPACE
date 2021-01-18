@@ -323,6 +323,15 @@ container_pull(
     #tag = "32",
 )
 
+# Pull fedora container-disk preconfigured with ci tooling
+# like stress and qemu guest agent pre-configured
+container_pull(
+    name = "fedora_with_test_tooling",
+    digest = "sha256:618a624a703682482c473c105ecd6cce212993d2af856771437dbbf80f20b19d",
+    registry = "quay.io",
+    repository = "dvossel/fedora-with-test-tooling",
+)
+
 # Pull base image libvirt
 container_pull(
     name = "libvirt",
