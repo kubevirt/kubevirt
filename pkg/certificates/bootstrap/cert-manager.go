@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/certificate"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
@@ -217,4 +219,67 @@ func (f *FileCertificateManager) loadCertificates() (serverCrt *tls.Certificate,
 	}
 	crt.Leaf = leaf[0]
 	return &crt, nil
+}
+
+type SecretCertificateManager struct {
+	store     cache.Store
+	secretKey string
+	tlsCrt    string
+	tlsKey    string
+	crtLock   *sync.Mutex
+	revision  string
+	crt       *tls.Certificate
+}
+
+func (s *SecretCertificateManager) Start() {
+}
+
+func (s *SecretCertificateManager) Stop() {
+}
+
+func (s *SecretCertificateManager) Current() *tls.Certificate {
+	s.crtLock.Lock()
+	defer s.crtLock.Unlock()
+	rawSecret, exists, err := s.store.GetByKey(s.secretKey)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Secret %s can't be retrieved from the cache", s.secretKey)
+		return s.crt
+	} else if !exists {
+		return s.crt
+	}
+	secret := rawSecret.(*v1.Secret)
+	if secret.ObjectMeta.ResourceVersion == s.revision {
+		return s.crt
+	}
+	crt, err := tls.X509KeyPair(secret.Data[s.tlsCrt], secret.Data[s.tlsKey])
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("failed to load certificate from secret %s", s.secretKey)
+		return s.crt
+	}
+	leaf, err := cert.ParseCertsPEM(secret.Data[s.tlsCrt])
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("failed to load leaf certificate from secret %s", s.secretKey)
+		return s.crt
+	}
+	crt.Leaf = leaf[0]
+	s.revision = secret.ResourceVersion
+	s.crt = &crt
+	return s.crt
+}
+
+func (s *SecretCertificateManager) ServerHealthy() bool {
+	panic("implement me")
+}
+
+// NewSecretCertificateManager takes a secret store and the name and the  namespace of a secret. If there is a newer
+// version of the secret in the cache, the next Current() call will immediately wield it. It takes resource versions
+// into account to be efficient.
+func NewSecretCertificateManager(name string, namespace string, store cache.Store) *SecretCertificateManager {
+	return &SecretCertificateManager{
+		store:     store,
+		secretKey: fmt.Sprintf("%s/%s", namespace, name),
+		tlsCrt:    CertBytesValue,
+		tlsKey:    KeyBytesValue,
+		crtLock:   &sync.Mutex{},
+	}
 }
