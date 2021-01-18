@@ -385,24 +385,22 @@ var _ = Describe("[Serial]Multus", func() {
 			customMacAddress := "50:00:00:00:90:0d"
 			It("[test_id:676]should configure valid custom MAC address on Linux bridge CNI interface.", func() {
 				By("Creating a VM with Linux bridge CNI network interface and default MAC address.")
-				vmiTwo := libvmi.NewFedora(
+				vmiTwo := libvmi.NewTestToolingFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterface),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
-					libvmi.WithCloudInitNoCloudUserData(tests.GetGuestAgentUserData(), false),
 					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByDevice("eth1", "10.1.1.2/24"), false))
 				vmiTwo = tests.StartVmOnNode(vmiTwo, nodes.Items[0].Name)
 
 				By("Creating another VM with custom MAC address on its Linux bridge CNI interface.")
 				linuxBridgeInterfaceWithCustomMac := linuxBridgeInterface
 				linuxBridgeInterfaceWithCustomMac.MacAddress = customMacAddress
-				vmiOne := libvmi.NewFedora(
+				vmiOne := libvmi.NewTestToolingFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
-					libvmi.WithCloudInitNoCloudUserData(tests.GetGuestAgentUserData(), false),
 					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, customMacAddress, "10.1.1.1/24"), false))
 				vmiOne = tests.StartVmOnNode(vmiOne, nodes.Items[0].Name)
 
@@ -525,13 +523,8 @@ var _ = Describe("[Serial]Multus", func() {
 	                ip addr add %s dev ep2
 	                ip addr add %s dev ep1
 	                ip addr add %s dev ep2
-                    mkdir -p /usr/local/bin
-                    curl %s > /usr/local/bin/qemu-ga
-                    chmod +x /usr/local/bin/qemu-ga
-		    curl %s > /lib64/libpixman-1.so.0
-                    systemd-run --unit=guestagent /usr/local/bin/qemu-ga
-                `, ep1Cidr, ep2Cidr, ep1CidrV6, ep2CidrV6, tests.GetUrl(tests.GuestAgentHttpUrl), tests.GetUrl(tests.PixmanUrl))
-				agentVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedora), userdata)
+                `, ep1Cidr, ep2Cidr, ep1CidrV6, ep2CidrV6)
+				agentVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling), userdata)
 
 				agentVMI.Spec.Domain.Devices.Interfaces = interfaces
 				agentVMI.Spec.Networks = networks
@@ -1010,14 +1003,13 @@ var _ = Describe("[Serial]Macvtap", func() {
 	}
 
 	newFedoraVMIWithExplicitMacAndGuestAgent := func(macvtapNetworkName string, mac string) *v1.VirtualMachineInstance {
-		return libvmi.NewFedora(
+		return libvmi.NewTestToolingFedora(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithInterface(
 				*libvmi.InterfaceWithMac(
 					v1.DefaultMacvtapNetworkInterface(macvtapNetworkName), mac)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName)),
-			libvmi.WithCloudInitNoCloudUserData(tests.GetGuestAgentUserData(), false))
+			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName)))
 	}
 
 	createCirrosVMIStaticIPOnNode := func(nodeName string, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
