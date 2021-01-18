@@ -255,6 +255,55 @@ func (c *VMIController) execute(key string) error {
 		logger.Reason(err).Error("Failed to fetch pods for namespace from cache.")
 		return err
 	}
+	
+	if pod != nil {
+                vmiannotationsList := map[string]string{}
+                for k, v := range vmi.Annotations {
+                        if strings.HasPrefix(k, "kubectl.kubernetes.io") ||
+                                strings.HasPrefix(k, "kubevirt.io/storage-observed-api-version") ||
+                                strings.HasPrefix(k, "kubevirt.io/latest-observed-api-version") {
+                                continue
+                        }
+                        vmiannotationsList[k] = v
+                }
+                vmilabels := map[string]string{}
+                for k, v := range vmi.Labels {
+                        vmilabels[k] = v
+                }
+
+                podannotationsList := map[string]string{}
+                for k, v := range pod.Annotations {
+                        if strings.HasPrefix(k, "kubectl.kubernetes.io") ||
+                                strings.HasPrefix(k, "kubevirt.io/storage-observed-api-version") ||
+                                strings.HasPrefix(k, "kubevirt.io/latest-observed-api-version") {
+                                continue
+                        }
+                        podannotationsList[k] = v
+                }
+                podlabels := map[string]string{}
+                for k, v := range pod.Labels {
+                        podlabels[k] = v
+                }
+
+                if isPatch(podannotationsList, vmiannotationsList) || isPatch(podlabels, vmilabels) {
+                        meta := v1.ObjectMeta{
+                                Labels:      vmiLabels,
+                                Annotations: vmiannotations,
+                        }
+
+                        m := make(map[string]v1.ObjectMeta)
+                        m["metadata"] = meta
+                        metabytes, err2 := json.Marshal(m)
+                        if err2 != nil {
+                                return err2
+                        }
+
+                        _, err2 = c.clientset.CoreV1().Pods(vmi.GetNamespace()).Patch(pod.Name, types.StrategicMergePatchType, metabytes)
+                        if err2 != nil {
+                                return err2
+                        }
+                }
+        }
 
 	// Get all dataVolumes associated with this vmi
 	dataVolumes, err := c.listMatchingDataVolumes(vmi)
@@ -281,6 +330,19 @@ func (c *VMIController) execute(key string) error {
 
 	return nil
 
+}
+
+func isPatch(oldPod map[string]string, newPod map[string]string) bool {
+        for k, v := range newPod {
+                oldv, ok := oldPod[k]
+                if !ok {
+                        return true
+                }
+                if oldv != v {
+                        return true
+                }
+        }
+        return false
 }
 
 // verifies all conditions match even if they are not in the same order
