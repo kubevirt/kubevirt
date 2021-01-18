@@ -21,22 +21,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("KubeVirt Operand", func() {
-
-	const (
-		// fake KV managed FGs
-		fgEnabled  = "fgEnabled"
-		fgMissing  = "fgMissing"
-		fgDisabled = "fgDisabled"
-		fgNoChange = "fgNoChange"
-	)
 
 	Context("KubeVirt Priority Classes", func() {
 
@@ -261,19 +252,11 @@ var _ = Describe("KubeVirt Operand", func() {
 		})
 
 		Context("Feature Gates", func() {
-			origKvFeatureGates := managedKvFeatureGates
 
-			const (
-				userModifiedFgs = "userModifiedFg1,userModifiedFg2,userModifiedFg3"
+			var (
+				enabled  = true
+				disabled = false
 			)
-			BeforeEach(func() {
-				// list of fake KV managed FGs
-				managedKvFeatureGates = []string{fgEnabled, fgMissing, fgDisabled, fgNoChange}
-			})
-
-			AfterEach(func() {
-				managedKvFeatureGates = origKvFeatureGates
-			})
 
 			It("should have a list of enabled features that are managed by the HCO CR", func() {
 				existingResource := NewKubeVirtConfigForCR(hco, commonTestUtils.Namespace)
@@ -283,14 +266,13 @@ var _ = Describe("KubeVirt Operand", func() {
 			})
 
 			It("should add the feature gates if they exist and enabled in HyperConverged CR", func() {
-				hco.Spec.FeatureGates = map[string]bool{
-					fgEnabled:  true,
-					fgDisabled: false,
+				hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{
+					HotplugVolumes: &enabled,
 				}
 
 				existingResource := NewKubeVirtConfigForCR(hco, commonTestUtils.Namespace)
 				By("KV CR should contain the fgEnabled feature gate", func() {
-					Expect(existingResource.Data[virtconfig.FeatureGatesKey]).Should(Equal(cmFeatureGates + "," + fgEnabled))
+					Expect(existingResource.Data[virtconfig.FeatureGatesKey]).Should(Equal(cmFeatureGates + "," + virtconfig.HotplugVolumesGate))
 				})
 			})
 
@@ -300,97 +282,145 @@ var _ = Describe("KubeVirt Operand", func() {
 					Expect(existingResource.Data[virtconfig.FeatureGatesKey]).Should(Equal(cmFeatureGates))
 				})
 
-				hco.Spec.FeatureGates = map[string]bool{
-					fgEnabled:  true,
-					fgDisabled: false,
+				hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{
+					HotplugVolumes: &enabled,
 				}
 
 				foundResource := &corev1.ConfigMap{}
 				reconcileCm(hco, req, true, existingResource, foundResource)
 
 				By("KV CR should contain the enabled feature gate", func() {
-					Expect(foundResource.Data[virtconfig.FeatureGatesKey]).Should(Equal(cmFeatureGates + "," + fgEnabled))
+					Expect(foundResource.Data[virtconfig.FeatureGatesKey]).Should(Equal(cmFeatureGates + "," + virtconfig.HotplugVolumesGate))
 				})
 			})
 
-			It("should handle feature gates on update", func() {
+			It("should not add feature gates if they are set to false", func() {
 				existingResource := NewKubeVirtConfigForCR(hco, commonTestUtils.Namespace)
-				existingResource.Data[virtconfig.FeatureGatesKey] = fmt.Sprintf("%s,%s,%s,%s", cmFeatureGates, fgMissing, fgDisabled, fgNoChange)
+				By("Make sure the enabled FG is not there", func() {
+					Expect(existingResource.Data[virtconfig.FeatureGatesKey]).Should(Equal(cmFeatureGates))
+				})
 
-				hco.Spec.FeatureGates = map[string]bool{
-					fgEnabled:  true,
-					fgDisabled: false,
-					fgNoChange: true,
+				hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{
+					HotplugVolumes: &disabled,
 				}
 
 				foundResource := &corev1.ConfigMap{}
-				reconcileCm(hco, req, true, existingResource, foundResource)
-
-				By("Should add enabled FGs, remove missing FGs, remove disabled FGs and not change existing enabled FGs", func() {
-					found := foundResource.Data[virtconfig.FeatureGatesKey]
-					Expect(strings.Contains(found, fgEnabled)).To(BeTrue())
-					Expect(strings.Contains(found, fgMissing)).To(BeFalse())
-					Expect(strings.Contains(found, fgDisabled)).To(BeFalse())
-					Expect(strings.Contains(found, fgNoChange)).To(BeTrue())
-				})
-			})
-
-			It("should remove all KV feature gates if there are no managed KV feature gates in HC", func() {
-				existingResource := NewKubeVirtConfigForCR(hco, commonTestUtils.Namespace)
-				existingResource.Data[virtconfig.FeatureGatesKey] = fmt.Sprintf("%s,%s,%s,%s", cmFeatureGates, fgMissing, fgDisabled, fgNoChange)
-
-				foundResource := &corev1.ConfigMap{}
-				reconcileCm(hco, req, true, existingResource, foundResource)
+				reconcileCm(hco, req, false, existingResource, foundResource)
 
 				Expect(foundResource.Data[virtconfig.FeatureGatesKey]).Should(Equal(cmFeatureGates))
 			})
 
-			It("should not modify user modified feature gates on update", func() {
+			It("should not add feature gates if they are not exist", func() {
 				existingResource := NewKubeVirtConfigForCR(hco, commonTestUtils.Namespace)
-				existingResource.Data[virtconfig.FeatureGatesKey] = fmt.Sprintf("%s,%s,%s,%s", userModifiedFgs, fgMissing, fgDisabled, fgNoChange)
+				By("Make sure the enabled FG is not there", func() {
+					Expect(existingResource.Data[virtconfig.FeatureGatesKey]).Should(Equal(cmFeatureGates))
+				})
 
-				hco.Spec.FeatureGates = map[string]bool{
-					fgEnabled:  true,
-					fgDisabled: false,
-					fgNoChange: true,
-				}
+				hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{}
 
 				foundResource := &corev1.ConfigMap{}
-				reconcileCm(hco, req, true, existingResource, foundResource)
+				reconcileCm(hco, req, false, existingResource, foundResource)
 
-				By("Should add enabled FGs, remove missing FGs, remove disabled FGs and not change existing enabled FGs", func() {
-					found := foundResource.Data[virtconfig.FeatureGatesKey]
-					Expect(strings.Contains(found, cmFeatureGates)).To(BeFalse())
-					Expect(strings.Contains(found, userModifiedFgs)).To(BeTrue())
-					Expect(strings.Contains(found, fgEnabled)).To(BeTrue())
-					Expect(strings.Contains(found, fgMissing)).To(BeFalse())
-					Expect(strings.Contains(found, fgDisabled)).To(BeFalse())
-					Expect(strings.Contains(found, fgNoChange)).To(BeTrue())
-				})
+				Expect(foundResource.Data[virtconfig.FeatureGatesKey]).Should(Equal(cmFeatureGates))
 			})
 
-			It("should modify user modified feature gates on upgrade", func() {
-				existingResource := NewKubeVirtConfigForCR(hco, commonTestUtils.Namespace)
-				existingResource.Data[virtconfig.FeatureGatesKey] = fmt.Sprintf("%s,%s,%s,%s", userModifiedFgs, fgMissing, fgDisabled, fgNoChange)
+			Context("should handle feature gates on update", func() {
+				It("Should remove the HotplugVolumes Gate gate from the CM if not the is no FeatureGates field in HC CR", func() {
+					existingResource := NewKubeVirtConfigForCR(hco, commonTestUtils.Namespace)
+					existingResource.Data[virtconfig.FeatureGatesKey] = fmt.Sprintf("%s,%s", cmFeatureGates, virtconfig.HotplugVolumesGate)
 
-				hco.Spec.FeatureGates = map[string]bool{
-					fgEnabled:  true,
-					fgDisabled: false,
-					fgNoChange: true,
-				}
+					hco.Spec.FeatureGates = nil
 
-				req.UpgradeMode = true
-				foundResource := &corev1.ConfigMap{}
-				reconcileCm(hco, req, true, existingResource, foundResource)
+					foundResource := &corev1.ConfigMap{}
+					reconcileCm(hco, req, true, existingResource, foundResource)
 
-				By("Should add enabled FGs, remove missing FGs, remove disabled FGs and not change existing enabled FGs", func() {
-					found := foundResource.Data[virtconfig.FeatureGatesKey]
-					Expect(strings.Contains(found, cmFeatureGates)).To(BeTrue())
-					Expect(strings.Contains(found, userModifiedFgs)).To(BeFalse())
-					Expect(strings.Contains(found, fgEnabled)).To(BeTrue())
-					Expect(strings.Contains(found, fgMissing)).To(BeFalse())
-					Expect(strings.Contains(found, fgDisabled)).To(BeFalse())
-					Expect(strings.Contains(found, fgNoChange)).To(BeTrue())
+					Expect(foundResource.Data[virtconfig.FeatureGatesKey]).Should(Equal(cmFeatureGates))
+				})
+
+				It("Should remove the HotplugVolumes Gate gate from the CM if not the FeatureGates field is empty", func() {
+					existingResource := NewKubeVirtConfigForCR(hco, commonTestUtils.Namespace)
+					existingResource.Data[virtconfig.FeatureGatesKey] = fmt.Sprintf("%s,%s", cmFeatureGates, virtconfig.HotplugVolumesGate)
+
+					hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{}
+
+					foundResource := &corev1.ConfigMap{}
+					reconcileCm(hco, req, true, existingResource, foundResource)
+
+					Expect(foundResource.Data[virtconfig.FeatureGatesKey]).Should(Equal(cmFeatureGates))
+				})
+
+				It("Should remove the HotplugVolumes Gate gate from the CM if not the HotplugVolumes FeatureGates is disabled", func() {
+					existingResource := NewKubeVirtConfigForCR(hco, commonTestUtils.Namespace)
+					existingResource.Data[virtconfig.FeatureGatesKey] = fmt.Sprintf("%s,%s", cmFeatureGates, virtconfig.HotplugVolumesGate)
+
+					hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{
+						HotplugVolumes: &disabled,
+					}
+
+					foundResource := &corev1.ConfigMap{}
+					reconcileCm(hco, req, true, existingResource, foundResource)
+
+					Expect(foundResource.Data[virtconfig.FeatureGatesKey]).Should(Equal(cmFeatureGates))
+				})
+
+				It("Should keep the HotplugVolumes Gate gate from the CM if not the HotplugVolumes FeatureGates is enabled", func() {
+					existingResource := NewKubeVirtConfigForCR(hco, commonTestUtils.Namespace)
+					existingResource.Data[virtconfig.FeatureGatesKey] = fmt.Sprintf("%s,%s", cmFeatureGates, virtconfig.HotplugVolumesGate)
+
+					hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{
+						HotplugVolumes: &enabled,
+					}
+
+					foundResource := &corev1.ConfigMap{}
+					reconcileCm(hco, req, false, existingResource, foundResource)
+
+					Expect(foundResource.Data[virtconfig.FeatureGatesKey]).Should(Equal(fmt.Sprintf("%s,%s", cmFeatureGates, virtconfig.HotplugVolumesGate)))
+				})
+
+				It("Should add the HotplugVolumes Gate gate to the CM if not the HotplugVolumes FeatureGates is enabled", func() {
+					existingResource := NewKubeVirtConfigForCR(hco, commonTestUtils.Namespace)
+					existingResource.Data[virtconfig.FeatureGatesKey] = cmFeatureGates
+
+					hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{
+						HotplugVolumes: &enabled,
+					}
+
+					foundResource := &corev1.ConfigMap{}
+					reconcileCm(hco, req, true, existingResource, foundResource)
+
+					Expect(foundResource.Data[virtconfig.FeatureGatesKey]).Should(Equal(fmt.Sprintf("%s,%s", cmFeatureGates, virtconfig.HotplugVolumesGate)))
+				})
+
+				It("Should not modify user modified FGs if the HotplugVolumes FeatureGates is enabled", func() {
+					existingResource := NewKubeVirtConfigForCR(hco, commonTestUtils.Namespace)
+					existingResource.Data[virtconfig.FeatureGatesKey] = cmFeatureGates + ",userDefinedFG"
+
+					hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{
+						HotplugVolumes: &enabled,
+					}
+
+					foundResource := &corev1.ConfigMap{}
+					reconcileCm(hco, req, true, existingResource, foundResource)
+
+					Expect(strings.Contains(foundResource.Data[virtconfig.FeatureGatesKey], cmFeatureGates)).To(BeTrue())
+					Expect(strings.Contains(foundResource.Data[virtconfig.FeatureGatesKey], virtconfig.HotplugVolumesGate)).To(BeTrue())
+					Expect(strings.Contains(foundResource.Data[virtconfig.FeatureGatesKey], "userDefinedFG")).To(BeTrue())
+				})
+
+				It("Should not modify user modified FGs if the HotplugVolumes FeatureGates is disabe", func() {
+					existingResource := NewKubeVirtConfigForCR(hco, commonTestUtils.Namespace)
+					existingResource.Data[virtconfig.FeatureGatesKey] = cmFeatureGates + ",userDefinedFG"
+
+					hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{
+						HotplugVolumes: &disabled,
+					}
+
+					foundResource := &corev1.ConfigMap{}
+					reconcileCm(hco, req, false, existingResource, foundResource)
+
+					Expect(strings.Contains(foundResource.Data[virtconfig.FeatureGatesKey], cmFeatureGates)).To(BeTrue())
+					Expect(strings.Contains(foundResource.Data[virtconfig.FeatureGatesKey], virtconfig.HotplugVolumesGate)).To(BeFalse())
+					Expect(strings.Contains(foundResource.Data[virtconfig.FeatureGatesKey], "userDefinedFG")).To(BeTrue())
 				})
 			})
 		})
@@ -655,146 +685,302 @@ var _ = Describe("KubeVirt Operand", func() {
 		})
 
 		Context("Feature Gates", func() {
-			origKvFeatureGates := managedKvFeatureGates
+			var (
+				enabled  = true
+				disabled = false
+			)
 
-			BeforeEach(func() {
-				// list of fake KV managed FGs
-				managedKvFeatureGates = []string{fgEnabled, fgMissing, fgDisabled, fgNoChange}
-			})
+			Context("test feature gates in NewKubeVirt", func() {
+				It("should add the feature gates if they are set in HyperConverged CR", func() {
+					hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{
+						HotplugVolumes: &enabled,
+					}
 
-			AfterEach(func() {
-				managedKvFeatureGates = origKvFeatureGates
-			})
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should contain the HotplugVolumes feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(virtconfig.HotplugVolumesGate))
+					})
+				})
 
-			It("should add the feature gates if they are set in HyperConverged CR", func() {
-				hco.Spec.FeatureGates = map[string]bool{
-					fgEnabled:  true,
-					fgDisabled: false,
-				}
+				It("should not add the feature gates if they are disabled in HyperConverged CR", func() {
+					hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{
+						HotplugVolumes: &disabled,
+					}
 
-				existingResource, err := NewKubeVirt(hco)
-				Expect(err).ToNot(HaveOccurred())
-				By("KV CR should contain the fgEnabled feature gate", func() {
-					Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
-					Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(fgEnabled))
-					Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(fgMissing))
-					Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(fgDisabled))
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should contain the HotplugVolumes feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).To(BeNil())
+					})
+				})
+
+				It("should not add the feature gates if FeatureGates field is empty", func() {
+					hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{}
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should contain the HotplugVolumes feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).To(BeNil())
+					})
+				})
+
+				It("should not add the feature gates if FeatureGates field is not exist", func() {
+					hco.Spec.FeatureGates = nil
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should contain the HotplugVolumes feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).To(BeNil())
+					})
 				})
 			})
 
-			It("should not add the feature gates if FeatureGates map is nil", func() {
-				existingResource, err := NewKubeVirt(hco)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(existingResource.Spec.Configuration.DeveloperConfiguration).To(BeNil())
-			})
+			Context("test feature gates in KV handler", func() {
+				It("should add feature gates if they are set to true", func() {
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
 
-			It("should add feature gates if they are set to true", func() {
-				existingResource, err := NewKubeVirt(hco)
-				Expect(err).ToNot(HaveOccurred())
+					hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{
+						HotplugVolumes: &enabled,
+					}
 
-				hco.Spec.FeatureGates = map[string]bool{
-					fgEnabled:  true,
-					fgDisabled: false,
-				}
+					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+					handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+					res := handler.ensure(req)
+					Expect(res.UpgradeDone).To(BeFalse())
+					Expect(res.Updated).To(BeTrue())
+					Expect(res.Overwritten).To(BeFalse())
+					Expect(res.Err).To(BeNil())
 
-				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
-				res := handler.ensure(req)
-				Expect(res.UpgradeDone).To(BeFalse())
-				Expect(res.Updated).To(BeTrue())
-				Expect(res.Overwritten).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+					foundResource := &kubevirtv1.KubeVirt{}
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+							foundResource),
+					).To(BeNil())
 
-				foundResource := &kubevirtv1.KubeVirt{}
-				Expect(
-					cl.Get(context.TODO(),
-						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-						foundResource),
-				).To(BeNil())
+					By("KV CR should contain the HC enabled managed feature gates", func() {
+						Expect(foundResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+						Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(virtconfig.HotplugVolumesGate))
+					})
+				})
 
-				By("KV CR should contain the HC enabled managed feature gates", func() {
+				It("should not add feature gates if they are set to false", func() {
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+
+					hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{
+						HotplugVolumes: &disabled,
+					}
+
+					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+					handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+					res := handler.ensure(req)
+					Expect(res.UpgradeDone).To(BeFalse())
+					Expect(res.Updated).To(BeFalse())
+					Expect(res.Overwritten).To(BeFalse())
+					Expect(res.Err).To(BeNil())
+
+					foundResource := &kubevirtv1.KubeVirt{}
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+							foundResource),
+					).To(BeNil())
+
+					By("KV CR should contain the HC enabled managed feature gates", func() {
+						Expect(foundResource.Spec.Configuration.DeveloperConfiguration).To(BeNil())
+					})
+				})
+
+				It("should not add feature gates if they are not exist", func() {
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+
+					hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{}
+
+					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+					handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+					res := handler.ensure(req)
+					Expect(res.UpgradeDone).To(BeFalse())
+					Expect(res.Updated).To(BeFalse())
+					Expect(res.Overwritten).To(BeFalse())
+					Expect(res.Err).To(BeNil())
+
+					foundResource := &kubevirtv1.KubeVirt{}
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+							foundResource),
+					).To(BeNil())
+
+					By("KV CR should contain the HC enabled managed feature gates", func() {
+						Expect(foundResource.Spec.Configuration.DeveloperConfiguration).To(BeNil())
+					})
+				})
+
+				It("should not add feature gates if the FeatureGates field is not exist", func() {
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+
+					hco.Spec.FeatureGates = nil
+
+					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+					handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+					res := handler.ensure(req)
+					Expect(res.UpgradeDone).To(BeFalse())
+					Expect(res.Updated).To(BeFalse())
+					Expect(res.Overwritten).To(BeFalse())
+					Expect(res.Err).To(BeNil())
+
+					foundResource := &kubevirtv1.KubeVirt{}
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+							foundResource),
+					).To(BeNil())
+
+					By("KV CR should contain the HC enabled managed feature gates", func() {
+						Expect(foundResource.Spec.Configuration.DeveloperConfiguration).To(BeNil())
+					})
+				})
+
+				It("should keep FG if already exist", func() {
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
+						FeatureGates: []string{virtconfig.HotplugVolumesGate},
+					}
+
+					hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{
+						HotplugVolumes: &enabled,
+					}
+
+					By("Make sure the existing KV is with the the expected FGs", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(virtconfig.HotplugVolumesGate))
+					})
+
+					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+					handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+					res := handler.ensure(req)
+					Expect(res.UpgradeDone).To(BeFalse())
+					Expect(res.Updated).To(BeFalse())
+					Expect(res.Overwritten).To(BeFalse())
+					Expect(res.Err).To(BeNil())
+
+					foundResource := &kubevirtv1.KubeVirt{}
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+							foundResource),
+					).To(BeNil())
+
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
-					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(fgEnabled))
-					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(fgMissing))
-					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(fgDisabled))
-				})
-			})
-
-			It("should handle existing feature gates on update", func() {
-				existingResource, err := NewKubeVirt(hco)
-				Expect(err).ToNot(HaveOccurred())
-				existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
-					FeatureGates: []string{fgMissing, fgDisabled, fgNoChange},
-				}
-
-				hco.Spec.FeatureGates = map[string]bool{
-					fgEnabled:  true,
-					fgDisabled: false,
-					fgNoChange: true,
-				}
-
-				By("Make sure the existing KV is with the the expected FGs", func() {
-					Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
-					Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(fgEnabled))
-					Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(fgMissing))
-					Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(fgDisabled))
-					Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(fgNoChange))
+					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(virtconfig.HotplugVolumesGate))
 				})
 
-				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
-				res := handler.ensure(req)
-				Expect(res.UpgradeDone).To(BeFalse())
-				Expect(res.Updated).To(BeTrue())
-				Expect(res.Overwritten).To(BeFalse())
-				Expect(res.Err).To(BeNil())
+				It("should remove FG if it disabled in HC CR", func() {
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
+						FeatureGates: []string{virtconfig.HotplugVolumesGate},
+					}
 
-				foundResource := &kubevirtv1.KubeVirt{}
-				Expect(
-					cl.Get(context.TODO(),
-						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-						foundResource),
-				).To(BeNil())
+					By("Make sure the existing KV is with the the expected FGs", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(virtconfig.HotplugVolumesGate))
+					})
 
-				Expect(foundResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+					hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{
+						HotplugVolumes: &disabled,
+					}
 
-				By("Should add enabled FGs", func() {
-					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(fgEnabled))
+					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+					handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+					res := handler.ensure(req)
+					Expect(res.UpgradeDone).To(BeFalse())
+					Expect(res.Updated).To(BeTrue())
+					Expect(res.Overwritten).To(BeFalse())
+					Expect(res.Err).To(BeNil())
+
+					foundResource := &kubevirtv1.KubeVirt{}
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+							foundResource),
+					).To(BeNil())
+
+					Expect(foundResource.Spec.Configuration.DeveloperConfiguration).To(BeNil())
 				})
-				By("Should remove missing FGs", func() {
-					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(fgMissing))
+
+				It("should remove FG if it missing from the HC CR", func() {
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
+						FeatureGates: []string{virtconfig.HotplugVolumesGate},
+					}
+
+					By("Make sure the existing KV is with the the expected FGs", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(virtconfig.HotplugVolumesGate))
+					})
+
+					hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{}
+
+					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+					handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+					res := handler.ensure(req)
+					Expect(res.UpgradeDone).To(BeFalse())
+					Expect(res.Updated).To(BeTrue())
+					Expect(res.Overwritten).To(BeFalse())
+					Expect(res.Err).To(BeNil())
+
+					foundResource := &kubevirtv1.KubeVirt{}
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+							foundResource),
+					).To(BeNil())
+
+					Expect(foundResource.Spec.Configuration.DeveloperConfiguration).To(BeNil())
 				})
-				By("Should remove disabled FGs", func() {
-					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(fgDisabled))
+
+				It("should remove FG if it the HC CR does not contain the featureGates field", func() {
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
+						FeatureGates: []string{virtconfig.HotplugVolumesGate},
+					}
+
+					By("Make sure the existing KV is with the the expected FGs", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(virtconfig.HotplugVolumesGate))
+					})
+
+					hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{
+						HotplugVolumes: &disabled,
+					}
+
+					cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+					handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+					res := handler.ensure(req)
+					Expect(res.UpgradeDone).To(BeFalse())
+					Expect(res.Updated).To(BeTrue())
+					Expect(res.Overwritten).To(BeFalse())
+					Expect(res.Err).To(BeNil())
+
+					foundResource := &kubevirtv1.KubeVirt{}
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+							foundResource),
+					).To(BeNil())
+
+					Expect(foundResource.Spec.Configuration.DeveloperConfiguration).To(BeNil())
 				})
-				By("Should not change existing enabled FGs", func() {
-					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(fgNoChange))
-				})
-			})
-
-			It("should remove all KV feature gates if there are no managed KV feature gates in HC", func() {
-				existingResource, err := NewKubeVirt(hco)
-				Expect(err).ToNot(HaveOccurred())
-				existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
-					FeatureGates: []string{fgMissing, fgDisabled, fgNoChange},
-				}
-
-				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
-				res := handler.ensure(req)
-				Expect(res.UpgradeDone).To(BeFalse())
-				Expect(res.Updated).To(BeTrue())
-				Expect(res.Overwritten).To(BeFalse())
-				Expect(res.Err).To(BeNil())
-
-				foundResource := &kubevirtv1.KubeVirt{}
-				Expect(
-					cl.Get(context.TODO(),
-						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-						foundResource),
-				).To(BeNil())
-
-				Expect(foundResource.Spec.Configuration.DeveloperConfiguration).To(BeNil())
 			})
 		})
 
@@ -1113,6 +1299,36 @@ var _ = Describe("KubeVirt Operand", func() {
 				Expect(handler.hooks.(*kubevirtHooks).cache == crI).To(BeFalse())
 				Expect(handler.hooks.(*kubevirtHooks).cache == crII).To(BeTrue())
 			})
+		})
+	})
+
+	Context("Test getKvFeatureGateList", func() {
+		It("Should create an empty slice if HyperConvergedFeatureGates is nil", func() {
+			var fgs *hcov1beta1.HyperConvergedFeatureGates = nil
+			Expect(getKvFeatureGateList(fgs)).To(BeEmpty())
+		})
+
+		It("Should create an empty slice if no FG exists", func() {
+			fgs := &hcov1beta1.HyperConvergedFeatureGates{}
+			Expect(getKvFeatureGateList(fgs)).To(BeEmpty())
+		})
+
+		It("Should create an empty slice if no FG is enabled", func() {
+			disabled := false
+			fgs := &hcov1beta1.HyperConvergedFeatureGates{
+				HotplugVolumes: &disabled,
+			}
+			Expect(getKvFeatureGateList(fgs)).To(BeEmpty())
+		})
+
+		It("Should create a slice if there are enabled FGs", func() {
+			enabled := true
+			fgs := &hcov1beta1.HyperConvergedFeatureGates{
+				HotplugVolumes: &enabled,
+			}
+			fgList := getKvFeatureGateList(fgs)
+			Expect(fgList).To(HaveLen(1))
+			Expect(fgList[0]).Should(Equal(virtconfig.HotplugVolumesGate))
 		})
 	})
 })

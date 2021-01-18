@@ -1,11 +1,10 @@
 package v1beta1
 
 import (
+	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
-
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -40,10 +39,10 @@ type HyperConvergedSpec struct {
 	// +optional
 	Workloads HyperConvergedConfig `json:"workloads,omitempty"`
 
-	// featureGates HyperConvergedFeatureGates contain a list of feature enabler flags. Setting a flag to `true` will enable
+	// featureGates is a map of feature gate flags. Setting a flag to `true` will enable
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
-	// optional+
-	FeatureGates HyperConvergedFeatureGates `json:"featureGates,omitempty"`
+	// +optional
+	FeatureGates *HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
 	// operator version
 	Version string `json:"version,omitempty"`
@@ -56,23 +55,18 @@ type HyperConvergedConfig struct {
 	NodePlacement *sdkapi.NodePlacement `json:"nodePlacement,omitempty"`
 }
 
-type HyperConvergedFeatureGates map[string]bool
-
-func (fgs HyperConvergedFeatureGates) IsEnabled(fgName string) bool {
-	fg, found := fgs[fgName]
-	return fg && found
+// HyperConvergedFeatureGates is a set of optional feature gates to enable or disable new features that are not enabled
+// by default yet.
+// +optional
+// +k8s:openapi-gen=true
+type HyperConvergedFeatureGates struct {
+	// Allow attaching a data volume to a running VMI
+	// +optional
+	HotplugVolumes *bool `json:"hotplugVolumes,omitempty"`
 }
 
-// get list of feature gates from a specific operand list
-func (fgs HyperConvergedFeatureGates) GetFeatureGateList(candidates []string) []string {
-	res := make([]string, 0, len(fgs))
-	for _, fg := range candidates {
-		if fgs.IsEnabled(fg) {
-			res = append(res, fg)
-		}
-	}
-
-	return res
+func (fgs *HyperConvergedFeatureGates) IsHotplugVolumesEnabled() bool {
+	return (fgs != nil) && (fgs.HotplugVolumes != nil) && (*fgs.HotplugVolumes)
 }
 
 // HyperConvergedStatus defines the observed state of HyperConverged

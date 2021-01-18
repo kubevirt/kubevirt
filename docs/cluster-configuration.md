@@ -6,8 +6,8 @@ The HyperConverged Cluster allows modifying the KubeVirt cluster configuration b
 The HyperConverged Cluster operator copies the cluster configuration values to the other operand's CRs.
 
 ***Note***: The cluster configurations are supported only in API version `v1beta1` or higher.
-## Configuration
-The configuration is done separately to Infra and Workloads. The CR's Spec object contains the `infra` and the 
+## Infra and Workloads Configuration
+Some configurations are done separately to Infra and Workloads. The CR's Spec object contains the `infra` and the 
 `workloads` objects.
 
 The structures of the `infra` and the `workloads` objects are the same. The HyperConverged Cluster operator will update 
@@ -109,3 +109,30 @@ tolerations.
           value: "kubevirt"
           effect: "NoSchedule"
   ```
+
+
+
+
+## FeatureGates
+The `featureGates` field is an optional set of optional boolean feature enabler. The features in this list are advanced 
+or new features that are not enabled by default.
+
+To enable a feature, add its name to the `featureGates` list and set it to `true`. Missing or `false` feature gates 
+disables the feature.
+
+### hotplugVolumes Feature Gate
+Set the `hotplugVolumes` feature gate in order to allow attaching a data volume to a running VMI.
+
+### Feature Gates Example
+
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  infra: {}
+  workloads: {}
+  featureGates:
+    hotplugVolumes: true
+```

@@ -29,9 +29,10 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConverged":       schema_pkg_apis_hco_v1beta1_HyperConverged(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedSpec":   schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedStatus": schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConverged":             schema_pkg_apis_hco_v1beta1_HyperConverged(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedFeatureGates": schema_pkg_apis_hco_v1beta1_HyperConvergedFeatureGates(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedSpec":         schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedStatus":       schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref),
 	}
 }
 
@@ -79,6 +80,26 @@ func schema_pkg_apis_hco_v1beta1_HyperConverged(ref common.ReferenceCallback) co
 	}
 }
 
+func schema_pkg_apis_hco_v1beta1_HyperConvergedFeatureGates(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "HyperConvergedFeatureGates is a set of optional feature gates to enable or disable new features that are not enabled by default yet.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"hotplugVolumes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Allow attaching a data volume to a running VMI",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -114,17 +135,8 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback
 					},
 					"featureGates": {
 						SchemaProps: spec.SchemaProps{
-							Description: "featureGates HyperConvergedFeatureGates contain a list of feature enabler flags. Setting a flag to `true` will enable the feature. Setting `false` or removing the feature gate, disables the feature. optional+",
-							Type:        []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"boolean"},
-										Format: "",
-									},
-								},
-							},
+							Description: "featureGates is a map of feature gate flags. Setting a flag to `true` will enable the feature. Setting `false` or removing the feature gate, disables the feature.",
+							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedFeatureGates"),
 						},
 					},
 					"version": {
@@ -138,7 +150,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedConfig"},
+			"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedConfig", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedFeatureGates"},
 	}
 }
 

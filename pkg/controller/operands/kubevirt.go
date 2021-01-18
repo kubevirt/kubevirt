@@ -25,16 +25,7 @@ const (
 )
 
 const (
-	kvHotplugVolumes = "HotplugVolumes"
-	cmFeatureGates   = "DataVolumes,SRIOV,LiveMigration,CPUManager,CPUNodeDiscovery,Sidecar,Snapshot"
-)
-
-var (
-	// managedKvFeatureGates - list of KV feature gates that can be set/clear by adding/remove them
-	// from HyperConverged CR
-	managedKvFeatureGates = []string{
-		kvHotplugVolumes,
-	}
+	cmFeatureGates = "DataVolumes,SRIOV,LiveMigration,CPUManager,CPUNodeDiscovery,Sidecar,Snapshot"
 )
 
 // ************  KubeVirt Handler  **************
@@ -115,7 +106,7 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtv1.Kub
 		Workloads:         hcoConfig2KvConfig(hc.Spec.Workloads),
 	}
 
-	fgs := hc.Spec.FeatureGates.GetFeatureGateList(managedKvFeatureGates)
+	fgs := getKvFeatureGateList(hc.Spec.FeatureGates)
 	if len(fgs) > 0 {
 		if spec.Configuration.DeveloperConfiguration == nil {
 			spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{}
@@ -250,15 +241,18 @@ func (h *kvConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, e
 		// 2. Remove only managed FGs from the list, if are not in the HC CR
 		for _, fg := range foundFgSplit {
 			// Remove if not in HC CR
-			if hcoutil.ContainsString(managedKvFeatureGates, fg) && !req.Instance.Spec.FeatureGates.IsEnabled(fg) {
-				fgChanged = true
-				continue
+			switch fg {
+			case virtconfig.HotplugVolumesGate:
+				if !req.Instance.Spec.FeatureGates.IsHotplugVolumesEnabled() {
+					fgChanged = true
+					continue
+				}
 			}
 			resultFg = append(resultFg, fg)
 		}
 
 		// 3. Add managed FGs if set in the HC CR
-		for _, fg := range req.Instance.Spec.FeatureGates.GetFeatureGateList(managedKvFeatureGates) {
+		for _, fg := range getKvFeatureGateList(req.Instance.Spec.FeatureGates) {
 			if !hcoutil.ContainsString(foundFgSplit, fg) {
 				resultFg = append(resultFg, fg)
 				fgChanged = true
@@ -391,7 +385,7 @@ func translateKubeVirtConds(orig []kubevirtv1.KubeVirtCondition) []conditionsv1.
 func NewKubeVirtConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
 	featureGates := cmFeatureGates
 
-	if managedFeatureGates := cr.Spec.FeatureGates.GetFeatureGateList(managedKvFeatureGates); len(managedFeatureGates) > 0 {
+	if managedFeatureGates := getKvFeatureGateList(cr.Spec.FeatureGates); len(managedFeatureGates) > 0 {
 		featureGates = fmt.Sprintf("%s,%s", featureGates, strings.Join(managedFeatureGates, ","))
 	}
 
@@ -426,4 +420,19 @@ func NewKubeVirtConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *co
 		cm.Data[virtconfig.UseEmulationKey] = val
 	}
 	return cm
+}
+
+// get list of feature gates from a specific operand list
+func getKvFeatureGateList(fgs *hcov1beta1.HyperConvergedFeatureGates) []string {
+	if fgs == nil {
+		return nil
+	}
+
+	res := make([]string, 0, 1)
+
+	if fgs.IsHotplugVolumesEnabled() {
+		res = append(res, virtconfig.HotplugVolumesGate)
+	}
+
+	return res
 }
