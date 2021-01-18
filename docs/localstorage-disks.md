@@ -1,6 +1,7 @@
 # Local Storage Placement for VM Disks
 
-This document describes a special handling of `DataVolumes` in the `WaitForFirstConsumer` state (`WaitForFirstConsumer` state is available from [CDI v1.21.0](https://github.com/kubevirt/containerized-data-importer/releases/tag/v1.21.0)).
+This document describes a special handling of `DataVolumes` in the `WaitForFirstConsumer` state. 
+`WaitForFirstConsumer` state is available from [CDI v1.21.0](https://github.com/kubevirt/containerized-data-importer/releases/tag/v1.21.0), and the logic to handle this is available from [Kubevirt v0.36.0](https://github.com/kubevirt/kubevirt/releases/tag/v0.36.0)
 
 ## Use-case
 
@@ -49,3 +50,78 @@ Note:
 When the `HonorWaitForFirstConsumer` feature gate is enabled, the `CDI` is not starting any worker pods when the PVCs StorageClass binding mode is `WaitForFirstConsumer`. In such case the `CDI` puts the DataVolume in a new state `WaitForFirstConsumer`.
 More in CDI docs [here](https://github.com/kubevirt/containerized-data-importer/blob/master/doc/waitforfirstconsumer-storage-handling.md).
 
+## Interaction with virtctl
+
+This change solves the problem of node placement for the `VMs`. And everything works automatically when using VM with DV Template, 
+but it makes it harder to use virtctl image-upload to upload images to cloud storage.
+
+Right now it is not supported by the virtctl and the user has to do additional steps to upload an image to the storage with `WaitForFirstConsumer` binding.
+
+1. Start an upload with virtctl 
+```
+virtctl image-upload dv fedora-dv --uploadproxy-url=https://cdi-uploadproxy.mycluster.com --image-path=/images/fedora30.qcow2
+
+DataVolume default/fedora-dv created
+Waiting for PVC fedora-dv upload pod to be ready...
+cannot upload to DataVolume in state WaitForFirstConsumer
+```
+
+Current version of virtctl should immediatetly detect the problem and error. The older version will take all the time limit and finish with timeout.
+
+2. To bind the `PVC` create a consumer `POD`. With a `nodeSelector` to select a specific node ot without for a random node.
+
+Find a pvc:
+`k get pvc -l app=containerized-data-importer -o custom-columns=NAME:.metadata.name,OWNER:.metadata.ownerReferences  | grep fedora-dv
+`
+
+Create a pod to bind a pvc to any node using the following snippet with correct pvc name and namespace.
+
+```
+PVC=<PVC_NAME>
+NAMESPACE=<PVC_NAMESPACE>
+
+cat <<EOF | kubectl create -n $NAMESPACE -f -   
+apiVersion: v1
+kind: Pod
+metadata:
+  name: consumer-$PVC
+spec:
+  volumes:
+    - name: pod1-storage
+      persistentVolumeClaim:
+        claimName: $PVC
+  containers:
+  - name: test-pod-container
+    image: busybox
+    command: ['sh', '-c', 'echo "Will bind the pvc!" ']
+    volumeMounts:
+      - mountPath: /disk
+        name: pod1-storage
+  nodeSelector:
+    kubernetes.io/hostname: <NODE_HOSTNAME>
+
+EOF
+```
+
+Check if the pvc is bound and kill the temporary pod.
+```
+kubectl delete pod consumer-$PVC -n $NAMESPACE
+```
+
+3. Repeat the virtctl upload command.
+
+```
+virtctl image-upload dv fedora-dv --uploadproxy-url=https://cdi-uploadproxy.mycluster.com --image-path=/images/fedora30.qcow2
+
+DataVolume default/fedora-dv created
+Waiting for PVC fedora-dv upload pod to be ready...
+Pod now ready
+Uploading data to https://localhost:9443
+
+ 319.13 MiB / 319.13 MiB [================================================================================================================] 100.00% 0s
+
+Uploading data completed successfully, waiting for processing to complete, you can hit ctrl-c without interrupting the progress
+Processing completed successfully
+Uploading /images/fedora30.qcow2 completed successfully
+
+```
