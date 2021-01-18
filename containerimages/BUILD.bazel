@@ -134,3 +134,15 @@ container_image(
     mode = "444",
     visibility = ["//visibility:public"],
 )
+
+container_image(
+    name = "fedora-with-test-tooling",
+    architecture = select({
+        "//conditions:default": "amd64",
+    }),
+    base = select({
+        "//conditions:default": "@fedora_with_test_tooling//image",
+    }),
+    mode = "444",
+    visibility = ["//visibility:public"],
+)
