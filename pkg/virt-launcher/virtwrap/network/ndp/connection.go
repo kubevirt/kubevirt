@@ -131,7 +131,10 @@ func (l *NDPConnection) Export(socketPath string) error {
 		return fmt.Errorf("could not send the opened file descriptor across: %v", err)
 	}
 
-	_ = l.rawConn.Close()
+	defer func() {
+		_ = l.rawConn.Close()
+		_ = l.conn.Close()
+	}()
 	return nil
 }
 
