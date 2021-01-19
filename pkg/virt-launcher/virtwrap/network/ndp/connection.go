@@ -91,7 +91,7 @@ func NewNDPConnection(ifaceName string) (*NDPConnection, error) {
 func importNDPConnection(openedFD *os.File, iface *net.Interface) (*NDPConnection, error) {
 	conn, err := net.FilePacketConn(openedFD)
 	if err != nil {
-		return nil, fmt.Errorf("could not get a PacketConnection from the bloody filer: %v", err)
+		return nil, fmt.Errorf("could not get a PacketConnection from the opened file descriptor: %v", err)
 	}
 	ipv6Conn := ipv6.NewPacketConn(conn)
 	ndpConn := &NDPConnection{
@@ -136,7 +136,7 @@ func (l *NDPConnection) Export(socketPath string) error {
 	defer socketListener.Close()
 	f, err := l.GetFD()
 	if err != nil {
-		return fmt.Errorf("could not get an opened file descriptor for out stupid ass server: %v", err)
+		return fmt.Errorf("could not get an opened file descriptor from the icmp listener: %v", err)
 	}
 
 	socketTransferConnection, err := socketListener.Accept()
