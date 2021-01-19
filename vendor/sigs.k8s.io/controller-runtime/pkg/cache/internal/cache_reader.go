@@ -45,7 +45,7 @@ type CacheReader struct {
 }
 
 // Get checks the indexer for the object and writes a copy of it if found
-func (c *CacheReader) Get(_ context.Context, key client.ObjectKey, out runtime.Object) error {
+func (c *CacheReader) Get(_ context.Context, key client.ObjectKey, out client.Object) error {
 	storeKey := objectKeyToStoreKey(key)
 
 	// Lookup the object from the indexer cache
@@ -87,7 +87,7 @@ func (c *CacheReader) Get(_ context.Context, key client.ObjectKey, out runtime.O
 }
 
 // List lists items out of the indexer and writes them to out
-func (c *CacheReader) List(_ context.Context, out runtime.Object, opts ...client.ListOption) error {
+func (c *CacheReader) List(_ context.Context, out client.ObjectList, opts ...client.ListOption) error {
 	var objs []interface{}
 	var err error
 

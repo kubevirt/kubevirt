@@ -61,7 +61,7 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := commonTestUtils.InitClient([]runtime.Object{})
 				r := initReconciler(cl)
 
-				res, err := r.Reconcile(request)
+				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{}))
 			})
@@ -87,7 +87,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Namespace: "invalid",
 					},
 				}
-				res, err := r.Reconcile(invalidRequest)
+				res, err := r.Reconcile(context.TODO(), invalidRequest)
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{}))
 
@@ -113,7 +113,7 @@ var _ = Describe("HyperconvergedController", func() {
 				r := initReconciler(cl)
 
 				// Do the reconcile
-				res, err := r.Reconcile(request)
+				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 
@@ -201,7 +201,7 @@ var _ = Describe("HyperconvergedController", func() {
 				r := initReconciler(cl)
 
 				// Do the reconcile
-				res, err := r.Reconcile(request)
+				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{}))
 
@@ -284,7 +284,7 @@ var _ = Describe("HyperconvergedController", func() {
 				r := initReconciler(cl)
 
 				// Do the reconcile
-				res, err := r.Reconcile(request)
+				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{}))
 
@@ -404,7 +404,7 @@ var _ = Describe("HyperconvergedController", func() {
 				r := initReconciler(cl)
 
 				// Do the reconcile
-				res, err := r.Reconcile(request)
+				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{}))
 
@@ -480,7 +480,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(err).To(BeNil())
 
 				// Do the reconcile
-				res, err := r.Reconcile(rq)
+				res, err := r.Reconcile(context.TODO(), rq)
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 
@@ -533,7 +533,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(err).To(BeNil())
 
 				// Do the reconcile triggered by HCO
-				res, err := r.Reconcile(request)
+				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 
@@ -624,7 +624,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expected := getBasicDeployment()
 				cl := expected.initClient()
 				r := initReconciler(cl)
-				res, err := r.Reconcile(request)
+				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{}))
 
@@ -646,7 +646,7 @@ var _ = Describe("HyperconvergedController", func() {
 				cl = expected.initClient()
 
 				r = initReconciler(cl)
-				res, err = r.Reconcile(request)
+				res, err = r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 
@@ -666,7 +666,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expected := getBasicDeployment()
 				cl := expected.initClient()
 				r := initReconciler(cl)
-				res, err := r.Reconcile(request)
+				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{}))
 
@@ -686,7 +686,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.hco.ObjectMeta.Finalizers = []string{badFinalizerName}
 				cl := expected.initClient()
 				r := initReconciler(cl)
-				res, err := r.Reconcile(request)
+				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{}))
 
@@ -1393,7 +1393,7 @@ var _ = Describe("HyperconvergedController", func() {
 					r.ownVersion = version.Version
 				}
 
-				res, err := r.Reconcile(request)
+				res, err := r.Reconcile(context.TODO(), request)
 
 				Expect(err).ToNot(BeNil())
 				Expect(apierrors.IsConflict(err)).To(BeTrue())
@@ -1413,7 +1413,7 @@ var _ = Describe("HyperconvergedController", func() {
 					r.ownVersion = version.Version
 				}
 
-				res, err := r.Reconcile(request)
+				res, err := r.Reconcile(context.TODO(), request)
 
 				Expect(err).ToNot(BeNil())
 				Expect(apierrors.IsConflict(err)).To(BeTrue())
@@ -1441,7 +1441,7 @@ var _ = Describe("HyperconvergedController", func() {
 				r := initReconciler(cl)
 
 				By("Reconcile", func() {
-					res, err := r.Reconcile(request)
+					res, err := r.Reconcile(context.TODO(), request)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 				})
@@ -1490,7 +1490,7 @@ var _ = Describe("HyperconvergedController", func() {
 				r := initReconciler(cl)
 
 				// Do the reconcile
-				res, err := r.Reconcile(request)
+				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).To(BeNil())
 
 				// Expecting "Requeue: false" since the conditions aren't empty

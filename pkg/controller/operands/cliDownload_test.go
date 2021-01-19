@@ -71,8 +71,7 @@ var _ = Describe("CLI Download", func() {
 			err := handler.Ensure(req)
 			Expect(err).To(BeNil())
 			expectedResource := NewConsoleCLIDownload(hco)
-			key, err := client.ObjectKeyFromObject(expectedResource)
-			Expect(err).ToNot(HaveOccurred())
+			key := client.ObjectKeyFromObject(expectedResource)
 			foundResource := &consolev1.ConsoleCLIDownload{}
 			Expect(cl.Get(context.TODO(), key, foundResource))
 			Expect(foundResource.Spec.Links[0].Href).To(Equal(expectedResource.Spec.Links[0].Href))

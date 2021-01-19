@@ -44,10 +44,10 @@ func newMetricsServiceHandler(Client client.Client, Scheme *runtime.Scheme) *met
 
 type metricsServiceHooks struct{}
 
-func (h metricsServiceHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+func (h metricsServiceHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	return NewMetricsService(hc, hc.Namespace), nil
 }
-func (h metricsServiceHooks) getEmptyCr() runtime.Object                              { return &corev1.Service{} }
+func (h metricsServiceHooks) getEmptyCr() client.Object                               { return &corev1.Service{} }
 func (h metricsServiceHooks) validate() error                                         { return nil }
 func (h metricsServiceHooks) postFound(*common.HcoRequest, runtime.Object) error      { return nil }
 func (h metricsServiceHooks) getConditions(_ runtime.Object) []conditionsv1.Condition { return nil }
@@ -128,10 +128,10 @@ func newMetricsServiceMonitorHandler(Client client.Client, Scheme *runtime.Schem
 
 type metricsServiceMonitorHooks struct{}
 
-func (h metricsServiceMonitorHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+func (h metricsServiceMonitorHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	return NewServiceMonitor(hc, hc.Namespace), nil
 }
-func (h metricsServiceMonitorHooks) getEmptyCr() runtime.Object {
+func (h metricsServiceMonitorHooks) getEmptyCr() client.Object {
 	return &monitoringv1.ServiceMonitor{}
 }
 func (h metricsServiceMonitorHooks) validate() error                                    { return nil }
@@ -205,10 +205,10 @@ func newMonitoringPrometheusRuleHandler(Client client.Client, Scheme *runtime.Sc
 
 type prometheusRuleHooks struct{}
 
-func (h prometheusRuleHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+func (h prometheusRuleHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	return NewPrometheusRule(hc, hc.Namespace), nil
 }
-func (h prometheusRuleHooks) getEmptyCr() runtime.Object                              { return &monitoringv1.PrometheusRule{} }
+func (h prometheusRuleHooks) getEmptyCr() client.Object                               { return &monitoringv1.PrometheusRule{} }
 func (h prometheusRuleHooks) validate() error                                         { return nil }
 func (h prometheusRuleHooks) postFound(*common.HcoRequest, runtime.Object) error      { return nil }
 func (h prometheusRuleHooks) getConditions(_ runtime.Object) []conditionsv1.Condition { return nil }

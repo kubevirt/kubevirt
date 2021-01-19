@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	crtHandler "sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -88,31 +88,31 @@ var _ crtHandler.EventHandler = &EnqueueRequestForAnnotation{}
 
 // Create implements EventHandler
 func (e *EnqueueRequestForAnnotation) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
-	if ok, req := e.getAnnotationRequests(evt.Meta); ok {
+	if ok, req := e.getAnnotationRequests(evt.Object); ok {
 		q.Add(req)
 	}
 }
 
 // Update implements EventHandler
 func (e *EnqueueRequestForAnnotation) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
-	if ok, req := e.getAnnotationRequests(evt.MetaOld); ok {
+	if ok, req := e.getAnnotationRequests(evt.ObjectOld); ok {
 		q.Add(req)
 	}
-	if ok, req := e.getAnnotationRequests(evt.MetaNew); ok {
+	if ok, req := e.getAnnotationRequests(evt.ObjectNew); ok {
 		q.Add(req)
 	}
 }
 
 // Delete implements EventHandler
 func (e *EnqueueRequestForAnnotation) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
-	if ok, req := e.getAnnotationRequests(evt.Meta); ok {
+	if ok, req := e.getAnnotationRequests(evt.Object); ok {
 		q.Add(req)
 	}
 }
 
 // Generic implements EventHandler
 func (e *EnqueueRequestForAnnotation) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
-	if ok, req := e.getAnnotationRequests(evt.Meta); ok {
+	if ok, req := e.getAnnotationRequests(evt.Object); ok {
 		q.Add(req)
 	}
 }
@@ -155,7 +155,7 @@ func parseNamespacedName(namespacedNameString string) types.NamespacedName {
 // and kind. In other terms, object can be said to be the dependent having annotations from the owner.
 // When a watch is set on the object, the annotations help to identify the owner and trigger reconciliation.
 // Annotations are ALWAYS overwritten.
-func SetOwnerAnnotations(owner, object controllerutil.Object) error {
+func SetOwnerAnnotations(owner, object client.Object) error {
 	if owner.GetName() == "" {
 		return fmt.Errorf("%T does not have a name, cannot call SetOwnerAnnotations", owner)
 	}

@@ -38,13 +38,13 @@ type vmImportHooks struct {
 	cache *vmimportv1beta1.VMImportConfig
 }
 
-func (h *vmImportHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+func (h *vmImportHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	if h.cache == nil {
 		h.cache = NewVMImportForCR(hc)
 	}
 	return h.cache, nil
 }
-func (h vmImportHooks) getEmptyCr() runtime.Object                             { return &vmimportv1beta1.VMImportConfig{} }
+func (h vmImportHooks) getEmptyCr() client.Object                              { return &vmimportv1beta1.VMImportConfig{} }
 func (h vmImportHooks) validate() error                                        { return nil }
 func (h vmImportHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
 func (h vmImportHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
@@ -120,10 +120,10 @@ func newImsConfigHandler(Client client.Client, Scheme *runtime.Scheme) *imsConfi
 
 type imsConfigHooks struct{}
 
-func (h imsConfigHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+func (h imsConfigHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	return NewIMSConfigForCR(hc, hc.Namespace), nil
 }
-func (h imsConfigHooks) getEmptyCr() runtime.Object { return &corev1.ConfigMap{} }
+func (h imsConfigHooks) getEmptyCr() client.Object { return &corev1.ConfigMap{} }
 func (h imsConfigHooks) validate() error {
 	if os.Getenv("CONVERSION_CONTAINER") == "" {
 		return errors.New("ims-conversion-container not specified")

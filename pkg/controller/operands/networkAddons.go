@@ -2,6 +2,8 @@ package operands
 
 import (
 	"errors"
+	"reflect"
+
 	networkaddonsshared "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
@@ -14,7 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -38,7 +39,7 @@ type cnaHooks struct {
 	cache *networkaddonsv1.NetworkAddonsConfig
 }
 
-func (h *cnaHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+func (h *cnaHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	if h.cache == nil {
 		cna, err := NewNetworkAddons(hc)
 		if err != nil {
@@ -49,7 +50,7 @@ func (h *cnaHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, err
 	return h.cache, nil
 }
 
-func (h cnaHooks) getEmptyCr() runtime.Object                         { return &networkaddonsv1.NetworkAddonsConfig{} }
+func (h cnaHooks) getEmptyCr() client.Object                          { return &networkaddonsv1.NetworkAddonsConfig{} }
 func (h cnaHooks) validate() error                                    { return nil }
 func (h cnaHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
 func (h cnaHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {

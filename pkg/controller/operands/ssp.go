@@ -117,13 +117,13 @@ type sspHooks struct {
 	cache *sspv1beta1.SSP
 }
 
-func (h *sspHooks) getFullCr(hc *hcov1beta1.HyperConverged) (runtime.Object, error) {
+func (h *sspHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	if h.cache == nil {
 		h.cache = NewSSP(hc)
 	}
 	return h.cache, nil
 }
-func (h sspHooks) getEmptyCr() runtime.Object                         { return &sspv1beta1.SSP{} }
+func (h sspHooks) getEmptyCr() client.Object                          { return &sspv1beta1.SSP{} }
 func (h sspHooks) validate() error                                    { return nil }
 func (h sspHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
 func (h sspHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {

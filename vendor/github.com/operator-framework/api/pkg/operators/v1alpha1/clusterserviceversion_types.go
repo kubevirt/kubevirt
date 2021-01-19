@@ -379,6 +379,7 @@ const (
 	CSVReasonCannotModifyStaticOperatorGroupProvidedAPIs ConditionReason = "CannotModifyStaticOperatorGroupProvidedAPIs"
 	CSVReasonDetectedClusterChange                       ConditionReason = "DetectedClusterChange"
 	CSVReasonInvalidWebhookDescription                   ConditionReason = "InvalidWebhookDescription"
+	CSVReasonOperatorConditionNotUpgradeable             ConditionReason = "OperatorConditionNotUpgradeable"
 )
 
 // HasCaResources returns true if the CSV has owned APIServices or Webhooks.

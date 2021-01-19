@@ -3,16 +3,17 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+
 	"github.com/go-logr/logr"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"net/http"
-	"os"
-	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -146,7 +147,7 @@ func (a *nsMutator) Handle(ctx context.Context, req admission.Request) admission
 	hcolog.Info("reaching nsMutator.Handle")
 	ns := &corev1.Namespace{}
 
-	if req.Operation == admissionv1beta1.Delete {
+	if req.Operation == admissionv1.Delete {
 
 		// In reference to PR: https://github.com/kubernetes/kubernetes/pull/76346
 		// OldObject contains the object being deleted

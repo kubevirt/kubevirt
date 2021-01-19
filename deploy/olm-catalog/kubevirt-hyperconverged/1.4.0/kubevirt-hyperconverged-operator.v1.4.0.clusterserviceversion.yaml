@@ -3,7 +3,8 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{"BareMetalPlatform":false}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"nmstate":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1alpha3","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1beta1","kind":"SSP","metadata":{"name":"ssp-sample","namespace":"kubevirt"},"spec":{"commonTemplates":{"namespace":"kubevirt"},"templateValidator":{"replicas":2}}},{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"nodemaintenance.kubevirt.io/v1beta1","kind":"NodeMaintenance","metadata":{"name":"nodemaintenance-example"},"spec":{"nodeName":"node02","reason":"Test node maintenance"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","pathConfig":{"path":"/var/hpvolumes","useNamingPrefix":false}}},{"apiVersion":"v2v.kubevirt.io/v1beta1","kind":"VMImportConfig","metadata":{"name":"vm-import-operator-config"},"spec":{"imagePullPolicy":"IfNotPresent"}}]'
+    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{"BareMetalPlatform":false}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"nmstate":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1alpha3","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1beta1","kind":"SSP","metadata":{"name":"ssp-sample","namespace":"kubevirt"},"spec":{"commonTemplates":{"namespace":"kubevirt"},"templateValidator":{"replicas":2}}},{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"nodemaintenance.kubevirt.io/v1beta1","kind":"NodeMaintenance","metadata":{"name":"nodemaintenance-example"},"spec":{"nodeName":"node02","reason":"Test
+      node maintenance"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","pathConfig":{"path":"/var/hpvolumes","useNamingPrefix":false}}},{"apiVersion":"v2v.kubevirt.io/v1beta1","kind":"VMImportConfig","metadata":{"name":"vm-import-operator-config"},"spec":{"imagePullPolicy":"IfNotPresent"}}]'
     capabilities: Full Lifecycle
     categories: OpenShift Optional
     certified: "false"
@@ -90,32 +91,38 @@ spec:
       kind: HyperConverged
       name: hyperconvergeds.hco.kubevirt.io
       specDescriptors:
-      - description: nodeAffinity describes node affinity scheduling rules for the infra pods.
+      - description: nodeAffinity describes node affinity scheduling rules for the
+          infra pods.
         displayName: Infra components node affinity
         path: infra.nodePlacement.affinity.nodeAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:nodeAffinity
-      - description: podAffinity describes pod affinity scheduling rules for the infra pods.
+      - description: podAffinity describes pod affinity scheduling rules for the infra
+          pods.
         displayName: Infra components pod affinity
         path: infra.nodePlacement.affinity.podAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAffinity
-      - description: podAntiAffinity describes pod anti affinity scheduling rules for the infra pods.
+      - description: podAntiAffinity describes pod anti affinity scheduling rules
+          for the infra pods.
         displayName: Infra components pod anti-affinity
         path: infra.nodePlacement.affinity.podAntiAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
-      - description: nodeAffinity describes node affinity scheduling rules for the workloads pods.
+      - description: nodeAffinity describes node affinity scheduling rules for the
+          workloads pods.
         displayName: Workloads components node affinity
         path: workloads.nodePlacement.affinity.nodeAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:nodeAffinity
-      - description: podAffinity describes pod affinity scheduling rules for the workloads pods.
+      - description: podAffinity describes pod affinity scheduling rules for the workloads
+          pods.
         displayName: Workloads components pod affinity
         path: workloads.nodePlacement.affinity.podAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAffinity
-      - description: podAntiAffinity describes pod anti affinity scheduling rules for the workloads pods.
+      - description: podAntiAffinity describes pod anti affinity scheduling rules
+          for the workloads pods.
         displayName: Workloads components pod anti-affinity
         path: workloads.nodePlacement.affinity.podAntiAffinity
         x-descriptors:

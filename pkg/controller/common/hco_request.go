@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -21,12 +22,12 @@ type HcoRequest struct {
 	HCOTriggered               bool                       // if the request got triggered by a direct modification on HCO CR
 }
 
-func NewHcoRequest(request reconcile.Request, log logr.Logger, upgradeMode, hcoTriggered bool) *HcoRequest {
+func NewHcoRequest(ctx context.Context, request reconcile.Request, log logr.Logger, upgradeMode, hcoTriggered bool) *HcoRequest {
 	return &HcoRequest{
 		Request:                    request,
 		Logger:                     log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name),
 		Conditions:                 NewHcoConditions(),
-		Ctx:                        context.TODO(),
+		Ctx:                        ctx,
 		UpgradeMode:                upgradeMode,
 		ComponentUpgradeInProgress: upgradeMode,
 		Dirty:                      false,

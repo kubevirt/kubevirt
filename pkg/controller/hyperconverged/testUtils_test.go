@@ -203,7 +203,7 @@ func doReconcile(cl client.Client, hco *hcov1beta1.HyperConverged) (*hcov1beta1.
 		r.ownVersion = version.Version
 	}
 
-	res, err := r.Reconcile(request)
+	res, err := r.Reconcile(context.TODO(), request)
 	Expect(err).To(BeNil())
 
 	foundResource := &hcov1beta1.HyperConverged{}

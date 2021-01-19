@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
@@ -726,7 +727,7 @@ var (
 	ErrFakeVMImportError = errors.New("fake VMImport error")
 )
 
-func (ec errorClient) Update(ctx context.Context, obj runtime.Object, opts ...client.UpdateOption) error {
+func (ec errorClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
 	switch obj.(type) {
 	case *kubevirtv1.KubeVirt:
 		if ec.failure == kvUpdateFailure {

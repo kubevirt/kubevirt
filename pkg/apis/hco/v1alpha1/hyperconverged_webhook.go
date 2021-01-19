@@ -111,7 +111,7 @@ func (r *HyperConverged) ValidateDelete() error {
 
 	ctx := context.TODO()
 
-	for _, obj := range []runtime.Object{
+	for _, obj := range []client.Object{
 		r.NewKubeVirt(),
 		r.NewCDI(),
 	} {

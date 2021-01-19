@@ -3,9 +3,10 @@ package operands
 import (
 	"context"
 	"fmt"
-	consolev1 "github.com/openshift/api/console/v1"
 	"sync"
 	"time"
+
+	consolev1 "github.com/openshift/api/console/v1"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
@@ -136,7 +137,7 @@ func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 	errorCh := make(chan error)
 	done := make(chan bool)
 
-	resources := []runtime.Object{
+	resources := []client.Object{
 		NewKubeVirtWithNameOnly(req.Instance),
 		NewCDIWithNameOnly(req.Instance),
 		NewNetworkAddonsWithNameOnly(req.Instance),
@@ -157,7 +158,7 @@ func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 	}()
 
 	for _, res := range resources {
-		go func(o runtime.Object, wgr *sync.WaitGroup) {
+		go func(o client.Object, wgr *sync.WaitGroup) {
 			defer wgr.Done()
 			err := hcoutil.EnsureDeleted(tCtx, h.client, o, req.Instance.Name, req.Logger, false, true)
 			if err != nil {
@@ -176,7 +177,8 @@ func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 				h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, errT, errMsg)
 				errorCh <- err
 			} else {
-				if key, err := client.ObjectKeyFromObject(o); err == nil {
+				key := client.ObjectKeyFromObject(o)
+				if err := h.client.Get(tCtx, key, o); err == nil {
 					h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Killing", fmt.Sprintf("Removed %s %s", o.GetObjectKind().GroupVersionKind().Kind, key.Name))
 				}
 			}

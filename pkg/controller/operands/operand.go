@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
+
 	jsonpatch "github.com/evanphx/json-patch"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"strings"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
@@ -49,10 +50,10 @@ type genericOperand struct {
 // Set of resource handler hooks, to be implement in each handler
 type hcoResourceHooks interface {
 	// Generate the required resource, with all the required fields)
-	getFullCr(*hcov1beta1.HyperConverged) (runtime.Object, error)
+	getFullCr(*hcov1beta1.HyperConverged) (client.Object, error)
 	// Generate an empty resource, to be used as the input of the client.Get method. After calling this method, it will
 	// contains the actual values in K8s.
-	getEmptyCr() runtime.Object
+	getEmptyCr() client.Object
 	// optional validation before starting the ensure work
 	validate() error
 	// an optional hook that is called just after getting the resource from K8s
@@ -92,11 +93,7 @@ func (h *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
 		}
 	}
 
-	key, err := client.ObjectKeyFromObject(cr)
-	if err != nil {
-		req.Logger.Error(err, "Failed to get object key for "+h.crType)
-	}
-
+	key := client.ObjectKeyFromObject(cr)
 	res.SetName(key.Name)
 	found := h.hooks.getEmptyCr()
 	err = h.Client.Get(req.Ctx, key, found)
@@ -104,16 +101,12 @@ func (h *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
 		if apierrors.IsNotFound(err) {
 			req.Logger.Info("Creating " + h.crType)
 			err = h.Client.Create(req.Ctx, cr)
-			if err == nil {
-				return res.SetCreated().SetName(key.Name)
+			if err != nil {
+				req.Logger.Error(err, "Failed to create object for "+h.crType)
+				return res.Error(err)
 			}
+			return res.SetCreated().SetName(key.Name)
 		}
-		return res.Error(err)
-	}
-
-	key, err = client.ObjectKeyFromObject(found)
-	if err != nil {
-		req.Logger.Error(err, "Failed to get object key for "+h.crType)
 		return res.Error(err)
 	}
 

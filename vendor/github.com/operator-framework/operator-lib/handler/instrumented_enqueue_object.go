@@ -15,9 +15,8 @@
 package handler
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/workqueue"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 
@@ -41,43 +40,43 @@ type InstrumentedEnqueueRequestForObject struct {
 
 // Create implements EventHandler, and creates the metrics.
 func (h InstrumentedEnqueueRequestForObject) Create(e event.CreateEvent, q workqueue.RateLimitingInterface) {
-	setResourceMetric(e.Meta, e.Object)
+	setResourceMetric(e.Object)
 	h.EnqueueRequestForObject.Create(e, q)
 }
 
 // Update implements EventHandler, and updates the metrics.
 func (h InstrumentedEnqueueRequestForObject) Update(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
-	setResourceMetric(e.MetaOld, e.ObjectOld)
-	setResourceMetric(e.MetaNew, e.ObjectNew)
+	setResourceMetric(e.ObjectOld)
+	setResourceMetric(e.ObjectNew)
 
 	h.EnqueueRequestForObject.Update(e, q)
 }
 
 // Delete implements EventHandler, and deletes metrics.
 func (h InstrumentedEnqueueRequestForObject) Delete(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
-	deleteResourceMetric(e.Meta, e.Object)
+	deleteResourceMetric(e.Object)
 	h.EnqueueRequestForObject.Delete(e, q)
 }
 
-func setResourceMetric(metadata metav1.Object, obj runtime.Object) {
-	if metadata != nil && obj != nil {
-		labels := getResourceLabels(metadata, obj)
+func setResourceMetric(obj client.Object) {
+	if obj != nil {
+		labels := getResourceLabels(obj)
 		m, _ := metrics.ResourceCreatedAt.GetMetricWith(labels)
-		m.Set(float64(metadata.GetCreationTimestamp().UTC().Unix()))
+		m.Set(float64(obj.GetCreationTimestamp().UTC().Unix()))
 	}
 }
 
-func deleteResourceMetric(metadata metav1.Object, obj runtime.Object) {
-	if metadata != nil && obj != nil {
-		labels := getResourceLabels(metadata, obj)
+func deleteResourceMetric(obj client.Object) {
+	if obj != nil {
+		labels := getResourceLabels(obj)
 		_ = metrics.ResourceCreatedAt.Delete(labels)
 	}
 }
 
-func getResourceLabels(metadata metav1.Object, obj runtime.Object) map[string]string {
+func getResourceLabels(obj client.Object) map[string]string {
 	return map[string]string{
-		"name":      metadata.GetName(),
-		"namespace": metadata.GetNamespace(),
+		"name":      obj.GetName(),
+		"namespace": obj.GetNamespace(),
 		"group":     obj.GetObjectKind().GroupVersionKind().Group,
 		"version":   obj.GetObjectKind().GroupVersionKind().Version,
 		"kind":      obj.GetObjectKind().GroupVersionKind().Kind,

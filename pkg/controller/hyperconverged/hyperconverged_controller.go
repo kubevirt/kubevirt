@@ -1,6 +1,7 @@
 package hyperconverged
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -19,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -28,7 +30,6 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util/predicate"
 	version "github.com/kubevirt/hyperconverged-cluster-operator/version"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
@@ -111,7 +112,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 	err = c.Watch(
 		&source.Kind{Type: &hcov1beta1.HyperConverged{}},
 		&operatorhandler.InstrumentedEnqueueRequestForObject{},
-		predicate.GenerationOrAnnotationChangedPredicate{})
+		predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}))
 	if err != nil {
 		return err
 	}
@@ -121,7 +122,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 		return err
 	}
 
-	secondaryResources := []runtime.Object{
+	secondaryResources := []client.Object{
 		&kubevirtv1.KubeVirt{},
 		&cdiv1beta1.CDI{},
 		&networkaddonsv1.NetworkAddonsConfig{},
@@ -130,7 +131,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 		&vmimportv1beta1.VMImportConfig{},
 	}
 	if ci.IsOpenshift() {
-		secondaryResources = append(secondaryResources, []runtime.Object{
+		secondaryResources = append(secondaryResources, []client.Object{
 			&corev1.Service{},
 			&monitoringv1.ServiceMonitor{},
 			&monitoringv1.PrometheusRule{},
@@ -140,18 +141,18 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 	// Watch secondary resources
 	for _, resource := range secondaryResources {
 		msg := fmt.Sprintf("Reconciling for %T", resource)
-		err = c.Watch(&source.Kind{Type: resource}, &handler.EnqueueRequestsFromMapFunc{
-			ToRequests: handler.ToRequestsFunc(
+		err = c.Watch(
+			&source.Kind{Type: resource},
+			handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
 				// enqueue using a placeholder to be able to discriminate request triggered
 				// by changes on the HyperConverged object from request triggered by changes
 				// on a secondary CR controlled by HCO
-				func(a handler.MapObject) []reconcile.Request {
-					log.Info(msg)
-					return []reconcile.Request{
-						{NamespacedName: secCRPlaceholder},
-					}
-				}),
-		})
+				log.Info(msg)
+				return []reconcile.Request{
+					{NamespacedName: secCRPlaceholder},
+				}
+			}),
+		)
 		if err != nil {
 			return err
 		}
@@ -182,7 +183,7 @@ type ReconcileHyperConverged struct {
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileHyperConverged) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 
 	secCRPlaceholder, err := getSecondaryCRPlaceholder()
 	if err != nil {
@@ -204,7 +205,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		r.operandHandler.Reset()
 	}
 
-	req := common.NewHcoRequest(pRequest, log, r.upgradeMode, hcoTriggered)
+	req := common.NewHcoRequest(ctx, pRequest, log, r.upgradeMode, hcoTriggered)
 	if req.HCOTriggered {
 		req.Logger.Info("Reconciling HyperConverged operator")
 	} else {
