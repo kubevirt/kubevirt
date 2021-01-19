@@ -72,7 +72,7 @@ docker run \
     kubevirt/tests:latest \
         --kubeconfig=data/openshift-master.kubeconfig \
         --container-tag=latest \
-        --container-prefix=docker.io/kubevirt \
+        --container-prefix=quay.io/kubevirt \
         --test.timeout 180m \
         --junit-output=data/results/junit.xml \
         --deploy-testing-infra \

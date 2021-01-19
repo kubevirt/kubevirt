@@ -26,7 +26,7 @@ KUBEVIRT_E2E_PARALLEL_NODES=${KUBEVIRT_E2E_PARALLEL_NODES:-3}
 source hack/common.sh
 source hack/config.sh
 
-_default_previous_release_registry="index.docker.io/kubevirt"
+_default_previous_release_registry="quay.io/kubevirt"
 
 previous_release_registry=${PREVIOUS_RELEASE_REGISTRY:-$_default_previous_release_registry}
 
