@@ -428,6 +428,45 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			return updatedVM
 		}
 
+		table.DescribeTable("cpu/memory in requests/limits should allow", func(cpu, request string) {
+			vm := tests.NewRandomVirtualMachine(
+				tests.NewRandomVMIWithEphemeralDisk(
+					cd.ContainerDiskFor(cd.ContainerDiskCirros),
+				), false,
+			)
+			oldCpu := "222"
+			oldMemory := "2222222"
+
+			vm.APIVersion = "kubevirt.io/" + v1.ApiStorageVersion
+			vm.Spec.Template.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
+			vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceCPU] = resource.MustParse(oldCpu)
+			vm.Spec.Template.Spec.Domain.Resources.Limits[corev1.ResourceCPU] = resource.MustParse(oldCpu)
+			vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory] = resource.MustParse(oldMemory)
+			vm.Spec.Template.Spec.Domain.Resources.Limits[corev1.ResourceMemory] = resource.MustParse(oldMemory)
+
+			jsonBytes, err := json.Marshal(vm)
+			Expect(err).NotTo(HaveOccurred())
+
+			match := func(str string) string {
+				return fmt.Sprintf("\"%s\"", str)
+			}
+
+			jsonString := strings.Replace(string(jsonBytes), match(oldCpu), cpu, -1)
+			jsonString = strings.Replace(jsonString, match(oldMemory), request, -1)
+
+			By("Verify VM can be created")
+			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do()
+			statusCode := 0
+			result.StatusCode(&statusCode)
+			Expect(statusCode).To(Equal(http.StatusCreated))
+
+			By("Verify VM will run")
+			startVM(vm)
+		},
+			table.Entry("int type", "2", "2222222"),
+			table.Entry("float type", "2.2", "2222222.2"),
+		)
+
 		It("[test_id:3161]should carry annotations to VMI", func() {
 			annotations := map[string]string{
 				"testannotation": "test",
