@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -50,7 +51,6 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/util"
-	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
 
@@ -172,7 +172,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 			if diskDevice.Disk.Bus != "virtio" {
 				return fmt.Errorf("setting a pci address is not allowed for non-virtio bus types, for disk %s", diskDevice.Name)
 			}
-			addr, err := decoratePciAddressField(diskDevice.Disk.PciAddress)
+			addr, err := device.NewPciAddressField(diskDevice.Disk.PciAddress)
 			if err != nil {
 				return fmt.Errorf("failed to configure disk %s: %v", diskDevice.Name, err)
 			}
@@ -1532,7 +1532,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 			// Add a pciAddress if specified
 			if iface.PciAddress != "" {
-				addr, err := decoratePciAddressField(iface.PciAddress)
+				addr, err := device.NewPciAddressField(iface.PciAddress)
 				if err != nil {
 					return fmt.Errorf("failed to configure interface %s: %v", iface.Name, err)
 				}
@@ -1789,7 +1789,7 @@ func indexNetworksByName(networks []v1.Network) map[string]*v1.Network {
 }
 
 func createSRIOVHostDevice(hostPCIAddress string, guestPCIAddress string, bootOrder *uint) (*api.HostDevice, error) {
-	hostAddr, err := decoratePciAddressField(hostPCIAddress)
+	hostAddr, err := device.NewPciAddressField(hostPCIAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -1800,7 +1800,7 @@ func createSRIOVHostDevice(hostPCIAddress string, guestPCIAddress string, bootOr
 	}
 
 	if guestPCIAddress != "" {
-		addr, err := decoratePciAddressField(guestPCIAddress)
+		addr, err := device.NewPciAddressField(guestPCIAddress)
 		if err != nil {
 			return nil, err
 		}
@@ -1964,21 +1964,6 @@ func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
 	return nameservers, searchDomains, err
 }
 
-func decoratePciAddressField(addressField string) (*api.Address, error) {
-	dbsfFields, err := hwutil.ParsePciAddress(addressField)
-	if err != nil {
-		return nil, err
-	}
-	decoratedAddrField := &api.Address{
-		Type:     "pci",
-		Domain:   "0x" + dbsfFields[0],
-		Bus:      "0x" + dbsfFields[1],
-		Slot:     "0x" + dbsfFields[2],
-		Function: "0x" + dbsfFields[3],
-	}
-	return decoratedAddrField, nil
-}
-
 func createHostDevicesFromAddress(devType HostDeviceType, deviceID string, name string) (api.HostDevice, error) {
 	switch devType {
 	case HostDevicePCI:
@@ -1990,7 +1975,7 @@ func createHostDevicesFromAddress(devType HostDeviceType, deviceID string, name 
 }
 
 func createHostDevicesFromPCIAddress(pciAddr string, name string) (api.HostDevice, error) {
-	address, err := decoratePciAddressField(pciAddr)
+	address, err := device.NewPciAddressField(pciAddr)
 	if err != nil {
 		return api.HostDevice{}, err
 	}
@@ -2028,7 +2013,7 @@ func createHostDevicesFromMdevUUID(mdevUUID string, name string) (api.HostDevice
 func createHostDevicesFromPCIAddresses(pcis []string) ([]api.HostDevice, error) {
 	var hds []api.HostDevice
 	for _, pciAddr := range pcis {
-		address, err := decoratePciAddressField(pciAddr)
+		address, err := device.NewPciAddressField(pciAddr)
 		if err != nil {
 			return nil, err
 		}
