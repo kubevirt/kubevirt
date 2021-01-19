@@ -78,7 +78,7 @@ func NewNDPConnection(ifaceName string) (*NDPConnection, error) {
 		iface:      iface,
 		conn:       ipv6Conn,
 		rawConn:    icmpListener,
-		controlMsg: getIPv6ControlMsg(listenAddr.IP, iface),
+		controlMsg: getIPv6ControlMsg(),
 	}
 
 	if err := listener.Filter(ipv6.ICMPTypeRouterSolicitation); err != nil {
@@ -94,22 +94,18 @@ func importNDPConnection(openedFD *os.File, iface *net.Interface) (*NDPConnectio
 		return nil, fmt.Errorf("could not get a PacketConnection from the bloody filer: %v", err)
 	}
 	ipv6Conn := ipv6.NewPacketConn(conn)
-	controlMsg := getIPv6ControlMsg(net.IPv6unspecified, iface)
-
 	ndpConn := &NDPConnection{
 		iface:      iface,
 		conn:       ipv6Conn,
-		controlMsg: controlMsg,
+		controlMsg: getIPv6ControlMsg(),
 	}
 
 	return ndpConn, nil
 }
 
-func getIPv6ControlMsg(listenAddr net.IP, iface *net.Interface) *ipv6.ControlMessage {
+func getIPv6ControlMsg() *ipv6.ControlMessage {
 	return &ipv6.ControlMessage{
 		HopLimit: maxHops,
-		Src:      listenAddr,
-		IfIndex:  iface.Index,
 	}
 }
 
