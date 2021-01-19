@@ -109,6 +109,24 @@ func getIPv6ControlMsg() *ipv6.ControlMessage {
 	}
 }
 
+func ImportConnection(socketPath string) (*os.File, error) {
+	c, err := net.Dial("unix", socketPath)
+	if err != nil {
+		return nil, fmt.Errorf("error dialing to unix domain socket at %s: %v", socketPath, err)
+	}
+	defer c.Close()
+	fdConn := c.(*net.UnixConn)
+
+	expectedFDNumber := 1
+	fds, err := fd.Get(fdConn, expectedFDNumber, []string{})
+	if err != nil || len(fds) == 0 {
+		return nil, fmt.Errorf("error importing the NDP connection: %v", err)
+	}
+
+	openedFD := fds[expectedFDNumber-1]
+	return openedFD, nil
+}
+
 func (l *NDPConnection) Export(socketPath string) error {
 	socketListener, err := net.Listen("unix", socketPath)
 	if err != nil {

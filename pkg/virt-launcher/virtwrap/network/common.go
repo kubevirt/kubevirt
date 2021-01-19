@@ -34,7 +34,6 @@ import (
 	"time"
 
 	"github.com/coreos/go-iptables/iptables"
-	"github.com/ftrvxmtrx/fd"
 	"github.com/opencontainers/selinux/go-selinux"
 	lmf "github.com/subgraph/libmacouflage"
 	"github.com/vishvananda/netlink"
@@ -554,27 +553,18 @@ func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
 }
 
 func (h *NetworkUtilsHandler) CreateRADaemon(socketPath string, advertisementIfaceName string, ipv6CIDR string, routerSourceAddr net.HardwareAddr, currentRetry int) error {
-	c, err := net.Dial("unix", socketPath)
+	openedFD, err := ndp.ImportConnection(socketPath)
 	if err != nil {
-		log.Log.V(4).Warningf("could not connect to the unix domain socket: %v", err)
+		log.Log.V(4).Warningf("%v", err)
 
 		if currentRetry > 0 {
 			time.Sleep(time.Second)
 			return h.CreateRADaemon(socketPath, advertisementIfaceName, ipv6CIDR, routerSourceAddr, currentRetry-1)
+		} else {
+			log.Log.Reason(err).Errorf("failed to start RouterAdvertiser after %d retries; giving up", currentRetry)
+			panic(err)
 		}
 	}
-	defer c.Close()
-	fdConn := c.(*net.UnixConn)
-
-	log.Log.Info("managed to connect to unix domain socket; will retrieve the opened FD from it")
-
-	expectedFDNumber := 1
-	fds, err := fd.Get(fdConn, expectedFDNumber, []string{})
-	if err != nil || len(fds) == 0 {
-		return fmt.Errorf("error importing the NDP connection: %v", err)
-	}
-
-	openedFD := fds[expectedFDNumber-1]
 	defer func() {
 		_ = openedFD.Close()
 	}()
