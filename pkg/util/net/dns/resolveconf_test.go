@@ -69,5 +69,12 @@ var _ = Describe("Resolveconf", func() {
 			Expect(searchDomains).To(Equal([]string{"local"}))
 			Expect(err).To(BeNil())
 		})
+
+		It("should normalize search domains to lower-case", func() {
+			resolvConf := "search LoCaL\nnameserver 8.8.8.8\n"
+			searchDomains, err := ParseSearchDomains(resolvConf)
+			Expect(searchDomains).To(Equal([]string{"local"}))
+			Expect(err).To(BeNil())
+		})
 	})
 })

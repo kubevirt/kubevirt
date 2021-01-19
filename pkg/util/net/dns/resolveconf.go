@@ -56,7 +56,8 @@ func ParseSearchDomains(content string) ([]string, error) {
 		if strings.HasPrefix(line, domainSearchPrefix) {
 			doms := strings.Fields(strings.TrimPrefix(line, domainSearchPrefix))
 			for _, dom := range doms {
-				searchDomains = append(searchDomains, dom)
+				// domain names are case insensitive but kubernetes allows only lower-case
+				searchDomains = append(searchDomains, strings.ToLower(dom))
 			}
 		}
 	}
