@@ -2878,7 +2878,7 @@ func WaitForSuccessfulVMIStart(vmi runtime.Object) string {
 }
 
 func WaitForSuccessfulVMIStartWithContext(ctx context.Context, vmi runtime.Object) string {
-	return waitForVMIStart(ctx, vmi, 360, false)
+	return waitForVMIStart(ctx, vmi, 360, true)
 }
 
 func WaitUntilVMIReadyAsync(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) func() *v1.VirtualMachineInstance {
