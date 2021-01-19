@@ -18,10 +18,10 @@ In extreme cases you can annotate the code with a special comment:
 // #nosec <description>
 ```
 This will instruct gosec to suppress the warning.
-The developer is encourage to avoid such annotation when possible as this will silence the warnnings in the line below the comment, even if the code changes and another, true positive issue is created because of that.
+The developer is encouraged to avoid this annotation whenever possible as this will **silence all warnings** in the line below the comment, even if the code changes and another, true positive issue is created because of that.
 
-### Fixing guidelines
-Define a new “safe” function that encapsulate the risky function or code
+### How to fix false positive warnnings
+Define a new “safe” function that encapsulates the risky function or code
 The safe function name should give good indication on when this function should be used. Whenever possible, the function should validate in-code that the condition really applies.
 Annotate the call with a `//#nosec ` comment only within this unsafe function implementation
 
@@ -32,11 +32,11 @@ Let's look at the following
 ```go
 func callerExample(){
     ...    
-    expampleFunc("/fixed/static/safe/path/file.txt")
+    exampleFunc("/fixed/static/safe/path/file.txt")
     ...
 }
 
-func expampleFunc(fileName string){
+func exampleFunc(fileName string){
     ...    
     ioutil.ReadFile(fileName)
     ...
@@ -46,7 +46,7 @@ func expampleFunc(fileName string){
 **Bad fix: silencing the specific warning**
 You should avoid annotating the specific line that generated the "false positive" warning  as illustrated here:
 ```go
-func expampleFunc(fileName string){
+func exampleFunc(fileName string){
     ...   
     // #nosec: fileName is a fixed static path and can't be injected 
     ioutil.ReadFile(fileName)
@@ -59,7 +59,7 @@ The problem is that because the warning was silenced we won't get warning in cas
 Define  a  new  "safe”  version  of  `ioutil.ReadFile()`  and use it instead of the original function. The new function should validate  that the file path  is  not  risky  (as  much  as  possible)  and  then  call  the  "unsafe"  original  `ioutil.ReadFile()`.  Only  this  call  within  the  "safe"  function  should  be  annotated  with  `//  #nosec` .
 
 ```go
-func expampleFunc(fileName string){
+func exampleFunc(fileName string){
     ...    
     ValidatePathAndReadFile(fileName)
     ...
