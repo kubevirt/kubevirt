@@ -60,9 +60,8 @@ func (p *PCIAddressPool) load(ifaces []v1.Interface) {
 			continue
 		}
 
-		addrs := strings.Split(pciAddrString, ",")
-		addrs = removeLastEmptyAddress(addrs)
-		p.networkToAddresses[iface.Name] = addrs
+		pciAddrString = strings.TrimSuffix(pciAddrString, ",")
+		p.networkToAddresses[iface.Name] = strings.Split(pciAddrString, ",")
 	}
 }
 
@@ -91,14 +90,4 @@ func filterOutAddress(addrs []string, addr string) []string {
 		}
 	}
 	return res
-}
-
-func removeLastEmptyAddress(addrs []string) []string {
-	naddrs := len(addrs)
-	if naddrs > 0 {
-		if addrs[naddrs-1] == "" {
-			addrs = addrs[:naddrs-1]
-		}
-	}
-	return addrs
 }

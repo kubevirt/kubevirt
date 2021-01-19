@@ -78,13 +78,15 @@ var _ = Describe("SRIOV PCI address pool", func() {
 	})
 
 	It("provides 1 address given 1xInterface, 1xResource, 1xPCI", func() {
-		net := newNetworkData("net1", newResourceData("resource1", "0000:81:01.0"))
+		// The comma at the tail of the PCI address is intentional, validating it is ignored by the implementation.
+		const pciAddress = "0000:81:01.0"
+		net := newNetworkData("net1", newResourceData("resource1", pciAddress+","))
 		env := []envData{net.ResourceEnv, net.DeviceEnv}
 		withEnvironmentContext(env, func() {
 			iface := newSRIOVInterface(net.Name)
 			pool := sriov.NewPCIAddressPool([]v1.Interface{iface})
 
-			Expect(pool.Pop(net.Name)).To(Equal(net.PCIAddresses[0]))
+			Expect(pool.Pop(net.Name)).To(Equal(pciAddress))
 			expectPoolPopFailure(pool, net.Name)
 		})
 	})
