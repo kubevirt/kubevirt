@@ -326,5 +326,61 @@ var _ = Describe("HyperconvergedTypes", func() {
 				Expect(fgs.IsHotplugVolumesEnabled()).To(BeTrue())
 			})
 		})
+
+		Context("Test IsWithHostPassthroughCPUEnabled", func() {
+			It("Should return false if HyperConvergedFeatureGates is nil", func() {
+				var fgs *HyperConvergedFeatureGates = nil
+				Expect(fgs.IsWithHostPassthroughCPUEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if WithHostPassthroughCPU does not exist", func() {
+				fgs := &HyperConvergedFeatureGates{}
+				Expect(fgs.IsWithHostPassthroughCPUEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if WithHostPassthroughCPU is false", func() {
+				disabled := false
+				fgs := &HyperConvergedFeatureGates{
+					WithHostPassthroughCPU: &disabled,
+				}
+				Expect(fgs.IsWithHostPassthroughCPUEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if WithHostPassthroughCPU is true", func() {
+				enabled := true
+				fgs := &HyperConvergedFeatureGates{
+					WithHostPassthroughCPU: &enabled,
+				}
+				Expect(fgs.IsWithHostPassthroughCPUEnabled()).To(BeTrue())
+			})
+		})
+
+		Context("Test IsWithHostModelCPUEnabled", func() {
+			It("Should return false if HyperConvergedFeatureGates is nil", func() {
+				var fgs *HyperConvergedFeatureGates = nil
+				Expect(fgs.IsWithHostModelCPUEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if WithHostModelCPU does not exist", func() {
+				fgs := &HyperConvergedFeatureGates{}
+				Expect(fgs.IsWithHostModelCPUEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if WithHostModelCPU is false", func() {
+				disabled := false
+				fgs := &HyperConvergedFeatureGates{
+					WithHostModelCPU: &disabled,
+				}
+				Expect(fgs.IsWithHostModelCPUEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if WithHostModelCPU is true", func() {
+				enabled := true
+				fgs := &HyperConvergedFeatureGates{
+					WithHostModelCPU: &enabled,
+				}
+				Expect(fgs.IsWithHostModelCPUEnabled()).To(BeTrue())
+			})
+		})
 	})
 })

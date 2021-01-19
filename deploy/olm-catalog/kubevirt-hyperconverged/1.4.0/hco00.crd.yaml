@@ -156,6 +156,12 @@ spec:
                   hotplugVolumes:
                     description: Allow attaching a data volume to a running VMI
                     type: boolean
+                  withHostModelCPU:
+                    description: Support migration for VMs with host-model CPU mode
+                    type: boolean
+                  withHostPassthroughCPU:
+                    description: Allow migrating a virtual machine with CPU host-passthrough mode. This should be enabled only when the Cluster is homogeneous from CPU HW perspective doc here
+                    type: boolean
                 type: object
               infra:
                 description: infra HyperConvergedConfig influences the pod configuration (currently only placement) for all the infra components needed on the virtualization enabled cluster but not necessarely directly on each node running VMs/VMIs.

@@ -63,10 +63,27 @@ type HyperConvergedFeatureGates struct {
 	// Allow attaching a data volume to a running VMI
 	// +optional
 	HotplugVolumes *bool `json:"hotplugVolumes,omitempty"`
+
+	// Allow migrating a virtual machine with CPU host-passthrough mode. This should be
+	// enabled only when the Cluster is homogeneous from CPU HW perspective doc here
+	// +optional
+	WithHostPassthroughCPU *bool `json:"withHostPassthroughCPU,omitempty"`
+
+	// Support migration for VMs with host-model CPU mode
+	// +optional
+	WithHostModelCPU *bool `json:"withHostModelCPU,omitempty"`
 }
 
 func (fgs *HyperConvergedFeatureGates) IsHotplugVolumesEnabled() bool {
 	return (fgs != nil) && (fgs.HotplugVolumes != nil) && (*fgs.HotplugVolumes)
+}
+
+func (fgs *HyperConvergedFeatureGates) IsWithHostPassthroughCPUEnabled() bool {
+	return (fgs != nil) && (fgs.WithHostPassthroughCPU != nil) && (*fgs.WithHostPassthroughCPU)
+}
+
+func (fgs *HyperConvergedFeatureGates) IsWithHostModelCPUEnabled() bool {
+	return (fgs != nil) && (fgs.WithHostModelCPU != nil) && (*fgs.WithHostModelCPU)
 }
 
 // HyperConvergedStatus defines the observed state of HyperConverged

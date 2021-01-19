@@ -82,6 +82,16 @@ func (in *HyperConvergedFeatureGates) DeepCopyInto(out *HyperConvergedFeatureGat
 		*out = new(bool)
 		**out = **in
 	}
+	if in.WithHostPassthroughCPU != nil {
+		in, out := &in.WithHostPassthroughCPU, &out.WithHostPassthroughCPU
+		*out = new(bool)
+		**out = **in
+	}
+	if in.WithHostModelCPU != nil {
+		in, out := &in.WithHostModelCPU, &out.WithHostModelCPU
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

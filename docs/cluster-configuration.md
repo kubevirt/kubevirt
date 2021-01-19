@@ -123,6 +123,18 @@ disables the feature.
 ### hotplugVolumes Feature Gate
 Set the `hotplugVolumes` feature gate in order to allow attaching a data volume to a running VMI.
 
+### withHostModelCPU Feature Gate
+Set the `withHostModelCPU`  feature gate in order to enable support migration for VMs with host-model CPU mode
+
+Additional information: [LibvirtXMLCPUModel](https://wiki.openstack.org/wiki/LibvirtXMLCPUModel)
+
+### withHostPassthroughCPU Feature Gate
+Set the `withHostPassthroughCPU`  feature gate in order to allow migrating a virtual machine with CPU host-passthrough mode. 
+
+Additional information: [LibvirtXMLCPUModel](https://wiki.openstack.org/wiki/LibvirtXMLCPUModel)
+
+**note**: This should be enabled only when the Cluster is homogeneous from CPU HW perspective doc here
+
 ### Feature Gates Example
 
 ```yaml
@@ -135,4 +147,6 @@ spec:
   workloads: {}
   featureGates:
     hotplugVolumes: true
+    withHostModelCPU: true
+    withHostPassthroughCPU: true
 ```

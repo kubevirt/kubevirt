@@ -25,7 +25,14 @@ const (
 )
 
 const (
+	// todo: remove this when KV configmap will be drop
 	cmFeatureGates = "DataVolumes,SRIOV,LiveMigration,CPUManager,CPUNodeDiscovery,Sidecar,Snapshot"
+)
+
+const (
+	// ToDo: remove these and use KV's virtconfig constants when available
+	kvWithHostPassthroughCPU = "WithHostPassthroughCPU"
+	kvWithHostModelCPU       = "WithHostModelCPU"
 )
 
 // ************  KubeVirt Handler  **************
@@ -247,6 +254,16 @@ func (h *kvConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, e
 					fgChanged = true
 					continue
 				}
+			case kvWithHostPassthroughCPU:
+				if !req.Instance.Spec.FeatureGates.IsWithHostPassthroughCPUEnabled() {
+					fgChanged = true
+					continue
+				}
+			case kvWithHostModelCPU:
+				if !req.Instance.Spec.FeatureGates.IsWithHostModelCPUEnabled() {
+					fgChanged = true
+					continue
+				}
 			}
 			resultFg = append(resultFg, fg)
 		}
@@ -428,10 +445,18 @@ func getKvFeatureGateList(fgs *hcov1beta1.HyperConvergedFeatureGates) []string {
 		return nil
 	}
 
-	res := make([]string, 0, 1)
+	res := make([]string, 0, 3)
 
 	if fgs.IsHotplugVolumesEnabled() {
 		res = append(res, virtconfig.HotplugVolumesGate)
+	}
+
+	if fgs.IsWithHostPassthroughCPUEnabled() {
+		res = append(res, kvWithHostPassthroughCPU)
+	}
+
+	if fgs.IsWithHostModelCPUEnabled() {
+		res = append(res, kvWithHostModelCPU)
 	}
 
 	return res

@@ -94,6 +94,20 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedFeatureGates(ref common.Reference
 							Format:      "",
 						},
 					},
+					"withHostPassthroughCPU": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Allow migrating a virtual machine with CPU host-passthrough mode. This should be enabled only when the Cluster is homogeneous from CPU HW perspective doc here",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"withHostModelCPU": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Support migration for VMs with host-model CPU mode",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
