@@ -128,6 +128,22 @@ func (CDI) SwaggerDoc() map[string]string {
 	}
 }
 
+func (CertConfig) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "CertConfig contains the tunables for TLS certificates",
+		"duration":    "The requested 'duration' (i.e. lifetime) of the Certificate.",
+		"renewBefore": "The amount of time before the currently issued certificate's `notAfter`\ntime that we will begin to attempt to renew the certificate.",
+	}
+}
+
+func (CDICertConfig) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "CDICertConfig has the CertConfigs for CDI",
+		"ca":     "CA configuration\nCA certs are kept in the CA bundle as long as they are valid",
+		"server": "Server configuration\nCerts are rotated and discarded",
+	}
+}
+
 func (CDISpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                      "CDISpec defines our specification for the CDI installation",
@@ -137,6 +153,7 @@ func (CDISpec) SwaggerDoc() map[string]string {
 		"workload":              "Restrict on which nodes CDI workload pods will be scheduled",
 		"cloneStrategyOverride": "Clone strategy override: should we use a host-assisted copy even if snapshots are available?\n+kubebuilder:validation:Enum=\"copy\";\"snapshot\"",
 		"config":                "CDIConfig at CDI level",
+		"certConfig":            "certificate configuration",
 	}
 }
 

@@ -274,6 +274,27 @@ type CDI struct {
 	Status CDIStatus `json:"status"`
 }
 
+// CertConfig contains the tunables for TLS certificates
+type CertConfig struct {
+	// The requested 'duration' (i.e. lifetime) of the Certificate.
+	Duration *metav1.Duration `json:"duration,omitempty"`
+
+	// The amount of time before the currently issued certificate's `notAfter`
+	// time that we will begin to attempt to renew the certificate.
+	RenewBefore *metav1.Duration `json:"renewBefore,omitempty"`
+}
+
+// CDICertConfig has the CertConfigs for CDI
+type CDICertConfig struct {
+	// CA configuration
+	// CA certs are kept in the CA bundle as long as they are valid
+	CA *CertConfig `json:"ca,omitempty"`
+
+	// Server configuration
+	// Certs are rotated and discarded
+	Server *CertConfig `json:"server,omitempty"`
+}
+
 // CDISpec defines our specification for the CDI installation
 type CDISpec struct {
 	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
@@ -291,6 +312,8 @@ type CDISpec struct {
 	CloneStrategyOverride *CDICloneStrategy `json:"cloneStrategyOverride,omitempty"`
 	// CDIConfig at CDI level
 	Config *CDIConfigSpec `json:"config,omitempty"`
+	// certificate configuration
+	CertConfig *CDICertConfig `json:"certConfig,omitempty"`
 }
 
 // CDICloneStrategy defines the preferred method for performing a CDI clone (override snapshot?)

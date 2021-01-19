@@ -42,6 +42,30 @@ spec:
           spec:
             description: CDISpec defines our specification for the CDI installation
             properties:
+              certConfig:
+                description: certificate configuration
+                properties:
+                  ca:
+                    description: CA configuration CA certs are kept in the CA bundle as long as they are valid
+                    properties:
+                      duration:
+                        description: The requested 'duration' (i.e. lifetime) of the Certificate.
+                        type: string
+                      renewBefore:
+                        description: The amount of time before the currently issued certificate's `notAfter` time that we will begin to attempt to renew the certificate.
+                        type: string
+                    type: object
+                  server:
+                    description: Server configuration Certs are rotated and discarded
+                    properties:
+                      duration:
+                        description: The requested 'duration' (i.e. lifetime) of the Certificate.
+                        type: string
+                      renewBefore:
+                        description: The amount of time before the currently issued certificate's `notAfter` time that we will begin to attempt to renew the certificate.
+                        type: string
+                    type: object
+                type: object
               cloneStrategyOverride:
                 description: 'Clone strategy override: should we use a host-assisted copy even if snapshots are available?'
                 enum:
@@ -925,6 +949,30 @@ spec:
           spec:
             description: CDISpec defines our specification for the CDI installation
             properties:
+              certConfig:
+                description: certificate configuration
+                properties:
+                  ca:
+                    description: CA configuration CA certs are kept in the CA bundle as long as they are valid
+                    properties:
+                      duration:
+                        description: The requested 'duration' (i.e. lifetime) of the Certificate.
+                        type: string
+                      renewBefore:
+                        description: The amount of time before the currently issued certificate's `notAfter` time that we will begin to attempt to renew the certificate.
+                        type: string
+                    type: object
+                  server:
+                    description: Server configuration Certs are rotated and discarded
+                    properties:
+                      duration:
+                        description: The requested 'duration' (i.e. lifetime) of the Certificate.
+                        type: string
+                      renewBefore:
+                        description: The amount of time before the currently issued certificate's `notAfter` time that we will begin to attempt to renew the certificate.
+                        type: string
+                    type: object
+                type: object
               cloneStrategyOverride:
                 description: 'Clone strategy override: should we use a host-assisted copy even if snapshots are available?'
                 enum:
