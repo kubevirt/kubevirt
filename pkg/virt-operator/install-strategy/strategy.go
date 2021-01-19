@@ -103,6 +103,37 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, 
 	return configMap, nil
 }
 
+func (ins *InstallStrategy) ApiDeployments() []*appsv1.Deployment {
+	var deployments []*appsv1.Deployment
+
+	for _, deployment := range ins.deployments {
+		if !strings.Contains(deployment.Name, "virt-api") {
+			continue
+		}
+		deployments = append(deployments, deployment)
+	}
+
+	return deployments
+}
+
+func (ins *InstallStrategy) ControllerDeployments() []*appsv1.Deployment {
+	var deployments []*appsv1.Deployment
+
+	for _, deployment := range ins.deployments {
+		if strings.Contains(deployment.Name, "virt-api") {
+			continue
+		}
+		deployments = append(deployments, deployment)
+
+	}
+
+	return deployments
+}
+
+func (ins *InstallStrategy) DaemonSets() []*appsv1.DaemonSet {
+	return ins.daemonSets
+}
+
 func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNamespace string) error {
 
 	config, err := util.GetConfigFromEnv()

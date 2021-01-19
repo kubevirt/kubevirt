@@ -235,7 +235,11 @@ var _ = Describe("Install Strategy", func() {
 				}
 				config.SetTargetDeploymentConfig(kv)
 
-				ops, shouldDeleteAndReplace, err := generateServicePatch(kv, cachedService, targetService)
+				r := &Reconciler{
+					kv: kv,
+				}
+
+				ops, shouldDeleteAndReplace, err := r.generateServicePatch(cachedService, targetService)
 				Expect(err).To(BeNil())
 				Expect(shouldDeleteAndReplace).To(Equal(expectDelete))
 
