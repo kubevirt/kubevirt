@@ -142,6 +142,21 @@ func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 			break
 		}
 	}
+	resourceRequirements, exists := openapispec.Definitions["v1.ResourceRequirements"]
+	if exists {
+		limits, exists := resourceRequirements.Properties["limits"]
+		if exists {
+			limits.AdditionalProperties = nil
+			resourceRequirements.Properties["limits"] = limits
+		}
+		requests, exists := resourceRequirements.Properties["requests"]
+		if exists {
+			requests.AdditionalProperties = nil
+			resourceRequirements.Properties["requests"] = requests
+		}
+
+	}
+
 	objectMeta, exists := openapispec.Definitions[objectmeta]
 	if exists {
 		prop := objectMeta.Properties["creationTimestamp"]
