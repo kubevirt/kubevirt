@@ -61,9 +61,6 @@ func NewNDPConnection(ifaceName string) (*NDPConnection, error) {
 
 	ipv6Conn := ipv6.NewPacketConn(icmpListener)
 
-	_ = ipv6Conn.SetHopLimit(maxHops)          // as per RFC 4861, section 4.1
-	_ = ipv6Conn.SetMulticastHopLimit(maxHops) // as per RFC 4861, section 4.1
-
 	// Calculate and place ICMPv6 checksum at correct offset in all messages.
 	if err := ipv6Conn.SetChecksum(true, chkOff); err != nil {
 		return nil, fmt.Errorf("could not enable ICMPv6 checksum processing: %v", err)
