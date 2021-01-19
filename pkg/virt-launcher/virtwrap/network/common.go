@@ -411,7 +411,7 @@ func (h *NetworkUtilsHandler) CreateNDPConnection(bridgeInterfaceName string, la
 
 	go func() {
 		_ = ndpConnection.Export(
-			GetNDPConnectionUnixSocketPath(
+			getNDPConnectionUnixSocketPath(
 				fmt.Sprintf("%d", launcherPID),
 				bridgeInterfaceName))
 	}()
@@ -656,4 +656,8 @@ func setInterfaceCacheFile(path string) {
 
 func setVifCacheFile(path string) {
 	vifCacheFile = path
+}
+
+func getNDPConnectionUnixSocketPath(pid string, ifaceName string) string {
+	return fmt.Sprintf(raSenderUnixSocketTemplate, pid, ifaceName)
 }

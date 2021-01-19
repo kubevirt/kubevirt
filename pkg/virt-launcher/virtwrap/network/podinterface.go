@@ -81,10 +81,6 @@ func getVifFilePath(pid, name string) string {
 	return fmt.Sprintf(vifCacheFile, pid, name)
 }
 
-func GetNDPConnectionUnixSocketPath(pid string, ifaceName string) string {
-	return fmt.Sprintf(raSenderUnixSocketTemplate, pid, ifaceName)
-}
-
 func writeVifFile(buf []byte, pid, name string) error {
 	err := ioutil.WriteFile(getVifFilePath(pid, name), buf, 0644)
 	if err != nil {
@@ -752,7 +748,7 @@ func (p *MasqueradeBindMechanism) startRADaemon() error {
 
 	targetPID := "self"
 	if err := Handler.CreateRADaemon(
-		GetNDPConnectionUnixSocketPath(targetPID, p.bridgeInterfaceName),
+		getNDPConnectionUnixSocketPath(targetPID, p.bridgeInterfaceName),
 		p.bridgeInterfaceName,
 		api.DefaultVMIpv6CIDR,
 		theBridge.Attrs().HardwareAddr,
