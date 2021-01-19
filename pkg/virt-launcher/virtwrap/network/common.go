@@ -522,8 +522,6 @@ func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
 }
 
 // Allow mocking for tests
-var SetupPodNetworkPhase1 = SetupNetworkInterfacesPhase1
-var SetupPodNetworkPhase2 = SetupNetworkInterfacesPhase2
 var DHCPServer = dhcp.SingleClientDHCPServer
 var DHCPv6Server = dhcpv6.SingleClientDHCPv6Server
 

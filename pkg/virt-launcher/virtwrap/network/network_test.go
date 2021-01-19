@@ -30,40 +30,40 @@ import (
 )
 
 var _ = Describe("Network", func() {
-	var mockNetworkInterface *MockNetworkInterface
+	var mockpodNIC *MockpodNIC
 	var ctrl *gomock.Controller
 	var pid int
 
 	BeforeEach(func() {
 		pid = os.Getpid()
 		ctrl = gomock.NewController(GinkgoT())
-		mockNetworkInterface = NewMockNetworkInterface(ctrl)
+		mockpodNIC = NewMockpodNIC(ctrl)
 	})
 	AfterEach(func() {
-		NetworkInterfaceFactory = getNetworkClass
+		podNICFactory = newpodNIC
 	})
 
 	Context("interface configuration", func() {
 		It("should configure bridged pod networking by default", func() {
-			NetworkInterfaceFactory = func(network *v1.Network) (NetworkInterface, error) {
-				return mockNetworkInterface, nil
+			podNICFactory = func(network *v1.Network) (podNIC, error) {
+				return mockpodNIC, nil
 			}
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
 			iface := v1.DefaultBridgeNetworkInterface()
 			defaultNet := v1.DefaultPodNetwork()
 
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, defaultNet, primaryPodInterfaceName, pid)
-			err := SetupNetworkInterfacesPhase1(vm, pid)
+			mockpodNIC.EXPECT().PlugPhase1(vm, iface, defaultNet, primaryPodInterfaceName, pid)
+			err := SetupPodNetworkPhase1(vm, pid)
 			Expect(err).To(BeNil())
 		})
 		It("should accept empty network list", func() {
 			vmi := newVMI("testnamespace", "testVmName")
-			err := SetupNetworkInterfacesPhase1(vmi, pid)
+			err := SetupPodNetworkPhase1(vmi, pid)
 			Expect(err).To(BeNil())
 		})
 		It("should configure networking with multus", func() {
-			NetworkInterfaceFactory = func(network *v1.Network) (NetworkInterface, error) {
-				return mockNetworkInterface, nil
+			podNICFactory = func(network *v1.Network) (podNIC, error) {
+				return mockpodNIC, nil
 			}
 			const multusInterfaceName = "net1"
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
@@ -76,13 +76,13 @@ var _ = Describe("Network", func() {
 			}
 			vm.Spec.Networks = []v1.Network{*cniNet}
 
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, cniNet, multusInterfaceName, pid)
-			err := SetupNetworkInterfacesPhase1(vm, pid)
+			mockpodNIC.EXPECT().PlugPhase1(vm, iface, cniNet, multusInterfaceName, pid)
+			err := SetupPodNetworkPhase1(vm, pid)
 			Expect(err).To(BeNil())
 		})
 		It("should configure networking with multus and a default multus network", func() {
-			NetworkInterfaceFactory = func(network *v1.Network) (NetworkInterface, error) {
-				return mockNetworkInterface, nil
+			podNICFactory = func(network *v1.Network) (podNIC, error) {
+				return mockpodNIC, nil
 			}
 
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
@@ -131,10 +131,10 @@ var _ = Describe("Network", func() {
 
 			vm.Spec.Networks = []v1.Network{*additionalCNINet1, *cniNet, *additionalCNINet2}
 
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[0], additionalCNINet1, "net1", pid)
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[1], cniNet, "eth0", pid)
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[2], additionalCNINet2, "net2", pid)
-			err := SetupNetworkInterfacesPhase1(vm, pid)
+			mockpodNIC.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[0], additionalCNINet1, "net1", pid)
+			mockpodNIC.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[1], cniNet, "eth0", pid)
+			mockpodNIC.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[2], additionalCNINet2, "net2", pid)
+			err := SetupPodNetworkPhase1(vm, pid)
 			Expect(err).To(BeNil())
 		})
 	})

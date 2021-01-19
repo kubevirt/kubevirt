@@ -10,51 +10,43 @@ import (
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-// Mock of NetworkInterface interface
-type MockNetworkInterface struct {
+// Mock of podNIC interface
+type MockpodNIC struct {
 	ctrl     *gomock.Controller
-	recorder *_MockNetworkInterfaceRecorder
+	recorder *_MockpodNICRecorder
 }
 
-// Recorder for MockNetworkInterface (not exported)
-type _MockNetworkInterfaceRecorder struct {
-	mock *MockNetworkInterface
+// Recorder for MockpodNIC (not exported)
+type _MockpodNICRecorder struct {
+	mock *MockpodNIC
 }
 
-func NewMockNetworkInterface(ctrl *gomock.Controller) *MockNetworkInterface {
-	mock := &MockNetworkInterface{ctrl: ctrl}
-	mock.recorder = &_MockNetworkInterfaceRecorder{mock}
+func NewMockpodNIC(ctrl *gomock.Controller) *MockpodNIC {
+	mock := &MockpodNIC{ctrl: ctrl}
+	mock.recorder = &_MockpodNICRecorder{mock}
 	return mock
 }
 
-func (_m *MockNetworkInterface) EXPECT() *_MockNetworkInterfaceRecorder {
+func (_m *MockpodNIC) EXPECT() *_MockpodNICRecorder {
 	return _m.recorder
 }
 
-func (_m *MockNetworkInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error {
+func (_m *MockpodNIC) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error {
 	ret := _m.ctrl.Call(_m, "PlugPhase1", vmi, iface, network, podInterfaceName, pid)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockNetworkInterfaceRecorder) PlugPhase1(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (_mr *_MockpodNICRecorder) PlugPhase1(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PlugPhase1", arg0, arg1, arg2, arg3, arg4)
 }
 
-func (_m *MockNetworkInterface) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error {
+func (_m *MockpodNIC) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error {
 	ret := _m.ctrl.Call(_m, "PlugPhase2", vmi, iface, network, domain, podInterfaceName)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockNetworkInterfaceRecorder) PlugPhase2(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (_mr *_MockpodNICRecorder) PlugPhase2(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PlugPhase2", arg0, arg1, arg2, arg3, arg4)
-}
-
-func (_m *MockNetworkInterface) Unplug() {
-	_m.ctrl.Call(_m, "Unplug")
-}
-
-func (_mr *_MockNetworkInterfaceRecorder) Unplug() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unplug")
 }
