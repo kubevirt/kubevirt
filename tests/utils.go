@@ -2285,6 +2285,18 @@ func NewRandomFedoraVMIWithGuestAgent() *v1.VirtualMachineInstance {
 	)
 }
 
+func NewRandomFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachineInstance {
+	networkData, err := libnet.CreateDefaultCloudInitNetworkData()
+	Expect(err).NotTo(HaveOccurred())
+
+	return libvmi.NewTestToolingFedora(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithCloudInitNoCloudUserData(GetFedoraToolsGuestAgentBlacklistUserData(commands), false),
+		libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
+	)
+}
+
 func AddPVCFS(vmi *v1.VirtualMachineInstance, name string, claimName string) *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
 		Name:     name,
@@ -2355,6 +2367,18 @@ func GetFedoraToolsGuestAgentUserData() string {
             sudo systemctl start qemu-guest-agent
             sudo systemctl enable qemu-guest-agent
 `
+}
+
+func GetFedoraToolsGuestAgentBlacklistUserData(commands string) string {
+	return fmt.Sprintf(`#!/bin/bash
+            echo "fedora" |passwd fedora --stdin
+            sudo setenforce Permissive
+	    sudo cp /home/fedora/qemu-guest-agent.service /lib/systemd/system/
+	    echo -e "\n\nBLACKLIST_RPC=%s" | sudo tee -a /etc/sysconfig/qemu-ga
+	    sudo systemctl daemon-reload
+            sudo systemctl start qemu-guest-agent
+            sudo systemctl enable qemu-guest-agent
+`, commands)
 }
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {

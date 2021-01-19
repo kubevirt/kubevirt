@@ -1263,17 +1263,56 @@ var _ = Describe("[owner:@sig-compute]Configurations", func() {
 				})
 
 				It("[test_id:5267]VMI condition should signal unsupported agent presence", func() {
-					agentVMI := prepareAgentVM()
-					getOptions := metav1.GetOptions{}
+					agentVMI := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-shutdown")
+					By("Starting a VirtualMachineInstance")
+					agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
+					Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+					tests.WaitForSuccessfulVMIStart(agentVMI)
 
+					getOptions := metav1.GetOptions{}
 					freshVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
-					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 
 					Eventually(func() []v1.VirtualMachineInstanceCondition {
 						freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
-						Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+						Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 						return freshVMI.Status.Conditions
 					}, 240*time.Second, 2).Should(
+						ContainElement(
+							MatchFields(
+								IgnoreExtras,
+								Fields{"Type": Equal(v1.VirtualMachineInstanceUnsupportedAgent)})),
+						"Should have unsupported agent connected condition")
+
+				})
+
+				It("VMI condition should not signal unsupported agent presence for optional commands", func() {
+					agentVMI := tests.NewRandomFedoraVMIWithBlacklistGuestAgent("guest-exec,guest-set-password")
+					By("Starting a VirtualMachineInstance")
+					agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
+					Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+					tests.WaitForSuccessfulVMIStart(agentVMI)
+
+					getOptions := metav1.GetOptions{}
+					freshVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+
+					By("VMI has the guest agent connected condition")
+					Eventually(func() []v1.VirtualMachineInstanceCondition {
+						freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
+						Expect(err).ToNot(HaveOccurred(), "Should get VMI")
+						return freshVMI.Status.Conditions
+					}, 240*time.Second, 2).Should(
+						ContainElement(
+							MatchFields(
+								IgnoreExtras,
+								Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
+						"Should have agent connected condition")
+
+					By("fetching the VMI after agent has connected")
+					freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
+					Expect(freshVMI.Status.Conditions).ToNot(
 						ContainElement(
 							MatchFields(
 								IgnoreExtras,
