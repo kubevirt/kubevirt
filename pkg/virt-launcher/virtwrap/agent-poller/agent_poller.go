@@ -46,7 +46,7 @@ const (
 	GET_FILESYSTEM AgentCommand = "guest-get-fsinfo"
 	GET_AGENT      AgentCommand = "guest-info"
 
-	pollInitialInterval = 30 * time.Second
+	pollInitialInterval = 10 * time.Second
 )
 
 // AgentUpdatedEvent fire up when data is changes in the store
