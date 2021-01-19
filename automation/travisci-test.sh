@@ -2,6 +2,18 @@
 
 export TIMESTAMP=${TIMESTAMP:-1}
 
+function stdout_keepalive() {
+	while true; do
+		# print every 5 minutes, travis stalls after 10.
+		sleep 300
+		# Print to stdout periodically in order to keep the travis job
+		# from timing out due to inactivity.
+		echo "travis stdout keepalive msg, ignore me."
+	done
+}
+
+stdout_keepalive &
+
 # when not on a release do extensive checks
 if [ -z "$TRAVIS_TAG" ]; then
 	make bazel-build-verify
