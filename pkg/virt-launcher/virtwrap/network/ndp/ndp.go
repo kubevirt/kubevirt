@@ -35,12 +35,12 @@ const (
 	routerAdvertisementPeriod      = 5 * time.Minute
 )
 
-type RouterAdvertisementDaemon struct {
+type RouterAdvertiser struct {
 	raOptions []ndp.Option
 	ndpConn   *NDPConnection
 }
 
-func CreateRouterAdvertisementServerFromFD(openedFD *os.File, ifaceName string, ipv6CIDR string, routerMACAddr net.HardwareAddr) (*RouterAdvertisementDaemon, error) {
+func CreateRouterAdvertisementServerFromFD(openedFD *os.File, ifaceName string, ipv6CIDR string, routerMACAddr net.HardwareAddr) (*RouterAdvertiser, error) {
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		return nil, fmt.Errorf("could not find interface %s: %v", ifaceName, err)
@@ -56,14 +56,14 @@ func CreateRouterAdvertisementServerFromFD(openedFD *os.File, ifaceName string, 
 		return nil, fmt.Errorf("could not compute prefix / prefix length from %s. Reason: %v", ipv6CIDR, err)
 	}
 	prefixLength, _ := network.Mask.Size()
-	rad := &RouterAdvertisementDaemon{
+	rad := &RouterAdvertiser{
 		ndpConn:   ndpConnection,
 		raOptions: prepareRAOptions(prefix, uint8(prefixLength), routerMACAddr),
 	}
 	return rad, nil
 }
 
-func (rad *RouterAdvertisementDaemon) Serve() error {
+func (rad *RouterAdvertiser) Serve() error {
 	for {
 		msg, err := rad.ndpConn.ReadFrom()
 		if err != nil {
@@ -81,7 +81,7 @@ func (rad *RouterAdvertisementDaemon) Serve() error {
 	}
 }
 
-func (rad *RouterAdvertisementDaemon) PeriodicallySendRAs() {
+func (rad *RouterAdvertiser) PeriodicallySendRAs() {
 	doneChannel := make(chan struct{})
 	ticker := time.NewTicker(routerAdvertisementPeriod)
 
@@ -99,7 +99,7 @@ func (rad *RouterAdvertisementDaemon) PeriodicallySendRAs() {
 	}
 }
 
-func (rad *RouterAdvertisementDaemon) SendRouterAdvertisement() error {
+func (rad *RouterAdvertiser) SendRouterAdvertisement() error {
 	ra := &ndp.RouterAdvertisement{
 		ManagedConfiguration: true,
 		OtherConfiguration:   true,
