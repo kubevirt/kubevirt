@@ -171,6 +171,7 @@ function update_go_mod() {
     EXCLUSION_LIST=(
       "containerized-data-importer"
       "controller-lifecycle-operator-sdk"
+      "ssp-operator"
       )
     LAST=$(( ${#EXCLUSION_LIST[*]} - 1 ))
     EXCLUSION='/'
