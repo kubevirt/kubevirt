@@ -866,8 +866,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 			vmi2.Spec.Domain.Devices.Interfaces[1].MacAddress = mac2.String()
 
 			vmi1 = startVmi(vmi1)
-			vmi1 = waitVmi(vmi1)
 			vmi2 = startVmi(vmi2)
+			vmi1 = waitVmi(vmi1)
 			vmi2 = waitVmi(vmi2)
 
 			vmi1, err = virtClient.VirtualMachineInstance(vmi1.Namespace).Get(vmi1.Name, &metav1.GetOptions{})
