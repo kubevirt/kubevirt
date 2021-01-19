@@ -138,6 +138,25 @@ var _ = Describe("ImageUpload", func() {
 		return spec
 	}
 
+	dvSpecWithWaitForFirstConsumer := func() *cdiv1.DataVolume {
+		dv := &cdiv1.DataVolume{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      targetName,
+				Namespace: "default",
+			},
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: cdiv1.SchemeGroupVersion.String(),
+				Kind:       "DataVolume",
+			},
+			Status: cdiv1.DataVolumeStatus{Phase: cdiv1.WaitForFirstConsumer},
+			Spec: cdiv1.DataVolumeSpec{
+				Source: cdiv1.DataVolumeSource{Upload: &cdiv1.DataVolumeSourceUpload{}},
+				PVC:    &v1.PersistentVolumeClaimSpec{},
+			},
+		}
+		return dv
+	}
+
 	addPodPhaseAnnotation := func() {
 		defer GinkgoRecover()
 		time.Sleep(10 * time.Millisecond)
@@ -146,6 +165,19 @@ var _ = Describe("ImageUpload", func() {
 		pvc.Annotations[podPhaseAnnotation] = "Running"
 		pvc.Annotations[podReadyAnnotation] = "true"
 		pvc, err = kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Update(pvc)
+		if err != nil {
+			fmt.Fprintf(GinkgoWriter, "Error: %v\n", err)
+		}
+		Expect(err).To(BeNil())
+	}
+
+	addDvPhase := func() {
+		defer GinkgoRecover()
+		time.Sleep(10 * time.Millisecond)
+		dv, err := cdiClient.CdiV1alpha1().DataVolumes(targetNamespace).Get(targetName, metav1.GetOptions{})
+		Expect(err).To(BeNil())
+		dv.Status.Phase = cdiv1.UploadReady
+		dv, err = cdiClient.CdiV1alpha1().DataVolumes(targetNamespace).Update(dv)
 		if err != nil {
 			fmt.Fprintf(GinkgoWriter, "Error: %v\n", err)
 		}
@@ -176,6 +208,7 @@ var _ = Describe("ImageUpload", func() {
 			dvCreateCalled = true
 
 			go createPVC(dv)
+			go addDvPhase()
 
 			return false, nil, nil
 		})
@@ -296,15 +329,16 @@ var _ = Describe("ImageUpload", func() {
 		return nil
 	}
 
-	testInitAsync := func(statusCode int, async bool, kubeobjects ...runtime.Object) {
+	testInitAsyncWithCdiObjects := func(statusCode int, async bool, kubeobjects []runtime.Object, cdiobjects []runtime.Object) {
 		dvCreateCalled = false
 		pvcCreateCalled = false
 		updateCalled = false
 
 		config := createCDIConfig()
+		cdiobjects = append(cdiobjects, config)
 
 		kubeClient = fakek8sclient.NewSimpleClientset(kubeobjects...)
-		cdiClient = fakecdiclient.NewSimpleClientset(config)
+		cdiClient = fakecdiclient.NewSimpleClientset(cdiobjects...)
 
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
@@ -331,6 +365,10 @@ var _ = Describe("ImageUpload", func() {
 		})
 	}
 
+	testInitAsync := func(statusCode int, async bool, kubeobjects ...runtime.Object) {
+		testInitAsyncWithCdiObjects(statusCode, async, kubeobjects, nil)
+	}
+
 	testInit := func(statusCode int, kubeobjects ...runtime.Object) {
 		testInitAsync(statusCode, true, kubeobjects...)
 	}
@@ -341,6 +379,7 @@ var _ = Describe("ImageUpload", func() {
 	}
 
 	Context("Successful upload to PVC", func() {
+
 		It("PVC does not exist deprecated args", func() {
 			testInit(http.StatusOK)
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "--pvc-name", targetName, "--pvc-size", pvcSize,
@@ -458,6 +497,20 @@ var _ = Describe("ImageUpload", func() {
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
 			Expect(cmd()).NotTo(BeNil())
+		})
+
+		It("DV in phase WaitForFirstConsumer", func() {
+			testInitAsyncWithCdiObjects(
+				http.StatusOK,
+				true,
+				[]runtime.Object{pvcSpecWithUploadAnnotation()},
+				[]runtime.Object{dvSpecWithWaitForFirstConsumer()},
+			)
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
+				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
+			err := cmd()
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).Should(ContainSubstring("cannot upload to DataVolume in WaitForFirstConsumer state"))
 		})
 
 		It("uploadProxyURL not configured", func() {
