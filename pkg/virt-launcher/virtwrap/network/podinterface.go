@@ -732,28 +732,28 @@ func configureVifV6Addresses(p *MasqueradeBindMechanism, err error) error {
 
 func (p *MasqueradeBindMechanism) startDynamicIPServers(vmi *v1.VirtualMachineInstance) error {
 	if p.vif.IPv6.IPNet != nil {
-		if err := p.startRADaemon(); err != nil {
-			log.Log.Criticalf("could not start the RA daemon: %v", err)
+		if err := p.startRouterAdvertiser(); err != nil {
+			log.Log.Criticalf("could not start the Router Advertiser: %v", err)
 			return err
 		}
 	}
 	return Handler.StartDHCP(p.vif, p.vif.Gateway, p.bridgeInterfaceName, p.iface.DHCPOptions, false)
 }
 
-func (p *MasqueradeBindMechanism) startRADaemon() error {
+func (p *MasqueradeBindMechanism) startRouterAdvertiser() error {
 	theBridge, err := Handler.LinkByName(p.bridgeInterfaceName)
 	if err != nil {
 		return err
 	}
 
 	targetPID := "self"
-	if err := Handler.CreateRADaemon(
+	if err := Handler.CreateRouterAdvertiser(
 		getNDPConnectionUnixSocketPath(targetPID, p.bridgeInterfaceName),
 		p.bridgeInterfaceName,
 		api.DefaultVMIpv6CIDR,
 		theBridge.Attrs().HardwareAddr,
 		5); err != nil {
-		return fmt.Errorf("failed to start the RA daemon in virt-launcher: %v", err)
+		return fmt.Errorf("failed to start the Router Advertiser in virt-launcher: %v", err)
 	}
 
 	return nil
@@ -823,8 +823,8 @@ func (p *MasqueradeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32
 			return fmt.Errorf("Couldn't configure ipv6 nat rules")
 		}
 
-		if err := Handler.CreateNDPConnection(p.bridgeInterfaceName, launcherPID); err != nil {
-			return fmt.Errorf("could not start the RA daemon: %v", err)
+		if err := Handler.CreateAndExportNDPConnection(p.bridgeInterfaceName, launcherPID); err != nil {
+			return fmt.Errorf("error creating the ICMP6 listener: %v", err)
 		}
 	}
 

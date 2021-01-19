@@ -119,8 +119,8 @@ type NetworkHandler interface {
 	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
 	DisableTXOffloadChecksum(ifaceName string) error
-	CreateNDPConnection(bridgeInterfaceName string, launcherPID int) error
-	CreateRADaemon(
+	CreateAndExportNDPConnection(advertisementIfaceName string, launcherPID int) error
+	CreateRouterAdvertiser(
 		socketPath string,
 		advitesementIfaceName string,
 		ipv6CIDR string,
@@ -391,8 +391,8 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr net.IP, bridgeInter
 	return nil
 }
 
-func (h *NetworkUtilsHandler) CreateNDPConnection(bridgeInterfaceName string, launcherPID int) error {
-	log.Log.Infof("Starting RA daemon on network Nic: %s", bridgeInterfaceName)
+func (h *NetworkUtilsHandler) CreateAndExportNDPConnection(advertisementIfaceName string, launcherPID int) error {
+	log.Log.Infof("Starting Router Advertiser on network Nic: %s", advertisementIfaceName)
 
 	if isSELinuxEnabled() {
 		if err := setVirtHandlerSELinuxSocketContext(launcherPID); err != nil {
@@ -404,16 +404,16 @@ func (h *NetworkUtilsHandler) CreateNDPConnection(bridgeInterfaceName string, la
 		}()
 	}
 
-	ndpConnection, err := ndp.NewNDPConnection(bridgeInterfaceName)
+	ndpConnection, err := ndp.NewNDPConnection(advertisementIfaceName)
 	if err != nil {
-		return fmt.Errorf("failed to create the RouterAdvertisement daemon: %v", err)
+		return fmt.Errorf("failed to create the Router Advertiser: %v", err)
 	}
 
 	go func() {
 		_ = ndpConnection.Export(
 			getNDPConnectionUnixSocketPath(
 				fmt.Sprintf("%d", launcherPID),
-				bridgeInterfaceName))
+				advertisementIfaceName))
 	}()
 
 	return nil
@@ -552,14 +552,14 @@ func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
 	return nil
 }
 
-func (h *NetworkUtilsHandler) CreateRADaemon(socketPath string, advertisementIfaceName string, ipv6CIDR string, routerSourceAddr net.HardwareAddr, currentRetry int) error {
+func (h *NetworkUtilsHandler) CreateRouterAdvertiser(socketPath string, advertisementIfaceName string, ipv6CIDR string, routerSourceAddr net.HardwareAddr, currentRetry int) error {
 	openedFD, err := ndp.ImportConnection(socketPath)
 	if err != nil {
 		log.Log.V(4).Warningf("%v", err)
 
 		if currentRetry > 0 {
 			time.Sleep(time.Second)
-			return h.CreateRADaemon(socketPath, advertisementIfaceName, ipv6CIDR, routerSourceAddr, currentRetry-1)
+			return h.CreateRouterAdvertiser(socketPath, advertisementIfaceName, ipv6CIDR, routerSourceAddr, currentRetry-1)
 		} else {
 			log.Log.Reason(err).Errorf("failed to start RouterAdvertiser after %d retries; giving up", currentRetry)
 			panic(err)
@@ -569,19 +569,19 @@ func (h *NetworkUtilsHandler) CreateRADaemon(socketPath string, advertisementIfa
 		_ = openedFD.Close()
 	}()
 
-	raDaemon, err := ndp.RouterAdvertisementDaemonFromFD(openedFD, advertisementIfaceName, ipv6CIDR, routerSourceAddr)
+	routerAdvertiser, err := ndp.CreateRouterAdvertisementServerFromFD(openedFD, advertisementIfaceName, ipv6CIDR, routerSourceAddr)
 	if err != nil {
 		return fmt.Errorf("failed to re-create the RouterAdvertisement daemon on virt-launcher: %v", err)
 	}
 
 	go func() {
-		if err := raDaemon.Serve(); err != nil {
+		if err := routerAdvertiser.Serve(); err != nil {
 			log.Log.Criticalf("could not listen via the Router Advertisement daemon to incoming requests: %v", err)
 		}
 	}()
 
 	go func() {
-		raDaemon.PeriodicallySendRAs()
+		routerAdvertiser.PeriodicallySendRAs()
 	}()
 
 	return nil

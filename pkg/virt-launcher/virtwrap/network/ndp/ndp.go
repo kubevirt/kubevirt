@@ -40,7 +40,7 @@ type RouterAdvertisementDaemon struct {
 	ndpConn   *NDPConnection
 }
 
-func RouterAdvertisementDaemonFromFD(openedFD *os.File, ifaceName string, ipv6CIDR string, routerMACAddr net.HardwareAddr) (*RouterAdvertisementDaemon, error) {
+func CreateRouterAdvertisementServerFromFD(openedFD *os.File, ifaceName string, ipv6CIDR string, routerMACAddr net.HardwareAddr) (*RouterAdvertisementDaemon, error) {
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		return nil, fmt.Errorf("could not find interface %s: %v", ifaceName, err)
