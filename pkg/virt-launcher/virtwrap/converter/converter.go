@@ -1320,7 +1320,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
 			Type:  "scsi",
 			Index: "0",
-			Model: "virtio-scsi",
+			Model: translateModel(c, "virtio"),
 		})
 	}
 
