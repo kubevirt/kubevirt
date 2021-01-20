@@ -19,6 +19,8 @@
 package v1
 
 import (
+	"os"
+
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,6 +32,7 @@ import (
 // GroupName is the group name use in this package
 const GroupName = "kubevirt.io"
 const SubresourceGroupName = "subresources.kubevirt.io"
+const KubeVirtClientGoSchemeRegistrationVersionEnvVar = "KUBEVIRT_CLIENT_GO_SCHEME_REGISTRATION_VERSION"
 
 var (
 	ApiLatestVersion            = "v1"
@@ -93,8 +96,23 @@ func init() {
 
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
+	registerGroupVersions := []schema.GroupVersion{}
 
-	for _, groupVersion := range GroupVersions {
+	// This allows consumers of the KubeVirt client go package to
+	// customize what version the client uses. Without specifying a
+	// version, all versions are registered. While this techincally
+	// file to register all versions, so k8s ecosystem libraries
+	// do not work well with this. By explicitly setting the env var,
+	// consumers of our client go can avoid these scenarios by only
+	// registering a single version
+	registerVersion := os.Getenv(KubeVirtClientGoSchemeRegistrationVersionEnvVar)
+	if registerVersion != "" {
+		registerGroupVersions = append(registerGroupVersions, schema.GroupVersion{Group: GroupName, Version: registerVersion})
+	} else {
+		registerGroupVersions = append(registerGroupVersions, GroupVersions...)
+	}
+
+	for _, groupVersion := range registerGroupVersions {
 		scheme.AddKnownTypes(groupVersion,
 			&VirtualMachineInstance{},
 			&VirtualMachineInstanceList{},
