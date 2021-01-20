@@ -293,43 +293,46 @@ func main() {
 			replaces = fmt.Sprintf("%v.v%v", operatorName, semver.MustParse(*replacesCsvVersion).String())
 		}
 
+		csvParams := &components.CSVBaseParams{
+			Name:        operatorName,
+			Namespace:   *namespace,
+			DisplayName: *specDisplayName,
+			Description: *specDescription,
+			Image:       *operatorImage,
+			Replaces:    replaces,
+			Version:     version,
+			CrdDisplay:  *crdDisplay,
+		}
+
 		// This is the basic CSV without an InstallStrategy defined
-		csvBase := components.GetCSVBase(
-			operatorName,
-			*namespace,
-			*specDisplayName,
-			*specDescription,
-			*operatorImage,
-			replaces,
-			version,
-			*crdDisplay,
-		)
+		csvBase := components.GetCSVBase(csvParams)
 		csvExtended := ClusterServiceVersionExtended{
 			TypeMeta:   csvBase.TypeMeta,
 			ObjectMeta: csvBase.ObjectMeta,
 			Spec:       ClusterServiceVersionSpecExtended{ClusterServiceVersionSpec: csvBase.Spec},
 			Status:     csvBase.Status}
 
+		params := &components.DeploymentOperatorParams{
+			Namespace:           *namespace,
+			Image:               *operatorImage,
+			WebhookImage:        *webhookImage,
+			ImagePullPolicy:     "IfNotPresent",
+			ConversionContainer: *imsConversionImage,
+			VmwareContainer:     *imsVMWareImage,
+			Smbios:              *smbios,
+			Machinetype:         *machinetype,
+			HcoKvIoVersion:      *hcoKvIoVersion,
+			KubevirtVersion:     *kubevirtVersion,
+			CdiVersion:          *cdiVersion,
+			CnaoVersion:         *cnaoVersion,
+			SspVersion:          *sspVersion,
+			NmoVersion:          *nmoVersion,
+			HppoVersion:         *hppoVersion,
+			VMImportVersion:     *vmImportVersion,
+			Env:                 envVars,
+		}
 		// This is the base deployment + rbac for the HCO CSV
-		installStrategyBase := components.GetInstallStrategyBase(
-			*namespace,
-			*operatorImage,
-			*webhookImage,
-			"IfNotPresent",
-			*imsConversionImage,
-			*imsVMWareImage,
-			*smbios,
-			*machinetype,
-			*hcoKvIoVersion,
-			*kubevirtVersion,
-			*cdiVersion,
-			*cnaoVersion,
-			*sspVersion,
-			*nmoVersion,
-			*hppoVersion,
-			*vmImportVersion,
-			envVars,
-		)
+		installStrategyBase := components.GetInstallStrategyBase(params)
 
 		overwriteDeploymentSpecLabels(installStrategyBase.DeploymentSpecs, hcoutil.AppComponentDeployment)
 

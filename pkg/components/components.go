@@ -41,7 +41,27 @@ const (
 	certVolume          = "apiservice-cert"
 )
 
-func GetDeploymentOperator(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion string, env []corev1.EnvVar) appsv1.Deployment {
+type DeploymentOperatorParams struct {
+	Namespace           string
+	Image               string
+	WebhookImage        string
+	ImagePullPolicy     string
+	ConversionContainer string
+	VmwareContainer     string
+	Smbios              string
+	Machinetype         string
+	HcoKvIoVersion      string
+	KubevirtVersion     string
+	CdiVersion          string
+	CnaoVersion         string
+	SspVersion          string
+	NmoVersion          string
+	HppoVersion         string
+	VMImportVersion     string
+	Env                 []corev1.EnvVar
+}
+
+func GetDeploymentOperator(params *DeploymentOperatorParams) appsv1.Deployment {
 	return appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -53,7 +73,7 @@ func GetDeploymentOperator(namespace, image, imagePullPolicy, conversionContaine
 				"name": hcoName,
 			},
 		},
-		Spec: GetDeploymentSpecOperator(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion, env),
+		Spec: GetDeploymentSpecOperator(params),
 	}
 }
 
@@ -102,7 +122,7 @@ func GetServiceWebhook(namespace string) v1.Service {
 	}
 }
 
-func GetDeploymentSpecOperator(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion string, env []corev1.EnvVar) appsv1.DeploymentSpec {
+func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.DeploymentSpec {
 	return appsv1.DeploymentSpec{
 		Replicas: int32Ptr(1),
 		Selector: &metav1.LabelSelector{
@@ -115,15 +135,15 @@ func GetDeploymentSpecOperator(namespace, image, imagePullPolicy, conversionCont
 		},
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
-				Labels: getLabels(hcoName, hcoKvIoVersion),
+				Labels: getLabels(hcoName, params.HcoKvIoVersion),
 			},
 			Spec: corev1.PodSpec{
 				ServiceAccountName: hcoName,
 				Containers: []corev1.Container{
 					{
 						Name:            hcoName,
-						Image:           image,
-						ImagePullPolicy: corev1.PullPolicy(imagePullPolicy),
+						Image:           params.Image,
+						ImagePullPolicy: corev1.PullPolicy(params.ImagePullPolicy),
 						// TODO: command being name is artifact of operator-sdk usage
 						Command: []string{hcoName},
 						ReadinessProbe: &corev1.Probe{
@@ -172,7 +192,7 @@ func GetDeploymentSpecOperator(namespace, image, imagePullPolicy, conversionCont
 							},
 							{
 								Name:  "OPERATOR_IMAGE",
-								Value: image,
+								Value: params.Image,
 							},
 							{
 								Name:  "OPERATOR_NAME",
@@ -180,7 +200,7 @@ func GetDeploymentSpecOperator(namespace, image, imagePullPolicy, conversionCont
 							},
 							{
 								Name:  "OPERATOR_NAMESPACE",
-								Value: namespace,
+								Value: params.Namespace,
 							},
 							{
 								Name: "POD_NAME",
@@ -196,53 +216,53 @@ func GetDeploymentSpecOperator(namespace, image, imagePullPolicy, conversionCont
 							},
 							{
 								Name:  "CONVERSION_CONTAINER",
-								Value: conversionContainer,
+								Value: params.ConversionContainer,
 							},
 							{
 								Name:  "VMWARE_CONTAINER",
-								Value: vmwareContainer,
+								Value: params.VmwareContainer,
 							},
 							{
 								Name:  "SMBIOS",
-								Value: smbios,
+								Value: params.Smbios,
 							},
 							{
 								Name:  "MACHINETYPE",
-								Value: machinetype,
+								Value: params.Machinetype,
 							},
 							{
 								Name:  util.HcoKvIoVersionName,
-								Value: hcoKvIoVersion,
+								Value: params.HcoKvIoVersion,
 							},
 							{
 								Name:  util.KubevirtVersionEnvV,
-								Value: kubevirtVersion,
+								Value: params.KubevirtVersion,
 							},
 							{
 								Name:  util.CdiVersionEnvV,
-								Value: cdiVersion,
+								Value: params.CdiVersion,
 							},
 							{
 								Name:  util.CnaoVersionEnvV,
-								Value: cnaoVersion,
+								Value: params.CnaoVersion,
 							},
 							{
 								Name:  util.SspVersionEnvV,
-								Value: sspVersion,
+								Value: params.SspVersion,
 							},
 							{
 								Name:  util.NmoVersionEnvV,
-								Value: nmoVersion,
+								Value: params.NmoVersion,
 							},
 							{
 								Name:  util.HppoVersionEnvV,
-								Value: hppoVersion,
+								Value: params.HppoVersion,
 							},
 							{
 								Name:  util.VMImportEnvV,
-								Value: vmImportVersion,
+								Value: params.VMImportVersion,
 							},
-						}, env...),
+						}, params.Env...),
 					},
 				},
 			},
@@ -931,18 +951,19 @@ func GetOperatorCR() *hcov1beta1.HyperConverged {
 }
 
 // GetInstallStrategyBase returns the basics of an HCO InstallStrategy
-func GetInstallStrategyBase(namespace, image, webhookImage, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion string, env []corev1.EnvVar) *csvv1alpha1.StrategyDetailsDeployment {
+func GetInstallStrategyBase(params *DeploymentOperatorParams) *csvv1alpha1.StrategyDetailsDeployment {
 	return &csvv1alpha1.StrategyDetailsDeployment{
+
 		DeploymentSpecs: []csvv1alpha1.StrategyDeploymentSpec{
 			csvv1alpha1.StrategyDeploymentSpec{
 				Name:  hcoDeploymentName,
-				Spec:  GetDeploymentSpecOperator(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion, env),
-				Label: getLabels(hcoName, hcoKvIoVersion),
+				Spec:  GetDeploymentSpecOperator(params),
+				Label: getLabels(hcoName, params.HcoKvIoVersion),
 			},
 			csvv1alpha1.StrategyDeploymentSpec{
 				Name:  hcoWhDeploymentName,
-				Spec:  GetDeploymentSpecWebhook(namespace, webhookImage, imagePullPolicy, hcoKvIoVersion, env),
-				Label: getLabels(hcoNameWebhook, hcoKvIoVersion),
+				Spec:  GetDeploymentSpecWebhook(params.Namespace, params.WebhookImage, params.ImagePullPolicy, params.HcoKvIoVersion, params.Env),
+				Label: getLabels(hcoNameWebhook, params.HcoKvIoVersion),
 			},
 		},
 		Permissions: []csvv1alpha1.StrategyDeploymentPermissions{},
@@ -955,15 +976,26 @@ func GetInstallStrategyBase(namespace, image, webhookImage, imagePullPolicy, con
 	}
 }
 
+type CSVBaseParams struct {
+	Name        string
+	Namespace   string
+	DisplayName string
+	Description string
+	Image       string
+	Replaces    string
+	Version     semver.Version
+	CrdDisplay  string
+}
+
 // GetCSVBase returns a base HCO CSV without an InstallStrategy
-func GetCSVBase(name, namespace, displayName, description, image, replaces string, version semver.Version, crdDisplay string) *csvv1alpha1.ClusterServiceVersion {
+func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 	almExamples, _ := json.Marshal(
 		map[string]interface{}{
 			"apiVersion": "hco.kubevirt.io/v1beta1",
 			"kind":       "HyperConverged",
 			"metadata": map[string]interface{}{
 				"name":      "kubevirt-hyperconverged",
-				"namespace": namespace,
+				"namespace": params.Namespace,
 				"annotations": map[string]string{
 					"deployOVS": "false",
 				},
@@ -1026,7 +1058,7 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 		FailurePolicy:           &failurePolicy,
 		TimeoutSeconds:          &webhookTimeout,
 		ObjectSelector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"name": namespace},
+			MatchLabels: map[string]string{"name": params.Namespace},
 		},
 		Rules: []admissionregistrationv1.RuleWithOperations{
 			admissionregistrationv1.RuleWithOperations{
@@ -1049,28 +1081,28 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 			Kind:       "ClusterServiceVersion",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%v.v%v", name, version.String()),
+			Name:      fmt.Sprintf("%v.v%v", params.Name, params.Version.String()),
 			Namespace: "placeholder",
 			Annotations: map[string]string{
 				"alm-examples":   string(almExamples),
 				"capabilities":   "Full Lifecycle",
 				"certified":      "false",
 				"categories":     "OpenShift Optional",
-				"containerImage": image,
+				"containerImage": params.Image,
 				"createdAt":      time.Now().Format("2006-01-02 15:04:05"),
-				"description":    description,
+				"description":    params.Description,
 				"repository":     "https://github.com/kubevirt/hyperconverged-cluster-operator",
 				"support":        "false",
-				"operatorframework.io/suggested-namespace":     namespace,
+				"operatorframework.io/suggested-namespace":     params.Namespace,
 				"operatorframework.io/initialization-resource": string(almExamples),
 			},
 		},
 		Spec: csvv1alpha1.ClusterServiceVersionSpec{
-			DisplayName: displayName,
-			Description: description,
+			DisplayName: params.DisplayName,
+			Description: params.Description,
 			Keywords:    []string{"KubeVirt", "Virtualization"},
-			Version:     csvVersion.OperatorVersion{Version: version},
-			Replaces:    replaces,
+			Version:     csvVersion.OperatorVersion{Version: params.Version},
+			Replaces:    params.Replaces,
 			Maintainers: []csvv1alpha1.Maintainer{
 				csvv1alpha1.Maintainer{
 					Name:  "KubeVirt project",
@@ -1137,8 +1169,8 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 						Name:        "hyperconvergeds.hco.kubevirt.io",
 						Version:     util.CurrentAPIVersion,
 						Kind:        "HyperConverged",
-						DisplayName: crdDisplay + " Deployment",
-						Description: "Represents the deployment of " + crdDisplay,
+						DisplayName: params.CrdDisplay + " Deployment",
+						Description: "Represents the deployment of " + params.CrdDisplay,
 						// TODO: move this to annotations on hyperconverged_types.go once kubebuilder
 						// properly supports SpecDescriptors as the operator-sdk already does
 						SpecDescriptors: []csvv1alpha1.SpecDescriptor{

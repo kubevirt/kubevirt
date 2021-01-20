@@ -141,6 +141,25 @@ func main() {
 		*webhookImage = *operatorImage
 	}
 
+	params := &components.DeploymentOperatorParams{
+		Namespace:           *operatorNamespace,
+		Image:               *operatorImage,
+		ImagePullPolicy:     "IfNotPresent",
+		ConversionContainer: *imsConversionImage,
+		VmwareContainer:     *imsVMWareImage,
+		Smbios:              *smbios,
+		Machinetype:         *machinetype,
+		HcoKvIoVersion:      *hcoKvIoVersion,
+		KubevirtVersion:     *kubevirtVersion,
+		CdiVersion:          *cdiVersion,
+		CnaoVersion:         *cnaoVersion,
+		SspVersion:          *sspVersion,
+		NmoVersion:          *nmoVersion,
+		HppoVersion:         *hppoVersion,
+		VMImportVersion:     *vmImportVersion,
+		Env:                 []corev1.EnvVar{},
+	}
+
 	// these represent the bare necessities for the HCO manifests, that is,
 	// enough to deploy the HCO itself.
 	// 1 deployment
@@ -152,24 +171,7 @@ func main() {
 	// service accounts are represented as a map to prevent us from generating the
 	// same service account multiple times.
 	deployments := []appsv1.Deployment{
-		components.GetDeploymentOperator(
-			*operatorNamespace,
-			*operatorImage,
-			"IfNotPresent",
-			*imsConversionImage,
-			*imsVMWareImage,
-			*smbios,
-			*machinetype,
-			*hcoKvIoVersion,
-			*kubevirtVersion,
-			*cdiVersion,
-			*cnaoVersion,
-			*sspVersion,
-			*nmoVersion,
-			*hppoVersion,
-			*vmImportVersion,
-			[]corev1.EnvVar{},
-		),
+		components.GetDeploymentOperator(params),
 		components.GetDeploymentWebhook(
 			*operatorNamespace,
 			*webhookImage,

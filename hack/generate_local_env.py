@@ -12,9 +12,9 @@ def get_env(line):
     return f'{env}={environ.get(env)}'
 
 
-def get_env_file(outdir, frmt='txt'):
+def get_env_file(outdir, file_format='txt'):
     rgx = re.compile('^[^ #]+=.*$')
-    if frmt == 'env':
+    if file_format == 'env':
         sep = linesep
         ext = '.env'
     else:
@@ -23,11 +23,11 @@ def get_env_file(outdir, frmt='txt'):
 
     with open('hack/config') as infile:
         with open(f'{outdir}/envs{ext}', 'w') as out:
-            vars = [line.strip() for line in infile if rgx.match(line)]
-            vars.append('KUBECONFIG=None')
-            vars.append('WEBHOOK_MODE=false')
-            vars = map(lambda s: get_env(s), vars)
-            var_str = f"{sep.join(vars)}{sep}WATCH_NAMESPACE=kubevirt-hyperconverged{sep}OSDK_FORCE_RUN_MODE=local{sep}OPERATOR_NAMESPACE=kubevirt-hyperconverged"
+            vars_list = [line.strip() for line in infile if rgx.match(line)]
+            vars_list.append('KUBECONFIG=None')
+            vars_list.append('WEBHOOK_MODE=false')
+            vars_list = map(lambda s: get_env(s), vars_list)
+            var_str = f"{sep.join(vars_list)}{sep}WATCH_NAMESPACE=kubevirt-hyperconverged{sep}OSDK_FORCE_RUN_MODE=local{sep}OPERATOR_NAMESPACE=kubevirt-hyperconverged"
             var_str = var_str + f"{sep}WEBHOOK_CERT_DIR=./_local/certs"
             var_str = var_str + f"{sep}HCO_KV_IO_VERSION={CSV_VERSION}"
             var_str = var_str + f"{sep}KUBEVIRT_CLIENT_GO_SCHEME_REGISTRATION_VERSION={KUBEVIRT_CLIENT_GO_SCHEME_REGISTRATION_VERSION}"
