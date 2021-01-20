@@ -50,6 +50,7 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
@@ -114,6 +115,7 @@ var _ = Describe("Manager", func() {
 		It("should define and start a new VirtualMachineInstance", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
+			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
@@ -134,6 +136,7 @@ var _ = Describe("Manager", func() {
 		It("should define and start a new VirtualMachineInstance with userData", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
+			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
@@ -156,6 +159,7 @@ var _ = Describe("Manager", func() {
 		It("should define and start a new VirtualMachineInstance with userData and networkData", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
+			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 			userData := "fake\nuser\ndata\n"
@@ -324,6 +328,7 @@ var _ = Describe("Manager", func() {
 		It("should hotplug a disk if a volume was hotplugged", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
+			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
@@ -455,6 +460,7 @@ var _ = Describe("Manager", func() {
 		It("should unplug a disk if a volume was unplugged", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
+			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
@@ -566,6 +572,7 @@ var _ = Describe("Manager", func() {
 		It("should not plug/unplug a disk if nothing changed", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
+			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
@@ -646,6 +653,7 @@ var _ = Describe("Manager", func() {
 		It("should not hotplug a disk if a volume was hotplugged, but the disk is not ready yet", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
+			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
@@ -1016,6 +1024,7 @@ var _ = Describe("Manager", func() {
 			updateHostsFile = func(entry string) error {
 				return nil
 			}
+			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID: "111222333",
@@ -1580,6 +1589,10 @@ func newVMI(namespace, name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewMinimalVMIWithNS(namespace, name)
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	return vmi
+}
+
+func StubOutNetworkForTest() {
+	network.SetupPodNetworkPhase2 = func(vm *v1.VirtualMachineInstance, domain *api.Domain) error { return nil }
 }
 
 func addCloudInitDisk(vmi *v1.VirtualMachineInstance, userData string, networkData string) {

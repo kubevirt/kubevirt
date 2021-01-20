@@ -117,7 +117,7 @@ func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int) error {
 	return nil
 }
 
-func SetupPodNetworkPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+func SetupNetworkInterfacesPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
 	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		podnic, err := invokePodNICFactory(networks, iface.Name)
