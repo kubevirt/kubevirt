@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/cluster"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -825,6 +826,8 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				if !tests.HasLiveMigration() {
 					Skip("LiveMigration feature gate is not enabled in kubevirt-config")
 				}
+
+				cluster.SkipWhenClusterHasASingleNode(virtClient)
 			})
 
 			AfterEach(func() {
