@@ -134,7 +134,7 @@ func (l *NDPConnection) Export(socketPath string) error {
 	}
 
 	defer socketListener.Close()
-	f, err := l.GetFD()
+	icmpListenerFD, err := l.GetFD()
 	if err != nil {
 		return fmt.Errorf("could not get an opened file descriptor from the icmp listener: %v", err)
 	}
@@ -145,7 +145,7 @@ func (l *NDPConnection) Export(socketPath string) error {
 	}
 	defer socketTransferConnection.Close()
 	listenConn := socketTransferConnection.(*net.UnixConn)
-	if err = fd.Put(listenConn, f); err != nil {
+	if err = fd.Put(listenConn, icmpListenerFD); err != nil {
 		return fmt.Errorf("could not send the opened file descriptor across: %v", err)
 	}
 
