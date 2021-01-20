@@ -604,7 +604,6 @@ var _ = Describe("Pod Network", func() {
 
 	Context("Masquerade startDynamicIPServers", func() {
 		expectedSocketPath := fmt.Sprintf("/proc/self/root/var/run/kubevirt/sockets/%s", api.DefaultBridgeName)
-		maxRetryNumber := 5
 
 		BeforeEach(func() {
 			masqueradeBridgeTest.HardwareAddr = fakeMac
@@ -626,7 +625,7 @@ var _ = Describe("Pod Network", func() {
 
 			// on masquerade we need to mock 'get'ting the bridge, so we can
 			// retrieve its mac address, which will be advertised
-			mockNetwork.EXPECT().CreateRouterAdvertiser(expectedSocketPath, api.DefaultBridgeName, api.DefaultVMIpv6CIDR, fakeMac, maxRetryNumber).Return(nil)
+			mockNetwork.EXPECT().CreateRouterAdvertiser(expectedSocketPath, api.DefaultBridgeName, api.DefaultVMIpv6CIDR, fakeMac).Return(nil)
 			mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(masqueradeBridgeTest, nil)
 
 			err = masq.startDynamicIPServers(vmi)
@@ -649,7 +648,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().StartDHCP(masq.vif, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(err)
 			// on masquerade we need to mock 'get'ting the bridge, so we can
 			// retrieve its mac address, which will be advertised
-			mockNetwork.EXPECT().CreateRouterAdvertiser(expectedSocketPath, api.DefaultBridgeName, api.DefaultVMIpv6CIDR, fakeMac, maxRetryNumber).Return(nil)
+			mockNetwork.EXPECT().CreateRouterAdvertiser(expectedSocketPath, api.DefaultBridgeName, api.DefaultVMIpv6CIDR, fakeMac).Return(nil)
 			mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(masqueradeBridgeTest, nil)
 
 			err = masq.startDynamicIPServers(vmi)
@@ -674,7 +673,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().StartDHCP(masq.vif, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(nil)
 
 			err = fmt.Errorf("failed to start RA daemon")
-			mockNetwork.EXPECT().CreateRouterAdvertiser(expectedSocketPath, api.DefaultBridgeName, api.DefaultVMIpv6CIDR, fakeMac, maxRetryNumber).Return(err)
+			mockNetwork.EXPECT().CreateRouterAdvertiser(expectedSocketPath, api.DefaultBridgeName, api.DefaultVMIpv6CIDR, fakeMac).Return(err)
 			mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(masqueradeBridgeTest, nil)
 
 			err = masq.startDynamicIPServers(vmi)

@@ -355,12 +355,12 @@ func (_mr *_MockNetworkHandlerRecorder) CreateAndExportNDPConnection(arg0, arg1 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateAndExportNDPConnection", arg0, arg1)
 }
 
-func (_m *MockNetworkHandler) CreateRouterAdvertiser(socketPath string, advitesementIfaceName string, ipv6CIDR string, routerSourceAddr net.HardwareAddr, currentRetry int) error {
-	ret := _m.ctrl.Call(_m, "CreateRouterAdvertiser", socketPath, advitesementIfaceName, ipv6CIDR, routerSourceAddr, currentRetry)
+func (_m *MockNetworkHandler) CreateRouterAdvertiser(socketPath string, advitesementIfaceName string, ipv6CIDR string, routerSourceAddr net.HardwareAddr) error {
+	ret := _m.ctrl.Call(_m, "CreateRouterAdvertiser", socketPath, advitesementIfaceName, ipv6CIDR, routerSourceAddr)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockNetworkHandlerRecorder) CreateRouterAdvertiser(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateRouterAdvertiser", arg0, arg1, arg2, arg3, arg4)
+func (_mr *_MockNetworkHandlerRecorder) CreateRouterAdvertiser(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateRouterAdvertiser", arg0, arg1, arg2, arg3)
 }

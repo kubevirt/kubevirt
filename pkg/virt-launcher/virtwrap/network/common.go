@@ -31,7 +31,6 @@ import (
 	"os/exec"
 	"runtime"
 	"syscall"
-	"time"
 
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/opencontainers/selinux/go-selinux"
@@ -124,8 +123,7 @@ type NetworkHandler interface {
 		socketPath string,
 		advitesementIfaceName string,
 		ipv6CIDR string,
-		routerSourceAddr net.HardwareAddr,
-		currentRetry int) error
+		routerSourceAddr net.HardwareAddr) error
 }
 
 type NetworkUtilsHandler struct{}
@@ -555,18 +553,10 @@ func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
 	return nil
 }
 
-func (h *NetworkUtilsHandler) CreateRouterAdvertiser(socketPath string, advertisementIfaceName string, ipv6CIDR string, routerSourceAddr net.HardwareAddr, currentRetry int) error {
+func (h *NetworkUtilsHandler) CreateRouterAdvertiser(socketPath string, advertisementIfaceName string, ipv6CIDR string, routerSourceAddr net.HardwareAddr) error {
 	openedFD, err := ndp.ImportConnection(socketPath)
 	if err != nil {
-		log.Log.V(4).Warningf("%v", err)
-
-		if currentRetry > 0 {
-			time.Sleep(time.Second)
-			return h.CreateRouterAdvertiser(socketPath, advertisementIfaceName, ipv6CIDR, routerSourceAddr, currentRetry-1)
-		} else {
-			log.Log.Reason(err).Errorf("failed to start RouterAdvertiser after %d retries; giving up", currentRetry)
-			panic(err)
-		}
+		log.Log.Reason(err).Errorf("failed to start RouterAdvertiser: %v", err)
 	}
 	defer func() {
 		_ = openedFD.Close()

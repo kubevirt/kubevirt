@@ -751,8 +751,7 @@ func (p *MasqueradeBindMechanism) startRouterAdvertiser() error {
 		getNDPConnectionUnixSocketPath(targetPID, p.bridgeInterfaceName),
 		p.bridgeInterfaceName,
 		api.DefaultVMIpv6CIDR,
-		theBridge.Attrs().HardwareAddr,
-		5); err != nil {
+		theBridge.Attrs().HardwareAddr); err != nil {
 		return fmt.Errorf("failed to start the Router Advertiser in virt-launcher: %v", err)
 	}
 
