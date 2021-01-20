@@ -1221,10 +1221,10 @@ func (m *MacvtapBindMechanism) decorateConfig() error {
 	return nil
 }
 
-func (m *MacvtapBindMechanism) loadCachedInterface(uid, name string) (bool, error) {
+func (m *MacvtapBindMechanism) loadCachedInterface(pid, name string) (bool, error) {
 	var ifaceConfig api.Interface
 
-	isExist, err := readFromCachedFile(uid, name, interfaceCacheFile, &ifaceConfig)
+	isExist, err := readFromCachedFile(pid, name, interfaceCacheFile, &ifaceConfig)
 	if err != nil {
 		return false, err
 	}
