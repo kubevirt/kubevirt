@@ -1,5 +1,7 @@
 FROM centos:7
 
+ENV KUBEVIRT_CLIENT_GO_SCHEME_REGISTRATION_VERSION=v1
+
 COPY hyperconverged-cluster-operator /usr/bin/
 COPY hack/testFiles/test_quickstart.yaml quickStart/
 

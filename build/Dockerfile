@@ -2,13 +2,14 @@ FROM golang:1.15.2 AS builder
 
 WORKDIR /go/src/github.com/kubevirt/hyperconverged-cluster-operator/
 COPY . .
-RUN make build
+RUN make build-operator build-csv-merger
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal
 ENV OPERATOR=/usr/local/bin/hyperconverged-cluster-operator \
     CSV_MERGER=/usr/local/bin/csv-merger \
     USER_UID=1001 \
-    USER_NAME=hyperconverged-cluster-operator
+    USER_NAME=hyperconverged-cluster-operator \
+    KUBEVIRT_CLIENT_GO_SCHEME_REGISTRATION_VERSION=v1
 
 # ensure $HOME exists and is accessible by group 0 (we don't know what the runtime UID will be)
 RUN mkdir -p ${HOME} && \

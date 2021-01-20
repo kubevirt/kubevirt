@@ -7,7 +7,8 @@ RUN make build-webhook
 FROM registry.access.redhat.com/ubi8/ubi-minimal
 ENV WEBHOOK=/usr/local/bin/hyperconverged-cluster-webhook \
     USER_UID=1001 \
-    USER_NAME=hyperconverged-cluster-webhook
+    USER_NAME=hyperconverged-cluster-webhook \
+    KUBEVIRT_CLIENT_GO_SCHEME_REGISTRATION_VERSION=v1
 
 # ensure $HOME exists and is accessible by group 0 (we don't know what the runtime UID will be)
 RUN mkdir -p ${HOME} && \
