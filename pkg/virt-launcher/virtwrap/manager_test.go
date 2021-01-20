@@ -61,6 +61,7 @@ var _ = Describe("Manager", func() {
 	testVmName := "testvmi"
 	testNamespace := "testnamespace"
 	testDomainName := fmt.Sprintf("%s_%s", testNamespace, testVmName)
+	var setupPodNetworkPhase2Called bool
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
@@ -83,6 +84,14 @@ var _ = Describe("Manager", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockConn = cli.NewMockConnection(ctrl)
 		mockDomain = cli.NewMockVirDomain(ctrl)
+		setupPodNetworkPhase2Called = false
+		network.SetupPodNetworkPhase2 = func(vm *v1.VirtualMachineInstance, domain *api.Domain) error {
+			setupPodNetworkPhase2Called = true
+			return nil
+		}
+	})
+	AfterEach(func() {
+		network.SetupPodNetworkPhase2 = network.SetupNetworkInterfacesPhase2
 	})
 
 	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
@@ -115,7 +124,6 @@ var _ = Describe("Manager", func() {
 		It("should define and start a new VirtualMachineInstance", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
-			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
@@ -136,7 +144,6 @@ var _ = Describe("Manager", func() {
 		It("should define and start a new VirtualMachineInstance with userData", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
-			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
@@ -159,7 +166,6 @@ var _ = Describe("Manager", func() {
 		It("should define and start a new VirtualMachineInstance with userData and networkData", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
-			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 			userData := "fake\nuser\ndata\n"
@@ -199,18 +205,19 @@ var _ = Describe("Manager", func() {
 				mockDomain.EXPECT().Free()
 				vmi := newVMI(testNamespace, testVmName)
 				domainSpec := expectIsolationDetectionForVMI(vmi)
-				xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+				domainSpecXML, err := xml.MarshalIndent(domainSpec, "", "\t")
 
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
-				mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
+				mockConn.EXPECT().DomainDefineXML(string(domainSpecXML)).Return(mockDomain, nil)
 				mockDomain.EXPECT().Create().Return(nil)
-				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xml), nil)
+				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(domainSpecXML), nil)
 				mockDomain.EXPECT().Free()
 				manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0, nil, "/usr/share/OVMF")
 				newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 				Expect(err).To(BeNil())
 				Expect(newspec).ToNot(BeNil())
+				Expect(setupPodNetworkPhase2Called).To(BeTrue(), "should setup network phase 2")
 			},
 			table.Entry("crashed", libvirt.DOMAIN_CRASHED),
 			table.Entry("shutdown", libvirt.DOMAIN_SHUTDOWN),
@@ -328,7 +335,6 @@ var _ = Describe("Manager", func() {
 		It("should hotplug a disk if a volume was hotplugged", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
-			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
@@ -460,7 +466,6 @@ var _ = Describe("Manager", func() {
 		It("should unplug a disk if a volume was unplugged", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
-			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
@@ -572,7 +577,6 @@ var _ = Describe("Manager", func() {
 		It("should not plug/unplug a disk if nothing changed", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
-			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
@@ -653,7 +657,6 @@ var _ = Describe("Manager", func() {
 		It("should not hotplug a disk if a volume was hotplugged, but the disk is not ready yet", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
-			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
@@ -1024,7 +1027,6 @@ var _ = Describe("Manager", func() {
 			updateHostsFile = func(entry string) error {
 				return nil
 			}
-			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID: "111222333",
@@ -1589,10 +1591,6 @@ func newVMI(namespace, name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewMinimalVMIWithNS(namespace, name)
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	return vmi
-}
-
-func StubOutNetworkForTest() {
-	network.SetupPodNetworkPhase2 = func(vm *v1.VirtualMachineInstance, domain *api.Domain) error { return nil }
 }
 
 func addCloudInitDisk(vmi *v1.VirtualMachineInstance, userData string, networkData string) {
