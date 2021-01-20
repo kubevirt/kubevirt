@@ -1067,6 +1067,7 @@ var _ = Describe("Converter", func() {
 		It("should use virtio-transitional models if requested", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+			vmi.Spec.Domain.Devices.DisableHotplug = false
 			c.UseVirtioTransitional = true
 			dom := vmiToDomain(vmi, c)
 			testutils.ExpectVirtioTransitionalOnly(&dom.Spec)
@@ -1313,7 +1314,7 @@ var _ = Describe("Converter", func() {
 			Expect(dom.Spec.Devices.Controllers).To(ContainElement(api.Controller{
 				Type:  "scsi",
 				Index: "0",
-				Model: "virtio-scsi",
+				Model: "virtio-non-transitional",
 			}))
 		})
 
@@ -1325,7 +1326,7 @@ var _ = Describe("Converter", func() {
 			Expect(dom.Spec.Devices.Controllers).ToNot(ContainElement(api.Controller{
 				Type:  "scsi",
 				Index: "0",
-				Model: "virtio-scsi",
+				Model: "virtio-non-transitional",
 			}))
 		})
 
@@ -2769,7 +2770,7 @@ var _ = Describe("Converter", func() {
 			for _, controller := range domain.Spec.Devices.Controllers {
 				if controller.Type == "scsi" {
 					foundScsiController = true
-					Expect(controller.Model).To(Equal("virtio-scsi"))
+					Expect(controller.Model).To(Equal("virtio-non-transitional"))
 
 				}
 			}
