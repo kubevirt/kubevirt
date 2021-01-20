@@ -9,7 +9,7 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.3.1
 	github.com/google/gofuzz v1.0.0
-	github.com/gorilla/websocket v1.4.0
+	github.com/gorilla/websocket v1.4.2
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20191119172530-79f836b90111
 	github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1
 	github.com/onsi/ginkgo v1.12.1
@@ -17,6 +17,8 @@ require (
 	github.com/openshift/client-go v0.0.0
 	github.com/pborman/uuid v1.2.0
 	github.com/spf13/pflag v1.0.5
+	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
+	golang.org/x/text v0.3.5 // indirect
 	k8s.io/api v0.19.0-rc.2
 	k8s.io/apiextensions-apiserver v0.19.0-rc.2
 	k8s.io/apimachinery v0.19.0-rc.2

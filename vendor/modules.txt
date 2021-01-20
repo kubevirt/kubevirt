@@ -259,8 +259,6 @@ github.com/opencontainers/runtime-spec/specs-go
 github.com/opencontainers/selinux/go-selinux
 github.com/opencontainers/selinux/pkg/pwalk
 # github.com/openshift/api v0.0.0 => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
-github.com/openshift/api/config/v1
-github.com/openshift/api/operator/v1
 github.com/openshift/api/security/v1
 # github.com/openshift/client-go v0.0.0 => github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
 github.com/openshift/client-go/security/clientset/versioned/scheme
@@ -268,8 +266,6 @@ github.com/openshift/client-go/security/clientset/versioned/typed/security/v1
 github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake
 # github.com/openshift/custom-resource-status v0.0.0-20200602122900-c002fd1547ca
 github.com/openshift/custom-resource-status/conditions/v1
-# github.com/openshift/library-go v0.0.0-20200821154433-215f00df72cc
-github.com/openshift/library-go/pkg/operator/resource/resourcemerge
 # github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2
 github.com/operator-framework/go-appr/appregistry
 github.com/operator-framework/go-appr/appregistry/appr
@@ -329,7 +325,7 @@ github.com/vishvananda/netns
 github.com/wadey/gocovmerge
 # github.com/willf/bitset v1.1.11-0.20200630133818-d5bec3311243
 github.com/willf/bitset
-# golang.org/x/crypto v0.0.0-20201216223049-8b5274cf687f
+# golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
 golang.org/x/crypto/chacha20
@@ -378,7 +374,7 @@ golang.org/x/sys/unix
 golang.org/x/sys/windows
 # golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
 golang.org/x/term
-# golang.org/x/text v0.3.4
+# golang.org/x/text v0.3.5
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/htmlindex
