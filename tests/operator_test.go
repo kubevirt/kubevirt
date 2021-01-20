@@ -660,7 +660,7 @@ var _ = Describe("[Serial]Operator", func() {
 				supportedVersions = append(supportedVersions, crd.Spec.Version)
 			}
 
-			for _, version := range supportedVersions {
+			for i, version := range supportedVersions {
 				vmYaml := fmt.Sprintf(`apiVersion: kubevirt.io/%s
 kind: VirtualMachine
 metadata:
@@ -670,7 +670,7 @@ metadata:
 spec:
   dataVolumeTemplates:
   - metadata:
-      name: test-dv
+      name: test-dv%v
     spec:
       pvc:
         accessModes:
@@ -706,7 +706,7 @@ spec:
       terminationGracePeriodSeconds: 0
       volumes:
       - dataVolume:
-          name: test-dv
+          name: test-dv%v
         name: datavolumedisk1
       - containerDisk:
           image: %s/%s-container-disk-demo:%s
@@ -717,7 +717,7 @@ spec:
 
             echo 'printed from cloud-init userdata'
         name: cloudinitdisk
-`, version, version, version, version, previousImageRegistry, cd.ContainerDiskCirros, previousImageTag)
+`, version, version, version, i, version, i, previousImageRegistry, cd.ContainerDiskCirros, previousImageTag)
 
 				yamlFile := filepath.Join(workDir, fmt.Sprintf("vm-%s.yaml", version))
 				err = ioutil.WriteFile(yamlFile, []byte(vmYaml), 0644)
