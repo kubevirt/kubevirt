@@ -12,16 +12,9 @@ WORKER_NODE_ROOT="${CLUSTER_NAME}-worker"
 PF_COUNT_PER_NODE=${PF_COUNT_PER_NODE:-1}
 
 SRIOV_OPERATOR_NAMESPACE="sriov-network-operator"
-NUM_PF_REQUIRED=${NUM_PF_REQUIRED:-1}
 
 export RELEASE_VERSION=4.8
 OPERATOR_GIT_HASH=49045c36efb9136813f049b9977fe2b93c0a46c0
-
-re='^[0-9]+$'
-if ! [[ $NUM_PF_REQUIRED =~ $re ]] || [[ $NUM_PF_REQUIRED -eq "0" ]]; then
-  echo "FATAL: Wrong value of NUM_PF_REQUIRED, must be numeric, non zero, less or equal to actual PF available"
-  exit 1
-fi
 
 [ $PF_COUNT_PER_NODE -le 0 ] && echo "FATAL: PF_COUNT_PER_NODE must be a positive integer" >&2 && exit 1
 
@@ -279,8 +272,8 @@ function move_sriov_pfs_netns_to_node {
     # The first will manage to assign the PF to its container, and the 2nd will just skip it
     # and try the rest of the PFs available.
     if ip link set "$pf_name" netns "$node"; then
-      if timeout 5s bash -c "until docker exec $node ip address | grep -qw $pf_name; do sleep 1; done"; then
-        pf_array+=("$pf_name")
+      if timeout 10s bash -c "until docker exec $node ip address | grep -qw $pf_name; do sleep 1; done"; then
+        pf_array+=($pf_name)
         [ "${#pf_array[@]}" -eq "$pf_count_per_node" ] && break
       fi
     fi
