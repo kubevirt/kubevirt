@@ -410,10 +410,13 @@ func (h *NetworkUtilsHandler) CreateAndExportNDPConnection(advertisementIfaceNam
 	}
 
 	go func() {
-		_ = ndpConnection.Export(
+		err := ndpConnection.Export(
 			getNDPConnectionUnixSocketPath(
 				fmt.Sprintf("%d", launcherPID),
 				advertisementIfaceName))
+		if err != nil {
+			log.Log.Warningf("failed to export the ICMP6 listener socket to virt-launcher: %v", err)
+		}
 	}()
 
 	return nil
