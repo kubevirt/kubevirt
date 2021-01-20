@@ -519,7 +519,7 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 					},
 					{
 						Alert: "LowKVMNodesCount",
-						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (num_of_kvm_available_nodes < 3)"),
+						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (num_of_kvm_available_nodes < 2)"),
 						For:   "5m",
 						Annotations: map[string]string{
 							"description": "Low number of nodes with KVM resource available.",
