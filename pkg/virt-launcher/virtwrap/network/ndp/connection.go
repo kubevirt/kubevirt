@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"syscall"
 
 	"github.com/ftrvxmtrx/fd"
 	"github.com/mdlayher/ndp"
@@ -73,6 +74,15 @@ func NewNDPConnection(ifaceName string) (*NDPConnection, error) {
 	if err := ipv6Conn.JoinGroup(iface, routersMulticastGroup); err != nil {
 		return nil, fmt.Errorf("failed to join %s multicast group: %v", routersMulticastGroup.String(), err)
 	}
+
+	icmpListenerFD, err := icmpListener.File()
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.SetsockoptString(int(icmpListenerFD.Fd()), syscall.SOL_SOCKET, syscall.SO_BINDTODEVICE, ifaceName); err != nil {
+		return nil, err
+	}
+	defer icmpListenerFD.Close()
 
 	listener := &NDPConnection{
 		iface:      iface,
