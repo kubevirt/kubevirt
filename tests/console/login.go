@@ -146,7 +146,11 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 		res, err := expecter.ExpectBatch(b, 1*time.Minute)
 		if err != nil {
 			log.DefaultLogger().Object(vmi).Reason(err).Errorf("Retried login attempt after two minutes failed: %+v", res)
-			return err
+			res, err := expecter.ExpectBatch(b, 1*time.Minute)
+			if err != nil {
+				log.DefaultLogger().Object(vmi).Reason(err).Errorf("Retried login attempt after another minute: %+v", res)
+				return err
+			}
 		}
 	}
 
