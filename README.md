@@ -79,7 +79,6 @@ of options:
 * Chat with us on Slack via [#virtualization @ kubernetes.slack.com](https://kubernetes.slack.com/?redir=%2Farchives%2FC8ED7RKFE)
 * Discuss with us on the [kubevirt-dev Google Group](https://groups.google.com/forum/#!forum/kubevirt-dev)
 * Stay informed about designs and upcoming events by watching our [community content](https://github.com/kubevirt/community/)
-* Take a glance at [future planning](https://trello.com/b/50CuosoD/kubevirt)
 
 ## Related resources
 
