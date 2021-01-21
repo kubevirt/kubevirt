@@ -77,6 +77,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var dataVolumeInformer cache.SharedIndexInformer
 	var dataVolumeFeeder *testutils.DataVolumeFeeder
 	var qemuGid int64 = 107
+	controllerOf := true
 
 	shouldExpectMatchingPodCreation := func(uid types.UID, matchers ...gomegaTypes.GomegaMatcher) {
 		// Expect pod creation
@@ -272,13 +273,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				VolumeSource: dvVolumeSource,
 			})
 
-			dvPVC := NewPvc(vmi.Namespace, "test1")
+			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
+
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, &controllerOf)
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
 			// be in available but in the Pending state.
 			pvcInformer.GetIndexer().Add(dvPVC)
-
-			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
 
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
@@ -298,6 +299,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				},
 				Equal("/bin/bash -c echo bound PVCs"))
 			shouldExpectMatchingPodCreation(vmi.UID, IsPodWithoutVmPayload)
+			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				Fail("here")
+				return true, dvPVC, nil
+			})
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
@@ -313,13 +318,17 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				VolumeSource: dvVolumeSource,
 			})
 
-			dvPVC := NewPvc(vmi.Namespace, "test1")
+			pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
+				Name: "test1",
+			})
+
+			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
+
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, &controllerOf)
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
 			// be in available but in the Pending state.
 			pvcInformer.GetIndexer().Add(dvPVC)
-
-			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
@@ -334,6 +343,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						Status: k8sv1.ConditionTrue,
 					}))
 			}).Return(vmi, nil)
+			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, dvPVC, nil
+			})
 			controller.Execute()
 		})
 
@@ -346,12 +358,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Name:         "test1",
 				VolumeSource: dvVolumeSource,
 			})
+			pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
+				Name: "test1",
+			})
 
-			dvPVC := NewPvc(vmi.Namespace, "test1")
+			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Succeeded)
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, &controllerOf)
 			// we are mocking a DataVolume in Succeeded phase. we expect the PVC to
 			// be in available
 			pvcInformer.GetIndexer().Add(dvPVC)
-			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Succeeded)
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
@@ -359,6 +374,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			dataVolumeFeeder.Add(dataVolume)
 			shouldExpectPodDeletion(pod)
 
+			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, dvPVC, nil
+			})
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 		})
@@ -376,7 +394,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					VolumeSource: dvVolumeSource,
 				})
 
+				pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
+					Name: "test1",
+				})
+
 				dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.WaitForFirstConsumer)
+				dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, &controllerOf)
+				dvPVC.Status.Phase = k8sv1.ClaimBound
+				pvcInformer.GetIndexer().Add(dvPVC)
 
 				addVirtualMachine(vmi)
 				podFeeder.Add(pod)
@@ -386,6 +411,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 					Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(expectedPhase))
 				}).Return(vmi, nil)
+				kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					return true, dvPVC, nil
+				})
 
 				controller.Execute()
 			},
@@ -409,39 +437,18 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Pending)
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, &controllerOf)
+			dvPVC.Status.Phase = k8sv1.ClaimPending
+			pvcInformer.GetIndexer().Add(dvPVC)
 
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
 
 			controller.Execute()
 		})
-
-		It("VMI should fail if DataVolume fails to import", func() {
-			// TODO: Remove this test, Datavolumes are now eventually consistent, and cannot enter into failed state.
-			vmi := NewPendingVirtualMachine("testvmi")
-
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name:         "test1",
-				VolumeSource: dvVolumeSource,
-			})
-
-			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Failed)
-
-			addVirtualMachine(vmi)
-			dataVolumeFeeder.Add(dataVolume)
-
-			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Failed))
-			}).Return(vmi, nil)
-
-			controller.Execute()
-			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
-		})
-
 	})
 
 	Context("On valid VirtualMachineInstance given with PVC source, ownedRef of DataVolume", func() {
-		controllerOf := true
 
 		pvcVolumeSource := v1.VolumeSource{
 			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -520,6 +527,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				VolumeSource: pvcVolumeSource,
 			})
 
+			pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
+				Name: "test1",
+			})
+
 			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", "test1", &controllerOf)
 			dvPVC.Status.Phase = k8sv1.ClaimPending
 			// we are mocking a DataVolume in WFFC phase. we expect the PVC to
@@ -554,19 +565,25 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				VolumeSource: pvcVolumeSource,
 			})
 
-			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", "test1", &controllerOf)
+			pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
+				Name: "test1",
+			})
+
+			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Succeeded)
+			dvPVC := NewPvcWithOwner(vmi.Namespace, "test1", dataVolume.Name, &controllerOf)
 			dvPVC.Status.Phase = k8sv1.ClaimBound
 			// we are mocking a DataVolume in Succeeded phase. we expect the PVC to
 			// be in available
 			pvcInformer.GetIndexer().Add(dvPVC)
-
-			dataVolume := NewDv(vmi.Namespace, "test1", cdiv1.Succeeded)
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
 			addActivePods(vmi, pod.UID, "")
 			dataVolumeFeeder.Add(dataVolume)
 			shouldExpectPodDeletion(pod)
+			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, dvPVC, nil
+			})
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
@@ -1712,6 +1729,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 				}
 				dataVolumeInformer.GetIndexer().Add(dv)
+				pvcInformer.GetIndexer().Add(pvc)
 			}
 		}
 
@@ -1786,12 +1804,23 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi.Status.VolumeStatus = orgStatus
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvcFunc(pvcIndexes...)
+			datavolumes := []*cdiv1.DataVolume{}
+			for _, volume := range hotplugVolumes {
+				datavolumes = append(datavolumes, &cdiv1.DataVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: volume.Name,
+					},
+					Status: cdiv1.DataVolumeStatus{
+						Phase: cdiv1.Succeeded,
+					},
+				})
+			}
 			addVirtualMachine(vmi)
 			podFeeder.Add(virtlauncherPod)
 			if createPodReaction != nil {
 				createPodReaction(virtlauncherPod, pvcIndexes...)
 			}
-			syncError := controller.handleHotplugVolumes(hotplugVolumes, hotplugAttachmentPods, vmi, virtlauncherPod)
+			syncError := controller.handleHotplugVolumes(hotplugVolumes, hotplugAttachmentPods, vmi, virtlauncherPod, datavolumes)
 			if expectedErr != nil {
 				Expect(syncError).To(BeEquivalentTo(expectedErr))
 			} else {
