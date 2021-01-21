@@ -5,9 +5,9 @@ set -ex
 source hack/common.sh
 source hack/config.sh
 
-LIBVIRT_VERSION=0:6.6.0-8
+LIBVIRT_VERSION=0:6.6.0-13
 SEABIOS_VERSION=0:1.14.0-1
-QEMU_VERSION=15:5.1.0-16
+QEMU_VERSION=15:5.1.0-18
 
 # Define some base packages to avoid dependency flipping
 # since some dependencies can be satisfied by multiple packages
