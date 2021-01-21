@@ -353,7 +353,7 @@ container_pull(
 # like stress and qemu guest agent pre-configured
 container_pull(
     name = "fedora_with_test_tooling",
-    digest = "sha256:618a624a703682482c473c105ecd6cce212993d2af856771437dbbf80f20b19d",
+    digest = "sha256:555955be79c502809002fb3af31b0d702b85c38ee306c1dd6d2d6b7bc20e633a",
     registry = "quay.io",
     repository = "dvossel/fedora-with-test-tooling",
 )
