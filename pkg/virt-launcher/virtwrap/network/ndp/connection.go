@@ -191,7 +191,7 @@ func (l *NDPConnection) WriteTo(msg ndp.Message, dst net.IP) error {
 	}
 	dstAddr := &net.IPAddr{
 		IP:   dst,
-		Zone: l.iface.Name,
+		Zone: "eth0",
 	}
 
 	n, err := l.conn.WriteTo(msgBytes, l.controlMsg, dstAddr)
