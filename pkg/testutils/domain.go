@@ -47,5 +47,5 @@ func ExpectVirtioTransitionalOnly(dom *api.DomainSpec) {
 	ExpectWithOffset(1, hit).To(BeTrue())
 
 	ExpectWithOffset(1, dom.Devices.Rng.Model).To(Equal("virtio-transitional"))
-	ExpectWithOffset(1, dom.Devices.Ballooning.Model).To(Equal("virtio"))
+	ExpectWithOffset(1, dom.Devices.Ballooning.Model).To(Equal("virtio-transitional"))
 }
