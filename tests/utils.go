@@ -2304,8 +2304,11 @@ func NewRandomFedoraVMIWithVirtWhatCpuidHelper() *v1.VirtualMachineInstance {
 
 func GetFedoraToolsGuestAgentUserData() string {
 	return `#!/bin/bash
+            echo "fedora" |passwd fedora --stdin
             sudo setenforce Permissive
-	    sudo systemctl start qemu-guest-agent
+	    sudo mv /home/fedora/qemu-guest-agent.service /lib/systemd/system/
+	    sudo systemctl daemon-reload
+            sudo systemctl start qemu-guest-agent
 `
 }
 
