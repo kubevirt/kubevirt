@@ -431,7 +431,7 @@ func (b *BridgePodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error {
 			return fmt.Errorf("failed to parse address while starting DHCP server: %s", addr)
 		}
 		log.Log.Object(b.vmi).Infof("bridge pod interface: %+v %+v", b.vif, b)
-		return Handler.StartDHCP(b.vif, fakeServerAddr.IP, b.bridgeInterfaceName, b.iface.DHCPOptions)
+		return Handler.StartDHCP(b.vif, fakeServerAddr.IP, b.bridgeInterfaceName, b.iface.DHCPOptions, true)
 	}
 	return nil
 }
@@ -711,7 +711,7 @@ func configureVifV6Addresses(p *MasqueradePodInterface, err error) error {
 }
 
 func (p *MasqueradePodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error {
-	return Handler.StartDHCP(p.vif, p.vif.Gateway, p.bridgeInterfaceName, p.iface.DHCPOptions)
+	return Handler.StartDHCP(p.vif, p.vif.Gateway, p.bridgeInterfaceName, p.iface.DHCPOptions, false)
 }
 
 func (p *MasqueradePodInterface) preparePodNetworkInterfaces(queueNumber uint32, launcherPID int) error {
@@ -727,14 +727,6 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces(queueNumber uint32,
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create an interface: %s", bridgeNic.Name)
 		return err
-	}
-
-	if p.iface.MacAddress == "" {
-		p.vif.MAC, err = Handler.GenerateRandomMac()
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to generate random mac address")
-			return err
-		}
 	}
 
 	err = Handler.LinkSetUp(bridgeNic)
@@ -788,7 +780,9 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces(queueNumber uint32,
 	}
 
 	p.virtIface.MTU = &api.MTU{Size: strconv.Itoa(p.podNicLink.Attrs().MTU)}
-	p.virtIface.MAC = &api.MAC{MAC: p.vif.MAC.String()}
+	if p.vif.MAC != nil {
+		p.virtIface.MAC = &api.MAC{MAC: p.vif.MAC.String()}
+	}
 	p.virtIface.Target = &api.InterfaceTarget{
 		Device:  p.vif.TapDevice,
 		Managed: "no",
@@ -802,7 +796,7 @@ func (p *MasqueradePodInterface) decorateConfig() error {
 	for i, iface := range ifaces {
 		if iface.Alias.Name == p.iface.Name {
 			ifaces[i].MTU = p.virtIface.MTU
-			ifaces[i].MAC = &api.MAC{MAC: p.vif.MAC.String()}
+			ifaces[i].MAC = p.virtIface.MAC
 			ifaces[i].Target = p.virtIface.Target
 			break
 		}
