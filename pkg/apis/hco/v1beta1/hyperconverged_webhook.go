@@ -72,37 +72,8 @@ func (r *HyperConverged) SetupWebhookWithManager(ctx context.Context, mgr ctrl.M
 		}
 	}
 
-	// The OLM limits the webhook scope to the namespaces that are defined in the OperatorGroup
-	// by setting namespaceSelector in the ValidatingWebhookConfiguration.  We would like our webhook to intercept
-	// requests from all namespaces, and fail them if they're not in the correct namespace for HCO (for CREATE).
-	// Lucikly the OLM does not watch and reconcile the ValidatingWebhookConfiguration so we can simply reset the
-	// namespaceSelector
-
-	vwcList := &admissionregistrationv1.ValidatingWebhookConfigurationList{}
-	err := mgr.GetAPIReader().List(ctx, vwcList, client.MatchingLabels{"olm.webhook-description-generate-name": hcoutil.HcoValidatingWebhook})
-	if err != nil {
-		hcolog.Error(err, "A validating webhook for the HCO was not found")
+	if err := allowWatchAllNamespaces(ctx, mgr); err != nil {
 		return err
-	}
-
-	for _, vwc := range vwcList.Items {
-		update := false
-
-		for i, wh := range vwc.Webhooks {
-			if wh.Name == hcoutil.HcoValidatingWebhook {
-				vwc.Webhooks[i].NamespaceSelector = &metav1.LabelSelector{MatchLabels: map[string]string{}}
-				update = true
-			}
-		}
-
-		if update {
-			hcolog.Info("Removing namespace scope from webhook", "webhook", vwc.Name)
-			err = mgr.GetClient().Update(ctx, &vwc)
-			if err != nil {
-				hcolog.Error(err, "Failed updating webhook", "webhook", vwc.Name)
-				return err
-			}
-		}
 	}
 
 	bldr := ctrl.NewWebhookManagedBy(mgr).For(r)
@@ -143,33 +114,73 @@ type nsMutator struct {
 
 // TODO: nsMutator should try to delete HyperConverged CR before deleting the namespace
 // currently it simply blocks namespace deletion if HyperConverged CR is there
-func (a *nsMutator) Handle(ctx context.Context, req admission.Request) admission.Response {
+func (a *nsMutator) Handle(_ context.Context, req admission.Request) admission.Response {
 	hcolog.Info("reaching nsMutator.Handle")
-	ns := &corev1.Namespace{}
 
 	if req.Operation == admissionv1.Delete {
-
-		// In reference to PR: https://github.com/kubernetes/kubernetes/pull/76346
-		// OldObject contains the object being deleted
-		err := a.decoder.DecodeRaw(req.OldObject, ns)
-		if err != nil {
-			hcolog.Error(err, "failed decoding namespace object")
-			return admission.Errored(http.StatusBadRequest, err)
-		}
-
-		admitted, herr := whHandler.HandleMutatingNsDelete(ns, *req.DryRun)
-		if err != nil {
-			return admission.Errored(http.StatusInternalServerError, herr)
-		}
-		if admitted {
-			return admission.Allowed("the namespace doesn't contain HyperConverged CR, admitting its deletion")
-		}
-		return admission.Denied("HyperConverged CR is still present, please remove it before deleting the containing namespace")
+		return a.handleNsDelete(req)
 	}
 
 	// ignoring other operations
 	return admission.Allowed("ignoring other operations")
 
+}
+
+func (a *nsMutator) handleNsDelete(req admission.Request) admission.Response {
+	ns := &corev1.Namespace{}
+
+	// In reference to PR: https://github.com/kubernetes/kubernetes/pull/76346
+	// OldObject contains the object being deleted
+	err := a.decoder.DecodeRaw(req.OldObject, ns)
+	if err != nil {
+		hcolog.Error(err, "failed decoding namespace object")
+		return admission.Errored(http.StatusBadRequest, err)
+	}
+
+	admitted, err := whHandler.HandleMutatingNsDelete(ns, *req.DryRun)
+	if err != nil {
+		return admission.Errored(http.StatusInternalServerError, err)
+	}
+
+	if admitted {
+		return admission.Allowed("the namespace doesn't contain HyperConverged CR, admitting its deletion")
+	}
+	return admission.Denied("HyperConverged CR is still present, please remove it before deleting the containing namespace")
+}
+
+// The OLM limits the webhook scope to the namespaces that are defined in the OperatorGroup
+// by setting namespaceSelector in the ValidatingWebhookConfiguration. We would like our webhook to intercept
+// requests from all namespaces, and fail them if they're not in the correct namespace for HCO (for CREATE).
+// Luckily the OLM does not watch and reconcile the ValidatingWebhookConfiguration so we can simply reset the
+// namespaceSelector
+func allowWatchAllNamespaces(ctx context.Context, mgr ctrl.Manager) error {
+	vwcList := &admissionregistrationv1.ValidatingWebhookConfigurationList{}
+	err := mgr.GetAPIReader().List(ctx, vwcList, client.MatchingLabels{"olm.webhook-description-generate-name": hcoutil.HcoValidatingWebhook})
+	if err != nil {
+		hcolog.Error(err, "A validating webhook for the HCO was not found")
+		return err
+	}
+
+	for _, vwc := range vwcList.Items {
+		update := false
+
+		for i, wh := range vwc.Webhooks {
+			if wh.Name == hcoutil.HcoValidatingWebhook {
+				vwc.Webhooks[i].NamespaceSelector = &metav1.LabelSelector{MatchLabels: map[string]string{}}
+				update = true
+			}
+		}
+
+		if update {
+			hcolog.Info("Removing namespace scope from webhook", "webhook", vwc.Name)
+			err = mgr.GetClient().Update(ctx, &vwc)
+			if err != nil {
+				hcolog.Error(err, "Failed updating webhook", "webhook", vwc.Name)
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // nsMutator implements admission.DecoderInjector.

@@ -55,7 +55,7 @@ func (h metricsServiceHooks) checkComponentVersion(_ runtime.Object) bool       
 func (h metricsServiceHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*corev1.Service).ObjectMeta
 }
-func (h metricsServiceHooks) reset() {}
+func (h metricsServiceHooks) reset( /* No implementation */ ) {}
 
 func (h *metricsServiceHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	service, ok1 := required.(*corev1.Service)
@@ -143,7 +143,7 @@ func (h metricsServiceMonitorHooks) checkComponentVersion(_ runtime.Object) bool
 func (h metricsServiceMonitorHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*monitoringv1.ServiceMonitor).ObjectMeta
 }
-func (h metricsServiceMonitorHooks) reset() {}
+func (h metricsServiceMonitorHooks) reset( /* No implementation */ ) {}
 
 func (h *metricsServiceMonitorHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	monitor, ok1 := required.(*monitoringv1.ServiceMonitor)
@@ -216,7 +216,7 @@ func (h prometheusRuleHooks) checkComponentVersion(_ runtime.Object) bool       
 func (h prometheusRuleHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*monitoringv1.PrometheusRule).ObjectMeta
 }
-func (h prometheusRuleHooks) reset() {}
+func (h prometheusRuleHooks) reset( /* No implementation */ ) {}
 
 func (h *prometheusRuleHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	rule, ok1 := required.(*monitoringv1.PrometheusRule)

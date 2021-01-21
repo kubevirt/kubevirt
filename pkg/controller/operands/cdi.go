@@ -21,6 +21,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+const (
+	cdiRoleName = "hco.kubevirt.io:config-reader"
+)
+
 type cdiHandler genericOperand
 
 func newCdiHandler(Client client.Client, Scheme *runtime.Scheme) *cdiHandler {
@@ -240,7 +244,7 @@ func (h *cdiHooks) ensureKubeVirtStorageRoleBinding(req *common.HcoRequest) erro
 func NewKubeVirtStorageRoleForCR(cr *hcov1beta1.HyperConverged, namespace string) *rbacv1.Role {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "hco.kubevirt.io:config-reader",
+			Name:      cdiRoleName,
 			Labels:    getLabels(cr, hcoutil.AppComponentStorage),
 			Namespace: namespace,
 		},
@@ -258,14 +262,14 @@ func NewKubeVirtStorageRoleForCR(cr *hcov1beta1.HyperConverged, namespace string
 func NewKubeVirtStorageRoleBindingForCR(cr *hcov1beta1.HyperConverged, namespace string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "hco.kubevirt.io:config-reader",
+			Name:      cdiRoleName,
 			Labels:    getLabels(cr, hcoutil.AppComponentStorage),
 			Namespace: namespace,
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "Role",
-			Name:     "hco.kubevirt.io:config-reader",
+			Name:     cdiRoleName,
 		},
 		Subjects: []rbacv1.Subject{
 			{
@@ -305,7 +309,7 @@ func (h storageConfigHooks) checkComponentVersion(_ runtime.Object) bool        
 func (h storageConfigHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*corev1.ConfigMap).ObjectMeta
 }
-func (h storageConfigHooks) reset() {}
+func (h storageConfigHooks) reset() { /* no implementation */ }
 func (h *storageConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	storageConfig, ok1 := required.(*corev1.ConfigMap)
 	found, ok2 := exists.(*corev1.ConfigMap)

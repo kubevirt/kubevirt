@@ -87,18 +87,12 @@ func main() {
 
 	if !runInLocal {
 		watchNamespace, err = hcoutil.GetWatchNamespace()
-		if err != nil {
-			log.Error(err, "Failed to get watch namespace")
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to get watch namespace")
 	}
 
 	// Get the namespace the operator should be deployed in.
 	operatorNsEnv, err := hcoutil.GetOperatorNamespaceFromEnv()
-	if err != nil {
-		log.Error(err, "Failed to get operator namespace from the environment")
-		os.Exit(1)
-	}
+	exitOnError(err, "Failed to get operator namespace from the environment")
 
 	if runInLocal {
 		depOperatorNs = operatorNsEnv
@@ -116,10 +110,7 @@ func main() {
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
+	exitOnError(err, "can't load configuration")
 
 	ctx := context.TODO()
 
@@ -139,10 +130,8 @@ func main() {
 		LeaderElectionResourceLock: "configmaps",
 		LeaderElectionID:           "hyperconverged-cluster-operator-lock",
 	})
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
+
+	exitOnError(err, "can't initiate manager")
 
 	log.Info("Registering Components.")
 
@@ -161,35 +150,26 @@ func main() {
 		consolev1.AddToScheme,
 		apiextensionsv1.AddToScheme,
 	} {
-		if err := f(mgr.GetScheme()); err != nil {
-			log.Error(err, "Failed to add to scheme")
-			os.Exit(1)
-		}
+		err := f(mgr.GetScheme())
+		exitOnError(err, "Failed to add to scheme")
 	}
 
 	// Detect OpenShift version
 	ci := hcoutil.GetClusterInfo()
 	err = ci.CheckRunningInOpenshift(mgr.GetAPIReader(), ctx, log, runInLocal)
-	if err != nil {
-		log.Error(err, "Cannot detect cluster type")
-		os.Exit(1)
-	}
+	exitOnError(err, "Cannot detect cluster type")
 
 	eventEmitter := hcoutil.GetEventEmitter()
 	// Set temporary configuration, until the regular client is ready
 	eventEmitter.Init(ctx, mgr, ci, log)
 
-	if err := mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
-		log.Error(err, "unable to add health check")
-		os.Exit(1)
-	}
+	err = mgr.AddHealthzCheck("ping", healthz.Ping)
+	exitOnError(err, "unable to add health check")
 
 	readyCheck := hcoutil.GetHcoPing()
 
-	if err := mgr.AddReadyzCheck("ready", readyCheck); err != nil {
-		log.Error(err, "unable to add ready check")
-		os.Exit(1)
-	}
+	err = mgr.AddReadyzCheck("ready", readyCheck)
+	exitOnError(err, "unable to add ready check")
 
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr, ci); err != nil {
@@ -199,10 +179,7 @@ func main() {
 	}
 
 	err = createPriorityClass(ctx, mgr)
-	if err != nil {
-		log.Error(err, "Failed creating PriorityClass")
-		os.Exit(1)
-	}
+	exitOnError(err, "Failed creating PriorityClass")
 
 	log.Info("Starting the Cmd.")
 	eventEmitter.EmitEvent(nil, corev1.EventTypeNormal, "Init", "Starting the HyperConverged Pod")
@@ -229,4 +206,11 @@ func createPriorityClass(ctx context.Context, mgr manager.Manager) error {
 	}
 
 	return err
+}
+
+func exitOnError(err error, message string) {
+	if err != nil {
+		log.Error(err, message)
+		os.Exit(1)
+	}
 }

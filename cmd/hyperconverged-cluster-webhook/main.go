@@ -81,18 +81,13 @@ func main() {
 
 	if !runInLocal {
 		watchNamespace, err = hcoutil.GetWatchNamespace()
-		if err != nil {
-			log.Error(err, "Failed to get watch namespace")
-			os.Exit(1)
-		}
+		exitOnError(err, "Failed to get watch namespace")
 	}
 
 	// Get the namespace the webhook should be deployed in.
 	webhookNsEnv, err := hcoutil.GetOperatorNamespaceFromEnv()
-	if err != nil {
-		log.Error(err, "Failed to get webhook namespace from the environment")
-		os.Exit(1)
-	}
+
+	exitOnError(err, "Failed to get webhook namespace from the environment")
 
 	if runInLocal {
 		depWebhookNs = webhookNsEnv
@@ -127,10 +122,8 @@ func main() {
 		LeaderElection:         false,
 		LeaderElectionID:       "hyperconverged-cluster-webhook-lock",
 	})
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
+
+	exitOnError(err, "")
 
 	log.Info("Registering Components.")
 
@@ -146,33 +139,24 @@ func main() {
 		consolev1.AddToScheme,
 		openshiftconfigv1.AddToScheme,
 	} {
-		if err := f(mgr.GetScheme()); err != nil {
-			log.Error(err, "Failed to add to scheme")
-			os.Exit(1)
-		}
+		err := f(mgr.GetScheme())
+		exitOnError(err, "Failed to add to scheme")
 	}
 
 	// Detect OpenShift version
 	ci := hcoutil.GetClusterInfo()
 	err = ci.CheckRunningInOpenshift(mgr.GetAPIReader(), ctx, log, runInLocal)
-	if err != nil {
-		log.Error(err, "Cannot detect cluster type")
-		os.Exit(1)
-	}
+	exitOnError(err, "Cannot detect cluster type")
 
 	eventEmitter := hcoutil.GetEventEmitter()
 	// Set temporary configuration, until the regular client is ready
 	eventEmitter.Init(ctx, mgr, ci, log)
 
-	if err := mgr.AddHealthzCheck("ping", healthz.Ping); err != nil {
-		log.Error(err, "unable to add health check")
-		os.Exit(1)
-	}
+	err = mgr.AddHealthzCheck("ping", healthz.Ping)
+	exitOnError(err, "unable to add health check")
 
-	if err := mgr.AddReadyzCheck("ready", healthz.Ping); err != nil {
-		log.Error(err, "unable to add ready check")
-		os.Exit(1)
-	}
+	err = mgr.AddReadyzCheck("ready", healthz.Ping)
+	exitOnError(err, "unable to add ready check")
 
 	// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
 	// necessary to configure Prometheus to scrape metrics from this operator.
@@ -189,6 +173,13 @@ func main() {
 	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
 		log.Error(err, "Manager exited non-zero")
 		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "UnexpectedError", "HyperConverged crashed; "+err.Error())
+		os.Exit(1)
+	}
+}
+
+func exitOnError(err error, message string) {
+	if err != nil {
+		log.Error(err, message)
 		os.Exit(1)
 	}
 }
