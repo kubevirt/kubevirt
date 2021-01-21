@@ -32,6 +32,9 @@ if [ -f ${CSV_FILE} ]; then
   rm -f ${CSV_FILE}
 fi
 
+# wait a minute to allow all VMs to be deleted before attempting to change node placement configuration
+sleep 60
+
 # Check the webhook, to see if it allow updating of the HyperConverged CR
 ${KUBECTL_BINARY} patch hco -n kubevirt-hyperconverged kubevirt-hyperconverged -p '{"spec":{"infra":{"nodePlacement":{"tolerations":[{"effect":"NoSchedule","key":"key","operator":"Equal","value":"value"}]}}}}' --type=merge
 ${KUBECTL_BINARY} patch hco -n kubevirt-hyperconverged kubevirt-hyperconverged -p '{"spec":{"workloads":{"nodePlacement":{"tolerations":[{"effect":"NoSchedule","key":"key","operator":"Equal","value":"value"}]}}}}' --type=merge
