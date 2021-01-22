@@ -269,6 +269,25 @@ var CRDsValidation map[string]string = map[string]string{
                   items:
                     type: string
                   type: array
+                logVerbosity:
+                  description: LogVerbosity sets log verbosity level of  various components
+                  properties:
+                    nodeVerbosity:
+                      additionalProperties:
+                        type: integer
+                      description: NodeVerbosity represents a map of nodes with a specific verbosity level
+                      type: object
+                    virtAPI:
+                      type: integer
+                    virtController:
+                      type: integer
+                    virtHandler:
+                      type: integer
+                    virtLauncher:
+                      type: integer
+                    virtOperator:
+                      type: integer
+                  type: object
                 memoryOvercommit:
                   type: integer
                 nodeSelectors:

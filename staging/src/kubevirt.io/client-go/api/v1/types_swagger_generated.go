@@ -506,6 +506,13 @@ func (DeveloperConfiguration) SwaggerDoc() map[string]string {
 	}
 }
 
+func (LogVerbosity) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "LogVerbosity sets log verbosity level of  various components\n+k8s:openapi-gen=true",
+		"nodeVerbosity": "NodeVerbosity represents a map of nodes with a specific verbosity level",
+	}
+}
+
 func (PermittedHostDevices) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                "PermittedHostDevices holds inforamtion about devices allowed for passthrough\n+k8s:openapi-gen=true",

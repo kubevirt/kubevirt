@@ -1606,6 +1606,19 @@ type DeveloperConfiguration struct {
 	NodeSelectors          map[string]string `json:"nodeSelectors,omitempty"`
 	UseEmulation           bool              `json:"useEmulation,omitempty"`
 	CPUAllocationRatio     int               `json:"cpuAllocationRatio,omitempty"`
+	LogVerbosity           *LogVerbosity     `json:"logVerbosity,omitempty"`
+}
+
+// LogVerbosity sets log verbosity level of  various components
+// +k8s:openapi-gen=true
+type LogVerbosity struct {
+	VirtAPI        uint `json:"virtAPI,omitempty"`
+	VirtController uint `json:"virtController,omitempty"`
+	VirtHandler    uint `json:"virtHandler,omitempty"`
+	VirtLauncher   uint `json:"virtLauncher,omitempty"`
+	VirtOperator   uint `json:"virtOperator,omitempty"`
+	// NodeVerbosity represents a map of nodes with a specific verbosity level
+	NodeVerbosity map[string]uint `json:"nodeVerbosity,omitempty"`
 }
 
 // PermittedHostDevices holds inforamtion about devices allowed for passthrough

@@ -159,6 +159,7 @@ type VirtControllerApp struct {
 	hotplugDiskDir             string
 	readyChan                  chan bool
 	kubevirtNamespace          string
+	host                       string
 	evacuationController       *evacuation.EvacuationController
 	disruptionBudgetController *disruptionbudget.DisruptionBudgetController
 
@@ -223,6 +224,12 @@ func Execute() {
 		golog.Fatalf("Error searching for namespace: %v", err)
 	}
 
+	host, err := os.Hostname()
+	if err != nil {
+		golog.Fatalf("unable to get hostname: %v", err)
+	}
+	app.host = host
+
 	ctx, cancel := context.WithCancel(context.Background())
 	stopChan := ctx.Done()
 	app.ctx = ctx
@@ -240,6 +247,7 @@ func Execute() {
 	app.reInitChan = make(chan string, 10)
 	app.hasCDI = app.clusterConfig.HasDataVolumeAPI()
 	app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
+	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 
 	webService := new(restful.WebService)
 	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
@@ -311,6 +319,13 @@ func (vca *VirtControllerApp) configModificationCallback() {
 	}
 }
 
+// Update virt-controller log verbosity on relevant config changes
+func (vca *VirtControllerApp) shouldChangeLogVerbosity() {
+	verbosity := vca.clusterConfig.GetVirtHandlerVerbosity(vca.host)
+	log.Log.SetVerbosityLevel(int(verbosity))
+	log.Log.V(2).Infof("set log verbosity to %d", verbosity)
+}
+
 func (vca *VirtControllerApp) Run() {
 	logger := log.Log
 
@@ -334,18 +349,13 @@ func (vca *VirtControllerApp) Run() {
 
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, leaderelectionconfig.DefaultEndpointName)
 
-	id, err := os.Hostname()
-	if err != nil {
-		golog.Fatalf("unable to get hostname: %v", err)
-	}
-
 	rl, err := resourcelock.New(vca.LeaderElection.ResourceLock,
 		vca.kubevirtNamespace,
 		leaderelectionconfig.DefaultEndpointName,
 		vca.clientSet.CoreV1(),
 		vca.clientSet.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
-			Identity:      id,
+			Identity:      vca.host,
 			EventRecorder: recorder,
 		})
 	if err != nil {

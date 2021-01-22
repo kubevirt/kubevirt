@@ -297,6 +297,8 @@ func (app *virtHandlerApp) Run() {
 	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
 	vmiInformer := factory.VMI()
 	app.clusterConfig = virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), factory.KubeVirt(), app.namespace)
+	// set log verbosity
+	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 
 	vmController := virthandler.NewController(
 		recorder,
@@ -369,6 +371,13 @@ func (app *virtHandlerApp) Run() {
 
 	// wait for one of the servers to exit
 	fmt.Println(<-errCh)
+}
+
+// Update virt-handler log verbosity on relevant config changes
+func (app *virtHandlerApp) shouldChangeLogVerbosity() {
+	verbosity := app.clusterConfig.GetVirtHandlerVerbosity(app.HostOverride)
+	log.Log.SetVerbosityLevel(int(verbosity))
+	log.Log.V(2).Infof("set verbosity to %d", verbosity)
 }
 
 func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {

@@ -361,6 +361,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.KubeVirtSelfSignConfiguration":                              schema_kubevirtio_client_go_api_v1_KubeVirtSelfSignConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.KubeVirtSpec":                                               schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref),
 		"kubevirt.io/client-go/api/v1.KubeVirtStatus":                                             schema_kubevirtio_client_go_api_v1_KubeVirtStatus(ref),
+		"kubevirt.io/client-go/api/v1.LogVerbosity":                                               schema_kubevirtio_client_go_api_v1_LogVerbosity(ref),
 		"kubevirt.io/client-go/api/v1.LunTarget":                                                  schema_kubevirtio_client_go_api_v1_LunTarget(ref),
 		"kubevirt.io/client-go/api/v1.Machine":                                                    schema_kubevirtio_client_go_api_v1_Machine(ref),
 		"kubevirt.io/client-go/api/v1.MediatedHostDevice":                                         schema_kubevirtio_client_go_api_v1_MediatedHostDevice(ref),
@@ -14411,9 +14412,16 @@ func schema_kubevirtio_client_go_api_v1_DeveloperConfiguration(ref common.Refere
 							Format: "int32",
 						},
 					},
+					"logVerbosity": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.LogVerbosity"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.LogVerbosity"},
 	}
 }
 
@@ -16240,6 +16248,64 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtStatus(ref common.ReferenceCallb
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/api/v1.KubeVirtCondition"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_LogVerbosity(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LogVerbosity sets log verbosity level of  various components",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"virtAPI": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"virtController": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"virtHandler": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"virtLauncher": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"virtOperator": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"nodeVerbosity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeVerbosity represents a map of nodes with a specific verbosity level",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"integer"},
+										Format: "int32",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
