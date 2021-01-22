@@ -190,7 +190,7 @@ func (h *NetworkUtilsHandler) HasNatIptables(proto iptables.Protocol) bool {
 }
 
 func (h *NetworkUtilsHandler) ConfigureIpv4ArpIgnore() error {
-	err := sysctl.New().SetSysctl(sysctl.New().GetIpv4ArpIgnoreAll(), 1)
+	err := sysctl.New().SetSysctl(sysctl.Ipv4ArpIgnoreAll, 1)
 	return err
 }
 
