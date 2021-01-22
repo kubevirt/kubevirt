@@ -267,11 +267,10 @@ func (r *realIsolationResult) mountInfo() string {
 	return mountInfoFunc(r.pid)
 }
 
-// MountInfoRoot returns information about the root entry in /proc/mountinfo
-func (r *realIsolationResult) MountInfoRoot() (*MountInfo, error) {
-	in, err := os.Open(r.mountInfo())
+func forEachRecord(filepath string, f func(record []string) bool) error {
+	in, err := os.Open(filepath)
 	if err != nil {
-		return nil, fmt.Errorf("could not open mountinfo: %v", err)
+		return fmt.Errorf("could not open file %s: %v", filepath, err)
 	}
 	defer util.CloseIOAndCheckErr(in, nil)
 	c := csv.NewReader(in)
@@ -285,64 +284,58 @@ func (r *realIsolationResult) MountInfoRoot() (*MountInfo, error) {
 		if err != nil {
 			if e, ok := err.(*csv.ParseError); ok {
 				if e.Err != csv.ErrFieldCount {
-					return nil, err
+					return err
 				}
 			} else {
-				return nil, err
+				return err
 			}
 		}
 
+		if f(record) {
+			break
+		}
+	}
+	return nil
+}
+
+// MountInfoRoot returns information about the root entry in /proc/mountinfo
+func (r *realIsolationResult) MountInfoRoot() (mountInfo *MountInfo, err error) {
+	if err = forEachRecord(r.mountInfo(), func(record []string) bool {
 		if record[4] == "/" {
-			return &MountInfo{
+			mountInfo = &MountInfo{
 				DeviceContainingFile: record[2],
 				Root:                 record[3],
 				MountPoint:           record[4],
-			}, nil
+			}
 		}
+		return mountInfo != nil
+	}); err != nil {
+		return nil, err
 	}
-
-	//impossible
-	return nil, fmt.Errorf("process has no root entry")
+	if mountInfo == nil {
+		//impossible
+		err = fmt.Errorf("process has no root entry")
+	}
+	return
 }
 
 // IsMounted checks if a path in the mount namespace of a
 // given process isolation result is a mount point. Works with symlinks.
-func (r *realIsolationResult) IsMounted(mountPoint string) (bool, error) {
-	mountPoint, err := filepath.EvalSymlinks(mountPoint)
+func (r *realIsolationResult) IsMounted(mountPoint string) (isMounted bool, err error) {
+	mountPoint, err = filepath.EvalSymlinks(mountPoint)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
 	if err != nil {
 		return false, fmt.Errorf("could not resolve mount point path: %v", err)
 	}
-	in, err := os.Open(r.mountInfo())
-	if err != nil {
-		return false, fmt.Errorf("could not open mountinfo: %v", err)
+	if err = forEachRecord(r.mountInfo(), func(record []string) bool {
+		isMounted = record[4] == mountPoint
+		return isMounted
+	}); err != nil {
+		return false, err
 	}
-	defer util.CloseIOAndCheckErr(in, nil)
-	c := csv.NewReader(in)
-	c.Comma = ' '
-	c.LazyQuotes = true
-	for {
-		record, err := c.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			if e, ok := err.(*csv.ParseError); ok {
-				if e.Err != csv.ErrFieldCount {
-					return false, err
-				}
-			} else {
-				return false, err
-			}
-		}
-
-		if record[4] == mountPoint {
-			return true, nil
-		}
-	}
-	return false, nil
+	return
 }
 
 // IsBlockDevice check if the path given is a block device or not.
@@ -359,39 +352,23 @@ func (r *realIsolationResult) IsBlockDevice(path string) (bool, error) {
 
 // ParentMountInfoFor takes the mount info from a container, and looks the corresponding
 // entry in /proc/mountinfo of the isolation result of the given process.
-func (r *realIsolationResult) ParentMountInfoFor(mountInfo *MountInfo) (*MountInfo, error) {
-	in, err := os.Open(r.mountInfo())
-	if err != nil {
-		return nil, fmt.Errorf("could not open mountinfo: %v", err)
-	}
-	defer util.CloseIOAndCheckErr(in, nil)
-	c := csv.NewReader(in)
-	c.Comma = ' '
-	c.LazyQuotes = true
-	for {
-		record, err := c.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			if e, ok := err.(*csv.ParseError); ok {
-				if e.Err != csv.ErrFieldCount {
-					return nil, err
-				}
-			} else {
-				return nil, err
-			}
-		}
-
+func (r *realIsolationResult) ParentMountInfoFor(mountInfo *MountInfo) (parentMountInfo *MountInfo, err error) {
+	if err = forEachRecord(r.mountInfo(), func(record []string) bool {
 		if record[2] == mountInfo.DeviceContainingFile {
-			return &MountInfo{
+			parentMountInfo = &MountInfo{
 				DeviceContainingFile: record[2],
 				Root:                 record[3],
 				MountPoint:           record[4],
-			}, nil
+			}
 		}
+		return parentMountInfo != nil
+	}); err != nil {
+		return nil, err
 	}
-	return nil, fmt.Errorf("no parent entry for %v found in the mount namespace of %d", mountInfo.DeviceContainingFile, r.pid)
+	if parentMountInfo == nil {
+		err = fmt.Errorf("no parent entry for %v found in the mount namespace of %d", mountInfo.DeviceContainingFile, r.pid)
+	}
+	return
 }
 
 // FullPath takes the mount info from a container and composes the full path starting from
