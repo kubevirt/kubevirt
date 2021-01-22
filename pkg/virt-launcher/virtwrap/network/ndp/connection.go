@@ -20,6 +20,7 @@
 package ndp
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -55,17 +56,22 @@ func NewNDPConnection(ifaceName string) (*NDPConnection, error) {
 		IP:   net.IPv6unspecified,
 		Zone: ifaceName,
 	}
-	icmpListener, err := net.ListenIP("ip6:ipv6-icmp", listenAddr)
+	listernerConfig := CreateListenConfig(*iface)
+	icmpListener, err := listernerConfig.ListenPacket(
+		context.Background(),
+		"ip6:ipv6-icmp",
+		listenAddr.String())
 	if err != nil {
 		return nil, fmt.Errorf("could not listen to ip6:ipv6-icmp on addr %s: %v", listenAddr.String(), err)
 	}
-
 	ipv6Conn := ipv6.NewPacketConn(icmpListener)
 
 	// Calculate and place ICMPv6 checksum at correct offset in all messages.
 	if err := ipv6Conn.SetChecksum(true, chkOff); err != nil {
 		return nil, fmt.Errorf("could not enable ICMPv6 checksum processing: %v", err)
 	}
+
+	//_ = ipv6Conn.SetMulticastHopLimit(255)
 
 	routersMulticastGroup := &net.IPAddr{
 		IP:   net.IPv6linklocalallrouters,
@@ -75,19 +81,10 @@ func NewNDPConnection(ifaceName string) (*NDPConnection, error) {
 		return nil, fmt.Errorf("failed to join %s multicast group: %v", routersMulticastGroup.String(), err)
 	}
 
-	icmpListenerFD, err := icmpListener.File()
-	if err != nil {
-		return nil, err
-	}
-	if err := syscall.SetsockoptString(int(icmpListenerFD.Fd()), syscall.SOL_SOCKET, syscall.SO_BINDTODEVICE, ifaceName); err != nil {
-		return nil, err
-	}
-	defer icmpListenerFD.Close()
-
 	listener := &NDPConnection{
 		iface:      iface,
 		conn:       ipv6Conn,
-		rawConn:    icmpListener,
+		rawConn:    icmpListener.(*net.IPConn),
 		controlMsg: getIPv6ControlMsg(),
 	}
 
@@ -211,4 +208,20 @@ func (l *NDPConnection) Filter(icmpType ipv6.ICMPType) error {
 	}
 
 	return nil
+}
+
+func CreateListenConfig(iface net.Interface) net.ListenConfig {
+	return net.ListenConfig{
+		Control: func(network, address string, c syscall.RawConn) error {
+			var opErr error
+			err := c.Control(func(fd uintptr) {
+				opErr = syscall.SetsockoptString(int(fd), syscall.SOL_SOCKET, syscall.SO_BINDTODEVICE, iface.Name)
+				//opErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, unix.SO_BINDTOIFINDEX, iface.Index)
+			})
+			if err != nil {
+				return err
+			}
+			return opErr
+		},
+	}
 }
