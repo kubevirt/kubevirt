@@ -125,8 +125,7 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 		// TODO: As soon as CRDs support field selectors we can remove this and just enable
 		// the status subresource. Until then we need to update Status and Metadata labels in parallel for e.g. Migrations.
 		if !reflect.DeepEqual(newVMI.Status, oldVMI.Status) {
-			allowed := webhooks.GetAllowedServiceAccounts()
-			if _, ok := allowed[ar.Request.UserInfo.Username]; !ok {
+			if !webhooks.IsKubeVirtServiceAccount(ar.Request.UserInfo.Username) {
 				patch = append(patch, patchOperation{
 					Op:    "replace",
 					Path:  "/status",
