@@ -1672,7 +1672,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(testBlockPvc)
 			blockMigrate, err := controller.checkVolumesForMigration(vmi)
 			Expect(blockMigrate).To(BeTrue())
-			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared PVCs")))
+			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI: PVC testblock is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)")))
 		})
 		It("should fail migration for non-shared data volume PVCs", func() {
 
@@ -1703,7 +1703,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(testBlockPvc)
 			blockMigrate, err := controller.checkVolumesForMigration(vmi)
 			Expect(blockMigrate).To(BeTrue())
-			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared PVCs")))
+			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI: PVC testblock is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)")))
 		})
 		It("should be allowed to migrate a mix of shared and non-shared disks", func() {
 
