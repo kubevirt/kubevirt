@@ -622,15 +622,15 @@ var _ = Describe("Converter", func() {
   <iothreads>3</iothreads>
 </domain>`, domainType, "%s")
 		var convertedDomainWith5Period = fmt.Sprintf(convertedDomain,
-			`<memballoon model="virtio">
+			`<memballoon model="virtio-non-transitional">
       <stats period="5"></stats>
     </memballoon>`)
 		var convertedDomainWith0Period = fmt.Sprintf(convertedDomain,
-			`<memballoon model="virtio"></memballoon>`)
+			`<memballoon model="virtio-non-transitional"></memballoon>`)
 		var convertedDomainWithFalseAutoattach = fmt.Sprintf(convertedDomain,
 			`<memballoon model="none"></memballoon>`)
 		convertedDomain = fmt.Sprintf(convertedDomain,
-			`<memballoon model="virtio">
+			`<memballoon model="virtio-non-transitional">
       <stats period="10"></stats>
     </memballoon>`)
 
@@ -823,16 +823,16 @@ var _ = Describe("Converter", func() {
 </domain>`, domainType, "%s")
 
 		var convertedDomainppc64leWith5Period = fmt.Sprintf(convertedDomainppc64le,
-			`<memballoon model="virtio">
+			`<memballoon model="virtio-non-transitional">
       <stats period="5"></stats>
     </memballoon>`)
 		var convertedDomainppc64leWith0Period = fmt.Sprintf(convertedDomainppc64le,
-			`<memballoon model="virtio"></memballoon>`)
+			`<memballoon model="virtio-non-transitional"></memballoon>`)
 
 		var convertedDomainppc64leWithFalseAutoattach = fmt.Sprintf(convertedDomainppc64le,
 			`<memballoon model="none"></memballoon>`)
 		convertedDomainppc64le = fmt.Sprintf(convertedDomainppc64le,
-			`<memballoon model="virtio">
+			`<memballoon model="virtio-non-transitional">
       <stats period="10"></stats>
     </memballoon>`)
 
@@ -880,7 +880,7 @@ var _ = Describe("Converter", func() {
     <graphics type="vnc">
       <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
     </graphics>
-    <memballoon model="virtio">
+    <memballoon model="virtio-non-transitional">
       <stats period="10"></stats>
       <address type="pci" domain="0x0000" bus="0x00" slot="0x0a" function="0x0"></address>
     </memballoon>

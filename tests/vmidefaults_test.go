@@ -120,7 +120,7 @@ var _ = Describe("[Serial]VMIDefaults", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			expected := api.MemBalloon{
-				Model: "virtio",
+				Model: "virtio-non-transitional",
 				Stats: &api.Stats{
 					Period: 10,
 				},
@@ -157,7 +157,7 @@ var _ = Describe("[Serial]VMIDefaults", func() {
 			Expect(*domain.Devices.Ballooning).To(Equal(expected))
 		},
 			table.Entry("[test_id:4557]with period 12", uint32(12), api.MemBalloon{
-				Model: "virtio",
+				Model: "virtio-non-transitional",
 				Stats: &api.Stats{
 					Period: 12,
 				},
@@ -170,7 +170,7 @@ var _ = Describe("[Serial]VMIDefaults", func() {
 				},
 			}),
 			table.Entry("[test_id:4558]with period 0", uint32(0), api.MemBalloon{
-				Model: "virtio",
+				Model: "virtio-non-transitional",
 				Address: &api.Address{
 					Type:     "pci",
 					Domain:   "0x0000",
