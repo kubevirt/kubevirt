@@ -166,7 +166,7 @@ var _ = Describe("infocache", func() {
 		readFromCachedFile(&read, tmpfile.Name())
 		Expect(written).To(Equal(read))
 	})
-	It("ReadFromVirtHandlerCachedFile reads what writeToVirtHandlerCachedFile had written", func() {
+	It("ReadFromVirtHandlerCachedFile reads what WriteToVirtHandlerCachedFile had written", func() {
 		vmiuid := types.UID("123")
 		written := SillyType{7}
 		read := SillyType{0}
@@ -175,7 +175,7 @@ var _ = Describe("infocache", func() {
 		Expect(err).ToNot(HaveOccurred())
 		defer RemoveVirtHandlerCacheDir(vmiuid)
 
-		err = writeToVirtHandlerCachedFile(written, vmiuid, "eth0")
+		err = WriteToVirtHandlerCachedFile(written, vmiuid, "eth0")
 		Expect(err).ToNot(HaveOccurred())
 		err = ReadFromVirtHandlerCachedFile(&read, vmiuid, "eth0")
 		Expect(err).ToNot(HaveOccurred())

@@ -20,7 +20,6 @@
 package network
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -807,10 +806,8 @@ var _ = Describe("Pod Network", func() {
 		err = setPodInterfaceCache(iface, primaryPodInterfaceName, string(uid))
 		Expect(err).ToNot(HaveOccurred())
 
-		data, err := ioutil.ReadFile(fmt.Sprintf(VirtHandlerCachePattern, string(uid), iface.Name))
-		Expect(err).ToNot(HaveOccurred())
-		var podData *PodCacheInterface
-		err = json.Unmarshal(data, &podData)
+		var podData PodCacheInterface
+		err = ReadFromVirtHandlerCachedFile(&podData, uid, iface.Name)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(podData.PodIP).To(Equal("1.2.3.4"))
 	})

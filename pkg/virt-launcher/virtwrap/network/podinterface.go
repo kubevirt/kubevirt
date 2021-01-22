@@ -106,7 +106,7 @@ func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, uid stri
 	}
 
 	cache.PodIP = cache.PodIPs[0]
-	err = writeToVirtHandlerCachedFile(cache, types.UID(uid), iface.Name)
+	err = WriteToVirtHandlerCachedFile(cache, types.UID(uid), iface.Name)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to write pod Interface to cache, %s", err.Error())
 		return err

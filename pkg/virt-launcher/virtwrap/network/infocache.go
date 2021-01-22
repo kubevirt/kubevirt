@@ -38,7 +38,7 @@ import (
 )
 
 const networkInfoDir = util.VirtPrivateDir + "/network-info-cache"
-const VirtHandlerCachePattern = networkInfoDir + "/%s/%s"
+const virtHandlerCachePattern = networkInfoDir + "/%s/%s"
 
 var virtLauncherCachedPattern = "/proc/%s/root/var/run/kubevirt-private/interface-cache-%s.json"
 
@@ -91,12 +91,12 @@ func writeToVirtLauncherCachedFile(obj interface{}, pid, ifaceName string) error
 }
 
 func ReadFromVirtHandlerCachedFile(obj interface{}, vmiuid types.UID, ifaceName string) error {
-	fileName := getInterfaceCacheFile(VirtHandlerCachePattern, string(vmiuid), ifaceName)
+	fileName := getInterfaceCacheFile(virtHandlerCachePattern, string(vmiuid), ifaceName)
 	return readFromCachedFile(obj, fileName)
 }
 
-func writeToVirtHandlerCachedFile(obj interface{}, vmiuid types.UID, ifaceName string) error {
-	fileName := getInterfaceCacheFile(VirtHandlerCachePattern, string(vmiuid), ifaceName)
+func WriteToVirtHandlerCachedFile(obj interface{}, vmiuid types.UID, ifaceName string) error {
+	fileName := getInterfaceCacheFile(virtHandlerCachePattern, string(vmiuid), ifaceName)
 	return writeToCachedFile(obj, fileName)
 }
 

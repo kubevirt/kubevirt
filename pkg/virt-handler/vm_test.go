@@ -21,7 +21,6 @@ package virthandler
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -1986,16 +1985,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 				PodIP:  "1.1.1.1",
 				PodIPs: []string{"1.1.1.1", "fd10:244::8c4c"},
 			}
-			podJson, err := json.Marshal(podCacheInterface)
-			Expect(err).ToNot(HaveOccurred())
 			err = network.CreateVirtHandlerCacheDir(vmi.UID)
 			Expect(err).ToNot(HaveOccurred())
-			vmiInterfacepath := fmt.Sprintf(network.VirtHandlerCachePattern, vmi.UID, interfaceName)
-			f, err := os.Create(vmiInterfacepath)
+			err = network.WriteToVirtHandlerCachedFile(podCacheInterface, vmi.UID, interfaceName)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = f.WriteString(string(podJson))
-			Expect(err).ToNot(HaveOccurred())
-			f.Close()
 
 			mockWatchdog.CreateFile(vmi)
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
@@ -2050,16 +2043,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 				PodIP:  podIPs[0],
 				PodIPs: podIPs,
 			}
-			podJson, err := json.Marshal(podCacheInterface)
-			Expect(err).ToNot(HaveOccurred())
 			err = network.CreateVirtHandlerCacheDir(vmi.UID)
 			Expect(err).ToNot(HaveOccurred())
-			vmiInterfacepath := fmt.Sprintf(network.VirtHandlerCachePattern, vmi.UID, interfaceName)
-			f, err := os.Create(vmiInterfacepath)
+			err = network.WriteToVirtHandlerCachedFile(podCacheInterface, vmi.UID, interfaceName)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = f.WriteString(string(podJson))
-			Expect(err).ToNot(HaveOccurred())
-			f.Close()
 
 			mockWatchdog.CreateFile(vmi)
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
