@@ -17,40 +17,19 @@
  *
  */
 
-package installstrategy
+package apply
 
 import (
-	"encoding/json"
-	"fmt"
 	"reflect"
 
-	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/rbac"
-
-	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/policy/v1beta1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
-
-	secv1 "github.com/openshift/api/security/v1"
-	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -83,356 +62,37 @@ const (
 	Id        = "42"
 )
 
-var _ = Describe("Create", func() {
-
-	Context("on calling syncPodDisruptionBudgetForDeployment", func() {
-
-		var deployment *appsv1.Deployment
-		var err error
-		var clientset *kubecli.MockKubevirtClient
-		var kv *v1.KubeVirt
-		var expectations *util.Expectations
-		var stores util.Stores
-		var mockPodDisruptionBudgetCacheStore *MockStore
-		var pdbClient *fake.Clientset
-		var cachedPodDisruptionBudget *v1beta1.PodDisruptionBudget
-		var patched bool
-		var shouldPatchFail bool
-		var created bool
-		var shouldCreateFail bool
-		var ctrl *gomock.Controller
-		var extClient *extclientfake.Clientset
-
-		BeforeEach(func() {
-
-			ctrl = gomock.NewController(GinkgoT())
-			kvInterface := kubecli.NewMockKubeVirtInterface(ctrl)
-
-			patched = false
-			shouldPatchFail = false
-			created = false
-			shouldCreateFail = false
-
-			pdbClient = fake.NewSimpleClientset()
-			extClient = extclientfake.NewSimpleClientset()
-
-			pdbClient.Fake.PrependReactor("patch", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				_, ok := action.(testing.PatchAction)
-				Expect(ok).To(BeTrue())
-				if shouldPatchFail {
-					return true, nil, fmt.Errorf("Patch failed!")
-				}
-				patched = true
-				return true, nil, nil
-			})
-
-			pdbClient.Fake.PrependReactor("create", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				_, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-				if shouldCreateFail {
-					return true, nil, fmt.Errorf("Create failed!")
-				}
-				created = true
-				return true, nil, nil
-			})
-			extClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				Expect(action).To(BeNil())
-				return true, nil, nil
-			})
-			stores = util.Stores{}
-			mockPodDisruptionBudgetCacheStore = &MockStore{}
-			stores.PodDisruptionBudgetCache = mockPodDisruptionBudgetCacheStore
-			stores.CrdCache = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-
-			expectations = &util.Expectations{}
-			expectations.PodDisruptionBudget = controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PodDisruptionBudgets"))
-
-			clientset = kubecli.NewMockKubevirtClient(ctrl)
-			clientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
-			clientset.EXPECT().PolicyV1beta1().Return(pdbClient.PolicyV1beta1()).AnyTimes()
-			clientset.EXPECT().ExtensionsClient().Return(extClient).AnyTimes()
-			kv = &v1.KubeVirt{}
-
-			deployment, err = components.NewApiServerDeployment(Namespace, Registry, "", Version, "", "", corev1.PullIfNotPresent, "verbosity", map[string]string{})
-			Expect(err).ToNot(HaveOccurred())
-
-			cachedPodDisruptionBudget = components.NewPodDisruptionBudgetForDeployment(deployment)
-		})
-
-		AfterEach(func() {
-			ctrl.Finish()
-		})
-
-		It("should not fail creation", func() {
-			r := &Reconciler{
-				clientset:    clientset,
-				kv:           kv,
-				expectations: expectations,
-				stores:       stores,
-			}
-			err = r.syncPodDisruptionBudgetForDeployment(deployment)
-
-			Expect(created).To(BeTrue())
-			Expect(patched).To(BeFalse())
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("should not fail patching", func() {
-			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
-			r := &Reconciler{
-				clientset:    clientset,
-				kv:           kv,
-				expectations: expectations,
-				stores:       stores,
-			}
-			err = r.syncPodDisruptionBudgetForDeployment(deployment)
-
-			Expect(patched).To(BeTrue())
-			Expect(created).To(BeFalse())
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("should skip patching of same version", func() {
-			kv.Status.TargetKubeVirtRegistry = Registry
-			kv.Status.TargetKubeVirtVersion = Version
-			kv.Status.TargetDeploymentID = Id
-
-			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
-			injectOperatorMetadata(kv, &cachedPodDisruptionBudget.ObjectMeta, Version, Registry, Id, true)
-			r := &Reconciler{
-				clientset:    clientset,
-				kv:           kv,
-				expectations: expectations,
-				stores:       stores,
-			}
-			err = r.syncPodDisruptionBudgetForDeployment(deployment)
-
-			Expect(created).To(BeFalse())
-			Expect(patched).To(BeFalse())
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("should return create error", func() {
-			shouldCreateFail = true
-			r := &Reconciler{
-				clientset:    clientset,
-				kv:           kv,
-				expectations: expectations,
-				stores:       stores,
-			}
-			err = r.syncPodDisruptionBudgetForDeployment(deployment)
-
-			Expect(err).To(HaveOccurred())
-			Expect(created).To(BeFalse())
-			Expect(patched).To(BeFalse())
-		})
-
-		It("should return patch error", func() {
-			shouldPatchFail = true
-			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
-			r := &Reconciler{
-				clientset:    clientset,
-				kv:           kv,
-				expectations: expectations,
-				stores:       stores,
-			}
-			err = r.syncPodDisruptionBudgetForDeployment(deployment)
-
-			Expect(err).To(HaveOccurred())
-			Expect(created).To(BeFalse())
-			Expect(patched).To(BeFalse())
-		})
-
-		It("should not roll out subresources on existing CRDs before control-plane rollover", func() {
-			crd := &extv1beta1.CustomResourceDefinition{
-				ObjectMeta: v12.ObjectMeta{
-					Name:      "test",
-					Namespace: "test",
-				},
-				Spec: extv1beta1.CustomResourceDefinitionSpec{
-					Subresources: &extv1beta1.CustomResourceSubresources{
-						Scale: &extv1beta1.CustomResourceSubresourceScale{
-							SpecReplicasPath: "blub",
-						},
-						Status: &extv1beta1.CustomResourceSubresourceStatus{},
-					},
-				},
-			}
-			targetStrategy := &InstallStrategy{
-				crds: []*extv1beta1.CustomResourceDefinition{
-					crd,
-				},
-			}
-
-			crdWithoutSubresource := crd.DeepCopy()
-			crdWithoutSubresource.Spec.Subresources = nil
-
-			stores.CrdCache.Add(crdWithoutSubresource)
-			extClient.Fake.PrependReactor("patch", "customresourcedefinitions", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-				a := action.(testing.PatchActionImpl)
-				patch, err := jsonpatch.DecodePatch(a.Patch)
-				Expect(err).ToNot(HaveOccurred())
-				obj, err := json.Marshal(crdWithoutSubresource)
-				Expect(err).To(BeNil())
-				obj, err = patch.Apply(obj)
-				Expect(err).To(BeNil())
-				crd := &extv1beta1.CustomResourceDefinition{}
-				Expect(json.Unmarshal(obj, crd)).To(Succeed())
-				Expect(crd.Spec.Subresources.Status).To(BeNil())
-				Expect(crd.Spec.Subresources.Scale).ToNot(BeNil())
-				return true, crd, nil
-			})
-
-			r := &Reconciler{
-				kv:             kv,
-				targetStrategy: targetStrategy,
-				stores:         stores,
-				clientset:      clientset,
-				expectations:   expectations,
-			}
-
-			Expect(r.createOrUpdateCrds()).To(Succeed())
-		})
-
-		It("should not roll out subresources on existing CRDs after the control-plane rollover", func() {
-			crd := &extv1beta1.CustomResourceDefinition{
-				ObjectMeta: v12.ObjectMeta{
-					Name:      "test",
-					Namespace: "test",
-				},
-				Spec: extv1beta1.CustomResourceDefinitionSpec{
-					Subresources: &extv1beta1.CustomResourceSubresources{
-						Scale: &extv1beta1.CustomResourceSubresourceScale{
-							SpecReplicasPath: "blub",
-						},
-						Status: &extv1beta1.CustomResourceSubresourceStatus{},
-					},
-				},
-			}
-			targetStrategy := &InstallStrategy{
-				crds: []*extv1beta1.CustomResourceDefinition{
-					crd,
-				},
-			}
-
-			crdWithoutSubresource := crd.DeepCopy()
-			crdWithoutSubresource.Spec.Subresources = nil
-
-			stores.CrdCache.Add(crdWithoutSubresource)
-			extClient.Fake.PrependReactor("patch", "customresourcedefinitions", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-				a := action.(testing.PatchActionImpl)
-				patch, err := jsonpatch.DecodePatch(a.Patch)
-				Expect(err).ToNot(HaveOccurred())
-				obj, err := json.Marshal(crdWithoutSubresource)
-				Expect(err).To(BeNil())
-				obj, err = patch.Apply(obj)
-				Expect(err).To(BeNil())
-				crd := &extv1beta1.CustomResourceDefinition{}
-				Expect(json.Unmarshal(obj, crd)).To(Succeed())
-				Expect(crd.Spec.Subresources.Status).ToNot(BeNil())
-				Expect(crd.Spec.Subresources.Scale).ToNot(BeNil())
-				return true, crd, nil
-			})
-
-			r := &Reconciler{
-				kv:             kv,
-				targetStrategy: targetStrategy,
-				stores:         stores,
-				clientset:      clientset,
-				expectations:   expectations,
-			}
-
-			Expect(r.rolloutNonCompatibleCRDChanges()).To(Succeed())
-		})
+func getConfig(registry, version string) *util.KubeVirtDeploymentConfig {
+	return util.GetTargetConfigFromKV(&v1.KubeVirt{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: Namespace,
+		},
+		Spec: v1.KubeVirtSpec{
+			ImageRegistry: registry,
+			ImageTag:      version,
+		},
 	})
+}
 
-	Context("Services", func() {
+var _ = Describe("Apply", func() {
 
-		It("should patch if ClusterIp == \"\" during update", func() {
+	Context("should calculate", func() {
 
-			kv := &v1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "somenamespace",
-				},
-				Spec: v1.KubeVirtSpec{
-					ImageRegistry: "someregistery",
-					ImageTag:      "v1",
-				},
-			}
+		table.DescribeTable("update path based on semver", func(target string, current string, expected bool) {
+			takeUpdatePath := shouldTakeUpdatePath(target, current)
 
-			cachedService := &corev1.Service{}
-			cachedService.Spec.Type = corev1.ServiceTypeClusterIP
-			cachedService.Spec.ClusterIP = "10.10.10.10"
-
-			service := &corev1.Service{}
-			service.Spec.Type = corev1.ServiceTypeClusterIP
-			service.Spec.ClusterIP = ""
-
-			r := &Reconciler{
-				kv: kv,
-			}
-
-			ops, deleteAndReplace, err := r.generateServicePatch(cachedService, service)
-			Expect(err).To(BeNil())
-			Expect(deleteAndReplace).To(BeFalse())
-			Expect(ops).ToNot(Equal(""))
-		})
-
-		It("should replace if ClusterIp != \"\" during update and ip changes", func() {
-
-			kv := &v1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "somenamespace",
-				},
-				Spec: v1.KubeVirtSpec{
-					ImageRegistry: "someregistery",
-					ImageTag:      "v1",
-				},
-			}
-
-			cachedService := &corev1.Service{}
-			cachedService.Spec.Type = corev1.ServiceTypeClusterIP
-			cachedService.Spec.ClusterIP = "10.10.10.10"
-
-			service := &corev1.Service{}
-			service.Spec.Type = corev1.ServiceTypeClusterIP
-			service.Spec.ClusterIP = "10.10.10.11"
-
-			r := &Reconciler{
-				kv: kv,
-			}
-
-			_, deleteAndReplace, err := r.generateServicePatch(cachedService, service)
-			Expect(err).To(BeNil())
-			Expect(deleteAndReplace).To(BeTrue())
-		})
-
-		It("should replace if not a ClusterIP service", func() {
-
-			kv := &v1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "somenamespace",
-				},
-				Spec: v1.KubeVirtSpec{
-					ImageRegistry: "someregistery",
-					ImageTag:      "v1",
-				},
-			}
-
-			cachedService := &corev1.Service{}
-			cachedService.Spec.Type = corev1.ServiceTypeNodePort
-
-			service := &corev1.Service{}
-			service.Spec.Type = corev1.ServiceTypeNodePort
-
-			r := &Reconciler{
-				kv: kv,
-			}
-
-			_, deleteAndReplace, err := r.generateServicePatch(cachedService, service)
-			Expect(err).To(BeNil())
-			Expect(deleteAndReplace).To(BeTrue())
-		})
+			Expect(takeUpdatePath).To(Equal(expected))
+		},
+			table.Entry("with increasing semver", "v0.15.0", "v0.14.0", true),
+			table.Entry("with decreasing semver", "v0.14.0", "v0.15.0", false),
+			table.Entry("with identical semver", "v0.15.0", "v0.15.0", false),
+			table.Entry("with invalid semver", "devel", "v0.14.0", true),
+			table.Entry("with increasing semver no prefix", "0.15.0", "0.14.0", true),
+			table.Entry("with decreasing semver no prefix", "0.14.0", "0.15.0", false),
+			table.Entry("with identical semver no prefix", "0.15.0", "0.15.0", false),
+			table.Entry("with invalid semver no prefix", "devel", "0.14.0", true),
+			table.Entry("with no current no prefix", "devel", "", false),
+		)
 	})
 
 	Context("Injecting Metadata", func() {
@@ -822,87 +482,5 @@ var _ = Describe("Create", func() {
 			injectPlacementMetadata(componentConfig, podSpec)
 			Expect(len(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution)).To(Equal(1))
 		})
-	})
-
-	Context("Manage users in Security Context Constraints", func() {
-		var stop chan struct{}
-		var ctrl *gomock.Controller
-		var stores util.Stores
-		var informers util.Informers
-		var virtClient *kubecli.MockKubevirtClient
-		var secClient *secv1fake.FakeSecurityV1
-		var err error
-
-		namespace := "kubevirt-test"
-
-		generateSCC := func(sccName string, usersList []string) *secv1.SecurityContextConstraints {
-			return &secv1.SecurityContextConstraints{
-				ObjectMeta: v12.ObjectMeta{
-					Name: sccName,
-				},
-				Users: usersList,
-			}
-		}
-
-		setupPrependReactor := func(sccName string, expectedPatch []byte) {
-			secClient.Fake.PrependReactor("patch", "securitycontextconstraints",
-				func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-					patch, ok := action.(testing.PatchAction)
-					Expect(ok).To(BeTrue())
-					Expect(patch.GetName()).To(Equal(sccName), "Patch object name should match SCC name")
-					Expect(patch.GetPatch()).To(Equal(expectedPatch))
-					return true, nil, nil
-				})
-		}
-
-		BeforeEach(func() {
-			stop = make(chan struct{})
-			ctrl = gomock.NewController(GinkgoT())
-			virtClient = kubecli.NewMockKubevirtClient(ctrl)
-			informers.SCC, _ = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
-			stores.SCCCache = informers.SCC.GetStore()
-			secClient = &secv1fake.FakeSecurityV1{
-				Fake: &fake.NewSimpleClientset().Fake,
-			}
-			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
-		})
-
-		executeTest := func(scc *secv1.SecurityContextConstraints, expectedPatch string) {
-			setupPrependReactor(scc.ObjectMeta.Name, []byte(expectedPatch))
-			stores.SCCCache.Add(scc)
-
-			r := &Reconciler{
-				clientset: virtClient,
-				stores:    stores,
-			}
-
-			err = r.removeKvServiceAccountsFromDefaultSCC(namespace)
-			Expect(err).ToNot(HaveOccurred(), "Should successfully remove only the kubevirt service accounts")
-		}
-
-		AfterEach(func() {
-			close(stop)
-			ctrl.Finish()
-		})
-
-		table.DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {
-			var expectedJsonPatch string
-			var serviceAccounts []string
-			saMap := rbac.GetKubevirtComponentsServiceAccounts(namespace)
-			for key, _ := range saMap {
-				serviceAccounts = append(serviceAccounts, key)
-			}
-			serviceAccounts = append(serviceAccounts, additionalUserlist...)
-			scc := generateSCC("privileged", serviceAccounts)
-			if len(additionalUserlist) != 0 {
-				expectedJsonPatch = fmt.Sprintf(`[ { "op": "test", "path": "/users", "value": ["%s"] }, { "op": "replace", "path": "/users", "value": ["%s"] } ]`, strings.Join(serviceAccounts, `","`), strings.Join(additionalUserlist, `","`))
-			} else {
-				expectedJsonPatch = fmt.Sprintf(`[ { "op": "test", "path": "/users", "value": ["%s"] }, { "op": "replace", "path": "/users", "value": null } ]`, strings.Join(serviceAccounts, `","`))
-			}
-			executeTest(scc, expectedJsonPatch)
-		},
-			table.Entry("Without custom users", []string{}),
-			table.Entry("With custom users", []string{"someuser"}),
-		)
 	})
 })
