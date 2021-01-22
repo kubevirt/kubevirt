@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -85,7 +86,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 
 		Context("Alpine import", func() {
 			BeforeEach(func() {
-				cdis, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(metav1.ListOptions{})
+				cdis, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cdis.Items).To(HaveLen(1))
 				hasWaitForCustomerGate := false
@@ -104,7 +105,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 
-				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 
 				// This will only work on storage with binding mode WaitForFirstConsumer,
@@ -127,7 +128,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 					Expect(err).To(BeNil())
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
-				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
+				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
 				Expect(err).To(BeNil())
 			})
 
@@ -135,7 +136,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithPVC(dataVolume.Name)
 
-				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 				// This will only work on storage with binding mode WaitForFirstConsumer,
 				if tests.HasBindingModeWaitForFirstConsumer() {
@@ -152,7 +153,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				Expect(err).To(BeNil())
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
-				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
+				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
 				Expect(err).To(BeNil())
 			})
 		})
@@ -162,7 +163,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 		Context("using DataVolume with invalid URL", func() {
 			deleteDataVolume := func(dv *cdiv1.DataVolume) {
 				By("Deleting the DataVolume")
-				ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
+				ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed(), metav1.DeleteOptions{})
 			}
 
 			deleteDummyFile := func(fileName string) {
@@ -225,7 +226,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				defer deleteDataVolume(dataVolume)
 
 				By("Creating DataVolume with invalid URL")
-				dataVolume, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
+				dataVolume, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 
 				By("Creating a VM with an invalid DataVolume")
@@ -245,7 +246,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 
 				By("Wait for DataVolume to complete")
 				Eventually(func() cdiv1.DataVolumePhase {
-					dataVolume, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Get(dataVolume.Name, metav1.GetOptions{})
+					dataVolume, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 					return dataVolume.Status.Phase
 				}, 160*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded))
@@ -302,9 +303,9 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 		}
 
 		deleteIfExistsDataVolume := func(name string, namespace string) {
-			dataVolume, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(name, metav1.GetOptions{})
+			dataVolume, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
 			if err == nil && dataVolume.DeletionTimestamp == nil {
-				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(name, &metav1.DeleteOptions{})
+				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 				// In some tests, OwnerReferences in k8s can cause this to be deleted already
 				// just ignore 404's to avoid that race.
 				if err != nil && !errors.IsNotFound(err) {
@@ -345,7 +346,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 
 		dataVolumeIsSuccessAndOwned := func(name, namespace string) {
 			Eventually(func() error {
-				dataVolume, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(name, metav1.GetOptions{})
+				dataVolume, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -360,7 +361,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 
 		dataVolumeIsSuccessAndNotOwned := func(name, namespace string) {
 			Eventually(func() error {
-				dataVolume, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(name, metav1.GetOptions{})
+				dataVolume, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -375,7 +376,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 
 		pvcExists := func(name, namespace string) {
 			Eventually(func() error {
-				_, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(name, metav1.GetOptions{})
+				_, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -405,7 +406,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 
 		waitForDeletionDataVolume := func(name, namespace string) {
 			Eventually(func() bool {
-				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(name, metav1.GetOptions{})
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
 				if errors.IsNotFound(err) {
 					return true
 				}
@@ -415,7 +416,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 
 		waitForDeletionPVC := func(name, namespace string) {
 			Eventually(func() bool {
-				_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(name, metav1.GetOptions{})
+				_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
 				if errors.IsNotFound(err) {
 					return true
 				}
@@ -525,7 +526,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 			waitForDeletionVMI(vm.Name, vm.Namespace)
 
 			By("Deleting the orphaned DataVolume")
-			err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Delete(dataVolumeName, &metav1.DeleteOptions{})
+			err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Delete(context.Background(), dataVolumeName, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for the DataVolume to be deleted")
@@ -581,7 +582,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 
 				// Check for owner reference
 				Eventually(func() []metav1.OwnerReference {
-					dataVolume, _ := virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Get(vm.Spec.DataVolumeTemplates[0].Name, metav1.GetOptions{})
+					dataVolume, _ := virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Get(context.Background(), vm.Spec.DataVolumeTemplates[0].Name, metav1.GetOptions{})
 					return dataVolume.OwnerReferences
 				}, 100*time.Second, 1*time.Second).ShouldNot(BeEmpty())
 
@@ -599,11 +600,11 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 					return false
 				}, 100*time.Second, 1*time.Second).Should(BeTrue())
 
-				dataVolume, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Get(vm.Spec.DataVolumeTemplates[0].Name, metav1.GetOptions{})
+				dataVolume, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Get(context.Background(), vm.Spec.DataVolumeTemplates[0].Name, metav1.GetOptions{})
 				Expect(dataVolume.OwnerReferences).To(BeEmpty())
 				Expect(err).ToNot(HaveOccurred())
 
-				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
+				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -625,11 +626,11 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				}
 				var err error
 				dv := tests.NewRandomDataVolumeWithHttpImportInStorageClass(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestAlternative, storageClass, k8sv1.ReadWriteOnce)
-				dataVolume, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
+				dataVolume, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
-					dataVolume, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Get(dataVolume.Name, metav1.GetOptions{})
+					dataVolume, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(dataVolume.Status.Phase).ToNot(Equal(cdiv1.Failed))
 					return dataVolume.Status.Phase == cdiv1.Succeeded
@@ -638,12 +639,12 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 
 			AfterEach(func() {
 				if cloneRole != nil {
-					err := virtClient.RbacV1().Roles(cloneRole.Namespace).Delete(cloneRole.Name, &metav1.DeleteOptions{})
+					err := virtClient.RbacV1().Roles(cloneRole.Namespace).Delete(context.Background(), cloneRole.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
 
 				if cloneRoleBinding != nil {
-					err := virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(cloneRoleBinding.Name, &metav1.DeleteOptions{})
+					err := virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.Background(), cloneRoleBinding.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
 
@@ -653,7 +654,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				}
 
 				if dataVolume != nil {
-					err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
+					err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
 					if err != nil && !errors.IsNotFound(err) {
 						Expect(err).ToNot(HaveOccurred())
 					}
@@ -714,7 +715,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				// wait for clone to complete
 				targetDVName := vm.Spec.DataVolumeTemplates[0].Name
 				Eventually(func() bool {
-					dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(createdVirtualMachine.Namespace).Get(targetDVName, metav1.GetOptions{})
+					dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(createdVirtualMachine.Namespace).Get(context.Background(), targetDVName, metav1.GetOptions{})
 					if err != nil && errors.IsNotFound(err) {
 						return false
 					}
@@ -774,7 +775,7 @@ var implicitCloneRole = &rbacv1.Role{
 }
 
 func addClonePermission(client kubecli.KubevirtClient, role *rbacv1.Role, sa, saNamespace, targetNamesace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
-	role, err := client.RbacV1().Roles(targetNamesace).Create(role)
+	role, err := client.RbacV1().Roles(targetNamesace).Create(context.Background(), role, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	rb := &rbacv1.RoleBinding{
@@ -810,7 +811,7 @@ func addClonePermission(client kubecli.KubevirtClient, role *rbacv1.Role, sa, sa
 		}
 	}
 
-	rb, err = client.RbacV1().RoleBindings(targetNamesace).Create(rb)
+	rb, err = client.RbacV1().RoleBindings(targetNamesace).Create(context.Background(), rb, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	return role, rb

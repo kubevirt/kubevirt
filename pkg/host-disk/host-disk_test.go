@@ -20,6 +20,7 @@
 package hostdisk
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -340,7 +341,7 @@ var _ = Describe("HostDisk", func() {
 				},
 			}
 
-			virtClient.CoreV1().PersistentVolumeClaims(namespace).Create(pvc)
+			virtClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 
 			By("Creating a VMI with PVC volume")
 			volumeName := "pvc-volume"

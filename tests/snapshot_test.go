@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -50,7 +51,7 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 	waitSnapshotReady := func() {
 		Eventually(func() bool {
-			snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(snapshot.Name, metav1.GetOptions{})
+			snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return snapshot.Status != nil && snapshot.Status.ReadyToUse != nil && *snapshot.Status.ReadyToUse
 		}, 180*time.Second, time.Second).Should(BeTrue())
@@ -72,7 +73,7 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 				}
 			}
 			if snapshot != nil {
-				err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Delete(snapshot.Name, &metav1.DeleteOptions{})
+				err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Delete(context.Background(), snapshot.Name, metav1.DeleteOptions{})
 				if errors.IsNotFound(err) {
 					snapshot = nil
 				} else {
@@ -96,7 +97,7 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 		It("[test_id:4609]should successfully create a snapshot", func() {
 			snapshot = newSnapshot()
 
-			_, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(snapshot)
+			_, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			waitSnapshotReady()
@@ -105,7 +106,7 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 			Expect(*snapshot.Status.SourceUID).To(Equal(vm.UID))
 
 			contentName := *snapshot.Status.VirtualMachineSnapshotContentName
-			content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(contentName, metav1.GetOptions{})
+			content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(*content.Spec.VirtualMachineSnapshotName).To(Equal(snapshot.Name))
@@ -120,7 +121,7 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 			snapshot = newSnapshot()
 
-			_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(snapshot)
+			_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(ContainSubstring(fmt.Sprintf("VirtualMachine \"%s\" is running", vm.Name)))
 		})
@@ -165,7 +166,7 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
 					Eventually(func() bool {
-						dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Get(dvt.Name, metav1.GetOptions{})
+						dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Get(context.Background(), dvt.Name, metav1.GetOptions{})
 						if errors.IsNotFound(err) {
 							return false
 						}
@@ -179,14 +180,14 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 			It("[test_id:4611]should successfully create a snapshot", func() {
 				snapshot = newSnapshot()
 
-				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(snapshot)
+				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				waitSnapshotReady()
 
 				Expect(snapshot.Status.CreationTime).ToNot(BeNil())
 				contentName := *snapshot.Status.VirtualMachineSnapshotContentName
-				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(contentName, metav1.GetOptions{})
+				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(*content.Spec.VirtualMachineSnapshotName).To(Equal(snapshot.Name))
@@ -203,7 +204,7 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 							found = true
 							Expect(vol.Name).To(Equal(vb.VolumeName))
 
-							pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(vol.DataVolume.Name, metav1.GetOptions{})
+							pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), vol.DataVolume.Name, metav1.GetOptions{})
 							Expect(err).ToNot(HaveOccurred())
 							Expect(pvc.Spec).To(Equal(vb.PersistentVolumeClaim.Spec))
 
@@ -212,7 +213,7 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 								KubernetesSnapshotClient().
 								SnapshotV1beta1().
 								VolumeSnapshots(vm.Namespace).
-								Get(*vb.VolumeSnapshotName, metav1.GetOptions{})
+								Get(context.Background(), *vb.VolumeSnapshotName, metav1.GetOptions{})
 							Expect(err).ToNot(HaveOccurred())
 							Expect(*vs.Spec.Source.PersistentVolumeClaimName).Should(Equal(vol.DataVolume.Name))
 							Expect(vs.Status.Error).To(BeNil())
@@ -245,14 +246,14 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 			It("should error if VolumeSnapshot deleted", func() {
 				snapshot = newSnapshot()
 
-				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(snapshot)
+				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				waitSnapshotReady()
 
 				cn := snapshot.Status.VirtualMachineSnapshotContentName
 				Expect(cn).ToNot(BeNil())
-				vmSnapshotContent, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(*cn, metav1.GetOptions{})
+				vmSnapshotContent, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *cn, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vb := vmSnapshotContent.Spec.VolumeBackups[0]
@@ -261,11 +262,11 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 				err = virtClient.KubernetesSnapshotClient().
 					SnapshotV1beta1().
 					VolumeSnapshots(vm.Namespace).
-					Delete(*vb.VolumeSnapshotName, &metav1.DeleteOptions{})
+					Delete(context.Background(), *vb.VolumeSnapshotName, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
-					snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(snapshot.Name, metav1.GetOptions{})
+					snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return *snapshot.Status.ReadyToUse
 				}, 180*time.Second, time.Second).Should(BeFalse())
@@ -278,14 +279,14 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 			It("should not error if VolumeSnapshot has error", func() {
 				snapshot = newSnapshot()
 
-				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(snapshot)
+				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				waitSnapshotReady()
 
 				cn := snapshot.Status.VirtualMachineSnapshotContentName
 				Expect(cn).ToNot(BeNil())
-				vmSnapshotContent, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(*cn, metav1.GetOptions{})
+				vmSnapshotContent, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *cn, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vb := vmSnapshotContent.Spec.VolumeBackups[0]
@@ -296,7 +297,7 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 					vs, err := virtClient.KubernetesSnapshotClient().
 						SnapshotV1beta1().
 						VolumeSnapshots(vm.Namespace).
-						Get(*vb.VolumeSnapshotName, metav1.GetOptions{})
+						Get(context.Background(), *vb.VolumeSnapshotName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					vsc := vs.DeepCopy()
@@ -309,7 +310,7 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 					_, err = virtClient.KubernetesSnapshotClient().
 						SnapshotV1beta1().
 						VolumeSnapshots(vs.Namespace).
-						UpdateStatus(vsc)
+						UpdateStatus(context.Background(), vsc, metav1.UpdateOptions{})
 					if errors.IsConflict(err) {
 						return false
 					}
@@ -318,7 +319,7 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 				}, 180*time.Second, time.Second).Should(BeTrue())
 
 				Eventually(func() bool {
-					vmSnapshotContent, err = virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(*cn, metav1.GetOptions{})
+					vmSnapshotContent, err = virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *cn, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					vss := vmSnapshotContent.Status.VolumeSnapshotStatus[0]
 					if vss.Error != nil {
@@ -330,7 +331,7 @@ var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 					return false
 				}, 180*time.Second, time.Second).Should(BeTrue())
 
-				snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(snapshot.Name, metav1.GetOptions{})
+				snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(snapshot.Status.Error).To(BeNil())
 				Expect(*snapshot.Status.ReadyToUse).To(BeTrue())
@@ -344,7 +345,7 @@ func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 		ExtensionsClient().
 		ApiextensionsV1beta1().
 		CustomResourceDefinitions().
-		Get("volumesnapshotclasses.snapshot.storage.k8s.io", metav1.GetOptions{})
+		Get(context.Background(), "volumesnapshotclasses.snapshot.storage.k8s.io", metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", nil
@@ -364,13 +365,13 @@ func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 		return "", nil
 	}
 
-	volumeSnapshotClasses, err := client.KubernetesSnapshotClient().SnapshotV1beta1().VolumeSnapshotClasses().List(metav1.ListOptions{})
+	volumeSnapshotClasses, err := client.KubernetesSnapshotClient().SnapshotV1beta1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return "", err
 	}
 
 	if len(volumeSnapshotClasses.Items) > 0 {
-		storageClasses, err := client.StorageV1().StorageClasses().List(metav1.ListOptions{})
+		storageClasses, err := client.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			return "", err
 		}

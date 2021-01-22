@@ -1,6 +1,7 @@
 package disruptionbudget
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"time"
@@ -356,7 +357,7 @@ func (c *DisruptionBudgetController) sync(key string, vmi *virtv1.VirtualMachine
 			return err
 		}
 		c.podDisruptionBudgetExpectations.ExpectDeletions(key, []string{pdbKey})
-		err = c.clientset.PolicyV1beta1().PodDisruptionBudgets(pdb.Namespace).Delete(pdb.Name, &v1.DeleteOptions{})
+		err = c.clientset.PolicyV1beta1().PodDisruptionBudgets(pdb.Namespace).Delete(context.Background(), pdb.Name, v1.DeleteOptions{})
 		if err != nil {
 			c.podDisruptionBudgetExpectations.DeletionObserved(key, pdbKey)
 			c.recorder.Eventf(vmi, v12.EventTypeWarning, FailedDeletePodDisruptionBudgetReason, "Error deleting the PodDisruptionBudget %s: %v", pdb.Name, err)
@@ -367,7 +368,7 @@ func (c *DisruptionBudgetController) sync(key string, vmi *virtv1.VirtualMachine
 	} else if create {
 		two := intstr.FromInt(2)
 		c.podDisruptionBudgetExpectations.ExpectCreations(key, 1)
-		createdPDB, err := c.clientset.PolicyV1beta1().PodDisruptionBudgets(vmi.Namespace).Create(&v1beta1.PodDisruptionBudget{
+		createdPDB, err := c.clientset.PolicyV1beta1().PodDisruptionBudgets(vmi.Namespace).Create(context.Background(), &v1beta1.PodDisruptionBudget{
 			ObjectMeta: v1.ObjectMeta{
 				OwnerReferences: []v1.OwnerReference{
 					*v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
@@ -382,7 +383,7 @@ func (c *DisruptionBudgetController) sync(key string, vmi *virtv1.VirtualMachine
 					},
 				},
 			},
-		})
+		}, v1.CreateOptions{})
 		if err != nil {
 			c.podDisruptionBudgetExpectations.CreationObserved(key)
 			c.recorder.Eventf(vmi, v12.EventTypeWarning, FailedCreatePodDisruptionBudgetReason, "Error creating a PodDisruptionBudget: %v", err)

@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	k8scnicncfiov1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -39,7 +41,7 @@ var networkattachmentdefinitionsResource = schema.GroupVersionResource{Group: "k
 var networkattachmentdefinitionsKind = schema.GroupVersionKind{Group: "k8s.cni.cncf.io", Version: "v1", Kind: "NetworkAttachmentDefinition"}
 
 // Get takes name of the networkAttachmentDefinition, and returns the corresponding networkAttachmentDefinition object, and an error if there is any.
-func (c *FakeNetworkAttachmentDefinitions) Get(name string, options v1.GetOptions) (result *k8scnicncfiov1.NetworkAttachmentDefinition, err error) {
+func (c *FakeNetworkAttachmentDefinitions) Get(ctx context.Context, name string, options v1.GetOptions) (result *k8scnicncfiov1.NetworkAttachmentDefinition, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(networkattachmentdefinitionsResource, c.ns, name), &k8scnicncfiov1.NetworkAttachmentDefinition{})
 
@@ -50,7 +52,7 @@ func (c *FakeNetworkAttachmentDefinitions) Get(name string, options v1.GetOption
 }
 
 // List takes label and field selectors, and returns the list of NetworkAttachmentDefinitions that match those selectors.
-func (c *FakeNetworkAttachmentDefinitions) List(opts v1.ListOptions) (result *k8scnicncfiov1.NetworkAttachmentDefinitionList, err error) {
+func (c *FakeNetworkAttachmentDefinitions) List(ctx context.Context, opts v1.ListOptions) (result *k8scnicncfiov1.NetworkAttachmentDefinitionList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(networkattachmentdefinitionsResource, networkattachmentdefinitionsKind, c.ns, opts), &k8scnicncfiov1.NetworkAttachmentDefinitionList{})
 
@@ -72,14 +74,14 @@ func (c *FakeNetworkAttachmentDefinitions) List(opts v1.ListOptions) (result *k8
 }
 
 // Watch returns a watch.Interface that watches the requested networkAttachmentDefinitions.
-func (c *FakeNetworkAttachmentDefinitions) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeNetworkAttachmentDefinitions) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(networkattachmentdefinitionsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a networkAttachmentDefinition and creates it.  Returns the server's representation of the networkAttachmentDefinition, and an error, if there is any.
-func (c *FakeNetworkAttachmentDefinitions) Create(networkAttachmentDefinition *k8scnicncfiov1.NetworkAttachmentDefinition) (result *k8scnicncfiov1.NetworkAttachmentDefinition, err error) {
+func (c *FakeNetworkAttachmentDefinitions) Create(ctx context.Context, networkAttachmentDefinition *k8scnicncfiov1.NetworkAttachmentDefinition, opts v1.CreateOptions) (result *k8scnicncfiov1.NetworkAttachmentDefinition, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(networkattachmentdefinitionsResource, c.ns, networkAttachmentDefinition), &k8scnicncfiov1.NetworkAttachmentDefinition{})
 
@@ -90,7 +92,7 @@ func (c *FakeNetworkAttachmentDefinitions) Create(networkAttachmentDefinition *k
 }
 
 // Update takes the representation of a networkAttachmentDefinition and updates it. Returns the server's representation of the networkAttachmentDefinition, and an error, if there is any.
-func (c *FakeNetworkAttachmentDefinitions) Update(networkAttachmentDefinition *k8scnicncfiov1.NetworkAttachmentDefinition) (result *k8scnicncfiov1.NetworkAttachmentDefinition, err error) {
+func (c *FakeNetworkAttachmentDefinitions) Update(ctx context.Context, networkAttachmentDefinition *k8scnicncfiov1.NetworkAttachmentDefinition, opts v1.UpdateOptions) (result *k8scnicncfiov1.NetworkAttachmentDefinition, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(networkattachmentdefinitionsResource, c.ns, networkAttachmentDefinition), &k8scnicncfiov1.NetworkAttachmentDefinition{})
 
@@ -101,7 +103,7 @@ func (c *FakeNetworkAttachmentDefinitions) Update(networkAttachmentDefinition *k
 }
 
 // Delete takes name of the networkAttachmentDefinition and deletes it. Returns an error if one occurs.
-func (c *FakeNetworkAttachmentDefinitions) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeNetworkAttachmentDefinitions) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(networkattachmentdefinitionsResource, c.ns, name), &k8scnicncfiov1.NetworkAttachmentDefinition{})
 
@@ -109,15 +111,15 @@ func (c *FakeNetworkAttachmentDefinitions) Delete(name string, options *v1.Delet
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeNetworkAttachmentDefinitions) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(networkattachmentdefinitionsResource, c.ns, listOptions)
+func (c *FakeNetworkAttachmentDefinitions) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(networkattachmentdefinitionsResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &k8scnicncfiov1.NetworkAttachmentDefinitionList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched networkAttachmentDefinition.
-func (c *FakeNetworkAttachmentDefinitions) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *k8scnicncfiov1.NetworkAttachmentDefinition, err error) {
+func (c *FakeNetworkAttachmentDefinitions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *k8scnicncfiov1.NetworkAttachmentDefinition, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(networkattachmentdefinitionsResource, c.ns, name, pt, data, subresources...), &k8scnicncfiov1.NetworkAttachmentDefinition{})
 

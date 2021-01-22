@@ -1,12 +1,13 @@
 package expose
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -45,11 +46,11 @@ func NewExposeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Short: "Expose a virtual machine instance, virtual machine, or virtual machine instance replica set as a new service.",
 		Long: `Looks up a virtual machine instance, virtual machine or virtual machine instance replica set by name and use its selector as the selector for a new service on the specified port.
 A virtual machine instance replica set will be exposed as a service only if its selector is convertible to a selector that service supports, i.e. when the selector contains only the matchLabels component.
-Note that if no port is specified via --port and the exposed resource has multiple ports, all will be re-used by the new service. 
+Note that if no port is specified via --port and the exposed resource has multiple ports, all will be re-used by the new service.
 Also if no labels are specified, the new service will re-use the labels from the resource it exposes.
-        
+
 Possible types are (case insensitive, both single and plurant forms):
-        
+
 virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplicaset (vmirs)`,
 		Example: usage(),
 		Args:    templates.ExactArgs("expose", 2),
@@ -146,7 +147,7 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 	}
 
 	// does a plain quorum read from the apiserver
-	options := k8smetav1.GetOptions{}
+	options := metav1.GetOptions{}
 	var serviceSelector map[string]string
 	ports := []v1.ServicePort{}
 
@@ -200,7 +201,7 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 
 	// actually create the service
 	service := &v1.Service{
-		ObjectMeta: k8smetav1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: namespace,
 		},
@@ -210,7 +211,7 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 			ClusterIP:      clusterIP,
 			Type:           serviceType,
 			LoadBalancerIP: loadBalancerIP,
-			IPFamily:       &ipFamily,
+			IPFamilies:     []v1.IPFamily{ipFamily},
 		},
 	}
 
@@ -220,7 +221,7 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 	}
 
 	// try to create the service on the cluster
-	_, err = virtClient.CoreV1().Services(namespace).Create(service)
+	_, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), service, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("service creation failed: %v", err)
 	}

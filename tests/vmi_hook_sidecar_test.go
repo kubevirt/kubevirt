@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -64,7 +65,7 @@ var _ = Describe("HookSidecars", func() {
 	Describe("[rfe_id:2667][crit:medium][vendor:cnv-qe@redhat.com][level:component] VMI definition", func() {
 		getVMIPod := func(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
 			podSelector := tests.UnfinishedVMIPodSelector(vmi)
-			vmiPods, err := virtClient.CoreV1().Pods(vmi.GetNamespace()).List(podSelector)
+			vmiPods, err := virtClient.CoreV1().Pods(vmi.GetNamespace()).List(context.Background(), podSelector)
 
 			if err != nil || len(vmiPods.Items) != 1 {
 				return nil, fmt.Errorf("could not retrieve the VMI pod: %v", err)
@@ -164,7 +165,7 @@ func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 			TailLines: &tailLines,
 			Container: sidecarContainerName,
 		}).
-		DoRaw()
+		DoRaw(context.Background())
 	Expect(err).To(BeNil())
 
 	return string(logsRaw)

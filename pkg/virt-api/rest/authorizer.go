@@ -22,12 +22,14 @@ package rest
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE -imports restful=github.com/emicklei/go-restful
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
 
 	restful "github.com/emicklei/go-restful"
 	authorization "k8s.io/api/authorization/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
 	restclient "k8s.io/client-go/rest"
 
@@ -268,7 +270,7 @@ func (a *authorizor) Authorize(req *restful.Request) (bool, string, error) {
 		return false, fmt.Sprintf("%v", err), nil
 	}
 
-	result, err := a.subjectAccessReview.Create(r)
+	result, err := a.subjectAccessReview.Create(context.Background(), r, metav1.CreateOptions{})
 	if err != nil {
 		return false, "internal server error", err
 	}

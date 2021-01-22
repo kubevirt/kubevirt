@@ -20,6 +20,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 
@@ -44,7 +45,7 @@ func main() {
 		}
 		restClient := client.RestClient()
 		var result rest.Result
-		result = restClient.Get().Resource(resource).Do()
+		result = restClient.Get().Resource(resource).Do(context.Background())
 		err = result.Error()
 		if err != nil {
 			panic(err)

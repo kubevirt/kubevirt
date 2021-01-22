@@ -1,6 +1,7 @@
 package installstrategy
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -46,7 +47,7 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 	obj, exists, _ := r.stores.ValidationWebhookCache.Get(webhook)
 	// since these objects was in the past unmanaged, reconcile and pick it up if it exists
 	if !exists {
-		cachedWebhook, err = r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(webhook.Name, metav1.GetOptions{})
+		cachedWebhook, err = r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(context.Background(), webhook.Name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			exists = false
 		} else if err != nil {
@@ -71,7 +72,7 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 	injectOperatorMetadata(kv, &webhook.ObjectMeta, version, imageRegistry, id, true)
 	if !exists {
 		r.expectations.ValidationWebhook.RaiseExpectations(kvkey, 1, 0)
-		_, err := r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(webhook)
+		_, err := r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(context.Background(), webhook, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.ValidationWebhook.LowerExpectations(kvkey, 1, 0)
 			return fmt.Errorf("unable to create validatingwebhook %+v: %v", webhook, err)
@@ -98,7 +99,7 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 		}
 		ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/webhooks", "value": %s }`, string(webhooks)))
 
-		_, err = r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(webhook.Name, types.JSONPatchType, generatePatchBytes(ops))
+		_, err = r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to patch validatingwebhookconfiguration %+v: %v", webhook, err)
 		}
@@ -143,7 +144,7 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 	obj, exists, _ := r.stores.MutatingWebhookCache.Get(webhook)
 	// since these objects was in the past unmanaged, reconcile and pick it up if it exists
 	if !exists {
-		cachedWebhook, err = r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(webhook.Name, metav1.GetOptions{})
+		cachedWebhook, err = r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(context.Background(), webhook.Name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			exists = false
 		} else if err != nil {
@@ -168,7 +169,7 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 	injectOperatorMetadata(kv, &webhook.ObjectMeta, version, imageRegistry, id, true)
 	if !exists {
 		r.expectations.MutatingWebhook.RaiseExpectations(kvkey, 1, 0)
-		_, err := r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(webhook)
+		_, err := r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(context.Background(), webhook, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.MutatingWebhook.LowerExpectations(kvkey, 1, 0)
 			return fmt.Errorf("unable to create mutatingwebhook %+v: %v", webhook, err)
@@ -195,7 +196,7 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 		}
 		ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/webhooks", "value": %s }`, string(webhooks)))
 
-		_, err = r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Patch(webhook.Name, types.JSONPatchType, generatePatchBytes(ops))
+		_, err = r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to patch mutatingwebhookconfiguration %+v: %v", webhook, err)
 		}

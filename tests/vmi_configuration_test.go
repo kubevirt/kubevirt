@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -833,7 +834,7 @@ var _ = Describe("Configurations", func() {
 						},
 					},
 				}
-				_, err := virtClient.CoreV1().LimitRanges(tests.NamespaceTestDefault).Create(&limitRangeObj)
+				_, err := virtClient.CoreV1().LimitRanges(tests.NamespaceTestDefault).Create(context.Background(), &limitRangeObj, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting a VirtualMachineInstance")
@@ -870,7 +871,7 @@ var _ = Describe("Configurations", func() {
 						},
 					},
 				}
-				_, err := virtClient.CoreV1().LimitRanges(tests.NamespaceTestDefault).Create(&limitRangeObj)
+				_, err := virtClient.CoreV1().LimitRanges(tests.NamespaceTestDefault).Create(context.Background(), &limitRangeObj, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting a VirtualMachineInstance")
@@ -912,7 +913,7 @@ var _ = Describe("Configurations", func() {
 						},
 					},
 				}
-				_, err := virtClient.CoreV1().LimitRanges(tests.NamespaceTestDefault).Create(&limitRangeObj)
+				_, err := virtClient.CoreV1().LimitRanges(tests.NamespaceTestDefault).Create(context.Background(), &limitRangeObj, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
@@ -945,7 +946,7 @@ var _ = Describe("Configurations", func() {
 			verifyHugepagesConsumption := func() bool {
 				// TODO: we need to check hugepages state via node allocated resources, but currently it has the issue
 				// https://github.com/kubernetes/kubernetes/issues/64691
-				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(hugepagesVmi))
+				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(context.Background(), tests.UnfinishedVMIPodSelector(hugepagesVmi))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(1))
 
@@ -1056,7 +1057,7 @@ var _ = Describe("Configurations", func() {
 
 			Context("with unsupported page size", func() {
 				It("[test_id:1673]should failed to schedule the pod", func() {
-					nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
+					nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					hugepageType2Mi := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + "2Mi")
@@ -1932,7 +1933,7 @@ var _ = Describe("Configurations", func() {
 		isNodeHasCPUManagerLabel := func(nodeName string) bool {
 			Expect(nodeName).ToNot(BeEmpty())
 
-			nodeObject, err := virtClient.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+			nodeObject, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			nodeHaveCpuManagerLabel := false
 			nodeLabels := nodeObject.GetLabels()
@@ -1947,7 +1948,7 @@ var _ = Describe("Configurations", func() {
 		}
 
 		BeforeEach(func() {
-			nodes, err = virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
+			nodes, err = virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 			tests.PanicOnError(err)
 			if len(nodes.Items) == 1 {
 				Skip("Skip cpu pinning test that requires multiple nodes when only one node is present.")
@@ -1961,19 +1962,19 @@ var _ = Describe("Configurations", func() {
 			It("[test_id:1684]should set the cpumanager label to false when it's not running", func() {
 
 				By("adding a cpumanger=true label to a node")
-				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.CPUManager + "=" + "false"})
+				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.CPUManager + "=" + "false"})
 				Expect(err).ToNot(HaveOccurred())
 				if len(nodes.Items) == 0 {
 					Skip("Skip CPU manager test on clusters where CPU manager is running on all worker/compute nodes")
 				}
 
 				node := &nodes.Items[0]
-				node, err = virtClient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, v1.CPUManager)))
+				node, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, v1.CPUManager)), metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("setting the cpumanager label back to false")
 				Eventually(func() string {
-					n, err := virtClient.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
+					n, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return n.Labels[v1.CPUManager]
 				}, 3*time.Minute, 2*time.Second).Should(Equal("false"))

@@ -1,6 +1,7 @@
 package imageupload_test
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -160,11 +161,11 @@ var _ = Describe("ImageUpload", func() {
 	addPodPhaseAnnotation := func() {
 		defer GinkgoRecover()
 		time.Sleep(10 * time.Millisecond)
-		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Get(targetName, metav1.GetOptions{})
+		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).To(BeNil())
 		pvc.Annotations[podPhaseAnnotation] = "Running"
 		pvc.Annotations[podReadyAnnotation] = "true"
-		pvc, err = kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Update(pvc)
+		pvc, err = kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
 		if err != nil {
 			fmt.Fprintf(GinkgoWriter, "Error: %v\n", err)
 		}
@@ -174,10 +175,10 @@ var _ = Describe("ImageUpload", func() {
 	addDvPhase := func() {
 		defer GinkgoRecover()
 		time.Sleep(10 * time.Millisecond)
-		dv, err := cdiClient.CdiV1alpha1().DataVolumes(targetNamespace).Get(targetName, metav1.GetOptions{})
+		dv, err := cdiClient.CdiV1alpha1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).To(BeNil())
 		dv.Status.Phase = cdiv1.UploadReady
-		dv, err = cdiClient.CdiV1alpha1().DataVolumes(targetNamespace).Update(dv)
+		dv, err = cdiClient.CdiV1alpha1().DataVolumes(targetNamespace).Update(context.Background(), dv, metav1.UpdateOptions{})
 		if err != nil {
 			fmt.Fprintf(GinkgoWriter, "Error: %v\n", err)
 		}
@@ -191,7 +192,7 @@ var _ = Describe("ImageUpload", func() {
 		pvc.Spec.VolumeMode = dv.Spec.PVC.VolumeMode
 		pvc.Spec.AccessModes = append([]v1.PersistentVolumeAccessMode(nil), dv.Spec.PVC.AccessModes...)
 		pvc.Spec.StorageClassName = dv.Spec.PVC.StorageClassName
-		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Create(pvc)
+		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 		Expect(err).To(BeNil())
 	}
 
@@ -263,7 +264,7 @@ var _ = Describe("ImageUpload", func() {
 	}
 
 	validatePVCArgs := func(mode v1.PersistentVolumeMode) {
-		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Get(targetName, metav1.GetOptions{})
+		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).To(BeNil())
 
 		_, ok := pvc.Annotations[uploadRequestAnnotation]
@@ -281,7 +282,7 @@ var _ = Describe("ImageUpload", func() {
 	}
 
 	validateDataVolumeArgs := func(mode v1.PersistentVolumeMode) {
-		dv, err := cdiClient.CdiV1alpha1().DataVolumes(targetNamespace).Get(targetName, metav1.GetOptions{})
+		dv, err := cdiClient.CdiV1alpha1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).To(BeNil())
 
 		validatePVCSpec(dv.Spec.PVC, mode)
@@ -296,7 +297,7 @@ var _ = Describe("ImageUpload", func() {
 	}
 
 	expectedStorageClassMatchesActual := func(storageClass string) {
-		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Get(targetName, metav1.GetOptions{})
+		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).To(BeNil())
 		_, ok := pvc.Annotations[uploadRequestAnnotation]
 		Expect(ok).To(BeTrue())
@@ -318,7 +319,7 @@ var _ = Describe("ImageUpload", func() {
 	}
 
 	updateCDIConfig := func(config *cdiv1.CDIConfig) {
-		config, err := cdiClient.CdiV1alpha1().CDIConfigs().Update(config)
+		config, err := cdiClient.CdiV1alpha1().CDIConfigs().Update(context.Background(), config, metav1.UpdateOptions{})
 		if err != nil {
 			fmt.Fprintf(GinkgoWriter, "Error: %v\n", err)
 		}
@@ -527,7 +528,7 @@ var _ = Describe("ImageUpload", func() {
 			testInit(http.StatusOK)
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--insecure", "--image-path", imagePath)
-			config, err := cdiClient.CdiV1alpha1().CDIConfigs().Get(configName, metav1.GetOptions{})
+			config, err := cdiClient.CdiV1alpha1().CDIConfigs().Get(context.Background(), configName, metav1.GetOptions{})
 			Expect(err).To(BeNil())
 			config.Status.UploadProxyURL = nil
 			updateCDIConfig(config)

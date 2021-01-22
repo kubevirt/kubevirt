@@ -1,10 +1,12 @@
 package installstrategy
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/client-go/log"
@@ -36,7 +38,7 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1beta1.CustomResourceDefinition)
 	if !exists {
 		// Create non existent
 		r.expectations.Crd.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
+		_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(context.Background(), crd, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Crd.LowerExpectations(r.kvKey, 1, 0)
 			return fmt.Errorf("unable to create crd %+v: %v", crd, err)
@@ -71,7 +73,7 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1beta1.CustomResourceDefinition)
 		}
 		ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
 
-		_, err = ext.ApiextensionsV1beta1().CustomResourceDefinitions().Patch(crd.Name, types.JSONPatchType, generatePatchBytes(ops))
+		_, err = ext.ApiextensionsV1beta1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to patch crd %+v: %v", crd, err)
 		}
@@ -130,7 +132,7 @@ func (r *Reconciler) rolloutNonCompatibleCRDChange(crd *extv1beta1.CustomResourc
 		}
 		ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
 
-		_, err = ext.ApiextensionsV1beta1().CustomResourceDefinitions().Patch(crd.Name, types.JSONPatchType, generatePatchBytes(ops))
+		_, err = ext.ApiextensionsV1beta1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to patch crd %+v: %v", crd, err)
 		}

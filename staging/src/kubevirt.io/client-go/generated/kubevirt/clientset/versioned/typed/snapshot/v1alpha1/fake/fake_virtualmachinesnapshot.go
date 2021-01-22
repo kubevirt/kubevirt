@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -40,7 +42,7 @@ var virtualmachinesnapshotsResource = schema.GroupVersionResource{Group: "snapsh
 var virtualmachinesnapshotsKind = schema.GroupVersionKind{Group: "snapshot.kubevirt.io", Version: "v1alpha1", Kind: "VirtualMachineSnapshot"}
 
 // Get takes name of the virtualMachineSnapshot, and returns the corresponding virtualMachineSnapshot object, and an error if there is any.
-func (c *FakeVirtualMachineSnapshots) Get(name string, options v1.GetOptions) (result *v1alpha1.VirtualMachineSnapshot, err error) {
+func (c *FakeVirtualMachineSnapshots) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.VirtualMachineSnapshot, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(virtualmachinesnapshotsResource, c.ns, name), &v1alpha1.VirtualMachineSnapshot{})
 
@@ -51,7 +53,7 @@ func (c *FakeVirtualMachineSnapshots) Get(name string, options v1.GetOptions) (r
 }
 
 // List takes label and field selectors, and returns the list of VirtualMachineSnapshots that match those selectors.
-func (c *FakeVirtualMachineSnapshots) List(opts v1.ListOptions) (result *v1alpha1.VirtualMachineSnapshotList, err error) {
+func (c *FakeVirtualMachineSnapshots) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.VirtualMachineSnapshotList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(virtualmachinesnapshotsResource, virtualmachinesnapshotsKind, c.ns, opts), &v1alpha1.VirtualMachineSnapshotList{})
 
@@ -73,14 +75,14 @@ func (c *FakeVirtualMachineSnapshots) List(opts v1.ListOptions) (result *v1alpha
 }
 
 // Watch returns a watch.Interface that watches the requested virtualMachineSnapshots.
-func (c *FakeVirtualMachineSnapshots) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeVirtualMachineSnapshots) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(virtualmachinesnapshotsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a virtualMachineSnapshot and creates it.  Returns the server's representation of the virtualMachineSnapshot, and an error, if there is any.
-func (c *FakeVirtualMachineSnapshots) Create(virtualMachineSnapshot *v1alpha1.VirtualMachineSnapshot) (result *v1alpha1.VirtualMachineSnapshot, err error) {
+func (c *FakeVirtualMachineSnapshots) Create(ctx context.Context, virtualMachineSnapshot *v1alpha1.VirtualMachineSnapshot, opts v1.CreateOptions) (result *v1alpha1.VirtualMachineSnapshot, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(virtualmachinesnapshotsResource, c.ns, virtualMachineSnapshot), &v1alpha1.VirtualMachineSnapshot{})
 
@@ -91,7 +93,7 @@ func (c *FakeVirtualMachineSnapshots) Create(virtualMachineSnapshot *v1alpha1.Vi
 }
 
 // Update takes the representation of a virtualMachineSnapshot and updates it. Returns the server's representation of the virtualMachineSnapshot, and an error, if there is any.
-func (c *FakeVirtualMachineSnapshots) Update(virtualMachineSnapshot *v1alpha1.VirtualMachineSnapshot) (result *v1alpha1.VirtualMachineSnapshot, err error) {
+func (c *FakeVirtualMachineSnapshots) Update(ctx context.Context, virtualMachineSnapshot *v1alpha1.VirtualMachineSnapshot, opts v1.UpdateOptions) (result *v1alpha1.VirtualMachineSnapshot, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(virtualmachinesnapshotsResource, c.ns, virtualMachineSnapshot), &v1alpha1.VirtualMachineSnapshot{})
 
@@ -103,7 +105,7 @@ func (c *FakeVirtualMachineSnapshots) Update(virtualMachineSnapshot *v1alpha1.Vi
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeVirtualMachineSnapshots) UpdateStatus(virtualMachineSnapshot *v1alpha1.VirtualMachineSnapshot) (*v1alpha1.VirtualMachineSnapshot, error) {
+func (c *FakeVirtualMachineSnapshots) UpdateStatus(ctx context.Context, virtualMachineSnapshot *v1alpha1.VirtualMachineSnapshot, opts v1.UpdateOptions) (*v1alpha1.VirtualMachineSnapshot, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateSubresourceAction(virtualmachinesnapshotsResource, "status", c.ns, virtualMachineSnapshot), &v1alpha1.VirtualMachineSnapshot{})
 
@@ -114,7 +116,7 @@ func (c *FakeVirtualMachineSnapshots) UpdateStatus(virtualMachineSnapshot *v1alp
 }
 
 // Delete takes name of the virtualMachineSnapshot and deletes it. Returns an error if one occurs.
-func (c *FakeVirtualMachineSnapshots) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeVirtualMachineSnapshots) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(virtualmachinesnapshotsResource, c.ns, name), &v1alpha1.VirtualMachineSnapshot{})
 
@@ -122,15 +124,15 @@ func (c *FakeVirtualMachineSnapshots) Delete(name string, options *v1.DeleteOpti
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeVirtualMachineSnapshots) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(virtualmachinesnapshotsResource, c.ns, listOptions)
+func (c *FakeVirtualMachineSnapshots) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(virtualmachinesnapshotsResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.VirtualMachineSnapshotList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched virtualMachineSnapshot.
-func (c *FakeVirtualMachineSnapshots) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.VirtualMachineSnapshot, err error) {
+func (c *FakeVirtualMachineSnapshots) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.VirtualMachineSnapshot, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(virtualmachinesnapshotsResource, c.ns, name, pt, data, subresources...), &v1alpha1.VirtualMachineSnapshot{})
 

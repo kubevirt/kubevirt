@@ -20,6 +20,7 @@
 package healthz
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -40,7 +41,7 @@ func KubeConnectionHealthzFuncFactory(clusterConfig *virtconfig.ClusterConfig) f
 			return
 		}
 
-		body, err := cli.CoreV1().RESTClient().Get().AbsPath("/version").Do().Raw()
+		body, err := cli.CoreV1().RESTClient().Get().AbsPath("/version").Do(context.Background()).Raw()
 		if err != nil {
 			unhealthy(err, clusterConfig, response)
 			return

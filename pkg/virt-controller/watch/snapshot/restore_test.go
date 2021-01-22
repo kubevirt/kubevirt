@@ -1,6 +1,8 @@
 package snapshot
 
 import (
+	"context"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -601,7 +603,7 @@ var _ = Describe("Restore controlleer", func() {
 				addVM(vm)
 				controller.processVMRestoreWorkItem()
 
-				l, err := cdiClient.CdiV1alpha1().DataVolumes("").List(metav1.ListOptions{})
+				l, err := cdiClient.CdiV1alpha1().DataVolumes("").List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(l.Items)).To(BeZero())
 				testutils.ExpectEvent(recorder, "VirtualMachineRestoreComplete")

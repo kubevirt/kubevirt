@@ -1,10 +1,12 @@
 package installstrategy
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	secv1 "github.com/openshift/api/security/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/client-go/log"
@@ -31,7 +33,7 @@ func (r *Reconciler) createOrUpdateSCC() error {
 		injectOperatorMetadata(r.kv, &scc.ObjectMeta, version, imageRegistry, id, true)
 		if !exists {
 			r.expectations.SCC.RaiseExpectations(r.kvKey, 1, 0)
-			_, err := sec.SecurityContextConstraints().Create(scc)
+			_, err := sec.SecurityContextConstraints().Create(context.Background(), scc, metav1.CreateOptions{})
 			if err != nil {
 				r.expectations.SCC.LowerExpectations(r.kvKey, 1, 0)
 				return fmt.Errorf("unable to create SCC %+v: %v", scc, err)
@@ -41,7 +43,7 @@ func (r *Reconciler) createOrUpdateSCC() error {
 		} else if !objectMatchesVersion(&cachedSCC.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
 			scc.ObjectMeta = *cachedSCC.ObjectMeta.DeepCopy()
 			injectOperatorMetadata(r.kv, &scc.ObjectMeta, version, imageRegistry, id, true)
-			_, err := sec.SecurityContextConstraints().Update(scc)
+			_, err := sec.SecurityContextConstraints().Update(context.Background(), scc, metav1.UpdateOptions{})
 			if err != nil {
 				return fmt.Errorf("Unable to update %s SecurityContextConstraints", scc.Name)
 			}
@@ -94,7 +96,7 @@ func (r *Reconciler) removeKvServiceAccountsFromDefaultSCC(targetNamespace strin
 		test := fmt.Sprintf(`{ "op": "test", "path": "/users", "value": %s }`, string(oldUserBytes))
 		patch := fmt.Sprintf(`{ "op": "replace", "path": "/users", "value": %s }`, string(userBytes))
 
-		_, err = r.clientset.SecClient().SecurityContextConstraints().Patch("privileged", types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)))
+		_, err = r.clientset.SecClient().SecurityContextConstraints().Patch(context.Background(), "privileged", types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)), metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to patch scc: %v", err)
 		}

@@ -20,6 +20,8 @@
 package rest
 
 import (
+	"context"
+
 	"crypto/tls"
 	goerror "errors"
 	"fmt"
@@ -413,7 +415,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 				return
 			}
 			// set termincationGracePeriod and delete the VMI pod to trigger a forced restart
-			err = app.virtCli.CoreV1().Pods(namespace).Delete(vmiPodname, &k8smetav1.DeleteOptions{GracePeriodSeconds: bodyStruct.GracePeriodSeconds})
+			err = app.virtCli.CoreV1().Pods(namespace).Delete(context.Background(), vmiPodname, k8smetav1.DeleteOptions{GracePeriodSeconds: bodyStruct.GracePeriodSeconds})
 			if err != nil {
 				if !errors.IsNotFound(err) {
 					writeError(errors.NewInternalError(err), response)
@@ -524,7 +526,7 @@ func (app *SubresourceAPIApp) findPod(namespace string, vmi *v1.VirtualMachineIn
 		return "", err
 	}
 	selector := k8smetav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
-	podList, err := app.virtCli.CoreV1().Pods(namespace).List(selector)
+	podList, err := app.virtCli.CoreV1().Pods(namespace).List(context.Background(), selector)
 	if err != nil {
 		return "", err
 	}

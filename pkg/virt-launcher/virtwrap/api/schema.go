@@ -17,8 +17,6 @@
  *
  */
 
-//go:generate deepcopy-gen -i . --go-header-file ../../../../hack/boilerplate/boilerplate.go.txt
-
 package api
 
 import (

@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -53,7 +54,7 @@ var _ = Describe("Guest Access Credentials", func() {
 
 		LaunchVMI = func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 			By("Starting a VirtualMachineInstance")
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
 			Expect(err).To(BeNil())
 
 			By("Waiting the VirtualMachineInstance start")
@@ -119,7 +120,7 @@ var _ = Describe("Guest Access Credentials", func() {
 					"my-key3": []byte(key3),
 				},
 			}
-			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(&secret)
+			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 			Expect(err).To(BeNil())
 
 			LaunchVMI(vmi)
@@ -194,7 +195,7 @@ var _ = Describe("Guest Access Credentials", func() {
 					"fedora": []byte(customPassword),
 				},
 			}
-			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(&secret)
+			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 			Expect(err).To(BeNil())
 
 			LaunchVMI(vmi)
@@ -272,7 +273,7 @@ var _ = Describe("Guest Access Credentials", func() {
 					"my-key3": []byte(key3),
 				},
 			}
-			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(&secret)
+			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 			Expect(err).To(BeNil())
 
 			LaunchVMI(vmi)

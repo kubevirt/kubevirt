@@ -1,9 +1,11 @@
 package installstrategy
 
 import (
+	"context"
 	"fmt"
 
 	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
@@ -27,7 +29,7 @@ func (r *Reconciler) createOrUpdateClusterRole(cr *rbacv1.ClusterRole, imageTag 
 	if !exists {
 		// Create non existent
 		r.expectations.ClusterRole.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := rbac.ClusterRoles().Create(cr)
+		_, err := rbac.ClusterRoles().Create(context.Background(), cr, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.ClusterRole.LowerExpectations(r.kvKey, 1, 0)
 			return fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
@@ -35,7 +37,7 @@ func (r *Reconciler) createOrUpdateClusterRole(cr *rbacv1.ClusterRole, imageTag 
 		log.Log.V(2).Infof("clusterrole %v created", cr.GetName())
 	} else if !objectMatchesVersion(&cachedCr.ObjectMeta, imageTag, imageRegistry, id, r.kv.GetGeneration()) {
 		// Update existing, we don't need to patch for rbac rules.
-		_, err = rbac.ClusterRoles().Update(cr)
+		_, err = rbac.ClusterRoles().Update(context.Background(), cr, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to update clusterrole %+v: %v", cr, err)
 		}
@@ -74,7 +76,7 @@ func (r *Reconciler) createOrUpdateRoleBinding(rb *rbacv1.RoleBinding,
 	if !exists {
 		// Create non existent
 		r.expectations.RoleBinding.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := rbac.RoleBindings(namespace).Create(rb)
+		_, err := rbac.RoleBindings(namespace).Create(context.Background(), rb, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.RoleBinding.LowerExpectations(r.kvKey, 1, 0)
 			return fmt.Errorf("unable to create rolebinding %+v: %v", rb, err)
@@ -83,7 +85,7 @@ func (r *Reconciler) createOrUpdateRoleBinding(rb *rbacv1.RoleBinding,
 		log.Log.V(2).Infof("rolebinding %v created", rb.GetName())
 	} else if !objectMatchesVersion(&cachedRb.ObjectMeta, imageTag, imageRegistry, id, r.kv.GetGeneration()) {
 		// Update existing, we don't need to patch for rbac rules.
-		_, err = rbac.RoleBindings(namespace).Update(rb)
+		_, err = rbac.RoleBindings(namespace).Update(context.Background(), rb, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to update rolebinding %+v: %v", rb, err)
 		}
@@ -121,7 +123,7 @@ func (r *Reconciler) createOrUpdateRole(role *rbacv1.Role,
 	if !exists {
 		// Create non existent
 		r.expectations.Role.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := rbac.Roles(namespace).Create(role)
+		_, err := rbac.Roles(namespace).Create(context.Background(), role, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Role.LowerExpectations(r.kvKey, 1, 0)
 			return fmt.Errorf("unable to create role %+v: %v", r, err)
@@ -130,7 +132,7 @@ func (r *Reconciler) createOrUpdateRole(role *rbacv1.Role,
 		log.Log.V(2).Infof("role %v created", role.GetName())
 	} else if !objectMatchesVersion(&cachedR.ObjectMeta, imageTag, imageRegistry, id, r.kv.GetGeneration()) {
 		// Update existing, we don't need to patch for rbac rules.
-		_, err = rbac.Roles(namespace).Update(role)
+		_, err = rbac.Roles(namespace).Update(context.Background(), role, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to update role %+v: %v", r, err)
 		}
@@ -162,7 +164,7 @@ func (r *Reconciler) createOrUpdateClusterRoleBinding(crb *rbacv1.ClusterRoleBin
 	if !exists {
 		// Create non existent
 		r.expectations.ClusterRoleBinding.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := rbac.ClusterRoleBindings().Create(crb)
+		_, err := rbac.ClusterRoleBindings().Create(context.Background(), crb, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.ClusterRoleBinding.LowerExpectations(r.kvKey, 1, 0)
 			return fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
@@ -170,7 +172,7 @@ func (r *Reconciler) createOrUpdateClusterRoleBinding(crb *rbacv1.ClusterRoleBin
 		log.Log.V(2).Infof("clusterrolebinding %v created", crb.GetName())
 	} else if !objectMatchesVersion(&cachedCrb.ObjectMeta, imageTag, imageRegistry, id, r.kv.GetGeneration()) {
 		// Update existing, we don't need to patch for rbac rules.
-		_, err = rbac.ClusterRoleBindings().Update(crb)
+		_, err = rbac.ClusterRoleBindings().Update(context.Background(), crb, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to update clusterrolebinding %+v: %v", crb, err)
 		}
