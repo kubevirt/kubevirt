@@ -9,9 +9,12 @@ KUBECONFIG_PATH="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig"
 
 MASTER_NODE="${CLUSTER_NAME}-control-plane"
 WORKER_NODE_ROOT="${CLUSTER_NAME}-worker"
+PF_COUNT_PER_NODE=${PF_COUNT_PER_NODE:-1}
 
 OPERATOR_GIT_HASH=8d3c30de8ec5a9a0c9eeb84ea0aa16ba2395cd68  # release-4.4
 SRIOV_OPERATOR_NAMESPACE="sriov-network-operator"
+
+[ $PF_COUNT_PER_NODE -le 0 ] && echo "FATAL: PF_COUNT_PER_NODE must be a positive integer" >&2 && exit 1
 
 # This function gets a command and invoke it repeatedly
 # until the command return code is zero
@@ -219,26 +222,34 @@ function apply_sriov_node_policy {
 
 function move_sriov_pfs_netns_to_node {
   local -r node=$1
+  local -r pf_count_per_node=$2
   local -r pid="$(docker inspect -f '{{.State.Pid}}' $node)"
   local pf_array=()
 
   mkdir -p /var/run/netns/
   ln -sf /proc/$pid/ns/net "/var/run/netns/$node"
 
-  local -r sriov_pfs=( /sys/class/net/*/device/sriov_numvfs )
-  for ifs in "${sriov_pfs[@]}"; do
-    local ifs_name="${ifs%%/device/*}"
-    ifs_name="${ifs_name##*/}"
+  local -r sriov_pfs=( $(find /sys/class/net/*/device/sriov_numvfs) )
+  [ "${#sriov_pfs[@]}" -eq 0 ] && echo "FATAL: Could not find available sriov PFs" >&2 && return 1
 
-    if [ $(echo "${PF_BLACKLIST[@]}" | grep "${ifs_name}") ]; then
+  for pf in "${sriov_pfs[@]}"; do
+    local pf_name="${pf%%/device/*}"
+    pf_name="${pf_name##*/}"
+
+    if [ $(echo "${PF_BLACKLIST[@]}" | grep "${pf_name}") ]; then
       continue
     fi
 
-    ip link set "$ifs_name" netns "$node"
-    pf_array+=($ifs_name)
+    ip link set "$pf_name" netns "$node"
+    pf_array+=("$pf_name")
+    [ "${#pf_array[@]}" -eq "$pf_count_per_node" ] && break
   done
 
-  echo ${pf_array[@]}
+  [ "${#pf_array[@]}" -lt "$pf_count_per_node" ] && \
+    echo "FATAL: Not enough PFs allocated, PF_BLACKLIST (${PF_BLACKLIST[@]}), PF_COUNT_PER_NODE ${PF_COUNT_PER_NODE}" >&2 && \
+    return 1
+
+  echo "${pf_array[@]}"
 }
 
 # The first worker needs to be handled specially as it has no ending number, and sort will not work
@@ -255,7 +266,7 @@ if [[ "$SRIOV_NODE" == "${WORKER_NODE_ROOT}0" ]]; then
   SRIOV_NODE=${WORKER_NODE_ROOT}
 fi
 
-NODE_PFS=($(move_sriov_pfs_netns_to_node $SRIOV_NODE))
+NODE_PFS=($(move_sriov_pfs_netns_to_node "$SRIOV_NODE" "$PF_COUNT_PER_NODE"))
 
 SRIOV_NODE_CMD="docker exec -it -d ${SRIOV_NODE}"
 ${SRIOV_NODE_CMD} mount -o remount,rw /sys     # kind remounts it as readonly when it starts, we need it to be writeable
