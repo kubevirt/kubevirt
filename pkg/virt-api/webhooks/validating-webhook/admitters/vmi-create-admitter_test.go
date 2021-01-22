@@ -26,7 +26,7 @@ import (
 	"strconv"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/rbac"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"

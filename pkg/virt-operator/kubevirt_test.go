@@ -63,9 +63,10 @@ import (
 	"kubevirt.io/client-go/version"
 	kubecontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
-	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/components"
+	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/install"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/rbac"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -873,7 +874,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		// ca certificate
 		caSecret := components.NewCACertSecret(NAMESPACE)
-		components.PopulateSecretWithCertificate(caSecret, nil, &metav1.Duration{Duration: installstrategy.Duration7d})
+		components.PopulateSecretWithCertificate(caSecret, nil, &metav1.Duration{Duration: apply.Duration7d})
 		caCert, _ := components.LoadCertificates(caSecret)
 		caBundle := cert.EncodeCertPEM(caCert.Leaf)
 		all = append(all, caSecret)
@@ -906,7 +907,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		secrets := components.NewCertSecrets(NAMESPACE, config.GetNamespace())
 		for _, secret := range secrets {
-			components.PopulateSecretWithCertificate(secret, caCert, &metav1.Duration{Duration: installstrategy.Duration1d})
+			components.PopulateSecretWithCertificate(secret, caCert, &metav1.Duration{Duration: apply.Duration1d})
 			all = append(all, secret)
 		}
 

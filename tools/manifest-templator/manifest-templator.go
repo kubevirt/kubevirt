@@ -35,8 +35,8 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/rbac"
 	"kubevirt.io/kubevirt/tools/marketplace/helper"
 	"kubevirt.io/kubevirt/tools/util"
 )

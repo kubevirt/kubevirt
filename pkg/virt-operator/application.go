@@ -36,7 +36,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/components"
 	operator_webhooks "kubevirt.io/kubevirt/pkg/virt-operator/webhooks"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -57,7 +57,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/service"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
-	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
+	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 

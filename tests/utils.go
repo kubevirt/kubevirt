@@ -83,7 +83,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/components"
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 

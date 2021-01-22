@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/components"
 )
 
 func verifyArgs(args []string) error {

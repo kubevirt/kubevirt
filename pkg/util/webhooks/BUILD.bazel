@@ -12,7 +12,7 @@ go_library(
     deps = [
         "//pkg/util:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",
-        "//pkg/virt-operator/creation/components:go_default_library",
+        "//pkg/virt-operator/resource/creation/components:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/k8s.io/api/admission/v1beta1:go_default_library",
@@ -38,7 +38,7 @@ go_test(
         "//pkg/certificates/triple:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/util:go_default_library",
-        "//pkg/virt-operator/creation/components:go_default_library",
+        "//pkg/virt-operator/resource/creation/components:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
