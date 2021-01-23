@@ -48,10 +48,16 @@ func MarshallObject(obj interface{}, writer io.Writer) error {
 
 	// remove dataSource from PVCs if empty
 	templates, exists, err := unstructured.NestedSlice(r.Object, "spec", "dataVolumeTemplates")
+	if err != nil {
+		return err
+	}
 	if exists {
 		for _, tmpl := range templates {
 			template := tmpl.(map[string]interface{})
 			_, exists, err = unstructured.NestedString(template, "spec", "pvc", "dataSource")
+			if err != nil {
+				return err
+			}
 			if !exists {
 				unstructured.RemoveNestedField(template, "spec", "pvc", "dataSource")
 			}
@@ -59,12 +65,18 @@ func MarshallObject(obj interface{}, writer io.Writer) error {
 		unstructured.SetNestedSlice(r.Object, templates, "spec", "dataVolumeTemplates")
 	}
 	objects, exists, err := unstructured.NestedSlice(r.Object, "objects")
+	if err != nil {
+		return err
+	}
 	if exists {
 		for _, obj := range objects {
 			object := obj.(map[string]interface{})
 			kind, exists, _ := unstructured.NestedString(object, "kind")
 			if exists && kind == "PersistentVolumeClaim" {
 				_, exists, err = unstructured.NestedString(object, "spec", "dataSource")
+				if err != nil {
+					return err
+				}
 				if !exists {
 					unstructured.RemoveNestedField(object, "spec", "dataSource")
 				}
@@ -74,6 +86,9 @@ func MarshallObject(obj interface{}, writer io.Writer) error {
 	}
 
 	deployments, exists, err := unstructured.NestedSlice(r.Object, "spec", "install", "spec", "deployments")
+	if err != nil {
+		return err
+	}
 	if exists {
 		for _, obj := range deployments {
 			deployment := obj.(map[string]interface{})
@@ -86,6 +101,9 @@ func MarshallObject(obj interface{}, writer io.Writer) error {
 
 	// remove "managed by operator" label...
 	labels, exists, err := unstructured.NestedMap(r.Object, "metadata", "labels")
+	if err != nil {
+		return err
+	}
 	if exists {
 		delete(labels, v1.ManagedByLabel)
 		unstructured.SetNestedMap(r.Object, labels, "metadata", "labels")

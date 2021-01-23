@@ -486,7 +486,7 @@ var _ = Describe("HotplugVolume block devices", func() {
 			Expect(blockDevicePermissions).To(Equal(testPerm))
 			return []byte("Yay"), fmt.Errorf("Error creating block file")
 		}
-		res, err = m.createBlockDeviceFile(testFile, testMajor, testMinor, testPerm)
+		_, err = m.createBlockDeviceFile(testFile, testMajor, testMinor, testPerm)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("Error creating block file"))
 	})
@@ -653,6 +653,7 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 		}
 		diskFile := filepath.Join(path, "disk.img")
 		_, err := os.Create(diskFile)
+		Expect(err).ToNot(HaveOccurred())
 		hotplugdisk.SetKubeletPodsDirectory(tempDir)
 		targetPodPath := filepath.Join(tempDir, string(m.findVirtlauncherUID(vmi)), "volumes/kubernetes.io~empty-dir/hotplug-disks")
 		err = os.MkdirAll(targetPodPath, 0755)

@@ -237,6 +237,15 @@ func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, since time
 			}
 			// TODO may need to be improved, in case that the auditlog is really huge, since stdout is in memory
 			stdout, _, err := tests.ExecuteCommandOnPodV2(virtCli, pod, "virt-handler", []string{"/proc/1/root/bin/dmesg", "--kernel", "--ctime", "--userspace", "--decode"})
+			if err != nil {
+				fmt.Fprintf(
+					os.Stderr,
+					"failed to execute command %s on node %s, stdout: %s, error: %v",
+					[]string{"/proc/1/root/bin/dmesg", "--kernel", "--ctime", "--userspace", "-    -decode"},
+					node, stdout, err,
+				)
+				return
+			}
 			scanner := bufio.NewScanner(bytes.NewBufferString(stdout))
 			add := false
 			for scanner.Scan() {
@@ -292,6 +301,15 @@ func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, since 
 			}
 			// TODO may need to be improved, in case that the auditlog is really huge, since stdout is in memory
 			stdout, _, err := tests.ExecuteCommandOnPodV2(virtCli, pod, "virt-handler", []string{"cat", "/proc/1/root/var/log/audit.log", "/proc/1/root/var/log/audit/audit.log"})
+			if err != nil {
+				fmt.Fprintf(
+					os.Stderr,
+					"failed to execute command %s on node %s, stdout: %s, error: %v",
+					[]string{"cat", "/proc/1/root/var/log/audit.log", "/proc/1/root/var/log/aud    it/audit.log"},
+					node, stdout, err,
+				)
+				return
+			}
 			scanner := bufio.NewScanner(bytes.NewBufferString(stdout))
 			add := false
 			for scanner.Scan() {

@@ -262,7 +262,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 
 				restore := createRestoreDef(vm, snapshot.Name)
 
-				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(restore)
+				_, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(restore)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q is running", vm.Name)))
 			})

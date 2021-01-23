@@ -967,6 +967,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
 					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &k8smetav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
 					Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
 

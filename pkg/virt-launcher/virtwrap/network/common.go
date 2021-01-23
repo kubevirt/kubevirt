@@ -187,6 +187,9 @@ func (h *NetworkUtilsHandler) ConfigureIpv6Forwarding() error {
 
 func (h *NetworkUtilsHandler) IsIpv6Enabled(interfaceName string) (bool, error) {
 	link, err := Handler.LinkByName(interfaceName)
+	if err != nil {
+		return false, err
+	}
 	addrList, err := Handler.AddrList(link, netlink.FAMILY_V6)
 	if err != nil {
 		return false, err

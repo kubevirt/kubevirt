@@ -1377,6 +1377,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			// Create stale socket ghost file
 			err := virtcache.AddGhostRecord(vmi.Namespace, vmi.Name, "made/up/path", vmi.UID)
+			Expect(err).NotTo(HaveOccurred())
 
 			exists := virtcache.HasGhostRecord(vmi.Namespace, vmi.Name)
 			Expect(exists).To(BeTrue())
