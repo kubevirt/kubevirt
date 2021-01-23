@@ -432,7 +432,7 @@ func DoScaleDeployment(namespace string, name string, desired int32) (error, int
 		return err, -1
 	}
 	scale := &autoscalingv1.Scale{Spec: autoscalingv1.ScaleSpec{Replicas: desired}, ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
-	scale, err = virtCli.AppsV1().Deployments(namespace).UpdateScale(name, scale)
+	_, err = virtCli.AppsV1().Deployments(namespace).UpdateScale(name, scale)
 	if err != nil {
 		return err, -1
 	}
@@ -914,9 +914,9 @@ func EnsureKVMPresent() {
 				virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(pod.Spec.NodeName, metav1.GetOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-				kvmAllocatable, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
-				vhostNetAllocatable, ok := virtHandlerNode.Status.Allocatable[services.VhostNetDevice]
-				ready = ready && ok
+				kvmAllocatable, ok1 := virtHandlerNode.Status.Allocatable[services.KvmDevice]
+				vhostNetAllocatable, ok2 := virtHandlerNode.Status.Allocatable[services.VhostNetDevice]
+				ready = ready && ok1 && ok2
 				ready = ready && (kvmAllocatable.Value() > 0) && (vhostNetAllocatable.Value() > 0)
 			}
 			return ready
@@ -2949,6 +2949,7 @@ func WaitUntilVMIReadyWithContext(ctx context.Context, vmi *v1.VirtualMachineIns
 
 	// Fetch the new VirtualMachineInstance with updated status
 	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
 	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
@@ -4223,6 +4224,7 @@ func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.Kub
 
 	kv := GetCurrentKv(virtClient)
 	old, err := json.Marshal(kv)
+	Expect(err).ToNot(HaveOccurred())
 
 	if reflect.DeepEqual(kv.Spec.Configuration, kvConfig) {
 		return kv
@@ -4235,6 +4237,7 @@ func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.Kub
 	updatedKV := kv.DeepCopy()
 	updatedKV.Spec.Configuration = kvConfig
 	newJson, err := json.Marshal(updatedKV)
+	Expect(err).ToNot(HaveOccurred())
 
 	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, kv)
 	Expect(err).ToNot(HaveOccurred())
@@ -4259,6 +4262,7 @@ func UpdateCDIConfigMap(cdiConfig *k8sv1.ConfigMap) *k8sv1.ConfigMap {
 	currentConfig, err := virtClient.CoreV1().ConfigMaps(flags.ContainerizedDataImporterNamespace).Get(cdiConfig.Name, metav1.GetOptions{})
 	PanicOnError(err)
 	old, err := json.Marshal(currentConfig)
+	Expect(err).ToNot(HaveOccurred())
 
 	if reflect.DeepEqual(currentConfig.Data, cdiConfig.Data) {
 		return currentConfig
@@ -4271,6 +4275,7 @@ func UpdateCDIConfigMap(cdiConfig *k8sv1.ConfigMap) *k8sv1.ConfigMap {
 	updatedConfig := currentConfig.DeepCopy()
 	updatedConfig.Data = cdiConfig.Data
 	newJson, err := json.Marshal(updatedConfig)
+	Expect(err).ToNot(HaveOccurred())
 
 	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, currentConfig)
 	Expect(err).ToNot(HaveOccurred())
