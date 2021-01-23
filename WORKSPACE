@@ -146,6 +146,7 @@ http_archive(
     strip_prefix = "bazeldnf-0.0.14",
     urls = [
         "https://github.com/rmohr/bazeldnf/archive/v0.0.14.tar.gz",
+        "https://storage.googleapis.com/builddeps/d0833cfb1d60d1e9ca4b3e9619553f22867b15dd827e33010f9b6d093eb7d5f7",
     ],
 )
 
@@ -3761,43 +3762,64 @@ rpm(
 rpm(
     name = "libvirt-bash-completion-0__6.6.0-13.fc32.x86_64",
     sha256 = "0ce8da7305bc3106abe5a3f183abbffe744e72639fd06a3e5236866531f5b872",
-    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-bash-completion-6.6.0-13.fc32.x86_64.rpm"],
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-bash-completion-6.6.0-13.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/0ce8da7305bc3106abe5a3f183abbffe744e72639fd06a3e5236866531f5b872",
+    ],
 )
 
 rpm(
     name = "libvirt-client-0__6.6.0-13.fc32.x86_64",
     sha256 = "afa500bbffb08635b40b50a75962bee754ab1ebc88f5f500eb98a74462e1e073",
-    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-client-6.6.0-13.fc32.x86_64.rpm"],
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-client-6.6.0-13.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/afa500bbffb08635b40b50a75962bee754ab1ebc88f5f500eb98a74462e1e073",
+    ],
 )
 
 rpm(
     name = "libvirt-daemon-0__6.6.0-13.fc32.x86_64",
     sha256 = "274b926ae5b90f738c4a173a31ec9b2b2e121a41a2818b9108200cf104fc4d99",
-    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-daemon-6.6.0-13.fc32.x86_64.rpm"],
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-daemon-6.6.0-13.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/274b926ae5b90f738c4a173a31ec9b2b2e121a41a2818b9108200cf104fc4d99",
+    ],
 )
 
 rpm(
     name = "libvirt-daemon-driver-qemu-0__6.6.0-13.fc32.x86_64",
     sha256 = "df08b0255cf659360cdc48fe94bb40f2bdcbf5e612fce7a5cd6deeac3cd9a814",
-    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-daemon-driver-qemu-6.6.0-13.fc32.x86_64.rpm"],
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-daemon-driver-qemu-6.6.0-13.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/df08b0255cf659360cdc48fe94bb40f2bdcbf5e612fce7a5cd6deeac3cd9a814",
+    ],
 )
 
 rpm(
     name = "libvirt-daemon-driver-storage-core-0__6.6.0-13.fc32.x86_64",
     sha256 = "a47eee27df1cf3bff97e9593fd058024f8924721782e6d3baa1fa1dc914b35fe",
-    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-daemon-driver-storage-core-6.6.0-13.fc32.x86_64.rpm"],
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-daemon-driver-storage-core-6.6.0-13.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/a47eee27df1cf3bff97e9593fd058024f8924721782e6d3baa1fa1dc914b35fe",
+    ],
 )
 
 rpm(
     name = "libvirt-devel-0__6.6.0-13.fc32.x86_64",
     sha256 = "b76e99071145bac819bac28be726c89ccc6e81556a4553147154cefd068a0932",
-    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-devel-6.6.0-13.fc32.x86_64.rpm"],
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-devel-6.6.0-13.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/b76e99071145bac819bac28be726c89ccc6e81556a4553147154cefd068a0932",
+    ],
 )
 
 rpm(
     name = "libvirt-libs-0__6.6.0-13.fc32.x86_64",
     sha256 = "e1c80ac577ff9bf07ed5f4b45bcc195d67ed717f15056807e331c9b31a40c14b",
-    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-libs-6.6.0-13.fc32.x86_64.rpm"],
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/01890529-libvirt/libvirt-libs-6.6.0-13.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/e1c80ac577ff9bf07ed5f4b45bcc195d67ed717f15056807e331c9b31a40c14b",
+    ],
 )
 
 rpm(
@@ -5831,7 +5853,10 @@ rpm(
 rpm(
     name = "qemu-guest-agent-15__5.1.0-18.fc32.x86_64",
     sha256 = "9eaac49247c2e8575b7e9ea794cf6c42f3837a2f37e94540f973963305f835d1",
-    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-guest-agent-5.1.0-18.fc32.x86_64.rpm"],
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-guest-agent-5.1.0-18.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/9eaac49247c2e8575b7e9ea794cf6c42f3837a2f37e94540f973963305f835d1",
+    ],
 )
 
 rpm(
@@ -5849,7 +5874,10 @@ rpm(
 rpm(
     name = "qemu-img-15__5.1.0-18.fc32.x86_64",
     sha256 = "92e84606ca802240fab3ee8fcdec40c42ee7131b3203208b4be4d7f984cf6423",
-    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-img-5.1.0-18.fc32.x86_64.rpm"],
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-img-5.1.0-18.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/92e84606ca802240fab3ee8fcdec40c42ee7131b3203208b4be4d7f984cf6423",
+    ],
 )
 
 rpm(
@@ -5867,49 +5895,73 @@ rpm(
 rpm(
     name = "qemu-kvm-15__5.1.0-18.fc32.x86_64",
     sha256 = "e655dddabc8fa8c64a2afbb670058d011a16397a7905c2b33978f40e7717ab9b",
-    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-kvm-5.1.0-18.fc32.x86_64.rpm"],
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-kvm-5.1.0-18.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/e655dddabc8fa8c64a2afbb670058d011a16397a7905c2b33978f40e7717ab9b",
+    ],
 )
 
 rpm(
     name = "qemu-kvm-block-curl-15__5.1.0-18.fc32.x86_64",
     sha256 = "2378aebaef7afbc384cc6f7552af1f119e1fd8edee64d0840b45352642efaa0d",
-    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-kvm-block-curl-5.1.0-18.fc32.x86_64.rpm"],
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-kvm-block-curl-5.1.0-18.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/2378aebaef7afbc384cc6f7552af1f119e1fd8edee64d0840b45352642efaa0d",
+    ],
 )
 
 rpm(
     name = "qemu-kvm-block-gluster-15__5.1.0-18.fc32.x86_64",
     sha256 = "f982f376d68ec75cd72ce7c7174e5e5251d0de2f2006472d278a3397c8a93fe2",
-    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-kvm-block-gluster-5.1.0-18.fc32.x86_64.rpm"],
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-kvm-block-gluster-5.1.0-18.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/f982f376d68ec75cd72ce7c7174e5e5251d0de2f2006472d278a3397c8a93fe2",
+    ],
 )
 
 rpm(
     name = "qemu-kvm-block-iscsi-15__5.1.0-18.fc32.x86_64",
     sha256 = "fb9a193820329f8a82959d02778a00a2aebb6060914ca47916f9766643164672",
-    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-kvm-block-iscsi-5.1.0-18.fc32.x86_64.rpm"],
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-kvm-block-iscsi-5.1.0-18.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/fb9a193820329f8a82959d02778a00a2aebb6060914ca47916f9766643164672",
+    ],
 )
 
 rpm(
     name = "qemu-kvm-block-rbd-15__5.1.0-18.fc32.x86_64",
     sha256 = "56123ff97720288ff94ef73ff5639bc70c32310e5106a72cd51c6f5003a23d82",
-    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-kvm-block-rbd-5.1.0-18.fc32.x86_64.rpm"],
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-kvm-block-rbd-5.1.0-18.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/56123ff97720288ff94ef73ff5639bc70c32310e5106a72cd51c6f5003a23d82",
+    ],
 )
 
 rpm(
     name = "qemu-kvm-block-ssh-15__5.1.0-18.fc32.x86_64",
     sha256 = "4fb227e77d3aff12725b04f6348a32ad9abd8c447020f11e4734caad18a702a5",
-    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-kvm-block-ssh-5.1.0-18.fc32.x86_64.rpm"],
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-kvm-block-ssh-5.1.0-18.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/4fb227e77d3aff12725b04f6348a32ad9abd8c447020f11e4734caad18a702a5",
+    ],
 )
 
 rpm(
     name = "qemu-kvm-common-15__5.1.0-18.fc32.x86_64",
     sha256 = "3ba3330400f5a267141e906378410c99a0a4702e27fce25653db78d9bbbe056a",
-    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-kvm-common-5.1.0-18.fc32.x86_64.rpm"],
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-kvm-common-5.1.0-18.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/3ba3330400f5a267141e906378410c99a0a4702e27fce25653db78d9bbbe056a",
+    ],
 )
 
 rpm(
     name = "qemu-kvm-core-15__5.1.0-18.fc32.x86_64",
     sha256 = "b70030acb6a9be539a60cad4d3f4f0dd3143868d265f73a04a5d6fa3deeded1b",
-    urls = ["https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-kvm-core-5.1.0-18.fc32.x86_64.rpm"],
+    urls = [
+        "https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/01890581-qemu-kvm/qemu-kvm-core-5.1.0-18.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/b70030acb6a9be539a60cad4d3f4f0dd3143868d265f73a04a5d6fa3deeded1b",
+    ],
 )
 
 rpm(
