@@ -67,6 +67,7 @@ const CAP_NET_ADMIN = "NET_ADMIN"
 const CAP_NET_RAW = "NET_RAW"
 const CAP_SYS_ADMIN = "SYS_ADMIN"
 const CAP_SYS_NICE = "SYS_NICE"
+const CAP_SYS_RESOURCE = "SYS_RESOURCE"
 
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
 // Libvirt needs roughly 10 seconds to start.
@@ -883,7 +884,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	// Add ports from interfaces to the pod manifest
 	ports := getPortsFromVMI(vmi)
 
-	capabilities := getRequiredCapabilities(vmi)
+	capabilities := getRequiredCapabilities(vmi, t.clusterConfig)
 
 	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
 	if err != nil {
@@ -1326,7 +1327,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, 
 	return pod, nil
 }
 
-func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability {
+func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) []k8sv1.Capability {
 	capabilities := []k8sv1.Capability{}
 
 	if (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
@@ -1340,6 +1341,12 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 	// add CAP_SYS_ADMIN capability to allow virtiofs
 	if util.IsVMIVirtiofsEnabled(vmi) {
 		capabilities = append(capabilities, CAP_SYS_ADMIN)
+	}
+
+	// add SYS_RESOURCE capability to enable Live Migration for VM with SRIOV interfaces
+	// until https://bugzilla.redhat.com/show_bug.cgi?id=1916346 is resolved.
+	if config.SRIOVLiveMigrationEnabled() && util.IsSRIOVVmi(vmi) {
+		capabilities = append(capabilities, CAP_SYS_RESOURCE)
 	}
 
 	return capabilities

@@ -1942,6 +1942,8 @@ var _ = Describe("Template", func() {
 		})
 
 		Context("with sriov interface", func() {
+			const capSysResource = kubev1.Capability(CAP_SYS_RESOURCE)
+
 			It("should not run privileged", func() {
 				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
 				if runtime.GOARCH == "ppc64le" {
@@ -1952,6 +1954,20 @@ var _ = Describe("Template", func() {
 
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
 				Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(BeFalse())
+			})
+			It("should run with CAP_SYS_RESOURCE capability when SRIOVLiveMigration feature-gate is on", func() {
+				enableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
+
+				pod, err := svc.RenderLaunchManifest(newVMIWithSriovInterface("testvmi", "1234"))
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].SecurityContext.Capabilities.Add).To(ContainElement(capSysResource))
+			})
+			It("should run without CAP_SYS_RESOURCE capability when SRIOVLiveMigration feature-gate is off", func() {
+				pod, err := svc.RenderLaunchManifest(newVMIWithSriovInterface("testvmi", "1234"))
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].SecurityContext.Capabilities.Add).ToNot(ContainElement(capSysResource))
 			})
 			It("should not mount pci related host directories", func() {
 				pod, err := svc.RenderLaunchManifest(newVMIWithSriovInterface("testvmi", "1234"))
