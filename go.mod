@@ -49,7 +49,7 @@ require (
 	kubevirt.io/client-go v0.37.1
 	kubevirt.io/containerized-data-importer v1.29.0
 	kubevirt.io/controller-lifecycle-operator-sdk v0.1.2
-	kubevirt.io/ssp-operator v0.1.1
+	kubevirt.io/ssp-operator v0.1.3
 	sigs.k8s.io/controller-runtime v0.7.0
 	sigs.k8s.io/controller-tools v0.4.1
 )
