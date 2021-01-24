@@ -356,15 +356,20 @@ func (KubeVirtList) SwaggerDoc() map[string]string {
 }
 
 func (KubeVirtSelfSignConfiguration) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
 }
 
 func (KubeVirtCertificateRotateStrategy) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
 }
 
 func (KubeVirtSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":                  "+k8s:openapi-gen=true",
 		"imageTag":          "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
 		"imageRegistry":     "The image registry to pull the container images from\nDefaults to the same registry the operator's container image is pulled from.",
 		"imagePullPolicy":   "The ImagePullPolicy to use.",
@@ -484,7 +489,9 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 }
 
 func (SMBiosConfiguration) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
 }
 
 func (MigrationConfiguration) SwaggerDoc() map[string]string {
@@ -502,8 +509,8 @@ func (DeveloperConfiguration) SwaggerDoc() map[string]string {
 func (PermittedHostDevices) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                "PermittedHostDevices holds inforamtion about devices allowed for passthrough\n+k8s:openapi-gen=true",
-		"pciHostDevices":  "+listType=set",
-		"mediatedDevices": "+listType=set",
+		"pciHostDevices":  "+listType=atomic",
+		"mediatedDevices": "+listType=atomic",
 	}
 }
 

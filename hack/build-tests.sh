@@ -14,7 +14,7 @@ if [ "${JOB_TYPE}" == "travis" ]; then
     go mod vendor
     PACKAGE_PATH="pkg/"
     mkdir -p coverprofiles
-    ginkgo -r -cover -outputdir=./coverprofiles -coverprofile=cover.coverprofile ${PACKAGE_PATH}
+    KUBEVIRT_CLIENT_GO_SCHEME_REGISTRATION_VERSION=v1 ginkgo -r -cover -outputdir=./coverprofiles -coverprofile=cover.coverprofile ${PACKAGE_PATH}
 else
     test_path="tests/func-tests"
     (cd $test_path; GOFLAGS= go get github.com/onsi/ginkgo/ginkgo)

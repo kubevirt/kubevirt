@@ -19,6 +19,8 @@
 package v1
 
 import (
+	"os"
+
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,12 +32,18 @@ import (
 // GroupName is the group name use in this package
 const GroupName = "kubevirt.io"
 const SubresourceGroupName = "subresources.kubevirt.io"
+const KubeVirtClientGoSchemeRegistrationVersionEnvVar = "KUBEVIRT_CLIENT_GO_SCHEME_REGISTRATION_VERSION"
 
 var (
-	ApiLatestVersion            = "v1alpha3"
-	ApiSupportedWebhookVersions = []string{"v1alpha3"}
+	ApiLatestVersion            = "v1"
+	ApiSupportedWebhookVersions = []string{"v1alpha3", "v1"}
 	ApiStorageVersion           = "v1alpha3"
 	ApiSupportedVersions        = []extv1beta1.CustomResourceDefinitionVersion{
+		{
+			Name:    "v1",
+			Served:  true,
+			Storage: false,
+		},
 		{
 			Name:    "v1alpha3",
 			Served:  true,
@@ -53,11 +61,11 @@ var (
 
 	// GroupVersions is group version list used to register these objects
 	// The preferred group version is the first item in the list.
-	GroupVersions = []schema.GroupVersion{GroupVersion}
+	GroupVersions = []schema.GroupVersion{{Group: GroupName, Version: "v1"}, {Group: GroupName, Version: "v1alpha3"}}
 
 	// SubresourceGroupVersions is group version list used to register these objects
 	// The preferred group version is the first item in the list.
-	SubresourceGroupVersions = []schema.GroupVersion{{Group: SubresourceGroupName, Version: "v1alpha3"}}
+	SubresourceGroupVersions = []schema.GroupVersion{{Group: SubresourceGroupName, Version: ApiLatestVersion}, {Group: SubresourceGroupName, Version: ApiStorageVersion}}
 
 	// SubresourceStorageGroupVersion is the group version our api is persistented internally as
 	SubresourceStorageGroupVersion = schema.GroupVersion{Group: SubresourceGroupName, Version: ApiStorageVersion}
@@ -88,8 +96,23 @@ func init() {
 
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
+	registerGroupVersions := []schema.GroupVersion{}
 
-	for _, groupVersion := range GroupVersions {
+	// This allows consumers of the KubeVirt client go package to
+	// customize what version the client uses. Without specifying a
+	// version, all versions are registered. While this techincally
+	// file to register all versions, so k8s ecosystem libraries
+	// do not work well with this. By explicitly setting the env var,
+	// consumers of our client go can avoid these scenarios by only
+	// registering a single version
+	registerVersion := os.Getenv(KubeVirtClientGoSchemeRegistrationVersionEnvVar)
+	if registerVersion != "" {
+		registerGroupVersions = append(registerGroupVersions, schema.GroupVersion{Group: GroupName, Version: registerVersion})
+	} else {
+		registerGroupVersions = append(registerGroupVersions, GroupVersions...)
+	}
+
+	for _, groupVersion := range registerGroupVersions {
 		scheme.AddKnownTypes(groupVersion,
 			&VirtualMachineInstance{},
 			&VirtualMachineInstanceList{},
