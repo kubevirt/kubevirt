@@ -1172,12 +1172,21 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		table.DescribeTable("should remove the finalizer if no pod is present and the vmi is in ", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = phase
+			vmi.Status.LauncherContainerImageVersion = "madeup"
+			vmi.Labels = map[string]string{}
+			vmi.Labels[v1.OutdatedLauncherImageLabel] = ""
 			vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineInstanceFinalizer)
 			Expect(vmi.Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
 
 			addVirtualMachine(vmi)
 
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				// outdated launcher label should get cleared after being finalized
+				_, ok := arg.(*v1.VirtualMachineInstance).Labels[v1.OutdatedLauncherImageLabel]
+				Expect(ok).To(BeFalse())
+				// outdated launcher image should get cleared after being finalized
+				Expect(arg.(*v1.VirtualMachineInstance).Status.LauncherContainerImageVersion).To(Equal(""))
+
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(phase))
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
 				Expect(arg.(*v1.VirtualMachineInstance).Finalizers).ToNot(ContainElement(v1.VirtualMachineInstanceFinalizer))

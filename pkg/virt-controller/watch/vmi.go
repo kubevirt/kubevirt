@@ -455,6 +455,10 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		if allDeleted {
 			log.Log.V(3).Object(vmi).Infof("All pods have been deleted, removing finalizer")
 			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
+			if vmiCopy.Labels != nil {
+				delete(vmiCopy.Labels, virtv1.OutdatedLauncherImageLabel)
+			}
+			vmiCopy.Status.LauncherContainerImageVersion = ""
 		}
 
 		conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
@@ -621,7 +625,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	conditionManager.CheckFailure(vmiCopy, syncErr, reason)
 
 	// If we detect a change on the vmi we update the vmi
-	vmiChanged := !reflect.DeepEqual(vmi.Status, vmiCopy.Status) || !reflect.DeepEqual(vmi.Finalizers, vmiCopy.Finalizers) || !reflect.DeepEqual(vmi.Annotations, vmiCopy.Annotations)
+	vmiChanged := !reflect.DeepEqual(vmi.Status, vmiCopy.Status) || !reflect.DeepEqual(vmi.Finalizers, vmiCopy.Finalizers) || !reflect.DeepEqual(vmi.Annotations, vmiCopy.Annotations) || !reflect.DeepEqual(vmi.Labels, vmiCopy.Labels)
 	if vmiChanged {
 		_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmiCopy)
 		if err != nil {
