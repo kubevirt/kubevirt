@@ -252,7 +252,7 @@ func (c *VMIController) execute(key string) error {
 
 	// Only consider pods which belong to this vmi
 	// excluding unfinalized migration targets from this list.
-	pod, err := c.currentPod(vmi)
+	pod, err := controller.CurrentVMIPod(vmi, c.podInformer)
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch pods for namespace from cache.")
 		return err
@@ -1227,41 +1227,6 @@ func (c *VMIController) setActivePods(vmi *virtv1.VirtualMachineInstance) (*virt
 
 }
 
-func (c *VMIController) currentPod(vmi *virtv1.VirtualMachineInstance) (*k8sv1.Pod, error) {
-
-	// current pod is the most recent pod created on the current VMI node
-	// OR the most recent pod created if no VMI node is set.
-
-	// Get all pods from the namespace
-	pods, err := c.listPodsFromNamespace(vmi.Namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	var curPod *k8sv1.Pod = nil
-	for _, pod := range pods {
-		if !controller.IsControlledBy(pod, vmi) {
-			continue
-		}
-
-		if vmi.Status.NodeName != "" &&
-			vmi.Status.NodeName != pod.Spec.NodeName {
-			// This pod isn't scheduled to the current node.
-			// This can occur during the initial migration phases when
-			// a new target node is being prepared for the VMI.
-			continue
-		}
-
-		if curPod == nil {
-			curPod = pod
-		} else if curPod.CreationTimestamp.Before(&pod.CreationTimestamp) {
-			curPod = pod
-		}
-	}
-
-	return curPod, nil
-}
-
 func isTempPod(pod *k8sv1.Pod) bool {
 	_, ok := pod.Annotations[virtv1.EphemeralProvisioningObject]
 	return ok
@@ -1492,7 +1457,7 @@ func (c *VMIController) createAttachmentPodTemplate(volume *virtv1.Volume, virtl
 }
 
 func (c *VMIController) deleteAllAttachmentPods(vmi *virtv1.VirtualMachineInstance) error {
-	virtlauncherPod, err := c.currentPod(vmi)
+	virtlauncherPod, err := controller.CurrentVMIPod(vmi, c.podInformer)
 	if err != nil {
 		return err
 	}
