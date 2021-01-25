@@ -75,8 +75,50 @@ func (h *cnaHooks) updateCr(req *common.HcoRequest, Client client.Client, exists
 		return false, false, errors.New("can't convert to CNA")
 	}
 
-	// If deployOVS annotation doesn't exists prior the upgrade - set this annotation to true;
-	// Otherwise - remain the value as it is.
+	h.setDeployOvsAnnotation(req, found)
+
+	changed := h.updateSpec(req, found, networkAddons)
+	changed = h.updateLabels(found, networkAddons) || changed
+
+	if changed {
+		return h.updateCnaCr(req, Client, found)
+	}
+
+	return false, false, nil
+}
+
+func (h *cnaHooks) updateCnaCr(req *common.HcoRequest, Client client.Client, found *networkaddonsv1.NetworkAddonsConfig) (bool, bool, error) {
+	err := Client.Update(req.Ctx, found)
+	if err != nil {
+		return false, false, err
+	}
+	return true, !req.HCOTriggered, nil
+}
+
+func (h *cnaHooks) updateLabels(found *networkaddonsv1.NetworkAddonsConfig, networkAddons *networkaddonsv1.NetworkAddonsConfig) bool {
+	if !reflect.DeepEqual(found.Labels, networkAddons.Labels) {
+		util.DeepCopyLabels(&networkAddons.ObjectMeta, &found.ObjectMeta)
+		return true
+	}
+	return false
+}
+
+func (h *cnaHooks) updateSpec(req *common.HcoRequest, found *networkaddonsv1.NetworkAddonsConfig, networkAddons *networkaddonsv1.NetworkAddonsConfig) bool {
+	if !reflect.DeepEqual(found.Spec, networkAddons.Spec) && !req.UpgradeMode {
+		if req.HCOTriggered {
+			req.Logger.Info("Updating existing Network Addons's Spec to new opinionated values")
+		} else {
+			req.Logger.Info("Reconciling an externally updated Network Addons's Spec to its opinionated values")
+		}
+		networkAddons.Spec.DeepCopyInto(&found.Spec)
+		return true
+	}
+	return false
+}
+
+// If deployOVS annotation doesn't exists prior the upgrade - set this annotation to true;
+// Otherwise - remain the value as it is.
+func (h *cnaHooks) setDeployOvsAnnotation(req *common.HcoRequest, found *networkaddonsv1.NetworkAddonsConfig) {
 	if req.UpgradeMode {
 		_, exists := req.Instance.Annotations["deployOVS"]
 		if !exists {
@@ -94,32 +136,6 @@ func (h *cnaHooks) updateCr(req *common.HcoRequest, Client client.Client, exists
 			req.Dirty = true
 		}
 	}
-
-	changed := false
-	if !reflect.DeepEqual(found.Spec, networkAddons.Spec) && !req.UpgradeMode {
-		if req.HCOTriggered {
-			req.Logger.Info("Updating existing Network Addons's Spec to new opinionated values")
-		} else {
-			req.Logger.Info("Reconciling an externally updated Network Addons's Spec to its opinionated values")
-		}
-		networkAddons.Spec.DeepCopyInto(&found.Spec)
-		changed = true
-	}
-
-	if !reflect.DeepEqual(found.Labels, networkAddons.Labels) {
-		util.DeepCopyLabels(&networkAddons.ObjectMeta, &found.ObjectMeta)
-		changed = true
-	}
-
-	if changed {
-		err := Client.Update(req.Ctx, found)
-		if err != nil {
-			return false, false, err
-		}
-		return true, !req.HCOTriggered, nil
-	}
-
-	return false, false, nil
 }
 
 func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) (*networkaddonsv1.NetworkAddonsConfig, error) {

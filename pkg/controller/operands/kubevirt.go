@@ -209,7 +209,7 @@ func (h kvConfigHooks) checkComponentVersion(runtime.Object) bool             { 
 func (h kvConfigHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*corev1.ConfigMap).ObjectMeta
 }
-func (h kvConfigHooks) reset() {}
+func (h kvConfigHooks) reset() { /* no implementation */ }
 
 func (h *kvConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	kubevirtConfig, ok1 := required.(*corev1.ConfigMap)
@@ -220,78 +220,9 @@ func (h *kvConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, e
 
 	changed := false
 	if req.UpgradeMode {
-		// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey,
-		// virtconfig.FeatureGatesKey and virtconfig.UseEmulationKey are going to be manipulated
-		// and only on HCO upgrades.
-		// virtconfig.MigrationsConfigKey is going to be removed if set in the past (only during upgrades).
-		// TODO: This is going to change in the next HCO release where the whole configMap is going
-		// to be continuously reconciled
-		for _, k := range []string{
-			FeatureGatesKey,
-			SmbiosConfigKey,
-			MachineTypeKey,
-			SELinuxLauncherTypeKey,
-			UseEmulationKey,
-			MigrationsConfigKey,
-		} {
-			if found.Data[k] != kubevirtConfig.Data[k] {
-				req.Logger.Info(fmt.Sprintf("Updating %s on existing KubeVirt config", k))
-				found.Data[k] = kubevirtConfig.Data[k]
-				changed = true
-			}
-		}
-		for _, k := range []string{MigrationsConfigKey} {
-			_, ok := found.Data[k]
-			if ok {
-				req.Logger.Info(fmt.Sprintf("Deleting %s on existing KubeVirt config", k))
-				delete(found.Data, k)
-				changed = true
-			}
-		}
+		changed = h.updateDataOnUpgrade(req, found, kubevirtConfig)
 	} else { // not in upgrade mode
-
-		// Add/remove managed KV feature gates without modifying any other feature gates, that may be changed by the user:
-		// 1. first, get the current feature gate list from the config map, and split the list into the ist string to a
-		//    slice of FGs
-		foundFgSplit := strings.Split(found.Data[FeatureGatesKey], ",")
-		resultFg := make([]string, 0, len(foundFgSplit))
-		fgChanged := false
-		// 2. Remove only managed FGs from the list, if are not in the HC CR
-		for _, fg := range foundFgSplit {
-			// Remove if not in HC CR
-			switch fg {
-			case HotplugVolumesGate:
-				if !req.Instance.Spec.FeatureGates.IsHotplugVolumesEnabled() {
-					fgChanged = true
-					continue
-				}
-			case kvWithHostPassthroughCPU:
-				if !req.Instance.Spec.FeatureGates.IsWithHostPassthroughCPUEnabled() {
-					fgChanged = true
-					continue
-				}
-			case kvWithHostModelCPU:
-				if !req.Instance.Spec.FeatureGates.IsWithHostModelCPUEnabled() {
-					fgChanged = true
-					continue
-				}
-			}
-			resultFg = append(resultFg, fg)
-		}
-
-		// 3. Add managed FGs if set in the HC CR
-		for _, fg := range getKvFeatureGateList(req.Instance.Spec.FeatureGates) {
-			if !hcoutil.ContainsString(foundFgSplit, fg) {
-				resultFg = append(resultFg, fg)
-				fgChanged = true
-			}
-		}
-
-		// 4. If a managed FG added/removed, rebuild a new list. Else, use the current one.
-		if fgChanged {
-			changed = true
-			found.Data[FeatureGatesKey] = strings.Join(resultFg, ",")
-		}
+		changed = h.updateDataNotOnUpgrade(req, found)
 	}
 
 	if !reflect.DeepEqual(found.Labels, kubevirtConfig.Labels) {
@@ -300,15 +231,132 @@ func (h *kvConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, e
 	}
 
 	if changed {
-		err := Client.Update(req.Ctx, found)
-		if err != nil {
-			req.Logger.Error(err, "Failed updating the kubevirt config map")
-			return false, false, err
-		}
-		return true, false, nil
+		return h.updateKvConfigMap(req, Client, found)
 	}
 
 	return false, false, nil
+}
+func (h *kvConfigHooks) updateDataOnUpgrade(req *common.HcoRequest, found *corev1.ConfigMap, kubevirtConfig *corev1.ConfigMap) bool {
+	changed := false
+	if h.forceDefaultKeys(req, found, kubevirtConfig) {
+		changed = true
+	}
+
+	if h.removeOldKeys(req, found) {
+		changed = true
+	}
+
+	return changed
+}
+
+func (h *kvConfigHooks) updateDataNotOnUpgrade(req *common.HcoRequest, found *corev1.ConfigMap) bool {
+	// Add/remove managed KV feature gates without modifying any other feature gates, that may be changed by the user:
+	// 1. first, get the current feature gate list from the config map, and split the list into the ist string to a
+	//    slice of FGs
+	foundFgSplit := strings.Split(found.Data[FeatureGatesKey], ",")
+	resultFg := make([]string, 0, len(foundFgSplit))
+
+	// 2. Remove only managed FGs from the list, if are not in the HC CR
+	changed, resultFg := h.filterDisabledFeatureGates(req, foundFgSplit, resultFg)
+
+	// 3. Add managed FGs if set in the HC CR
+	added := false
+	resultFg, added = h.addEnabledFeatureGates(req, foundFgSplit, resultFg)
+	changed = changed || added
+
+	// 4. If a managed FG added/removed, rebuild a new list. Else, use the current one.
+	if changed {
+		found.Data[FeatureGatesKey] = strings.Join(resultFg, ",")
+	}
+	return changed
+}
+
+func (h *kvConfigHooks) updateKvConfigMap(req *common.HcoRequest, Client client.Client, found *corev1.ConfigMap) (bool, bool, error) {
+	err := Client.Update(req.Ctx, found)
+	if err != nil {
+		req.Logger.Error(err, "Failed updating the kubevirt config map")
+		return false, false, err
+	}
+	return true, false, nil
+}
+
+func (h *kvConfigHooks) addEnabledFeatureGates(req *common.HcoRequest, foundFgSplit []string, resultFg []string) ([]string, bool) {
+	fgChanged := false
+	for _, fg := range getKvFeatureGateList(req.Instance.Spec.FeatureGates) {
+		if !hcoutil.ContainsString(foundFgSplit, fg) {
+			resultFg = append(resultFg, fg)
+			fgChanged = true
+		}
+	}
+	return resultFg, fgChanged
+}
+
+func (h *kvConfigHooks) filterDisabledFeatureGates(req *common.HcoRequest, foundFgSplit []string, resultFg []string) (bool, []string) {
+	fgChanged := false
+	for _, fg := range foundFgSplit {
+		// Remove if not in HC CR
+		switch fg {
+		case HotplugVolumesGate:
+			if !req.Instance.Spec.FeatureGates.IsHotplugVolumesEnabled() {
+				fgChanged = true
+				continue
+			}
+		case kvWithHostPassthroughCPU:
+			if !req.Instance.Spec.FeatureGates.IsWithHostPassthroughCPUEnabled() {
+				fgChanged = true
+				continue
+			}
+		case kvWithHostModelCPU:
+			if !req.Instance.Spec.FeatureGates.IsWithHostModelCPUEnabled() {
+				fgChanged = true
+				continue
+			}
+		}
+		resultFg = append(resultFg, fg)
+	}
+	return fgChanged, resultFg
+}
+
+func (h *kvConfigHooks) forceDefaultKeys(req *common.HcoRequest, found *corev1.ConfigMap, kubevirtConfig *corev1.ConfigMap) bool {
+	changed := false
+	// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey,
+	// virtconfig.FeatureGatesKey and virtconfig.UseEmulationKey are going to be manipulated
+	// and only on HCO upgrades.
+	// virtconfig.MigrationsConfigKey is going to be removed if set in the past (only during upgrades).
+	// TODO: This is going to change in the next HCO release where the whole configMap is going
+	// to be continuously reconciled
+	for _, k := range []string{
+		FeatureGatesKey,
+		SmbiosConfigKey,
+		MachineTypeKey,
+		SELinuxLauncherTypeKey,
+		UseEmulationKey,
+	} {
+		// don't change the order. putting "changed" as the first part of the condition will cause skipping the
+		// implementation of the forceDefaultValues function.
+		changed = h.forceDefaultValues(req, found, kubevirtConfig, k) || changed
+	}
+
+	return changed
+}
+
+func (h *kvConfigHooks) removeOldKeys(req *common.HcoRequest, found *corev1.ConfigMap) bool {
+	if _, ok := found.Data[MigrationsConfigKey]; ok {
+		req.Logger.Info(fmt.Sprintf("Deleting %s on existing KubeVirt config", MigrationsConfigKey))
+		delete(found.Data, MigrationsConfigKey)
+		return true
+	}
+	return false
+
+}
+
+func (h *kvConfigHooks) forceDefaultValues(req *common.HcoRequest, found *corev1.ConfigMap, kubevirtConfig *corev1.ConfigMap, k string) bool {
+	if found.Data[k] != kubevirtConfig.Data[k] {
+		req.Logger.Info(fmt.Sprintf("Updating %s on existing KubeVirt config", k))
+		found.Data[k] = kubevirtConfig.Data[k]
+		return true
+	}
+	return false
 }
 
 // ***********  KubeVirt Priority Class  ************
@@ -339,7 +387,7 @@ func (h kvPriorityClassHooks) checkComponentVersion(_ runtime.Object) bool      
 func (h kvPriorityClassHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*schedulingv1.PriorityClass).ObjectMeta
 }
-func (h kvPriorityClassHooks) reset() {}
+func (h kvPriorityClassHooks) reset() { /* no implementation */ }
 
 func (h *kvPriorityClassHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	pc, ok1 := required.(*schedulingv1.PriorityClass)

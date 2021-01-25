@@ -140,7 +140,7 @@ func (h imsConfigHooks) checkComponentVersion(_ runtime.Object) bool            
 func (h imsConfigHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*corev1.ConfigMap).ObjectMeta
 }
-func (h imsConfigHooks) reset() {}
+func (h imsConfigHooks) reset() { /* no implementation */ }
 
 func (h *imsConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	imsConfig, ok1 := required.(*corev1.ConfigMap)
