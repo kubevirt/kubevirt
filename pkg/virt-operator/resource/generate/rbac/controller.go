@@ -114,6 +114,17 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"",
 				},
 				Resources: []string{
+					"pods/eviction",
+				},
+				Verbs: []string{
+					"create",
+				},
+			},
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
 					"nodes",
 				},
 				Verbs: []string{

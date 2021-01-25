@@ -10351,12 +10351,12 @@
     "description": "KubeVirtWorkloadUpdateStrategy defines options related to updating a KubeVirt install",
     "type": "object",
     "properties": {
-     "batchShutdownInterval": {
-      "description": "BatchShutdownInterval Represents the interval to wait before issuing the next batch of shutdowns\n\nDefaults to 1 minute",
+     "batchEvictionInterval": {
+      "description": "BatchEvictionInterval Represents the interval to wait before issuing the next batch of shutdowns\n\nDefaults to 1 minute",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
      },
-     "batchShutdownSize": {
-      "description": "BatchShutdownSize Represents the number of VMIs that can be forced updated per the BatchShutdownInteral interval\n\nDefaults to 10",
+     "batchEvictionSize": {
+      "description": "BatchEvictionSize Represents the number of VMIs that can be forced updated per the BatchShutdownInteral interval\n\nDefaults to 10",
       "type": "integer",
       "format": "int32"
      },

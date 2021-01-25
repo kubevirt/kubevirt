@@ -483,6 +483,7 @@ func (vca *VirtControllerApp) initWorkloadUpdaterController() {
 	vca.workloadUpdateController = workloadupdater.NewWorkloadUpdateController(
 		vca.launcherImage,
 		vca.vmiInformer,
+		vca.kvPodInformer,
 		vca.migrationInformer,
 		vca.kubeVirtInformer,
 		recorder,

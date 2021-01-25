@@ -1308,11 +1308,13 @@ const (
 	// WorkloadUpdateMethodLiveMigrate allows VMIs which are capable of being
 	// migrated to automatically migrate during automated workload updates.
 	WorkloadUpdateMethodLiveMigrate WorkloadUpdateMethod = "LiveMigrate"
-	// WorkloadUpdateMethodShutdown results in a VMIs being forced shutdown.
+	// WorkloadUpdateMethodEvict results in a VMI's pod being evicted. Unless the
+	// pod has a pod disruption budget allocated, the eviction will usually result in
+	// the VMI being shutdown.
 	// Depending on whether a VMI is backed by a VM or not, this will either result
-	// in a restart of the VM by rescheduling a new VMI, or the shutdown via deletion
+	// in a restart of the VM by rescheduling a new VMI, or the shutdown via eviction
 	// of a standalone VMI object.
-	WorkloadUpdateMethodShutdown WorkloadUpdateMethod = "Shutdown"
+	WorkloadUpdateMethodEvict WorkloadUpdateMethod = "Evict"
 )
 
 //
@@ -1332,21 +1334,21 @@ type KubeVirtWorkloadUpdateStrategy struct {
 	// +optional
 	WorkloadUpdateMethods []WorkloadUpdateMethod `json:"workloadUpdateMethods,omitempty"`
 
-	// BatchShutdownSize Represents the number of VMIs that can be forced updated per
+	// BatchEvictionSize Represents the number of VMIs that can be forced updated per
 	// the BatchShutdownInteral interval
 	//
 	// Defaults to 10
 	//
 	// +optional
-	BatchShutdownSize *int `json:"batchShutdownSize,omitempty"`
+	BatchEvictionSize *int `json:"batchEvictionSize,omitempty"`
 
-	// BatchShutdownInterval Represents the interval to wait before issuing the next
+	// BatchEvictionInterval Represents the interval to wait before issuing the next
 	// batch of shutdowns
 	//
 	// Defaults to 1 minute
 	//
 	// +optional
-	BatchShutdownInterval *metav1.Duration `json:"batchShutdownInterval,omitempty"`
+	BatchEvictionInterval *metav1.Duration `json:"batchEvictionInterval,omitempty"`
 }
 
 //

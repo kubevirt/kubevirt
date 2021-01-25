@@ -9,8 +9,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	k8sv1 "k8s.io/api/core/v1"
+	policy "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -34,10 +35,10 @@ const (
 	FailedCreateVirtualMachineInstanceMigrationReason = "FailedCreate"
 	// SuccessfulCreateVirtualMachineInstanceMigrationReason is added in an event if creating a VirtualMachineInstanceMigration succeeded.
 	SuccessfulCreateVirtualMachineInstanceMigrationReason = "SuccessfulCreate"
-	// FailedDeleteVirtualMachineReason is added in an event if a deletion of a VMI fails
-	FailedDeleteVirtualMachineInstanceReason = "FailedDelete"
-	// SuccessfulDeleteVirtualMachineReason is added in an event if a deletion of a VMI Succeeds
-	SuccessfulDeleteVirtualMachineInstanceReason = "SuccessfulDelete"
+	// FailedEvictVirtualMachineReason is added in an event if a deletion of a VMI fails
+	FailedEvictVirtualMachineInstanceReason = "FailedEvict"
+	// SuccessfulEvictVirtualMachineReason is added in an event if a deletion of a VMI Succeeds
+	SuccessfulEvictVirtualMachineInstanceReason = "SuccessfulEvict"
 )
 
 var (
@@ -66,6 +67,7 @@ type WorkloadUpdateController struct {
 	clientset             kubecli.KubevirtClient
 	queue                 workqueue.RateLimitingInterface
 	vmiInformer           cache.SharedIndexInformer
+	podInformer           cache.SharedIndexInformer
 	migrationInformer     cache.SharedIndexInformer
 	recorder              record.EventRecorder
 	migrationExpectations *controller.UIDTrackingControllerExpectations
@@ -96,7 +98,7 @@ type WorkloadUpdateController struct {
 type updateData struct {
 	allOutdatedVMIs        []*virtv1.VirtualMachineInstance
 	migratableOutdatedVMIs []*virtv1.VirtualMachineInstance
-	shutdownOutdatedVMIs   []*virtv1.VirtualMachineInstance
+	evictOutdatedVMIs      []*virtv1.VirtualMachineInstance
 
 	numActiveMigrations int
 }
@@ -104,6 +106,7 @@ type updateData struct {
 func NewWorkloadUpdateController(
 	launcherImage string,
 	vmiInformer cache.SharedIndexInformer,
+	podInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
 	kubeVirtInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
@@ -114,6 +117,7 @@ func NewWorkloadUpdateController(
 	c := &WorkloadUpdateController{
 		queue:                 workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		vmiInformer:           vmiInformer,
+		podInformer:           podInformer,
 		migrationInformer:     migrationInformer,
 		kubeVirtInformer:      kubeVirtInformer,
 		recorder:              recorder,
@@ -234,7 +238,7 @@ func (c *WorkloadUpdateController) Run(stopCh <-chan struct{}) {
 	threadiness := 1
 
 	// Wait for cache sync before we start the controller
-	cache.WaitForCacheSync(stopCh, c.migrationInformer.HasSynced, c.vmiInformer.HasSynced, c.kubeVirtInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.migrationInformer.HasSynced, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.kubeVirtInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -304,7 +308,7 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 	for _, method := range kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods {
 		if method == virtv1.WorkloadUpdateMethodLiveMigrate {
 			automatedMigrationAllowed = true
-		} else if method == virtv1.WorkloadUpdateMethodShutdown {
+		} else if method == virtv1.WorkloadUpdateMethodEvict {
 			automatedShutdownAllowed = true
 		}
 	}
@@ -333,7 +337,7 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 
 			data.migratableOutdatedVMIs = append(data.migratableOutdatedVMIs, vmi)
 		} else if automatedShutdownAllowed {
-			data.shutdownOutdatedVMIs = append(data.shutdownOutdatedVMIs, vmi)
+			data.evictOutdatedVMIs = append(data.evictOutdatedVMIs, vmi)
 		}
 	}
 
@@ -430,7 +434,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 	// Rather than enqueing based on VMI activity, we keep periodically poping the loop
 	// until all VMIs are updated. Watching all VMI activity is chatty for this controller
 	// when we don't need to be that efficent in how quickly the updates are being processed.
-	if len(data.shutdownOutdatedVMIs) != 0 || len(data.migratableOutdatedVMIs) != 0 {
+	if len(data.evictOutdatedVMIs) != 0 || len(data.migratableOutdatedVMIs) != 0 {
 		c.queue.AddAfter(key, periodicReEnqueueIntervalSeconds)
 	}
 
@@ -443,19 +447,19 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 	batchDeletionInterval := time.Duration(defaultBatchDeletionIntervalSeconds) * time.Second
 	batchDeletionCount := defaultBatchDeletionCount
 
-	if kv.Spec.WorkloadUpdateStrategy.BatchShutdownSize != nil {
-		batchDeletionCount = *kv.Spec.WorkloadUpdateStrategy.BatchShutdownSize
+	if kv.Spec.WorkloadUpdateStrategy.BatchEvictionSize != nil {
+		batchDeletionCount = *kv.Spec.WorkloadUpdateStrategy.BatchEvictionSize
 	}
 
-	if kv.Spec.WorkloadUpdateStrategy.BatchShutdownInterval != nil {
-		batchDeletionInterval = kv.Spec.WorkloadUpdateStrategy.BatchShutdownInterval.Duration
+	if kv.Spec.WorkloadUpdateStrategy.BatchEvictionInterval != nil {
+		batchDeletionInterval = kv.Spec.WorkloadUpdateStrategy.BatchEvictionInterval.Duration
 	}
 
 	now := time.Now()
 
 	nextBatch := c.lastDeletionBatch.Add(batchDeletionInterval)
-	if now.After(nextBatch) && len(data.shutdownOutdatedVMIs) > 0 {
-		batchDeletionCount = int(math.Min(float64(batchDeletionCount), float64(len(data.shutdownOutdatedVMIs))))
+	if now.After(nextBatch) && len(data.evictOutdatedVMIs) > 0 {
+		batchDeletionCount = int(math.Min(float64(batchDeletionCount), float64(len(data.evictOutdatedVMIs))))
 		c.lastDeletionBatch = now
 	} else {
 		batchDeletionCount = 0
@@ -480,13 +484,13 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 		log.Log.Infof("workload updated is migrating %d VMIs", migrateCount)
 	}
 
-	deletionCandidates := []*virtv1.VirtualMachineInstance{}
+	evictionCandidates := []*virtv1.VirtualMachineInstance{}
 	if batchDeletionCount > 0 {
-		deletionCandidates = data.shutdownOutdatedVMIs[0:batchDeletionCount]
+		evictionCandidates = data.evictOutdatedVMIs[0:batchDeletionCount]
 		log.Log.Infof("workload updated is force shutting down %d VMIs", batchDeletionCount)
 	}
 
-	wgLen := len(migrationCandidates) + len(deletionCandidates)
+	wgLen := len(migrationCandidates) + len(evictionCandidates)
 	wg := &sync.WaitGroup{}
 	wg.Add(wgLen)
 	errChan := make(chan error, wgLen)
@@ -496,7 +500,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
 			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(&virtv1.VirtualMachineInstanceMigration{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						virtv1.WorkloadUpdateMigrationAnnotation: "",
 					},
@@ -513,23 +517,39 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 				errChan <- err
 				return
 			} else {
-				log.Log.Object(vmi).Infof("Migrated vmi as part of workload update")
+				log.Log.Object(vmi).Infof("Initiated migration of vmi as part of workload update")
 				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulCreateVirtualMachineInstanceMigrationReason, "Created Migration %s for automated workload update", createdMigration.Name)
 			}
 		}(vmi)
 	}
 
-	for _, vmi := range deletionCandidates {
+	for _, vmi := range evictionCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
-			err := c.clientset.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &v1.DeleteOptions{})
+
+			pod, err := controller.CurrentVMIPod(vmi, c.podInformer)
+			if err != nil {
+
+				log.Log.Object(vmi).Reason(err).Errorf("Failed to detect active pod for vmi during workload update")
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedEvictVirtualMachineInstanceReason, "Error detecting active pod for VMI during workload update: %v", err)
+				errChan <- err
+			}
+
+			err = c.clientset.CoreV1().Pods(vmi.Namespace).Evict(&policy.Eviction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      pod.Name,
+					Namespace: pod.Namespace,
+				},
+				DeleteOptions: &metav1.DeleteOptions{},
+			})
+
 			if err != nil && !errors.IsNotFound(err) {
-				log.Log.Object(vmi).Reason(err).Errorf("Failed to delete vmi as part of workload update")
-				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDeleteVirtualMachineInstanceReason, "Error deleting VMI during automated workload update: %v", err)
+				log.Log.Object(vmi).Reason(err).Errorf("Failed to evict vmi as part of workload update")
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedEvictVirtualMachineInstanceReason, "Error deleting VMI during automated workload update: %v", err)
 				errChan <- err
 			} else {
-				log.Log.Object(vmi).Infof("Deleted vmi as part of workload update")
-				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulDeleteVirtualMachineInstanceReason, "Initiated shutdown of VMI as part of automated workload update: %v", err)
+				log.Log.Object(vmi).Infof("Evicted vmi pod as part of workload update")
+				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulEvictVirtualMachineInstanceReason, "Initiated eviction of VMI as part of automated workload update: %v", err)
 			}
 		}(vmi)
 	}

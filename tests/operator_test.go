@@ -115,7 +115,7 @@ var _ = Describe("[Serial]Operator", func() {
 		startAllVMIs                      func([]*v1.VirtualMachineInstance)
 		deleteAllVMIs                     func([]*v1.VirtualMachineInstance)
 		verifyVMIsUpdated                 func([]*v1.VirtualMachineInstance, string)
-		verifyVMIsDeleted                 func([]*v1.VirtualMachineInstance)
+		verifyVMIsEvicted                 func([]*v1.VirtualMachineInstance)
 	)
 
 	tests.BeforeAll(func() {
@@ -613,13 +613,13 @@ var _ = Describe("[Serial]Operator", func() {
 			}
 		}
 
-		verifyVMIsDeleted = func(vmis []*v1.VirtualMachineInstance) {
+		verifyVMIsEvicted = func(vmis []*v1.VirtualMachineInstance) {
 
 			Eventually(func() error {
 				for _, vmi := range vmis {
 					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-					if err == nil {
-						return fmt.Errorf("waiting for vmi %s/%s to delete as part of update", vmi.Namespace, vmi.Name)
+					if err == nil && !vmi.IsFinal() {
+						return fmt.Errorf("waiting for vmi %s/%s to shutdown as part of update", vmi.Namespace, vmi.Name)
 					} else if !errors.IsNotFound(err) {
 						return err
 					}
@@ -997,7 +997,7 @@ spec:
 				Skip("Skip Update test when CDI is not present")
 			}
 
-			migratableVMIs := generateMigratableVMIs(3)
+			migratableVMIs := generateMigratableVMIs(2)
 			launcherSha := getVirtLauncherSha()
 			Expect(launcherSha).ToNot(Equal(""))
 
@@ -1402,8 +1402,8 @@ spec:
 				Skip("Skip operator custom image tag test because alt tag is not present")
 			}
 
-			vmis := generateMigratableVMIs(7)
-			vmisNonMigratable := generateNonMigratableVMIs(3)
+			vmis := generateMigratableVMIs(2)
+			vmisNonMigratable := generateNonMigratableVMIs(2)
 
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
@@ -1421,7 +1421,7 @@ spec:
 			kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
 				PermitBridgeInterfaceOnPodNetwork: pointer.BoolPtr(true),
 			}
-			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodShutdown}
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 
 			createKv(kv)
 
@@ -1450,14 +1450,15 @@ spec:
 			By("Verifying infrastructure Is Updated")
 			allPodsAreReady(kv)
 
-			By("Verifying all non-migratable vmi workloads are deleted")
-			verifyVMIsDeleted(vmisNonMigratable)
+			By("Verifying all non-migratable vmi workloads are shutdown")
+			verifyVMIsEvicted(vmisNonMigratable)
 
 			By("Verifying all migratable vmi workloads are updated via live migration")
 			verifyVMIsUpdated(vmis, flags.KubeVirtVersionTagAlt)
 
-			By("Deleting migratable VMIs")
+			By("Deleting VMIs")
 			deleteAllVMIs(vmis)
+			deleteAllVMIs(vmisNonMigratable)
 
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)

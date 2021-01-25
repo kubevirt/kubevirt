@@ -1859,13 +1859,13 @@ func (in *KubeVirtWorkloadUpdateStrategy) DeepCopyInto(out *KubeVirtWorkloadUpda
 		*out = make([]WorkloadUpdateMethod, len(*in))
 		copy(*out, *in)
 	}
-	if in.BatchShutdownSize != nil {
-		in, out := &in.BatchShutdownSize, &out.BatchShutdownSize
+	if in.BatchEvictionSize != nil {
+		in, out := &in.BatchEvictionSize, &out.BatchEvictionSize
 		*out = new(int)
 		**out = **in
 	}
-	if in.BatchShutdownInterval != nil {
-		in, out := &in.BatchShutdownInterval, &out.BatchShutdownInterval
+	if in.BatchEvictionInterval != nil {
+		in, out := &in.BatchEvictionInterval, &out.BatchEvictionInterval
 		*out = new(metav1.Duration)
 		**out = **in
 	}

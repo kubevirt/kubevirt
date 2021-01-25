@@ -16664,16 +16664,16 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtWorkloadUpdateStrategy(ref commo
 							},
 						},
 					},
-					"batchShutdownSize": {
+					"batchEvictionSize": {
 						SchemaProps: spec.SchemaProps{
-							Description: "BatchShutdownSize Represents the number of VMIs that can be forced updated per the BatchShutdownInteral interval\n\nDefaults to 10",
+							Description: "BatchEvictionSize Represents the number of VMIs that can be forced updated per the BatchShutdownInteral interval\n\nDefaults to 10",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
 					},
-					"batchShutdownInterval": {
+					"batchEvictionInterval": {
 						SchemaProps: spec.SchemaProps{
-							Description: "BatchShutdownInterval Represents the interval to wait before issuing the next batch of shutdowns\n\nDefaults to 1 minute",
+							Description: "BatchEvictionInterval Represents the interval to wait before issuing the next batch of shutdowns\n\nDefaults to 1 minute",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
