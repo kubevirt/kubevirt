@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -50,9 +51,9 @@ var _ = Describe("ImageUpload", func() {
 		cdiClient  *fakecdiclient.Clientset
 		server     *httptest.Server
 
-		dvCreateCalled  bool
-		pvcCreateCalled bool
-		updateCalled    bool
+		dvCreateCalled  = &atomicBool{lock: &sync.Mutex{}}
+		pvcCreateCalled = &atomicBool{lock: &sync.Mutex{}}
+		updateCalled    = &atomicBool{lock: &sync.Mutex{}}
 
 		imagePath string
 	)
@@ -204,8 +205,8 @@ var _ = Describe("ImageUpload", func() {
 			Expect(ok).To(BeTrue())
 			Expect(dv.Name).To(Equal(targetName))
 
-			Expect(dvCreateCalled).To(BeFalse())
-			dvCreateCalled = true
+			Expect(dvCreateCalled.IsTrue()).To(BeFalse())
+			dvCreateCalled.True()
 
 			go createPVC(dv)
 			go addDvPhase()
@@ -221,10 +222,10 @@ var _ = Describe("ImageUpload", func() {
 			Expect(ok).To(BeTrue())
 			Expect(pvc.Name).To(Equal(targetName))
 
-			Expect(pvcCreateCalled).To(BeFalse())
-			pvcCreateCalled = true
+			Expect(pvcCreateCalled.IsTrue()).To(BeFalse())
+			pvcCreateCalled.True()
 
-			if !dvCreateCalled {
+			if !dvCreateCalled.IsTrue() {
 				go addPodPhaseAnnotation()
 			}
 
@@ -239,11 +240,11 @@ var _ = Describe("ImageUpload", func() {
 			Expect(ok).To(BeTrue())
 			Expect(pvc.Name).To(Equal(targetName))
 
-			if !dvCreateCalled && !pvcCreateCalled && !updateCalled {
+			if !dvCreateCalled.IsTrue() && !pvcCreateCalled.IsTrue() && !updateCalled.IsTrue() {
 				go addPodPhaseAnnotation()
 			}
 
-			updateCalled = true
+			updateCalled.True()
 
 			return false, nil, nil
 		})
@@ -330,9 +331,9 @@ var _ = Describe("ImageUpload", func() {
 	}
 
 	testInitAsyncWithCdiObjects := func(statusCode int, async bool, kubeobjects []runtime.Object, cdiobjects []runtime.Object) {
-		dvCreateCalled = false
-		pvcCreateCalled = false
-		updateCalled = false
+		dvCreateCalled.False()
+		pvcCreateCalled.False()
+		updateCalled.False()
 
 		config := createCDIConfig()
 		cdiobjects = append(cdiobjects, config)
@@ -385,7 +386,7 @@ var _ = Describe("ImageUpload", func() {
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "--pvc-name", targetName, "--pvc-size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
 			Expect(cmd()).To(BeNil())
-			Expect(pvcCreateCalled).To(BeTrue())
+			Expect(pvcCreateCalled.IsTrue()).To(BeTrue())
 			validatePVC()
 		})
 
@@ -394,7 +395,7 @@ var _ = Describe("ImageUpload", func() {
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "--pvc-name", targetName, "--no-create",
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
 			Expect(cmd()).To(BeNil())
-			Expect(pvcCreateCalled).To(BeFalse())
+			Expect(pvcCreateCalled.IsTrue()).To(BeFalse())
 			validatePVC()
 		})
 
@@ -403,7 +404,7 @@ var _ = Describe("ImageUpload", func() {
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
 			Expect(cmd()).To(BeNil())
-			Expect(dvCreateCalled).To(BeTrue())
+			Expect(dvCreateCalled.IsTrue()).To(BeTrue())
 			validatePVC()
 			validateDataVolume()
 		},
@@ -416,7 +417,7 @@ var _ = Describe("ImageUpload", func() {
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--pvc-size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
 			Expect(cmd()).To(BeNil())
-			Expect(dvCreateCalled).To(BeTrue())
+			Expect(dvCreateCalled.IsTrue()).To(BeTrue())
 			validatePVC()
 			validateDataVolume()
 		})
@@ -428,7 +429,7 @@ var _ = Describe("ImageUpload", func() {
 			err := cmd()
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(Equal(fmt.Sprintf("persistentvolumeclaims %q not found", targetName)))
-			Expect(dvCreateCalled).To(BeFalse())
+			Expect(dvCreateCalled.IsTrue()).To(BeFalse())
 		})
 
 		It("Use CDI Config UploadProxyURL", func() {
@@ -436,7 +437,7 @@ var _ = Describe("ImageUpload", func() {
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--insecure", "--image-path", imagePath)
 			Expect(cmd()).To(BeNil())
-			Expect(dvCreateCalled).To(BeTrue())
+			Expect(dvCreateCalled.IsTrue()).To(BeTrue())
 			validatePVC()
 			validateDataVolume()
 		})
@@ -446,7 +447,7 @@ var _ = Describe("ImageUpload", func() {
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--insecure", "--image-path", imagePath, "--block-volume")
 			Expect(cmd()).To(BeNil())
-			Expect(dvCreateCalled).To(BeTrue())
+			Expect(dvCreateCalled.IsTrue()).To(BeTrue())
 			validateBlockPVC()
 			validateBlockDataVolume()
 		})
@@ -457,7 +458,7 @@ var _ = Describe("ImageUpload", func() {
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--insecure", "--image-path", imagePath, "--storage-class", expectedStorageClass)
 			Expect(cmd()).To(BeNil())
-			Expect(dvCreateCalled).To(BeTrue())
+			Expect(dvCreateCalled.IsTrue()).To(BeTrue())
 			expectedStorageClassMatchesActual(expectedStorageClass)
 		})
 
@@ -466,7 +467,7 @@ var _ = Describe("ImageUpload", func() {
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "pvc", targetName, "--size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
 			Expect(cmd()).To(BeNil())
-			Expect(pvcCreateCalled).To(BeTrue())
+			Expect(pvcCreateCalled.IsTrue()).To(BeTrue())
 			validatePVC()
 		},
 			Entry("PVC does not exist, async", true),
@@ -478,7 +479,7 @@ var _ = Describe("ImageUpload", func() {
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "pvc", targetName,
 				"--uploadproxy-url", server.URL, "--no-create", "--insecure", "--image-path", imagePath)
 			Expect(cmd()).To(BeNil())
-			Expect(pvcCreateCalled).To(BeFalse())
+			Expect(pvcCreateCalled.IsTrue()).To(BeFalse())
 			validatePVC()
 		},
 			Entry("PVC with upload annotation", pvcSpecWithUploadAnnotation()),
@@ -493,7 +494,7 @@ var _ = Describe("ImageUpload", func() {
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(Equal("cannot upload to a readonly volume, use either ReadWriteOnce or ReadWriteMany if supported"))
-			Expect(dvCreateCalled).To(BeFalse())
+			Expect(dvCreateCalled.IsTrue()).To(BeFalse())
 		})
 
 		AfterEach(func() {
@@ -586,3 +587,26 @@ var _ = Describe("ImageUpload", func() {
 		)
 	})
 })
+
+type atomicBool struct {
+	lock  *sync.Mutex
+	value bool
+}
+
+func (b *atomicBool) IsTrue() bool {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	return b.value
+}
+
+func (b *atomicBool) True() {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	b.value = true
+}
+
+func (b *atomicBool) False() {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	b.value = false
+}
