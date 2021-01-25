@@ -79,9 +79,14 @@ func (q *MockWorkQueue) ExpectAdds(diff int) {
 // Wait waits until the expected amount of ExpectedAdds has happened.
 // It will not block if there were no expectations set.
 func (q *MockWorkQueue) Wait() {
-	if q.addWG != nil {
-		q.addWG.Wait()
+	q.wgLock.Lock()
+	wg := q.addWG
+	q.wgLock.Unlock()
+	if wg != nil {
+		wg.Wait()
+		q.wgLock.Lock()
 		q.addWG = nil
+		q.wgLock.Unlock()
 	}
 }
 
