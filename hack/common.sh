@@ -19,7 +19,9 @@
 
 set -e
 
-source hack/defaults
+PROJECT_ROOT="$(readlink -e $(dirname "$BASH_SOURCE[0]")/../)"
+source "${PROJECT_ROOT}"/hack/config
+
 source cluster/kubevirtci.sh
 
 CDI_OPERATOR_URL="https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_VERSION}/cdi-operator.yaml"
