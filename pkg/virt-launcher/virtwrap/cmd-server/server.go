@@ -256,6 +256,10 @@ func (l *Launcher) DeleteVirtualMachine(ctx context.Context, request *cmdv1.VMIR
 	return response, nil
 }
 
+func (l *Launcher) FinalizeVirtualMachineMigration(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+	return &cmdv1.Response{Success: true}, nil
+}
+
 func (l *Launcher) SetVirtualMachineGuestTime(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
 	vmi, response := getVMIFromRequest(request.Vmi)
