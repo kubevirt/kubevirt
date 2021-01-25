@@ -78,12 +78,12 @@ var _ = Describe("Subresource Api", func() {
 		Context("with authenticated user", func() {
 			It("[test_id:3172]should be allowed to access subresource version endpoint", func() {
 				testClientJob(virtCli, true, resource)
-			}, 15)
+			})
 		})
 		Context("Without permissions", func() {
 			It("[test_id:3173]should be able to access subresource version endpoint", func() {
 				testClientJob(virtCli, false, resource)
-			}, 15)
+			})
 		})
 	})
 
@@ -271,5 +271,5 @@ func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool, reso
 		return pod.Status.Phase
 	}
 
-	Eventually(getStatus, 30, 0.5).Should(Equal(expectedPhase))
+	Eventually(getStatus, 60, 0.5).Should(Equal(expectedPhase))
 }
