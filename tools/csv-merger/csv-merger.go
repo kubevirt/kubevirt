@@ -51,6 +51,8 @@ const operatorName = "kubevirt-hyperconverged-operator"
 const CSVMode = "CSV"
 const CRDMode = "CRDs"
 
+const almExamplesAnnotation = "alm-examples"
+
 var validOutputModes = []string{CSVMode, CRDMode}
 
 type ClusterServiceVersionSpecExtended struct {
@@ -127,11 +129,21 @@ var (
 	envVars                       EnvVarFlags
 )
 
-func gen_hco_crds() {
+func genHcoCrds() error {
 	// Write out CRDs and CR
-	util.MarshallObject(components.GetOperatorCRD(*apiSources), os.Stdout)
-	util.MarshallObject(components.GetV2VCRD(), os.Stdout)
-	util.MarshallObject(components.GetV2VOvirtProviderCRD(), os.Stdout)
+	if err := util.MarshallObject(components.GetOperatorCRD(*apiSources), os.Stdout); err != nil {
+		return err
+	}
+
+	if err := util.MarshallObject(components.GetV2VCRD(), os.Stdout); err != nil {
+		return err
+	}
+
+	if err := util.MarshallObject(components.GetV2VOvirtProviderCRD(), os.Stdout); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func IOReadDir(root string) ([]string, error) {
@@ -156,7 +168,7 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
-func validateNoApiOverlap(crdDir string) bool {
+func validateNoAPIOverlap(crdDir string) bool {
 	var (
 		crdFiles []string
 		err      error
@@ -167,21 +179,67 @@ func validateNoApiOverlap(crdDir string) bool {
 	}
 
 	// crdMap is populated with operator names as keys and a slice of associated api groups as values.
+	crdMap := getCrdMap(crdFiles)
+
+	overlapsMap := detectAPIOverlap(crdMap)
+
+	return checkAPIOverlapMap(overlapsMap)
+}
+
+func checkAPIOverlapMap(overlapsMap map[string][]string) bool {
+	// if at least one overlap found - emit an error.
+	if len(overlapsMap) != 0 {
+		log.Print("ERROR: Overlapping API Groups were found between different operators.")
+		for apiGroup := range overlapsMap {
+			log.Printf("The API Group %s is being used by these operators: %s\n", apiGroup, strings.Join(overlapsMap[apiGroup], ", "))
+		}
+		return false
+	}
+	return true
+}
+
+func detectAPIOverlap(crdMap map[string][]string) map[string][]string {
+	// overlapsMap is populated with collisions found - API Groups as keys,
+	// and slice containing operators using them, as values.
+	overlapsMap := make(map[string][]string)
+	for operator, groups := range crdMap {
+		for _, apiGroup := range groups {
+			// We work on replacement for current v2v. Remove this check when vmware import is removed
+			if apiGroup == "v2v.kubevirt.io" {
+				continue
+			}
+
+			compareMapWithEntry(crdMap, operator, apiGroup, overlapsMap)
+		}
+	}
+	return overlapsMap
+}
+
+func compareMapWithEntry(crdMap map[string][]string, operator string, apigroup string, overlapsMap map[string][]string) {
+	for comparedOperator := range crdMap {
+		if operator == comparedOperator { // don't check self
+			continue
+		}
+
+		if stringInSlice(apigroup, crdMap[comparedOperator]) {
+			appendOnce(overlapsMap[apigroup], operator)
+			appendOnce(overlapsMap[apigroup], comparedOperator)
+		}
+	}
+}
+
+func getCrdMap(crdFiles []string) map[string][]string {
 	crdMap := make(map[string][]string)
 
 	for _, crdFilePath := range crdFiles {
 		file, err := os.Open(crdFilePath)
-		if err != nil {
-			panic(err)
-		}
+		panicOnError(err)
+
 		content, err := ioutil.ReadAll(file)
-		if err != nil {
-			panic(err)
-		}
+		panicOnError(err)
+
 		err = file.Close()
-		if err != nil {
-			panic(err)
-		}
+		panicOnError(err)
 
 		crdFileName := filepath.Base(crdFilePath)
 		reg := regexp.MustCompile(`([^\d]+)`)
@@ -189,45 +247,13 @@ func validateNoApiOverlap(crdDir string) bool {
 
 		var crd apiextensions.CustomResourceDefinition
 		err = yaml.Unmarshal(content, &crd)
-		if err != nil {
-			panic(err)
-		}
+		panicOnError(err)
+
 		if !stringInSlice(crd.Spec.Group, crdMap[operator]) {
 			crdMap[operator] = append(crdMap[operator], crd.Spec.Group)
 		}
 	}
-
-	// overlapsMap is populated with collisions found - API Groups as keys,
-	// and slice containing operators using them, as values.
-	overlapsMap := make(map[string][]string)
-	for operator := range crdMap {
-		for _, apigroup := range crdMap[operator] {
-			for comparedOperator := range crdMap {
-				if operator == comparedOperator {
-					continue
-				}
-				if stringInSlice(apigroup, crdMap[comparedOperator]) {
-					overlappingOperators := []string{operator, comparedOperator}
-					for _, o := range overlappingOperators {
-						// We work on replacement for current v2v. Remove this check when vmware import is removed
-						if !stringInSlice(o, overlapsMap[apigroup]) && apigroup != "v2v.kubevirt.io" {
-							overlapsMap[apigroup] = append(overlapsMap[apigroup], o)
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// if at least one overlap found - emit an error.
-	if len(overlapsMap) != 0 {
-		log.Print("ERROR: Overlapping API Groups were found between different operators.")
-		for apigroup := range overlapsMap {
-			fmt.Print("The API Group " + apigroup + " is being used by these operators: " + strings.Join(overlapsMap[apigroup], ", ") + "\n")
-			return false
-		}
-	}
-	return true
+	return crdMap
 }
 
 func main() {
@@ -240,8 +266,7 @@ func main() {
 	}
 
 	if *crdDir != "" {
-		result := validateNoApiOverlap(*crdDir)
-		if result {
+		if validateNoAPIOverlap(*crdDir) {
 			os.Exit(0)
 		} else {
 			os.Exit(1)
@@ -250,7 +275,7 @@ func main() {
 
 	switch *outputMode {
 	case CRDMode:
-		gen_hco_crds()
+		genHcoCrds()
 	case CSVMode:
 		if *specDisplayName == "" || *specDescription == "" {
 			panic(errors.New("Must specify spec-displayname and spec-description"))
@@ -387,32 +412,32 @@ func main() {
 					},
 				)
 			}
-			csv_base_alm_string := csvExtended.Annotations["alm-examples"]
-			csv_struct_alm_string := csvStruct.Annotations["alm-examples"]
-			var base_almcrs []interface{}
-			var struct_almcrs []interface{}
+			csvBaseAlmString := csvExtended.Annotations[almExamplesAnnotation]
+			csvStructAlmString := csvStruct.Annotations[almExamplesAnnotation]
+			var baseAlmcrs []interface{}
+			var structAlmcrs []interface{}
 
-			if !strings.HasPrefix(csv_base_alm_string, "[") {
-				csv_base_alm_string = "[" + csv_base_alm_string + "]"
+			if !strings.HasPrefix(csvBaseAlmString, "[") {
+				csvBaseAlmString = "[" + csvBaseAlmString + "]"
 			}
 
-			if err = json.Unmarshal([]byte(csv_base_alm_string), &base_almcrs); err != nil {
+			if err = json.Unmarshal([]byte(csvBaseAlmString), &baseAlmcrs); err != nil {
 				panic(err)
 			}
-			if err = json.Unmarshal([]byte(csv_struct_alm_string), &struct_almcrs); err != nil {
+			if err = json.Unmarshal([]byte(csvStructAlmString), &structAlmcrs); err != nil {
 				panic(err)
 			}
-			for _, cr := range struct_almcrs {
-				base_almcrs = append(
-					base_almcrs,
+			for _, cr := range structAlmcrs {
+				baseAlmcrs = append(
+					baseAlmcrs,
 					cr,
 				)
 			}
-			alm_b, err := json.Marshal(base_almcrs)
+			almB, err := json.Marshal(baseAlmcrs)
 			if err != nil {
 				panic(err)
 			}
-			csvExtended.Annotations["alm-examples"] = string(alm_b)
+			csvExtended.Annotations[almExamplesAnnotation] = string(almB)
 
 			if !*ignoreComponentsRelatedImages {
 				for _, image := range csvStruct.Spec.RelatedImages {
@@ -423,28 +448,28 @@ func main() {
 
 		csvExtended.Spec.RelatedImages = relatedImageSet.dump()
 
-		hidden_crds := []string{}
-		visible_crds := strings.Split(*visibleCRDList, ",")
+		hiddenCrds := []string{}
+		visibleCrds := strings.Split(*visibleCRDList, ",")
 		for _, owned := range csvExtended.Spec.CustomResourceDefinitions.Owned {
 			found := false
-			for _, name := range visible_crds {
+			for _, name := range visibleCrds {
 				if owned.Name == name {
 					found = true
 				}
 			}
 			if !found {
-				hidden_crds = append(
-					hidden_crds,
+				hiddenCrds = append(
+					hiddenCrds,
 					owned.Name,
 				)
 			}
 		}
 
-		hidden_crds_j, err := json.Marshal(hidden_crds)
+		hiddenCrdsJ, err := json.Marshal(hiddenCrds)
 		if err != nil {
 			panic(err)
 		}
-		csvExtended.Annotations["operators.operatorframework.io/internal-objects"] = string(hidden_crds_j)
+		csvExtended.Annotations["operators.operatorframework.io/internal-objects"] = string(hiddenCrdsJ)
 
 		// Update csv strategy.
 		csvExtended.Spec.InstallStrategy.StrategyName = "deployment"
@@ -525,9 +550,9 @@ func newRelatedImageSet() RelatedImageSet {
 func (ri *RelatedImageSet) add(image string) {
 	name := ""
 	if strings.Contains(image, "|") {
-		image_s := strings.Split(image, "|")
-		image = image_s[0]
-		name = image_s[1]
+		imageS := strings.Split(image, "|")
+		image = imageS[0]
+		name = imageS[1]
 	} else {
 		names := strings.Split(strings.Split(image, "@")[0], "/")
 		name = names[len(names)-1]
@@ -561,4 +586,18 @@ func (ris relatedImageSortable) Less(i, j int) bool {
 
 func (ris relatedImageSortable) Swap(i, j int) {
 	ris[i], ris[j] = ris[j], ris[i]
+}
+
+func panicOnError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+func appendOnce(slice []string, item string) []string {
+	if stringInSlice(item, slice) {
+		return slice
+	}
+
+	return append(slice, item)
 }

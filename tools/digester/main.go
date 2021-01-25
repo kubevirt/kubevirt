@@ -9,7 +9,16 @@ package main
 //
 // The application will loop over the csv lines and will read the digest for name:${tag}, and will write back the file
 // if there is a change
-
+//
+// It is also possible to query a digest for a single image, and get the result in the standard output. use the --image
+// flag with the image name in repo/name:tag format; for example:
+// $ digester --image hello-world
+// hello-world@sha256:31b9c7d48790f0d8c50ab433d9c3b7e17666d6993084c002c2ff1ca09b96391d
+//
+// to get the image digest only, without the full image name, use the -d flag in addition to the --image flag
+// $ tools/digester/digester -d --image hello-world
+// 31b9c7d48790f0d8c50ab433d9c3b7e17666d6993084c002c2ff1ca09b96391d
+//
 import (
 	"bufio"
 	"context"
@@ -25,8 +34,9 @@ import (
 )
 
 const (
-	csvFile = "deploy/images.csv"
-	envFile = "deploy/images.env"
+	csvFile      = "deploy/images.csv"
+	envFile      = "deploy/images.env"
+	digestPrefix = "@sha256:"
 )
 
 type Image struct {
@@ -59,83 +69,53 @@ func NewImage(fields []string) *Image {
 	return image
 }
 
+type message struct {
+	index    int
+	digest   string
+	fullName string
+}
+
 func (i *Image) setDigest(digest string) {
 	i.Digest = digest
 }
 
-func main() {
+var (
+	imageToDigest   string
+	digestOnly      = false
+	singleImageMode = false
+)
 
-	digestOnly := false
-	imageToDigest := flag.String("image", "", "single image in name:tag format; if exists, returns only one digest fo this image, instead of processing the CSV file.")
+func init() {
+	flag.StringVar(&imageToDigest, "image", "", "single image in name:tag format; if exists, returns only one digest fo this image, instead of processing the CSV file.")
 	flag.BoolVar(&digestOnly, "d", false, "when using --image, digester will only print the digest hex itself, without the image name")
 
 	flag.Parse()
 
-	cli, err := docker.NewEnvClient()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	if len(imageToDigest) > 0 {
+		singleImageMode = true
 	}
+}
+func main() {
+	cli, err := docker.NewEnvClient()
+	exitOnError(err, "can't create docker client")
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
 	// Single image use-case
-	if imageToDigest != nil && *imageToDigest != "" {
-		if strings.Contains(*imageToDigest, "@sha256:") {
-			fmt.Printf("%s is already in a digest format\n", *imageToDigest)
-			os.Exit(1)
-		}
-		inspect, err := cli.DistributionInspect(ctx, *imageToDigest, "")
-		if err != nil {
-			fmt.Printf("Error while trying to get digest for %s; %s\n", *imageToDigest, err)
-			os.Exit(1)
-		}
-
-		digest := inspect.Descriptor.Digest.Hex()
-		loc := strings.LastIndex(*imageToDigest, ":")
-		if digestOnly {
-			fmt.Println(digest)
-		} else {
-			imageName := (*imageToDigest)[:loc] + "@sha256:" + digest
-			fmt.Println(imageName)
-		}
-		os.Exit(0)
+	if singleImageMode {
+		querySingleImage(ctx, imageToDigest, cli, digestOnly)
+	} else {
+		updateImages(ctx, cli)
 	}
+}
 
+func updateImages(ctx context.Context, cli *docker.Client) {
 	fmt.Println("Checking image digests")
-	f, err := os.Open(csvFile)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	reader := csv.NewReader(f)
-	lines, err := reader.ReadAll()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	err = f.Close()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	images := make([]*Image, 0, len(lines))
-	for _, line := range lines {
-		images = append(images, NewImage(line))
-	}
+	err, images := getCurrentImageList()
 
 	wg := &sync.WaitGroup{}
 	wg.Add(len(images) - 1) // the first "image" is the CSV title
-
-	type message struct {
-		index    int
-		digest   string
-		fullName string
-	}
 
 	ch := make(chan message, len(images)-1)
 
@@ -146,21 +126,27 @@ func main() {
 
 	start := time.Now()
 	for i, image := range images[1:] {
-		go func(image *Image, index int) {
-			fullName := fmt.Sprintf("%s:%s", image.Name, os.Getenv(image.Tag))
-			fmt.Printf("Reading digest for %s\n", fullName)
-			inspect, err := cli.DistributionInspect(ctx, fullName, "")
-			if err != nil {
-				fmt.Printf("Error while trying to get digest for %s; %s\n", fullName, err)
-				os.Exit(1)
-			}
-
-			digest := inspect.Descriptor.Digest.Hex()
-			ch <- message{index: index, digest: digest, fullName: fullName}
-			wg.Done()
-		}(image, i+1)
+		go readOneDigest(ctx, cli, image, i+1, wg, ch)
 	}
 
+	changed := checkForChanges(ch, images)
+
+	howLong := time.Now().Sub(start)
+	fmt.Println("took", howLong)
+
+	if changed {
+		fmt.Printf("Found new digests. Updating the %s file\n", csvFile)
+		err = writeCsv(images)
+		exitOnError(err, "failed to update the %s files", csvFile)
+	} else {
+		fmt.Println("The images file is up to date")
+	}
+
+	err = writeEnvFile(images)
+	exitOnError(err, "failed to update the %s files", envFile)
+}
+
+func checkForChanges(ch chan message, images []*Image) bool {
 	changed := false
 	for msg := range ch {
 		if images[msg.index].Digest != msg.digest {
@@ -169,24 +155,52 @@ func main() {
 			images[msg.index].setDigest(msg.digest)
 		}
 	}
+	return changed
+}
 
-	howLong := time.Now().Sub(start)
-	fmt.Println("took", howLong)
-	if changed {
-		fmt.Println("Found new digests. Updating the file")
-		if err = writeCsv(images); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-	} else {
-		fmt.Println("The images file is up to date")
+func getCurrentImageList() (error, []*Image) {
+	f, err := os.Open(csvFile)
+	exitOnError(err, "can't open %s for reading", csvFile)
+
+	reader := csv.NewReader(f)
+	lines, err := reader.ReadAll()
+	exitOnError(err, "can't read %s", csvFile)
+
+	err = f.Close()
+	exitOnError(err, "error while closing %s", csvFile)
+
+	images := make([]*Image, 0, len(lines))
+	for _, line := range lines {
+		images = append(images, NewImage(line))
 	}
+	return err, images
+}
 
-	if err = writeEnvFile(images); err != nil {
-		fmt.Println(err)
+func querySingleImage(ctx context.Context, imageToDigest string, cli *docker.Client, digestOnly bool) {
+	if strings.Contains(imageToDigest, digestPrefix) {
+		fmt.Printf("%s is already in a digest format\n", imageToDigest)
+		os.Exit(1)
+	}
+	inspect, err := cli.DistributionInspect(ctx, imageToDigest, "")
+	if err != nil {
+		fmt.Printf("Error while trying to get digest for %s; %s\n", imageToDigest, err)
 		os.Exit(1)
 	}
 
+	digest := inspect.Descriptor.Digest.Hex()
+	if digestOnly {
+		fmt.Println(digest)
+	} else {
+		loc := strings.LastIndex(imageToDigest, ":")
+		var imageName string
+		if loc == -1 {
+			imageName = buildImageDigestName(imageToDigest, digest)
+		} else {
+			imageName = buildImageDigestName(imageToDigest[:loc], digest)
+		}
+
+		fmt.Println(imageName)
+	}
 }
 
 func writeCsv(images []*Image) error {
@@ -220,7 +234,7 @@ func writeEnvFile(images []*Image) error {
 
 	imageList := make([]string, len(images)-1, len(images)-1)
 	for i, image := range images[1:] {
-		imageDigest := fmt.Sprintf("%s@sha256:%s", image.Name, image.Digest)
+		imageDigest := buildImageDigestName(image.Name, image.Digest)
 		_, err = writer.WriteString(fmt.Sprintf("%s=%s\n", image.EnvVar, imageDigest))
 		if err != nil {
 			return err
@@ -242,4 +256,26 @@ func writeEnvFile(images []*Image) error {
 	}
 
 	return writer.Flush()
+}
+
+func exitOnError(err error, msg string, fmtParams ...interface{}) {
+	if err != nil {
+		fmt.Printf("%s; %v\n", fmt.Sprintf(msg, fmtParams...), err)
+		os.Exit(1)
+	}
+}
+
+func readOneDigest(ctx context.Context, cli *docker.Client, image *Image, index int, wg *sync.WaitGroup, ch chan message) {
+	fullName := fmt.Sprintf("%s:%s", image.Name, os.Getenv(image.Tag))
+	fmt.Println("Reading digest for", fullName)
+	inspect, err := cli.DistributionInspect(ctx, fullName, "")
+	exitOnError(err, "Error while trying to get digest for %s", fullName)
+
+	digest := inspect.Descriptor.Digest.Hex()
+	ch <- message{index: index, digest: digest, fullName: fullName}
+	wg.Done()
+}
+
+func buildImageDigestName(name, digest string) string {
+	return fmt.Sprintf("%s%s%s", name, digestPrefix, digest)
 }
