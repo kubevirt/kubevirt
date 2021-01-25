@@ -211,6 +211,10 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(err).ToNot(HaveOccurred(), "should fetch filesystems without any issue")
 			Expect(fetchedList.Items).To(Equal(fsList), "fetched list should be the same")
 		})
+
+		It("should finalize VM migration", func() {
+			Expect(client.FinalizeVirtualMachineMigration(nil)).Should(Succeed())
+		})
 	})
 
 	Describe("Version mismatch", func() {
