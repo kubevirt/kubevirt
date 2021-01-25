@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/rbac"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"

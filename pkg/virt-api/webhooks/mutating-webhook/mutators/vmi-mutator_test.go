@@ -40,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/rbac"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 )
 
 var privilegedUser = fmt.Sprintf("%s:%s:%s:%s", "system", "serviceaccount", "kubevirt", rbac.ControllerServiceAccountName)

@@ -18,7 +18,7 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 func (r *Reconciler) syncKubevirtNamespaceLabels() error {

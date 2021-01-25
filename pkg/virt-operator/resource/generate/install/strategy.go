@@ -41,13 +41,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	registrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/components"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/rbac"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 	marshalutil "kubevirt.io/kubevirt/tools/util"
@@ -58,10 +57,10 @@ const customSCCPrivilegedAccountsType = "KubevirtCustomSCCRule"
 //go:generate mockgen -source $GOFILE -imports "libvirt=libvirt.org/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 type APIServiceInterface interface {
-	Get(name string, options metav1.GetOptions) (*registrationv1beta1.APIService, error)
-	Create(*registrationv1beta1.APIService) (*registrationv1beta1.APIService, error)
-	Delete(name string, options *metav1.DeleteOptions) error
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *registrationv1beta1.APIService, err error)
+	Get(ctx context.Context, name string, options metav1.GetOptions) (*v1beta12.APIService, error)
+	Create(ctx context.Context, apiService *v1beta12.APIService, opts metav1.CreateOptions) (*v1beta12.APIService, error)
+	Delete(ctx context.Context, name string, options metav1.DeleteOptions) error
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1beta12.APIService, err error)
 }
 
 type Strategy struct {

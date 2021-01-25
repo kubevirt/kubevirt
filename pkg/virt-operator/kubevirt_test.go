@@ -64,9 +64,9 @@ import (
 	kubecontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/components"
-	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/install"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/rbac"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 

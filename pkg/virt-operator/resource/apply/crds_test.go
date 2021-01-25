@@ -21,8 +21,8 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/install"
-	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/install"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
+	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	marshalutil "kubevirt.io/kubevirt/tools/util"
 )

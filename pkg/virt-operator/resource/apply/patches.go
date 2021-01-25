@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/creation/install"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 )
 
 type Customizer struct {
