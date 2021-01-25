@@ -4858,7 +4858,7 @@ func getTagHint() string {
 		return ""
 	}
 
-	return strings.Split(string(bytes), "-rc")[0]
+	return strings.TrimSpace(strings.Split(string(bytes), "-rc")[0])
 
 }
 
