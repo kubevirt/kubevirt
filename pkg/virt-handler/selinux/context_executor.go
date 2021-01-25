@@ -29,6 +29,11 @@ import (
 	"github.com/opencontainers/selinux/go-selinux"
 )
 
+const (
+	minFDToCloseOnExec = 3
+	maxFDToCloseOnExec = 256
+)
+
 type ContextExecutor struct {
 	cmdToExecute  *exec.Cmd
 	desiredLabel  string
@@ -95,8 +100,9 @@ func getLabelForPID(pid int) (string, error) {
 }
 
 func preventFDLeakOntoChild() {
-	// we want to share the parent process std{in|out|err}
-	for fd := 3; fd < 256; fd++ {
+	// we want to share the parent process std{in|out|err} - fds 0 through 2.
+	// Since the FDs are inherited on fork / exec, we close on exec all others.
+	for fd := minFDToCloseOnExec; fd < maxFDToCloseOnExec; fd++ {
 		syscall.CloseOnExec(fd)
 	}
 }
