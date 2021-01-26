@@ -659,11 +659,6 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 		}
 
 		Context("[Conformance][test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", func() {
-			const (
-				defaultCIDR = false
-				customCIDR  = true
-			)
-
 			var serverVMI *v1.VirtualMachineInstance
 
 			verifyClientServerConnectivity := func(clientVMI *v1.VirtualMachineInstance, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
@@ -693,13 +688,8 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			table.DescribeTable("ipv4", func(ports []v1.Port, withCustomCIDR bool) {
+			table.DescribeTable("ipv4", func(ports []v1.Port, networkCIDR string) {
 				var clientVMI *v1.VirtualMachineInstance
-				var networkCIDR string
-
-				if withCustomCIDR {
-					networkCIDR = "10.10.10.0/24"
-				}
 
 				// Create the client only one time
 				if clientVMI == nil {
@@ -735,9 +725,10 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				Expect(libnet.PingFromVMConsole(clientVMI, "google.com")).To(Succeed())
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv4Protocol)).To(Succeed())
-			}, table.Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080}}, defaultCIDR),
-				table.Entry("without a specific port number [IPv4]", []v1.Port{}, defaultCIDR),
-				table.Entry("with custom CIDR [IPv4]", []v1.Port{}, customCIDR),
+			},
+				table.Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080}}, ""),
+				table.Entry("without a specific port number [IPv4]", []v1.Port{}, ""),
+				table.Entry("with custom CIDR [IPv4]", []v1.Port{}, "10.10.10.0/24"),
 			)
 
 			table.DescribeTable("IPv6", func(ports []v1.Port) {
