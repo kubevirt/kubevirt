@@ -40,6 +40,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -691,6 +692,24 @@ var _ = Describe("[Serial]SRIOV", func() {
 				Expect(checkInterface(vmi, iface)).To(Succeed())
 			}
 		}
+
+		It("should create virt-launcher pod with CAP_SYS_RESOURCE capability", func() {
+			tests.EnableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
+			defer tests.UpdateKubeVirtConfigValueAndWait(tests.KubeVirtDefaultConfig)
+
+			vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
+			vmi = startVmi(vmi)
+			vmi = waitVmi(vmi)
+
+			By("Looking up for VMI virt-launcher pod using VMI's label")
+			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(virtLauncherPod).ToNot(BeNil(), "should get virt-launcher pod")
+
+			computeContainer := tests.GetComputeContainerOfPod(virtLauncherPod)
+			Expect(computeContainer).ToNot(BeNil(), "should get virt-launcher pod, compute container")
+			Expect(computeContainer.SecurityContext.Capabilities.Add).
+				To(ContainElement(k8sv1.Capability(services.CAP_SYS_RESOURCE)))
+		})
 
 		It("[test_id:1754]should create a virtual machine with sriov interface", func() {
 			vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
