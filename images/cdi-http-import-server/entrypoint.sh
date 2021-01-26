@@ -32,6 +32,7 @@ case "$IMAGE_NAME" in
 cirros) CONVERT_PATH=$CIRROS_IMAGE_PATH ;;
 alpine) CONVERT_PATH=$ALPINE_IMAGE_PATH ;;
 fedora-cloud) CONVERT_PATH=$FEDORA_IMAGE_PATH ;;
+fedora-with-test-tooling) CONVERT_PATH=$FEDORA_IMAGE_PATH ;;
 *)
     echo "failed to find image $IMAGE_NAME"
     ;;
