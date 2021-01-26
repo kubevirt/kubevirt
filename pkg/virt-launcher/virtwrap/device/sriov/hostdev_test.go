@@ -281,6 +281,43 @@ var _ = Describe("SRIOV HostDevice", func() {
 			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 10*time.Millisecond)).To(Succeed())
 		})
 	})
+
+	Context("attachment", func() {
+		hostDevice := api.HostDevice{Alias: api.NewUserDefinedAlias("net1")}
+
+		It("ignores nil list of devices", func() {
+			Expect(sriov.AttachHostDevices(deviceAttacherStub{}, nil)).Should(Succeed())
+		})
+
+		It("ignores an empty list of devices", func() {
+			Expect(sriov.AttachHostDevices(deviceAttacherStub{}, []api.HostDevice{})).Should(Succeed())
+		})
+
+		It("succeeds to attach device", func() {
+			Expect(sriov.AttachHostDevices(deviceAttacherStub{}, []api.HostDevice{hostDevice})).Should(Succeed())
+		})
+
+		It("succeeds to attach more than one device", func() {
+			hostDevice2 := api.HostDevice{Alias: api.NewUserDefinedAlias("net2")}
+
+			Expect(sriov.AttachHostDevices(deviceAttacherStub{}, []api.HostDevice{hostDevice, hostDevice2})).Should(Succeed())
+		})
+
+		It("fails to attach device", func() {
+			obj := deviceAttacherStub{fail: true}
+			Expect(sriov.AttachHostDevices(obj, []api.HostDevice{hostDevice})).ShouldNot(Succeed())
+		})
+
+		It("error should contain at least the Alias of each device that failed to attach", func() {
+			obj := deviceAttacherStub{fail: true}
+			hostDevice2 := api.HostDevice{Alias: api.NewUserDefinedAlias("net2")}
+			err := sriov.AttachHostDevices(obj, []api.HostDevice{hostDevice, hostDevice2})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(And(
+				ContainSubstring(hostDevice.Alias.GetName()),
+				ContainSubstring(hostDevice2.Alias.GetName())))
+		})
+	})
 })
 
 func newDomainSpec(hostDevices ...api.HostDevice) *api.DomainSpec {
@@ -319,6 +356,17 @@ type deviceDetacherStub struct {
 func (d deviceDetacherStub) DetachDeviceFlags(data string, flags libvirt.DomainDeviceModifyFlags) error {
 	if d.fail {
 		return fmt.Errorf("detach device error")
+	}
+	return nil
+}
+
+type deviceAttacherStub struct {
+	fail bool
+}
+
+func (d deviceAttacherStub) AttachDeviceFlags(data string, flags libvirt.DomainDeviceModifyFlags) error {
+	if d.fail {
+		return fmt.Errorf("attach device error")
 	}
 	return nil
 }
