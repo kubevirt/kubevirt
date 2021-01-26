@@ -110,6 +110,8 @@ const (
 	FailedHotplugSyncReason = "FailedHotplugSync"
 )
 
+const failedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
+
 func NewVMIController(templateService services.TemplateService,
 	vmiInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
@@ -661,10 +663,10 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			templatePod, err = c.templateService.RenderLaunchManifest(vmi)
 		}
 		if _, ok := err.(services.PvcNotFoundError); ok {
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedPvcNotFoundReason, "failed to render launch manifest: %v", err)
-			return &syncErrorImpl{fmt.Errorf("failed to render launch manifest: %v", err), FailedPvcNotFoundReason}
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedPvcNotFoundReason, failedToRenderLaunchManifestErrFormat, err)
+			return &syncErrorImpl{fmt.Errorf(failedToRenderLaunchManifestErrFormat, err), FailedPvcNotFoundReason}
 		} else if err != nil {
-			return &syncErrorImpl{fmt.Errorf("failed to render launch manifest: %v", err), FailedCreatePodReason}
+			return &syncErrorImpl{fmt.Errorf(failedToRenderLaunchManifestErrFormat, err), FailedCreatePodReason}
 		}
 
 		vmiKey := controller.VirtualMachineKey(vmi)
