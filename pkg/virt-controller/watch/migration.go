@@ -178,15 +178,14 @@ func (c *MigrationController) execute(key string) error {
 	}
 
 	if !vmiExists {
+		var err error
+
 		if migration.DeletionTimestamp == nil {
 			logger.V(3).Infof("Deleting migration for deleted vmi %s/%s", migration.Namespace, migration.Spec.VMIName)
-			err := c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &v1.DeleteOptions{})
-			if err != nil {
-				return err
-			}
+			err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &v1.DeleteOptions{})
 		}
 		// nothing to process for a migration that's being deleted
-		return nil
+		return err
 	}
 
 	vmi = vmiObj.(*virtv1.VirtualMachineInstance)
@@ -459,14 +458,10 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 		return nil
 	}
 
-	if vmi == nil || vmi.DeletionTimestamp != nil {
-		// nothing to do with a deleted vmi
-		return nil
-	} else if vmi.Status.MigrationState != nil &&
-		vmi.Status.MigrationState.MigrationUID == migration.UID &&
-		vmi.Status.MigrationState.EndTimestamp != nil {
+	vmiDeleted := vmi == nil || vmi.DeletionTimestamp != nil
+	migrationDone := vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationUID == migration.UID && vmi.Status.MigrationState.EndTimestamp != nil
 
-		// nothing to do here, the migration is done
+	if vmiDeleted || migrationDone {
 		return nil
 	}
 
@@ -864,22 +859,21 @@ func (c *MigrationController) findRunningMigrations() ([]*virtv1.VirtualMachineI
 	for _, migration := range notFinishedMigrations {
 		if migration.IsRunning() {
 			runningMigrations = append(runningMigrations, migration)
-		} else {
-
-			vmi, exists, err := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
-			if err != nil {
-				return nil, err
-			}
-			if !exists {
-				continue
-			}
-			pods, err := c.listMatchingTargetPods(migration, vmi.(*virtv1.VirtualMachineInstance))
-			if err != nil {
-				return nil, err
-			}
-			if len(pods) > 0 {
-				runningMigrations = append(runningMigrations, migration)
-			}
+			continue
+		}
+		vmi, exists, err := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			continue
+		}
+		pods, err := c.listMatchingTargetPods(migration, vmi.(*virtv1.VirtualMachineInstance))
+		if err != nil {
+			return nil, err
+		}
+		if len(pods) > 0 {
+			runningMigrations = append(runningMigrations, migration)
 		}
 	}
 	return runningMigrations, nil
