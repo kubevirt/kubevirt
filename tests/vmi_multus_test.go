@@ -105,35 +105,6 @@ var _ = Describe("[Serial]Multus", func() {
 		},
 	}
 
-	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
-
-		// Multus tests need to ensure that old VMIs are gone
-		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
-		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestAlternative).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
-		Eventually(func() int {
-			list1, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v13.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			list2, err := virtClient.VirtualMachineInstance(tests.NamespaceTestAlternative).List(&v13.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return len(list1.Items) + len(list2.Items)
-		}, 6*time.Minute, 1*time.Second).Should(BeZero())
-	})
-
-	createVMIOnNode := func(interfaces []v1.Interface, networks []v1.Network) *v1.VirtualMachineInstance {
-		vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), "#!/bin/bash\n")
-		vmi.Spec.Domain.Devices.Interfaces = interfaces
-		vmi.Spec.Networks = networks
-
-		// Arbitrarily select one compute node in the cluster, on which it is possible to create a VMI
-		// (i.e. a schedulable node).
-		nodeName := nodes.Items[0].Name
-		tests.StartVmOnNode(vmi, nodeName)
-
-		return vmi
-	}
-
 	tests.BeforeAll(func() {
 		tests.BeforeTestCleanup()
 
@@ -164,6 +135,35 @@ var _ = Describe("[Serial]Multus", func() {
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 	})
+
+	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
+		// Multus tests need to ensure that old VMIs are gone
+		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
+		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestAlternative).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
+		Eventually(func() int {
+			list1, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v13.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			list2, err := virtClient.VirtualMachineInstance(tests.NamespaceTestAlternative).List(&v13.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return len(list1.Items) + len(list2.Items)
+		}, 6*time.Minute, 1*time.Second).Should(BeZero())
+	})
+
+	createVMIOnNode := func(interfaces []v1.Interface, networks []v1.Network) *v1.VirtualMachineInstance {
+		vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskAlpine), "#!/bin/bash\n")
+		vmi.Spec.Domain.Devices.Interfaces = interfaces
+		vmi.Spec.Networks = networks
+
+		// Arbitrarily select one compute node in the cluster, on which it is possible to create a VMI
+		// (i.e. a schedulable node).
+		nodeName := nodes.Items[0].Name
+		tests.StartVmOnNode(vmi, nodeName)
+
+		return vmi
+	}
 
 	Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance using different types of interfaces.", func() {
 		Context("VirtualMachineInstance with cni ptp plugin interface", func() {
