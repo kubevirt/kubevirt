@@ -555,23 +555,25 @@ func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virt
 	for i, request := range vm.Status.VolumeRequests {
 		vmCopy.Spec.Template.Spec = *controller.ApplyVolumeRequestOnVMISpec(&vmCopy.Spec.Template.Spec, &vm.Status.VolumeRequests[i])
 
-		if vmi != nil && vmi.DeletionTimestamp == nil {
-			if request.AddVolumeOptions != nil {
-				_, exists := vmiVolumeMap[request.AddVolumeOptions.Name]
-				if !exists {
-					err := c.clientset.VirtualMachineInstance(vmi.Namespace).AddVolume(vmi.Name, request.AddVolumeOptions)
-					if err != nil {
-						return err
-					}
-				}
-			} else if request.RemoveVolumeOptions != nil {
-				_, exists := vmiVolumeMap[request.RemoveVolumeOptions.Name]
-				if exists {
-					err := c.clientset.VirtualMachineInstance(vmi.Namespace).RemoveVolume(vmi.Name, request.RemoveVolumeOptions)
-					if err != nil {
-						return err
-					}
-				}
+		if vmi == nil || vmi.DeletionTimestamp != nil {
+			continue
+		}
+
+		if request.AddVolumeOptions != nil {
+			if _, exists := vmiVolumeMap[request.AddVolumeOptions.Name]; exists {
+				continue
+			}
+
+			if err := c.clientset.VirtualMachineInstance(vmi.Namespace).AddVolume(vmi.Name, request.AddVolumeOptions); err != nil {
+				return err
+			}
+		} else if request.RemoveVolumeOptions != nil {
+			if _, exists := vmiVolumeMap[request.RemoveVolumeOptions.Name]; !exists {
+				continue
+			}
+
+			if err := c.clientset.VirtualMachineInstance(vmi.Namespace).RemoveVolume(vmi.Name, request.RemoveVolumeOptions); err != nil {
+				return err
 			}
 		}
 	}
@@ -988,17 +990,19 @@ func (c *VMController) updateVirtualMachine(old, cur interface{}) {
 		return
 	}
 
-	// Otherwise, it's an orphan. If anything changed, sync matching controllers
-	// to see if anyone wants to adopt it now.
-	if labelChanged || controllerRefChanged {
-		vms := c.getMatchingControllers(curVMI)
-		if len(vms) == 0 {
-			return
-		}
-		log.Log.V(4).Object(curVMI).Infof("Orphan VirtualMachineInstance updated")
-		for _, vm := range vms {
-			c.enqueueVm(vm)
-		}
+	isOrphan := !labelChanged && !controllerRefChanged
+	if isOrphan {
+		return
+	}
+
+	// If anything changed, sync matching controllers to see if anyone wants to adopt it now.
+	vms := c.getMatchingControllers(curVMI)
+	if len(vms) == 0 {
+		return
+	}
+	log.Log.V(4).Object(curVMI).Infof("Orphan VirtualMachineInstance updated")
+	for _, vm := range vms {
+		c.enqueueVm(vm)
 	}
 }
 
