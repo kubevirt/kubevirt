@@ -2965,7 +2965,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(len(causes)).To(Equal(0))
 		})
 
-		It("should not accept EFI without SMM", func() {
+		It("should accept EFI without SMM", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Subdomain = "testsubdomain"
 
@@ -2976,7 +2976,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(len(causes)).To(Equal(0))
 		})
 
 		It("should accept EFI without secureBoot and without SMM", func() {
