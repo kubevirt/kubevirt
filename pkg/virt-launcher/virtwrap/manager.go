@@ -663,7 +663,36 @@ func (l *LibvirtDomainManager) getGuestTimeContext() context.Context {
 
 // FinalizeVirtualMachineMigration apply all post-migration changes on the domain.
 func (l *LibvirtDomainManager) FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error {
+	if err := l.hotPlugHostDevices(vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("failed to hot-plug host-devices")
+	}
+
 	if err := l.setGuestTime(vmi); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// hotPlugHostDevices attach host-devices to running domain
+// Currently only SRIOV host-devices are supported
+func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance) error {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	domainName := api.VMINamespaceKeyFunc(vmi)
+	domain, err := l.virConn.LookupDomainByName(domainName)
+	if err != nil {
+		return err
+	}
+	defer domain.Free()
+
+	sriovHostDevices, err := sriov.CreateHostDevices(vmi)
+	if err != nil {
+		return err
+	}
+
+	if err := sriov.AttachHostDevices(domain, sriovHostDevices); err != nil {
 		return err
 	}
 

@@ -193,3 +193,44 @@ func deviceLookup(hostDevices []api.HostDevice, deviceAlias string) *api.HostDev
 	}
 	return nil
 }
+
+type deviceAttacher interface {
+	AttachDeviceFlags(xmlData string, flags libvirt.DomainDeviceModifyFlags) error
+}
+
+func AttachHostDevices(dom deviceAttacher, hostDevices []api.HostDevice) error {
+	var errs []error
+	for _, hostDev := range hostDevices {
+		if err := attachHostDevice(dom, hostDev); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(errs) > 0 {
+		return buildAttachHostDevicesErrorMessage(errs)
+	}
+
+	return nil
+}
+
+func attachHostDevice(dom deviceAttacher, hostDev api.HostDevice) error {
+	devXML, err := xml.Marshal(hostDev)
+	if err != nil {
+		return fmt.Errorf("failed to encode (xml) host-device %v, err: %v", hostDev, err)
+	}
+	err = dom.AttachDeviceFlags(string(devXML), libvirt.DOMAIN_DEVICE_MODIFY_LIVE|libvirt.DOMAIN_DEVICE_MODIFY_CONFIG)
+	if err != nil {
+		return fmt.Errorf("failed to attach host-device %s, err: %v", devXML, err)
+	}
+	log.Log.Infof("Successfully hot-plug host-device: %s (%v)", hostDev.Alias.GetName(), hostDev.Source.Address)
+
+	return nil
+}
+
+func buildAttachHostDevicesErrorMessage(errors []error) error {
+	errorMessageBuilder := strings.Builder{}
+	for _, err := range errors {
+		errorMessageBuilder.WriteString(err.Error() + "\n")
+	}
+	return fmt.Errorf(errorMessageBuilder.String())
+}

@@ -453,6 +453,7 @@ type VirDomain interface {
 	Suspend() error
 	Resume() error
 	AttachDevice(xml string) error
+	AttachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
 	DetachDevice(xml string) error
 	DetachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
 	DestroyFlags(flags libvirt.DomainDestroyFlags) error
