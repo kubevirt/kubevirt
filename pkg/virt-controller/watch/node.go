@@ -59,7 +59,7 @@ func NewNodeController(clientset kubecli.KubevirtClient, nodeInformer cache.Shar
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachine,
-		DeleteFunc: func(_ interface{}) {}, // nothing to do
+		DeleteFunc: func(_ interface{}) { /* nothing to do */ },
 		UpdateFunc: c.updateVirtualMachine,
 	})
 
