@@ -47,6 +47,15 @@ import (
 
 type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error)
 
+// Repeating info / error messages
+const (
+	stoppingVmiMsg                        = "Stopping VMI"
+	startingVmiMsg                        = "Starting VMI"
+	failedExtractVmkeyFromVmErrMsg        = "Failed to extract vmKey from VirtualMachine."
+	failedProcessDeleteNotificationErrMsg = "Failed to process delete notification"
+	failureDeletingVmiErrFormat           = "Failure attempting to delete VMI: %v"
+)
+
 func NewVMController(vmiInformer cache.SharedIndexInformer,
 	vmiVMInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer,
@@ -605,10 +614,10 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				// The VirtualMachineInstance can fail or be finished. The job of this controller
 				// is keep the VirtualMachineInstance running, therefore it restarts it.
 				// restarting VirtualMachineInstance by stopping it and letting it start in next step
-				log.Log.Object(vm).V(4).Info("Stopping VMI")
+				log.Log.Object(vm).V(4).Info(stoppingVmiMsg)
 				err := c.stopVMI(vm, vmi)
 				if err != nil {
-					log.Log.Object(vm).Errorf("Failure attempting to delete VMI: %v", err)
+					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
 					return err
 				}
 				// return to let the controller pick up the expected deletion
@@ -617,7 +626,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 			return nil
 		}
 
-		log.Log.Object(vm).V(4).Info("Starting VMI")
+		log.Log.Object(vm).V(4).Info(startingVmiMsg)
 		err := c.startVMI(vm)
 		if err != nil {
 			return err
@@ -643,10 +652,10 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 			if forceStop || vmi.Status.Phase == virtv1.Failed {
 				// For RerunOnFailure, this controller should only restart the VirtualMachineInstance
 				// if it failed.
-				log.Log.Object(vm).V(4).Info("Stopping VMI")
+				log.Log.Object(vm).V(4).Info(stoppingVmiMsg)
 				err := c.stopVMI(vm, vmi)
 				if err != nil {
-					log.Log.Object(vm).Errorf("Failure attempting to delete VMI: %v", err)
+					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
 					return err
 				}
 				// return to let the controller pick up the expected deletion
@@ -655,7 +664,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 			return nil
 		}
 
-		log.Log.Object(vm).V(4).Info("Starting VMI")
+		log.Log.Object(vm).V(4).Info(startingVmiMsg)
 		err := c.startVMI(vm)
 		if err != nil {
 			return err
@@ -677,10 +686,10 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				}
 			}
 			if forceStop {
-				log.Log.Object(vm).V(4).Info("Stopping VMI")
+				log.Log.Object(vm).V(4).Info(stoppingVmiMsg)
 				err := c.stopVMI(vm, vmi)
 				if err != nil {
-					log.Log.Object(vm).Errorf("Failure attempting to delete VMI: %v", err)
+					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
 					return err
 				}
 				// return to let the controller pick up the expected deletion
@@ -696,7 +705,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				}
 			}
 			if forceStart {
-				log.Log.Object(vm).V(4).Info("Starting VMI")
+				log.Log.Object(vm).V(4).Info(startingVmiMsg)
 				err := c.startVMI(vm)
 				if err != nil {
 					return err
@@ -722,7 +731,7 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	// TODO add check for existence
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
-		log.Log.Object(vm).Reason(err).Error("Failed to extract vmKey from VirtualMachine.")
+		log.Log.Object(vm).Reason(err).Error(failedExtractVmkeyFromVmErrMsg)
 		return nil
 	}
 
@@ -750,7 +759,7 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
-		log.Log.Object(vm).Reason(err).Error("Failed to extract vmKey from VirtualMachine.")
+		log.Log.Object(vm).Reason(err).Error(failedExtractVmkeyFromVmErrMsg)
 		return nil
 	}
 
@@ -1005,12 +1014,12 @@ func (c *VMController) deleteVirtualMachine(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error(failedProcessDeleteNotificationErrMsg)
 			return
 		}
 		vmi, ok = tombstone.Obj.(*virtv1.VirtualMachineInstance)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a vmi %#v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a vmi %#v", obj)).Error(failedProcessDeleteNotificationErrMsg)
 			return
 		}
 	}
@@ -1107,12 +1116,12 @@ func (c *VMController) deleteDataVolume(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error(failedProcessDeleteNotificationErrMsg)
 			return
 		}
 		dataVolume, ok = tombstone.Obj.(*cdiv1.DataVolume)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a dataVolume %#v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a dataVolume %#v", obj)).Error(failedProcessDeleteNotificationErrMsg)
 			return
 		}
 	}
@@ -1150,7 +1159,7 @@ func (c *VMController) enqueueVm(obj interface{}) {
 	vm := obj.(*virtv1.VirtualMachine)
 	key, err := controller.KeyFunc(vm)
 	if err != nil {
-		logger.Object(vm).Reason(err).Error("Failed to extract vmKey from VirtualMachine.")
+		logger.Object(vm).Reason(err).Error(failedExtractVmkeyFromVmErrMsg)
 	}
 	c.Queue.Add(key)
 }
