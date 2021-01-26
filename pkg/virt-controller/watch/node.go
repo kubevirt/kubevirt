@@ -256,7 +256,8 @@ func (c *NodeController) alivePodsOnNode(nodeName string) ([]*v1.Pod, error) {
 		}
 
 		phase := pod.Status.Phase
-		if !allContainersTerminated && phase != v1.PodFailed && phase != v1.PodSucceeded {
+		toAppendPod := !allContainersTerminated && phase != v1.PodFailed && phase != v1.PodSucceeded
+		if toAppendPod {
 			pods = append(pods, pod)
 			continue
 		}
