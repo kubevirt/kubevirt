@@ -1327,20 +1327,22 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, 
 }
 
 func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability {
-	res := []k8sv1.Capability{}
+	capabilities := []k8sv1.Capability{}
+
 	if (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
 		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
 		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
-		res = append(res, CAP_NET_ADMIN)
+		capabilities = append(capabilities, CAP_NET_ADMIN)
 	}
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
-	res = append(res, CAP_SYS_NICE)
+	capabilities = append(capabilities, CAP_SYS_NICE)
 
 	// add CAP_SYS_ADMIN capability to allow virtiofs
 	if util.IsVMIVirtiofsEnabled(vmi) {
-		res = append(res, CAP_SYS_ADMIN)
+		capabilities = append(capabilities, CAP_SYS_ADMIN)
 	}
-	return res
+
+	return capabilities
 }
 
 func getRequiredResources(vmi *v1.VirtualMachineInstance, useEmulation bool) k8sv1.ResourceList {
