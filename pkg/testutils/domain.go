@@ -37,14 +37,18 @@ func ExpectVirtioTransitionalOnly(dom *api.DomainSpec) {
 	}
 	ExpectWithOffset(1, hit).To(BeTrue())
 
-	hit = false
+	hitCount := 0
 	for _, controller := range dom.Devices.Controllers {
 		if controller.Type == "virtio-serial" {
 			ExpectWithOffset(1, controller.Model).To(Equal("virtio-transitional"))
-			hit = true
+			hitCount++
+		}
+		if controller.Type == "scsi" {
+			ExpectWithOffset(1, controller.Model).To(Equal("virtio-transitional"))
+			hitCount++
 		}
 	}
-	ExpectWithOffset(1, hit).To(BeTrue())
+	ExpectWithOffset(1, hitCount).To(BeNumerically("==", 2))
 
 	ExpectWithOffset(1, dom.Devices.Rng.Model).To(Equal("virtio-transitional"))
 	ExpectWithOffset(1, dom.Devices.Ballooning.Model).To(Equal("virtio-transitional"))
