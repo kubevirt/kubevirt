@@ -1947,11 +1947,7 @@ var _ = Describe("Template", func() {
 					Skip("ppc64le is currently running is privileged mode, so skipping test")
 				}
 				sriovInterface := v1.InterfaceSRIOV{}
-				domain := v1.DomainSpec{
-					Devices: v1.Devices{
-						DisableHotplug: true,
-					},
-				}
+				domain := v1.DomainSpec{}
 				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &sriovInterface}}}
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1968,11 +1964,7 @@ var _ = Describe("Template", func() {
 			})
 			It("should not mount pci related host directories", func() {
 				sriovInterface := v1.InterfaceSRIOV{}
-				domain := v1.DomainSpec{
-					Devices: v1.Devices{
-						DisableHotplug: true,
-					},
-				}
+				domain := v1.DomainSpec{}
 				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &sriovInterface}}}
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1999,9 +1991,6 @@ var _ = Describe("Template", func() {
 			It("should add 1G of memory overhead", func() {
 				sriovInterface := v1.InterfaceSRIOV{}
 				domain := v1.DomainSpec{
-					Devices: v1.Devices{
-						DisableHotplug: true,
-					},
 					Resources: v1.ResourceRequirements{
 						Requests: kubev1.ResourceList{
 							kubev1.ResourceMemory: resource.MustParse("1G"),
@@ -2025,9 +2014,6 @@ var _ = Describe("Template", func() {
 			})
 			It("should still add memory overhead for 1 core if cpu topology wasn't provided", func() {
 				domain := v1.DomainSpec{
-					Devices: v1.Devices{
-						DisableHotplug: true,
-					},
 					Resources: v1.ResourceRequirements{
 						Requests: kubev1.ResourceList{
 							kubev1.ResourceMemory: resource.MustParse("512Mi"),
