@@ -4059,7 +4059,7 @@ func GetCephStorageClass() (string, bool) {
 	Expect(err).ToNot(HaveOccurred())
 	for _, storageClass := range storageClassList.Items {
 		switch storageClass.Provisioner {
-		case "rook-ceph.rbd.csi.ceph.com", "csi-rbdplugin":
+		case "rook-ceph.rbd.csi.ceph.com", "csi-rbdplugin", "openshift-storage.rbd.csi.ceph.com":
 			return storageClass.Name, true
 		}
 	}
