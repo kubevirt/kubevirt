@@ -2,12 +2,18 @@ package expose
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/clientcmd"
 
 	v12 "kubevirt.io/client-go/api/v1"
@@ -45,11 +51,11 @@ func NewExposeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Short: "Expose a virtual machine instance, virtual machine, or virtual machine instance replica set as a new service.",
 		Long: `Looks up a virtual machine instance, virtual machine or virtual machine instance replica set by name and use its selector as the selector for a new service on the specified port.
 A virtual machine instance replica set will be exposed as a service only if its selector is convertible to a selector that service supports, i.e. when the selector contains only the matchLabels component.
-Note that if no port is specified via --port and the exposed resource has multiple ports, all will be re-used by the new service. 
+Note that if no port is specified via --port and the exposed resource has multiple ports, all will be re-used by the new service.
 Also if no labels are specified, the new service will re-use the labels from the resource it exposes.
-        
+
 Possible types are (case insensitive, both single and plurant forms):
-        
+
 virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplicaset (vmirs)`,
 		Example: usage(),
 		Args:    templates.ExactArgs("expose", 2),
@@ -219,10 +225,55 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 		service.Spec.ExternalIPs = []string{externalIP}
 	}
 
-	// try to create the service on the cluster
-	_, err = virtClient.CoreV1().Services(namespace).Create(service)
+	serverVersion, err := virtClient.DiscoveryClient().ServerVersion()
 	if err != nil {
-		return fmt.Errorf("service creation failed: %v", err)
+		return err
+	}
+
+	// Make a Regex to say we only want numbers
+	reg, err := regexp.Compile("[^0-9]+")
+	if err != nil {
+		return err
+	}
+
+	major, err := strconv.Atoi(reg.ReplaceAllString(serverVersion.Major, ""))
+	if err != nil {
+		return err
+	}
+	minor, err := strconv.Atoi(reg.ReplaceAllString(serverVersion.Minor, ""))
+	if err != nil {
+		return err
+	}
+
+	if major >= 1 && minor >= 20 {
+		//_, err = virtClient.CoreV1().Services(namespace).Create(service)
+		if err != nil {
+			return fmt.Errorf("service creation failed: %v", err)
+		}
+	} else {
+		// convert the Service to unstructured.Unstructured
+		unstructuredService, err := runtime.DefaultUnstructuredConverter.ToUnstructured(service)
+		if err != nil {
+			return err
+		}
+
+		// Convert 'ipFamily' to 'ipFamilies'
+		err = unstructured.SetNestedStringSlice(unstructuredService, []string{string(ipFamily)}, "spec", "ipFamilies")
+		if err != nil {
+			return err
+		}
+
+		// Get the dynamic client
+		dynamicClient, err := dynamic.NewForConfig(virtClient.Config())
+		if err != nil {
+			return err
+		}
+
+		// try to create the service on the cluster
+		_, err = dynamicClient.Resource(schema.GroupVersionResource{Version: "v1", Resource: "services"}).Namespace(namespace).Create(&unstructured.Unstructured{Object: unstructuredService}, k8smetav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("service creation failed: %v", err)
+		}
 	}
 	fmt.Printf("Service %s successfully exposed for %s %s\n", serviceName, vmType, vmName)
 	return nil
