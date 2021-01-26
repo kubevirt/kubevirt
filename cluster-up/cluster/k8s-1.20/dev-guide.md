@@ -106,7 +106,7 @@ root         1     0 36 13:39 ?        00:05:22 qemu-system-x86_64 -enable-kvm -
                 * Apply additional manifests, such as flannel.
                 * Wait for pods to become ready.
                 * Pull needed images such as Ceph CSI, fluentd logger.
-                * Create local volume directiories.
+                * Create local volume directories.
             * Shutdown the vm and commit its container.
 
 # Flow of K8s cluster-up (1.20 for example)
@@ -146,4 +146,3 @@ kubectl --kubeconfig=/etc/kubernetes/admin.conf create -f "$custom_manifest"
     * The new manifest.
     * Updated cluster-provision/k8s/scripts/provision.sh
     * Updated cluster-up/cluster/images.sh.
-
