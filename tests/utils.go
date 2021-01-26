@@ -2268,9 +2268,10 @@ func GetFedoraToolsGuestAgentUserData() string {
 	return `#!/bin/bash
             echo "fedora" |passwd fedora --stdin
             sudo setenforce Permissive
-	    sudo mv /home/fedora/qemu-guest-agent.service /lib/systemd/system/
+	    sudo cp /home/fedora/qemu-guest-agent.service /lib/systemd/system/
 	    sudo systemctl daemon-reload
             sudo systemctl start qemu-guest-agent
+            sudo systemctl enable qemu-guest-agent
 `
 }
 
