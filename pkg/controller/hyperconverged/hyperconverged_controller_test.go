@@ -701,6 +701,83 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
 			})
 
+			It("Should not be ready if one of the operands is returns error, on create", func() {
+				hcoutil.SetReady(true)
+				Expect(checkHcoReady()).To(BeTrue())
+				hco := commonTestUtils.NewHco()
+				cl := commonTestUtils.InitClient([]runtime.Object{hco})
+				cl.InitiateWriteErrors(nil, errors.New("fake write error"))
+				r := initReconciler(cl)
+
+				// Do the reconcile
+				res, err := r.Reconcile(context.TODO(), request)
+				Expect(err).To(BeNil())
+				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+
+				// Get the HCO
+				foundResource := &hcov1beta1.HyperConverged{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				// Check condition
+				foundCond := false
+				for _, cond := range foundResource.Status.Conditions {
+					if cond.Type == hcov1beta1.ConditionReconcileComplete {
+						foundCond = true
+						Expect(cond.Status).Should(Equal(corev1.ConditionFalse))
+						Expect(cond.Message).Should(ContainSubstring("fake write error"))
+						break
+					}
+				}
+				Expect(foundCond).To(BeTrue())
+
+				Expect(checkHcoReady()).To(BeFalse())
+			})
+
+			It("Should not be ready if one of the operands is returns error, on update", func() {
+				expected := getBasicDeployment()
+				expected.kv.Spec.Configuration.DeveloperConfiguration = &kubevirtv1.DeveloperConfiguration{
+					FeatureGates: []string{"fakeFg"}, // force update
+				}
+				cl := expected.initClient()
+				cl.InitiateWriteErrors(nil, errors.New("fake write error"))
+
+				hcoutil.SetReady(true)
+				Expect(checkHcoReady()).To(BeTrue())
+
+				hco := commonTestUtils.NewHco()
+				r := initReconciler(cl)
+
+				// Do the reconcile
+				res, err := r.Reconcile(context.TODO(), request)
+				Expect(err).To(BeNil())
+				Expect(res).Should(Equal(reconcile.Result{Requeue: false}))
+
+				// Get the HCO
+				foundResource := &hcov1beta1.HyperConverged{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				// Check condition
+				foundCond := false
+				for _, cond := range foundResource.Status.Conditions {
+					if cond.Type == hcov1beta1.ConditionReconcileComplete {
+						foundCond = true
+						Expect(cond.Status).Should(Equal(corev1.ConditionFalse))
+						Expect(cond.Message).Should(ContainSubstring("fake write error"))
+						break
+					}
+				}
+				Expect(foundCond).To(BeTrue())
+
+				Expect(checkHcoReady()).To(BeFalse())
+			})
 		})
 
 		Context("Validate OLM required fields", func() {

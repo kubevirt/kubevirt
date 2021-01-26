@@ -295,11 +295,7 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 	init := req.Instance.Status.Conditions == nil
 	if init {
 		r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "InitHCO", "Initiating the HyperConverged")
-		err = r.setInitialConditions(req)
-		if err != nil {
-			req.Logger.Error(err, "Failed to add conditions to status")
-			return reconcile.Result{}, err
-		}
+		r.setInitialConditions(req)
 	}
 
 	r.setLabels(req)
@@ -308,19 +304,19 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 	// negative conditions (!Available, Degraded, Progressing)
 	req.Conditions = common.NewHcoConditions()
 
-	fin_dropped := false
+	finDropped := false
 	// Handle finalizers
 	if contains(req.Instance.ObjectMeta.Finalizers, badFinalizerName) {
 		req.Logger.Info("removing a finalizer set in the past (without a fully qualified name)")
-		req.Instance.ObjectMeta.Finalizers, fin_dropped = drop(req.Instance.ObjectMeta.Finalizers, badFinalizerName)
-		req.Dirty = req.Dirty || fin_dropped
+		req.Instance.ObjectMeta.Finalizers, finDropped = drop(req.Instance.ObjectMeta.Finalizers, badFinalizerName)
+		req.Dirty = req.Dirty || finDropped
 	}
 	if req.Instance.ObjectMeta.DeletionTimestamp.IsZero() {
 		// Add the finalizer if it's not there
 		if !contains(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
 			req.Logger.Info("setting a finalizer (with fully qualified name)")
 			req.Instance.ObjectMeta.Finalizers = append(req.Instance.ObjectMeta.Finalizers, FinalizerName)
-			req.Dirty = req.Dirty || fin_dropped
+			req.Dirty = req.Dirty || finDropped
 		}
 	} else {
 		if !req.HCOTriggered {
@@ -347,19 +343,22 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 
 	err = r.operandHandler.Ensure(req)
 	if err != nil {
-		return reconcile.Result{}, r.updateConditions(req)
+		r.updateConditions(req)
+		hcoutil.SetReady(false)
+		return reconcile.Result{Requeue: init}, nil
 	}
 
 	req.Logger.Info("Reconcile complete")
 
 	// Requeue if we just created everything
 	if init {
+		hcoutil.SetReady(false)
 		return reconcile.Result{Requeue: true}, err
 	}
 
-	err = r.completeReconciliation(req)
+	r.completeReconciliation(req)
 
-	return reconcile.Result{}, err
+	return reconcile.Result{}, nil
 }
 
 func (r *ReconcileHyperConverged) getHcoInstanceFromK8s(req *common.HcoRequest) (*hcov1beta1.HyperConverged, error) {
@@ -395,13 +394,13 @@ func (r *ReconcileHyperConverged) validateNamespace(req *common.HcoRequest) (boo
 			Reason:  invalidRequestReason,
 			Message: fmt.Sprintf(invalidRequestMessageFormat, hco.Name, hco.Namespace),
 		})
-		err := r.updateConditions(req)
-		return false, err
+		r.updateConditions(req)
+		return false, nil
 	}
 	return true, nil
 }
 
-func (r *ReconcileHyperConverged) setInitialConditions(req *common.HcoRequest) error {
+func (r *ReconcileHyperConverged) setInitialConditions(req *common.HcoRequest) {
 	req.Instance.Status.UpdateVersion(hcoVersionName, r.ownVersion)
 	req.Instance.Spec.Version = r.ownVersion
 	req.Dirty = true
@@ -437,7 +436,7 @@ func (r *ReconcileHyperConverged) setInitialConditions(req *common.HcoRequest) e
 		Message: reconcileInitMessage,
 	})
 
-	return r.updateConditions(req)
+	r.updateConditions(req)
 }
 
 func (r *ReconcileHyperConverged) ensureHcoDeleted(req *common.HcoRequest) (reconcile.Result, error) {
@@ -665,7 +664,7 @@ func (r *ReconcileHyperConverged) aggregateComponentConditions(req *common.HcoRe
 	return allComponentsAreUp
 }
 
-func (r *ReconcileHyperConverged) completeReconciliation(req *common.HcoRequest) error {
+func (r *ReconcileHyperConverged) completeReconciliation(req *common.HcoRequest) {
 	allComponentsAreUp := r.aggregateComponentConditions(req)
 
 	hcoReady := false
@@ -716,11 +715,12 @@ func (r *ReconcileHyperConverged) completeReconciliation(req *common.HcoRequest)
 			r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, "ReconcileHCO", "Not all the operators are ready")
 		}
 	}
-	return r.updateConditions(req)
+
+	r.updateConditions(req)
 }
 
 // This function is used to exit from the reconcile function, updating the conditions and returns the reconcile result
-func (r *ReconcileHyperConverged) updateConditions(req *common.HcoRequest) error {
+func (r *ReconcileHyperConverged) updateConditions(req *common.HcoRequest) {
 	for _, condType := range common.HcoConditionTypes {
 		cond, found := req.Conditions[condType]
 		if !found {
@@ -737,7 +737,6 @@ func (r *ReconcileHyperConverged) updateConditions(req *common.HcoRequest) error
 	r.detectTaintedConfiguration(req)
 
 	req.StatusDirty = true
-	return nil
 }
 
 func (r *ReconcileHyperConverged) setLabels(req *common.HcoRequest) {
