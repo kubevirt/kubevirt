@@ -16,4 +16,5 @@ while IFS= read -r line; do
   fi
 done < ./hack/config
 
+export HCO_VERSION=${HCO_VERSION:-${CSV_VERSION}}
 ./tools/digester/digester

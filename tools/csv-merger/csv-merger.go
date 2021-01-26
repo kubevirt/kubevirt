@@ -126,6 +126,7 @@ var (
 	hppoVersion                   = flag.String("hppo-version", "", "HPP operator version")
 	vmImportVersion               = flag.String("vm-import-version", "", "VM-Import operator version")
 	apiSources                    = flag.String("api-sources", cwd+"/...", "Project sources")
+	enableUniqueSemver            = flag.Bool("enable-unique-version", false, "Insert a skipRange annotation to support unique semver in the CSV")
 	envVars                       EnvVarFlags
 )
 
@@ -331,6 +332,11 @@ func main() {
 
 		// This is the basic CSV without an InstallStrategy defined
 		csvBase := components.GetCSVBase(csvParams)
+
+		if *enableUniqueSemver {
+			csvBase.ObjectMeta.Annotations["olm.skipRange"] = fmt.Sprintf(">=%v-1 <%v", strings.Split(version.String(), "-")[0], version.String())
+		}
+
 		csvExtended := ClusterServiceVersionExtended{
 			TypeMeta:   csvBase.TypeMeta,
 			ObjectMeta: csvBase.ObjectMeta,

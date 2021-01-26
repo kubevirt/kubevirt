@@ -50,11 +50,14 @@ source "${PROJECT_ROOT}"/deploy/images.env
 DEPLOY_DIR="${PROJECT_ROOT}/deploy"
 CRD_DIR="${DEPLOY_DIR}/crds"
 OLM_DIR="${DEPLOY_DIR}/olm-catalog"
+CSV_VERSION=${CSV_VERSION}
+CSV_TIMESTAMP=$(date +%Y%m%d%H%M -u)
 CSV_DIR="${OLM_DIR}/kubevirt-hyperconverged/${CSV_VERSION}"
 DEFAULT_CSV_GENERATOR="/usr/bin/csv-generator"
 SSP_CSV_GENERATOR="/csv-generator"
 
 INDEX_IMAGE_DIR=${DEPLOY_DIR}/index-image
+CSV_INDEX_IMAGE_DIR="${INDEX_IMAGE_DIR}/kubevirt-hyperconverged/${CSV_VERSION}"
 
 OPERATOR_NAME="${OPERATOR_NAME:-kubevirt-hyperconverged-operator}"
 OPERATOR_NAMESPACE="${OPERATOR_NAMESPACE:-kubevirt-hyperconverged}"
@@ -347,6 +350,14 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --webhook-image="${HCO_WEBHOOK_IMAGE}"
 (cd ${PROJECT_ROOT}/tools/manifest-templator/ && go clean)
 
+if [[ "$1" == "UNIQUE"  ]]; then
+  CSV_VERSION_PARAM=${CSV_VERSION}-${CSV_TIMESTAMP}
+  ENABLE_UNIQUE="true"
+else
+  CSV_VERSION_PARAM=${CSV_VERSION}
+  ENABLE_UNIQUE="false"
+fi
+
 # Build and merge CSVs
 ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --cna-csv="$(<${cnaCsv})" \
@@ -358,7 +369,7 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --vmimport-csv="$(<${importCsv})" \
   --ims-conversion-image-name="${CONVERSION_IMAGE}" \
   --ims-vmware-image-name="${VMWARE_IMAGE}" \
-  --csv-version=${CSV_VERSION} \
+  --csv-version=${CSV_VERSION_PARAM} \
   --replaces-csv-version=${REPLACES_CSV_VERSION} \
   --hco-kv-io-version="${CSV_VERSION}" \
   --spec-displayname="KubeVirt HyperConverged Cluster Operator" \
@@ -366,6 +377,7 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --crd-display="HyperConverged Cluster Operator" \
   --smbios="${SMBIOS}" \
   --csv-overrides="$(<${csvOverrides})" \
+  --enable-unique-version=${ENABLE_UNIQUE} \
   --kubevirt-version="${KUBEVIRT_VERSION}" \
   --cdi-version="${CDI_VERSION}" \
   --cnao-version="${NETWORK_ADDONS_VERSION}" \
@@ -389,6 +401,12 @@ cp -f ${TEMPDIR}/*.${CRD_EXT} ${CSV_DIR}
 # Check there are not API Groups overlap between different CNV operators
 ${PROJECT_ROOT}/tools/csv-merger/csv-merger --crds-dir=${CRD_DIR}
 (cd ${PROJECT_ROOT}/tools/csv-merger/ && go clean)
+
+if [[ "$1" == "UNIQUE"  ]]; then
+  # Add the current CSV_TIMESTAMP to the currentCSV in the packages file
+  sed -Ei "s/(currentCSV: ${OPERATOR_NAME}.v${CSV_VERSION}).*/\1-${CSV_TIMESTAMP}/" \
+   ${PACKAGE_DIR}/kubevirt-hyperconverged.package.yaml
+fi
 
 # Intentionally removing last so failure leaves around the templates
 rm -rf ${TEMPDIR}

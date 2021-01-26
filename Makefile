@@ -4,10 +4,11 @@ SOURCE_DIRS        = cmd pkg
 SOURCES            := $(shell find . -name '*.go' -not -path "*/vendor/*")
 SHA                := $(shell git describe --no-match  --always --abbrev=40 --dirty)
 IMAGE_REGISTRY     ?= quay.io
+REGISTRY_NAMESPACE ?= kubevirt
 IMAGE_TAG          ?= latest
-OPERATOR_IMAGE     ?= kubevirt/hyperconverged-cluster-operator
-WEBHOOK_IMAGE      ?= kubevirt/hyperconverged-cluster-webhook
-REGISTRY_NAMESPACE ?=
+OPERATOR_IMAGE     ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-operator
+WEBHOOK_IMAGE      ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-webhook
+
 
 
 # Prow doesn't have docker command
@@ -71,7 +72,10 @@ container-build-webhook:
 container-build-operator-courier:
 	docker build -f tools/operator-courier/Dockerfile -t hco-courier .
 
-container-push: container-push-operator
+container-push: quay-login container-push-operator container-push-webhook
+
+quay-login:
+	docker login $(IMAGE_REGISTRY) -u $(QUAY_USERNAME) -p $(QUAY_PASSWORD)
 
 container-push-operator:
 	docker push $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG)

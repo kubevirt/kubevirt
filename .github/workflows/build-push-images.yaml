@@ -1,0 +1,48 @@
+name: Build and Push Images
+
+on:
+  push:
+    branches:
+      - master
+      - release-*
+jobs:
+  build_push:
+    if: (github.repository == 'kubevirt/hyperconverged-cluster-operator')
+    name: Build and Push Images
+    runs-on: ubuntu-latest
+    env:
+      QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+      QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+      REGISTRY_NAMESPACE: kubevirt
+    steps:
+      - name: Checkout the latest code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.ref }}
+      - name: Get latest version
+        run: |
+          PACKAGE_DIR="./deploy/olm-catalog/kubevirt-hyperconverged"
+          CSV_VERSION=$(ls -d ${PACKAGE_DIR}/*/ | sort -rV | awk "NR==$((RELEASE_DELTA+1))" | cut -d '/' -f 5)
+          echo "CSV_VERSION=${CSV_VERSION}-unstable" >> $GITHUB_ENV
+      - name: Build Applications Images
+        run: |
+          export IMAGE_TAG=${{ env.CSV_VERSION }}
+          make container-build
+      - name: Push Application Images
+        run: |
+          export IMAGE_TAG=${{ env.CSV_VERSION }}
+          make container-push
+      - name: Run Digester to update digests of application images
+        run: |
+          export HCO_VERSION=${{ env.CSV_VERSION }}
+          ./automation/digester/update_images.sh
+      - name: Build Manifests with unique CSV semver
+        run: ./hack/build-manifests.sh UNIQUE
+      - name: Get opm client
+        run: |
+          wget https://github.com/operator-framework/operator-registry/releases/download/v1.15.1/linux-amd64-opm
+          chmod +x linux-amd64-opm
+      - name: Build and Push the Index Image
+        run: |
+          export OPM=$(pwd)/linux-amd64-opm
+          ./hack/build-index-image.sh ${{ env.CSV_VERSION }} UNSTABLE

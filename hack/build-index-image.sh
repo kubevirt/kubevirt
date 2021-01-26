@@ -19,10 +19,16 @@ IMAGE_REGISTRY=${IMAGE_REGISTRY:-quay.io}
 REGISTRY_NAMESPACE=${REGISTRY_NAMESPACE:-kubevirt}
 BUNDLE_REGISTRY_IMAGE_NAME=${BUNDLE_REGISTRY_IMAGE_NAME:-hyperconverged-cluster-bundle}
 INDEX_REGISTRY_IMAGE_NAME=${INDEX_REGISTRY_IMAGE_NAME:-hyperconverged-cluster-index}
+OPM=${OPM:-opm}
+UNSTABLE=$2
 
 function create_index_image() {
   CURRENT_VERSION=$1
   PREV_VERSION=$2
+  if [[ "${UNSTABLE}" == "UNSTABLE" ]]; then
+    mv kubevirt-hyperconverged/${CURRENT_VERSION} kubevirt-hyperconverged/${CURRENT_VERSION}-unstable
+    CURRENT_VERSION=${CURRENT_VERSION}-unstable
+  fi
   BUNDLE_IMAGE_NAME="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${BUNDLE_REGISTRY_IMAGE_NAME}:${CURRENT_VERSION}"
   INDEX_IMAGE_NAME="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${INDEX_REGISTRY_IMAGE_NAME}:${CURRENT_VERSION}"
 
@@ -35,7 +41,7 @@ function create_index_image() {
   docker build -t "${BUNDLE_IMAGE_NAME}" -f bundle.Dockerfile --build-arg "VERSION=${CURRENT_VERSION}" .
   docker push "${BUNDLE_IMAGE_NAME}"
   # shellcheck disable=SC2086
-  opm index add --bundles "${BUNDLE_IMAGE_NAME}" ${INDEX_IMAGE_PARAM} --tag "${INDEX_IMAGE_NAME}" -u docker
+  ${OPM} index add --bundles "${BUNDLE_IMAGE_NAME}" ${INDEX_IMAGE_PARAM} --tag "${INDEX_IMAGE_NAME}" -u docker
   docker push "${INDEX_IMAGE_NAME}"
 }
 
@@ -71,10 +77,10 @@ function build_specific_version() {
 }
 
 function help() {
-  echo "usage $0 {ALL|LATEST|<version>}"
+  echo "usage $0 {ALL|LATEST|<version>} [UNSTABLE]"
 }
 
-if [[ $# -ne 1 ]]; then
+if [[ $# -gt 2 ]] || [[ $# -lt 1 ]]; then
   help
   exit 1
 fi
