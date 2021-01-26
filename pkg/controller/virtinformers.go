@@ -20,6 +20,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -59,6 +60,8 @@ import (
 const (
 	OperatorLabel = kubev1.ManagedByLabel + "=" + kubev1.ManagedByLabelOperatorValue
 )
+
+var unexpectedObjectError = errors.New("unexpected object")
 
 type newSharedInformer func() cache.SharedIndexInformer
 
@@ -355,7 +358,8 @@ func (f *kubeInformerFactory) VirtualMachineSnapshot() cache.SharedIndexInformer
 			"vm": func(obj interface{}) ([]string, error) {
 				vms, ok := obj.(*snapshotv1.VirtualMachineSnapshot)
 				if !ok {
-					return nil, fmt.Errorf("unexpected object")
+
+					return nil, unexpectedObjectError
 				}
 
 				if vms.Spec.Source.APIGroup != nil {
@@ -383,7 +387,7 @@ func (f *kubeInformerFactory) VirtualMachineSnapshotContent() cache.SharedIndexI
 			"volumeSnapshot": func(obj interface{}) ([]string, error) {
 				vmsc, ok := obj.(*snapshotv1.VirtualMachineSnapshotContent)
 				if !ok {
-					return nil, fmt.Errorf("unexpected object")
+					return nil, unexpectedObjectError
 				}
 				var volumeSnapshots []string
 				for _, v := range vmsc.Spec.VolumeBackups {
@@ -405,7 +409,7 @@ func (f *kubeInformerFactory) VirtualMachineRestore() cache.SharedIndexInformer 
 			"vm": func(obj interface{}) ([]string, error) {
 				vmr, ok := obj.(*snapshotv1.VirtualMachineRestore)
 				if !ok {
-					return nil, fmt.Errorf("unexpected object")
+					return nil, unexpectedObjectError
 				}
 
 				if vmr.Spec.Target.APIGroup != nil {
