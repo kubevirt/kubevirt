@@ -371,6 +371,28 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	nonRoot := t.clusterConfig.NonRootEnabled()
 	if nonRoot {
 		userId = 107
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+			Name:      "private",
+			MountPath: util.VirtPrivateDir,
+		})
+		volumes = append(volumes, k8sv1.Volume{
+			Name: "private",
+			VolumeSource: k8sv1.VolumeSource{
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+			},
+		})
+
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+			Name:      "public",
+			MountPath: util.VirtShareDir,
+		})
+		volumes = append(volumes, k8sv1.Volume{
+			Name: "public",
+			VolumeSource: k8sv1.VolumeSource{
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+			},
+		})
+
 	}
 	// Need to run in privileged mode in Power or libvirt will fail to lock memory for VMI
 	if runtime.GOARCH == "ppc64le" {
