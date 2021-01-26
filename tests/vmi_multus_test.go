@@ -98,6 +98,9 @@ var _ = Describe("[Serial]Multus", func() {
 	}
 
 	tests.BeforeAll(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
 		tests.BeforeTestCleanup()
 
 		nodes = tests.GetAllSchedulableNodes(virtClient)
@@ -129,9 +132,6 @@ var _ = Describe("[Serial]Multus", func() {
 	})
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
-
 		// Multus tests need to ensure that old VMIs are gone
 		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
 		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestAlternative).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
