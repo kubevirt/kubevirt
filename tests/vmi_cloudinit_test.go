@@ -247,6 +247,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("applying the hostname from meta-data")
 				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "hostname\n"},
 					&expect.BExp{R: dns.SanitizeHostname(vmi)},

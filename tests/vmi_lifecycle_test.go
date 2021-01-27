@@ -591,7 +591,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("restarting kubelet")
 				pod := renderPkillAllPod("kubelet")
 				pod.Spec.NodeName = nodeName
-				_, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(pod)
+				_, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("starting another VMI on the same node, to verify kubelet is running again")

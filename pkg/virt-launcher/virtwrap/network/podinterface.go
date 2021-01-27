@@ -459,6 +459,8 @@ func (b *BridgeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, la
 		return err
 	}
 
+	tapDeviceName := generateTapDeviceName(b.podInterfaceName)
+
 	if !b.vif.IPAMDisabled {
 		// Remove IP from POD interface
 		err := Handler.AddrDel(b.podNicLink, &b.vif.IP)
@@ -482,7 +484,6 @@ func (b *BridgeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, la
 		return err
 	}
 
-	tapDeviceName := generateTapDeviceName(b.podInterfaceName)
 	err := createAndBindTapToBridge(tapDeviceName, b.bridgeInterfaceName, queueNumber, launcherPID, int(b.vif.Mtu))
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
@@ -642,41 +643,39 @@ func (b *BridgeBindMechanism) switchPodInterfaceWithDummy() error {
 	newPodInterfaceName := fmt.Sprintf("%s-nic", originalPodInterfaceName)
 	dummy := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: originalPodInterfaceName}}
 
-	if b.podNicLink.Type() != "dummy" {
-		// Set arp_ignore=1 on the bridge interface to avoid
-		// the interface being seen by Duplicate Address Detection (DAD).
-		// Without this, some VMs will lose their ip address after a few
-		// minutes.
-		b.arpIgnore = true
+	// Set arp_ignore=1 on the bridge interface to avoid
+	// the interface being seen by Duplicate Address Detection (DAD).
+	// Without this, some VMs will lose their ip address after a few
+	// minutes.
+	b.arpIgnore = true
 
-		// Rename pod interface to free the original name for a new dummy interface
-		err := Handler.LinkSetName(b.podNicLink, newPodInterfaceName)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to rename interface : %s", b.podInterfaceName)
-			return err
-		}
+	// Rename pod interface to free the original name for a new dummy interface
+	err := Handler.LinkSetName(b.podNicLink, newPodInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to rename interface : %s", b.podInterfaceName)
+		return err
+	}
 
-		b.podInterfaceName = newPodInterfaceName
-		b.podNicLink, err = Handler.LinkByName(newPodInterfaceName)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to get a link for interface: %s", b.podInterfaceName)
-			return err
-		}
+	b.podInterfaceName = newPodInterfaceName
+	b.podNicLink, err = Handler.LinkByName(newPodInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", b.podInterfaceName)
+		return err
+	}
 
-		// Create a dummy interface named after the original interface
-		err = Handler.LinkAdd(dummy)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to create dummy interface : %s", newPodInterfaceName)
-			return err
-		}
+	// Create a dummy interface named after the original interface
+	err = Handler.LinkAdd(dummy)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to create dummy interface : %s", originalPodInterfaceName)
+		return err
 	}
 
 	// Replace original pod interface IP address to the dummy
 	// Since the dummy is not connected to anything, it should not affect networking
 	// Replace will add if ip doesn't exist or modify the ip
-	err := Handler.AddrReplace(dummy, &b.vif.IP)
+	err = Handler.AddrReplace(dummy, &b.vif.IP)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to replace original IP address to dummy interface: %s", newPodInterfaceName)
+		log.Log.Reason(err).Errorf("failed to replace original IP address to dummy interface: %s", originalPodInterfaceName)
 		return err
 	}
 
