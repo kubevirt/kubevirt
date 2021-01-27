@@ -259,6 +259,7 @@ var _ = Describe("AccessCredentials", func() {
 
 		domainSpec := expectIsolationDetectionForVMI(vmi)
 		xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+		Expect(err).NotTo(HaveOccurred())
 
 		mockDomain.EXPECT().Free().AnyTimes()
 		mockConn.EXPECT().LookupDomainByName(domName).AnyTimes().Return(mockDomain, nil)
