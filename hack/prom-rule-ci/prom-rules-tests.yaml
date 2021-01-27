@@ -136,3 +136,52 @@ tests:
               summary: "More than 80% of the rest calls failed in virt-handler for the last 5 minutes"
             exp_labels:
               pod: "virt-handler-1"
+
+  # Some nodes without KVM resources
+  - interval: 1m
+    input_series:
+      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node ="node1"}'
+        values: "110 110 110 110 110 110"
+      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node ="node2 "}'
+        values: "0 0 0 0 0 0"
+
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: LowKVMNodesCount
+        exp_alerts:
+          - exp_annotations:
+              description: "Low number of nodes with KVM resource available."
+              summary: "At least two nodes with kvm resource required for VM life migration."
+            exp_labels:
+              severity: "warning"
+
+  # All nodes without KVM resources
+  - interval: 1m
+    input_series:
+      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node ="node1"}'
+        values: "0 0 0 0 0 0"
+      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node ="node2 "}'
+        values: "0 0 0 0 0 0"
+
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: LowKVMNodesCount
+        exp_alerts:
+          - exp_annotations:
+              description: "Low number of nodes with KVM resource available."
+              summary: "At least two nodes with kvm resource required for VM life migration."
+            exp_labels:
+              severity: "warning"
+
+  # Two nodes with KVM resources
+  - interval: 1m
+    input_series:
+      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node ="node1"}'
+        values: "110 110 110 110 110 110"
+      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node ="node2 "}'
+        values: "110 110 110 110 110 110"
+
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: LowKVMNodesCount
+        exp_alerts: []
