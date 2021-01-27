@@ -1,0 +1,12 @@
+# gazelle:ignore
+load("@io_bazel_rules_go//go:def.bzl", "go_tool_library")
+
+go_tool_library(
+    name = "ineffassign",
+    srcs = ["analyzer.go"],
+    importpath = "kubevirt.io/kubevirt/analyzer",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/gordonklaus/ineffassign/pkg/ineffassign:go_tool_library",
+    ],
+)
