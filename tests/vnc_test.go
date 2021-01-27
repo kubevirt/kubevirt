@@ -158,6 +158,7 @@ var _ = Describe("[Serial][rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][le
 			wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
 			Expect(err).ToNot(HaveOccurred())
 			req, err := kubecli.RequestFromConfig(config, vmi.Name, vmi.Namespace, "vnc")
+			Expect(err).ToNot(HaveOccurred())
 			_, err = wrappedRoundTripper.RoundTrip(req)
 			Expect(err).ToNot(HaveOccurred())
 		})
