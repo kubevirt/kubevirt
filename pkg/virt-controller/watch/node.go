@@ -59,7 +59,7 @@ func NewNodeController(clientset kubecli.KubevirtClient, nodeInformer cache.Shar
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachine,
-		DeleteFunc: func(_ interface{}) {}, // nothing to do
+		DeleteFunc: func(_ interface{}) { /* nothing to do */ },
 		UpdateFunc: c.updateVirtualMachine,
 	})
 
@@ -256,7 +256,8 @@ func (c *NodeController) alivePodsOnNode(nodeName string) ([]*v1.Pod, error) {
 		}
 
 		phase := pod.Status.Phase
-		if !allContainersTerminated && phase != v1.PodFailed && phase != v1.PodSucceeded {
+		toAppendPod := !allContainersTerminated && phase != v1.PodFailed && phase != v1.PodSucceeded
+		if toAppendPod {
 			pods = append(pods, pod)
 			continue
 		}
