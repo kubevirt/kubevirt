@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -1071,6 +1072,12 @@ var _ = Describe("Converter", func() {
 			c.UseVirtioTransitional = true
 			dom := vmiToDomain(vmi, c)
 			testutils.ExpectVirtioTransitionalOnly(&dom.Spec)
+		})
+
+		It("should handle float memory", func() {
+			vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("2222222200m")
+			xml := vmiToDomainXML(vmi, c)
+			Expect(strings.Contains(xml, `<memory unit="b">2222222</memory>`)).To(BeTrue(), xml)
 		})
 
 		table.DescribeTable("should be converted to a libvirt Domain with vmi defaults set", func(arch string, domain string) {
