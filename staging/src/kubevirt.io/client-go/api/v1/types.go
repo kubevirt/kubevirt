@@ -622,6 +622,12 @@ const (
 	IgnitionAnnotation           string = "kubevirt.io/ignitiondata"
 	PlacePCIDevicesOnRootComplex string = "kubevirt.io/placePCIDevicesOnRootComplex"
 
+	LiveMigrationCompressionMethod            string = "kubevirt.io/LiveMigrationCompressionMethod"
+	LiveMigrationThreadedCompressionLevel     string = "kubevirt.io/LiveMigrationThreadedCompressionLevel"
+	LiveMigrationThreadedCompressionThreads   string = "kubevirt.io/LiveMigrationThreadedCompressionThreads"
+	LiveMigrationThreadedDeCompressionThreads string = "kubevirt.io/LiveMigrationThreadedDeCompressionThreads"
+	LiveMigrationXBZRLECompressionCache       string = "kubevirt.io/LiveMigrationXBZRLECompressionCache"
+
 	VirtualMachineLabel        = AppLabel + "/vm"
 	MemfdMemoryBackend  string = "kubevirt.io/memfd"
 )
