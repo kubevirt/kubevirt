@@ -1406,21 +1406,17 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 						Skip("Skip OCS tests when Ceph is not present")
 					}
 
-					By("Starting an iSCSI POD")
-					iscsiTargetPod := tests.CreateISCSITargetPOD(cd.ContainerDiskFedoraTestTooling)
-					iscsiTargetIPAddress := libnet.GetPodIpByFamily(iscsiTargetPod, k8sv1.IPv4Protocol)
-					Expect(iscsiTargetIPAddress).NotTo(BeEmpty())
+					quantity, err := resource.ParseQuantity("5Gi")
+					Expect(err).ToNot(HaveOccurred())
 
 					volMode := k8sv1.PersistentVolumeBlock
-					// create a new PV and PVC (PVs can't be reused)
-					pvName := "test-iscsi-lun" + rand.String(48)
-					tests.CreateISCSIPvAndPvc(pvName, "5Gi", iscsiTargetIPAddress, k8sv1.ReadWriteMany, volMode)
-					Expect(err).ToNot(HaveOccurred())
-					defer tests.DeletePvAndPvc(pvName)
-
-					dv := tests.NewRandomDataVolumeWithPVCSourceWithStorageClass(tests.NamespaceTestDefault, pvName, tests.NamespaceTestDefault, sc, "5Gi", k8sv1.ReadWriteMany)
+					url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
+					dv := tests.NewRandomDataVolumeWithRegistryImport(url, tests.NamespaceTestDefault, k8sv1.ReadWriteMany)
+					dv.Spec.PVC.StorageClassName = &sc
+					dv.Spec.PVC.Resources.Requests["storage"] = quantity
 					dv.Spec.PVC.VolumeMode = &volMode
-					_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+
+					_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					tests.WaitForSuccessfulDataVolumeImport(dv, 600)
 					vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
