@@ -517,6 +517,7 @@ func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
 }
 
 func (h *NetworkUtilsHandler) CreateRouterAdvertiser(socketPath string, advertisementIfaceName string, ipv6CIDR string, routerSourceAddr net.HardwareAddr) error {
+	log.Log.Infof("will advertise %s on interface %s w/ the following link src addr: %s", ipv6CIDR, advertisementIfaceName, routerSourceAddr.String())
 	openedFD, err := ndp.ImportConnection(socketPath)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to import the NDP connection: %v", err)

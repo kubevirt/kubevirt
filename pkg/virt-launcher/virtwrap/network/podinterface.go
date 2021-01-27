@@ -804,11 +804,12 @@ func (b *MasqueradeBindMechanism) startRouterAdvertiser() error {
 		return err
 	}
 
+	prefixLength, _ := b.vif.IPv6.Mask.Size()
 	targetPID := "self"
 	if err := Handler.CreateRouterAdvertiser(
 		getNDPConnectionUnixSocketPath(targetPID, b.bridgeInterfaceName),
 		b.bridgeInterfaceName,
-		api.DefaultVMIpv6CIDR,
+		fmt.Sprintf("%s/%d", b.vif.IPv6.IP.Mask(b.vif.IPv6.Mask), prefixLength),
 		theBridge.Attrs().HardwareAddr); err != nil {
 		return fmt.Errorf("failed to start the Router Advertiser in virt-launcher: %v", err)
 	}
