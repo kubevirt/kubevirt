@@ -1938,7 +1938,7 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 				return blockMigrate, err
 			}
 			if !shared {
-				return true, fmt.Errorf("cannot migrate VMI with non-shared PVCs")
+				return true, fmt.Errorf("cannot migrate VMI: PVC %v is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)", volName)
 			}
 		} else if volSrc.HostDisk != nil {
 			shared := volSrc.HostDisk.Shared != nil && *volSrc.HostDisk.Shared
