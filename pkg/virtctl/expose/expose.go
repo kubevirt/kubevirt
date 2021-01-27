@@ -3,11 +3,16 @@ package expose
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -147,7 +152,7 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 	}
 
 	// does a plain quorum read from the apiserver
-	options := metav1.GetOptions{}
+	options := k8smetav1.GetOptions{}
 	var serviceSelector map[string]string
 	ports := []v1.ServicePort{}
 
@@ -201,7 +206,7 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 
 	// actually create the service
 	service := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
+		ObjectMeta: k8smetav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: namespace,
 		},
@@ -220,10 +225,36 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 		service.Spec.ExternalIPs = []string{externalIP}
 	}
 
-	// try to create the service on the cluster
-	_, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), service, metav1.CreateOptions{})
+	major, minor, err := serverVersion(virtClient)
 	if err != nil {
-		return fmt.Errorf("service creation failed: %v", err)
+		return err
+	}
+
+	if major > 1 || (major == 1 && minor >= 20) {
+		_, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("service creation failed for k8s >= 1.20: %v", err)
+		}
+		// For k8s < 1.20 we have to "migrate" the "ipFamilies" field to
+		// "ipFamily" we do this using an unstructured approach
+	} else {
+		// convert the Service to unstructured.Unstructured
+		unstructuredService, err := runtime.DefaultUnstructuredConverter.ToUnstructured(service)
+		if err != nil {
+			return err
+		}
+
+		// Add ipFamily field with proper content
+		err = unstructured.SetNestedField(unstructuredService, string(ipFamily), "spec", "ipFamily")
+		if err != nil {
+			return err
+		}
+
+		// try to create the service on the cluster
+		_, err = virtClient.DynamicClient().Resource(schema.GroupVersionResource{Version: "v1", Resource: "services"}).Namespace(namespace).Create(context.Background(), &unstructured.Unstructured{Object: unstructuredService}, k8smetav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("service creation failed for k8s < 1.20: %v", err)
+		}
 	}
 	fmt.Printf("Service %s successfully exposed for %s %s\n", serviceName, vmType, vmName)
 	return nil
@@ -260,4 +291,25 @@ func podNetworkPorts(vmiSpec *v12.VirtualMachineInstanceSpec) []v1.ServicePort {
 		}
 	}
 	return nil
+}
+
+func serverVersion(virtClient kubecli.KubevirtClient) (major int, minor int, err error) {
+	serverVersion, err := virtClient.DiscoveryClient().ServerVersion()
+	if err != nil {
+		return 0, 0, err
+	}
+	// Make a Regex to say we only want numbers
+	reg, err := regexp.Compile("[^0-9]+")
+	if err != nil {
+		return 0, 0, err
+	}
+	major, err = strconv.Atoi(reg.ReplaceAllString(serverVersion.Major, ""))
+	if err != nil {
+		return 0, 0, err
+	}
+	minor, err = strconv.Atoi(reg.ReplaceAllString(serverVersion.Minor, ""))
+	if err != nil {
+		return 0, 0, err
+	}
+	return
 }

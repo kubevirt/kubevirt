@@ -607,6 +607,8 @@ k8s.io/apiserver/pkg/apis/audit/v1
 # k8s.io/client-go v12.0.0+incompatible => k8s.io/client-go v0.20.2
 k8s.io/client-go/discovery
 k8s.io/client-go/discovery/fake
+k8s.io/client-go/dynamic
+k8s.io/client-go/dynamic/fake
 k8s.io/client-go/informers
 k8s.io/client-go/informers/admissionregistration
 k8s.io/client-go/informers/admissionregistration/v1

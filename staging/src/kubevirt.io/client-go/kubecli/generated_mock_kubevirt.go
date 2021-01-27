@@ -11,6 +11,7 @@ import (
 	v11 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	discovery "k8s.io/client-go/discovery"
+	dynamic "k8s.io/client-go/dynamic"
 	v12 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
 	v1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	v1alpha1 "k8s.io/client-go/kubernetes/typed/apiserverinternal/v1alpha1"
@@ -274,6 +275,16 @@ func (_m *MockKubevirtClient) KubernetesSnapshotClient() versioned0.Interface {
 
 func (_mr *_MockKubevirtClientRecorder) KubernetesSnapshotClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "KubernetesSnapshotClient")
+}
+
+func (_m *MockKubevirtClient) DynamicClient() dynamic.Interface {
+	ret := _m.ctrl.Call(_m, "DynamicClient")
+	ret0, _ := ret[0].(dynamic.Interface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) DynamicClient() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DynamicClient")
 }
 
 func (_m *MockKubevirtClient) Discovery() discovery.DiscoveryInterface {
