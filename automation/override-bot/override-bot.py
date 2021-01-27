@@ -24,15 +24,14 @@ class OverrideBot:
         github_token = os.environ['HCO_BOT_TOKEN']
         gh = Github(github_token)
         repo_name = f'{ORG_NAME}/{REPO_NAME}'
-        self.repoObj = gh.get_repo(repo_name)
+        self.repo_obj = gh.get_repo(repo_name)
 
     def get_prs(self):
         get_prs_req = requests.get(f'{GITHUB_BASE_API}/{ORG_NAME}/{REPO_NAME}/pulls')
         pr_full_list = json.loads(get_prs_req.text)
         for pr in pr_full_list:
-            if True or 'do-not-merge/hold' not in [label['name'] for label in pr['labels']]:
-                prObj = PullRequest(pr['number'], pr['title'], pr['url'], pr['_links']['statuses']['href'])
-                self.pr_list.append(prObj)
+            if 'do-not-merge/hold' not in [label['name'] for label in pr['labels']]:
+                self.pr_list.append(PullRequest(pr['number'], pr['title'], pr['url'], pr['_links']['statuses']['href']))
 
     def get_ci_tests(self):
         for pr in self.pr_list:
@@ -44,7 +43,7 @@ class OverrideBot:
 
     def comment_overrides(self):
         for pr in self.pr_list:
-            pr.comment_overrides(self.repoObj.get_pull(pr.number))
+            pr.comment_overrides(self.repo_obj.get_pull(pr.number))
 
 class PullRequest:
     def __init__(self, number, title, gh_url, statuses_url):
@@ -67,18 +66,18 @@ class PullRequest:
             test_name = '-'.join(splitted[:-1])
             state = status['state']
             overridden = status['description'] and 'Overridden' in status['description']
-            testObj = self.get_test_obj(test_name)
-            if not testObj:
-                testObj = CI_Test(test_name, [])
-                self.ci_tests_list.append(testObj)
-            rl = RedundantLane(context, provider, state, overridden, testObj)
+            test_obj = self.get_test_obj(test_name)
+            if not test_obj:
+                test_obj = CiTest(test_name, [])
+                self.ci_tests_list.append(test_obj)
+            rl = RedundantLane(context, provider, state, overridden, test_obj)
             if not self.lane_exists(rl.name):
-                testObj.lanes_list.append(rl)
+                test_obj.lanes_list.append(rl)
 
     def get_test_obj(self, test_name):
-        for testObj in self.ci_tests_list:
-            if test_name == testObj.name:
-                return testObj
+        for test_obj in self.ci_tests_list:
+            if test_name == test_obj.name:
+                return test_obj
         return None
 
     def lane_exists(self, name_to_check):
@@ -110,7 +109,7 @@ class PullRequest:
         print (f'comment for PR #{self.number} is:\n{comment}')
         gh_pr.create_issue_comment(comment)
 
-class CI_Test:
+class CiTest:
     def __init__(self, name, lanes_list):
         self.name = name
         self.lanes_list = lanes_list
