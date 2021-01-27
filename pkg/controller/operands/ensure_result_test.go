@@ -83,7 +83,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 
 		It("Should set overwritten", func() {
 			er := NewEnsureResult(kv)
-			er.SetOverwritten()
+			er.SetOverwritten(true)
 			Expect(er.Name).To(BeEmpty())
 			Expect(er.UpgradeDone).To(BeFalse())
 			Expect(er.Updated).To(BeFalse())
@@ -108,7 +108,7 @@ var _ = Describe("HyperConverged Ensure Result", func() {
 			er := NewEnsureResult(kv).
 				Error(errors.New("a test error")).
 				SetUpdated().
-				SetOverwritten().
+				SetOverwritten(true).
 				SetCreated().
 				SetUpgradeDone(true).
 				SetName("a name")

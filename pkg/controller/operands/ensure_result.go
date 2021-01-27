@@ -37,8 +37,8 @@ func (r *EnsureResult) SetUpdated() *EnsureResult {
 	return r
 }
 
-func (r *EnsureResult) SetOverwritten() *EnsureResult {
-	r.Overwritten = true
+func (r *EnsureResult) SetOverwritten(overwritten bool) *EnsureResult {
+	r.Overwritten = overwritten
 	return r
 }
 
