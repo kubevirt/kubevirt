@@ -93,7 +93,7 @@ const EXT_LOG_VERBOSITY_THRESHOLD = 5
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
-	RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock, tempPod bool) (*k8sv1.Pod, error)
+	RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, secret *k8sv1.Secret, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
 	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	GetLauncherImage() string
 }
@@ -1234,7 +1234,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	return &pod, nil
 }
 
-func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock, tempPod bool) (*k8sv1.Pod, error) {
+func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, secret *k8sv1.Secret, isBlock bool, tempPod bool) (*k8sv1.Pod, error) {
 	zero := int64(0)
 	var command []string
 	if tempPod {
@@ -1288,6 +1288,12 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, 
 							Type:  t.clusterConfig.GetSELinuxLauncherType(),
 						},
 					},
+					VolumeMounts: []k8sv1.VolumeMount{
+						{
+							Name:      "hotplug-disks",
+							MountPath: "/path",
+						},
+					},
 				},
 			},
 			Affinity: &k8sv1.Affinity{
@@ -1335,12 +1341,27 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, 
 			RunAsUser: &[]int64{0}[0],
 		}
 	} else {
-		pod.Spec.Containers[0].VolumeMounts = []k8sv1.VolumeMount{
-			{
-				Name:      volume.Name,
-				MountPath: "/pvc",
+		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
+			Name:      volume.Name,
+			MountPath: "/pvc",
+		})
+	}
+	if secret != nil {
+		var mode int32 = 0420
+		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
+			Name:      "hp-secret",
+			ReadOnly:  true,
+			MountPath: "/hppath",
+		})
+		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
+			Name: "hp-secret",
+			VolumeSource: k8sv1.VolumeSource{
+				Secret: &k8sv1.SecretVolumeSource{
+					SecretName:  secret.Name,
+					DefaultMode: &mode,
+				},
 			},
-		}
+		})
 	}
 	return pod, nil
 }

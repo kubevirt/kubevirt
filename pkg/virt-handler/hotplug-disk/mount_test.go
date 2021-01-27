@@ -43,6 +43,7 @@ import (
 var (
 	tempDir              string
 	orgDeviceBasePath    = deviceBasePath
+	orgSecretBasePath    = secretBasePath
 	orgStatCommand       = statCommand
 	orgCgroupsBasePath   = cgroupsBasePath
 	orgMknodCommand      = mknodCommand
@@ -603,11 +604,16 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 		deviceBasePath = func(sourceUID types.UID) string {
 			return filepath.Join(tempDir, string(sourceUID), "volumes")
 		}
+
+		secretBasePath = func(podUID types.UID) string {
+			return filepath.Join(tempDir, string(podUID))
+		}
 	})
 
 	AfterEach(func() {
 		os.RemoveAll(tempDir)
 		deviceBasePath = orgDeviceBasePath
+		secretBasePath = orgSecretBasePath
 		sourcePodBasePath = orgSourcePodBasePath
 		mountCommand = orgMountCommand
 		unmountCommand = orgUnMountCommand
@@ -642,6 +648,20 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 		Expect(err).ToNot(HaveOccurred())
 		_, err := m.getSourcePodFilePath("ghfjk")
 		Expect(err).To(HaveOccurred())
+	})
+
+	It("getSourcePodFile should return the path if there is a secret with the path", func() {
+		path := filepath.Join(tempDir, "ghfjk", "volumes")
+		err = os.MkdirAll(path, 0755)
+		Expect(err).ToNot(HaveOccurred())
+		secretPath := filepath.Join(tempDir, "ghfjk", "secret")
+		err = os.MkdirAll(secretPath, 0755)
+		Expect(err).ToNot(HaveOccurred())
+		err = ioutil.WriteFile(filepath.Join(secretPath, "path"), []byte("/test/result"), 0644)
+		Expect(err).ToNot(HaveOccurred())
+		res, err := m.getSourcePodFilePath("ghfjk")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res).To(Equal("/test/result"))
 	})
 
 	It("should properly mount and unmount filesystem", func() {

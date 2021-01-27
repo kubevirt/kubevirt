@@ -928,11 +928,11 @@ func newPVC(os, size, storageClass string, recycledPV bool) *k8sv1.PersistentVol
 	}
 }
 
-func CreateHostPathPv(osName string, hostPath string) {
-	CreateHostPathPvWithSize(osName, hostPath, "1Gi")
+func CreateHostPathPv(osName string, hostPath string) string {
+	return CreateHostPathPvWithSize(osName, hostPath, "1Gi")
 }
 
-func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
+func CreateHostPathPvWithSize(osName string, hostPath string, size string) string {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
@@ -985,6 +985,7 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
+	return schedulableNode
 }
 
 func GetListOfManifests(pathToManifestsDir string) []string {

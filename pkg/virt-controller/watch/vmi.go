@@ -116,6 +116,7 @@ func NewVMIController(templateService services.TemplateService,
 	vmiInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
+	pvInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	dataVolumeInformer cache.SharedIndexInformer) *VMIController {
@@ -126,6 +127,7 @@ func NewVMIController(templateService services.TemplateService,
 		vmiInformer:        vmiInformer,
 		podInformer:        podInformer,
 		pvcInformer:        pvcInformer,
+		pvInformer:         pvInformer,
 		recorder:           recorder,
 		clientset:          clientset,
 		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -178,6 +180,7 @@ type VMIController struct {
 	vmiInformer        cache.SharedIndexInformer
 	podInformer        cache.SharedIndexInformer
 	pvcInformer        cache.SharedIndexInformer
+	pvInformer         cache.SharedIndexInformer
 	recorder           record.EventRecorder
 	podExpectations    *controller.UIDTrackingControllerExpectations
 	dataVolumeInformer cache.SharedIndexInformer
@@ -1486,22 +1489,24 @@ func (c *VMIController) deleteAttachmentPodForVolume(vmi *virtv1.VirtualMachineI
 		if pod.DeletionTimestamp != nil {
 			continue
 		}
-
 		for _, podVolume := range pod.Spec.Volumes {
-			if podVolume.Name != volume.Name || podVolume.PersistentVolumeClaim == nil {
-				continue
+			if podVolume.Name == volume.Name && podVolume.PersistentVolumeClaim != nil {
+				c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(pod)})
+				err := c.clientset.CoreV1().Pods(pod.GetNamespace()).Delete(context.Background(), pod.Name, v1.DeleteOptions{
+					GracePeriodSeconds: &zero,
+				})
+				if err != nil {
+					c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
+					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDeletePodReason, "Failed to delete attachment pod %s", pod.Name)
+					return err
+				}
+				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, "Deleted attachment pod %s", pod.Name)
+				if err := c.deleteHostPathSecret(pod); err != nil {
+					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDeletePodReason, "Failed to delete hostpath path secret %s", volume.Name)
+					log.DefaultLogger().Infof("Unable to delete secret %s", volume.Name)
+					return err
+				}
 			}
-
-			c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(pod)})
-			err := c.clientset.CoreV1().Pods(pod.GetNamespace()).Delete(context.Background(), pod.Name, v1.DeleteOptions{
-				GracePeriodSeconds: &zero,
-			})
-			if err != nil {
-				c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
-				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDeletePodReason, "Failed to delete attachment pod %s", pod.Name)
-				return err
-			}
-			c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, "Deleted attachment pod %s", pod.Name)
 		}
 	}
 	return nil
@@ -1538,10 +1543,31 @@ func (c *VMIController) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineIn
 		return nil, err
 	}
 	if populated {
-		pod, err := c.templateService.RenderHotplugAttachmentPodTemplate(volume, virtlauncherPod, vmi, pvc.Name, isBlock, false)
+		secret, err := c.handleHostpathSecret(claimName, virtlauncherPod.Namespace)
+		if err != nil {
+			return nil, err
+		}
+		pod, err := c.templateService.RenderHotplugAttachmentPodTemplate(volume, virtlauncherPod, vmi, pvc.Name, secret, isBlock, false)
 		return pod, err
 	}
 	return nil, nil
+}
+
+func (c *VMIController) handleHostpathSecret(claimName, namespace string) (*k8sv1.Secret, error) {
+	var secret *k8sv1.Secret
+	hostpath, err := kubevirttypes.GetPVCHostPathFromStore(c.pvcInformer.GetStore(), c.pvInformer.GetStore(), namespace, claimName)
+	log.DefaultLogger().Infof("Hostpath path: %s", hostpath)
+	if err != nil {
+		return nil, err
+	}
+	if hostpath != "" {
+		// Create a secret with the hostpath path in it
+		secret, err = c.createHostPathSecret(namespace, claimName, hostpath)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return secret, nil
 }
 
 func (c *VMIController) createAttachmentPopulateTriggerPodTemplate(volume *virtv1.Volume, virtlauncherPod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance) (*k8sv1.Pod, error) {
@@ -1563,8 +1589,41 @@ func (c *VMIController) createAttachmentPopulateTriggerPodTemplate(volume *virtv
 	if !exists {
 		return nil, fmt.Errorf("Unable to trigger hotplug population, claim %s not found", claimName)
 	}
-	pod, err := c.templateService.RenderHotplugAttachmentPodTemplate(volume, virtlauncherPod, vmi, pvc.Name, isBlock, true)
+	pod, err := c.templateService.RenderHotplugAttachmentPodTemplate(volume, virtlauncherPod, vmi, pvc.Name, nil, isBlock, true)
 	return pod, err
+}
+
+func (c *VMIController) createHostPathSecret(namespace string, claimName, path string) (*k8sv1.Secret, error) {
+	secret := &k8sv1.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      claimName,
+			Namespace: namespace,
+		},
+	}
+	secret.Data = make(map[string][]byte)
+	secret.Data["path"] = []byte(path)
+	// Since claimname is unique, no need to set expectations, multiple calls will result in error.
+	secret, err := c.clientset.CoreV1().Secrets(namespace).Create(context.Background(), secret, v1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return secret, nil
+}
+
+func (c *VMIController) deleteHostPathSecret(pod *k8sv1.Pod) error {
+	claimName := ""
+	for _, volume := range pod.Spec.Volumes {
+		if volume.PersistentVolumeClaim != nil {
+			claimName = volume.PersistentVolumeClaim.ClaimName
+		}
+	}
+	if claimName != "" {
+		err := c.clientset.CoreV1().Secrets(pod.Namespace).Delete(context.Background(), claimName, v1.DeleteOptions{})
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *VMIController) deleteAllAttachmentPods(vmi *virtv1.VirtualMachineInstance) error {

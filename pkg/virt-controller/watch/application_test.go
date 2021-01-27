@@ -82,6 +82,7 @@ var _ = Describe("Application", func() {
 		pdbInformer, _ := testutils.NewFakeInformerFor(&v1beta1.PodDisruptionBudget{})
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		pvInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolume{})
 		dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		rsInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceReplicaSet{})
 		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
@@ -99,6 +100,7 @@ var _ = Describe("Application", func() {
 			vmiInformer,
 			podInformer,
 			pvcInformer,
+			pvInformer,
 			recorder,
 			virtClient,
 			dataVolumeInformer,

@@ -500,6 +500,21 @@ spec:
           - delete
           - patch
         - apiGroups:
+          - ""
+          resources:
+          - persistentvolumes
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - create
+          - delete
+        - apiGroups:
           - snapshot.kubevirt.io
           resources:
           - '*'

@@ -40,6 +40,10 @@ var (
 		return fmt.Sprintf("/proc/1/root/var/lib/kubelet/pods/%s/volumes", string(podUID))
 	}
 
+	secretBasePath = func(podUID types.UID) string {
+		return fmt.Sprintf("/proc/1/root/var/lib/kubelet/pods/%s/volumes/kubernetes.io~secret/hp-secret", string(podUID))
+	}
+
 	cgroupsBasePath = func() string {
 		return "/proc/1/root/sys/fs/cgroup/devices/"
 	}
@@ -561,6 +565,7 @@ func (m *volumeMounter) findVirtlauncherUID(vmi *v1.VirtualMachineInstance) type
 }
 
 func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID) (string, error) {
+	var err error
 	diskPath := ""
 	if sourceUID != types.UID("") {
 		basepath := sourcePodBasePath(sourceUID)
@@ -577,10 +582,43 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID) (string, error
 		}
 	}
 	if diskPath == "" {
+		// Check if we can find the source disk image from the emptyDir path file.
+		diskPath, err = m.getSourcePodFilePathFromSecret(sourceUID)
+		if err != nil {
+			return "", err
+		}
+	}
+	if diskPath == "" {
 		// Did not find the disk image file, return error
 		return diskPath, fmt.Errorf("Unable to find source disk image path for pod %s", sourceUID)
 	}
 	return diskPath, nil
+}
+
+func (m *volumeMounter) getSourcePodFilePathFromSecret(sourceUID types.UID) (string, error) {
+	pathFile := ""
+	if sourceUID != types.UID("") {
+		basepath := secretBasePath(sourceUID)
+		err := filepath.Walk(basepath, func(filePath string, info os.FileInfo, err error) error {
+			if path.Base(filePath) == "path" {
+				// Found path file
+				pathFile = filePath
+				return io.EOF
+			}
+			return nil
+		})
+		if err != nil && err != io.EOF {
+			return pathFile, err
+		}
+	}
+	if pathFile != "" {
+		pathBytes, err := ioutil.ReadFile(pathFile)
+		if err != nil {
+			return "", err
+		}
+		return string(pathBytes), nil
+	}
+	return "", nil
 }
 
 // Unmount unmounts all hotplug disk that are no longer part of the VMI
