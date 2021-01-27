@@ -1900,6 +1900,11 @@ func (d *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.Vi
 		return err
 	}
 
+	err = d.validateSRIOVInterfacesForMigration(vmi)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1925,6 +1930,16 @@ func lookupVMIPodNetworkName(networks []v1.Network) string {
 	}
 
 	return ""
+}
+
+func (d *VirtualMachineController) validateSRIOVInterfacesForMigration(vmi *v1.VirtualMachineInstance) error {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.SRIOV != nil && !d.clusterConfig.SRIOVLiveMigrationEnabled() {
+			return fmt.Errorf("SRIOVLiveMigration feature-gate is closed, can't migrate VMI with SRIOV interfaces")
+		}
+	}
+
+	return nil
 }
 
 func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachineInstance) (blockMigrate bool, err error) {

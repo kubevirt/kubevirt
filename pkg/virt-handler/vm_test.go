@@ -1905,6 +1905,56 @@ var _ = Describe("VirtualMachineInstance", func() {
 				err := controller.checkNetworkInterfacesForMigration(vmi)
 				Expect(err).To(HaveOccurred())
 			})
+			It("should block migration for VMI with SRIOV interface when feature-gate SRIOVLiveMigration is off", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				sriovInterfaceName := "sriovnet1"
+				vmi.Spec.Networks = []v1.Network{
+					{
+						Name: sriovInterfaceName,
+						NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
+							NetworkName: "sriov-network1",
+						}},
+					},
+				}
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+					{
+						Name: sriovInterfaceName,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{
+							SRIOV: &v1.InterfaceSRIOV{},
+						},
+					},
+				}
+
+				Expect(controller.checkNetworkInterfacesForMigration(vmi)).ShouldNot(Succeed())
+			})
+
+			It("should not block migration for VMI with SRIOV interface when feature-gate SRIOVLiveMigration is on", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				sriovInterfaceName := "sriovnet1"
+				kubevirtConfigMapFeatureGate := map[string]string{virtconfig.FeatureGatesKey: virtconfig.SRIOVLiveMigrationGate}
+				vmi.Spec.Networks = []v1.Network{
+					{
+						Name: sriovInterfaceName,
+						NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
+							NetworkName: "sriov-network1",
+						}},
+					},
+				}
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+					{
+						Name: sriovInterfaceName,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{
+							SRIOV: &v1.InterfaceSRIOV{},
+						},
+					},
+				}
+				config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{
+					Data: kubevirtConfigMapFeatureGate,
+				})
+				controller.clusterConfig = config
+
+				Expect(controller.checkNetworkInterfacesForMigration(vmi)).Should(Succeed())
+			})
 
 			It("should not block migration for masquerade binding assigned to the pod network", func() {
 				vmi := v1.NewMinimalVMI("testvmi")
