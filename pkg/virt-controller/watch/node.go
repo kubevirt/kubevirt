@@ -148,15 +148,13 @@ func (c *NodeController) Execute() bool {
 }
 
 func (c *NodeController) execute(key string) error {
-
-	obj, nodeExists, err := c.nodeInformer.GetStore().GetByKey(key)
 	logger := log.DefaultLogger()
 
+	obj, nodeExists, err := c.nodeInformer.GetStore().GetByKey(key)
 	if err != nil {
 		return err
 	}
 
-	nodeName := key
 	var node *v1.Node
 	if nodeExists {
 		node = obj.(*v1.Node)
@@ -165,63 +163,192 @@ func (c *NodeController) execute(key string) error {
 		logger = logger.Key(key, "Node")
 	}
 
-	if unresponsive, err := isNodeUnresponsive(node, c.heartBeatTimeout); err != nil {
+	unresponsive, err := isNodeUnresponsive(node, c.heartBeatTimeout)
+	if err != nil {
 		logger.Reason(err).Error("Failed to dermine if node is responsive, will not reenqueue")
-		return fmt.Errorf("failed to determine if node %s is responsive: %v", nodeName, err)
-	} else if unresponsive {
-		if nodeExists && node.Labels[virtv1.NodeSchedulable] == "true" {
-			c.recorder.Event(node, v1.EventTypeNormal, NodeUnresponsiveReason, "virt-handler is not responsive, marking node as unresponsive")
-			data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, virtv1.NodeSchedulable))
-			_, err = c.clientset.CoreV1().Nodes().Patch(context.Background(), nodeName, types.StrategicMergePatchType, data, metav1.PatchOptions{})
-			if err != nil {
-				logger.Reason(err).Error("Failed to mark node as unschedulable")
-				return fmt.Errorf("failed to mark node %s as unschedulable: %v", nodeName, err)
-			}
+		return nil
+	}
+
+	if unresponsive {
+		if nodeIsSchedulable(node) {
+			c.markNodeAsUnresponsive(node, logger)
 		}
-		vmis, err := lookup.VirtualMachinesOnNode(c.clientset, nodeName)
+
+		err = c.checkNodeForOrphanedAndErroredVMIs(key, node, logger)
 		if err != nil {
-			logger.Reason(err).Error("Failed fetch vmis for node")
-			return err
-		} else if len(vmis) == 0 {
-			if nodeExists {
-				c.Queue.AddAfter(key, c.recheckInterval)
-			}
-			return nil
-		}
-		pods, err := c.alivePodsOnNode(nodeName)
-		if err != nil {
-			logger.Reason(err).Error("Failed fetch pods for node")
 			return err
 		}
-
-		vmis = filterStuckVirtualMachinesWithoutPods(vmis, pods)
-
-		errs := []string{}
-		// Do sequential updates, we don't want to create update storms in situations where something might already be wrong
-		for _, vmi := range vmis {
-			c.recorder.Event(vmi, v1.EventTypeNormal, NodeUnresponsiveReason, fmt.Sprintf("virt-handler on node %s is not responsive, marking VMI as failed", vmi.Status.NodeName))
-			logger.V(2).Infof("Moving vmi %s in namespace %s on unresponsive node to failed state", vmi.Name, vmi.Namespace)
-			phasePatch := fmt.Sprintf(`{ "op": "replace", "path": "/status/phase", "value": "%s" }`, virtv1.Failed)
-			operation := "add"
-			if vmi.Status.Reason != "" {
-				operation = "replace"
-			}
-			reasonPatch := fmt.Sprintf(`{ "op": "%s", "path": "/status/reason", "value": "%s" }`, operation, NodeUnresponsiveReason)
-			_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(fmt.Sprintf("[%s, %s]", phasePatch, reasonPatch)))
-			if err != nil {
-				errs = append(errs, fmt.Sprintf("failed to move vmi %s in namespace %s to final state: %v", vmi.Name, vmi.Namespace, err))
-				logger.Reason(err).Errorf("Failed to move vmi %s in namespace %s to final state", vmi.Name, vmi.Namespace)
-			}
-		}
-
-		if len(errs) > 0 {
-			return fmt.Errorf("%v", strings.Join(errs, "; "))
-		}
 	}
-	if nodeExists {
-		c.Queue.AddAfter(key, c.recheckInterval)
-	}
+
+	c.requeueIfExists(key, node)
+
 	return nil
+}
+
+func nodeIsSchedulable(node *v1.Node) bool {
+	if node == nil {
+		return false
+	}
+
+	return node.Labels[virtv1.NodeSchedulable] == "true"
+}
+
+func (c *NodeController) checkNodeForOrphanedAndErroredVMIs(nodeName string, node *v1.Node, logger *log.FilteredLogger) error {
+	vmis, err := lookup.VirtualMachinesOnNode(c.clientset, nodeName)
+	if err != nil {
+		logger.Reason(err).Error("Failed fetch vmis for node")
+		return err
+	}
+
+	if len(vmis) == 0 {
+		c.requeueIfExists(nodeName, node)
+		return nil
+	}
+
+	err = c.createEventIfNodeHasOrphanedVMIs(node, vmis)
+	if err != nil {
+		logger.Reason(err).Error("checking virt-handler for node")
+		return err
+	}
+
+	return c.checkVirtLauncherPodsAndUpdateVMIStatus(nodeName, vmis, logger)
+}
+
+func (c *NodeController) checkVirtLauncherPodsAndUpdateVMIStatus(nodeName string, vmis []*virtv1.VirtualMachineInstance, logger *log.FilteredLogger) error {
+	pods, err := c.alivePodsOnNode(nodeName)
+	if err != nil {
+		logger.Reason(err).Error("Failed fetch pods for node")
+		return err
+	}
+
+	vmis = filterStuckVirtualMachinesWithoutPods(vmis, pods)
+
+	return c.updateVMIWithFailedStatus(vmis, logger)
+}
+
+func (c *NodeController) updateVMIWithFailedStatus(vmis []*virtv1.VirtualMachineInstance, logger *log.FilteredLogger) error {
+	errs := []string{}
+	// Do sequential updates, we don't want to create update storms in situations where something might already be wrong
+	for _, vmi := range vmis {
+		err := c.createAndApplyPatch(vmi, logger)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("failed to move vmi %s in namespace %s to final state: %v", vmi.Name, vmi.Namespace, err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("%v", strings.Join(errs, "; "))
+	}
+
+	return nil
+}
+
+func (c *NodeController) createAndApplyPatch(vmi *virtv1.VirtualMachineInstance, logger *log.FilteredLogger) error {
+	c.recorder.Event(vmi, v1.EventTypeNormal, NodeUnresponsiveReason, fmt.Sprintf("virt-handler on node %s is not responsive, marking VMI as failed", vmi.Status.NodeName))
+	logger.V(2).Infof("Moving vmi %s in namespace %s on unresponsive node to failed state", vmi.Name, vmi.Namespace)
+
+	patch := generateVMIPatch(vmi.Status.Reason)
+	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, patch)
+	if err != nil {
+		logger.Reason(err).Errorf("Failed to move vmi %s in namespace %s to final state", vmi.Name, vmi.Namespace)
+		return err
+	}
+
+	return nil
+}
+
+func generateVMIPatch(reason string) []byte {
+	phasePatch := fmt.Sprintf(`{ "op": "replace", "path": "/status/phase", "value": "%s" }`, virtv1.Failed)
+	operation := "add"
+	if reason != "" {
+		operation = "replace"
+	}
+	reasonPatch := fmt.Sprintf(`{ "op": "%s", "path": "/status/reason", "value": "%s" }`, operation, NodeUnresponsiveReason)
+	return []byte(fmt.Sprintf("[%s, %s]", phasePatch, reasonPatch))
+}
+
+func (c *NodeController) requeueIfExists(key string, node *v1.Node) {
+	if node == nil {
+		return
+	}
+
+	c.Queue.AddAfter(key, c.recheckInterval)
+}
+
+func (c *NodeController) markNodeAsUnresponsive(node *v1.Node, logger *log.FilteredLogger) error {
+	c.recorder.Event(node, v1.EventTypeNormal, NodeUnresponsiveReason, "virt-handler is not responsive, marking node as unresponsive")
+	logger.V(4).Infof("Marking node %s as unresponsive", node.Name)
+
+	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, virtv1.NodeSchedulable))
+	_, err := c.clientset.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+	if err != nil {
+		logger.Reason(err).Error("Failed to mark node as unschedulable")
+		return fmt.Errorf("failed to mark node %s as unschedulable: %v", node.Name, err)
+	}
+
+	return nil
+}
+
+func (c *NodeController) createEventIfNodeHasOrphanedVMIs(node *v1.Node, vmis []*virtv1.VirtualMachineInstance) error {
+	// node is not running any vmis so we don't need to check anything else
+	if len(vmis) == 0 || node == nil {
+		return nil
+	}
+
+	// query for a virt-handler pod on the node
+	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + node.GetName())
+	virtHandlerSelector := fields.ParseSelectorOrDie("kubevirt.io=virt-handler")
+	pods, err := c.clientset.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
+		FieldSelector: handlerNodeSelector.String(),
+		LabelSelector: virtHandlerSelector.String(),
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// node is running the virt-handler
+	if len(pods.Items) != 0 {
+		return nil
+	}
+
+	running, err := checkDaemonSetStatus(c.clientset, virtHandlerSelector)
+	if err != nil {
+		return err
+	}
+
+	// the virt-handler DaemonsSet is not running as expect so we can't know for sure
+	// if a virt-handler pod will be ran on this node
+	if !running {
+		c.requeueIfExists(node.GetName(), node)
+		return nil
+	}
+
+	c.recorder.Event(node, v1.EventTypeWarning, NodeUnresponsiveReason, "virt-handler is not present, there are orphaned vmis on this node. Run virt-handler on this node to migrate or remove them.")
+
+	return nil
+}
+
+func checkDaemonSetStatus(clientset kubecli.KubevirtClient, selector fields.Selector) (bool, error) {
+	dss, err := clientset.AppsV1().DaemonSets(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
+		LabelSelector: selector.String(),
+	})
+
+	if err != nil {
+		return false, err
+	}
+
+	if len(dss.Items) != 1 {
+		return false, fmt.Errorf("shouuld only be running one virt-handler DaemonSet")
+	}
+
+	ds := dss.Items[0]
+	desired, scheduled, ready := ds.Status.DesiredNumberScheduled, ds.Status.CurrentNumberScheduled, ds.Status.NumberReady
+	if desired != scheduled && desired != ready {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func (c *NodeController) alivePodsOnNode(nodeName string) ([]*v1.Pod, error) {
