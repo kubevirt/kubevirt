@@ -48,7 +48,7 @@ apidocs:
 	hack/dockerized "./hack/gen-swagger-doc/gen-swagger-docs.sh v1 html"
 
 client-python:
-	hack/dockerized "TRAVIS_TAG=${TRAVIS_TAG} ./hack/gen-client-python/generate.sh"
+	hack/dockerized "DOCKER_TAG=${DOCKER_TAG} ./hack/gen-client-python/generate.sh"
 
 go-build:
 	hack/dockerized "KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT}" && ./hack/build-copy-artifacts.sh ${WHAT}

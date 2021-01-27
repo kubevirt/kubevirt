@@ -14,8 +14,8 @@ CODEGEN_CONFIG="${PYTHON_CLIENT_OUT_DIR}/swagger-codegen-config.json"
 HARD_CODED_MODULES="${KUBEVIRT_DIR}/hack/gen-client-python/hard-coded-modules"
 
 # Define version of client
-if [ -n "${TRAVIS_TAG:-}" ]; then
-    CLIENT_PYTHON_VERSION="$TRAVIS_TAG"
+if [ -n "${DOCKER_TAG:-}" ]; then
+    CLIENT_PYTHON_VERSION="$DOCKER_TAG"
 else
     CLIENT_PYTHON_VERSION="$(git describe || echo 'none')"
 fi
