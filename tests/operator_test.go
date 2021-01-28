@@ -652,18 +652,26 @@ var _ = Describe("[Serial]Operator", func() {
 				return nil
 			}, 320, 1).Should(BeNil(), "All VMIs should update via live migration")
 
-			By("Verifying only a single successful migration took place for each vmi")
-			migrationList, err := virtClient.VirtualMachineInstanceMigration(tests.NamespaceTestDefault).List(&metav1.ListOptions{})
-			Expect(err).To(BeNil(), "retrieving migrations")
-			for _, vmi := range vmis {
-				count := 0
-				for _, migration := range migrationList.Items {
-					if migration.Spec.VMIName == vmi.Name && migration.Status.Phase == v1.MigrationSucceeded {
-						count++
+			// this is put in an eventually loop because it's possible for the VMI to complete
+			// migrating and for the migration object to briefly lag behind in reporting
+			// the results
+			Eventually(func() error {
+				By("Verifying only a single successful migration took place for each vmi")
+				migrationList, err := virtClient.VirtualMachineInstanceMigration(tests.NamespaceTestDefault).List(&metav1.ListOptions{})
+				Expect(err).To(BeNil(), "retrieving migrations")
+				for _, vmi := range vmis {
+					count := 0
+					for _, migration := range migrationList.Items {
+						if migration.Spec.VMIName == vmi.Name && migration.Status.Phase == v1.MigrationSucceeded {
+							count++
+						}
+					}
+					if count != 1 {
+						return fmt.Errorf("vmi [%s] returned %d successful migrations", vmi.Name, count)
 					}
 				}
-				Expect(count).To(Equal(1), "Expects only a single successful migration per workload update")
-			}
+				return nil
+			}, 10, 1).Should(BeNil(), "Expects only a single successful migration per workload update")
 		}
 
 		getVirtLauncherSha = func() string {
