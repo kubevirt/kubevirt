@@ -1214,6 +1214,48 @@ var _ = Describe("Manager", func() {
 			copyDisks := getDiskTargetsForMigration(mockDomain, vmi)
 			Expect(copyDisks).Should(ConsistOf("vdb", "vdd"))
 		})
+		It("should correctly set multithreaded compression parameters", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Annotations = map[string]string{
+				v1.LiveMigrationCompressionMethod:            "mt",
+				v1.LiveMigrationThreadedCompressionLevel:     "10",
+				v1.LiveMigrationThreadedCompressionThreads:   "16",
+				v1.LiveMigrationThreadedDeCompressionThreads: "16",
+			}
+
+			params := &libvirt.DomainMigrateParameters{}
+			tuneMigrationCompression(vmi, params)
+			Expect(params.Compression).To(Equal("mt"))
+			Expect(params.CompressionSet).To(BeTrue())
+			Expect(params.CompressionMTLevel).To(Equal(9))
+			Expect(params.CompressionMTLevelSet).To(BeTrue())
+			Expect(params.CompressionMTThreads).To(Equal(16))
+			Expect(params.CompressionMTThreadsSet).To(BeTrue())
+			Expect(params.CompressionMTDThreads).To(Equal(16))
+			Expect(params.CompressionMTDThreadsSet).To(BeTrue())
+
+		})
+		It("should ignore incorrect  multithreaded compression parameters", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Annotations = map[string]string{
+				v1.LiveMigrationCompressionMethod:            "mt",
+				v1.LiveMigrationThreadedCompressionLevel:     "10",
+				v1.LiveMigrationThreadedCompressionThreads:   "-16",
+				v1.LiveMigrationThreadedDeCompressionThreads: "16.25",
+			}
+
+			params := &libvirt.DomainMigrateParameters{}
+			tuneMigrationCompression(vmi, params)
+			Expect(params.Compression).To(Equal("mt"))
+			Expect(params.CompressionSet).To(BeTrue())
+			Expect(params.CompressionMTLevel).To(Equal(9))
+			Expect(params.CompressionMTLevelSet).To(BeTrue())
+			//			Expect(params.CompressionMTThreads).To(Equal(16))
+			Expect(params.CompressionMTThreadsSet).NotTo(BeTrue())
+			//			Expect(params.CompressionMTDThreads).To(Equal(16))
+			Expect(params.CompressionMTDThreadsSet).NotTo(BeTrue())
+
+		})
 		AfterEach(func() {
 			ip.GetLoopbackAddress = funcPreviousValue
 		})
