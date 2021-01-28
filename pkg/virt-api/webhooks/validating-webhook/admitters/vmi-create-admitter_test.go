@@ -2889,6 +2889,23 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 
+		It("should accept sysprep volumes", func() {
+			vmi := v1.NewMinimalVMI("fake-vmi")
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "sysprep-configmap-volume",
+				VolumeSource: v1.VolumeSource{
+					Sysprep: &v1.SysprepSource{
+						ConfigMap: &k8sv1.LocalObjectReference{
+							Name: "test-config",
+						},
+					},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+			Expect(causes).To(BeEmpty())
+		})
+
 		It("should reject CloudInitNoCloud volume if either userData or networkData is missing", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{

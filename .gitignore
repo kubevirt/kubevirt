@@ -44,3 +44,4 @@ hack/builder/manifests/
 *~
 .bazeldnf/
 user.bazelrc
+.vscode/

@@ -1668,6 +1668,9 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 		if volume.PersistentVolumeClaim != nil {
 			volumeSourceSetCount++
 		}
+		if volume.Sysprep != nil {
+			volumeSourceSetCount++
+		}
 		if volume.CloudInitNoCloud != nil {
 			volumeSourceSetCount++
 		}

@@ -998,6 +998,7 @@ func (l *LibvirtDomainManager) generateCloudInitISO(vmi *v1.VirtualMachineInstan
 // - storage prep
 // - network prep
 // - cloud-init
+// - sysprep
 //
 // The Domain.Spec can be alterned in this function and any changes
 // made to the domain will get set in libvirt after this function exits.
@@ -1072,6 +1073,12 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	if err := config.CreateSecretDisks(vmi); err != nil {
 		return domain, fmt.Errorf("creating secret disks failed: %v", err)
 	}
+
+	// create Sysprep disks if they exists
+	if err := config.CreateSysprepDisks(vmi); err != nil {
+		return domain, fmt.Errorf("creating sysprep disks failed: %v", err)
+	}
+
 	// create DownwardAPI disks if they exists
 	if err := config.CreateDownwardAPIDisks(vmi); err != nil {
 		return domain, fmt.Errorf("creating DownwardAPI disks failed: %v", err)

@@ -411,6 +411,10 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *Convert
 		return Convert_v1_CloudInitSource_To_api_Disk(source.VolumeSource, disk, c)
 	}
 
+	if source.Sysprep != nil {
+		return Convert_v1_SysprepSource_To_api_Disk(source.Name, disk, c)
+	}
+
 	if source.HostDisk != nil {
 		return Convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, disk, c)
 	}
@@ -575,6 +579,17 @@ func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.D
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = "stop"
 	disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
+	return nil
+}
+
+func Convert_v1_SysprepSource_To_api_Disk(volumeName string, disk *api.Disk, c *ConverterContext) error {
+	if disk.Type == "lun" {
+		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.GetName())
+	}
+
+	disk.Source.File = config.GetSysprepDiskPath(volumeName)
+	disk.Type = "file"
+	disk.Driver.Type = "raw"
 	return nil
 }
 

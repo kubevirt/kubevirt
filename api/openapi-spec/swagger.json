@@ -10845,6 +10845,20 @@
      }
     }
    },
+   "v1.SysprepSource": {
+    "description": "Represents a Sysprep volume source.",
+    "type": "object",
+    "properties": {
+     "configMap": {
+      "description": "ConfigMap references a ConfigMap that contains Sysprep answer file named autounattend.xml that should be attached as disk of CDROM type.",
+      "$ref": "#/definitions/k8s.io.api.core.v1.LocalObjectReference"
+     },
+     "secret": {
+      "description": "Secret references a k8s Secret that contains Sysprep answer file named autounattend.xml that should be attached as disk of CDROM type.",
+      "$ref": "#/definitions/k8s.io.api.core.v1.LocalObjectReference"
+     }
+    }
+   },
    "v1.Timer": {
     "description": "Represents all available timers in a vmi.",
     "type": "object",
@@ -12026,6 +12040,10 @@
      "serviceAccount": {
       "description": "ServiceAccountVolumeSource represents a reference to a service account. There can only be one volume of this type! More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/",
       "$ref": "#/definitions/v1.ServiceAccountVolumeSource"
+     },
+     "sysprep": {
+      "description": "Represents a Sysprep volume source.",
+      "$ref": "#/definitions/v1.SysprepSource"
      }
     }
    },
