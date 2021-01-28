@@ -215,22 +215,52 @@ func ComponentResourceRemoval(ctx context.Context, c client.Client, obj interfac
 
 	logger.Info("Removing resource", "name", resource.GetName(), "namespace", resource.GetNamespace(), "GVK", resource.GetObjectKind().GroupVersionKind(), "dryRun", dryRun)
 
-	err = c.Get(ctx, types.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, resource)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			logger.Info("Resource doesn't exist, there is nothing to remove", "Kind", resource.GetObjectKind())
-			return nil
-		}
+	ok, err := getResourceForDeletion(ctx, c, resource, logger)
+	if !ok {
 		return err
 	}
 
-	labels := resource.GetLabels()
-
-	if app, labelExists := labels[AppLabel]; !labelExists || app != hcoName {
-		logger.Info("Existing resource wasn't deployed by HCO, ignoring", "Kind", resource.GetObjectKind())
+	if !shouldDeleteResource(resource, hcoName, logger) {
 		return nil
 	}
 
+	opts := getDeletionOption(dryRun, wait)
+
+	if deleted, err := doDeleteResource(ctx, c, resource, opts); !deleted {
+		return err
+	}
+
+	if !wait || dryRun { // no need to wait
+		return nil
+	}
+
+	return validateDeletion(ctx, c, resource)
+}
+
+func doDeleteResource(ctx context.Context, c client.Client, resource *unstructured.Unstructured, opts *client.DeleteOptions) (bool, error) {
+	err := c.Delete(ctx, resource, opts)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// to be idempotent if called on a object that was
+			// already marked for deletion in a previous reconciliation loop
+			return false, nil
+		}
+		// failure
+		return false, err
+	}
+	return true, err
+}
+
+func shouldDeleteResource(resource *unstructured.Unstructured, hcoName string, logger logr.Logger) bool {
+	labels := resource.GetLabels()
+	if app, labelExists := labels[AppLabel]; !labelExists || app != hcoName {
+		logger.Info("Existing resource wasn't deployed by HCO, ignoring", "Kind", resource.GetObjectKind())
+		return false
+	}
+	return true
+}
+
+func getDeletionOption(dryRun bool, wait bool) *client.DeleteOptions {
 	opts := &client.DeleteOptions{}
 	if dryRun {
 		opts.DryRun = []string{metav1.DryRunAll}
@@ -239,23 +269,24 @@ func ComponentResourceRemoval(ctx context.Context, c client.Client, obj interfac
 		foreground := metav1.DeletePropagationForeground
 		opts.PropagationPolicy = &foreground
 	}
+	return opts
+}
 
-	dErr := c.Delete(ctx, resource, opts)
-	if dErr != nil {
-		if apierrors.IsNotFound(dErr) {
-			// to be idempotent if called on a object that was
-			// already marked for deletion in a previous reconciliation loop
-			return nil
+func getResourceForDeletion(ctx context.Context, c client.Client, resource *unstructured.Unstructured, logger logr.Logger) (bool, error) {
+	err := c.Get(ctx, types.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, resource)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			logger.Info("Resource doesn't exist, there is nothing to remove", "Kind", resource.GetObjectKind())
+			return false, nil
 		}
-		// failure
-		return dErr
+		return false, err
 	}
-	if !wait || dryRun {
-		return nil
-	}
+	return true, nil
+}
 
+func validateDeletion(ctx context.Context, c client.Client, resource *unstructured.Unstructured) error {
 	for {
-		err = c.Get(ctx, types.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, resource)
+		err := c.Get(ctx, types.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, resource)
 		if apierrors.IsNotFound(err) {
 			// success!
 			return nil
@@ -263,12 +294,11 @@ func ComponentResourceRemoval(ctx context.Context, c client.Client, obj interfac
 		select {
 		case <-ctx.Done():
 			// failed to delete in time
-			return errors.New(fmt.Sprintf("timed out waiting for %q - %q to be deleted", resource.GetObjectKind(), resource.GetName()))
+			return fmt.Errorf("timed out waiting for %q - %q to be deleted", resource.GetObjectKind(), resource.GetName())
 		case <-time.After(100 * time.Millisecond):
 			// do nothing, try again
 		}
 	}
-	return errors.New(fmt.Sprintf("timed out waiting for %q - %q to be deleted", resource.GetObjectKind(), resource.GetName()))
 }
 
 // EnsureDeleted calls ComponentResourceRemoval if the runtime object exists

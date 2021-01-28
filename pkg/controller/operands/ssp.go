@@ -32,6 +32,10 @@ const (
 	defaultTemplateValidatorReplicas = 2
 
 	defaultCommonTemplatesNamespace = hcoutil.OpenshiftNamespace
+
+	// These group are no longer supported. Use these constants to remove unused resources
+	prevSspGroup = "ssp.kubevirt.io"
+	origSspGroup = "kubevirt.io"
 )
 
 type sspHandler struct {
@@ -63,17 +67,17 @@ func newSspHandler(Client client.Client, Scheme *runtime.Scheme) *sspHandler {
 		crdsToRemove: []schema.GroupKind{
 			// These are the 2nd generation SSP CRDs,
 			// where the group name has been changed to "ssp.kubevirt.io"
-			{Group: "ssp.kubevirt.io", Kind: "KubevirtCommonTemplatesBundle"},
-			{Group: "ssp.kubevirt.io", Kind: "KubevirtNodeLabellerBundle"},
-			{Group: "ssp.kubevirt.io", Kind: "KubevirtTemplateValidator"},
-			{Group: "ssp.kubevirt.io", Kind: "KubevirtMetricsAggregation"},
+			{Group: prevSspGroup, Kind: "KubevirtCommonTemplatesBundle"},
+			{Group: prevSspGroup, Kind: "KubevirtNodeLabellerBundle"},
+			{Group: prevSspGroup, Kind: "KubevirtTemplateValidator"},
+			{Group: prevSspGroup, Kind: "KubevirtMetricsAggregation"},
 
 			// These are the original SSP CRDs, with the group name "kubevirt.io".
 			// We attempt to remove these too, for upgrades from even older version.
-			{Group: "kubevirt.io", Kind: "KubevirtCommonTemplatesBundle"},
-			{Group: "kubevirt.io", Kind: "KubevirtNodeLabellerBundle"},
-			{Group: "kubevirt.io", Kind: "KubevirtTemplateValidator"},
-			{Group: "kubevirt.io", Kind: "KubevirtMetricsAggregation"},
+			{Group: origSspGroup, Kind: "KubevirtCommonTemplatesBundle"},
+			{Group: origSspGroup, Kind: "KubevirtNodeLabellerBundle"},
+			{Group: origSspGroup, Kind: "KubevirtTemplateValidator"},
+			{Group: origSspGroup, Kind: "KubevirtMetricsAggregation"},
 		},
 	}
 
