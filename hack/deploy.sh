@@ -174,7 +174,7 @@ OPERATORS=(
 )
 
 if [ "$ENABLE_SSP" = "true" ]; then
-    OPERATORS+="ssp-operator"
+    OPERATORS+=("ssp-operator")
 fi
 
 for op in "${OPERATORS[@]}"; do
@@ -209,7 +209,7 @@ if [ -z "$CONTAINER_ERRORED" ]; then
     echo "SUCCESS"
     exit 0
 else
-    CONTAINER_ERRORED+='hyperconverged-cluster-operator'
+    CONTAINER_ERRORED+='hyperconverged-cluster-operator '
     debug
     "${CMD}" get pods -n "${HCO_NAMESPACE}"
 fi
