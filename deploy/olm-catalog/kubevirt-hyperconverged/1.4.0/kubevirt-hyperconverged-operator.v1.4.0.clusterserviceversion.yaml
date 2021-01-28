@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:a137fd1ee55ae8806cbdd66912c7931c7f567315f0a927b3a12090112e96edb1
-    createdAt: "2021-01-24 17:59:37"
+    createdAt: "2021-01-28 07:31:21"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -1843,7 +1843,7 @@ spec:
                 - name: HCO_KV_IO_VERSION
                   value: 1.4.0
                 - name: KUBEVIRT_VERSION
-                  value: v0.37.1
+                  value: v0.37.2
                 - name: CDI_VERSION
                   value: v1.29.0
                 - name: NETWORK_ADDONS_VERSION
@@ -2053,22 +2053,22 @@ spec:
                 - "2"
                 env:
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/virt-operator@sha256:df5a804e9753db6440ef22832f2793008258446e0a77149b49d33b3abd9780c5
+                  value: quay.io/kubevirt/virt-operator@sha256:94416ec106469ca6c55f57bdfa53e7478c781e14f4452016c0b76a30662e7bdc
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
                 - name: KUBEVIRT_VERSION
-                  value: v0.37.1
+                  value: v0.37.2
                 - name: VIRT_API_SHASUM
-                  value: sha256:eb1d2f2184320d64e35d43da196b897668c92c7d8d21c3f4762125dd82ab66a6
+                  value: sha256:93de71ba0d18f251d009333950ec2d70ff27d9199cbb83119aff13af9a9a7740
                 - name: VIRT_CONTROLLER_SHASUM
-                  value: sha256:ba5e8907ced2f253d23bcc3c2e96e1671e0afb2904cec04d3e3b18fb5ca3c9bd
+                  value: sha256:06f36dca9a3c4c8de0778b3a0d9fa56d831ae330a728a422ce5f4cf577c700c8
                 - name: VIRT_HANDLER_SHASUM
-                  value: sha256:713a03fd3cd91b1f0cbcfebf8081b7709bb7148232114c1095aa364c0cf8737c
+                  value: sha256:6b7d0b904733cd107e4dd58ee3d30a0776421473587b68e42032577bfd61e71c
                 - name: VIRT_LAUNCHER_SHASUM
-                  value: sha256:efbb943a25cb12842779ebd6c66b1b68309b7aab59e3577d3225d9a7a1bb10cf
-                image: quay.io/kubevirt/virt-operator@sha256:df5a804e9753db6440ef22832f2793008258446e0a77149b49d33b3abd9780c5
+                  value: sha256:970a078f150d14b053b69db66a9fc035182e5e7010d65b524a28f70498c158f3
+                image: quay.io/kubevirt/virt-operator@sha256:94416ec106469ca6c55f57bdfa53e7478c781e14f4452016c0b76a30662e7bdc
                 imagePullPolicy: IfNotPresent
                 name: virt-operator
                 ports:
@@ -2588,15 +2588,15 @@ spec:
     name: ovs-cni-plugin
   - image: quay.io/kubevirt/ssp-operator@sha256:efe94ed877c7c6f7dc9486ac3929d217d21f3601f7d139bf7bf177e1607b58c8
     name: ssp-operator
-  - image: quay.io/kubevirt/virt-api@sha256:eb1d2f2184320d64e35d43da196b897668c92c7d8d21c3f4762125dd82ab66a6
+  - image: quay.io/kubevirt/virt-api@sha256:93de71ba0d18f251d009333950ec2d70ff27d9199cbb83119aff13af9a9a7740
     name: virt-api
-  - image: quay.io/kubevirt/virt-controller@sha256:ba5e8907ced2f253d23bcc3c2e96e1671e0afb2904cec04d3e3b18fb5ca3c9bd
+  - image: quay.io/kubevirt/virt-controller@sha256:06f36dca9a3c4c8de0778b3a0d9fa56d831ae330a728a422ce5f4cf577c700c8
     name: virt-controller
-  - image: quay.io/kubevirt/virt-handler@sha256:713a03fd3cd91b1f0cbcfebf8081b7709bb7148232114c1095aa364c0cf8737c
+  - image: quay.io/kubevirt/virt-handler@sha256:6b7d0b904733cd107e4dd58ee3d30a0776421473587b68e42032577bfd61e71c
     name: virt-handler
-  - image: quay.io/kubevirt/virt-launcher@sha256:efbb943a25cb12842779ebd6c66b1b68309b7aab59e3577d3225d9a7a1bb10cf
+  - image: quay.io/kubevirt/virt-launcher@sha256:970a078f150d14b053b69db66a9fc035182e5e7010d65b524a28f70498c158f3
     name: virt-launcher
-  - image: quay.io/kubevirt/virt-operator@sha256:df5a804e9753db6440ef22832f2793008258446e0a77149b49d33b3abd9780c5
+  - image: quay.io/kubevirt/virt-operator@sha256:94416ec106469ca6c55f57bdfa53e7478c781e14f4452016c0b76a30662e7bdc
     name: virt-operator
   - image: quay.io/kubevirt/vm-import-controller@sha256:ea074a875cc405b10a390638319a5f050d5a050f9846dc4d17dc53a42f625e39
     name: vm-import-controller

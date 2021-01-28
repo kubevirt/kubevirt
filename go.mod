@@ -46,7 +46,7 @@ require (
 	k8s.io/klog/v2 v2.4.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20210113233702-8566a335510f
 	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009 // indirect
-	kubevirt.io/client-go v0.37.1
+	kubevirt.io/client-go v0.37.2
 	kubevirt.io/containerized-data-importer v1.29.0
 	kubevirt.io/controller-lifecycle-operator-sdk v0.1.2
 	kubevirt.io/ssp-operator v0.1.3
@@ -135,7 +135,7 @@ replace (
 	github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.5.1 // indirect
 	github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.0.0-20190424153033-d3245f150225
-	kubevirt.io/client-go => kubevirt.io/client-go v0.37.1
+	kubevirt.io/client-go => kubevirt.io/client-go v0.37.2
 )
 
 // Aligning with https://github.com/kubevirt/containerized-data-importer/blob/release-v1.29.0
