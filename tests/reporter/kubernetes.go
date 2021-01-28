@@ -300,12 +300,12 @@ func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, since 
 				return
 			}
 			// TODO may need to be improved, in case that the auditlog is really huge, since stdout is in memory
-			stdout, _, err := tests.ExecuteCommandOnPodV2(virtCli, pod, "virt-handler", []string{"cat", "/proc/1/root/var/log/audit.log", "/proc/1/root/var/log/audit/audit.log"})
+			stdout, _, err := tests.ExecuteCommandOnPodV2(virtCli, pod, "virt-handler", []string{"cat", "/proc/1/root/var/log/audit.log"})
 			if err != nil {
 				fmt.Fprintf(
 					os.Stderr,
 					"failed to execute command %s on node %s, stdout: %s, error: %v",
-					[]string{"cat", "/proc/1/root/var/log/audit.log", "/proc/1/root/var/log/audit/audit.log"},
+					[]string{"cat", "/proc/1/root/var/log/audit.log"},
 					node, stdout, err,
 				)
 				return
