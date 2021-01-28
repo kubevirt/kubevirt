@@ -448,16 +448,16 @@ func (r *ReconcileHyperConverged) ensureHcoDeleted(req *common.HcoRequest) (reco
 	requeue := false
 
 	// Remove the finalizers
-	fin_dropped := false
+	finDropped := false
 	if contains(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
-		req.Instance.ObjectMeta.Finalizers, fin_dropped = drop(req.Instance.ObjectMeta.Finalizers, FinalizerName)
+		req.Instance.ObjectMeta.Finalizers, finDropped = drop(req.Instance.ObjectMeta.Finalizers, FinalizerName)
 		req.Dirty = true
-		requeue = requeue || fin_dropped
+		requeue = requeue || finDropped
 	}
 	if contains(req.Instance.ObjectMeta.Finalizers, badFinalizerName) {
-		req.Instance.ObjectMeta.Finalizers, fin_dropped = drop(req.Instance.ObjectMeta.Finalizers, badFinalizerName)
+		req.Instance.ObjectMeta.Finalizers, finDropped = drop(req.Instance.ObjectMeta.Finalizers, badFinalizerName)
 		req.Dirty = true
-		requeue = requeue || fin_dropped
+		requeue = requeue || finDropped
 	}
 
 	// Need to requeue because finalizer update does not change metadata.generation

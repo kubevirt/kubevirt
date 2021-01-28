@@ -34,6 +34,8 @@ import (
 )
 
 const (
+	crName              = util.HyperConvergedName
+	packageName         = util.HyperConvergedName
 	hcoName             = "hyperconverged-cluster-operator"
 	hcoNameWebhook      = "hyperconverged-cluster-webhook"
 	hcoDeploymentName   = "hco-operator"
@@ -941,7 +943,7 @@ func GetOperatorCR() *hcov1beta1.HyperConverged {
 			Kind:       "HyperConverged",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt-hyperconverged",
+			Name: crName,
 		},
 		Spec: hcov1beta1.HyperConvergedSpec{
 			BareMetalPlatform:     false,
@@ -994,7 +996,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 			"apiVersion": "hco.kubevirt.io/v1beta1",
 			"kind":       "HyperConverged",
 			"metadata": map[string]interface{}{
-				"name":      "kubevirt-hyperconverged",
+				"name":      packageName,
 				"namespace": params.Namespace,
 				"annotations": map[string]string{
 					"deployOVS": "false",
@@ -1019,7 +1021,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 	// Please remove this once https://bugzilla.redhat.com/1868712 is not biting us anymore
 	var webhookTimeout int32 = 30
 
-	validating_webhook := csvv1alpha1.WebhookDescription{
+	validatingWebhook := csvv1alpha1.WebhookDescription{
 		GenerateName:            util.HcoValidatingWebhook,
 		Type:                    csvv1alpha1.ValidatingAdmissionWebhook,
 		DeploymentName:          hcoWhDeploymentName,
@@ -1048,7 +1050,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 	sideEffectMutating := admissionregistrationv1.SideEffectClassNoneOnDryRun
 	webhookPathMutating := util.HCONSWebhookPath
 
-	ns_mutating_webhook := csvv1alpha1.WebhookDescription{
+	nsMutatingWebhook := csvv1alpha1.WebhookDescription{
 		GenerateName:            util.HcoMutatingWebhookNS,
 		Type:                    csvv1alpha1.MutatingAdmissionWebhook,
 		DeploymentName:          hcoWhDeploymentName,
@@ -1132,13 +1134,13 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 				},
 			},
 			Labels: map[string]string{
-				"alm-owner-kubevirt": "kubevirt-hyperconverged",
-				"operated-by":        "kubevirt-hyperconverged",
+				"alm-owner-kubevirt": packageName,
+				"operated-by":        packageName,
 			},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"alm-owner-kubevirt": "kubevirt-hyperconverged",
-					"operated-by":        "kubevirt-hyperconverged",
+					"alm-owner-kubevirt": packageName,
+					"operated-by":        packageName,
 				},
 			},
 			InstallModes: []csvv1alpha1.InstallMode{
@@ -1162,7 +1164,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 			// Skip this in favor of having a separate function to get
 			// the actual StrategyDetailsDeployment when merging CSVs
 			InstallStrategy:    csvv1alpha1.NamedInstallStrategy{},
-			WebhookDefinitions: []csvv1alpha1.WebhookDescription{validating_webhook, ns_mutating_webhook},
+			WebhookDefinitions: []csvv1alpha1.WebhookDescription{validatingWebhook, nsMutatingWebhook},
 			CustomResourceDefinitions: csvv1alpha1.CustomResourceDefinitions{
 				Owned: []csvv1alpha1.CRDDescription{
 					{
