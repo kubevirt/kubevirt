@@ -922,12 +922,51 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		Context("with a Fedora shared NFS PVC (using nfs ipv4 address), cloud init and service account", func() {
 			var pvName string
 			var vmi *v1.VirtualMachineInstance
+			var dv *cdiv1.DataVolume
+			var wffcPod *k8sv1.Pod
+
 			BeforeEach(func() {
 				tests.SkipNFSTestIfRunnigOnKindInfra()
+
+				quantity, err := resource.ParseQuantity("5Gi")
+				Expect(err).ToNot(HaveOccurred())
+				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
+				dv := tests.NewRandomDataVolumeWithRegistryImport(url, tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				dv.Spec.PVC.Resources.Requests["storage"] = quantity
+				_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				wffcPod = tests.RenderPod("wffc-temp-pod", []string{"echo"}, []string{"done"})
+				wffcPod.Spec.Containers[0].VolumeMounts = []k8sv1.VolumeMount{
+
+					{
+						Name:      "tmp-data",
+						MountPath: "/data/tmp-data",
+					},
+				}
+				wffcPod.Spec.Volumes = []k8sv1.Volume{
+					{
+						Name: "tmp-data",
+						VolumeSource: k8sv1.VolumeSource{
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: dv.Name,
+							},
+						},
+					},
+				}
+
+				By("pinning the wffc dv")
+				wffcPod, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(context.Background(), wffcPod, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(ThisPod(wffcPod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
+
+				By("waiting for the dv import to pvc to finish")
+				tests.WaitForSuccessfulDataVolumeImport(dv, 600)
+
 				pvName = "test-nfs" + rand.String(48)
 				// Prepare a NFS backed PV
-				By("Starting an NFS POD")
-				nfsPod := storageframework.RenderNFSServer("nfsserver", tests.HostPathFedora)
+				By("Starting an NFS POD to serve the PVC contents")
+				nfsPod := storageframework.RenderNFSServerWithPVC("nfsserver", dv.Name)
 				nfsPod, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(context.Background(), nfsPod, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(ThisPod(nfsPod), 120).Should(BeInPhase(k8sv1.PodRunning))
@@ -945,6 +984,18 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Deleting NFS pod")
 				// PVs can't be reused
 				tests.DeletePvAndPvc(pvName)
+
+				if dv != nil {
+					By("Deleting the DataVolume")
+					Expect(virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed())
+					dv = nil
+				}
+				if wffcPod != nil {
+					By("Deleting the wffc pod")
+					err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(context.Background(), wffcPod.Name, metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					wffcPod = nil
+				}
 			})
 
 			table.DescribeTable("should be migrated successfully, using guest agent on VM", func(migrationConfiguration *v1.MigrationConfiguration, mode v1.MigrationMode) {
@@ -965,7 +1016,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					mkdir /mnt/servacc
 					mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
 				`, secretDiskSerial)
-				userData := fmt.Sprintf("%s\n%s", tests.DeprecatedGetGuestAgentUserData(), mountSvcAccCommands)
+				userData := fmt.Sprintf("%s\n%s", tests.GetFedoraToolsGuestAgentUserData(), mountSvcAccCommands)
 				tests.AddUserData(vmi, "cloud-init", userData)
 
 				tests.AddServiceAccountDisk(vmi, "default")
