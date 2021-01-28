@@ -288,6 +288,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 	}
 
 	Context("VirtualMachineInstance controller gets informed about a Domain change through the Domain controller", func() {
+		BeforeEach(func() {
+			diskutils.MockDefaultOwnershipManager()
+		})
 
 		It("should delete non-running Domains if no cluster wide equivalent and no grace period info exists", func() {
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
