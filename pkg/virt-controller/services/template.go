@@ -1092,6 +1092,20 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	if nonRoot {
 		compute.SecurityContext.RunAsGroup = &userId
 		compute.SecurityContext.RunAsNonRoot = &nonRoot
+		compute.Env = append(compute.Env,
+			k8sv1.EnvVar{
+				Name:  "XDG_CACHE_HOME",
+				Value: "/var/run",
+			},
+			k8sv1.EnvVar{
+				Name:  "XDG_CONFIG_HOME",
+				Value: "/var/run",
+			},
+			k8sv1.EnvVar{
+				Name:  "XDG_RUNTIME_DIR",
+				Value: "/var/run",
+			},
+		)
 	}
 
 	if vmi.Spec.ReadinessProbe != nil {

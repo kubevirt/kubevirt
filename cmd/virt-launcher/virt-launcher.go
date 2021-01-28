@@ -114,6 +114,7 @@ func createLibvirtConnection(runWithNonRoot bool) virtcli.Connection {
 	user := ""
 	if runWithNonRoot {
 		user = putil.NonRootUserString
+		libvirtUri = "qemu+unix:///session?socket=/var/run/libvirt/libvirt-sock"
 	}
 
 	domainConn, err := virtcli.NewConnection(libvirtUri, user, "", 10*time.Second)
@@ -404,7 +405,7 @@ func main() {
 	// only single domain should be present
 	domainName := api.VMINamespaceKeyFunc(vmi)
 
-	util.StartVirtlog(stopChan, domainName)
+	util.StartVirtlog(stopChan, domainName, *runWithNonRoot)
 
 	domainConn := createLibvirtConnection(*runWithNonRoot)
 	defer domainConn.Close()
