@@ -104,7 +104,7 @@ var _ = Describe("Manager", func() {
 			HotplugVolumes:   hotplugVolumes,
 			PermanentVolumes: permanentVolumes,
 		}
-		Expect(converter.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
+		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 		return &domain.Spec

@@ -1312,14 +1312,14 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:81:01.0"
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed())
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed())
 		})
 
 		It("should add a virtio-scsi controller if a scsci disk is present", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
 			dom := &api.Domain{}
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, dom, c)).To(Succeed())
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
 			Expect(dom.Spec.Devices.Controllers).To(ContainElement(api.Controller{
 				Type:  "scsi",
 				Index: "0",
@@ -1331,7 +1331,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "sata"
 			dom := &api.Domain{}
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, dom, c)).To(Succeed())
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
 			Expect(dom.Spec.Devices.Controllers).ToNot(ContainElement(api.Controller{
 				Type:  "scsi",
 				Index: "0",
@@ -1370,19 +1370,19 @@ var _ = Describe("Converter", func() {
 		It("should fail when input device is set to ps2 bus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = "ps2"
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed(), "Expect error")
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed(), "Expect error")
 		})
 
 		It("should fail when input device is set to keyboard type", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Type = "keyboard"
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed(), "Expect error")
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed(), "Expect error")
 		})
 
 		It("should succeed when input device is set to usb bus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = "usb"
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &api.Domain{}, c)).To(Succeed(), "Expect success")
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).To(Succeed(), "Expect success")
 		})
 
 		It("should succeed when input device bus is empty", func() {
@@ -1537,7 +1537,8 @@ var _ = Describe("Converter", func() {
 				}
 
 				domain := api.Domain{}
-				err = Convert_v1_VirtualMachine_To_api_Domain(vmi, &domain, c)
+
+				err = Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &domain, c)
 				Expect(err).To(BeNil())
 
 				if domain.Spec.QEMUCmd == nil || (domain.Spec.QEMUCmd.QEMUArg == nil) {
@@ -1603,7 +1604,7 @@ var _ = Describe("Converter", func() {
 			net.Pod = nil
 			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, *iface)
 			vmi.Spec.Networks = append(vmi.Spec.Networks, *net)
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed())
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed())
 		})
 
 		It("should add tcp if protocol not exist", func() {
@@ -1909,7 +1910,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
 
 			domain := &api.Domain{}
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(HaveOccurred(), "conversion should fail because a macvtap interface requires a multus network attachment")
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(HaveOccurred(), "conversion should fail because a macvtap interface requires a multus network attachment")
 		})
 		It("creates SRIOV hostdev", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -1918,7 +1919,7 @@ var _ = Describe("Converter", func() {
 			const identifyDevice = "sriov-test"
 			c.SRIOVDevices = append(c.SRIOVDevices, api.HostDevice{Type: identifyDevice})
 
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
 			Expect(domain.Spec.Devices.HostDevices).To(Equal([]api.HostDevice{{Type: identifyDevice}}))
 		})
 	})
@@ -2828,7 +2829,7 @@ func vmiToDomainXML(vmi *v1.VirtualMachineInstance, c *ConverterContext) string 
 
 func vmiToDomain(vmi *v1.VirtualMachineInstance, c *ConverterContext) *api.Domain {
 	domain := &api.Domain{}
-	Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
+	Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
 	api.NewDefaulter(c.Architecture).SetObjectDefaults_Domain(domain)
 	return domain
 }
