@@ -388,6 +388,9 @@ func (m *migrationProxy) createUnixListener() error {
 		log.Log.Reason(err).Error("failed to create unix socket for proxy service")
 		return err
 	}
+	if err := os.Chmod(m.unixSocketPath, 0777); err != nil {
+		log.Log.Reason(err).Error("failed to change permissions on unix socket")
+	}
 
 	m.listener = listener
 	return nil
