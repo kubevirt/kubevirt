@@ -241,7 +241,7 @@ func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, since time
 				fmt.Fprintf(
 					os.Stderr,
 					"failed to execute command %s on node %s, stdout: %s, error: %v",
-					[]string{"/proc/1/root/bin/dmesg", "--kernel", "--ctime", "--userspace", "-    -decode"},
+					[]string{"/proc/1/root/bin/dmesg", "--kernel", "--ctime", "--userspace", "--decode"},
 					node, stdout, err,
 				)
 				return
@@ -305,7 +305,7 @@ func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, since 
 				fmt.Fprintf(
 					os.Stderr,
 					"failed to execute command %s on node %s, stdout: %s, error: %v",
-					[]string{"cat", "/proc/1/root/var/log/audit.log", "/proc/1/root/var/log/aud    it/audit.log"},
+					[]string{"cat", "/proc/1/root/var/log/audit.log", "/proc/1/root/var/log/audit/audit.log"},
 					node, stdout, err,
 				)
 				return
