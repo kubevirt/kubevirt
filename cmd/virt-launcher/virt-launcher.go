@@ -110,10 +110,22 @@ func startCmdServer(socketPath string,
 }
 
 func createLibvirtConnection(runWithNonRoot bool) virtcli.Connection {
+	if err := os.Setenv("XDG_CACHE_HOME", "/var/run"); err != nil {
+		panic(err)
+	}
+	if err := os.Setenv("XDG_CONFIG_HOME", "/var/run"); err != nil {
+		panic(err)
+	}
+
+	if err := os.Setenv("XDG_RUNTIME_DIR", "/var/run"); err != nil {
+		panic(err)
+	}
+
 	libvirtUri := "qemu:///system"
 	user := ""
 	if runWithNonRoot == true {
 		user = "qemu"
+		libvirtUri = "qemu+unix:///session?socket=/var/run/libvirt/libvirt-sock"
 	}
 
 	domainConn, err := virtcli.NewConnection(libvirtUri, user, "", 10*time.Second)
@@ -391,9 +403,7 @@ func main() {
 	domainName := api.VMINamespaceKeyFunc(vmi)
 
 	// Need to find where are the logs when we are running in session mod
-	if !*runWithNonRoot {
-		l.StartVirtlog(stopChan, domainName)
-	}
+	util.StartVirtlog(stopChan, domainName, *runWithNonRoot)
 
 	domainConn := createLibvirtConnection(*runWithNonRoot)
 	defer domainConn.Close()
