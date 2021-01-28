@@ -32,6 +32,8 @@ import (
 	"strings"
 	"syscall"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -866,6 +868,16 @@ func getInterfaceType(iface *v1.Interface) string {
 	return "virtio"
 }
 
+func initializeQEMUCmdAndQEMUArg(domain *api.Domain) {
+	if domain.Spec.QEMUCmd == nil {
+		domain.Spec.QEMUCmd = &api.Commandline{}
+	}
+
+	if domain.Spec.QEMUCmd.QEMUArg == nil {
+		domain.Spec.QEMUCmd.QEMUArg = make([]api.Arg, 0)
+	}
+}
+
 func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) (err error) {
 	precond.MustNotBeNil(vmi)
 	precond.MustNotBeNil(domain)
@@ -1517,13 +1529,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			domainIface.Type = "user"
 
 			// Create network interface
-			if domain.Spec.QEMUCmd == nil {
-				domain.Spec.QEMUCmd = &api.Commandline{}
-			}
-
-			if domain.Spec.QEMUCmd.QEMUArg == nil {
-				domain.Spec.QEMUCmd.QEMUArg = make([]api.Arg, 0)
-			}
+			initializeQEMUCmdAndQEMUArg(domain)
 
 			// TODO: (seba) Need to change this if multiple interface can be connected to the same network
 			// append the ports from all the interfaces connected to the same network
@@ -1551,13 +1557,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	// Add Ignition Command Line if present
 	ignitiondata, _ := vmi.Annotations[v1.IgnitionAnnotation]
 	if ignitiondata != "" && strings.Contains(ignitiondata, "ignition") {
-		if domain.Spec.QEMUCmd == nil {
-			domain.Spec.QEMUCmd = &api.Commandline{}
-		}
-
-		if domain.Spec.QEMUCmd.QEMUArg == nil {
-			domain.Spec.QEMUCmd.QEMUArg = make([]api.Arg, 0)
-		}
+		initializeQEMUCmdAndQEMUArg(domain)
 		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-fw_cfg"})
 		ignitionpath := fmt.Sprintf("%s/%s", ignition.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace), ignition.IgnitionFile)
 		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: fmt.Sprintf("name=opt/com.coreos/config,file=%s", ignitionpath)})
@@ -1567,6 +1567,17 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if err := PlacePCIDevicesOnRootComplex(&domain.Spec); err != nil {
 			return err
 		}
+	}
+
+	if virtLauncherLogVerbosity, err := strconv.Atoi(os.Getenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY)); err == nil && (virtLauncherLogVerbosity > services.EXT_LOG_VERBOSITY_THRESHOLD) {
+
+		initializeQEMUCmdAndQEMUArg(domain)
+
+		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg,
+			api.Arg{Value: "-chardev"},
+			api.Arg{Value: "file,id=firmwarelog,path=/tmp/qemu-firmware.log"},
+			api.Arg{Value: "-device"},
+			api.Arg{Value: "isa-debugcon,iobase=0x402,chardev=firmwarelog"})
 	}
 
 	return nil

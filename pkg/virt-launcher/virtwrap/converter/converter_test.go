@@ -25,7 +25,10 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"strconv"
 	"strings"
+
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -1519,6 +1522,49 @@ var _ = Describe("Converter", func() {
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 			Expect(domainSpec.Devices.Rng).ToNot(BeNil())
 		})
+
+		table.DescribeTable("Validate that QEMU SeaBios debug logs are ",
+			func(toDefineVerbosityEnvVariable bool, virtLauncherLogVerbosity int, shouldEnableDebugLogs bool) {
+
+				var err error
+				if toDefineVerbosityEnvVariable {
+					err = os.Setenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, strconv.Itoa(virtLauncherLogVerbosity))
+					Expect(err).To(BeNil())
+					defer func() {
+						err = os.Unsetenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY)
+						Expect(err).To(BeNil())
+					}()
+				}
+
+				domain := api.Domain{}
+				err = Convert_v1_VirtualMachine_To_api_Domain(vmi, &domain, c)
+				Expect(err).To(BeNil())
+
+				if domain.Spec.QEMUCmd == nil || (domain.Spec.QEMUCmd.QEMUArg == nil) {
+					return
+				}
+
+				if shouldEnableDebugLogs {
+					Expect(domain.Spec.QEMUCmd.QEMUArg).Should(ContainElements(
+						api.Arg{Value: "-chardev"},
+						api.Arg{Value: "file,id=firmwarelog,path=/tmp/qemu-firmware.log"},
+						api.Arg{Value: "-device"},
+						api.Arg{Value: "isa-debugcon,iobase=0x402,chardev=firmwarelog"},
+					))
+				} else {
+					Expect(domain.Spec.QEMUCmd.QEMUArg).ShouldNot(Or(
+						ContainElements(api.Arg{Value: "-chardev"}),
+						ContainElements(api.Arg{Value: "file,id=firmwarelog,path=/tmp/qemu-firmware.log"}),
+						ContainElements(api.Arg{Value: "-device"}),
+						ContainElements(api.Arg{Value: "isa-debugcon,iobase=0x402,chardev=firmwarelog"}),
+					))
+				}
+
+			},
+			table.Entry("disabled - virtLauncherLogVerbosity does not exceed verbosity threshold", true, 0, false),
+			table.Entry("enabled - virtLaucherLogVerbosity exceeds verbosity threshold", true, 1, true),
+			table.Entry("disabled - virtLauncherLogVerbosity variable is not defined", false, -1, false),
+		)
 
 	})
 	Context("Network convert", func() {
