@@ -33,7 +33,6 @@ export TIMESTAMP=${TIMESTAMP:-1}
 export WORKSPACE="${WORKSPACE:-$PWD}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="https://templates.ovirt.org/kubevirt/"
-readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
 
 if [[ $TARGET =~ windows.* ]]; then
   echo "picking the default provider for windows tests"
@@ -160,9 +159,6 @@ make cluster-down
 
 # Create .bazelrc to use remote cache
 cat >ci.bazelrc <<EOF
-startup --host_jvm_args=-Dbazel.DigestFunction=sha256
-build --remote_local_fallback
-build --remote_http_cache=${BAZEL_CACHE}
 build --jobs=4
 EOF
 
