@@ -35,77 +35,48 @@ import (
 )
 
 func MarshallObject(obj interface{}, writer io.Writer) error {
-	jsonBytes, err := json.Marshal(obj)
+	r, err := unmarshalToUnstructured(obj)
 	if err != nil {
 		return err
+	}
+
+	cleanupNonSpecFields(r)
+	yamlBytes, err := objectToByteArray(r)
+	if err != nil {
+		return err
+	}
+
+	yamlBytes = fixQuoteIssues(yamlBytes)
+	return writeOutputWithYamlSeparator(writer, yamlBytes)
+}
+
+func unmarshalToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
+	jsonBytes, err := json.Marshal(obj)
+	if err != nil {
+		return &unstructured.Unstructured{}, err
 	}
 
 	var r unstructured.Unstructured
 	if err := json.Unmarshal(jsonBytes, &r.Object); err != nil {
-		return err
+		return &unstructured.Unstructured{}, err
 	}
+	return &r, nil
+}
 
-	// remove status and metadata.creationTimestamp
-	unstructured.RemoveNestedField(r.Object, "metadata", "creationTimestamp")
-	unstructured.RemoveNestedField(r.Object, "template", "metadata", "creationTimestamp")
-	unstructured.RemoveNestedField(r.Object, "spec", "template", "metadata", "creationTimestamp")
-	unstructured.RemoveNestedField(r.Object, "status")
-
-	// remove dataSource from PVCs if empty
-	templates, exists, err := unstructured.NestedSlice(r.Object, "spec", "dataVolumeTemplates")
-	if exists {
-		for _, tmpl := range templates {
-			template := tmpl.(map[string]interface{})
-			_, exists, err = unstructured.NestedString(template, "spec", "pvc", "dataSource")
-			if !exists {
-				unstructured.RemoveNestedField(template, "spec", "pvc", "dataSource")
-			}
-		}
-		unstructured.SetNestedSlice(r.Object, templates, "spec", "dataVolumeTemplates")
-	}
-	objects, exists, err := unstructured.NestedSlice(r.Object, "objects")
-	if exists {
-		for _, obj := range objects {
-			object := obj.(map[string]interface{})
-			kind, exists, _ := unstructured.NestedString(object, "kind")
-			if exists && kind == "PersistentVolumeClaim" {
-				_, exists, err = unstructured.NestedString(object, "spec", "dataSource")
-				if !exists {
-					unstructured.RemoveNestedField(object, "spec", "dataSource")
-				}
-			}
-		}
-		unstructured.SetNestedSlice(r.Object, objects, "objects")
-	}
-
-	deployments, exists, err := unstructured.NestedSlice(r.Object, "spec", "install", "spec", "deployments")
-	if exists {
-		for _, obj := range deployments {
-			deployment := obj.(map[string]interface{})
-			unstructured.RemoveNestedField(deployment, "metadata", "creationTimestamp")
-			unstructured.RemoveNestedField(deployment, "spec", "template", "metadata", "creationTimestamp")
-			unstructured.RemoveNestedField(deployment, "status")
-		}
-		unstructured.SetNestedSlice(r.Object, deployments, "spec", "install", "spec", "deployments")
-	}
-
-	// remove "managed by operator" label...
-	labels, exists, err := unstructured.NestedMap(r.Object, "metadata", "labels")
-	if exists {
-		delete(labels, v1.ManagedByLabel)
-		unstructured.SetNestedMap(r.Object, labels, "metadata", "labels")
-	}
-
-	jsonBytes, err = json.Marshal(r.Object)
+func objectToByteArray(r *unstructured.Unstructured) ([]byte, error) {
+	jsonBytes2, err := json.Marshal(r.Object)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	yamlBytes, err := yaml.JSONToYAML(jsonBytes)
+	yamlBytes, err := yaml.JSONToYAML(jsonBytes2)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	return yamlBytes, nil
+}
 
+func fixQuoteIssues(yamlBytes []byte) []byte {
 	// fix templates by removing unneeded single quotes...
 	s := string(yamlBytes)
 	re := regexp.MustCompile(`'({{.*?}})'`)
@@ -116,8 +87,11 @@ func MarshallObject(obj interface{}, writer io.Writer) error {
 	s = strings.Replace(s, "\"'\n", "\"\n", -1)
 
 	yamlBytes = []byte(s)
+	return yamlBytes
+}
 
-	_, err = writer.Write([]byte("---\n"))
+func writeOutputWithYamlSeparator(writer io.Writer, yamlBytes []byte) error {
+	_, err := writer.Write([]byte("---\n"))
 	if err != nil {
 		return err
 	}
@@ -126,6 +100,75 @@ func MarshallObject(obj interface{}, writer io.Writer) error {
 	if err != nil {
 		return err
 	}
-
 	return nil
+}
+
+func cleanupNonSpecFields(r *unstructured.Unstructured) {
+	cleanupNonSpecFieldsFromMainObject(r)
+	cleanupDataSourceFromTemplates(r)
+	cleanupDataSourceFromPVC(r)
+	cleanupNonSpecFieldsFromDeployments(r)
+	cleanupLabels(r)
+}
+
+func cleanupNonSpecFieldsFromMainObject(r *unstructured.Unstructured) {
+	// remove status and metadata.creationTimestamp
+	unstructured.RemoveNestedField(r.Object, "metadata", "creationTimestamp")
+	unstructured.RemoveNestedField(r.Object, "template", "metadata", "creationTimestamp")
+	unstructured.RemoveNestedField(r.Object, "spec", "template", "metadata", "creationTimestamp")
+	unstructured.RemoveNestedField(r.Object, "status")
+}
+
+func cleanupDataSourceFromTemplates(r *unstructured.Unstructured) {
+	// remove dataSource from PVCs if empty
+	templates, exists, _ := unstructured.NestedSlice(r.Object, "spec", "dataVolumeTemplates")
+	if exists {
+		for _, tmpl := range templates {
+			template := tmpl.(map[string]interface{})
+			_, exists, _ = unstructured.NestedString(template, "spec", "pvc", "dataSource")
+			if !exists {
+				unstructured.RemoveNestedField(template, "spec", "pvc", "dataSource")
+			}
+		}
+		unstructured.SetNestedSlice(r.Object, templates, "spec", "dataVolumeTemplates")
+	}
+}
+
+func cleanupDataSourceFromPVC(r *unstructured.Unstructured) {
+	objects, exists, _ := unstructured.NestedSlice(r.Object, "objects")
+	if exists {
+		for _, obj := range objects {
+			object := obj.(map[string]interface{})
+			kind, exists, _ := unstructured.NestedString(object, "kind")
+			if exists && kind == "PersistentVolumeClaim" {
+				_, exists, _ = unstructured.NestedString(object, "spec", "dataSource")
+				if !exists {
+					unstructured.RemoveNestedField(object, "spec", "dataSource")
+				}
+			}
+		}
+		unstructured.SetNestedSlice(r.Object, objects, "objects")
+	}
+}
+
+func cleanupNonSpecFieldsFromDeployments(r *unstructured.Unstructured) {
+	deployments, exists, _ := unstructured.NestedSlice(r.Object, "spec", "install", "spec", "deployments")
+	if exists {
+		for _, obj := range deployments {
+			deployment := obj.(map[string]interface{})
+			unstructured.RemoveNestedField(deployment, "metadata", "creationTimestamp")
+			unstructured.RemoveNestedField(deployment, "spec", "template", "metadata", "creationTimestamp")
+			unstructured.RemoveNestedField(deployment, "status")
+		}
+		unstructured.SetNestedSlice(r.Object, deployments, "spec", "install", "spec", "deployments")
+	}
+}
+
+func cleanupLabels(r *unstructured.Unstructured) {
+	// remove "managed by operator" label...
+	labels, exists, _ := unstructured.NestedMap(r.Object, "metadata", "labels")
+	if exists {
+		delete(labels, v1.ManagedByLabel)
+		unstructured.SetNestedMap(r.Object, labels, "metadata", "labels")
+	}
 }
