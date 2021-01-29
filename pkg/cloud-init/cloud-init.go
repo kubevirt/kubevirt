@@ -70,6 +70,18 @@ type CloudInitData struct {
 	DevicesData         *[]DeviceData
 }
 
+type LocalDataSource struct {
+	DomainBasePath string `json:"domainBasePath"`
+	DataBasePath   string `json:"dataBasePath"`
+	DataPath       string `json:"dataPath"`
+	MetaFile       string `json:"metaFile"`
+	MetaData       []byte `json:"metaData"`
+	UserFile       string `json:"userFile"`
+	NetworkFile    string `json:"networkFile"`
+	Iso            string `json:"iso"`
+	IsoStaging     string `json:"isoStaging"`
+}
+
 type PublicSSHKey struct {
 	string
 }
@@ -456,64 +468,24 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 	precond.MustNotBeEmpty(vmiName)
 	precond.MustNotBeNil(data)
 
-	var metaData []byte
-	var err error
-
-	domainBasePath := getDomainBasePath(vmiName, namespace)
-	dataBasePath := fmt.Sprintf("%s/data", domainBasePath)
-
-	var dataPath, metaFile, userFile, networkFile, iso, isoStaging string
-	switch data.DataSource {
-	case DataSourceNoCloud:
-		dataPath = dataBasePath
-		metaFile = fmt.Sprintf("%s/%s", dataPath, "meta-data")
-		userFile = fmt.Sprintf("%s/%s", dataPath, "user-data")
-		networkFile = fmt.Sprintf("%s/%s", dataPath, "network-config")
-		iso = GetIsoFilePath(DataSourceNoCloud, vmiName, namespace)
-		isoStaging = fmt.Sprintf("%s.staging", iso)
-		if data.NoCloudMetaData == nil {
-			log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
-			data.NoCloudMetaData = &NoCloudMetadata{
-				InstanceID: fmt.Sprintf("%s.%s", vmiName, namespace),
-			}
-		}
-		metaData, err = json.Marshal(data.NoCloudMetaData)
-		if err != nil {
-			return err
-		}
-	case DataSourceConfigDrive:
-		dataPath = fmt.Sprintf("%s/openstack/latest", dataBasePath)
-		metaFile = fmt.Sprintf("%s/%s", dataPath, "meta_data.json")
-		userFile = fmt.Sprintf("%s/%s", dataPath, "user_data")
-		networkFile = fmt.Sprintf("%s/%s", dataPath, "network_data.json")
-		iso = GetIsoFilePath(DataSourceConfigDrive, vmiName, namespace)
-		isoStaging = fmt.Sprintf("%s.staging", iso)
-		if data.ConfigDriveMetaData == nil {
-			log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
-			data.ConfigDriveMetaData = &ConfigDriveMetadata{
-				InstanceID: fmt.Sprintf("%s.%s", vmiName, namespace),
-			}
-		}
-
-		data.ConfigDriveMetaData.Devices = data.DevicesData
-		metaData, err = json.Marshal(data.ConfigDriveMetaData)
-		if err != nil {
-			return err
-		}
-
-	default:
-		return fmt.Errorf("Invalid cloud-init data source: '%v'", data.DataSource)
-	}
-
-	err = os.MkdirAll(dataPath, 0755)
-	if err != nil {
-		log.Log.V(2).Reason(err).Errorf("unable to create cloud-init base path %s", domainBasePath)
-		return err
-	}
-
 	if data.UserData == "" && data.NetworkData == "" {
 		return fmt.Errorf("UserData or NetworkData is required for cloud-init data source")
 	}
+
+	var err error
+	var dataSource *LocalDataSource
+
+	dataSource, err = generateLocalDataSource(vmiName, namespace, data)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(dataSource.DataPath, 0755)
+	if err != nil {
+		log.Log.V(2).Reason(err).Errorf("unable to create cloud-init base path %s", dataSource.DomainBasePath)
+		return err
+	}
+
 	userData := []byte(data.UserData)
 
 	var networkData []byte
@@ -521,57 +493,122 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 		networkData = []byte(data.NetworkData)
 	}
 
-	diskutils.RemoveFile(userFile)
-	diskutils.RemoveFile(metaFile)
-	diskutils.RemoveFile(networkFile)
-	diskutils.RemoveFile(isoStaging)
+	diskutils.RemoveFile(dataSource.UserFile)
+	diskutils.RemoveFile(dataSource.MetaFile)
+	diskutils.RemoveFile(dataSource.NetworkFile)
+	diskutils.RemoveFile(dataSource.IsoStaging)
 
-	err = ioutil.WriteFile(userFile, userData, 0644)
+	err = ioutil.WriteFile(dataSource.UserFile, userData, 0644)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(metaFile, metaData, 0644)
+	err = ioutil.WriteFile(dataSource.MetaFile, dataSource.MetaData, 0644)
 	if err != nil {
 		return err
 	}
 
 	files := make([]string, 0, 3)
-	files = append(files, metaFile)
-	files = append(files, userFile)
+	files = append(files, dataSource.MetaFile)
+	files = append(files, dataSource.UserFile)
 
 	if len(networkData) > 0 {
-		err = ioutil.WriteFile(networkFile, networkData, 0644)
+		err = ioutil.WriteFile(dataSource.NetworkFile, networkData, 0644)
 		if err != nil {
 			return err
 		}
-		files = append(files, networkFile)
+		files = append(files, dataSource.NetworkFile)
 	}
 
 	switch data.DataSource {
 	case DataSourceNoCloud:
-		err = cloudInitIsoFunc(isoStaging, "cidata", dataBasePath)
+		err = cloudInitIsoFunc(dataSource.IsoStaging, "cidata", dataSource.DataBasePath)
 	case DataSourceConfigDrive:
-		err = cloudInitIsoFunc(isoStaging, "config-2", dataBasePath)
+		err = cloudInitIsoFunc(dataSource.IsoStaging, "config-2", dataSource.DataBasePath)
 	}
 	if err != nil {
 		return err
 	}
-	diskutils.RemoveFile(metaFile)
-	diskutils.RemoveFile(userFile)
-	diskutils.RemoveFile(networkFile)
+	diskutils.RemoveFile(dataSource.MetaFile)
+	diskutils.RemoveFile(dataSource.UserFile)
+	diskutils.RemoveFile(dataSource.NetworkFile)
 
-	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(isoStaging); err != nil {
+	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(dataSource.IsoStaging); err != nil {
 		return err
 	}
 
-	err = os.Rename(isoStaging, iso)
+	err = os.Rename(dataSource.IsoStaging, dataSource.Iso)
 	if err != nil {
-		log.Log.Reason(err).Errorf("Cloud-init failed to rename file %s to %s", isoStaging, iso)
+		log.Log.Reason(err).Errorf("Cloud-init failed to rename file %s to %s", dataSource.IsoStaging, dataSource.Iso)
 		return err
 	}
 
-	log.Log.V(2).Infof("generated nocloud iso file %s", iso)
+	log.Log.V(2).Infof("generated nocloud iso file %s", dataSource.Iso)
 	return nil
+}
+
+func generateLocalDataSource(vmiName string, namespace string, data *CloudInitData) (*LocalDataSource, error) {
+	var err error
+	ds := &LocalDataSource{}
+	ds.DomainBasePath = getDomainBasePath(vmiName, namespace)
+	ds.DataBasePath = filepath.Join(ds.DomainBasePath, "data")
+
+	if data.DataSource == DataSourceNoCloud {
+		ds, err = generateLocalDataSourceNoCloudData(vmiName, namespace, data, ds)
+		if err != nil {
+			return nil, err
+		}
+	} else if data.DataSource == DataSourceConfigDrive {
+		ds, err = generateLocalDataSourceConfigDrive(vmiName, namespace, data, ds)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, fmt.Errorf("Invalid cloud-init data source: '%v'", data.DataSource)
+	}
+	return ds, nil
+}
+
+func generateLocalDataSourceNoCloudData(vmiName string, namespace string, data *CloudInitData, ds *LocalDataSource) (*LocalDataSource, error) {
+	var err error
+	ds.DataPath = ds.DataBasePath
+	ds.MetaFile = filepath.Join(ds.DataPath, "meta-data")
+	ds.UserFile = filepath.Join(ds.DataPath, "user-data")
+	ds.NetworkFile = filepath.Join(ds.DataPath, "network-config")
+	ds.Iso = GetIsoFilePath(DataSourceNoCloud, vmiName, namespace)
+	ds.IsoStaging = fmt.Sprintf("%s.staging", ds.Iso)
+	if data.NoCloudMetaData == nil {
+		log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
+		data.NoCloudMetaData = &NoCloudMetadata{
+			InstanceID: fmt.Sprintf("%s.%s", vmiName, namespace),
+		}
+	}
+	ds.MetaData, err = json.Marshal(data.NoCloudMetaData)
+	if err != nil {
+		return nil, err
+	}
+	return ds, nil
+}
+
+func generateLocalDataSourceConfigDrive(vmiName string, namespace string, data *CloudInitData, ds *LocalDataSource) (*LocalDataSource, error) {
+	var err error
+	ds.DataPath = filepath.Join(ds.DataBasePath, "openstack", "latest")
+	ds.MetaFile = filepath.Join(ds.DataPath, "meta_data.json")
+	ds.UserFile = filepath.Join(ds.DataPath, "user_data")
+	ds.NetworkFile = filepath.Join(ds.DataPath, "network_data.json")
+	ds.Iso = GetIsoFilePath(DataSourceConfigDrive, vmiName, namespace)
+	ds.IsoStaging = fmt.Sprintf("%s.staging", ds.Iso)
+	if data.ConfigDriveMetaData == nil {
+		log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
+		data.ConfigDriveMetaData = &ConfigDriveMetadata{
+			InstanceID: fmt.Sprintf("%s.%s", vmiName, namespace),
+		}
+	}
+	data.ConfigDriveMetaData.Devices = data.DevicesData
+	ds.MetaData, err = json.Marshal(data.ConfigDriveMetaData)
+	if err != nil {
+		return nil, err
+	}
+	return ds, nil
 }
 
 // Lists all vmis cloud-init has local data for
