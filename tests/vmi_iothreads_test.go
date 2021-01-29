@@ -290,7 +290,7 @@ var _ = Describe("[Serial]IOThreads", func() {
 
 func getDiskByName(domSpec *api.DomainSpec, diskName string) (*api.Disk, error) {
 	for _, disk := range domSpec.Devices.Disks {
-		if disk.Alias.Name == diskName {
+		if disk.Alias.GetName() == diskName {
 			return &disk, nil
 		}
 	}

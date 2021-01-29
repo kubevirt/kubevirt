@@ -20,6 +20,7 @@
 package api
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 
@@ -212,9 +213,7 @@ var _ = Describe("Schema", func() {
 					Name: "iqn.2013-07.com.example:iscsi-nopool/2",
 					Host: &DiskSourceHost{Name: "example.com", Port: "3260"}},
 				Target: DiskTarget{Device: "vda"},
-				Alias: &Alias{
-					Name: "mydisk",
-				},
+				Alias:  NewUserDefinedAlias("mydisk"),
 			},
 			{Type: "file",
 				Device: "disk",
@@ -224,9 +223,7 @@ var _ = Describe("Schema", func() {
 					File: "/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso",
 				},
 				Target: DiskTarget{Device: "vdb"},
-				Alias: &Alias{
-					Name: "mydisk1",
-				},
+				Alias:  NewUserDefinedAlias("mydisk1"),
 			},
 			{Type: "block",
 				Device: "disk",
@@ -236,19 +233,15 @@ var _ = Describe("Schema", func() {
 					Dev: "/dev/testdev",
 				},
 				Target: DiskTarget{Device: "vdc"},
-				Alias: &Alias{
-					Name: "mydisk2",
-				},
+				Alias:  NewUserDefinedAlias("mydisk2"),
 			},
 		}
 
 		exampleDomain.Spec.Devices.Inputs = []Input{
 			{
-				Type: "tablet",
-				Bus:  "virtio",
-				Alias: &Alias{
-					Name: "tablet0",
-				},
+				Type:  "tablet",
+				Bus:   "virtio",
+				Alias: NewUserDefinedAlias("tablet0"),
 			},
 		}
 
@@ -263,9 +256,7 @@ var _ = Describe("Schema", func() {
 		exampleDomain.Spec.Devices.Watchdog = &Watchdog{
 			Model:  "i6300esb",
 			Action: "poweroff",
-			Alias: &Alias{
-				Name: "mywatchdog",
-			},
+			Alias:  NewUserDefinedAlias("mywatchdog"),
 		}
 		exampleDomain.Spec.Devices.Rng = &Rng{
 			Model:   "virtio",
@@ -419,5 +410,61 @@ var _ = Describe("Schema", func() {
 			Expect(err).To(BeNil())
 			Expect(newCpuTune).To(Equal(exampleCpuTune))
 		})
+	})
+})
+
+var testAliasName = "alias0"
+var exampleXMLnonUserDefinedAlias = `<Alias name="alias0"></Alias>`
+var exampleXMLUserDefinedAlias = `<Alias name="ua-alias0"></Alias>`
+var exampleJSONnonUserDefinedAlias = `{"Name":"alias0","UserDefined":false}`
+var exampleJSONuserDefinedAlias = `{"Name":"alias0","UserDefined":true}`
+
+func newLibvirtManagedAlias(aliasName string) *Alias {
+	return &Alias{name: aliasName}
+}
+
+var _ = Describe("XML marshal of domain device", func() {
+	It("should not add user alias prefix to the name of a non-user-defined alias", func() {
+		alias := newLibvirtManagedAlias(testAliasName)
+		xmlBytes, err := xml.Marshal(alias)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(xmlBytes)).To(Equal(exampleXMLnonUserDefinedAlias))
+		newAlias := &Alias{}
+		Expect(xml.Unmarshal(xmlBytes, newAlias)).To(Succeed())
+		Expect(newAlias.GetName()).To(Equal(testAliasName))
+		Expect(newAlias.IsUserDefined()).To(BeFalse())
+	})
+	It("should add user alias prefix to the name of a user-defined alias", func() {
+		alias := NewUserDefinedAlias(testAliasName)
+		xmlBytes, err := xml.Marshal(alias)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(xmlBytes)).To(Equal(exampleXMLUserDefinedAlias))
+		newAlias := &Alias{}
+		Expect(xml.Unmarshal(xmlBytes, newAlias)).To(Succeed())
+		Expect(newAlias.GetName()).To(Equal(testAliasName))
+		Expect(newAlias.IsUserDefined()).To(BeTrue())
+	})
+})
+
+var _ = Describe("JSON marshal of the alias of a domain device", func() {
+	It("should deal with package-private struct members for non-user-defined alias", func() {
+		alias := newLibvirtManagedAlias(testAliasName)
+		jsonBytes, err := json.Marshal(alias)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(jsonBytes)).To(Equal(exampleJSONnonUserDefinedAlias))
+		newAlias := &Alias{}
+		Expect(json.Unmarshal(jsonBytes, newAlias)).To(Succeed())
+		Expect(newAlias.GetName()).To(Equal(testAliasName))
+		Expect(newAlias.IsUserDefined()).To(BeFalse())
+	})
+	It("should deal with package-private struct members for user-defined alias", func() {
+		alias := NewUserDefinedAlias(testAliasName)
+		jsonBytes, err := json.Marshal(alias)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(jsonBytes)).To(Equal(exampleJSONuserDefinedAlias))
+		newAlias := &Alias{}
+		Expect(json.Unmarshal(jsonBytes, newAlias)).To(Succeed())
+		Expect(newAlias.GetName()).To(Equal(testAliasName))
+		Expect(newAlias.IsUserDefined()).To(BeTrue())
 	})
 })

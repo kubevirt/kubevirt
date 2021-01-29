@@ -211,7 +211,7 @@ func MergeAgentStatusesWithDomainData(domInterfaces []api.Interface, interfaceSt
 	aliasByMac := map[string]string{}
 	for _, ifc := range domInterfaces {
 		mac := ifc.MAC.MAC
-		alias := ifc.Alias.Name
+		alias := ifc.Alias.GetName()
 		aliasByMac[mac] = alias
 	}
 
