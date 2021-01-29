@@ -27,12 +27,20 @@ var (
 		},
 		namespaceAndVMILabels,
 	)
+	activeUSBRedirConnections = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kubevirt_usbredir_active_connections",
+			Help: "Amount of active USB redirection connections, broken down by namespace and vmi name",
+		},
+		namespaceAndVMILabels,
+	)
 )
 
 func init() {
 	prometheus.MustRegister(activePortForwardTunnels)
 	prometheus.MustRegister(activeVNCConnections)
 	prometheus.MustRegister(activeConsoleConnections)
+	prometheus.MustRegister(activeUSBRedirConnections)
 }
 
 type Decrementer interface {
@@ -59,6 +67,14 @@ func NewActiveVNCConnection(namespace, name string) Decrementer {
 // and returns a recorder for decrementing it once the connection is closed
 func NewActiveConsoleConnection(namespace, name string) Decrementer {
 	recorder := activeConsoleConnections.WithLabelValues(namespace, name)
+	recorder.Inc()
+	return recorder
+}
+
+// NewActiveUSBRedirConnection increments the metric for active USB redirection connections by one for namespace
+// and name and returns a recorder for decrementing it once the connection is closed
+func NewActiveUSBRedirConnection(namespace, name string) Decrementer {
+	recorder := activeUSBRedirConnections.WithLabelValues(namespace, name)
 	recorder.Inc()
 	return recorder
 }
