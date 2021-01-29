@@ -1434,13 +1434,14 @@ var _ = Describe("Configurations", func() {
 				loc, err := time.LoadLocation(timezone)
 				Expect(err).ToNot(HaveOccurred())
 				now := time.Now().In(loc)
-				plusone := now.Add(time.Minute)
+				nowplus := now.Add(20 * time.Second)
+				nowminus := now.Add(-20 * time.Second)
 				By("Checking hardware clock time")
-				expected := fmt.Sprintf("(%02d:%02d:|%02d:%02d:)", now.Hour(), now.Minute(), plusone.Hour(), plusone.Minute())
+				expected := fmt.Sprintf("(%02d:%02d:|%02d:%02d:|%02d:%02d:)", nowminus.Hour(), nowminus.Minute(), now.Hour(), now.Minute(), nowplus.Hour(), nowplus.Minute())
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "sudo hwclock --localtime \n"},
 					&expect.BExp{R: expected},
-				}, 20)).To(Succeed())
+				}, 20)).To(Succeed(), "Expected the VM time to be within 20 seconds of "+now.String())
 
 			})
 		})
