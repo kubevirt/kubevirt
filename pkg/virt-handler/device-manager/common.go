@@ -103,7 +103,7 @@ func (h *DeviceUtilsHandler) GetDevicePCIID(basepath string, pciAddress string) 
 		if strings.HasPrefix(line, "PCI_ID") {
 			equal := strings.Index(line, "=")
 			value := strings.TrimSpace(line[equal+1:])
-			return value, nil
+			return strings.ToLower(value), nil
 		}
 	}
 	return "", fmt.Errorf("no pci_id is found")

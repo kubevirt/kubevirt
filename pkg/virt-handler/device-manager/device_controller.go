@@ -126,7 +126,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Contro
 			for _, pciDev := range hostDevs.PciHostDevices {
 				// do not add a device plugin for this resource if it's being provided via an external device plugin
 				if !pciDev.ExternalResourceProvider {
-					supportedPCIDeviceMap[pciDev.PCIVendorSelector] = pciDev.ResourceName
+					supportedPCIDeviceMap[strings.ToLower(pciDev.PCIVendorSelector)] = pciDev.ResourceName
 				}
 			}
 			pciHostDevices := discoverPermittedHostPCIDevices(supportedPCIDeviceMap)
