@@ -124,6 +124,10 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Contro
 		supportedPCIDeviceMap := make(map[string]string)
 		if len(hostDevs.PciHostDevices) != 0 {
 			for _, pciDev := range hostDevs.PciHostDevices {
+				log.Log.V(4).Infof("Permitted PCI device in the cluster, ID: %s, resourceName: %s, externalProvider: %t",
+					strings.ToLower(pciDev.PCIVendorSelector),
+					pciDev.ResourceName,
+					pciDev.ExternalResourceProvider)
 				// do not add a device plugin for this resource if it's being provided via an external device plugin
 				if !pciDev.ExternalResourceProvider {
 					supportedPCIDeviceMap[strings.ToLower(pciDev.PCIVendorSelector)] = pciDev.ResourceName
@@ -132,6 +136,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Contro
 			pciHostDevices := discoverPermittedHostPCIDevices(supportedPCIDeviceMap)
 			for pciID, pciDevices := range pciHostDevices {
 				pciResourceName := supportedPCIDeviceMap[pciID]
+				log.Log.V(4).Infof("Discovered PCI device on the node, ID: %s, resourceName: %s", pciID, pciResourceName)
 				// add a device plugin only for new devices
 				if _, isRunning := c.devicePlugins[pciResourceName]; !isRunning {
 					devicePluginsToRun[pciResourceName] = ControlledDevice{
@@ -146,6 +151,9 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Contro
 		if len(hostDevs.MediatedDevices) != 0 {
 			supportedMdevsMap := make(map[string]string)
 			for _, supportedMdev := range hostDevs.MediatedDevices {
+				log.Log.V(4).Infof("Permitted mediated device in the cluster, ID: %s, resourceName: %s",
+					supportedMdev.MDEVNameSelector,
+					supportedMdev.ResourceName)
 				// do not add a device plugin for this resource if it's being provided via an external device plugin
 				if !supportedMdev.ExternalResourceProvider {
 					selector := removeSelectorSpaces(supportedMdev.MDEVNameSelector)
@@ -156,6 +164,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Contro
 			hostMdevs := discoverPermittedHostMediatedDevices(supportedMdevsMap)
 			for mdevTypeName, mdevUUIDs := range hostMdevs {
 				mdevResourceName := supportedMdevsMap[mdevTypeName]
+				log.Log.V(4).Infof("Discovered mediated device on the node, type: %s, resourceName: %s", mdevTypeName, mdevResourceName)
 				// add a device plugin only for new devices
 				if _, isRunning := c.devicePlugins[mdevResourceName]; !isRunning {
 					devicePluginsToRun[mdevResourceName] = ControlledDevice{
