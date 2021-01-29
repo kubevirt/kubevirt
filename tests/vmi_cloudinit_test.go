@@ -85,7 +85,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		VerifyUserDataVMI = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
 			By("Checking that the VirtualMachineInstance serial console output equals to expected one")
-			Expect(console.SafeExpectBatch(vmi, commands, int(timeout.Seconds()))).To(Succeed())
+			Expect(console.SafeExpectBatch(vmi, commands, timeout)).To(Succeed())
 		}
 
 		mountCloudInitFunc := func(devName string) func(*v1.VirtualMachineInstance) {

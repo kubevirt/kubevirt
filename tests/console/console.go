@@ -74,8 +74,8 @@ func ExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, time
 // SafeExpectBatch runs the batch from `expected` connecting to a VMI's console and
 // wait `timeout` for the batch to return, it also check that the sended commands arrives to console checking.
 // NOTE: This functions heritage limitations from `ExpectBatchWithValidatedSend` refer to it to check them.
-func SafeExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) error {
-	_, err := SafeExpectBatchWithResponse(vmi, expected, wait)
+func SafeExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, timeout time.Duration) error {
+	_, err := SafeExpectBatchWithResponse(vmi, expected, timeout)
 	return err
 }
 
@@ -83,7 +83,7 @@ func SafeExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, 
 // wait `timeout` for the batch to return with a response.
 // It includes a safety check which validates that the commands arrive to the console.
 // NOTE: This functions inherits limitations from `ExpectBatchWithValidatedSend`, refer to it for more information.
-func SafeExpectBatchWithResponse(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) ([]expect.BatchRes, error) {
+func SafeExpectBatchWithResponse(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, timeout time.Duration) ([]expect.BatchRes, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
@@ -94,7 +94,7 @@ func SafeExpectBatchWithResponse(vmi *v1.VirtualMachineInstance, expected []expe
 	}
 	defer expecter.Close()
 
-	resp, err := ExpectBatchWithValidatedSend(expecter, expected, time.Second*time.Duration(wait))
+	resp, err := ExpectBatchWithValidatedSend(expecter, expected, time.Second*timeout)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("%v", resp)
 	}
@@ -139,7 +139,7 @@ func RunSafeCommandSuccessfully(vmi *v1.VirtualMachineInstance, command string, 
 		&expect.BExp{R: PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: ShellSuccess},
-	}, int(timeout))
+	}, timeout)
 }
 
 // SecureBootExpecter should be called on a VMI that has EFI enabled
