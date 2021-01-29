@@ -20,8 +20,10 @@
 package api
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"strings"
 
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -659,29 +661,65 @@ type InterfaceTarget struct {
 }
 
 type Alias struct {
-	Name string `xml:"name,attr"`
+	name        string
+	userDefined bool
 }
 
-type UserAlias Alias
+// Package private, responsible to interact with xml and json marshal/unmarshal
+type userAliasMarshal struct {
+	Name        string `xml:"name,attr"`
+	UserDefined bool   `xml:"-"`
+}
 
 type Rom struct {
 	Enabled string `xml:"enabled,attr"`
 }
 
+func NewUserDefinedAlias(aliasName string) *Alias {
+	return &Alias{name: aliasName, userDefined: true}
+}
+
+func (alias Alias) GetName() string {
+	return alias.name
+}
+
+func (alias Alias) IsUserDefined() bool {
+	return alias.userDefined
+}
+
 func (alias Alias) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	userAlias := UserAlias(alias)
-	userAlias.Name = UserAliasPrefix + userAlias.Name
+	userAlias := userAliasMarshal{Name: alias.name}
+	if alias.userDefined {
+		userAlias.Name = UserAliasPrefix + userAlias.Name
+	}
 	return e.EncodeElement(userAlias, start)
 }
 
 func (alias *Alias) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	var userAlias UserAlias
+	var userAlias userAliasMarshal
 	err := d.DecodeElement(&userAlias, &start)
 	if err != nil {
 		return err
 	}
-	*alias = Alias(userAlias)
-	alias.Name = alias.Name[len(UserAliasPrefix):]
+	*alias = Alias{name: userAlias.Name}
+	if strings.HasPrefix(alias.name, UserAliasPrefix) {
+		alias.userDefined = true
+		alias.name = alias.name[len(UserAliasPrefix):]
+	}
+	return nil
+}
+
+func (alias Alias) MarshalJSON() ([]byte, error) {
+	userAlias := userAliasMarshal{Name: alias.name, UserDefined: alias.userDefined}
+	return json.Marshal(&userAlias)
+}
+
+func (alias *Alias) UnmarshalJSON(data []byte) error {
+	var userAlias userAliasMarshal
+	if err := json.Unmarshal(data, &userAlias); err != nil {
+		return err
+	}
+	*alias = Alias{name: userAlias.Name, userDefined: userAlias.UserDefined}
 	return nil
 }
 

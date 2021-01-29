@@ -505,7 +505,7 @@ func (b *BridgeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, la
 func (b *BridgeBindMechanism) decorateConfig() error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
-		if iface.Alias.Name == b.iface.Name {
+		if iface.Alias.GetName() == b.iface.Name {
 			ifaces[i].MTU = b.virtIface.MTU
 			ifaces[i].MAC = &api.MAC{MAC: b.vif.MAC.String()}
 			ifaces[i].Target = b.virtIface.Target
@@ -808,7 +808,7 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32
 func (b *MasqueradeBindMechanism) decorateConfig() error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
-		if iface.Alias.Name == b.iface.Name {
+		if iface.Alias.GetName() == b.iface.Name {
 			ifaces[i].MTU = b.virtIface.MTU
 			ifaces[i].MAC = b.virtIface.MAC
 			ifaces[i].Target = b.virtIface.Target
@@ -1128,7 +1128,7 @@ func (s *SlirpBindMechanism) decorateConfig() error {
 	var foundIfaceModelType string
 	ifaces := s.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
-		if iface.Alias.Name == s.iface.Name {
+		if iface.Alias.GetName() == s.iface.Name {
 			s.domain.Spec.Devices.Interfaces = append(ifaces[:i], ifaces[i+1:]...)
 			foundIfaceModelType = iface.Model.Type
 			break
@@ -1210,7 +1210,7 @@ func (b *MacvtapBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, l
 func (b *MacvtapBindMechanism) decorateConfig() error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
-		if iface.Alias.Name == b.iface.Name {
+		if iface.Alias.GetName() == b.iface.Name {
 			ifaces[i].MTU = b.virtIface.MTU
 			ifaces[i].MAC = b.virtIface.MAC
 			ifaces[i].Target = b.virtIface.Target

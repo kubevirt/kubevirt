@@ -565,9 +565,8 @@ var _ = Describe("Pod Network", func() {
 					Source: api.InterfaceSource{
 						Bridge: api.DefaultBridgeName,
 					},
-					Alias: &api.Alias{
-						Name: "default",
-					}})
+					Alias: api.NewUserDefinedAlias("default"),
+				})
 
 				driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, primaryPodInterfaceName)
 				Expect(err).ToNot(HaveOccurred())
@@ -861,9 +860,8 @@ func NewDomainWithBridgeInterface() *api.Domain {
 		Source: api.InterfaceSource{
 			Bridge: api.DefaultBridgeName,
 		},
-		Alias: &api.Alias{
-			Name: "default",
-		}},
+		Alias: api.NewUserDefinedAlias("default"),
+	},
 	}
 	return domain
 }
@@ -874,10 +872,9 @@ func NewDomainWithSlirpInterface() *api.Domain {
 		Model: &api.Model{
 			Type: "e1000",
 		},
-		Type: "user",
-		Alias: &api.Alias{
-			Name: "default",
-		}},
+		Type:  "user",
+		Alias: api.NewUserDefinedAlias("default"),
+	},
 	}
 
 	// Create network interface
@@ -895,9 +892,7 @@ func NewDomainWithSlirpInterface() *api.Domain {
 func NewDomainWithMacvtapInterface(macvtapName string) *api.Domain {
 	domain := &api.Domain{}
 	domain.Spec.Devices.Interfaces = []api.Interface{{
-		Alias: &api.Alias{
-			Name: macvtapName,
-		},
+		Alias: api.NewUserDefinedAlias(macvtapName),
 		Model: &api.Model{
 			Type: "virtio",
 		},

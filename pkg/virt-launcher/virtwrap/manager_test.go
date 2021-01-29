@@ -412,9 +412,7 @@ var _ = Describe("Manager", func() {
 						Type:        "raw",
 						ErrorPolicy: "stop",
 					},
-					Alias: &api.Alias{
-						Name: "ua-permvolume1",
-					},
+					Alias: api.NewUserDefinedAlias("permvolume1"),
 				},
 			}
 			attachDisk := api.Disk{
@@ -433,9 +431,7 @@ var _ = Describe("Manager", func() {
 					Type:        "raw",
 					ErrorPolicy: "stop",
 				},
-				Alias: &api.Alias{
-					Name: "hpvolume1",
-				},
+				Alias: api.NewUserDefinedAlias("hpvolume1"),
 				Address: &api.Address{
 					Type:       "drive",
 					Bus:        "0",
@@ -540,9 +536,7 @@ var _ = Describe("Manager", func() {
 					Type:        "raw",
 					ErrorPolicy: "stop",
 				},
-				Alias: &api.Alias{
-					Name: "hpvolume1",
-				},
+				Alias: api.NewUserDefinedAlias("hpvolume1"),
 				Address: &api.Address{
 					Type:       "drive",
 					Bus:        "0",
@@ -737,9 +731,7 @@ var _ = Describe("Manager", func() {
 						Type:        "raw",
 						ErrorPolicy: "stop",
 					},
-					Alias: &api.Alias{
-						Name: "ua-permvolume1",
-					},
+					Alias: api.NewUserDefinedAlias("permvolume1"),
 				},
 			}
 			xmlDomain2, err := xml.MarshalIndent(domainSpec, "", "\t")

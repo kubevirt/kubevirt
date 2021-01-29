@@ -1377,7 +1377,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			// Create stale socket ghost file
 			err := virtcache.AddGhostRecord(vmi.Namespace, vmi.Name, "made/up/path", vmi.UID)
 			Expect(err).NotTo(HaveOccurred())
-
 			exists := virtcache.HasGhostRecord(vmi.Namespace, vmi.Name)
 			Expect(exists).To(BeTrue())
 
@@ -2055,7 +2054,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Spec.Devices.Interfaces = []api.Interface{
 				{
 					MAC:   &api.MAC{MAC: MAC},
-					Alias: &api.Alias{Name: interfaceName},
+					Alias: api.NewUserDefinedAlias(interfaceName),
 				},
 			}
 			domain.Status.Interfaces = []api.InterfaceStatus{
@@ -2109,7 +2108,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Spec.Devices.Interfaces = []api.Interface{
 				{
 					MAC:   &api.MAC{MAC: new_MAC},
-					Alias: &api.Alias{Name: interface_name},
+					Alias: api.NewUserDefinedAlias(interface_name),
 				},
 			}
 
@@ -2151,7 +2150,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Spec.Devices.Interfaces = []api.Interface{
 				{
 					MAC:   &api.MAC{MAC: mac},
-					Alias: &api.Alias{Name: interfaceName},
+					Alias: api.NewUserDefinedAlias(interfaceName),
 				},
 			}
 			domain.Status.Interfaces = []api.InterfaceStatus{
@@ -2231,11 +2230,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Spec.Devices.Interfaces = []api.Interface{
 				{
 					MAC:   &api.MAC{MAC: old_MAC},
-					Alias: &api.Alias{Name: old_interface_name},
+					Alias: api.NewUserDefinedAlias(old_interface_name),
 				},
 				{
 					MAC:   &api.MAC{MAC: new_MAC},
-					Alias: &api.Alias{Name: new_interface_name},
+					Alias: api.NewUserDefinedAlias(new_interface_name),
 				},
 			}
 
@@ -2277,7 +2276,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Spec.Devices.Interfaces = []api.Interface{
 				{
 					MAC:   &api.MAC{MAC: new_MAC},
-					Alias: &api.Alias{Name: interface_name},
+					Alias: api.NewUserDefinedAlias(interface_name),
 				},
 			}
 
@@ -2398,9 +2397,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 						Name:  "qemu",
 						Type:  "raw",
 					},
-					Alias: &api.Alias{
-						Name: "ua-permvolume",
-					},
+					Alias: api.NewUserDefinedAlias("permvolume"),
 				},
 				{
 					Device: "disk",
@@ -2417,9 +2414,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 						Name:  "qemu",
 						Type:  "raw",
 					},
-					Alias: &api.Alias{
-						Name: "hpvolume",
-					},
+					Alias: api.NewUserDefinedAlias("hpvolume"),
 					Address: &api.Address{
 						Type:       "drive",
 						Bus:        "0",
