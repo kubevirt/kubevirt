@@ -535,16 +535,11 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 		return err
 	}
 
-	files := make([]string, 0, 3)
-	files = append(files, metaFile)
-	files = append(files, userFile)
-
 	if len(networkData) > 0 {
 		err = ioutil.WriteFile(networkFile, networkData, 0644)
 		if err != nil {
 			return err
 		}
-		files = append(files, networkFile)
 	}
 
 	switch data.DataSource {
