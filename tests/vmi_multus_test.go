@@ -459,15 +459,8 @@ var _ = Describe("[Serial]Multus", func() {
 					Expect(ifc.MAC).To(Not(BeZero()))
 				}
 				Expect(interfacesByName["default"].MAC).To(Not(Equal(interfacesByName["linux-bridge"].MAC)))
-
-				err = console.SafeExpectBatch(updatedVmi, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("ip addr show eth0 | grep %s | wc -l", interfacesByName["default"].MAC)},
-					&expect.BExp{R: "1"},
-				}, 15)
-				err = console.SafeExpectBatch(updatedVmi, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("ip addr show eth1 | grep %s | wc -l", interfacesByName["linux-bridge"].MAC)},
-					&expect.BExp{R: "1"},
-				}, 15)
+				Expect(runSafeCommand(vmiOne, fmt.Sprintf("ip addr show eth0 | grep %s\n", interfacesByName["default"].MAC))).To(Succeed())
+				Expect(runSafeCommand(vmiOne, fmt.Sprintf("ip addr show eth1 | grep %s\n", interfacesByName["linux-bridge"].MAC))).To(Succeed())
 			})
 		})
 
