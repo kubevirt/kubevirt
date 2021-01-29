@@ -42,6 +42,7 @@ type HyperConvergedSpec struct {
 	// featureGates is a map of feature gate flags. Setting a flag to `true` will enable
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
 	// +optional
+	// +kubebuilder:default={}
 	FeatureGates *HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
 	// operator version
@@ -67,10 +68,12 @@ type HyperConvergedFeatureGates struct {
 	// Allow migrating a virtual machine with CPU host-passthrough mode. This should be
 	// enabled only when the Cluster is homogeneous from CPU HW perspective doc here
 	// +optional
+	// +kubebuilder:default=false
 	WithHostPassthroughCPU *bool `json:"withHostPassthroughCPU,omitempty"`
 
 	// Support migration for VMs with host-model CPU mode
 	// +optional
+	// +kubebuilder:default=true
 	WithHostModelCPU *bool `json:"withHostModelCPU,omitempty"`
 }
 
