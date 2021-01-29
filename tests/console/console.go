@@ -128,6 +128,20 @@ func RunCommand(vmi *v1.VirtualMachineInstance, command string, timeout time.Dur
 	return nil
 }
 
+// RunSafeCommandAndSucceed runs the command line from `command connecting to an already logged in console at vmi
+// and wait `timeout` for command to return, it uses SafeExpectBatch so the command is checked with expect at
+// the console. It will return an error if command does not succeed or command does not appear at console
+func RunSafeCommandSuccessfully(vmi *v1.VirtualMachineInstance, command string, timeout time.Duration) error {
+	return SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: PromptExpression},
+		&expect.BSnd{S: command},
+		&expect.BExp{R: PromptExpression},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: ShellSuccess},
+	}, int(timeout))
+}
+
 // SecureBootExpecter should be called on a VMI that has EFI enabled
 // It will parse the kernel output (dmesg) and succeed if it finds that Secure boot is enabled
 func SecureBootExpecter(vmi *v1.VirtualMachineInstance) error {

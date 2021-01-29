@@ -1279,7 +1279,7 @@ func configVMIInterfaceWithSudo(vmi *v1.VirtualMachineInstance, interfaceName, i
 
 func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAddress string, userModifierPrefix ...string) error {
 	setStaticIpCmd := fmt.Sprintf("%sip addr add %s dev %s\n", strings.Join(userModifierPrefix, " "), interfaceAddress, interfaceName)
-	err := runSafeCommand(vmi, setStaticIpCmd)
+	err := console.RunSafeCommandSuccessfully(vmi, setStaticIpCmd, 15*time.Second)
 
 	if err != nil {
 		return fmt.Errorf("could not configure address %s for interface %s on VMI %s: %w", interfaceAddress, interfaceName, vmi.Name, err)
@@ -1290,7 +1290,7 @@ func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAdd
 
 func checkInterface(vmi *v1.VirtualMachineInstance, interfaceName string) error {
 	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
-	err := runSafeCommand(vmi, cmdCheck)
+	err := console.RunSafeCommandSuccessfully(vmi, cmdCheck, 15*time.Second)
 
 	if err != nil {
 		return fmt.Errorf("could not check interface: interface %s was not found in the VMI %s: %w", interfaceName, vmi.Name, err)
@@ -1319,24 +1319,13 @@ func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress s
 
 func setInterfaceUp(vmi *v1.VirtualMachineInstance, interfaceName string) error {
 	setUpCmd := fmt.Sprintf("ip link set %s up\n", interfaceName)
-	err := runSafeCommand(vmi, setUpCmd)
+	err := console.RunSafeCommandSuccessfully(vmi, setUpCmd, 15*time.Second)
 
 	if err != nil {
 		return fmt.Errorf("could not set interface %s up on VMI %s: %w", interfaceName, vmi.Name, err)
 	}
 
 	return nil
-}
-
-func runSafeCommand(vmi *v1.VirtualMachineInstance, command string) error {
-	return console.SafeExpectBatch(vmi, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: command},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: console.RetValue("0")},
-	}, 15)
 }
 
 func getInterfaceNameByMAC(vmi *v1.VirtualMachineInstance, mac string) (string, error) {
