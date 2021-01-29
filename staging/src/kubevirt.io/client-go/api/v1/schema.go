@@ -483,7 +483,27 @@ type Devices struct {
 	// +optional
 	// +listType=atomic
 	HostDevices []HostDevice `json:"hostDevices,omitempty"`
+	// To configure and access client devices such as redirecting USB
+	// +optional
+	ClientPassthrough *ClientPassthroughDevices `json:"clientPassthrough,omitempty"`
 }
+
+// Represent a subset of client devices that can be accessed by VMI. At the
+// moment only, USB devices using Usbredir's library and tooling. Another fit
+// would be a smartcard with libcacard.
+//
+// The struct is currently empty as there is no imediate request for
+// user-facing APIs. This structure simply turns on USB redirection of
+// UsbClientPassthroughMaxNumberOf devices.
+//
+// +k8s:openapi-gen=true
+type ClientPassthroughDevices struct {
+}
+
+// Represents the upper limit allowed by QEMU + KubeVirt.
+const (
+	UsbClientPassthroughMaxNumberOf = 4
+)
 
 //
 // +k8s:openapi-gen=true
