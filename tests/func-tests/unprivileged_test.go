@@ -11,7 +11,7 @@ import (
 	flags "kubevirt.io/kubevirt/tests/flags"
 )
 
-var _ = Describe("Unprivileged tests", func() {
+var _ = Describe("[rfe_id:393][crit:medium][vendor:cnv-qe@redhat.com][level:system]Unprivileged tests", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	testscore.PanicOnError(err)
 
@@ -25,7 +25,7 @@ var _ = Describe("Unprivileged tests", func() {
 	unprivClient, err := kubecli.GetKubevirtClientFromRESTConfig(cfg)
 	testscore.PanicOnError(err)
 
-	It("should be able to read kubevirt-storage-class-defaults ConfigMap", func() {
+	It("[test_id:5676]should be able to read kubevirt-storage-class-defaults ConfigMap", func() {
 
 		// Sanity check: can't read an arbitrary configmap (nonexistent)
 		_, err = unprivClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get("non-existent-configmap", metav1.GetOptions{})
