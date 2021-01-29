@@ -521,10 +521,10 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 		networkData = []byte(data.NetworkData)
 	}
 
-	diskutils.RemoveFilesIfExist(userFile)
-	diskutils.RemoveFilesIfExist(metaFile)
-	diskutils.RemoveFilesIfExist(networkFile)
-	diskutils.RemoveFilesIfExist(isoStaging)
+	err = diskutils.RemoveFilesIfExist(userFile, metaFile, networkFile, isoStaging)
+	if err != nil {
+		return err
+	}
 
 	err = ioutil.WriteFile(userFile, userData, 0644)
 	if err != nil {
