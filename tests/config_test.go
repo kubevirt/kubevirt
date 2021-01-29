@@ -270,6 +270,8 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				},
 			)
 
+			Expect(err).To(BeNil())
+
 			By("Checking mounted iso image")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
