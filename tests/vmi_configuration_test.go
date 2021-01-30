@@ -1947,6 +1947,10 @@ var _ = Describe("[owner:@sig-compute]Configurations", func() {
 		})
 
 		Context("[Serial]with cpu pinning enabled", func() {
+			const (
+				cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
+			)
+
 			It("[test_id:1684]should set the cpumanager label to false when it's not running", func() {
 
 				By("adding a cpumanger=true label to a node")
@@ -2018,7 +2022,7 @@ var _ = Describe("[owner:@sig-compute]Configurations", func() {
 					virtClient,
 					readyPod,
 					"compute",
-					[]string{"cat", hw_utils.CPUSET_PATH},
+					[]string{"cat", cpusetPath},
 				)
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())
@@ -2138,7 +2142,7 @@ var _ = Describe("[owner:@sig-compute]Configurations", func() {
 					virtClient,
 					readyPod,
 					"compute",
-					[]string{"cat", hw_utils.CPUSET_PATH},
+					[]string{"cat", cpusetPath},
 				)
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())

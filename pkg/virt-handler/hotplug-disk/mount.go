@@ -47,7 +47,7 @@ var (
 	}
 
 	cgroupsBasePath = func() string {
-		return "/proc/1/root/sys/fs/cgroup/devices/"
+		return filepath.Join("/proc/1/root", cgroup.ControllerPath("devices"))
 	}
 
 	statCommand = func(fileName string) ([]byte, error) {

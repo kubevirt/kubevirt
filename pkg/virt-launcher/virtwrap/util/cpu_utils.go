@@ -26,11 +26,12 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 )
 
 func GetPodCPUSet() ([]int, error) {
 	var cpuset string
-	file, err := os.Open(hardware.CPUSET_PATH)
+	file, err := os.Open(cgroup.CPUSetPath())
 	if err != nil {
 		return nil, err
 	}

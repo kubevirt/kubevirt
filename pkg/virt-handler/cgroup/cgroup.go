@@ -37,6 +37,20 @@ var (
 	isCgroup2UnifiedMode = cgroups.IsCgroup2UnifiedMode
 )
 
+func ControllerPath(controller string) string {
+	if isCgroup2UnifiedMode() {
+		return basePath
+	}
+	return filepath.Join(basePath, controller)
+}
+
+func CPUSetPath() string {
+	if isCgroup2UnifiedMode() {
+		return filepath.Join(basePath, "cpuset.cpus.effective")
+	}
+	return filepath.Join(basePath, "cpuset", "cpuset.cpus")
+}
+
 type Parser interface {
 	// Parse retrieves the cgroup data for the given process id and returns a
 	// map of controllers to slice paths.
