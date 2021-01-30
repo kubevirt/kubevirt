@@ -530,21 +530,20 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 	if err != nil {
 		return err
 	}
+	defer os.Remove(userFile)
+
 	err = ioutil.WriteFile(metaFile, metaData, 0644)
 	if err != nil {
 		return err
 	}
-
-	files := make([]string, 0, 3)
-	files = append(files, metaFile)
-	files = append(files, userFile)
+	defer os.Remove(metaFile)
 
 	if len(networkData) > 0 {
 		err = ioutil.WriteFile(networkFile, networkData, 0644)
 		if err != nil {
 			return err
 		}
-		files = append(files, networkFile)
+		defer os.Remove(networkFile)
 	}
 
 	switch data.DataSource {
@@ -556,9 +555,6 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 	if err != nil {
 		return err
 	}
-	diskutils.RemoveFile(metaFile)
-	diskutils.RemoveFile(userFile)
-	diskutils.RemoveFile(networkFile)
 
 	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(isoStaging); err != nil {
 		return err
