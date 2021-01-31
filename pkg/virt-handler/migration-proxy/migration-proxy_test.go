@@ -146,6 +146,7 @@ var _ = Describe("MigrationProxy", func() {
 				directMigrationPort := "49152"
 				libvirtdSock := tmpDir + "/libvirtd-sock"
 				libvirtdListener, err := net.Listen("unix", libvirtdSock)
+				Expect(err).ShouldNot(HaveOccurred())
 				directSock := tmpDir + "/mykey-" + directMigrationPort
 				directListener, err := net.Listen("unix", directSock)
 

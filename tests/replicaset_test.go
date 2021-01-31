@@ -309,6 +309,7 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 		// Check for owner reference
 		vmis, err := virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(&v12.ListOptions{})
 		Expect(vmis.Items).To(HaveLen(2))
+		Expect(err).ToNot(HaveOccurred())
 		for _, vmi := range vmis.Items {
 			Expect(vmi.OwnerReferences).ToNot(BeEmpty())
 		}

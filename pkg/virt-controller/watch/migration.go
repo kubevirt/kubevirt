@@ -564,6 +564,9 @@ func (c *MigrationController) listMatchingTargetPods(migration *virtv1.VirtualMa
 			virtv1.MigrationJobLabel: string(migration.UID),
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	objs, err := c.podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, migration.Namespace)
 	if err != nil {

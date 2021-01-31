@@ -180,6 +180,7 @@ var _ = Describe("Manager", func() {
 			vmi := newVMI(testNamespace, testVmName)
 			domainSpec := expectIsolationDetectionForVMI(vmi)
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).NotTo(HaveOccurred())
 
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
@@ -196,6 +197,7 @@ var _ = Describe("Manager", func() {
 				vmi := newVMI(testNamespace, testVmName)
 				domainSpec := expectIsolationDetectionForVMI(vmi)
 				xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+				Expect(err).NotTo(HaveOccurred())
 
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
@@ -219,6 +221,7 @@ var _ = Describe("Manager", func() {
 			vmi := newVMI(testNamespace, testVmName)
 			domainSpec := expectIsolationDetectionForVMI(vmi)
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).NotTo(HaveOccurred())
 
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
@@ -235,6 +238,7 @@ var _ = Describe("Manager", func() {
 			vmi := newVMI(testNamespace, testVmName)
 			domainSpec := expectIsolationDetectionForVMI(vmi)
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).NotTo(HaveOccurred())
 
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
@@ -991,6 +995,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).AnyTimes().Return(string(domainXml), nil)
 
 			metadataXml, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
+			Expect(err).NotTo(HaveOccurred())
 			mockDomain.EXPECT().
 				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
 				AnyTimes().
@@ -1070,6 +1075,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(string(domainXml), nil)
 
 			metadataXml, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
+			Expect(err).NotTo(HaveOccurred())
 			mockDomain.EXPECT().
 				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
 				AnyTimes().
@@ -1118,6 +1124,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(domainXml), nil)
 
 			metadataXml, err := xml.MarshalIndent(domainSpec.Metadata.KubeVirt, "", "\t")
+			Expect(err).NotTo(HaveOccurred())
 			mockDomain.EXPECT().
 				GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).
 				AnyTimes().
@@ -1292,6 +1299,7 @@ var _ = Describe("Manager", func() {
 
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0, nil, "/usr/share/OVMF")
 			doms, err := manager.ListAllDomains()
+			Expect(err).NotTo(HaveOccurred())
 
 			Expect(len(doms)).To(Equal(1))
 
