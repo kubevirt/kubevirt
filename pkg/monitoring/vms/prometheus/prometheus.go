@@ -57,15 +57,16 @@ var (
 		nil,
 	)
 
-	// higher-level, telemetry-friendly metrics
-	vmiCountDesc = prometheus.NewDesc(
-		"kubevirt_vmi_phase_count",
-		"VMI phase.",
-		[]string{
-			"node", "phase",
-		},
-		nil,
-	)
+	// VmPhaseUnset is ommited
+	vmiPhases = []k6tv1.VirtualMachineInstancePhase{
+		k6tv1.Pending,
+		k6tv1.Scheduling,
+		k6tv1.Scheduled,
+		k6tv1.Running,
+		k6tv1.Succeeded,
+		k6tv1.Failed,
+		k6tv1.Unknown,
+	}
 )
 
 func tryToPushMetric(desc *prometheus.Desc, mv prometheus.Metric, err error, ch chan<- prometheus.Metric) {
@@ -460,29 +461,30 @@ func (metrics *vmiMetrics) updateNetwork(vmStats *stats.DomainStats) {
 	}
 }
 
-func makeVMIsPhasesMap(vmis []*k6tv1.VirtualMachineInstance) map[string]uint64 {
-	phasesMap := make(map[string]uint64)
-
-	for _, vmi := range vmis {
-		phasesMap[strings.ToLower(string(vmi.Status.Phase))] += 1
+func (metrics *vmiMetrics) updatePhase() {
+	if metrics.vmi.Status.Phase == k6tv1.VmPhaseUnset {
+		return
 	}
 
-	return phasesMap
-}
-
-func updateVMIsPhase(nodeName string, vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
-	phasesMap := makeVMIsPhasesMap(vmis)
-
-	for phase, count := range phasesMap {
-		mv, err := prometheus.NewConstMetric(
-			vmiCountDesc, prometheus.GaugeValue,
-			float64(count),
-			nodeName, phase,
+	for _, phase := range vmiPhases {
+		vmiPhaseLabels := []string{"node", "namespace", "name", "phase"}
+		vmiPhaseLabels = append(vmiPhaseLabels, metrics.k8sLabels...)
+		vmiPhaseDesc := prometheus.NewDesc(
+			"kubevirt_vmi_phase",
+			"VMI phase.",
+			vmiPhaseLabels,
+			nil,
 		)
-		if err != nil {
-			continue
-		}
-		ch <- mv
+
+		vmiPhaseLabelValues := []string{metrics.vmi.Status.NodeName, metrics.vmi.Namespace, metrics.vmi.Name, string(phase)}
+		vmiPhaseLabelValues = append(vmiPhaseLabelValues, metrics.k8sLabelValues...)
+		mv, err := prometheus.NewConstMetric(
+			vmiPhaseDesc, prometheus.GaugeValue,
+			// Metric can be used to search current VMI phase and/or to sum by any other label
+			getPhaseValue(metrics.vmi.Status.Phase, phase),
+			vmiPhaseLabelValues...,
+		)
+		tryToPushMetric(vmiPhaseDesc, mv, err, metrics.ch)
 	}
 }
 
@@ -556,7 +558,6 @@ func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 	scraper := &prometheusScraper{ch: ch}
 	co.concCollector.Collect(socketToVMIs, scraper, collectionTimeout)
 
-	updateVMIsPhase(co.nodeName, vmis, ch)
 	return
 }
 
@@ -648,6 +649,7 @@ func (metrics *vmiMetrics) updateMetrics(vmStats *stats.DomainStats) {
 	metrics.updateVcpu(vmStats)
 	metrics.updateBlock(vmStats)
 	metrics.updateNetwork(vmStats)
+	metrics.updatePhase()
 }
 
 func (metrics *vmiMetrics) updateKubernetesLabels() {
@@ -677,4 +679,11 @@ func humanReadableState(state int) string {
 	default:
 		return "unknown"
 	}
+}
+
+func getPhaseValue(vmiPhase, expectedPhase k6tv1.VirtualMachineInstancePhase) float64 {
+	if vmiPhase == expectedPhase {
+		return 1
+	}
+	return 0
 }

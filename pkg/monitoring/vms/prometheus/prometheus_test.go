@@ -54,7 +54,11 @@ var _ = Describe("Prometheus", func() {
 						RSSSet: true,
 					},
 				}
-				vmi := k6tv1.VirtualMachineInstance{}
+				vmi := k6tv1.VirtualMachineInstance{
+					Status: k6tv1.VirtualMachineInstanceStatus{
+						Phase: k6tv1.VmPhaseUnset,
+					},
+				}
 				ps.Report("test", &vmi, vmStats)
 			}
 			Expect(testReportPanic).ToNot(Panic())
@@ -76,7 +80,11 @@ var _ = Describe("Prometheus", func() {
 					RSSSet: true,
 				},
 			}
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -97,7 +105,11 @@ var _ = Describe("Prometheus", func() {
 					Available:    1,
 				},
 			}
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -122,7 +134,11 @@ var _ = Describe("Prometheus", func() {
 					Unused:    1,
 				},
 			}
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -147,7 +163,11 @@ var _ = Describe("Prometheus", func() {
 					SwapIn:    1,
 				},
 			}
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -172,7 +192,11 @@ var _ = Describe("Prometheus", func() {
 					SwapOut:    1,
 				},
 			}
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -203,7 +227,11 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -229,7 +257,11 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			// metrics about invalid stats never get pushed into the channel
@@ -255,8 +287,12 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			metric := &io_prometheus_client.Metric{}
-			vmi := k6tv1.VirtualMachineInstance{}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -341,7 +377,11 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -368,7 +408,11 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -395,7 +439,11 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -422,7 +470,11 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -449,7 +501,11 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -476,7 +532,11 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -501,7 +561,11 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			Eventually(ch).Should(BeEmpty())
@@ -526,7 +590,11 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -553,7 +621,11 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -580,7 +652,11 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -607,7 +683,11 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -634,7 +714,11 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -661,7 +745,11 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
@@ -686,7 +774,11 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			Eventually(ch).Should(BeEmpty())
@@ -711,6 +803,9 @@ var _ = Describe("Prometheus", func() {
 					Labels: map[string]string{
 						"kubevirt.io/nodeName": "node01",
 					},
+				},
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
 				},
 			}
 			ps.Report("test", &vmi, vmStats)
@@ -738,74 +833,61 @@ var _ = Describe("Prometheus", func() {
 				},
 			}
 
-			vmi := k6tv1.VirtualMachineInstance{}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.VmPhaseUnset,
+				},
+			}
 			ps.Report("test", &vmi, vmStats)
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_vcpu_wait_seconds"))
 		})
-	})
-})
 
-var _ = Describe("Utility functions", func() {
-	Context("VMI Phases map reporting", func() {
-		It("should handle missing VMs", func() {
-			var phasesMap map[string]uint64
+		It("should expose VMI phases", func() {
+			// We get several metrics on the same channel
+			// One for each VirtualMachineInstancePhase, except VmPhaseUnset
+			ch := make(chan prometheus.Metric, len(vmiPhases))
+			defer close(ch)
 
-			phasesMap = makeVMIsPhasesMap(nil)
-			Expect(phasesMap).NotTo(BeNil())
-			Expect(len(phasesMap)).To(Equal(0))
+			ps := prometheusScraper{ch: ch}
 
-			vmis := []*k6tv1.VirtualMachineInstance{}
-			phasesMap = makeVMIsPhasesMap(vmis)
-			Expect(phasesMap).NotTo(BeNil())
-			Expect(len(phasesMap)).To(Equal(0))
-		})
-
-		It("should handle different VMI phases", func() {
-			vmis := []*k6tv1.VirtualMachineInstance{
-				&k6tv1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "running#0",
-					},
-					Status: k6tv1.VirtualMachineInstanceStatus{
-						Phase: "Running",
-					},
-				},
-				&k6tv1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "pending#0",
-					},
-					Status: k6tv1.VirtualMachineInstanceStatus{
-						Phase: "Pending",
-					},
-				},
-				&k6tv1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "scheduling#0",
-					},
-					Status: k6tv1.VirtualMachineInstanceStatus{
-						Phase: "Scheduling",
-					},
-				},
-				&k6tv1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "running#1",
-					},
-					Status: k6tv1.VirtualMachineInstanceStatus{
-						Phase: "Running",
-					},
+			vmStats := &stats.DomainStats{
+				Cpu:    &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{},
+				Net:    []stats.DomainStatsNet{},
+			}
+			vmi := k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase: k6tv1.Running,
 				},
 			}
+			ps.Report("test", &vmi, vmStats)
 
-			phasesMap := makeVMIsPhasesMap(vmis)
-			Expect(phasesMap).NotTo(BeNil())
-			Expect(len(phasesMap)).To(Equal(3))
-			Expect(phasesMap["running"]).To(Equal(uint64(2)))
-			Expect(phasesMap["pending"]).To(Equal(uint64(1)))
-			Expect(phasesMap["scheduling"]).To(Equal(uint64(1)))
-			Expect(phasesMap["bogus"]).To(Equal(uint64(0))) // intentionally bogus key
+			for i := 0; i < len(vmiPhases); i++ {
+				result := <-ch
+				metric := &io_prometheus_client.Metric{}
+				result.Write(metric)
+
+				Expect(result).ToNot(BeNil())
+				Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_phase"))
+
+				labels := metric.GetLabel()
+
+				for _, label := range labels {
+					// There are several labels, we only care about "phase"
+					if label.GetName() != "phase" {
+						continue
+					}
+
+					if label.GetValue() == string(k6tv1.Running) {
+						Expect(metric.Gauge.GetValue()).To(BeEquivalentTo(float64(1)))
+					} else {
+						Expect(metric.Gauge.GetValue()).To(BeEquivalentTo(float64(0)))
+					}
+				}
+			}
 		})
 	})
 })
