@@ -24,8 +24,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/blang/semver"
+	"github.com/ghodss/yaml"
+	"github.com/imdario/mergo"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	"github.com/kubevirt/hyperconverged-cluster-operator/tools/util"
 	"io/ioutil"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"log"
 	"os"
 	"path/filepath"
@@ -33,27 +39,18 @@ import (
 	"sort"
 	"strings"
 
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-
-	"github.com/blang/semver"
-	"github.com/ghodss/yaml"
-	"github.com/imdario/mergo"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
-	"github.com/kubevirt/hyperconverged-cluster-operator/tools/util"
-
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const operatorName = "kubevirt-hyperconverged-operator"
-
-const CSVMode = "CSV"
-const CRDMode = "CRDs"
-
-const almExamplesAnnotation = "alm-examples"
-
-var validOutputModes = []string{CSVMode, CRDMode}
+const (
+	operatorName          = "kubevirt-hyperconverged-operator"
+	CSVMode               = "CSV"
+	CRDMode               = "CRDs"
+	almExamplesAnnotation = "alm-examples"
+	validOutputModes      = CSVMode + "|" + CRDMode
+)
 
 type ClusterServiceVersionSpecExtended struct {
 	csvv1alpha1.ClusterServiceVersionSpec
@@ -71,7 +68,7 @@ type ClusterServiceVersionExtended struct {
 type EnvVarFlags []corev1.EnvVar
 
 func (i *EnvVarFlags) String() string {
-	es := []string{}
+	es := make([]string, 0)
 	for _, ev := range *i {
 		es = append(es, fmt.Sprintf("%s=%s", ev.Name, ev.Value))
 	}
@@ -89,7 +86,7 @@ func (i *EnvVarFlags) Set(value string) error {
 
 var (
 	cwd, _              = os.Getwd()
-	outputMode          = flag.String("output-mode", CSVMode, "Working mode: "+strings.Join(validOutputModes, "|"))
+	outputMode          = flag.String("output-mode", CSVMode, "Working mode: "+validOutputModes)
 	cnaCsv              = flag.String("cna-csv", "", "Cluster Network Addons CSV string")
 	virtCsv             = flag.String("virt-csv", "", "KubeVirt CSV string")
 	sspCsv              = flag.String("ssp-csv", "", "Scheduling Scale Performance CSV string")
@@ -169,14 +166,10 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
-func validateNoAPIOverlap(crdDir string) bool {
-	var (
-		crdFiles []string
-		err      error
-	)
-	crdFiles, err = IOReadDir(crdDir)
+func validateNoAPIOverlap(crdDir string) error {
+	crdFiles, err := IOReadDir(crdDir)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// crdMap is populated with operator names as keys and a slice of associated api groups as values.
@@ -187,16 +180,18 @@ func validateNoAPIOverlap(crdDir string) bool {
 	return checkAPIOverlapMap(overlapsMap)
 }
 
-func checkAPIOverlapMap(overlapsMap map[string][]string) bool {
+func checkAPIOverlapMap(overlapsMap map[string][]string) error {
 	// if at least one overlap found - emit an error.
 	if len(overlapsMap) != 0 {
-		log.Print("ERROR: Overlapping API Groups were found between different operators.")
+		var sb strings.Builder
+		// WriteString always returns error=nil. no point to check it.
+		_, _ = sb.WriteString("ERROR: Overlapping API Groups were found between different operators.\n")
 		for apiGroup := range overlapsMap {
-			log.Printf("The API Group %s is being used by these operators: %s\n", apiGroup, strings.Join(overlapsMap[apiGroup], ", "))
+			_, _ = sb.WriteString(fmt.Sprintf("The API Group %s is being used by these operators: %s\n", apiGroup, strings.Join(overlapsMap[apiGroup], ", ")))
 		}
-		return false
+		return errors.New(sb.String())
 	}
-	return true
+	return nil
 }
 
 func detectAPIOverlap(crdMap map[string][]string) map[string][]string {
@@ -267,248 +262,15 @@ func main() {
 	}
 
 	if *crdDir != "" {
-		if validateNoAPIOverlap(*crdDir) {
-			os.Exit(0)
-		} else {
-			os.Exit(1)
-		}
+		panicOnError(validateNoAPIOverlap(*crdDir))
+		os.Exit(0)
 	}
 
 	switch *outputMode {
 	case CRDMode:
-		genHcoCrds()
+		panicOnError(genHcoCrds())
 	case CSVMode:
-		if *specDisplayName == "" || *specDescription == "" {
-			panic(errors.New("Must specify spec-displayname and spec-description"))
-		}
-
-		componentsWithCsvs := []util.CsvWithComponent{
-			{
-				Csv:       *cnaCsv,
-				Component: hcoutil.AppComponentNetwork,
-			},
-			{
-				Csv:       *virtCsv,
-				Component: hcoutil.AppComponentCompute,
-			},
-			{
-				Csv:       *sspCsv,
-				Component: hcoutil.AppComponentSchedule,
-			},
-			{
-				Csv:       *cdiCsv,
-				Component: hcoutil.AppComponentStorage,
-			},
-			{
-				Csv:       *nmoCsv,
-				Component: hcoutil.AppComponentNetwork,
-			},
-			{
-				Csv:       *hppCsv,
-				Component: hcoutil.AppComponentStorage,
-			},
-			{
-				Csv:       *vmImportCsv,
-				Component: hcoutil.AppComponentImport,
-			},
-		}
-
-		version := semver.MustParse(*csvVersion)
-		var replaces string
-		if *replacesCsvVersion != "" {
-			replaces = fmt.Sprintf("%v.v%v", operatorName, semver.MustParse(*replacesCsvVersion).String())
-		}
-
-		csvParams := &components.CSVBaseParams{
-			Name:        operatorName,
-			Namespace:   *namespace,
-			DisplayName: *specDisplayName,
-			Description: *specDescription,
-			Image:       *operatorImage,
-			Replaces:    replaces,
-			Version:     version,
-			CrdDisplay:  *crdDisplay,
-		}
-
-		// This is the basic CSV without an InstallStrategy defined
-		csvBase := components.GetCSVBase(csvParams)
-
-		if *enableUniqueSemver {
-			csvBase.ObjectMeta.Annotations["olm.skipRange"] = fmt.Sprintf(">=%v-1 <%v", strings.Split(version.String(), "-")[0], version.String())
-		}
-
-		csvExtended := ClusterServiceVersionExtended{
-			TypeMeta:   csvBase.TypeMeta,
-			ObjectMeta: csvBase.ObjectMeta,
-			Spec:       ClusterServiceVersionSpecExtended{ClusterServiceVersionSpec: csvBase.Spec},
-			Status:     csvBase.Status}
-
-		params := &components.DeploymentOperatorParams{
-			Namespace:           *namespace,
-			Image:               *operatorImage,
-			WebhookImage:        *webhookImage,
-			ImagePullPolicy:     "IfNotPresent",
-			ConversionContainer: *imsConversionImage,
-			VmwareContainer:     *imsVMWareImage,
-			Smbios:              *smbios,
-			Machinetype:         *machinetype,
-			HcoKvIoVersion:      *hcoKvIoVersion,
-			KubevirtVersion:     *kubevirtVersion,
-			CdiVersion:          *cdiVersion,
-			CnaoVersion:         *cnaoVersion,
-			SspVersion:          *sspVersion,
-			NmoVersion:          *nmoVersion,
-			HppoVersion:         *hppoVersion,
-			VMImportVersion:     *vmImportVersion,
-			Env:                 envVars,
-		}
-		// This is the base deployment + rbac for the HCO CSV
-		installStrategyBase := components.GetInstallStrategyBase(params)
-
-		overwriteDeploymentSpecLabels(installStrategyBase.DeploymentSpecs, hcoutil.AppComponentDeployment)
-
-		relatedImageSet := newRelatedImageSet()
-
-		for _, image := range strings.Split(*relatedImagesList, ",") {
-			if image != "" {
-				relatedImageSet.add(image)
-			}
-		}
-
-		for i, c := range componentsWithCsvs {
-			if c.Csv == "" {
-				csvNames := []string{"CNA", "KubeVirt", "SSP", "CDI", "NMO", "HPP", "VM Import"}
-				log.Panicf("ERROR: the %s CSV was empty", csvNames[i])
-			}
-			csvBytes := []byte(c.Csv)
-
-			csvStruct := &ClusterServiceVersionExtended{}
-
-			err := yaml.Unmarshal(csvBytes, csvStruct)
-			if err != nil {
-				panic(err)
-			}
-
-			strategySpec := csvStruct.Spec.InstallStrategy.StrategySpec
-
-			// temporary workaround for https://bugzilla.redhat.com/1907381
-			// a custom .spec.template.annotations["description"] it's causing a failure on OLM
-			// TODO: remove this once fixed on OLM side
-			for _, deployment := range strategySpec.DeploymentSpecs {
-				delete(deployment.Spec.Template.Annotations, "description")
-			}
-
-			overwriteDeploymentSpecLabels(strategySpec.DeploymentSpecs, c.Component)
-			installStrategyBase.DeploymentSpecs = append(installStrategyBase.DeploymentSpecs, strategySpec.DeploymentSpecs...)
-
-			installStrategyBase.ClusterPermissions = append(installStrategyBase.ClusterPermissions, strategySpec.ClusterPermissions...)
-			installStrategyBase.Permissions = append(installStrategyBase.Permissions, strategySpec.Permissions...)
-
-			csvExtended.Spec.WebhookDefinitions = append(csvExtended.Spec.WebhookDefinitions, csvStruct.Spec.WebhookDefinitions...)
-
-			for _, owned := range csvStruct.Spec.CustomResourceDefinitions.Owned {
-				csvExtended.Spec.CustomResourceDefinitions.Owned = append(
-					csvExtended.Spec.CustomResourceDefinitions.Owned,
-					csvv1alpha1.CRDDescription{
-						Name:        owned.Name,
-						Version:     owned.Version,
-						Kind:        owned.Kind,
-						Description: owned.Description,
-						DisplayName: owned.DisplayName,
-					},
-				)
-			}
-			csvBaseAlmString := csvExtended.Annotations[almExamplesAnnotation]
-			csvStructAlmString := csvStruct.Annotations[almExamplesAnnotation]
-			var baseAlmcrs []interface{}
-			var structAlmcrs []interface{}
-
-			if !strings.HasPrefix(csvBaseAlmString, "[") {
-				csvBaseAlmString = "[" + csvBaseAlmString + "]"
-			}
-
-			if err = json.Unmarshal([]byte(csvBaseAlmString), &baseAlmcrs); err != nil {
-				panic(err)
-			}
-			if err = json.Unmarshal([]byte(csvStructAlmString), &structAlmcrs); err != nil {
-				panic(err)
-			}
-			for _, cr := range structAlmcrs {
-				baseAlmcrs = append(
-					baseAlmcrs,
-					cr,
-				)
-			}
-			almB, err := json.Marshal(baseAlmcrs)
-			if err != nil {
-				panic(err)
-			}
-			csvExtended.Annotations[almExamplesAnnotation] = string(almB)
-
-			if !*ignoreComponentsRelatedImages {
-				for _, image := range csvStruct.Spec.RelatedImages {
-					relatedImageSet.add(image.Ref)
-				}
-			}
-		}
-
-		csvExtended.Spec.RelatedImages = relatedImageSet.dump()
-
-		hiddenCrds := []string{}
-		visibleCrds := strings.Split(*visibleCRDList, ",")
-		for _, owned := range csvExtended.Spec.CustomResourceDefinitions.Owned {
-			found := false
-			for _, name := range visibleCrds {
-				if owned.Name == name {
-					found = true
-				}
-			}
-			if !found {
-				hiddenCrds = append(
-					hiddenCrds,
-					owned.Name,
-				)
-			}
-		}
-
-		hiddenCrdsJ, err := json.Marshal(hiddenCrds)
-		if err != nil {
-			panic(err)
-		}
-		csvExtended.Annotations["operators.operatorframework.io/internal-objects"] = string(hiddenCrdsJ)
-
-		// Update csv strategy.
-		csvExtended.Spec.InstallStrategy.StrategyName = "deployment"
-		csvExtended.Spec.InstallStrategy.StrategySpec = *installStrategyBase
-
-		if *metadataDescription != "" {
-			csvExtended.Annotations["description"] = *metadataDescription
-		}
-		if *specDescription != "" {
-			csvExtended.Spec.Description = *specDescription
-		}
-		if *specDisplayName != "" {
-			csvExtended.Spec.DisplayName = *specDisplayName
-		}
-
-		if *csvOverrides != "" {
-			csvOBytes := []byte(*csvOverrides)
-
-			csvO := &ClusterServiceVersionExtended{}
-
-			err := yaml.Unmarshal(csvOBytes, csvO)
-			if err != nil {
-				panic(err)
-			}
-
-			err = mergo.Merge(&csvExtended, csvO, mergo.WithOverride)
-			if err != nil {
-				panic(err)
-			}
-
-		}
-
-		util.MarshallObject(csvExtended, os.Stdout)
+		getHcoCsv()
 
 	default:
 		panic("Unsupported output mode: " + *outputMode)
@@ -516,8 +278,260 @@ func main() {
 
 }
 
+func getHcoCsv() {
+	if *specDisplayName == "" || *specDescription == "" {
+		panic(errors.New("must specify spec-displayname and spec-description"))
+	}
+
+	componentsWithCsvs := getInitialCsvList()
+
+	version := semver.MustParse(*csvVersion)
+	replaces := getReplacesVersion()
+
+	csvParams := getCsvBaseParams(replaces, version)
+
+	// This is the basic CSV without an InstallStrategy defined
+	csvBase := components.GetCSVBase(csvParams)
+
+	if *enableUniqueSemver {
+		csvBase.ObjectMeta.Annotations["olm.skipRange"] = fmt.Sprintf(">=%v-1 <%v", strings.Split(version.String(), "-")[0], version.String())
+	}
+
+	csvExtended := ClusterServiceVersionExtended{
+		TypeMeta:   csvBase.TypeMeta,
+		ObjectMeta: csvBase.ObjectMeta,
+		Spec:       ClusterServiceVersionSpecExtended{ClusterServiceVersionSpec: csvBase.Spec},
+		Status:     csvBase.Status}
+
+	params := getDeploymentParams()
+	// This is the base deployment + rbac for the HCO CSV
+	installStrategyBase := components.GetInstallStrategyBase(params)
+
+	overwriteDeploymentSpecLabels(installStrategyBase.DeploymentSpecs, hcoutil.AppComponentDeployment)
+
+	relatedImageSet := getRelatedImages()
+
+	processCsvs(componentsWithCsvs, installStrategyBase, &csvExtended, relatedImageSet)
+
+	csvExtended.Spec.RelatedImages = relatedImageSet.dump()
+
+	hiddenCRDsJ, err := getHiddenCrds(csvExtended)
+	panicOnError(err)
+
+	csvExtended.Annotations["operators.operatorframework.io/internal-objects"] = hiddenCRDsJ
+
+	// Update csv strategy.
+	csvExtended.Spec.InstallStrategy.StrategyName = "deployment"
+	csvExtended.Spec.InstallStrategy.StrategySpec = *installStrategyBase
+
+	if *metadataDescription != "" {
+		csvExtended.Annotations["description"] = *metadataDescription
+	}
+	if *specDescription != "" {
+		csvExtended.Spec.Description = *specDescription
+	}
+	if *specDisplayName != "" {
+		csvExtended.Spec.DisplayName = *specDisplayName
+	}
+
+	applyOverrides(csvExtended)
+
+	util.MarshallObject(csvExtended, os.Stdout)
+}
+
+func getHiddenCrds(csvExtended ClusterServiceVersionExtended) (string, error) {
+	hiddenCrds := make([]string, 0)
+	visibleCrds := strings.Split(*visibleCRDList, ",")
+	for _, owned := range csvExtended.Spec.CustomResourceDefinitions.Owned {
+		if !stringInSlice(owned.Name, visibleCrds) {
+			hiddenCrds = append(
+				hiddenCrds,
+				owned.Name,
+			)
+		}
+	}
+
+	hiddenCrdsJ, err := json.Marshal(hiddenCrds)
+	if err != nil {
+		return "", err
+	}
+	return string(hiddenCrdsJ), nil
+}
+
+func processCsvs(componentsWithCsvs []util.CsvWithComponent, installStrategyBase *csvv1alpha1.StrategyDetailsDeployment, csvExtended *ClusterServiceVersionExtended, relatedImageSet RelatedImageSet) {
+	for i, c := range componentsWithCsvs {
+		processOneCsv(c, i, installStrategyBase, csvExtended, relatedImageSet)
+	}
+}
+
+func processOneCsv(c util.CsvWithComponent, i int, installStrategyBase *csvv1alpha1.StrategyDetailsDeployment, csvExtended *ClusterServiceVersionExtended, relatedImageSet RelatedImageSet) {
+	if c.Csv == "" {
+		csvNames := []string{"CNA", "KubeVirt", "SSP", "CDI", "NMO", "HPP", "VM Import"}
+		log.Panicf("ERROR: the %s CSV was empty", csvNames[i])
+	}
+	csvBytes := []byte(c.Csv)
+
+	csvStruct := &ClusterServiceVersionExtended{}
+
+	panicOnError(yaml.Unmarshal(csvBytes, csvStruct))
+
+	strategySpec := csvStruct.Spec.InstallStrategy.StrategySpec
+
+	// temporary workaround for https://bugzilla.redhat.com/1907381
+	// a custom .spec.template.annotations["description"] it's causing a failure on OLM
+	// TODO: remove this once fixed on OLM side
+	for _, deployment := range strategySpec.DeploymentSpecs {
+		delete(deployment.Spec.Template.Annotations, "description")
+	}
+
+	overwriteDeploymentSpecLabels(strategySpec.DeploymentSpecs, c.Component)
+	installStrategyBase.DeploymentSpecs = append(installStrategyBase.DeploymentSpecs, strategySpec.DeploymentSpecs...)
+
+	installStrategyBase.ClusterPermissions = append(installStrategyBase.ClusterPermissions, strategySpec.ClusterPermissions...)
+	installStrategyBase.Permissions = append(installStrategyBase.Permissions, strategySpec.Permissions...)
+
+	csvExtended.Spec.WebhookDefinitions = append(csvExtended.Spec.WebhookDefinitions, csvStruct.Spec.WebhookDefinitions...)
+
+	for _, owned := range csvStruct.Spec.CustomResourceDefinitions.Owned {
+		csvExtended.Spec.CustomResourceDefinitions.Owned = append(
+			csvExtended.Spec.CustomResourceDefinitions.Owned,
+			newCRDDescription(owned),
+		)
+	}
+	csvBaseAlmString := csvExtended.Annotations[almExamplesAnnotation]
+	csvStructAlmString := csvStruct.Annotations[almExamplesAnnotation]
+	var baseAlmcrs []interface{}
+	var structAlmcrs []interface{}
+
+	if !strings.HasPrefix(csvBaseAlmString, "[") {
+		csvBaseAlmString = "[" + csvBaseAlmString + "]"
+	}
+
+	panicOnError(json.Unmarshal([]byte(csvBaseAlmString), &baseAlmcrs))
+	panicOnError(json.Unmarshal([]byte(csvStructAlmString), &structAlmcrs))
+
+	baseAlmcrs = append(baseAlmcrs, structAlmcrs...)
+	almB, err := json.Marshal(baseAlmcrs)
+	panicOnError(err)
+	csvExtended.Annotations[almExamplesAnnotation] = string(almB)
+
+	if !*ignoreComponentsRelatedImages {
+		for _, image := range csvStruct.Spec.RelatedImages {
+			relatedImageSet.add(image.Ref)
+		}
+	}
+}
+
+func newCRDDescription(owned csvv1alpha1.CRDDescription) csvv1alpha1.CRDDescription {
+	return csvv1alpha1.CRDDescription{
+		Name:        owned.Name,
+		Version:     owned.Version,
+		Kind:        owned.Kind,
+		Description: owned.Description,
+		DisplayName: owned.DisplayName,
+	}
+}
+
+func applyOverrides(csvExtended ClusterServiceVersionExtended) {
+	if *csvOverrides != "" {
+		csvOBytes := []byte(*csvOverrides)
+
+		csvO := &ClusterServiceVersionExtended{}
+
+		panicOnError(yaml.Unmarshal(csvOBytes, csvO))
+
+		panicOnError(mergo.Merge(&csvExtended, csvO, mergo.WithOverride))
+	}
+}
+
+func getInitialCsvList() []util.CsvWithComponent {
+	return []util.CsvWithComponent{
+		{
+			Csv:       *cnaCsv,
+			Component: hcoutil.AppComponentNetwork,
+		},
+		{
+			Csv:       *virtCsv,
+			Component: hcoutil.AppComponentCompute,
+		},
+		{
+			Csv:       *sspCsv,
+			Component: hcoutil.AppComponentSchedule,
+		},
+		{
+			Csv:       *cdiCsv,
+			Component: hcoutil.AppComponentStorage,
+		},
+		{
+			Csv:       *nmoCsv,
+			Component: hcoutil.AppComponentNetwork,
+		},
+		{
+			Csv:       *hppCsv,
+			Component: hcoutil.AppComponentStorage,
+		},
+		{
+			Csv:       *vmImportCsv,
+			Component: hcoutil.AppComponentImport,
+		},
+	}
+}
+
+func getReplacesVersion() string {
+	if *replacesCsvVersion != "" {
+		return fmt.Sprintf("%v.v%v", operatorName, semver.MustParse(*replacesCsvVersion).String())
+	}
+	return ""
+}
+
+func getRelatedImages() RelatedImageSet {
+	relatedImageSet := newRelatedImageSet()
+
+	for _, image := range strings.Split(*relatedImagesList, ",") {
+		if image != "" {
+			relatedImageSet.add(image)
+		}
+	}
+	return relatedImageSet
+}
+
+func getCsvBaseParams(replaces string, version semver.Version) *components.CSVBaseParams {
+	return &components.CSVBaseParams{
+		Name:        operatorName,
+		Namespace:   *namespace,
+		DisplayName: *specDisplayName,
+		Description: *specDescription,
+		Image:       *operatorImage,
+		Replaces:    replaces,
+		Version:     version,
+		CrdDisplay:  *crdDisplay,
+	}
+}
+
+func getDeploymentParams() *components.DeploymentOperatorParams {
+	return &components.DeploymentOperatorParams{
+		Namespace:           *namespace,
+		Image:               *operatorImage,
+		WebhookImage:        *webhookImage,
+		ImagePullPolicy:     "IfNotPresent",
+		ConversionContainer: *imsConversionImage,
+		VmwareContainer:     *imsVMWareImage,
+		Smbios:              *smbios,
+		Machinetype:         *machinetype,
+		HcoKvIoVersion:      *hcoKvIoVersion,
+		KubevirtVersion:     *kubevirtVersion,
+		CdiVersion:          *cdiVersion,
+		CnaoVersion:         *cnaoVersion,
+		SspVersion:          *sspVersion,
+		NmoVersion:          *nmoVersion,
+		HppoVersion:         *hppoVersion,
+		VMImportVersion:     *vmImportVersion,
+		Env:                 envVars,
+	}
+}
+
 func overwriteDeploymentSpecLabels(specs []csvv1alpha1.StrategyDeploymentSpec, component hcoutil.AppComponent) {
-	for i, _ := range specs {
+	for i := range specs {
 		if specs[i].Label == nil {
 			specs[i].Label = make(map[string]string)
 		}
@@ -569,7 +583,7 @@ func (ri *RelatedImageSet) add(image string) {
 
 // return the related image set as a sorted slice
 func (ri RelatedImageSet) dump() []relatedImage {
-	images := []relatedImage{}
+	images := make([]relatedImage, 0, len(ri))
 
 	for name, image := range ri {
 		images = append(images, relatedImage{Name: name, Ref: image})
@@ -596,6 +610,7 @@ func (ris relatedImageSortable) Swap(i, j int) {
 
 func panicOnError(err error) {
 	if err != nil {
+		log.Println("Error!", err)
 		panic(err)
 	}
 }
