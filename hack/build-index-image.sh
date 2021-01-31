@@ -40,6 +40,11 @@ function create_index_image() {
 
   docker build -t "${BUNDLE_IMAGE_NAME}" -f bundle.Dockerfile --build-arg "VERSION=${CURRENT_VERSION}" .
   docker push "${BUNDLE_IMAGE_NAME}"
+
+  # Extract the digest of the bundle image, to be added to the index image
+  DIGEST=$("${PROJECT_ROOT}/tools/digester/digester" --image "${BUNDLE_IMAGE_NAME}" -d)
+  BUNDLE_IMAGE_NAME="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${BUNDLE_REGISTRY_IMAGE_NAME}@sha256:${DIGEST}"
+
   # shellcheck disable=SC2086
   ${OPM} index add --bundles "${BUNDLE_IMAGE_NAME}" ${INDEX_IMAGE_PARAM} --tag "${INDEX_IMAGE_NAME}" -u docker
   docker push "${INDEX_IMAGE_NAME}"
