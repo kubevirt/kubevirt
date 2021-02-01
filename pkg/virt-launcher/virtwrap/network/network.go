@@ -35,7 +35,8 @@ import (
 const primaryPodInterfaceName = "eth0"
 
 var vifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
-var podNICFactory = newpodNIC
+var podNICFactory = newPodNIC
+var dynamicIPv6PodNICFactory = newPodNICWithDynamicIPv6
 var raSenderUnixSocketTemplate = "/proc/%s/root/var/run/kubevirt/sockets/%s"
 
 type PodCacheInterface struct {
@@ -85,6 +86,14 @@ func invokePodNICFactory(networks map[string]*v1.Network, ifaceName string) (pod
 	return podNICFactory(network)
 }
 
+func invokeDynamicIPv6PodNICFactory(networks map[string]*v1.Network, ifaceName string) (podNIC, error) {
+	network, ok := networks[ifaceName]
+	if !ok {
+		return nil, fmt.Errorf("failed to find a network %s", ifaceName)
+	}
+	return dynamicIPv6PodNICFactory(network)
+}
+
 func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string]int, ifaceName string) string {
 	if networks[ifaceName].Multus != nil && !networks[ifaceName].Multus.Default {
 		// multus pod interfaces named netX
@@ -94,20 +103,25 @@ func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string
 	}
 }
 
-func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int) error {
+func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int, hasDynamicIPv6 bool) error {
+	// Create a dir with VMI UID under network-info-dir to store network files
 	err := CreateVirtHandlerCacheDir(vmi.ObjectMeta.UID)
 	if err != nil {
 		return err
 	}
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
 	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		podnic, err := invokePodNICFactory(networks, iface.Name)
+		var podnic podNIC
+		if hasDynamicIPv6 {
+			podnic, err = invokeDynamicIPv6PodNICFactory(networks, iface.Name)
+		} else {
+			podnic, err = invokePodNICFactory(networks, iface.Name)
+		}
 		if err != nil {
 			return err
 		}
 		podInterfaceName := getPodInterfaceName(networks, cniNetworks, iface.Name)
-		err = podNIC.PlugPhase1(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], podInterfaceName, pid)
-		if err != nil {
+		if err = podnic.PlugPhase1(vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], podInterfaceName, pid); err != nil {
 			return err
 		}
 	}
@@ -130,9 +144,18 @@ func SetupPodNetworkPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain) e
 	return nil
 }
 
-func newpodNIC(network *v1.Network) (podNIC, error) {
+func newPodNIC(network *v1.Network) (podNIC, error) {
 	if network.Pod != nil || network.Multus != nil {
-		return new(podNICImpl), nil
+		return &podNICImpl{}, nil
+	}
+	return nil, fmt.Errorf("Network not implemented")
+}
+
+func newPodNICWithDynamicIPv6(network *v1.Network) (podNIC, error) {
+	if network.Pod != nil || network.Multus != nil {
+		return &podNICImpl{
+			dynamicIPv6: true,
+		}, nil
 	}
 	return nil, fmt.Errorf("Network not implemented")
 }

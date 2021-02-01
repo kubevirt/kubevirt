@@ -75,7 +75,9 @@ type BindMechanism interface {
 	startDynamicIPServers(vmi *v1.VirtualMachineInstance) error
 }
 
-type podNICImpl struct{}
+type podNICImpl struct {
+	dynamicIPv6 bool
+}
 
 func getVifFilePath(pid, name string) string {
 	return fmt.Sprintf(vifCacheFile, pid, name)
@@ -177,7 +179,7 @@ func (l *podNICImpl) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 		return nil
 	}
 
-	bindMechanism, err := getPhase1Binding(vmi, iface, network, podInterfaceName)
+	bindMechanism, err := getPhase1Binding(vmi, iface, network, podInterfaceName, l.dynamicIPv6)
 	if err != nil {
 		return err
 	}
@@ -256,7 +258,7 @@ func (l *podNICImpl) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 		return nil
 	}
 
-	bindMechanism, err := getPhase2Binding(vmi, iface, network, domain, podInterfaceName)
+	bindMechanism, err := getPhase2Binding(vmi, iface, network, domain, podInterfaceName, l.dynamicIPv6)
 	if err != nil {
 		return err
 	}
@@ -297,11 +299,11 @@ func (l *podNICImpl) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 // should not require access to domain definition, hence we pass nil instead of
 // it. This means that any functions called under phase1 code path should not
 // use the domain set on the binding.
-func getPhase1Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string) (BindMechanism, error) {
-	return getPhase2Binding(vmi, iface, network, nil, podInterfaceName)
+func getPhase1Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, dynamicIPv6 bool) (BindMechanism, error) {
+	return getPhase2Binding(vmi, iface, network, nil, podInterfaceName, dynamicIPv6)
 }
 
-func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) (BindMechanism, error) {
+func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string, dynamicIPv6 bool) (BindMechanism, error) {
 	retrieveMacAddress := func(iface *v1.Interface) (*net.HardwareAddr, error) {
 		if iface.MacAddress != "" {
 			macAddress, err := net.ParseMAC(iface.MacAddress)
@@ -335,7 +337,7 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 		if err != nil {
 			return nil, err
 		}
-		vif := &VIF{Name: podInterfaceName}
+		vif := &VIF{Name: podInterfaceName, DynamicIPv6: dynamicIPv6}
 		if mac != nil {
 			vif.MAC = *mac
 		}
@@ -347,7 +349,9 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 			podInterfaceName:    podInterfaceName,
 			vmNetworkCIDR:       network.Pod.VMNetworkCIDR,
 			vmIpv6NetworkCIDR:   "", // TODO add ipv6 cidr to PodNetwork schema
-			bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName)}, nil
+			bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName),
+			dynamicIPv6:         dynamicIPv6,
+		}, nil
 	}
 	if iface.Slirp != nil {
 		return &SlirpBindMechanism{vmi: vmi, iface: iface, domain: domain}, nil
@@ -700,6 +704,7 @@ type MasqueradeBindMechanism struct {
 	vmIpv6NetworkCIDR   string
 	gatewayAddr         *netlink.Addr
 	gatewayIpv6Addr     *netlink.Addr
+	dynamicIPv6         bool
 }
 
 func (b *MasqueradeBindMechanism) discoverPodNetworkInterface() error {
@@ -789,7 +794,7 @@ func configureVifV6Addresses(b *MasqueradeBindMechanism, err error) error {
 }
 
 func (b *MasqueradeBindMechanism) startDynamicIPServers(vmi *v1.VirtualMachineInstance) error {
-	if b.vif.IPv6.IPNet != nil {
+	if b.vif.IPv6.IPNet != nil && b.vif.DynamicIPv6 {
 		if err := b.startRouterAdvertiser(); err != nil {
 			log.Log.Criticalf("could not start the Router Advertiser: %v", err)
 			return err
@@ -867,8 +872,10 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32
 			return err
 		}
 
-		if err := Handler.CreateAndExportNDPConnection(b.bridgeInterfaceName, launcherPID); err != nil {
-			log.Log.Criticalf("could not start the Router Advertiser: %v", err)
+		if b.dynamicIPv6 {
+			if err := Handler.CreateAndExportNDPConnection(b.bridgeInterfaceName, launcherPID); err != nil {
+				log.Log.Criticalf("could not start the Router Advertiser: %v", err)
+			}
 		}
 	}
 

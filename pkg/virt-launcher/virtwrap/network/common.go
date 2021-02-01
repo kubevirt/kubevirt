@@ -63,6 +63,7 @@ type VIF struct {
 	Routes       *[]netlink.Route
 	Mtu          uint16
 	IPAMDisabled bool
+	DynamicIPv6  bool
 }
 
 type CriticalNetworkError struct {

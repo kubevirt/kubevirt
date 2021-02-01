@@ -436,7 +436,7 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 		return false, nil
 	}
 
-	err = res.DoNetNS(func() error { return network.SetupPodNetworkPhase1(vmi, pid) })
+	err = res.DoNetNS(func() error { return network.SetupPodNetworkPhase1(vmi, pid, d.clusterConfig.RAGateEnabled()) })
 	if err != nil {
 		_, critical := err.(*network.CriticalNetworkError)
 		if critical {
