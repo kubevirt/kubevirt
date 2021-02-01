@@ -33,6 +33,7 @@ import (
 
 const (
 	chkOff              = 2
+	exportSocketTimeout = 2 * time.Minute
 	importSocketTimeout = time.Minute
 	maxHops             = 255
 	raBufferSize        = 128
@@ -142,6 +143,10 @@ func (l *NDPConnection) Export(socketPath string) error {
 	}
 
 	defer socketListener.Close()
+	ipConn := socketListener.(*net.UnixListener)
+	if err := ipConn.SetDeadline(time.Now().Add(exportSocketTimeout)); err != nil {
+		return fmt.Errorf("could not set `accept` deadline: %v", err)
+	}
 	icmpListenerFD, err := l.GetFD()
 	if err != nil {
 		return fmt.Errorf("could not get an opened file descriptor from the icmp listener: %v", err)
