@@ -2,6 +2,7 @@ package commonTestUtils
 
 import (
 	"context"
+	"fmt"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 
@@ -67,12 +68,29 @@ func NewReq(inst *hcov1beta1.HyperConverged) *common.HcoRequest {
 	}
 }
 
-func NewNodePlacement() *sdkapi.NodePlacement {
-	seconds1, seconds2 := int64(1), int64(2)
+func getNodePlacement(num1, num2 int64) *sdkapi.NodePlacement {
+	var (
+		key1 = fmt.Sprintf("key%d", num1)
+		key2 = fmt.Sprintf("key%d", num2)
+
+		val1 = fmt.Sprintf("value%d", num1)
+		val2 = fmt.Sprintf("value%d", num2)
+
+		operator1 = corev1.NodeSelectorOperator(fmt.Sprintf("operator%d", num1))
+		operator2 = corev1.NodeSelectorOperator(fmt.Sprintf("operator%d", num2))
+
+		effect1 = corev1.TaintEffect(fmt.Sprintf("effect%d", num1))
+		effect2 = corev1.TaintEffect(fmt.Sprintf("effect%d", num2))
+
+		firstVal1  = fmt.Sprintf("value%d1", num1)
+		secondVal1 = fmt.Sprintf("value%d2", num1)
+		firstVal2  = fmt.Sprintf("value%d1", num2)
+		secondVal2 = fmt.Sprintf("value%d2", num2)
+	)
 	return &sdkapi.NodePlacement{
 		NodeSelector: map[string]string{
-			"key1": "value1",
-			"key2": "value2",
+			key1: val1,
+			key2: val2,
 		},
 		Affinity: &corev1.Affinity{
 			NodeAffinity: &corev1.NodeAffinity{
@@ -80,12 +98,12 @@ func NewNodePlacement() *sdkapi.NodePlacement {
 					NodeSelectorTerms: []corev1.NodeSelectorTerm{
 						{
 							MatchExpressions: []corev1.NodeSelectorRequirement{
-								{Key: "key1", Operator: "operator1", Values: []string{"value11, value12"}},
-								{Key: "key2", Operator: "operator2", Values: []string{"value21, value22"}},
+								{Key: key1, Operator: operator1, Values: []string{firstVal1, secondVal1}},
+								{Key: key2, Operator: operator2, Values: []string{firstVal2, secondVal2}},
 							},
 							MatchFields: []corev1.NodeSelectorRequirement{
-								{Key: "key1", Operator: "operator1", Values: []string{"value11, value12"}},
-								{Key: "key2", Operator: "operator2", Values: []string{"value21, value22"}},
+								{Key: key1, Operator: operator1, Values: []string{firstVal1, secondVal1}},
+								{Key: key2, Operator: operator2, Values: []string{firstVal2, secondVal2}},
 							},
 						},
 					},
@@ -93,42 +111,18 @@ func NewNodePlacement() *sdkapi.NodePlacement {
 			},
 		},
 		Tolerations: []corev1.Toleration{
-			{Key: "key1", Operator: "operator1", Value: "value1", Effect: "effect1", TolerationSeconds: &seconds1},
-			{Key: "key2", Operator: "operator2", Value: "value2", Effect: "effect2", TolerationSeconds: &seconds2},
+			{Key: key1, Operator: corev1.TolerationOperator(operator1), Value: val1, Effect: effect1, TolerationSeconds: &num1},
+			{Key: key2, Operator: corev1.TolerationOperator(operator2), Value: val2, Effect: effect2, TolerationSeconds: &num2},
 		},
 	}
 }
 
+func NewNodePlacement() *sdkapi.NodePlacement {
+	return getNodePlacement(1, 2)
+}
+
 func NewOtherNodePlacement() *sdkapi.NodePlacement {
-	seconds3, seconds4 := int64(3), int64(4)
-	return &sdkapi.NodePlacement{
-		NodeSelector: map[string]string{
-			"key3": "value3",
-			"key4": "value4",
-		},
-		Affinity: &corev1.Affinity{
-			NodeAffinity: &corev1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-					NodeSelectorTerms: []corev1.NodeSelectorTerm{
-						{
-							MatchExpressions: []corev1.NodeSelectorRequirement{
-								{Key: "key3", Operator: "operator3", Values: []string{"value31, value32"}},
-								{Key: "key4", Operator: "operator4", Values: []string{"value41, value42"}},
-							},
-							MatchFields: []corev1.NodeSelectorRequirement{
-								{Key: "key3", Operator: "operator3", Values: []string{"value31, value32"}},
-								{Key: "key4", Operator: "operator4", Values: []string{"value41, value42"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		Tolerations: []corev1.Toleration{
-			{Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3},
-			{Key: "key4", Operator: "operator4", Value: "value4", Effect: "effect4", TolerationSeconds: &seconds4},
-		},
-	}
+	return getNodePlacement(3, 4)
 }
 
 var testScheme *runtime.Scheme
