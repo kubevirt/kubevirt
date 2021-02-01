@@ -20,9 +20,11 @@
 package ndp
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	"github.com/ftrvxmtrx/fd"
 	"github.com/mdlayher/ndp"
@@ -30,9 +32,10 @@ import (
 )
 
 const (
-	chkOff       = 2
-	maxHops      = 255
-	raBufferSize = 128
+	chkOff              = 2
+	importSocketTimeout = time.Minute
+	maxHops             = 255
+	raBufferSize        = 128
 )
 
 // A NDPConnection instruments a system.Conn and adds retry functionality for
@@ -111,7 +114,10 @@ func getIPv6ControlMsg() *ipv6.ControlMessage {
 }
 
 func ImportConnection(socketPath string) (*os.File, error) {
-	c, err := net.Dial("unix", socketPath)
+	ctx, cancel := context.WithTimeout(context.Background(), importSocketTimeout)
+	defer cancel()
+
+	c, err := (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
 	if err != nil {
 		return nil, fmt.Errorf("error dialing to unix domain socket at %s: %v", socketPath, err)
 	}
