@@ -13,11 +13,12 @@ import (
 	"sigs.k8s.io/controller-tools/pkg/loader"
 	"sigs.k8s.io/controller-tools/pkg/markers"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-
 	"github.com/blang/semver"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	csvVersion "github.com/operator-framework/api/pkg/lib/version"
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -41,6 +42,8 @@ const (
 	hcoDeploymentName   = "hco-operator"
 	hcoWhDeploymentName = "hco-webhook"
 	certVolume          = "apiservice-cert"
+
+	kubevirtProjectName = "KubeVirt project"
 )
 
 type DeploymentOperatorParams struct {
@@ -816,10 +819,10 @@ func GetV2VCRD() *extv1beta1.CustomResourceDefinition {
 			Kind:       "CustomResourceDefinition",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "v2vvmwares.v2v.kubevirt.io",
+			Name: "v2vvmwares." + vmimportv1beta1.SchemeGroupVersion.Group,
 		},
 		Spec: extv1beta1.CustomResourceDefinitionSpec{
-			Group:   "v2v.kubevirt.io",
+			Group:   vmimportv1beta1.SchemeGroupVersion.Group,
 			Version: "v1alpha1",
 			Scope:   "Namespaced",
 			Versions: []extv1beta1.CustomResourceDefinitionVersion{
@@ -848,10 +851,10 @@ func GetV2VOvirtProviderCRD() *extv1beta1.CustomResourceDefinition {
 			Kind:       "CustomResourceDefinition",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "ovirtproviders.v2v.kubevirt.io",
+			Name: "ovirtproviders." + vmimportv1beta1.SchemeGroupVersion.Group,
 		},
 		Spec: extv1beta1.CustomResourceDefinitionSpec{
-			Group:   "v2v.kubevirt.io",
+			Group:   vmimportv1beta1.SchemeGroupVersion.Group,
 			Version: "v1alpha1",
 			Scope:   "Namespaced",
 			Versions: []extv1beta1.CustomResourceDefinitionVersion{
@@ -1047,16 +1050,16 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 		WebhookPath: &webhookPath,
 	}
 
-	sideEffectMutating := admissionregistrationv1.SideEffectClassNoneOnDryRun
-	webhookPathMutating := util.HCONSWebhookPath
+	mutatingWebhookSideEffects := admissionregistrationv1.SideEffectClassNoneOnDryRun
+	mutatingWebhookPath := util.HCONSWebhookPath
 
-	nsMutatingWebhook := csvv1alpha1.WebhookDescription{
+	mutatingWebhook := csvv1alpha1.WebhookDescription{
 		GenerateName:            util.HcoMutatingWebhookNS,
 		Type:                    csvv1alpha1.MutatingAdmissionWebhook,
 		DeploymentName:          hcoWhDeploymentName,
 		ContainerPort:           util.WebhookPort,
 		AdmissionReviewVersions: []string{"v1beta1", "v1"},
-		SideEffects:             &sideEffectMutating,
+		SideEffects:             &mutatingWebhookSideEffects,
 		FailurePolicy:           &failurePolicy,
 		TimeoutSeconds:          &webhookTimeout,
 		ObjectSelector: &metav1.LabelSelector{
@@ -1074,7 +1077,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 				},
 			},
 		},
-		WebhookPath: &webhookPathMutating,
+		WebhookPath: &mutatingWebhookPath,
 	}
 
 	return &csvv1alpha1.ClusterServiceVersion{
@@ -1107,19 +1110,19 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 			Replaces:    params.Replaces,
 			Maintainers: []csvv1alpha1.Maintainer{
 				csvv1alpha1.Maintainer{
-					Name:  "KubeVirt project",
+					Name:  kubevirtProjectName,
 					Email: "kubevirt-dev@googlegroups.com",
 				},
 			},
 			Maturity: "alpha",
 			Provider: csvv1alpha1.AppLink{
-				Name: "KubeVirt project",
+				Name: kubevirtProjectName,
 				// https://github.com/operator-framework/operator-courier/issues/173
 				// URL:  "https://kubevirt.io",
 			},
 			Links: []csvv1alpha1.AppLink{
 				csvv1alpha1.AppLink{
-					Name: "KubeVirt project",
+					Name: kubevirtProjectName,
 					URL:  "https://kubevirt.io",
 				},
 				csvv1alpha1.AppLink{
@@ -1164,7 +1167,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 			// Skip this in favor of having a separate function to get
 			// the actual StrategyDetailsDeployment when merging CSVs
 			InstallStrategy:    csvv1alpha1.NamedInstallStrategy{},
-			WebhookDefinitions: []csvv1alpha1.WebhookDescription{validatingWebhook, nsMutatingWebhook},
+			WebhookDefinitions: []csvv1alpha1.WebhookDescription{validatingWebhook, mutatingWebhook},
 			CustomResourceDefinitions: csvv1alpha1.CustomResourceDefinitions{
 				Owned: []csvv1alpha1.CRDDescription{
 					{

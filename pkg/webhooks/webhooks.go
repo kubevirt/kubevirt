@@ -69,72 +69,75 @@ func (wh WebhookHandler) ValidateUpdate(requested *v1beta1.HyperConverged, exist
 	ctx, cancel := context.WithTimeout(context.Background(), updateDryRunTimeOut)
 	defer cancel()
 
-	if !reflect.DeepEqual(exists.Spec, requested.Spec) || !reflect.DeepEqual(exists.Annotations, requested.Annotations) {
+	// If no change is detected in the spec nor the annotations - nothing to validate
+	if reflect.DeepEqual(exists.Spec, requested.Spec) &&
+		reflect.DeepEqual(exists.Annotations, requested.Annotations) {
+		return nil
+	}
 
-		kv, err := operands.NewKubeVirt(requested)
-		if err != nil {
-			return err
-		}
+	kv, err := operands.NewKubeVirt(requested)
+	if err != nil {
+		return err
+	}
 
-		cdi, err := operands.NewCDI(requested)
-		if err != nil {
-			return err
-		}
+	cdi, err := operands.NewCDI(requested)
+	if err != nil {
+		return err
+	}
 
-		cna, err := operands.NewNetworkAddons(requested)
-		if err != nil {
-			return err
-		}
+	cna, err := operands.NewNetworkAddons(requested)
+	if err != nil {
+		return err
+	}
 
-		wg := sync.WaitGroup{}
-		errorCh := make(chan error)
-		done := make(chan bool)
+	wg := sync.WaitGroup{}
+	errorCh := make(chan error)
+	done := make(chan bool)
 
-		opts := &client.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
+	opts := &client.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
 
-		resources := []client.Object{
-			kv,
-			cdi,
-			cna,
-			operands.NewVMImportForCR(requested),
-		}
+	resources := []client.Object{
+		kv,
+		cdi,
+		cna,
+		operands.NewVMImportForCR(requested),
+	}
 
-		if wh.isOpenshift {
-			resources = append(resources,
-				operands.NewSSP(requested),
-			)
-		}
+	if wh.isOpenshift {
+		resources = append(resources,
+			operands.NewSSP(requested),
+		)
+	}
 
-		wg.Add(len(resources))
+	wg.Add(len(resources))
 
-		go func() {
-			wg.Wait()
-			close(done)
-		}()
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
 
-		for _, obj := range resources {
-			go func(o client.Object, wgr *sync.WaitGroup) {
-				defer wgr.Done()
-				if err := wh.updateOperatorCr(ctx, requested, o, opts); err != nil {
-					errorCh <- err
-				}
-			}(obj, &wg)
-		}
-
-		select {
-		case err := <-errorCh:
-			return err
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-done:
-			// just in case close(done) was selected while there is an error,
-			// check the error channel again.
-			if len(errorCh) != 0 {
-				err := <-errorCh
-				return err
+	for _, obj := range resources {
+		go func(o client.Object, wgr *sync.WaitGroup) {
+			defer wgr.Done()
+			if err := wh.updateOperatorCr(ctx, requested, o, opts); err != nil {
+				errorCh <- err
 			}
-			return nil
+		}(obj, &wg)
+	}
+
+	select {
+	case err := <-errorCh:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-done:
+		// just in case close(done) was selected while there is an error,
+		// check the error channel again.
+		if len(errorCh) != 0 {
+			err := <-errorCh
+			return err
 		}
+		return nil
 	}
 
 	return nil

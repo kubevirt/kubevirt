@@ -22,9 +22,9 @@ func NewHcoConditions() HcoConditions {
 }
 
 func (hc HcoConditions) SetStatusCondition(newCondition conditionsv1.Condition) {
-	existingCondition, ok := hc[newCondition.Type]
+	existingCondition, exists := hc[newCondition.Type]
 
-	if !ok {
+	if !exists {
 		hc[newCondition.Type] = newCondition
 		return
 	}
@@ -38,6 +38,18 @@ func (hc HcoConditions) SetStatusCondition(newCondition conditionsv1.Condition) 
 	hc[newCondition.Type] = existingCondition
 }
 
-func (hc HcoConditions) Empty() bool {
+func (hc HcoConditions) SetStatusConditionIfUnset(newCondition conditionsv1.Condition) {
+	if !hc.HasCondition(newCondition.Type) {
+		hc.SetStatusCondition(newCondition)
+	}
+}
+
+func (hc HcoConditions) IsEmpty() bool {
 	return len(hc) == 0
+}
+
+func (hc HcoConditions) HasCondition(conditionType conditionsv1.ConditionType) bool {
+	_, exists := hc[conditionType]
+
+	return exists
 }

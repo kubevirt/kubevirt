@@ -572,7 +572,7 @@ func (r *ReconcileHyperConverged) aggregateComponentConditions(req *common.HcoRe
 			captured at one time (ie. if KubeVirt and CDI are both reporting !Available,
 		    you will only see CDI as it updates last).
 	*/
-	allComponentsAreUp := req.Conditions.Empty()
+	allComponentsAreUp := req.Conditions.IsEmpty()
 	req.Conditions.SetStatusCondition(conditionsv1.Condition{
 		Type:    hcov1beta1.ConditionReconcileComplete,
 		Status:  corev1.ConditionTrue,
@@ -580,33 +580,31 @@ func (r *ReconcileHyperConverged) aggregateComponentConditions(req *common.HcoRe
 		Message: reconcileCompletedMessage,
 	})
 
-	if _, conditionFound := req.Conditions[conditionsv1.ConditionDegraded]; conditionFound { // (#chart 1)
-		if _, conditionFound = req.Conditions[conditionsv1.ConditionProgressing]; !conditionFound { // (#chart 2)
-			req.Conditions.SetStatusCondition(conditionsv1.Condition{ // (#chart 3)
-				Type:    conditionsv1.ConditionProgressing,
-				Status:  corev1.ConditionFalse,
-				Reason:  reconcileCompleted,
-				Message: reconcileCompletedMessage,
-			})
-		} // else - Progressing is already exists
+	if req.Conditions.HasCondition(conditionsv1.ConditionDegraded) { // (#chart 1)
 
-		if _, conditionFound = req.Conditions[conditionsv1.ConditionUpgradeable]; !conditionFound { // (#chart 4)
-			req.Conditions.SetStatusCondition(conditionsv1.Condition{ // (#chart 5)
-				Type:    conditionsv1.ConditionUpgradeable,
-				Status:  corev1.ConditionFalse,
-				Reason:  commonDegradedReason,
-				Message: "HCO is not Upgradeable due to degraded components",
-			})
-		} // else - Upgradeable is already exists
-		if _, conditionFound = req.Conditions[conditionsv1.ConditionAvailable]; !conditionFound { // (#chart 6)
-			req.Conditions.SetStatusCondition(conditionsv1.Condition{ // (#chart 7)
-				Type:    conditionsv1.ConditionAvailable,
-				Status:  corev1.ConditionFalse,
-				Reason:  commonDegradedReason,
-				Message: "HCO is not available due to degraded components",
-			})
-		} // else - Available is already exists
+		req.Conditions.SetStatusConditionIfUnset(conditionsv1.Condition{ // (#chart 2,3)
+			Type:    conditionsv1.ConditionProgressing,
+			Status:  corev1.ConditionFalse,
+			Reason:  reconcileCompleted,
+			Message: reconcileCompletedMessage,
+		})
+
+		req.Conditions.SetStatusConditionIfUnset(conditionsv1.Condition{ // (#chart 4,5)
+			Type:    conditionsv1.ConditionUpgradeable,
+			Status:  corev1.ConditionFalse,
+			Reason:  commonDegradedReason,
+			Message: "HCO is not Upgradeable due to degraded components",
+		})
+
+		req.Conditions.SetStatusConditionIfUnset(conditionsv1.Condition{ // (#chart 6,7)
+			Type:    conditionsv1.ConditionAvailable,
+			Status:  corev1.ConditionFalse,
+			Reason:  commonDegradedReason,
+			Message: "HCO is not available due to degraded components",
+		})
+
 	} else {
+
 		// Degraded is not found. add it.
 		req.Conditions.SetStatusCondition(conditionsv1.Condition{ // (#chart 8)
 			Type:    conditionsv1.ConditionDegraded,
@@ -615,26 +613,24 @@ func (r *ReconcileHyperConverged) aggregateComponentConditions(req *common.HcoRe
 			Message: reconcileCompletedMessage,
 		})
 
-		if _, conditionFound = req.Conditions[conditionsv1.ConditionProgressing]; conditionFound { // (#chart 9)
+		if req.Conditions.HasCondition(conditionsv1.ConditionProgressing) { // (#chart 9)
 
-			if _, conditionFound = req.Conditions[conditionsv1.ConditionUpgradeable]; !conditionFound { // (#chart 10)
-				req.Conditions.SetStatusCondition(conditionsv1.Condition{ // (#chart 11)
-					Type:    conditionsv1.ConditionUpgradeable,
-					Status:  corev1.ConditionFalse,
-					Reason:  commonProgressingReason,
-					Message: "HCO is not Upgradeable due to progressing components",
-				})
-			} // else - Upgradeable is already exists
+			req.Conditions.SetStatusConditionIfUnset(conditionsv1.Condition{ // (#chart 10,11)
+				Type:    conditionsv1.ConditionUpgradeable,
+				Status:  corev1.ConditionFalse,
+				Reason:  commonProgressingReason,
+				Message: "HCO is not Upgradeable due to progressing components",
+			})
 
-			if _, conditionFound = req.Conditions[conditionsv1.ConditionAvailable]; !conditionFound { // (#chart 12)
-				req.Conditions.SetStatusCondition(conditionsv1.Condition{ // (#chart 13)
-					Type:    conditionsv1.ConditionAvailable,
-					Status:  corev1.ConditionTrue,
-					Reason:  reconcileCompleted,
-					Message: reconcileCompletedMessage,
-				})
-			} // else - Available is already exists
+			req.Conditions.SetStatusConditionIfUnset(conditionsv1.Condition{ // (#chart 12,13)
+				Type:    conditionsv1.ConditionAvailable,
+				Status:  corev1.ConditionTrue,
+				Reason:  reconcileCompleted,
+				Message: reconcileCompletedMessage,
+			})
+
 		} else {
+
 			req.Conditions.SetStatusCondition(conditionsv1.Condition{ // (#chart 14)
 				Type:    conditionsv1.ConditionProgressing,
 				Status:  corev1.ConditionFalse,
@@ -642,25 +638,23 @@ func (r *ReconcileHyperConverged) aggregateComponentConditions(req *common.HcoRe
 				Message: reconcileCompletedMessage,
 			})
 
-			if _, conditionFound = req.Conditions[conditionsv1.ConditionUpgradeable]; !conditionFound { // (#chart 15)
-				req.Conditions.SetStatusCondition(conditionsv1.Condition{ // (#chart 16)
-					Type:    conditionsv1.ConditionUpgradeable,
-					Status:  corev1.ConditionTrue,
-					Reason:  reconcileCompleted,
-					Message: reconcileCompletedMessage,
-				})
-			}
+			req.Conditions.SetStatusConditionIfUnset(conditionsv1.Condition{ // (#chart 15,16)
+				Type:    conditionsv1.ConditionUpgradeable,
+				Status:  corev1.ConditionTrue,
+				Reason:  reconcileCompleted,
+				Message: reconcileCompletedMessage,
+			})
 
-			if _, conditionFound = req.Conditions[conditionsv1.ConditionAvailable]; !conditionFound { // (#chart 17) {
-				req.Conditions.SetStatusCondition(conditionsv1.Condition{ // (#chart 18)
-					Type:    conditionsv1.ConditionAvailable,
-					Status:  corev1.ConditionTrue,
-					Reason:  reconcileCompleted,
-					Message: reconcileCompletedMessage,
-				})
-			}
+			req.Conditions.SetStatusConditionIfUnset(conditionsv1.Condition{ // (#chart 17,18)
+				Type:    conditionsv1.ConditionAvailable,
+				Status:  corev1.ConditionTrue,
+				Reason:  reconcileCompleted,
+				Message: reconcileCompletedMessage,
+			})
+
 		}
 	}
+
 	return allComponentsAreUp
 }
 
