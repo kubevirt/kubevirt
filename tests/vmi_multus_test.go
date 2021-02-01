@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/assert"
+	"kubevirt.io/kubevirt/tests/cluster"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -111,7 +112,7 @@ var _ = Describe("[Serial]Multus", func() {
 
 		tests.BeforeTestCleanup()
 
-		nodes = tests.GetAllSchedulableNodes(virtClient)
+		nodes = cluster.GetAllSchedulableNodes(virtClient)
 		Expect(len(nodes.Items) > 0).To(BeTrue())
 
 		configureNodeNetwork(virtClient)
@@ -1011,7 +1012,7 @@ var _ = Describe("[Serial]Macvtap", func() {
 		var nodeName string
 
 		BeforeEach(func() {
-			nodeList = tests.GetAllSchedulableNodes(virtClient)
+			nodeList = cluster.GetAllSchedulableNodes(virtClient)
 			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
 			nodeName = nodeList.Items[0].Name
 			chosenMAC = "de:ad:00:00:be:af"
@@ -1041,7 +1042,7 @@ var _ = Describe("[Serial]Macvtap", func() {
 		var clientVMI *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			nodes := tests.GetAllSchedulableNodes(virtClient)
+			nodes := cluster.GetAllSchedulableNodes(virtClient)
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 			if len(nodes.Items) < 2 {
@@ -1310,7 +1311,7 @@ func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 	}
 
 	// Make sure that all pods in the Daemon Set finished the configuration
-	nodes := tests.GetAllSchedulableNodes(virtClient)
+	nodes := cluster.GetAllSchedulableNodes(virtClient)
 	Eventually(func() int {
 		daemonSet := getNetworkConfigDaemonSet()
 		return int(daemonSet.Status.NumberAvailable)
@@ -1318,7 +1319,7 @@ func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 }
 
 func checkSriovEnabled(virtClient kubecli.KubevirtClient, sriovResourceName string) bool {
-	nodes := tests.GetAllSchedulableNodes(virtClient)
+	nodes := cluster.GetAllSchedulableNodes(virtClient)
 	Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 	for _, node := range nodes.Items {

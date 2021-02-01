@@ -49,6 +49,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
+	clusterlib "kubevirt.io/kubevirt/tests/cluster"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -2314,7 +2315,7 @@ var _ = Describe("Configurations", func() {
 
 			BeforeEach(func() {
 
-				nodes := tests.GetAllSchedulableNodes(virtClient)
+				nodes := clusterlib.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
 				node = nodes.Items[1].Name
 

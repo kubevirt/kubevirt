@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	crds "kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/cluster"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -290,7 +291,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 				Expect(len(pods.Items)).To(BeNumerically(">", 0), "no kubevirt pods found")
 
 				By("finding all schedulable nodes")
-				schedulableNodesList := tests.GetAllSchedulableNodes(virtClient)
+				schedulableNodesList := cluster.GetAllSchedulableNodes(virtClient)
 				schedulableNodes := map[string]*k8sv1.Node{}
 				for _, node := range schedulableNodesList.Items {
 					schedulableNodes[node.Name] = node.DeepCopy()

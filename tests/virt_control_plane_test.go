@@ -34,6 +34,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/cluster"
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
@@ -150,7 +151,7 @@ var _ = Describe("[Serial][ref_id:2717]KubeVirt control plane resilience", func(
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
 
-			nodeList = tests.GetAllSchedulableNodes(virtCli).Items
+			nodeList = cluster.GetAllSchedulableNodes(virtCli).Items
 			for _, node := range nodeList {
 				setNodeUnschedulable(node.Name)
 			}
