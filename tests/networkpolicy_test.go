@@ -314,7 +314,7 @@ func createNetworkPolicy(namespace, name string, labelSelector metav1.LabelSelec
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	By(fmt.Sprintf("Create networkpolicy %s/%s", policy.Namespace, policy.Name))
-	policy, err = virtClient.NetworkingV1().NetworkPolicies(policy.Namespace).Create(policy)
+	policy, err = virtClient.NetworkingV1().NetworkPolicies(policy.Namespace).Create(context.Background(), policy, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("should succeed creating network policy %s/%s", policy.Namespace, policy.Name))
 	return policy
 }
@@ -327,9 +327,9 @@ func waitForNetworkPolicyDeletion(policy *networkv1.NetworkPolicy) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-	ExpectWithOffset(1, virtClient.NetworkingV1().NetworkPolicies(policy.Namespace).Delete(policy.Name, &metav1.DeleteOptions{})).To(Succeed())
+	ExpectWithOffset(1, virtClient.NetworkingV1().NetworkPolicies(policy.Namespace).Delete(context.Background(), policy.Name, metav1.DeleteOptions{})).To(Succeed())
 	EventuallyWithOffset(1, func() error {
-		_, err := virtClient.NetworkingV1().NetworkPolicies(policy.Namespace).Get(policy.Name, metav1.GetOptions{})
+		_, err := virtClient.NetworkingV1().NetworkPolicies(policy.Namespace).Get(context.Background(), policy.Name, metav1.GetOptions{})
 		return err
 	}, 10*time.Second, time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())))
 }

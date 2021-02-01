@@ -20,6 +20,7 @@
 package virthandler
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -1639,7 +1640,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 			}
 
-			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(testBlockPvc)
+			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(context.Background(), testBlockPvc, metav1.CreateOptions{})
 			blockMigrate, err := controller.checkVolumesForMigration(vmi)
 			Expect(blockMigrate).To(BeFalse())
 			Expect(err).To(BeNil())
@@ -1670,7 +1671,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			testBlockPvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}
 
-			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(testBlockPvc)
+			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(context.Background(), testBlockPvc, metav1.CreateOptions{})
 			blockMigrate, err := controller.checkVolumesForMigration(vmi)
 			Expect(blockMigrate).To(BeTrue())
 			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI: PVC testblock is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)")))
@@ -1701,7 +1702,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			testBlockPvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}
 
-			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(testBlockPvc)
+			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(context.Background(), testBlockPvc, metav1.CreateOptions{})
 			blockMigrate, err := controller.checkVolumesForMigration(vmi)
 			Expect(blockMigrate).To(BeTrue())
 			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI: PVC testblock is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)")))
@@ -1748,7 +1749,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 			}
 
-			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(testBlockPvc)
+			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(context.Background(), testBlockPvc, metav1.CreateOptions{})
 			blockMigrate, err := controller.checkVolumesForMigration(vmi)
 			Expect(blockMigrate).To(BeTrue())
 			Expect(err).To(BeNil())
@@ -1795,7 +1796,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 			}
 
-			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(testBlockPvc)
+			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(context.Background(), testBlockPvc, metav1.CreateOptions{})
 			blockMigrate, err := controller.checkVolumesForMigration(vmi)
 			Expect(blockMigrate).To(BeTrue())
 			Expect(err).To(BeNil())

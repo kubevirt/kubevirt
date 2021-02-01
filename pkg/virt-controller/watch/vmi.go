@@ -9,8 +9,7 @@
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
  * Copyright 2017, 2018 Red Hat, Inc.
@@ -20,6 +19,7 @@
 package watch
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -670,7 +670,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 
 		vmiKey := controller.VirtualMachineKey(vmi)
 		c.podExpectations.ExpectCreations(vmiKey, 1)
-		pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(templatePod)
+		pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
 		if err != nil {
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating pod: %v", err)
 			c.podExpectations.CreationObserved(vmiKey)
@@ -683,7 +683,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			// DV is no longer in WaitForFirstConsumer phase, means that tempPod has done its job and should be deleted
 			vmiKey := controller.VirtualMachineKey(vmi)
 			c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(pod)})
-			err := c.clientset.CoreV1().Pods(vmi.Namespace).Delete(pod.Name, &v1.DeleteOptions{})
+			err := c.clientset.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDeletePodReason, "Failed to delete temporary pod %s", pod.Name)
 				c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
@@ -1114,7 +1114,7 @@ func (c *VMIController) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance
 		}
 
 		c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(pod)})
-		err := c.clientset.CoreV1().Pods(vmi.Namespace).Delete(pod.Name, &v1.DeleteOptions{})
+		err := c.clientset.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
 		if err != nil {
 			c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDeletePodReason, "Failed to delete virtual machine pod %s", pod.Name)
@@ -1306,7 +1306,7 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 		vmiKey := controller.VirtualMachineKey(vmi)
 		c.podExpectations.ExpectCreations(vmiKey, 1)
 
-		pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(attachmentPodTemplate)
+		pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), attachmentPodTemplate, v1.CreateOptions{})
 		if err != nil {
 			c.podExpectations.CreationObserved(vmiKey)
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating hotplug pod for volume %s: %v", volume.Name, err)
@@ -1379,7 +1379,7 @@ func (c *VMIController) deleteAttachmentPodForVolume(vmi *virtv1.VirtualMachineI
 			}
 
 			c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(pod)})
-			err := c.clientset.CoreV1().Pods(pod.GetNamespace()).Delete(pod.Name, &v1.DeleteOptions{
+			err := c.clientset.CoreV1().Pods(pod.GetNamespace()).Delete(context.Background(), pod.Name, v1.DeleteOptions{
 				GracePeriodSeconds: &zero,
 			})
 			if err != nil {

@@ -20,6 +20,7 @@
 package watch
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -414,7 +415,7 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 
 	key := controller.MigrationKey(migration)
 	c.podExpectations.ExpectCreations(key, 1)
-	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(templatePod)
+	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
 	if err != nil {
 		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating pod: %v", err)
 		c.podExpectations.CreationObserved(key)

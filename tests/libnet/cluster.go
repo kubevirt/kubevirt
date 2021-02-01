@@ -1,6 +1,7 @@
 package libnet
 
 import (
+	"context"
 	"fmt"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -35,7 +36,7 @@ func IsClusterDualStack(virtClient kubecli.KubevirtClient) (bool, error) {
 
 func getPodByKubeVirtRole(virtClient kubecli.KubevirtClient, kubevirtPodRole string) (*k8sv1.Pod, error) {
 	labelSelectorValue := fmt.Sprintf("%s = %s", v1.AppLabel, kubevirtPodRole)
-	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: labelSelectorValue})
+	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelectorValue})
 	if err != nil {
 		return nil, fmt.Errorf("could not filter virt-handler pods: %v", err)
 	}

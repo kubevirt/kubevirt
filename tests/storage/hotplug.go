@@ -20,6 +20,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -384,7 +385,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			)
 
 			findCPUManagerWorkerNode := func() string {
-				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{
+				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
 					LabelSelector: "node-role.kubernetes.io/worker",
 				})
 				Expect(err).ToNot(HaveOccurred())
@@ -424,12 +425,12 @@ var _ = SIGDescribe("Hotplug", func() {
 			table.DescribeTable("should add/remove volume", func(addVolumeFunc func(name, namespace, volumeName, claimName, bus string), removeVolumeFunc func(name, namespace, volumeName string), volumeMode corev1.PersistentVolumeMode, vmiOnly, waitToStart bool) {
 				By("Creating DataVolume")
 				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, volumeMode)
-				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulDataVolumeImport(dv, 240)
 				defer func(namespace string) {
 					By("Deleting the DataVolume")
-					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
+					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed())
 				}(vm.Namespace)
 
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -494,7 +495,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					volumeName := fmt.Sprintf("volume%d", i)
 					By("Creating DataVolume")
 					dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, volumeMode)
-					_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
+					_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 					Expect(err).To(BeNil())
 					tests.WaitForSuccessfulDataVolumeImport(dv, 240)
 
@@ -506,7 +507,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				defer func(dvNames []string, namespace string) {
 					for _, dvName := range dvNames {
 						By("Deleting the DataVolume")
-						ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(dvName, &metav1.DeleteOptions{})).To(Succeed())
+						ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(context.Background(), dvName, metav1.DeleteOptions{})).To(Succeed())
 					}
 				}(dvNames, vmi.Namespace)
 				By("Verifying the volume and disk are in the VM and VMI")
@@ -562,7 +563,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					volumeName := fmt.Sprintf("volume%d", i)
 					By("Creating DataVolume")
 					dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, volumeMode)
-					_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
+					_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 					Expect(err).To(BeNil())
 					tests.WaitForSuccessfulDataVolumeImport(dv, 240)
 					testVolumes = append(testVolumes, volumeName)
@@ -571,7 +572,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				defer func(dvNames []string, namespace string) {
 					for _, dvName := range dvNames {
 						By("Deleting the DataVolume")
-						ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(dvName, &metav1.DeleteOptions{})).To(Succeed())
+						ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(context.Background(), dvName, metav1.DeleteOptions{})).To(Succeed())
 					}
 				}(dvNames, vmi.Namespace)
 
@@ -651,12 +652,12 @@ var _ = SIGDescribe("Hotplug", func() {
 			It("should hotplug and permanently add volume when added to VM", func() {
 				By("Creating DataVolume")
 				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeBlock)
-				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulDataVolumeImport(dv, 240)
 				defer func(namespace string) {
 					By("Deleting the DataVolume")
-					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
+					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed())
 				}(vm.Namespace)
 
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -688,12 +689,12 @@ var _ = SIGDescribe("Hotplug", func() {
 			It("should reject hotplugging a volume with the same name as an existing volume", func() {
 				By("Creating DataVolume")
 				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeBlock)
-				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulDataVolumeImport(dv, 240)
 				defer func(namespace string) {
 					By("Deleting the DataVolume")
-					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
+					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed())
 				}(vm.Namespace)
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -712,20 +713,20 @@ var _ = SIGDescribe("Hotplug", func() {
 			It("should allow hotplugging both a filesystem and block volume", func() {
 				By("Creating DataVolume")
 				dvBlock := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeBlock)
-				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dvBlock.Namespace).Create(dvBlock)
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dvBlock.Namespace).Create(context.Background(), dvBlock, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulDataVolumeImport(dvBlock, 240)
 				defer func(namespace string) {
 					By("Deleting the block DataVolume")
-					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(dvBlock.Name, &metav1.DeleteOptions{})).To(Succeed())
+					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(context.Background(), dvBlock.Name, metav1.DeleteOptions{})).To(Succeed())
 				}(vm.Namespace)
 				dvFileSystem := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
-				_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dvFileSystem.Namespace).Create(dvFileSystem)
+				_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dvFileSystem.Namespace).Create(context.Background(), dvFileSystem, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulDataVolumeImport(dvFileSystem, 240)
 				defer func(namespace string) {
 					By("Deleting the filesystem DataVolume")
-					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(dvFileSystem.Name, &metav1.DeleteOptions{})).To(Succeed())
+					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(context.Background(), dvFileSystem.Name, metav1.DeleteOptions{})).To(Succeed())
 				}(vm.Namespace)
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -802,12 +803,12 @@ var _ = SIGDescribe("Hotplug", func() {
 				addVolumeFunc := addDVVolumeVMI
 				By("Creating DataVolume")
 				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, volumeMode)
-				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulDataVolumeImport(dv, 240)
 				defer func(namespace string) {
 					By("Deleting the DataVolume")
-					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
+					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed())
 				}(vmi.Namespace)
 
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -834,7 +835,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(podName).ToNot(BeEmpty())
 				By("Deleting attachment pod:" + podName)
 				zero := int64(0)
-				err = virtClient.CoreV1().Pods(vmi.Namespace).Delete(podName, &metav1.DeleteOptions{
+				err = virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), podName, metav1.DeleteOptions{
 					GracePeriodSeconds: &zero,
 				})
 				Expect(err).ToNot(HaveOccurred())
@@ -854,12 +855,12 @@ var _ = SIGDescribe("Hotplug", func() {
 				removeVolumeFunc := removeVolumeVMI
 				By("Creating DataVolume")
 				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteMany, volumeMode)
-				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulDataVolumeImport(dv, 240)
 				defer func(namespace string) {
 					By("Deleting the DataVolume")
-					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
+					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(context.Background(), dv.Name, metav1.DeleteOptions{})).To(Succeed())
 				}(vmi.Namespace)
 
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})

@@ -1,6 +1,7 @@
 package installstrategy
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -28,7 +29,7 @@ func (r *Reconciler) createOrUpdateAPIServices(caBundle []byte) error {
 		obj, exists, _ := r.stores.APIServiceCache.Get(apiService)
 		// since these objects was in the past unmanaged, reconcile and pick it up if it exists
 		if !exists {
-			cachedAPIService, err = r.aggregatorclient.Get(apiService.Name, metav1.GetOptions{})
+			cachedAPIService, err = r.aggregatorclient.Get(context.Background(), apiService.Name, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				exists = false
 			} else if err != nil {
@@ -50,7 +51,7 @@ func (r *Reconciler) createOrUpdateAPIServices(caBundle []byte) error {
 		injectOperatorMetadata(r.kv, &apiService.ObjectMeta, version, imageRegistry, id, true)
 		if !exists {
 			r.expectations.APIService.RaiseExpectations(r.kvKey, 1, 0)
-			_, err := r.aggregatorclient.Create(apiService)
+			_, err := r.aggregatorclient.Create(context.Background(), apiService, metav1.CreateOptions{})
 			if err != nil {
 				r.expectations.APIService.LowerExpectations(r.kvKey, 1, 0)
 				return fmt.Errorf("unable to create apiservice %+v: %v", apiService, err)
@@ -74,7 +75,7 @@ func (r *Reconciler) createOrUpdateAPIServices(caBundle []byte) error {
 				}
 				ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(spec)))
 
-				_, err = r.aggregatorclient.Patch(apiService.Name, types.JSONPatchType, generatePatchBytes(ops))
+				_, err = r.aggregatorclient.Patch(context.Background(), apiService.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 				if err != nil {
 					return fmt.Errorf("unable to patch apiservice %+v: %v", apiService, err)
 				}

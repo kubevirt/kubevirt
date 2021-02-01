@@ -42,24 +42,18 @@ fi
 if [ $# -eq 0 ]; then
     if [ "${target}" = "test" ]; then
         (
-            cd cmd/container-disk-v2alpha
-            go ${target} -v main_test.go container_disk_v2alpha_suite_test.go
+            go ${target} -v ./cmd/...
         )
         (
-            cd ${KUBEVIRT_DIR}/pkg
-            go ${target} -v -race ./...
+            go ${target} -v -race ./pkg/...
         )
     else
         (
-            cd ${KUBEVIRT_DIR}/pkg
-            go $target -tags selinux ./...
-
-            cd ${KUBEVIRT_DIR}/staging/src/kubevirt.io
-            GO111MODULE=off go $target ./...
+            go $target -tags selinux ./pkg/...
+            GO111MODULE=off go $target ./staging/src/kubevirt.io/...
         )
         (
-            cd ${KUBEVIRT_DIR}/tests
-            go $target ./...
+            go $target ./tests/...
         )
     fi
 fi
@@ -92,8 +86,7 @@ fi
 for arg in $args; do
     if [ "${target}" = "test" ]; then
         (
-            cd $arg
-            go ${target} -v ./...
+            go ${target} -v ./$arg/...
         )
     elif [ "${target}" = "install" ]; then
         eval "$(go env)"
@@ -101,8 +94,9 @@ for arg in $args; do
         ARCH_BASENAME=${BIN_NAME}-${KUBEVIRT_VERSION}
         mkdir -p ${CMD_OUT_DIR}/${BIN_NAME}
         (
+            go vet ./$arg/...
+
             cd $arg
-            go vet ./...
 
             # always build and link the linux/amd64 binary
             LINUX_NAME=${ARCH_BASENAME}-linux-amd64

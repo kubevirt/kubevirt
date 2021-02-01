@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -92,14 +93,14 @@ var _ = Describe("[Serial][ref_id:2717]KubeVirt control plane resilience", func(
 		}
 
 		getPodList := func() (podList *v1.PodList, err error) {
-			podList, err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{})
+			podList, err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
 			return
 		}
 
 		waitForDeploymentsToStabilize := func() (bool, error) {
 			deploymentsClient := virtCli.AppsV1().Deployments(flags.KubeVirtInstallNamespace)
 			for _, deploymentName := range controlPlaneDeploymentNames {
-				deployment, err := deploymentsClient.Get(deploymentName, metav1.GetOptions{})
+				deployment, err := deploymentsClient.Get(context.Background(), deploymentName, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
@@ -121,12 +122,12 @@ var _ = Describe("[Serial][ref_id:2717]KubeVirt control plane resilience", func(
 
 		setNodeUnschedulable := func(nodeName string) {
 			Eventually(func() error {
-				selectedNode, err := virtCli.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+				selectedNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
 				selectedNode.Spec.Unschedulable = true
-				if _, err = virtCli.CoreV1().Nodes().Update(selectedNode); err != nil {
+				if _, err = virtCli.CoreV1().Nodes().Update(context.Background(), selectedNode, metav1.UpdateOptions{}); err != nil {
 					return err
 				}
 				return nil
@@ -135,12 +136,12 @@ var _ = Describe("[Serial][ref_id:2717]KubeVirt control plane resilience", func(
 
 		setNodeSchedulable := func(nodeName string) {
 			Eventually(func() error {
-				selectedNode, err := virtCli.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+				selectedNode, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
 				selectedNode.Spec.Unschedulable = false
-				if _, err = virtCli.CoreV1().Nodes().Update(selectedNode); err != nil {
+				if _, err = virtCli.CoreV1().Nodes().Update(context.Background(), selectedNode, metav1.UpdateOptions{}); err != nil {
 					return err
 				}
 				return nil
@@ -172,7 +173,7 @@ var _ = Describe("[Serial][ref_id:2717]KubeVirt control plane resilience", func(
 				runningPods := getRunningReadyPods(podList, []string{podName})
 				Expect(len(runningPods)).ToNot(Equal(0))
 				for index, pod := range runningPods {
-					err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).Evict(&v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).Evict(context.Background(), &v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 					// trying to evict the last running pod in this list should fail
 					if index == len(runningPods)-1 {
 						Expect(err).To(HaveOccurred(), "no error occurred on evict of last pod")
@@ -194,7 +195,7 @@ var _ = Describe("[Serial][ref_id:2717]KubeVirt control plane resilience", func(
 			It("[test_id:2806]virt-controller and virt-api pods have a pod disruption budget", func() {
 				deploymentsClient := virtCli.AppsV1().Deployments(flags.KubeVirtInstallNamespace)
 				By("check deployments")
-				deployments, err := deploymentsClient.List(metav1.ListOptions{})
+				deployments, err := deploymentsClient.List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				expectedDeployments := []string{"virt-api", "virt-controller"}
 				for _, expectedDeployment := range expectedDeployments {
@@ -212,7 +213,7 @@ var _ = Describe("[Serial][ref_id:2717]KubeVirt control plane resilience", func(
 				}
 
 				By("check pod disruption budgets exist")
-				podDisruptionBudgetList, err := virtCli.PolicyV1beta1().PodDisruptionBudgets(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{})
+				podDisruptionBudgetList, err := virtCli.PolicyV1beta1().PodDisruptionBudgets(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, controlPlaneDeploymentName := range controlPlaneDeploymentNames {
 					pdbName := controlPlaneDeploymentName + "-pdb"

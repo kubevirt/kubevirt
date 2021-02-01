@@ -20,6 +20,7 @@
 package virt_operator
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sync"
@@ -760,7 +761,7 @@ func (c *KubeVirtController) garbageCollectInstallStrategyJobs() error {
 		}
 
 		propagationPolicy := metav1.DeletePropagationForeground
-		err := batch.Jobs(job.Namespace).Delete(job.Name, &metav1.DeleteOptions{
+		err := batch.Jobs(job.Namespace).Delete(context.Background(), job.Name, metav1.DeleteOptions{
 			PropagationPolicy: &propagationPolicy,
 		})
 		if err != nil {
@@ -792,7 +793,7 @@ func (c *KubeVirtController) deleteAllInstallStrategy() error {
 	for _, obj := range c.stores.InstallStrategyConfigMapCache.List() {
 		configMap, ok := obj.(*k8sv1.ConfigMap)
 		if ok && configMap.DeletionTimestamp == nil {
-			err := c.clientset.CoreV1().ConfigMaps(configMap.Namespace).Delete(configMap.Name, &metav1.DeleteOptions{})
+			err := c.clientset.CoreV1().ConfigMaps(configMap.Namespace).Delete(context.Background(), configMap.Name, metav1.DeleteOptions{})
 			if err != nil {
 				log.Log.Errorf("Failed to delete configmap %+v: %v", configMap, err)
 				return err
@@ -887,7 +888,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 
 					c.kubeVirtExpectations.InstallStrategyJob.AddExpectedDeletion(kvkey, key)
 					propagationPolicy := metav1.DeletePropagationForeground
-					err = batch.Jobs(cachedJob.Namespace).Delete(cachedJob.Name, &metav1.DeleteOptions{
+					err = batch.Jobs(cachedJob.Namespace).Delete(context.Background(), cachedJob.Name, metav1.DeleteOptions{
 						PropagationPolicy: &propagationPolicy,
 					})
 					if err != nil {
@@ -912,7 +913,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 		return nil, true, err
 	}
 	c.kubeVirtExpectations.InstallStrategyJob.RaiseExpectations(kvkey, 1, 0)
-	_, err = batch.Jobs(c.operatorNamespace).Create(job)
+	_, err = batch.Jobs(c.operatorNamespace).Create(context.Background(), job, metav1.CreateOptions{})
 	if err != nil {
 		c.kubeVirtExpectations.InstallStrategyJob.LowerExpectations(kvkey, 1, 0)
 		return nil, true, err

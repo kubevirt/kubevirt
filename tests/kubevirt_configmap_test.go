@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"encoding/json"
 
 	. "github.com/onsi/ginkgo"
@@ -52,17 +53,17 @@ var _ = Describe("[Serial]KubeVirtConfigmapConfiguration", func() {
 			},
 		}
 
-		_, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Create(cfgMap)
+		_, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Create(context.Background(), cfgMap, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	AfterEach(func() {
-		err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Delete(virtconfig.ConfigMapName, &metav1.DeleteOptions{})
+		err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Delete(context.Background(), virtconfig.ConfigMapName, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("[test_id:4670]check health check returns configmap resource version", func() {
-		cfg, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
+		cfg, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.Background(), virtconfig.ConfigMapName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		tests.WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-controller", cfg.ResourceVersion, tests.ExpectResourceVersionToBeEqualConfigVersion)

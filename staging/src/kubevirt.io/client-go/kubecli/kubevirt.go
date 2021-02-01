@@ -34,6 +34,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -66,6 +67,7 @@ type KubevirtClient interface {
 	DiscoveryClient() discovery.DiscoveryInterface
 	PrometheusClient() promclient.Interface
 	KubernetesSnapshotClient() k8ssnapshotclient.Interface
+	DynamicClient() dynamic.Interface
 	kubernetes.Interface
 	Config() *rest.Config
 }
@@ -83,6 +85,7 @@ type kubevirt struct {
 	discoveryClient         *discovery.DiscoveryClient
 	prometheusClient        *promclient.Clientset
 	snapshotClient          *k8ssnapshotclient.Clientset
+	dynamicClient           dynamic.Interface
 	*kubernetes.Clientset
 }
 
@@ -136,6 +139,10 @@ func (k kubevirt) VirtualMachineRestore(namespace string) vmsnapshotv1alpha1.Vir
 
 func (k kubevirt) KubernetesSnapshotClient() k8ssnapshotclient.Interface {
 	return k.snapshotClient
+}
+
+func (k kubevirt) DynamicClient() dynamic.Interface {
+	return k.dynamicClient
 }
 
 type StreamOptions struct {

@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -72,7 +73,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		LaunchVMI = func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 			By("Starting a VirtualMachineInstance")
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
 			Expect(err).To(BeNil())
 
 			By("Waiting the VirtualMachineInstance start")
@@ -284,7 +285,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						"userdata": []byte(userData), // The client encrypts the secret for us
 					},
 				}
-				_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(&secret)
+				_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
 				break
 			}
@@ -359,7 +360,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 							"networkdata": []byte(testNetworkData),
 						},
 					}
-					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(&secret)
+					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 					Expect(err).To(BeNil())
 
 					break
@@ -490,7 +491,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 							"networkdata": []byte(testNetworkData),
 						},
 					}
-					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(&secret)
+					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 					Expect(err).To(BeNil())
 
 					break
@@ -561,10 +562,10 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 							networkDataLabel: []byte(testNetworkData),
 						},
 					}
-					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(&uSecret)
+					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &uSecret, metav1.CreateOptions{})
 					Expect(err).To(BeNil())
 
-					_, err = virtClient.CoreV1().Secrets(vmi.Namespace).Create(&nSecret)
+					_, err = virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &nSecret, metav1.CreateOptions{})
 					Expect(err).To(BeNil())
 
 					break

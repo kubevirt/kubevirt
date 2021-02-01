@@ -20,12 +20,14 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	authv1 "k8s.io/api/authorization/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	authClientV1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -206,7 +208,7 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						Subresource: subresource,
 					},
 				}
-				result, err := authClient.SubjectAccessReviews().Create(sar)
+				result, err := authClient.SubjectAccessReviews().Create(context.Background(), sar, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Status.Allowed).To(Equal(expected))
 			}

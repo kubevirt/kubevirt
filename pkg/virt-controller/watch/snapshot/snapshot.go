@@ -20,6 +20,7 @@
 package snapshot
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -275,7 +276,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	contentCpy.Status.VolumeSnapshotStatus = volueSnapshotStatus
 
 	if !reflect.DeepEqual(content, contentCpy) {
-		if _, err := ctrl.Client.VirtualMachineSnapshotContent(contentCpy.Namespace).Update(contentCpy); err != nil {
+		if _, err := ctrl.Client.VirtualMachineSnapshotContent(contentCpy.Namespace).Update(context.Background(), contentCpy, metav1.UpdateOptions{}); err != nil {
 			return 0, err
 		}
 	}
@@ -326,7 +327,7 @@ func (ctrl *VMSnapshotController) createVolumeSnapshot(
 
 	volumeSnapshot, err := ctrl.Client.KubernetesSnapshotClient().SnapshotV1beta1().
 		VolumeSnapshots(content.Namespace).
-		Create(snapshot)
+		Create(context.Background(), snapshot, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -372,7 +373,7 @@ func (ctrl *VMSnapshotController) initVMSnapshot(vmSnapshot *snapshotv1.VirtualM
 	vmSnapshotCpy := vmSnapshot.DeepCopy()
 	controller.AddFinalizer(vmSnapshotCpy, vmSnapshotFinalizer)
 
-	if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshot.Namespace).Update(vmSnapshotCpy); err != nil {
+	if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshot.Namespace).Update(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{}); err != nil {
 		return false, err
 	}
 
@@ -397,7 +398,7 @@ func (ctrl *VMSnapshotController) cleanupVMSnapshot(vmSnapshot *snapshotv1.Virtu
 			cpy := content.DeepCopy()
 			controller.RemoveFinalizer(cpy, vmSnapshotContentFinalizer)
 
-			_, err := ctrl.Client.VirtualMachineSnapshotContent(cpy.Namespace).Update(cpy)
+			_, err := ctrl.Client.VirtualMachineSnapshotContent(cpy.Namespace).Update(context.Background(), cpy, metav1.UpdateOptions{})
 			if err != nil {
 				return err
 			}
@@ -407,7 +408,7 @@ func (ctrl *VMSnapshotController) cleanupVMSnapshot(vmSnapshot *snapshotv1.Virtu
 			*vmSnapshot.Spec.DeletionPolicy == snapshotv1.VirtualMachineSnapshotContentDelete {
 			log.Log.V(2).Infof("Deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
 
-			err = ctrl.Client.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Delete(content.Name, &metav1.DeleteOptions{})
+			err = ctrl.Client.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Delete(context.Background(), content.Name, metav1.DeleteOptions{})
 			if err != nil && !errors.IsNotFound(err) {
 				return err
 			}
@@ -420,7 +421,7 @@ func (ctrl *VMSnapshotController) cleanupVMSnapshot(vmSnapshot *snapshotv1.Virtu
 		vmSnapshotCpy := vmSnapshot.DeepCopy()
 		controller.RemoveFinalizer(vmSnapshotCpy, vmSnapshotFinalizer)
 
-		_, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).Update(vmSnapshotCpy)
+		_, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).Update(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
@@ -473,7 +474,7 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 		},
 	}
 
-	_, err = ctrl.Client.VirtualMachineSnapshotContent(content.Namespace).Create(content)
+	_, err = ctrl.Client.VirtualMachineSnapshotContent(content.Namespace).Create(context.Background(), content, metav1.CreateOptions{})
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
@@ -624,7 +625,7 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	}
 
 	if !reflect.DeepEqual(vmSnapshot, vmSnapshotCpy) {
-		if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).Update(vmSnapshotCpy); err != nil {
+		if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).Update(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}

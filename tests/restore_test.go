@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -70,11 +71,11 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 			},
 		}
 
-		s, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Create(s)
+		s, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Create(context.Background(), s, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
-			s, err = virtClient.VirtualMachineSnapshot(s.Namespace).Get(s.Name, metav1.GetOptions{})
+			s, err = virtClient.VirtualMachineSnapshot(s.Namespace).Get(context.Background(), s.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return s.Status != nil && s.Status.ReadyToUse != nil && *s.Status.ReadyToUse
 		}, 180*time.Second, time.Second).Should(BeTrue())
@@ -103,7 +104,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 	waitRestoreComplete := func(r *snapshotv1.VirtualMachineRestore, vm *v1.VirtualMachine) *snapshotv1.VirtualMachineRestore {
 		var err error
 		Eventually(func() bool {
-			r, err = virtClient.VirtualMachineRestore(r.Namespace).Get(r.Name, metav1.GetOptions{})
+			r, err = virtClient.VirtualMachineRestore(r.Namespace).Get(context.Background(), r.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return r.Status != nil && r.Status.Complete != nil && *r.Status.Complete
 		}, 180*time.Second, time.Second).Should(BeTrue())
@@ -124,7 +125,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 	waitDVReady := func(dv *cdiv1.DataVolume) *cdiv1.DataVolume {
 		Eventually(func() bool {
 			var err error
-			dv, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Get(dv.Name, metav1.GetOptions{})
+			dv, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return dv.Status.Phase == cdiv1.Succeeded
 		}, 180*time.Second, time.Second).Should(BeTrue())
@@ -134,7 +135,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 	waitPVCReady := func(pvc *corev1.PersistentVolumeClaim) *corev1.PersistentVolumeClaim {
 		Eventually(func() bool {
 			var err error
-			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Get(pvc.Name, metav1.GetOptions{})
+			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return pvc.Annotations["cdi.kubevirt.io/storage.pod.phase"] == string(corev1.PodSucceeded)
 		}, 180*time.Second, time.Second).Should(BeTrue())
@@ -160,19 +161,19 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 
 	deleteSnapshot := func(s *snapshotv1.VirtualMachineSnapshot) {
 		waitDeleted(func() error {
-			return virtClient.VirtualMachineSnapshot(s.Namespace).Delete(s.Name, &metav1.DeleteOptions{})
+			return virtClient.VirtualMachineSnapshot(s.Namespace).Delete(context.Background(), s.Name, metav1.DeleteOptions{})
 		})
 	}
 
 	deleteRestore := func(r *snapshotv1.VirtualMachineRestore) {
 		waitDeleted(func() error {
-			return virtClient.VirtualMachineRestore(r.Namespace).Delete(r.Name, &metav1.DeleteOptions{})
+			return virtClient.VirtualMachineRestore(r.Namespace).Delete(context.Background(), r.Name, metav1.DeleteOptions{})
 		})
 	}
 
 	deleteWebhook := func(wh *admissionregistrationv1beta1.ValidatingWebhookConfiguration) {
 		waitDeleted(func() error {
-			return virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(wh.Name, &metav1.DeleteOptions{})
+			return virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(context.Background(), wh.Name, metav1.DeleteOptions{})
 		})
 	}
 
@@ -196,7 +197,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 			It("[test_id:5255]should reject restore", func() {
 				restore := createRestoreDef(vm, "foobar")
 
-				_, err := virtClient.VirtualMachineRestore(vm.Namespace).Create(restore)
+				_, err := virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("VirtualMachineSnapshot \"foobar\" does not exist"))
 			})
@@ -242,7 +243,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 
 				restore := createRestoreDef(vm, snapshot.Name)
 
-				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(restore)
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				restore = waitRestoreComplete(restore, vm)
@@ -262,7 +263,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 
 				restore := createRestoreDef(vm, snapshot.Name)
 
-				_, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(restore)
+				_, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q is running", vm.Name)))
 			})
@@ -299,17 +300,17 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 						},
 					},
 				}
-				wh, err := virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(wh)
+				wh, err := virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(context.Background(), wh, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				webhook = wh
 
 				restore := createRestoreDef(vm, snapshot.Name)
 
-				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(restore)
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
-					restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(restore.Name, metav1.GetOptions{})
+					restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return restore.Status != nil &&
 						len(restore.Status.Conditions) == 2 &&
@@ -324,7 +325,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 					Name: "dummy",
 				}
 
-				_, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(r2)
+				_, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), r2, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachineRestore %q in progress", restore.Name)))
 
@@ -333,7 +334,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 
 				restore = waitRestoreComplete(restore, vm)
 
-				r2, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(r2)
+				r2, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), r2, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				r2 = waitRestoreComplete(r2, vm)
@@ -478,7 +479,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				By("Restoring VM")
 				restore = createRestoreDef(vm, snapshot.Name)
 
-				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(restore)
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				restore = waitRestoreComplete(restore, vm)
@@ -538,7 +539,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 					By(fmt.Sprintf("Restoring VM iteration %d", i))
 					restore = createRestoreDef(vm, snapshot.Name)
 
-					restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(restore)
+					restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					restore = waitRestoreComplete(restore, vm)
@@ -563,7 +564,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
 
-				_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Get(originalDVName, metav1.GetOptions{})
+				_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Get(context.Background(), originalDVName, metav1.GetOptions{})
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
@@ -585,7 +586,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				originalPVCName := dv.Name
 				vm.Spec.DataVolumeTemplates = nil
 
-				dv, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Create(dv)
+				dv, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				dv = waitDVReady(dv)
 
@@ -595,16 +596,16 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 
-				_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Get(dv.Name, metav1.GetOptions{})
+				_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(originalPVCName, metav1.GetOptions{})
+				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, v := range vm.Spec.Template.Spec.Volumes {
 					if v.PersistentVolumeClaim != nil {
 						Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
-						pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
+						pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						Expect(pvc.OwnerReferences[0].APIVersion).To(Equal(v1.GroupVersion.String()))
 						Expect(pvc.OwnerReferences[0].Kind).To(Equal("VirtualMachine"))
@@ -637,7 +638,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 					},
 				}
 
-				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(pvc)
+				pvc, err = virtClient.CoreV1().PersistentVolumeClaims((pvc.Namespace)).Create(context.Background(), pvc, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				pvc = waitPVCReady(pvc)
 
@@ -651,13 +652,13 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				doRestore("")
 
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
-				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(originalPVCName, metav1.GetOptions{})
+				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, v := range vm.Spec.Template.Spec.Volumes {
 					if v.PersistentVolumeClaim != nil {
 						Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
-						pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
+						pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						Expect(pvc.OwnerReferences[0].APIVersion).To(Equal(v1.GroupVersion.String()))
 						Expect(pvc.OwnerReferences[0].Kind).To(Equal("VirtualMachine"))
@@ -720,7 +721,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 
 				Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 				Expect(restore.Status.DeletedDataVolumes).To(ContainElement(dvName))
-				_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Get(dvName, metav1.GetOptions{})
+				_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Get(context.Background(), dvName, metav1.GetOptions{})
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 		})

@@ -1,6 +1,7 @@
 package admitters
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -24,7 +25,7 @@ func (admitter *PodEvictionAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
-	launcher, err := admitter.VirtClient.CoreV1().Pods(ar.Request.Namespace).Get(ar.Request.Name, metav1.GetOptions{})
+	launcher, err := admitter.VirtClient.CoreV1().Pods(ar.Request.Namespace).Get(context.Background(), ar.Request.Name, metav1.GetOptions{})
 	if err != nil {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}

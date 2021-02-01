@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
@@ -43,7 +44,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			probeBackendPod = tests.StartTCPServerPod(int(port))
 		}
 		return probeBackendPod, func() error {
-			return virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(probeBackendPod.Name, &v13.DeleteOptions{})
+			return virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(context.Background(), probeBackendPod.Name, v13.DeleteOptions{})
 		}
 	}
 

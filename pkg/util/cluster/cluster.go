@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 
@@ -55,7 +56,7 @@ func GetKubernetesVersion(clientset kubecli.KubevirtClient) (string, error) {
 		return "", err
 	}
 
-	response, err := virtClient.RestClient().Get().AbsPath("/version").DoRaw()
+	response, err := virtClient.RestClient().Get().AbsPath("/version").DoRaw(context.Background())
 	if err != nil {
 		return "", err
 	}

@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
@@ -156,11 +157,11 @@ var _ = Describe("[Serial]Operator", func() {
 		}
 
 		createCdi = func() {
-			_, err = virtClient.CdiClient().CdiV1beta1().CDIs().Create(copyOriginalCDI())
+			_, err = virtClient.CdiClient().CdiV1beta1().CDIs().Create(context.Background(), copyOriginalCDI(), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() bool {
-				cdi, err := virtClient.CdiClient().CdiV1beta1().CDIs().Get(originalCDI.Name, metav1.GetOptions{})
+				cdi, err := virtClient.CdiClient().CdiV1beta1().CDIs().Get(context.Background(), originalCDI.Name, metav1.GetOptions{})
 				if err != nil {
 					return false
 				} else if cdi.Status.Phase != sdkapi.PhaseDeployed {
@@ -173,7 +174,7 @@ var _ = Describe("[Serial]Operator", func() {
 		sanityCheckDeploymentsExistWithNS = func(namespace string) {
 			Eventually(func() error {
 				for _, deployment := range []string{"virt-api", "virt-controller"} {
-					_, err := virtClient.AppsV1().Deployments(namespace).Get(deployment, metav1.GetOptions{})
+					_, err := virtClient.AppsV1().Deployments(namespace).Get(context.Background(), deployment, metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
@@ -190,7 +191,7 @@ var _ = Describe("[Serial]Operator", func() {
 
 			Eventually(func() error {
 				for _, deployment := range []string{"virt-api", "virt-controller"} {
-					_, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(deployment, metav1.GetOptions{})
+					_, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), deployment, metav1.GetOptions{})
 					if err != nil && !errors.IsNotFound(err) {
 						return err
 					}
@@ -201,7 +202,7 @@ var _ = Describe("[Serial]Operator", func() {
 
 		allPodsAreTerminated = func(kv *v1.KubeVirt) {
 			Eventually(func() error {
-				pods, err := virtClient.CoreV1().Pods(kv.Namespace).List(metav1.ListOptions{LabelSelector: "kubevirt.io"})
+				pods, err := virtClient.CoreV1().Pods(kv.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io"})
 				if err != nil {
 					return err
 				}
@@ -233,7 +234,7 @@ var _ = Describe("[Serial]Operator", func() {
 
 				podsReadyAndOwned := 0
 
-				pods, err := virtClient.CoreV1().Pods(curKv.Namespace).List(metav1.ListOptions{LabelSelector: "kubevirt.io"})
+				pods, err := virtClient.CoreV1().Pods(curKv.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io"})
 				if err != nil {
 					return err
 				}
@@ -418,7 +419,7 @@ var _ = Describe("[Serial]Operator", func() {
 
 		parseDaemonset = func(name string) (daemonSet *v12.DaemonSet, image, registry, imagePrefix, version string) {
 			var err error
-			daemonSet, err = virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(name, metav1.GetOptions{})
+			daemonSet, err = virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			image = daemonSet.Spec.Template.Spec.Containers[0].Image
 			imageRegEx := regexp.MustCompile(fmt.Sprintf("%s%s%s", `^(.*)/(.*)`, name, `([@:].*)?$`))
@@ -444,7 +445,7 @@ var _ = Describe("[Serial]Operator", func() {
 
 		parseDeployment = func(name string) (deployment *v12.Deployment, image, registry, imagePrefix, version string) {
 			var err error
-			deployment, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(name, metav1.GetOptions{})
+			deployment, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			image = deployment.Spec.Template.Spec.Containers[0].Image
 			registry, imagePrefix, version = parseImage(name, image)
@@ -493,7 +494,7 @@ var _ = Describe("[Serial]Operator", func() {
 
 				op := fmt.Sprintf(`[{ "op": "replace", "path": "/spec/template", "value": %s }]`, string(newTemplate))
 
-				_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch("virt-operator", types.JSONPatchType, []byte(op))
+				_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), "virt-operator", types.JSONPatchType, []byte(op), metav1.PatchOptions{})
 
 				return err
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -540,12 +541,12 @@ var _ = Describe("[Serial]Operator", func() {
 			}
 
 			for _, name := range []string{"virt-operator", "virt-api", "virt-controller"} {
-				deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(name, metav1.GetOptions{})
+				deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(usesSha(deployment.Spec.Template.Spec.Containers[0].Image)).To(BeTrue(), fmt.Sprintf("%s should use sha", name))
 			}
 
-			handler, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
+			handler, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(usesSha(handler.Spec.Template.Spec.Containers[0].Image)).To(BeTrue(), "virt-handler should use sha")
 		}
@@ -561,7 +562,7 @@ var _ = Describe("[Serial]Operator", func() {
 		originalOperatorVersion = strings.TrimPrefix(version, "@")
 
 		if tests.HasDataVolumeCRD() {
-			cdiList, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(metav1.ListOptions{})
+			cdiList, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(cdiList.Items)).To(Equal(1))
 
@@ -645,7 +646,7 @@ var _ = Describe("[Serial]Operator", func() {
 			ext, err := extclient.NewForConfig(virtClient.Config())
 			Expect(err).ToNot(HaveOccurred())
 
-			crd, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Get("virtualmachines.kubevirt.io", metav1.GetOptions{})
+			crd, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.Background(), "virtualmachines.kubevirt.io", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Generate a vm Yaml for every version supported in the currently deployed KubeVirt
@@ -777,7 +778,7 @@ spec:
 			// ensure we wait for cdi to finish deleting before restoring it
 			// in the event that cdi has the deletionTimestamp set.
 			Eventually(func() bool {
-				cdi, err := virtClient.CdiClient().CdiV1beta1().CDIs().Get(originalCDI.Name, metav1.GetOptions{})
+				cdi, err := virtClient.CdiClient().CdiV1beta1().CDIs().Get(context.Background(), originalCDI.Name, metav1.GetOptions{})
 				if err != nil && errors.IsNotFound(err) {
 					// cdi isn't deleting and doesn't exist.
 					return true
@@ -795,11 +796,11 @@ spec:
 			}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
 			if cdiExists {
-				cdi, err := virtClient.CdiClient().CdiV1beta1().CDIs().Get(originalCDI.Name, metav1.GetOptions{})
+				cdi, err := virtClient.CdiClient().CdiV1beta1().CDIs().Get(context.Background(), originalCDI.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				if !equality.Semantic.DeepEqual(cdi.Spec, originalCDI.Spec) {
 					cdi.Spec = originalCDI.Spec
-					_, err := virtClient.CdiClient().CdiV1beta1().CDIs().Update(cdi)
+					_, err := virtClient.CdiClient().CdiV1beta1().CDIs().Update(context.Background(), cdi, metav1.UpdateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
 			} else if !cdiExists {
@@ -889,7 +890,7 @@ spec:
 			By("getting virt-launcher")
 			uid := vmi.GetObjectMeta().GetUID()
 			labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
-			pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(metav1.ListOptions{LabelSelector: labelSelector})
+			pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 			Expect(err).ToNot(HaveOccurred(), "Should list pods")
 			Expect(len(pods.Items)).To(Equal(1))
 			Expect(usesSha(pods.Items[0].Spec.Containers[0].Image)).To(BeTrue(), "launcher pod should use shasum")
@@ -924,7 +925,7 @@ spec:
 
 			By("Test that patch was applied to deployment")
 			Eventually(func() string {
-				vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get("virt-controller", metav1.GetOptions{})
+				vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				return vc.Spec.Template.ObjectMeta.Annotations[annotationPatchKey]
@@ -943,7 +944,7 @@ spec:
 
 			By("Test that patch was removed from deployment")
 			Eventually(func() string {
-				vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get("virt-controller", metav1.GetOptions{})
+				vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				return vc.Spec.Template.ObjectMeta.Annotations[annotationPatchKey]
@@ -968,7 +969,7 @@ spec:
 			// Disable HonorWaitForFirstCustomer, since we don't know if previous versions
 			// already support this setting.
 			// TODO drop this step after a few releases after 0.36
-			cdis, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(metav1.ListOptions{})
+			cdis, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cdis.Items).To(HaveLen(1))
 			cdi := &cdis.Items[0]
@@ -984,7 +985,7 @@ spec:
 				}
 				if needsUpdate {
 					cdi.Spec.Config.FeatureGates = features
-					_, err := virtClient.CdiClient().CdiV1beta1().CDIs().Update(cdi)
+					_, err := virtClient.CdiClient().CdiV1beta1().CDIs().Update(context.Background(), cdi, metav1.UpdateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
 			}
@@ -1207,14 +1208,14 @@ spec:
 			sanityCheckDeploymentsDeleted()
 
 			By("ensuring that namespaces can be successfully created and deleted")
-			_, err := virtClient.CoreV1().Namespaces().Create(&k8sv1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: tests.NamespaceTestOperator}})
+			_, err := virtClient.CoreV1().Namespaces().Create(context.Background(), &k8sv1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: tests.NamespaceTestOperator}}, metav1.CreateOptions{})
 			if err != nil && !errors.IsAlreadyExists(err) {
 				Expect(err).ToNot(HaveOccurred())
 			}
-			err = virtClient.CoreV1().Namespaces().Delete(tests.NamespaceTestOperator, &metav1.DeleteOptions{})
+			err = virtClient.CoreV1().Namespaces().Delete(context.Background(), tests.NamespaceTestOperator, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
-				_, err := virtClient.CoreV1().Namespaces().Get(tests.NamespaceTestOperator, metav1.GetOptions{})
+				_, err := virtClient.CoreV1().Namespaces().Get(context.Background(), tests.NamespaceTestOperator, metav1.GetOptions{})
 				return errors.IsNotFound(err)
 			}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
@@ -1481,21 +1482,21 @@ spec:
 		})
 
 		It("[test_id:4612]should create non-namespaces resources without owner references", func() {
-			crd, err := virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get("virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
+			crd, err := virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.Background(), "virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(crd.ObjectMeta.OwnerReferences).To(HaveLen(0))
 		})
 
 		It("[test_id:4613]should remove owner references on non-namespaces resources when updating a resource", func() {
 			By("adding an owner reference")
-			origCRD, err := virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get("virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
+			origCRD, err := virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.Background(), "virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
 			crd := origCRD.DeepCopy()
 			crd.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(&v1.KubeVirt{ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", UID: "a185f8c3-3f38-4b89-a8cc-80f3731f7ff9"}}, v1.KubeVirtGroupVersionKind)}
 			patch := patchCRD(origCRD, crd)
-			_, err = virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Patch("virtualmachineinstances.kubevirt.io", types.MergePatchType, patch)
+			_, err = virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Patch(context.Background(), "virtualmachineinstances.kubevirt.io", types.MergePatchType, patch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			By("verifying that the owner reference is there")
-			origCRD, err = virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get("virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
+			origCRD, err = virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.Background(), "virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(origCRD.OwnerReferences).ToNot(BeEmpty())
 
@@ -1503,11 +1504,11 @@ spec:
 			crd = origCRD.DeepCopy()
 			crd.Annotations[v1.InstallStrategyVersionAnnotation] = "outdated"
 			patch = patchCRD(origCRD, crd)
-			_, err = virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Patch("virtualmachineinstances.kubevirt.io", types.MergePatchType, patch)
+			_, err = virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Patch(context.Background(), "virtualmachineinstances.kubevirt.io", types.MergePatchType, patch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			By("waiting until the owner reference disappears again")
 			Eventually(func() []metav1.OwnerReference {
-				crd, err = virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get("virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
+				crd, err = virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.Background(), "virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return crd.OwnerReferences
 			}, 10*time.Second, 1*time.Second).Should(BeEmpty())
@@ -1528,7 +1529,7 @@ spec:
 			for _, deployment := range []string{"virt-api", "virt-controller"} {
 				By(fmt.Sprintf("Ensuring that the %s deployment is updated", deployment))
 				Eventually(func() bool {
-					dep, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(deployment, metav1.GetOptions{})
+					dep, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), deployment, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return dep.ObjectMeta.Labels[v1.AppVersionLabel] == productVersion && dep.ObjectMeta.Labels[v1.AppPartOfLabel] == productName
 				}, 240*time.Second, 1*time.Second).Should(BeTrue(), fmt.Sprintf("Expected labels to be updated for %s deployment", deployment))
@@ -1536,7 +1537,7 @@ spec:
 
 			By("Ensuring that the virt-handler daemonset is updated")
 			Eventually(func() bool {
-				dms, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
+				dms, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return dms.ObjectMeta.Labels[v1.AppVersionLabel] == productVersion && dms.ObjectMeta.Labels[v1.AppPartOfLabel] == productName
 			}, 240*time.Second, 1*time.Second).Should(BeTrue(), "Expected labels to be updated for virt-handler daemonset")
@@ -1564,7 +1565,7 @@ spec:
 					expectedSCCs = append(expectedSCCs, scc.GetName())
 				}
 
-				createdSCCs, err := secClient.SecurityContextConstraints().List(metav1.ListOptions{LabelSelector: controller.OperatorLabel})
+				createdSCCs, err := secClient.SecurityContextConstraints().List(context.Background(), metav1.ListOptions{LabelSelector: controller.OperatorLabel})
 				Expect(err).NotTo(HaveOccurred())
 				for _, scc := range createdSCCs.Items {
 					sccs = append(sccs, scc.GetName())
@@ -1575,7 +1576,7 @@ spec:
 				l, err := labels.Parse("kubevirt.io=virt-handler")
 				Expect(err).ToNot(HaveOccurred())
 
-				pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: l.String()})
+				pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: l.String()})
 				Expect(err).ToNot(HaveOccurred(), "Should get virt-handler")
 				Expect(pods.Items).ToNot(BeEmpty())
 				Expect(pods.Items[0].Annotations[OpenShiftSCCLabel]).To(
@@ -1590,7 +1591,7 @@ spec:
 
 				uid := vmi.GetObjectMeta().GetUID()
 				labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
-				pods, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(metav1.ListOptions{LabelSelector: labelSelector})
+				pods, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 				Expect(err).ToNot(HaveOccurred(), "Should get virt-launcher")
 				Expect(len(pods.Items)).To(Equal(1))
 				Expect(pods.Items[0].Annotations[OpenShiftSCCLabel]).To(
@@ -1634,7 +1635,7 @@ spec:
 			// Delete CDI object
 			By("Deleting CDI install")
 			Eventually(func() error {
-				cdi, err := virtClient.CdiClient().CdiV1beta1().CDIs().Get(originalCDI.Name, metav1.GetOptions{})
+				cdi, err := virtClient.CdiClient().CdiV1beta1().CDIs().Get(context.Background(), originalCDI.Name, metav1.GetOptions{})
 				if err != nil && errors.IsNotFound(err) {
 					// cdi is deleted
 					return nil
@@ -1643,7 +1644,7 @@ spec:
 				}
 
 				if cdi.DeletionTimestamp == nil {
-					err := virtClient.CdiClient().CdiV1beta1().CDIs().Delete(originalCDI.Name, &metav1.DeleteOptions{})
+					err := virtClient.CdiClient().CdiV1beta1().CDIs().Delete(context.Background(), originalCDI.Name, metav1.DeleteOptions{})
 					if err != nil {
 						return err
 					}
@@ -1692,12 +1693,12 @@ spec:
 
 			By("Checking that Role for ServiceMonitor doesn't exist")
 			roleName := "kubevirt-service-monitor"
-			_, err := rbacClient.Roles(flags.KubeVirtInstallNamespace).Get(roleName, metav1.GetOptions{})
+			_, err := rbacClient.Roles(flags.KubeVirtInstallNamespace).Get(context.Background(), roleName, metav1.GetOptions{})
 			Expect(err).To(HaveOccurred())
 			Expect(errors.IsNotFound(err)).To(BeTrue(), "Role 'kubevirt-service-monitor' should not have been created")
 
 			By("Checking that RoleBinding for ServiceMonitor doesn't exist")
-			_, err = rbacClient.RoleBindings(flags.KubeVirtInstallNamespace).Get(roleName, metav1.GetOptions{})
+			_, err = rbacClient.RoleBindings(flags.KubeVirtInstallNamespace).Get(context.Background(), roleName, metav1.GetOptions{})
 			Expect(err).To(HaveOccurred())
 			Expect(errors.IsNotFound(err)).To(BeTrue(), "RoleBinding 'kubevirt-service-monitor' should not have been created")
 		})
@@ -1713,7 +1714,7 @@ spec:
 
 		It("[test_id:4614]Checks if the kubevirt PrometheusRule cr exists and verify it's spec", func() {
 			monv1 := virtClient.PrometheusClient().MonitoringV1()
-			prometheusRule, err := monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(components.KUBEVIRT_PROMETHEUS_RULE_NAME, metav1.GetOptions{})
+			prometheusRule, err := monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KUBEVIRT_PROMETHEUS_RULE_NAME, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 			expectedPromRuleSpec := components.NewPrometheusRuleSpec(flags.KubeVirtInstallNamespace)
 			Expect(prometheusRule.Spec).To(Equal(*expectedPromRuleSpec))
@@ -1730,7 +1731,7 @@ spec:
 
 		It("[test_id:4615]Checks that we do not deploy a PrometheusRule cr when not needed", func() {
 			monv1 := virtClient.PrometheusClient().MonitoringV1()
-			_, err := monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(components.KUBEVIRT_PROMETHEUS_RULE_NAME, metav1.GetOptions{})
+			_, err := monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KUBEVIRT_PROMETHEUS_RULE_NAME, metav1.GetOptions{})
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -1750,7 +1751,7 @@ spec:
 			// before to give up. TODO: there is a smarter way to wait?
 			Eventually(func() string {
 				By("Obtaining Prometheus' configuration data")
-				secret, err := coreClient.Secrets("openshift-monitoring").Get("prometheus-k8s", metav1.GetOptions{})
+				secret, err := coreClient.Secrets("openshift-monitoring").Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				data := secret.Data["prometheus.yaml"]
@@ -1763,7 +1764,7 @@ spec:
 
 		It("[test_id:4616]Should patch our namespace labels with openshift.io/cluster-monitoring=true", func() {
 			By("Inspecting the labels on our namespace")
-			namespace, err := virtClient.CoreV1().Namespaces().Get(flags.KubeVirtInstallNamespace, metav1.GetOptions{})
+			namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), flags.KubeVirtInstallNamespace, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			monitoringLabel, exists := namespace.ObjectMeta.Labels["openshift.io/cluster-monitoring"]
 			Expect(exists).To(BeTrue())
@@ -1774,33 +1775,33 @@ spec:
 	It("[test_id:4617]should adopt previously unmanaged entities by updating its metadata", func() {
 		By("removing registration metadata")
 		patchData := []byte(fmt.Sprint(`[{ "op": "replace", "path": "/metadata/labels", "value": {} }]`))
-		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(components.VirtApiCertSecretName, types.JSONPatchType, patchData)
+		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(context.Background(), components.VirtApiCertSecretName, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		_, err = aggregatorClient.ApiregistrationV1beta1().APIServices().Patch(fmt.Sprintf("%s.subresources.kubevirt.io", v1.ApiLatestVersion), types.JSONPatchType, patchData)
+		_, err = aggregatorClient.ApiregistrationV1beta1().APIServices().Patch(context.Background(), fmt.Sprintf("%s.subresources.kubevirt.io", v1.ApiLatestVersion), types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		_, err = virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(components.VirtAPIValidatingWebhookName, types.JSONPatchType, patchData)
+		_, err = virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(context.Background(), components.VirtAPIValidatingWebhookName, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		_, err = virtClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Patch(components.VirtAPIMutatingWebhookName, types.JSONPatchType, patchData)
+		_, err = virtClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Patch(context.Background(), components.VirtAPIMutatingWebhookName, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("checking that it gets added again")
 		Eventually(func() map[string]string {
-			secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(components.VirtApiCertSecretName, metav1.GetOptions{})
+			secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(context.Background(), components.VirtApiCertSecretName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return secret.Labels
 		}, 20*time.Second, 1*time.Second).Should(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))
 		Eventually(func() map[string]string {
-			apiService, err := aggregatorClient.ApiregistrationV1beta1().APIServices().Get(fmt.Sprintf("%s.subresources.kubevirt.io", v1.ApiLatestVersion), metav1.GetOptions{})
+			apiService, err := aggregatorClient.ApiregistrationV1beta1().APIServices().Get(context.Background(), fmt.Sprintf("%s.subresources.kubevirt.io", v1.ApiLatestVersion), metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return apiService.Labels
 		}, 20*time.Second, 1*time.Second).Should(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))
 		Eventually(func() map[string]string {
-			validatingWebhook, err := virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(components.VirtAPIValidatingWebhookName, metav1.GetOptions{})
+			validatingWebhook, err := virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(context.Background(), components.VirtAPIValidatingWebhookName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return validatingWebhook.Labels
 		}, 20*time.Second, 1*time.Second).Should(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))
 		Eventually(func() map[string]string {
-			mutatingWebhook, err := virtClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(components.VirtAPIMutatingWebhookName, metav1.GetOptions{})
+			mutatingWebhook, err := virtClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(context.Background(), components.VirtAPIMutatingWebhookName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return mutatingWebhook.Labels
 		}, 20*time.Second, 1*time.Second).Should(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))
@@ -1823,7 +1824,7 @@ spec:
 
 			Eventually(func() bool {
 				for _, name := range []string{"virt-controller", "virt-api"} {
-					deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(name, metav1.GetOptions{})
+					deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					if deployment.Spec.Template.Spec.NodeSelector == nil || deployment.Spec.Template.Spec.NodeSelector[labelKey] != labelValue {
 						return false
@@ -1847,7 +1848,7 @@ spec:
 			patchKvWorkloads(kv.Name, &workloads)
 
 			Eventually(func() bool {
-				daemonset, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
+				daemonset, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				if daemonset.Spec.Template.Spec.NodeSelector == nil || daemonset.Spec.Template.Spec.NodeSelector[labelKey] != labelValue {
 					return false

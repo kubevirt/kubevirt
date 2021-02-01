@@ -1,10 +1,12 @@
 package installstrategy
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/client-go/log"
@@ -31,7 +33,7 @@ func (r *Reconciler) createOrUpdateServiceMonitors() error {
 		if !exists {
 			// Create non existent
 			r.expectations.ServiceMonitor.RaiseExpectations(r.kvKey, 1, 0)
-			_, err := prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Create(serviceMonitor)
+			_, err := prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Create(context.Background(), serviceMonitor, metav1.CreateOptions{})
 			if err != nil {
 				r.expectations.ServiceMonitor.LowerExpectations(r.kvKey, 1, 0)
 				return fmt.Errorf("unable to create serviceMonitor %+v: %v", serviceMonitor, err)
@@ -57,7 +59,7 @@ func (r *Reconciler) createOrUpdateServiceMonitors() error {
 			}
 			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
 
-			_, err = prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Patch(serviceMonitor.Name, types.JSONPatchType, generatePatchBytes(ops))
+			_, err = prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Patch(context.Background(), serviceMonitor.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to patch serviceMonitor %+v: %v", serviceMonitor, err)
 			}
@@ -94,7 +96,7 @@ func (r *Reconciler) createOrUpdatePrometheusRules() error {
 		if !exists {
 			// Create non existent
 			r.expectations.PrometheusRule.RaiseExpectations(r.kvKey, 1, 0)
-			_, err := prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Create(prometheusRule)
+			_, err := prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Create(context.Background(), prometheusRule, metav1.CreateOptions{})
 			if err != nil {
 				r.expectations.PrometheusRule.LowerExpectations(r.kvKey, 1, 0)
 				return fmt.Errorf("unable to create PrometheusRule %+v: %v", prometheusRule, err)
@@ -120,7 +122,7 @@ func (r *Reconciler) createOrUpdatePrometheusRules() error {
 			}
 			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
 
-			_, err = prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Patch(prometheusRule.Name, types.JSONPatchType, generatePatchBytes(ops))
+			_, err = prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Patch(context.Background(), prometheusRule.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to patch PrometheusRule %+v: %v", prometheusRule, err)
 			}

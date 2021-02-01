@@ -3,6 +3,7 @@ package reporter
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -404,7 +405,7 @@ func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient) {
 	}
 	defer f.Close()
 
-	pods, err := virtCli.CoreV1().Pods(v1.NamespaceAll).List(metav1.ListOptions{})
+	pods, err := virtCli.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v\n", err)
 		return
@@ -427,7 +428,7 @@ func (r *KubernetesReporter) logServices(virtCli kubecli.KubevirtClient) {
 	}
 	defer f.Close()
 
-	services, err := virtCli.CoreV1().Services(v1.NamespaceAll).List(metav1.ListOptions{})
+	services, err := virtCli.CoreV1().Services(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch services: %v\n", err)
 		return
@@ -450,7 +451,7 @@ func (r *KubernetesReporter) logAPIServices(virtCli kubecli.KubevirtClient) {
 	}
 	defer f.Close()
 
-	result, err := virtCli.RestClient().Get().RequestURI("/apis/apiregistration.k8s.io/v1/").Resource("apiservices").Do().Raw()
+	result, err := virtCli.RestClient().Get().RequestURI("/apis/apiregistration.k8s.io/v1/").Resource("apiservices").Do(context.Background()).Raw()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch apiServices: %v\n", err)
 		return
@@ -478,7 +479,7 @@ func (r *KubernetesReporter) logEndpoints(virtCli kubecli.KubevirtClient) {
 	}
 	defer f.Close()
 
-	endpoints, err := virtCli.CoreV1().Endpoints(v1.NamespaceAll).List(metav1.ListOptions{})
+	endpoints, err := virtCli.CoreV1().Endpoints(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch endpointss: %v\n", err)
 		return
@@ -501,7 +502,7 @@ func (r *KubernetesReporter) logConfigMaps(virtCli kubecli.KubevirtClient) {
 	}
 	defer f.Close()
 
-	configmaps, err := virtCli.CoreV1().ConfigMaps(v1.NamespaceAll).List(metav1.ListOptions{})
+	configmaps, err := virtCli.CoreV1().ConfigMaps(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch configmaps: %v\n", err)
 		return
@@ -547,7 +548,7 @@ func (r *KubernetesReporter) logSecrets(virtCli kubecli.KubevirtClient) {
 	}
 	defer f.Close()
 
-	secrets, err := virtCli.CoreV1().Secrets(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{})
+	secrets, err := virtCli.CoreV1().Secrets(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch secrets: %v\n", err)
 		return
@@ -570,7 +571,7 @@ func (r *KubernetesReporter) logNamespaces(virtCli kubecli.KubevirtClient) {
 	}
 	defer f.Close()
 
-	namespaces, err := virtCli.CoreV1().Namespaces().List(metav1.ListOptions{})
+	namespaces, err := virtCli.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch Namespaces: %v\n", err)
 		return
@@ -594,7 +595,7 @@ func (r *KubernetesReporter) logNodes(virtCli kubecli.KubevirtClient) {
 	}
 	defer f.Close()
 
-	nodes, err := virtCli.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodes, err := virtCli.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch nodes: %v\n", err)
 		return
@@ -618,7 +619,7 @@ func (r *KubernetesReporter) logPVs(virtCli kubecli.KubevirtClient) {
 	}
 	defer f.Close()
 
-	pvs, err := virtCli.CoreV1().PersistentVolumes().List(metav1.ListOptions{})
+	pvs, err := virtCli.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch pvs: %v\n", err)
 		return
@@ -642,7 +643,7 @@ func (r *KubernetesReporter) logPVCs(virtCli kubecli.KubevirtClient) {
 	}
 	defer f.Close()
 
-	pvcs, err := virtCli.CoreV1().PersistentVolumeClaims(v1.NamespaceAll).List(metav1.ListOptions{})
+	pvcs, err := virtCli.CoreV1().PersistentVolumeClaims(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch pvcs: %v\n", err)
 		return
@@ -665,7 +666,7 @@ func (r *KubernetesReporter) logLogs(virtCli kubecli.KubevirtClient, since time.
 		return
 	}
 
-	pods, err := virtCli.CoreV1().Pods(v1.NamespaceAll).List(metav1.ListOptions{})
+	pods, err := virtCli.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v\n", err)
 		return
@@ -688,12 +689,12 @@ func (r *KubernetesReporter) logLogs(virtCli kubecli.KubevirtClient, since time.
 			defer previous.Close()
 
 			logStart := metav1.NewTime(since)
-			logs, err := virtCli.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{SinceTime: &logStart, Container: container.Name}).DoRaw()
+			logs, err := virtCli.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{SinceTime: &logStart, Container: container.Name}).DoRaw(context.Background())
 			if err == nil {
 				fmt.Fprintln(current, string(logs))
 			}
 
-			logs, err = virtCli.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{SinceTime: &logStart, Container: container.Name, Previous: true}).DoRaw()
+			logs, err = virtCli.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{SinceTime: &logStart, Container: container.Name, Previous: true}).DoRaw(context.Background())
 			if err == nil {
 				fmt.Fprintln(previous, string(logs))
 			}
@@ -711,7 +712,7 @@ func (r *KubernetesReporter) logEvents(virtCli kubecli.KubevirtClient, since tim
 	}
 	defer f.Close()
 
-	events, err := virtCli.CoreV1().Events(v1.NamespaceAll).List(metav1.ListOptions{})
+	events, err := virtCli.CoreV1().Events(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to fetch events")
 		return
@@ -788,7 +789,7 @@ func (r *KubernetesReporter) dumpK8sEntityToFile(virtCli kubecli.KubevirtClient,
 	}
 	defer f.Close()
 
-	response, err := virtCli.RestClient().Get().RequestURI(requestURI).Do().Raw()
+	response, err := virtCli.RestClient().Get().RequestURI(requestURI).Do(context.Background()).Raw()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to dump entity named [%s]: %v\n", entityName, err)
 		return
@@ -839,7 +840,7 @@ func (r *KubernetesReporter) logClusterOverview() {
 
 //getNodesWithVirtLauncher returns all node where a virt-launcher pod ran (finished) or still runs
 func getNodesWithVirtLauncher(virtCli kubecli.KubevirtClient) []string {
-	pods, err := virtCli.CoreV1().Pods(v1.NamespaceAll).List(metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=virt-launcher", v12.AppLabel)})
+	pods, err := virtCli.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=virt-launcher", v12.AppLabel)})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v\n", err)
 		return nil

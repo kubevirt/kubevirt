@@ -1,6 +1,8 @@
 package matcher
 
 import (
+	"context"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,7 +19,7 @@ func ThisPod(pod *v1.Pod) func() (*v1.Pod, error) {
 		if err != nil {
 			return nil, err
 		}
-		p, err = virtClient.CoreV1().Pods(pod.Namespace).Get(pod.Name, k8smetav1.GetOptions{})
+		p, err = virtClient.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, k8smetav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
@@ -59,7 +61,7 @@ func ThisDV(dv *v1alpha1.DataVolume) func() (*v1alpha1.DataVolume, error) {
 		if err != nil {
 			return nil, err
 		}
-		p, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Get(dv.Name, k8smetav1.GetOptions{})
+		p, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Get(context.Background(), dv.Name, k8smetav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return nil, nil
 		}
