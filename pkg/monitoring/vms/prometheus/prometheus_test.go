@@ -749,18 +749,18 @@ var _ = Describe("Prometheus", func() {
 })
 
 var _ = Describe("Utility functions", func() {
-	Context("VMI Phases map reporting", func() {
+	Context("VMI Count map reporting", func() {
 		It("should handle missing VMs", func() {
-			var phasesMap map[string]uint64
+			var countMap map[vmiCountMetric]uint64
 
-			phasesMap = makeVMIsPhasesMap(nil)
-			Expect(phasesMap).NotTo(BeNil())
-			Expect(len(phasesMap)).To(Equal(0))
+			countMap = makeVMICountMetricMap(nil)
+			Expect(countMap).NotTo(BeNil())
+			Expect(len(countMap)).To(Equal(0))
 
 			vmis := []*k6tv1.VirtualMachineInstance{}
-			phasesMap = makeVMIsPhasesMap(vmis)
-			Expect(phasesMap).NotTo(BeNil())
-			Expect(len(phasesMap)).To(Equal(0))
+			countMap = makeVMICountMetricMap(vmis)
+			Expect(countMap).NotTo(BeNil())
+			Expect(len(countMap)).To(Equal(0))
 		})
 
 		It("should handle different VMI phases", func() {
@@ -768,6 +768,24 @@ var _ = Describe("Utility functions", func() {
 				&k6tv1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "running#0",
+						Annotations: map[string]string{
+							annotationPrefix + "os":       "centos8",
+							annotationPrefix + "workload": "server",
+							annotationPrefix + "flavor":   "tiny",
+						},
+					},
+					Status: k6tv1.VirtualMachineInstanceStatus{
+						Phase: "Running",
+					},
+				},
+				&k6tv1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "running#1",
+						Annotations: map[string]string{
+							annotationPrefix + "os":       "centos8",
+							annotationPrefix + "workload": "server",
+							annotationPrefix + "flavor":   "tiny",
+						},
 					},
 					Status: k6tv1.VirtualMachineInstanceStatus{
 						Phase: "Running",
@@ -776,6 +794,11 @@ var _ = Describe("Utility functions", func() {
 				&k6tv1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "pending#0",
+						Annotations: map[string]string{
+							annotationPrefix + "os":       "fedora33",
+							annotationPrefix + "workload": "workstation",
+							annotationPrefix + "flavor":   "large",
+						},
 					},
 					Status: k6tv1.VirtualMachineInstanceStatus{
 						Phase: "Pending",
@@ -784,6 +807,12 @@ var _ = Describe("Utility functions", func() {
 				&k6tv1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "scheduling#0",
+						Annotations: map[string]string{
+							annotationPrefix + "os":       "centos7",
+							annotationPrefix + "workload": "server",
+							annotationPrefix + "flavor":   "medium",
+							annotationPrefix + "dummy":    "dummy",
+						},
 					},
 					Status: k6tv1.VirtualMachineInstanceStatus{
 						Phase: "Scheduling",
@@ -791,21 +820,49 @@ var _ = Describe("Utility functions", func() {
 				},
 				&k6tv1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "running#1",
+						Name: "scheduling#1",
+						Annotations: map[string]string{
+							annotationPrefix + "os":       "centos7",
+							annotationPrefix + "workload": "server",
+							annotationPrefix + "flavor":   "medium",
+							annotationPrefix + "phase":    "dummy",
+						},
 					},
 					Status: k6tv1.VirtualMachineInstanceStatus{
-						Phase: "Running",
+						Phase: "Scheduling",
 					},
 				},
 			}
 
-			phasesMap := makeVMIsPhasesMap(vmis)
-			Expect(phasesMap).NotTo(BeNil())
-			Expect(len(phasesMap)).To(Equal(3))
-			Expect(phasesMap["running"]).To(Equal(uint64(2)))
-			Expect(phasesMap["pending"]).To(Equal(uint64(1)))
-			Expect(phasesMap["scheduling"]).To(Equal(uint64(1)))
-			Expect(phasesMap["bogus"]).To(Equal(uint64(0))) // intentionally bogus key
+			countMap := makeVMICountMetricMap(vmis)
+			Expect(countMap).NotTo(BeNil())
+			Expect(len(countMap)).To(Equal(3))
+
+			running := vmiCountMetric{
+				Phase:    "running",
+				OS:       "centos8",
+				Workload: "server",
+				Flavor:   "tiny",
+			}
+			pending := vmiCountMetric{
+				Phase:    "pending",
+				OS:       "fedora33",
+				Workload: "workstation",
+				Flavor:   "large",
+			}
+			scheduling := vmiCountMetric{
+				Phase:    "scheduling",
+				OS:       "centos7",
+				Workload: "server",
+				Flavor:   "medium",
+			}
+			bogus := vmiCountMetric{
+				Phase: "bogus",
+			}
+			Expect(countMap[running]).To(Equal(uint64(2)))
+			Expect(countMap[pending]).To(Equal(uint64(1)))
+			Expect(countMap[scheduling]).To(Equal(uint64(2)))
+			Expect(countMap[bogus]).To(Equal(uint64(0))) // intentionally bogus key
 		})
 	})
 })
