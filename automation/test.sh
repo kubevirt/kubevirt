@@ -200,13 +200,7 @@ set -e
 echo "Nodes are ready:"
 kubectl get nodes
 
-make cluster-build
-
-# I do not have good indication that OKD API server ready to serve requests, so I will just
-# repeat cluster-deploy until it succeeds
-until make cluster-deploy; do
-    sleep 1
-done
+make cluster-sync
 
 hack/dockerized bazel shutdown
 
