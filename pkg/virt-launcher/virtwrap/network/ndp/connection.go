@@ -36,6 +36,7 @@ const (
 	importSocketTimeout = time.Minute
 	maxHops             = 255
 	raBufferSize        = 128
+	unixLocalNetwork    = "unix"
 )
 
 // A NDPConnection instruments a system.Conn and adds retry functionality for
@@ -117,7 +118,7 @@ func ImportConnection(socketPath string) (*os.File, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), importSocketTimeout)
 	defer cancel()
 
-	c, err := (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
+	c, err := (&net.Dialer{}).DialContext(ctx, unixLocalNetwork, socketPath)
 	if err != nil {
 		return nil, fmt.Errorf("error dialing to unix domain socket at %s: %v", socketPath, err)
 	}
@@ -135,7 +136,7 @@ func ImportConnection(socketPath string) (*os.File, error) {
 }
 
 func (l *NDPConnection) Export(socketPath string) error {
-	socketListener, err := net.Listen("unix", socketPath)
+	socketListener, err := net.Listen(unixLocalNetwork, socketPath)
 	if err != nil {
 		return fmt.Errorf("could not create a UNIX domain socket: %v", err)
 	}
