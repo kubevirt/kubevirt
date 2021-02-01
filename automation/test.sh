@@ -151,6 +151,20 @@ collect_debug_logs() {
     done
 }
 
+build_images() {
+    # build all images with the basic repeat logic
+    # probably because load on the node, possible situation when the bazel
+    # fails to download artifacts, to avoid job fails because of it,
+    # we repeat the build images action
+    local tries=3
+    for i in $(seq 1 $tries); do
+        make bazel-build-images && return
+        rc=$?
+    done
+
+    return $rc
+}
+
 export NAMESPACE="${NAMESPACE:-kubevirt}"
 
 # Make sure that the VM is properly shut down on exit
@@ -169,17 +183,7 @@ EOF
 # Build and test images with a custom image name prefix
 export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
 
-# build all images with the basic repeat logic
-# probably because load on the node, possible situation when the bazel
-# fails to download artifacts, to avoid job fails because of it,
-# we repeat the build images action
-set +e
-for i in $(seq 1 3);
-do
-  make bazel-build-images
-done
-set -e
-make bazel-build-images
+build_images
 
 trap '{ collect_debug_logs; echo "Dump kubevirt state:"; make dump; }' ERR
 make cluster-up
