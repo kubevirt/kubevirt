@@ -43,6 +43,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
@@ -51,6 +52,14 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
+)
+
+type networkAddressingType int
+
+const (
+	dynamicIPv4 networkAddressingType = iota
+	staticIPv6
+	dynamicIPv6
 )
 
 var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", func() {
@@ -623,36 +632,22 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			return vmi
 		}
 
-		fedoraMasqueradeVMI := func(ports []v1.Port) (*v1.VirtualMachineInstance, error) {
-
-			networkData, err := libnet.CreateDefaultCloudInitNetworkData()
-			if err != nil {
-				return nil, err
-			}
-
-			vmi := libvmi.NewFedora(
+		fedoraMasqueradeVMI := func(ports []v1.Port, networkData string) *v1.VirtualMachineInstance {
+			return libvmi.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithCloudInitNoCloudNetworkData(networkData, false),
 			)
-
-			return vmi, nil
 		}
 
-		configureIpv6 := func(vmi *v1.VirtualMachineInstance) error {
-			err := console.RunCommand(vmi, "dhclient -6 eth0", 30*time.Second)
-			if err != nil {
-				return err
-			}
-			err = console.RunCommand(vmi, "ip -6 route add fd10:0:2::/120 dev eth0", 5*time.Second)
-			if err != nil {
-				return err
-			}
-			err = console.RunCommand(vmi, "ip -6 route add default via fd10:0:2::1", 5*time.Second)
-			if err != nil {
-				return err
-			}
-			return nil
+		fedoraMasqueradeDynamicIPv6VMI := func(ports []v1.Port) (*v1.VirtualMachineInstance, error) {
+			networkData, err := libnet.CreateDefaultCloudInitNetworkData()
+			return fedoraMasqueradeVMI(ports, networkData), err
+		}
+
+		fedoraMasqueradeStaticIPv6VMI := func(ports []v1.Port) (*v1.VirtualMachineInstance, error) {
+			networkData, err := libnet.CreateDefaultStaticIPv6CloudInitNetworkData()
+			return fedoraMasqueradeVMI(ports, networkData), err
 		}
 
 		Context("[Conformance][test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", func() {
@@ -728,31 +723,38 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				table.Entry("with custom CIDR [IPv4]", []v1.Port{}, "10.10.10.0/24"),
 			)
 
-			table.DescribeTable("IPv6", func(ports []v1.Port) {
+			table.DescribeTable("IPv6", func(ports []v1.Port, configurationType networkAddressingType) {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
+
+				if configurationType == dynamicIPv6 {
+					tests.EnableFeatureGate(virtconfig.RAGate)
+					defer func() {
+						tests.DisableFeatureGate(virtconfig.RAGate)
+					}()
+				}
 
 				var clientVMI *v1.VirtualMachineInstance
 
-				// Create the client only one time
+				// Create the client only one time - always static ipv6 addressing
 				if clientVMI == nil {
-					clientVMI, err = fedoraMasqueradeVMI([]v1.Port{})
+					clientVMI, err = fedoraMasqueradeStaticIPv6VMI(ports)
 					Expect(err).ToNot(HaveOccurred())
 					clientVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
 					Expect(err).ToNot(HaveOccurred())
 					clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
-
-					Expect(configureIpv6(clientVMI)).To(Succeed(), "failed to configure ipv6 on client vmi")
 				}
 
-				serverVMI, err = fedoraMasqueradeVMI(ports)
+				if configurationType == staticIPv6 {
+					serverVMI, err = fedoraMasqueradeStaticIPv6VMI(ports)
+				} else {
+					serverVMI, err = fedoraMasqueradeDynamicIPv6VMI(ports)
+				}
 				Expect(err).ToNot(HaveOccurred())
 
 				serverVMI.Labels = map[string]string{"expose": "server"}
 				serverVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
 				Expect(err).ToNot(HaveOccurred())
 				serverVMI = tests.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
-
-				Expect(configureIpv6(serverVMI)).To(Succeed(), "failed to configure ipv6  on server vmi")
 
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
 				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
@@ -768,8 +770,11 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				Expect(libnet.PingFromVMConsole(serverVMI, "2001:db8:1::1")).To(Succeed())
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
-			}, table.Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}),
-				table.Entry("without a specific port number [IPv6]", []v1.Port{}),
+			},
+				table.Entry("with a specific port number [static IPv6]", []v1.Port{{Name: "http", Port: 8080}}, staticIPv6),
+				table.Entry("without a specific port number [static IPv6]", []v1.Port{}, staticIPv6),
+				table.Entry("with a specific port number [dynamic IPv6]", []v1.Port{{Name: "http", Port: 8080}}, dynamicIPv6),
+				table.Entry("without a specific port number [dynamic IPv6]", []v1.Port{}, dynamicIPv6),
 			)
 		})
 
@@ -830,22 +835,32 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				}
 			})
 
-			table.DescribeTable("[Conformance] preserves connectivity", func(ipFamily k8sv1.IPFamily) {
-				if ipFamily == k8sv1.IPv6Protocol {
+			table.DescribeTable("[Conformance] preserves connectivity", func(configurationType networkAddressingType) {
+				ipFamily := k8sv1.IPv4Protocol
+				if configurationType == staticIPv6 || configurationType == dynamicIPv6 {
 					libnet.SkipWhenNotDualStackCluster(virtClient)
+					ipFamily = k8sv1.IPv6Protocol
 				}
 
+				if configurationType == dynamicIPv6 {
+					tests.EnableFeatureGate(virtconfig.RAGate)
+					defer func() {
+						tests.DisableFeatureGate(virtconfig.RAGate)
+					}()
+				}
 				var err error
-				var loginMethod console.LoginToFactory
 
 				By("Create VMI")
-				if ipFamily == k8sv1.IPv4Protocol {
+				loginMethod := console.LoginToFedora
+				if configurationType == dynamicIPv4 {
 					vmi = masqueradeVMI([]v1.Port{}, "")
 					loginMethod = console.LoginToCirros
-				} else {
-					vmi, err = fedoraMasqueradeVMI([]v1.Port{})
+				} else if configurationType == staticIPv6 {
+					vmi, err = fedoraMasqueradeStaticIPv6VMI([]v1.Port{})
 					Expect(err).ToNot(HaveOccurred(), "Error creating fedora masquerade vmi")
-					loginMethod = console.LoginToFedora
+				} else {
+					vmi, err = fedoraMasqueradeDynamicIPv6VMI([]v1.Port{})
+					Expect(err).ToNot(HaveOccurred(), "Error creating fedora masquerade vmi")
 				}
 
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -854,11 +869,6 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-
-				if ipFamily == k8sv1.IPv6Protocol {
-					err = configureIpv6(vmi)
-					Expect(err).ToNot(HaveOccurred(), "failed to configure ipv6 on vmi")
-				}
 
 				virtHandlerPod, err := getVirtHandlerPod()
 				Expect(err).ToNot(HaveOccurred())
@@ -883,13 +893,11 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 					&expect.BExp{R: "reboot: Restarting system"},
 				}, 10)).To(Succeed(), "failed to restart the vmi")
 				tests.WaitUntilVMIReady(vmi, loginMethod)
-				if ipFamily == k8sv1.IPv6Protocol {
-					Expect(configureIpv6(vmi)).To(Succeed(), "failed to configure ipv6 on vmi after restart")
-				}
 				Expect(ping(podIP)).To(Succeed())
 			},
-				table.Entry("IPv4", k8sv1.IPv4Protocol),
-				table.Entry("IPv6", k8sv1.IPv6Protocol),
+				table.Entry("IPv4", dynamicIPv4),
+				table.Entry("static IPv6", staticIPv6),
+				table.Entry("dynamic IPv6", dynamicIPv6),
 			)
 		})
 
@@ -916,7 +924,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				var err error
 
 				By("Create masquerade VMI")
-				vmi, err = fedoraMasqueradeVMI([]v1.Port{})
+				vmi, err = fedoraMasqueradeStaticIPv6VMI([]v1.Port{})
 				Expect(err).ToNot(HaveOccurred(), "Error creating fedora masquerade vmi")
 
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
