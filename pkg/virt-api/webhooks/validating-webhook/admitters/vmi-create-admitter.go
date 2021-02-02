@@ -35,7 +35,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	"kubevirt.io/kubevirt/pkg/util/hardware"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -948,92 +947,108 @@ func validateCPUIsolatorThread(field *k8sfield.Path, spec *v1.VirtualMachineInst
 
 func validateCpuPinning(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Domain.CPU != nil && spec.Domain.CPU.DedicatedCPUPlacement {
-		requestsMem := spec.Domain.Resources.Requests.Memory().Value()
-		limitsMem := spec.Domain.Resources.Limits.Memory().Value()
-		requestsCPU := spec.Domain.Resources.Requests.Cpu().Value()
-		limitsCPU := spec.Domain.Resources.Limits.Cpu().Value()
-		vCPUs := hardware.GetNumberOfVCPUs(spec.Domain.CPU)
+		causes = append(causes, validateMemoryLimitAndRequestProvided(field, spec)...)
+		causes = append(causes, validateCPURequestIsInteger(field, spec)...)
+		causes = append(causes, validateCPULimitIsInteger(field, spec)...)
+		causes = append(causes, validateMemoryRequestsAndLimits(field, spec)...)
+		causes = append(causes, validateRequestLimitOrCoresProvidedOnDedicatedCPUPlacement(field, spec)...)
+		causes = append(causes, validateRequestEqualsLimitOnDedicatedCPUPlacement(field, spec)...)
+		causes = append(causes, validateRequestOrLimitWithCoresProvidedOnDedicatedCPUPlacement(field, spec)...)
+	}
+	return causes
+}
 
-		// memory should be provided
-		if limitsMem == 0 && requestsMem == 0 {
-			causes = append(causes, metav1.StatusCause{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s or %s should be provided",
-					field.Child("domain", "resources", "requests", "memory").String(),
-					field.Child("domain", "resources", "limits", "memory").String(),
-				),
-				Field: field.Child("domain", "resources", "limits", "memory").String(),
-			})
-		}
+func validateRequestOrLimitWithCoresProvidedOnDedicatedCPUPlacement(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if (spec.Domain.Resources.Requests.Cpu().Value() > 0 || spec.Domain.Resources.Limits.Cpu().Value() > 0) && hwutil.GetNumberOfVCPUs(spec.Domain.CPU) > 0 &&
+		spec.Domain.Resources.Requests.Cpu().Value() != hwutil.GetNumberOfVCPUs(spec.Domain.CPU) && spec.Domain.Resources.Limits.Cpu().Value() != hwutil.GetNumberOfVCPUs(spec.Domain.CPU) {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s or %s must not be provided at the same time with %s when DedicatedCPUPlacement is true ",
+				field.Child("domain", "resources", "requests", "cpu").String(),
+				field.Child("domain", "resources", "limits", "cpu").String(),
+				field.Child("domain", "cpu", "cores").String(),
+			),
+			Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
+		})
+	}
+	return causes
+}
 
-		// provided CPU requests must be an interger
-		if requestsCPU > 0 && requestsCPU*1000 != spec.Domain.Resources.Requests.Cpu().MilliValue() {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "provided resources CPU requests must be an interger",
-				Field:   field.Child("domain", "resources", "requests", "cpu").String(),
-			})
-		}
+func validateRequestEqualsLimitOnDedicatedCPUPlacement(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.Resources.Requests.Cpu().Value() > 0 && spec.Domain.Resources.Limits.Cpu().Value() > 0 && spec.Domain.Resources.Requests.Cpu().Value() != spec.Domain.Resources.Limits.Cpu().Value() {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s or %s must be equal when DedicatedCPUPlacement is true ",
+				field.Child("domain", "resources", "requests", "cpu").String(),
+				field.Child("domain", "resources", "limits", "cpu").String(),
+			),
+			Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
+		})
+	}
+	return causes
+}
 
-		// provided CPU limits must be an interger
-		if limitsCPU > 0 && limitsCPU*1000 != spec.Domain.Resources.Limits.Cpu().MilliValue() {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "provided resources CPU limits must be an interger",
-				Field:   field.Child("domain", "resources", "limits", "cpu").String(),
-			})
-		}
+func validateRequestLimitOrCoresProvidedOnDedicatedCPUPlacement(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.Resources.Requests.Cpu().Value() == 0 && spec.Domain.Resources.Limits.Cpu().Value() == 0 && hwutil.GetNumberOfVCPUs(spec.Domain.CPU) == 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("either %s or %s or %s must be provided when DedicatedCPUPlacement is true ",
+				field.Child("domain", "resources", "requests", "cpu").String(),
+				field.Child("domain", "resources", "limits", "cpu").String(),
+				field.Child("domain", "cpu", "cores").String(),
+			),
+			Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
+		})
+	}
+	return causes
+}
 
-		// resources requests must be equal to limits
-		if requestsMem > 0 && limitsMem > 0 && requestsMem != limitsMem {
-			causes = append(causes, metav1.StatusCause{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s must be equal to %s",
-					field.Child("domain", "resources", "requests", "memory").String(),
-					field.Child("domain", "resources", "limits", "memory").String(),
-				),
-				Field: field.Child("domain", "resources", "requests", "memory").String(),
-			})
-		}
+func validateMemoryRequestsAndLimits(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.Resources.Requests.Memory().Value() > 0 && spec.Domain.Resources.Limits.Memory().Value() > 0 && spec.Domain.Resources.Requests.Memory().Value() != spec.Domain.Resources.Limits.Memory().Value() {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must be equal to %s",
+				field.Child("domain", "resources", "requests", "memory").String(),
+				field.Child("domain", "resources", "limits", "memory").String(),
+			),
+			Field: field.Child("domain", "resources", "requests", "memory").String(),
+		})
+	}
+	return causes
+}
 
-		// cpu amount should be provided
-		if requestsCPU == 0 && limitsCPU == 0 && vCPUs == 0 {
-			causes = append(causes, metav1.StatusCause{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("either %s or %s or %s must be provided when DedicatedCPUPlacement is true ",
-					field.Child("domain", "resources", "requests", "cpu").String(),
-					field.Child("domain", "resources", "limits", "cpu").String(),
-					field.Child("domain", "cpu", "cores").String(),
-				),
-				Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
-			})
-		}
+func validateCPULimitIsInteger(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.Resources.Limits.Cpu().Value() > 0 && spec.Domain.Resources.Limits.Cpu().Value()*1000 != spec.Domain.Resources.Limits.Cpu().MilliValue() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "provided resources CPU limits must be an interger",
+			Field:   field.Child("domain", "resources", "limits", "cpu").String(),
+		})
+	}
+	return causes
+}
 
-		// cpu amount must be provided
-		if requestsCPU > 0 && limitsCPU > 0 && requestsCPU != limitsCPU {
-			causes = append(causes, metav1.StatusCause{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s or %s must be equal when DedicatedCPUPlacement is true ",
-					field.Child("domain", "resources", "requests", "cpu").String(),
-					field.Child("domain", "resources", "limits", "cpu").String(),
-				),
-				Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
-			})
-		}
+func validateCPURequestIsInteger(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.Resources.Requests.Cpu().Value() > 0 && spec.Domain.Resources.Requests.Cpu().Value()*1000 != spec.Domain.Resources.Requests.Cpu().MilliValue() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "provided resources CPU requests must be an interger",
+			Field:   field.Child("domain", "resources", "requests", "cpu").String(),
+		})
+	}
+	return causes
+}
 
-		// cpu resource and cpu cores should not be provided together - unless both are equal
-		if (requestsCPU > 0 || limitsCPU > 0) && vCPUs > 0 &&
-			requestsCPU != vCPUs && limitsCPU != vCPUs {
-			causes = append(causes, metav1.StatusCause{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s or %s must not be provided at the same time with %s when DedicatedCPUPlacement is true ",
-					field.Child("domain", "resources", "requests", "cpu").String(),
-					field.Child("domain", "resources", "limits", "cpu").String(),
-					field.Child("domain", "cpu", "cores").String(),
-				),
-				Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
-			})
-		}
+func validateMemoryLimitAndRequestProvided(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.Resources.Limits.Memory().Value() == 0 && spec.Domain.Resources.Requests.Memory().Value() == 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s or %s should be provided",
+				field.Child("domain", "resources", "requests", "memory").String(),
+				field.Child("domain", "resources", "limits", "memory").String(),
+			),
+			Field: field.Child("domain", "resources", "limits", "memory").String(),
+		})
 	}
 	return causes
 }
