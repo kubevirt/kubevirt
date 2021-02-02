@@ -9,8 +9,8 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-func TestApi(t *testing.T) {
+func TestConverter(t *testing.T) {
 	log.Log.SetIOWriter(GinkgoWriter)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Api Suite")
+	RunSpecs(t, "Converter Suite")
 }
