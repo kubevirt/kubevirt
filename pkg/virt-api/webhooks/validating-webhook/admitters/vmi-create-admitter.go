@@ -72,8 +72,8 @@ var restriectedVmiLabels = map[string]bool{
 }
 
 const (
-	nameOfTypeNotFoundMessagePattern = "%s '%s' not found."
-	listExceedsLimitMessagePattern = "%s list exceeds the %d element limit in length"
+	nameOfTypeNotFoundMessagePattern  = "%s '%s' not found."
+	listExceedsLimitMessagePattern    = "%s list exceeds the %d element limit in length"
 	valueMustBePositiveMessagePattern = "%s '%s': must be greater than or equal to 0."
 )
 
