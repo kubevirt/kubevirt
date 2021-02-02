@@ -117,23 +117,23 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		return appendNewStatusCauseForMaxNumberOfVolumesExceeded(field, causes)
 	}
 
-	causes = validateHostNameNotConformingToDNSLabelRules(field, spec, causes)
-	causes = validateSubdomainDNSSubdomainRules(field, spec, causes)
-	causes = validateMemoryRequestsNegativeOrNull(field, spec, causes)
-	causes = validateMemoryLimitsNegativeOrNull(field, spec, causes)
-	causes = validateHugepagesMemoryRequests(field, spec, causes)
-	causes = validateGuestMemoryLimit(field, spec, causes)
-	causes = validateEmulatedMachine(field, spec, config, causes)
-	causes = validateFirmwareSerial(field, spec, causes)
-	causes = validateCPURequestNotNegative(field, spec, causes)
-	causes = validateCPULimitNotNegative(field, spec, causes)
-	causes = validateCpuRequestDoesNotExceedLimit(field, spec, causes)
-	causes = validateCpuPinning(field, spec, causes)
-	causes = validateCPUIsolatorThread(field, spec, causes)
-	causes = validateCPUFeaturePolicies(field, spec, causes)
+	causes = append(causes, validateHostNameNotConformingToDNSLabelRules(field, spec)...)
+	causes = append(causes, validateSubdomainDNSSubdomainRules(field, spec)...)
+	causes = append(causes, validateMemoryRequestsNegativeOrNull(field, spec)...)
+	causes = append(causes, validateMemoryLimitsNegativeOrNull(field, spec)...)
+	causes = append(causes, validateHugepagesMemoryRequests(field, spec)...)
+	causes = append(causes, validateGuestMemoryLimit(field, spec)...)
+	causes = append(causes, validateEmulatedMachine(field, spec, config)...)
+	causes = append(causes, validateFirmwareSerial(field, spec)...)
+	causes = append(causes, validateCPURequestNotNegative(field, spec)...)
+	causes = append(causes, validateCPULimitNotNegative(field, spec)...)
+	causes = append(causes, validateCpuRequestDoesNotExceedLimit(field, spec)...)
+	causes = append(causes, validateCpuPinning(field, spec)...)
+	causes = append(causes, validateCPUIsolatorThread(field, spec)...)
+	causes = append(causes, validateCPUFeaturePolicies(field, spec)...)
 
-	maxNumberOfInterfaceExceeded := len(spec.Domain.Devices.Interfaces) > arrayLenMax
-	if maxNumberOfInterfaceExceeded {
+	maxNumberOfInterfacesExceeded := len(spec.Domain.Devices.Interfaces) > arrayLenMax
+	if maxNumberOfInterfacesExceeded {
 		return appendStatusCauseForMaxNumberOfInterfacesExceeded(field, causes)
 	}
 	maxNumberOfNetworksExceeded := len(spec.Networks) > arrayLenMax
@@ -145,8 +145,10 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		return appendStatusCauseForMoreThanOnePodInterface(field, causes)
 	}
 
-	bootOrderMap, causes := validateBootOrder(field, spec, volumeNameMap, causes)
-	podExists, multusDefaultCount, causes := validateNetworks(field, spec, causes, networkNameMap)
+	bootOrderMap, newCauses := validateBootOrder(field, spec, volumeNameMap)
+	causes = append(causes, newCauses...)
+	podExists, multusDefaultCount, newCauses := validateNetworks(field, spec, networkNameMap)
+	causes = append(causes, newCauses...)
 
 	if multusDefaultCount > 1 {
 		causes = appendStatusCaseForMoreThanOneMultusDefaultNetwork(field, causes)
@@ -155,18 +157,19 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		causes = appendStatusCauseForPodNetworkDefinedWithMultusDefaultNetworkDefined(field, causes)
 	}
 
-	networkInterfaceMap, vifMQ, isVirtioNicRequested, causes, done := validateNetworksMatchInterfaces(field, spec, config, networkNameMap, causes, bootOrderMap)
+	networkInterfaceMap, vifMQ, isVirtioNicRequested, newCauses, done := validateNetworksMatchInterfaces(field, spec, config, networkNameMap, bootOrderMap)
+	causes = append(causes, newCauses...)
 	if done {
 		return causes
 	}
 
-	causes = validateNetworkInterfaceMultiqueue(field, vifMQ, isVirtioNicRequested, causes)
-	causes = validateNetworksAssignedToInterfaces(field, spec, causes, networkInterfaceMap)
+	causes = append(causes, validateNetworkInterfaceMultiqueue(field, vifMQ, isVirtioNicRequested)...)
+	causes = append(causes, validateNetworksAssignedToInterfaces(field, spec, networkInterfaceMap)...)
 
-	causes = validateInputDevices(field, spec, causes)
-	causes = validateIOThreadsPolicy(field, spec, causes)
-	causes = validateReadinessProbe(field, spec, causes)
-	causes = validateLivenessProbe(field, spec, causes)
+	causes = append(causes, validateInputDevices(field, spec)...)
+	causes = append(causes, validateIOThreadsPolicy(field, spec)...)
+	causes = append(causes, validateReadinessProbe(field, spec)...)
+	causes = append(causes, validateLivenessProbe(field, spec)...)
 
 	if getNumberOfPodInterfaces(spec) < 1 {
 		causes = appendStatusCauseForLivenessProbeNotAllowedWithNoPodNetworkPresent(field, spec, causes)
@@ -182,23 +185,26 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		causes = append(causes, validateDNSPolicy(&spec.DNSPolicy, field.Child("dnsPolicy"))...)
 	}
 	causes = append(causes, validatePodDNSConfig(spec.DNSConfig, &spec.DNSPolicy, field.Child("dnsConfig"))...)
-	causes = validateLiveMigration(field, spec, config, causes)
-	causes = validateGPUsWithPassthroughEnabled(field, spec, config, causes)
-	causes = validateFilesystemsWithVirtIOFSEnabled(field, spec, config, causes)
-	causes = validateHostDevicesWithPassthroughEnabled(field, spec, config, causes)
-	causes = validatePermittedHostDevices(field, spec, config, causes)
+	causes = append(causes, validateLiveMigration(field, spec, config)...)
+	causes = append(causes, validateGPUsWithPassthroughEnabled(field, spec, config)...)
+	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
+	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field, spec, config)...)
+	causes = append(causes, validatePermittedHostDevices(field, spec, config)...)
 	return causes
 }
 
-func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, networkNameMap map[string]*v1.Network, causes []metav1.StatusCause, bootOrderMap map[uint]bool) (map[string]struct{}, *bool, bool, []metav1.StatusCause, bool) {
+func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, networkNameMap map[string]*v1.Network, bootOrderMap map[uint]bool) (networkInterfaceMap map[string]struct{}, vifMQ *bool, isVirtioNicRequested bool, causes []metav1.StatusCause, done bool) {
+
+	done = false
+
 	// Make sure interfaces and networks are 1to1 related
-	networkInterfaceMap := make(map[string]struct{})
+	networkInterfaceMap = make(map[string]struct{})
 
 	// Make sure the port name is unique across all the interfaces
 	portForwardMap := make(map[string]struct{})
 
-	vifMQ := spec.Domain.Devices.NetworkInterfaceMultiQueue
-	isVirtioNicRequested := false
+	vifMQ = spec.Domain.Devices.NetworkInterfaceMultiQueue
+	isVirtioNicRequested = false
 
 	// Validate that each interface has a matching network
 	for idx, iface := range spec.Domain.Devices.Interfaces {
@@ -218,10 +224,11 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 		causes = append(causes, validateInterfaceBootOrder(field, iface, idx, bootOrderMap)...)
 		causes = append(causes, validateInterfacePciAddress(field, iface, idx)...)
 
-		newCauses, done := validateDHCPExtraOptions(field, iface)
+		newCauses, newDone := validateDHCPExtraOptions(field, iface)
 		causes = append(causes, newCauses...)
+		done = newDone
 		if done {
-			return nil, nil, false, causes, true
+			return nil, nil, false, causes, done
 		}
 
 		if iface.Model == "virtio" || iface.Model == "" {
@@ -230,7 +237,7 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 
 		causes = append(causes, validateDHCPNTPServersAreValidIPv4Addresses(field, iface, idx)...)
 	}
-	return networkInterfaceMap, vifMQ, isVirtioNicRequested, causes, false
+	return networkInterfaceMap, vifMQ, isVirtioNicRequested, causes, done
 }
 
 func validateInterfaceNetworkBasics(field *k8sfield.Path, networkExists bool, idx int, iface v1.Interface, networkData *v1.Network, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
@@ -262,7 +269,7 @@ func validateDHCPExtraOptions(field *k8sfield.Path, iface v1.Interface) (causes 
 			done = true
 		}
 		for _, DHCPPrivateOption := range PrivateOptions {
-			causes = validateDHCPPrivateOptionsWithinRange(field, DHCPPrivateOption, causes)
+			causes = append(causes, validateDHCPPrivateOptionsWithinRange(field, DHCPPrivateOption)...)
 		}
 	}
 	return causes, done
@@ -283,7 +290,7 @@ func validateDHCPNTPServersAreValidIPv4Addresses(field *k8sfield.Path, iface v1.
 	return causes
 }
 
-func validateDHCPPrivateOptionsWithinRange(field *k8sfield.Path, DHCPPrivateOption v1.DHCPPrivateOptions, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateDHCPPrivateOptionsWithinRange(field *k8sfield.Path, DHCPPrivateOption v1.DHCPPrivateOptions) (causes []metav1.StatusCause) {
 	if !(DHCPPrivateOption.Option >= 224 && DHCPPrivateOption.Option <= 254) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -519,7 +526,7 @@ func validateInterfaceNameUnique(field *k8sfield.Path, networkInterfaceMap map[s
 	return causes
 }
 
-func validateNetworkInterfaceMultiqueue(field *k8sfield.Path, vifMQ *bool, isVirtioNicRequested bool, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateNetworkInterfaceMultiqueue(field *k8sfield.Path, vifMQ *bool, isVirtioNicRequested bool) (causes []metav1.StatusCause) {
 	if vifMQ != nil && *vifMQ && !isVirtioNicRequested {
 
 		causes = append(causes, metav1.StatusCause{
@@ -532,7 +539,7 @@ func validateNetworkInterfaceMultiqueue(field *k8sfield.Path, vifMQ *bool, isVir
 	return causes
 }
 
-func validateNetworksAssignedToInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause, networkInterfaceMap map[string]struct{}) []metav1.StatusCause {
+func validateNetworksAssignedToInterfaces(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, networkInterfaceMap map[string]struct{}) (causes []metav1.StatusCause) {
 	networkDuplicates := map[string]struct{}{}
 	for i, network := range spec.Networks {
 		if _, exists := networkDuplicates[network.Name]; exists {
@@ -554,7 +561,7 @@ func validateNetworksAssignedToInterfaces(field *k8sfield.Path, spec *v1.Virtual
 	return causes
 }
 
-func validateInputDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateInputDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	for idx, input := range spec.Domain.Devices.Inputs {
 		if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
 			causes = append(causes, metav1.StatusCause{
@@ -575,7 +582,7 @@ func validateInputDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 	return causes
 }
 
-func validateIOThreadsPolicy(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateIOThreadsPolicy(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Domain.IOThreadsPolicy != nil {
 		isValidPolicy := func(policy v1.IOThreadsPolicy) bool {
 			for _, p := range validIOThreadsPolicies {
@@ -596,7 +603,7 @@ func validateIOThreadsPolicy(field *k8sfield.Path, spec *v1.VirtualMachineInstan
 	return causes
 }
 
-func validateReadinessProbe(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateReadinessProbe(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.ReadinessProbe != nil {
 		if spec.ReadinessProbe.HTTPGet != nil && spec.ReadinessProbe.TCPSocket != nil {
 			causes = append(causes, metav1.StatusCause{
@@ -619,7 +626,7 @@ func validateReadinessProbe(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 	return causes
 }
 
-func validateLivenessProbe(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateLivenessProbe(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.LivenessProbe != nil {
 		if spec.LivenessProbe.HTTPGet != nil && spec.LivenessProbe.TCPSocket != nil {
 			causes = append(causes, metav1.StatusCause{
@@ -664,7 +671,7 @@ func appendStatusCauseForLivenessProbeNotAllowedWithNoPodNetworkPresent(field *k
 	return causes
 }
 
-func validateLiveMigration(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateLiveMigration(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	if !config.LiveMigrationEnabled() && spec.EvictionStrategy != nil {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -684,7 +691,7 @@ func validateLiveMigration(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 	return causes
 }
 
-func validateGPUsWithPassthroughEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateGPUsWithPassthroughEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	if spec.Domain.Devices.GPUs != nil && !config.GPUPassthroughEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -695,7 +702,7 @@ func validateGPUsWithPassthroughEnabled(field *k8sfield.Path, spec *v1.VirtualMa
 	return causes
 }
 
-func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	if spec.Domain.Devices.Filesystems != nil && !config.VirtiofsEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -706,7 +713,7 @@ func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.Virtu
 	return causes
 }
 
-func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	if spec.Domain.Devices.HostDevices != nil && !config.HostDevicesPassthroughEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -717,7 +724,7 @@ func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, spec *v1.Vi
 	return causes
 }
 
-func validatePermittedHostDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, causes []metav1.StatusCause) []metav1.StatusCause {
+func validatePermittedHostDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	if hostDevs := config.GetPermittedHostDevices(); hostDevs != nil {
 		// build a map of all permitted host devices
 		supportedHostDevicesMap := make(map[string]bool)
@@ -765,11 +772,10 @@ func appendStatusCaseForMoreThanOneMultusDefaultNetwork(field *k8sfield.Path, ca
 	})
 }
 
-func validateNetworks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, incomingCauses []metav1.StatusCause, networkNameMap map[string]*v1.Network) (podExists bool, multusDefaultCount int, causes []metav1.StatusCause) {
+func validateNetworks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, networkNameMap map[string]*v1.Network) (podExists bool, multusDefaultCount int, causes []metav1.StatusCause) {
 
 	podExists = false
 	multusDefaultCount = 0
-	causes = incomingCauses
 
 	for idx, network := range spec.Networks {
 
@@ -827,9 +833,9 @@ func validateNetworkHasOnlyOneType(field *k8sfield.Path, cniTypesCount int, caus
 	return causes
 }
 
-func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, volumeNameMap map[string]*v1.Volume, causes []metav1.StatusCause) (map[uint]bool, []metav1.StatusCause) {
+func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, volumeNameMap map[string]*v1.Volume) (bootOrderMap map[uint]bool, causes []metav1.StatusCause) {
 	// used to validate uniqueness of boot orders among disks and interfaces
-	bootOrderMap := make(map[uint]bool)
+	bootOrderMap = make(map[uint]bool)
 
 	for i, volume := range spec.Volumes {
 		volumeNameMap[volume.Name] = &spec.Volumes[i]
@@ -898,7 +904,7 @@ func appendStatusCauseForMaxNumberOfInterfacesExceeded(field *k8sfield.Path, cau
 	})
 }
 
-func validateCPUFeaturePolicies(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateCPUFeaturePolicies(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Domain.CPU != nil && spec.Domain.CPU.Features != nil {
 		for idx, feature := range spec.Domain.CPU.Features {
 			if _, exists := validCPUFeaturePolicies[feature.Policy]; !exists {
@@ -913,7 +919,7 @@ func validateCPUFeaturePolicies(field *k8sfield.Path, spec *v1.VirtualMachineIns
 	return causes
 }
 
-func validateCPUIsolatorThread(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateCPUIsolatorThread(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Domain.CPU != nil && spec.Domain.CPU.IsolateEmulatorThread && !spec.Domain.CPU.DedicatedCPUPlacement {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -924,7 +930,7 @@ func validateCPUIsolatorThread(field *k8sfield.Path, spec *v1.VirtualMachineInst
 	return causes
 }
 
-func validateCpuPinning(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateCpuPinning(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Domain.CPU != nil && spec.Domain.CPU.DedicatedCPUPlacement {
 		requestsMem := spec.Domain.Resources.Requests.Memory().Value()
 		limitsMem := spec.Domain.Resources.Limits.Memory().Value()
@@ -1016,7 +1022,7 @@ func validateCpuPinning(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpe
 	return causes
 }
 
-func validateCpuRequestDoesNotExceedLimit(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateCpuRequestDoesNotExceedLimit(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Domain.Resources.Limits.Cpu().MilliValue() > 0 &&
 		spec.Domain.Resources.Requests.Cpu().MilliValue() > spec.Domain.Resources.Limits.Cpu().MilliValue() {
 		causes = append(causes, metav1.StatusCause{
@@ -1031,7 +1037,7 @@ func validateCpuRequestDoesNotExceedLimit(field *k8sfield.Path, spec *v1.Virtual
 	return causes
 }
 
-func validateCPULimitNotNegative(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateCPULimitNotNegative(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Domain.Resources.Limits.Cpu().MilliValue() < 0 {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
@@ -1043,7 +1049,7 @@ func validateCPULimitNotNegative(field *k8sfield.Path, spec *v1.VirtualMachineIn
 	return causes
 }
 
-func validateCPURequestNotNegative(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateCPURequestNotNegative(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Domain.Resources.Requests.Cpu().MilliValue() < 0 {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
@@ -1055,7 +1061,7 @@ func validateCPURequestNotNegative(field *k8sfield.Path, spec *v1.VirtualMachine
 	return causes
 }
 
-func validateFirmwareSerial(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateFirmwareSerial(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Domain.Firmware != nil && len(spec.Domain.Firmware.Serial) > 0 {
 		// Verify serial number is within valid length, if provided
 		if len(spec.Domain.Firmware.Serial) > maxStrLen {
@@ -1081,7 +1087,7 @@ func validateFirmwareSerial(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 	return causes
 }
 
-func validateEmulatedMachine(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateEmulatedMachine(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	if len(spec.Domain.Machine.Type) > 0 {
 		machine := spec.Domain.Machine.Type
 		supportedMachines := config.GetEmulatedMachines()
@@ -1106,7 +1112,7 @@ func validateEmulatedMachine(field *k8sfield.Path, spec *v1.VirtualMachineInstan
 	return causes
 }
 
-func validateGuestMemoryLimit(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateGuestMemoryLimit(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Domain.Memory != nil && spec.Domain.Memory.Guest != nil {
 		limits := spec.Domain.Resources.Limits.Memory().Value()
 		guest := spec.Domain.Memory.Guest.Value()
@@ -1126,7 +1132,7 @@ func validateGuestMemoryLimit(field *k8sfield.Path, spec *v1.VirtualMachineInsta
 	return causes
 }
 
-func validateHugepagesMemoryRequests(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateHugepagesMemoryRequests(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Domain.Memory != nil && spec.Domain.Memory.Hugepages != nil {
 		hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize)
 		if err != nil {
@@ -1169,7 +1175,7 @@ func validateHugepagesMemoryRequests(field *k8sfield.Path, spec *v1.VirtualMachi
 	return causes
 }
 
-func validateMemoryLimitsNegativeOrNull(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateMemoryLimitsNegativeOrNull(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Domain.Resources.Limits.Memory().Value() < 0 {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
@@ -1193,7 +1199,7 @@ func validateMemoryLimitsNegativeOrNull(field *k8sfield.Path, spec *v1.VirtualMa
 	return causes
 }
 
-func validateMemoryRequestsNegativeOrNull(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateMemoryRequestsNegativeOrNull(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Domain.Resources.Requests.Memory().Value() < 0 {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
@@ -1212,7 +1218,7 @@ func validateMemoryRequestsNegativeOrNull(field *k8sfield.Path, spec *v1.Virtual
 	return causes
 }
 
-func validateSubdomainDNSSubdomainRules(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateSubdomainDNSSubdomainRules(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Subdomain != "" {
 		errors := validation.IsDNS1123Subdomain(spec.Subdomain)
 		if len(errors) != 0 {
@@ -1227,7 +1233,7 @@ func validateSubdomainDNSSubdomainRules(field *k8sfield.Path, spec *v1.VirtualMa
 	return causes
 }
 
-func validateHostNameNotConformingToDNSLabelRules(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, causes []metav1.StatusCause) []metav1.StatusCause {
+func validateHostNameNotConformingToDNSLabelRules(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Hostname != "" {
 		errors := validation.IsDNS1123Label(spec.Hostname)
 		if len(errors) != 0 {
