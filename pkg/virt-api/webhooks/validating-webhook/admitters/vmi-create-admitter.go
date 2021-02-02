@@ -71,6 +71,12 @@ var restriectedVmiLabels = map[string]bool{
 	v1.InstallStrategyLabel:         true,
 }
 
+const (
+	nameOfTypeNotFoundMessagePattern = "%s '%s' not found."
+	listExceedsLimitMessagePattern = "%s list exceeds the %d element limit in length"
+	valueMustBePositiveMessagePattern = "%s '%s': must be greater than or equal to 0."
+)
+
 type VMICreateAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
 }
@@ -512,7 +518,7 @@ func appendStatusCauseForSlirpWithoutPodNetwork(field *k8sfield.Path, causes []m
 func appendStatusCauseForNetworkNotFound(field *k8sfield.Path, causes []metav1.StatusCause, idx int, iface v1.Interface) []metav1.StatusCause {
 	causes = append(causes, metav1.StatusCause{
 		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: fmt.Sprintf("%s '%s' not found.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Name),
+		Message: fmt.Sprintf(nameOfTypeNotFoundMessagePattern, field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Name),
 		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 	})
 	return causes
@@ -568,7 +574,7 @@ func validateNetworksAssignedToInterfaces(field *k8sfield.Path, spec *v1.Virtual
 		if _, exists := networkInterfaceMap[network.Name]; !exists {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
-				Message: fmt.Sprintf("%s '%s' not found.", field.Child("networks").Index(i).Child("name").String(), network.Name),
+				Message: fmt.Sprintf(nameOfTypeNotFoundMessagePattern, field.Child("networks").Index(i).Child("name").String(), network.Name),
 				Field:   field.Child("networks").Index(i).Child("name").String(),
 			})
 		}
@@ -865,7 +871,7 @@ func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec
 		if !volumeExists {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s '%s' not found.", field.Child("domain", "devices", "disks").Index(idx).Child("Name").String(), disk.Name),
+				Message: fmt.Sprintf(nameOfTypeNotFoundMessagePattern, field.Child("domain", "devices", "disks").Index(idx).Child("Name").String(), disk.Name),
 				Field:   field.Child("domain", "devices", "disks").Index(idx).Child("name").String(),
 			})
 		}
@@ -906,7 +912,7 @@ func appendStatusCauseForMoreThanOnePodInterface(field *k8sfield.Path, causes []
 func appendStatusCauseMaxNumberOfNetworksExceeded(field *k8sfield.Path, causes []metav1.StatusCause) []metav1.StatusCause {
 	return append(causes, metav1.StatusCause{
 		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.Child("networks").String(), arrayLenMax),
+		Message: fmt.Sprintf(listExceedsLimitMessagePattern, field.Child("networks").String(), arrayLenMax),
 		Field:   field.Child("networks").String(),
 	})
 }
@@ -914,7 +920,7 @@ func appendStatusCauseMaxNumberOfNetworksExceeded(field *k8sfield.Path, causes [
 func appendStatusCauseForMaxNumberOfInterfacesExceeded(field *k8sfield.Path, causes []metav1.StatusCause) []metav1.StatusCause {
 	return append(causes, metav1.StatusCause{
 		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.Child("domain", "devices", "interfaces").String(), arrayLenMax),
+		Message: fmt.Sprintf(listExceedsLimitMessagePattern, field.Child("domain", "devices", "interfaces").String(), arrayLenMax),
 		Field:   field.Child("domain", "devices", "interfaces").String(),
 	})
 }
@@ -1072,7 +1078,7 @@ func validateCPULimitNotNegative(field *k8sfield.Path, spec *v1.VirtualMachineIn
 	if spec.Domain.Resources.Limits.Cpu().MilliValue() < 0 {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s '%s': must be greater than or equal to 0.", field.Child("domain", "resources", "limits", "cpu").String(),
+			Message: fmt.Sprintf(valueMustBePositiveMessagePattern, field.Child("domain", "resources", "limits", "cpu").String(),
 				spec.Domain.Resources.Limits.Cpu()),
 			Field: field.Child("domain", "resources", "limits", "cpu").String(),
 		})
@@ -1084,7 +1090,7 @@ func validateCPURequestNotNegative(field *k8sfield.Path, spec *v1.VirtualMachine
 	if spec.Domain.Resources.Requests.Cpu().MilliValue() < 0 {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s '%s': must be greater than or equal to 0.", field.Child("domain", "resources", "requests", "cpu").String(),
+			Message: fmt.Sprintf(valueMustBePositiveMessagePattern, field.Child("domain", "resources", "requests", "cpu").String(),
 				spec.Domain.Resources.Requests.Cpu()),
 			Field: field.Child("domain", "resources", "requests", "cpu").String(),
 		})
@@ -1210,7 +1216,7 @@ func validateMemoryLimitsNegativeOrNull(field *k8sfield.Path, spec *v1.VirtualMa
 	if spec.Domain.Resources.Limits.Memory().Value() < 0 {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s '%s': must be greater than or equal to 0.", field.Child("domain", "resources", "limits", "memory").String(),
+			Message: fmt.Sprintf(valueMustBePositiveMessagePattern, field.Child("domain", "resources", "limits", "memory").String(),
 				spec.Domain.Resources.Limits.Memory()),
 			Field: field.Child("domain", "resources", "limits", "memory").String(),
 		})
@@ -1234,7 +1240,7 @@ func validateMemoryRequestsNegativeOrNull(field *k8sfield.Path, spec *v1.Virtual
 	if spec.Domain.Resources.Requests.Memory().Value() < 0 {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s '%s': must be greater than or equal to 0.", field.Child("domain", "resources", "requests", "memory").String(),
+			Message: fmt.Sprintf(valueMustBePositiveMessagePattern, field.Child("domain", "resources", "requests", "memory").String(),
 				spec.Domain.Resources.Requests.Memory()),
 			Field: field.Child("domain", "resources", "requests", "memory").String(),
 		})
@@ -1286,7 +1292,7 @@ func appendNewStatusCauseForHostNameNotConformingToDNSLabelRules(field *k8sfield
 func appendNewStatusCauseForMaxNumberOfVolumesExceeded(field *k8sfield.Path, causes []metav1.StatusCause) []metav1.StatusCause {
 	return append(causes, metav1.StatusCause{
 		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.Child("volumes").String(), arrayLenMax),
+		Message: fmt.Sprintf(listExceedsLimitMessagePattern, field.Child("volumes").String(), arrayLenMax),
 		Field:   field.Child("volumes").String(),
 	})
 }
@@ -1294,7 +1300,7 @@ func appendNewStatusCauseForMaxNumberOfVolumesExceeded(field *k8sfield.Path, cau
 func appendNewStatusCauseForNumberOfDisksExceeded(field *k8sfield.Path, causes []metav1.StatusCause) []metav1.StatusCause {
 	return append(causes, metav1.StatusCause{
 		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.Child("domain", "devices", "disks").String(), arrayLenMax),
+		Message: fmt.Sprintf(listExceedsLimitMessagePattern, field.Child("domain", "devices", "disks").String(), arrayLenMax),
 		Field:   field.Child("domain", "devices", "disks").String(),
 	})
 }
@@ -1517,7 +1523,7 @@ func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.Acce
 	if len(accessCredentials) > arrayLenMax {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.String(), arrayLenMax),
+			Message: fmt.Sprintf(listExceedsLimitMessagePattern, field.String(), arrayLenMax),
 			Field:   field.String(),
 		})
 		// We won't process anything over the limit
@@ -1634,7 +1640,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 	if len(volumes) > arrayLenMax {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.String(), arrayLenMax),
+			Message: fmt.Sprintf(listExceedsLimitMessagePattern, field.String(), arrayLenMax),
 			Field:   field.String(),
 		})
 		// We won't process anything over the limit
@@ -1933,7 +1939,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 	if len(disks) > arrayLenMax {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.String(), arrayLenMax),
+			Message: fmt.Sprintf(listExceedsLimitMessagePattern, field.String(), arrayLenMax),
 			Field:   field.String(),
 		})
 		// We won't process anything over the limit
