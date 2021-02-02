@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "converter.go",
+        "network.go",
         "pci-placement.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter",
