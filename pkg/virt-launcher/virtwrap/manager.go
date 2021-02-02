@@ -67,6 +67,7 @@ import (
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/sriov"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -1116,44 +1117,6 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 // Format for network to resource mapping variables is:
 // KUBEVIRT_RESOURCE_NAME_<networkName>=<resourceName>
 //
-func resourceNameToEnvvar(resourceName string) string {
-	varName := strings.ToUpper(resourceName)
-	varName = strings.Replace(varName, "/", "_", -1)
-	varName = strings.Replace(varName, ".", "_", -1)
-	return fmt.Sprintf("PCIDEVICE_%s", varName)
-}
-
-func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
-	networkToAddressesMap := map[string][]string{}
-	for _, iface := range ifaces {
-		if iface.SRIOV == nil {
-			continue
-		}
-		networkToAddressesMap[iface.Name] = []string{}
-		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", iface.Name)
-		resourceName, isSet := os.LookupEnv(varName)
-		if isSet {
-			varName := resourceNameToEnvvar(resourceName)
-			pciAddrString, isSet := os.LookupEnv(varName)
-			if isSet {
-				addrs := strings.Split(pciAddrString, ",")
-				naddrs := len(addrs)
-				if naddrs > 0 {
-					if addrs[naddrs-1] == "" {
-						addrs = addrs[:naddrs-1]
-					}
-				}
-				networkToAddressesMap[iface.Name] = addrs
-			} else {
-				log.DefaultLogger().Warningf("%s not set for SR-IOV interface %s", varName, iface.Name)
-			}
-		} else {
-			log.DefaultLogger().Warningf("%s not set for SR-IOV interface %s", varName, iface.Name)
-		}
-	}
-	return networkToAddressesMap
-}
-
 func updateDeviceResourcesMap(supportedDevice hostDeviceTypePrefix, resourceToAddressesMap map[string]converter.HostDevicesList, resourceName string) {
 	varName := kutil.ResourceNameToEnvVar(supportedDevice.Prefix, resourceName)
 	addrString, isSet := os.LookupEnv(varName)
@@ -1301,6 +1264,11 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		}
 	}
 
+	sriovDevices, err := sriov.CreateHostDevices(vmi)
+	if err != nil {
+		return nil, err
+	}
+
 	// Map the VirtualMachineInstance to the Domain
 	c := &converter.ConverterContext{
 		Architecture:          runtime.GOARCH,
@@ -1312,7 +1280,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		HotplugVolumes:        hotplugVolumes,
 		PermanentVolumes:      permanentVolumes,
 		DiskType:              diskInfo,
-		SRIOVDevices:          getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
+		SRIOVDevices:          sriovDevices,
 		GpuDevices:            getEnvAddressListByPrefix(gpuEnvPrefix),
 		VgpuDevices:           getEnvAddressListByPrefix(vgpuEnvPrefix),
 		HostDevices:           getDevicesForAssignment(vmi.Spec.Domain.Devices),
