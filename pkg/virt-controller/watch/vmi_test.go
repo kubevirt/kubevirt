@@ -1430,7 +1430,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					ConfigMap: &v1.ConfigMapVolumeSource{},
 				},
 			}
-			pod, err := controller.createAttachmentPodTemplate(invalidVolume, virtlauncherPod, vmi)
+			pod, err := controller.createAttachmentPodTemplate(vmi, virtlauncherPod, invalidVolume)
 			Expect(pod).To(BeNil())
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("Unable to hotplug, claim not PVC or Datavolume"))
@@ -1452,7 +1452,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 				},
 			}
-			pod, err := controller.createAttachmentPodTemplate(nopvcVolume, virtlauncherPod, vmi)
+			pod, err := controller.createAttachmentPodTemplate(vmi, virtlauncherPod, nopvcVolume)
 			Expect(pod).To(BeNil())
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("Unable to hotplug, claim noclaim not found"))
@@ -1481,7 +1481,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 				},
 			}
-			pod, err := controller.createAttachmentPodTemplate(volume, virtlauncherPod, vmi)
+			pod, err := controller.createAttachmentPodTemplate(vmi, virtlauncherPod, volume)
 			Expect(pod).To(BeNil())
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("Unable to find datavolume default/test-dv"))
@@ -1517,7 +1517,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 				},
 			}
-			pod, err := controller.createAttachmentPodTemplate(volume, virtlauncherPod, vmi)
+			pod, err := controller.createAttachmentPodTemplate(vmi, virtlauncherPod, volume)
 			Expect(pod).To(BeNil())
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -1559,7 +1559,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 				},
 			}
-			pod, err := controller.createAttachmentPodTemplate(volume, virtlauncherPod, vmi)
+			pod, err := controller.createAttachmentPodTemplate(vmi, virtlauncherPod, volume)
 			Expect(pod).To(BeNil())
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -1594,7 +1594,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 				},
 			}
-			pod, err := controller.createAttachmentPodTemplate(volume, virtlauncherPod, vmi)
+			pod, err := controller.createAttachmentPodTemplate(vmi, virtlauncherPod, volume)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pod.GenerateName).To(Equal("hp-volume-"))
 			Expect(pod.Spec.Volumes[0].Name).To(Equal(volume.Name))
