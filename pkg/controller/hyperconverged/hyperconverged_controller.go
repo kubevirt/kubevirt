@@ -184,105 +184,78 @@ type ReconcileHyperConverged struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileHyperConverged) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+	logger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
-	secCRPlaceholder, err := getSecondaryCRPlaceholder()
+	hcoTriggered, err := isTriggeredByHyperConverged(request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	hcoTriggered := true
-	pRequest := request
-	if request.NamespacedName == secCRPlaceholder {
-		hcoTriggered = false
-		hco, err := getHyperconverged()
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		pRequest = reconcile.Request{
-			NamespacedName: hco,
-		}
-	} else {
-		r.operandHandler.Reset()
+	resolvedRequest, err := resolveReconcileRequest(request, hcoTriggered)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
+	hcoRequest := common.NewHcoRequest(ctx, resolvedRequest, log, r.upgradeMode, hcoTriggered)
 
-	req := common.NewHcoRequest(ctx, pRequest, log, r.upgradeMode, hcoTriggered)
-	if req.HCOTriggered {
-		req.Logger.Info("Reconciling HyperConverged operator")
+	if hcoTriggered {
+		logger.Info("Reconciling HyperConverged operator")
+		r.operandHandler.Reset()
 	} else {
-		req.Logger.Info("The reconciliation got triggered by a secondary CR object")
+		logger.Info("The reconciliation got triggered by a secondary CR object")
 	}
 
 	// Fetch the HyperConverged instance
-	instance, err := r.getHcoInstanceFromK8s(req)
+	instance, err := r.getHyperConverged(hcoRequest)
 	if instance == nil {
 		return reconcile.Result{}, err
 	}
-	req.Instance = instance
+	hcoRequest.Instance = instance
 
 	if r.firstLoop {
-		// reload eventEmitter. The client should now find all the required resources
-		r.eventEmitter.UpdateClient(req.Ctx, r.client, req.Logger)
-
-		r.operandHandler.FirstUseInitiation(r.scheme, hcoutil.GetClusterInfo().IsOpenshift(), req.Instance)
+		r.firstLoopInitialization(hcoRequest)
 	}
 
-	res, err := r.doReconcile(req)
-	if r.firstLoop {
-		r.firstLoop = false
-	}
-
+	result, err := r.doReconcile(hcoRequest)
 	if err != nil {
-		r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, "ReconcileError", err.Error())
+		r.eventEmitter.EmitEvent(hcoRequest.Instance, corev1.EventTypeWarning, "ReconcileError", err.Error())
+		return reconcile.Result{}, err
 	}
 
-	/*
-		From K8s API reference: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/
-		============================================================================================================
-		Replace: Replacing a resource object will update the resource by replacing the existing spec with the
-		provided one. For read-then-write operations this is safe because an optimistic lock failure will occur if
-		the resource was modified between the read and write.
-
-		**Note: The ResourceStatus will be ignored by the system and will not be updated. To update the status, one
-		must invoke the specific status update operation.**
-		============================================================================================================
-
-		In addition, updating the status should not update the metadata, so we need to update both the CR and the
-		CR Status, and we need to update the status first, in order to prevent a conflict.
-	*/
-
-	if req.StatusDirty {
-		updateErr := r.client.Status().Update(req.Ctx, req.Instance)
-		if updateErr != nil {
-			updateErrorMsg := "Failed to update HCO Status"
-			r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, "HcoUpdateError", updateErrorMsg)
-			req.Logger.Error(updateErr, updateErrorMsg)
-			err = updateErr
-		}
-	}
-
-	// recover Spec.Version if upgrade missed when upgrade completed
-	// Doing it here because status.update overrides spec for some reason
-	knownHcoVersion, versionFound := req.Instance.Status.GetVersion(hcoVersionName)
-	if (!r.upgradeMode) && versionFound && (knownHcoVersion == r.ownVersion) && (req.Instance.Spec.Version != r.ownVersion) {
-		req.Instance.Spec.Version = r.ownVersion
-		req.Dirty = true
-	}
-
-	if req.Dirty {
-		updateErr := r.client.Update(req.Ctx, req.Instance)
-		if updateErr != nil {
-			updateErrorMsg := "Failed to update HCO CR"
-			r.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, "HcoUpdateError", updateErrorMsg)
-			req.Logger.Error(updateErr, updateErrorMsg)
-			err = updateErr
-		}
-	}
-
+	err = r.updateHyperConverged(hcoRequest)
 	if apierrors.IsConflict(err) {
-		res.Requeue = true
+		result.Requeue = true
 	}
 
-	return res, err
+	return result, err
+}
+
+// resolveReconcileRequest returns a reconcile.Request to be used throughout the reconciliation cycle,
+// regardless of which resource has triggered it.
+func resolveReconcileRequest(originalRequest reconcile.Request, hcoTriggered bool) (reconcile.Request, error) {
+	if hcoTriggered {
+		return originalRequest, nil
+	}
+
+	hc, err := getHyperConvergedNamespacedName()
+	if err != nil {
+		return reconcile.Request{}, err
+	}
+
+	resolvedRequest := reconcile.Request{
+		NamespacedName: hc,
+	}
+
+	return resolvedRequest, nil
+}
+
+func isTriggeredByHyperConverged(request reconcile.Request) (bool, error) {
+	placeholder, err := getSecondaryCRPlaceholder()
+	if err != nil {
+		return false, err
+	}
+
+	isHyperConverged := request.NamespacedName != placeholder
+	return isHyperConverged, nil
 }
 
 func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile.Result, error) {
@@ -361,25 +334,86 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileHyperConverged) getHcoInstanceFromK8s(req *common.HcoRequest) (*hcov1beta1.HyperConverged, error) {
+// getHyperConverged gets the HyperConverged resource from the Kubernetes API.
+func (r *ReconcileHyperConverged) getHyperConverged(req *common.HcoRequest) (*hcov1beta1.HyperConverged, error) {
 	instance := &hcov1beta1.HyperConverged{}
 	err := r.client.Get(req.Ctx, req.NamespacedName, instance)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			req.Logger.Info("No HyperConverged resource")
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return nil, nil
-		}
-		// Error reading the object - requeue the request.
-		return nil, err
+
+	// Green path first
+	if err == nil {
+		return instance, nil
 	}
-	return instance, nil
+
+	// Error path
+	if apierrors.IsNotFound(err) {
+		req.Logger.Info("No HyperConverged resource")
+		// Request object not found, could have been deleted after reconcile request.
+		// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+		// Return and don't requeue
+		return nil, nil
+	}
+
+	// Another error reading the object.
+	// Just return the error so that the request is requeued.
+	return nil, err
+}
+
+// updateHyperConverged updates the HyperConverged resource according to its state in the request.
+func (r *ReconcileHyperConverged) updateHyperConverged(request *common.HcoRequest) error {
+
+	// Since the status subresource is enabled for the HyperConverged kind,
+	// we need to update the status and the metadata separately.
+	// Moreover, we need to update the status first, in order to prevent a conflict.
+
+	err := r.updateHyperConvergedStatus(request)
+	if err != nil {
+		r.logHyperConvergedUpdateError(request, err, "Failed to update HCO Status")
+		return err
+	}
+
+	// Doing it here because status.update overrides spec for some reason
+	r.recoverHCOVersion(request)
+
+	err = r.updateHyperConvergedSpecMetadata(request)
+	if err != nil {
+		r.logHyperConvergedUpdateError(request, err, "Failed to update HCO CR")
+		return err
+	}
+
+	return nil
+}
+
+// updateHyperConvergedSpecMetadata updates the HyperConverged resource's spec and metadata.
+func (r *ReconcileHyperConverged) updateHyperConvergedSpecMetadata(request *common.HcoRequest) error {
+	if !request.Dirty {
+		return nil
+	}
+
+	return r.client.Update(request.Ctx, request.Instance)
+}
+
+// updateHyperConvergedSpecMetadata updates the HyperConverged resource's status (and metadata).
+func (r *ReconcileHyperConverged) updateHyperConvergedStatus(request *common.HcoRequest) error {
+	if !request.StatusDirty {
+		return nil
+	}
+
+	return r.client.Status().Update(request.Ctx, request.Instance)
+}
+
+// logHyperConvergedUpdateError logs an error that occurred during resource update,
+// as well as emits a corresponding event.
+func (r *ReconcileHyperConverged) logHyperConvergedUpdateError(request *common.HcoRequest, err error, errMsg string) {
+	r.eventEmitter.EmitEvent(request.Instance,
+		corev1.EventTypeWarning,
+		"HcoUpdateError",
+		errMsg)
+
+	request.Logger.Error(err, errMsg)
 }
 
 func (r *ReconcileHyperConverged) validateNamespace(req *common.HcoRequest) (bool, error) {
-	hco, err := getHyperconverged()
+	hco, err := getHyperConvergedNamespacedName()
 	if err != nil {
 		req.Logger.Error(err, "Failed to get HyperConverged namespaced name")
 		return false, err
@@ -784,8 +818,34 @@ func (r *ReconcileHyperConverged) detectTaintedConfiguration(req *common.HcoRequ
 	}
 }
 
-// getHyperconverged returns the name/namespace of the HyperConverged resource
-func getHyperconverged() (types.NamespacedName, error) {
+func (r *ReconcileHyperConverged) firstLoopInitialization(request *common.HcoRequest) {
+	// Reload eventEmitter.
+	// The client should now find all the required resources.
+	r.eventEmitter.UpdateClient(request.Ctx, r.client, request.Logger)
+
+	// Initialize operand handler.
+	r.operandHandler.FirstUseInitiation(r.scheme, hcoutil.GetClusterInfo().IsOpenshift(), request.Instance)
+
+	// Avoid re-initializing.
+	r.firstLoop = false
+}
+
+// recoverHCOVersion recovers Spec.Version if upgrade missed when upgrade completed
+func (r *ReconcileHyperConverged) recoverHCOVersion(request *common.HcoRequest) {
+	knownHcoVersion, versionFound := request.Instance.Status.GetVersion(hcoVersionName)
+
+	if !r.upgradeMode &&
+		versionFound &&
+		(knownHcoVersion == r.ownVersion) &&
+		(request.Instance.Spec.Version != r.ownVersion) {
+
+		request.Instance.Spec.Version = r.ownVersion
+		request.Dirty = true
+	}
+}
+
+// getHyperConvergedNamespacedName returns the name/namespace of the HyperConverged resource
+func getHyperConvergedNamespacedName() (types.NamespacedName, error) {
 	hco := types.NamespacedName{
 		Name: hcoutil.HyperConvergedName,
 	}
