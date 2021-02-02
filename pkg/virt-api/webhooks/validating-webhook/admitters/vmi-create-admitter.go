@@ -205,56 +205,70 @@ func validateNetworksMatchInterfaces(field *k8sfield.Path, spec *v1.VirtualMachi
 
 		networkData, networkExists := networkNameMap[iface.Name]
 
-		if !networkExists {
-			causes = appendStatusCauseForNetworkNotFound(field, causes, idx, iface)
-		} else if iface.Slirp != nil && networkData.Pod == nil {
-			causes = appendStatusCauseForSlirpWithoutPodNetwork(field, causes, idx)
-		} else if iface.Slirp != nil && networkData.Pod != nil && !config.IsSlirpInterfaceEnabled() {
-			causes = appendStatusCauseForSlirpNotEnabled(field, causes, idx)
-		} else if iface.Masquerade != nil && networkData.Pod == nil {
-			causes = appendStatusCauseForMasqueradeWithourPodNetwork(field, causes, idx)
-		} else if iface.InterfaceBindingMethod.Bridge != nil && networkData.NetworkSource.Pod != nil && !config.IsBridgeInterfaceOnPodNetworkEnabled() {
-			causes = appendStatusCauseForBridgeNotEnabled(field, causes, idx)
-		} else if iface.InterfaceBindingMethod.Macvtap != nil && !config.MacvtapEnabled() {
-			causes = appendStatusCauseForMacvtapFeatureGateNotEnabled(field, causes, idx)
-		} else if iface.InterfaceBindingMethod.Macvtap != nil && networkData.NetworkSource.Multus == nil {
-			causes = appendStatusCauseForMacvtapOnlyAllowedWithMultus(field, causes, idx)
-		}
+		causes = append(causes, validateInterfaceNetworkBasics(field, networkExists, idx, iface, networkData, config)...)
 
-		causes = validateInterfaceNameUnique(field, networkInterfaceMap, iface, causes, idx)
-		causes = validateInterfaceNameFormat(field, iface, causes, idx)
+		causes = append(causes, validateInterfaceNameUnique(field, networkInterfaceMap, iface, idx)...)
+		causes = append(causes, validateInterfaceNameFormat(field, iface, idx)...)
 
 		networkInterfaceMap[iface.Name] = struct{}{}
 
-		causes = validatePortConfiguration(field, networkExists, networkData, iface, causes, idx, portForwardMap)
-		causes = validateInterfaceModel(field, iface, causes, idx)
-		causes = validateMacAddress(field, iface, causes, idx)
-		causes = validateInterfaceBootOrder(field, iface, causes, idx, bootOrderMap)
-		causes = validateInterfacePciAddress(field, iface, causes, idx)
+		causes = append(causes, validatePortConfiguration(field, networkExists, networkData, iface, idx, portForwardMap)...)
+		causes = append(causes, validateInterfaceModel(field, iface, idx)...)
+		causes = append(causes, validateMacAddress(field, iface, idx)...)
+		causes = append(causes, validateInterfaceBootOrder(field, iface, idx, bootOrderMap)...)
+		causes = append(causes, validateInterfacePciAddress(field, iface, idx)...)
 
-		// verify that the extra dhcp options are valid
-		if iface.DHCPOptions != nil {
-			PrivateOptions := iface.DHCPOptions.PrivateOptions
-			err := ValidateDuplicateDHCPPrivateOptions(PrivateOptions)
-			if err != nil {
-				causes = appendStatusCauseForDuplicateDHCPOptionFound(field, causes, err)
-				return nil, nil, false, causes, true
-			}
-			for _, DHCPPrivateOption := range PrivateOptions {
-				causes = validateDHCPPrivateOptionsWithinRange(field, DHCPPrivateOption, causes)
-			}
+		newCauses, done := validateDHCPExtraOptions(field, iface)
+		causes = append(causes, newCauses...)
+		if done {
+			return nil, nil, false, causes, true
 		}
 
 		if iface.Model == "virtio" || iface.Model == "" {
 			isVirtioNicRequested = true
 		}
 
-		causes = validateDHCPNTPServersAreValidIPv4Addresses(field, iface, causes, idx)
+		causes = append(causes, validateDHCPNTPServersAreValidIPv4Addresses(field, iface, idx)...)
 	}
 	return networkInterfaceMap, vifMQ, isVirtioNicRequested, causes, false
 }
 
-func validateDHCPNTPServersAreValidIPv4Addresses(field *k8sfield.Path, iface v1.Interface, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
+func validateInterfaceNetworkBasics(field *k8sfield.Path, networkExists bool, idx int, iface v1.Interface, networkData *v1.Network, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	if !networkExists {
+		causes = appendStatusCauseForNetworkNotFound(field, causes, idx, iface)
+	} else if iface.Slirp != nil && networkData.Pod == nil {
+		causes = appendStatusCauseForSlirpWithoutPodNetwork(field, causes, idx)
+	} else if iface.Slirp != nil && networkData.Pod != nil && !config.IsSlirpInterfaceEnabled() {
+		causes = appendStatusCauseForSlirpNotEnabled(field, causes, idx)
+	} else if iface.Masquerade != nil && networkData.Pod == nil {
+		causes = appendStatusCauseForMasqueradeWithourPodNetwork(field, causes, idx)
+	} else if iface.InterfaceBindingMethod.Bridge != nil && networkData.NetworkSource.Pod != nil && !config.IsBridgeInterfaceOnPodNetworkEnabled() {
+		causes = appendStatusCauseForBridgeNotEnabled(field, causes, idx)
+	} else if iface.InterfaceBindingMethod.Macvtap != nil && !config.MacvtapEnabled() {
+		causes = appendStatusCauseForMacvtapFeatureGateNotEnabled(field, causes, idx)
+	} else if iface.InterfaceBindingMethod.Macvtap != nil && networkData.NetworkSource.Multus == nil {
+		causes = appendStatusCauseForMacvtapOnlyAllowedWithMultus(field, causes, idx)
+	}
+	return causes
+}
+
+func validateDHCPExtraOptions(field *k8sfield.Path, iface v1.Interface) (causes []metav1.StatusCause, done bool) {
+	done = false
+	if iface.DHCPOptions != nil {
+		PrivateOptions := iface.DHCPOptions.PrivateOptions
+		err := ValidateDuplicateDHCPPrivateOptions(PrivateOptions)
+		if err != nil {
+			causes = appendStatusCauseForDuplicateDHCPOptionFound(field, causes, err)
+			done = true
+		}
+		for _, DHCPPrivateOption := range PrivateOptions {
+			causes = validateDHCPPrivateOptionsWithinRange(field, DHCPPrivateOption, causes)
+		}
+	}
+	return causes, done
+}
+
+func validateDHCPNTPServersAreValidIPv4Addresses(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
 	if iface.DHCPOptions != nil {
 		for index, ip := range iface.DHCPOptions.NTPServers {
 			if net.ParseIP(ip).To4() == nil {
@@ -289,7 +303,7 @@ func appendStatusCauseForDuplicateDHCPOptionFound(field *k8sfield.Path, causes [
 	return causes
 }
 
-func validateInterfacePciAddress(field *k8sfield.Path, iface v1.Interface, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
+func validateInterfacePciAddress(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
 	if iface.PciAddress != "" {
 		_, err := hwutil.ParsePciAddress(iface.PciAddress)
 		if err != nil {
@@ -303,7 +317,7 @@ func validateInterfacePciAddress(field *k8sfield.Path, iface v1.Interface, cause
 	return causes
 }
 
-func validateInterfaceBootOrder(field *k8sfield.Path, iface v1.Interface, causes []metav1.StatusCause, idx int, bootOrderMap map[uint]bool) []metav1.StatusCause {
+func validateInterfaceBootOrder(field *k8sfield.Path, iface v1.Interface, idx int, bootOrderMap map[uint]bool) (causes []metav1.StatusCause) {
 	if iface.BootOrder != nil {
 		order := *iface.BootOrder
 		// Verify boot order is greater than 0, if provided
@@ -328,7 +342,7 @@ func validateInterfaceBootOrder(field *k8sfield.Path, iface v1.Interface, causes
 	return causes
 }
 
-func validateMacAddress(field *k8sfield.Path, iface v1.Interface, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
+func validateMacAddress(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
 	if iface.MacAddress != "" {
 		mac, err := net.ParseMAC(iface.MacAddress)
 		if err != nil {
@@ -349,7 +363,7 @@ func validateMacAddress(field *k8sfield.Path, iface v1.Interface, causes []metav
 	return causes
 }
 
-func validateInterfaceModel(field *k8sfield.Path, iface v1.Interface, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
+func validateInterfaceModel(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
 	if iface.Model != "" {
 		if _, exists := validInterfaceModels[iface.Model]; !exists {
 			causes = append(causes, metav1.StatusCause{
@@ -362,7 +376,7 @@ func validateInterfaceModel(field *k8sfield.Path, iface v1.Interface, causes []m
 	return causes
 }
 
-func validatePortConfiguration(field *k8sfield.Path, networkExists bool, networkData *v1.Network, iface v1.Interface, causes []metav1.StatusCause, idx int, portForwardMap map[string]struct{}) []metav1.StatusCause {
+func validatePortConfiguration(field *k8sfield.Path, networkExists bool, networkData *v1.Network, iface v1.Interface, idx int, portForwardMap map[string]struct{}) (causes []metav1.StatusCause) {
 
 	// Check only ports configured on interfaces connected to a pod network
 	if networkExists && networkData.Pod != nil && iface.Ports != nil {
@@ -482,7 +496,7 @@ func appendStatusCauseForNetworkNotFound(field *k8sfield.Path, causes []metav1.S
 	return causes
 }
 
-func validateInterfaceNameFormat(field *k8sfield.Path, iface v1.Interface, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
+func validateInterfaceNameFormat(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
 	isValid := regexp.MustCompile(`^[A-Za-z0-9-_]+$`).MatchString
 	if !isValid(iface.Name) {
 		causes = append(causes, metav1.StatusCause{
@@ -494,7 +508,7 @@ func validateInterfaceNameFormat(field *k8sfield.Path, iface v1.Interface, cause
 	return causes
 }
 
-func validateInterfaceNameUnique(field *k8sfield.Path, networkInterfaceMap map[string]struct{}, iface v1.Interface, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
+func validateInterfaceNameUnique(field *k8sfield.Path, networkInterfaceMap map[string]struct{}, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
 	if _, networkAlreadyUsed := networkInterfaceMap[iface.Name]; networkAlreadyUsed {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueDuplicate,
