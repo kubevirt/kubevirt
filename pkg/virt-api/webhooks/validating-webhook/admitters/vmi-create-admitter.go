@@ -388,55 +388,71 @@ func validatePortConfiguration(field *k8sfield.Path, networkExists bool, network
 	// Check only ports configured on interfaces connected to a pod network
 	if networkExists && networkData.Pod != nil && iface.Ports != nil {
 		for portIdx, forwardPort := range iface.Ports {
-
-			if forwardPort.Port == 0 {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueRequired,
-					Message: "Port field is mandatory.",
-					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
-				})
-			}
-
-			if forwardPort.Port < 0 || forwardPort.Port > 65536 {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: "Port field must be in range 0 < x < 65536.",
-					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
-				})
-			}
-
-			if forwardPort.Protocol != "" {
-				if forwardPort.Protocol != "TCP" && forwardPort.Protocol != "UDP" {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: "Unknown protocol, only TCP or UDP allowed",
-						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("protocol").String(),
-					})
-				}
-			} else {
-				forwardPort.Protocol = "TCP"
-			}
-
-			if forwardPort.Name != "" {
-				if _, ok := portForwardMap[forwardPort.Name]; ok {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueDuplicate,
-						Message: fmt.Sprintf("Duplicate name of the port: %s", forwardPort.Name),
-						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
-					})
-				}
-
-				if msgs := validation.IsValidPortName(forwardPort.Name); len(msgs) != 0 {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("Invalid name of the port: %s", forwardPort.Name),
-						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
-					})
-				}
-
-				portForwardMap[forwardPort.Name] = struct{}{}
-			}
+			causes = append(causes, validateForwardPortNonZero(field, forwardPort, idx, portIdx)...)
+			causes = append(causes, validateForwardPortInRange(field, forwardPort, idx, portIdx)...)
+			causes = append(causes, validateForwardPortProtocol(field, forwardPort, idx, portIdx)...)
+			causes = append(causes, validateForwardPortName(field, forwardPort, portForwardMap, idx, portIdx)...)
 		}
+	}
+	return causes
+}
+
+func validateForwardPortName(field *k8sfield.Path, forwardPort v1.Port, portForwardMap map[string]struct{}, idx int, portIdx int) (causes []metav1.StatusCause) {
+	if forwardPort.Name != "" {
+		if _, ok := portForwardMap[forwardPort.Name]; ok {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: fmt.Sprintf("Duplicate name of the port: %s", forwardPort.Name),
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
+			})
+		}
+
+		if msgs := validation.IsValidPortName(forwardPort.Name); len(msgs) != 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Invalid name of the port: %s", forwardPort.Name),
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
+			})
+		}
+
+		portForwardMap[forwardPort.Name] = struct{}{}
+	}
+	return causes
+}
+
+func validateForwardPortProtocol(field *k8sfield.Path, forwardPort v1.Port, idx int, portIdx int) (causes []metav1.StatusCause) {
+	if forwardPort.Protocol != "" {
+		if forwardPort.Protocol != "TCP" && forwardPort.Protocol != "UDP" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Unknown protocol, only TCP or UDP allowed",
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("protocol").String(),
+			})
+		}
+	} else {
+		forwardPort.Protocol = "TCP"
+	}
+	return causes
+}
+
+func validateForwardPortInRange(field *k8sfield.Path, forwardPort v1.Port, idx int, portIdx int) (causes []metav1.StatusCause) {
+	if forwardPort.Port < 0 || forwardPort.Port > 65536 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Port field must be in range 0 < x < 65536.",
+			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
+		})
+	}
+	return causes
+}
+
+func validateForwardPortNonZero(field *k8sfield.Path, forwardPort v1.Port, idx int, portIdx int) (causes []metav1.StatusCause) {
+	if forwardPort.Port == 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "Port field is mandatory.",
+			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
+		})
 	}
 	return causes
 }
