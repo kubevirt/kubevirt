@@ -50,7 +50,9 @@ spec:
                   is baremetal.
                 type: boolean
               featureGates:
-                default: null
+                default:
+                  withHostModelCPU: true
+                  withHostPassthroughCPU: false
                 description: featureGates is a map of feature gate flags. Setting
                   a flag to `true` will enable the feature. Setting `false` or removing
                   the feature gate, disables the feature.
