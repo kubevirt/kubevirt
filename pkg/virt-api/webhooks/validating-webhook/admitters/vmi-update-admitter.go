@@ -70,10 +70,27 @@ func (admitter *VMIUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 	if reviewResponse := admitVMILabelsUpdate(newVMI, oldVMI, ar); reviewResponse != nil {
 		return reviewResponse
 	}
+	if lmResponse := validateLiveMigrationCompressionAnnotations(newVMI, admitter.ClusterConfig); lmResponse != nil {
+		return lmResponse
+	}
 
 	reviewResponse := v1beta1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
+}
+
+func validateLiveMigrationCompressionAnnotations(newVMI *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) *v1beta1.AdmissionResponse {
+	annotations := newVMI.ObjectMeta.Annotations
+	// Validate live migration compression feature gate if set when the corresponding annotation is found
+	if annotations[v1.LiveMigrationCompressionMethod] != "" && !config.LiveMigrationCompressionEnabled() {
+		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "LiveMigrationCompression feature gate is not enabled in kubevirt-config",
+			},
+		})
+	}
+	return nil
 }
 
 // admitHotplug compares the old and new volumes and disks, and ensures that they match and are valid.

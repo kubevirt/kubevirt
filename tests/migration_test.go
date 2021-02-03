@@ -50,6 +50,7 @@ import (
 
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -546,6 +547,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		Context("with live migration compression", func() {
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
+				tests.EnableFeatureGate(virtconfig.LiveMigrationCompressionGate)
 			})
 
 			It("should complete a migration in multithreaded mode", func() {

@@ -1064,6 +1064,16 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 		})
 	}
 
+	// Validate live migration compression feature gate if set when the corresponding annotation is found
+	if annotations[v1.LiveMigrationCompressionMethod] != "" && !config.LiveMigrationCompressionEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("LiveMigrationCompression feature gate is not enabled in kubevirt-config, invalid entry %s",
+				field.Child("annotations").Child(v1.LiveMigrationCompressionMethod).String()),
+			Field: field.Child("annotations").String(),
+		})
+	}
+
 	return causes
 }
 
