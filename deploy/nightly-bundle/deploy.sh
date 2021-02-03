@@ -117,7 +117,7 @@ metadata:
 spec:
   source: "${CS_SOURCE}"
   sourceNamespace: "${GLOBAL_NAMESPACE}"
-  name: kubevirt-hyperconverged
+  name: community-kubevirt-hyperconverged
   startingCSV: "kubevirt-hyperconverged-operator.v${HCO_VERSION}"
   channel: "${HCO_CHANNEL}"
   installPlanApproval: "${APPROVAL}"

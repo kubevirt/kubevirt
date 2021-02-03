@@ -52,7 +52,7 @@ HCO_RESOURCE_NAME="kubevirt-hyperconverged"
 HCO_SUBSCRIPTION_NAME="hco-subscription-example"
 HCO_CATALOGSOURCE_NAME="hco-catalogsource-example"
 HCO_OPERATORGROUP_NAME="hco-operatorgroup"
-PACKAGE_DIR="./deploy/olm-catalog/kubevirt-hyperconverged"
+PACKAGE_DIR="./deploy/olm-catalog/community-kubevirt-hyperconverged"
 INITIAL_CHANNEL=$(ls -d ${PACKAGE_DIR}/*/ | sort -rV | awk "NR==${RELEASE_DELTA}" | cut -d '/' -f 5)
 TARGET_VERSION=100.0.0
 TARGET_CHANNEL=${TARGET_VERSION}
@@ -170,7 +170,7 @@ metadata:
   namespace: ${HCO_NAMESPACE}
 spec:
   channel: ${INITIAL_CHANNEL}
-  name: kubevirt-hyperconverged
+  name: community-kubevirt-hyperconverged
   source: ${HCO_CATALOGSOURCE_NAME}
   sourceNamespace: ${HCO_CATALOG_NAMESPACE}
 ${SUBSCRIPTION_CONFIG}
@@ -191,7 +191,7 @@ CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE})
 HCO_API_VERSION=$( ${CMD} get -n ${HCO_NAMESPACE} "${CSV}" -o jsonpath="{ .spec.customresourcedefinitions.owned[?(@.kind=='HyperConverged')].version }")
 sed -e "s|hco.kubevirt.io/v1beta1|hco.kubevirt.io/${HCO_API_VERSION}|g" deploy/hco.cr.yaml | ${CMD} apply -n kubevirt-hyperconverged -f -
 
-${CMD} wait -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} --for condition=Available --timeout=30m
+${CMD} wait -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} --for condition=Available --timeout="30m"
 ${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="30m"
 ${CMD} wait deployment ${HCO_WH_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="30m"
 

@@ -57,7 +57,7 @@ Msg "create catalogsource and subscription to install HCO"
 HCO_NAMESPACE="kubevirt-hyperconverged"
 HCO_KIND="hyperconvergeds"
 HCO_RESOURCE_NAME="kubevirt-hyperconverged"
-PACKAGE_DIR="./deploy/olm-catalog/kubevirt-hyperconverged"
+PACKAGE_DIR="./deploy/olm-catalog/community-kubevirt-hyperconverged"
 INITIAL_CHANNEL=$(ls -d ${PACKAGE_DIR}/*/ | sort -rV | awk "NR==$((RELEASE_DELTA+1))" | cut -d '/' -f 5)
 echo "INITIAL_CHANNEL: $INITIAL_CHANNEL"
 
@@ -106,7 +106,7 @@ ${CMD} wait pod $PACKAGESERVER_POD --for condition=Ready -n openshift-operator-l
 # we wait for 15 seconds here. 
 sleep 15
 
-LATEST_VERSION=$(ls -d ./deploy/olm-catalog/kubevirt-hyperconverged/*/ | sort -r | head -1 | cut -d '/' -f 5);
+LATEST_VERSION=$(ls -d ./deploy/olm-catalog/community-kubevirt-hyperconverged/*/ | sort -r | head -1 | cut -d '/' -f 5);
 
 cat <<EOF | ${CMD} create -f -
 apiVersion: operators.coreos.com/v1alpha1
@@ -116,7 +116,7 @@ metadata:
   namespace: ${HCO_NAMESPACE}
 spec:
   channel: ${LATEST_VERSION}
-  name: kubevirt-hyperconverged
+  name: community-kubevirt-hyperconverged
   source: hco-catalogsource-example
   sourceNamespace: ${HCO_CATALOG_NAMESPACE}
 ${SUBSCRIPTION_CONFIG}

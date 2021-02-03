@@ -17,7 +17,7 @@
 set -ex
 
 DEPLOY_DIR="./deploy"
-PACKAGE_DIR="${DEPLOY_DIR}/olm-catalog/kubevirt-hyperconverged"
+PACKAGE_DIR="${DEPLOY_DIR}/olm-catalog/community-kubevirt-hyperconverged"
 LATEST_VERSION=$(ls -d ${PACKAGE_DIR}/*/ | sort -rV | head -1 | cut -d '/' -f 5)
 
 OPERATOR_NAME="kubevirt-hyperconverged-operator"

@@ -14,6 +14,7 @@ set -ex
 
 PROJECT_ROOT="$(readlink -e "$(dirname "${BASH_SOURCE[0]}")"/../)"
 DEPLOY_DIR="${PROJECT_ROOT}/deploy/olm-catalog"
+PACKAGE_NAME="community-kubevirt-hyperconverged"
 INDEX_IMAGE_PARAM=
 IMAGE_REGISTRY=${IMAGE_REGISTRY:-quay.io}
 REGISTRY_NAMESPACE=${REGISTRY_NAMESPACE:-kubevirt}
@@ -22,11 +23,12 @@ INDEX_REGISTRY_IMAGE_NAME=${INDEX_REGISTRY_IMAGE_NAME:-hyperconverged-cluster-in
 OPM=${OPM:-opm}
 UNSTABLE=$2
 
+
 function create_index_image() {
   CURRENT_VERSION=$1
   PREV_VERSION=$2
   if [[ "${UNSTABLE}" == "UNSTABLE" ]]; then
-    mv kubevirt-hyperconverged/${CURRENT_VERSION} kubevirt-hyperconverged/${CURRENT_VERSION}-unstable
+    mv ${PACKAGE_NAME}/${CURRENT_VERSION} ${PACKAGE_NAME}/${CURRENT_VERSION}-unstable
     CURRENT_VERSION=${CURRENT_VERSION}-unstable
   fi
   BUNDLE_IMAGE_NAME="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${BUNDLE_REGISTRY_IMAGE_NAME}:${CURRENT_VERSION}"
@@ -42,8 +44,7 @@ function create_index_image() {
   docker push "${BUNDLE_IMAGE_NAME}"
 
   # Extract the digest of the bundle image, to be added to the index image
-  DIGEST=$("${PROJECT_ROOT}/tools/digester/digester" --image "${BUNDLE_IMAGE_NAME}" -d)
-  BUNDLE_IMAGE_NAME="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${BUNDLE_REGISTRY_IMAGE_NAME}@sha256:${DIGEST}"
+  BUNDLE_IMAGE_NAME=$("${PROJECT_ROOT}/tools/digester/digester" --image "${BUNDLE_IMAGE_NAME}")
 
   # shellcheck disable=SC2086
   ${OPM} index add --bundles "${BUNDLE_IMAGE_NAME}" ${INDEX_IMAGE_PARAM} --tag "${INDEX_IMAGE_NAME}" -u docker
@@ -52,7 +53,7 @@ function create_index_image() {
 
 function create_all_versions() {
   PREV_VERSION=
-  for version in $(ls -d kubevirt-hyperconverged/*/ | sort -V | cut -d '/' -f 2); do
+  for version in $(ls -d ${PACKAGE_NAME}/*/ | sort -V | cut -d '/' -f 2); do
     create_index_image "${version}" "${PREV_VERSION}"
     PREV_VERSION=${version}
   done
@@ -61,7 +62,7 @@ function create_all_versions() {
 function create_latest_version() {
   CURRENT_VERSION=
   PREV_VERSION=
-  for version in $(ls -d kubevirt-hyperconverged/*/ | sort -V | cut -d '/' -f 2); do
+  for version in $(ls -d ${PACKAGE_NAME}/*/ | sort -V | cut -d '/' -f 2); do
     PREV_VERSION=${CURRENT_VERSION}
     CURRENT_VERSION=${version}
   done
@@ -71,7 +72,7 @@ function create_latest_version() {
 function build_specific_version() {
   CURRENT_VERSION=
   PREV_VERSION=
-  for version in $(ls -d kubevirt-hyperconverged/*/ | sort -V | cut -d '/' -f 2); do
+  for version in $(ls -d ${PACKAGE_NAME}/*/ | sort -V | cut -d '/' -f 2); do
     PREV_VERSION=${CURRENT_VERSION}
     CURRENT_VERSION=${version}
     if [[ "$1" == "${CURRENT_VERSION}" ]]; then

@@ -6,6 +6,6 @@ metadata:
 spec:
   source: kubevirt-hyperconverged
   sourceNamespace: openshift-marketplace
-  name: kubevirt-hyperconverged
-  startingCSV: kubevirt-hyperconverged-operator.v1.1.0
-  channel: "1.1.0"
+  name: community-kubevirt-hyperconverged
+  startingCSV: kubevirt-hyperconverged-operator.v1.4.0
+  channel: "1.4.0"

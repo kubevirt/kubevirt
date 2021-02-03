@@ -52,7 +52,7 @@ done
 
 export REGISTRY_DOCKERFILE="Dockerfile.registry.kubevirt.nightly"
 export REGISTRY_IMAGE_NAME="hco-registry-kubevirt-nightly"
-PACKAGE_DIR="./deploy/olm-catalog/kubevirt-hyperconverged"
+PACKAGE_DIR="./deploy/olm-catalog/community-kubevirt-hyperconverged"
 INITIAL_CHANNEL=$(ls -d ${PACKAGE_DIR}/*/ | sort -rV | awk "NR==$((RELEASE_DELTA+1))" | cut -d '/' -f 5)
 export REGISTRY_EXTRA_BUILD_ARGS="--build-arg KUBEVIRT_PROVIDER=$KUBEVIRT_PROVIDER --build-arg HCO_VERSION=$INITIAL_CHANNEL"
 make bundleRegistry

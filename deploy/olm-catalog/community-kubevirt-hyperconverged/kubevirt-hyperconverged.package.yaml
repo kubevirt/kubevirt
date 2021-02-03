@@ -1,4 +1,4 @@
-packageName: kubevirt-hyperconverged
+packageName: community-kubevirt-hyperconverged
 channels:
 - name: "1.4.0"
   currentCSV: kubevirt-hyperconverged-operator.v1.4.0

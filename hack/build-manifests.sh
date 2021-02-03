@@ -52,12 +52,13 @@ CRD_DIR="${DEPLOY_DIR}/crds"
 OLM_DIR="${DEPLOY_DIR}/olm-catalog"
 CSV_VERSION=${CSV_VERSION}
 CSV_TIMESTAMP=$(date +%Y%m%d%H%M -u)
-CSV_DIR="${OLM_DIR}/kubevirt-hyperconverged/${CSV_VERSION}"
+PACKAGE_NAME="community-kubevirt-hyperconverged"
+CSV_DIR="${OLM_DIR}/${PACKAGE_NAME}/${CSV_VERSION}"
 DEFAULT_CSV_GENERATOR="/usr/bin/csv-generator"
 SSP_CSV_GENERATOR="/csv-generator"
 
 INDEX_IMAGE_DIR=${DEPLOY_DIR}/index-image
-CSV_INDEX_IMAGE_DIR="${INDEX_IMAGE_DIR}/kubevirt-hyperconverged/${CSV_VERSION}"
+CSV_INDEX_IMAGE_DIR="${INDEX_IMAGE_DIR}/${PACKAGE_NAME}/${CSV_VERSION}"
 
 OPERATOR_NAME="${OPERATOR_NAME:-kubevirt-hyperconverged-operator}"
 OPERATOR_NAMESPACE="${OPERATOR_NAMESPACE:-kubevirt-hyperconverged}"
@@ -287,7 +288,7 @@ annotations:
   operators.operatorframework.io.bundle.manifests.v1: manifests/
   operators.operatorframework.io.bundle.mediatype.v1: registry+v1
   operators.operatorframework.io.bundle.metadata.v1: metadata/
-  operators.operatorframework.io.bundle.package.v1: kubevirt-hyperconverged
+  operators.operatorframework.io.bundle.package.v1: ${PACKAGE_NAME}
 EOF
 
 SMBIOS=$(cat <<- EOM
@@ -412,9 +413,9 @@ fi
 rm -rf ${TEMPDIR}
 
 rm -rf "${INDEX_IMAGE_DIR:?}"
-mkdir -p "${INDEX_IMAGE_DIR:?}/kubevirt-hyperconverged"
-cp -r "${CSV_DIR}" "${INDEX_IMAGE_DIR:?}/kubevirt-hyperconverged/"
+mkdir -p "${INDEX_IMAGE_DIR:?}/${PACKAGE_NAME}"
+cp -r "${CSV_DIR}" "${INDEX_IMAGE_DIR:?}/${PACKAGE_NAME}/"
 cp "${OLM_DIR}/bundle.Dockerfile" "${INDEX_IMAGE_DIR:?}/"
 
-INDEX_IMAGE_CSV="${INDEX_IMAGE_DIR}/kubevirt-hyperconverged/${CSV_VERSION}/kubevirt-hyperconverged-operator.v${CSV_VERSION}.${CSV_EXT}"
+INDEX_IMAGE_CSV="${INDEX_IMAGE_DIR}/${PACKAGE_NAME}/${CSV_VERSION}/kubevirt-hyperconverged-operator.v${CSV_VERSION}.${CSV_EXT}"
 sed -r -i "s|createdAt: \".*\$|createdAt: \"2020-10-23 08:58:25\"|; s|quay.io/kubevirt/hyperconverged-cluster-operator.*$|+IMAGE_TO_REPLACE+|; s|quay.io/kubevirt/hyperconverged-cluster-webhook.*$|+WEBHOOK_IMAGE_TO_REPLACE+|" ${INDEX_IMAGE_CSV}

@@ -21,7 +21,7 @@ jobs:
           ref: ${{ github.ref }}
       - name: Get latest version
         run: |
-          PACKAGE_DIR="./deploy/olm-catalog/kubevirt-hyperconverged"
+          PACKAGE_DIR="./deploy/olm-catalog/community-kubevirt-hyperconverged"
           CSV_VERSION=$(ls -d ${PACKAGE_DIR}/*/ | sort -rV | awk "NR==$((RELEASE_DELTA+1))" | cut -d '/' -f 5)
           echo "CSV_VERSION=${CSV_VERSION}-unstable" >> $GITHUB_ENV
       - name: Build Applications Images
