@@ -58,13 +58,13 @@ func GetOperatorNamespaceFromEnv() (string, error) {
 	return "", fmt.Errorf("%s unset or empty in environment", OperatorNamespaceEnv)
 }
 
-func isRunModeLocal() bool {
+func IsRunModeLocal() bool {
 	return os.Getenv(ForceRunModeEnv) == string(LocalRunMode)
 }
 
 // GetOperatorNamespace returns the namespace the operator should be running in.
 func GetOperatorNamespace(logger logr.Logger) (string, error) {
-	if isRunModeLocal() {
+	if IsRunModeLocal() {
 		return "", ErrRunLocal
 	}
 	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")

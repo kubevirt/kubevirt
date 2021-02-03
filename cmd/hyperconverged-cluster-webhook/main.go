@@ -2,16 +2,14 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
+	"os"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/webhooks"
-	"github.com/spf13/pflag"
-	"os"
-	"runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
@@ -33,102 +31,9 @@ import (
 
 // Change below variables to serve metrics on different host or port.
 var (
-	log = logf.Log.WithName("cmd")
-)
-
-func printVersion() {
-	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
-	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-}
-
-func main() {
-
-	// Add flags registered by imported packages (e.g. glog and
-	// controller-runtime)
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-
-	zapfs := flag.NewFlagSet("zap", flag.ExitOnError)
-	zopts := &zap.Options{}
-	zopts.BindFlags(zapfs)
-	pflag.CommandLine.AddGoFlagSet(zapfs)
-
-	pflag.Parse()
-
-	// Use a zap logr.Logger implementation. If none of the zap
-	// flags are configured (or if the zap flag set is not being
-	// used), this defaults to a production zap logger.
-	logf.SetLogger(zap.New(zap.UseFlagOptions(zopts)))
-
-	printVersion()
-
-	// Get the namespace the webhook is currently deployed in.
-	depWebhookNs, err := hcoutil.GetOperatorNamespace(log)
-	runInLocal := false
-	if err != nil {
-		if err == hcoutil.ErrRunLocal {
-			runInLocal = true
-		} else {
-			log.Error(err, "Failed to get webhook namespace")
-			os.Exit(1)
-		}
-	}
-
-	if runInLocal {
-		log.Info("running locally")
-	}
-
-	watchNamespace := ""
-
-	if !runInLocal {
-		watchNamespace, err = hcoutil.GetWatchNamespace()
-		exitOnError(err, "Failed to get watch namespace")
-	}
-
-	// Get the namespace the webhook should be deployed in.
-	webhookNsEnv, err := hcoutil.GetOperatorNamespaceFromEnv()
-
-	exitOnError(err, "Failed to get webhook namespace from the environment")
-
-	if runInLocal {
-		depWebhookNs = webhookNsEnv
-	}
-
-	if depWebhookNs != webhookNsEnv {
-		log.Error(
-			fmt.Errorf("webhook running in different namespace than expected"),
-			fmt.Sprintf("Please re-deploy this webhook into %v namespace", webhookNsEnv),
-			"Expected.Namespace", webhookNsEnv,
-			"Deployed.Namespace", depWebhookNs,
-		)
-		os.Exit(1)
-	}
-
-	// Get a config to talk to the apiserver
-	cfg, err := config.GetConfig()
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
-	ctx := context.TODO()
-
-	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, manager.Options{
-		Namespace:              watchNamespace,
-		MetricsBindAddress:     fmt.Sprintf("%s:%d", hcoutil.MetricsHost, hcoutil.MetricsPort),
-		HealthProbeBindAddress: fmt.Sprintf("%s:%d", hcoutil.HealthProbeHost, hcoutil.HealthProbePort),
-		ReadinessEndpointName:  hcoutil.ReadinessEndpointName,
-		LivenessEndpointName:   hcoutil.LivenessEndpointName,
-		LeaderElection:         false,
-		LeaderElectionID:       "hyperconverged-cluster-webhook-lock",
-	})
-
-	exitOnError(err, "")
-
-	log.Info("Registering Components.")
-
-	// Setup Scheme for all resources
-	for _, f := range []func(*apiruntime.Scheme) error{
+	logger               = logf.Log.WithName("hyperconverged-webhook-cmd")
+	cmdHelper            = cmdcommon.NewHelper(logger, "webhook")
+	resourcesSchemeFuncs = []func(*apiruntime.Scheme) error{
 		apis.AddToScheme,
 		cdiv1beta1.AddToScheme,
 		networkaddons.AddToScheme,
@@ -138,48 +43,70 @@ func main() {
 		admissionregistrationv1.AddToScheme,
 		consolev1.AddToScheme,
 		openshiftconfigv1.AddToScheme,
-	} {
-		err := f(mgr.GetScheme())
-		exitOnError(err, "Failed to add to scheme")
 	}
+)
+
+func main() {
+
+	cmdHelper.InitiateCommand()
+
+	watchNamespace := cmdHelper.GetWatchNS()
+
+	// Get a config to talk to the apiserver
+	cfg, err := config.GetConfig()
+	if err != nil {
+		logger.Error(err, "")
+		os.Exit(1)
+	}
+
+	// Create a new Cmd to provide shared dependencies and start components
+	mgr, err := manager.New(cfg, manager.Options{
+		Namespace:              watchNamespace,
+		MetricsBindAddress:     fmt.Sprintf("%s:%d", hcoutil.MetricsHost, hcoutil.MetricsPort),
+		HealthProbeBindAddress: fmt.Sprintf("%s:%d", hcoutil.HealthProbeHost, hcoutil.HealthProbePort),
+		ReadinessEndpointName:  hcoutil.ReadinessEndpointName,
+		LivenessEndpointName:   hcoutil.LivenessEndpointName,
+		LeaderElection:         false,
+	})
+
+	cmdHelper.ExitOnError(err, "failed to create manager")
+
+	logger.Info("Registering Components.")
+
+	// Setup Scheme for all resources
+	cmdHelper.AddToScheme(mgr, resourcesSchemeFuncs)
 
 	// Detect OpenShift version
 	ci := hcoutil.GetClusterInfo()
-	err = ci.CheckRunningInOpenshift(mgr.GetAPIReader(), ctx, log, runInLocal)
-	exitOnError(err, "Cannot detect cluster type")
+	ctx := context.TODO()
+	err = ci.CheckRunningInOpenshift(mgr.GetAPIReader(), ctx, logger, cmdHelper.IsRunInLocal())
+	cmdHelper.ExitOnError(err, "Cannot detect cluster type")
 
 	eventEmitter := hcoutil.GetEventEmitter()
 	// Set temporary configuration, until the regular client is ready
-	eventEmitter.Init(ctx, mgr, ci, log)
+	eventEmitter.Init(ctx, mgr, ci, logger)
 
 	err = mgr.AddHealthzCheck("ping", healthz.Ping)
-	exitOnError(err, "unable to add health check")
+	cmdHelper.ExitOnError(err, "unable to add health check")
 
 	err = mgr.AddReadyzCheck("ready", healthz.Ping)
-	exitOnError(err, "unable to add ready check")
+	cmdHelper.ExitOnError(err, "unable to add ready check")
 
 	// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
 	// necessary to configure Prometheus to scrape metrics from this operator.
 	hwHandler := &webhooks.WebhookHandler{}
 	if err = (&hcov1beta1.HyperConverged{}).SetupWebhookWithManager(ctx, mgr, hwHandler, ci.IsOpenshift()); err != nil {
-		log.Error(err, "unable to create webhook", "webhook", "HyperConverged")
+		logger.Error(err, "unable to create webhook", "webhook", "HyperConverged")
 		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to create webhook")
 		os.Exit(1)
 	}
 
-	log.Info("Starting the Cmd.")
+	logger.Info("Starting the Cmd.")
 	eventEmitter.EmitEvent(nil, corev1.EventTypeNormal, "Init", "Starting the HyperConverged webhook Pod")
 	// Start the Cmd
 	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
-		log.Error(err, "Manager exited non-zero")
+		logger.Error(err, "Manager exited non-zero")
 		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "UnexpectedError", "HyperConverged crashed; "+err.Error())
-		os.Exit(1)
-	}
-}
-
-func exitOnError(err error, message string) {
-	if err != nil {
-		log.Error(err, message)
 		os.Exit(1)
 	}
 }
