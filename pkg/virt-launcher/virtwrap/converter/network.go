@@ -31,7 +31,99 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
+
+func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext, virtioNetProhibited bool) ([]api.Interface, error) {
+	if err := validateNetworksTypes(vmi.Spec.Networks); err != nil {
+		return nil, err
+	}
+
+	var domainInterfaces []api.Interface
+
+	networks := indexNetworksByName(vmi.Spec.Networks)
+
+	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		net, isExist := networks[iface.Name]
+		if !isExist {
+			return nil, fmt.Errorf("failed to find network %s", iface.Name)
+		}
+
+		if iface.SRIOV != nil {
+			continue
+		}
+
+		ifaceType := getInterfaceType(&vmi.Spec.Domain.Devices.Interfaces[i])
+		domainIface := api.Interface{
+			Model: &api.Model{
+				Type: translateModel(c, ifaceType),
+			},
+			Alias: api.NewUserDefinedAlias(iface.Name),
+		}
+
+		// if UseEmulation unset and at least one NIC model is virtio,
+		// /dev/vhost-net must be present as we should have asked for it.
+		var virtioNetMQRequested bool
+		if mq := vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue; mq != nil {
+			virtioNetMQRequested = *mq
+		}
+		if ifaceType == "virtio" && virtioNetProhibited {
+			return nil, fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
+		} else if ifaceType == "virtio" && virtioNetMQRequested {
+			queueCount := uint(CalculateNetworkQueues(vmi))
+			domainIface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: &queueCount}
+		}
+
+		// Add a pciAddress if specified
+		if iface.PciAddress != "" {
+			addr, err := device.NewPciAddressField(iface.PciAddress)
+			if err != nil {
+				return nil, fmt.Errorf("failed to configure interface %s: %v", iface.Name, err)
+			}
+			domainIface.Address = addr
+		}
+
+		if iface.Bridge != nil || iface.Masquerade != nil {
+			// TODO:(ihar) consider abstracting interface type conversion /
+			// detection into drivers
+
+			// use "ethernet" interface type, since we're using pre-configured tap devices
+			// https://libvirt.org/formatdomain.html#elementsNICSEthernet
+			domainIface.Type = "ethernet"
+			if iface.BootOrder != nil {
+				domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
+			} else {
+				domainIface.Rom = &api.Rom{Enabled: "no"}
+			}
+		} else if iface.Slirp != nil {
+			domainIface.Type = "user"
+
+			// Create network interface
+			initializeQEMUCmdAndQEMUArg(domain)
+
+			// TODO: (seba) Need to change this if multiple interface can be connected to the same network
+			// append the ports from all the interfaces connected to the same network
+			err := createSlirpNetwork(iface, *net, domain)
+			if err != nil {
+				return nil, err
+			}
+		} else if iface.Macvtap != nil {
+			if net.Multus == nil {
+				return nil, fmt.Errorf("macvtap interface %s requires Multus meta-cni", iface.Name)
+			}
+
+			domainIface.Type = "ethernet"
+			if iface.BootOrder != nil {
+				domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
+			} else {
+				domainIface.Rom = &api.Rom{Enabled: "no"}
+			}
+		}
+		domainInterfaces = append(domainInterfaces, domainIface)
+	}
+
+	return domainInterfaces, nil
+}
 
 func getInterfaceType(iface *v1.Interface) string {
 	if iface.Slirp != nil {
