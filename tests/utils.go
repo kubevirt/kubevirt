@@ -91,6 +91,7 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/controller"
+	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -773,6 +774,8 @@ func AdjustKubeVirtResource() {
 	patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
 	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(patchData))
 	PanicOnError(err)
+	// just for now to see if this stabilaze the tests
+	time.Sleep(30 * time.Second)
 	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
 	CDIInsecureRegistryConfig, err = virtClient.CoreV1().ConfigMaps(flags.ContainerizedDataImporterNamespace).Get(context.Background(), insecureRegistryConfigName, metav1.GetOptions{})
 	if err != nil {
@@ -3128,11 +3131,16 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 		return "", fmt.Errorf("could not find compute container for pod")
 	}
 
+	arg := ""
+	if kutil.IsNonRootVMI(vmi) {
+		arg = "-c " + "qemu+unix:///session?socket=/var/run/libvirt/libvirt-sock"
+	}
+
 	stdout, stderr, err := ExecuteCommandOnPodV2(
 		virtClient,
 		vmiPod,
 		vmiPod.Spec.Containers[containerIdx].Name,
-		[]string{"virsh", "dumpxml", vmi.Namespace + "_" + vmi.Name},
+		[]string{"virsh", arg, "dumpxml", vmi.Namespace + "_" + vmi.Name},
 	)
 	if err != nil {
 		return "", fmt.Errorf("could not dump libvirt domxml (remotely on pod): %v: %s", err, stderr)
