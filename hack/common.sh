@@ -37,8 +37,7 @@ BASE_PATH=${KUBEVIRTCI_CONFIG_PATH:-$PWD}
 KUBEVIRTCI_PATH=$(kubevirtci::path)
 CMD=${CMD:-}
 KUBECTL=${KUBECTL:-}
-TEST_PATH="tests/func-tests"
-TEST_OUT_PATH=${TEST_PATH}/_out
+TEST_OUT_PATH=${TEST_OUT_PATH:-"tests/func-tests/_out"}
 JOB_TYPE=${JOB_TYPE:-}
 
 KUBECTL=$(which kubectl 2> /dev/null) || true

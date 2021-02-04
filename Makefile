@@ -8,6 +8,7 @@ REGISTRY_NAMESPACE ?= kubevirt
 IMAGE_TAG          ?= latest
 OPERATOR_IMAGE     ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-operator
 WEBHOOK_IMAGE      ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-webhook
+FUNC_TEST_IMAGE    ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-functest
 
 
 
@@ -61,7 +62,7 @@ bundle-push: container-build-operator-courier
 hack-clean: ## Run ./hack/clean.sh
 	./hack/clean.sh
 
-container-build: container-build-operator container-build-webhook container-build-operator-courier
+container-build: container-build-operator container-build-webhook container-build-operator-courier container-build-functest
 
 container-build-operator:
 	docker build -f build/Dockerfile -t $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
@@ -72,7 +73,10 @@ container-build-webhook:
 container-build-operator-courier:
 	docker build -f tools/operator-courier/Dockerfile -t hco-courier .
 
-container-push: quay-login container-push-operator container-push-webhook
+container-build-functest:
+	docker build -f build/Dockerfile.functest -t $(IMAGE_REGISTRY)/$(FUNC_TEST_IMAGE):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
+
+container-push: quay-login container-push-operator container-push-webhook container-push-functest
 
 quay-login:
 	docker login $(IMAGE_REGISTRY) -u $(QUAY_USERNAME) -p $(QUAY_PASSWORD)
@@ -82,6 +86,9 @@ container-push-operator:
 
 container-push-webhook:
 	docker push $(IMAGE_REGISTRY)/$(WEBHOOK_IMAGE):$(IMAGE_TAG)
+
+container-push-functest:
+	docker push $(IMAGE_REGISTRY)/$(FUNC_TEST_IMAGE):$(IMAGE_TAG)
 
 cluster-up:
 	./cluster/up.sh
