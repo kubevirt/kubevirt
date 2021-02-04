@@ -146,6 +146,7 @@ http_archive(
     strip_prefix = "bazeldnf-0.0.15",
     urls = [
         "https://github.com/rmohr/bazeldnf/archive/v0.0.15.tar.gz",
+        "https://storage.googleapis.com/builddeps/60acf03051025e6d013ac24daebefa21e4543225112b89140118f7e10e212378",
     ],
 )
 
@@ -1510,6 +1511,7 @@ rpm(
         "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/g/glibc-2.31-5.fc32.ppc64le.rpm",
         "https://mirrors.dotsrc.org/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/g/glibc-2.31-5.fc32.ppc64le.rpm",
         "https://fr2.rpmfind.net/linux/fedora-secondary/updates/32/Everything/ppc64le/Packages/g/glibc-2.31-5.fc32.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/63e7d8b7fc15e46c18a676fc7f4a7cf9a59201bd9e2a8db637cfb4cf4269e671",
     ],
 )
 
@@ -1521,6 +1523,7 @@ rpm(
         "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/g/glibc-2.31-5.fc32.x86_64.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/g/glibc-2.31-5.fc32.x86_64.rpm",
         "https://fedora.ipacct.com/fedora/linux/updates/32/Everything/x86_64/Packages/g/glibc-2.31-5.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/d729e0b84f9c5a2661e44373176232c26c73b1958d7e23d4b99258375bcf19da",
     ],
 )
 
@@ -1532,6 +1535,7 @@ rpm(
         "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/g/glibc-common-2.31-5.fc32.ppc64le.rpm",
         "https://mirrors.dotsrc.org/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/g/glibc-common-2.31-5.fc32.ppc64le.rpm",
         "https://fr2.rpmfind.net/linux/fedora-secondary/updates/32/Everything/ppc64le/Packages/g/glibc-common-2.31-5.fc32.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/a8d9a159d10af44c260b2c8986f4f9227348fa14542d3ec5da36df361a9f0f38",
     ],
 )
 
@@ -1543,6 +1547,7 @@ rpm(
         "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/g/glibc-common-2.31-5.fc32.x86_64.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/g/glibc-common-2.31-5.fc32.x86_64.rpm",
         "https://fedora.ipacct.com/fedora/linux/updates/32/Everything/x86_64/Packages/g/glibc-common-2.31-5.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/de410375430c04933fceea80ca75a0a542ae4b71766c61e3b80506bf41a50210",
     ],
 )
 
@@ -1554,6 +1559,7 @@ rpm(
         "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/g/glibc-langpack-en-2.31-5.fc32.ppc64le.rpm",
         "https://mirrors.dotsrc.org/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/g/glibc-langpack-en-2.31-5.fc32.ppc64le.rpm",
         "https://fr2.rpmfind.net/linux/fedora-secondary/updates/32/Everything/ppc64le/Packages/g/glibc-langpack-en-2.31-5.fc32.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/656a8a57de91b714ad4568d2a1271300c0c13371433dc6adf093e16d6a184d84",
     ],
 )
 
@@ -1565,6 +1571,7 @@ rpm(
         "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/g/glibc-langpack-en-2.31-5.fc32.x86_64.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/g/glibc-langpack-en-2.31-5.fc32.x86_64.rpm",
         "https://fedora.ipacct.com/fedora/linux/updates/32/Everything/x86_64/Packages/g/glibc-langpack-en-2.31-5.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/0973d7024d96543d81a11779e811af1e933903e9ba920610f8482932a1f2cd8c",
     ],
 )
 
@@ -1852,6 +1859,7 @@ rpm(
         "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/h/hwdata-0.343-1.fc32.noarch.rpm",
         "https://mirrors.dotsrc.org/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/h/hwdata-0.343-1.fc32.noarch.rpm",
         "https://fr2.rpmfind.net/linux/fedora-secondary/updates/32/Everything/ppc64le/Packages/h/hwdata-0.343-1.fc32.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/ccb9ad998f3f902b9ea8569526a439785f6695be39bbb565e176be3129a80b82",
     ],
 )
 
@@ -1863,6 +1871,7 @@ rpm(
         "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/h/hwdata-0.343-1.fc32.noarch.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/h/hwdata-0.343-1.fc32.noarch.rpm",
         "https://fedora.ipacct.com/fedora/linux/updates/32/Everything/x86_64/Packages/h/hwdata-0.343-1.fc32.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/ccb9ad998f3f902b9ea8569526a439785f6695be39bbb565e176be3129a80b82",
     ],
 )
 
@@ -2018,6 +2027,7 @@ rpm(
         "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/k/keyutils-1.6.1-1.fc32.x86_64.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/k/keyutils-1.6.1-1.fc32.x86_64.rpm",
         "https://fedora.ipacct.com/fedora/linux/updates/32/Everything/x86_64/Packages/k/keyutils-1.6.1-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/90718cd451e13f1fffc0a7c9a0af4008b3aa88da111b892a5db8d01727f40172",
     ],
 )
 
@@ -2029,6 +2039,7 @@ rpm(
         "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/k/keyutils-libs-1.6.1-1.fc32.ppc64le.rpm",
         "https://mirrors.dotsrc.org/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/k/keyutils-libs-1.6.1-1.fc32.ppc64le.rpm",
         "https://fr2.rpmfind.net/linux/fedora-secondary/updates/32/Everything/ppc64le/Packages/k/keyutils-libs-1.6.1-1.fc32.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/987212458ab404b0396d0c75a97fb255d4b1128dcd394340e68e11b1c44ef094",
     ],
 )
 
@@ -2040,6 +2051,7 @@ rpm(
         "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/k/keyutils-libs-1.6.1-1.fc32.x86_64.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/k/keyutils-libs-1.6.1-1.fc32.x86_64.rpm",
         "https://fedora.ipacct.com/fedora/linux/updates/32/Everything/x86_64/Packages/k/keyutils-libs-1.6.1-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/4b40eb8bce5cce20be6bb7693f27b61bb0ad9d1e4f9d38b89a38841eed7fb894",
     ],
 )
 
@@ -2999,6 +3011,7 @@ rpm(
         "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/l/libnfsidmap-2.5.2-1.rc4.fc32.x86_64.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/l/libnfsidmap-2.5.2-1.rc4.fc32.x86_64.rpm",
         "https://fedora.ipacct.com/fedora/linux/updates/32/Everything/x86_64/Packages/l/libnfsidmap-2.5.2-1.rc4.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/9d4c7686724a268a09e4aa63afeae419823befde6dd90ef3e3c1eb13bb28f493",
     ],
 )
 
@@ -4333,6 +4346,7 @@ rpm(
         "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/n/nfs-utils-2.5.2-1.rc4.fc32.x86_64.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/n/nfs-utils-2.5.2-1.rc4.fc32.x86_64.rpm",
         "https://fedora.ipacct.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nfs-utils-2.5.2-1.rc4.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/0a6b38f901bf128d69026d76b2cc9a8ea0ff19db99761b1af8a274055656228b",
     ],
 )
 
@@ -5256,6 +5270,7 @@ rpm(
         "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-Socket-2.031-1.fc32.ppc64le.rpm",
         "https://mirrors.dotsrc.org/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-Socket-2.031-1.fc32.ppc64le.rpm",
         "https://fr2.rpmfind.net/linux/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-Socket-2.031-1.fc32.ppc64le.rpm",
+        "https://storage.googleapis.com/builddeps/111cc642427bfbb0f07daaeb081c11be7bda172fb2fd0f467e8f67be6b28aeaa",
     ],
 )
 
@@ -5267,6 +5282,7 @@ rpm(
         "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/p/perl-Socket-2.031-1.fc32.x86_64.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/p/perl-Socket-2.031-1.fc32.x86_64.rpm",
         "https://fedora.ipacct.com/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-Socket-2.031-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/96f0bb2811ab2b2538dac0e71e8a66b8f9a07f9191aef308d2a99f714e42bf7c",
     ],
 )
 
@@ -5818,6 +5834,7 @@ rpm(
         "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/p/python3-3.8.7-1.fc32.x86_64.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/p/python3-3.8.7-1.fc32.x86_64.rpm",
         "https://fedora.ipacct.com/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-3.8.7-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/b69c67e94134dd82f4c515ca75ef0f86e1d7ab0af3f8b9f72d579b9ad46652e0",
     ],
 )
 
@@ -5829,6 +5846,7 @@ rpm(
         "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/p/python3-libs-3.8.7-1.fc32.x86_64.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/p/python3-libs-3.8.7-1.fc32.x86_64.rpm",
         "https://fedora.ipacct.com/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-libs-3.8.7-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/4c8fa7132a6530790230b438eff201d8d6ba699069e3d807fcac47117f1bb9e6",
     ],
 )
 
@@ -6173,6 +6191,7 @@ rpm(
         "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/s/selinux-policy-3.14.5-46.fc32.noarch.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/s/selinux-policy-3.14.5-46.fc32.noarch.rpm",
         "https://fedora.ipacct.com/fedora/linux/updates/32/Everything/x86_64/Packages/s/selinux-policy-3.14.5-46.fc32.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/3bb33f22612d187d5acab1efb108b08270f8e568d0ebb7a3591598829eced000",
     ],
 )
 
@@ -6184,6 +6203,7 @@ rpm(
         "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/s/selinux-policy-targeted-3.14.5-46.fc32.noarch.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/s/selinux-policy-targeted-3.14.5-46.fc32.noarch.rpm",
         "https://fedora.ipacct.com/fedora/linux/updates/32/Everything/x86_64/Packages/s/selinux-policy-targeted-3.14.5-46.fc32.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/1fa0c0bd36639868ea3ef05a206f1fa7bfe0bd59d9c29e2fcdd59bc2ec8ce18c",
     ],
 )
 
@@ -6471,6 +6491,7 @@ rpm(
         "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/t/tar-1.32-5.fc32.x86_64.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/t/tar-1.32-5.fc32.x86_64.rpm",
         "https://fedora.ipacct.com/fedora/linux/updates/32/Everything/x86_64/Packages/t/tar-1.32-5.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/6c0b8e09684f2b9526055205781048630a803be452f54b0bde72431554b4590f",
     ],
 )
 
@@ -6482,6 +6503,7 @@ rpm(
         "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/t/tzdata-2020f-1.fc32.noarch.rpm",
         "https://mirrors.dotsrc.org/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/t/tzdata-2020f-1.fc32.noarch.rpm",
         "https://fr2.rpmfind.net/linux/fedora-secondary/updates/32/Everything/ppc64le/Packages/t/tzdata-2020f-1.fc32.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/33308a06038bff36c21659e795c67fa6a8b77ca493c165fe563e231bf8198e86",
     ],
 )
 
@@ -6493,6 +6515,7 @@ rpm(
         "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/t/tzdata-2020f-1.fc32.noarch.rpm",
         "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/t/tzdata-2020f-1.fc32.noarch.rpm",
         "https://fedora.ipacct.com/fedora/linux/updates/32/Everything/x86_64/Packages/t/tzdata-2020f-1.fc32.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/33308a06038bff36c21659e795c67fa6a8b77ca493c165fe563e231bf8198e86",
     ],
 )
 
