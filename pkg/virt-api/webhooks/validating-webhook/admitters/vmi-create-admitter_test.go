@@ -2814,6 +2814,43 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(len(causes)).To(Equal(0))
 		})
 
+		It("Should reject disk with DedicatedIOThread and SATA bus", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			_true := true
+			_false := false
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
+				v1.Disk{
+					Name:              "disk-with-dedicated-io-thread-and-sata",
+					DedicatedIOThread: &_true,
+					DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{
+						Bus: "sata",
+					}},
+				},
+				v1.Disk{
+					Name:              "disk-with-dedicated-io-thread-and-virtio",
+					DedicatedIOThread: &_true,
+					DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{
+						Bus: "virtio",
+					}},
+				},
+				v1.Disk{
+					Name:              "disk-without-dedicated-io-thread-and-with-sata",
+					DedicatedIOThread: &_false,
+					DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{
+						Bus: "sata",
+					}},
+				},
+			)
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(1)) // Only first disk should fail
+			Expect(string(causes[0].Type)).To(Equal("FieldValueNotSupported"))
+			Expect(causes[0].Field).To(ContainSubstring("domain.devices.disks"))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("IOThreads are not supported for disks on a SATA bus")))
+
+		})
+
 	})
 
 	Context("with volume", func() {

@@ -1764,6 +1764,18 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 
 				}
 			}
+
+			// Reject defining DedicatedIOThread to a disk with SATA bus since this configuration
+			// is not supported in libvirt.
+			isIOThreadsWithSataBus := disk.DedicatedIOThread != nil && *disk.DedicatedIOThread &&
+				(disk.DiskDevice.Disk != nil) && strings.EqualFold(disk.DiskDevice.Disk.Bus, "sata")
+			if isIOThreadsWithSataBus {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotSupported,
+					Message: fmt.Sprintf("IOThreads are not supported for disks on a SATA bus"),
+					Field:   field.Child("domain", "devices", "disks").Index(idx).String(),
+				})
+			}
 		}
 
 		// Verify serial number is made up of valid characters for libvirt, if provided
