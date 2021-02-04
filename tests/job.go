@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -51,7 +52,7 @@ func waitForJob(job *batchv1.Job, toSucceed bool, timeout time.Duration) error {
 
 	const finish = true
 	err = wait.PollImmediate(time.Second, timeout, func() (bool, error) {
-		job, err = virtClient.BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
+		job, err = virtClient.BatchV1().Jobs(job.Namespace).Get(context.Background(), job.Name, metav1.GetOptions{})
 		if err != nil {
 			return finish, err
 		}

@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/net"
 
@@ -59,19 +61,19 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	runHelloWorldJob := func(host, port, namespace string) *batchv1.Job {
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(generateBatchJobSpec(host, port, tests.NewHelloWorldJob))
+		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), generateBatchJobSpec(host, port, tests.NewHelloWorldJob), metav1.CreateOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		return job
 	}
 
 	runHelloWorldJobUDP := func(host, port, namespace string) *batchv1.Job {
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(generateBatchJobSpec(host, port, tests.NewHelloWorldJobUDP))
+		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), generateBatchJobSpec(host, port, tests.NewHelloWorldJobUDP), metav1.CreateOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		return job
 	}
 
 	runHelloWorldJobHttp := func(host, port, namespace string) *batchv1.Job {
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(generateBatchJobSpec(host, port, tests.NewHelloWorldJobHTTP))
+		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), generateBatchJobSpec(host, port, tests.NewHelloWorldJobHTTP), metav1.CreateOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		return job
 	}
@@ -117,7 +119,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(virtctl()).To(Succeed(), "should expose a service via `virtctl expose ...`")
 
 				By("Getting back the cluster IP given for the service")
-				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				serviceIP := svc.Spec.ClusterIP
 
@@ -161,12 +163,12 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Waiting for kubernetes to create the relevant endpoint")
 				getEndpoint := func() error {
-					_, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(serviceName, k8smetav1.GetOptions{})
+					_, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 					return err
 				}
 				Eventually(getEndpoint, 60, 1).Should(BeNil())
 
-				endpoints, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(serviceName, k8smetav1.GetOptions{})
+				endpoints, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(endpoints.Subsets)).To(Equal(1))
@@ -207,12 +209,12 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Waiting for kubernetes to create the relevant endpoint")
 				getEndpoint := func() error {
-					_, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(serviceName, k8smetav1.GetOptions{})
+					_, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 					return err
 				}
 				Eventually(getEndpoint, 60, 1).Should(BeNil())
 
-				endpoints, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(serviceName, k8smetav1.GetOptions{})
+				endpoints, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(endpoints.Subsets)).To(Equal(1))
@@ -256,13 +258,13 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(virtctl()).To(Succeed(), "should expose a service via `virtctl expose ...`")
 
 				By("Getting back the service")
-				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				nodePort := svc.Spec.Ports[0].NodePort
 				Expect(nodePort).To(BeNumerically(">", 0))
 
 				By("Getting the node IP from all nodes")
-				nodes, err := virtClient.CoreV1().Nodes().List(k8smetav1.ListOptions{})
+				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nodes.Items).ToNot(BeEmpty())
 				for _, node := range nodes.Items {
@@ -330,7 +332,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(virtctl()).To(Succeed(), "should succeed exposing a service via `virtctl expose ...`")
 
 				By("Getting back the cluster IP given for the service")
-				svc, err := virtClient.CoreV1().Services(udpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				svc, err := virtClient.CoreV1().Services(udpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				serviceIP := svc.Spec.ClusterIP
 
@@ -374,7 +376,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(virtctl()).ToNot(HaveOccurred())
 
 				By("Getting back the cluster IP given for the service")
-				svc, err := virtClient.CoreV1().Services(udpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				svc, err := virtClient.CoreV1().Services(udpVM.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				serviceIP := svc.Spec.ClusterIP
 				nodePort := svc.Spec.Ports[0].NodePort
@@ -387,7 +389,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(tests.WaitForJobToSucceed(job, 120*time.Second)).To(Succeed())
 
 				By("Getting the node IP from all nodes")
-				nodes, err := virtClient.CoreV1().Nodes().List(k8smetav1.ListOptions{})
+				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nodes.Items).ToNot(BeEmpty())
 				for _, node := range nodes.Items {
@@ -482,7 +484,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(virtctl()).To(Succeed(), "should succeed exposing a service via `virtctl expose ...`")
 
 				By("Getting back the cluster IP given for the service")
-				svc, err := virtClient.CoreV1().Services(vmrs.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				svc, err := virtClient.CoreV1().Services(vmrs.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				serviceIP := svc.Spec.ClusterIP
 
@@ -584,7 +586,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				// This TC also covers:
 				// [test_id:1795] Exposed VM (as a service) can be reconnected multiple times.
 				By("Getting back the cluster IP given for the service")
-				svc, err := virtClient.CoreV1().Services(vm.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				svc, err := virtClient.CoreV1().Services(vm.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				serviceIP := svc.Spec.ClusterIP
 
@@ -623,7 +625,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(vmi).NotTo(BeNil(), "should have been able to start the VM")
 
 				By("Getting back the service's allocated cluster IP.")
-				svc, err := virtClient.CoreV1().Services(vmObj.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				svc, err := virtClient.CoreV1().Services(vmObj.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				serviceIP := svc.Spec.ClusterIP
 
@@ -683,7 +685,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(vmi).NotTo(BeNil(), "should have been able to start the VM")
 
 				By("Getting back the cluster IP given for the service")
-				svc, err := virtClient.CoreV1().Services(vm.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				svc, err := virtClient.CoreV1().Services(vm.Namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				serviceIP := svc.Spec.ClusterIP
 
@@ -702,7 +704,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				// Get the IP address of the service's endpoint.
 				endpointsName := serviceName
-				svcEndpoints, err := virtClient.CoreV1().Endpoints(vm.Namespace).Get(endpointsName, k8smetav1.GetOptions{})
+				svcEndpoints, err := virtClient.CoreV1().Endpoints(vm.Namespace).Get(context.Background(), endpointsName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				// There should be one - and only one - subset for this endpoint,
@@ -719,7 +721,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
 				By("Verifying the endpoints' single subset, which points to the VM's pod, is deleted once the VM was deleted.")
-				svcEndpoints, err = virtClient.CoreV1().Endpoints(vm.Namespace).Get(endpointsName, k8smetav1.GetOptions{})
+				svcEndpoints, err = virtClient.CoreV1().Endpoints(vm.Namespace).Get(context.Background(), endpointsName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(svcEndpoints.Subsets).To(BeNil())
 

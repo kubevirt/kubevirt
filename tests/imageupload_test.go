@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -43,7 +44,7 @@ var _ = Describe("[Serial]ImageUpload", func() {
 
 	BeforeEach(func() {
 		By("Getting CDI HTTP import server pod")
-		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: "kubevirt.io=cdi-http-import-server"})
+		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=cdi-http-import-server"})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pods.Items).ToNot(BeEmpty())
 
@@ -76,19 +77,19 @@ var _ = Describe("[Serial]ImageUpload", func() {
 
 	validateDataVolume := func(targetName string, _ string) {
 		By("Get DataVolume")
-		_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(tests.NamespaceTestDefault).Get(targetName, metav1.GetOptions{})
+		_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(tests.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	deletePVC := func(targetName string) {
-		err := virtClient.CoreV1().PersistentVolumeClaims(tests.NamespaceTestDefault).Delete(targetName, &metav1.DeleteOptions{})
+		err := virtClient.CoreV1().PersistentVolumeClaims((tests.NamespaceTestDefault)).Delete(context.Background(), targetName, metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
 			return
 		}
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
-			_, err = virtClient.CoreV1().PersistentVolumeClaims(tests.NamespaceTestDefault).Get(targetName, metav1.GetOptions{})
+			_, err = virtClient.CoreV1().PersistentVolumeClaims(tests.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return true
 			}
@@ -98,14 +99,14 @@ var _ = Describe("[Serial]ImageUpload", func() {
 	}
 
 	deleteDataVolume := func(targetName string) {
-		err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(tests.NamespaceTestDefault).Delete(targetName, &metav1.DeleteOptions{})
+		err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(tests.NamespaceTestDefault).Delete(context.Background(), targetName, metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
 			return
 		}
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
-			_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(tests.NamespaceTestDefault).Get(targetName, metav1.GetOptions{})
+			_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(tests.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				return true
 			}
@@ -118,11 +119,11 @@ var _ = Describe("[Serial]ImageUpload", func() {
 
 	validatePVC := func(targetName string, storageClass string) {
 		By("Don't DataVolume")
-		_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(tests.NamespaceTestDefault).Get(targetName, metav1.GetOptions{})
+		_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(tests.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(errors.IsNotFound(err)).To(BeTrue())
 
 		By("Get PVC")
-		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(tests.NamespaceTestDefault).Get(targetName, metav1.GetOptions{})
+		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(tests.NamespaceTestDefault).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(*pvc.Spec.StorageClassName).To(Equal(storageClass))
 	}

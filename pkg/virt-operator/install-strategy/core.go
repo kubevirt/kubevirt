@@ -1,6 +1,7 @@
 package installstrategy
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -60,10 +61,11 @@ func (r *Reconciler) syncKubevirtNamespaceLabels() error {
 	}
 
 	log.Log.Infof("Patching namespace %s with %s", targetNamespace, labelsPatch)
-	_, err = r.clientset.CoreV1().Namespaces().Patch(
+	_, err = r.clientset.CoreV1().Namespaces().Patch(context.Background(),
 		targetNamespace,
 		types.MergePatchType,
 		[]byte(fmt.Sprintf(`{"metadata":{"labels": %s}}`, labelsPatch)),
+		metav1.PatchOptions{},
 	)
 	if err != nil {
 		log.Log.Errorf("Could not patch kubevirt namespace labels: %s", err.Error())
@@ -79,7 +81,7 @@ func (r *Reconciler) createOrUpdateService() (bool, error) {
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
 	gracePeriod := int64(0)
-	deleteOptions := &metav1.DeleteOptions{
+	deleteOptions := metav1.DeleteOptions{
 		GracePeriodSeconds: &gracePeriod,
 	}
 
@@ -95,7 +97,7 @@ func (r *Reconciler) createOrUpdateService() (bool, error) {
 		injectOperatorMetadata(r.kv, &service.ObjectMeta, version, imageRegistry, id, true)
 		if !exists {
 			r.expectations.Service.RaiseExpectations(r.kvKey, 1, 0)
-			_, err := core.Services(service.Namespace).Create(service)
+			_, err := core.Services(service.Namespace).Create(context.Background(), service, metav1.CreateOptions{})
 			if err != nil {
 				r.expectations.Service.LowerExpectations(r.kvKey, 1, 0)
 				return false, fmt.Errorf("unable to create service %+v: %v", service, err)
@@ -111,7 +113,7 @@ func (r *Reconciler) createOrUpdateService() (bool, error) {
 				if cachedService.DeletionTimestamp == nil {
 					if key, err := controller.KeyFunc(cachedService); err == nil {
 						r.expectations.Service.AddExpectedDeletion(r.kvKey, key)
-						err := core.Services(service.Namespace).Delete(cachedService.Name, deleteOptions)
+						err := core.Services(service.Namespace).Delete(context.Background(), cachedService.Name, deleteOptions)
 						if err != nil {
 							r.expectations.Service.DeletionObserved(r.kvKey, key)
 							log.Log.Errorf("Failed to delete service %+v: %v", cachedService, err)
@@ -125,7 +127,7 @@ func (r *Reconciler) createOrUpdateService() (bool, error) {
 				// after which the operator will recreate using new spec
 				return true, nil
 			} else if len(patchOps) != 0 {
-				_, err = core.Services(service.Namespace).Patch(service.Name, types.JSONPatchType, generatePatchBytes(patchOps))
+				_, err = core.Services(service.Namespace).Patch(context.Background(), service.Name, types.JSONPatchType, generatePatchBytes(patchOps), metav1.PatchOptions{})
 				if err != nil {
 					return false, fmt.Errorf("unable to patch service %+v: %v", service, err)
 				}
@@ -151,7 +153,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.RateLimitin
 
 	// since these objects was in the past unmanaged, reconcile and pick it up if it exists
 	if !exists {
-		cachedSecret, err = r.clientset.CoreV1().Secrets(secret.Namespace).Get(secret.Name, metav1.GetOptions{})
+		cachedSecret, err = r.clientset.CoreV1().Secrets(secret.Namespace).Get(context.Background(), secret.Name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			exists = false
 		} else if err != nil {
@@ -201,7 +203,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.RateLimitin
 	injectOperatorMetadata(r.kv, &secret.ObjectMeta, version, imageRegistry, id, true)
 	if !exists {
 		r.expectations.Secrets.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := r.clientset.CoreV1().Secrets(secret.Namespace).Create(secret)
+		_, err := r.clientset.CoreV1().Secrets(secret.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Secrets.LowerExpectations(r.kvKey, 1, 0)
 			return nil, fmt.Errorf("unable to create secret %+v: %v", secret, err)
@@ -225,7 +227,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.RateLimitin
 			}
 			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/data", "value": %s }`, string(data)))
 
-			_, err = r.clientset.CoreV1().Secrets(secret.Namespace).Patch(secret.Name, types.JSONPatchType, generatePatchBytes(ops))
+			_, err = r.clientset.CoreV1().Secrets(secret.Namespace).Patch(context.Background(), secret.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 			if err != nil {
 				return nil, fmt.Errorf("unable to patch secret %+v: %v", secret, err)
 			}
@@ -352,7 +354,7 @@ func (r *Reconciler) createOrUpdateRbac() error {
 		if !exists {
 			// Create non existent
 			r.expectations.ServiceAccount.RaiseExpectations(r.kvKey, 1, 0)
-			_, err := core.ServiceAccounts(r.kv.Namespace).Create(sa)
+			_, err := core.ServiceAccounts(r.kv.Namespace).Create(context.Background(), sa, metav1.CreateOptions{})
 			if err != nil {
 				r.expectations.ServiceAccount.LowerExpectations(r.kvKey, 1, 0)
 				return fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
@@ -369,7 +371,7 @@ func (r *Reconciler) createOrUpdateRbac() error {
 			}
 			ops = append(ops, labelAnnotationPatch...)
 
-			_, err = core.ServiceAccounts(r.kv.Namespace).Patch(sa.Name, types.JSONPatchType, generatePatchBytes(ops))
+			_, err = core.ServiceAccounts(r.kv.Namespace).Patch(context.Background(), sa.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to patch serviceaccount %+v: %v", sa, err)
 			}
@@ -439,7 +441,7 @@ func (r *Reconciler) createOrUpdateConfigMaps() error {
 		if !exists {
 			// Create non existent
 			r.expectations.ConfigMap.RaiseExpectations(r.kvKey, 1, 0)
-			_, err := core.ConfigMaps(cm.Namespace).Create(cm)
+			_, err := core.ConfigMaps(cm.Namespace).Create(context.Background(), cm, metav1.CreateOptions{})
 			if err != nil {
 				r.expectations.ConfigMap.LowerExpectations(r.kvKey, 1, 0)
 				return fmt.Errorf("unable to create config map %+v: %v", cm, err)
@@ -464,7 +466,7 @@ func (r *Reconciler) createOrUpdateConfigMaps() error {
 			}
 			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
 
-			_, err = core.ConfigMaps(cm.Namespace).Patch(cm.Name, types.JSONPatchType, generatePatchBytes(ops))
+			_, err = core.ConfigMaps(cm.Namespace).Patch(context.Background(), cm.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to patch config map %+v: %v", cm, err)
 			}
@@ -520,7 +522,7 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimit
 		injectOperatorMetadata(r.kv, &configMap.ObjectMeta, version, imageRegistry, id, true)
 		if !exists {
 			r.expectations.ConfigMap.RaiseExpectations(r.kvKey, 1, 0)
-			_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(configMap)
+			_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
 			if err != nil {
 				r.expectations.ConfigMap.LowerExpectations(r.kvKey, 1, 0)
 				return nil, fmt.Errorf("unable to create configMap %+v: %v", configMap, err)
@@ -544,7 +546,7 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimit
 				}
 				ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/data", "value": %s }`, string(data)))
 
-				_, err = r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Patch(configMap.Name, types.JSONPatchType, generatePatchBytes(ops))
+				_, err = r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Patch(context.Background(), configMap.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 				if err != nil {
 					return nil, fmt.Errorf("unable to patch configMap %+v: %v", configMap, err)
 				}

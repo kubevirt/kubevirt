@@ -20,6 +20,7 @@
 package types
 
 import (
+	"context"
 	"fmt"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -42,7 +43,7 @@ func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) 
 }
 
 func IsPVCBlockFromClient(client kubecli.KubevirtClient, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, exists bool, isBlockDevice bool, err error) {
-	pvc, err = client.CoreV1().PersistentVolumeClaims(namespace).Get(claimName, v1.GetOptions{})
+	pvc, err = client.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), claimName, v1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return nil, false, false, nil
 	} else if err != nil {
@@ -69,7 +70,7 @@ func IsPVCShared(pvc *k8sv1.PersistentVolumeClaim) bool {
 }
 
 func IsSharedPVCFromClient(client kubecli.KubevirtClient, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, isShared bool, err error) {
-	pvc, err = client.CoreV1().PersistentVolumeClaims(namespace).Get(claimName, v1.GetOptions{})
+	pvc, err = client.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), claimName, v1.GetOptions{})
 	if err == nil {
 		isShared = IsPVCShared(pvc)
 	}

@@ -39,7 +39,7 @@ var _ = Describe("Controller devices", func() {
 				if controller.Type == "scsi" {
 					found = true
 					Expect(controller.Index).To(Equal("0"))
-					Expect(controller.Model).To(Equal("virtio-scsi"))
+					Expect(controller.Model).To(Equal("virtio-non-transitional"))
 				}
 			}
 			Expect(found).To(Equal(enabled))

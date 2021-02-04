@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -34,6 +35,7 @@ import (
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	netutils "k8s.io/utils/net"
 	"k8s.io/utils/pointer"
@@ -254,7 +256,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			ip := inboundVMI.Status.Interfaces[0].IP
 
 			//TODO if node count 1, skip the nv12.NodeSelectorOpOut
-			nodes, err := virtClient.CoreV1().Nodes().List(v13.ListOptions{})
+			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nodes.Items).ToNot(BeEmpty())
 			if len(nodes.Items) == 1 && op == v12.NodeSelectorOpNotIn {
@@ -277,7 +279,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			}
 			job.Spec.Template.Spec.HostNetwork = hostNetwork
 
-			job, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(job)
+			job, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), job, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(tests.WaitForJobToSucceed(job, 90*time.Second)).To(Succeed())
 		},
@@ -453,7 +455,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Looking up pod using VMI's label")
-			pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(vmi))
+			pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pods.Items).NotTo(BeEmpty())
 			pod := pods.Items[0]
@@ -659,11 +661,6 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 		}
 
 		Context("[Conformance][test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", func() {
-			const (
-				defaultCIDR = false
-				customCIDR  = true
-			)
-
 			var serverVMI *v1.VirtualMachineInstance
 
 			verifyClientServerConnectivity := func(clientVMI *v1.VirtualMachineInstance, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
@@ -693,13 +690,8 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			table.DescribeTable("ipv4", func(ports []v1.Port, withCustomCIDR bool) {
+			table.DescribeTable("ipv4", func(ports []v1.Port, networkCIDR string) {
 				var clientVMI *v1.VirtualMachineInstance
-				var networkCIDR string
-
-				if withCustomCIDR {
-					networkCIDR = "10.10.10.0/24"
-				}
 
 				// Create the client only one time
 				if clientVMI == nil {
@@ -735,9 +727,10 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				Expect(libnet.PingFromVMConsole(clientVMI, "google.com")).To(Succeed())
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv4Protocol)).To(Succeed())
-			}, table.Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080}}, defaultCIDR),
-				table.Entry("without a specific port number [IPv4]", []v1.Port{}, defaultCIDR),
-				table.Entry("with custom CIDR [IPv4]", []v1.Port{}, customCIDR),
+			},
+				table.Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080}}, ""),
+				table.Entry("without a specific port number [IPv4]", []v1.Port{}, ""),
+				table.Entry("with custom CIDR [IPv4]", []v1.Port{}, "10.10.10.0/24"),
 			)
 
 			table.DescribeTable("IPv6", func(ports []v1.Port) {

@@ -11,6 +11,7 @@ go_library(
         "zz_generated.conversion.go",
         "zz_generated.deepcopy.go",
         "zz_generated.defaults.go",
+        "zz_generated.prerelease-lifecycle.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1",
     importpath = "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1",

@@ -20,6 +20,7 @@
 package libnet
 
 import (
+	"context"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,10 +49,10 @@ func ClusterDNSServiceIP() (string, error) {
 		return "", err
 	}
 
-	service, err := virtClient.CoreV1().Services(k8sDNSNamespace).Get(k8sDNSServiceName, metav1.GetOptions{})
+	service, err := virtClient.CoreV1().Services(k8sDNSNamespace).Get(context.Background(), k8sDNSServiceName, metav1.GetOptions{})
 	if err != nil {
 		prevErr := err
-		service, err = virtClient.CoreV1().Services(openshiftDNSNamespace).Get(openshiftDNSServiceName, metav1.GetOptions{})
+		service, err = virtClient.CoreV1().Services(openshiftDNSNamespace).Get(context.Background(), openshiftDNSServiceName, metav1.GetOptions{})
 		if err != nil {
 			return "", fmt.Errorf("unable to detect the DNS services: %v, %v", prevErr, err)
 		}

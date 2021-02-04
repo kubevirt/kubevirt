@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -117,7 +118,7 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 				MaxReplicas: max,
 			},
 		}
-		hpa, err := virtClient.AutoscalingV1().HorizontalPodAutoscalers(tests.NamespaceTestDefault).Create(hpa)
+		hpa, err := virtClient.AutoscalingV1().HorizontalPodAutoscalers(tests.NamespaceTestDefault).Create(context.Background(), hpa, v12.CreateOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		var s *autov1.Scale
@@ -131,7 +132,7 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 		vmis, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v12.ListOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		ExpectWithOffset(1, tests.NotDeleted(vmis)).To(HaveLen(int(min)))
-		err = virtClient.AutoscalingV1().HorizontalPodAutoscalers(tests.NamespaceTestDefault).Delete(name, &v12.DeleteOptions{})
+		err = virtClient.AutoscalingV1().HorizontalPodAutoscalers(tests.NamespaceTestDefault).Delete(context.Background(), name, v12.DeleteOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	}
 
@@ -198,7 +199,7 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 		// change the name of a required field (like domain) so validation will fail
 		jsonString := strings.Replace(string(jsonBytes), "domain", "not-a-domain", -1)
 
-		result := virtClient.RestClient().Post().Resource("virtualmachineinstancereplicasets").Namespace(tests.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do()
+		result := virtClient.RestClient().Post().Resource("virtualmachineinstancereplicasets").Namespace(tests.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do(context.Background())
 
 		// Verify validation failed.
 		statusCode := 0
@@ -219,7 +220,7 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 			Name: "testdisk",
 		})
 
-		result := virtClient.RestClient().Post().Resource("virtualmachineinstancereplicasets").Namespace(tests.NamespaceTestDefault).Body(newRS).Do()
+		result := virtClient.RestClient().Post().Resource("virtualmachineinstancereplicasets").Namespace(tests.NamespaceTestDefault).Body(newRS).Do(context.Background())
 
 		// Verify validation failed.
 		statusCode := 0
@@ -262,7 +263,7 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 		rawTable, err := virtClient.RestClient().Get().
 			RequestURI(fmt.Sprintf("/apis/kubevirt.io/%s/namespaces/%s/virtualmachineinstancereplicasets/%s", v1.ApiLatestVersion, tests.NamespaceTestDefault, newRS.ObjectMeta.Name)).
 			SetHeader("Accept", "application/json;as=Table;v=v1beta1;g=meta.k8s.io, application/json").
-			DoRaw()
+			DoRaw(context.Background())
 
 		Expect(err).ToNot(HaveOccurred())
 		table := &v1beta1.Table{}
@@ -309,6 +310,7 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 		// Check for owner reference
 		vmis, err := virtClient.VirtualMachineInstance(newRS.ObjectMeta.Namespace).List(&v12.ListOptions{})
 		Expect(vmis.Items).To(HaveLen(2))
+		Expect(err).ToNot(HaveOccurred())
 		for _, vmi := range vmis.Items {
 			Expect(vmi.OwnerReferences).ToNot(BeEmpty())
 		}
@@ -403,13 +405,13 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 		Expect(vmis.Items).ToNot(BeEmpty())
 
 		vmi := vmis.Items[0]
-		pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(&vmi))
+		pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(context.Background(), tests.UnfinishedVMIPodSelector(&vmi))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(pods.Items)).To(Equal(1))
 		pod := pods.Items[0]
 
 		By("Deleting one of the RS VMS pods")
-		err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(pod.Name, &v12.DeleteOptions{})
+		err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(context.Background(), pod.Name, v12.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking that the VM disappeared")
@@ -450,13 +452,13 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 		}, 40*time.Second, time.Second).Should(Equal(2))
 
 		vmi := &vmis.Items[0]
-		pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(vmi))
+		pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(pods.Items)).To(Equal(1))
 		pod := pods.Items[0]
 
 		By("Deleting one of the RS VMS pods, which will take some time to really stop the VMI")
-		err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(pod.Name, &v12.DeleteOptions{})
+		err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(context.Background(), pod.Name, v12.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking that then number of VMIs increases to three")

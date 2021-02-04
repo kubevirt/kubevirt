@@ -20,6 +20,7 @@
 package watch
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -47,6 +48,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
+
+const failedToProcessDeleteNotificationErrMsg = "Failed to process delete notification"
 
 type MigrationController struct {
 	templateService    services.TemplateService
@@ -178,15 +181,14 @@ func (c *MigrationController) execute(key string) error {
 	}
 
 	if !vmiExists {
+		var err error
+
 		if migration.DeletionTimestamp == nil {
 			logger.V(3).Infof("Deleting migration for deleted vmi %s/%s", migration.Namespace, migration.Spec.VMIName)
-			err := c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &v1.DeleteOptions{})
-			if err != nil {
-				return err
-			}
+			err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &v1.DeleteOptions{})
 		}
 		// nothing to process for a migration that's being deleted
-		return nil
+		return err
 	}
 
 	vmi = vmiObj.(*virtv1.VirtualMachineInstance)
@@ -413,7 +415,7 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 
 	key := controller.MigrationKey(migration)
 	c.podExpectations.ExpectCreations(key, 1)
-	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(templatePod)
+	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
 	if err != nil {
 		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating pod: %v", err)
 		c.podExpectations.CreationObserved(key)
@@ -459,14 +461,10 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 		return nil
 	}
 
-	if vmi == nil || vmi.DeletionTimestamp != nil {
-		// nothing to do with a deleted vmi
-		return nil
-	} else if vmi.Status.MigrationState != nil &&
-		vmi.Status.MigrationState.MigrationUID == migration.UID &&
-		vmi.Status.MigrationState.EndTimestamp != nil {
+	vmiDeleted := vmi == nil || vmi.DeletionTimestamp != nil
+	migrationDone := vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationUID == migration.UID && vmi.Status.MigrationState.EndTimestamp != nil
 
-		// nothing to do here, the migration is done
+	if vmiDeleted || migrationDone {
 		return nil
 	}
 
@@ -567,6 +565,9 @@ func (c *MigrationController) listMatchingTargetPods(migration *virtv1.VirtualMa
 			virtv1.MigrationJobLabel: string(migration.UID),
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	objs, err := c.podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, migration.Namespace)
 	if err != nil {
@@ -721,12 +722,12 @@ func (c *MigrationController) deletePod(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error(failedToProcessDeleteNotificationErrMsg)
 			return
 		}
 		pod, ok = tombstone.Obj.(*k8sv1.Pod)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pod %#v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pod %#v", obj)).Error(failedToProcessDeleteNotificationErrMsg)
 			return
 		}
 	}
@@ -818,12 +819,12 @@ func (c *MigrationController) deleteVMI(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error(failedToProcessDeleteNotificationErrMsg)
 			return
 		}
 		vmi, ok = tombstone.Obj.(*virtv1.VirtualMachineInstance)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a vmi %#v", obj)).Error("Failed to process delete notification")
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a vmi %#v", obj)).Error(failedToProcessDeleteNotificationErrMsg)
 			return
 		}
 	}
@@ -864,22 +865,21 @@ func (c *MigrationController) findRunningMigrations() ([]*virtv1.VirtualMachineI
 	for _, migration := range notFinishedMigrations {
 		if migration.IsRunning() {
 			runningMigrations = append(runningMigrations, migration)
-		} else {
-
-			vmi, exists, err := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
-			if err != nil {
-				return nil, err
-			}
-			if !exists {
-				continue
-			}
-			pods, err := c.listMatchingTargetPods(migration, vmi.(*virtv1.VirtualMachineInstance))
-			if err != nil {
-				return nil, err
-			}
-			if len(pods) > 0 {
-				runningMigrations = append(runningMigrations, migration)
-			}
+			continue
+		}
+		vmi, exists, err := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			continue
+		}
+		pods, err := c.listMatchingTargetPods(migration, vmi.(*virtv1.VirtualMachineInstance))
+		if err != nil {
+			return nil, err
+		}
+		if len(pods) > 0 {
+			runningMigrations = append(runningMigrations, migration)
 		}
 	}
 	return runningMigrations, nil

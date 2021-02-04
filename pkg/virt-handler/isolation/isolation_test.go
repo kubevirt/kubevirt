@@ -47,7 +47,9 @@ var _ = Describe("Isolation", func() {
 		BeforeEach(func() {
 			var err error
 			tmpDir, err = ioutil.TempDir("", "kubevirt")
+			Expect(err).ToNot(HaveOccurred())
 			podsDir, err = ioutil.TempDir("", "pods")
+			Expect(err).ToNot(HaveOccurred())
 
 			cmdclient.SetLegacyBaseDir(tmpDir)
 			cmdclient.SetPodsBaseDir(tmpDir)

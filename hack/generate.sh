@@ -70,6 +70,9 @@ find ${KUBEVIRT_DIR}/pkg/ -name "*generated*.go" -exec rm {} -f \;
 
 ${KUBEVIRT_DIR}/hack/build-go.sh generate ${WHAT}
 
+deepcopy-gen --input-dirs ./pkg/virt-launcher/virtwrap/api \
+    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
+
 # Genearte validation with controller-gen and create go file for them
 (
     cd ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go &&
@@ -92,6 +95,7 @@ ${KUBEVIRT_DIR}/hack/build-go.sh generate ${WHAT}
 rm -rf ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/config
 
 /${KUBEVIRT_DIR}/hack/bootstrap-ginkgo.sh
+
 (cd ${KUBEVIRT_DIR}/tools/openapispec/ && go_build)
 
 ${KUBEVIRT_DIR}/tools/openapispec/openapispec --dump-api-spec-path ${KUBEVIRT_DIR}/api/openapi-spec/swagger.json

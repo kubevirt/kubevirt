@@ -20,6 +20,7 @@
 package virthandler
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	goerror "errors"
@@ -2354,7 +2355,7 @@ func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan
 			}
 
 			data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s"}, "annotations": {"%s": %s}}}`, v1.NodeSchedulable, kubevirtSchedulable, v1.VirtHandlerHeartbeat, string(now)))
-			_, err = d.clientset.CoreV1().Nodes().Patch(d.host, types.StrategicMergePatchType, data)
+			_, err = d.clientset.CoreV1().Nodes().Patch(context.Background(), d.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 			if err != nil {
 				log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", d.host)
 				return
@@ -2390,7 +2391,7 @@ func (d *VirtualMachineController) updateNodeCpuManagerLabel(cpuManagerPath stri
 	}
 
 	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%t"}}}`, v1.CPUManager, isEnabled))
-	_, err = d.clientset.CoreV1().Nodes().Patch(d.host, types.StrategicMergePatchType, data)
+	_, err = d.clientset.CoreV1().Nodes().Patch(context.Background(), d.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
 		return

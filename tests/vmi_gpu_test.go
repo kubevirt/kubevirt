@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"strings"
@@ -82,7 +83,8 @@ var _ = Describe("[Serial]GPU", func() {
 		})
 
 		It("[test_id:4608]Should create a valid VMI and appropriate libvirt domain", func() {
-			nodesList, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
+			nodesList, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			var gpuName = ""
 			for _, item := range nodesList.Items {
 				resourceList := item.Status.Allocatable

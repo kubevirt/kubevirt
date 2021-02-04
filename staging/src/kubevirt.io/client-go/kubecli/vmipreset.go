@@ -20,6 +20,8 @@
 package kubecli
 
 import (
+	"context"
+
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -45,7 +47,7 @@ func (v *vmiPresets) Get(name string, options k8smetav1.GetOptions) (vmi *v1.Vir
 		Namespace(v.namespace).
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(context.Background()).
 		Into(vmi)
 	vmi.SetGroupVersionKind(v1.VirtualMachineInstancePresetGroupVersionKind)
 	return
@@ -57,7 +59,7 @@ func (v *vmiPresets) List(options k8smetav1.ListOptions) (vmiList *v1.VirtualMac
 		Resource(v.resource).
 		Namespace(v.namespace).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(context.Background()).
 		Into(vmiList)
 	for _, vmi := range vmiList.Items {
 		vmi.SetGroupVersionKind(v1.VirtualMachineInstancePresetGroupVersionKind)
@@ -72,7 +74,7 @@ func (v *vmiPresets) Create(vmi *v1.VirtualMachineInstancePreset) (result *v1.Vi
 		Namespace(v.namespace).
 		Resource(v.resource).
 		Body(vmi).
-		Do().
+		Do(context.Background()).
 		Into(result)
 	result.SetGroupVersionKind(v1.VirtualMachineInstancePresetGroupVersionKind)
 	return
@@ -85,7 +87,7 @@ func (v *vmiPresets) Update(vmi *v1.VirtualMachineInstancePreset) (result *v1.Vi
 		Namespace(v.namespace).
 		Resource(v.resource).
 		Body(vmi).
-		Do().
+		Do(context.Background()).
 		Into(result)
 	result.SetGroupVersionKind(v1.VirtualMachineInstancePresetGroupVersionKind)
 	return
@@ -97,7 +99,7 @@ func (v *vmiPresets) Delete(name string, options *k8smetav1.DeleteOptions) error
 		Resource(v.resource).
 		Name(name).
 		Body(options).
-		Do().
+		Do(context.Background()).
 		Error()
 }
 
@@ -109,7 +111,7 @@ func (v *vmiPresets) Patch(name string, pt types.PatchType, data []byte, subreso
 		SubResource(subresources...).
 		Name(name).
 		Body(data).
-		Do().
+		Do(context.Background()).
 		Into(result)
 	return
 }

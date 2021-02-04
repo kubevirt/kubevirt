@@ -21,6 +21,7 @@ and adapted for KubeVirt.
 package controller
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -404,7 +405,7 @@ func (r RealVirtualMachineControl) PatchVirtualMachine(namespace, name string, d
 
 func (r RealVirtualMachineControl) PatchDataVolume(namespace, name string, data []byte) error {
 	// TODO should be a strategic merge patch, but not possible until https://github.com/kubernetes/kubernetes/issues/56348 is resolved
-	_, err := r.Clientset.CdiClient().CdiV1alpha1().DataVolumes(namespace).Patch(name, types.MergePatchType, data)
+	_, err := r.Clientset.CdiClient().CdiV1alpha1().DataVolumes(namespace).Patch(context.Background(), name, types.MergePatchType, data, metav1.PatchOptions{})
 	return err
 }
 

@@ -22,6 +22,7 @@ package installstrategy
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 
@@ -152,11 +153,11 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNa
 		return err
 	}
 
-	_, err = clientset.CoreV1().ConfigMaps(config.GetNamespace()).Create(configMap)
+	_, err = clientset.CoreV1().ConfigMaps(config.GetNamespace()).Create(context.Background(), configMap, metav1.CreateOptions{})
 	if err != nil {
 		if errors.IsAlreadyExists(err) {
 			// force update if already exists
-			_, err = clientset.CoreV1().ConfigMaps(config.GetNamespace()).Update(configMap)
+			_, err = clientset.CoreV1().ConfigMaps(config.GetNamespace()).Update(context.Background(), configMap, metav1.UpdateOptions{})
 			if err != nil {
 				return err
 			}
@@ -554,7 +555,7 @@ func contains(users []string, user string) bool {
 }
 
 func isNamespaceExist(clientset kubecli.KubevirtClient, ns string) (bool, error) {
-	_, err := clientset.CoreV1().Namespaces().Get(ns, metav1.GetOptions{})
+	_, err := clientset.CoreV1().Namespaces().Get(context.Background(), ns, metav1.GetOptions{})
 	if err == nil {
 		return true, nil
 	}

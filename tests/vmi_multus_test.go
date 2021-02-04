@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -105,13 +106,44 @@ var _ = Describe("[Serial]Multus", func() {
 		},
 	}
 
-	BeforeEach(func() {
+	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
 
+		tests.BeforeTestCleanup()
+
+		nodes = tests.GetAllSchedulableNodes(virtClient)
+		Expect(len(nodes.Items) > 0).To(BeTrue())
+
+		configureNodeNetwork(virtClient)
+
+		result := virtClient.RestClient().
+			Post().
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "linux-bridge-net-vlan100")).
+			Body([]byte(fmt.Sprintf(linuxBridgeConfCRD, "linux-bridge-net-vlan100", tests.NamespaceTestDefault))).
+			Do(context.Background())
+		Expect(result.Error()).NotTo(HaveOccurred())
+
+		// Create ptp crds with tuning plugin enabled in two different namespaces
+		result = virtClient.RestClient().
+			Post().
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "ptp-conf-1")).
+			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf-1", tests.NamespaceTestDefault))).
+			Do(context.Background())
+		Expect(result.Error()).NotTo(HaveOccurred())
+
+		result = virtClient.RestClient().
+			Post().
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestAlternative, "ptp-conf-2")).
+			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf-2", tests.NamespaceTestAlternative))).
+			Do(context.Background())
+		Expect(result.Error()).NotTo(HaveOccurred())
+	})
+
+	BeforeEach(func() {
 		// Multus tests need to ensure that old VMIs are gone
-		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
-		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestAlternative).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
+		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do(context.Background()).Error()).To(Succeed())
+		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestAlternative).Resource("virtualmachineinstances").Do(context.Background()).Error()).To(Succeed())
 		Eventually(func() int {
 			list1, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -133,37 +165,6 @@ var _ = Describe("[Serial]Multus", func() {
 
 		return vmi
 	}
-
-	tests.BeforeAll(func() {
-		tests.BeforeTestCleanup()
-
-		nodes = tests.GetAllSchedulableNodes(virtClient)
-		Expect(len(nodes.Items) > 0).To(BeTrue())
-
-		configureNodeNetwork(virtClient)
-
-		result := virtClient.RestClient().
-			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "linux-bridge-net-vlan100")).
-			Body([]byte(fmt.Sprintf(linuxBridgeConfCRD, "linux-bridge-net-vlan100", tests.NamespaceTestDefault))).
-			Do()
-		Expect(result.Error()).NotTo(HaveOccurred())
-
-		// Create ptp crds with tuning plugin enabled in two different namespaces
-		result = virtClient.RestClient().
-			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "ptp-conf-1")).
-			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf-1", tests.NamespaceTestDefault))).
-			Do()
-		Expect(result.Error()).NotTo(HaveOccurred())
-
-		result = virtClient.RestClient().
-			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestAlternative, "ptp-conf-2")).
-			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf-2", tests.NamespaceTestAlternative))).
-			Do()
-		Expect(result.Error()).NotTo(HaveOccurred())
-	})
 
 	Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance using different types of interfaces.", func() {
 		Context("VirtualMachineInstance with cni ptp plugin interface", func() {
@@ -459,15 +460,8 @@ var _ = Describe("[Serial]Multus", func() {
 					Expect(ifc.MAC).To(Not(BeZero()))
 				}
 				Expect(interfacesByName["default"].MAC).To(Not(Equal(interfacesByName["linux-bridge"].MAC)))
-
-				err = console.SafeExpectBatch(updatedVmi, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("ip addr show eth0 | grep %s | wc -l", interfacesByName["default"].MAC)},
-					&expect.BExp{R: "1"},
-				}, 15)
-				err = console.SafeExpectBatch(updatedVmi, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("ip addr show eth1 | grep %s | wc -l", interfacesByName["linux-bridge"].MAC)},
-					&expect.BExp{R: "1"},
-				}, 15)
+				Expect(runSafeCommand(vmiOne, fmt.Sprintf("ip addr show eth0 | grep %s\n", interfacesByName["default"].MAC))).To(Succeed())
+				Expect(runSafeCommand(vmiOne, fmt.Sprintf("ip addr show eth1 | grep %s\n", interfacesByName["linux-bridge"].MAC))).To(Succeed())
 			})
 		})
 
@@ -603,7 +597,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			Post().
 			RequestURI(fmt.Sprintf(postUrl, namespace, networkName)).
 			Body([]byte(fmt.Sprintf(networkAttachmentDefinition, networkName, namespace, sriovResourceName))).
-			Do().Error()
+			Do(context.Background()).Error()
 	}
 
 	tests.BeforeAll(func() {
@@ -624,8 +618,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 	BeforeEach(func() {
 		// Multus tests need to ensure that old VMIs are gone
-		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
-		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestAlternative).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
+		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do(context.Background()).Error()).To(Succeed())
+		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestAlternative).Resource("virtualmachineinstances").Do(context.Background()).Error()).To(Succeed())
 		Eventually(func() int {
 			list1, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -943,7 +937,7 @@ var _ = Describe("[Serial]Macvtap", func() {
 			Post().
 			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, macvtapNetworkName)).
 			Body([]byte(fmt.Sprintf(macvtapNetworkConf, macvtapNetworkName, tests.NamespaceTestDefault, macvtapLowerDevice, macvtapNetworkName))).
-			Do()
+			Do(context.Background())
 		Expect(result.Error()).NotTo(HaveOccurred(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
 	})
 
@@ -1228,7 +1222,7 @@ func getInterfaceNetworkNameByMAC(vmi *v1.VirtualMachineInstance, macAddress str
 func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 
 	// Fetching the kubevirt-operator image from the pod makes this independent from the installation method / image used
-	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: "kubevirt.io=virt-handler"})
+	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=virt-handler"})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(pods.Items).ToNot(BeEmpty())
 
@@ -1301,7 +1295,7 @@ func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 
 	// Helper function returning existing network-config DaemonSet if exists
 	getNetworkConfigDaemonSet := func() *appsv1.DaemonSet {
-		daemonSet, err := virtClient.AppsV1().DaemonSets(metav1.NamespaceSystem).Get(networkConfigDaemonSet.Name, metav1.GetOptions{})
+		daemonSet, err := virtClient.AppsV1().DaemonSets(metav1.NamespaceSystem).Get(context.Background(), networkConfigDaemonSet.Name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return nil
 		}
@@ -1312,7 +1306,7 @@ func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 	// If the DaemonSet haven't been created yet, do so
 	runningNetworkConfigDaemonSet := getNetworkConfigDaemonSet()
 	if runningNetworkConfigDaemonSet == nil {
-		_, err := virtClient.AppsV1().DaemonSets(metav1.NamespaceSystem).Create(&networkConfigDaemonSet)
+		_, err := virtClient.AppsV1().DaemonSets(metav1.NamespaceSystem).Create(context.Background(), &networkConfigDaemonSet, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 	}
 

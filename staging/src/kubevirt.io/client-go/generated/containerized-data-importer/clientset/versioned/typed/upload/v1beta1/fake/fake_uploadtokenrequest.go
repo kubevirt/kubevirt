@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -40,7 +42,7 @@ var uploadtokenrequestsResource = schema.GroupVersionResource{Group: "upload.cdi
 var uploadtokenrequestsKind = schema.GroupVersionKind{Group: "upload.cdi.kubevirt.io", Version: "v1beta1", Kind: "UploadTokenRequest"}
 
 // Get takes name of the uploadTokenRequest, and returns the corresponding uploadTokenRequest object, and an error if there is any.
-func (c *FakeUploadTokenRequests) Get(name string, options v1.GetOptions) (result *v1beta1.UploadTokenRequest, err error) {
+func (c *FakeUploadTokenRequests) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.UploadTokenRequest, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(uploadtokenrequestsResource, c.ns, name), &v1beta1.UploadTokenRequest{})
 
@@ -51,7 +53,7 @@ func (c *FakeUploadTokenRequests) Get(name string, options v1.GetOptions) (resul
 }
 
 // List takes label and field selectors, and returns the list of UploadTokenRequests that match those selectors.
-func (c *FakeUploadTokenRequests) List(opts v1.ListOptions) (result *v1beta1.UploadTokenRequestList, err error) {
+func (c *FakeUploadTokenRequests) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.UploadTokenRequestList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(uploadtokenrequestsResource, uploadtokenrequestsKind, c.ns, opts), &v1beta1.UploadTokenRequestList{})
 
@@ -73,14 +75,14 @@ func (c *FakeUploadTokenRequests) List(opts v1.ListOptions) (result *v1beta1.Upl
 }
 
 // Watch returns a watch.Interface that watches the requested uploadTokenRequests.
-func (c *FakeUploadTokenRequests) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeUploadTokenRequests) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(uploadtokenrequestsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a uploadTokenRequest and creates it.  Returns the server's representation of the uploadTokenRequest, and an error, if there is any.
-func (c *FakeUploadTokenRequests) Create(uploadTokenRequest *v1beta1.UploadTokenRequest) (result *v1beta1.UploadTokenRequest, err error) {
+func (c *FakeUploadTokenRequests) Create(ctx context.Context, uploadTokenRequest *v1beta1.UploadTokenRequest, opts v1.CreateOptions) (result *v1beta1.UploadTokenRequest, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(uploadtokenrequestsResource, c.ns, uploadTokenRequest), &v1beta1.UploadTokenRequest{})
 
@@ -91,7 +93,7 @@ func (c *FakeUploadTokenRequests) Create(uploadTokenRequest *v1beta1.UploadToken
 }
 
 // Update takes the representation of a uploadTokenRequest and updates it. Returns the server's representation of the uploadTokenRequest, and an error, if there is any.
-func (c *FakeUploadTokenRequests) Update(uploadTokenRequest *v1beta1.UploadTokenRequest) (result *v1beta1.UploadTokenRequest, err error) {
+func (c *FakeUploadTokenRequests) Update(ctx context.Context, uploadTokenRequest *v1beta1.UploadTokenRequest, opts v1.UpdateOptions) (result *v1beta1.UploadTokenRequest, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(uploadtokenrequestsResource, c.ns, uploadTokenRequest), &v1beta1.UploadTokenRequest{})
 
@@ -103,7 +105,7 @@ func (c *FakeUploadTokenRequests) Update(uploadTokenRequest *v1beta1.UploadToken
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeUploadTokenRequests) UpdateStatus(uploadTokenRequest *v1beta1.UploadTokenRequest) (*v1beta1.UploadTokenRequest, error) {
+func (c *FakeUploadTokenRequests) UpdateStatus(ctx context.Context, uploadTokenRequest *v1beta1.UploadTokenRequest, opts v1.UpdateOptions) (*v1beta1.UploadTokenRequest, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateSubresourceAction(uploadtokenrequestsResource, "status", c.ns, uploadTokenRequest), &v1beta1.UploadTokenRequest{})
 
@@ -114,7 +116,7 @@ func (c *FakeUploadTokenRequests) UpdateStatus(uploadTokenRequest *v1beta1.Uploa
 }
 
 // Delete takes name of the uploadTokenRequest and deletes it. Returns an error if one occurs.
-func (c *FakeUploadTokenRequests) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeUploadTokenRequests) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(uploadtokenrequestsResource, c.ns, name), &v1beta1.UploadTokenRequest{})
 
@@ -122,15 +124,15 @@ func (c *FakeUploadTokenRequests) Delete(name string, options *v1.DeleteOptions)
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeUploadTokenRequests) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(uploadtokenrequestsResource, c.ns, listOptions)
+func (c *FakeUploadTokenRequests) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(uploadtokenrequestsResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1beta1.UploadTokenRequestList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched uploadTokenRequest.
-func (c *FakeUploadTokenRequests) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1beta1.UploadTokenRequest, err error) {
+func (c *FakeUploadTokenRequests) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.UploadTokenRequest, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(uploadtokenrequestsResource, c.ns, name, pt, data, subresources...), &v1beta1.UploadTokenRequest{})
 

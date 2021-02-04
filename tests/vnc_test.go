@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -56,7 +57,7 @@ var _ = Describe("[Serial][rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][le
 
 			tests.BeforeTestCleanup()
 			vmi = tests.NewRandomVMI()
-			Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
+			Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do(context.Background()).Error()).To(Succeed())
 			tests.WaitForSuccessfulVMIStart(vmi)
 		})
 
@@ -158,6 +159,7 @@ var _ = Describe("[Serial][rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][le
 			wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
 			Expect(err).ToNot(HaveOccurred())
 			req, err := kubecli.RequestFromConfig(config, vmi.Name, vmi.Namespace, "vnc")
+			Expect(err).ToNot(HaveOccurred())
 			_, err = wrappedRoundTripper.RoundTrip(req)
 			Expect(err).ToNot(HaveOccurred())
 		})

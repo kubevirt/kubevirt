@@ -20,6 +20,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"runtime/debug"
 
@@ -52,7 +53,7 @@ func NewListWatchFromClient(c cache.Getter, resource string, namespace string, f
 			Namespace(namespace).
 			Resource(resource).
 			VersionedParams(&options, metav1.ParameterCodec).
-			Do().
+			Do(context.Background()).
 			Get()
 	}
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
@@ -63,7 +64,7 @@ func NewListWatchFromClient(c cache.Getter, resource string, namespace string, f
 			Namespace(namespace).
 			Resource(resource).
 			VersionedParams(&options, metav1.ParameterCodec).
-			Watch()
+			Watch(context.Background())
 	}
 	return &cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}
 }

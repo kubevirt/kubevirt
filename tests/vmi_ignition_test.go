@@ -20,6 +20,8 @@
 package tests_test
 
 import (
+	"context"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -44,7 +46,7 @@ var _ = Describe("[Serial][rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		LaunchVMI = func(vmi *v1.VirtualMachineInstance) {
 			By("Starting a VirtualMachineInstance")
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
 			Expect(err).To(BeNil())
 
 			By("Waiting the VirtualMachineInstance start")

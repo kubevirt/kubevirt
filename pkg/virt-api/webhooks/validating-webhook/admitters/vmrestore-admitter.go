@@ -20,6 +20,7 @@
 package admitters
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -212,7 +213,7 @@ func (admitter *VMRestoreAdmitter) validateCreateVM(field *k8sfield.Path, namesp
 }
 
 func (admitter *VMRestoreAdmitter) validateSnapshot(field *k8sfield.Path, namespace, name string, targetUID *types.UID) ([]metav1.StatusCause, error) {
-	snapshot, err := admitter.Client.VirtualMachineSnapshot(namespace).Get(name, metav1.GetOptions{})
+	snapshot, err := admitter.Client.VirtualMachineSnapshot(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return []metav1.StatusCause{
 			{

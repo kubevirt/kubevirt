@@ -1,6 +1,7 @@
 package libvmi
 
 import (
+	"context"
 	"fmt"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -17,7 +18,7 @@ func GetPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace st
 		panic(err)
 	}
 
-	pods, err := virtCli.CoreV1().Pods(namespace).List(metav1.ListOptions{})
+	pods, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		panic(err)
 	}

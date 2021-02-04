@@ -1,6 +1,7 @@
 package installstrategy
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -8,6 +9,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/client-go/log"
@@ -38,7 +40,7 @@ func (r *Reconciler) syncDeployment(deployment *appsv1.Deployment) error {
 
 	if !exists {
 		r.expectations.Deployment.RaiseExpectations(kvkey, 1, 0)
-		_, err = apps.Deployments(r.kv.Namespace).Create(deployment)
+		_, err = apps.Deployments(r.kv.Namespace).Create(context.Background(), deployment, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Deployment.LowerExpectations(kvkey, 1, 0)
 			return fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
@@ -61,7 +63,7 @@ func (r *Reconciler) syncDeployment(deployment *appsv1.Deployment) error {
 		}
 		ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
 
-		_, err = apps.Deployments(r.kv.Namespace).Patch(deployment.Name, types.JSONPatchType, generatePatchBytes(ops))
+		_, err = apps.Deployments(r.kv.Namespace).Patch(context.Background(), deployment.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to patch deployment %+v: %v", deployment, err)
 		}
@@ -98,7 +100,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) error {
 	}
 	if !exists {
 		r.expectations.DaemonSet.RaiseExpectations(kvkey, 1, 0)
-		_, err = apps.DaemonSets(kv.Namespace).Create(daemonSet)
+		_, err = apps.DaemonSets(kv.Namespace).Create(context.Background(), daemonSet, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.DaemonSet.LowerExpectations(kvkey, 1, 0)
 			return fmt.Errorf("unable to create daemonset %+v: %v", daemonSet, err)
@@ -121,7 +123,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) error {
 		}
 		ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
 
-		_, err = apps.DaemonSets(kv.Namespace).Patch(daemonSet.Name, types.JSONPatchType, generatePatchBytes(ops))
+		_, err = apps.DaemonSets(kv.Namespace).Patch(context.Background(), daemonSet.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to patch daemonset %+v: %v", daemonSet, err)
 		}
@@ -149,7 +151,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 
 	if !exists {
 		r.expectations.PodDisruptionBudget.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := pdbClient.Create(podDisruptionBudget)
+		_, err := pdbClient.Create(context.Background(), podDisruptionBudget, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.PodDisruptionBudget.LowerExpectations(r.kvKey, 1, 0)
 			return fmt.Errorf("unable to create poddisruptionbudget %+v: %v", podDisruptionBudget, err)
@@ -180,7 +182,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	}
 	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
 
-	_, err = pdbClient.Patch(podDisruptionBudget.Name, types.JSONPatchType, generatePatchBytes(ops))
+	_, err = pdbClient.Patch(context.Background(), podDisruptionBudget.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to patch poddisruptionbudget %+v: %v", podDisruptionBudget, err)
 	}

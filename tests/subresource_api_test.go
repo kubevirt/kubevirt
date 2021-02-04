@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -78,12 +79,12 @@ var _ = Describe("Subresource Api", func() {
 		Context("with authenticated user", func() {
 			It("[test_id:3172]should be allowed to access subresource version endpoint", func() {
 				testClientJob(virtCli, true, resource)
-			}, 15)
+			})
 		})
 		Context("Without permissions", func() {
 			It("[test_id:3173]should be able to access subresource version endpoint", func() {
 				testClientJob(virtCli, false, resource)
-			}, 15)
+			})
 		})
 	})
 
@@ -223,7 +224,7 @@ var _ = Describe("Subresource Api", func() {
 	Describe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] the openapi spec for the subresources", func() {
 		It("[test_id:3177]should be aggregated into the apiserver openapi spec", func() {
 			Eventually(func() string {
-				spec, err := virtCli.RestClient().Get().AbsPath("/openapi/v2").DoRaw()
+				spec, err := virtCli.RestClient().Get().AbsPath("/openapi/v2").DoRaw(context.Background())
 				Expect(err).ToNot(HaveOccurred())
 				return string(spec)
 				// The first item in the SubresourceGroupVersions array is the preferred version
@@ -262,14 +263,14 @@ func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool, reso
 		expectedPhase = k8sv1.PodSucceeded
 	}
 
-	pod, err := virtCli.CoreV1().Pods(namespace).Create(job)
+	pod, err := virtCli.CoreV1().Pods(namespace).Create(context.Background(), job, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	getStatus := func() k8sv1.PodPhase {
-		pod, err := virtCli.CoreV1().Pods(namespace).Get(pod.Name, metav1.GetOptions{})
+		pod, err := virtCli.CoreV1().Pods(namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return pod.Status.Phase
 	}
 
-	Eventually(getStatus, 30, 0.5).Should(Equal(expectedPhase))
+	Eventually(getStatus, 60, 0.5).Should(Equal(expectedPhase))
 }

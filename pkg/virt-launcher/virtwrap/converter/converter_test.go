@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -1057,7 +1058,6 @@ var _ = Describe("Converter", func() {
 				UseEmulation:          true,
 				IsBlockPVC:            isBlockPVCMap,
 				IsBlockDV:             isBlockDVMap,
-				SRIOVDevices:          map[string][]string{},
 				SMBios:                TestSmbios,
 				GpuDevices:            []string{},
 				MemBalloonStatsPeriod: 10,
@@ -1067,9 +1067,16 @@ var _ = Describe("Converter", func() {
 		It("should use virtio-transitional models if requested", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+			vmi.Spec.Domain.Devices.DisableHotplug = false
 			c.UseVirtioTransitional = true
 			dom := vmiToDomain(vmi, c)
 			testutils.ExpectVirtioTransitionalOnly(&dom.Spec)
+		})
+
+		It("should handle float memory", func() {
+			vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("2222222200m")
+			xml := vmiToDomainXML(vmi, c)
+			Expect(strings.Contains(xml, `<memory unit="b">2222222</memory>`)).To(BeTrue(), xml)
 		})
 
 		table.DescribeTable("should be converted to a libvirt Domain with vmi defaults set", func(arch string, domain string) {
@@ -1313,7 +1320,7 @@ var _ = Describe("Converter", func() {
 			Expect(dom.Spec.Devices.Controllers).To(ContainElement(api.Controller{
 				Type:  "scsi",
 				Index: "0",
-				Model: "virtio-scsi",
+				Model: "virtio-non-transitional",
 			}))
 		})
 
@@ -1325,7 +1332,7 @@ var _ = Describe("Converter", func() {
 			Expect(dom.Spec.Devices.Controllers).ToNot(ContainElement(api.Controller{
 				Type:  "scsi",
 				Index: "0",
-				Model: "virtio-scsi",
+				Model: "virtio-non-transitional",
 			}))
 		})
 
@@ -1397,6 +1404,7 @@ var _ = Describe("Converter", func() {
 		})
 
 		When("NIC PCI address is specified on VMI", func() {
+			const pciAddress = "0000:81:01.0"
 			expectedPCIAddress := api.Address{
 				Type:     "pci",
 				Domain:   "0x0000",
@@ -1407,27 +1415,14 @@ var _ = Describe("Converter", func() {
 
 			BeforeEach(func() {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-				vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = "0000:81:01.0"
 			})
 
 			It("should be set on the domain spec for a non-SRIOV nic", func() {
+				vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = pciAddress
 				domain := vmiToDomain(vmi, c)
 				Expect(*domain.Spec.Devices.Interfaces[0].Address).To(Equal(expectedPCIAddress))
 
 			})
-			It("should be set on the domain spec for a SRIOV nic", func() {
-				iface := &vmi.Spec.Domain.Devices.Interfaces[0]
-				iface.SRIOV = &v1.InterfaceSRIOV{}
-				c := &ConverterContext{
-					VirtualMachine: vmi,
-					UseEmulation:   true,
-					SRIOVDevices:   map[string][]string{iface.Name: []string{"0000:81:11.1"}},
-				}
-
-				domain := vmiToDomain(vmi, c)
-				Expect(*domain.Spec.Devices.HostDevices[0].Address).To(Equal(expectedPCIAddress))
-			})
-
 		})
 
 		It("should calculate mebibyte from a quantity", func() {
@@ -1869,6 +1864,16 @@ var _ = Describe("Converter", func() {
 
 			domain := &api.Domain{}
 			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(HaveOccurred(), "conversion should fail because a macvtap interface requires a multus network attachment")
+		})
+		It("creates SRIOV hostdev", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			domain := &api.Domain{}
+
+			const identifyDevice = "sriov-test"
+			c.SRIOVDevices = append(c.SRIOVDevices, api.HostDevice{Type: identifyDevice})
+
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
+			Expect(domain.Spec.Devices.HostDevices).To(Equal([]api.HostDevice{{Type: identifyDevice}}))
 		})
 	})
 
@@ -2339,75 +2344,6 @@ var _ = Describe("Converter", func() {
 		})
 	})
 
-	Context("sriov", func() {
-		vmi := &v1.VirtualMachineInstance{
-			ObjectMeta: k8smeta.ObjectMeta{
-				Name:      "testvmi",
-				Namespace: "mynamespace",
-			},
-		}
-		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-		vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-
-		sriovInterface := v1.Interface{
-			Name: "sriov",
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{
-				SRIOV: &v1.InterfaceSRIOV{},
-			},
-		}
-		vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, sriovInterface)
-		sriovNetwork := v1.Network{
-			Name: "sriov",
-			NetworkSource: v1.NetworkSource{
-				Multus: &v1.MultusNetwork{NetworkName: "sriov"},
-			},
-		}
-		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork)
-
-		sriovInterface2 := v1.Interface{
-			Name: "sriov2",
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{
-				SRIOV: &v1.InterfaceSRIOV{},
-			},
-		}
-		vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, sriovInterface2)
-		sriovNetwork2 := v1.Network{
-			Name: "sriov2",
-			NetworkSource: v1.NetworkSource{
-				Multus: &v1.MultusNetwork{NetworkName: "sriov2"},
-			},
-		}
-		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork2)
-
-		It("should convert sriov interfaces into host devices", func() {
-			c := &ConverterContext{
-				UseEmulation: true,
-				SRIOVDevices: map[string][]string{
-					"sriov":  []string{"0000:81:11.1"},
-					"sriov2": []string{"0000:81:11.2"},
-				},
-			}
-			domain := vmiToDomain(vmi, c)
-
-			// check that new sriov interfaces are *not* represented in xml domain as interfaces
-			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
-
-			// check that the sriov interfaces are represented as PCI host devices
-			Expect(len(domain.Spec.Devices.HostDevices)).To(Equal(2))
-			Expect(domain.Spec.Devices.HostDevices[0].Type).To(Equal("pci"))
-			Expect(domain.Spec.Devices.HostDevices[0].Source.Address.Domain).To(Equal("0x0000"))
-			Expect(domain.Spec.Devices.HostDevices[0].Source.Address.Bus).To(Equal("0x81"))
-			Expect(domain.Spec.Devices.HostDevices[0].Source.Address.Slot).To(Equal("0x11"))
-			Expect(domain.Spec.Devices.HostDevices[0].Source.Address.Function).To(Equal("0x1"))
-			Expect(domain.Spec.Devices.HostDevices[1].Type).To(Equal("pci"))
-			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Domain).To(Equal("0x0000"))
-			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Bus).To(Equal("0x81"))
-			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Slot).To(Equal("0x11"))
-			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Function).To(Equal("0x2"))
-		})
-	})
-
 	Context("Bootloader", func() {
 		var vmi *v1.VirtualMachineInstance
 		var c *ConverterContext
@@ -2769,7 +2705,7 @@ var _ = Describe("Converter", func() {
 			for _, controller := range domain.Spec.Devices.Controllers {
 				if controller.Type == "scsi" {
 					foundScsiController = true
-					Expect(controller.Model).To(Equal("virtio-scsi"))
+					Expect(controller.Model).To(Equal("virtio-non-transitional"))
 
 				}
 			}
@@ -2783,38 +2719,6 @@ var _ = Describe("Converter", func() {
 		})
 	})
 
-})
-
-var _ = Describe("popSRIOVPCIAddress", func() {
-	It("fails on empty map", func() {
-		_, _, err := popSRIOVPCIAddress("testnet", map[string][]string{})
-		Expect(err).To(HaveOccurred())
-	})
-	It("fails on empty map entry", func() {
-		_, _, err := popSRIOVPCIAddress("testnet", map[string][]string{"testnet": []string{}})
-		Expect(err).To(HaveOccurred())
-	})
-	It("pops the next address from a non-empty slice", func() {
-		addrsMap := map[string][]string{"testnet": []string{"0000:81:11.1", "0001:02:00.0"}}
-		addr, rest, err := popSRIOVPCIAddress("testnet", addrsMap)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(addr).To(Equal("0000:81:11.1"))
-		Expect(len(rest["testnet"])).To(Equal(1))
-		Expect(rest["testnet"][0]).To(Equal("0001:02:00.0"))
-	})
-	It("pops the next address from all tracked networks", func() {
-		addrsMap := map[string][]string{
-			"testnet1": []string{"0000:81:11.1", "0001:02:00.0"},
-			"testnet2": []string{"0000:81:11.1", "0001:02:00.0"},
-		}
-		addr, rest, err := popSRIOVPCIAddress("testnet1", addrsMap)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(addr).To(Equal("0000:81:11.1"))
-		Expect(len(rest["testnet1"])).To(Equal(1))
-		Expect(rest["testnet1"][0]).To(Equal("0001:02:00.0"))
-		Expect(len(rest["testnet2"])).To(Equal(1))
-		Expect(rest["testnet2"][0]).To(Equal("0001:02:00.0"))
-	})
 })
 
 var _ = Describe("disk device naming", func() {

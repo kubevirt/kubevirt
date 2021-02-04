@@ -20,6 +20,7 @@
 package virt_operator
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -350,7 +351,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 			return true, nil, nil
 		})
-		apiServiceClient.EXPECT().Get(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "apiservices"}, "whatever"))
+		apiServiceClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "apiservices"}, "whatever"))
 		secClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			Expect(action).To(BeNil())
 			return true, nil, nil
@@ -1269,7 +1270,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		secClient.Fake.PrependReactor("delete", "securitycontextconstraints", genericDeleteFunc)
 		promClient.Fake.PrependReactor("delete", "servicemonitors", genericDeleteFunc)
 		promClient.Fake.PrependReactor("delete", "prometheusrules", genericDeleteFunc)
-		apiServiceClient.EXPECT().Delete(gomock.Any(), gomock.Any()).AnyTimes().Do(func(name string, options interface{}) {
+		apiServiceClient.EXPECT().Delete(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Do(func(ctx context.Context, name string, options interface{}) {
 			genericDeleteFunc(&testing.DeleteActionImpl{ActionImpl: testing.ActionImpl{Resource: schema.GroupVersionResource{Resource: "apiservices"}}, Name: name})
 		})
 	}
@@ -1301,7 +1302,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		secClient.Fake.PrependReactor("update", "securitycontextconstraints", genericUpdateFunc)
 		promClient.Fake.PrependReactor("patch", "servicemonitors", genericPatchFunc)
 		promClient.Fake.PrependReactor("patch", "prometheusrules", genericPatchFunc)
-		apiServiceClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Do(func(args ...interface{}) {
+		apiServiceClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Do(func(args ...interface{}) {
 			genericPatchFunc(&testing.PatchActionImpl{ActionImpl: testing.ActionImpl{Resource: schema.GroupVersionResource{Resource: "apiservices"}}})
 		})
 	}
@@ -1331,7 +1332,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		secClient.Fake.PrependReactor("create", "securitycontextconstraints", genericCreateFunc)
 		promClient.Fake.PrependReactor("create", "servicemonitors", genericCreateFunc)
 		promClient.Fake.PrependReactor("create", "prometheusrules", genericCreateFunc)
-		apiServiceClient.EXPECT().Create(gomock.Any()).AnyTimes().Do(func(obj runtime.Object) {
+		apiServiceClient.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Do(func(ctx context.Context, obj runtime.Object, opts metav1.CreateOptions) {
 			genericCreateFunc(&testing.CreateActionImpl{Object: obj})
 		})
 	}

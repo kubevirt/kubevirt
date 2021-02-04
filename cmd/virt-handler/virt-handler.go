@@ -20,6 +20,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -45,6 +46,8 @@ import (
 	"k8s.io/client-go/util/certificate"
 
 	"kubevirt.io/kubevirt/pkg/healthz"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -147,7 +150,7 @@ func (app *virtHandlerApp) prepareCertManager() (err error) {
 
 func (app *virtHandlerApp) markNodeAsUnschedulable(logger *log.FilteredLogger) {
 	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable))
-	_, err := app.virtCli.CoreV1().Nodes().Patch(app.HostOverride, types.StrategicMergePatchType, data)
+	_, err := app.virtCli.CoreV1().Nodes().Patch(context.Background(), app.HostOverride, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 	if err != nil {
 		logger.V(1).Level(log.ERROR).Log("Unable to mark node as unschedulable", err.Error())
 	}

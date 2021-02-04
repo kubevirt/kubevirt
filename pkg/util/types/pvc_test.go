@@ -20,6 +20,8 @@
 package types
 
 import (
+	"context"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -109,9 +111,9 @@ var _ = Describe("PVC utils test", func() {
 		kubeClient := fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
-		kubeClient.CoreV1().PersistentVolumeClaims(namespace).Create(&filePvc1)
-		kubeClient.CoreV1().PersistentVolumeClaims(namespace).Create(&filePvc2)
-		kubeClient.CoreV1().PersistentVolumeClaims(namespace).Create(&blockPvc)
+		kubeClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), &filePvc1, metav1.CreateOptions{})
+		kubeClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), &filePvc2, metav1.CreateOptions{})
+		kubeClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), &blockPvc, metav1.CreateOptions{})
 
 		It("should handle non existing PVC", func() {
 			pvc, exists, isBlock, err := IsPVCBlockFromClient(virtClient, namespace, "doesNotExist")

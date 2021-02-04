@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -57,7 +58,7 @@ var _ = Describe("CloudInitHookSidecars", func() {
 				TailLines: &tailLines,
 				Container: "hook-sidecar-0",
 			}).
-			DoRaw()
+			DoRaw(context.Background())
 		Expect(err).To(BeNil())
 
 		return string(logsRaw)

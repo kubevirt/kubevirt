@@ -19,6 +19,8 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -40,7 +42,7 @@ var virtualmachinerestoresResource = schema.GroupVersionResource{Group: "snapsho
 var virtualmachinerestoresKind = schema.GroupVersionKind{Group: "snapshot.kubevirt.io", Version: "v1alpha1", Kind: "VirtualMachineRestore"}
 
 // Get takes name of the virtualMachineRestore, and returns the corresponding virtualMachineRestore object, and an error if there is any.
-func (c *FakeVirtualMachineRestores) Get(name string, options v1.GetOptions) (result *v1alpha1.VirtualMachineRestore, err error) {
+func (c *FakeVirtualMachineRestores) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.VirtualMachineRestore, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(virtualmachinerestoresResource, c.ns, name), &v1alpha1.VirtualMachineRestore{})
 
@@ -51,7 +53,7 @@ func (c *FakeVirtualMachineRestores) Get(name string, options v1.GetOptions) (re
 }
 
 // List takes label and field selectors, and returns the list of VirtualMachineRestores that match those selectors.
-func (c *FakeVirtualMachineRestores) List(opts v1.ListOptions) (result *v1alpha1.VirtualMachineRestoreList, err error) {
+func (c *FakeVirtualMachineRestores) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.VirtualMachineRestoreList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(virtualmachinerestoresResource, virtualmachinerestoresKind, c.ns, opts), &v1alpha1.VirtualMachineRestoreList{})
 
@@ -73,14 +75,14 @@ func (c *FakeVirtualMachineRestores) List(opts v1.ListOptions) (result *v1alpha1
 }
 
 // Watch returns a watch.Interface that watches the requested virtualMachineRestores.
-func (c *FakeVirtualMachineRestores) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeVirtualMachineRestores) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(virtualmachinerestoresResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a virtualMachineRestore and creates it.  Returns the server's representation of the virtualMachineRestore, and an error, if there is any.
-func (c *FakeVirtualMachineRestores) Create(virtualMachineRestore *v1alpha1.VirtualMachineRestore) (result *v1alpha1.VirtualMachineRestore, err error) {
+func (c *FakeVirtualMachineRestores) Create(ctx context.Context, virtualMachineRestore *v1alpha1.VirtualMachineRestore, opts v1.CreateOptions) (result *v1alpha1.VirtualMachineRestore, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(virtualmachinerestoresResource, c.ns, virtualMachineRestore), &v1alpha1.VirtualMachineRestore{})
 
@@ -91,7 +93,7 @@ func (c *FakeVirtualMachineRestores) Create(virtualMachineRestore *v1alpha1.Virt
 }
 
 // Update takes the representation of a virtualMachineRestore and updates it. Returns the server's representation of the virtualMachineRestore, and an error, if there is any.
-func (c *FakeVirtualMachineRestores) Update(virtualMachineRestore *v1alpha1.VirtualMachineRestore) (result *v1alpha1.VirtualMachineRestore, err error) {
+func (c *FakeVirtualMachineRestores) Update(ctx context.Context, virtualMachineRestore *v1alpha1.VirtualMachineRestore, opts v1.UpdateOptions) (result *v1alpha1.VirtualMachineRestore, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(virtualmachinerestoresResource, c.ns, virtualMachineRestore), &v1alpha1.VirtualMachineRestore{})
 
@@ -103,7 +105,7 @@ func (c *FakeVirtualMachineRestores) Update(virtualMachineRestore *v1alpha1.Virt
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeVirtualMachineRestores) UpdateStatus(virtualMachineRestore *v1alpha1.VirtualMachineRestore) (*v1alpha1.VirtualMachineRestore, error) {
+func (c *FakeVirtualMachineRestores) UpdateStatus(ctx context.Context, virtualMachineRestore *v1alpha1.VirtualMachineRestore, opts v1.UpdateOptions) (*v1alpha1.VirtualMachineRestore, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateSubresourceAction(virtualmachinerestoresResource, "status", c.ns, virtualMachineRestore), &v1alpha1.VirtualMachineRestore{})
 
@@ -114,7 +116,7 @@ func (c *FakeVirtualMachineRestores) UpdateStatus(virtualMachineRestore *v1alpha
 }
 
 // Delete takes name of the virtualMachineRestore and deletes it. Returns an error if one occurs.
-func (c *FakeVirtualMachineRestores) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeVirtualMachineRestores) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(virtualmachinerestoresResource, c.ns, name), &v1alpha1.VirtualMachineRestore{})
 
@@ -122,15 +124,15 @@ func (c *FakeVirtualMachineRestores) Delete(name string, options *v1.DeleteOptio
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeVirtualMachineRestores) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(virtualmachinerestoresResource, c.ns, listOptions)
+func (c *FakeVirtualMachineRestores) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(virtualmachinerestoresResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.VirtualMachineRestoreList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched virtualMachineRestore.
-func (c *FakeVirtualMachineRestores) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.VirtualMachineRestore, err error) {
+func (c *FakeVirtualMachineRestores) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.VirtualMachineRestore, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(virtualmachinerestoresResource, c.ns, name, pt, data, subresources...), &v1alpha1.VirtualMachineRestore{})
 

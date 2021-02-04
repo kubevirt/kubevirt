@@ -28,7 +28,6 @@ aliases:
       - phoracek
       - dhiller
       - vatsalparekh
-      - danielBelenky
       - enp0s3
       - jean-edouard
       - AlonaKaplan
@@ -49,9 +48,6 @@ aliases:
       - kbidarkar
       - phoracek
       - enp0s3
-  ci-approvers:
-      - dhiller
-      - danielBelenky
   network-reviewers:
       - AlonaKaplan
       - EdDev
