@@ -69,7 +69,7 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	// TODO: consider changing LeaderElectionResourceLock to new default "configmapsleases".
-	mgr, err := manager.New(cfg, getMnanagerOptions(watchNamespace, needLeaderElection))
+	mgr, err := manager.New(cfg, getManagerOptions(watchNamespace, needLeaderElection))
 
 	cmdHelper.ExitOnError(err, "can't initiate manager")
 
@@ -116,7 +116,7 @@ func main() {
 	}
 }
 
-func getMnanagerOptions(watchNamespace string, needLeaderElection bool) manager.Options {
+func getManagerOptions(watchNamespace string, needLeaderElection bool) manager.Options {
 	return manager.Options{
 		Namespace:                  watchNamespace,
 		MetricsBindAddress:         fmt.Sprintf("%s:%d", hcoutil.MetricsHost, hcoutil.MetricsPort),
