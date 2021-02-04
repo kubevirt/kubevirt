@@ -57,16 +57,14 @@ import (
 type HostDeviceType string
 
 const (
-	CPUModeHostPassthrough                = "host-passthrough"
-	CPUModeHostModel                      = "host-model"
-	defaultIOThread                       = uint(1)
-	EFICode                               = "OVMF_CODE.fd"
-	EFIVars                               = "OVMF_VARS.fd"
-	EFICodeSecureBoot                     = "OVMF_CODE.secboot.fd"
-	EFIVarsSecureBoot                     = "OVMF_VARS.secboot.fd"
-	HostDevicePCI          HostDeviceType = "pci"
-	HostDeviceMDEV         HostDeviceType = "mdev"
-	resolvConf                            = "/etc/resolv.conf"
+	defaultIOThread                  = uint(1)
+	EFICode                          = "OVMF_CODE.fd"
+	EFIVars                          = "OVMF_VARS.fd"
+	EFICodeSecureBoot                = "OVMF_CODE.secboot.fd"
+	EFIVarsSecureBoot                = "OVMF_VARS.secboot.fd"
+	HostDevicePCI     HostDeviceType = "pci"
+	HostDeviceMDEV    HostDeviceType = "mdev"
+	resolvConf                       = "/etc/resolv.conf"
 )
 const (
 	multiQueueMaxQueues = uint32(256)
@@ -587,13 +585,6 @@ func Convert_v1_CloudInitSource_To_api_Disk(source v1.VolumeSource, disk *api.Di
 	}
 
 	disk.Source.File = cloudinit.GetIsoFilePath(dataSource, c.VirtualMachine.Name, c.VirtualMachine.Namespace)
-	disk.Type = "file"
-	disk.Driver.Type = "raw"
-	return nil
-}
-
-func Convert_v1_IgnitionData_To_api_Disk(disk *api.Disk, c *ConverterContext) error {
-	disk.Source.File = fmt.Sprintf("%s/%s", ignition.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace), c.VirtualMachine.Annotations[v1.IgnitionAnnotation])
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	return nil
@@ -1819,10 +1810,6 @@ func configDNSSearchName(qemuArg *api.Arg) error {
 		qemuArg.Value += fmt.Sprintf(",dnssearch=%s", dom)
 	}
 	return nil
-}
-
-func SecretToLibvirtSecret(vmi *v1.VirtualMachineInstance, secretName string) string {
-	return fmt.Sprintf("%s-%s-%s---", secretName, vmi.Namespace, vmi.Name)
 }
 
 func QuantityToByte(quantity resource.Quantity) (api.Memory, error) {
