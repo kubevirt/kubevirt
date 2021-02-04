@@ -183,7 +183,7 @@ EOF
 # Build and test images with a custom image name prefix
 export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
 
-build_images
+#build_images
 
 trap '{ collect_debug_logs; echo "Dump kubevirt state:"; make dump; }' ERR
 make cluster-up
