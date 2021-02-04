@@ -1,6 +1,7 @@
 package workloadupdater
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"math/rand"
@@ -535,13 +536,14 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 				errChan <- err
 			}
 
-			err = c.clientset.CoreV1().Pods(vmi.Namespace).Evict(&policy.Eviction{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      pod.Name,
-					Namespace: pod.Namespace,
-				},
-				DeleteOptions: &metav1.DeleteOptions{},
-			})
+			err = c.clientset.CoreV1().Pods(vmi.Namespace).Evict(context.Background(),
+				&policy.Eviction{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      pod.Name,
+						Namespace: pod.Namespace,
+					},
+					DeleteOptions: &metav1.DeleteOptions{},
+				})
 
 			if err != nil && !errors.IsNotFound(err) {
 				log.Log.Object(vmi).Reason(err).Errorf("Failed to evict vmi as part of workload update")
