@@ -711,6 +711,21 @@ var _ = Describe("[Serial]SRIOV", func() {
 				To(ContainElement(k8sv1.Capability(services.CAP_SYS_RESOURCE)))
 		})
 
+		It("should block migration for SR-IOV VMI's when LiveMigration feature-gate is on", func() {
+			tests.EnableFeatureGate(virtconfig.LiveMigrationGate)
+			defer tests.UpdateKubeVirtConfigValueAndWait(tests.KubeVirtDefaultConfig)
+
+			vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
+			vmi = startVmi(vmi)
+			vmi = waitVmi(vmi)
+
+			vmim := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			Eventually(func() error {
+				_, err = virtClient.VirtualMachineInstanceMigration(vmim.Namespace).Create(vmim)
+				return err
+			}, 1*time.Minute, 20*time.Second).ShouldNot(Succeed())
+		})
+
 		It("[test_id:1754]should create a virtual machine with sriov interface", func() {
 			vmi := getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
 			vmi = startVmi(vmi)
