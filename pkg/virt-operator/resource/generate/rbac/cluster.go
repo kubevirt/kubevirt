@@ -270,6 +270,17 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					"get", "delete", "create", "update", "patch", "list", "watch",
 				},
 			},
+			{
+				APIGroups: []string{
+					"kubevirt.io",
+				},
+				Resources: []string{
+					"kubevirts",
+				},
+				Verbs: []string{
+					"get", "list",
+				},
+			},
 		},
 	}
 }

@@ -637,6 +637,13 @@ rules:
 - apiGroups:
   - kubevirt.io
   resources:
+  - kubevirts
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - kubevirt.io
+  resources:
   - virtualmachines
   - virtualmachineinstances
   - virtualmachineinstancepresets
