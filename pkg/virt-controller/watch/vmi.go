@@ -678,7 +678,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	}
 
 	if !isWaitForFirstConsumer {
-		err := c.cleanupWaitForFirstConsumerTemporaryPods(vmi, pod)
+		err := c.cleanupWaitForFirstConsumerTemporaryPods(vmi)
 		if err != nil {
 			return &syncErrorImpl{fmt.Errorf("failed to clean up temporary pods: %v", err), FailedHotplugSyncReason}
 		}
@@ -1191,9 +1191,9 @@ func (c *VMIController) getHotplugVolumes(vmi *virtv1.VirtualMachineInstance, vi
 	return hotplugVolumes
 }
 
-func (c *VMIController) cleanupWaitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod) error {
+func (c *VMIController) cleanupWaitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMachineInstance) error {
 	// Get all pods from the namespace
-	pods, err := c.listPodsFromNamespace(virtlauncherPod.Namespace)
+	pods, err := c.listPodsFromNamespace(vmi.Namespace)
 	if err != nil {
 		return err
 	}
@@ -1210,7 +1210,7 @@ func (c *VMIController) cleanupWaitForFirstConsumerTemporaryPods(vmi *virtv1.Vir
 func (c *VMIController) deleteRunningOrFinishedWFFCPods(vmi *virtv1.VirtualMachineInstance, pods ...*k8sv1.Pod) error {
 	for _, pod := range pods {
 		err := c.deleteRunningFinishedOrFailedPod(vmi, pod)
-		if err != nil {
+		if err != nil && !k8serrors.IsNotFound(err) {
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDeletePodReason, "Failed to delete WaitForFirstConsumer temporary pod %s", pod.Name)
 			return err
 		}
@@ -1224,7 +1224,7 @@ func (c *VMIController) deleteRunningFinishedOrFailedPod(vmi *virtv1.VirtualMach
 	if pod.Status.Phase == k8sv1.PodRunning || pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
 		vmiKey := controller.VirtualMachineKey(vmi)
 		c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(pod)})
-		err := c.clientset.CoreV1().Pods(pod.GetNamespace()).Delete(context.TODO(), pod.Name, v1.DeleteOptions{
+		err := c.clientset.CoreV1().Pods(pod.GetNamespace()).Delete(context.Background(), pod.Name, v1.DeleteOptions{
 			GracePeriodSeconds: &zero,
 		})
 		if err != nil {
@@ -1296,38 +1296,36 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 	if len(newVolumes) == 0 {
 		return nil
 	}
-	if len(newVolumes) > 0 {
-		// New volumes detected, create hotplug pods.
-		for _, volume := range newVolumes {
-			logger.V(1).Infof("Processing new hotplugged volume: %s", volume.Name)
-			var err error
-			ready, wffc, err := c.volumeReadyToUse(vmi.Namespace, *volume, dataVolumes)
-			if err != nil {
-				return &syncErrorImpl{fmt.Errorf("Error determining volume status %v", err), PVCNotReadyReason}
+	// New volumes detected, create hotplug pods.
+	for _, volume := range newVolumes {
+		logger.V(1).Infof("Processing new hotplugged volume: %s", volume.Name)
+		var err error
+		ready, wffc, err := c.volumeReadyToUse(vmi.Namespace, *volume, dataVolumes)
+		if err != nil {
+			return &syncErrorImpl{fmt.Errorf("Error determining volume status %v", err), PVCNotReadyReason}
+		}
+		if wffc {
+			// Volume in WaitForFirstConsumer, it has not been populated by CDI yet. create a dummy pod
+			logger.V(3).Infof("Volume %s/%s is in WaitForFistConsumer, triggering population", vmi.Namespace, volume.Name)
+			syncError := c.triggerHotplugPopulation(volume, vmi, virtLauncherPod)
+			if syncError != nil {
+				return syncError
 			}
-			if wffc {
-				// Volume in WaitForFirstConsumer, it has not been populated by CDI yet. create a dummy pod
-				logger.V(3).Infof("Volume %s/%s is in WaitForFistConsumer, triggering population", vmi.Namespace, volume.Name)
-				syncError := c.triggerHotplugPopulation(volume, vmi, virtLauncherPod)
-				if syncError != nil {
-					return syncError
-				}
-				continue
-			}
-			if !ready {
-				// Volume not ready, skip until it is.
-				logger.V(3).Infof("Skipping hotplugged volume: %s, not ready", volume.Name)
-				continue
-			}
-			// Check if the VMI VolumeStatus contains this volume, if that is the case then something deleted the attachment pod
-			// and we need to stop the VMI as that is a critical error.
-			if c.volumeStatusContainsVolumeAndPod(vmi.Status.VolumeStatus, volume) {
-				logger.V(1).Infof("Detected attachment pod is missing for VMI %s/%s, the VMI will be deleted", vmi.Namespace, vmi.Name)
-				return &syncErrorImpl{fmt.Errorf("Missing pod for hotplugged volume %s", volume.Name), MissingAttachmentPodReason}
-			}
-			if err := c.createAttachmentPod(vmi, virtLauncherPod, volume); err != nil {
-				return err
-			}
+			continue
+		}
+		if !ready {
+			// Volume not ready, skip until it is.
+			logger.V(3).Infof("Skipping hotplugged volume: %s, not ready", volume.Name)
+			continue
+		}
+		// Check if the VMI VolumeStatus contains this volume, if that is the case then something deleted the attachment pod
+		// and we need to stop the VMI as that is a critical error.
+		if c.volumeStatusContainsVolumeAndPod(vmi.Status.VolumeStatus, volume) {
+			logger.V(1).Infof("Detected attachment pod is missing for VMI %s/%s, the VMI will be deleted", vmi.Namespace, vmi.Name)
+			return &syncErrorImpl{fmt.Errorf("Missing pod for hotplugged volume %s", volume.Name), MissingAttachmentPodReason}
+		}
+		if err := c.createAttachmentPod(vmi, virtLauncherPod, volume); err != nil {
+			return err
 		}
 	}
 
@@ -1342,7 +1340,7 @@ func (c *VMIController) createAttachmentPod(vmi *virtv1.VirtualMachineInstance, 
 	vmiKey := controller.VirtualMachineKey(vmi)
 	c.podExpectations.ExpectCreations(vmiKey, 1)
 
-	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.TODO(), attachmentPodTemplate, v1.CreateOptions{})
+	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), attachmentPodTemplate, v1.CreateOptions{})
 	if err != nil {
 		c.podExpectations.CreationObserved(vmiKey)
 		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating hotplug pod for volume %s: %v", volume.Name, err)
@@ -1361,7 +1359,7 @@ func (c *VMIController) triggerHotplugPopulation(volume *virtv1.Volume, vmi *vir
 		vmiKey := controller.VirtualMachineKey(vmi)
 		c.podExpectations.ExpectCreations(vmiKey, 1)
 
-		_, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.TODO(), populateHotplugPodTemplate, v1.CreateOptions{})
+		_, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), populateHotplugPodTemplate, v1.CreateOptions{})
 		if err != nil {
 			c.podExpectations.CreationObserved(vmiKey)
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating hotplug population trigger pod for volume %s: %v", volume.Name, err)
@@ -1380,10 +1378,10 @@ func (c *VMIController) volumeReadyToUse(namespace string, volume virtv1.Volume,
 	}
 	wffc := false
 	ready := false
-	var err error
 	// err is always nil
 	pvcInterface, pvcExists, _ := c.pvcInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, name))
 	if pvcExists {
+		var err error
 		pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
 		ready, err = cdiv1.IsPopulated(pvc, dataVolumeByNameFunc(c.dataVolumeInformer, dataVolumes))
 		if err != nil {

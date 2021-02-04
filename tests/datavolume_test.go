@@ -142,7 +142,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				if tests.HasBindingModeWaitForFirstConsumer() {
 					tests.WaitForDataVolumePhaseWFFC(dataVolume.Namespace, dataVolume.Name, 30)
 				}
-				// with WFFC the run actually starts the import and then runs VM, so the timeout has t oinclude both
+				// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
 				// import and start
 				vmi = runVMIAndExpectLaunch(vmi, dataVolume, 500)
 
