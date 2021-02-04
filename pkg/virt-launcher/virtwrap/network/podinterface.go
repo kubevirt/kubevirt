@@ -819,6 +819,12 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32
 	}
 
 	if Handler.HasNatIptables(iptables.ProtocolIPv4) || Handler.NftablesLoad("ipv4-nat") == nil {
+		err = Handler.ConfigureIpv4Forwarding()
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to configure ipv4 forwarding")
+			return err
+		}
+
 		err = b.createNatRules(iptables.ProtocolIPv4)
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to create ipv4 nat rules for vm error: %v", err)
