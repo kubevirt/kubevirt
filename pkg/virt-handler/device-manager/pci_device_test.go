@@ -20,7 +20,7 @@ import (
 
 const (
 	fakeName       = "example.org/deadbeef"
-	fakeID         = "DEAD:BEEF"
+	fakeID         = "dead:beef"
 	fakeDriver     = "vfio-pci"
 	fakeAddress    = "0000:00:00.0"
 	fakeIommuGroup = "0"
