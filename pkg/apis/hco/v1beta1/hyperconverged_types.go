@@ -62,6 +62,13 @@ type HyperConvergedConfig struct {
 // +optional
 // +k8s:openapi-gen=true
 type HyperConvergedFeatureGates struct {
+	// Allow migrating a virtual machine with SRIOV interfaces.
+	// When enabled virt-launcher pods of virtual machines with SRIOV
+	// interfaces run with CAP_SYS_RESOURCE capability.
+	// This may degrade virt-launcher security.
+	// +optional
+	SRIOVLiveMigration *bool `json:"sriovLiveMigration,omitempty"`
+
 	// Allow attaching a data volume to a running VMI
 	// +optional
 	HotplugVolumes *bool `json:"hotplugVolumes,omitempty"`
@@ -80,6 +87,10 @@ type HyperConvergedFeatureGates struct {
 
 func (fgs *HyperConvergedFeatureGates) IsHotplugVolumesEnabled() bool {
 	return (fgs != nil) && (fgs.HotplugVolumes != nil) && (*fgs.HotplugVolumes)
+}
+
+func (fgs *HyperConvergedFeatureGates) IsSRIOVLiveMigrationEnabled() bool {
+	return (fgs != nil) && (fgs.SRIOVLiveMigration != nil) && (*fgs.SRIOVLiveMigration)
 }
 
 func (fgs *HyperConvergedFeatureGates) IsWithHostPassthroughCPUEnabled() bool {

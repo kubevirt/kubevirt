@@ -327,6 +327,34 @@ var _ = Describe("HyperconvergedTypes", func() {
 			})
 		})
 
+		Context("Test IsSRIOVLiveMigrationEnabled", func() {
+			It("Should return false if HyperConvergedFeatureGates is nil", func() {
+				var fgs *HyperConvergedFeatureGates = nil
+				Expect(fgs.IsSRIOVLiveMigrationEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if IsSRIOVLiveMigrationEnabled does not exist", func() {
+				fgs := &HyperConvergedFeatureGates{}
+				Expect(fgs.IsSRIOVLiveMigrationEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if IsSRIOVLiveMigrationEnabled is false", func() {
+				disabled := false
+				fgs := &HyperConvergedFeatureGates{
+					SRIOVLiveMigration: &disabled,
+				}
+				Expect(fgs.IsSRIOVLiveMigrationEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if IsSRIOVLiveMigrationEnabled is true", func() {
+				enabled := true
+				fgs := &HyperConvergedFeatureGates{
+					SRIOVLiveMigration: &enabled,
+				}
+				Expect(fgs.IsSRIOVLiveMigrationEnabled()).To(BeTrue())
+			})
+		})
+
 		Context("Test IsWithHostPassthroughCPUEnabled", func() {
 			It("Should return false if HyperConvergedFeatureGates is nil", func() {
 				var fgs *HyperConvergedFeatureGates = nil
