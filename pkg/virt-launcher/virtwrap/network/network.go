@@ -71,13 +71,6 @@ func getNetworksAndCniNetworks(vmi *v1.VirtualMachineInstance) (map[string]*v1.N
 	return networks, cniNetworks
 }
 
-func networkIsImplementable(network *v1.Network) error {
-	if network.Pod == nil && network.Multus == nil {
-		return fmt.Errorf("Network not implemented")
-	}
-	return nil
-}
-
 func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string]int, ifaceName string) string {
 	if networks[ifaceName].Multus != nil && !networks[ifaceName].Multus.Default {
 		// multus pod interfaces named netX
@@ -93,10 +86,6 @@ func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int, cacheFactory
 		network, ok := networks[iface.Name]
 		if !ok {
 			return fmt.Errorf("failed to find a network %s", iface.Name)
-		}
-		err := networkIsImplementable(network)
-		if err != nil {
-			return err
 		}
 		podnic := podNICFactory(cacheFactory)
 		podInterfaceName := getPodInterfaceName(networks, cniNetworks, iface.Name)
@@ -114,10 +103,6 @@ func SetupPodNetworkPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain, c
 		network, ok := networks[iface.Name]
 		if !ok {
 			return fmt.Errorf("failed to find a network %s", iface.Name)
-		}
-		err := networkIsImplementable(network)
-		if err != nil {
-			return err
 		}
 		podnic := podNICFactory(cacheFactory)
 		podInterfaceName := getPodInterfaceName(networks, cniNetworks, iface.Name)
