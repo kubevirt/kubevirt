@@ -144,6 +144,9 @@ var exampleJSON = `{
         },
         "kvm": {
           "hidden": true
+        },
+        "pvspinlock": {
+          "enabled": false
         }
       },
       "devices": {
@@ -342,10 +345,11 @@ var _ = Describe("Schema", func() {
 			},
 		}
 		exampleVMI.Spec.Domain.Features = &Features{
-			ACPI: FeatureState{Enabled: _false},
-			SMM:  &FeatureState{Enabled: _true},
-			APIC: &FeatureAPIC{Enabled: _true},
-			KVM:  &FeatureKVM{Hidden: true},
+			ACPI:       FeatureState{Enabled: _false},
+			SMM:        &FeatureState{Enabled: _true},
+			APIC:       &FeatureAPIC{Enabled: _true},
+			KVM:        &FeatureKVM{Hidden: true},
+			PVSpinlock: &FeatureState{Enabled: _false},
 			Hyperv: &FeatureHyperv{
 				Relaxed:         &FeatureState{Enabled: _true},
 				VAPIC:           &FeatureState{Enabled: _false},
