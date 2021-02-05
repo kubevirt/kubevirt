@@ -954,11 +954,11 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, migrationWaitTime)
 
-				// check VMI, confirm migration state
+				By("Checking VMI, confirm migration state")
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 				confirmMigrationMode(vmi, mode)
 
-				// Is agent connected after migration
+				By("Is agent connected after migration")
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the migrated VirtualMachineInstance console has expected output")
@@ -982,6 +982,35 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					CompletionTimeoutPerGiB: pointer.Int64Ptr(1),
 				}, v1.MigrationPostCopy),
 			)
+
+			It("should have guest agent functional after migration", func() {
+				By("Creating the  VMI")
+				vmi = tests.NewRandomVMIWithPVC(pvName)
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+
+				tests.AddUserData(vmi, "cloud-init", tests.GetGuestAgentUserData())
+				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+
+				By("Checking guest agent")
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				By("Starting the Migration for iteration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, migrationWaitTime)
+
+				By("Agent stays connected")
+				Consistently(func() error {
+					updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					for _, condition := range updatedVmi.Status.Conditions {
+						if condition.Type == v1.VirtualMachineInstanceAgentConnected && condition.Status == k8sv1.ConditionTrue {
+							return nil
+						}
+					}
+					return fmt.Errorf("Guest Agent Disconnected")
+				}, 5*time.Minute, 10*time.Second).Should(Succeed())
+			})
 		})
 
 		Context("migration security", func() {
