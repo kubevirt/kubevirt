@@ -407,9 +407,10 @@ var _ = Describe("Manager", func() {
 						Device: "vda",
 					},
 					Driver: &api.DiskDriver{
-						Cache: "none",
-						Name:  "qemu",
-						Type:  "raw",
+						Cache:       "none",
+						Name:        "qemu",
+						Type:        "raw",
+						ErrorPolicy: "stop",
 					},
 					Alias: &api.Alias{
 						Name: "ua-permvolume1",
@@ -427,9 +428,10 @@ var _ = Describe("Manager", func() {
 					Device: "sda",
 				},
 				Driver: &api.DiskDriver{
-					Cache: "none",
-					Name:  "qemu",
-					Type:  "raw",
+					Cache:       "none",
+					Name:        "qemu",
+					Type:        "raw",
+					ErrorPolicy: "stop",
 				},
 				Alias: &api.Alias{
 					Name: "hpvolume1",
@@ -533,9 +535,10 @@ var _ = Describe("Manager", func() {
 					Device: "sda",
 				},
 				Driver: &api.DiskDriver{
-					Cache: "none",
-					Name:  "qemu",
-					Type:  "raw",
+					Cache:       "none",
+					Name:        "qemu",
+					Type:        "raw",
+					ErrorPolicy: "stop",
 				},
 				Alias: &api.Alias{
 					Name: "hpvolume1",
@@ -729,9 +732,10 @@ var _ = Describe("Manager", func() {
 						Device: "vda",
 					},
 					Driver: &api.DiskDriver{
-						Cache: "none",
-						Name:  "qemu",
-						Type:  "raw",
+						Cache:       "none",
+						Name:        "qemu",
+						Type:        "raw",
+						ErrorPolicy: "stop",
 					},
 					Alias: &api.Alias{
 						Name: "ua-permvolume1",
