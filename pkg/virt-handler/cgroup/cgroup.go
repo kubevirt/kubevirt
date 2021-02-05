@@ -25,30 +25,37 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 )
 
-var (
-	basePath   = "/sys/fs/cgroup"
-	procFormat = "/proc/%d/cgroup"
-
-	isCgroup2UnifiedMode = cgroups.IsCgroup2UnifiedMode
+const (
+	procMountPoint   = "/proc"
+	cgroupMountPoint = "/sys/fs/cgroup"
 )
 
 func ControllerPath(controller string) string {
-	if isCgroup2UnifiedMode() {
-		return basePath
+	return controllerPath(cgroups.IsCgroup2UnifiedMode(), cgroupMountPoint, controller)
+}
+
+func controllerPath(isCgroup2UnifiedMode bool, cgroupMount, controller string) string {
+	if isCgroup2UnifiedMode {
+		return cgroupMount
 	}
-	return filepath.Join(basePath, controller)
+	return filepath.Join(cgroupMount, controller)
 }
 
 func CPUSetPath() string {
-	if isCgroup2UnifiedMode() {
-		return filepath.Join(basePath, "cpuset.cpus.effective")
+	return cpuSetPath(cgroups.IsCgroup2UnifiedMode(), cgroupMountPoint)
+}
+
+func cpuSetPath(isCgroup2UnifiedMode bool, cgroupMount string) string {
+	if isCgroup2UnifiedMode {
+		return filepath.Join(cgroupMount, "cpuset.cpus.effective")
 	}
-	return filepath.Join(basePath, "cpuset", "cpuset.cpus")
+	return filepath.Join(cgroupMount, "cpuset", "cpuset.cpus")
 }
 
 type Parser interface {
@@ -58,17 +65,20 @@ type Parser interface {
 }
 
 type v1Parser struct {
+	procMount string
 }
 
 func (v1 *v1Parser) Parse(pid int) (map[string]string, error) {
-	return cgroups.ParseCgroupFile(fmt.Sprintf(procFormat, pid))
+	return cgroups.ParseCgroupFile(filepath.Join(v1.procMount, strconv.Itoa(pid), "cgroup"))
 }
 
 type v2Parser struct {
+	procMount   string
+	cgroupMount string
 }
 
 func (v2 *v2Parser) Parse(pid int) (map[string]string, error) {
-	slices, err := cgroups.ParseCgroupFile(fmt.Sprintf(procFormat, pid))
+	slices, err := cgroups.ParseCgroupFile(filepath.Join(v2.procMount, strconv.Itoa(pid), "cgroup"))
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +88,7 @@ func (v2 *v2Parser) Parse(pid int) (map[string]string, error) {
 		return nil, fmt.Errorf("Slice not found for PID %d", pid)
 	}
 
-	availableControllers, err := v2GetAvailableControllers(slice)
+	availableControllers, err := v2.getAvailableControllers(slice)
 	if err != nil {
 		return nil, err
 	}
@@ -92,16 +102,16 @@ func (v2 *v2Parser) Parse(pid int) (map[string]string, error) {
 	return slices, nil
 }
 
-// v2GetAvailableControllers returns all controllers available for the cgroup.
+// getAvailableControllers returns all controllers available for the cgroup.
 // Based on GetAllSubsystems from
 //  https://github.com/opencontainers/runc/blob/ff819c7e9184c13b7c2607fe6c30ae19403a7aff/libcontainer/cgroups/utils.go#L80
-func v2GetAvailableControllers(slice string) ([]string, error) {
+func (v2 *v2Parser) getAvailableControllers(slice string) ([]string, error) {
 	// "pseudo" controllers do not appear in /sys/fs/cgroup/.../cgroup.controllers.
 	// - devices: implemented in kernel 4.15
 	// - freezer: implemented in kernel 5.2
 	// We assume these are always available, as it is hard to detect availability.
 	pseudo := []string{"devices", "freezer"}
-	data, err := ioutil.ReadFile(filepath.Join(basePath, slice, "cgroup.controllers"))
+	data, err := ioutil.ReadFile(filepath.Join(v2.cgroupMount, slice, "cgroup.controllers"))
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +120,17 @@ func v2GetAvailableControllers(slice string) ([]string, error) {
 }
 
 func NewParser() Parser {
-	if isCgroup2UnifiedMode() {
-		return &v2Parser{}
+	return newParser(cgroups.IsCgroup2UnifiedMode(), procMountPoint, cgroupMountPoint)
+}
+
+func newParser(isCgroup2UnifiedMode bool, procMount, cgroupMount string) Parser {
+	if isCgroup2UnifiedMode {
+		return &v2Parser{
+			procMount:   procMount,
+			cgroupMount: cgroupMount,
+		}
 	}
-	return &v1Parser{}
+	return &v1Parser{
+		procMount: procMount,
+	}
 }
