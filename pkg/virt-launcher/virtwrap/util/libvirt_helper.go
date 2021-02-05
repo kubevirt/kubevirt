@@ -117,7 +117,7 @@ func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineIns
 }
 
 // GetDomainSpecWithRuntimeInfo return the active domain XML with runtime information embedded
-func GetDomainSpecWithRuntimeInfo(status libvirt.DomainState, dom cli.VirDomain) (*api.DomainSpec, error) {
+func GetDomainSpecWithRuntimeInfo(dom cli.VirDomain) (*api.DomainSpec, error) {
 
 	// get libvirt xml with runtime status
 	activeSpec, err := GetDomainSpecWithFlags(dom, 0)
@@ -126,7 +126,13 @@ func GetDomainSpecWithRuntimeInfo(status libvirt.DomainState, dom cli.VirDomain)
 		return nil, err
 	}
 
-	metadataXML, err := dom.GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG)
+	// use different flag with GetMetadata for transient domains
+	domainModificationImpactFlag, err := getDomainModificationImpactFlag(dom)
+	if err != nil {
+		return activeSpec, err
+	}
+
+	metadataXML, err := dom.GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", domainModificationImpactFlag)
 	if err != nil {
 		log.Log.Reason(err).Error("failed to get domain metadata")
 		return activeSpec, err
@@ -427,4 +433,18 @@ func SetupLibvirt() (err error) {
 	}
 
 	return nil
+}
+
+func getDomainModificationImpactFlag(dom cli.VirDomain) (libvirt.DomainModificationImpact, error) {
+	isDomainPersistent, err := dom.IsPersistent()
+	if err != nil {
+		log.Log.Reason(err).Error("failed to query a domain")
+		return libvirt.DOMAIN_AFFECT_CONFIG, err
+	}
+	if !isDomainPersistent {
+		log.Log.V(3).Info("domain is transient")
+		return libvirt.DOMAIN_AFFECT_LIVE, nil
+	}
+	log.Log.V(3).Info("domain is persistent")
+	return libvirt.DOMAIN_AFFECT_CONFIG, nil
 }
