@@ -5,8 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/controller"
-
+	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	appsv1 "k8s.io/api/apps/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,121 +16,100 @@ import (
 )
 
 func (r *Reconciler) syncDeployment(deployment *appsv1.Deployment) error {
+	kv := r.kv
+
 	deployment = deployment.DeepCopy()
 
 	apps := r.clientset.AppsV1()
-	imageTag, imageRegistry, id := getTargetVersionRegistryID(r.kv)
+	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
 
-	injectOperatorMetadata(r.kv, &deployment.ObjectMeta, imageTag, imageRegistry, id, true)
-	injectOperatorMetadata(r.kv, &deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
-	injectPlacementMetadata(r.kv.Spec.Infra, &deployment.Spec.Template.Spec)
-
-	kvkey, err := controller.KeyFunc(r.kv)
-	if err != nil {
-		return err
-	}
-
-	var cachedDeployment *appsv1.Deployment
+	injectOperatorMetadata(kv, &deployment.ObjectMeta, imageTag, imageRegistry, id, true)
+	injectOperatorMetadata(kv, &deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
+	injectPlacementMetadata(kv.Spec.Infra, &deployment.Spec.Template.Spec)
 
 	obj, exists, _ := r.stores.DeploymentCache.Get(deployment)
-	if exists {
-		cachedDeployment = obj.(*appsv1.Deployment)
-	}
-
 	if !exists {
-		r.expectations.Deployment.RaiseExpectations(kvkey, 1, 0)
-		_, err = apps.Deployments(r.kv.Namespace).Create(context.Background(), deployment, metav1.CreateOptions{})
+		r.expectations.Deployment.RaiseExpectations(r.kvKey, 1, 0)
+		deployment, err := apps.Deployments(kv.Namespace).Create(context.Background(), deployment, metav1.CreateOptions{})
 		if err != nil {
-			r.expectations.Deployment.LowerExpectations(kvkey, 1, 0)
+			r.expectations.Deployment.LowerExpectations(r.kvKey, 1, 0)
 			return fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
 		}
-	} else if !objectMatchesVersion(&cachedDeployment.ObjectMeta, imageTag, imageRegistry, id, r.kv.GetGeneration()) {
-		// Patch if old version
-		var ops []string
 
-		// Add Labels and Annotations Patches
-		labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&deployment.ObjectMeta)
-		if err != nil {
-			return err
-		}
-		ops = append(ops, labelAnnotationPatch...)
+		resourcemerge.SetDeploymentGeneration(&kv.Status.Generations, deployment)
 
-		// Add Spec Patch
-		newSpec, err := json.Marshal(deployment.Spec)
-		if err != nil {
-			return err
-		}
-		ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
-
-		_, err = apps.Deployments(r.kv.Namespace).Patch(context.Background(), deployment.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
-		if err != nil {
-			return fmt.Errorf("unable to patch deployment %+v: %v", deployment, err)
-		}
-		log.Log.V(2).Infof("deployment %v updated", deployment.GetName())
-
-	} else {
-		log.Log.V(4).Infof("deployment %v is up-to-date", deployment.GetName())
+		return nil
 	}
+
+	cachedDeployment := obj.(*appsv1.Deployment)
+	modified := resourcemerge.BoolPtr(false)
+	existingCopy := cachedDeployment.DeepCopy()
+	expectedGeneration := resourcemerge.ExpectedDeploymentGeneration(deployment, kv.Status.Generations)
+
+	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, deployment.ObjectMeta)
+	// there was no change to metadata, the generation matched
+	if !*modified && existingCopy.ObjectMeta.Generation == expectedGeneration {
+		log.Log.V(4).Infof("deployment %v is up-to-date", deployment.GetName())
+		return nil
+	}
+
+	deployment, err := apps.Deployments(kv.Namespace).Update(context.Background(), deployment, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to update deployment %+v: %v", deployment, err)
+	}
+
+	resourcemerge.SetDeploymentGeneration(&kv.Status.Generations, deployment)
 
 	return nil
 }
 
 func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) error {
-
-	daemonSet = daemonSet.DeepCopy()
 	kv := r.kv
 
+	daemonSet = daemonSet.DeepCopy()
+
 	apps := r.clientset.AppsV1()
-	imageTag, imageRegistry, id := getTargetVersionRegistryID(r.kv)
+	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
 
 	injectOperatorMetadata(kv, &daemonSet.ObjectMeta, imageTag, imageRegistry, id, true)
 	injectOperatorMetadata(kv, &daemonSet.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
 	injectPlacementMetadata(kv.Spec.Workloads, &daemonSet.Spec.Template.Spec)
 
-	kvkey, err := controller.KeyFunc(kv)
-	if err != nil {
-		return err
-	}
-
 	var cachedDaemonSet *appsv1.DaemonSet
 	obj, exists, _ := r.stores.DaemonSetCache.Get(daemonSet)
-	if exists {
-		cachedDaemonSet = obj.(*appsv1.DaemonSet)
-	}
+
 	if !exists {
-		r.expectations.DaemonSet.RaiseExpectations(kvkey, 1, 0)
-		_, err = apps.DaemonSets(kv.Namespace).Create(context.Background(), daemonSet, metav1.CreateOptions{})
+		r.expectations.DaemonSet.RaiseExpectations(r.kvKey, 1, 0)
+		daemonSet, err := apps.DaemonSets(kv.Namespace).Create(context.Background(), daemonSet, metav1.CreateOptions{})
 		if err != nil {
-			r.expectations.DaemonSet.LowerExpectations(kvkey, 1, 0)
+			r.expectations.DaemonSet.LowerExpectations(r.kvKey, 1, 0)
 			return fmt.Errorf("unable to create daemonset %+v: %v", daemonSet, err)
 		}
-	} else if !objectMatchesVersion(&cachedDaemonSet.ObjectMeta, imageTag, imageRegistry, id, kv.GetGeneration()) {
-		// Patch if old version
-		var ops []string
 
-		// Add Labels and Annotations Patches
-		labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&daemonSet.ObjectMeta)
-		if err != nil {
-			return err
-		}
-		ops = append(ops, labelAnnotationPatch...)
+		resourcemerge.SetDaemonSetGeneration(&kv.Status.Generations, daemonSet)
 
-		// Add Spec Patch
-		newSpec, err := json.Marshal(daemonSet.Spec)
-		if err != nil {
-			return err
-		}
-		ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
-
-		_, err = apps.DaemonSets(kv.Namespace).Patch(context.Background(), daemonSet.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
-		if err != nil {
-			return fmt.Errorf("unable to patch daemonset %+v: %v", daemonSet, err)
-		}
-		log.Log.V(2).Infof("daemonset %v updated", daemonSet.GetName())
-
-	} else {
-		log.Log.V(4).Infof("daemonset %v is up-to-date", daemonSet.GetName())
+		return nil
 	}
+
+	cachedDaemonSet = obj.(*appsv1.DaemonSet)
+	modified := resourcemerge.BoolPtr(false)
+	existingCopy := cachedDaemonSet.DeepCopy()
+	expectedGeneration := resourcemerge.ExpectedDaemonSetGeneration(daemonSet, kv.Status.Generations)
+
+	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, daemonSet.ObjectMeta)
+	// there was no change to metadata, the generation was right
+	if !*modified && existingCopy.ObjectMeta.Generation == expectedGeneration {
+		log.Log.V(4).Infof("daemonset %v is up-to-date", daemonSet.GetName())
+		return nil
+	}
+
+	daemonSet, err := apps.DaemonSets(kv.Namespace).Update(context.Background(), daemonSet, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to update daemonset %+v: %v", daemonSet, err)
+	}
+
+	resourcemerge.SetDaemonSetGeneration(&kv.Status.Generations, daemonSet)
+
 	return nil
 }
 
