@@ -2473,6 +2473,13 @@ var CRDsValidation map[string]string = map[string]string{
                               description: Hide the KVM hypervisor from standard MSR based discovery. Defaults to false
                               type: boolean
                           type: object
+                        pvspinlock:
+                          description: Notify the guest that the host supports paravirtual spinlocks. For older kernels this feature should be explicitly disabled.
+                          properties:
+                            enabled:
+                              description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                              type: boolean
+                          type: object
                         smm:
                           description: SMM enables/disables System Management Mode. TSEG not yet implemented.
                           properties:
@@ -4247,6 +4254,13 @@ var CRDsValidation map[string]string = map[string]string{
                       description: Hide the KVM hypervisor from standard MSR based discovery. Defaults to false
                       type: boolean
                   type: object
+                pvspinlock:
+                  description: Notify the guest that the host supports paravirtual spinlocks. For older kernels this feature should be explicitly disabled.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
                 smm:
                   description: SMM enables/disables System Management Mode. TSEG not yet implemented.
                   properties:
@@ -5614,6 +5628,13 @@ var CRDsValidation map[string]string = map[string]string{
                       description: Hide the KVM hypervisor from standard MSR based discovery. Defaults to false
                       type: boolean
                   type: object
+                pvspinlock:
+                  description: Notify the guest that the host supports paravirtual spinlocks. For older kernels this feature should be explicitly disabled.
+                  properties:
+                    enabled:
+                      description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                      type: boolean
+                  type: object
                 smm:
                   description: SMM enables/disables System Management Mode. TSEG not yet implemented.
                   properties:
@@ -6776,6 +6797,13 @@ var CRDsValidation map[string]string = map[string]string{
                           properties:
                             hidden:
                               description: Hide the KVM hypervisor from standard MSR based discovery. Defaults to false
+                              type: boolean
+                          type: object
+                        pvspinlock:
+                          description: Notify the guest that the host supports paravirtual spinlocks. For older kernels this feature should be explicitly disabled.
+                          properties:
+                            enabled:
+                              description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
                               type: boolean
                           type: object
                         smm:
@@ -8835,6 +8863,13 @@ var CRDsValidation map[string]string = map[string]string{
                                       properties:
                                         hidden:
                                           description: Hide the KVM hypervisor from standard MSR based discovery. Defaults to false
+                                          type: boolean
+                                      type: object
+                                    pvspinlock:
+                                      description: Notify the guest that the host supports paravirtual spinlocks. For older kernels this feature should be explicitly disabled.
+                                      properties:
+                                        enabled:
+                                          description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
                                           type: boolean
                                       type: object
                                     smm:
