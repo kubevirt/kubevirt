@@ -224,7 +224,7 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 			domain.SetState(util.ConvState(status), util.ConvReason(status, reason))
 		}
 
-		spec, err := util.GetDomainSpecWithRuntimeInfo(status, d)
+		spec, err := util.GetDomainSpecWithRuntimeInfo(d)
 		if err != nil {
 			// NOTE: Getting domain metadata for a live-migrating VM isn't allowed
 			if !domainerrors.IsNotFound(err) && !domainerrors.IsInvalidOperation(err) {

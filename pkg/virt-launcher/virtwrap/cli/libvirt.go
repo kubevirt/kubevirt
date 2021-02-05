@@ -371,6 +371,7 @@ type VirDomain interface {
 	GetJobStats(flags libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error)
 	GetJobInfo() (*libvirt.DomainJobInfo, error)
 	SetTime(secs int64, nsecs uint, flags libvirt.DomainSetTimeFlags) error
+	IsPersistent() (bool, error)
 	AbortJob() error
 	Free() error
 }
