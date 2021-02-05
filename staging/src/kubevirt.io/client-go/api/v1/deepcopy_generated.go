@@ -21,6 +21,7 @@ limitations under the License.
 package v1
 
 import (
+	operatorv1 "github.com/openshift/api/operator/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -1837,6 +1838,11 @@ func (in *KubeVirtStatus) DeepCopyInto(out *KubeVirtStatus) {
 		in, out := &in.OutdatedVirtualMachineInstanceWorkloads, &out.OutdatedVirtualMachineInstanceWorkloads
 		*out = new(int)
 		**out = **in
+	}
+	if in.Generations != nil {
+		in, out := &in.Generations, &out.Generations
+		*out = make([]operatorv1.GenerationStatus, len(*in))
+		copy(*out, *in)
 	}
 	return
 }

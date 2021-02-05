@@ -41,6 +41,7 @@ require (
 	github.com/openshift/api v0.0.0
 	github.com/openshift/client-go v0.0.0
 	github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2 // indirect
+	github.com/openshift/library-go v0.0.0-20200821154433-215f00df72cc
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190725173916-b56e63a643cc
 	github.com/operator-framework/operator-marketplace v0.0.0-20190617165322-1cbd32624349
 	github.com/pborman/uuid v1.2.0

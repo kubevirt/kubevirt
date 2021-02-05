@@ -885,6 +885,42 @@ spec:
 		waitForKv(kv)
 	})
 
+	Describe("should reconcile components", func() {
+
+		It("test updating a deployment is reverted to it's original state", func() {
+			envVarKey := "USER_ADDED_ENV"
+
+			By("Updating KubeVirt Object")
+			vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vc.Spec.Template.Spec.Containers[0].Env = []k8sv1.EnvVar{
+				k8sv1.EnvVar{
+					Name:  envVarKey,
+					Value: "value",
+				},
+			}
+
+			vc, err = virtClient.AppsV1().Deployments(originalKv.Namespace).Update(context.Background(), vc, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vc.Spec.Template.Spec.Containers[0].Env[0].Name).To(Equal(envVarKey))
+
+			By("Test that the added envvar was removed")
+			Eventually(func() bool {
+				vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				for _, env := range vc.Spec.Template.Spec.Containers[0].Env {
+					if env.Name == envVarKey {
+						return false
+					}
+				}
+
+				return true
+			}, 60*time.Second, 5*time.Second).Should(BeTrue())
+		})
+	})
+
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should start a VM", func() {
 		It("[test_id:3144]using virt-launcher with a shasum", func() {
 
@@ -941,6 +977,13 @@ spec:
 
 				return vc.Spec.Template.ObjectMeta.Annotations[annotationPatchKey]
 			}, 60*time.Second, 5*time.Second).Should(Equal(annotationPatchValue))
+
+			Consistently(func() string {
+				vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				return vc.Spec.Template.ObjectMeta.Annotations[annotationPatchKey]
+			}, 30*time.Second, 5*time.Second).Should(Equal(annotationPatchValue))
 
 			By("Deleting patch from KubeVirt object")
 			kv, err = virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})

@@ -37,6 +37,10 @@ func NewCustomizer(customizations v1.CustomizeComponents) (*Customizer, error) {
 	}, nil
 }
 
+func (c *Customizer) Hash() string {
+	return c.hash
+}
+
 func (c *Customizer) GenericApplyPatches(objects interface{}) error {
 	switch reflect.TypeOf(objects).Kind() {
 	case reflect.Slice:
