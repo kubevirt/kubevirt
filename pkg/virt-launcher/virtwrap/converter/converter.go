@@ -801,6 +801,11 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Feat
 			},
 		}
 	}
+	if source.Pvspinlock != nil {
+		features.PVSpinlock = &api.FeaturePVSpinlock{
+			State: boolToOnOff(source.Pvspinlock.Enabled, true),
+		}
+	}
 	return nil
 }
 

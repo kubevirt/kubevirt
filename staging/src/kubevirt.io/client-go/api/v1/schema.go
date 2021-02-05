@@ -885,7 +885,7 @@ type Features struct {
 	// Notify the guest that the host supports paravirtual spinlocks.
 	// For older kernels this feature should be explicitly disabled.
 	// +optional
-	PVSpinlock *FeatureState `json:"pvspinlock,omitempty"`
+	Pvspinlock *FeatureState `json:"pvspinlock,omitempty"`
 }
 
 // Represents if a feature is enabled or disabled.

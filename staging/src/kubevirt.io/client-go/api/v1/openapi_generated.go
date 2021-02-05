@@ -15552,6 +15552,12 @@ func schema_kubevirtio_client_go_api_v1_Features(ref common.ReferenceCallback) c
 							Ref:         ref("kubevirt.io/client-go/api/v1.FeatureKVM"),
 						},
 					},
+					"pvspinlock": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Notify the guest that the host supports paravirtual spinlocks. For older kernels this feature should be explicitly disabled.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.FeatureState"),
+						},
+					},
 				},
 			},
 		},

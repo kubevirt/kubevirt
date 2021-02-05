@@ -189,9 +189,10 @@ var _ = Describe("Converter", func() {
 				},
 			}
 			vmi.Spec.Domain.Features = &v1.Features{
-				APIC: &v1.FeatureAPIC{},
-				SMM:  &v1.FeatureState{},
-				KVM:  &v1.FeatureKVM{Hidden: true},
+				APIC:       &v1.FeatureAPIC{},
+				SMM:        &v1.FeatureState{},
+				KVM:        &v1.FeatureKVM{Hidden: true},
+				Pvspinlock: &v1.FeatureState{Enabled: &_false},
 				Hyperv: &v1.FeatureHyperv{
 					Relaxed:         &v1.FeatureState{Enabled: &_false},
 					VAPIC:           &v1.FeatureState{Enabled: &_true},
@@ -615,6 +616,7 @@ var _ = Describe("Converter", func() {
     <kvm>
       <hidden state="on"></hidden>
     </kvm>
+    <pvspinlock state="off"></pvspinlock>
   </features>
   <cpu mode="host-model">
     <topology sockets="1" cores="1" threads="1"></topology>
@@ -815,6 +817,7 @@ var _ = Describe("Converter", func() {
     <kvm>
       <hidden state="on"></hidden>
     </kvm>
+    <pvspinlock state="off"></pvspinlock>
   </features>
   <cpu mode="host-model">
     <topology sockets="1" cores="1" threads="1"></topology>
@@ -1031,6 +1034,7 @@ var _ = Describe("Converter", func() {
     <kvm>
       <hidden state="on"></hidden>
     </kvm>
+    <pvspinlock state="off"></pvspinlock>
   </features>
   <cpu mode="host-model">
     <topology sockets="1" cores="1" threads="1"></topology>
