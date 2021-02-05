@@ -37,6 +37,7 @@ message SMBios {
 message VirtualMachineOptions {
   SMBios VirtualMachineSMBios = 1;
   uint32 MemBalloonStatsPeriod = 2;
+  repeated string PreallocatedVolumes = 3;
 }
 
 message VMIRequest {

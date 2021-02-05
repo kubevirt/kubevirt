@@ -20,6 +20,7 @@
 package virthandler
 
 import (
+	"context"
 	goerror "errors"
 	"fmt"
 	"io"
@@ -2264,6 +2265,26 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	}
 
 	vmi := origVMI.DeepCopy()
+	// Find preallocated volumes
+	var preallocatedVolumes []string
+	for _, v := range vmi.Spec.Volumes {
+		var name string
+		source := v.VolumeSource
+		if source.PersistentVolumeClaim != nil || source.DataVolume != nil {
+			if source.PersistentVolumeClaim != nil {
+				name = source.PersistentVolumeClaim.ClaimName
+			} else {
+				name = source.DataVolume.Name
+			}
+			pvc, err := d.clientset.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+			if err != nil {
+				continue
+			}
+			if pvcutils.IsPreallocated(pvc.ObjectMeta.Annotations) {
+				preallocatedVolumes = append(preallocatedVolumes, v.Name)
+			}
+		}
+	}
 
 	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
 	if err != nil {
@@ -2285,7 +2306,6 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		if err := d.containerDiskMounter.Mount(vmi, true); err != nil {
 			return err
 		}
-
 		criticalNetworkError, err := d.setPodNetworkPhase1(vmi)
 		if err != nil {
 			if criticalNetworkError {
@@ -2319,6 +2339,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			Version:      smbios.Version,
 		},
 		MemBalloonStatsPeriod: period,
+		PreallocatedVolumes:   preallocatedVolumes,
 	}
 
 	err = client.SyncVirtualMachine(vmi, options)
