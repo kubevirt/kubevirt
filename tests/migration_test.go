@@ -960,6 +960,16 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				// Is agent connected after migration
 				tests.WaitAgentConnected(virtClient, vmi)
+				Consistently(func() error {
+					updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					for _, condition := range updatedVmi.Status.Conditions {
+						if condition.Type == v1.VirtualMachineInstanceAgentConnected && condition.Status == k8sv1.ConditionTrue {
+							return nil
+						}
+					}
+					return fmt.Errorf("Not there")
+				}, 5*time.Minute, 30*time.Second).Should(Succeed())
 
 				By("Checking that the migrated VirtualMachineInstance console has expected output")
 				Expect(console.OnPrivilegedPrompt(vmi, 60)).To(BeTrue(), "Should stay logged in to the migrated VM")
