@@ -94,6 +94,7 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
     <kvm>
       <hidden state="on"></hidden>
     </kvm>
+    <pvspinlock state="off"></pvspinlock>
   </features>
   <cpu mode="custom">
     <model>Conroe</model>
@@ -171,6 +172,7 @@ var exampleXMLppc64le = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schem
     <kvm>
       <hidden state="on"></hidden>
     </kvm>
+    <pvspinlock state="off"></pvspinlock>
   </features>
   <cpu mode="custom">
     <model>Conroe</model>
@@ -284,6 +286,7 @@ var _ = Describe("Schema", func() {
 			KVM: &FeatureKVM{
 				Hidden: &FeatureState{State: "on"},
 			},
+			PVSpinlock: &FeaturePVSpinlock{State: "off"},
 		}
 		exampleDomain.Spec.SysInfo = &SysInfo{
 			Type: "smbios",
