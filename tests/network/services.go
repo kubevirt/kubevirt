@@ -46,12 +46,15 @@ import (
 var _ = SIGDescribe("[Serial]Services", func() {
 	var virtClient kubecli.KubevirtClient
 
-	runTCPClientExpectingHelloWorldFromServer := func(host, port, namespace string, isIPv6 bool) *batchv1.Job {
+	runTCPClientExpectingHelloWorldFromServer := func(host, port, namespace string, isIPv6 bool, retries int32) *batchv1.Job {
 		var pingCmd string
 		if isIPv6 {
 			pingCmd = fmt.Sprintf("ping -c1 %s;", host)
 		}
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(context.Background(), tests.NewHelloWorldJob(host, port, pingCmd), k8smetav1.CreateOptions{})
+		job := tests.NewHelloWorldJob(host, port, pingCmd)
+		job.Spec.BackoffLimit = &retries
+		var err error
+		job, err = virtClient.BatchV1().Jobs(namespace).Create(context.Background(), job, k8smetav1.CreateOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		return job
 	}
@@ -90,7 +93,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 		serviceFQDN := fmt.Sprintf("%s.%s", serviceName, namespace)
 
 		By(fmt.Sprintf("starting a job which tries to reach the vmi via service %s", serviceFQDN))
-		job := runTCPClientExpectingHelloWorldFromServer(serviceFQDN, strconv.Itoa(servicePort), namespace, isIPv6)
+		job := runTCPClientExpectingHelloWorldFromServer(serviceFQDN, strconv.Itoa(servicePort), namespace, isIPv6, 3)
 
 		By(fmt.Sprintf("waiting for the job to report a SUCCESSFUL connection attempt to service %s on port %d", serviceFQDN, servicePort))
 		err := tests.WaitForJobToSucceed(job, 90*time.Second)
@@ -103,7 +106,7 @@ var _ = SIGDescribe("[Serial]Services", func() {
 		serviceFQDN := fmt.Sprintf("%s.%s", serviceName, namespace)
 
 		By(fmt.Sprintf("starting a job which tries to reach the vmi via service %s", serviceFQDN))
-		job := runTCPClientExpectingHelloWorldFromServer(serviceFQDN, strconv.Itoa(servicePort), namespace, isIPv6)
+		job := runTCPClientExpectingHelloWorldFromServer(serviceFQDN, strconv.Itoa(servicePort), namespace, isIPv6, 0)
 
 		By(fmt.Sprintf("waiting for the job to report a FAILED connection attempt to service %s on port %d", serviceFQDN, servicePort))
 		err := tests.WaitForJobToFail(job, 90*time.Second)
