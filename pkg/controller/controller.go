@@ -197,56 +197,87 @@ func SetLatestApiVersionAnnotation(object metav1.Object) {
 
 func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineVolumeRequest) *v1.VirtualMachineInstanceSpec {
 	if request.AddVolumeOptions != nil {
-		alreadyAdded := false
-		for _, volume := range vmiSpec.Volumes {
-			if volume.Name == request.AddVolumeOptions.Name {
-				alreadyAdded = true
-				break
-			}
-		}
-
-		if !alreadyAdded {
-			newVolume := v1.Volume{
-				Name: request.AddVolumeOptions.Name,
-			}
-
-			if request.AddVolumeOptions.VolumeSource.PersistentVolumeClaim != nil {
-				newVolume.VolumeSource.PersistentVolumeClaim = request.AddVolumeOptions.VolumeSource.PersistentVolumeClaim
-			} else if request.AddVolumeOptions.VolumeSource.DataVolume != nil {
-
-				newVolume.VolumeSource.DataVolume = request.AddVolumeOptions.VolumeSource.DataVolume
-			}
-
-			vmiSpec.Volumes = append(vmiSpec.Volumes, newVolume)
-
-			if request.AddVolumeOptions.Disk != nil {
-				newDisk := request.AddVolumeOptions.Disk.DeepCopy()
-				newDisk.Name = request.AddVolumeOptions.Name
-
-				vmiSpec.Domain.Devices.Disks = append(vmiSpec.Domain.Devices.Disks, *newDisk)
-			}
-		}
-
+		vmiSpec = handleAddVolumeRequest(vmiSpec, request)
 	} else if request.RemoveVolumeOptions != nil {
-
-		newVolumesList := []v1.Volume{}
-		newDisksList := []v1.Disk{}
-
-		for _, volume := range vmiSpec.Volumes {
-			if volume.Name != request.RemoveVolumeOptions.Name {
-				newVolumesList = append(newVolumesList, volume)
-			}
-		}
-
-		for _, disk := range vmiSpec.Domain.Devices.Disks {
-			if disk.Name != request.RemoveVolumeOptions.Name {
-				newDisksList = append(newDisksList, disk)
-			}
-		}
-
-		vmiSpec.Volumes = newVolumesList
-		vmiSpec.Domain.Devices.Disks = newDisksList
+		vmiSpec = handleRemoveVolumeRequest(vmiSpec, request)
 	}
 
+	return vmiSpec
+}
+
+func handleAddVolumeRequest(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineVolumeRequest) *v1.VirtualMachineInstanceSpec {
+	if !volumeAlreadyAdded(vmiSpec, request) {
+		vmiSpec = addVolumeToSpec(vmiSpec, request)
+		vmiSpec = addVolumeAsDisk(vmiSpec, request)
+	}
+
+	return vmiSpec
+}
+
+func handleRemoveVolumeRequest(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineVolumeRequest) *v1.VirtualMachineInstanceSpec {
+	vmiSpec = removeVolumeFromSpec(vmiSpec, request)
+	vmiSpec = removeVolumeAsDisk(vmiSpec, request)
+	return vmiSpec
+}
+
+func volumeAlreadyAdded(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineVolumeRequest) bool {
+	alreadyAdded := false
+	for _, volume := range vmiSpec.Volumes {
+		if volume.Name == request.AddVolumeOptions.Name {
+			alreadyAdded = true
+			break
+		}
+	}
+
+	return alreadyAdded
+}
+
+func addVolumeToSpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineVolumeRequest) *v1.VirtualMachineInstanceSpec {
+	newVolume := &v1.Volume{
+		Name: request.AddVolumeOptions.Name,
+	}
+
+	if request.AddVolumeOptions.VolumeSource.PersistentVolumeClaim != nil {
+		newVolume.VolumeSource.PersistentVolumeClaim = request.AddVolumeOptions.VolumeSource.PersistentVolumeClaim
+	} else if request.AddVolumeOptions.VolumeSource.DataVolume != nil {
+		newVolume.VolumeSource.DataVolume = request.AddVolumeOptions.VolumeSource.DataVolume
+	}
+
+	vmiSpec.Volumes = append(vmiSpec.Volumes, *newVolume)
+	return vmiSpec
+}
+
+func addVolumeAsDisk(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineVolumeRequest) *v1.VirtualMachineInstanceSpec {
+	if request.AddVolumeOptions.Disk != nil {
+		newDisk := request.AddVolumeOptions.Disk.DeepCopy()
+		newDisk.Name = request.AddVolumeOptions.Name
+
+		vmiSpec.Domain.Devices.Disks = append(vmiSpec.Domain.Devices.Disks, *newDisk)
+	}
+
+	return vmiSpec
+}
+
+func removeVolumeFromSpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineVolumeRequest) *v1.VirtualMachineInstanceSpec {
+	newVolumesList := []v1.Volume{}
+	for _, volume := range vmiSpec.Volumes {
+		if volume.Name != request.RemoveVolumeOptions.Name {
+			newVolumesList = append(newVolumesList, volume)
+		}
+	}
+	vmiSpec.Volumes = newVolumesList
+	return vmiSpec
+}
+
+func removeVolumeAsDisk(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineVolumeRequest) *v1.VirtualMachineInstanceSpec {
+	newDisksList := []v1.Disk{}
+	for _, disk := range vmiSpec.Domain.Devices.Disks {
+		if disk.Name == request.RemoveVolumeOptions.Name {
+			continue
+		}
+			newDisksList = append(newDisksList, disk)
+	}
+
+	vmiSpec.Domain.Devices.Disks = newDisksList
 	return vmiSpec
 }
