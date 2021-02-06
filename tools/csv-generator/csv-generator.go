@@ -23,8 +23,8 @@ import (
 	"flag"
 	"os"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/csv"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/csv"
 	"kubevirt.io/kubevirt/tools/util"
 )
 

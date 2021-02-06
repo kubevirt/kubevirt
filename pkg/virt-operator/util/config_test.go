@@ -21,6 +21,7 @@ package util
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -268,6 +269,25 @@ var _ = Describe("Operator Config", func() {
 			Expect(idFilled).ToNot(Equal(idEmpty))
 		})
 
+	})
+
+	Context("Product Names and Versions", func() {
+		table.DescribeTable("label validation", func(testVector string, expectedResult bool) {
+			Expect(IsValidLabel(testVector)).To(Equal(expectedResult))
+		},
+			table.Entry("should allow 1 character strings", "a", true),
+			table.Entry("should allow 2 character strings", "aa", true),
+			table.Entry("should allow 3 character strings", "aaa", true),
+			table.Entry("should allow 63 character strings", strings.Repeat("a", 63), true),
+			table.Entry("should reject 64 character strings", strings.Repeat("a", 64), false),
+			table.Entry("should reject strings that begin with .", ".a", false),
+			table.Entry("should reject strings that end with .", "a.", false),
+			table.Entry("should reject strings that contain junk characters", `a\a`, false),
+			table.Entry("should allow strings that contain dots", "a.a", true),
+			table.Entry("should allow strings that contain dashes", "a-a", true),
+			table.Entry("should allow strings that contain underscores", "a_a", true),
+			table.Entry("should allow empty strings", "", true),
+		)
 	})
 
 })

@@ -18,7 +18,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/util/webhooks"
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 type mockCAManager struct {

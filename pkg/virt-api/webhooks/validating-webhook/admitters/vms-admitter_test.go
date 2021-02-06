@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"

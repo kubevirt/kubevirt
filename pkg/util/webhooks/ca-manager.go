@@ -31,7 +31,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 type ClientCAManager interface {

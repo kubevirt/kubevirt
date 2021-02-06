@@ -498,3 +498,11 @@ func NewEnvVarMap(envMap map[string]string) *[]k8sv1.EnvVar {
 
 	return &env
 }
+
+func IsValidLabel(label string) bool {
+	// First and last character must be alphanumeric
+	// middle chars can be alphanumeric, or dot hyphen or dash
+	// entire string must not exceed 63 chars
+	r := regexp.MustCompile(`^([a-z0-9A-Z]([a-z0-9A-Z\-\_\.]{0,61}[a-z0-9A-Z])?)?$`)
+	return r.Match([]byte(label))
+}

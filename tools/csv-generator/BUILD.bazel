@@ -6,8 +6,8 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tools/csv-generator",
     visibility = ["//visibility:private"],
     deps = [
-        "//pkg/virt-operator/creation/components:go_default_library",
-        "//pkg/virt-operator/creation/csv:go_default_library",
+        "//pkg/virt-operator/resource/generate/components:go_default_library",
+        "//pkg/virt-operator/resource/generate/csv:go_default_library",
         "//tools/util:go_default_library",
     ],
 )
