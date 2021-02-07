@@ -413,14 +413,14 @@ func SetupLibvirt() (err error) {
 		return err
 	}
 
-	if _, ok := os.LookupEnv("LIBVIRT_DEBUG_LOGS"); ok {
+	if envVarValue, ok := os.LookupEnv("LIBVIRT_DEBUG_LOGS"); ok && (envVarValue == "1") {
 		// see https://libvirt.org/kbase/debuglogs.html for details
 		_, err = libvirtConf.WriteString("log_filters=\"3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*\"\n")
 		if err != nil {
 			return err
 		}
 	}
-	if _, ok := os.LookupEnv("VIRTIOFSD_DEBUG_LOGS"); ok {
+	if envVarValue, ok := os.LookupEnv("VIRTIOFSD_DEBUG_LOGS"); ok && (envVarValue == "1") {
 		_, err = qemuConf.WriteString("virtiofsd_debug = 1\n")
 		if err != nil {
 			return err

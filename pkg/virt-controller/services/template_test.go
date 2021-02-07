@@ -355,22 +355,16 @@ var _ = Describe("Template", func() {
 				}
 			})
 		})
-		Context("with debug log annotation", func() {
-			It("should add the corresponding environment variable", func() {
+		table.DescribeTable("should check if proper environment variable is ",
+			func(debugLogsAnnotationValue string, exceptedValues []string) {
+
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
 						Namespace: "default",
 						UID:       "1234",
 						Labels: map[string]string{
-							debugLogs: "true",
-						},
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
-							Devices: v1.Devices{
-								DisableHotplug: true,
-							},
+							debugLogs: debugLogsAnnotationValue,
 						},
 					},
 				}
@@ -385,7 +379,38 @@ var _ = Describe("Template", func() {
 						break
 					}
 				}
-				Expect(debugLogsValue).To(Equal("1"))
+				Expect(exceptedValues).To(ContainElements(debugLogsValue))
+
+			},
+			table.Entry("defined when debug annotation is on", "true", []string{"1"}),
+			table.Entry("defined when debug annotation is on", "TRuE", []string{"1"}),
+			table.Entry("not defined when debug annotation is off", "false", []string{"0", ""}),
+		)
+
+		Context("without debug log annotation", func() {
+			It("should NOT add the corresponding environment variable", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+						Labels: map[string]string{
+							debugLogs: "false",
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(pod.Spec.Containers)).To(Equal(1))
+				debugLogsValue := ""
+				for _, ev := range pod.Spec.Containers[0].Env {
+					if ev.Name == ENV_VAR_LIBVIRT_DEBUG_LOGS {
+						debugLogsValue = ev.Value
+						break
+					}
+				}
+				Expect(debugLogsValue).To(Or(Equal(""), Equal("0")))
 			})
 		})
 
