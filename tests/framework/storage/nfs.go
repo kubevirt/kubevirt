@@ -43,7 +43,7 @@ func RenderNFSServer(generateName string, hostPath string) *k8sv1.Pod {
 				{
 					Name:            generateName,
 					Image:           image,
-					ImagePullPolicy: k8sv1.PullAlways,
+					ImagePullPolicy: k8sv1.PullIfNotPresent,
 					Resources:       resources,
 					SecurityContext: &k8sv1.SecurityContext{
 						Privileged: pointer.BoolPtr(true),
