@@ -225,7 +225,7 @@ func writeCsv(images []*Image) error {
 }
 
 func writeEnvFile(images []*Image) error {
-	f, err := os.OpenFile(envFile, os.O_RDWR|os.O_CREATE, 0755)
+	f, err := os.OpenFile(envFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return err
 	}

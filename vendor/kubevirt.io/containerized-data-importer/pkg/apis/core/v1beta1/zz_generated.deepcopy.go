@@ -169,6 +169,11 @@ func (in *CDIConfigSpec) DeepCopyInto(out *CDIConfigSpec) {
 		*out = new(FilesystemOverhead)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Preallocation != nil {
+		in, out := &in.Preallocation, &out.Preallocation
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

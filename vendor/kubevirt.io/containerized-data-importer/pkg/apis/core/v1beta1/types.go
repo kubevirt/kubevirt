@@ -400,7 +400,7 @@ type CDIConfigSpec struct {
 	// FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes. A value is between 0 and 1, if not defined it is 0.055 (5.5% overhead)
 	FilesystemOverhead *FilesystemOverhead `json:"filesystemOverhead,omitempty"`
 	// Preallocation controls whether storage for DataVolumes should be allocated in advance.
-	Preallocation bool `json:"preallocation,omitempty"`
+	Preallocation *bool `json:"preallocation,omitempty"`
 }
 
 //CDIConfigStatus provides the most recently observed status of the CDI Config resource
