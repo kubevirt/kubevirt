@@ -422,6 +422,11 @@ var CRDsValidation map[string]string = map[string]string{
                     type: string
                   type:
                     type: string
+                required:
+                - patch
+                - resourceName
+                - resourceType
+                - type
                 type: object
               type: array
               x-kubernetes-list-type: atomic

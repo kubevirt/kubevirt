@@ -14411,6 +14411,7 @@ func schema_kubevirtio_client_go_api_v1_CustomizeComponentsPatch(ref common.Refe
 						},
 					},
 				},
+				Required: []string{"resourceName", "resourceType", "patch", "type"},
 			},
 		},
 	}

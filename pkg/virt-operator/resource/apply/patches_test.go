@@ -21,6 +21,7 @@ package apply
 
 import (
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/client-go/log"
@@ -58,7 +59,7 @@ var _ = Describe("Patches", func() {
 					Type:         v1.StrategicMergePatchType,
 				},
 				{
-					ResourceName: "",
+					ResourceName: "*",
 					ResourceType: "Deployment",
 					Patch:        `{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"image-pull"}]}}}}`,
 					Type:         v1.StrategicMergePatchType,
@@ -153,4 +154,16 @@ var _ = Describe("Patches", func() {
 			Expect(h1).To(Equal(h2))
 		})
 	})
+
+	table.DescribeTable("valueMatchesKey", func(value, key string, expected bool) {
+
+		matches := valueMatchesKey(value, key)
+		Expect(matches).To(Equal(expected))
+
+	},
+		table.Entry("should match wildcard", "*", "Deployment", true),
+		table.Entry("should match with different cases", "deployment", "Deployment", true),
+		table.Entry("should not match", "Service", "Deployment", false),
+	)
+
 })
