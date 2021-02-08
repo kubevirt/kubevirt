@@ -297,63 +297,77 @@ http_file(
 )
 
 # Pull base image fedora31
+# WARNING: please update any automated process to push this image to quay.io
+# instead of index.docker.io
 container_pull(
     name = "fedora",
     digest = "sha256:5e2b864cfe165fa7da6606b29a9e60549eb7cc9ae7fb574614110d1494b0f0c2",
-    registry = "index.docker.io",
-    repository = "library/fedora",
+    registry = "quay.io",
+    repository = "kubevirtci/fedora",
     tag = "31",
 )
 
+# WARNING: please update any automated process to push this image to quay.io
+# instead of index.docker.io
 container_pull(
     name = "fedora_ppc64le",
     digest = "sha256:50ab81a4619f7e94793aba65f3a40505bdfb9b59dcf6ae6deb8f974723e966d9",
     puller_linux = "@go_puller_linux_ppc64le//file:downloaded",
-    registry = "index.docker.io",
-    repository = "library/fedora",
+    registry = "quay.io",
+    repository = "kubevirtci/fedora",
     tag = "31",
 )
 
 # Pull fedora 32 customize container-disk
+# WARNING: please update any automated process to push this image to quay.io
+# instead of index.docker.io
 container_pull(
     name = "fedora_sriov_lane",
     digest = "sha256:2d332d28863d0e415d58e335e836bd4f8a8c714e7a9d1f8f87418ef3db7c0afb",
-    registry = "index.docker.io",
-    repository = "kubevirt/fedora-sriov-testing",
+    registry = "quay.io",
+    repository = "kubevirtci/fedora-sriov-testing",
     #tag = "32",
 )
 
 # Pull base image libvirt
+# WARNING: please update any automated process to push this image to quay.io
+# instead of index.docker.io
 container_pull(
     name = "libvirt",
     digest = "sha256:9ae61a4649c643caff7c667456a139eb47bd396517e18f4e37312fe95cccba19",
-    registry = "index.docker.io",
-    repository = "kubevirt/libvirt",
+    registry = "quay.io",
+    repository = "kubevirtci/libvirt",
     #tag = "20201210-917a01f",
 )
 
 # TODO: Update this once we have PPC builds of the base image available
+# WARNING: please update any automated process to push this image to quay.io
+# instead of index.docker.io
 container_pull(
     name = "libvirt_ppc64le",
     digest = "sha256:NOT_AVAILABLE",  # Make sure we don't use outdated image by mistake
     puller_linux = "@go_puller_linux_ppc64le//file:downloaded",
-    registry = "index.docker.io",
-    repository = "kubevirt/libvirt",
+    registry = "quay.io",
+    repository = "kubevirtci/libvirt",
 )
 
 # Pull nfs-server image
+# WARNING: please update any automated process to push this image to quay.io
+# instead of index.docker.io
 container_pull(
     name = "nfs-server",
     digest = "sha256:8c1fa882dddb2885c4152e9ce632c466f4b8dce29339455e9b6bfe71f0a3d3ef",
-    registry = "index.docker.io",
+    registry = "quay.io",
     repository = "kubevirtci/nfs-ganesha",  # see https://github.com/slintes/docker-nfs-ganesha
 )
 
+# WARNING: please update any automated process to push this image to quay.io
+# instead of index.docker.io
 container_pull(
     name = "nfs-server_ppc64le",
     digest = "sha256:8c1fa882dddb2885c4152e9ce632c466f4b8dce29339455e9b6bfe71f0a3d3ef",
     puller_linux = "@go_puller_linux_ppc64le//file:downloaded",
-    registry = "index.docker.io",
+    registry = "quay.io",
     repository = "kubevirtci/nfs-ganesha",  # see https://github.com/slintes/docker-nfs-ganesha
 )
 
