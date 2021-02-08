@@ -43,6 +43,7 @@ sed -i "s#quay.io/kubevirt/hyperconverged-cluster-operator#${TEMP_OPERATOR_IMAGE
 sed -i "s#quay.io/kubevirt/hyperconverged-cluster-webhook#${TEMP_WEBHOOK_IMAGE}#" deploy/images.csv
 sed -i "s#CSV_VERSION#IMAGE_TAG#" deploy/images.csv
 (cd ./tools/digester && go build .)
+export HCO_VERSION="${IMAGE_TAG}"
 ./automation/digester/update_images.sh
 
 # Build the CSV
