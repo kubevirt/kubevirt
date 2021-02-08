@@ -2,19 +2,19 @@ repositories:
 - arch: x86_64
   metalink: https://mirrors.fedoraproject.org/metalink?repo=fedora-32&arch=x86_64
   name: 32-x86_64-primary-repo
-  gpgkey: https://src.fedoraproject.org/rpms/fedora-repos/raw/master/f/RPM-GPG-KEY-fedora-32-primary
+  gpgkey: https://src.fedoraproject.org/rpms/fedora-repos/raw/main/f/RPM-GPG-KEY-fedora-32-primary
 - arch: x86_64
   metalink: https://mirrors.fedoraproject.org/metalink?repo=updates-released-f32&arch=x86_64
   name: 32-x86_64-update-repo
-  gpgkey: https://src.fedoraproject.org/rpms/fedora-repos/raw/master/f/RPM-GPG-KEY-fedora-32-primary
+  gpgkey: https://src.fedoraproject.org/rpms/fedora-repos/raw/main/f/RPM-GPG-KEY-fedora-32-primary
 - arch: ppc64le
   metalink: https://mirrors.fedoraproject.org/metalink?repo=fedora-32&arch=ppc64le
   name: 32-ppc64le-primary-repo
-  gpgkey: https://src.fedoraproject.org/rpms/fedora-repos/raw/master/f/RPM-GPG-KEY-fedora-32-primary
+  gpgkey: https://src.fedoraproject.org/rpms/fedora-repos/raw/main/f/RPM-GPG-KEY-fedora-32-primary
 - arch: ppc64le
   metalink: https://mirrors.fedoraproject.org/metalink?repo=updates-released-f32&arch=ppc64le
   name: 32-ppc64le-update-repo
-  gpgkey: https://src.fedoraproject.org/rpms/fedora-repos/raw/master/f/RPM-GPG-KEY-fedora-32-primary
+  gpgkey: https://src.fedoraproject.org/rpms/fedora-repos/raw/main/f/RPM-GPG-KEY-fedora-32-primary
 - arch: x86_64
   baseurl: https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.el8/fedora-32-x86_64/
   name: kubevirt/libvirt-copr-x86_64
