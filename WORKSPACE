@@ -329,28 +329,6 @@ container_pull(
     #tag = "32",
 )
 
-# Pull base image libvirt
-# WARNING: please update any automated process to push this image to quay.io
-# instead of index.docker.io
-container_pull(
-    name = "libvirt",
-    digest = "sha256:9ae61a4649c643caff7c667456a139eb47bd396517e18f4e37312fe95cccba19",
-    registry = "quay.io",
-    repository = "kubevirtci/libvirt",
-    #tag = "20201210-917a01f",
-)
-
-# TODO: Update this once we have PPC builds of the base image available
-# WARNING: please update any automated process to push this image to quay.io
-# instead of index.docker.io
-container_pull(
-    name = "libvirt_ppc64le",
-    digest = "sha256:NOT_AVAILABLE",  # Make sure we don't use outdated image by mistake
-    puller_linux = "@go_puller_linux_ppc64le//file:downloaded",
-    registry = "quay.io",
-    repository = "kubevirtci/libvirt",
-)
-
 # Pull nfs-server image
 # WARNING: please update any automated process to push this image to quay.io
 # instead of index.docker.io
