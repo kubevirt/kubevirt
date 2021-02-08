@@ -29,9 +29,14 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
+	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
+
+func mockVirtLauncherCachedPattern(path string) {
+	virtLauncherCachedPattern = path
+}
 
 var _ = Describe("Common Methods", func() {
 	pid := "self"
@@ -40,17 +45,16 @@ var _ = Describe("Common Methods", func() {
 			tmpDir, err := ioutil.TempDir("", "commontest")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(tmpDir)
-			setInterfaceCacheFile(tmpDir + "/cache-%s.json")
+			mockVirtLauncherCachedPattern(tmpDir + "/cache-%s.json")
 
 			ifaceName := "iface_name"
 			iface := api.Interface{Type: "fake_type", Source: api.InterfaceSource{Bridge: "fake_br"}}
-			err = writeToCachedFile(&iface, interfaceCacheFile, pid, ifaceName)
+			err = writeToVirtLauncherCachedFile(&iface, pid, ifaceName)
 			Expect(err).ToNot(HaveOccurred())
 
 			var cached_iface api.Interface
-			isExist, err := readFromCachedFile(pid, ifaceName, interfaceCacheFile, &cached_iface)
+			err = readFromVirtLauncherCachedFile(&cached_iface, pid, ifaceName)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(isExist).To(BeTrue())
 
 			Expect(iface).To(Equal(cached_iface))
 		})
@@ -58,17 +62,16 @@ var _ = Describe("Common Methods", func() {
 			tmpDir, err := ioutil.TempDir("", "commontest")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(tmpDir)
-			setInterfaceCacheFile(tmpDir + "/cache-%s.json")
+			mockVirtLauncherCachedPattern(tmpDir + "/cache-%s.json")
 
 			qemuArgName := "iface_name"
 			qemuArg := api.Arg{Value: "test_value"}
-			err = writeToCachedFile(&qemuArg, interfaceCacheFile, pid, qemuArgName)
+			err = writeToVirtLauncherCachedFile(&qemuArg, pid, qemuArgName)
 			Expect(err).ToNot(HaveOccurred())
 
 			var cached_qemuArg api.Arg
-			isExist, err := readFromCachedFile(pid, qemuArgName, interfaceCacheFile, &cached_qemuArg)
+			err = readFromVirtLauncherCachedFile(&cached_qemuArg, pid, qemuArgName)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(isExist).To(BeTrue())
 
 			Expect(qemuArg).To(Equal(cached_qemuArg))
 		})
@@ -149,3 +152,49 @@ func createDummyVIF(vifName, ipv4cidr, ipv4gateway, ipv6cidr, macStr string, mtu
 
 	return vif
 }
+
+var _ = Describe("infocache", func() {
+	type SillyType struct{ A int }
+	It("readFromCachedFile reads what writeToCachedFile had written", func() {
+		written := SillyType{7}
+		read := SillyType{0}
+		tmpfile, err := ioutil.TempFile("", "silly")
+		Expect(err).ToNot(HaveOccurred())
+		defer os.Remove(tmpfile.Name())
+
+		writeToCachedFile(written, tmpfile.Name())
+		readFromCachedFile(&read, tmpfile.Name())
+		Expect(written).To(Equal(read))
+	})
+	It("ReadFromVirtHandlerCachedFile reads what WriteToVirtHandlerCachedFile had written", func() {
+		vmiuid := types.UID("123")
+		written := SillyType{7}
+		read := SillyType{0}
+
+		err := CreateVirtHandlerCacheDir(vmiuid)
+		Expect(err).ToNot(HaveOccurred())
+		defer RemoveVirtHandlerCacheDir(vmiuid)
+
+		err = WriteToVirtHandlerCachedFile(written, vmiuid, "eth0")
+		Expect(err).ToNot(HaveOccurred())
+		err = ReadFromVirtHandlerCachedFile(&read, vmiuid, "eth0")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(written).To(Equal(read))
+	})
+	It("readFromVirtLauncherCachedFile reads what writeToVirtLauncherCachedFile had written", func() {
+		tmpDir, err := ioutil.TempDir("", "commontest")
+		Expect(err).ToNot(HaveOccurred())
+		defer os.RemoveAll(tmpDir)
+		mockVirtLauncherCachedPattern(tmpDir + "/cache-%s.json")
+
+		pid := "123"
+		written := SillyType{7}
+		read := SillyType{0}
+
+		err = writeToVirtLauncherCachedFile(written, pid, "eth0")
+		Expect(err).ToNot(HaveOccurred())
+		err = readFromVirtLauncherCachedFile(&read, pid, "eth0")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(written).To(Equal(read))
+	})
+})

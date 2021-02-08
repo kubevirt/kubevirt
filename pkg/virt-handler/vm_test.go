@@ -22,7 +22,6 @@ package virthandler
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -32,7 +31,6 @@ import (
 	"sync"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/util"
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 
@@ -1988,16 +1986,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 				PodIP:  "1.1.1.1",
 				PodIPs: []string{"1.1.1.1", "fd10:244::8c4c"},
 			}
-			podJson, err := json.Marshal(podCacheInterface)
+			err = network.CreateVirtHandlerCacheDir(vmi.UID)
 			Expect(err).ToNot(HaveOccurred())
-			err = os.MkdirAll(fmt.Sprintf(util.VMIInterfaceDir, vmi.UID), 0755)
+			err = network.WriteToVirtHandlerCachedFile(podCacheInterface, vmi.UID, interfaceName)
 			Expect(err).ToNot(HaveOccurred())
-			vmiInterfacepath := fmt.Sprintf(util.VMIInterfacepath, vmi.UID, interfaceName)
-			f, err := os.Create(vmiInterfacepath)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = f.WriteString(string(podJson))
-			Expect(err).ToNot(HaveOccurred())
-			f.Close()
 
 			mockWatchdog.CreateFile(vmi)
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
@@ -2052,16 +2044,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 				PodIP:  podIPs[0],
 				PodIPs: podIPs,
 			}
-			podJson, err := json.Marshal(podCacheInterface)
+			err = network.CreateVirtHandlerCacheDir(vmi.UID)
 			Expect(err).ToNot(HaveOccurred())
-			err = os.MkdirAll(fmt.Sprintf(util.VMIInterfaceDir, vmi.UID), 0755)
+			err = network.WriteToVirtHandlerCachedFile(podCacheInterface, vmi.UID, interfaceName)
 			Expect(err).ToNot(HaveOccurred())
-			vmiInterfacepath := fmt.Sprintf(util.VMIInterfacepath, vmi.UID, interfaceName)
-			f, err := os.Create(vmiInterfacepath)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = f.WriteString(string(podJson))
-			Expect(err).ToNot(HaveOccurred())
-			f.Close()
 
 			mockWatchdog.CreateFile(vmi)
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)

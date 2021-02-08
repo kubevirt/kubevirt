@@ -406,8 +406,7 @@ func (d *VirtualMachineController) clearPodNetworkPhase1(uid types.UID) {
 	}
 	d.podInterfaceCacheLock.Unlock()
 
-	vmiIfaceDir := fmt.Sprintf(virtutil.VMIInterfaceDir, uid)
-	err := os.RemoveAll(vmiIfaceDir)
+	err := network.RemoveVirtHandlerCacheDir(uid)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to delete VMI Network cache files: %s", err.Error())
 	}
@@ -464,30 +463,21 @@ func domainMigrated(domain *api.Domain) bool {
 }
 
 func (d *VirtualMachineController) getPodInterfacefromFileCache(uid types.UID, ifaceName string) (*network.PodCacheInterface, error) {
-	ifacepath := fmt.Sprintf(virtutil.VMIInterfacepath, uid, ifaceName)
+	cacheKey := fmt.Sprintf("%s/%s", uid, ifaceName)
 
 	// Once the Interface files are set on the handler, they don't change
 	// If already present in the map, don't read again
 	d.podInterfaceCacheLock.Lock()
-	result, exists := d.podInterfaceCache[ifacepath]
+	result, exists := d.podInterfaceCache[cacheKey]
 	d.podInterfaceCacheLock.Unlock()
 
 	if exists {
 		return result, nil
 	}
-	// #nosec No risk for path injection. ifacepath is composed of static values from pkg/util
-	content, err := ioutil.ReadFile(ifacepath)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to read from cache file: %s", err.Error())
-		return nil, err
-	}
-	err = json.Unmarshal(content, &result)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to unmarshal interface content: %s", err.Error())
-		return nil, err
-	}
+	network.ReadFromVirtHandlerCachedFile(&result, uid, ifaceName)
+
 	d.podInterfaceCacheLock.Lock()
-	d.podInterfaceCache[ifacepath] = result
+	d.podInterfaceCache[cacheKey] = result
 	d.podInterfaceCacheLock.Unlock()
 
 	return result, nil

@@ -30,11 +30,10 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
 	netutils "k8s.io/utils/net"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-
-	"kubevirt.io/kubevirt/pkg/util"
 
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/vishvananda/netlink"
@@ -107,7 +106,7 @@ func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, uid stri
 	}
 
 	cache.PodIP = cache.PodIPs[0]
-	err = writeToCachedFile(cache, util.VMIInterfacepath, uid, iface.Name)
+	err = WriteToVirtHandlerCachedFile(cache, types.UID(uid), iface.Name)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to write pod Interface to cache, %s", err.Error())
 		return err
@@ -519,21 +518,21 @@ func (b *BridgeBindMechanism) decorateConfig() error {
 func (b *BridgeBindMechanism) loadCachedInterface(pid, name string) (bool, error) {
 	var ifaceConfig api.Interface
 
-	isExist, err := readFromCachedFile(pid, name, interfaceCacheFile, &ifaceConfig)
+	err := readFromVirtLauncherCachedFile(&ifaceConfig, pid, name)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+
 	if err != nil {
 		return false, err
 	}
 
-	if isExist {
-		b.virtIface = &ifaceConfig
-		return true, nil
-	}
-
-	return false, nil
+	b.virtIface = &ifaceConfig
+	return true, nil
 }
 
 func (b *BridgeBindMechanism) setCachedInterface(pid, name string) error {
-	err := writeToCachedFile(b.virtIface, interfaceCacheFile, pid, name)
+	err := writeToVirtLauncherCachedFile(b.virtIface, pid, name)
 	return err
 }
 
@@ -822,21 +821,21 @@ func (b *MasqueradeBindMechanism) decorateConfig() error {
 func (b *MasqueradeBindMechanism) loadCachedInterface(pid, name string) (bool, error) {
 	var ifaceConfig api.Interface
 
-	isExist, err := readFromCachedFile(pid, name, interfaceCacheFile, &ifaceConfig)
+	err := readFromVirtLauncherCachedFile(&ifaceConfig, pid, name)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+
 	if err != nil {
 		return false, err
 	}
 
-	if isExist {
-		b.virtIface = &ifaceConfig
-		return true, nil
-	}
-
-	return false, nil
+	b.virtIface = &ifaceConfig
+	return true, nil
 }
 
 func (b *MasqueradeBindMechanism) setCachedInterface(pid, name string) error {
-	err := writeToCachedFile(b.virtIface, interfaceCacheFile, pid, name)
+	err := writeToVirtLauncherCachedFile(b.virtIface, pid, name)
 	return err
 }
 
@@ -1224,21 +1223,21 @@ func (b *MacvtapBindMechanism) decorateConfig() error {
 func (b *MacvtapBindMechanism) loadCachedInterface(pid, name string) (bool, error) {
 	var ifaceConfig api.Interface
 
-	isExist, err := readFromCachedFile(pid, name, interfaceCacheFile, &ifaceConfig)
+	err := readFromVirtLauncherCachedFile(&ifaceConfig, pid, name)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+
 	if err != nil {
 		return false, err
 	}
 
-	if isExist {
-		b.virtIface = &ifaceConfig
-		return true, nil
-	}
-
-	return false, nil
+	b.virtIface = &ifaceConfig
+	return true, nil
 }
 
 func (b *MacvtapBindMechanism) setCachedInterface(pid, name string) error {
-	err := writeToCachedFile(b.virtIface, interfaceCacheFile, pid, name)
+	err := writeToVirtLauncherCachedFile(b.virtIface, pid, name)
 	return err
 }
 
