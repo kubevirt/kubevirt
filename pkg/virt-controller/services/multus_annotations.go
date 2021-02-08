@@ -33,21 +33,37 @@ type multusNetworkAnnotation struct {
 	Namespace     string `json:"namespace"`
 }
 
+type multusNetworkAnnotationPool struct {
+	pool []multusNetworkAnnotation
+}
+
+func (mnap *multusNetworkAnnotationPool) add(multusNetworkAnnotation multusNetworkAnnotation) {
+	mnap.pool = append(mnap.pool, multusNetworkAnnotation)
+}
+
+func (mnap multusNetworkAnnotationPool) isEmpty() bool {
+	return len(mnap.pool) == 0
+}
+
+func (mnap multusNetworkAnnotationPool) toString() (string, error) {
+	multusNetworksAnnotation, err := json.Marshal(mnap.pool)
+	if err != nil {
+		return "", fmt.Errorf("failed to create JSON list from multus interface pool %v", mnap.pool)
+	}
+	return string(multusNetworksAnnotation), nil
+}
+
 func generateMultusCNIAnnotation(vmi *v1.VirtualMachineInstance) (string, error) {
-	var multusNetworkAnnotationPool []multusNetworkAnnotation
+	multusNetworkAnnotationPool := multusNetworkAnnotationPool{}
 
 	multusNonDefaultNetworks := filterMultusNonDefaultNetworks(vmi.Spec.Networks)
 	for i, network := range multusNonDefaultNetworks {
-		serializedInterface := newMultusAnnotationData(vmi, network, fmt.Sprintf("net%d", i+1))
-		multusNetworkAnnotationPool = append(multusNetworkAnnotationPool, serializedInterface)
+		multusNetworkAnnotationPool.add(
+			newMultusAnnotationData(vmi, network, fmt.Sprintf("net%d", i+1)))
 	}
 
-	if len(multusNetworkAnnotationPool) > 0 {
-		multusNetworksAnnotation, err := json.Marshal(multusNetworkAnnotationPool)
-		if err != nil {
-			return "", fmt.Errorf("failed to create JSON list from CNI interface map %v", multusNetworkAnnotationPool)
-		}
-		return string(multusNetworksAnnotation), nil
+	if !multusNetworkAnnotationPool.isEmpty() {
+		return multusNetworkAnnotationPool.toString()
 	}
 	return "", nil
 }
