@@ -3,6 +3,8 @@ package libnet
 import (
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -62,4 +64,33 @@ func WithIPv6(loginToFactory console.LoginToFactory) console.LoginToFactory {
 		}
 		return configureIPv6OnVMI(vmi)
 	}
+}
+
+func WithWaitForCloudInit(loginToFactory console.LoginToFactory) console.LoginToFactory {
+	return func(vmi *v1.VirtualMachineInstance) error {
+		err := loginToFactory(vmi)
+		if err != nil {
+			return err
+		}
+		return checkCloudInitDone(vmi)
+	}
+}
+
+func checkCloudInitDone(vmi *v1.VirtualMachineInstance) error {
+	err := wait.PollImmediate(time.Second, time.Minute, func() (bool, error) {
+		err := console.RunCommand(vmi, "cat /var/lib/cloud/instance/boot-finished", 2*time.Second)
+		if err != nil {
+			return false, nil
+		}
+
+		return true, nil
+	})
+
+	// TODO move from this file
+	//err := console.RunCommand(vmi, "cat /var/lib/cloud/instance/boot-finished", 10*time.Second)
+	if err != nil {
+		log.DefaultLogger().Object(vmi).Infof("checkCloudInitDone failed: %v", err)
+		return err
+	}
+	return nil
 }

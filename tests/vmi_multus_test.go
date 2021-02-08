@@ -662,7 +662,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 			vmi = tests.WaitUntilVMIReadyIgnoreWarnings(vmi, nil)
 			tests.WaitAgentConnected(virtClient, vmi)
-			loginTo := libnet.WithIPv6(console.LoginToFedora)
+			loginTo := libnet.WithWaitForCloudInit(libnet.WithIPv6(console.LoginToFedora))
 			Expect(loginTo(vmi)).To(Succeed())
 
 			return vmi
