@@ -660,8 +660,11 @@ var _ = Describe("[Serial]SRIOV", func() {
 			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(vmi, libnet.WithIPv6(console.LoginToFedora))
+			vmi = tests.WaitUntilVMIReadyIgnoreWarnings(vmi, nil)
 			tests.WaitAgentConnected(virtClient, vmi)
+			loginTo := libnet.WithIPv6(console.LoginToFedora)
+			Expect(loginTo(vmi)).To(Succeed())
+
 			return vmi
 		}
 

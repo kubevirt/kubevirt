@@ -2881,6 +2881,10 @@ func WaitForSuccessfulVMIStartWithContext(ctx context.Context, vmi runtime.Objec
 	return waitForVMIStart(ctx, vmi, 360, false)
 }
 
+func WaitForSuccessfulVMIStartWithContextIgnoreWarnings(ctx context.Context, vmi runtime.Object) string {
+	return waitForVMIStart(ctx, vmi, 360, true)
+}
+
 func WaitUntilVMIReadyAsync(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) func() *v1.VirtualMachineInstance {
 	var (
 		wg       sync.WaitGroup
@@ -2905,21 +2909,38 @@ func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFa
 	return WaitUntilVMIReadyWithContext(ctx, vmi, loginTo)
 }
 
+func WaitUntilVMIReadyIgnoreWarnings(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) *v1.VirtualMachineInstance {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return WaitUntilVMIReadyWithContextIgnoreWarnings(ctx, vmi, loginTo)
+}
+
 func WaitUntilVMIReadyWithContext(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) *v1.VirtualMachineInstance {
 	// Wait for VirtualMachineInstance start
 	WaitForSuccessfulVMIStartWithContext(ctx, vmi)
+	return LoginToVM(vmi, loginTo)
+}
 
+func WaitUntilVMIReadyWithContextIgnoreWarnings(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) *v1.VirtualMachineInstance {
+	// Wait for VirtualMachineInstance start
+	WaitForSuccessfulVMIStartWithContextIgnoreWarnings(ctx, vmi)
+	return LoginToVM(vmi, loginTo)
+}
+
+func LoginToVM(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) *v1.VirtualMachineInstance {
 	// Fetch the new VirtualMachineInstance with updated status
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
 	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(2, err).ToNot(HaveOccurred())
 
-	// Lets make sure that the OS is up by waiting until we can login
-
-	ExpectWithOffset(1, loginTo(vmi)).To(Succeed())
+	if loginTo != nil {
+		// Lets make sure that the OS is up by waiting until we can login
+		ExpectWithOffset(2, loginTo(vmi)).To(Succeed())
+	}
 	return vmi
 }
+
 func NewInt32(x int32) *int32 {
 	return &x
 }
