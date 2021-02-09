@@ -1817,9 +1817,9 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					Expect(err).ToNot(HaveOccurred())
 
 					// Start VMs
-					vm_evict1 = tests.StartVirtualMachine(vm_evict1)
-					vm_evict2 = tests.StartVirtualMachine(vm_evict2)
-					vm_noevict = tests.StartVirtualMachine(vm_noevict)
+					tests.StartVirtualMachine(vm_evict1)
+					tests.StartVirtualMachine(vm_evict2)
+					tests.StartVirtualMachine(vm_noevict)
 
 					// Get VMIs
 					vmi_evict1, err = virtClient.VirtualMachineInstance(vmi_evict1.Namespace).Get(vmi_evict1.Name, &metav1.GetOptions{})

@@ -237,7 +237,6 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 				_, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
 
-				vmi, _ = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.GetName(), &metav1.GetOptions{})
 				waitForVM(vm, v1.Pending, "VMI with inconsistent DV should be created")
 
 				By("Fix DataVolume URL")

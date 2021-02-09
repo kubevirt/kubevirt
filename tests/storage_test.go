@@ -450,9 +450,9 @@ var _ = Describe("Storage", func() {
 
 				By("Starting the VirtualMachineInstance again")
 				if isRunOnKindInfra {
-					createdVMI = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 90)
+					tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 90)
 				} else {
-					createdVMI = tests.RunVMIAndExpectLaunch(vmi, 90)
+					tests.RunVMIAndExpectLaunch(vmi, 90)
 				}
 
 				By("Making sure that the previously written file is not present")
