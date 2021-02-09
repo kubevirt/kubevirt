@@ -49,8 +49,8 @@ type BindMechanism interface {
 	discoverPodNetworkInterface() error
 	preparePodNetworkInterfaces() error
 
-	loadCachedInterface(pid, name string) (bool, error)
-	setCachedInterface(pid, name string) error
+	loadCachedInterface() (bool, error)
+	setCachedInterface() error
 
 	// virt-handler that executes phase1 of network configuration needs to
 	// pass details about discovered networking port into phase2 that is
@@ -183,8 +183,7 @@ func (l *podNICImpl) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 		return err
 	}
 
-	pidStr := fmt.Sprintf("%d", pid)
-	isExist, err := bindMechanism.loadCachedInterface(pidStr, iface.Name)
+	isExist, err := bindMechanism.loadCachedInterface()
 	if err != nil {
 		return err
 	}
@@ -207,14 +206,12 @@ func (l *podNICImpl) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 			return createCriticalNetworkError(err)
 		}
 
-		err = bindMechanism.setCachedInterface(pidStr, iface.Name)
-		if err != nil {
+		if err := bindMechanism.setCachedInterface(); err != nil {
 			log.Log.Reason(err).Error("failed to save interface configuration")
 			return createCriticalNetworkError(err)
 		}
 
-		err = bindMechanism.setCachedVIF(pidStr, iface.Name)
-		if err != nil {
+		if err := bindMechanism.setCachedVIF(getPIDString(&pid), iface.Name); err != nil {
 			log.Log.Reason(err).Error("failed to save vif configuration")
 			return createCriticalNetworkError(err)
 		}
@@ -257,9 +254,7 @@ func (l *podNICImpl) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 		return err
 	}
 
-	pid := "self"
-
-	isExist, err := bindMechanism.loadCachedInterface(pid, iface.Name)
+	isExist, err := bindMechanism.loadCachedInterface()
 	if err != nil {
 		log.Log.Reason(err).Critical("failed to load cached interface configuration")
 	}
@@ -267,6 +262,7 @@ func (l *podNICImpl) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 		log.Log.Reason(err).Critical("cached interface configuration doesn't exist")
 	}
 
+	pid := "self"
 	isExist, err = bindMechanism.loadCachedVIF(pid, iface.Name)
 	if err != nil {
 		log.Log.Reason(err).Critical("failed to load cached vif configuration")
@@ -543,8 +539,15 @@ func (b *BridgeBindMechanism) decorateConfig() error {
 	return nil
 }
 
-func (b *BridgeBindMechanism) loadCachedInterface(pid, name string) (bool, error) {
-	ifaceConfig, err := b.storeFactory.CacheForPID(pid).Read(name)
+func getPIDString(pid *int) string {
+	if pid != nil {
+		return fmt.Sprintf("%d", *pid)
+	}
+	return "self"
+}
+
+func (b *BridgeBindMechanism) loadCachedInterface() (bool, error) {
+	ifaceConfig, err := b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Read(b.iface.Name)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
@@ -557,9 +560,8 @@ func (b *BridgeBindMechanism) loadCachedInterface(pid, name string) (bool, error
 	return true, nil
 }
 
-func (b *BridgeBindMechanism) setCachedInterface(pid, name string) error {
-	err := b.storeFactory.CacheForPID(pid).Write(name, b.virtIface)
-	return err
+func (b *BridgeBindMechanism) setCachedInterface() error {
+	return b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Write(b.iface.Name, b.virtIface)
 }
 
 func (b *BridgeBindMechanism) loadCachedVIF(pid, name string) (bool, error) {
@@ -877,8 +879,8 @@ func (b *MasqueradeBindMechanism) decorateConfig() error {
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) loadCachedInterface(pid, name string) (bool, error) {
-	ifaceConfig, err := b.storeFactory.CacheForPID(pid).Read(name)
+func (b *MasqueradeBindMechanism) loadCachedInterface() (bool, error) {
+	ifaceConfig, err := b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Read(b.iface.Name)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
@@ -891,9 +893,8 @@ func (b *MasqueradeBindMechanism) loadCachedInterface(pid, name string) (bool, e
 	return true, nil
 }
 
-func (b *MasqueradeBindMechanism) setCachedInterface(pid, name string) error {
-	err := b.storeFactory.CacheForPID(pid).Write(name, b.virtIface)
-	return err
+func (b *MasqueradeBindMechanism) setCachedInterface() error {
+	return b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Write(b.iface.Name, b.virtIface)
 }
 
 func (b *MasqueradeBindMechanism) loadCachedVIF(pid, name string) (bool, error) {
@@ -1216,7 +1217,7 @@ func (b *SlirpBindMechanism) decorateConfig() error {
 	return nil
 }
 
-func (b *SlirpBindMechanism) loadCachedInterface(_, _ string) (bool, error) {
+func (b *SlirpBindMechanism) loadCachedInterface() (bool, error) {
 	return true, nil
 }
 
@@ -1228,7 +1229,7 @@ func (b *SlirpBindMechanism) setCachedVIF(_, _ string) error {
 	return nil
 }
 
-func (b *SlirpBindMechanism) setCachedInterface(_, _ string) error {
+func (b *SlirpBindMechanism) setCachedInterface() error {
 	return nil
 }
 
@@ -1288,8 +1289,8 @@ func (b *MacvtapBindMechanism) decorateConfig() error {
 	return nil
 }
 
-func (b *MacvtapBindMechanism) loadCachedInterface(pid, name string) (bool, error) {
-	ifaceConfig, err := b.storeFactory.CacheForPID(pid).Read(name)
+func (b *MacvtapBindMechanism) loadCachedInterface() (bool, error) {
+	ifaceConfig, err := b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Read(b.iface.Name)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
@@ -1302,9 +1303,8 @@ func (b *MacvtapBindMechanism) loadCachedInterface(pid, name string) (bool, erro
 	return true, nil
 }
 
-func (b *MacvtapBindMechanism) setCachedInterface(pid, name string) error {
-	err := b.storeFactory.CacheForPID(pid).Write(name, b.virtIface)
-	return err
+func (b *MacvtapBindMechanism) setCachedInterface() error {
+	return b.storeFactory.CacheForPID(getPIDString(b.launcherPID)).Write(b.iface.Name, b.virtIface)
 }
 
 func (b *MacvtapBindMechanism) loadCachedVIF(_, _ string) (bool, error) {
