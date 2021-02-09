@@ -171,7 +171,7 @@ func (l *podNICImpl) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 		return nil
 	}
 
-	bindMechanism, err := getPhase1Binding(vmi, iface, network, podInterfaceName)
+	bindMechanism, err := getPhase1Binding(vmi, iface, network, podInterfaceName, pid)
 	if err != nil {
 		return err
 	}
@@ -287,12 +287,20 @@ func (l *podNICImpl) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 	return nil
 }
 
-// The only difference between bindings for two phases is that the first phase
-// should not require access to domain definition, hence we pass nil instead of
-// it. This means that any functions called under phase1 code path should not
-// use the domain set on the binding.
-func getPhase1Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string) (BindMechanism, error) {
-	return getPhase2Binding(vmi, iface, network, nil, podInterfaceName)
+func getPhase1Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, launcherPID int) (BindMechanism, error) {
+	if iface.Bridge != nil {
+		return generateBridgeVMNetworkingConfigurator(vmi, iface, podInterfaceName, launcherPID)
+	}
+	if iface.Masquerade != nil {
+		return generateMasqueradeVMNetworkingConfigurator(vmi, iface, network, podInterfaceName, launcherPID)
+	}
+	if iface.Slirp != nil {
+		return &SlirpBindMechanism{vmi: vmi, iface: iface, launcherPID: launcherPID}, nil
+	}
+	if iface.Macvtap != nil {
+		return generateMacvtapVMNetworkingConfigurator(vmi, iface, podInterfaceName, launcherPID)
+	}
+	return nil, fmt.Errorf("Not implemented")
 }
 
 func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) (BindMechanism, error) {
@@ -312,7 +320,7 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 }
 
 func generateMacvtapVMNetworkingConfigurator(vmi *v1.VirtualMachineInstance, iface *v1.Interface, podInterfaceName string, launcherPID int) (BindMechanism, error) {
-	mac, err := retrieveMacAddress(iface)
+	mac, err := networkdriver.RetrieveMacAddress(iface)
 	if err != nil {
 		return nil, err
 	}
@@ -348,11 +356,11 @@ func generateMacvtapBindingMech(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 }
 
 func generateMasqueradeVMNetworkingConfigurator(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, launcherPID int) (BindMechanism, error) {
-	mac, err := retrieveMacAddress(iface)
+	mac, err := networkdriver.RetrieveMacAddress(iface)
 	if err != nil {
 		return nil, err
 	}
-	vif := &VIF{Name: podInterfaceName}
+	vif := &networkdriver.VIF{Name: podInterfaceName}
 	if mac != nil {
 		vif.MAC = *mac
 	}
@@ -407,11 +415,11 @@ func generateBridgeBindingMech(vmi *v1.VirtualMachineInstance, iface *v1.Interfa
 }
 
 func generateBridgeVMNetworkingConfigurator(vmi *v1.VirtualMachineInstance, iface *v1.Interface, podInterfaceName string, launcherPID int) (BindMechanism, error) {
-	mac, err := retrieveMacAddress(iface)
+	mac, err := networkdriver.RetrieveMacAddress(iface)
 	if err != nil {
 		return nil, err
 	}
-	vif := &VIF{Name: podInterfaceName}
+	vif := &networkdriver.VIF{Name: podInterfaceName}
 	if mac != nil {
 		vif.MAC = *mac
 	}
