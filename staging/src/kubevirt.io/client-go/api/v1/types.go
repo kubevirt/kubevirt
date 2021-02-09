@@ -1310,9 +1310,31 @@ type KubeVirtList struct {
 //
 // +k8s:openapi-gen=true
 type KubeVirtSelfSignConfiguration struct {
-	CARotateInterval   *metav1.Duration `json:"caRotateInterval,omitempty"`
+	// Deprecated. Use CA.Duration instead
+	CARotateInterval *metav1.Duration `json:"caRotateInterval,omitempty"`
+	// Deprecated. Use Server.Duration instead
 	CertRotateInterval *metav1.Duration `json:"certRotateInterval,omitempty"`
-	CAOverlapInterval  *metav1.Duration `json:"caOverlapInterval,omitempty"`
+	// Deprecated. Use CA.Duration and CA.RenewBefore instead
+	CAOverlapInterval *metav1.Duration `json:"caOverlapInterval,omitempty"`
+
+	// CA configuration
+	// CA certs are kept in the CA bundle as long as they are valid
+	CA *CertConfig `json:"ca,omitempty"`
+
+	// Server configuration
+	// Certs are rotated and discarded
+	Server *CertConfig `json:"server,omitempty"`
+}
+
+// CertConfig contains the tunables for TLS certificates
+// +k8s:openapi-gen=true
+type CertConfig struct {
+	// The requested 'duration' (i.e. lifetime) of the Certificate.
+	Duration *metav1.Duration `json:"duration,omitempty"`
+
+	// The amount of time before the currently issued certificate's "notAfter"
+	// time that we will begin to attempt to renew the certificate.
+	RenewBefore *metav1.Duration `json:"renewBefore,omitempty"`
 }
 
 //
