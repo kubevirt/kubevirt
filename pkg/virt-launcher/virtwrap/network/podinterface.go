@@ -312,61 +312,71 @@ func (l *podNIC) getPhase1Binding() (BindMechanism, error) {
 
 func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
 	if l.iface.Bridge != nil {
-		mac, err := retrieveMacAddressFromVMISpecIface(l.iface)
-		if err != nil {
-			return nil, err
-		}
-
-		return &BridgeBindMechanism{iface: l.iface,
-			vmi:                 l.vmi,
-			domain:              domain,
-			bridgeInterfaceName: generateInPodBridgeInterfaceName(l.podInterfaceName),
-			cacheFactory:        l.cacheFactory,
-			launcherPID:         l.launcherPID,
-			queueCount:          calculateNetworkQueues(l.vmi),
-			handler:             l.handler,
-			mac:                 mac,
-		}, nil
+		return newBridgeBindMechanism(l.vmi, l.iface, l.podInterfaceName, domain, l.cacheFactory, l.launcherPID, l.handler)
 	}
 	if l.iface.Masquerade != nil {
-		mac, err := retrieveMacAddressFromVMISpecIface(l.iface)
-		if err != nil {
-			return nil, err
-		}
-
-		return &MasqueradeBindMechanism{iface: l.iface,
-			vmi:                 l.vmi,
-			domain:              domain,
-			vmNetworkCIDR:       l.network.Pod.VMNetworkCIDR,
-			vmIPv6NetworkCIDR:   l.network.Pod.VMIPv6NetworkCIDR,
-			bridgeInterfaceName: generateInPodBridgeInterfaceName(l.podInterfaceName),
-			cacheFactory:        l.cacheFactory,
-			launcherPID:         l.launcherPID,
-			queueCount:          calculateNetworkQueues(l.vmi),
-			handler:             l.handler,
-			mac:                 mac,
-		}, nil
+		return newMasqueradeBindMechanism(l.vmi, l.iface, l.network, domain, l.podInterfaceName, l.cacheFactory, l.launcherPID, l.handler)
 	}
 	if l.iface.Slirp != nil {
 		return &SlirpBindMechanism{iface: l.iface, domain: domain}, nil
 	}
 	if l.iface.Macvtap != nil {
-		mac, err := retrieveMacAddressFromVMISpecIface(l.iface)
-		if err != nil {
-			return nil, err
-		}
-
-		return &MacvtapBindMechanism{
-			vmi:          l.vmi,
-			iface:        l.iface,
-			domain:       domain,
-			mac:          mac,
-			cacheFactory: l.cacheFactory,
-			launcherPID:  l.launcherPID,
-			handler:      l.handler,
-		}, nil
+		return newMacvtapBindMechanism(l.vmi, l.iface, domain, l.cacheFactory, l.launcherPID, l.handler)
 	}
 	return nil, fmt.Errorf("Not implemented")
+}
+
+func newMacvtapBindMechanism(vmi *v1.VirtualMachineInstance, iface *v1.Interface, domain *api.Domain, cacheFactory cache.InterfaceCacheFactory, launcherPID *int, handler netdriver.NetworkHandler) (*MacvtapBindMechanism, error) {
+	mac, err := retrieveMacAddressFromVMISpecIface(iface)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MacvtapBindMechanism{
+		vmi:          vmi,
+		iface:        iface,
+		domain:       domain,
+		mac:          mac,
+		cacheFactory: cacheFactory,
+		launcherPID:  launcherPID,
+		handler:      handler,
+	}, nil
+}
+
+func newMasqueradeBindMechanism(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string, cacheFactory cache.InterfaceCacheFactory, launcherPID *int, handler netdriver.NetworkHandler) (*MasqueradeBindMechanism, error) {
+	mac, err := retrieveMacAddressFromVMISpecIface(iface)
+	if err != nil {
+		return nil, err
+	}
+	return &MasqueradeBindMechanism{iface: iface,
+		vmi:                 vmi,
+		mac:                 mac,
+		domain:              domain,
+		vmNetworkCIDR:       network.Pod.VMNetworkCIDR,
+		vmIPv6NetworkCIDR:   network.Pod.VMIPv6NetworkCIDR,
+		bridgeInterfaceName: generateInPodBridgeInterfaceName(podInterfaceName),
+		cacheFactory:        cacheFactory,
+		launcherPID:         launcherPID,
+		queueCount:          calculateNetworkQueues(vmi),
+		handler:             handler,
+	}, nil
+}
+
+func newBridgeBindMechanism(vmi *v1.VirtualMachineInstance, iface *v1.Interface, podInterfaceName string, domain *api.Domain, cacheFactory cache.InterfaceCacheFactory, launcherPID *int, handler netdriver.NetworkHandler) (*BridgeBindMechanism, error) {
+	mac, err := retrieveMacAddressFromVMISpecIface(iface)
+	if err != nil {
+		return nil, err
+	}
+	return &BridgeBindMechanism{iface: iface,
+		vmi:                 vmi,
+		domain:              domain,
+		bridgeInterfaceName: generateInPodBridgeInterfaceName(podInterfaceName),
+		cacheFactory:        cacheFactory,
+		launcherPID:         launcherPID,
+		queueCount:          calculateNetworkQueues(vmi),
+		mac:                 mac,
+		handler:             handler,
+	}, nil
 }
 
 func retrieveMacAddressFromVMISpecIface(vmiSpecIface *v1.Interface) (*net.HardwareAddr, error) {
