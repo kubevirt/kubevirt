@@ -38,6 +38,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vishvananda/netlink"
+
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	eventsclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -1312,6 +1314,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
+			logger.Info("FOOO domain not found")
 			newDomain = true
 			domain, err = l.preStartHook(vmi, domain)
 			if err != nil {
@@ -1320,6 +1323,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 			}
 			dom, err = l.setDomainSpecWithHooks(vmi, &domain.Spec)
 			if err != nil {
+				logger.Reason(err).Error("set domain spec with hooks for VirtualMachineInstance failed.")
 				return nil, err
 			}
 			defer dom.Free()
@@ -1339,6 +1343,11 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	// To make sure, that we set the right qemu wrapper arguments,
 	// we update the domain XML whenever a VirtualMachineInstance was already defined but not running
 	if !newDomain && cli.IsDown(domState) {
+		logger.Info("FOOO domain created by down running phase2 and hooks")
+		err = network.SetupPodNetworkPhase2(vmi, domain)
+		if err != nil {
+			return nil, fmt.Errorf("preparing the pod network failed: %v", err)
+		}
 		dom, err = l.setDomainSpecWithHooks(vmi, &domain.Spec)
 		if err != nil {
 			return nil, err
@@ -1354,6 +1363,22 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		if err != nil {
 			return nil, err
 		}
+
+		xmlstr, err := dom.GetXMLDesc(0)
+		if err != nil {
+			return nil, err
+		}
+
+		linkList, err := netlink.LinkList()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, link := range linkList {
+			logger.Infof("FOOO link %s", link.Attrs().Name)
+		}
+
+		logger.Infof("FOOO creating the domain %s", xmlstr)
 		err = dom.Create()
 		if err != nil {
 			logger.Reason(err).Error("Starting the VirtualMachineInstance failed.")
@@ -1361,6 +1386,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		}
 		logger.Info("Domain started.")
 	} else if cli.IsPaused(domState) && !l.paused.contains(vmi.UID) {
+		logger.Info("FOOO C")
 		// TODO: if state change reason indicates a system error, we could try something smarter
 		err := dom.Resume()
 		if err != nil {

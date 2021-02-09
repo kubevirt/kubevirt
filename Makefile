@@ -55,7 +55,7 @@ go-build:
 
 gosec:
 	hack/dockerized "GOSEC=${GOSEC} ./hack/gosec.sh"
-	
+
 coverage:
 	hack/dockerized "./hack/coverage.sh ${WHAT}"
 
@@ -162,6 +162,13 @@ olm-push:
 
 bump-kubevirtci:
 	./hack/bump-kubevirtci.sh
+
+patch-handler:
+	./cluster-up/kubectl.sh patch -n kubevirt kubevirt kubevirt -p '{"spec": {"imagePullPolicy": "Always" }}' -o json --type merge
+	DOCKER_TAG=devel PUSH_TARGETS="virt-handler virt-launcher" make push
+	# TODO Patch virt-controller deployment and virt-handler daemonset to point to devel
+	./cluster-up/kubectl.sh delete pod -n kubevirt -l kubevirt.io=virt-handler
+	./cluster-up/kubectl.sh delete pod -n kubevirt -l kubevirt.io=virt-launcher
 
 .PHONY: \
 	build-verify \

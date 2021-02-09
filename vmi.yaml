@@ -1,0 +1,43 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  annotations:
+    hooks.kubevirt.io/hookSidecars: '[{"image": "registry:5000/kubevirt/example-interface-hook-sidecar:devel", "imagePullPolicy": "Always"}]'
+    interface.vm.kubevirt.io/MTU: "9000"
+  labels:
+    special: vmi-with-sidecar-hook
+  name: vmi-with-sidecar-hook
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: containerdisk
+      - disk:
+          bus: virtio
+        name: cloudinitdisk
+      interfaces:
+      - masquerade: {}
+        name: default
+      rng: {}
+    machine:
+      type: ""
+    resources:
+      requests:
+        memory: 1024M
+  networks:
+  - name: default
+    pod: {}
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - containerDisk:
+      image: registry:5000/kubevirt/fedora-cloud-container-disk-demo:devel
+    name: containerdisk
+  - cloudInitNoCloud:
+      userData: |-
+        #cloud-config
+        password: fedora
+        chpasswd: { expire: False }
+    name: cloudinitdisk

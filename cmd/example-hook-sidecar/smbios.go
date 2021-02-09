@@ -40,6 +40,7 @@ import (
 )
 
 const baseBoardManufacturerAnnotation = "smbios.vm.kubevirt.io/baseBoardManufacturer"
+const macAnnotation = "network.vm.kubevirt.io/MAC"
 
 type infoServer struct {
 	Version string
@@ -114,6 +115,15 @@ func onDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 	if err != nil {
 		log.Log.Reason(err).Errorf("Failed to unmarshal given domain spec: %s", domainXML)
 		panic(err)
+	}
+
+	log.Log.Info("Breaking MAC addresses")
+	for i, _ := range domainSpec.Devices.Interfaces {
+
+		if mac, found := annotations[macAnnotation]; found {
+			log.Log.Info(fmt.Sprintf("Overwritting MAC addresses for iface %d with %s", i, mac))
+			domainSpec.Devices.Interfaces[i].MAC = &domainSchema.MAC{MAC: mac}
+		}
 	}
 
 	domainSpec.OS.SMBios = &domainSchema.SMBios{Mode: "sysinfo"}

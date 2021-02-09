@@ -1328,11 +1328,13 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, 
 
 func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability {
 	res := []k8sv1.Capability{}
-	if (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
-		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
-		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
-		res = append(res, CAP_NET_ADMIN)
-	}
+	/*
+		if (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
+			(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
+			(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
+			res = append(res, CAP_NET_ADMIN)
+		}
+	*/
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
 	res = append(res, CAP_SYS_NICE)
 
