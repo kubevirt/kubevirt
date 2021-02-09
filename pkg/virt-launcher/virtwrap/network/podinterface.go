@@ -311,19 +311,8 @@ func (l *podNIC) getPhase1Binding() (BindMechanism, error) {
 }
 
 func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
-	retrieveMacAddress := func(iface *v1.Interface) (*net.HardwareAddr, error) {
-		if iface.MacAddress != "" {
-			macAddress, err := net.ParseMAC(iface.MacAddress)
-			if err != nil {
-				return nil, err
-			}
-			return &macAddress, nil
-		}
-		return nil, nil
-	}
-
 	if l.iface.Bridge != nil {
-		mac, err := retrieveMacAddress(l.iface)
+		mac, err := retrieveMacAddressFromVMISpecIface(l.iface)
 		if err != nil {
 			return nil, err
 		}
@@ -340,7 +329,7 @@ func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
 		}, nil
 	}
 	if l.iface.Masquerade != nil {
-		mac, err := retrieveMacAddress(l.iface)
+		mac, err := retrieveMacAddressFromVMISpecIface(l.iface)
 		if err != nil {
 			return nil, err
 		}
@@ -362,7 +351,7 @@ func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
 		return &SlirpBindMechanism{iface: l.iface, domain: domain}, nil
 	}
 	if l.iface.Macvtap != nil {
-		mac, err := retrieveMacAddress(l.iface)
+		mac, err := retrieveMacAddressFromVMISpecIface(l.iface)
 		if err != nil {
 			return nil, err
 		}
@@ -378,6 +367,17 @@ func (l *podNIC) getPhase2Binding(domain *api.Domain) (BindMechanism, error) {
 		}, nil
 	}
 	return nil, fmt.Errorf("Not implemented")
+}
+
+func retrieveMacAddressFromVMISpecIface(vmiSpecIface *v1.Interface) (*net.HardwareAddr, error) {
+	if vmiSpecIface.MacAddress != "" {
+		macAddress, err := net.ParseMAC(vmiSpecIface.MacAddress)
+		if err != nil {
+			return nil, err
+		}
+		return &macAddress, nil
+	}
+	return nil, nil
 }
 
 type BridgeBindMechanism struct {
