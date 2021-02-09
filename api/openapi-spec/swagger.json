@@ -9182,6 +9182,20 @@
      }
     }
    },
+   "v1.CertConfig": {
+    "description": "CertConfig contains the tunables for TLS certificates",
+    "type": "object",
+    "properties": {
+     "duration": {
+      "description": "The requested 'duration' (i.e. lifetime) of the Certificate.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+     },
+     "renewBefore": {
+      "description": "The amount of time before the currently issued certificate's \"notAfter\" time that we will begin to attempt to renew the certificate.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+     }
+    }
+   },
    "v1.Chassis": {
     "description": "Chassis specifies the chassis info passed to the domain.",
     "type": "object",
@@ -10358,14 +10372,25 @@
    "v1.KubeVirtSelfSignConfiguration": {
     "type": "object",
     "properties": {
+     "ca": {
+      "description": "CA configuration CA certs are kept in the CA bundle as long as they are valid",
+      "$ref": "#/definitions/v1.CertConfig"
+     },
      "caOverlapInterval": {
+      "description": "Deprecated. Use CA.Duration and CA.RenewBefore instead",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
      },
      "caRotateInterval": {
+      "description": "Deprecated. Use CA.Duration instead",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
      },
      "certRotateInterval": {
+      "description": "Deprecated. Use Server.Duration instead",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+     },
+     "server": {
+      "description": "Server configuration Certs are rotated and discarded",
+      "$ref": "#/definitions/v1.CertConfig"
      }
     }
    },

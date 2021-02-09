@@ -60,6 +60,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "apps_test.go",
+        "certificates_test.go",
         "core_test.go",
         "crds_test.go",
         "install_strategy_suite_test.go",
