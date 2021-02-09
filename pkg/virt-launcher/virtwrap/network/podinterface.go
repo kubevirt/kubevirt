@@ -311,6 +311,24 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 	return nil, fmt.Errorf("Not implemented")
 }
 
+func generateMacvtapVMNetworkingConfigurator(vmi *v1.VirtualMachineInstance, iface *v1.Interface, podInterfaceName string, launcherPID int) (BindMechanism, error) {
+	mac, err := retrieveMacAddress(iface)
+	if err != nil {
+		return nil, err
+	}
+	virtIface := &api.Interface{}
+	if mac != nil {
+		virtIface.MAC = &api.MAC{MAC: mac.String()}
+	}
+	return &MacvtapBindMechanism{
+		vmi:              vmi,
+		iface:            iface,
+		virtIface:        virtIface,
+		podInterfaceName: podInterfaceName,
+		launcherPID:      launcherPID,
+	}, nil
+}
+
 func generateMacvtapBindingMech(vmi *v1.VirtualMachineInstance, iface *v1.Interface, domain *api.Domain, podInterfaceName string) (BindMechanism, error) {
 	mac, err := networkdriver.RetrieveMacAddress(iface)
 	if err != nil {
@@ -326,6 +344,27 @@ func generateMacvtapBindingMech(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 		virtIface:        virtIface,
 		domain:           domain,
 		podInterfaceName: podInterfaceName,
+	}, nil
+}
+
+func generateMasqueradeVMNetworkingConfigurator(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, launcherPID int) (BindMechanism, error) {
+	mac, err := retrieveMacAddress(iface)
+	if err != nil {
+		return nil, err
+	}
+	vif := &VIF{Name: podInterfaceName}
+	if mac != nil {
+		vif.MAC = *mac
+	}
+	return &MasqueradeBindMechanism{iface: iface,
+		virtIface:           &api.Interface{},
+		vmi:                 vmi,
+		vif:                 vif,
+		podInterfaceName:    podInterfaceName,
+		vmNetworkCIDR:       network.Pod.VMNetworkCIDR,
+		vmIpv6NetworkCIDR:   "", // TODO add ipv6 cidr to PodNetwork schema
+		bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName),
+		launcherPID:         launcherPID,
 	}, nil
 }
 
@@ -365,6 +404,25 @@ func generateBridgeBindingMech(vmi *v1.VirtualMachineInstance, iface *v1.Interfa
 		domain:              domain,
 		podInterfaceName:    podInterfaceName,
 		bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName)}, nil
+}
+
+func generateBridgeVMNetworkingConfigurator(vmi *v1.VirtualMachineInstance, iface *v1.Interface, podInterfaceName string, launcherPID int) (BindMechanism, error) {
+	mac, err := retrieveMacAddress(iface)
+	if err != nil {
+		return nil, err
+	}
+	vif := &VIF{Name: podInterfaceName}
+	if mac != nil {
+		vif.MAC = *mac
+	}
+	return &BridgeBindMechanism{iface: iface,
+		virtIface:           &api.Interface{},
+		vmi:                 vmi,
+		vif:                 vif,
+		podInterfaceName:    podInterfaceName,
+		bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName),
+		launcherPID:         launcherPID,
+	}, nil
 }
 
 type BridgeBindMechanism struct {
