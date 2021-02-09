@@ -60,7 +60,7 @@ type BindMechanism interface {
 	// ports are rewired, meaning, routes and IP addresses configured by
 	// CNI plugin may be gone. For this matter, we use a cached VIF file to
 	// pass discovered information between phases.
-	loadCachedVIF(pid, name string) (bool, error)
+	loadCachedVIF() error
 	setCachedVIF(pid, name string) error
 
 	// The following entry points require domain initialized for the
@@ -250,8 +250,6 @@ func (l *podNICImpl) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 		return err
 	}
 
-	pid := "self"
-
 	isExist, err := bindMechanism.loadCachedInterface()
 	if err != nil {
 		log.Log.Reason(err).Critical("failed to load cached interface configuration")
@@ -260,12 +258,8 @@ func (l *podNICImpl) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 		log.Log.Reason(err).Critical("cached interface configuration doesn't exist")
 	}
 
-	isExist, err = bindMechanism.loadCachedVIF(pid, iface.Name)
-	if err != nil {
+	if err = bindMechanism.loadCachedVIF(); err != nil {
 		log.Log.Reason(err).Critical("failed to load cached vif configuration")
-	}
-	if !isExist {
-		log.Log.Reason(err).Critical("cached vif configuration doesn't exist")
 	}
 
 	err = bindMechanism.decorateConfig()
@@ -627,17 +621,17 @@ func (b *BridgeBindMechanism) setCachedInterface() error {
 	return networkdriver.WriteToVirtLauncherCachedFile(b.virtIface, fmt.Sprintf("%d", b.launcherPID), b.iface.Name)
 }
 
-func (b *BridgeBindMechanism) loadCachedVIF(pid, name string) (bool, error) {
-	buf, err := ioutil.ReadFile(getVifFilePath(pid, name))
+func (b *BridgeBindMechanism) loadCachedVIF() error {
+	buf, err := ioutil.ReadFile(getVifFilePath("self", b.iface.Name))
 	if err != nil {
-		return false, err
+		return err
 	}
 	err = json.Unmarshal(buf, &b.vif)
 	if err != nil {
-		return false, err
+		return err
 	}
 	b.vif.Gateway = b.vif.Gateway.To4()
-	return true, nil
+	return nil
 }
 
 func (b *BridgeBindMechanism) setCachedVIF(pid, name string) error {
@@ -964,7 +958,7 @@ func (b *MasqueradeBindMechanism) decorateConfig() error {
 func (b *MasqueradeBindMechanism) loadCachedInterface() (bool, error) {
 	var ifaceConfig api.Interface
 
-	err := networkdriver.ReadFromVirtLauncherCachedFile(&ifaceConfig, fmt.Sprintf("%d", b.launcherPID), b.iface.Name)
+	err := networkdriver.ReadFromVirtLauncherCachedFile(&ifaceConfig, "self", b.iface.Name)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
@@ -981,18 +975,18 @@ func (b *MasqueradeBindMechanism) setCachedInterface() error {
 	return networkdriver.WriteToVirtLauncherCachedFile(b.virtIface, fmt.Sprintf("%d", b.launcherPID), b.iface.Name)
 }
 
-func (b *MasqueradeBindMechanism) loadCachedVIF(pid, name string) (bool, error) {
-	buf, err := ioutil.ReadFile(getVifFilePath(pid, name))
+func (b *MasqueradeBindMechanism) loadCachedVIF() error {
+	buf, err := ioutil.ReadFile(getVifFilePath("self", b.iface.Name))
 	if err != nil {
-		return false, err
+		return err
 	}
 	err = json.Unmarshal(buf, &b.vif)
 	if err != nil {
-		return false, err
+		return err
 	}
 	b.vif.Gateway = b.vif.Gateway.To4()
 	b.vif.GatewayIpv6 = b.vif.GatewayIpv6.To16()
-	return true, nil
+	return nil
 }
 
 func (b *MasqueradeBindMechanism) setCachedVIF(pid, name string) error {
@@ -1298,8 +1292,8 @@ func (s *SlirpBindMechanism) loadCachedInterface() (bool, error) {
 	return true, nil
 }
 
-func (s *SlirpBindMechanism) loadCachedVIF(pid, name string) (bool, error) {
-	return true, nil
+func (s *SlirpBindMechanism) loadCachedVIF() error {
+	return nil
 }
 
 func (b *SlirpBindMechanism) setCachedVIF(pid, name string) error {
@@ -1384,8 +1378,8 @@ func (b *MacvtapBindMechanism) setCachedInterface() error {
 	return networkdriver.WriteToVirtLauncherCachedFile(b.virtIface, fmt.Sprintf("%d", b.launcherPID), b.iface.Name)
 }
 
-func (b *MacvtapBindMechanism) loadCachedVIF(pid, name string) (bool, error) {
-	return true, nil
+func (b *MacvtapBindMechanism) loadCachedVIF() error {
+	return nil
 }
 
 func (b *MacvtapBindMechanism) setCachedVIF(pid, name string) error {
