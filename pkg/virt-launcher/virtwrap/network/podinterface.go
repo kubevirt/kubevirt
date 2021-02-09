@@ -51,7 +51,7 @@ type BindMechanism interface {
 	preparePodNetworkInterfaces() error
 
 	loadCachedInterface() (bool, error)
-	setCachedInterface(pid, name string) error
+	setCachedInterface() error
 
 	// virt-handler that executes phase1 of network configuration needs to
 	// pass details about discovered networking port into phase2 that is
@@ -200,7 +200,7 @@ func (l *podNICImpl) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 			return createCriticalNetworkError(err)
 		}
 
-		err = bindMechanism.setCachedInterface(pidStr, iface.Name)
+		err = bindMechanism.setCachedInterface()
 		if err != nil {
 			log.Log.Reason(err).Error("failed to save interface configuration")
 			return createCriticalNetworkError(err)
@@ -623,9 +623,8 @@ func (b *BridgeBindMechanism) loadCachedInterface() (bool, error) {
 	return true, nil
 }
 
-func (b *BridgeBindMechanism) setCachedInterface(pid, name string) error {
-	err := networkdriver.WriteToVirtLauncherCachedFile(b.virtIface, pid, name)
-	return err
+func (b *BridgeBindMechanism) setCachedInterface() error {
+	return networkdriver.WriteToVirtLauncherCachedFile(b.virtIface, fmt.Sprintf("%d", b.launcherPID), b.iface.Name)
 }
 
 func (b *BridgeBindMechanism) loadCachedVIF(pid, name string) (bool, error) {
@@ -978,9 +977,8 @@ func (b *MasqueradeBindMechanism) loadCachedInterface() (bool, error) {
 	return true, nil
 }
 
-func (b *MasqueradeBindMechanism) setCachedInterface(pid, name string) error {
-	err := networkdriver.WriteToVirtLauncherCachedFile(b.virtIface, pid, name)
-	return err
+func (b *MasqueradeBindMechanism) setCachedInterface() error {
+	return networkdriver.WriteToVirtLauncherCachedFile(b.virtIface, fmt.Sprintf("%d", b.launcherPID), b.iface.Name)
 }
 
 func (b *MasqueradeBindMechanism) loadCachedVIF(pid, name string) (bool, error) {
@@ -1308,7 +1306,7 @@ func (b *SlirpBindMechanism) setCachedVIF(pid, name string) error {
 	return nil
 }
 
-func (s *SlirpBindMechanism) setCachedInterface(pid, name string) error {
+func (s *SlirpBindMechanism) setCachedInterface() error {
 	return nil
 }
 
@@ -1382,9 +1380,8 @@ func (b *MacvtapBindMechanism) loadCachedInterface() (bool, error) {
 	return true, nil
 }
 
-func (b *MacvtapBindMechanism) setCachedInterface(pid, name string) error {
-	err := networkdriver.WriteToVirtLauncherCachedFile(b.virtIface, pid, name)
-	return err
+func (b *MacvtapBindMechanism) setCachedInterface() error {
+	return networkdriver.WriteToVirtLauncherCachedFile(b.virtIface, fmt.Sprintf("%d", b.launcherPID), b.iface.Name)
 }
 
 func (b *MacvtapBindMechanism) loadCachedVIF(pid, name string) (bool, error) {
