@@ -28,7 +28,6 @@ import (
 	"strings"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/log"
 )
 
 // TODO this should be part of structs, instead of a global
@@ -66,13 +65,13 @@ func (om *OwnershipManager) SetFileOwnership(file string) error {
 	return os.Chown(file, uid, gid)
 }
 
-func RemoveFile(path string) error {
-	err := os.RemoveAll(path)
-	if err != nil && os.IsNotExist(err) {
-		return nil
-	} else if err != nil {
-		log.Log.Reason(err).Errorf("failed to remove %s", path)
-		return err
+func RemoveFilesIfExist(paths ...string) error {
+	var err error
+	for _, path := range paths {
+		err = os.Remove(path)
+		if err != nil && !os.IsNotExist(err) {
+			return err
+		}
 	}
 	return nil
 }
