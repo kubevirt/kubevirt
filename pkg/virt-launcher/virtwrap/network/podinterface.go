@@ -25,7 +25,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -297,19 +296,8 @@ func getPhase1Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 }
 
 func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) (BindMechanism, error) {
-	retrieveMacAddress := func(iface *v1.Interface) (*net.HardwareAddr, error) {
-		if iface.MacAddress != "" {
-			macAddress, err := net.ParseMAC(iface.MacAddress)
-			if err != nil {
-				return nil, err
-			}
-			return &macAddress, nil
-		}
-		return nil, nil
-	}
-
 	if iface.Bridge != nil {
-		mac, err := retrieveMacAddress(iface)
+		mac, err := networkdriver.RetrieveMacAddress(iface)
 		if err != nil {
 			return nil, err
 		}
@@ -326,7 +314,7 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 			bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName)}, nil
 	}
 	if iface.Masquerade != nil {
-		mac, err := retrieveMacAddress(iface)
+		mac, err := networkdriver.RetrieveMacAddress(iface)
 		if err != nil {
 			return nil, err
 		}
@@ -348,7 +336,7 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 		return &SlirpBindMechanism{vmi: vmi, iface: iface, domain: domain}, nil
 	}
 	if iface.Macvtap != nil {
-		mac, err := retrieveMacAddress(iface)
+		mac, err := networkdriver.RetrieveMacAddress(iface)
 		if err != nil {
 			return nil, err
 		}

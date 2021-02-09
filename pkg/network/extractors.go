@@ -22,6 +22,7 @@ package network
 import (
 	"fmt"
 	"kubevirt.io/client-go/api/v1"
+	"net"
 )
 
 func GetNetworksAndCniNetworks(vmi *v1.VirtualMachineInstance) (map[string]*v1.Network, map[string]int) {
@@ -44,4 +45,15 @@ func GetPodInterfaceName(network *v1.Network, cniNetworkIndex int) string {
 	} else {
 		return PrimaryPodInterfaceName
 	}
+}
+
+func RetrieveMacAddress(iface *v1.Interface) (*net.HardwareAddr, error) {
+	if iface.MacAddress != "" {
+		macAddress, err := net.ParseMAC(iface.MacAddress)
+		if err != nil {
+			return nil, err
+		}
+		return &macAddress, nil
+	}
+	return nil, nil
 }
