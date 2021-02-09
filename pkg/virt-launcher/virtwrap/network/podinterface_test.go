@@ -722,9 +722,7 @@ var _ = Describe("Pod Network", func() {
 			bridge, ok := driver.(*BridgeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			succ, err := bridge.loadCachedVIF(fmt.Sprintf("%d", pid), "fakename")
-			Expect(err).To(HaveOccurred())
-			Expect(succ).To(BeFalse())
+			Expect(bridge.loadCachedVIF(fmt.Sprintf("%d", pid))).To(HaveOccurred())
 		})
 		It("should succeed when cache file present", func() {
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
@@ -734,12 +732,9 @@ var _ = Describe("Pod Network", func() {
 			bridge, ok := driver.(*BridgeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			err = bridge.setCachedVIF(fmt.Sprintf("%d", pid), "fakename")
-			Expect(err).ToNot(HaveOccurred())
-
-			succ, err := bridge.loadCachedVIF(fmt.Sprintf("%d", pid), "fakename")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(succ).To(BeTrue())
+			pidStr := fmt.Sprintf("%d", pid)
+			Expect(bridge.setCachedVIF(pidStr)).ToNot(HaveOccurred())
+			Expect(bridge.loadCachedVIF(pidStr)).ToNot(HaveOccurred())
 		})
 	})
 
@@ -753,17 +748,13 @@ var _ = Describe("Pod Network", func() {
 			Expect(ok).To(BeTrue())
 
 			// it doesn't fail regardless, whether called without setCachedVIF...
-			succ, err := slirp.loadCachedVIF(fmt.Sprintf("%d", pid), "fakename")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(succ).To(BeTrue())
+			Expect(slirp.loadCachedVIF(fmt.Sprintf("%d", pid))).NotTo(HaveOccurred())
 
 			// ...or after it
-			err = slirp.setCachedVIF(fmt.Sprintf("%d", pid), "fakename")
+			err = slirp.setCachedVIF(fmt.Sprintf("%d", pid))
 			Expect(err).ToNot(HaveOccurred())
 
-			succ, err = slirp.loadCachedVIF(fmt.Sprintf("%d", pid), "fakename")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(succ).To(BeTrue())
+			Expect(slirp.loadCachedVIF(fmt.Sprintf("%d", pid))).NotTo(HaveOccurred())
 		})
 	})
 
@@ -776,9 +767,7 @@ var _ = Describe("Pod Network", func() {
 			masq, ok := driver.(*MasqueradeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			succ, err := masq.loadCachedVIF(fmt.Sprintf("%d", pid), "fakename")
-			Expect(err).To(HaveOccurred())
-			Expect(succ).To(BeFalse())
+			Expect(masq.loadCachedVIF(fmt.Sprintf("%d", pid))).To(HaveOccurred())
 		})
 		It("should succeed when cache file present", func() {
 			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
@@ -788,12 +777,9 @@ var _ = Describe("Pod Network", func() {
 			masq, ok := driver.(*MasqueradeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			err = masq.setCachedVIF(fmt.Sprintf("%d", pid), "fakename")
-			Expect(err).ToNot(HaveOccurred())
-
-			succ, err := masq.loadCachedVIF(fmt.Sprintf("%d", pid), "fakename")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(succ).To(BeTrue())
+			pidStr := fmt.Sprintf("%d", pid)
+			Expect(masq.setCachedVIF(pidStr)).ToNot(HaveOccurred())
+			Expect(masq.loadCachedVIF(pidStr)).ToNot(HaveOccurred())
 		})
 	})
 
