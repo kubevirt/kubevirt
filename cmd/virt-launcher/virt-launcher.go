@@ -556,6 +556,9 @@ func ForkAndMonitor(containerDiskDir string) (int, error) {
 			}
 			return false, nil
 		})
+		if err != nil {
+			return 1, err
+		}
 	}
 	return exitCode, nil
 }
