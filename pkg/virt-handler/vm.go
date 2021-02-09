@@ -2296,7 +2296,6 @@ func (d *VirtualMachineController) deleteDomainFunc(obj interface{}) {
 			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a domain %#v", obj)).Error("Failed to process delete notification")
 			return
 		}
-		return
 	}
 	log.Log.Object(domain).Info("Domain deleted")
 	key, err := controller.KeyFunc(obj)
