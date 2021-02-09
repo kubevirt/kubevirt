@@ -33,6 +33,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/opencontainers/runc/libcontainer/cgroups"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -182,7 +184,19 @@ func NewController(
 
 	c.domainNotifyPipes = make(map[string]string)
 
-	c.deviceManagerController = device_manager.NewDeviceController(c.host, maxDevices, clusterConfig)
+	permissions := "rw"
+	if cgroups.IsCgroup2UnifiedMode() {
+		// Need 'rwm' permissions otherwise ebpf filtering program attached by runc
+		// will deny probing the device file with 'access' syscall. That in turn
+		// will lead to libvirtd failure on VM startup.
+		// This has been fixed upstream:
+		//   https://github.com/opencontainers/runc/pull/2796
+		// but the workaround is still needed to support previous versions without
+		// the patch.
+		permissions = "rwm"
+	}
+
+	c.deviceManagerController = device_manager.NewDeviceController(c.host, maxDevices, permissions, clusterConfig)
 	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
 
 	return c
