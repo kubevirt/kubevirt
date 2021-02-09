@@ -104,7 +104,8 @@ cluster-clean:
 
 ci-functest: build-functest test-functional
 
-functest: build-functest test-functional-prow
+# will revert
+functest: build-functest test-functional-in-container
 
 build-functest:
 	${DO} ./hack/build-tests.sh
@@ -114,6 +115,9 @@ test-functional:
 
 test-functional-prow:
 	./hack/run-tests.sh
+
+test-functional-in-container:
+	./hack/run-tests-in-container.sh
 
 stageRegistry:
 	@APP_REGISTRY_NAMESPACE=redhat-operators-stage PACKAGE=kubevirt-hyperconverged ./tools/quay-registry.sh $(QUAY_USERNAME) $(QUAY_PASSWORD)
