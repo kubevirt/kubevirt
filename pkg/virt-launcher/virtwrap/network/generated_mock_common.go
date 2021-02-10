@@ -87,6 +87,16 @@ func (_mr *_MockNetworkHandlerRecorder) AddrAdd(arg0, arg1 interface{}) *gomock.
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddrAdd", arg0, arg1)
 }
 
+func (_m *MockNetworkHandler) AddrReplace(link netlink.Link, addr *netlink.Addr) error {
+	ret := _m.ctrl.Call(_m, "AddrReplace", link, addr)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) AddrReplace(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddrReplace", arg0, arg1)
+}
+
 func (_m *MockNetworkHandler) LinkSetDown(link netlink.Link) error {
 	ret := _m.ctrl.Call(_m, "LinkSetDown", link)
 	ret0, _ := ret[0].(error)
@@ -105,6 +115,16 @@ func (_m *MockNetworkHandler) LinkSetUp(link netlink.Link) error {
 
 func (_mr *_MockNetworkHandlerRecorder) LinkSetUp(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "LinkSetUp", arg0)
+}
+
+func (_m *MockNetworkHandler) LinkSetName(link netlink.Link, name string) error {
+	ret := _m.ctrl.Call(_m, "LinkSetName", link, name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) LinkSetName(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "LinkSetName", arg0, arg1)
 }
 
 func (_m *MockNetworkHandler) LinkAdd(link netlink.Link) error {
@@ -243,6 +263,16 @@ func (_m *MockNetworkHandler) ConfigureIpv6Forwarding() error {
 
 func (_mr *_MockNetworkHandlerRecorder) ConfigureIpv6Forwarding() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigureIpv6Forwarding")
+}
+
+func (_m *MockNetworkHandler) ConfigureIpv4ArpIgnore() error {
+	ret := _m.ctrl.Call(_m, "ConfigureIpv4ArpIgnore")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) ConfigureIpv4ArpIgnore() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigureIpv4ArpIgnore")
 }
 
 func (_m *MockNetworkHandler) IptablesNewChain(proto iptables.Protocol, table string, chain string) error {

@@ -26,6 +26,7 @@ import (
 const (
 	sysctlBase        = "/proc/sys"
 	NetIPv6Forwarding = "net/ipv6/conf/all/forwarding"
+	Ipv4ArpIgnoreAll  = "net/ipv4/conf/all/arp_ignore"
 )
 
 // Interface is an injectable interface for running sysctl commands.

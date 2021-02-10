@@ -270,7 +270,7 @@ var _ = Describe("[Serial]Multus", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("checking pod has only one interface")
-				// lo0, eth0, k6t-eth0, vnet0
+				// lo0, eth0-nic, k6t-eth0, vnet0
 				output := tests.RunCommandOnVmiPod(detachedVMI, []string{"/bin/bash", "-c", "/usr/sbin/ip link show|grep -c UP"})
 				ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("4"))
 			})
