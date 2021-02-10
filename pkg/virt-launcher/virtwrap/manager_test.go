@@ -1254,7 +1254,7 @@ var _ = Describe("Manager", func() {
 			migrationMode := migrationType == "postCopy"
 
 			flags := prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, migrationMode)
-			expectedMigrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
+			expectedMigrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_PERSIST_DEST
 
 			if isBlockMigration {
 				expectedMigrateFlags |= libvirt.MIGRATE_NON_SHARED_INC
@@ -1532,6 +1532,56 @@ var _ = Describe("getDetachedDisks", func() {
 				},
 			}),
 	)
+})
+
+var _ = Describe("domXMLWithoutKubevirtMetadata", func() {
+	var ctrl *gomock.Controller
+	var mockDomain *cli.MockVirDomain
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		mockDomain = cli.NewMockVirDomain(ctrl)
+	})
+	It("should remove only the kubevirt metadata", func() {
+		domXML := `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <metadata>
+    <kubevirt xmlns="http://kubevirt.io">
+      <metadata>
+         <kubevirt>nested</kubevirt>
+      </metadata>
+      <uid>d38cac9c-435b-42d5-960e-06e8d41146e8</uid>
+      <graceperiod>
+        <deletionGracePeriodSeconds>0</deletionGracePeriodSeconds>
+      </graceperiod>
+    </kubevirt>
+    <othermetadata>
+      <kubevirt>
+         <keepme>42</keepme>
+      </kubevirt>
+    </othermetadata>
+  </metadata>
+  <kubevirt>this should stay</kubevirt>
+</domain>`
+		// domXMLWithoutKubevirtMetadata() removes the kubevirt block but not its ident, which is its own token, hence the blank line below
+		expectedXML := `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <metadata>
+    
+    <othermetadata>
+      <kubevirt>
+         <keepme>42</keepme>
+      </kubevirt>
+    </othermetadata>
+  </metadata>
+  <kubevirt>this should stay</kubevirt>
+</domain>`
+		mockDomain.EXPECT().Free()
+		vmi := newVMI("testns", "kubevirt")
+		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(string(domXML), nil)
+		newXML, err := domXMLWithoutKubevirtMetadata(mockDomain, vmi)
+		Expect(err).To(BeNil())
+		Expect(newXML).To(Equal(expectedXML))
+	})
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {

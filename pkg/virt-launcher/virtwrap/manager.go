@@ -26,9 +26,11 @@ package virtwrap
 */
 
 import (
+	"bytes"
 	"context"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -318,7 +320,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 }
 
 func prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, allowPostyCopy bool) libvirt.DomainMigrateFlags {
-	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
+	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_PERSIST_DEST
 
 	if isBlockMigration {
 		migrateFlags |= libvirt.MIGRATE_NON_SHARED_INC
@@ -419,6 +421,63 @@ func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstanc
 	return copyDisks
 }
 
+func domXMLWithoutKubevirtMetadata(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string, error) {
+	xmlstr, err := dom.GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Live migration failed. Failed to get XML.")
+		return "", err
+	}
+	decoder := xml.NewDecoder(bytes.NewReader([]byte(xmlstr)))
+	var buf bytes.Buffer
+	encoder := xml.NewEncoder(&buf)
+
+	depth := 0
+	inMeta := false
+	inMetaKV := false
+	for {
+		token, err := decoder.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Log.Object(vmi).Errorf("error getting token: %v\n", err)
+			break
+		}
+
+		switch v := token.(type) {
+		case xml.StartElement:
+			if depth == 1 && v.Name.Local == "metadata" {
+				inMeta = true
+			} else if inMeta && depth == 2 && v.Name.Local == "kubevirt" {
+				inMetaKV = true
+			}
+			depth++
+		case xml.EndElement:
+			depth--
+			if inMetaKV && depth == 2 && v.Name.Local == "kubevirt" {
+				inMetaKV = false
+				continue // Skip </kubevirt>
+			}
+			if inMeta && depth == 1 && v.Name.Local == "metadata" {
+				inMeta = false
+			}
+		}
+		if inMetaKV {
+			continue // We're inside metadata/kubevirt, continuing to skip elements
+		}
+
+		if err := encoder.EncodeToken(xml.CopyToken(token)); err != nil {
+			log.Log.Object(vmi).Reason(err)
+		}
+	}
+
+	if err := encoder.Flush(); err != nil {
+		log.Log.Object(vmi).Reason(err)
+	}
+
+	return string(buf.Bytes()), nil
+}
+
 func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
 
 	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
@@ -481,10 +540,18 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 			return
 		}
 
+		xmlstr, err := domXMLWithoutKubevirtMetadata(dom, vmi)
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Live migration failed. Could not compute target XML.")
+			return
+		}
+
 		params := &libvirt.DomainMigrateParameters{
-			Bandwidth: bandwidth, // MiB/s
-			URI:       migrURI,
-			URISet:    true,
+			Bandwidth:  bandwidth, // MiB/s
+			URI:        migrURI,
+			URISet:     true,
+			DestXML:    xmlstr,
+			DestXMLSet: true,
 		}
 		copyDisks := getDiskTargetsForMigration(dom, vmi)
 		if len(copyDisks) != 0 {
