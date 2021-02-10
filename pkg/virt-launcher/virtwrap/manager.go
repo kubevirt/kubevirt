@@ -408,10 +408,10 @@ func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstanc
 	}
 	// the name of the volume should match the alias
 	for _, disk := range disks {
-		if disk.ReadOnly != nil && !migrationVols.isGeneratedVolume(disk.Alias.Name) {
+		if disk.ReadOnly != nil && !migrationVols.isGeneratedVolume(disk.Alias.GetName()) {
 			continue
 		}
-		if (disk.Type != "file" && disk.Type != "block") || migrationVols.isSharedVolume(disk.Alias.Name) {
+		if (disk.Type != "file" && disk.Type != "block") || migrationVols.isSharedVolume(disk.Alias.GetName()) {
 			continue
 		}
 		copyDisks = append(copyDisks, disk.Target.Device)
@@ -1386,7 +1386,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 
 	//Look up all the disks to detach
 	for _, detachDisk := range getDetachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
-		logger.V(1).Infof("Detaching disk %s, target %s", *detachDisk.Alias, detachDisk.Target.Device)
+		logger.V(1).Infof("Detaching disk %s, target %s", detachDisk.Alias.GetName(), detachDisk.Target.Device)
 		detachBytes, err := xml.Marshal(detachDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling detached disk failed")
@@ -1407,7 +1407,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		if !allowAttach {
 			continue
 		}
-		logger.V(1).Infof("Attaching disk %s, target %s", *attachDisk.Alias, attachDisk.Target.Device)
+		logger.V(1).Infof("Attaching disk %s, target %s", attachDisk.Alias.GetName(), attachDisk.Target.Device)
 		attachBytes, err := xml.Marshal(attachDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling attached disk failed")
@@ -1867,7 +1867,7 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 	}
 	interfaces := devices.Interfaces
 	for _, nic := range interfaces {
-		if data, exist := taggedInterfaces[nic.Alias.Name]; exist {
+		if data, exist := taggedInterfaces[nic.Alias.GetName()]; exist {
 			address := nic.Address
 			var mac string
 			if nic.MAC != nil {

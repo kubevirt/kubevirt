@@ -1767,23 +1767,23 @@ var _ = Describe("Configurations", func() {
 			cacheWritethrough := string(v1.CacheWriteThrough)
 
 			By("checking if requested cache 'none' has been set")
-			Expect(disks[0].Alias.Name).To(Equal("ephemeral-disk1"))
+			Expect(disks[0].Alias.GetName()).To(Equal("ephemeral-disk1"))
 			Expect(disks[0].Driver.Cache).To(Equal(cacheNone))
 
 			By("checking if requested cache 'writethrough' has been set")
-			Expect(disks[1].Alias.Name).To(Equal("ephemeral-disk2"))
+			Expect(disks[1].Alias.GetName()).To(Equal("ephemeral-disk2"))
 			Expect(disks[1].Driver.Cache).To(Equal(cacheWritethrough))
 
 			By("checking if default cache 'none' has been set to ephemeral disk")
-			Expect(disks[2].Alias.Name).To(Equal("ephemeral-disk3"))
+			Expect(disks[2].Alias.GetName()).To(Equal("ephemeral-disk3"))
 			Expect(disks[2].Driver.Cache).To(Equal(cacheNone))
 
 			By("checking if default cache 'none' has been set to cloud-init disk")
-			Expect(disks[3].Alias.Name).To(Equal("cloud-init"))
+			Expect(disks[3].Alias.GetName()).To(Equal("cloud-init"))
 			Expect(disks[3].Driver.Cache).To(Equal(cacheNone))
 
 			By("checking if default cache 'writethrough' has been set to fs which does not support direct I/O")
-			Expect(disks[4].Alias.Name).To(Equal("hostdisk"))
+			Expect(disks[4].Alias.GetName()).To(Equal("hostdisk"))
 			Expect(disks[4].Driver.Cache).To(Equal(cacheWritethrough))
 		})
 
@@ -1822,15 +1822,15 @@ var _ = Describe("Configurations", func() {
 			ioNone := ""
 
 			By("checking if default io has not been seti for sparsed file")
-			Expect(disks[0].Alias.Name).To(Equal("ephemeral-disk1"))
+			Expect(disks[0].Alias.GetName()).To(Equal("ephemeral-disk1"))
 			Expect(disks[0].Driver.IO).To(Equal(ioNone))
 
 			By("checking if default io mode has been set to 'native' for block device")
-			Expect(disks[1].Alias.Name).To(Equal("block-pvc"))
+			Expect(disks[1].Alias.GetName()).To(Equal("block-pvc"))
 			Expect(disks[1].Driver.IO).To(Equal(ioNative))
 
 			By("checking if default cache 'none' has been set to pvc disk")
-			Expect(disks[2].Alias.Name).To(Equal("hostpath-pvc"))
+			Expect(disks[2].Alias.GetName()).To(Equal("hostpath-pvc"))
 			// PVC is mounted as tmpfs on kind, which does not support direct I/O.
 			// As such, it behaves as plugging in a hostDisk - check disks[6].
 			if tests.IsRunningOnKindInfra() {
@@ -1842,7 +1842,7 @@ var _ = Describe("Configurations", func() {
 			}
 
 			By("checking if requested io mode 'threads' has been set")
-			Expect(disks[3].Alias.Name).To(Equal("ephemeral-disk2"))
+			Expect(disks[3].Alias.GetName()).To(Equal("ephemeral-disk2"))
 			Expect(disks[3].Driver.IO).To(Equal(ioThreads))
 
 		})

@@ -529,7 +529,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		if len(vmi.Status.VolumeStatus) > 0 {
 			diskDeviceMap := make(map[string]string)
 			for _, disk := range domain.Spec.Devices.Disks {
-				diskDeviceMap[strings.TrimPrefix(disk.Alias.Name, api.UserAliasPrefix)] = disk.Target.Device
+				diskDeviceMap[disk.Alias.GetName()] = disk.Target.Device
 			}
 			specVolumeMap := make(map[string]v1.Volume)
 			for _, volume := range vmi.Spec.Volumes {
@@ -636,25 +636,25 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 				var newInterface v1.VirtualMachineInstanceNetworkInterface
 				var isForwardingBindingInterface = false
 
-				if existingInterfacesSpecByName[domainInterface.Alias.Name].Masquerade != nil || existingInterfacesSpecByName[domainInterface.Alias.Name].Slirp != nil {
+				if existingInterfacesSpecByName[domainInterface.Alias.GetName()].Masquerade != nil || existingInterfacesSpecByName[domainInterface.Alias.GetName()].Slirp != nil {
 					isForwardingBindingInterface = true
 				}
 
-				if existingInterface, exists := existingInterfaceStatusByName[domainInterface.Alias.Name]; exists {
+				if existingInterface, exists := existingInterfaceStatusByName[domainInterface.Alias.GetName()]; exists {
 					// Reuse previously calculated interface from vmi.Status.Interfaces, updating the MAC from domain.Spec
 					// Only interfaces defined in domain.Spec are handled here
 					newInterface = existingInterface
 					newInterface.MAC = interfaceMAC
 
 					// If it is a Combination of Masquerade+Pod network, check IP from file cache
-					if existingInterfacesSpecByName[domainInterface.Alias.Name].Masquerade != nil && existingNetworksByName[domainInterface.Alias.Name].NetworkSource.Pod != nil {
-						iface, err := d.getPodInterfacefromFileCache(vmi.UID, domainInterface.Alias.Name)
+					if existingInterfacesSpecByName[domainInterface.Alias.GetName()].Masquerade != nil && existingNetworksByName[domainInterface.Alias.GetName()].NetworkSource.Pod != nil {
+						iface, err := d.getPodInterfacefromFileCache(vmi.UID, domainInterface.Alias.GetName())
 						if err != nil {
 							return err
 						}
 
-						if !reflect.DeepEqual(iface.PodIPs, existingInterfaceStatusByName[domainInterface.Alias.Name].IPs) {
-							newInterface.Name = domainInterface.Alias.Name
+						if !reflect.DeepEqual(iface.PodIPs, existingInterfaceStatusByName[domainInterface.Alias.GetName()].IPs) {
+							newInterface.Name = domainInterface.Alias.GetName()
 							newInterface.IP = iface.PodIP
 							newInterface.IPs = iface.PodIPs
 						}
@@ -663,7 +663,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 					// If not present in vmi.Status.Interfaces, create a new one based on domain.Spec
 					newInterface = v1.VirtualMachineInstanceNetworkInterface{
 						MAC:  interfaceMAC,
-						Name: domainInterface.Alias.Name,
+						Name: domainInterface.Alias.GetName(),
 					}
 				}
 
