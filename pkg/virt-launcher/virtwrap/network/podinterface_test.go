@@ -366,7 +366,7 @@ var _ = Describe("Pod Network", func() {
 			err := SetupPodNetworkPhase1(vm, pid)
 			Expect(err).To(HaveOccurred())
 		})
-		Context("func filterPodNetworkRoutes()", func() {
+		Context("func FilterPodNetworkRoutes()", func() {
 			defRoute := netlink.Route{
 				Gw: net.IPv4(10, 35, 0, 1),
 			}

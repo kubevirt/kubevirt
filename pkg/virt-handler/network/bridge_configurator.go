@@ -45,6 +45,70 @@ type BridgedNetworkingVMConfigurator struct {
 	vmi                 *v1.VirtualMachineInstance
 }
 
+func (b *BridgedNetworkingVMConfigurator) discoverPodNetworkInterface() error {
+	link, err := networkdriver.Handler.LinkByName(b.podInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", b.podInterfaceName)
+		return err
+	}
+	b.podNicLink = link
+
+	// get IP address
+	addrList, err := networkdriver.Handler.AddrList(b.podNicLink, netlink.FAMILY_V4)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get an ip address for %s", b.podInterfaceName)
+		return err
+	}
+	if len(addrList) == 0 {
+		b.vif.IPAMDisabled = true
+	} else {
+		b.vif.IP = addrList[0]
+		b.vif.IPAMDisabled = false
+	}
+
+	if len(b.vif.MAC) == 0 {
+		// Get interface MAC address
+		mac, err := networkdriver.Handler.GetMacDetails(b.podInterfaceName)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to get MAC for %s", b.podInterfaceName)
+			return err
+		}
+		b.vif.MAC = mac
+	}
+
+	if b.podNicLink.Attrs().MTU < 0 || b.podNicLink.Attrs().MTU > 65535 {
+		return fmt.Errorf("MTU value out of range ")
+	}
+
+	// Get interface MTU
+	b.vif.Mtu = uint16(b.podNicLink.Attrs().MTU)
+
+	if !b.vif.IPAMDisabled {
+		// Handle interface routes
+		if err := b.setInterfaceRoutes(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *BridgedNetworkingVMConfigurator) setInterfaceRoutes() error {
+	routes, err := networkdriver.Handler.RouteList(b.podNicLink, netlink.FAMILY_V4)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get routes for %s", b.podInterfaceName)
+		return err
+	}
+	if len(routes) == 0 {
+		return fmt.Errorf("No gateway address found in routes for %s", b.podInterfaceName)
+	}
+	b.vif.Gateway = routes[0].Gw
+	if len(routes) > 1 {
+		dhcpRoutes := networkdriver.FilterPodNetworkRoutes(routes, &b.vif)
+		b.vif.Routes = &dhcpRoutes
+	}
+	return nil
+}
+
 func (b *BridgedNetworkingVMConfigurator) prepareVMNetworkingInterfaces() error {
 	// Set interface link to down to change its MAC address
 	if err := networkdriver.Handler.LinkSetDown(b.podNicLink); err != nil {

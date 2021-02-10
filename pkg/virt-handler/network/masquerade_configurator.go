@@ -50,6 +50,92 @@ type MasqueradeNetworkingVMConfigurator struct {
 	queueNumber         uint32
 }
 
+func (b *MasqueradeNetworkingVMConfigurator) discoverPodNetworkInterface() error {
+	link, err := networkdriver.Handler.LinkByName(b.podInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", b.podInterfaceName)
+		return err
+	}
+	b.podNicLink = link
+
+	if b.podNicLink.Attrs().MTU < 0 || b.podNicLink.Attrs().MTU > 65535 {
+		return fmt.Errorf("MTU value out of range ")
+	}
+
+	// Get interface MTU
+	b.vif.Mtu = uint16(b.podNicLink.Attrs().MTU)
+
+	err = b.configureVifV4Addresses()
+	if err != nil {
+		return err
+	}
+
+	ipv6Enabled, err := networkdriver.Handler.IsIpv6Enabled(b.podInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to verify whether ipv6 is configured on %s", b.podInterfaceName)
+		return err
+	}
+	if ipv6Enabled {
+		err = b.configureVifV6Addresses()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *MasqueradeNetworkingVMConfigurator) configureVifV4Addresses() error {
+	if b.vmNetworkCIDR == "" {
+		b.vmNetworkCIDR = api.DefaultVMCIDR
+	}
+
+	defaultGateway, vm, err := networkdriver.Handler.GetHostAndGwAddressesFromCIDR(b.vmNetworkCIDR)
+	if err != nil {
+		log.Log.Errorf("failed to get gw and vm available addresses from CIDR %s", b.vmNetworkCIDR)
+		return err
+	}
+
+	gatewayAddr, err := networkdriver.Handler.ParseAddr(defaultGateway)
+	if err != nil {
+		return fmt.Errorf("failed to parse gateway ip address %s", defaultGateway)
+	}
+	b.vif.Gateway = gatewayAddr.IP.To4()
+	b.gatewayAddr = gatewayAddr
+
+	vmAddr, err := networkdriver.Handler.ParseAddr(vm)
+	if err != nil {
+		return fmt.Errorf("failed to parse vm ip address %s", vm)
+	}
+	b.vif.IP = *vmAddr
+	return nil
+}
+
+func (b *MasqueradeNetworkingVMConfigurator) configureVifV6Addresses() error {
+	if b.vmIpv6NetworkCIDR == "" {
+		b.vmIpv6NetworkCIDR = api.DefaultVMIpv6CIDR
+	}
+
+	defaultGatewayIpv6, vmIpv6, err := networkdriver.Handler.GetHostAndGwAddressesFromCIDR(b.vmIpv6NetworkCIDR)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get gw and vm available ipv6 addresses from CIDR %s", b.vmIpv6NetworkCIDR)
+		return err
+	}
+
+	gatewayIpv6Addr, err := networkdriver.Handler.ParseAddr(defaultGatewayIpv6)
+	if err != nil {
+		return fmt.Errorf("failed to parse gateway ipv6 address %s err %v", gatewayIpv6Addr, err)
+	}
+	b.vif.GatewayIpv6 = gatewayIpv6Addr.IP.To16()
+	b.gatewayIpv6Addr = gatewayIpv6Addr
+
+	vmAddr, err := networkdriver.Handler.ParseAddr(vmIpv6)
+	if err != nil {
+		return fmt.Errorf("failed to parse vm ipv6 address %s err %v", vmIpv6, err)
+	}
+	b.vif.IPv6 = *vmAddr
+	return nil
+}
+
 func (b *MasqueradeNetworkingVMConfigurator) prepareVMNetworkingInterfaces() error {
 	// Create an master bridge interface
 	bridgeNicName := fmt.Sprintf("%s-nic", b.bridgeInterfaceName)

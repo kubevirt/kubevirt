@@ -20,9 +20,13 @@
 package network
 
 import (
+	"strconv"
+
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
+	networkdriver "kubevirt.io/kubevirt/pkg/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -34,6 +38,33 @@ type MacvtapNetworkingVMConfigurator struct {
 	podInterfaceName string
 	podNicLink       netlink.Link
 	launcherPID      int
+}
+
+func (b *MacvtapNetworkingVMConfigurator) discoverPodNetworkInterface() error {
+	link, err := networkdriver.Handler.LinkByName(b.podInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", b.podInterfaceName)
+		return err
+	}
+	b.podNicLink = link
+
+	if b.virtIface.MAC == nil {
+		// Get interface MAC address
+		mac, err := networkdriver.Handler.GetMacDetails(b.podInterfaceName)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to get MAC for %s", b.podInterfaceName)
+			return err
+		}
+		b.virtIface.MAC = &api.MAC{MAC: mac.String()}
+	}
+
+	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
+	b.virtIface.Target = &api.InterfaceTarget{
+		Device:  b.podInterfaceName,
+		Managed: "no",
+	}
+
+	return nil
 }
 
 func (b *MacvtapNetworkingVMConfigurator) prepareVMNetworkingInterfaces() error {
