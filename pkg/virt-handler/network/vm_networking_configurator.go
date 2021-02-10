@@ -20,7 +20,12 @@
 package network
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
+
 	networkdriver "kubevirt.io/kubevirt/pkg/network"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 type VMNetworkingConfiguration interface {
@@ -41,4 +46,31 @@ func createAndBindTapToBridge(deviceName string, bridgeIfaceName string, queueNu
 
 func generateTapDeviceName(podInterfaceName string) string {
 	return "tap" + podInterfaceName[3:]
+}
+
+func loadCachedInterface(launcherPID int, ifaceName string) (*api.Interface, error) {
+	var ifaceConfig api.Interface
+	err := networkdriver.ReadFromVirtLauncherCachedFile(&ifaceConfig, fmt.Sprintf("%d", launcherPID), ifaceName)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &ifaceConfig, nil
+}
+
+func setCachedVIF(vif networkdriver.VIF, pid int, ifaceName string) error {
+	buf, err := json.MarshalIndent(vif, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error marshaling vif object: %v", err)
+	}
+
+	launcherPID := "self"
+	if pid != 0 {
+		launcherPID = fmt.Sprintf("%d", pid)
+	}
+	return networkdriver.WriteVifFile(buf, launcherPID, ifaceName)
 }

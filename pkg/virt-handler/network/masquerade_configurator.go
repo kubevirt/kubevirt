@@ -455,3 +455,19 @@ func (b *MasqueradeNetworkingVMConfigurator) createNatRulesUsingNftables(proto i
 
 	return nil
 }
+
+func (b *MasqueradeNetworkingVMConfigurator) loadCachedInterface() error {
+	cachedIface, err := loadCachedInterface(b.launcherPID, b.iface.Name)
+	if cachedIface != nil {
+		b.virtIface = cachedIface
+	}
+	return err
+}
+
+func (b *MasqueradeNetworkingVMConfigurator) cacheInterface() error {
+	return networkdriver.WriteToVirtLauncherCachedFile(b.virtIface, fmt.Sprintf("%d", b.launcherPID), b.iface.Name)
+}
+
+func (b *MasqueradeNetworkingVMConfigurator) exportVIF() error {
+	return setCachedVIF(*b.vif, b.launcherPID, b.iface.Name)
+}

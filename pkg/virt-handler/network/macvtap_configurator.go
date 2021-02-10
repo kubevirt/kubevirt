@@ -70,3 +70,15 @@ func (b *MacvtapNetworkingVMConfigurator) discoverPodNetworkInterface() error {
 func (b *MacvtapNetworkingVMConfigurator) prepareVMNetworkingInterfaces() error {
 	return nil
 }
+
+func (b *MacvtapNetworkingVMConfigurator) loadCachedInterface() error {
+	return nil
+}
+
+func (b *MacvtapNetworkingVMConfigurator) exportVIF() error {
+	return nil
+}
+
+func (b *MacvtapNetworkingVMConfigurator) cacheInterface() error {
+	return nil
+}

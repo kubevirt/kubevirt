@@ -219,3 +219,19 @@ func (b *BridgedNetworkingVMConfigurator) getFakeBridgeIP() (string, error) {
 	}
 	return "", fmt.Errorf("Failed to generate bridge fake address for interface %s", b.iface.Name)
 }
+
+func (b *BridgedNetworkingVMConfigurator) loadCachedInterface() error {
+	cachedIface, err := loadCachedInterface(b.launcherPID, b.iface.Name)
+	if cachedIface != nil {
+		b.virtIface = cachedIface
+	}
+	return err
+}
+
+func (b *BridgedNetworkingVMConfigurator) cacheInterface() error {
+	return networkdriver.WriteToVirtLauncherCachedFile(b.virtIface, fmt.Sprintf("%d", b.launcherPID), b.iface.Name)
+}
+
+func (b *BridgedNetworkingVMConfigurator) exportVIF() error {
+	return setCachedVIF(b.vif, b.launcherPID, b.iface.Name)
+}

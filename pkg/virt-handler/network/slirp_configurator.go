@@ -32,10 +32,22 @@ type SlirpNetworkingVMConfigurator struct {
 	launcherPID int
 }
 
-func (s *SlirpNetworkingVMConfigurator) discoverPodNetworkInterface() error {
+func (b *SlirpNetworkingVMConfigurator) discoverPodNetworkInterface() error {
 	return nil
 }
 
 func (b *SlirpNetworkingVMConfigurator) prepareVMNetworkingInterfaces() error {
+	return nil
+}
+
+func (b *SlirpNetworkingVMConfigurator) loadCachedInterface() error {
+	return nil
+}
+
+func (b *SlirpNetworkingVMConfigurator) exportVIF() error {
+	return nil
+}
+
+func (b *SlirpNetworkingVMConfigurator) cacheInterface() error {
 	return nil
 }
