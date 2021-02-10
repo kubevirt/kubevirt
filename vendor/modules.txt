@@ -64,7 +64,6 @@ github.com/globalsign/mgo/internal/json
 # github.com/go-kit/kit v0.9.0 => github.com/go-kit/kit v0.3.0
 github.com/go-kit/kit/endpoint
 github.com/go-kit/kit/log
-github.com/go-kit/kit/transport/http
 # github.com/go-logfmt/logfmt v0.4.0
 github.com/go-logfmt/logfmt
 # github.com/go-logr/logr v0.2.0
@@ -493,8 +492,6 @@ google.golang.org/protobuf/types/known/timestamppb
 gopkg.in/cheggaaa/pb.v1
 # gopkg.in/inf.v0 v0.9.1
 gopkg.in/inf.v0
-# gopkg.in/ini.v1 v1.51.0
-gopkg.in/ini.v1
 # gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
 gopkg.in/tomb.v1
 # gopkg.in/yaml.v2 v2.3.0
