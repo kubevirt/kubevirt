@@ -1489,7 +1489,7 @@ func (c *VMIController) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineIn
 		return nil, errors.New("Unable to hotplug, claim not PVC or Datavolume")
 	}
 
-	pvc, exists, isBlock, err := kubevirttypes.IsPVCBlockFromClient(c.clientset, virtlauncherPod.Namespace, claimName)
+	pvc, exists, isBlock, err := kubevirttypes.IsPVCBlockFromStore(c.pvcInformer.GetStore(), virtlauncherPod.Namespace, claimName)
 	if err != nil {
 		return nil, err
 	}
@@ -1526,7 +1526,7 @@ func (c *VMIController) createAttachmentPopulateTriggerPodTemplate(volume *virtv
 		return nil, errors.New("Unable to hotplug, claim not PVC or Datavolume")
 	}
 
-	pvc, exists, isBlock, err := kubevirttypes.IsPVCBlockFromClient(c.clientset, virtlauncherPod.Namespace, claimName)
+	pvc, exists, isBlock, err := kubevirttypes.IsPVCBlockFromStore(c.pvcInformer.GetStore(), virtlauncherPod.Namespace, claimName)
 	if err != nil {
 		return nil, err
 	}

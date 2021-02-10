@@ -1484,16 +1484,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			pod, err := controller.createAttachmentPodTemplate(vmi, virtlauncherPod, volume)
 			Expect(pod).To(BeNil())
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("Unable to find datavolume default/test-dv"))
+			Expect(err.Error()).To(ContainSubstring("Unable to hotplug, claim test-dv not found"))
 		})
 
 		It("CreateAttachmentPodTemplate should set status to pending if DV owning PVC is not ready", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvc := NewHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimPending)
-			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				return true, pvc, nil
-			})
+			pvcInformer.GetIndexer().Add(pvc)
 			dv := &cdiv1.DataVolume{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-dv",
@@ -1533,9 +1531,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvc := NewHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
-			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				return true, pvc, nil
-			})
+			pvcInformer.GetIndexer().Add(pvc)
 			dv := &cdiv1.DataVolume{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-dv",
@@ -1568,9 +1564,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvc := NewHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
-			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				return true, pvc, nil
-			})
+			pvcInformer.GetIndexer().Add(pvc)
 			dv := &cdiv1.DataVolume{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-dv",
