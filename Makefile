@@ -55,7 +55,7 @@ go-build:
 
 gosec:
 	hack/dockerized "GOSEC=${GOSEC} ./hack/gosec.sh"
-	
+
 coverage:
 	hack/dockerized "./hack/coverage.sh ${WHAT}"
 
