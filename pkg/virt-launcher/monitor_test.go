@@ -21,7 +21,6 @@ package virtlauncher
 
 import (
 	"flag"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -50,9 +49,6 @@ var _ = Describe("VirtLauncher", func() {
 	uuid := "123-123-123-123"
 
 	log.Log.SetIOWriter(GinkgoWriter)
-
-	dir := os.Getenv("PWD")
-	dir = strings.TrimSuffix(dir, "pkg/virt-launcher")
 
 	processStarted := false
 
