@@ -1721,7 +1721,9 @@ func cleanNamespaces() {
 		}
 		// Remove all NetworkAttachmentDefinitions
 		nets, err := virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).List(context.Background(), metav1.ListOptions{})
-		PanicOnError(err)
+		if err != nil && !errors.IsNotFound(err) {
+			PanicOnError(err)
+		}
 		for _, netDef := range nets.Items {
 			PanicOnError(virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Delete(context.Background(), netDef.GetName(), metav1.DeleteOptions{}))
 		}
