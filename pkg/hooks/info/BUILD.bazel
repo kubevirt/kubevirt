@@ -4,7 +4,7 @@ load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 
 proto_library(
     name = "kubevirt_hooks_info_proto",
-    srcs = ["api.proto"],
+    srcs = ["api_info.proto"],
     visibility = ["//visibility:public"],
 )
 
