@@ -90,6 +90,8 @@ const ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
 // extensive log verbosity threshold after which libvirt debug logs will be enabled
 const EXT_LOG_VERBOSITY_THRESHOLD = 5
 
+const ephemeralStorageOverheadSize = "50M"
+
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock, tempPod bool) (*k8sv1.Pod, error)
@@ -767,6 +769,18 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	// Copy vmi resources limits to a container
 	for key, value := range vmiResources.Limits {
 		resources.Limits[key] = value
+	}
+
+	// Add ephemeral storage request to container to be used by Kubevirt. This amount of ephemeral storage
+	// should be added to the user's request.
+	ephemeralStorageOverhead := resource.MustParse(ephemeralStorageOverheadSize)
+	ephemeralStorageRequested := resources.Requests[k8sv1.ResourceEphemeralStorage]
+	ephemeralStorageRequested.Add(ephemeralStorageOverhead)
+	resources.Requests[k8sv1.ResourceEphemeralStorage] = ephemeralStorageRequested
+
+	if ephemeralStorageLimit, ephemeralStorageLimitDefined := resources.Limits[k8sv1.ResourceEphemeralStorage]; ephemeralStorageLimitDefined {
+		ephemeralStorageLimit.Add(ephemeralStorageOverhead)
+		resources.Limits[k8sv1.ResourceEphemeralStorage] = ephemeralStorageLimit
 	}
 
 	// Consider hugepages resource for pod scheduling

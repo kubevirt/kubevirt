@@ -2591,6 +2591,55 @@ var _ = Describe("Template", func() {
 
 		})
 
+		Context("Ephemeral storage request", func() {
+
+			table.DescribeTable("by verifying that ephemeral storage ", func(defineEphemeralStorageLimit bool) {
+				vmi := v1.NewMinimalVMI("fake-vmi")
+
+				ephemeralStorageRequests := resource.MustParse("30M")
+				ephemeralStorageLimit := resource.MustParse("70M")
+				ephemeralStorageAddition := resource.MustParse(ephemeralStorageOverheadSize)
+
+				if defineEphemeralStorageLimit {
+					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+						Requests: kubev1.ResourceList{
+							kubev1.ResourceEphemeralStorage: ephemeralStorageRequests,
+						},
+						Limits: kubev1.ResourceList{
+							kubev1.ResourceEphemeralStorage: ephemeralStorageLimit,
+						},
+					}
+				} else {
+					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+						Requests: kubev1.ResourceList{
+							kubev1.ResourceEphemeralStorage: ephemeralStorageRequests,
+						},
+					}
+				}
+
+				ephemeralStorageRequests.Add(ephemeralStorageAddition)
+				ephemeralStorageLimit.Add(ephemeralStorageAddition)
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				computeContainer := pod.Spec.Containers[0]
+				Expect(computeContainer.Name).To(Equal("compute"))
+
+				if defineEphemeralStorageLimit {
+					Expect(computeContainer.Resources.Requests).To(HaveKeyWithValue(kubev1.ResourceEphemeralStorage, ephemeralStorageRequests))
+					Expect(computeContainer.Resources.Limits).To(HaveKeyWithValue(kubev1.ResourceEphemeralStorage, ephemeralStorageLimit))
+				} else {
+					Expect(computeContainer.Resources.Requests).To(HaveKeyWithValue(kubev1.ResourceEphemeralStorage, ephemeralStorageRequests))
+					Expect(computeContainer.Resources.Limits).To(Not(HaveKey(kubev1.ResourceEphemeralStorage)))
+				}
+			},
+				table.Entry("request is increased to consist non-user ephemeral storage", false),
+				table.Entry("request and limit is increased to consist non-user ephemeral storage", true),
+			)
+
+		})
+
 	})
 
 	Describe("ServiceAccountName", func() {
