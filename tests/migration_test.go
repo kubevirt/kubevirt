@@ -1691,6 +1691,9 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 						Expect(err).ToNot(HaveOccurred())
 						return pdbs.Items
 					}, 3*time.Second, 500*time.Millisecond).Should(HaveLen(1))
+					By("waiting for VMI")
+					tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
+
 					By("deleting the VMI")
 					Expect(virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 					By("checking that the PDB disappeared")
