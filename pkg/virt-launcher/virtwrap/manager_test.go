@@ -431,6 +431,7 @@ var _ = Describe("Manager", func() {
 					Name:        "qemu",
 					Type:        "raw",
 					ErrorPolicy: "stop",
+					Discard:     "unmap",
 				},
 				Alias: api.NewUserDefinedAlias("hpvolume1"),
 				Address: &api.Address{
@@ -536,6 +537,7 @@ var _ = Describe("Manager", func() {
 					Name:        "qemu",
 					Type:        "raw",
 					ErrorPolicy: "stop",
+					Discard:     "unmap",
 				},
 				Alias: api.NewUserDefinedAlias("hpvolume1"),
 				Address: &api.Address{
