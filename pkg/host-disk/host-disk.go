@@ -53,20 +53,18 @@ func setDiskDirectory(dir string) error {
 func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.KubevirtClient) error {
 	// If PVC is defined and it's not a BlockMode PVC, then it is replaced by HostDisk
 	// Filesystem PersistenVolumeClaim is mounted into pod as directory from node filesystem
+	passthoughFSVolumes := make(map[string]struct{})
+	for i := range vmi.Spec.Domain.Devices.Filesystems {
+		passthoughFSVolumes[vmi.Spec.Domain.Devices.Filesystems[i].Name] = struct{}{}
+	}
+
 	for i := range vmi.Spec.Volumes {
 		volume := vmi.Spec.Volumes[i]
-		if volumeSource := &volume.VolumeSource; volumeSource.PersistentVolumeClaim != nil {
-
-			// If a PVC is used in a Filesystem, it should not be mapped as a HostDisk and a image file should
+		if volumeSource := &vmi.Spec.Volumes[i].VolumeSource; volumeSource.PersistentVolumeClaim != nil {
+			// If a PVC is used in a Filesystem (passthough), it should not be mapped as a HostDisk and a image file should
 			// not be created.
-			for i := range vmi.Spec.Domain.Devices.Filesystems {
-				if vmi.Spec.Domain.Devices.Filesystems[i].Name == volume.Name {
-					volumeSource.PersistentVolumeClaim = nil
-					break
-				}
-			}
-
-			if volumeSource.PersistentVolumeClaim == nil {
+			if _, isPassthoughFSVolume := passthoughFSVolumes[volume.Name]; isPassthoughFSVolume {
+				log.Log.V(4).Infof("this volume %s is mapped as a filesystem passthrough, will not be replaced by HostDisk", volume.Name)
 				continue
 			}
 

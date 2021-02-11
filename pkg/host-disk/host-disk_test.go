@@ -328,7 +328,7 @@ var _ = Describe("HostDisk", func() {
 			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		})
 
-		table.DescribeTable("PVC in", func(mode k8sv1.PersistentVolumeMode) {
+		table.DescribeTable("PVC in", func(mode k8sv1.PersistentVolumeMode, pvcReferenceObj string) {
 
 			By("Creating the PVC")
 			namespace := "testns"
@@ -359,20 +359,30 @@ var _ = Describe("HostDisk", func() {
 				},
 				Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
 			}
+			// Add a filesystem to vmi spec to test fs passthrough
+			if pvcReferenceObj == "filesystem" {
+				vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+					Name:     volumeName,
+					Virtiofs: &v1.FilesystemVirtiofs{},
+				})
+			}
 
 			By("Replacing PVCs with hostdisks")
 			ReplacePVCByHostDisk(vmi, virtClient)
 
 			Expect(len(vmi.Spec.Volumes)).To(Equal(1), "There should still be 1 volume")
-
-			if mode == k8sv1.PersistentVolumeFilesystem {
+			if mode == k8sv1.PersistentVolumeFilesystem && pvcReferenceObj == "disk" {
 				Expect(vmi.Spec.Volumes[0].HostDisk).NotTo(BeNil(), "There should be a hostdisk volume")
 				Expect(vmi.Spec.Volumes[0].HostDisk.Type).To(Equal(v1.HostDiskExistsOrCreate), "Correct hostdisk type")
 				Expect(vmi.Spec.Volumes[0].HostDisk.Path).NotTo(BeNil(), "Hostdisk path is filled")
 				Expect(vmi.Spec.Volumes[0].HostDisk.Capacity).NotTo(BeNil(), "Hostdisk capacity is filled")
 
 				Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim).To(BeNil(), "There shouldn't be a PVC volume anymore")
-			} else if mode == k8sv1.PersistentVolumeBlock {
+			} else if mode == k8sv1.PersistentVolumeBlock && pvcReferenceObj == "disk" {
+				Expect(vmi.Spec.Volumes[0].HostDisk).To(BeNil(), "There should be no hostdisk volume")
+				Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "There should still be a PVC volume")
+				Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "There should still be the correct PVC volume")
+			} else if mode == k8sv1.PersistentVolumeFilesystem && pvcReferenceObj == "filesystem" {
 				Expect(vmi.Spec.Volumes[0].HostDisk).To(BeNil(), "There should be no hostdisk volume")
 				Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "There should still be a PVC volume")
 				Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "There should still be the correct PVC volume")
@@ -381,8 +391,9 @@ var _ = Describe("HostDisk", func() {
 			}
 
 		},
-			table.Entry("filemode", k8sv1.PersistentVolumeFilesystem),
-			table.Entry("blockmode", k8sv1.PersistentVolumeBlock),
+			table.Entry("filemode", k8sv1.PersistentVolumeFilesystem, "disk"),
+			table.Entry("blockmode", k8sv1.PersistentVolumeBlock, "disk"),
+			table.Entry("filesystem passthrough", k8sv1.PersistentVolumeFilesystem, "filesystem"),
 		)
 	})
 
