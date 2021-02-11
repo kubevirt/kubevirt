@@ -125,9 +125,7 @@ const (
 
 const (
 	AlpineHttpUrl = iota
-	GuestAgentHttpUrl
 	PixmanUrl
-	StressHttpUrl
 	DmidecodeHttpUrl
 	DummyFileHttpUrl
 	CirrosHttpUrl
@@ -4504,12 +4502,8 @@ func GetUrl(urlIndex int) string {
 	switch urlIndex {
 	case AlpineHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/images/alpine.iso", flags.KubeVirtInstallNamespace)
-	case GuestAgentHttpUrl:
-		str = fmt.Sprintf("http://cdi-http-import-server.%s/qemu-ga", flags.KubeVirtInstallNamespace)
 	case PixmanUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/libpixman-1.so.0", flags.KubeVirtInstallNamespace)
-	case StressHttpUrl:
-		str = fmt.Sprintf("http://cdi-http-import-server.%s/stress", flags.KubeVirtInstallNamespace)
 	case DmidecodeHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/dmidecode", flags.KubeVirtInstallNamespace)
 	case DummyFileHttpUrl:
