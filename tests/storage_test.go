@@ -294,6 +294,60 @@ var _ = Describe("Storage", func() {
 			})
 
 		})
+		Context("VirtIO-FS with an empty PVC", func() {
+
+			var pvc = "empty-pvc1"
+
+			BeforeEach(func() {
+				tests.CreateHostPathPv(pvc, filepath.Join(tests.HostPathBase, pvc))
+				tests.CreateHostPathPVC(pvc, "1G")
+			}, 120)
+
+			AfterEach(func() {
+				tests.DeletePVC(pvc)
+				tests.DeletePV(pvc)
+			}, 120)
+
+			It("should be successfully started and virtiofs could be accessed", func() {
+				tests.SkipPVCTestIfRunnigOnKindInfra()
+
+				pvcName := fmt.Sprintf("disk-%s", pvc)
+				vmi := tests.NewRandomVMIWithPVCFS(pvcName)
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
+				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+
+				// add userdata for guest agent and mount virtio-fs
+				fs := vmi.Spec.Domain.Devices.Filesystems[0]
+				virtiofsMountPath := fmt.Sprintf("/mnt/virtiof_%s", fs.Name)
+				virtiofsTestFile := fmt.Sprintf("%s/virtiofs_test", virtiofsMountPath)
+				mountVirtiofsCommands := fmt.Sprintf(`
+                                   mkdir %s
+                                   mount -t virtiofs %s %s
+                                   touch %s
+                           `, virtiofsMountPath, fs.Name, virtiofsMountPath, virtiofsTestFile)
+				userData := fmt.Sprintf("%s\n%s", tests.GetGuestAgentUserData(), mountVirtiofsCommands)
+				tests.AddUserData(vmi, "cloud-init", userData)
+
+				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+
+				// Wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+
+				virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", fs.Name)
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				podVirtioFsFileExist, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					pod,
+					"compute",
+					[]string{"/usr/bin/bash", "-c", virtioFsFileTestCmd},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
+			})
+		})
 		Context("Run a VMI with VirtIO-FS and a datavolume", func() {
 			var dataVolume *cdiv1.DataVolume
 			BeforeEach(func() {

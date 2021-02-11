@@ -875,12 +875,6 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 	isBlockDVMap := make(map[string]bool)
 	diskInfo := make(map[string]*containerdisk.DiskInfo)
 	for i, volume := range vmi.Spec.Volumes {
-		for i := range vmi.Spec.Domain.Devices.Filesystems {
-			if vmi.Spec.Domain.Devices.Filesystems[i].Name == volume.Name {
-				volume.VolumeSource.PersistentVolumeClaim = nil
-				break
-			}
-		}
 		if volume.VolumeSource.PersistentVolumeClaim != nil {
 			isBlockPVC, err := isBlockDeviceVolume(volume.Name)
 			if err != nil {
@@ -1241,12 +1235,6 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	isBlockDVMap := make(map[string]bool)
 	diskInfo := make(map[string]*containerdisk.DiskInfo)
 	for i, volume := range vmi.Spec.Volumes {
-		for i := range vmi.Spec.Domain.Devices.Filesystems {
-			if vmi.Spec.Domain.Devices.Filesystems[i].Name == volume.Name {
-				volume.VolumeSource.PersistentVolumeClaim = nil
-				break
-			}
-		}
 		if volume.VolumeSource.PersistentVolumeClaim != nil {
 			isBlockPVC := false
 			if _, ok := hotplugVolumes[volume.Name]; ok {
