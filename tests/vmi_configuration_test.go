@@ -525,7 +525,8 @@ var _ = Describe("Configurations", func() {
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitForVMIStartOrFailed(vmi, 180, true)
+			wp := tests.WarningsPolicy{IgnoreWarnings: true}
+			tests.WaitForVMIStartOrFailed(vmi, 180, wp)
 			vmiMeta, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
