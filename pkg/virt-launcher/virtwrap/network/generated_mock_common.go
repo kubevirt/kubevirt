@@ -255,24 +255,14 @@ func (_mr *_MockNetworkHandlerRecorder) IsIpv4Primary() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsIpv4Primary")
 }
 
-func (_m *MockNetworkHandler) ConfigureIpv6Forwarding() error {
-	ret := _m.ctrl.Call(_m, "ConfigureIpv6Forwarding")
+func (_m *MockNetworkHandler) ConfigureIpForwarding(proto iptables.Protocol) error {
+	ret := _m.ctrl.Call(_m, "ConfigureIpForwarding", proto)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockNetworkHandlerRecorder) ConfigureIpv6Forwarding() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigureIpv6Forwarding")
-}
-
-func (_m *MockNetworkHandler) ConfigureIpv4Forwarding() error {
-	ret := _m.ctrl.Call(_m, "ConfigureIpv4Forwarding")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockNetworkHandlerRecorder) ConfigureIpv4Forwarding() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigureIpv4Forwarding")
+func (_mr *_MockNetworkHandlerRecorder) ConfigureIpForwarding(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigureIpForwarding", arg0)
 }
 
 func (_m *MockNetworkHandler) ConfigureIpv4ArpIgnore() error {
@@ -335,8 +325,8 @@ func (_mr *_MockNetworkHandlerRecorder) NftablesAppendRule(arg0, arg1, arg2 inte
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "NftablesAppendRule", _s...)
 }
 
-func (_m *MockNetworkHandler) NftablesLoad(fnName string) error {
-	ret := _m.ctrl.Call(_m, "NftablesLoad", fnName)
+func (_m *MockNetworkHandler) NftablesLoad(proto iptables.Protocol) error {
+	ret := _m.ctrl.Call(_m, "NftablesLoad", proto)
 	ret0, _ := ret[0].(error)
 	return ret0
 }

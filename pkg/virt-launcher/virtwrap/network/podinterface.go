@@ -818,20 +818,10 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32
 		return err
 	}
 
-	if Handler.HasNatIptables(iptables.ProtocolIPv4) || Handler.NftablesLoad("ipv4-nat") == nil {
-		err = Handler.ConfigureIpv4Forwarding()
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to configure ipv4 forwarding")
-			return err
-		}
-
-		err = b.createNatRules(iptables.ProtocolIPv4)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to create ipv4 nat rules for vm error: %v", err)
-			return err
-		}
-	} else {
-		return fmt.Errorf("Couldn't configure ipv4 nat rules")
+	err = b.createNatRules(iptables.ProtocolIPv4)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to create ipv4 nat rules for vm error: %v", err)
+		return err
 	}
 
 	ipv6Enabled, err := Handler.IsIpv6Enabled(b.podInterfaceName)
@@ -840,20 +830,10 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32
 		return err
 	}
 	if ipv6Enabled {
-		if Handler.HasNatIptables(iptables.ProtocolIPv6) || Handler.NftablesLoad("ipv6-nat") == nil {
-			err = Handler.ConfigureIpv6Forwarding()
-			if err != nil {
-				log.Log.Reason(err).Errorf("failed to configure ipv6 forwarding")
-				return err
-			}
-
-			err = b.createNatRules(iptables.ProtocolIPv6)
-			if err != nil {
-				log.Log.Reason(err).Errorf("failed to create ipv6 nat rules for vm error: %v", err)
-				return err
-			}
-		} else {
-			return fmt.Errorf("Couldn't configure ipv6 nat rules")
+		err = b.createNatRules(iptables.ProtocolIPv6)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to create ipv6 nat rules for vm error: %v", err)
+			return err
 		}
 	}
 
@@ -985,10 +965,18 @@ func (b *MasqueradeBindMechanism) createBridge() error {
 }
 
 func (b *MasqueradeBindMechanism) createNatRules(protocol iptables.Protocol) error {
-	if Handler.HasNatIptables(protocol) {
+	err := Handler.ConfigureIpForwarding(protocol)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to configure ip forwarding")
+		return err
+	}
+
+	if Handler.NftablesLoad(protocol) == nil {
+		return b.createNatRulesUsingNftables(protocol)
+	} else if Handler.HasNatIptables(protocol) {
 		return b.createNatRulesUsingIptables(protocol)
 	}
-	return b.createNatRulesUsingNftables(protocol)
+	return fmt.Errorf("Couldn't configure ip nat rules")
 }
 
 func (b *MasqueradeBindMechanism) createNatRulesUsingIptables(protocol iptables.Protocol) error {

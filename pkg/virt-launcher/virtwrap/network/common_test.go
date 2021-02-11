@@ -26,6 +26,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/coreos/go-iptables/iptables"
+	"github.com/onsi/ginkgo/extensions/table"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
@@ -109,6 +112,20 @@ var _ = Describe("Common Methods", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.HasPrefix(mac.String(), "02:00:00")).To(BeTrue())
 		})
+	})
+	Context("composeNftablesLoad function", func() {
+		table.DescribeTable("should compose the correct command",
+			func(protocol iptables.Protocol, protocolVersionNum string) {
+				cmd := composeNftablesLoad(protocol)
+				Expect(cmd.Path).To(Equal("nft"))
+				Expect(cmd.Args).To(Equal([]string{
+					"nft",
+					"-f",
+					fmt.Sprintf("/etc/nftables/ipv%s-nat.nft", protocolVersionNum)}))
+			},
+			table.Entry("ipv4", iptables.ProtocolIPv4, "4"),
+			table.Entry("ipv6", iptables.ProtocolIPv6, "6"),
+		)
 	})
 })
 

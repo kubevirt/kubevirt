@@ -232,8 +232,8 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, queueNumber, pid, mtu).Return(nil)
 		mockNetwork.EXPECT().DisableTXOffloadChecksum(bridgeTest.Name).Return(nil)
 		// Global nat rules using iptables
-		mockNetwork.EXPECT().ConfigureIpv4Forwarding().Return(nil)
-		mockNetwork.EXPECT().ConfigureIpv6Forwarding().Return(nil)
+		mockNetwork.EXPECT().ConfigureIpForwarding(iptables.ProtocolIPv4).Return(nil)
+		mockNetwork.EXPECT().ConfigureIpForwarding(iptables.ProtocolIPv6).Return(nil)
 		mockNetwork.EXPECT().GetNFTIPString(iptables.ProtocolIPv4).Return("ip").AnyTimes()
 		mockNetwork.EXPECT().GetNFTIPString(iptables.ProtocolIPv6).Return("ip6").AnyTimes()
 		for _, proto := range ipProtocols() {
@@ -263,11 +263,6 @@ var _ = Describe("Pod Network", func() {
 				"--to-destination",
 				GetMasqueradeVmIp(proto)).Return(nil)
 			//Global net rules using nftable
-			ipVersionNum := "4"
-			if proto == iptables.ProtocolIPv6 {
-				ipVersionNum = "6"
-			}
-			mockNetwork.EXPECT().NftablesLoad(fmt.Sprintf("ipv%s-nat", ipVersionNum)).Return(nil)
 			mockNetwork.EXPECT().NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND").Return(nil)
 			mockNetwork.EXPECT().NftablesNewChain(proto, "nat", "KUBEVIRT_POSTINBOUND").Return(nil)
 			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "postrouting", GetNFTIPString(proto), "saddr", GetMasqueradeVmIp(proto), "counter", "masquerade").Return(nil)
@@ -431,6 +426,7 @@ var _ = Describe("Pod Network", func() {
 
 				// forward all the traffic
 				for _, proto := range ipProtocols() {
+					mockNetwork.EXPECT().NftablesLoad(proto).Return(fmt.Errorf("no nft"))
 					mockNetwork.EXPECT().HasNatIptables(proto).Return(true).Times(2)
 				}
 				mockNetwork.EXPECT().IsIpv6Enabled(primaryPodInterfaceName).Return(true, nil).Times(3)
@@ -448,6 +444,7 @@ var _ = Describe("Pod Network", func() {
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 				for _, proto := range ipProtocols() {
+					mockNetwork.EXPECT().NftablesLoad(proto).Return(fmt.Errorf("no nft"))
 					mockNetwork.EXPECT().HasNatIptables(proto).Return(true).Times(2)
 					mockNetwork.EXPECT().IptablesAppendRule(proto, "nat",
 						"KUBEVIRT_POSTINBOUND",
@@ -482,7 +479,7 @@ var _ = Describe("Pod Network", func() {
 			It("should define a new VIF bind to a bridge and create a default nat rule using nftables", func() {
 				// forward all the traffic
 				for _, proto := range ipProtocols() {
-					mockNetwork.EXPECT().HasNatIptables(proto).Return(true).Times(2)
+					mockNetwork.EXPECT().NftablesLoad(proto).Return(nil)
 				}
 				mockNetwork.EXPECT().IsIpv6Enabled(primaryPodInterfaceName).Return(true, nil).Times(3)
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
@@ -499,7 +496,7 @@ var _ = Describe("Pod Network", func() {
 				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 				for _, proto := range ipProtocols() {
-					mockNetwork.EXPECT().HasNatIptables(proto).Return(false).Times(2)
+					mockNetwork.EXPECT().NftablesLoad(proto).Return(nil)
 
 					mockNetwork.EXPECT().NftablesAppendRule(proto, "nat",
 						"KUBEVIRT_POSTINBOUND",
