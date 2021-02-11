@@ -232,10 +232,27 @@ type ProcessFunc func(event *k8sv1.Event) (done bool)
 type ObjectEventWatcher struct {
 	object                 runtime.Object
 	timeout                *time.Duration
-	failOnWarnings         bool
 	resourceVersion        string
 	startType              startType
+	warningPolicy          WarningsPolicy
 	dontFailOnMissingEvent bool
+}
+
+type WarningsPolicy struct {
+	FailOnWarnings     bool
+	WarningsIgnoreList []string
+}
+
+func (wp *WarningsPolicy) shouldIgnoreWarning(event *k8sv1.Event) bool {
+	if event.Type == string(WarningEvent) {
+		for _, message := range wp.WarningsIgnoreList {
+			if message == event.Message {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func NewObjectEventWatcher(object runtime.Object) *ObjectEventWatcher {
@@ -247,8 +264,8 @@ func (w *ObjectEventWatcher) Timeout(duration time.Duration) *ObjectEventWatcher
 	return w
 }
 
-func (w *ObjectEventWatcher) FailOnWarnings() *ObjectEventWatcher {
-	w.failOnWarnings = true
+func (w *ObjectEventWatcher) SetWarningsPolicy(wp WarningsPolicy) *ObjectEventWatcher {
+	w.warningPolicy = wp
 	return w
 }
 
@@ -313,18 +330,16 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 
 	f := processFunc
 
-	if w.failOnWarnings {
+	if w.warningPolicy.FailOnWarnings {
 		f = func(event *k8sv1.Event) bool {
 			msg := fmt.Sprintf("Event(%#v): type: '%v' reason: '%v' %v", event.InvolvedObject, event.Type, event.Reason, event.Message)
-			if event.Type == string(WarningEvent) {
-				log.Log.Reason(fmt.Errorf("unexpected warning event received")).ObjectRef(&event.InvolvedObject).Error(msg)
-			} else {
-				log.Log.ObjectRef(&event.InvolvedObject).Info(msg)
+			if w.warningPolicy.shouldIgnoreWarning(event) == false {
+				ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
 			}
-			ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
+			log.Log.ObjectRef(&event.InvolvedObject).Info(msg)
+
 			return processFunc(event)
 		}
-
 	} else {
 		f = func(event *k8sv1.Event) bool {
 			if event.Type == string(WarningEvent) {
@@ -1461,7 +1476,8 @@ func RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi *v1.VirtualMachineInstance, t
 func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
 	By("Waiting until the VirtualMachineInstance will be scheduled")
-	waitForVMIScheduling(obj, timeout, false)
+	wp := WarningsPolicy{FailOnWarnings: true}
+	waitForVMIScheduling(obj, timeout, wp)
 	return obj
 }
 
@@ -2749,25 +2765,25 @@ func waitForDataVolumePhase(namespace, name string, seconds int, phase ...cdiv1.
 }
 
 // Block until the specified VirtualMachineInstance reached either Failed or Running states
-func WaitForVMIStartOrFailed(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
+func WaitForVMIStartOrFailed(obj runtime.Object, seconds int, wp WarningsPolicy) (nodeName string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Running, v1.Failed}, obj, seconds, ignoreWarnings, true)
+	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Running, v1.Failed}, obj, seconds, wp, true)
 }
 
 // Block until the specified VirtualMachineInstance started and return the target node name.
-func waitForVMIStart(ctx context.Context, obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
-	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Running}, obj, seconds, ignoreWarnings, false)
+func waitForVMIStart(ctx context.Context, obj runtime.Object, seconds int, wp WarningsPolicy) (nodeName string) {
+	return waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Running}, obj, seconds, wp, false)
 }
 
 // Block until the specified VirtualMachineInstance scheduled and return the target node name.
-func waitForVMIScheduling(obj runtime.Object, seconds int, ignoreWarnings bool) {
+func waitForVMIScheduling(obj runtime.Object, seconds int, wp WarningsPolicy) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running}, obj, seconds, ignoreWarnings, false)
+	waitForVMIPhase(ctx, []v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running}, obj, seconds, wp, false)
 }
 
-func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhase, obj runtime.Object, seconds int, ignoreWarnings bool, waitForFail bool) (nodeName string) {
+func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhase, obj runtime.Object, seconds int, wp WarningsPolicy, waitForFail bool) (nodeName string) {
 	vmi, ok := obj.(*v1.VirtualMachineInstance)
 	ExpectWithOffset(1, ok).To(BeTrue(), "Object is not of type *v1.VMI")
 
@@ -2782,8 +2798,8 @@ func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhas
 	}
 
 	objectEventWatcher := NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds+2) * time.Second)
-	if ignoreWarnings != true {
-		objectEventWatcher.FailOnWarnings()
+	if wp.FailOnWarnings == true {
+		objectEventWatcher.SetWarningsPolicy(wp)
 	}
 
 	go func() {
@@ -2812,19 +2828,22 @@ func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhas
 func WaitForSuccessfulVMIStartIgnoreWarnings(vmi runtime.Object) string {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	return waitForVMIStart(ctx, vmi, 180, true)
+	wp := WarningsPolicy{FailOnWarnings: false}
+	return waitForVMIStart(ctx, vmi, 180, wp)
 }
 
 func WaitForSuccessfulVMIStartWithTimeout(vmi runtime.Object, seconds int) (nodeName string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	return waitForVMIStart(ctx, vmi, seconds, false)
+	wp := WarningsPolicy{FailOnWarnings: true}
+	return waitForVMIStart(ctx, vmi, seconds, wp)
 }
 
 func WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi runtime.Object, seconds int) string {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	return waitForVMIStart(ctx, vmi, seconds, true)
+	wp := WarningsPolicy{FailOnWarnings: false}
+	return waitForVMIStart(ctx, vmi, seconds, wp)
 }
 
 func WaitForPodToDisappearWithTimeout(podName string, seconds int) {
@@ -2861,7 +2880,13 @@ func WaitForSuccessfulVMIStart(vmi runtime.Object) string {
 }
 
 func WaitForSuccessfulVMIStartWithContext(ctx context.Context, vmi runtime.Object) string {
-	return waitForVMIStart(ctx, vmi, 360, false)
+	wp := WarningsPolicy{FailOnWarnings: true}
+	return waitForVMIStart(ctx, vmi, 360, wp)
+}
+
+func WaitForSuccessfulVMIStartWithContextIgnoreSelectedWarnings(ctx context.Context, vmi runtime.Object, warningsIgnoreList []string) string {
+	wp := WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: warningsIgnoreList}
+	return waitForVMIStart(ctx, vmi, 360, wp)
 }
 
 func WaitUntilVMIReadyAsync(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) func() *v1.VirtualMachineInstance {
@@ -2888,10 +2913,25 @@ func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFa
 	return WaitUntilVMIReadyWithContext(ctx, vmi, loginTo)
 }
 
+func WaitUntilVMIReadyIgnoreSelectedWarnings(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory, warningsIgnoreList []string) *v1.VirtualMachineInstance {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return WaitUntilVMIReadyWithContextIgnoreSelectedWarnings(ctx, vmi, loginTo, warningsIgnoreList)
+}
+
 func WaitUntilVMIReadyWithContext(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) *v1.VirtualMachineInstance {
 	// Wait for VirtualMachineInstance start
 	WaitForSuccessfulVMIStartWithContext(ctx, vmi)
+	return LoginToVM(vmi, loginTo)
+}
 
+func WaitUntilVMIReadyWithContextIgnoreSelectedWarnings(ctx context.Context, vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory, warningsIgnoreList []string) *v1.VirtualMachineInstance {
+	// Wait for VirtualMachineInstance start
+	WaitForSuccessfulVMIStartWithContextIgnoreSelectedWarnings(ctx, vmi, warningsIgnoreList)
+	return LoginToVM(vmi, loginTo)
+}
+
+func LoginToVM(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFactory) *v1.VirtualMachineInstance {
 	// Fetch the new VirtualMachineInstance with updated status
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
@@ -2901,8 +2941,10 @@ func WaitUntilVMIReadyWithContext(ctx context.Context, vmi *v1.VirtualMachineIns
 	// Lets make sure that the OS is up by waiting until we can login
 
 	ExpectWithOffset(1, loginTo(vmi)).To(Succeed())
+
 	return vmi
 }
+
 func NewInt32(x int32) *int32 {
 	return &x
 }
