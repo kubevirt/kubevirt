@@ -126,7 +126,6 @@ const (
 const (
 	AlpineHttpUrl = iota
 	PixmanUrl
-	DmidecodeHttpUrl
 	DummyFileHttpUrl
 	CirrosHttpUrl
 	VirtWhatCpuidHelperHttpUrl
@@ -2241,13 +2240,10 @@ func NewRandomVMIWithPVCFS(claimName string) *v1.VirtualMachineInstance {
 }
 
 func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
-	dmidecodeUserData := fmt.Sprintf(`#!/bin/bash
+	userData := `#!/bin/bash
 	    echo "fedora" |passwd fedora --stdin
-	    mkdir -p /usr/local/bin
-	    curl %s > /usr/local/bin/dmidecode
-	    chmod +x /usr/local/bin/dmidecode
-	`, GetUrl(DmidecodeHttpUrl))
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), dmidecodeUserData)
+	`
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling), userData)
 	return vmi
 }
 
@@ -4504,8 +4500,6 @@ func GetUrl(urlIndex int) string {
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/images/alpine.iso", flags.KubeVirtInstallNamespace)
 	case PixmanUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/libpixman-1.so.0", flags.KubeVirtInstallNamespace)
-	case DmidecodeHttpUrl:
-		str = fmt.Sprintf("http://cdi-http-import-server.%s/dmidecode", flags.KubeVirtInstallNamespace)
 	case DummyFileHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/dummy.file", flags.KubeVirtInstallNamespace)
 	case CirrosHttpUrl:
