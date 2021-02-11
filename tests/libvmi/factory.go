@@ -49,7 +49,6 @@ func NewSriovFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 // options.
 func newFedora(containerDisk cd.ContainerDisk, opts ...Option) *kvirtv1.VirtualMachineInstance {
 	configurePassword := `#!/bin/bash
-	rm -f /var/lib/cloud/instance/boot-finished
 	echo "fedora" |passwd fedora --stdin
 	echo `
 
