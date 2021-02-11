@@ -39,7 +39,10 @@ import (
 	domainSchema "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-const baseBoardManufacturerAnnotation = "smbios.vm.kubevirt.io/baseBoardManufacturer"
+const (
+	baseBoardManufacturerAnnotation = "smbios.vm.kubevirt.io/baseBoardManufacturer"
+	onDefineDomainLoggingMessage    = "Hook's OnDefineDomain callback method has been called"
+)
 
 type infoServer struct {
 	Version string
@@ -66,7 +69,7 @@ type v1alpha1Server struct{}
 type v1alpha2Server struct{}
 
 func (s v1alpha2Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha2.OnDefineDomainParams) (*hooksV1alpha2.OnDefineDomainResult, error) {
-	log.Log.Info("Hook's OnDefineDomain callback method has been called")
+	log.Log.Info(onDefineDomainLoggingMessage)
 	newDomainXML, err := onDefineDomain(params.GetVmi(), params.GetDomainXML())
 	if err != nil {
 		return nil, err
@@ -82,7 +85,7 @@ func (s v1alpha2Server) PreCloudInitIso(_ context.Context, params *hooksV1alpha2
 }
 
 func (s v1alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha1.OnDefineDomainParams) (*hooksV1alpha1.OnDefineDomainResult, error) {
-	log.Log.Info("Hook's OnDefineDomain callback method has been called")
+	log.Log.Info(onDefineDomainLoggingMessage)
 	newDomainXML, err := onDefineDomain(params.GetVmi(), params.GetDomainXML())
 	if err != nil {
 		return nil, err
@@ -93,7 +96,7 @@ func (s v1alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha
 }
 
 func onDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
-	log.Log.Info("Hook's OnDefineDomain callback method has been called")
+	log.Log.Info(onDefineDomainLoggingMessage)
 
 	vmiSpec := vmSchema.VirtualMachineInstance{}
 	err := json.Unmarshal(vmiJSON, &vmiSpec)
