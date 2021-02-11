@@ -343,7 +343,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 	crd, err := client.
 		ExtensionsClient().
-		ApiextensionsV1beta1().
+		ApiextensionsV1().
 		CustomResourceDefinitions().
 		Get(context.Background(), "volumesnapshotclasses.snapshot.storage.k8s.io", metav1.GetOptions{})
 	if err != nil {

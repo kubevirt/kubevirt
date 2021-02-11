@@ -25,7 +25,7 @@ import (
 	"time"
 
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -290,7 +290,7 @@ func (ctrl *VMSnapshotController) processCRDWorkItem() bool {
 			return ctrl.deleteDynamicInformer(name)
 		}
 
-		crd, ok := storeObj.(*extv1beta1.CustomResourceDefinition)
+		crd, ok := storeObj.(*extv1.CustomResourceDefinition)
 		if !ok {
 			return 0, fmt.Errorf("unexpected resource %+v", storeObj)
 		}
@@ -452,7 +452,7 @@ func (ctrl *VMSnapshotController) handleCRD(obj interface{}) {
 		obj = unknown.Obj
 	}
 
-	if crd, ok := obj.(*extv1beta1.CustomResourceDefinition); ok {
+	if crd, ok := obj.(*extv1.CustomResourceDefinition); ok {
 		_, ok = ctrl.dynamicInformerMap[crd.Name]
 		if ok {
 			hasSupportedVersion := false

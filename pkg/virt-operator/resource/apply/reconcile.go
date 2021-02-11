@@ -33,7 +33,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
@@ -659,7 +659,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 		GracePeriodSeconds: &gracePeriod,
 	}
 
-	ext := r.clientset.ExtensionsClient()
+	client := r.clientset.ExtensionsClient()
 	// -------- CLEAN UP OLD UNUSED OBJECTS --------
 	// outdated webhooks can potentially block deletes of other objects during the cleanup and need to be removed first
 
@@ -824,7 +824,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	// remove unused crds
 	objects = r.stores.CrdCache.List()
 	for _, obj := range objects {
-		if crd, ok := obj.(*extv1beta1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
+		if crd, ok := obj.(*extv1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
 			found := false
 			for _, targetCrd := range r.targetStrategy.CRDs() {
 				if targetCrd.Name == crd.Name {
@@ -835,7 +835,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(crd); err == nil {
 					r.expectations.Crd.AddExpectedDeletion(r.kvKey, key)
-					err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(context.Background(), crd.Name, deleteOptions)
+					err := client.ApiextensionsV1().CustomResourceDefinitions().Delete(context.Background(), crd.Name, deleteOptions)
 					if err != nil {
 						r.expectations.Crd.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete crd %+v: %v", crd, err)

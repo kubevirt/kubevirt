@@ -40,6 +40,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	ext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,7 +78,7 @@ type Strategy struct {
 	roles        []*rbacv1.Role
 	roleBindings []*rbacv1.RoleBinding
 
-	crds []*extv1beta1.CustomResourceDefinition
+	crds []*extv1.CustomResourceDefinition
 
 	services                        []*corev1.Service
 	deployments                     []*appsv1.Deployment
@@ -182,7 +184,7 @@ func (ins *Strategy) ConfigMaps() []*corev1.ConfigMap {
 	return ins.configMaps
 }
 
-func (ins *Strategy) CRDs() []*extv1beta1.CustomResourceDefinition {
+func (ins *Strategy) CRDs() []*extv1.CustomResourceDefinition {
 	return ins.crds
 }
 
@@ -353,7 +355,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 
 	strategy := &Strategy{}
 
-	functions := []func() (*extv1beta1.CustomResourceDefinition, error){
+	functions := []func() (*extv1.CustomResourceDefinition, error){
 		components.NewVirtualMachineInstanceCrd, components.NewPresetCrd, components.NewReplicaSetCrd,
 		components.NewVirtualMachineCrd, components.NewVirtualMachineInstanceMigrationCrd,
 		components.NewVirtualMachineSnapshotCrd, components.NewVirtualMachineSnapshotContentCrd,
@@ -632,11 +634,31 @@ func loadInstallStrategyFromBytes(data string) (*Strategy, error) {
 			}
 			strategy.daemonSets = append(strategy.daemonSets, d)
 		case "CustomResourceDefinition":
-			crd := &extv1beta1.CustomResourceDefinition{}
-			if err := yaml.Unmarshal([]byte(entry), &crd); err != nil {
-				return nil, err
+			crdv1 := &extv1.CustomResourceDefinition{}
+			switch obj.APIVersion {
+			case extv1beta1.SchemeGroupVersion.String():
+				crd := &ext.CustomResourceDefinition{}
+				crdv1beta1 := &extv1beta1.CustomResourceDefinition{}
+
+				if err := yaml.Unmarshal([]byte(entry), &crdv1beta1); err != nil {
+					return nil, err
+				}
+				err := extv1beta1.Convert_v1beta1_CustomResourceDefinition_To_apiextensions_CustomResourceDefinition(crdv1beta1, crd, nil)
+				if err != nil {
+					return nil, err
+				}
+				err = extv1.Convert_apiextensions_CustomResourceDefinition_To_v1_CustomResourceDefinition(crd, crdv1, nil)
+				if err != nil {
+					return nil, err
+				}
+			case extv1.SchemeGroupVersion.String():
+				if err := yaml.Unmarshal([]byte(entry), &crdv1); err != nil {
+					return nil, err
+				}
+			default:
+				return nil, fmt.Errorf("crd ApiVersion %s not supported", obj.APIVersion)
 			}
-			strategy.crds = append(strategy.crds, crd)
+			strategy.crds = append(strategy.crds, crdv1)
 		case "SecurityContextConstraints":
 			s := &secv1.SecurityContextConstraints{}
 			if err := yaml.Unmarshal([]byte(entry), &s); err != nil {

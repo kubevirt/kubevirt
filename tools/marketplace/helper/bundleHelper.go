@@ -22,11 +22,14 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	ext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+
 	yaml2 "github.com/ghodss/yaml"
 	"github.com/operator-framework/operator-marketplace/pkg/appregistry"
 	"gopkg.in/yaml.v2"
 
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/json"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -56,7 +59,7 @@ type BundleHelper struct {
 	namespace   string
 	packageName string
 	Pkgs        []Pkg
-	CRDs        []v1beta1.CustomResourceDefinition
+	CRDs        []extv1.CustomResourceDefinition
 	CSVs        []yaml.MapSlice
 }
 
@@ -128,8 +131,23 @@ func (bh *BundleHelper) downloadAndParseBundle() error {
 		if err != nil {
 			return err
 		}
-		if err := json.Unmarshal([]byte(crds), &bh.CRDs); err != nil {
-			return err
+		if err := json.Unmarshal(crds, &bh.CRDs); err != nil {
+			// check if these are v1beta1 CRDs
+			var v1beta1Crds []extv1beta1.CustomResourceDefinition
+			if err = json.Unmarshal(crds, &v1beta1Crds); err != nil {
+				return err
+			}
+			for _, v1beta1Crd := range v1beta1Crds {
+				crd := &ext.CustomResourceDefinition{}
+				if err = extv1beta1.Convert_v1beta1_CustomResourceDefinition_To_apiextensions_CustomResourceDefinition(&v1beta1Crd, crd, nil); err != nil {
+					return err
+				}
+				v1Crd := extv1.CustomResourceDefinition{}
+				if err = extv1.Convert_apiextensions_CustomResourceDefinition_To_v1_CustomResourceDefinition(crd, &v1Crd, nil); err != nil {
+					return err
+				}
+				bh.CRDs = append(bh.CRDs, v1Crd)
+			}
 		}
 
 		// we found kubevirt, so no need to go on
@@ -158,19 +176,21 @@ func (bh *BundleHelper) addOldCRDs(outDir string) error {
 
 	currentVersion := v1.KubeVirtGroupVersionKind.Version
 	for _, crd := range bh.CRDs {
-		if crd.Spec.Version == currentVersion {
-			// the current version wil be generated
-			continue
-		}
-		// write old CRD to the out dir
-		bytes, err := json.Marshal(crd)
-		if err != nil {
-			return err
-		}
-		filename := fmt.Sprintf("%v/%v-%v.crd.yaml", outDir, crd.Name, crd.Spec.Version)
-		err = ioutil.WriteFile(filename, bytes, 0644)
-		if err != nil {
-			return err
+		for _, version := range crd.Spec.Versions {
+			if version.Name == currentVersion {
+				// the current version wil be generated
+				continue
+			}
+			// write old CRD to the out dir
+			bytes, err := json.Marshal(crd)
+			if err != nil {
+				return err
+			}
+			filename := fmt.Sprintf("%v/%v-%v.crd.yaml", outDir, crd.Name, version)
+			err = ioutil.WriteFile(filename, bytes, 0644)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil

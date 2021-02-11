@@ -37,7 +37,7 @@ import (
 	"k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -625,8 +625,8 @@ func (f *kubeInformerFactory) OperatorCRD() cache.SharedIndexInformer {
 			panic(err)
 		}
 
-		lw := NewListWatchFromClient(ext.ApiextensionsV1beta1().RESTClient(), "customresourcedefinitions", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
-		return cache.NewSharedIndexInformer(lw, &extv1beta1.CustomResourceDefinition{}, f.defaultResync, cache.Indexers{})
+		lw := NewListWatchFromClient(ext.ApiextensionsV1().RESTClient(), "customresourcedefinitions", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &extv1.CustomResourceDefinition{}, f.defaultResync, cache.Indexers{})
 	})
 }
 
@@ -809,11 +809,11 @@ func (f *kubeInformerFactory) CRD() cache.SharedIndexInformer {
 			panic(err)
 		}
 
-		restClient := ext.ApiextensionsV1beta1().RESTClient()
+		restClient := ext.ApiextensionsV1().RESTClient()
 
 		lw := cache.NewListWatchFromClient(restClient, "customresourcedefinitions", k8sv1.NamespaceAll, fields.Everything())
 
-		return cache.NewSharedIndexInformer(lw, &extv1beta1.CustomResourceDefinition{}, f.defaultResync, cache.Indexers{})
+		return cache.NewSharedIndexInformer(lw, &extv1.CustomResourceDefinition{}, f.defaultResync, cache.Indexers{})
 	})
 }
 

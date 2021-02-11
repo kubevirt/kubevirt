@@ -46,7 +46,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -251,7 +251,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		informers.RoleBinding, roleBindingSource = testutils.NewFakeInformerFor(&rbacv1.RoleBinding{})
 		stores.RoleBindingCache = informers.RoleBinding.GetStore()
 
-		informers.Crd, crdSource = testutils.NewFakeInformerFor(&extv1beta1.CustomResourceDefinition{})
+		informers.Crd, crdSource = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 		stores.CrdCache = informers.Crd.GetStore()
 
 		informers.Service, serviceSource = testutils.NewFakeInformerFor(&k8sv1.Service{})
@@ -444,7 +444,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
-	addCrd := func(crd *extv1beta1.CustomResourceDefinition) {
+	addCrd := func(crd *extv1.CustomResourceDefinition) {
 		mockQueue.ExpectAdds(1)
 		crdSource.Add(crd)
 		mockQueue.Wait()
@@ -571,8 +571,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		case *rbacv1.RoleBinding:
 			injectMetadata(&obj.(*rbacv1.RoleBinding).ObjectMeta, config)
 			addRoleBinding(resource)
-		case *extv1beta1.CustomResourceDefinition:
-			injectMetadata(&obj.(*extv1beta1.CustomResourceDefinition).ObjectMeta, config)
+		case *extv1.CustomResourceDefinition:
+			injectMetadata(&obj.(*extv1.CustomResourceDefinition).ObjectMeta, config)
 			addCrd(resource)
 		case *k8sv1.Service:
 			injectMetadata(&obj.(*k8sv1.Service).ObjectMeta, config)
@@ -785,9 +785,9 @@ var _ = Describe("KubeVirt Operator", func() {
 				Name: fmt.Sprintf("rand-%s", rand.String(10)),
 			},
 		})
-		all = append(all, &extv1beta1.CustomResourceDefinition{
+		all = append(all, &extv1.CustomResourceDefinition{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: "apiextensions.k8s.io/v1beta1",
+				APIVersion: "apiextensions.k8s.io/v1",
 				Kind:       "CustomResourceDefinition",
 			},
 			ObjectMeta: metav1.ObjectMeta{
@@ -867,7 +867,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, rbac.GetAllHandler(NAMESPACE)...)
 		all = append(all, rbac.GetAllController(NAMESPACE)...)
 		// crds
-		functions := []func() (*extv1beta1.CustomResourceDefinition, error){
+		functions := []func() (*extv1.CustomResourceDefinition, error){
 			components.NewVirtualMachineInstanceCrd, components.NewPresetCrd, components.NewReplicaSetCrd,
 			components.NewVirtualMachineCrd, components.NewVirtualMachineInstanceMigrationCrd,
 			components.NewVirtualMachineSnapshotCrd, components.NewVirtualMachineSnapshotContentCrd,

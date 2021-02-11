@@ -32,7 +32,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -139,7 +139,7 @@ var _ = Describe("Install Strategy", func() {
 			}
 
 			for _, original := range strategy.crds {
-				var converted *extv1beta1.CustomResourceDefinition
+				var converted *extv1.CustomResourceDefinition
 				for _, converted = range newStrategy.crds {
 					if original.Name == converted.Name {
 						break
