@@ -27,11 +27,8 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"runtime"
-	"syscall"
 
 	"github.com/coreos/go-iptables/iptables"
-	"github.com/opencontainers/selinux/go-selinux"
 	lmf "github.com/subgraph/libmacouflage"
 	"github.com/vishvananda/netlink"
 
@@ -43,7 +40,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
-	kvselinux "kubevirt.io/kubevirt/pkg/virt-handler/selinux"
+	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcpv6"
 )
@@ -122,13 +119,6 @@ type NetworkHandler interface {
 }
 
 type NetworkUtilsHandler struct{}
-
-type tapDeviceMaker struct {
-	tapName         string
-	queueNumber     uint32
-	virtLauncherPID int
-	tapMakingCmd    *exec.Cmd
-}
 
 var Handler NetworkHandler
 
@@ -411,12 +401,11 @@ func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
 }
 
 func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int) error {
-	tapDeviceMaker, err := buildTapDeviceMaker(tapName, queueNumber, launcherPID, mtu)
+	tapDeviceSELinuxCmdExecutor, err := buildTapDeviceMaker(tapName, queueNumber, launcherPID, mtu)
 	if err != nil {
-		return fmt.Errorf("error creating tap device named %s; %v", tapName, err)
+		return err
 	}
-
-	if err := tapDeviceMaker.makeTapDevice(); err != nil {
+	if err := tapDeviceSELinuxCmdExecutor.Execute(); err != nil {
 		return fmt.Errorf("error creating tap device named %s; %v", tapName, err)
 	}
 
@@ -424,7 +413,7 @@ func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, queueNumber uint32
 	return nil
 }
 
-func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int, mtu int) (*tapDeviceMaker, error) {
+func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int, mtu int) (*selinux.ContextExecutor, error) {
 	createTapDeviceArgs := []string{
 		"create-tap",
 		"--tap-name", tapName,
@@ -435,71 +424,7 @@ func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int
 	}
 	// #nosec No risk for attacket injection. createTapDeviceArgs includes predefined strings
 	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
-
-	return &tapDeviceMaker{
-		tapMakingCmd:    cmd,
-		tapName:         tapName,
-		queueNumber:     queueNumber,
-		virtLauncherPID: virtLauncherPID,
-	}, nil
-}
-
-func (tmc *tapDeviceMaker) makeTapDevice() error {
-	if isSELinuxEnabled() {
-		defer func() {
-			_ = resetVirtHandlerSELinuxContext()
-		}()
-
-		if err := setVirtLauncherSELinuxContext(tmc.virtLauncherPID); err != nil {
-			return err
-		}
-	}
-
-	preventFDLeakOntoChild()
-	if err := tmc.tapMakingCmd.Run(); err != nil {
-		return fmt.Errorf("failed to create tap device %s: %v", tmc.tapName, err)
-	}
-	return nil
-}
-
-func isSELinuxEnabled() bool {
-	_, selinuxEnabled, err := kvselinux.NewSELinux()
-	return err == nil && selinuxEnabled
-}
-
-func setVirtLauncherSELinuxContext(virtLauncherPID int) error {
-	virtLauncherSELinuxLabel, err := getProcessCurrentSELinuxLabel(virtLauncherPID)
-	if err != nil {
-		return fmt.Errorf("error reading virt-launcher %d selinux label. Reason: %v", virtLauncherPID, err)
-	}
-
-	runtime.LockOSThread()
-	if err := selinux.SetExecLabel(virtLauncherSELinuxLabel); err != nil {
-		return fmt.Errorf("failed to switch selinux context to %s. Reason: %v", virtLauncherSELinuxLabel, err)
-	}
-	return nil
-}
-
-func resetVirtHandlerSELinuxContext() error {
-	virtHandlerSELinuxLabel := "system_u:system_r:spc_t:s0"
-	err := selinux.SetExecLabel(virtHandlerSELinuxLabel)
-	runtime.UnlockOSThread()
-	return err
-}
-
-func getProcessCurrentSELinuxLabel(pid int) (string, error) {
-	launcherSELinuxLabel, err := selinux.FileLabel(fmt.Sprintf("/proc/%d/attr/current", pid))
-	if err != nil {
-		return "", fmt.Errorf("could not retrieve pid %d selinux label: %v", pid, err)
-	}
-	return launcherSELinuxLabel, nil
-}
-
-func preventFDLeakOntoChild() {
-	// we want to share the parent process std{in|out|err}
-	for fd := 3; fd < 256; fd++ {
-		syscall.CloseOnExec(fd)
-	}
+	return selinux.NewContextExecutor(virtLauncherPID, cmd)
 }
 
 func (h *NetworkUtilsHandler) BindTapDeviceToBridge(tapName string, bridgeName string) error {

@@ -2,10 +2,16 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["labels.go"],
+    srcs = [
+        "context_executor.go",
+        "labels.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/selinux",
     visibility = ["//visibility:public"],
-    deps = ["//staging/src/kubevirt.io/client-go/log:go_default_library"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/opencontainers/selinux/go-selinux:go_default_library",
+    ],
 )
 
 go_test(
