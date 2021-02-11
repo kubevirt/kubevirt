@@ -377,7 +377,7 @@ var _ = Describe("Storage", func() {
                                        mount -t virtiofs %s %s
                                        touch %s
                                `, virtiofsMountPath, fs.Name, virtiofsMountPath, virtiofsTestFile)
-				userData := fmt.Sprintf("%s\n%s", tests.DeprecatedGetGuestAgentUserData(), mountVirtiofsCommands)
+				userData := fmt.Sprintf("%s\n%s", tests.GetFedoraToolsGuestAgentUserData(), mountVirtiofsCommands)
 				tests.AddUserData(vmi, "cloud-init", userData)
 
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)

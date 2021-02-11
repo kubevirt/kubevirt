@@ -2216,7 +2216,7 @@ func AddPVCFS(vmi *v1.VirtualMachineInstance, name string, claimName string) *v1
 
 func NewRandomVMIWithFSFromDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
-	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedora)
+	containerImage := cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
 	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
 	vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
 		Name:     "disk1",
@@ -2273,22 +2273,6 @@ func GetFedoraToolsGuestAgentUserData() string {
             sudo systemctl start qemu-guest-agent
             sudo systemctl enable qemu-guest-agent
 `
-}
-
-func DeprecatedGetGuestAgentUserData() string {
-	guestAgentUrl := GetUrl(GuestAgentHttpUrl)
-	return fmt.Sprintf(`#!/bin/bash
-                echo "fedora" |passwd fedora --stdin
-                mkdir -p /usr/local/bin
-                for i in {1..20}; do curl -I %s | grep "200 OK" && break || sleep 0.1; done
-                curl %s > /usr/local/bin/qemu-ga
-                chmod +x /usr/local/bin/qemu-ga
-                curl %s > /lib64/libpixman-1.so.0
-                curl %s > /usr/local/bin/stress
-                chmod +x /usr/local/bin/stress
-                setenforce 0
-                systemd-run --unit=guestagent /usr/local/bin/qemu-ga
-                `, guestAgentUrl, guestAgentUrl, GetUrl(PixmanUrl), GetUrl(StressHttpUrl))
 }
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
