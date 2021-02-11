@@ -921,6 +921,15 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 		return fmt.Errorf("conversion failed: %v", err)
 	}
 
+	// set drivers cache mode
+	for i := range domain.Spec.Devices.Disks {
+		err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i])
+		if err != nil {
+			return err
+		}
+		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
+	}
+
 	dom, err := l.preStartHook(vmi, domain)
 	if err != nil {
 		return fmt.Errorf("pre-start pod-setup failed: %v", err)
@@ -1079,15 +1088,6 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// create ServiceAccount disk if exists
 	if err := config.CreateServiceAccountDisk(vmi); err != nil {
 		return domain, fmt.Errorf("creating service account disk failed: %v", err)
-	}
-
-	// set drivers cache mode
-	for i := range domain.Spec.Devices.Disks {
-		err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i])
-		if err != nil {
-			return domain, err
-		}
-		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
 	}
 
 	if err := l.credManager.HandleQemuAgentAccessCredentials(vmi); err != nil {
