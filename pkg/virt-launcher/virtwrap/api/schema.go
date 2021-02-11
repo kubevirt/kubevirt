@@ -247,11 +247,12 @@ type CPUTopology struct {
 }
 
 type Features struct {
-	ACPI   *FeatureEnabled `xml:"acpi,omitempty"`
-	APIC   *FeatureEnabled `xml:"apic,omitempty"`
-	Hyperv *FeatureHyperv  `xml:"hyperv,omitempty"`
-	SMM    *FeatureEnabled `xml:"smm,omitempty"`
-	KVM    *FeatureKVM     `xml:"kvm,omitempty"`
+	ACPI       *FeatureEnabled    `xml:"acpi,omitempty"`
+	APIC       *FeatureEnabled    `xml:"apic,omitempty"`
+	Hyperv     *FeatureHyperv     `xml:"hyperv,omitempty"`
+	SMM        *FeatureEnabled    `xml:"smm,omitempty"`
+	KVM        *FeatureKVM        `xml:"kvm,omitempty"`
+	PVSpinlock *FeaturePVSpinlock `xml:"pvspinlock,omitempty"`
 }
 
 type FeatureHyperv struct {
@@ -274,6 +275,10 @@ type FeatureHyperv struct {
 type FeatureSpinlocks struct {
 	State   string  `xml:"state,attr,omitempty"`
 	Retries *uint32 `xml:"retries,attr,omitempty"`
+}
+
+type FeaturePVSpinlock struct {
+	State string `xml:"state,attr,omitempty"`
 }
 
 type FeatureVendorID struct {

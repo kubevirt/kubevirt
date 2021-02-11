@@ -9780,6 +9780,10 @@
       "description": "Configure how KVM presence is exposed to the guest.",
       "$ref": "#/definitions/v1.FeatureKVM"
      },
+     "pvspinlock": {
+      "description": "Notify the guest that the host supports paravirtual spinlocks. For older kernels this feature should be explicitly disabled.",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
      "smm": {
       "description": "SMM enables/disables System Management Mode. TSEG not yet implemented.",
       "$ref": "#/definitions/v1.FeatureState"
