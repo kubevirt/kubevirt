@@ -58,11 +58,5 @@ elif [ -n "$AS_EMPTY" ]; then
     touch /tmp/healthy
     bash expose-as-iscsi.sh "${IMAGE_PATH}/disk.raw"
 else
-    # Expose binaries via nginx server
-    for executable in dmidecode /usr/libexec/virt-what-cpuid-helper; do
-        cp $(which $executable) /usr/share/nginx/html/
-    done
-    cp /usr/lib64/libpixman-1.so.0 /usr/share/nginx/html/
-
     /usr/sbin/nginx
 fi

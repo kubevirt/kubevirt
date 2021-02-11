@@ -125,7 +125,6 @@ const (
 
 const (
 	AlpineHttpUrl = iota
-	PixmanUrl
 	DummyFileHttpUrl
 	CirrosHttpUrl
 	VirtWhatCpuidHelperHttpUrl
@@ -2248,13 +2247,10 @@ func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
 }
 
 func NewRandomFedoraVMIWithVirtWhatCpuidHelper() *v1.VirtualMachineInstance {
-	userData := fmt.Sprintf(`#!/bin/bash
+	userData := `#!/bin/bash
 	    echo "fedora" |passwd fedora --stdin
-	    mkdir -p /usr/local/bin
-	    curl %s > /usr/local/bin/virt-what-cpuid-helper
-	    chmod +x /usr/local/bin/virt-what-cpuid-helper
-	`, GetUrl(VirtWhatCpuidHelperHttpUrl))
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), userData)
+	`
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling), userData)
 	return vmi
 }
 
@@ -4498,8 +4494,6 @@ func GetUrl(urlIndex int) string {
 	switch urlIndex {
 	case AlpineHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/images/alpine.iso", flags.KubeVirtInstallNamespace)
-	case PixmanUrl:
-		str = fmt.Sprintf("http://cdi-http-import-server.%s/libpixman-1.so.0", flags.KubeVirtInstallNamespace)
 	case DummyFileHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/dummy.file", flags.KubeVirtInstallNamespace)
 	case CirrosHttpUrl:

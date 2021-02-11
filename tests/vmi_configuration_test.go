@@ -2648,11 +2648,11 @@ var _ = Describe("Configurations", func() {
 
 			By("Check virt-what-cpuid-helper does not match KVM")
 			Expect(console.ExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "virt-what-cpuid-helper > /dev/null 2>&1 && echo 'pass'\n"},
+				&expect.BSnd{S: "/usr/libexec/virt-what-cpuid-helper > /dev/null 2>&1 && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
-				&expect.BSnd{S: "$(sudo virt-what-cpuid-helper | grep -q KVMKVMKVM) || echo 'pass'\n"},
+				&expect.BSnd{S: "$(sudo /usr/libexec/virt-what-cpuid-helper | grep -q KVMKVMKVM) || echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
-			}, 1*time.Second)).To(Succeed())
+			}, 2*time.Second)).To(Succeed())
 		})
 
 		It("[test_id:5272]test cpuid default", func() {
@@ -2666,9 +2666,9 @@ var _ = Describe("Configurations", func() {
 
 			By("Check virt-what-cpuid-helper matches KVM")
 			Expect(console.ExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "virt-what-cpuid-helper > /dev/null 2>&1 && echo 'pass'\n"},
+				&expect.BSnd{S: "/usr/libexec/virt-what-cpuid-helper > /dev/null 2>&1 && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
-				&expect.BSnd{S: "$(sudo virt-what-cpuid-helper | grep -q KVMKVMKVM) && echo 'pass'\n"},
+				&expect.BSnd{S: "$(sudo /usr/libexec/virt-what-cpuid-helper | grep -q KVMKVMKVM) && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
 			}, 1*time.Second)).To(Succeed())
 		})
