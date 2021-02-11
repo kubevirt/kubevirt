@@ -1352,10 +1352,10 @@ type CustomizeComponents struct {
 
 // +k8s:openapi-gen=true
 type CustomizeComponentsPatch struct {
-	ResourceName string    `json:"resourceName,omitempty"`
-	ResourceType string    `json:"resourceType,omitempty"`
-	Patch        string    `json:"patch,omitempty"`
-	Type         PatchType `json:"type,omitempty"`
+	ResourceName string    `json:"resourceName"`
+	ResourceType string    `json:"resourceType"`
+	Patch        string    `json:"patch"`
+	Type         PatchType `json:"type"`
 }
 
 type PatchType string

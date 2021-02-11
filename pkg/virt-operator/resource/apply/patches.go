@@ -181,12 +181,20 @@ func (c *Customizer) GetPatchesForResource(resourceType, name string) []v1.Custo
 	patches := make([]v1.CustomizeComponentsPatch, 0)
 
 	for _, p := range allPatches {
-		if strings.EqualFold(p.ResourceType, resourceType) && strings.EqualFold(p.ResourceName, name) {
+		if valueMatchesKey(p.ResourceType, resourceType) && valueMatchesKey(p.ResourceName, name) {
 			patches = append(patches, p)
 		}
 	}
 
 	return patches
+}
+
+func valueMatchesKey(value, key string) bool {
+	if value == "*" {
+		return true
+	}
+
+	return strings.EqualFold(key, value)
 }
 
 func getHash(customizations v1.CustomizeComponents) (string, error) {

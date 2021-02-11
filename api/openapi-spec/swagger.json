@@ -9242,6 +9242,12 @@
    },
    "v1.CustomizeComponentsPatch": {
     "type": "object",
+    "required": [
+     "resourceName",
+     "resourceType",
+     "patch",
+     "type"
+    ],
     "properties": {
      "patch": {
       "type": "string"

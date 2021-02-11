@@ -226,6 +226,11 @@ spec:
                         type: string
                       type:
                         type: string
+                    required:
+                    - patch
+                    - resourceName
+                    - resourceType
+                    - type
                     type: object
                   type: array
                   x-kubernetes-list-type: atomic
