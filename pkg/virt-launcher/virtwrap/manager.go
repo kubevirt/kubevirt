@@ -1304,6 +1304,15 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		return nil, err
 	}
 
+	// set drivers cache mode
+	for i := range domain.Spec.Devices.Disks {
+		err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i])
+		if err != nil {
+			return nil, err
+		}
+		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
+	}
+
 	// Set defaults which are not coming from the cluster
 	api.NewDefaulter(c.Architecture).SetObjectDefaults_Domain(domain)
 
