@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	networkdriver "kubevirt.io/kubevirt/pkg/network"
 )
 
 var _ = Describe("Network", func() {
@@ -52,7 +53,7 @@ var _ = Describe("Network", func() {
 			iface := v1.DefaultBridgeNetworkInterface()
 			defaultNet := v1.DefaultPodNetwork()
 
-			mockpodNIC.EXPECT().PlugPhase1(vm, iface, defaultNet, primaryPodInterfaceName, pid)
+			mockpodNIC.EXPECT().PlugPhase1(vm, iface, defaultNet, networkdriver.PrimaryPodInterfaceName, pid)
 			err := SetupPodNetworkPhase1(vm, pid)
 			Expect(err).To(BeNil())
 		})

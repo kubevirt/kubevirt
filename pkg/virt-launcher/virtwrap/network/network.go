@@ -34,8 +34,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-const primaryPodInterfaceName = "eth0"
-
 var podNICFactory = newpodNIC
 
 type PodCacheInterface struct {
@@ -90,7 +88,7 @@ func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string
 		// multus pod interfaces named netX
 		return fmt.Sprintf("net%d", cniNetworks[ifaceName])
 	} else {
-		return primaryPodInterfaceName
+		return networkdriver.PrimaryPodInterfaceName
 	}
 }
 

@@ -45,6 +45,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcpv6"
 )
 
+const PrimaryPodInterfaceName = "eth0"
+
 const (
 	randomMacGenerationAttempts = 10
 	tapOwnerUID                 = "0"
