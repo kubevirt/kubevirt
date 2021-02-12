@@ -27,6 +27,8 @@ import (
 	"os"
 	"runtime"
 
+	networkdriver "kubevirt.io/kubevirt/pkg/network"
+
 	"github.com/coreos/go-iptables/iptables"
 
 	"github.com/golang/mock/gomock"
@@ -41,8 +43,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+func MockVirtLauncherCachedPattern(path string) {
+	networkdriver.VirtLauncherCachedPattern = path
+}
+
 var _ = Describe("Pod Network", func() {
-	var mockNetwork *MockNetworkHandler
+	var mockNetwork *networkdriver.MockNetworkHandler
 	var ctrl *gomock.Controller
 	var dummySwap *netlink.Dummy
 	var primaryPodInterface *netlink.GenericLink
@@ -57,9 +63,9 @@ var _ = Describe("Pod Network", func() {
 	var bridgeTest *netlink.Bridge
 	var masqueradeBridgeTest *netlink.Bridge
 	var bridgeAddr *netlink.Addr
-	var testNic *VIF
+	var testNic *networkdriver.VIF
 	var tmpDir string
-	var masqueradeTestNic *VIF
+	var masqueradeTestNic *networkdriver.VIF
 	var masqueradeDummyName string
 	var masqueradeDummy *netlink.Dummy
 	var masqueradeGwStr string
@@ -83,12 +89,12 @@ var _ = Describe("Pod Network", func() {
 
 	BeforeEach(func() {
 		tmpDir, _ := ioutil.TempDir("", "networktest")
-		mockVirtLauncherCachedPattern(tmpDir + "/cache-iface-%s.json")
-		setVifCacheFile(tmpDir + "/cache-vif-%s.json")
+		MockVirtLauncherCachedPattern(tmpDir + "/cache-iface-%s.json")
+		networkdriver.SetVifCacheFile(tmpDir + "/cache-vif-%s.json")
 
 		ctrl = gomock.NewController(GinkgoT())
-		mockNetwork = NewMockNetworkHandler(ctrl)
-		Handler = mockNetwork
+		mockNetwork = networkdriver.NewMockNetworkHandler(ctrl)
+		networkdriver.Handler = mockNetwork
 		testMac := "12:34:56:78:9A:BC"
 		updateTestMac := "AF:B3:1F:78:2A:CA"
 		mtu = 1410
@@ -123,7 +129,7 @@ var _ = Describe("Pod Network", func() {
 
 		bridgeAddr, _ = netlink.ParseAddr(fmt.Sprintf(bridgeFakeIP, 0))
 		tapDeviceName = "tap0"
-		testNic = &VIF{Name: primaryPodInterfaceName,
+		testNic = &networkdriver.VIF{Name: primaryPodInterfaceName,
 			IP:      fakeAddr,
 			MAC:     fakeMac,
 			Mtu:     uint16(mtu),
@@ -144,7 +150,7 @@ var _ = Describe("Pod Network", func() {
 		masqueradeVmIpv6 = masqueradeIpv6VmAddr.IP.String()
 		masqueradeDummyName = fmt.Sprintf("%s-nic", api.DefaultBridgeName)
 		masqueradeDummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: masqueradeDummyName, MTU: mtu}}
-		masqueradeTestNic = &VIF{Name: primaryPodInterfaceName,
+		masqueradeTestNic = &networkdriver.VIF{Name: primaryPodInterfaceName,
 			IP:          *masqueradeVmAddr,
 			IPv6:        *masqueradeIpv6VmAddr,
 			MAC:         fakeMac,
@@ -342,7 +348,7 @@ var _ = Describe("Pod Network", func() {
 			err := SetupPodNetworkPhase1(vm, pid)
 			Expect(err).To(HaveOccurred(), "SetupPodNetworkPhase1 should return an error")
 
-			_, ok := err.(*CriticalNetworkError)
+			_, ok := err.(*networkdriver.CriticalNetworkError)
 			Expect(ok).To(BeTrue(), "SetupPodNetworkPhase1 should return an error of type CriticalNetworkError")
 		})
 		It("should return an error if the MTU is out or range", func() {
@@ -378,7 +384,7 @@ var _ = Describe("Pod Network", func() {
 
 			It("should remove empty routes, and routes matching nic, leaving others intact", func() {
 				expectedRouteList := []netlink.Route{defRoute, gwRoute, staticRoute}
-				Expect(filterPodNetworkRoutes(staticRouteList, testNic)).To(Equal(expectedRouteList))
+				Expect(networkdriver.FilterPodNetworkRoutes(staticRouteList, testNic)).To(Equal(expectedRouteList))
 			})
 		})
 		It("phase2 should panic if DHCP startup fails", func() {
@@ -805,7 +811,7 @@ var _ = Describe("Pod Network", func() {
 		fakeAddr1 := netlink.Addr{IPNet: address1}
 		fakeAddr2 := netlink.Addr{IPNet: address2}
 		addrList := []netlink.Addr{fakeAddr1, fakeAddr2}
-		err := CreateVirtHandlerCacheDir(uid)
+		err := networkdriver.CreateVirtHandlerCacheDir(uid)
 		Expect(err).ToNot(HaveOccurred())
 
 		iface := &v1.Interface{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
@@ -817,7 +823,7 @@ var _ = Describe("Pod Network", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		var podData PodCacheInterface
-		err = ReadFromVirtHandlerCachedFile(&podData, uid, iface.Name)
+		err = networkdriver.ReadFromVirtHandlerCachedFile(&podData, uid, iface.Name)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(podData.PodIP).To(Equal("1.2.3.4"))
 	})

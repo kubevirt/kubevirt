@@ -51,6 +51,8 @@ const (
 	tapOwnerGID                 = "0"
 )
 
+var VifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
+
 type VIF struct {
 	Name         string
 	IP           netlink.Addr
@@ -471,14 +473,14 @@ func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
 var DHCPServer = dhcp.SingleClientDHCPServer
 var DHCPv6Server = dhcpv6.SingleClientDHCPv6Server
 
-func initHandler() {
+func InitHandler() {
 	if Handler == nil {
 		Handler = &NetworkUtilsHandler{}
 	}
 }
 
 // filter out irrelevant routes
-func filterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []netlink.Route) {
+func FilterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []netlink.Route) {
 	for _, route := range routes {
 		// don't create empty static routes
 		if route.Dst == nil && route.Src.Equal(nil) && route.Gw.Equal(nil) {
@@ -495,6 +497,6 @@ func filterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []
 	return
 }
 
-func setVifCacheFile(path string) {
-	vifCacheFile = path
+func SetVifCacheFile(path string) {
+	VifCacheFile = path
 }

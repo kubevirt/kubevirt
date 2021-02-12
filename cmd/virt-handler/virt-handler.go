@@ -61,6 +61,7 @@ import (
 	_ "kubevirt.io/kubevirt/pkg/monitoring/reflector/prometheus" // import for prometheus metrics
 	promvm "kubevirt.io/kubevirt/pkg/monitoring/vms/prometheus"  // import for prometheus metrics
 	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus" // import for prometheus metrics
+	networkdriver "kubevirt.io/kubevirt/pkg/network"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -72,7 +73,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
@@ -261,7 +261,7 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	err = network.CreateVirtHandlerNetworkInfoCache()
+	err = networkdriver.CreateVirtHandlerNetworkInfoCache()
 	if err != nil {
 		panic(err)
 	}

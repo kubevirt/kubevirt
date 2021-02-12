@@ -60,6 +60,7 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	networkdriver "kubevirt.io/kubevirt/pkg/network"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	clusterutils "kubevirt.io/kubevirt/pkg/util/cluster"
 	pvcutils "kubevirt.io/kubevirt/pkg/util/types"
@@ -406,7 +407,7 @@ func (d *VirtualMachineController) clearPodNetworkPhase1(uid types.UID) {
 	}
 	d.podInterfaceCacheLock.Unlock()
 
-	err := network.RemoveVirtHandlerCacheDir(uid)
+	err := networkdriver.RemoveVirtHandlerCacheDir(uid)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to delete VMI Network cache files: %s", err.Error())
 	}
@@ -438,7 +439,7 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 
 	err = res.DoNetNS(func() error { return network.SetupPodNetworkPhase1(vmi, pid) })
 	if err != nil {
-		_, critical := err.(*network.CriticalNetworkError)
+		_, critical := err.(*networkdriver.CriticalNetworkError)
 		if critical {
 			return true, err
 		} else {
@@ -474,7 +475,7 @@ func (d *VirtualMachineController) getPodInterfacefromFileCache(uid types.UID, i
 	if exists {
 		return result, nil
 	}
-	network.ReadFromVirtHandlerCachedFile(&result, uid, ifaceName)
+	networkdriver.ReadFromVirtHandlerCachedFile(&result, uid, ifaceName)
 
 	d.podInterfaceCacheLock.Lock()
 	d.podInterfaceCache[cacheKey] = result
