@@ -1071,7 +1071,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
-				tests.AddUserData(vmi, "cloud-init", tests.GetGuestAgentUserData())
+				tests.AddUserData(vmi, "cloud-init", tests.GetFedoraToolsGuestAgentUserData())
 				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Checking guest agent")
