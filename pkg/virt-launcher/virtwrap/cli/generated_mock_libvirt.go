@@ -471,6 +471,17 @@ func (_mr *_MockVirDomainRecorder) SetTime(arg0, arg1, arg2 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetTime", arg0, arg1, arg2)
 }
 
+func (_m *MockVirDomain) IsPersistent() (bool, error) {
+	ret := _m.ctrl.Call(_m, "IsPersistent")
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirDomainRecorder) IsPersistent() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsPersistent")
+}
+
 func (_m *MockVirDomain) AbortJob() error {
 	ret := _m.ctrl.Call(_m, "AbortJob")
 	ret0, _ := ret[0].(error)

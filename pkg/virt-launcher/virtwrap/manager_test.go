@@ -82,6 +82,7 @@ var _ = Describe("Manager", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockConn = cli.NewMockConnection(ctrl)
 		mockDomain = cli.NewMockVirDomain(ctrl)
+		mockDomain.EXPECT().IsPersistent().AnyTimes().Return(true, nil)
 	})
 
 	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {

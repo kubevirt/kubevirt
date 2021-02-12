@@ -30,9 +30,13 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/virt-launcher/virtwrap/cli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/go-kit/kit/log:go_default_library",
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/libvirt.org/libvirt-go:go_default_library",
     ],
 )
