@@ -420,6 +420,10 @@ func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstanc
 	}
 	// the name of the volume should match the alias
 	for _, disk := range disks {
+		// explicitly skip cd-rom drives
+		if disk.Device == "cdrom" {
+			continue
+		}
 		if disk.ReadOnly != nil && !migrationVols.isGeneratedVolume(disk.Alias.GetName()) {
 			continue
 		}
