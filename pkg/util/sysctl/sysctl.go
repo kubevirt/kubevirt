@@ -26,6 +26,7 @@ import (
 const (
 	sysctlBase        = "/proc/sys"
 	NetIPv6Forwarding = "net/ipv6/conf/all/forwarding"
+	NetIPv4Forwarding = "net/ipv4/ip_forward"
 	Ipv4ArpIgnoreAll  = "net/ipv4/conf/all/arp_ignore"
 )
 

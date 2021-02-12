@@ -265,6 +265,16 @@ func (_mr *_MockNetworkHandlerRecorder) ConfigureIpv6Forwarding() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigureIpv6Forwarding")
 }
 
+func (_m *MockNetworkHandler) ConfigureIpv4Forwarding() error {
+	ret := _m.ctrl.Call(_m, "ConfigureIpv4Forwarding")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) ConfigureIpv4Forwarding() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigureIpv4Forwarding")
+}
+
 func (_m *MockNetworkHandler) ConfigureIpv4ArpIgnore() error {
 	ret := _m.ctrl.Call(_m, "ConfigureIpv4ArpIgnore")
 	ret0, _ := ret[0].(error)

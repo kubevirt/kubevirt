@@ -232,6 +232,7 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, queueNumber, pid, mtu).Return(nil)
 		mockNetwork.EXPECT().DisableTXOffloadChecksum(bridgeTest.Name).Return(nil)
 		// Global nat rules using iptables
+		mockNetwork.EXPECT().ConfigureIpv4Forwarding().Return(nil)
 		mockNetwork.EXPECT().ConfigureIpv6Forwarding().Return(nil)
 		mockNetwork.EXPECT().GetNFTIPString(iptables.ProtocolIPv4).Return("ip").AnyTimes()
 		mockNetwork.EXPECT().GetNFTIPString(iptables.ProtocolIPv6).Return("ip6").AnyTimes()

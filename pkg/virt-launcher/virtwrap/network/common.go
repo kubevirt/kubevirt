@@ -106,6 +106,7 @@ type NetworkHandler interface {
 	IsIpv6Enabled(interfaceName string) (bool, error)
 	IsIpv4Primary() (bool, error)
 	ConfigureIpv6Forwarding() error
+	ConfigureIpv4Forwarding() error
 	ConfigureIpv4ArpIgnore() error
 	IptablesNewChain(proto iptables.Protocol, table, chain string) error
 	IptablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
@@ -184,6 +185,11 @@ func (h *NetworkUtilsHandler) ConfigureIpv4ArpIgnore() error {
 
 func (h *NetworkUtilsHandler) ConfigureIpv6Forwarding() error {
 	err := sysctl.New().SetSysctl(sysctl.NetIPv6Forwarding, 1)
+	return err
+}
+
+func (h *NetworkUtilsHandler) ConfigureIpv4Forwarding() error {
+	err := sysctl.New().SetSysctl(sysctl.NetIPv4Forwarding, 1)
 	return err
 }
 
