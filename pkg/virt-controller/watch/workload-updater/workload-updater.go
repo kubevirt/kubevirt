@@ -43,7 +43,7 @@ const (
 )
 
 var (
-	outdatedVMIWorkloads = prometheus.NewGauge(
+	outdatedVirtualMachineInstanceWorkloads = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "kubevirt_vmi_outdated_count",
 			Help: "Indication for the number of VirtualMachineInstance workloads that are not running within the most up-to-date version of the virt-launcher environment.",
@@ -61,7 +61,7 @@ const defaultBatchDeletionIntervalSeconds = 60
 const defaultBatchDeletionCount = 10
 
 func init() {
-	prometheus.MustRegister(outdatedVMIWorkloads)
+	prometheus.MustRegister(outdatedVirtualMachineInstanceWorkloads)
 }
 
 type WorkloadUpdateController struct {
@@ -401,37 +401,37 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 		return err
 	}
 
-	outdatedVMIWorkloads.Set(float64(len(data.allOutdatedVMIs)))
+	outdatedVirtualMachineInstanceWorkloads.Set(float64(len(data.allOutdatedVMIs)))
 
 	// update outdated workload count on kv
-	if kv.Status.OutdatedVMIWorkloads == nil || *kv.Status.OutdatedVMIWorkloads != len(data.allOutdatedVMIs) {
+	if kv.Status.OutdatedVirtualMachineInstanceWorkloads == nil || *kv.Status.OutdatedVirtualMachineInstanceWorkloads != len(data.allOutdatedVMIs) {
 		l := len(data.allOutdatedVMIs)
 		kvCopy := kv.DeepCopy()
-		kvCopy.Status.OutdatedVMIWorkloads = &l
+		kvCopy.Status.OutdatedVirtualMachineInstanceWorkloads = &l
 
-		oldJson, err := json.Marshal(kv.Status.OutdatedVMIWorkloads)
+		oldJson, err := json.Marshal(kv.Status.OutdatedVirtualMachineInstanceWorkloads)
 		if err != nil {
 			return err
 		}
 
-		newJson, err := json.Marshal(kvCopy.Status.OutdatedVMIWorkloads)
+		newJson, err := json.Marshal(kvCopy.Status.OutdatedVirtualMachineInstanceWorkloads)
 		if err != nil {
 			return err
 		}
 
 		patch := ""
-		if kv.Status.OutdatedVMIWorkloads == nil {
-			update := fmt.Sprintf(`{ "op": "add", "path": "/status/outdatedVMIWorkloads", "value": %s}`, string(newJson))
+		if kv.Status.OutdatedVirtualMachineInstanceWorkloads == nil {
+			update := fmt.Sprintf(`{ "op": "add", "path": "/status/outdatedVirtualMachineInstanceWorkloads", "value": %s}`, string(newJson))
 			patch = fmt.Sprintf("[%s]", update)
 		} else {
-			test := fmt.Sprintf(`{ "op": "test", "path": "/status/outdatedVMIWorkloads", "value": %s}`, string(oldJson))
-			update := fmt.Sprintf(`{ "op": "replace", "path": "/status/outdatedVMIWorkloads", "value": %s}`, string(newJson))
+			test := fmt.Sprintf(`{ "op": "test", "path": "/status/outdatedVirtualMachineInstanceWorkloads", "value": %s}`, string(oldJson))
+			update := fmt.Sprintf(`{ "op": "replace", "path": "/status/outdatedVirtualMachineInstanceWorkloads", "value": %s}`, string(newJson))
 			patch = fmt.Sprintf("[%s, %s]", test, update)
 		}
 
 		err = c.statusUpdater.PatchStatus(kv, types.JSONPatchType, []byte(patch))
 		if err != nil {
-			return fmt.Errorf("unable to patch kubevirt obj status to update the outdatedVMIWorkloads valued: %v", err)
+			return fmt.Errorf("unable to patch kubevirt obj status to update the outdatedVirtualMachineInstanceWorkloads valued: %v", err)
 		}
 	}
 

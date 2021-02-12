@@ -774,7 +774,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 	if workloadUpdatesEnabled {
 		ruleSpec.Groups[0].Rules = append(ruleSpec.Groups[0].Rules, promv1.Rule{
 
-			Alert: "OutdatedVMIWorkloads",
+			Alert: "OutdatedVirtualMachineInstanceWorkloads",
 			Expr:  intstr.FromString("kubevirt_vmi_outdated_count != 0"),
 			For:   "1440m",
 			Annotations: map[string]string{

@@ -10326,7 +10326,7 @@
      "operatorVersion": {
       "type": "string"
      },
-     "outdatedVMIWorkloads": {
+     "outdatedVirtualMachineInstanceWorkloads": {
       "type": "integer",
       "format": "int32"
      },

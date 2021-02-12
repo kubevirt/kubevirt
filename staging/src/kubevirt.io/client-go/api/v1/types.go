@@ -1440,18 +1440,18 @@ const (
 //
 // +k8s:openapi-gen=true
 type KubeVirtStatus struct {
-	Phase                    KubeVirtPhase       `json:"phase,omitempty"`
-	Conditions               []KubeVirtCondition `json:"conditions,omitempty" optional:"true"`
-	OperatorVersion          string              `json:"operatorVersion,omitempty" optional:"true"`
-	TargetKubeVirtRegistry   string              `json:"targetKubeVirtRegistry,omitempty" optional:"true"`
-	TargetKubeVirtVersion    string              `json:"targetKubeVirtVersion,omitempty" optional:"true"`
-	TargetDeploymentConfig   string              `json:"targetDeploymentConfig,omitempty" optional:"true"`
-	TargetDeploymentID       string              `json:"targetDeploymentID,omitempty" optional:"true"`
-	ObservedKubeVirtRegistry string              `json:"observedKubeVirtRegistry,omitempty" optional:"true"`
-	ObservedKubeVirtVersion  string              `json:"observedKubeVirtVersion,omitempty" optional:"true"`
-	ObservedDeploymentConfig string              `json:"observedDeploymentConfig,omitempty" optional:"true"`
-	ObservedDeploymentID     string              `json:"observedDeploymentID,omitempty" optional:"true"`
-	OutdatedVMIWorkloads     *int                `json:"outdatedVMIWorkloads,omitempty" optional:"true"`
+	Phase                                   KubeVirtPhase       `json:"phase,omitempty"`
+	Conditions                              []KubeVirtCondition `json:"conditions,omitempty" optional:"true"`
+	OperatorVersion                         string              `json:"operatorVersion,omitempty" optional:"true"`
+	TargetKubeVirtRegistry                  string              `json:"targetKubeVirtRegistry,omitempty" optional:"true"`
+	TargetKubeVirtVersion                   string              `json:"targetKubeVirtVersion,omitempty" optional:"true"`
+	TargetDeploymentConfig                  string              `json:"targetDeploymentConfig,omitempty" optional:"true"`
+	TargetDeploymentID                      string              `json:"targetDeploymentID,omitempty" optional:"true"`
+	ObservedKubeVirtRegistry                string              `json:"observedKubeVirtRegistry,omitempty" optional:"true"`
+	ObservedKubeVirtVersion                 string              `json:"observedKubeVirtVersion,omitempty" optional:"true"`
+	ObservedDeploymentConfig                string              `json:"observedDeploymentConfig,omitempty" optional:"true"`
+	ObservedDeploymentID                    string              `json:"observedDeploymentID,omitempty" optional:"true"`
+	OutdatedVirtualMachineInstanceWorkloads *int                `json:"outdatedVirtualMachineInstanceWorkloads,omitempty" optional:"true"`
 }
 
 // KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.

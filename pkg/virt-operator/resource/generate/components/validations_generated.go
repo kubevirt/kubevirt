@@ -1264,7 +1264,7 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         operatorVersion:
           type: string
-        outdatedVMIWorkloads:
+        outdatedVirtualMachineInstanceWorkloads:
           type: integer
         phase:
           description: KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.

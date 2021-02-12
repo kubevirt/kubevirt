@@ -87,7 +87,7 @@ var _ = Describe("Workload Updater", func() {
 
 		expectedImage = "cur-image"
 
-		outdatedVMIWorkloads.Set(0.0)
+		outdatedVirtualMachineInstanceWorkloads.Set(0.0)
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -160,7 +160,7 @@ var _ = Describe("Workload Updater", func() {
 
 			By("Checking prometheus metric before sync")
 			dto := &io_prometheus_client.Metric{}
-			outdatedVMIWorkloads.Write(dto)
+			outdatedVirtualMachineInstanceWorkloads.Write(dto)
 
 			zero := 0.0
 			Expect(dto.GetGauge().Value).To(Equal(&zero), "outdated vmi workload reported should be equal to zero")
@@ -191,7 +191,7 @@ var _ = Describe("Workload Updater", func() {
 
 			kubeVirtInterface.EXPECT().PatchStatus(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(name string, pt types.PatchType, data []byte) {
 				str := string(data)
-				Expect(str).To(Equal("[{ \"op\": \"test\", \"path\": \"/status/outdatedVMIWorkloads\", \"value\": 0}, { \"op\": \"replace\", \"path\": \"/status/outdatedVMIWorkloads\", \"value\": 100}]"))
+				Expect(str).To(Equal("[{ \"op\": \"test\", \"path\": \"/status/outdatedVirtualMachineInstanceWorkloads\", \"value\": 0}, { \"op\": \"replace\", \"path\": \"/status/outdatedVirtualMachineInstanceWorkloads\", \"value\": 100}]"))
 
 			}).Return(nil, nil).Times(1)
 
@@ -205,7 +205,7 @@ var _ = Describe("Workload Updater", func() {
 
 			By("Checking prometheus metric")
 			dto = &io_prometheus_client.Metric{}
-			outdatedVMIWorkloads.Write(dto)
+			outdatedVirtualMachineInstanceWorkloads.Write(dto)
 
 			val := 100.0
 
@@ -503,8 +503,8 @@ func newKubeVirt(expectedNumOutdated int) *v1.KubeVirt {
 		},
 		Spec: v1.KubeVirtSpec{},
 		Status: v1.KubeVirtStatus{
-			Phase:                v1.KubeVirtPhaseDeployed,
-			OutdatedVMIWorkloads: &expectedNumOutdated,
+			Phase:                                   v1.KubeVirtPhaseDeployed,
+			OutdatedVirtualMachineInstanceWorkloads: &expectedNumOutdated,
 		},
 	}
 }
