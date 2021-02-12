@@ -1180,24 +1180,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	// If an SELinux type was specified, use that--otherwise don't set an SELinux type
 	selinuxType := t.clusterConfig.GetSELinuxLauncherType()
 	if selinuxType != "" {
-		pod.Spec.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{Type: selinuxType}
-		// By setting an SELinux option on the virt-launcher pod, we trigger this:
-		// https://github.com/kubernetes/kubernetes/issues/90759
-		// Since the compute container needs to be able to communicate with the rest of the pod,
-		//   we loop over all the containers and remove their SELinux categories.
-		for i := range pod.Spec.Containers {
-			container := &pod.Spec.Containers[i]
-			if container.Name != "compute" {
-				if container.SecurityContext == nil {
-					container.SecurityContext = &k8sv1.SecurityContext{}
-				}
-				if container.SecurityContext.SELinuxOptions == nil {
-					container.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{}
-				}
-				container.SecurityContext.SELinuxOptions.Type = selinuxType
-				container.SecurityContext.SELinuxOptions.Level = "s0"
-			}
-		}
+		alignPodMultiCategorySecurity(&pod, selinuxType)
 	}
 
 	if vmi.Spec.PriorityClassName != "" {
@@ -1605,6 +1588,29 @@ func copyProbe(probe *v1.Probe) *k8sv1.Probe {
 		Handler: k8sv1.Handler{
 			HTTPGet:   probe.HTTPGet,
 			TCPSocket: probe.TCPSocket,
+		},
+	}
+}
+
+func alignPodMultiCategorySecurity(pod *k8sv1.Pod, selinuxType string) {
+	pod.Spec.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{Type: selinuxType}
+	// more info on https://github.com/kubernetes/kubernetes/issues/90759
+	// Since the compute container needs to be able to communicate with the
+	// rest of the pod, we loop over all the containers and remove their SELinux
+	// categories.
+	for i := range pod.Spec.Containers {
+		container := &pod.Spec.Containers[i]
+		if container.Name != "compute" {
+			container.SecurityContext = generateContainerSecurityContext(selinuxType)
+		}
+	}
+}
+
+func generateContainerSecurityContext(selinuxType string) *k8sv1.SecurityContext {
+	return &k8sv1.SecurityContext{
+		SELinuxOptions: &k8sv1.SELinuxOptions{
+			Type:  selinuxType,
+			Level: "s0",
 		},
 	}
 }
