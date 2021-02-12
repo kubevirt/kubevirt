@@ -921,13 +921,9 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 		return fmt.Errorf("conversion failed: %v", err)
 	}
 
-	// set drivers cache mode
-	for i := range domain.Spec.Devices.Disks {
-		err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i])
-		if err != nil {
-			return err
-		}
-		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
+	// set drivers cache and IO mode
+	if err := converter.SetDriverCacheAndIO(domain); err != nil {
+		return err
 	}
 
 	dom, err := l.preStartHook(vmi, domain)
@@ -1304,13 +1300,9 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		return nil, err
 	}
 
-	// set drivers cache mode
-	for i := range domain.Spec.Devices.Disks {
-		err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i])
-		if err != nil {
-			return nil, err
-		}
-		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
+	// set drivers cache and IO mode
+	if err := converter.SetDriverCacheAndIO(domain); err != nil {
+		return nil, err
 	}
 
 	// Set defaults which are not coming from the cluster

@@ -323,6 +323,16 @@ func SetOptimalIOMode(disk *api.Disk) error {
 	return nil
 }
 
+func SetDriverCacheAndIO(domain *api.Domain) error {
+	for i := range domain.Spec.Devices.Disks {
+		err := SetDriverCacheMode(&domain.Spec.Devices.Disks[i])
+		if err != nil {
+			return err
+		}
+		SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
+	}
+}
+
 func (n *deviceNamer) getExistingVolumeValue(key string) (string, bool) {
 	if _, ok := n.existingNameMap[key]; ok {
 		return n.existingNameMap[key], true
