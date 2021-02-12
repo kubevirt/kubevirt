@@ -97,9 +97,9 @@ func newMultusAnnotationData(vmi *v1.VirtualMachineInstance, network v1.Network,
 }
 
 func getIfaceByName(vmi *v1.VirtualMachineInstance, name string) *v1.Interface {
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		if iface.Name == name {
-			return &iface
+			return &vmi.Spec.Domain.Devices.Interfaces[i]
 		}
 	}
 	return nil
