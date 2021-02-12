@@ -541,11 +541,6 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 		return false, err
 	}
 
-	err = r.createOrUpdateComponentsWithCertificates(queue)
-	if err != nil {
-		return false, err
-	}
-
 	// create/update Services
 	pending, err := r.createOrUpdateService()
 	if err != nil {
@@ -557,6 +552,11 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 		// then create the new service. This is because a service's "type" is
 		// not mutatable.
 		return false, nil
+	}
+
+	err = r.createOrUpdateComponentsWithCertificates(queue)
+	if err != nil {
+		return false, err
 	}
 
 	if infrastructureRolledOver {
