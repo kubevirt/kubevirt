@@ -1339,6 +1339,10 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	// To make sure, that we set the right qemu wrapper arguments,
 	// we update the domain XML whenever a VirtualMachineInstance was already defined but not running
 	if !newDomain && cli.IsDown(domState) {
+		err = network.SetupPodNetworkPhase2(vmi, domain)
+		if err != nil {
+			return nil, fmt.Errorf("preparing the pod network failed: %v", err)
+		}
 		dom, err = l.setDomainSpecWithHooks(vmi, &domain.Spec)
 		if err != nil {
 			return nil, err
