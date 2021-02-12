@@ -328,14 +328,17 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 
 		data.allOutdatedVMIs = append(data.allOutdatedVMIs, vmi)
 
-		if automatedMigrationAllowed && vmi.IsMigratable() {
-			// don't consider VMIs with migrations inflight as migratable for our dataset
-			if migrationutils.IsMigrating(vmi) {
-				continue
-			} else if exists := lookup[vmi.Namespace+"/"+vmi.Name]; exists {
-				continue
-			}
+		// don't consider VMIs with migrations inflight as migratable for our dataset
+		// while a migrating workload can still be counted towards
+		// the outDatedVMIs list, we don't want to add it to any
+		// of the lists that results in actions being performed on them
+		if migrationutils.IsMigrating(vmi) {
+			continue
+		} else if exists := lookup[vmi.Namespace+"/"+vmi.Name]; exists {
+			continue
+		}
 
+		if automatedMigrationAllowed && vmi.IsMigratable() {
 			data.migratableOutdatedVMIs = append(data.migratableOutdatedVMIs, vmi)
 		} else if automatedShutdownAllowed {
 			data.evictOutdatedVMIs = append(data.evictOutdatedVMIs, vmi)

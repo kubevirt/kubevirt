@@ -343,6 +343,24 @@ var _ = Describe("Workload Updater", func() {
 			Expect(evictionCount).To(Equal(defaultBatchDeletionCount))
 		})
 
+		It("should not evict VMIs when an active migration is in flight", func() {
+			kv := newKubeVirt(2)
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodEvict}
+			addKubeVirt(kv)
+
+			vmi := newVirtualMachine("testvm-migratable", true, "madeup", vmiSource, podSource)
+			migrationFeeder.Add(newMigration("vmim-1", vmi.Name, v1.MigrationRunning))
+			vmi = newVirtualMachine("testvm-nonmigratable", true, "madeup", vmiSource, podSource)
+			migrationFeeder.Add(newMigration("vmim-2", vmi.Name, v1.MigrationRunning))
+
+			// wait for informer to catch up since we aren't watching
+			// for vmis directly
+			time.Sleep(1 * time.Second)
+
+			controller.Execute()
+			Expect(recorder.Events).To(BeEmpty())
+		})
+
 		It("should respect custom batch deletion count", func() {
 			batchDeletions := 30
 			reasons := []string{}
