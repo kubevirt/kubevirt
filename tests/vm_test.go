@@ -681,7 +681,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			defer deleteDataVolume(dv)
 			vm := createVirtualMachine(false, template)
 			vm = startVM(vm)
-			vm = stopVM(vm)
+			stopVM(vm)
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
 			table.Entry("[Serial]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),

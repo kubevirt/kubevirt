@@ -118,7 +118,7 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 				MaxReplicas: max,
 			},
 		}
-		hpa, err := virtClient.AutoscalingV1().HorizontalPodAutoscalers(tests.NamespaceTestDefault).Create(context.Background(), hpa, v12.CreateOptions{})
+		_, err := virtClient.AutoscalingV1().HorizontalPodAutoscalers(tests.NamespaceTestDefault).Create(context.Background(), hpa, v12.CreateOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		var s *autov1.Scale

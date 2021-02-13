@@ -118,5 +118,11 @@
       "vendor/": "vendor doesn't pass vet",
       "external/": "externaldoesn't pass vet"
     }
+  },
+  "ineffassign": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
   }
 }

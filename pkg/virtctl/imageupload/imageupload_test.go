@@ -319,7 +319,7 @@ var _ = Describe("ImageUpload", func() {
 	}
 
 	updateCDIConfig := func(config *cdiv1.CDIConfig) {
-		config, err := cdiClient.CdiV1alpha1().CDIConfigs().Update(context.Background(), config, metav1.UpdateOptions{})
+		_, err := cdiClient.CdiV1alpha1().CDIConfigs().Update(context.Background(), config, metav1.UpdateOptions{})
 		if err != nil {
 			fmt.Fprintf(GinkgoWriter, "Error: %v\n", err)
 		}

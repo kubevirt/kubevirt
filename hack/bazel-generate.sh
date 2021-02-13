@@ -6,6 +6,20 @@ source hack/config.sh
 # remove libvirt BUILD file to regenerate it each time
 rm -f vendor/libvirt.org/libvirt-go/BUILD.bazel
 
+cat >vendor/github.com/gordonklaus/ineffassign/pkg/ineffassign/BUILD.bazel <<EOT
+# gazelle:ignore
+load("@io_bazel_rules_go//go:def.bzl", "go_tool_library")
+
+go_tool_library(
+    name = "go_tool_library",
+    srcs = ["ineffassign.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/gordonklaus/ineffassign/pkg/ineffassign",
+    importpath = "github.com/gordonklaus/ineffassign/pkg/ineffassign",
+    visibility = ["//visibility:public"],
+    deps = ["@org_golang_x_tools//go/analysis:go_tool_library"],
+)
+EOT
+
 # generate BUILD files
 bazel run \
     --config=${ARCHITECTURE} \

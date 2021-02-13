@@ -1226,6 +1226,7 @@ func deployOrWipeTestingInfrastrucure(actionOnObject func(unstructured.Unstructu
 	err, _ = DoScaleDeployment(flags.KubeVirtInstallNamespace, "virt-controller", replicasController)
 	PanicOnError(err)
 	_, _, newGeneration, err := DoScaleVirtHandler(flags.KubeVirtInstallNamespace, "virt-handler", selector)
+	PanicOnError(err)
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
@@ -1658,6 +1659,7 @@ func cleanNamespaces() {
 
 		// Remove all Pods
 		podList, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
+		PanicOnError(err)
 		var gracePeriod int64 = 0
 		for _, pod := range podList.Items {
 			err := virtCli.CoreV1().Pods(namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
@@ -1669,6 +1671,7 @@ func cleanNamespaces() {
 
 		// Remove all Services
 		svcList, err := virtCli.CoreV1().Services(namespace).List(context.Background(), metav1.ListOptions{})
+		PanicOnError(err)
 		for _, svc := range svcList.Items {
 			PanicOnError(virtCli.CoreV1().Services(namespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{}))
 		}
@@ -1718,6 +1721,9 @@ func cleanNamespaces() {
 		}
 		// Remove all NetworkAttachmentDefinitions
 		nets, err := virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).List(context.Background(), metav1.ListOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			PanicOnError(err)
+		}
 		for _, netDef := range nets.Items {
 			PanicOnError(virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Delete(context.Background(), netDef.GetName(), metav1.DeleteOptions{}))
 		}

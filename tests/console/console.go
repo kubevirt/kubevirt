@@ -253,7 +253,6 @@ func ExpectBatchWithValidatedSend(expecter expect.Expecter, batch []expect.Batch
 			// Remove the \n since it is translated by the console to \r\n.
 			previousSend = strings.TrimSuffix(previousSend, "\n")
 			bExp.R = fmt.Sprintf("%s%s%s", previousSend, "((?s).*)", bExp.R)
-			previousSend = ""
 		case expect.BatchSend:
 			if sendFlag == true {
 				return nil, fmt.Errorf("Two sequential expect.BSend are not allowed")
