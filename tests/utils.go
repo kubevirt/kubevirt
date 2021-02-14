@@ -343,6 +343,9 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 				log.Log.Reason(fmt.Errorf("unexpected warning event received")).ObjectRef(&event.InvolvedObject).Error(msg)
 				ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
 			} else {
+				if isIgnored {
+					msg = "Detected Ignored " + msg
+				}
 				log.Log.ObjectRef(&event.InvolvedObject).Info(msg)
 			}
 
