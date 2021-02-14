@@ -1239,11 +1239,11 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, 
 					Resources: k8sv1.ResourceRequirements{ //Took the request and limits from containerDisk init container.
 						Limits: map[k8sv1.ResourceName]resource.Quantity{
 							k8sv1.ResourceCPU:    resource.MustParse("100m"),
-							k8sv1.ResourceMemory: resource.MustParse("40M"),
+							k8sv1.ResourceMemory: resource.MustParse("80M"),
 						},
 						Requests: map[k8sv1.ResourceName]resource.Quantity{
 							k8sv1.ResourceCPU:    resource.MustParse("10m"),
-							k8sv1.ResourceMemory: resource.MustParse("1M"),
+							k8sv1.ResourceMemory: resource.MustParse("2M"),
 						},
 					},
 					SecurityContext: &k8sv1.SecurityContext{
