@@ -178,17 +178,17 @@ function deploy_sriov_operator {
 
   echo 'Installing the SR-IOV operator'
   pushd $operator_path
-    export SRIOV_NETWORK_OPERATOR_IMAGE=quay.io/openshift/origin-sriov-network-operator:${RELEASE_VERSION}
+    export SRIOV_NETWORK_OPERATOR_IMAGE=quay.io/oshoval/multi-poc-sriov-network-operator:v1
     # origin-sriov-network-config-daemon includes fixes for:
     # unsupported nics
     # cross communication of the two clusters
     # Working on official PRs to fix those.
     export SRIOV_NETWORK_CONFIG_DAEMON_IMAGE=quay.io/oshoval/origin-sriov-network-config-daemon:x557_reset
-    export SRIOV_NETWORK_WEBHOOK_IMAGE=quay.io/openshift/origin-sriov-network-webhook:${RELEASE_VERSION}
-    export NETWORK_RESOURCES_INJECTOR_IMAGE=quay.io/openshift/origin-sriov-dp-admission-controller:${RELEASE_VERSION}
-    export SRIOV_CNI_IMAGE=quay.io/openshift/origin-sriov-cni:${RELEASE_VERSION}
-    export SRIOV_DEVICE_PLUGIN_IMAGE=quay.io/openshift/origin-sriov-network-device-plugin:${RELEASE_VERSION}
-    export SRIOV_INFINIBAND_CNI_IMAGE=quay.io/openshift/origin-sriov-infiniband-cni:${RELEASE_VERSION}
+    export SRIOV_NETWORK_WEBHOOK_IMAGE=quay.io/oshoval/multi-poc-sriov-network-webhook:v1
+    export NETWORK_RESOURCES_INJECTOR_IMAGE=quay.io/oshoval/multi-poc-sriov-dp-admission-controller:v1
+    export SRIOV_CNI_IMAGE=quay.io/oshoval/multi-poc-sriov-cni:v1
+    export SRIOV_DEVICE_PLUGIN_IMAGE=quay.io/oshoval/multi-poc-sriov-network-device-plugin:v1
+    export SRIOV_INFINIBAND_CNI_IMAGE=quay.io/oshoval/multi-poc-sriov-infiniband-cni:v1
 
     export SKIP_VAR_SET=1
     export CGO_ENABLED=0
