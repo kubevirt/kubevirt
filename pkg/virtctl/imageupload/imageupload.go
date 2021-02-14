@@ -383,7 +383,7 @@ func uploadData(uploadProxyURL, token string, file *os.File, insecure bool) erro
 	reader := bar.NewProxyReader(file)
 
 	client := httpClientCreatorFunc(insecure)
-	req, _ := http.NewRequest("POST", url, reader)
+	req, _ := http.NewRequest("POST", url, ioutil.NopCloser(reader))
 
 	req.Header.Add("Authorization", "Bearer "+token)
 	req.Header.Add("Content-Type", "application/octet-stream")
