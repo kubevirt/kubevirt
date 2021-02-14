@@ -1417,26 +1417,26 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	// * Update due to spec change and initial start flow.
 	switch {
 	case forceIgnoreSync:
-		log.Log.Object(vmi).V(3).Info("No update processing required: forced ignore")
+		log.Log.Object(vmi).Error("DBG No update processing required: forced ignore")
 	case shouldShutdown:
-		log.Log.Object(vmi).V(3).Info("Processing shutdown.")
+		log.Log.Object(vmi).Error("DBG Processing shutdown.")
 		syncErr = d.processVmShutdown(vmi, domain)
 	case shouldDelete:
-		log.Log.Object(vmi).V(3).Info("Processing deletion.")
+		log.Log.Object(vmi).Error("DBG Processing deletion.")
 		syncErr = d.processVmDelete(vmi, domain)
 	case shouldCleanUp:
-		log.Log.Object(vmi).V(3).Info("Processing local ephemeral data cleanup for shutdown domain.")
+		log.Log.Object(vmi).Error("DBG Processing local ephemeral data cleanup for shutdown domain.")
 		syncErr = d.processVmCleanup(vmi)
 	case shouldUpdate:
-		log.Log.Object(vmi).V(3).Info("Processing vmi update")
+		log.Log.Object(vmi).Error("DBG Processing vmi update")
 		syncErr = d.processVmUpdate(vmi)
 	default:
-		log.Log.Object(vmi).V(3).Info("No update processing required")
+		log.Log.Object(vmi).Error("DBG No update processing required")
 	}
 
 	if syncErr != nil && !vmi.IsFinal() {
 		d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
-		log.Log.Object(vmi).Reason(syncErr).Error("Synchronizing the VirtualMachineInstance failed.")
+		log.Log.Object(vmi).Reason(syncErr).Error("DBG! Synchronizing the VirtualMachineInstance failed.")
 	}
 
 	// Update the VirtualMachineInstance status, if the VirtualMachineInstance exists
@@ -2069,28 +2069,33 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 
 	isUnresponsive, isInitialized, err := d.isLauncherClientUnresponsive(vmi)
 	if err != nil {
+		log.Log.Error("DBG1 A1")
 		return err
 	}
 	if !isInitialized {
 		d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*1)
 		return nil
 	} else if isUnresponsive {
+		log.Log.Error("DBG1 A2")
 		return goerror.New(fmt.Sprintf("Can not update a VirtualMachineInstance with unresponsive command server."))
 	}
 
 	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
 	if err != nil {
+		log.Log.Error("DBG1 A3")
 		return err
 	}
 
 	client, err := d.getLauncherClient(vmi)
 	if err != nil {
+		log.Log.Error("DBG1 A4")
 		return fmt.Errorf("unable to create virt-launcher client connection: %v", err)
 	}
 
 	// this adds, removes, and replaces migration proxy connections as needed
 	err = d.handleMigrationProxy(vmi)
 	if err != nil {
+		log.Log.Error("DBG1 A5")
 		return fmt.Errorf("failed to handle migration proxy: %v", err)
 	}
 
@@ -2101,6 +2106,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			info := d.getLauncherClinetInfo(vmi)
 			if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.notInitializedSince); !ready {
 				if err != nil {
+					log.Log.Error("DBG1 A6")
 					return err
 				}
 				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*1)
@@ -2109,6 +2115,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 
 			// Mount container disks
 			if err := d.containerDiskMounter.Mount(vmi, false); err != nil {
+				log.Log.Error("DBG1 A7")
 				return err
 			}
 
@@ -2116,14 +2123,17 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			criticalNetworkError, err := d.setPodNetworkPhase1(vmi)
 			if err != nil {
 				if criticalNetworkError {
+					log.Log.Error("DBG1 A8")
 					return &virtLauncherCriticalNetworkError{fmt.Sprintf("failed to configure vmi network for migration target: %v", err)}
 				} else {
+					log.Log.Error("DBG1 A9")
 					return fmt.Errorf("failed to configure vmi network for migration target: %v", err)
 				}
 
 			}
 
 			if err := client.SyncMigrationTarget(vmi); err != nil {
+				log.Log.Error("DBG1 A10")
 				return fmt.Errorf("syncing migration target failed: %v", err)
 
 			}
@@ -2131,6 +2141,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 
 			err = d.handlePostSyncMigrationProxy(vmi)
 			if err != nil {
+				log.Log.Error("DBG1 A11")
 				return fmt.Errorf("failed to handle post sync migration proxy: %v", err)
 			}
 		}
@@ -2168,6 +2179,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			info := d.getLauncherClinetInfo(vmi)
 			if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.notInitializedSince); !ready {
 				if err != nil {
+					log.Log.Error("DBG1 A12")
 					return err
 				}
 				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*1)
@@ -2175,14 +2187,17 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			}
 
 			if err := d.containerDiskMounter.Mount(vmi, true); err != nil {
+				log.Log.Error("DBG1 A13")
 				return err
 			}
 
 			criticalNetworkError, err := d.setPodNetworkPhase1(vmi)
 			if err != nil {
 				if criticalNetworkError {
+					log.Log.Error("DBG1 A14")
 					return &virtLauncherCriticalNetworkError{fmt.Sprintf("failed to configure vmi network: %v", err)}
 				} else {
+					log.Log.Error("DBG1 A15")
 					return fmt.Errorf("failed to configure vmi network: %v", err)
 				}
 
@@ -2191,10 +2206,12 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			// set runtime limits as needed
 			err = d.podIsolationDetector.AdjustResources(vmi)
 			if err != nil {
+				log.Log.Error("DBG1 A16")
 				return fmt.Errorf("failed to adjust resources: %v", err)
 			}
 		} else if vmi.IsRunning() {
 			if err := d.hotplugVolumeMounter.Mount(vmi); err != nil {
+				log.Log.Error("DBG1 A17")
 				return err
 			}
 		}
@@ -2217,19 +2234,23 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		if err != nil {
 			isSecbootError := strings.Contains(err.Error(), "EFI OVMF roms missing")
 			if isSecbootError {
+				log.Log.Error("DBG1 A18")
 				return &virtLauncherCriticalSecurebootError{fmt.Sprintf("mismatch of Secure Boot setting and bootloaders: %v", err)}
 			}
+			log.Log.Error("DBG1 A19")
 			return err
 		}
 		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), "VirtualMachineInstance defined.")
 		if vmi.IsRunning() {
 			// Umount any disks no longer mounted
 			if err := d.hotplugVolumeMounter.Unmount(vmi); err != nil {
+				log.Log.Error("DBG1 A20")
 				return err
 			}
 		}
 	}
 
+	log.Log.Error("DBG1 A21")
 	return err
 }
 
