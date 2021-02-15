@@ -617,7 +617,7 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		// record that we've see the domain populated on the target's node
 		log.Log.Object(vmi).Info("The target node received the migrated domain")
 		vmiCopy.Status.MigrationState.TargetNodeDomainDetected = true
-		d.setVMIGuestTime(vmi)
+		d.finalizeMigration(vmi)
 	}
 
 	if !migrations.IsMigrating(vmi) {
@@ -2435,17 +2435,17 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 	}
 }
 
-func (d *VirtualMachineController) setVMIGuestTime(vmi *v1.VirtualMachineInstance) error {
-	// update the vmi guest with the current time
+func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInstance) error {
 	client, err := d.getVerifiedLauncherClient(vmi)
 	if err != nil {
 		return err
 	}
-	err = client.SetVirtualMachineGuestTime(vmi)
+	err = client.FinalizeVirtualMachineMigration(vmi)
 	if err != nil {
-		log.Log.Reason(err).Error("failed to set vmi guest time to the current")
+		log.Log.Object(vmi).Reason(err).Error("failed to finalize migration")
 		return err
 	}
+
 	return nil
 }
 

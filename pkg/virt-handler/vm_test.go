@@ -1526,7 +1526,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			controller.Execute()
 		}, 3)
-		It("update guest time after completed migration", func() {
+
+		It("should apply post-migration operations on guest VM after migration completed", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
@@ -1559,7 +1560,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiUpdated := vmi.DeepCopy()
 			vmiUpdated.Status.MigrationState.TargetNodeDomainDetected = true
 			client.EXPECT().Ping().AnyTimes()
-			client.EXPECT().SetVirtualMachineGuestTime(vmi)
+			client.EXPECT().FinalizeVirtualMachineMigration(vmi)
 			vmiInterface.EXPECT().Update(vmiUpdated)
 
 			controller.Execute()
