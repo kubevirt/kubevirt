@@ -356,7 +356,7 @@ func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitial
 		if volume.ContainerDisk != nil {
 			_, err := m.pathGetter(vmi, i)
 			if err != nil {
-				log.DefaultLogger().Object(vmi).Infof("containerdisk %s not yet ready", volume.Name)
+				log.DefaultLogger().Object(vmi).Reason(err).Infof("containerdisk %s not yet ready", volume.Name)
 				if time.Now().After(notInitializedSince.Add(m.suppressWarningTimeout)) {
 					return false, fmt.Errorf("containerdisk %s still not ready after one minute", volume.Name)
 				}
