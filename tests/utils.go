@@ -3158,6 +3158,36 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 	return stdout, err
 }
 
+func LibvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
+	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, NamespaceTestDefault)
+	if err != nil {
+		return false, err
+	}
+
+	found := false
+	containerIdx := 0
+	for idx, container := range vmiPod.Spec.Containers {
+		if container.Name == "compute" {
+			containerIdx = idx
+			found = true
+		}
+	}
+	if !found {
+		return false, fmt.Errorf("could not find compute container for pod")
+	}
+
+	stdout, stderr, err := ExecuteCommandOnPodV2(
+		virtClient,
+		vmiPod,
+		vmiPod.Spec.Containers[containerIdx].Name,
+		[]string{"virsh", "--quiet", "list", "--persistent", "--name"},
+	)
+	if err != nil {
+		return false, fmt.Errorf("could not dump libvirt domxml (remotely on pod): %v: %s", err, stderr)
+	}
+	return strings.Contains(stdout, vmi.Namespace+"_"+vmi.Name), nil
+}
+
 func BeforeAll(fn func()) {
 	first := true
 	BeforeEach(func() {
