@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "common.go",
+        "extractors.go",
         "generated_mock_common.go",
         "infocache.go",
     ],

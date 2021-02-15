@@ -62,19 +62,6 @@ type podNIC interface {
 	PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
 }
 
-func getNetworksAndCniNetworks(vmi *v1.VirtualMachineInstance) (map[string]*v1.Network, map[string]int) {
-	networks := map[string]*v1.Network{}
-	cniNetworks := map[string]int{}
-	for _, network := range vmi.Spec.Networks {
-		networks[network.Name] = network.DeepCopy()
-		if networks[network.Name].Multus != nil && !networks[network.Name].Multus.Default {
-			// multus pod interfaces start from 1
-			cniNetworks[network.Name] = len(cniNetworks) + 1
-		}
-	}
-	return networks, cniNetworks
-}
-
 func invokePodNICFactory(networks map[string]*v1.Network, ifaceName string) (podNIC, error) {
 	network, ok := networks[ifaceName]
 	if !ok {
@@ -83,27 +70,18 @@ func invokePodNICFactory(networks map[string]*v1.Network, ifaceName string) (pod
 	return podNICFactory(network)
 }
 
-func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string]int, ifaceName string) string {
-	if networks[ifaceName].Multus != nil && !networks[ifaceName].Multus.Default {
-		// multus pod interfaces named netX
-		return fmt.Sprintf("net%d", cniNetworks[ifaceName])
-	} else {
-		return networkdriver.PrimaryPodInterfaceName
-	}
-}
-
 func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int) error {
 	err := networkdriver.CreateVirtHandlerCacheDir(vmi.ObjectMeta.UID)
 	if err != nil {
 		return err
 	}
-	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
+	networks, cniNetworks := networkdriver.GetNetworksAndCniNetworks(vmi)
 	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		podnic, err := invokePodNICFactory(networks, iface.Name)
 		if err != nil {
 			return err
 		}
-		podInterfaceName := getPodInterfaceName(networks, cniNetworks, iface.Name)
+		podInterfaceName := networkdriver.GetPodInterfaceName(networks, cniNetworks, iface.Name)
 		err = podNIC.PlugPhase1(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], podInterfaceName, pid)
 		if err != nil {
 			return err
@@ -113,13 +91,13 @@ func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int) error {
 }
 
 func SetupPodNetworkPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
+	networks, cniNetworks := networkdriver.GetNetworksAndCniNetworks(vmi)
 	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		podnic, err := invokePodNICFactory(networks, iface.Name)
 		if err != nil {
 			return err
 		}
-		podInterfaceName := getPodInterfaceName(networks, cniNetworks, iface.Name)
+		podInterfaceName := networkdriver.GetPodInterfaceName(networks, cniNetworks, iface.Name)
 		err = podNIC.PlugPhase2(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], domain, podInterfaceName)
 		if err != nil {
 			return err
