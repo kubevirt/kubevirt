@@ -236,3 +236,33 @@ func buildAttachHostDevicesErrorMessage(errors []error) error {
 	}
 	return fmt.Errorf(errorMessageBuilder.String())
 }
+
+func GetHostDevicesToAttach(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) ([]api.HostDevice, error) {
+	sriovDevices, err := CreateHostDevices(vmi)
+	if err != nil {
+		return nil, err
+	}
+	currentAttachedSRIOVHostDevices := FilterHostDevices(domainSpec)
+
+	sriovHostDevicesToAttach := DifferenceHostDevicesByAlias(sriovDevices, currentAttachedSRIOVHostDevices)
+
+	return sriovHostDevicesToAttach, nil
+}
+
+// DifferenceHostDevicesByAlias given two slices of host-devices, according to Alias.Name,
+// it returns a slice with host-devices that exists on the first slice and not exists on the second.
+func DifferenceHostDevicesByAlias(desiredHostDevices, actualHostDevices []api.HostDevice) []api.HostDevice {
+	actualHostDevicesByAlias := make(map[string]struct{}, len(actualHostDevices))
+	for _, hostDev := range actualHostDevices {
+		actualHostDevicesByAlias[hostDev.Alias.GetName()] = struct{}{}
+	}
+
+	var filteredSlice []api.HostDevice
+	for _, desiredHostDevice := range desiredHostDevices {
+		if _, exists := actualHostDevicesByAlias[desiredHostDevice.Alias.GetName()]; !exists {
+			filteredSlice = append(filteredSlice, desiredHostDevice)
+		}
+	}
+
+	return filteredSlice
+}

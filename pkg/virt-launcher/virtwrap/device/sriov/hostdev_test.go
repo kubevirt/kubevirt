@@ -24,6 +24,7 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"libvirt.org/libvirt-go"
@@ -317,6 +318,103 @@ var _ = Describe("SRIOV HostDevice", func() {
 				ContainSubstring(hostDevice.Alias.GetName()),
 				ContainSubstring(hostDevice2.Alias.GetName())))
 		})
+	})
+
+	Context("difference", func() {
+		table.DescribeTable("should return the correct host-devices set comparing by host-devices's Alias.Name",
+			func(hostDevices, removeHostDevices, expectedHostDevices []api.HostDevice) {
+				Expect(sriov.DifferenceHostDevicesByAlias(hostDevices, removeHostDevices)).To(ConsistOf(expectedHostDevices))
+			},
+			table.Entry("empty set and zero elements to filter",
+				// slice A
+				[]api.HostDevice{},
+				// slice B
+				[]api.HostDevice{},
+				// expected
+				[]api.HostDevice{},
+			),
+			table.Entry("empty set and at least one element to filter",
+				// slice A
+				[]api.HostDevice{},
+				// slice B
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+					{Alias: api.NewUserDefinedAlias("hostdev1")},
+				},
+				// expected
+				[]api.HostDevice{},
+			),
+			table.Entry("valid set and zero elements to filter",
+				// slice A
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev1")},
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+					{Alias: api.NewUserDefinedAlias("hostdev3")},
+				},
+				// slice B
+				[]api.HostDevice{},
+				// expected
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev1")},
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+					{Alias: api.NewUserDefinedAlias("hostdev3")},
+				},
+			),
+			table.Entry("valid set and at least one element to filter",
+				// slice A
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev4")},
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+					{Alias: api.NewUserDefinedAlias("hostdev3")},
+					{Alias: api.NewUserDefinedAlias("hostdev1")},
+				},
+				// slice B
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev4")},
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+				},
+				// expected
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev1")},
+					{Alias: api.NewUserDefinedAlias("hostdev3")},
+				},
+			),
+
+			table.Entry("valid set and a set that includes all elements from the first set",
+				// slice A
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev4")},
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+				},
+				// slice B
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev4")},
+					{Alias: api.NewUserDefinedAlias("hostdev1")},
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+					{Alias: api.NewUserDefinedAlias("hostdev3")},
+				},
+				// expected
+				[]api.HostDevice{},
+			),
+			table.Entry("valid set and larger set to to filter",
+				// slice A
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev4")},
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+				},
+				// slice B
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev4")},
+					{Alias: api.NewUserDefinedAlias("hostdev1")},
+					{Alias: api.NewUserDefinedAlias("hostdev7")},
+					{Alias: api.NewUserDefinedAlias("hostdev3")},
+				},
+				// expected
+				[]api.HostDevice{
+					{Alias: api.NewUserDefinedAlias("hostdev2")},
+				},
+			),
+		)
 	})
 })
 
