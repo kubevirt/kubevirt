@@ -45,10 +45,6 @@ spec:
           spec:
             description: HyperConvergedSpec defines the desired state of HyperConverged
             properties:
-              bareMetalPlatform:
-                description: BareMetalPlatform indicates whether the infrastructure
-                  is baremetal.
-                type: boolean
               featureGates:
                 default:
                   withHostModelCPU: true

@@ -21,9 +21,6 @@ type HyperConvergedSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 
-	// BareMetalPlatform indicates whether the infrastructure is baremetal.
-	BareMetalPlatform bool `json:"bareMetalPlatform,omitempty"`
-
 	// LocalStorageClassName the name of the local storage class.
 	LocalStorageClassName string `json:"localStorageClassName,omitempty"`
 

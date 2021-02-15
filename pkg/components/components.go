@@ -949,7 +949,6 @@ func GetOperatorCR() *hcov1beta1.HyperConverged {
 			Name: crName,
 		},
 		Spec: hcov1beta1.HyperConvergedSpec{
-			BareMetalPlatform:     false,
 			LocalStorageClassName: "",
 		},
 	}
@@ -1005,9 +1004,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 					"deployOVS": "false",
 				},
 			},
-			"spec": map[string]interface{}{
-				"BareMetalPlatform": false,
-			},
+			"spec": map[string]interface{}{},
 		})
 
 	sideEffect := admissionregistrationv1.SideEffectClassNone

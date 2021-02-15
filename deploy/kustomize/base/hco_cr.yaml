@@ -3,5 +3,4 @@ kind: HyperConverged
 metadata:
   name: kubevirt-hyperconverged
   namespace: kubevirt-hyperconverged
-spec:
-  bareMetalPlatform: true
+spec: {}

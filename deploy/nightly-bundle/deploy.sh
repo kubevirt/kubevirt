@@ -141,8 +141,7 @@ kind: HyperConverged
 metadata:
   name: kubevirt-hyperconverged
   namespace: "${TARGET_NAMESPACE}"
-spec:
-  BareMetalPlatform: true
+spec: {}
 EOF
 
     echo "Waiting for HCO to get fully deployed"

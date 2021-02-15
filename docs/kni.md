@@ -19,10 +19,6 @@ data:
   local-sc.volumeMode: Filesystem
 ```
 
-# Config BareMetal platform
-Use 'BareMetalPlatform' spec when creating HyperConverged to enable BareMetal infrastructure.
-This will result in 'volumeMode: Block' in storage ConfigMap.
-
 # Config local storage class name
 Use 'LocalStorageClassName' spec to specify the name of the local class name.
 
@@ -33,6 +29,5 @@ kind: HyperConverged
 metadata:
   name: hyperconverged-cluster
 spec:
-  BareMetalPlatform: true
   LocalStorageClassName: "local-sc"
 ```

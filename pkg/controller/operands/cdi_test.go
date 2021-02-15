@@ -716,20 +716,6 @@ var _ = Describe("CDI Operand", func() {
 			}
 		})
 
-		It("volumeMode should be filesystem when platform is baremetal", func() {
-			hco.Spec.BareMetalPlatform = true
-
-			expectedResource := NewKubeVirtStorageConfigForCR(hco, commonTestUtils.Namespace)
-			Expect(expectedResource.Data["volumeMode"]).To(Equal("Filesystem"))
-		})
-
-		It("volumeMode should be filesystem when platform is not baremetal", func() {
-			hco.Spec.BareMetalPlatform = false
-
-			expectedResource := NewKubeVirtStorageConfigForCR(hco, commonTestUtils.Namespace)
-			Expect(expectedResource.Data["volumeMode"]).To(Equal("Filesystem"))
-		})
-
 		It("local storage class name should be available when specified", func() {
 			hco.Spec.LocalStorageClassName = "local"
 
