@@ -40,6 +40,24 @@ type MacvtapNetworkingVMConfigurator struct {
 	launcherPID      int
 }
 
+func generateMacvtapVMNetworkingConfigurator(vmi *v1.VirtualMachineInstance, iface *v1.Interface, podInterfaceName string, launcherPID int) (MacvtapNetworkingVMConfigurator, error) {
+	mac, err := retrieveMacAddress(iface)
+	if err != nil {
+		return MacvtapNetworkingVMConfigurator{}, err
+	}
+	virtIface := &api.Interface{}
+	if mac != nil {
+		virtIface.MAC = &api.MAC{MAC: mac.String()}
+	}
+	return MacvtapNetworkingVMConfigurator{
+		vmi:              vmi,
+		iface:            iface,
+		virtIface:        virtIface,
+		podInterfaceName: podInterfaceName,
+		launcherPID:      launcherPID,
+	}, nil
+}
+
 func (b *MacvtapNetworkingVMConfigurator) discoverPodNetworkInterface() error {
 	link, err := networkdriver.Handler.LinkByName(b.podInterfaceName)
 	if err != nil {
