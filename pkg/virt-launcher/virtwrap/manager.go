@@ -106,7 +106,7 @@ type DomainManager interface {
 	GetGuestInfo() (v1.VirtualMachineInstanceGuestAgentInfo, error)
 	GetUsers() ([]v1.VirtualMachineInstanceGuestOSUser, error)
 	GetFilesystems() ([]v1.VirtualMachineInstanceFileSystem, error)
-	SetGuestTime(*v1.VirtualMachineInstance) error
+	FinalizeVirtualMachineMigration(*v1.VirtualMachineInstance) error
 }
 
 type LibvirtDomainManager struct {
@@ -580,7 +580,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 	}(l, vmi)
 }
 
-func (l *LibvirtDomainManager) SetGuestTime(vmi *v1.VirtualMachineInstance) error {
+func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) error {
 	// Try to set VM time to the current value.  This is typically useful
 	// when clock wasn't running on the VM for some time (e.g. during
 	// suspension or migration), especially if the time delay exceeds NTP
@@ -659,6 +659,15 @@ func (l *LibvirtDomainManager) getGuestTimeContext() context.Context {
 	ctx, cancel := context.WithCancel(context.Background())
 	l.setGuestTimeContextPtr = &contextStore{ctx: ctx, cancel: cancel}
 	return ctx
+}
+
+// FinalizeVirtualMachineMigration apply all post-migration changes on the domain.
+func (l *LibvirtDomainManager) FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error {
+	if err := l.setGuestTime(vmi); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func getVMIEphemeralDisksTotalSize() *resource.Quantity {
@@ -1716,7 +1725,7 @@ func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) error 
 		l.paused.remove(vmi.UID)
 		// Try to set guest time after this commands execution.
 		// This operation is not disruptive.
-		if err := l.SetGuestTime(vmi); err != nil {
+		if err := l.setGuestTime(vmi); err != nil {
 			return err
 		}
 

@@ -20,6 +20,7 @@
 package cmdserver
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -213,7 +214,17 @@ var _ = Describe("Virt remote commands", func() {
 		})
 
 		It("should finalize VM migration", func() {
-			Expect(client.FinalizeVirtualMachineMigration(nil)).Should(Succeed())
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().FinalizeVirtualMachineMigration(vmi).Return(nil)
+
+			Expect(client.FinalizeVirtualMachineMigration(vmi)).Should(Succeed())
+		})
+
+		It("should fail to finalize VM migration", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().FinalizeVirtualMachineMigration(vmi).Return(errors.New("error"))
+
+			Expect(client.FinalizeVirtualMachineMigration(vmi)).ToNot(Succeed())
 		})
 	})
 
