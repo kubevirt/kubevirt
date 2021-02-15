@@ -158,6 +158,58 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		nodes := tests.GetAllSchedulableNodes(virtClient)
 		Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
+		fmt.Fprintf(GinkgoWriter, "\n\n\n\n")
+		fmt.Fprintf(GinkgoWriter, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n")
+
+		retries := -1
+
+		Eventually(func() bool {
+			retries++
+			passed := true
+
+			fmt.Fprintf(GinkgoWriter, "\n*** Try number %d ***\n", retries+1)
+			fmt.Fprintf(GinkgoWriter, "Getting nodes... ")
+			pods, err := virtClient.CoreV1().Pods(k8sv1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+			if err != nil {
+				fmt.Fprintf(GinkgoWriter, "Failed\n")
+				return false
+			}
+			fmt.Fprintf(GinkgoWriter, "Succeeded! Number of pods: %d.\n", len(pods.Items))
+			healthyPods := 0
+
+			for idx, pod := range pods.Items {
+				podIdentity := fmt.Sprintf("{idx: %d, Name: \"%s\"}", idx, pod.Name)
+				fmt.Fprintf(GinkgoWriter, "\nChecking pod %s ... \n", podIdentity)
+
+				podPhase := string(pod.Status.Phase)
+				if !(strings.EqualFold("up", podPhase) || strings.EqualFold("running", podPhase)) {
+					fmt.Fprintf(GinkgoWriter, "[FAILED]: Pod isn't Up/Running. Its phase is: %s\n", pod.Status.Phase)
+					passed = false
+				}
+
+				for _, condition := range pod.Status.Conditions {
+					status := string(condition.Status)
+					if !strings.EqualFold(status, "True") {
+						fmt.Fprintf(GinkgoWriter, "[FAILED]: Pod is not %s! Status: %s. Reason: \"%s\". Message: \"%s\"\n", string(condition.Type), status, condition.Reason, condition.Message)
+						passed = false
+					}
+				}
+
+				if passed {
+					fmt.Fprintf(GinkgoWriter, "Passed.\n")
+					healthyPods++
+				} else {
+					fmt.Fprintf(GinkgoWriter, "Failed.\n")
+				}
+			}
+			fmt.Fprintf(GinkgoWriter, "\nHealthy pods: %d/%d.\n", healthyPods, len(pods.Items))
+
+			return passed
+
+		}, 120*time.Second, 5*time.Second).Should(BeTrue())
+		fmt.Fprintf(GinkgoWriter, "SUCCESS!!! All Pods are UP!!! Retries: %d\n", retries)
+		fmt.Fprintf(GinkgoWriter, "\n\n\n\n")
+
 		if len(nodes.Items) < 2 {
 			Skip("Migration tests require at least 2 nodes")
 		}
