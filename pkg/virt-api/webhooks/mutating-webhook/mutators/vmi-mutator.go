@@ -63,6 +63,13 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	if ar.Request.Operation == v1beta1.Create {
 		informers := webhooks.GetInformers()
 
+		if mutator.ClusterConfig.NonRootEnabled() {
+			if newVMI.ObjectMeta.Annotations == nil {
+				newVMI.ObjectMeta.Annotations = make(map[string]string)
+			}
+			newVMI.ObjectMeta.Annotations["nonroot"] = ""
+		}
+
 		// Apply presets
 		err = applyPresets(newVMI, informers.VMIPresetInformer)
 		if err != nil {
