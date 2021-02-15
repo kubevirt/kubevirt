@@ -81,7 +81,9 @@ func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int) error {
 		if err != nil {
 			return err
 		}
-		podInterfaceName := networkdriver.GetPodInterfaceName(networks, cniNetworks, iface.Name)
+		network := networks[iface.Name]
+		cniNetworkIndex := cniNetworks[iface.Name]
+		podInterfaceName := networkdriver.GetPodInterfaceName(network, cniNetworkIndex)
 		err = podNIC.PlugPhase1(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], podInterfaceName, pid)
 		if err != nil {
 			return err
@@ -97,7 +99,9 @@ func SetupPodNetworkPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain) e
 		if err != nil {
 			return err
 		}
-		podInterfaceName := networkdriver.GetPodInterfaceName(networks, cniNetworks, iface.Name)
+		network := networks[iface.Name]
+		cniNetworkIndex := cniNetworks[iface.Name]
+		podInterfaceName := networkdriver.GetPodInterfaceName(network, cniNetworkIndex)
 		err = podNIC.PlugPhase2(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], domain, podInterfaceName)
 		if err != nil {
 			return err
