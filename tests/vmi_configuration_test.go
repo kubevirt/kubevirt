@@ -1499,7 +1499,7 @@ var _ = Describe("Configurations", func() {
 					return true
 				}
 				return false
-			}, 60*time.Second, 1*time.Second).Should(BeTrue())
+			}, 120*time.Second, 1*time.Second).Should(BeTrue())
 		})
 
 		BeforeEach(func() {
