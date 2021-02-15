@@ -1496,7 +1496,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			return err
 		}
 	}
-
 	if virtLauncherLogVerbosity, err := strconv.Atoi(os.Getenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY)); err == nil && (virtLauncherLogVerbosity > services.EXT_LOG_VERBOSITY_THRESHOLD) {
 
 		initializeQEMUCmdAndQEMUArg(domain)
@@ -1800,7 +1799,7 @@ func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
 		"/usr/bin/qemu-img", "info", imagePath, "--output", "json",
 	).Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to invoke qemu-img: %v", err)
+		return nil, fmt.Errorf("failed to invoke qemu-img %s: %v", imagePath, err)
 	}
 	info := &containerdisk.DiskInfo{}
 	err = json.Unmarshal(out, info)

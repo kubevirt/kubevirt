@@ -316,6 +316,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 		"-v",
 		verbosity,
 	}
+	//
 	container.Ports = []corev1.ContainerPort{
 		{
 			Name:          "metrics",

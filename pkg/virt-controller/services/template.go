@@ -363,11 +363,15 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 
 	var volumes []k8sv1.Volume
 	var volumeDevices []k8sv1.VolumeDevice
-	var userId int64 = 0
-	var privileged bool = false
 	var volumeMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
 
+	var userId int64 = 0
+	var privileged bool = false
+	nonRoot := t.clusterConfig.NonRootEnabled()
+	if nonRoot {
+		userId = 107
+	}
 	// Need to run in privileged mode in Power or libvirt will fail to lock memory for VMI
 	if runtime.GOARCH == "ppc64le" {
 		privileged = true
@@ -912,7 +916,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			"-c",
 			"echo", "bound PVCs"}
 	} else {
-		command = []string{"/usr/bin/virt-launcher",
+		binary := "/usr/bin/virt-launcher"
+		if nonRoot {
+			binary = "/usr/bin/virt-launcher-cap"
+		}
+		command = []string{binary,
 			"--qemu-timeout", "5m",
 			"--name", domain,
 			"--uid", string(vmi.UID),
@@ -924,6 +932,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
 			"--less-pvc-space-toleration", strconv.Itoa(lessPVCSpaceToleration),
 			"--ovmf-path", ovmfPath,
+		}
+		if nonRoot {
+			command = append(command, "--run-as-nonroot")
 		}
 	}
 
@@ -993,6 +1004,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		VolumeMounts:  volumeMounts,
 		Resources:     resources,
 		Ports:         ports,
+	}
+	if nonRoot {
+		compute.SecurityContext.RunAsGroup = &userId
+		t := true
+		compute.SecurityContext.RunAsNonRoot = &t
 	}
 
 	if vmi.Spec.ReadinessProbe != nil {
@@ -1121,12 +1137,21 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			Command:         requestedHookSidecar.Command,
 			Args:            requestedHookSidecar.Args,
 			Resources:       resources,
+			SecurityContext: &k8sv1.SecurityContext{
+				RunAsUser:  &userId,
+				Privileged: &privileged,
+			},
 			VolumeMounts: []k8sv1.VolumeMount{
 				{
 					Name:      "hook-sidecar-sockets",
 					MountPath: hooks.HookSocketsSharedDirectory,
 				},
 			},
+		}
+		if nonRoot {
+			sidecar.SecurityContext.RunAsGroup = &userId
+			t := true
+			sidecar.SecurityContext.RunAsNonRoot = &t
 		}
 		containers = append(containers, sidecar)
 	}
@@ -1177,9 +1202,18 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			Name:            "container-disk-binary",
 			Image:           t.launcherImage,
 			ImagePullPolicy: imagePullPolicy,
-			Command:         initContainerCommand,
-			VolumeMounts:    initContainerVolumeMounts,
-			Resources:       initContainerResources,
+			SecurityContext: &k8sv1.SecurityContext{
+				RunAsUser:  &userId,
+				Privileged: &privileged,
+			},
+			Command:      initContainerCommand,
+			VolumeMounts: initContainerVolumeMounts,
+			Resources:    initContainerResources,
+		}
+		if nonRoot {
+			cpInitContainer.SecurityContext.RunAsGroup = &userId
+			t := true
+			cpInitContainer.SecurityContext.RunAsNonRoot = &t
 		}
 
 		initContainers = append(initContainers, cpInitContainer)
@@ -1214,6 +1248,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			DNSConfig:                     vmi.Spec.DNSConfig,
 			DNSPolicy:                     vmi.Spec.DNSPolicy,
 		},
+	}
+
+	if nonRoot {
+		pod.Spec.SecurityContext.RunAsGroup = &userId
+		t := true
+		pod.Spec.SecurityContext.RunAsNonRoot = &t
 	}
 
 	// If an SELinux type was specified, use that--otherwise don't set an SELinux type

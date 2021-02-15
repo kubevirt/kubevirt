@@ -7,9 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"os/user"
 	"reflect"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -77,6 +75,23 @@ var PausedReasonTranslationMap = map[libvirt.DomainPausedReason]api.StateChangeR
 	libvirt.DOMAIN_PAUSED_STARTING_UP:     api.ReasonPausedStartingUp,
 	libvirt.DOMAIN_PAUSED_POSTCOPY:        api.ReasonPausedPostcopy,
 	libvirt.DOMAIN_PAUSED_POSTCOPY_FAILED: api.ReasonPausedPostcopyFailed,
+}
+
+const launcherUser uint32 = 107
+
+type LibvirtWraper struct {
+	user uint32
+}
+
+func NewLibvirtWraper(nonRoot bool) *LibvirtWraper {
+	if nonRoot {
+		return &LibvirtWraper{
+			user: launcherUser,
+		}
+	}
+	return &LibvirtWraper{
+		user: 0,
+	}
 }
 
 func ConvState(status libvirt.DomainState) api.LifeCycle {
@@ -199,7 +214,7 @@ func GetDomainSpecWithFlags(dom cli.VirDomain, flags libvirt.DomainXMLFlags) (*a
 	return domain, nil
 }
 
-func StartLibvirt(stopChan chan struct{}) {
+func (l LibvirtWraper) StartLibvirt(stopChan chan struct{}) {
 	// we spawn libvirt from virt-launcher in order to ensure the libvirtd+qemu process
 	// doesn't exit until virt-launcher is ready for it to. Virt-launcher traps signals
 	// to perform special shutdown logic. These processes need to live in the same
@@ -412,35 +427,7 @@ func NewDomainFromName(name string, vmiUID types.UID) *api.Domain {
 	return domain
 }
 
-func SetupLibvirt() (err error) {
-	// TODO: setting permissions and owners is not part of device plugins.
-	// Configure these manually right now on "/dev/kvm"
-	stats, err := os.Stat("/dev/kvm")
-	if err == nil {
-		s, ok := stats.Sys().(*syscall.Stat_t)
-		if !ok {
-			return fmt.Errorf("can't convert file stats to unix/linux stats")
-		}
-		g, err := user.LookupGroup("qemu")
-		if err != nil {
-			return err
-		}
-		gid, err := strconv.Atoi(g.Gid)
-		if err != nil {
-			return err
-		}
-		err = os.Chown("/dev/kvm", int(s.Uid), gid)
-		if err != nil {
-			return err
-		}
-		err = os.Chmod("/dev/kvm", 0660)
-		if err != nil {
-			return err
-		}
-	} else if !os.IsNotExist(err) {
-		return err
-	}
-
+func (l LibvirtWraper) SetupLibvirt() error {
 	qemuConf, err := os.OpenFile("/etc/libvirt/qemu.conf", os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
