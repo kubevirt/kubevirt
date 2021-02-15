@@ -114,7 +114,6 @@ func createLibvirtConnection(runWithNonRoot bool) virtcli.Connection {
 	user := ""
 	if runWithNonRoot == true {
 		user = "qemu"
-		// libvirtUri = "qemu+unix:///session?socket=/home/virt/.cache/libvirt/libvirt-sock"
 	}
 
 	domainConn, err := virtcli.NewConnection(libvirtUri, user, "", 10*time.Second)
@@ -309,7 +308,7 @@ func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 
 func cleanupContainerDiskDirectory(ephemeralDiskDir string) {
 	// Cleanup the content of ephemeralDiskDir, to make sure that all containerDisk containers terminate
-	err := RemoveContents(ephemeralDiskDir)
+	err := removeContents(ephemeralDiskDir)
 	if err != nil {
 		log.Log.Reason(err).Errorf("could not clean up ephemeral disk directory: %s", ephemeralDiskDir)
 	}
@@ -358,7 +357,7 @@ func main() {
 	}
 
 	if !*noFork {
-		exitCode, err := ForkAndMonitor(*containerDiskDir)
+		exitCode, err := forkAndMonitor(*containerDiskDir)
 		if err != nil {
 			log.Log.Reason(err).Error("monitoring virt-launcher failed")
 			os.Exit(1)
@@ -489,9 +488,9 @@ func main() {
 	log.Log.Info("Exiting...")
 }
 
-// ForkAndMonitor itself to give qemu an extra grace period to properly terminate
+// forkAndMonitor itself to give qemu an extra grace period to properly terminate
 // in case of virt-launcher crashes
-func ForkAndMonitor(containerDiskDir string) (int, error) {
+func forkAndMonitor(containerDiskDir string) (int, error) {
 	defer cleanupContainerDiskDirectory(containerDiskDir)
 	cmd := exec.Command(os.Args[0], append(os.Args[1:], "--no-fork", "true")...)
 	cmd.Stdout = os.Stdout
@@ -586,7 +585,7 @@ func ForkAndMonitor(containerDiskDir string) (int, error) {
 	return exitCode, nil
 }
 
-func RemoveContents(dir string) error {
+func removeContents(dir string) error {
 	files, err := filepath.Glob(filepath.Join(dir, "*.sock"))
 	if err != nil {
 		return err
