@@ -71,18 +71,6 @@ type BindMechanism interface {
 
 type podNICImpl struct{}
 
-func getVifFilePath(pid, name string) string {
-	return fmt.Sprintf(networkdriver.VifCacheFile, pid, name)
-}
-
-func writeVifFile(buf []byte, pid, name string) error {
-	err := ioutil.WriteFile(getVifFilePath(pid, name), buf, 0644)
-	if err != nil {
-		return fmt.Errorf("error writing vif object: %v", err)
-	}
-	return nil
-}
-
 func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, uid string) error {
 	cache := PodCacheInterface{Iface: iface}
 
@@ -445,7 +433,7 @@ func setCachedVIF(vif networkdriver.VIF, pid int, ifaceName string) error {
 	if pid != 0 {
 		launcherPID = fmt.Sprintf("%d", pid)
 	}
-	return writeVifFile(buf, launcherPID, ifaceName)
+	return networkdriver.WriteVifFile(buf, launcherPID, ifaceName)
 }
 
 type BridgeBindMechanism struct {
@@ -634,7 +622,7 @@ func (b *BridgeBindMechanism) setCachedInterface() error {
 }
 
 func (b *BridgeBindMechanism) loadCachedVIF() error {
-	buf, err := ioutil.ReadFile(getVifFilePath("self", b.iface.Name))
+	buf, err := ioutil.ReadFile(networkdriver.GetVifFilePath("self", b.iface.Name))
 	if err != nil {
 		return err
 	}
@@ -984,7 +972,7 @@ func (b *MasqueradeBindMechanism) setCachedInterface() error {
 }
 
 func (b *MasqueradeBindMechanism) loadCachedVIF() error {
-	buf, err := ioutil.ReadFile(getVifFilePath("self", b.iface.Name))
+	buf, err := ioutil.ReadFile(networkdriver.GetVifFilePath("self", b.iface.Name))
 	if err != nil {
 		return err
 	}

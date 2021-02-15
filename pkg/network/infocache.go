@@ -103,3 +103,15 @@ func WriteToVirtHandlerCachedFile(obj interface{}, vmiuid types.UID, ifaceName s
 func getInterfaceCacheFile(pattern, id, name string) string {
 	return fmt.Sprintf(pattern, id, name)
 }
+
+func WriteVifFile(buf []byte, pid, name string) error {
+	err := ioutil.WriteFile(GetVifFilePath(pid, name), buf, 0644)
+	if err != nil {
+		return fmt.Errorf("error writing vif object: %v", err)
+	}
+	return nil
+}
+
+func GetVifFilePath(pid, name string) string {
+	return fmt.Sprintf(VifCacheFile, pid, name)
+}
