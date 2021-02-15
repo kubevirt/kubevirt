@@ -2206,7 +2206,12 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		}
 
 	}
+	if virtutil.IsNonRootVMI(vmi) {
+		d.prepareStorage(vmi, origVMI)
+	}
 
+	// set runtime limits as needed
+	err = d.podIsolationDetector.AdjustResources(vmi)
 	if err := client.SyncMigrationTarget(vmi); err != nil {
 		return fmt.Errorf("syncing migration target failed: %v", err)
 
@@ -2256,6 +2261,10 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 				return fmt.Errorf("failed to configure vmi network: %v", err)
 			}
 
+		}
+		// TODO(LUBO)
+		if virtutil.IsNonRootVMI(vmi) {
+			d.prepareStorage(vmi, origVMI)
 		}
 
 		// set runtime limits as needed
@@ -2483,4 +2492,19 @@ func setMissingSRIOVInterfacesNames(interfacesSpecByName map[string]v1.Interface
 			interfacesStatusByMac[ifaceSpec.MacAddress] = domainIfaceStatus
 		}
 	}
+}
+
+func relabelFiles(newLabel string, files ...string) error {
+	relabelArgs := []string{"selinux", "relabel", newLabel}
+	for _, file := range files {
+		cmd := exec.Command("virt-chroot", append(relabelArgs, file)...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
+		if err != nil {
+			return fmt.Errorf("error relabeling file %s with label %s. Reason: %v", file, newLabel, err)
+		}
+	}
+
+	return nil
 }

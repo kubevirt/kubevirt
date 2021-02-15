@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["vm.go"],
+    srcs = [
+        "non-root.go",
+        "vm.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler",
     visibility = ["//visibility:public"],
     deps = [

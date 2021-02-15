@@ -373,6 +373,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying VMI")
+			// TODO if nonroot then there will be anotation
 			Expect(newVmi.Annotations).To(BeNil())
 			label, ok := vmi.Labels[overrideKey]
 			Expect(ok).To(BeTrue())

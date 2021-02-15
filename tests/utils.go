@@ -3131,16 +3131,24 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 		return "", fmt.Errorf("could not find compute container for pod")
 	}
 
-	arg := ""
-	if kutil.IsNonRootVMI(vmi) {
-		arg = "-c " + "qemu+unix:///session?socket=/var/run/libvirt/libvirt-sock"
+	// get current vmi
+	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("Failed to get vmi, %s", err)
 	}
+
+	command := []string{"virsh"}
+	if kutil.IsNonRootVMI(freshVMI) {
+		command = append(command, "-c")
+		command = append(command, "qemu+unix:///session?socket=/var/run/libvirt/libvirt-sock")
+	}
+	command = append(command, []string{"dumpxml", vmi.Namespace + "_" + vmi.Name}...)
 
 	stdout, stderr, err := ExecuteCommandOnPodV2(
 		virtClient,
 		vmiPod,
 		vmiPod.Spec.Containers[containerIdx].Name,
-		[]string{"virsh", arg, "dumpxml", vmi.Namespace + "_" + vmi.Name},
+		command,
 	)
 	if err != nil {
 		return "", fmt.Errorf("could not dump libvirt domxml (remotely on pod): %v: %s", err, stderr)

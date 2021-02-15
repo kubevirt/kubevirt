@@ -39,7 +39,7 @@ const (
 	HostDiskGate           = "HostDisk"
 	VirtIOFSGate           = "ExperimentalVirtiofsSupport"
 	MacvtapGate            = "Macvtap"
-	NonRoot               = "NonRoot"
+	NonRoot                = "NonRoot"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
