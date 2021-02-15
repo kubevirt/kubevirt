@@ -6,6 +6,7 @@ go_library(
         "common.go",
         "extractors.go",
         "generated_mock_common.go",
+        "generated_mock_infocache.go",
         "infocache.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/network",

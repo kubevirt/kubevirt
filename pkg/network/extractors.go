@@ -21,8 +21,9 @@ package network
 
 import (
 	"fmt"
-	"kubevirt.io/client-go/api/v1"
 	"net"
+
+	v1 "kubevirt.io/client-go/api/v1"
 )
 
 func GetNetworksAndCniNetworks(vmi *v1.VirtualMachineInstance) (map[string]*v1.Network, map[string]int) {

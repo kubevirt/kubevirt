@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -43,6 +45,33 @@ type BridgedNetworkingVMConfigurator struct {
 	vif                 networkdriver.VIF
 	virtIface           *api.Interface
 	vmi                 *v1.VirtualMachineInstance
+}
+
+func generateBridgeVMNetworkingConfigurator(vmi *v1.VirtualMachineInstance, iface *v1.Interface, podInterfaceName string, launcherPID int) (BridgedNetworkingVMConfigurator, error) {
+	mac, err := networkdriver.RetrieveMacAddress(iface)
+	if err != nil {
+		return BridgedNetworkingVMConfigurator{}, err
+	}
+	vif := &networkdriver.VIF{Name: podInterfaceName}
+	if mac != nil {
+		vif.MAC = *mac
+	}
+
+	queueNumber := uint32(0)
+	isMultiqueue := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
+	if isMultiqueue {
+		queueNumber = converter.CalculateNetworkQueues(vmi)
+	}
+	return BridgedNetworkingVMConfigurator{
+		iface:               *iface,
+		virtIface:           &api.Interface{},
+		vmi:                 vmi,
+		vif:                 *vif,
+		podInterfaceName:    podInterfaceName,
+		bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName),
+		launcherPID:         launcherPID,
+		queueNumber:         queueNumber,
+	}, nil
 }
 
 func (b *BridgedNetworkingVMConfigurator) discoverPodNetworkInterface() error {
@@ -151,11 +180,13 @@ func (b *BridgedNetworkingVMConfigurator) prepareVMNetworkingInterfaces() error 
 		return err
 	}
 
-	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
-	b.virtIface.MAC = &api.MAC{MAC: b.vif.MAC.String()}
-	b.virtIface.Target = &api.InterfaceTarget{
-		Device:  tapDeviceName,
-		Managed: "no",
+	b.virtIface = &api.Interface{
+		MAC: &api.MAC{MAC: b.vif.MAC.String()},
+		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
+		Target: &api.InterfaceTarget{
+			Device:  tapDeviceName,
+			Managed: "no",
+		},
 	}
 
 	return nil

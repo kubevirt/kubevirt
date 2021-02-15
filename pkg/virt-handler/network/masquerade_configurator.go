@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/vishvananda/netlink"
 
@@ -48,6 +50,33 @@ type MasqueradeNetworkingVMConfigurator struct {
 	gatewayIpv6Addr     *netlink.Addr
 	launcherPID         int
 	queueNumber         uint32
+}
+
+func generateMasqueradeVMNetworkingConfigurator(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, launcherPID int) (MasqueradeNetworkingVMConfigurator, error) {
+	mac, err := networkdriver.RetrieveMacAddress(iface)
+	if err != nil {
+		return MasqueradeNetworkingVMConfigurator{}, err
+	}
+	vif := &networkdriver.VIF{Name: podInterfaceName}
+	if mac != nil {
+		vif.MAC = *mac
+	}
+
+	queueNumber := uint32(0)
+	isMultiqueue := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
+	if isMultiqueue {
+		queueNumber = converter.CalculateNetworkQueues(vmi)
+	}
+	return MasqueradeNetworkingVMConfigurator{iface: iface,
+		vmi:                 vmi,
+		vif:                 vif,
+		podInterfaceName:    podInterfaceName,
+		vmNetworkCIDR:       network.Pod.VMNetworkCIDR,
+		vmIpv6NetworkCIDR:   "", // TODO add ipv6 cidr to PodNetwork schema
+		bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName),
+		launcherPID:         launcherPID,
+		queueNumber:         queueNumber,
+	}, nil
 }
 
 func (b *MasqueradeNetworkingVMConfigurator) discoverPodNetworkInterface() error {
@@ -201,13 +230,15 @@ func (b *MasqueradeNetworkingVMConfigurator) prepareVMNetworkingInterfaces() err
 		}
 	}
 
-	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
+	b.virtIface = &api.Interface{
+		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
+		Target: &api.InterfaceTarget{
+			Device:  tapDeviceName,
+			Managed: "no",
+		},
+	}
 	if b.vif.MAC != nil {
 		b.virtIface.MAC = &api.MAC{MAC: b.vif.MAC.String()}
-	}
-	b.virtIface.Target = &api.InterfaceTarget{
-		Device:  tapDeviceName,
-		Managed: "no",
 	}
 
 	return nil

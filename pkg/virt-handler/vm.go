@@ -69,6 +69,7 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	trustednetwork "kubevirt.io/kubevirt/pkg/virt-handler/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -437,7 +438,10 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 		return false, nil
 	}
 
-	err = res.DoNetNS(func() error { return network.SetupPodNetworkPhase1(vmi, pid) })
+	err = res.DoNetNS(func() error {
+		vmNetworkingConfigurator := trustednetwork.NewVMNetworkConfigurator(vmi, pid)
+		return vmNetworkingConfigurator.SetupPodInfrastructure()
+	})
 	if err != nil {
 		_, critical := err.(*networkdriver.CriticalNetworkError)
 		if critical {

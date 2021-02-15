@@ -32,8 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	netutils "k8s.io/utils/net"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/vishvananda/netlink"
 
@@ -151,62 +149,6 @@ func sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
 	return []string{ipv6, ipv4}, nil
 }
 
-func (l *podNICImpl) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error {
-	networkdriver.InitHandler()
-
-	// There is nothing to plug for SR-IOV devices
-	if iface.SRIOV != nil {
-		return nil
-	}
-
-	bindMechanism, err := getPhase1Binding(vmi, iface, network, podInterfaceName, pid)
-	if err != nil {
-		return err
-	}
-
-	isExist, err := bindMechanism.loadCachedInterface()
-	if err != nil {
-		return err
-	}
-
-	// ignore the bindMechanism.loadCachedInterface for slirp and set the Pod interface cache
-	if !isExist || iface.Slirp != nil {
-		err := setPodInterfaceCache(iface, podInterfaceName, string(vmi.ObjectMeta.UID))
-		if err != nil {
-			return err
-		}
-	}
-	if !isExist {
-		err = bindMechanism.discoverPodNetworkInterface()
-		if err != nil {
-			return err
-		}
-
-		if err := bindMechanism.preparePodNetworkInterfaces(); err != nil {
-			log.Log.Reason(err).Error("failed to prepare pod networking")
-			return createCriticalNetworkError(err)
-		}
-
-		err = bindMechanism.setCachedInterface()
-		if err != nil {
-			log.Log.Reason(err).Error("failed to save interface configuration")
-			return createCriticalNetworkError(err)
-		}
-
-		err = bindMechanism.setCachedVIF()
-		if err != nil {
-			log.Log.Reason(err).Error("failed to save vif configuration")
-			return createCriticalNetworkError(err)
-		}
-	}
-
-	return nil
-}
-
-func createCriticalNetworkError(err error) *networkdriver.CriticalNetworkError {
-	return &networkdriver.CriticalNetworkError{Msg: fmt.Sprintf("Critical network error: %v", err)}
-}
-
 func ensureDHCP(vmi *v1.VirtualMachineInstance, bindMechanism BindMechanism, podInterfaceName string) error {
 	dhcpStartedFile := fmt.Sprintf("/var/run/kubevirt-private/dhcp_started-%s", podInterfaceName)
 	_, err := os.Stat(dhcpStartedFile)
@@ -263,22 +205,6 @@ func (l *podNICImpl) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 	return nil
 }
 
-func getPhase1Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, launcherPID int) (BindMechanism, error) {
-	if iface.Bridge != nil {
-		return generateBridgeVMNetworkingConfigurator(vmi, iface, podInterfaceName, launcherPID)
-	}
-	if iface.Masquerade != nil {
-		return generateMasqueradeVMNetworkingConfigurator(vmi, iface, network, podInterfaceName, launcherPID)
-	}
-	if iface.Slirp != nil {
-		return &SlirpBindMechanism{vmi: vmi, iface: iface, launcherPID: launcherPID}, nil
-	}
-	if iface.Macvtap != nil {
-		return generateMacvtapVMNetworkingConfigurator(vmi, iface, podInterfaceName, launcherPID)
-	}
-	return nil, fmt.Errorf("Not implemented")
-}
-
 func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) (BindMechanism, error) {
 	if iface.Bridge != nil {
 		return generateBridgeBindingMech(vmi, iface, podInterfaceName, domain)
@@ -293,24 +219,6 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 		return generateMacvtapBindingMech(vmi, iface, domain, podInterfaceName)
 	}
 	return nil, fmt.Errorf("Not implemented")
-}
-
-func generateMacvtapVMNetworkingConfigurator(vmi *v1.VirtualMachineInstance, iface *v1.Interface, podInterfaceName string, launcherPID int) (BindMechanism, error) {
-	mac, err := networkdriver.RetrieveMacAddress(iface)
-	if err != nil {
-		return nil, err
-	}
-	virtIface := &api.Interface{}
-	if mac != nil {
-		virtIface.MAC = &api.MAC{MAC: mac.String()}
-	}
-	return &MacvtapBindMechanism{
-		vmi:              vmi,
-		iface:            iface,
-		virtIface:        virtIface,
-		podInterfaceName: podInterfaceName,
-		launcherPID:      launcherPID,
-	}, nil
 }
 
 func generateMacvtapBindingMech(vmi *v1.VirtualMachineInstance, iface *v1.Interface, domain *api.Domain, podInterfaceName string) (BindMechanism, error) {
@@ -328,34 +236,6 @@ func generateMacvtapBindingMech(vmi *v1.VirtualMachineInstance, iface *v1.Interf
 		virtIface:        virtIface,
 		domain:           domain,
 		podInterfaceName: podInterfaceName,
-	}, nil
-}
-
-func generateMasqueradeVMNetworkingConfigurator(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, launcherPID int) (BindMechanism, error) {
-	mac, err := networkdriver.RetrieveMacAddress(iface)
-	if err != nil {
-		return nil, err
-	}
-	vif := &networkdriver.VIF{Name: podInterfaceName}
-	if mac != nil {
-		vif.MAC = *mac
-	}
-
-	queueNumber := uint32(0)
-	isMultiqueue := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
-	if isMultiqueue {
-		queueNumber = converter.CalculateNetworkQueues(vmi)
-	}
-	return &MasqueradeBindMechanism{iface: iface,
-		virtIface:           &api.Interface{},
-		vmi:                 vmi,
-		vif:                 vif,
-		podInterfaceName:    podInterfaceName,
-		vmNetworkCIDR:       network.Pod.VMNetworkCIDR,
-		vmIpv6NetworkCIDR:   "", // TODO add ipv6 cidr to PodNetwork schema
-		bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName),
-		launcherPID:         launcherPID,
-		queueNumber:         queueNumber,
 	}, nil
 }
 
@@ -395,32 +275,6 @@ func generateBridgeBindingMech(vmi *v1.VirtualMachineInstance, iface *v1.Interfa
 		domain:              domain,
 		podInterfaceName:    podInterfaceName,
 		bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName)}, nil
-}
-
-func generateBridgeVMNetworkingConfigurator(vmi *v1.VirtualMachineInstance, iface *v1.Interface, podInterfaceName string, launcherPID int) (BindMechanism, error) {
-	mac, err := networkdriver.RetrieveMacAddress(iface)
-	if err != nil {
-		return nil, err
-	}
-	vif := &networkdriver.VIF{Name: podInterfaceName}
-	if mac != nil {
-		vif.MAC = *mac
-	}
-
-	queueNumber := uint32(0)
-	isMultiqueue := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
-	if isMultiqueue {
-		queueNumber = converter.CalculateNetworkQueues(vmi)
-	}
-	return &BridgeBindMechanism{iface: iface,
-		virtIface:           &api.Interface{},
-		vmi:                 vmi,
-		vif:                 vif,
-		podInterfaceName:    podInterfaceName,
-		bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName),
-		launcherPID:         launcherPID,
-		queueNumber:         queueNumber,
-	}, nil
 }
 
 func setCachedVIF(vif networkdriver.VIF, pid int, ifaceName string) error {
