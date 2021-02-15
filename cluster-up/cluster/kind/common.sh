@@ -2,6 +2,24 @@
 
 set -e
 
+# check CPU arch
+PLATFORM=$(uname -m)
+case ${PLATFORM} in
+x86_64* | i?86_64* | amd64*)
+    ARCH="amd64"
+    ;;
+ppc64le)
+    ARCH="ppc64le"
+    ;;
+aarch64* | arm64*)
+    ARCH="arm64"
+    ;;
+*)
+    echo "invalid Arch, only support x86_64, ppc64le, aarch64"
+    exit 1
+    ;;
+esac
+
 NODE_CMD="docker exec -it -d "
 export KIND_MANIFESTS_DIR="${KUBEVIRTCI_PATH}/cluster/kind/manifests"
 export KIND_NODE_CLI="docker exec -it "
@@ -34,11 +52,13 @@ function _wait_containers_ready {
 }
 
 function _fetch_kind() {
-    if [ ! -f ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kind ]; then
-        wget https://github.com/kubernetes-sigs/kind/releases/download/v0.7.0/kind-linux-amd64 -O ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kind
-        chmod +x ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kind
+    KIND="${KUBEVIRTCI_CONFIG_PATH}"/"$KUBEVIRT_PROVIDER"/.kind
+    current_kind_version=$($KIND --version |& awk '{print $3}')
+    if [[ $current_kind_version != $KIND_VERSION ]]; then
+        echo "Downloading kind v$KIND_VERSION"
+        curl -LSs https://github.com/kubernetes-sigs/kind/releases/download/v$KIND_VERSION/kind-linux-${ARCH} -o "$KIND"
+        chmod +x "$KIND"
     fi
-    KIND=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kind
 }
 
 function _configure-insecure-registry-and-reload() {
@@ -72,6 +92,35 @@ function _run_registry() {
 function _configure_registry_on_node() {
     _configure-insecure-registry-and-reload "${NODE_CMD} $1 bash -c"
     ${NODE_CMD} $1  sh -c "echo $(docker inspect --format '{{.NetworkSettings.IPAddress }}' $REGISTRY_NAME)'\t'registry >> /etc/hosts"
+}
+
+function _install_cnis {
+    _install_cni_plugins
+    _install_calico_cni
+}
+
+function _install_cni_plugins {
+    local CNI_VERSION="v0.8.5"
+    local CNI_ARCHIVE="cni-plugins-linux-${ARCH}-$CNI_VERSION.tgz"
+    local CNI_URL="https://github.com/containernetworking/plugins/releases/download/$CNI_VERSION/$CNI_ARCHIVE"
+    if [ ! -f ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/$CNI_ARCHIVE ]; then
+        echo "Downloading $CNI_ARCHIVE"
+        curl -sSL -o ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/$CNI_ARCHIVE $CNI_URL
+    fi
+
+    for node in $(_get_nodes | awk '{print $1}'); do
+        docker cp "${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/$CNI_ARCHIVE" $node:/
+        docker exec $node /bin/sh -c "tar xf $CNI_ARCHIVE -C /opt/cni/bin"
+    done
+}
+
+function _install_calico_cni {
+    echo "Installing Calico CNI plugin"
+    calico_manifest="$KIND_MANIFESTS_DIR/kube-calico.yaml.in"
+    patched_diff=$(_patch_calico_manifest_diff $calico_manifest)
+    echo "Log Calico manifest diff:"
+    echo "$patched_diff"
+    _patch_calico_manifest "$calico_manifest" "$patched_diff" | _kubectl apply -f -
 }
 
 function prepare_config() {
@@ -154,7 +203,7 @@ function setup_kind() {
     $KIND --loglevel debug create cluster --retain --name=${CLUSTER_NAME} --config=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml --image=$KIND_NODE_IMAGE
     $KIND get kubeconfig --name=${CLUSTER_NAME} > ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
 
-    docker cp ${CLUSTER_NAME}-control-plane:/kind/bin/kubectl ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
+    docker cp ${CLUSTER_NAME}-control-plane:$KUBECTL_PATH ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
     chmod u+x ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
 
     if [ $KUBEVIRT_WITH_KIND_ETCD_IN_MEMORY == "true" ]; then
@@ -168,16 +217,7 @@ function setup_kind() {
         done
     fi
 
-    for node in $(_get_nodes | awk '{print $1}'); do
-        docker exec $node /bin/sh -c "curl -L https://github.com/containernetworking/plugins/releases/download/v0.8.5/cni-plugins-linux-amd64-v0.8.5.tgz | tar xz -C /opt/cni/bin"
-    done
-
-    echo "Installing Calico CNI plugin"
-    calico_manifest="$KIND_MANIFESTS_DIR/kube-calico.yaml.in"
-    patched_diff=$(_patch_calico_manifest_diff $calico_manifest)
-    echo "Log Calico manifest diff:"
-    echo "$patched_diff"
-    _patch_calico_manifest "$calico_manifest" "$patched_diff" | _kubectl apply -f -
+    _install_cnis
 
     _wait_kind_up
     _kubectl cluster-info
@@ -284,5 +324,6 @@ function down() {
         return
     fi
     $KIND delete cluster --name=${CLUSTER_NAME}
+    docker rm -f $REGISTRY_NAME >> /dev/null
     rm -f ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
 }
