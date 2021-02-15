@@ -1464,14 +1464,13 @@ func getRequiredResources(vmi *v1.VirtualMachineInstance, useEmulation bool) k8s
 		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
 		res[TunDevice] = resource.MustParse("1")
 	}
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if !useEmulation && (iface.Model == "" || iface.Model == "virtio") {
-			// Note that about network interface, useEmulation does not make
-			// any difference on eventual Domain xml, but uniformly making
-			// /dev/vhost-net unavailable and libvirt implicitly fallback
-			// to use QEMU userland NIC emulation.
-			res[VhostNetDevice] = resource.MustParse("1")
-		}
+	if util.NeedVirtioNetDevice(vmi, useEmulation) {
+		// Note that about network interface, useEmulation does not make
+		// any difference on eventual Domain xml, but uniformly making
+		// /dev/vhost-net unavailable and libvirt implicitly fallback
+		// to use QEMU userland NIC emulation.
+		res[VhostNetDevice] = resource.MustParse("1")
+
 	}
 	return res
 }
