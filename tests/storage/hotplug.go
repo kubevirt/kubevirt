@@ -388,7 +388,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Skip("Skip no local wffc storage class available")
 			}
 
-			template := tests.NewRandomFedoraVMIWitGuestAgent()
+			template := tests.NewRandomFedoraVMI()
 			vm = createVirtualMachine(true, template)
 			Eventually(func() bool {
 				vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
@@ -489,7 +489,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					Skip("Skip OCS tests when Ceph is not present")
 				}
 
-				template := tests.NewRandomFedoraVMIWitGuestAgent()
+				template := tests.NewRandomFedoraVMI()
 				node := findCPUManagerWorkerNode()
 				if node != "" {
 					template.Spec.NodeSelector = make(map[string]string)
@@ -875,7 +875,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					Skip("Skip OCS tests when Ceph is not present")
 				}
 
-				vmi = tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi = tests.NewRandomFedoraVMI()
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 			})
 

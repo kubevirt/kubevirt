@@ -1333,7 +1333,7 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 }
 
 func (c *VMIController) createAttachmentPod(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, volume *virtv1.Volume) syncError {
-	attachmentPodTemplate, err := c.createAttachmentPodTemplate(vmi, virtLauncherPod, volume)
+	attachmentPodTemplate, _ := c.createAttachmentPodTemplate(vmi, virtLauncherPod, volume)
 	if attachmentPodTemplate == nil { // nil means the PVC is not populated yet.
 		return nil
 	}
