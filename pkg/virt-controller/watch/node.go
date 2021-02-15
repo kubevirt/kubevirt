@@ -165,7 +165,7 @@ func (c *NodeController) execute(key string) error {
 
 	unresponsive, err := isNodeUnresponsive(node, c.heartBeatTimeout)
 	if err != nil {
-		logger.Reason(err).Error("Failed to dermine if node is responsive, will not reenqueue")
+		logger.Reason(err).Error("Failed to determine if node is responsive, will not reenqueue")
 		return nil
 	}
 
@@ -230,7 +230,7 @@ func (c *NodeController) updateVMIWithFailedStatus(vmis []*virtv1.VirtualMachine
 	errs := []string{}
 	// Do sequential updates, we don't want to create update storms in situations where something might already be wrong
 	for _, vmi := range vmis {
-		err := c.createAndApplyPatch(vmi, logger)
+		err := c.createAndApplyFailedVMINodeUnresponsivePatch(vmi, logger)
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("failed to move vmi %s in namespace %s to final state: %v", vmi.Name, vmi.Namespace, err))
 		}
@@ -243,11 +243,11 @@ func (c *NodeController) updateVMIWithFailedStatus(vmis []*virtv1.VirtualMachine
 	return nil
 }
 
-func (c *NodeController) createAndApplyPatch(vmi *virtv1.VirtualMachineInstance, logger *log.FilteredLogger) error {
+func (c *NodeController) createAndApplyFailedVMINodeUnresponsivePatch(vmi *virtv1.VirtualMachineInstance, logger *log.FilteredLogger) error {
 	c.recorder.Event(vmi, v1.EventTypeNormal, NodeUnresponsiveReason, fmt.Sprintf("virt-handler on node %s is not responsive, marking VMI as failed", vmi.Status.NodeName))
 	logger.V(2).Infof("Moving vmi %s in namespace %s on unresponsive node to failed state", vmi.Name, vmi.Namespace)
 
-	patch := generateVMIPatch(vmi.Status.Reason)
+	patch := generateFailedVMIPatch(vmi.Status.Reason)
 	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, patch)
 	if err != nil {
 		logger.Reason(err).Errorf("Failed to move vmi %s in namespace %s to final state", vmi.Name, vmi.Namespace)
@@ -257,7 +257,7 @@ func (c *NodeController) createAndApplyPatch(vmi *virtv1.VirtualMachineInstance,
 	return nil
 }
 
-func generateVMIPatch(reason string) []byte {
+func generateFailedVMIPatch(reason string) []byte {
 	phasePatch := fmt.Sprintf(`{ "op": "replace", "path": "/status/phase", "value": "%s" }`, virtv1.Failed)
 	operation := "add"
 	if reason != "" {
