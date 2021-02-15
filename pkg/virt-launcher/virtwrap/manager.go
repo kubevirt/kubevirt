@@ -687,7 +687,12 @@ func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance
 	}
 	defer domain.Free()
 
-	sriovHostDevices, err := sriov.CreateHostDevices(vmi)
+	domainSpec, err := util.GetDomainSpecWithFlags(domain, 0)
+	if err != nil {
+		return err
+	}
+
+	sriovHostDevices, err := sriov.GetHostDevicesToAttach(vmi, domainSpec)
 	if err != nil {
 		return err
 	}
