@@ -235,3 +235,7 @@ func (b *BridgedNetworkingVMConfigurator) cacheInterface() error {
 func (b *BridgedNetworkingVMConfigurator) exportVIF() error {
 	return setCachedVIF(b.vif, b.launcherPID, b.iface.Name)
 }
+
+func (b *BridgedNetworkingVMConfigurator) hasCachedInterface() bool {
+	return b.virtIface != nil
+}

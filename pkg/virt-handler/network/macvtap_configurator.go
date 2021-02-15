@@ -82,3 +82,7 @@ func (b *MacvtapNetworkingVMConfigurator) exportVIF() error {
 func (b *MacvtapNetworkingVMConfigurator) cacheInterface() error {
 	return nil
 }
+
+func (b *MacvtapNetworkingVMConfigurator) hasCachedInterface() bool {
+	return b.virtIface != nil
+}

@@ -51,3 +51,7 @@ func (b *SlirpNetworkingVMConfigurator) exportVIF() error {
 func (b *SlirpNetworkingVMConfigurator) cacheInterface() error {
 	return nil
 }
+
+func (b *SlirpNetworkingVMConfigurator) hasCachedInterface() bool {
+	return b.virtIface != nil
+}

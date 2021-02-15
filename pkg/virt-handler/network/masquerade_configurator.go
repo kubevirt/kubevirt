@@ -471,3 +471,7 @@ func (b *MasqueradeNetworkingVMConfigurator) cacheInterface() error {
 func (b *MasqueradeNetworkingVMConfigurator) exportVIF() error {
 	return setCachedVIF(*b.vif, b.launcherPID, b.iface.Name)
 }
+
+func (b *MasqueradeNetworkingVMConfigurator) hasCachedInterface() bool {
+	return b.virtIface != nil
+}

@@ -33,6 +33,7 @@ type VMNetworkingConfiguration interface {
 	discoverPodNetworkInterface() error
 	exportVIF() error
 	loadCachedInterface() error
+	hasCachedInterface() bool
 	prepareVMNetworkingInterfaces() error
 }
 
