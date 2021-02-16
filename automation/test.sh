@@ -324,4 +324,7 @@ fi
 
 
 # Run functional tests
-FUNC_TEST_ARGS=$ginko_params make functest
+for i in {1..10}
+do
+   KUBEVIRT_E2E_FOCUS='test_id:1539' FUNC_TEST_ARGS=$ginko_params make functest
+done
