@@ -917,7 +917,7 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 		OVMFPath:              l.ovmfPath,
 		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 	}
-	if err := converter.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
+	if err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c); err != nil {
 		return fmt.Errorf("conversion failed: %v", err)
 	}
 
@@ -1299,7 +1299,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		return nil, err
 	}
 
-	if err := converter.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
+	if err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c); err != nil {
 		logger.Error("Conversion failed.")
 		return nil, err
 	}

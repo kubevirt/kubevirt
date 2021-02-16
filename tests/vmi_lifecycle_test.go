@@ -1275,7 +1275,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					VirtualMachine: newVMI,
 					UseEmulation:   true,
 				}
-				converter.Convert_v1_VirtualMachine_To_api_Domain(newVMI, domain, context)
+				converter.Convert_v1_VirtualMachineInstance_To_api_Domain(newVMI, domain, context)
 
 				expectedType := ""
 				if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {

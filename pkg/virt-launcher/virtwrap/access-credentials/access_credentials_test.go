@@ -76,7 +76,7 @@ var _ = Describe("AccessCredentials", func() {
 			UseEmulation:   true,
 			SMBios:         &cmdv1.SMBios{},
 		}
-		Expect(converter.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
+		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 		return &domain.Spec
