@@ -53,12 +53,30 @@ func (r *Reconciler) syncDeployment(deployment *appsv1.Deployment) error {
 		return nil
 	}
 
-	deployment, err := apps.Deployments(kv.Namespace).Update(context.Background(), deployment, metav1.UpdateOptions{})
+	// Patch if old version
+	var ops []string
+
+	// Add Labels and Annotations Patches
+	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&deployment.ObjectMeta)
+	if err != nil {
+		return err
+	}
+	ops = append(ops, labelAnnotationPatch...)
+
+	// Add Spec Patch
+	newSpec, err := json.Marshal(deployment.Spec)
+	if err != nil {
+		return err
+	}
+	ops = append(ops, fmt.Sprintf(replaceSpecPatchTemplate, string(newSpec)))
+
+	deployment, err = apps.Deployments(kv.Namespace).Patch(context.Background(), deployment.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to update deployment %+v: %v", deployment, err)
 	}
 
 	resourcemerge.SetDeploymentGeneration(&kv.Status.Generations, deployment)
+	log.Log.V(2).Infof("deployment %v updated", deployment.GetName())
 
 	return nil
 }
@@ -103,12 +121,30 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) error {
 		return nil
 	}
 
-	daemonSet, err := apps.DaemonSets(kv.Namespace).Update(context.Background(), daemonSet, metav1.UpdateOptions{})
+	// Patch if old version
+	var ops []string
+
+	// Add Labels and Annotations Patches
+	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&daemonSet.ObjectMeta)
+	if err != nil {
+		return err
+	}
+	ops = append(ops, labelAnnotationPatch...)
+
+	// Add Spec Patch
+	newSpec, err := json.Marshal(daemonSet.Spec)
+	if err != nil {
+		return err
+	}
+	ops = append(ops, fmt.Sprintf(replaceSpecPatchTemplate, string(newSpec)))
+
+	daemonSet, err = apps.DaemonSets(kv.Namespace).Patch(context.Background(), daemonSet.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to update daemonset %+v: %v", daemonSet, err)
 	}
 
 	resourcemerge.SetDaemonSetGeneration(&kv.Status.Generations, daemonSet)
+	log.Log.V(2).Infof("daemonSet %v updated", daemonSet.GetName())
 
 	return nil
 }

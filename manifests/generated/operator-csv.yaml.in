@@ -222,7 +222,7 @@ spec:
           - watch
           - create
           - delete
-          - update
+          - patch
         - apiGroups:
           - rbac.authorization.k8s.io
           resources:

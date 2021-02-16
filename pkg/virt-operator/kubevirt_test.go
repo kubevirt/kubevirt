@@ -147,8 +147,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	var resourceChanges map[string]map[string]int
 
 	resourceCount := 53
-	patchCount := 28
-	updateCount := 26
+	patchCount := 34
+	updateCount := 20
 
 	deleteFromCache := true
 	addToCache := true
@@ -1262,6 +1262,30 @@ var _ = Describe("KubeVirt Operator", func() {
 		return true, nil, nil
 	}
 
+	webhookValidationPatchFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		genericPatchFunc(action)
+
+		return true, &admissionregistrationv1beta1.ValidatingWebhookConfiguration{}, nil
+	}
+
+	webhookMutatingPatchFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		genericPatchFunc(action)
+
+		return true, &admissionregistrationv1beta1.MutatingWebhookConfiguration{}, nil
+	}
+
+	deploymentPatchFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		genericPatchFunc(action)
+
+		return true, &appsv1.Deployment{}, nil
+	}
+
+	daemonsetPatchFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		genericPatchFunc(action)
+
+		return true, &appsv1.DaemonSet{}, nil
+	}
+
 	genericCreateFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		create, ok := action.(testing.CreateAction)
 		Expect(ok).To(BeTrue())
@@ -1343,14 +1367,14 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("update", "clusterrolebindings", genericUpdateFunc)
 		kubeClient.Fake.PrependReactor("update", "roles", genericUpdateFunc)
 		kubeClient.Fake.PrependReactor("update", "rolebindings", genericUpdateFunc)
-		kubeClient.Fake.PrependReactor("update", "validatingwebhookconfigurations", genericUpdateFunc)
-		kubeClient.Fake.PrependReactor("update", "mutatingwebhookconfigurations", genericUpdateFunc)
+		kubeClient.Fake.PrependReactor("patch", "validatingwebhookconfigurations", webhookValidationPatchFunc)
+		kubeClient.Fake.PrependReactor("patch", "mutatingwebhookconfigurations", webhookMutatingPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "secrets", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "configmaps", genericPatchFunc)
 
 		kubeClient.Fake.PrependReactor("patch", "services", genericPatchFunc)
-		kubeClient.Fake.PrependReactor("update", "daemonsets", genericUpdateFunc)
-		kubeClient.Fake.PrependReactor("update", "deployments", genericUpdateFunc)
+		kubeClient.Fake.PrependReactor("patch", "daemonsets", daemonsetPatchFunc)
+		kubeClient.Fake.PrependReactor("patch", "deployments", deploymentPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", genericPatchFunc)
 		secClient.Fake.PrependReactor("update", "securitycontextconstraints", genericUpdateFunc)
 		promClient.Fake.PrependReactor("patch", "servicemonitors", genericPatchFunc)
@@ -2119,11 +2143,12 @@ var _ = Describe("KubeVirt Operator", func() {
 			// On create this prevents invalid specs from entering the cluster
 			// while controllers are available to process them.
 
-			// 2 because 1 for virt-controller service
+			// 4 because 2 for virt-controller service and deployment,
+			// 1 because of the pdb of virt-controller
 			// and another 1 because of the namespace was not patched yet.
-			Expect(totalPatches).To(Equal(patchCount - 2))
+			Expect(totalPatches).To(Equal(patchCount - 4))
 			// 2 for virt-controller and pdb
-			Expect(totalUpdates).To(Equal(updateCount - 2))
+			Expect(totalUpdates).To(Equal(updateCount))
 
 			Expect(resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(1))
 		}, 15)
@@ -2176,19 +2201,18 @@ var _ = Describe("KubeVirt Operator", func() {
 			// conditions should reflect an ongoing update
 			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionTrue, k8sv1.ConditionTrue)
 
-			// 2 because virt-controller and virt-api are not updated
-			Expect(totalUpdates).To(Equal(updateCount - 2))
+			Expect(totalUpdates).To(Equal(updateCount))
 
 			// daemonset, controller and apiserver pods are updated in this order.
 			// this prevents the new API from coming online until the controllers can manage it.
 			// The PDBs will prevent updated pods from getting "ready", so update should pause after
 			//   daemonsets and before controller and namespace
 
-			// 3 because PDBs and the namespace are not patched
-			Expect(totalPatches).To(Equal(patchCount - 3))
+			// 5 because virt-controller, virt-api, PDBs and the namespace are not patched
+			Expect(totalPatches).To(Equal(patchCount - 5))
 
 			// Make sure the 5 unpatched are as expected
-			Expect(resourceChanges["deployments"][Updated]).To(Equal(0))          // virt-controller and virt-api not updated
+			Expect(resourceChanges["deployments"][Patched]).To(Equal(0))          // virt-controller and virt-api unpatched
 			Expect(resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(0)) // PDBs unpatched
 			Expect(resourceChanges["namespace"][Patched]).To(Equal(0))            // namespace unpatched
 		}, 15)
@@ -2243,17 +2267,16 @@ var _ = Describe("KubeVirt Operator", func() {
 			// conditions should reflect an ongoing update
 			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionTrue, k8sv1.ConditionTrue)
 
-			// 1 virt-api should not be updated
-			Expect(totalUpdates).To(Equal(updateCount - 1))
+			Expect(totalUpdates).To(Equal(updateCount))
 
 			// The update was hacked to avoid pausing after rolling out the daemonsets (virt-handler)
 			// That will allow both daemonset and controller pods to get patched before the pause.
 
-			// 2 pdb and the namespace should not be patched
-			Expect(totalPatches).To(Equal(patchCount - 2))
+			// 3 because virt-api, PDB and the namespace should not be patched
+			Expect(totalPatches).To(Equal(patchCount - 3))
 
 			// Make sure the 3 unpatched are as expected
-			Expect(resourceChanges["deployments"][Updated]).To(Equal(1))          // virt-operator updated, virt-api not updated
+			Expect(resourceChanges["deployments"][Patched]).To(Equal(1))          // virt-operator patched, virt-api unpatched
 			Expect(resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(1)) // 1 of 2 PDBs patched
 			Expect(resourceChanges["namespace"][Patched]).To(Equal(0))            // namespace unpatched
 		}, 15)

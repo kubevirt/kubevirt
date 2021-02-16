@@ -2,6 +2,7 @@ package apply
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -9,6 +10,7 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/client-go/log"
 )
@@ -87,13 +89,31 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 		return nil
 	}
 
-	webhook.ResourceVersion = cachedWebhook.ResourceVersion
-	webhook, err = r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Update(context.Background(), webhook, metav1.UpdateOptions{})
+	// Patch if old version
+	var ops []string
+
+	// Add Labels and Annotations Patches
+	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&webhook.ObjectMeta)
+	if err != nil {
+		return err
+	}
+	ops = append(ops, labelAnnotationPatch...)
+
+	// Add Spec Patch
+	webhooks, err := json.Marshal(webhook.Webhooks)
+	if err != nil {
+		return err
+	}
+
+	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/webhooks", "value": %s }`, string(webhooks)))
+
+	webhook, err = r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to update validatingwebhookconfiguration %+v: %v", webhook, err)
 	}
 
 	SetValidatingWebhookConfigurationGeneration(&r.kv.Status.Generations, webhook)
+	log.Log.V(2).Infof("validatingwebhoookconfiguration %v updated", webhook.Name)
 
 	return nil
 }
@@ -169,13 +189,31 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 		return nil
 	}
 
-	webhook.ResourceVersion = cachedWebhook.ResourceVersion
-	webhook, err = r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Update(context.Background(), webhook, metav1.UpdateOptions{})
+	// Patch if old version
+	var ops []string
+
+	// Add Labels and Annotations Patches
+	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&webhook.ObjectMeta)
+	if err != nil {
+		return err
+	}
+	ops = append(ops, labelAnnotationPatch...)
+
+	// Add Spec Patch
+	webhooks, err := json.Marshal(webhook.Webhooks)
+	if err != nil {
+		return err
+	}
+
+	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/webhooks", "value": %s }`, string(webhooks)))
+
+	webhook, err = r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to update mutatingwebhookconfiguration %+v: %v", webhook, err)
 	}
 
 	SetMutatingWebhookConfigurationGeneration(&r.kv.Status.Generations, webhook)
+	log.Log.V(2).Infof("mutatingwebhoookconfiguration %v updated", webhook.Name)
 
 	return nil
 }
