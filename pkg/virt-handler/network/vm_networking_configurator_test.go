@@ -27,8 +27,6 @@ import (
 	"os"
 	"runtime"
 
-	"kubevirt.io/kubevirt/pkg/virt-handler/network"
-
 	networkdriver "kubevirt.io/kubevirt/pkg/network"
 	network_test_utils "kubevirt.io/kubevirt/pkg/network/test_utils"
 
@@ -92,8 +90,8 @@ var _ = Describe("Pod Network", func() {
 
 	BeforeEach(func() {
 		tmpDir, _ := ioutil.TempDir("", "networktest")
-		MockVirtLauncherCachedPattern(tmpDir + "/cache-iface-%s-%s.json")
-		networkdriver.SetVifCacheFile(tmpDir + "/cache-vif-%s-%s.json")
+		MockVirtLauncherCachedPattern(tmpDir + "/cache-iface-%s.json")
+		networkdriver.SetVifCacheFile(tmpDir + "/cache-vif-%s.json")
 
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = networkdriver.NewMockNetworkHandler(ctrl)
@@ -287,14 +285,14 @@ var _ = Describe("Pod Network", func() {
 		}
 		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, queueNumber, pid, mtu).Return(nil)
 		mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)
-	}
 
-	TestRunPlug := func(driver BindMechanism) {
-		isFound, err := driver.loadCachedInterface()
-		Expect(isFound).To(BeTrue(), "yeah. iface is there.")
-		Expect(err).ToNot(HaveOccurred())
-		err = driver.decorateConfig()
-		Expect(err).ToNot(HaveOccurred())
+		networkingConfigurator := NewVMNetworkConfigurator(vm, pid)
+		Expect(networkingConfigurator.SetupPodInfrastructure()).To(BeNil())
+
+		// Calling SetupPodNetworkPhase1 a second time should result in
+		// no mockNetwork function calls, as confirmed by mock object
+		// limited number of calls expected for each mocked entry point.
+		Expect(networkingConfigurator.SetupPodInfrastructure()).To(BeNil())
 	}
 
 	Context("on successful setup", func() {
@@ -310,7 +308,7 @@ var _ = Describe("Pod Network", func() {
 		It("phase1 should return a CriticalNetworkError if pod networking fails to setup", func() {
 
 			domain := network_test_utils.NewDomainWithBridgeInterface()
-			//vm := network_test_utils.NewVMIBridgeInterface("testnamespace", "testVmName")
+			vm := network_test_utils.NewVMIBridgeInterface("testnamespace", "testVmName")
 
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
@@ -334,11 +332,18 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)
 			mockNetwork.EXPECT().DisableTXOffloadChecksum(bridgeTest.Name).Return(nil)
 			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
+
+			networkConfigurator := NewVMNetworkConfigurator(vm, pid)
+			err := networkConfigurator.SetupPodInfrastructure()
+			Expect(err).To(HaveOccurred(), "SetupPodNetworkPhase1 should return an error")
+
+			_, ok := err.(*networkdriver.CriticalNetworkError)
+			Expect(ok).To(BeTrue(), "SetupPodNetworkPhase1 should return an error of type CriticalNetworkError")
 		})
 		It("should return an error if the MTU is out or range", func() {
 			primaryPodInterface = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Index: 1, MTU: 65536}}
 			domain := network_test_utils.NewDomainWithBridgeInterface()
-			//vm := network_test_utils.NewVMIBridgeInterface("testnamespace", "testVmName")
+			vm := network_test_utils.NewVMIBridgeInterface("testnamespace", "testVmName")
 
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
@@ -347,6 +352,9 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().AddrList(primaryPodInterface, netlink.FAMILY_V4).Return(addrList, nil)
 			mockNetwork.EXPECT().GetMacDetails(networkdriver.PrimaryPodInterfaceName).Return(fakeMac, nil)
 			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
+
+			networkConfigurator := NewVMNetworkConfigurator(vm, pid)
+			Expect(networkConfigurator.SetupPodInfrastructure()).To(HaveOccurred())
 		})
 		Context("func FilterPodNetworkRoutes()", func() {
 			defRoute := netlink.Route{
@@ -368,20 +376,22 @@ var _ = Describe("Pod Network", func() {
 				Expect(networkdriver.FilterPodNetworkRoutes(staticRouteList, testNic)).To(Equal(expectedRouteList))
 			})
 		})
-		It("phase2 should panic if DHCP startup fails", func() {
-			testDhcpPanic := func() {
-				domain := network_test_utils.NewDomainWithBridgeInterface()
-				vm := network_test_utils.NewVMIBridgeInterface("testnamespace", "testVmName")
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("failed to open file"))
-				SetupPodNetworkPhase2(vm, domain)
-			}
-			Expect(testDhcpPanic).To(Panic())
+		Context("getPhase1Binding", func() {
+			Context("for Bridge", func() {
+				It("should populate MAC address", func() {
+					vmi := network_test_utils.NewVMIBridgeInterface("testnamespace", "testVmName")
+					vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
+					driver := NewVMNetworkConfigurator(vmi, pid)
+					vmConfigurator, err := driver.GenerateVMNetworkingConfiguratorForIface(&vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], networkdriver.PrimaryPodInterfaceName)
+					Expect(err).ToNot(HaveOccurred())
+					bridge, ok := vmConfigurator.(*BridgedNetworkingVMConfigurator)
+					Expect(ok).To(BeTrue())
+					Expect(bridge.vif.MAC.String()).To(Equal("de:ad:00:00:be:af"))
+				})
+			})
 		})
 		Context("SRIOV Plug", func() {
 			It("Does not crash", func() {
-				// Plug doesn't do anything for sriov so it's enough to pass an empty domain
-				domain := &api.Domain{}
 				// Same for network
 				net := &v1.Network{}
 
@@ -392,9 +402,8 @@ var _ = Describe("Pod Network", func() {
 					},
 				}
 				vmi := network_test_utils.NewVMI("testnamespace", "testVmName")
-				podnic := podNICImpl{}
-				err := podnic.PlugPhase2(vmi, iface, net, domain, "fakeiface")
-				Expect(err).ToNot(HaveOccurred())
+				vmNetworkingConfigurator := NewVMNetworkConfigurator(vmi, pid)
+				Expect(vmNetworkingConfigurator.GenerateVMNetworkingConfiguratorForIface(iface, net, "fakeiface")).ToNot(HaveOccurred())
 			})
 		})
 		Context("Masquerade Plug", func() {
@@ -502,281 +511,6 @@ var _ = Describe("Pod Network", func() {
 				TestPodInterfaceIPBinding(vm, domain)
 			})
 
-		})
-		Context("Slirp Plug", func() {
-			It("Should create an interface in the qemu command line and remove it from the interfaces", func() {
-				domain := network_test_utils.NewDomainWithSlirpInterface()
-				vmi := network_test_utils.NewVMISlirpInterface("testnamespace", "testVmName")
-
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-
-				driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, networkdriver.PrimaryPodInterfaceName)
-				Expect(err).ToNot(HaveOccurred())
-				TestRunPlug(driver)
-				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
-				Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: "e1000,netdev=default,id=default"}))
-			})
-			It("Should append MAC address to qemu arguments if set", func() {
-				domain := network_test_utils.NewDomainWithSlirpInterface()
-				vmi := network_test_utils.NewVMISlirpInterface("testnamespace", "testVmName")
-
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-
-				driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, networkdriver.PrimaryPodInterfaceName)
-				Expect(err).ToNot(HaveOccurred())
-				TestRunPlug(driver)
-				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
-				Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: "e1000,netdev=default,id=default,mac=de-ad-00-00-be-af"}))
-			})
-			It("Should create an interface in the qemu command line, remove it from the interfaces and leave the other interfaces inplace", func() {
-				domain := network_test_utils.NewDomainWithSlirpInterface()
-				vmi := network_test_utils.NewVMISlirpInterface("testnamespace", "testVmName")
-
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-
-				domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, api.Interface{
-					Model: &api.Model{
-						Type: "virtio",
-					},
-					Type: "bridge",
-					Source: api.InterfaceSource{
-						Bridge: api.DefaultBridgeName,
-					},
-					Alias: api.NewUserDefinedAlias("default"),
-				})
-
-				driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, networkdriver.PrimaryPodInterfaceName)
-				Expect(err).ToNot(HaveOccurred())
-				TestRunPlug(driver)
-				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
-				Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: "e1000,netdev=default,id=default"}))
-			})
-		})
-		Context("Macvtap plug", func() {
-			It("Should pass a non-privileged macvtap interface to qemu", func() {
-				ifaceName := "macvtap0"
-				macvtapLink := &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName, MTU: mtu}}
-				domain := network_test_utils.NewDomainWithMacvtapInterface(ifaceName)
-				vmi := network_test_utils.NewVMIMacvtapInterface("testnamespace", "default", ifaceName)
-
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-
-				mockNetwork.EXPECT().LinkByName(ifaceName).Return(macvtapLink, nil).Times(2)
-				mockNetwork.EXPECT().AddrList(macvtapLink, netlink.FAMILY_ALL).Return(addrList, nil)
-				mockNetwork.EXPECT().GetMacDetails(ifaceName).Return(fakeMac, nil)
-
-				networkingConfigurator := network.NewVMNetworkConfigurator(vmi, 0)
-				err := networkingConfigurator.SetupPodInfrastructureForIface(&vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], ifaceName)
-				Expect(err).ToNot(HaveOccurred())
-
-				driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, ifaceName)
-				_, ok := driver.(*MacvtapBindMechanism)
-				Expect(ok).To(BeTrue())
-				mockNetwork.EXPECT().GetMacDetails(ifaceName).Return(fakeMac, nil)
-				mockNetwork.EXPECT().LinkByName(ifaceName).Return(primaryPodInterface, nil)
-				Expect(err).ToNot(HaveOccurred(), "should have identified the correct binding mechanism")
-				TestRunPlug(driver)
-				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1), "should have a single interface")
-				Expect(domain.Spec.Devices.Interfaces[0].Target).To(Equal(&api.InterfaceTarget{Device: ifaceName, Managed: "no"}), "should have an unmanaged interface")
-				Expect(domain.Spec.Devices.Interfaces[0].MAC).To(Equal(&api.MAC{MAC: fakeMac.String()}), "should have the expected MAC address")
-				Expect(domain.Spec.Devices.Interfaces[0].MTU).To(Equal(&api.MTU{Size: "1410"}), "should have the expected MTU")
-			})
-		})
-	})
-
-	Context("Masquerade startDHCP", func() {
-		It("should succeed when DHCP server started", func() {
-			domain := network_test_utils.NewDomainWithBridgeInterface()
-			vmi := network_test_utils.NewVMIMasqueradeInterface("testnamespace", "testVmName")
-			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, networkdriver.PrimaryPodInterfaceName)
-			Expect(err).ToNot(HaveOccurred())
-			masq, ok := driver.(*MasqueradeBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			masq.vif.Gateway = masqueradeGwAddr.IP.To4()
-			masq.vif.GatewayIpv6 = masqueradeIpv6GwAddr.IP.To16()
-			mockNetwork.EXPECT().StartDHCP(masq.vif, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(nil)
-
-			err = masq.startDHCP(vmi)
-			Expect(err).ToNot(HaveOccurred())
-		})
-		It("should fail when DHCP server failed", func() {
-			domain := network_test_utils.NewDomainWithBridgeInterface()
-			vmi := network_test_utils.NewVMIMasqueradeInterface("testnamespace", "testVmName")
-			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, networkdriver.PrimaryPodInterfaceName)
-			Expect(err).ToNot(HaveOccurred())
-			masq, ok := driver.(*MasqueradeBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			masq.vif.Gateway = masqueradeGwAddr.IP.To4()
-			masq.vif.GatewayIpv6 = masqueradeIpv6GwAddr.IP.To16()
-
-			err = fmt.Errorf("failed to start DHCP server")
-			mockNetwork.EXPECT().StartDHCP(masq.vif, gomock.Any(), masq.bridgeInterfaceName, nil, false).Return(err)
-
-			err = masq.startDHCP(vmi)
-			Expect(err).To(HaveOccurred())
-		})
-	})
-	Context("Bridge startDHCP", func() {
-		It("should succeed when DHCP server started", func() {
-			domain := network_test_utils.NewDomainWithBridgeInterface()
-			vmi := network_test_utils.NewVMIBridgeInterface("testnamespace", "testVmName")
-			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, networkdriver.PrimaryPodInterfaceName)
-			Expect(err).ToNot(HaveOccurred())
-			bridge, ok := driver.(*BridgeBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			mockNetwork.EXPECT().StartDHCP(bridge.vif, gomock.Any(), api.DefaultBridgeName, nil, true).Return(nil)
-
-			err = bridge.startDHCP(vmi)
-			Expect(err).ToNot(HaveOccurred())
-		})
-		It("should fail when DHCP server failed", func() {
-			domain := network_test_utils.NewDomainWithBridgeInterface()
-			vmi := network_test_utils.NewVMIBridgeInterface("testnamespace", "testVmName")
-			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, networkdriver.PrimaryPodInterfaceName)
-			Expect(err).ToNot(HaveOccurred())
-			bridge, ok := driver.(*BridgeBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			err = fmt.Errorf("failed to start DHCP server")
-			mockNetwork.EXPECT().StartDHCP(bridge.vif, gomock.Any(), api.DefaultBridgeName, nil, true).Return(err)
-
-			err = bridge.startDHCP(vmi)
-			Expect(err).To(HaveOccurred())
-		})
-		It("should succeed when DHCP server started and isLayer2 = true", func() {
-			domain := network_test_utils.NewDomainWithBridgeInterface()
-			vmi := network_test_utils.NewVMIBridgeInterface("testnamespace", "testVmName")
-			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, networkdriver.PrimaryPodInterfaceName)
-			Expect(err).ToNot(HaveOccurred())
-			bridge, ok := driver.(*BridgeBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			bridge.vif.IPAMDisabled = true
-			err = fmt.Errorf("failed to start DHCP server")
-			mockNetwork.EXPECT().StartDHCP(bridge.vif, gomock.Any(), api.DefaultBridgeName, nil, true).Return(err)
-
-			err = bridge.startDHCP(vmi)
-			Expect(err).ToNot(HaveOccurred())
-		})
-	})
-	Context("Slirp startDHCP", func() {
-		It("should succeed when DHCP server started", func() {
-			domain := network_test_utils.NewDomainWithSlirpInterface()
-			vmi := network_test_utils.NewVMISlirpInterface("testnamespace", "testVmName")
-			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-
-			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, networkdriver.PrimaryPodInterfaceName)
-			Expect(err).ToNot(HaveOccurred())
-			slirp, ok := driver.(*SlirpBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			err = slirp.startDHCP(vmi)
-			Expect(err).ToNot(HaveOccurred())
-		})
-		// slirp never fails to start DHCP because it doesn't need it at all
-	})
-
-	Context("Bridge loadCachedVIF", func() {
-		It("should fail when nothing to load", func() {
-			vmi := network_test_utils.NewVMIBridgeInterface("testnamespace", "testVmName")
-			domain := network_test_utils.NewDomainWithBridgeInterface()
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, networkdriver.PrimaryPodInterfaceName)
-			Expect(err).ToNot(HaveOccurred())
-			bridge, ok := driver.(*BridgeBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			Expect(bridge.loadCachedVIF()).To(HaveOccurred())
-		})
-		It("should succeed when cache file present", func() {
-			vmi := network_test_utils.NewVMIBridgeInterface("testnamespace", "testVmName")
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			networkingConfigurator := network.NewVMNetworkConfigurator(vmi, 0)
-			driver, err := networkingConfigurator.GenerateVMNetworkingConfiguratorForIface(&vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], networkdriver.PrimaryPodInterfaceName)
-			Expect(err).ToNot(HaveOccurred())
-			bridge, ok := driver.(*network.BridgedNetworkingVMConfigurator)
-			Expect(ok).To(BeTrue())
-			Expect(bridge.ExportVIF()).ToNot(HaveOccurred())
-
-			libvirtSpecGenerator, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], nil, networkdriver.PrimaryPodInterfaceName)
-			Expect(err).ToNot(HaveOccurred())
-			bridge2nd, ok := libvirtSpecGenerator.(*BridgeBindMechanism)
-			Expect(bridge2nd.loadCachedVIF()).ToNot(HaveOccurred())
-			Expect(ok).To(BeTrue())
-		})
-	})
-
-	Context("Slirp loadCachedVIF", func() {
-		It("should succeed", func() {
-			vmi := network_test_utils.NewVMISlirpInterface("testnamespace", "testVmName")
-
-			networkingConfigurator := network.NewVMNetworkConfigurator(vmi, pid)
-			driver, err := networkingConfigurator.GenerateVMNetworkingConfiguratorForIface(&vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], networkdriver.PrimaryPodInterfaceName)
-			Expect(err).ToNot(HaveOccurred())
-			slirp, ok := driver.(*network.SlirpNetworkingVMConfigurator)
-			Expect(ok).To(BeTrue())
-
-			// it doesn't fail regardless, whether called without setCachedVIF...
-			libvirtSpecGenerator, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], nil, networkdriver.PrimaryPodInterfaceName)
-			Expect(err).ToNot(HaveOccurred())
-			slirpLibvirtSpecGenerator, ok := libvirtSpecGenerator.(*SlirpBindMechanism)
-			Expect(slirpLibvirtSpecGenerator.loadCachedVIF()).ToNot(HaveOccurred())
-			Expect(ok).To(BeTrue())
-
-			// ...or after it
-			Expect(slirp.ExportVIF()).ToNot(HaveOccurred())
-			Expect(slirpLibvirtSpecGenerator.loadCachedVIF()).ToNot(HaveOccurred())
-		})
-	})
-
-	Context("Masquerade loadCachedVIF", func() {
-		It("should fail when nothing to load", func() {
-			vmi := network_test_utils.NewVMIMasqueradeInterface("testnamespace", "testVmName")
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], nil, networkdriver.PrimaryPodInterfaceName)
-			Expect(err).ToNot(HaveOccurred())
-			masq, ok := driver.(*MasqueradeBindMechanism)
-			Expect(ok).To(BeTrue())
-
-			Expect(masq.loadCachedVIF()).To(HaveOccurred())
-		})
-		It("should succeed when cache file present", func() {
-			vmi := network_test_utils.NewVMIMasqueradeInterface("testnamespace", "testVmName")
-			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-
-			networkingConfigurator := network.NewVMNetworkConfigurator(vmi, 0)
-			vmConfigurator, err := networkingConfigurator.GenerateVMNetworkingConfiguratorForIface(&vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], networkdriver.PrimaryPodInterfaceName)
-			Expect(err).ToNot(HaveOccurred())
-			masq, ok := vmConfigurator.(*network.MasqueradeNetworkingVMConfigurator)
-			Expect(ok).To(BeTrue())
-
-			Expect(masq.ExportVIF()).ToNot(HaveOccurred())
-			// importing the VIF *always* happens in binding phase#2
-			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], nil, networkdriver.PrimaryPodInterfaceName)
-			Expect(err).ToNot(HaveOccurred())
-			masqueradeLibvirtSpecGenerator, ok := driver.(*MasqueradeBindMechanism)
-			Expect(masqueradeLibvirtSpecGenerator.loadCachedVIF()).ToNot(HaveOccurred())
-			Expect(ok).To(BeTrue())
 		})
 	})
 

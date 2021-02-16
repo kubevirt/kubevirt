@@ -17,7 +17,6 @@ go_library(
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/precond:go_default_library",
-        "//vendor/github.com/coreos/go-iptables/iptables:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
@@ -29,12 +28,13 @@ go_test(
     name = "go_default_test",
     srcs = [
         "network_suite_test.go",
-        "network_test.go",
         "podinterface_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
         "//pkg/network:go_default_library",
+        "//pkg/network/test_utils:go_default_library",
+        "//pkg/virt-handler/network:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",

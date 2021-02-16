@@ -355,7 +355,7 @@ func (b *MasqueradeNetworkingVMConfigurator) createNatRulesUsingIptables(protoco
 			strings.ToLower(port.Protocol),
 			"--dport",
 			strconv.Itoa(int(port.Port)),
-			"--source", getLoopbackAdrress(protocol),
+			"--source", networkdriver.GetLoopbackAdrress(protocol),
 			"-j",
 			"SNAT",
 			"--to-source", b.getGatewayByProtocol(protocol))
@@ -380,7 +380,7 @@ func (b *MasqueradeNetworkingVMConfigurator) createNatRulesUsingIptables(protoco
 			strings.ToLower(port.Protocol),
 			"--dport",
 			strconv.Itoa(int(port.Port)),
-			"--destination", getLoopbackAdrress(protocol),
+			"--destination", networkdriver.GetLoopbackAdrress(protocol),
 			"-j",
 			"DNAT",
 			"--to-destination", b.getVifIpByProtocol(protocol))
@@ -405,14 +405,6 @@ func (b *MasqueradeNetworkingVMConfigurator) getVifIpByProtocol(proto iptables.P
 		return b.vif.IP.IP.String()
 	} else {
 		return b.vif.IPv6.IP.String()
-	}
-}
-
-func getLoopbackAdrress(proto iptables.Protocol) string {
-	if proto == iptables.ProtocolIPv4 {
-		return "127.0.0.1"
-	} else {
-		return "::1"
 	}
 }
 
@@ -458,7 +450,7 @@ func (b *MasqueradeNetworkingVMConfigurator) createNatRulesUsingNftables(proto i
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
-			networkdriver.Handler.GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
+			networkdriver.Handler.GetNFTIPString(proto), "saddr", networkdriver.GetLoopbackAdrress(proto),
 			"counter", "snat", "to", b.getGatewayByProtocol(proto))
 		if err != nil {
 			return err
@@ -474,7 +466,7 @@ func (b *MasqueradeNetworkingVMConfigurator) createNatRulesUsingNftables(proto i
 		}
 
 		err = networkdriver.Handler.NftablesAppendRule(proto, "nat", "output",
-			networkdriver.Handler.GetNFTIPString(proto), "daddr", getLoopbackAdrress(proto),
+			networkdriver.Handler.GetNFTIPString(proto), "daddr", networkdriver.GetLoopbackAdrress(proto),
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
@@ -495,11 +487,11 @@ func (b *MasqueradeNetworkingVMConfigurator) loadCachedInterface() error {
 	return err
 }
 
-func (b *MasqueradeNetworkingVMConfigurator) cacheInterface() error {
+func (b *MasqueradeNetworkingVMConfigurator) CacheInterface() error {
 	return networkdriver.WriteToVirtLauncherCachedFile(b.virtIface, fmt.Sprintf("%d", b.launcherPID), b.iface.Name)
 }
 
-func (b *MasqueradeNetworkingVMConfigurator) exportVIF() error {
+func (b *MasqueradeNetworkingVMConfigurator) ExportVIF() error {
 	return setCachedVIF(*b.vif, b.launcherPID, b.iface.Name)
 }
 

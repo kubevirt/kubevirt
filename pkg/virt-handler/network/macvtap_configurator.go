@@ -20,6 +20,7 @@
 package network
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/vishvananda/netlink"
@@ -41,18 +42,9 @@ type MacvtapNetworkingVMConfigurator struct {
 }
 
 func generateMacvtapVMNetworkingConfigurator(vmi *v1.VirtualMachineInstance, iface *v1.Interface, podInterfaceName string, launcherPID int) (MacvtapNetworkingVMConfigurator, error) {
-	mac, err := retrieveMacAddress(iface)
-	if err != nil {
-		return MacvtapNetworkingVMConfigurator{}, err
-	}
-	virtIface := &api.Interface{}
-	if mac != nil {
-		virtIface.MAC = &api.MAC{MAC: mac.String()}
-	}
 	return MacvtapNetworkingVMConfigurator{
 		vmi:              vmi,
 		iface:            iface,
-		virtIface:        virtIface,
 		podInterfaceName: podInterfaceName,
 		launcherPID:      launcherPID,
 	}, nil
@@ -65,7 +57,7 @@ func (b *MacvtapNetworkingVMConfigurator) discoverPodNetworkInterface() error {
 		return err
 	}
 	b.podNicLink = link
-
+	b.virtIface = &api.Interface{}
 	if b.virtIface.MAC == nil {
 		// Get interface MAC address
 		mac, err := networkdriver.Handler.GetMacDetails(b.podInterfaceName)
@@ -81,7 +73,6 @@ func (b *MacvtapNetworkingVMConfigurator) discoverPodNetworkInterface() error {
 		Device:  b.podInterfaceName,
 		Managed: "no",
 	}
-
 	return nil
 }
 
@@ -90,15 +81,23 @@ func (b *MacvtapNetworkingVMConfigurator) prepareVMNetworkingInterfaces() error 
 }
 
 func (b *MacvtapNetworkingVMConfigurator) loadCachedInterface() error {
+	cachedIface, err := loadCachedInterface(b.launcherPID, b.iface.Name)
+	if cachedIface != nil {
+		b.virtIface = cachedIface
+	}
+	return err
+}
+
+func (b *MacvtapNetworkingVMConfigurator) ExportVIF() error {
 	return nil
 }
 
-func (b *MacvtapNetworkingVMConfigurator) exportVIF() error {
-	return nil
-}
-
-func (b *MacvtapNetworkingVMConfigurator) cacheInterface() error {
-	return nil
+func (b *MacvtapNetworkingVMConfigurator) CacheInterface() error {
+	launcherPID := "self"
+	if b.launcherPID != 0 {
+		launcherPID = fmt.Sprintf("%d", b.launcherPID)
+	}
+	return networkdriver.WriteToVirtLauncherCachedFile(b.virtIface, launcherPID, b.iface.Name)
 }
 
 func (b *MacvtapNetworkingVMConfigurator) hasCachedInterface() bool {

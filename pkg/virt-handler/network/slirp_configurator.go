@@ -44,11 +44,11 @@ func (b *SlirpNetworkingVMConfigurator) loadCachedInterface() error {
 	return nil
 }
 
-func (b *SlirpNetworkingVMConfigurator) exportVIF() error {
+func (b *SlirpNetworkingVMConfigurator) ExportVIF() error {
 	return nil
 }
 
-func (b *SlirpNetworkingVMConfigurator) cacheInterface() error {
+func (b *SlirpNetworkingVMConfigurator) CacheInterface() error {
 	return nil
 }
 

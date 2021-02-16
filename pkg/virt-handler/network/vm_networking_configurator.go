@@ -22,10 +22,11 @@ package network
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+
 	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/types"
 	netutils "k8s.io/utils/net"
-	"os"
 
 	"kubevirt.io/client-go/log"
 
@@ -37,6 +38,7 @@ import (
 type VMInterfaceConfigurator interface {
 	SetupPodInfrastructure() error
 	SetupPodInfrastructureForIface(iface *v1.Interface, network *v1.Network, podInterfaceName string) error
+	GenerateVMNetworkingConfiguratorForIface(iface *v1.Interface, network *v1.Network, podInterfaceName string) (VMNetworkingConfiguration, error)
 }
 
 type VMInterfaceConfiguratorImpl struct {
@@ -69,17 +71,15 @@ func (vic *VMInterfaceConfiguratorImpl) SetupPodInfrastructure() error {
 
 func (vic *VMInterfaceConfiguratorImpl) SetupPodInfrastructureForIface(iface *v1.Interface, network *v1.Network, podInterfaceName string) error {
 	networkdriver.InitHandler()
-
 	// There is nothing to plug for SR-IOV devices
 	if iface.SRIOV != nil {
 		return nil
 	}
 
-	vmNetworkingConfigurator, err := generateVMNetworkingConfiguratorForIface(vic.vmi, iface, network, podInterfaceName, vic.launcherPID)
+	vmNetworkingConfigurator, err := vic.GenerateVMNetworkingConfiguratorForIface(iface, network, podInterfaceName)
 	if err != nil {
 		return err
 	}
-
 	if err := vmNetworkingConfigurator.loadCachedInterface(); err != nil {
 		return err
 	}
@@ -101,12 +101,12 @@ func (vic *VMInterfaceConfiguratorImpl) SetupPodInfrastructureForIface(iface *v1
 			return createCriticalNetworkError(err)
 		}
 
-		if err := vmNetworkingConfigurator.cacheInterface(); err != nil {
+		if err := vmNetworkingConfigurator.CacheInterface(); err != nil {
 			log.Log.Reason(err).Error("failed to save interface configuration")
 			return createCriticalNetworkError(err)
 		}
 
-		if err = vmNetworkingConfigurator.exportVIF(); err != nil {
+		if err = vmNetworkingConfigurator.ExportVIF(); err != nil {
 			log.Log.Reason(err).Error("failed to save vif configuration")
 			return createCriticalNetworkError(err)
 		}
@@ -119,33 +119,33 @@ func createCriticalNetworkError(err error) *networkdriver.CriticalNetworkError {
 	return &networkdriver.CriticalNetworkError{Msg: fmt.Sprintf("Critical network error: %v", err)}
 }
 
-func generateVMNetworkingConfiguratorForIface(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, launcherPID int) (VMNetworkingConfiguration, error) {
+func (vic *VMInterfaceConfiguratorImpl) GenerateVMNetworkingConfiguratorForIface(iface *v1.Interface, network *v1.Network, podInterfaceName string) (VMNetworkingConfiguration, error) {
 	// nothing to do for SRIOV
 	if iface.SRIOV != nil {
 		return nil, nil
 	}
 	if iface.Bridge != nil {
-		bridgeNetworkingConfigurator, err := generateBridgeVMNetworkingConfigurator(vmi, iface, podInterfaceName, launcherPID)
+		bridgeNetworkingConfigurator, err := generateBridgeVMNetworkingConfigurator(vic.vmi, iface, podInterfaceName, vic.launcherPID)
 		return VMNetworkingConfiguration(&bridgeNetworkingConfigurator), err
 	}
 	if iface.Masquerade != nil {
-		masqueradeNetworkingConfigurator, err := generateMasqueradeVMNetworkingConfigurator(vmi, iface, network, podInterfaceName, launcherPID)
+		masqueradeNetworkingConfigurator, err := generateMasqueradeVMNetworkingConfigurator(vic.vmi, iface, network, podInterfaceName, vic.launcherPID)
 		return VMNetworkingConfiguration(&masqueradeNetworkingConfigurator), err
 	}
 	if iface.Slirp != nil {
-		return VMNetworkingConfiguration(&SlirpNetworkingVMConfigurator{vmi: vmi, iface: iface, launcherPID: launcherPID}), nil
+		return VMNetworkingConfiguration(&SlirpNetworkingVMConfigurator{vmi: vic.vmi, iface: iface, launcherPID: vic.launcherPID}), nil
 	}
 	if iface.Macvtap != nil {
-		macvtapNetworkingConfigurator, err := generateMacvtapVMNetworkingConfigurator(vmi, iface, podInterfaceName, launcherPID)
+		macvtapNetworkingConfigurator, err := generateMacvtapVMNetworkingConfigurator(vic.vmi, iface, podInterfaceName, vic.launcherPID)
 		return VMNetworkingConfiguration(&macvtapNetworkingConfigurator), err
 	}
 	return nil, fmt.Errorf("Not implemented")
 }
 
 type VMNetworkingConfiguration interface {
-	cacheInterface() error
+	CacheInterface() error
 	discoverPodNetworkInterface() error
-	exportVIF() error
+	ExportVIF() error
 	loadCachedInterface() error
 	hasCachedInterface() bool
 	prepareVMNetworkingInterfaces() error

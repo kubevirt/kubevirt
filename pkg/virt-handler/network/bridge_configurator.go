@@ -64,7 +64,6 @@ func generateBridgeVMNetworkingConfigurator(vmi *v1.VirtualMachineInstance, ifac
 	}
 	return BridgedNetworkingVMConfigurator{
 		iface:               *iface,
-		virtIface:           &api.Interface{},
 		vmi:                 vmi,
 		vif:                 *vif,
 		podInterfaceName:    podInterfaceName,
@@ -259,11 +258,11 @@ func (b *BridgedNetworkingVMConfigurator) loadCachedInterface() error {
 	return err
 }
 
-func (b *BridgedNetworkingVMConfigurator) cacheInterface() error {
+func (b *BridgedNetworkingVMConfigurator) CacheInterface() error {
 	return networkdriver.WriteToVirtLauncherCachedFile(b.virtIface, fmt.Sprintf("%d", b.launcherPID), b.iface.Name)
 }
 
-func (b *BridgedNetworkingVMConfigurator) exportVIF() error {
+func (b *BridgedNetworkingVMConfigurator) ExportVIF() error {
 	return setCachedVIF(b.vif, b.launcherPID, b.iface.Name)
 }
 

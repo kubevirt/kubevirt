@@ -24,12 +24,13 @@ package network
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/vishvananda/netlink"
 	"io/ioutil"
 
+	"os"
+
+	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/types"
 	netutils "k8s.io/utils/net"
-	"os"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -37,8 +38,6 @@ import (
 	networkdriver "kubevirt.io/kubevirt/pkg/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
-
-var bridgeFakeIP = "169.254.75.1%d/32"
 
 type BindMechanism interface {
 	loadCachedInterface() (bool, error)
@@ -295,19 +294,9 @@ type BridgeBindMechanism struct {
 	queueNumber         uint32
 }
 
-func (b *BridgeBindMechanism) getFakeBridgeIP() (string, error) {
-	ifaces := b.vmi.Spec.Domain.Devices.Interfaces
-	for i, iface := range ifaces {
-		if iface.Name == b.iface.Name {
-			return fmt.Sprintf(bridgeFakeIP, i), nil
-		}
-	}
-	return "", fmt.Errorf("Failed to generate bridge fake address for interface %s", b.iface.Name)
-}
-
 func (b *BridgeBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
 	if !b.vif.IPAMDisabled {
-		addr, err := b.getFakeBridgeIP()
+		addr, err := networkdriver.GetFakeBridgeIP(vmi.Spec.Domain.Devices.Interfaces, b.iface.Name)
 		if err != nil {
 			return err
 		}
@@ -337,7 +326,7 @@ func (b *BridgeBindMechanism) decorateConfig() error {
 func (b *BridgeBindMechanism) loadCachedInterface() (bool, error) {
 	var ifaceConfig api.Interface
 
-	err := networkdriver.ReadFromVirtLauncherCachedFile(&ifaceConfig, fmt.Sprintf("%d", b.launcherPID), b.iface.Name)
+	err := networkdriver.ReadFromVirtLauncherCachedFile(&ifaceConfig, "self", b.iface.Name)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
@@ -518,7 +507,7 @@ func (b *MacvtapBindMechanism) decorateConfig() error {
 func (b *MacvtapBindMechanism) loadCachedInterface() (bool, error) {
 	var ifaceConfig api.Interface
 
-	err := networkdriver.ReadFromVirtLauncherCachedFile(&ifaceConfig, fmt.Sprintf("%d", b.launcherPID), b.iface.Name)
+	err := networkdriver.ReadFromVirtLauncherCachedFile(&ifaceConfig, "self", b.iface.Name)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
@@ -526,7 +515,6 @@ func (b *MacvtapBindMechanism) loadCachedInterface() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
 	b.virtIface = &ifaceConfig
 	return true, nil
 }

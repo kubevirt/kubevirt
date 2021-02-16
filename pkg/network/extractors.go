@@ -23,8 +23,12 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/coreos/go-iptables/iptables"
+
 	v1 "kubevirt.io/client-go/api/v1"
 )
+
+var BridgeFakeIP = "169.254.75.1%d/32"
 
 func GetNetworksAndCniNetworks(vmi *v1.VirtualMachineInstance) (map[string]*v1.Network, map[string]int) {
 	networks := map[string]*v1.Network{}
@@ -57,4 +61,21 @@ func RetrieveMacAddress(iface *v1.Interface) (*net.HardwareAddr, error) {
 		return &macAddress, nil
 	}
 	return nil, nil
+}
+
+func GetFakeBridgeIP(ifaces []v1.Interface, ifaceName string) (string, error) {
+	for i, iface := range ifaces {
+		if iface.Name == ifaceName {
+			return fmt.Sprintf(BridgeFakeIP, i), nil
+		}
+	}
+	return "", fmt.Errorf("Failed to generate bridge fake address for interface %s", ifaceName)
+}
+
+func GetLoopbackAdrress(proto iptables.Protocol) string {
+	if proto == iptables.ProtocolIPv4 {
+		return "127.0.0.1"
+	} else {
+		return "::1"
+	}
 }

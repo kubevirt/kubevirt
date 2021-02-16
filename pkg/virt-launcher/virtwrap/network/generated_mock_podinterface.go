@@ -30,26 +30,6 @@ func (_m *MockBindMechanism) EXPECT() *_MockBindMechanismRecorder {
 	return _m.recorder
 }
 
-func (_m *MockBindMechanism) discoverPodNetworkInterface() error {
-	ret := _m.ctrl.Call(_m, "discoverPodNetworkInterface")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockBindMechanismRecorder) discoverPodNetworkInterface() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "discoverPodNetworkInterface")
-}
-
-func (_m *MockBindMechanism) preparePodNetworkInterfaces() error {
-	ret := _m.ctrl.Call(_m, "preparePodNetworkInterfaces")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockBindMechanismRecorder) preparePodNetworkInterfaces() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "preparePodNetworkInterfaces")
-}
-
 func (_m *MockBindMechanism) loadCachedInterface() (bool, error) {
 	ret := _m.ctrl.Call(_m, "loadCachedInterface")
 	ret0, _ := ret[0].(bool)
@@ -61,16 +41,6 @@ func (_mr *_MockBindMechanismRecorder) loadCachedInterface() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "loadCachedInterface")
 }
 
-func (_m *MockBindMechanism) setCachedInterface() error {
-	ret := _m.ctrl.Call(_m, "setCachedInterface")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockBindMechanismRecorder) setCachedInterface() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "setCachedInterface")
-}
-
 func (_m *MockBindMechanism) loadCachedVIF() error {
 	ret := _m.ctrl.Call(_m, "loadCachedVIF")
 	ret0, _ := ret[0].(error)
@@ -79,16 +49,6 @@ func (_m *MockBindMechanism) loadCachedVIF() error {
 
 func (_mr *_MockBindMechanismRecorder) loadCachedVIF() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "loadCachedVIF")
-}
-
-func (_m *MockBindMechanism) setCachedVIF() error {
-	ret := _m.ctrl.Call(_m, "setCachedVIF")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockBindMechanismRecorder) setCachedVIF() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "setCachedVIF")
 }
 
 func (_m *MockBindMechanism) decorateConfig() error {
