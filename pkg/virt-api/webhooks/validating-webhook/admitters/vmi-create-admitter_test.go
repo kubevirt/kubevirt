@@ -425,6 +425,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				map[string]string{hooks.HookSidecarListAnnotationName: "[{'image': 'fake-image'}]"},
 				fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName),
 			),
+			table.Entry("without live migration compression feature gate enabled",
+				map[string]string{v1.LiveMigrationCompressionMethod: "mt"},
+				fmt.Sprintf("invalid entry metadata.annotations.%s", v1.LiveMigrationCompressionMethod),
+			),
 		)
 
 		table.DescribeTable("should accept annotations which require feature gate enabled", func(annotations map[string]string, featureGate string) {
@@ -443,6 +447,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			table.Entry("with sidecar feature gate enabled",
 				map[string]string{hooks.HookSidecarListAnnotationName: "[{'image': 'fake-image'}]"},
 				virtconfig.SidecarGate,
+			),
+			table.Entry("with live migration compression feature gate enabled",
+				map[string]string{v1.LiveMigrationCompressionMethod: "mt"},
+				virtconfig.LiveMigrationCompressionGate,
 			),
 		)
 	})

@@ -55,8 +55,16 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			Phase: v1.KubeVirtPhaseDeploying,
 		},
 	}
-	config, _, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+	config, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 	vmiUpdateAdmitter := &VMIUpdateAdmitter{config}
+	enableFeatureGate := func(featureGate string) {
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+	}
+	disableFeatureGates := func() {
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+	}
 
 	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse) {
 		input := map[string]interface{}{}
@@ -202,6 +210,32 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		),
 	)
 
+	Context("with VirtualMachineInstance spec", func() {
+		AfterEach(func() {
+			disableFeatureGates()
+		})
+		It("should reject live migration compression annotations which require feature gate enabled", func() {
+			newVMI := v1.NewMinimalVMI("testvmi")
+			newVMI.ObjectMeta = metav1.ObjectMeta{
+				Annotations: map[string]string{v1.LiveMigrationCompressionMethod: "mt"},
+			}
+
+			resp := validateLiveMigrationCompressionAnnotations(newVMI, vmiUpdateAdmitter.ClusterConfig)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("LiveMigrationCompression feature gate is not enabled in kubevirt-config"))
+		})
+		It("should allow live migration compression annotations with enabledfeature gate", func() {
+			enableFeatureGate("LiveMigrationCompression")
+			newVMI := v1.NewMinimalVMI("testvmi")
+			newVMI.ObjectMeta = metav1.ObjectMeta{
+				Annotations: map[string]string{v1.LiveMigrationCompressionMethod: "mt"},
+			}
+
+			resp := validateLiveMigrationCompressionAnnotations(newVMI, vmiUpdateAdmitter.ClusterConfig)
+			Expect(resp).To(BeNil())
+		})
+	})
 	table.DescribeTable(
 		"Should reject VMI upon modification of kubevirt.io/ reserved labels by non kubevirt user or service account",
 		func(originalVmiLabels map[string]string, updateVmiLabels map[string]string) {

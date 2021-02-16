@@ -486,6 +486,8 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 			URI:       migrURI,
 			URISet:    true,
 		}
+		// rationalize migration compression parameters
+		tuneMigrationCompression(vmi, params)
 		copyDisks := getDiskTargetsForMigration(dom, vmi)
 		if len(copyDisks) != 0 {
 			params.MigrateDisks = copyDisks
@@ -621,6 +623,74 @@ func getVMIMigrationDataSize(vmi *v1.VirtualMachineInstance) int64 {
 		memory.Add(*disksSize)
 	}
 	return memory.ScaledValue(resource.Giga)
+}
+
+func tuneMigrationCompression(vmi *v1.VirtualMachineInstance, params *libvirt.DomainMigrateParameters) {
+	switch compressMethod := vmi.Annotations[v1.LiveMigrationCompressionMethod]; compressMethod {
+	case "mt":
+		params.Compression = "mt"
+		params.CompressionSet = true
+
+		//set compression level if needed
+		compressLevel := vmi.Annotations[v1.LiveMigrationThreadedCompressionLevel]
+		level, err := strconv.Atoi(compressLevel)
+		if err != nil {
+			log.Log.Reason(err).Warning("failed to set live migration compression level")
+			return
+		}
+		//allowed values are between 0 and 9, where 0 means no compression and 9 is the maximum
+		if level < 0 {
+			level = 0
+		} else if level > 9 {
+			level = 9
+		}
+		params.CompressionMTLevel = int(level)
+		params.CompressionMTLevelSet = true
+
+		//set number of compression threads if needed
+		compressThreads := vmi.Annotations[v1.LiveMigrationThreadedCompressionThreads]
+		threads, err := strconv.Atoi(compressThreads)
+		if err != nil {
+			log.Log.Reason(err).Warning("failed to set live migration compression threads")
+			return
+		} else if threads < 1 {
+			log.Log.Warning("failed to set live migration compression threads, negative values are ignored")
+			return
+		}
+
+		params.CompressionMTThreads = int(threads)
+		params.CompressionMTThreadsSet = true
+
+		//set number of de-compression threads if needed
+		decompressThreads := vmi.Annotations[v1.LiveMigrationThreadedDeCompressionThreads]
+		dthreads, err := strconv.Atoi(decompressThreads)
+		if err != nil {
+			log.Log.Reason(err).Warning("failed to set live migration decompression threads")
+			return
+		} else if threads < 1 {
+			log.Log.Warning("failed to set live migration compression threads, negative values are ignored")
+			return
+		}
+
+		params.CompressionMTDThreads = int(dthreads)
+		params.CompressionMTDThreadsSet = true
+
+	case "xbzrle":
+		params.Compression = "xbzrle"
+		params.CompressionSet = true
+
+		//set compression level if needed
+		xbzrleCache := vmi.Annotations[v1.LiveMigrationXBZRLECompressionCache]
+		cache, err := strconv.Atoi(xbzrleCache)
+		if err != nil {
+			log.Log.Reason(err).Warning("failed to set live migration compression xbzrle cache")
+			return
+		} else if cache < 1 {
+			log.Log.Warning("failed to set live migration compression xbzrle cache, negative values are ignored")
+			return
+		}
+
+	}
 }
 
 func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationErr chan error) {

@@ -24,19 +24,20 @@ package virtconfig
 */
 
 const (
-	CPUManager            = "CPUManager"
-	IgnitionGate          = "ExperimentalIgnitionSupport"
-	LiveMigrationGate     = "LiveMigration"
-	CPUNodeDiscoveryGate  = "CPUNodeDiscovery"
-	HypervStrictCheckGate = "HypervStrictCheck"
-	SidecarGate           = "Sidecar"
-	GPUGate               = "GPU"
-	HostDevicesGate       = "HostDevices"
-	SnapshotGate          = "Snapshot"
-	HotplugVolumesGate    = "HotplugVolumes"
-	HostDiskGate          = "HostDisk"
-	VirtIOFSGate          = "ExperimentalVirtiofsSupport"
-	MacvtapGate           = "Macvtap"
+	CPUManager                   = "CPUManager"
+	IgnitionGate                 = "ExperimentalIgnitionSupport"
+	LiveMigrationGate            = "LiveMigration"
+	LiveMigrationCompressionGate = "LiveMigrationCompression"
+	CPUNodeDiscoveryGate         = "CPUNodeDiscovery"
+	HypervStrictCheckGate        = "HypervStrictCheck"
+	SidecarGate                  = "Sidecar"
+	GPUGate                      = "GPU"
+	HostDevicesGate              = "HostDevices"
+	SnapshotGate                 = "Snapshot"
+	HotplugVolumesGate           = "HotplugVolumes"
+	HostDiskGate                 = "HostDisk"
+	VirtIOFSGate                 = "ExperimentalVirtiofsSupport"
+	MacvtapGate                  = "Macvtap"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -58,6 +59,10 @@ func (config *ClusterConfig) IgnitionEnabled() bool {
 
 func (config *ClusterConfig) LiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(LiveMigrationGate)
+}
+
+func (config *ClusterConfig) LiveMigrationCompressionEnabled() bool {
+	return config.isFeatureGateEnabled(LiveMigrationCompressionGate)
 }
 
 func (config *ClusterConfig) HypervStrictCheckEnabled() bool {
