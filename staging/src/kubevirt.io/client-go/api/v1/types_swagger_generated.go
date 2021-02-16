@@ -330,6 +330,7 @@ func (VirtualMachineCondition) SwaggerDoc() map[string]string {
 func (Handler) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":          "Handler defines a specific action that should be taken",
+		"exec":      "One and only one of the following should be specified.\nExec specifies the action to take, it will be executed on the guest through the qemu-guest-agent.\nIf the guest agent is not available, this probe will fail.\n+optional",
 		"httpGet":   "HTTPGet specifies the http request to perform.\n+optional",
 		"tcpSocket": "TCPSocket specifies an action involving a TCP port.\nTCP hooks not yet supported\n+optional",
 	}

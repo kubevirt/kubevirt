@@ -1302,6 +1302,11 @@ const (
 // Handler defines a specific action that should be taken
 // TODO: pass structured data to these actions, and document that data here.
 type Handler struct {
+	// One and only one of the following should be specified.
+	// Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent.
+	// If the guest agent is not available, this probe will fail.
+	// +optional
+	Exec *k8sv1.ExecAction `json:"exec,omitempty" protobuf:"bytes,1,opt,name=exec"`
 	// HTTPGet specifies the http request to perform.
 	// +optional
 	HTTPGet *k8sv1.HTTPGetAction `json:"httpGet,omitempty"`

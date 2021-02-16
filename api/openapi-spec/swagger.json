@@ -7800,6 +7800,19 @@
      }
     }
    },
+   "k8s.io.api.core.v1.ExecAction": {
+    "description": "ExecAction describes a \"run in container\" action.",
+    "type": "object",
+    "properties": {
+     "command": {
+      "description": "Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     }
+    }
+   },
    "k8s.io.api.core.v1.HTTPGetAction": {
     "description": "HTTPGetAction describes an action based on HTTP Get requests.",
     "type": "object",
@@ -10844,6 +10857,10 @@
     "description": "Probe describes a health check to be performed against a VirtualMachineInstance to determine whether it is alive or ready to receive traffic.",
     "type": "object",
     "properties": {
+     "exec": {
+      "description": "One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.",
+      "$ref": "#/definitions/k8s.io.api.core.v1.ExecAction"
+     },
      "failureThreshold": {
       "description": "Minimum consecutive failures for the probe to be considered failed after having succeeded. Defaults to 3. Minimum value is 1.",
       "type": "integer",

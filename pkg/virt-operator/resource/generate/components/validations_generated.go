@@ -4369,6 +4369,15 @@ var CRDsValidation map[string]string = map[string]string{
                     VirtualmachineInstances will be stopped if the probe fails. Cannot
                     be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                   properties:
+                    exec:
+                      description: One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.
+                      properties:
+                        command:
+                          description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                          items:
+                            type: string
+                          type: array
+                      type: object
                     failureThreshold:
                       description: Minimum consecutive failures for the probe to be
                         considered failed after having succeeded. Defaults to 3. Minimum
@@ -4521,6 +4530,15 @@ var CRDsValidation map[string]string = map[string]string{
                     VirtualmachineInstances will be removed from service endpoints
                     if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                   properties:
+                    exec:
+                      description: One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.
+                      properties:
+                        command:
+                          description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                          items:
+                            type: string
+                          type: array
+                      type: object
                     failureThreshold:
                       description: Minimum consecutive failures for the probe to be
                         considered failed after having succeeded. Defaults to 3. Minimum
@@ -6934,6 +6952,15 @@ var CRDsValidation map[string]string = map[string]string{
           description: 'Periodic probe of VirtualMachineInstance liveness. VirtualmachineInstances
             will be stopped if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
           properties:
+            exec:
+              description: One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.
+              properties:
+                command:
+                  description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                  items:
+                    type: string
+                  type: array
+              type: object
             failureThreshold:
               description: Minimum consecutive failures for the probe to be considered
                 failed after having succeeded. Defaults to 3. Minimum value is 1.
@@ -7078,6 +7105,15 @@ var CRDsValidation map[string]string = map[string]string{
             VirtualmachineInstances will be removed from service endpoints if the
             probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
           properties:
+            exec:
+              description: One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.
+              properties:
+                command:
+                  description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                  items:
+                    type: string
+                  type: array
+              type: object
             failureThreshold:
               description: Minimum consecutive failures for the probe to be considered
                 failed after having succeeded. Defaults to 3. Minimum value is 1.
@@ -10564,6 +10600,15 @@ var CRDsValidation map[string]string = map[string]string{
                     VirtualmachineInstances will be stopped if the probe fails. Cannot
                     be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                   properties:
+                    exec:
+                      description: One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.
+                      properties:
+                        command:
+                          description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                          items:
+                            type: string
+                          type: array
+                      type: object
                     failureThreshold:
                       description: Minimum consecutive failures for the probe to be
                         considered failed after having succeeded. Defaults to 3. Minimum
@@ -10716,6 +10761,15 @@ var CRDsValidation map[string]string = map[string]string{
                     VirtualmachineInstances will be removed from service endpoints
                     if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                   properties:
+                    exec:
+                      description: One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.
+                      properties:
+                        command:
+                          description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                          items:
+                            type: string
+                          type: array
+                      type: object
                     failureThreshold:
                       description: Minimum consecutive failures for the probe to be
                         considered failed after having succeeded. Defaults to 3. Minimum
@@ -13977,6 +14031,15 @@ var CRDsValidation map[string]string = map[string]string{
                                 if the probe fails. Cannot be updated. More info:
                                 https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                               properties:
+                                exec:
+                                  description: One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.
+                                  properties:
+                                    command:
+                                      description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                                      items:
+                                        type: string
+                                      type: array
+                                  type: object
                                 failureThreshold:
                                   description: Minimum consecutive failures for the
                                     probe to be considered failed after having succeeded.
@@ -14138,6 +14201,15 @@ var CRDsValidation map[string]string = map[string]string{
                                 removed from service endpoints if the probe fails.
                                 Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                               properties:
+                                exec:
+                                  description: One and only one of the following should be specified. Exec specifies the action to take, it will be executed on the guest through the qemu-guest-agent. If the guest agent is not available, this probe will fail.
+                                  properties:
+                                    command:
+                                      description: Command is the command line to execute inside the container, the working directory for the command  is root ('/') in the container's filesystem. The command is simply exec'd, it is not run inside a shell, so traditional shell instructions ('|', etc) won't work. To use a shell, you need to explicitly call out to that shell. Exit status of 0 is treated as live/healthy and non-zero is unhealthy.
+                                      items:
+                                        type: string
+                                      type: array
+                                  type: object
                                 failureThreshold:
                                   description: Minimum consecutive failures for the
                                     probe to be considered failed after having succeeded.

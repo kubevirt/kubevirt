@@ -178,7 +178,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	})
 
 	Context("with probes given", func() {
-		It("should reject probes with not probe action configured", func() {
+		It("should reject probes with no probe action configured", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.ReadinessProbe = &v1.Probe{InitialDelaySeconds: 2}
 			vmi.Spec.LivenessProbe = &v1.Probe{InitialDelaySeconds: 2}
@@ -197,7 +197,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 			resp := vmiCreateAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).To(Equal(`either spec.readinessProbe.tcpSocket or spec.readinessProbe.httpGet must be set if a spec.readinessProbe is specified, either spec.livenessProbe.tcpSocket or spec.livenessProbe.httpGet must be set if a spec.livenessProbe is specified`))
+			Expect(resp.Result.Message).To(Equal(`either spec.readinessProbe.tcpSocket, spec.readinessProbe.exec or spec.readinessProbe.httpGet must be set if a spec.readinessProbe is specified, either spec.livenessProbe.tcpSocket, spec.livenessProbe.exec or spec.livenessProbe.httpGet must be set if a spec.livenessProbe is specified`))
 		})
 		It("should reject probes with more than one action per probe configured", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
@@ -206,6 +206,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Handler: v1.Handler{
 					HTTPGet:   &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
 					TCPSocket: &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
+					Exec:      &k8sv1.ExecAction{Command: []string{"uname", "-a"}},
 				},
 			}
 			vmi.Spec.LivenessProbe = &v1.Probe{
@@ -213,6 +214,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Handler: v1.Handler{
 					HTTPGet:   &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
 					TCPSocket: &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
+					Exec:      &k8sv1.ExecAction{Command: []string{"uname", "-a"}},
 				},
 			}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
@@ -262,7 +264,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			resp := vmiCreateAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
-		It("should reject properly configured readiness and liveness probes if no Pod Network is present", func() {
+		It("should reject properly configured network-based readiness and liveness probes if no Pod Network is present", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.ReadinessProbe = &v1.Probe{
 				InitialDelaySeconds: 2,
@@ -289,7 +291,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 			resp := vmiCreateAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).To(Equal(`spec.livenessProbe is only allowed if the Pod Network is attached, spec.readinessProbe is only allowed if the Pod Network is attached`))
+			Expect(resp.Result.Message).To(Equal(`spec.readinessProbe.tcpSocket is only allowed if the Pod Network is attached, spec.livenessProbe.httpGet is only allowed if the Pod Network is attached`))
 		})
 	})
 

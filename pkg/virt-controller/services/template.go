@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const KvmDevice = "devices.kubevirt.io/kvm"
@@ -1050,11 +1051,13 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 
 	if vmi.Spec.ReadinessProbe != nil {
 		compute.ReadinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
+		wrapExecProbeWithVirtProbe(vmi, compute.ReadinessProbe)
 		compute.ReadinessProbe.InitialDelaySeconds = compute.ReadinessProbe.InitialDelaySeconds + LibvirtStartupDelay
 	}
 
 	if vmi.Spec.LivenessProbe != nil {
 		compute.LivenessProbe = copyProbe(vmi.Spec.LivenessProbe)
+		wrapExecProbeWithVirtProbe(vmi, compute.LivenessProbe)
 		compute.LivenessProbe.InitialDelaySeconds = compute.LivenessProbe.InitialDelaySeconds + LibvirtStartupDelay
 	}
 
@@ -1691,10 +1694,27 @@ func copyProbe(probe *v1.Probe) *k8sv1.Probe {
 		SuccessThreshold:    probe.SuccessThreshold,
 		FailureThreshold:    probe.FailureThreshold,
 		Handler: k8sv1.Handler{
+			Exec:      probe.Exec,
 			HTTPGet:   probe.HTTPGet,
 			TCPSocket: probe.TCPSocket,
 		},
 	}
+}
+
+func wrapExecProbeWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv1.Probe) {
+	if probe == nil || probe.Handler.Exec == nil {
+		return
+	}
+
+	originalCommand := probe.Handler.Exec.Command
+	if len(originalCommand) < 1 {
+		return
+	}
+
+	wrappedCommand := []string{"virt-probe", "--domainName", api.VMINamespaceKeyFunc(vmi), "--command", originalCommand[0]}
+	wrappedCommand = append(wrappedCommand, originalCommand[1:]...)
+
+	probe.Handler.Exec.Command = wrappedCommand
 }
 
 func alignPodMultiCategorySecurity(pod *k8sv1.Pod, selinuxType string) {

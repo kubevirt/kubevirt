@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	eventsclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -103,6 +104,7 @@ type DomainManager interface {
 	FinalizeVirtualMachineMigration(*v1.VirtualMachineInstance) error
 	InterfacesStatus(domainInterfaces []api.Interface) []api.InterfaceStatus
 	GetGuestOSInfo() *api.GuestOSInfo
+	Exec(string, string, []string) (string, error)
 }
 
 type LibvirtDomainManager struct {
@@ -316,6 +318,10 @@ func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance
 	}
 
 	return nil
+}
+
+func (l *LibvirtDomainManager) Exec(domainName, command string, args []string) (string, error) {
+	return agent.GuestExec(l.virConn, domainName, command, args)
 }
 
 func getVMIEphemeralDisksTotalSize() *resource.Quantity {
