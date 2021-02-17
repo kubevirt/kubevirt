@@ -110,7 +110,10 @@ var _ = Describe("HookSidecars", func() {
 				tests.SkipIfNoCmd("kubectl")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				tests.WaitForSuccessfulVMIStart(vmi)
-				domainXml := getVmDomainXml(virtClient, vmi)
+
+				domainXml, err := getVmDomainXml(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred())
+
 				Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))
 				Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))
 				Expect(domainXml).Should(ContainSubstring("<entry name='manufacturer'>Radical Edward</entry>"))
@@ -171,19 +174,23 @@ func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	return string(logsRaw)
 }
 
-func getVmDomainXml(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
+func getVmDomainXml(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
 	podName := tests.GetVmPodName(virtCli, vmi)
 
 	// passing an empty namespace allows to position --namespace argument correctly
 	vmNameListRaw, _, err := tests.RunCommandWithNS("", "kubectl", "exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", "list", "--name")
-	Expect(err).ToNot(HaveOccurred())
+	if err != nil {
+		return "", err
+	}
 
 	vmName := strings.Split(vmNameListRaw, "\n")[0]
 	// passing an empty namespace allows to position --namespace argument correctly
 	vmDomainXML, _, err := tests.RunCommandWithNS("", "kubectl", "exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", "dumpxml", vmName)
-	Expect(err).ToNot(HaveOccurred())
+	if err != nil {
+		return "", err
+	}
 
-	return vmDomainXML
+	return vmDomainXML, err
 }
 
 func RenderSidecar(version string) map[string]string {
