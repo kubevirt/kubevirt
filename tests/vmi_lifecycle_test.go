@@ -650,9 +650,12 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var virtHandlerAvailablePods int32
 
 			BeforeEach(func() {
-				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(nodes.Items).ToNot(BeEmpty())
+				var nodes *k8sv1.NodeList
+
+				Eventually(func() []k8sv1.Node {
+					nodes = tests.GetAllSchedulableNodes(virtClient)
+					return nodes.Items
+				}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be schedulable nodes")
 
 				node := nodes.Items[0]
 				nodeName = node.GetName()
@@ -729,9 +732,12 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					Expect(err).ToNot(HaveOccurred(), "Should get vmi successfully")
 					return failedVMI.Status.Phase
 				}, 180*time.Second, 1*time.Second).Should(Equal(v1.Failed))
-				failedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(failedVMI.Status.Reason).To(Equal(watch.NodeUnresponsiveReason))
+
+				Eventually(func() string {
+					failedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred(), "Should get vmi successfully")
+					return failedVMI.Status.Reason
+				}, 180*time.Second, 1*time.Second).Should(Equal(watch.NodeUnresponsiveReason))
 
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -758,8 +764,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var nodes *k8sv1.NodeList
 			var err error
 			BeforeEach(func() {
-				nodes = tests.GetAllSchedulableNodes(virtClient)
-				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
+				Eventually(func() []k8sv1.Node {
+					nodes = tests.GetAllSchedulableNodes(virtClient)
+					return nodes.Items
+				}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be some compute node")
 
 				// Taint first node with "NoSchedule"
 				data := []byte(`{"spec":{"taints":[{"effect":"NoSchedule","key":"test","timeAdded":null,"value":"123"}]}}`)
