@@ -23,6 +23,6 @@ docker create -ti --name dummy-qemu-user-static multiarch/qemu-user-static
 docker cp dummy-qemu-user-static:/usr/bin/qemu-ppc64le-static "${SCRIPT_DIR}/qemu-ppc64le-static"
 
 for ARCH in ${ARCHITECTURES}; do
-    docker build -t "kubevirt/builder:${VERSION}-${ARCH}" --build-arg ARCH="${ARCH}" -f "${SCRIPT_DIR}/Dockerfile" "${SCRIPT_DIR}"
-    TMP_IMAGES="${TMP_IMAGES} kubevirt/builder:${VERSION}-${ARCH}"
+    docker build -t "quay.io/kubevirt/builder:${VERSION}-${ARCH}" --build-arg ARCH="${ARCH}" -f "${SCRIPT_DIR}/Dockerfile" "${SCRIPT_DIR}"
+    TMP_IMAGES="${TMP_IMAGES} quay.io/kubevirt/builder:${VERSION}-${ARCH}"
 done
