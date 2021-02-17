@@ -750,7 +750,7 @@ func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSo
 	disk.Type = "file"
 	disk.Driver.Type = "qcow2"
 	disk.Driver.Discard = "unmap"
-	disk.Source.File = emptydisk.FilePathForVolumeName(volumeName)
+	disk.Source.File = emptydisk.NewEmptyDiskCreator().FilePathForVolumeName(volumeName)
 	disk.Driver.ErrorPolicy = "stop"
 
 	return nil

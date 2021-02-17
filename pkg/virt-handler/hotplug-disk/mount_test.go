@@ -719,6 +719,7 @@ var _ = Describe("HotplugVolume filesystem volumes", func() {
 		}
 		diskFile := filepath.Join(path, "disk.img")
 		_, err := os.Create(diskFile)
+		Expect(err).ToNot(HaveOccurred())
 		targetPodPath := hotplugdisk.TargetPodBasePath(tempDir, m.findVirtlauncherUID(vmi))
 		err = os.MkdirAll(targetPodPath, 0755)
 		Expect(err).ToNot(HaveOccurred())
@@ -1067,8 +1068,6 @@ var _ = Describe("HotplugVolume volumes", func() {
 		Expect(bytes).To(Equal(expectedBytes))
 		_, err = os.Stat(fileSystemVolume)
 		Expect(err).ToNot(HaveOccurred())
-		//		_, err = os.Stat(blockVolume)
-		//		Expect(err).ToNot(HaveOccurred())
 
 		err = m.UnmountAll(vmi)
 		Expect(err).ToNot(HaveOccurred())

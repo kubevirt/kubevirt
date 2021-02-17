@@ -97,7 +97,7 @@ var _ = Describe("HooksManager", func() {
 			defer socket.Close()
 			defer os.Remove(socketPath)
 
-			manager := getManager(socketDir)
+			manager := newManager(socketDir)
 			err = manager.Collect(1, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -118,7 +118,7 @@ var _ = Describe("HooksManager", func() {
 				defer os.Remove(socketPath)
 			}
 
-			manager := getManager(socketDir)
+			manager := newManager(socketDir)
 			err := manager.Collect(uint(len(hookNames)), 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -140,7 +140,7 @@ var _ = Describe("HooksManager", func() {
 				defer os.Remove(socketPath)
 			}
 
-			manager := getManager(socketDir)
+			manager := newManager(socketDir)
 			err := manager.Collect(uint(len(hookNameMap)), 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 

@@ -44,8 +44,8 @@ func (c *emptyDiskCreator) CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) 
 	return nil
 }
 
-func FilePathForVolumeName(volumeName string) string {
-	return filePathForVolumeName(emptyDiskBaseDir, volumeName)
+func (c *emptyDiskCreator) FilePathForVolumeName(volumeName string) string {
+	return filePathForVolumeName(c.emptyDiskBaseDir, volumeName)
 }
 
 func filePathForVolumeName(basedir string, volumeName string) string {

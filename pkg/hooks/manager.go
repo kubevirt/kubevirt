@@ -57,12 +57,12 @@ type Manager struct {
 
 func GetManager() *Manager {
 	once.Do(func() {
-		manager = getManager(HookSocketsSharedDirectory)
+		manager = newManager(HookSocketsSharedDirectory)
 	})
 	return manager
 }
 
-func getManager(baseDir string) *Manager {
+func newManager(baseDir string) *Manager {
 	return &Manager{CallbacksPerHookPoint: make(map[string][]*callBackClient), hookSocketSharedDirectory: baseDir}
 }
 
@@ -103,7 +103,7 @@ func (m *Manager) collectSideCarSockets(numberOfRequestedHookSidecars uint, time
 					continue
 				}
 
-				callBackClient, notReady, err := processSideCarSocket(filepath.Join(m.hookSocketSharedDirectory + "/" + socket.Name()))
+				callBackClient, notReady, err := processSideCarSocket(filepath.Join(m.hookSocketSharedDirectory, socket.Name()))
 				if notReady {
 					log.Log.Info("Sidecar server might not be ready yet, retrying in the next iteration")
 					continue

@@ -41,7 +41,7 @@ var _ = Describe("EmptyDisk", func() {
 		Expect(err).ToNot(HaveOccurred())
 		creator = &emptyDiskCreator{
 			emptyDiskBaseDir: emptyDiskBaseDir,
-			discCreateFunc:   faceCreatorFunc,
+			discCreateFunc:   fakeCreatorFunc,
 		}
 	})
 	AfterEach(func() {
@@ -70,7 +70,7 @@ var _ = Describe("EmptyDisk", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should generate non-conflicting volume paths per disk", func() {
-			Expect(FilePathForVolumeName("volume1")).ToNot(Equal(FilePathForVolumeName("volume2")))
+			Expect(NewEmptyDiskCreator().FilePathForVolumeName("volume1")).ToNot(Equal(NewEmptyDiskCreator().FilePathForVolumeName("volume2")))
 		})
 		It("should leave pre-existing disks alone", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
@@ -86,7 +86,7 @@ var _ = Describe("EmptyDisk", func() {
 
 })
 
-func faceCreatorFunc(filePath string, _ string) error {
+func fakeCreatorFunc(filePath string, _ string) error {
 	fmt.Println(filePath)
 	f, err := os.Create(filePath)
 	if err == nil {
