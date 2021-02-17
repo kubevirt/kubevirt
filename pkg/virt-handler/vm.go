@@ -1895,15 +1895,50 @@ func (d *VirtualMachineController) isPreMigrationTarget(vmi *v1.VirtualMachineIn
 }
 
 func (d *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.VirtualMachineInstance) error {
-	networks := map[string]*v1.Network{}
-	for _, network := range vmi.Spec.Networks {
-		networks[network.Name] = network.DeepCopy()
+	err := validatePodNetworkInterfaceUsesMasqueradeBinding(vmi)
+	if err != nil {
+		return err
 	}
+
+	err = d.validateSRIOVInterfacesForMigration(vmi)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validatePodNetworkInterfaceUsesMasqueradeBinding(vmi *v1.VirtualMachineInstance) error {
+	interfacesByName := map[string]v1.Interface{}
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.Masquerade == nil && networks[iface.Name].Pod != nil {
-			return fmt.Errorf("cannot migrate VMI which does not use masquerade to connect to the pod network")
+		interfacesByName[iface.Name] = iface
+	}
+
+	vmiPodNetworkName := lookupVMIPodNetworkName(vmi.Spec.Networks)
+	if vmiPodNetworkName != "" && interfacesByName[vmiPodNetworkName].Masquerade == nil {
+		return fmt.Errorf("cannot migrate VMI which does not use masquerade to connect to the pod network")
+	}
+
+	return nil
+}
+
+func lookupVMIPodNetworkName(networks []v1.Network) string {
+	for _, network := range networks {
+		if network.Pod != nil {
+			return network.Name
 		}
 	}
+
+	return ""
+}
+
+func (d *VirtualMachineController) validateSRIOVInterfacesForMigration(vmi *v1.VirtualMachineInstance) error {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.SRIOV != nil {
+			return fmt.Errorf("Live migration of guest with SR-IOV interfaces is not supported")
+		}
+	}
+
 	return nil
 }
 

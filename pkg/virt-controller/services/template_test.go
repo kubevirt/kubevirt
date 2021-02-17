@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/cache"
 
@@ -1941,47 +1942,35 @@ var _ = Describe("Template", func() {
 		})
 
 		Context("with sriov interface", func() {
+			const capSysResource = kubev1.Capability(CAP_SYS_RESOURCE)
+
 			It("should not run privileged", func() {
 				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
 				if runtime.GOARCH == "ppc64le" {
 					Skip("ppc64le is currently running is privileged mode, so skipping test")
 				}
-				sriovInterface := v1.InterfaceSRIOV{}
-				domain := v1.DomainSpec{
-					Devices: v1.Devices{
-						DisableHotplug: true,
-					},
-				}
-				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &sriovInterface}}}
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
-				}
-
-				pod, err := svc.RenderLaunchManifest(&vmi)
+				pod, err := svc.RenderLaunchManifest(newVMIWithSriovInterface("testvmi", "1234"))
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
 				Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(BeFalse())
 			})
-			It("should not mount pci related host directories", func() {
-				sriovInterface := v1.InterfaceSRIOV{}
-				domain := v1.DomainSpec{
-					Devices: v1.Devices{
-						DisableHotplug: true,
-					},
-				}
-				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &sriovInterface}}}
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
-				}
+			It("should run with CAP_SYS_RESOURCE capability when SRIOVLiveMigration feature-gate is on", func() {
+				enableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
 
-				pod, err := svc.RenderLaunchManifest(&vmi)
+				pod, err := svc.RenderLaunchManifest(newVMIWithSriovInterface("testvmi", "1234"))
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].SecurityContext.Capabilities.Add).To(ContainElement(capSysResource))
+			})
+			It("should run without CAP_SYS_RESOURCE capability when SRIOVLiveMigration feature-gate is off", func() {
+				pod, err := svc.RenderLaunchManifest(newVMIWithSriovInterface("testvmi", "1234"))
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].SecurityContext.Capabilities.Add).ToNot(ContainElement(capSysResource))
+			})
+			It("should not mount pci related host directories", func() {
+				pod, err := svc.RenderLaunchManifest(newVMIWithSriovInterface("testvmi", "1234"))
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
@@ -1997,76 +1986,44 @@ var _ = Describe("Template", func() {
 				}
 			})
 			It("should add 1G of memory overhead", func() {
-				sriovInterface := v1.InterfaceSRIOV{}
-				domain := v1.DomainSpec{
-					Devices: v1.Devices{
-						DisableHotplug: true,
+				vmi := newVMIWithSriovInterface("testvmi", "1234")
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("1G"),
 					},
-					Resources: v1.ResourceRequirements{
-						Requests: kubev1.ResourceList{
-							kubev1.ResourceMemory: resource.MustParse("1G"),
-						},
-					},
-				}
-				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &sriovInterface}}}
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
 				}
 
-				pod, err := svc.RenderLaunchManifest(&vmi)
+				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
-				expectedMemory.Add(*getMemoryOverhead(&vmi))
-				expectedMemory.Add(*domain.Resources.Requests.Memory())
+				expectedMemory.Add(*getMemoryOverhead(vmi))
+				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 			})
 			It("should still add memory overhead for 1 core if cpu topology wasn't provided", func() {
-				domain := v1.DomainSpec{
-					Devices: v1.Devices{
-						DisableHotplug: true,
-					},
-					Resources: v1.ResourceRequirements{
-						Requests: kubev1.ResourceList{
-							kubev1.ResourceMemory: resource.MustParse("512Mi"),
-							kubev1.ResourceCPU:    resource.MustParse("150m"),
-						},
+				requirements := v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("512Mi"),
+						kubev1.ResourceCPU:    resource.MustParse("150m"),
 					},
 				}
-				domain1 := v1.DomainSpec{
-					CPU: &v1.CPU{
-						Model: "Conroe",
-						Cores: 1,
-					},
-					Resources: v1.ResourceRequirements{
-						Requests: kubev1.ResourceList{
-							kubev1.ResourceMemory: resource.MustParse("512Mi"),
-							kubev1.ResourceCPU:    resource.MustParse("150m"),
-						},
-					},
-				}
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
-				}
-				vmi1 := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi1", Namespace: "default", UID: "1134",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{Domain: domain1},
+				vmi := newVMIWithSriovInterface("testvmi1", "1234")
+				vmi.Spec.Domain.Resources = requirements
+
+				vmi1 := newVMIWithSriovInterface("testvmi2", "1134")
+				vmi1.Spec.Domain.Resources = requirements
+				vmi1.Spec.Domain.CPU = &v1.CPU{
+					Model: "Conroe",
+					Cores: 1,
 				}
 
-				pod, err := svc.RenderLaunchManifest(&vmi)
+				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				pod1, err := svc.RenderLaunchManifest(&vmi1)
+				pod1, err := svc.RenderLaunchManifest(vmi1)
 				Expect(err).ToNot(HaveOccurred())
 				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
-				expectedMemory.Add(*getMemoryOverhead(&vmi))
-				expectedMemory.Add(*domain.Resources.Requests.Memory())
+				expectedMemory.Add(*getMemoryOverhead(vmi1))
+				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 				Expect(pod1.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 			})
@@ -2689,6 +2646,25 @@ var _ = Describe("requestResource", func() {
 		}
 	})
 })
+
+func newVMIWithSriovInterface(name, uid string) *v1.VirtualMachineInstance {
+	sriovInterface := v1.Interface{
+		Name: "sriov-nic",
+		InterfaceBindingMethod: v1.InterfaceBindingMethod{
+			SRIOV: &v1.InterfaceSRIOV{},
+		},
+	}
+	vmi := &v1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+			UID:       types.UID(uid),
+		},
+	}
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{sriovInterface}
+
+	return vmi
+}
 
 func True() *bool {
 	b := true
