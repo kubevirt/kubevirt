@@ -73,9 +73,8 @@ var JSONPatchAnnotationNames = []string{
 	common.JSONPatchCNAOAnnotationName,
 }
 
-// Add creates a new HyperConverged Controller and adds it to the Manager. The Manager will set fields on the Controller
-// and Start it when the Manager is Started.
-func Add(mgr manager.Manager, ci hcoutil.ClusterInfo) error {
+// RegisterReconciler creates a new HyperConverged Reconciler and registers it into manager.
+func RegisterReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo) error {
 	return add(mgr, newReconciler(mgr, ci), ci)
 }
 

@@ -7,7 +7,7 @@ import (
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/hyperconverged"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -97,9 +97,9 @@ func main() {
 	cmdHelper.ExitOnError(err, "unable to add ready check")
 
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr, ci); err != nil {
+	if err := hyperconverged.RegisterReconciler(mgr, ci); err != nil {
 		logger.Error(err, "")
-		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to register component; "+err.Error())
+		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to register HyperConverged controller; "+err.Error())
 		os.Exit(1)
 	}
 
