@@ -569,7 +569,9 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 func getPreset(virtClient kubecli.KubevirtClient, prefix string) (*v1.VirtualMachineInstancePreset, error) {
 	presetList := v1.VirtualMachineInstancePresetList{}
 	err := virtClient.RestClient().Get().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Do(context.Background()).Into(&presetList)
-	Expect(err).ToNot(HaveOccurred())
+	if err != nil {
+		return nil, err
+	}
 	for _, thisPreset := range presetList.Items {
 		if strings.HasPrefix(thisPreset.Name, prefix) {
 			return &thisPreset, nil
