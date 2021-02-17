@@ -1934,8 +1934,8 @@ func lookupVMIPodNetworkName(networks []v1.Network) string {
 
 func (d *VirtualMachineController) validateSRIOVInterfacesForMigration(vmi *v1.VirtualMachineInstance) error {
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.SRIOV != nil {
-			return fmt.Errorf("Live migration of guest with SR-IOV interfaces is not supported")
+		if iface.SRIOV != nil && !d.clusterConfig.SRIOVLiveMigrationEnabled() {
+			return fmt.Errorf("SRIOVLiveMigration feature-gate is closed, can't migrate VMI with SRIOV interfaces")
 		}
 	}
 
