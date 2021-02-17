@@ -702,8 +702,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("[test_id:1634]the node controller should mark the node as unschedulable when the virt-handler heartbeat has timedout", func() {
+				jsonWithOffset, err := nowAsJSONWithOffset(-10 * time.Minute)
+				Expect(err).ToNot(HaveOccurred())
 				// Update virt-handler heartbeat, to trigger a timeout
-				data := []byte(fmt.Sprintf(`{"metadata": { "labels": { "%s": "true" }, "annotations": {"%s": "%s"}}}`, v1.NodeSchedulable, v1.VirtHandlerHeartbeat, nowAsJSONWithOffset(-10*time.Minute)))
+				data := []byte(fmt.Sprintf(`{"metadata": { "labels": { "%s": "true" }, "annotations": {"%s": "%s"}}}`, v1.NodeSchedulable, v1.VirtHandlerHeartbeat, jsonWithOffset))
 				_, err = virtClient.CoreV1().Nodes().Patch(context.Background(), nodeName, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
 
@@ -1697,11 +1699,13 @@ func pkillAllVMIs(virtCli kubecli.KubevirtClient, node string) error {
 	return err
 }
 
-func nowAsJSONWithOffset(offset time.Duration) string {
+func nowAsJSONWithOffset(offset time.Duration) (string, error) {
 	now := metav1.Now()
 	now = metav1.NewTime(now.Add(offset))
 
 	data, err := json.Marshal(now)
-	Expect(err).ToNot(HaveOccurred(), "Should marshal to json")
-	return strings.Trim(string(data), `"`)
+	if err != nil {
+		return "", err
+	}
+	return strings.Trim(string(data), `"`), nil
 }
