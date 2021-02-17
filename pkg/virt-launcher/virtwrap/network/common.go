@@ -49,6 +49,7 @@ const (
 	randomMacGenerationAttempts = 10
 	tapOwnerUID                 = "0"
 	tapOwnerGID                 = "0"
+	allowForwarding             = 1
 )
 
 type VIF struct {
@@ -105,14 +106,13 @@ type NetworkHandler interface {
 	HasNatIptables(proto iptables.Protocol) bool
 	IsIpv6Enabled(interfaceName string) (bool, error)
 	IsIpv4Primary() (bool, error)
-	ConfigureIpv6Forwarding() error
-	ConfigureIpv4Forwarding() error
+	ConfigureIpForwarding(proto iptables.Protocol) error
 	ConfigureIpv4ArpIgnore() error
 	IptablesNewChain(proto iptables.Protocol, table, chain string) error
 	IptablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
 	NftablesNewChain(proto iptables.Protocol, table, chain string) error
 	NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
-	NftablesLoad(fnName string) error
+	NftablesLoad(proto iptables.Protocol) error
 	GetNFTIPString(proto iptables.Protocol) string
 	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
@@ -183,13 +183,15 @@ func (h *NetworkUtilsHandler) ConfigureIpv4ArpIgnore() error {
 	return err
 }
 
-func (h *NetworkUtilsHandler) ConfigureIpv6Forwarding() error {
-	err := sysctl.New().SetSysctl(sysctl.NetIPv6Forwarding, 1)
-	return err
-}
+func (h *NetworkUtilsHandler) ConfigureIpForwarding(proto iptables.Protocol) error {
+	var forwarding string
+	if proto == iptables.ProtocolIPv6 {
+		forwarding = sysctl.NetIPv6Forwarding
+	} else {
+		forwarding = sysctl.NetIPv4Forwarding
+	}
 
-func (h *NetworkUtilsHandler) ConfigureIpv4Forwarding() error {
-	err := sysctl.New().SetSysctl(sysctl.NetIPv4Forwarding, 1)
+	err := sysctl.New().SetSysctl(forwarding, allowForwarding)
 	return err
 }
 
@@ -266,9 +268,13 @@ func (h *NetworkUtilsHandler) GetNFTIPString(proto iptables.Protocol) string {
 	return "ip"
 }
 
-func (h *NetworkUtilsHandler) NftablesLoad(fnName string) error {
-	// #nosec g204 no risk to use Sprintf as  argument as it uses two static strings (fname limited to ipv4-nat or ipv6-nat)
-	output, err := exec.Command("nft", "-f", fmt.Sprintf("/etc/nftables/%s.nft", fnName)).CombinedOutput()
+func (h *NetworkUtilsHandler) NftablesLoad(proto iptables.Protocol) error {
+	ipVersion := "4"
+	if proto == iptables.ProtocolIPv6 {
+		ipVersion = "6"
+	}
+	fnName := fmt.Sprintf("ipv%s-nat", ipVersion)
+	output, err := composeNftablesLoad(proto).CombinedOutput()
 	if err != nil {
 		log.Log.V(5).Reason(err).Infof("failed to load nftable %s", fnName)
 		return fmt.Errorf("failed to load nftable %s error %s", fnName, string(output))
@@ -276,6 +282,17 @@ func (h *NetworkUtilsHandler) NftablesLoad(fnName string) error {
 
 	return nil
 }
+
+func composeNftablesLoad(proto iptables.Protocol) *exec.Cmd {
+	ipVersion := "4"
+	if proto == iptables.ProtocolIPv6 {
+		ipVersion = "6"
+	}
+	fnName := fmt.Sprintf("ipv%s-nat", ipVersion)
+	// #nosec g204 no risk to use Sprintf as  argument as it uses two static strings (fname limited to ipv4-nat or ipv6-nat)
+	return exec.Command("nft", "-f", fmt.Sprintf("/etc/nftables/%s.nft", fnName))
+}
+
 func (h *NetworkUtilsHandler) GetHostAndGwAddressesFromCIDR(s string) (string, string, error) {
 	ip, ipnet, err := net.ParseCIDR(s)
 	if err != nil {
