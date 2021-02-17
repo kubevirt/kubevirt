@@ -955,6 +955,63 @@ var _ = Describe("[Serial]SRIOV", func() {
 				})
 			})
 		})
+
+		Context("migration", func() {
+
+			BeforeEach(func() {
+				if err := validateSRIOVSetup(virtClient, sriovResourceName, 2); err != nil {
+					Skip("Migration tests require at least 2 nodes: " + err.Error())
+				}
+			})
+
+			BeforeEach(func() {
+				tests.EnableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
+			})
+
+			AfterEach(func() {
+				tests.DisableFeatureGate(virtconfig.SRIOVLiveMigrationGate)
+			})
+
+			var vmi *v1.VirtualMachineInstance
+			var interfaceName string
+
+			const mac = "de:ad:00:00:be:ef"
+
+			BeforeEach(func() {
+				// The SR-IOV VF MAC should be preserved on migration, therefore explicitly specify it.
+				vmi = getSriovVmi([]string{sriovnet1}, defaultCloudInitNetworkData())
+				vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
+
+				vmi = startVmi(vmi)
+				vmi = waitVmi(vmi)
+
+				// It may take some time for the VMI interface status to be updated with the information reported by
+				// the guest-agent.
+				Eventually(func() error {
+					var err error
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					interfaceName, err = getInterfaceNameByMAC(vmi, mac)
+					return err
+				}, 30*time.Second, 5*time.Second).Should(Succeed())
+
+				Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest")
+			})
+
+			It("should be successful with a running VMI on the target", func() {
+				By("starting the migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, migrationWaitTime)
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+				assert.XFail(
+					"SR-IOV VF attachement at the target is pending implementation: "+
+						"https://github.com/kubevirt/kubevirt/pull/5037", func() {
+						Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest after migration")
+					})
+			})
+		})
+
 	})
 })
 
