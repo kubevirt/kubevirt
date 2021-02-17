@@ -60,6 +60,7 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	networkdriver "kubevirt.io/kubevirt/pkg/network"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -1082,7 +1083,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
-			mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(&network.CriticalNetworkError{Msg: "Critical SetupPodNetworkPhase1 error"}).Times(1)
+			mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(&networkdriver.CriticalNetworkError{Msg: "Critical SetupPodNetworkPhase1 error"}).Times(1)
 
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
 				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
@@ -2035,9 +2036,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 				PodIP:  "1.1.1.1",
 				PodIPs: []string{"1.1.1.1", "fd10:244::8c4c"},
 			}
-			err = network.CreateVirtHandlerCacheDir(vmi.UID)
+			err = networkdriver.CreateVirtHandlerCacheDir(vmi.UID)
 			Expect(err).ToNot(HaveOccurred())
-			err = network.WriteToVirtHandlerCachedFile(podCacheInterface, vmi.UID, interfaceName)
+			err = networkdriver.WriteToVirtHandlerCachedFile(podCacheInterface, vmi.UID, interfaceName)
 			Expect(err).ToNot(HaveOccurred())
 
 			mockWatchdog.CreateFile(vmi)
@@ -2093,9 +2094,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 				PodIP:  podIPs[0],
 				PodIPs: podIPs,
 			}
-			err = network.CreateVirtHandlerCacheDir(vmi.UID)
+			err = networkdriver.CreateVirtHandlerCacheDir(vmi.UID)
 			Expect(err).ToNot(HaveOccurred())
-			err = network.WriteToVirtHandlerCachedFile(podCacheInterface, vmi.UID, interfaceName)
+			err = networkdriver.WriteToVirtHandlerCachedFile(podCacheInterface, vmi.UID, interfaceName)
 			Expect(err).ToNot(HaveOccurred())
 
 			mockWatchdog.CreateFile(vmi)

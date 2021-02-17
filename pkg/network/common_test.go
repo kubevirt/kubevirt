@@ -34,8 +34,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-func mockVirtLauncherCachedPattern(path string) {
-	virtLauncherCachedPattern = path
+func MockVirtLauncherCachedPattern(path string) {
+	VirtLauncherCachedPattern = path
 }
 
 var _ = Describe("Common Methods", func() {
@@ -45,15 +45,15 @@ var _ = Describe("Common Methods", func() {
 			tmpDir, err := ioutil.TempDir("", "commontest")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(tmpDir)
-			mockVirtLauncherCachedPattern(tmpDir + "/cache-%s.json")
+			MockVirtLauncherCachedPattern(tmpDir + "/cache-%s.json")
 
 			ifaceName := "iface_name"
 			iface := api.Interface{Type: "fake_type", Source: api.InterfaceSource{Bridge: "fake_br"}}
-			err = writeToVirtLauncherCachedFile(&iface, pid, ifaceName)
+			err = WriteToVirtLauncherCachedFile(&iface, pid, ifaceName)
 			Expect(err).ToNot(HaveOccurred())
 
 			var cached_iface api.Interface
-			err = readFromVirtLauncherCachedFile(&cached_iface, pid, ifaceName)
+			err = ReadFromVirtLauncherCachedFile(&cached_iface, pid, ifaceName)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(iface).To(Equal(cached_iface))
@@ -62,15 +62,15 @@ var _ = Describe("Common Methods", func() {
 			tmpDir, err := ioutil.TempDir("", "commontest")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(tmpDir)
-			mockVirtLauncherCachedPattern(tmpDir + "/cache-%s.json")
+			MockVirtLauncherCachedPattern(tmpDir + "/cache-%s.json")
 
 			qemuArgName := "iface_name"
 			qemuArg := api.Arg{Value: "test_value"}
-			err = writeToVirtLauncherCachedFile(&qemuArg, pid, qemuArgName)
+			err = WriteToVirtLauncherCachedFile(&qemuArg, pid, qemuArgName)
 			Expect(err).ToNot(HaveOccurred())
 
 			var cached_qemuArg api.Arg
-			err = readFromVirtLauncherCachedFile(&cached_qemuArg, pid, qemuArgName)
+			err = ReadFromVirtLauncherCachedFile(&cached_qemuArg, pid, qemuArgName)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(qemuArg).To(Equal(cached_qemuArg))
@@ -181,19 +181,19 @@ var _ = Describe("infocache", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(written).To(Equal(read))
 	})
-	It("readFromVirtLauncherCachedFile reads what writeToVirtLauncherCachedFile had written", func() {
+	It("ReadFromVirtLauncherCachedFile reads what WriteToVirtLauncherCachedFile had written", func() {
 		tmpDir, err := ioutil.TempDir("", "commontest")
 		Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(tmpDir)
-		mockVirtLauncherCachedPattern(tmpDir + "/cache-%s.json")
+		MockVirtLauncherCachedPattern(tmpDir + "/cache-%s.json")
 
 		pid := "123"
 		written := SillyType{7}
 		read := SillyType{0}
 
-		err = writeToVirtLauncherCachedFile(written, pid, "eth0")
+		err = WriteToVirtLauncherCachedFile(written, pid, "eth0")
 		Expect(err).ToNot(HaveOccurred())
-		err = readFromVirtLauncherCachedFile(&read, pid, "eth0")
+		err = ReadFromVirtLauncherCachedFile(&read, pid, "eth0")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(written).To(Equal(read))
 	})

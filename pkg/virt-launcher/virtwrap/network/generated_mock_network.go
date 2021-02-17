@@ -31,16 +31,6 @@ func (_m *MockpodNIC) EXPECT() *_MockpodNICRecorder {
 	return _m.recorder
 }
 
-func (_m *MockpodNIC) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error {
-	ret := _m.ctrl.Call(_m, "PlugPhase1", vmi, iface, network, podInterfaceName, pid)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockpodNICRecorder) PlugPhase1(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "PlugPhase1", arg0, arg1, arg2, arg3, arg4)
-}
-
 func (_m *MockpodNIC) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error {
 	ret := _m.ctrl.Call(_m, "PlugPhase2", vmi, iface, network, domain, podInterfaceName)
 	ret0, _ := ret[0].(error)

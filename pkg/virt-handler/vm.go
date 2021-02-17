@@ -60,6 +60,7 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	networkdriver "kubevirt.io/kubevirt/pkg/network"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	clusterutils "kubevirt.io/kubevirt/pkg/util/cluster"
 	pvcutils "kubevirt.io/kubevirt/pkg/util/types"
@@ -68,6 +69,7 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	trustednetwork "kubevirt.io/kubevirt/pkg/virt-handler/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -406,7 +408,7 @@ func (d *VirtualMachineController) clearPodNetworkPhase1(uid types.UID) {
 	}
 	d.podInterfaceCacheLock.Unlock()
 
-	err := network.RemoveVirtHandlerCacheDir(uid)
+	err := networkdriver.RemoveVirtHandlerCacheDir(uid)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to delete VMI Network cache files: %s", err.Error())
 	}
@@ -436,9 +438,12 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 		return false, nil
 	}
 
-	err = res.DoNetNS(func() error { return network.SetupPodNetworkPhase1(vmi, pid) })
+	err = res.DoNetNS(func() error {
+		vmNetworkingConfigurator := trustednetwork.NewVMNetworkConfigurator(vmi, pid)
+		return vmNetworkingConfigurator.SetupPodInfrastructure()
+	})
 	if err != nil {
-		_, critical := err.(*network.CriticalNetworkError)
+		_, critical := err.(*networkdriver.CriticalNetworkError)
 		if critical {
 			return true, err
 		} else {
@@ -474,7 +479,7 @@ func (d *VirtualMachineController) getPodInterfacefromFileCache(uid types.UID, i
 	if exists {
 		return result, nil
 	}
-	network.ReadFromVirtHandlerCachedFile(&result, uid, ifaceName)
+	networkdriver.ReadFromVirtHandlerCachedFile(&result, uid, ifaceName)
 
 	d.podInterfaceCacheLock.Lock()
 	d.podInterfaceCache[cacheKey] = result
