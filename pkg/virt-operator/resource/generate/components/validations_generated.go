@@ -3070,6 +3070,24 @@ var CRDsValidation map[string]string = map[string]string{
                             description: 'Name of the service account in the pod''s namespace to use. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/'
                             type: string
                         type: object
+                      sysprep:
+                        description: Represents a Sysprep volume source.
+                        properties:
+                          configMap:
+                            description: ConfigMap references a ConfigMap that contains Sysprep answer file named autounattend.xml that should be attached as disk of CDROM type.
+                            properties:
+                              name:
+                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                type: string
+                            type: object
+                          secret:
+                            description: Secret references a k8s Secret that contains Sysprep answer file named autounattend.xml that should be attached as disk of CDROM type.
+                            properties:
+                              name:
+                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                type: string
+                            type: object
+                        type: object
                     required:
                     - name
                     type: object
@@ -4850,6 +4868,24 @@ var CRDsValidation map[string]string = map[string]string{
                   serviceAccountName:
                     description: 'Name of the service account in the pod''s namespace to use. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/'
                     type: string
+                type: object
+              sysprep:
+                description: Represents a Sysprep volume source.
+                properties:
+                  configMap:
+                    description: ConfigMap references a ConfigMap that contains Sysprep answer file named autounattend.xml that should be attached as disk of CDROM type.
+                    properties:
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    type: object
+                  secret:
+                    description: Secret references a k8s Secret that contains Sysprep answer file named autounattend.xml that should be attached as disk of CDROM type.
+                    properties:
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                    type: object
                 type: object
             required:
             - name
@@ -7396,6 +7432,24 @@ var CRDsValidation map[string]string = map[string]string{
                             description: 'Name of the service account in the pod''s namespace to use. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/'
                             type: string
                         type: object
+                      sysprep:
+                        description: Represents a Sysprep volume source.
+                        properties:
+                          configMap:
+                            description: ConfigMap references a ConfigMap that contains Sysprep answer file named autounattend.xml that should be attached as disk of CDROM type.
+                            properties:
+                              name:
+                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                type: string
+                            type: object
+                          secret:
+                            description: Secret references a k8s Secret that contains Sysprep answer file named autounattend.xml that should be attached as disk of CDROM type.
+                            properties:
+                              name:
+                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                type: string
+                            type: object
+                        type: object
                     required:
                     - name
                     type: object
@@ -9461,6 +9515,24 @@ var CRDsValidation map[string]string = map[string]string{
                                       serviceAccountName:
                                         description: 'Name of the service account in the pod''s namespace to use. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/'
                                         type: string
+                                    type: object
+                                  sysprep:
+                                    description: Represents a Sysprep volume source.
+                                    properties:
+                                      configMap:
+                                        description: ConfigMap references a ConfigMap that contains Sysprep answer file named autounattend.xml that should be attached as disk of CDROM type.
+                                        properties:
+                                          name:
+                                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                            type: string
+                                        type: object
+                                      secret:
+                                        description: Secret references a k8s Secret that contains Sysprep answer file named autounattend.xml that should be attached as disk of CDROM type.
+                                        properties:
+                                          name:
+                                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                            type: string
+                                        type: object
                                     type: object
                                 required:
                                 - name

@@ -197,6 +197,11 @@ func initializeDirs(virtShareDir string,
 		panic(err)
 	}
 
+	err = virtlauncher.InitializeDisksDirectories(config.SysprepDisksDir)
+	if err != nil {
+		panic(err)
+	}
+
 	err = virtlauncher.InitializeDisksDirectories(config.SecretDisksDir)
 	if err != nil {
 		panic(err)

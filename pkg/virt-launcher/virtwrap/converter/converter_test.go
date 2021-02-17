@@ -300,6 +300,24 @@ var _ = Describe("Converter", func() {
 				{
 					Name: "serviceaccount_test",
 				},
+				{
+					Name: "sysprep",
+					DiskDevice: v1.DiskDevice{
+						CDRom: &v1.CDRomTarget{
+							ReadOnly: &_false,
+						},
+					},
+					DedicatedIOThread: &_false,
+				},
+				{
+					Name: "sysprep_secret",
+					DiskDevice: v1.DiskDevice{
+						CDRom: &v1.CDRomTarget{
+							ReadOnly: &_false,
+						},
+					},
+					DedicatedIOThread: &_false,
+				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
@@ -419,6 +437,26 @@ var _ = Describe("Converter", func() {
 					VolumeSource: v1.VolumeSource{
 						ServiceAccount: &v1.ServiceAccountVolumeSource{
 							ServiceAccountName: "testaccount",
+						},
+					},
+				},
+				{
+					Name: "sysprep",
+					VolumeSource: v1.VolumeSource{
+						Sysprep: &v1.SysprepSource{
+							ConfigMap: &k8sv1.LocalObjectReference{
+								Name: "testconfig",
+							},
+						},
+					},
+				},
+				{
+					Name: "sysprep_secret",
+					VolumeSource: v1.VolumeSource{
+						Sysprep: &v1.SysprepSource{
+							Secret: &k8sv1.LocalObjectReference{
+								Name: "testsecret",
+							},
 						},
 					},
 				},
@@ -563,6 +601,18 @@ var _ = Describe("Converter", func() {
       <target bus="sata" dev="sdi"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
+    </disk>
+    <disk device="cdrom" type="file">
+      <source file="/var/run/kubevirt-private/sysprep-disks/sysprep.iso"></source>
+      <target bus="sata" dev="sdj" tray="closed"></target>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <alias name="ua-sysprep"></alias>
+    </disk>
+    <disk device="cdrom" type="file">
+      <source file="/var/run/kubevirt-private/sysprep-disks/sysprep_secret.iso"></source>
+      <target bus="sata" dev="sdk" tray="closed"></target>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <alias name="ua-sysprep_secret"></alias>
     </disk>
     <input type="tablet" bus="virtio" model="virtio">
       <alias name="ua-tablet0"></alias>
@@ -764,6 +814,18 @@ var _ = Describe("Converter", func() {
       <target bus="sata" dev="sdi"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
+    </disk>
+    <disk device="cdrom" type="file">
+      <source file="/var/run/kubevirt-private/sysprep-disks/sysprep.iso"></source>
+      <target bus="sata" dev="sdj" tray="closed"></target>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <alias name="ua-sysprep"></alias>
+    </disk>
+    <disk device="cdrom" type="file">
+      <source file="/var/run/kubevirt-private/sysprep-disks/sysprep_secret.iso"></source>
+      <target bus="sata" dev="sdk" tray="closed"></target>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <alias name="ua-sysprep_secret"></alias>
     </disk>
     <input type="tablet" bus="virtio" model="virtio">
       <alias name="ua-tablet0"></alias>
@@ -978,6 +1040,18 @@ var _ = Describe("Converter", func() {
       <target bus="sata" dev="sdi"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
+    </disk>
+    <disk device="cdrom" type="file">
+      <source file="/var/run/kubevirt-private/sysprep-disks/sysprep.iso"></source>
+      <target bus="sata" dev="sdj" tray="closed"></target>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <alias name="ua-sysprep"></alias>
+    </disk>
+    <disk device="cdrom" type="file">
+      <source file="/var/run/kubevirt-private/sysprep-disks/sysprep_secret.iso"></source>
+      <target bus="sata" dev="sdk" tray="closed"></target>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <alias name="ua-sysprep_secret"></alias>
     </disk>
     <input type="tablet" bus="virtio" model="virtio">
       <alias name="ua-tablet0"></alias>

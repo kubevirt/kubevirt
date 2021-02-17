@@ -2226,6 +2226,69 @@ var _ = Describe("Template", func() {
 			})
 		})
 
+		Context("with a Sysprep volume source", func() {
+			Context("with a ConfigMap", func() {
+				It("Should add the Sysprep ConfigMap to template", func() {
+					volumes := []v1.Volume{
+						{
+							Name: "sysprep-configmap-volume",
+							VolumeSource: v1.VolumeSource{
+								Sysprep: &v1.SysprepSource{
+									ConfigMap: &kubev1.LocalObjectReference{
+										Name: "test-sysprep-configmap",
+									},
+								},
+							},
+						},
+					}
+					vmi := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "testvmi", Namespace: "default", UID: "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+					}
+
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(pod.Spec.Volumes).ToNot(BeEmpty())
+					Expect(len(pod.Spec.Volumes)).To(Equal(7))
+					Expect(pod.Spec.Volumes[1].ConfigMap).ToNot(BeNil())
+					Expect(pod.Spec.Volumes[1].ConfigMap.LocalObjectReference.Name).To(Equal("test-sysprep-configmap"))
+				})
+			})
+			Context("with a Secret", func() {
+				It("Should add the Sysprep SecretRef to template", func() {
+					volumes := []v1.Volume{
+						{
+							Name: "sysprep-configmap-volume",
+							VolumeSource: v1.VolumeSource{
+								Sysprep: &v1.SysprepSource{
+									Secret: &kubev1.LocalObjectReference{
+										Name: "test-sysprep-secret",
+									},
+								},
+							},
+						},
+					}
+					vmi := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "testvmi", Namespace: "default", UID: "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+					}
+
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(pod.Spec.Volumes).ToNot(BeEmpty())
+					Expect(len(pod.Spec.Volumes)).To(Equal(7))
+					Expect(pod.Spec.Volumes[1].Secret).ToNot(BeNil())
+					Expect(pod.Spec.Volumes[1].Secret.SecretName).To(Equal("test-sysprep-secret"))
+				})
+			})
+		})
+
 		Context("with a secret volume source", func() {
 			It("should add the Secret to template", func() {
 				volumes := []v1.Volume{

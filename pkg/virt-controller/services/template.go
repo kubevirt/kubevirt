@@ -267,6 +267,28 @@ func SetNodeAffinityForForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, po
 	}
 }
 
+func sysprepVolumeSource(sysprepVolume v1.SysprepSource) (k8sv1.VolumeSource, error) {
+	logger := log.DefaultLogger()
+	if sysprepVolume.Secret != nil {
+		return k8sv1.VolumeSource{
+			Secret: &k8sv1.SecretVolumeSource{
+				SecretName: sysprepVolume.Secret.Name,
+			},
+		}, nil
+	} else if sysprepVolume.ConfigMap != nil {
+		return k8sv1.VolumeSource{
+			ConfigMap: &k8sv1.ConfigMapVolumeSource{
+				LocalObjectReference: k8sv1.LocalObjectReference{
+					Name: sysprepVolume.ConfigMap.Name,
+				},
+			},
+		}, nil
+	}
+	errorStr := fmt.Sprintf("Sysprep must have Secret or ConfigMap reference set %v", sysprepVolume)
+	logger.Errorf(errorStr)
+	return k8sv1.VolumeSource{}, fmt.Errorf(errorStr)
+}
+
 // Request a resource by name. This function bumps the number of resources,
 // both its limits and requests attributes.
 //
@@ -588,6 +610,24 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 					ReadOnly:  true,
 				})
 			}
+		}
+
+		if volume.Sysprep != nil {
+			var volumeSource k8sv1.VolumeSource
+			// attach a Secret or ConfigMap referenced by the user
+			volumeSource, err := sysprepVolumeSource(*volume.Sysprep)
+			if err != nil {
+				return nil, err
+			}
+			volumes = append(volumes, k8sv1.Volume{
+				Name:         volume.Name,
+				VolumeSource: volumeSource,
+			})
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: filepath.Join(config.SysprepSourceDir, volume.Name),
+				ReadOnly:  true,
+			})
 		}
 
 		if volume.CloudInitConfigDrive != nil {

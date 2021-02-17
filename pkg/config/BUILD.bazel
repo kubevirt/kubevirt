@@ -8,6 +8,7 @@ go_library(
         "downwardapi.go",
         "secret.go",
         "service-account.go",
+        "sysprep.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/config",
     visibility = ["//visibility:public"],
@@ -26,6 +27,7 @@ go_test(
         "downwardapi_test.go",
         "secret_test.go",
         "service-account_test.go",
+        "sysprep_test.go",
     ],
     embed = [":go_default_library"],
     deps = [

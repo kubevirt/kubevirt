@@ -52,6 +52,8 @@ const (
 var (
 	// ConfigMapSourceDir represents a location where ConfigMap is attached to the pod
 	ConfigMapSourceDir = mountBaseDir + "/config-map"
+	// SysprepSourceDir represents a location where a Sysprep is attached to the pod
+	SysprepSourceDir = mountBaseDir + "/sysprep"
 	// SecretSourceDir represents a location where Secrets is attached to the pod
 	SecretSourceDir = mountBaseDir + "/secret"
 	// DownwardAPISourceDir represents a location where downwardapi is attached to the pod
@@ -63,6 +65,8 @@ var (
 	ConfigMapDisksDir = mountBaseDir + "/config-map-disks"
 	// SecretDisksDir represents a path to Secrets iso images
 	SecretDisksDir = mountBaseDir + "/secret-disks"
+	// SysprepDisksDir represents a path to Syspreps iso images
+	SysprepDisksDir = mountBaseDir + "/sysprep-disks"
 	// DownwardAPIDisksDir represents a path to DownwardAPI iso images
 	DownwardAPIDisksDir = mountBaseDir + "/downwardapi-disks"
 	// ServiceAccountDiskDir represents a path to the ServiceAccount iso image
