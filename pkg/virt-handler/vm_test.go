@@ -200,6 +200,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		)
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
 		controller.networkCacheStoreFactory = networkingfake.NewFakeInMemoryNetworkCacheFactory()
+		controller.virtLauncherFSRunDirPattern = filepath.Join(shareDir, "%d")
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()

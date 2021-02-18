@@ -105,24 +105,25 @@ func NewController(
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	c := &VirtualMachineController{
-		Queue:                    queue,
-		recorder:                 recorder,
-		clientset:                clientset,
-		host:                     host,
-		ipAddress:                ipAddress,
-		virtShareDir:             virtShareDir,
-		vmiSourceInformer:        vmiSourceInformer,
-		vmiTargetInformer:        vmiTargetInformer,
-		domainInformer:           domainInformer,
-		gracefulShutdownInformer: gracefulShutdownInformer,
-		heartBeatInterval:        1 * time.Minute,
-		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
-		migrationProxy:           migrationproxy.NewMigrationProxyManager(serverTLSConfig, clientTLSConfig),
-		podIsolationDetector:     podIsolationDetector,
-		containerDiskMounter:     container_disk.NewMounter(podIsolationDetector, virtPrivateDir+"/container-disk-mount-state"),
-		hotplugVolumeMounter:     hotplug_volume.NewVolumeMounter(podIsolationDetector, virtPrivateDir+"/hotplug-volume-mount-state"),
-		clusterConfig:            clusterConfig,
-		networkCacheStoreFactory: cache2.NewInterfaceCacheFactory(),
+		Queue:                       queue,
+		recorder:                    recorder,
+		clientset:                   clientset,
+		host:                        host,
+		ipAddress:                   ipAddress,
+		virtShareDir:                virtShareDir,
+		vmiSourceInformer:           vmiSourceInformer,
+		vmiTargetInformer:           vmiTargetInformer,
+		domainInformer:              domainInformer,
+		gracefulShutdownInformer:    gracefulShutdownInformer,
+		heartBeatInterval:           1 * time.Minute,
+		watchdogTimeoutSeconds:      watchdogTimeoutSeconds,
+		migrationProxy:              migrationproxy.NewMigrationProxyManager(serverTLSConfig, clientTLSConfig),
+		podIsolationDetector:        podIsolationDetector,
+		containerDiskMounter:        container_disk.NewMounter(podIsolationDetector, virtPrivateDir+"/container-disk-mount-state"),
+		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter(podIsolationDetector, virtPrivateDir+"/hotplug-volume-mount-state"),
+		clusterConfig:               clusterConfig,
+		networkCacheStoreFactory:    cache2.NewInterfaceCacheFactory(),
+		virtLauncherFSRunDirPattern: "/proc/%d/root/var/run",
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -195,8 +196,9 @@ type VirtualMachineController struct {
 	podInterfaceCache     map[string]*cache2.PodCacheInterface
 	podInterfaceCacheLock sync.Mutex
 
-	domainNotifyPipes        map[string]string
-	networkCacheStoreFactory cache2.InterfaceCacheFactory
+	domainNotifyPipes           map[string]string
+	networkCacheStoreFactory    cache2.InterfaceCacheFactory
+	virtLauncherFSRunDirPattern string
 }
 
 type virtLauncherCriticalNetworkError struct {
@@ -2005,10 +2007,10 @@ func (d *VirtualMachineController) handlePostSyncMigrationProxy(vmi *v1.VirtualM
 	}
 
 	// Get the libvirt connection socket file on the destination pod.
-	socketFile := fmt.Sprintf("/proc/%d/root/var/run/libvirt/libvirt-sock", res.Pid())
+	socketFile := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "libvirt/libvirt-sock"), res.Pid())
 	// the migration-proxy is no longer shared via host mount, so we
 	// pass in the virt-launcher's baseDir to reach the unix sockets.
-	baseDir := fmt.Sprintf("/proc/%d/root/var/run/kubevirt", res.Pid())
+	baseDir := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "kubevirt"), res.Pid())
 	migrationTargetSockets = append(migrationTargetSockets, socketFile)
 
 	isBlockMigration := vmi.Status.MigrationMethod == v1.BlockMigration
@@ -2037,7 +2039,7 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 		}
 		// the migration-proxy is no longer shared via host mount, so we
 		// pass in the virt-launcher's baseDir to reach the unix sockets.
-		baseDir := fmt.Sprintf("/proc/%d/root/var/run/kubevirt", res.Pid())
+		baseDir := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "kubevirt"), res.Pid())
 		d.migrationProxy.StopTargetListener(string(vmi.UID))
 		if vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
 			msg := "No migration proxy has been created for this vmi"
