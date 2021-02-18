@@ -19,18 +19,12 @@
 
 package cache
 
-/*
- ATTENTION: Rerun code generators when interface signatures are modified.
-*/
-
 import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-
-	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -47,19 +41,20 @@ type InterfaceCacheFactory interface {
 	CacheForPID(pid string) DomainInterfaceStore
 }
 
-func NewInterfaceCacheFactory() InterfaceCacheFactory {
+func NewInterfaceCacheFactory() *interfaceCacheFactory {
 	return &interfaceCacheFactory{}
 }
 
 type interfaceCacheFactory struct {
+	baseDir string
 }
 
 func (i *interfaceCacheFactory) CacheForVMI(vmi *v1.VirtualMachineInstance) PodInterfaceCacheStore {
-	return NewPodInterfaceCacheStore(vmi)
+	return newPodInterfaceCacheStore(vmi, i.baseDir, virtHandlerCachePattern)
 }
 
 func (i *interfaceCacheFactory) CacheForPID(pid string) DomainInterfaceStore {
-	return NewDomainInterfaceStore(pid)
+	return newDomainInterfaceStore(pid, i.baseDir, virtLauncherCachedPattern)
 }
 
 type DomainInterfaceStore interface {
@@ -74,48 +69,55 @@ type PodInterfaceCacheStore interface {
 }
 
 type domainInterfaceStore struct {
-	pid string
+	pid     string
+	pattern string
+	baseDir string
 }
 
 func (d domainInterfaceStore) Read(iface string) (file *api.Interface, err error) {
 	file = &api.Interface{}
-	err = readFromVirtLauncherCachedFile(file, d.pid, iface)
+	err = readFromCachedFile(file, getInterfaceCacheFile(d.baseDir, d.pattern, d.pid, iface))
 	return
 }
 
 func (d domainInterfaceStore) Write(iface string, cacheInterface *api.Interface) (err error) {
-	err = writeToVirtLauncherCachedFile(cacheInterface, d.pid, iface)
+	err = writeToCachedFile(cacheInterface, getInterfaceCacheFile(d.baseDir, d.pattern, d.pid, iface))
 	return
 }
 
-func NewDomainInterfaceStore(pid string) DomainInterfaceStore {
-	return domainInterfaceStore{pid: pid}
+func newDomainInterfaceStore(pid string, baseDir, pattern string) DomainInterfaceStore {
+	return domainInterfaceStore{pid: pid, baseDir: baseDir, pattern: pattern}
 }
 
 type podInterfaceCacheStore struct {
-	vmi *v1.VirtualMachineInstance
+	vmi     *v1.VirtualMachineInstance
+	pattern string
+	baseDir string
 }
 
 func (p podInterfaceCacheStore) Read(iface string) (file *PodCacheInterface, err error) {
 	file = &PodCacheInterface{}
-	err = readFromVirtHandlerCachedFile(file, p.vmi.UID, iface)
+	err = readFromCachedFile(file, getInterfaceCacheFile(p.baseDir, p.pattern, string(p.vmi.UID), iface))
 	return
 }
 
 func (p podInterfaceCacheStore) Write(iface string, cacheInterface *PodCacheInterface) (err error) {
-	err = writeToVirtHandlerCachedFile(cacheInterface, p.vmi.UID, iface)
+	err = writeToCachedFile(cacheInterface, getInterfaceCacheFile(p.baseDir, p.pattern, string(p.vmi.UID), iface))
 	return
 }
 
 func (p podInterfaceCacheStore) Remove() error {
-	return os.RemoveAll(filepath.Join(networkInfoDir, string(p.vmi.UID)))
+	return os.RemoveAll(filepath.Join(p.baseDir, networkInfoDir, string(p.vmi.UID)))
 }
 
-func NewPodInterfaceCacheStore(vmi *v1.VirtualMachineInstance) PodInterfaceCacheStore {
-	return podInterfaceCacheStore{vmi: vmi}
+func newPodInterfaceCacheStore(vmi *v1.VirtualMachineInstance, baseDir, pattern string) PodInterfaceCacheStore {
+	return podInterfaceCacheStore{vmi: vmi, baseDir: baseDir, pattern: pattern}
 }
 
 func writeToCachedFile(obj interface{}, fileName string) error {
+	if err := os.MkdirAll(filepath.Dir(fileName), 0755); err != nil {
+		return err
+	}
 	buf, err := json.MarshalIndent(&obj, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling cached object: %v", err)
@@ -141,32 +143,6 @@ func readFromCachedFile(obj interface{}, fileName string) error {
 	return nil
 }
 
-func readFromVirtLauncherCachedFile(obj interface{}, pid, ifaceName string) error {
-	fileName := getInterfaceCacheFile(virtLauncherCachedPattern, pid, ifaceName)
-	return readFromCachedFile(obj, fileName)
-}
-
-func writeToVirtLauncherCachedFile(obj interface{}, pid, ifaceName string) error {
-	fileName := getInterfaceCacheFile(virtLauncherCachedPattern, pid, ifaceName)
-	if err := os.MkdirAll(filepath.Dir(fileName), 0755); err != nil {
-		return err
-	}
-	return writeToCachedFile(obj, fileName)
-}
-
-func readFromVirtHandlerCachedFile(obj interface{}, vmiuid types.UID, ifaceName string) error {
-	fileName := getInterfaceCacheFile(virtHandlerCachePattern, string(vmiuid), ifaceName)
-	return readFromCachedFile(obj, fileName)
-}
-
-func writeToVirtHandlerCachedFile(obj interface{}, vmiuid types.UID, ifaceName string) error {
-	fileName := getInterfaceCacheFile(virtHandlerCachePattern, string(vmiuid), ifaceName)
-	if err := os.MkdirAll(filepath.Dir(fileName), 0755); err != nil {
-		return err
-	}
-	return writeToCachedFile(obj, fileName)
-}
-
-func getInterfaceCacheFile(pattern, id, name string) string {
-	return fmt.Sprintf(pattern, id, name)
+func getInterfaceCacheFile(baseDir, pattern, id, name string) string {
+	return filepath.Join(baseDir, fmt.Sprintf(pattern, id, name))
 }
