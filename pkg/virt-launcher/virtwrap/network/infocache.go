@@ -19,8 +19,6 @@
 
 package network
 
-//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
-
 /*
  ATTENTION: Rerun code generators when interface signatures are modified.
 */
@@ -34,7 +32,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const networkInfoDir = util.VirtPrivateDir + "/network-info-cache"
@@ -42,16 +42,77 @@ const virtHandlerCachePattern = networkInfoDir + "/%s/%s"
 
 var virtLauncherCachedPattern = "/proc/%s/root/var/run/kubevirt-private/interface-cache-%s.json"
 
-func CreateVirtHandlerNetworkInfoCache() error {
-	return os.MkdirAll(networkInfoDir, 0755)
+type InterfaceCacheFactory interface {
+	CacheForVMI(vmi *v1.VirtualMachineInstance) PodInterfaceCacheStore
+	CacheForPID(pid string) DomainInterfaceStore
 }
 
-func CreateVirtHandlerCacheDir(vmiuid types.UID) error {
-	return os.MkdirAll(filepath.Join(networkInfoDir, string(vmiuid)), 0755)
+func NewInterfaceCacheFactory() InterfaceCacheFactory {
+	return &interfaceCacheFactory{}
 }
 
-func RemoveVirtHandlerCacheDir(vmiuid types.UID) error {
-	return os.RemoveAll(filepath.Join(networkInfoDir, string(vmiuid)))
+type interfaceCacheFactory struct {
+}
+
+func (i *interfaceCacheFactory) CacheForVMI(vmi *v1.VirtualMachineInstance) PodInterfaceCacheStore {
+	return NewPodInterfaceCacheStore(vmi)
+}
+
+func (i *interfaceCacheFactory) CacheForPID(pid string) DomainInterfaceStore {
+	return NewDomainInterfaceStore(pid)
+}
+
+type DomainInterfaceStore interface {
+	Read(iface string) (*api.Interface, error)
+	Write(iface string, cacheInterface *api.Interface) error
+}
+
+type PodInterfaceCacheStore interface {
+	Read(iface string) (*PodCacheInterface, error)
+	Write(iface string, cacheInterface *PodCacheInterface) error
+	Remove() error
+}
+
+type domainInterfaceStore struct {
+	pid string
+}
+
+func (d domainInterfaceStore) Read(iface string) (file *api.Interface, err error) {
+	file = &api.Interface{}
+	err = readFromVirtLauncherCachedFile(file, d.pid, iface)
+	return
+}
+
+func (d domainInterfaceStore) Write(iface string, cacheInterface *api.Interface) (err error) {
+	err = writeToVirtLauncherCachedFile(cacheInterface, d.pid, iface)
+	return
+}
+
+func NewDomainInterfaceStore(pid string) DomainInterfaceStore {
+	return domainInterfaceStore{pid: pid}
+}
+
+type podInterfaceCacheStore struct {
+	vmi *v1.VirtualMachineInstance
+}
+
+func (p podInterfaceCacheStore) Read(iface string) (file *PodCacheInterface, err error) {
+	file = &PodCacheInterface{}
+	err = readFromVirtHandlerCachedFil(file, p.vmi.UID, iface)
+	return
+}
+
+func (p podInterfaceCacheStore) Write(iface string, cacheInterface *PodCacheInterface) (err error) {
+	err = writeToVirtHandlerCachedFil(cacheInterface, p.vmi.UID, iface)
+	return
+}
+
+func (p podInterfaceCacheStore) Remove() error {
+	return os.RemoveAll(filepath.Join(networkInfoDir, string(p.vmi.UID)))
+}
+
+func NewPodInterfaceCacheStore(vmi *v1.VirtualMachineInstance) PodInterfaceCacheStore {
+	return podInterfaceCacheStore{vmi: vmi}
 }
 
 func writeToCachedFile(obj interface{}, fileName string) error {
@@ -87,16 +148,22 @@ func readFromVirtLauncherCachedFile(obj interface{}, pid, ifaceName string) erro
 
 func writeToVirtLauncherCachedFile(obj interface{}, pid, ifaceName string) error {
 	fileName := getInterfaceCacheFile(virtLauncherCachedPattern, pid, ifaceName)
+	if err := os.MkdirAll(filepath.Dir(fileName), 0755); err != nil {
+		return err
+	}
 	return writeToCachedFile(obj, fileName)
 }
 
-func ReadFromVirtHandlerCachedFile(obj interface{}, vmiuid types.UID, ifaceName string) error {
+func readFromVirtHandlerCachedFil(obj interface{}, vmiuid types.UID, ifaceName string) error {
 	fileName := getInterfaceCacheFile(virtHandlerCachePattern, string(vmiuid), ifaceName)
 	return readFromCachedFile(obj, fileName)
 }
 
-func WriteToVirtHandlerCachedFile(obj interface{}, vmiuid types.UID, ifaceName string) error {
+func writeToVirtHandlerCachedFil(obj interface{}, vmiuid types.UID, ifaceName string) error {
 	fileName := getInterfaceCacheFile(virtHandlerCachePattern, string(vmiuid), ifaceName)
+	if err := os.MkdirAll(filepath.Dir(fileName), 0755); err != nil {
+		return err
+	}
 	return writeToCachedFile(obj, fileName)
 }
 
