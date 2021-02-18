@@ -31,3 +31,22 @@ func VirtualMachinesOnNode(cli kubecli.KubevirtClient, nodeName string) ([]*virt
 	}
 	return vmis, nil
 }
+
+func ActiveVirtualMachinesOnNode(cli kubecli.KubevirtClient, nodeName string) ([]*virtv1.VirtualMachineInstance, error) {
+	vmis, err := VirtualMachinesOnNode(cli, nodeName)
+	if err != nil {
+		return nil, err
+	}
+
+	activeVMIs := []*virtv1.VirtualMachineInstance{}
+
+	for _, vmi := range vmis {
+		if !vmi.IsRunning() && !vmi.IsScheduled() {
+			continue
+		}
+
+		activeVMIs = append(activeVMIs, vmi)
+	}
+
+	return activeVMIs, nil
+}

@@ -103,8 +103,6 @@ var _ = Describe("Node controller with", func() {
 	Context("pods and vmis given", func() {
 		It("should only select stuck vmis", func() {
 			node := NewHealthyNode("test")
-			finalVMI := NewRunningVirtualMachine("finalVMI", node)
-			finalVMI.Status.Phase = virtv1.Succeeded
 			vmiWithPod := NewRunningVirtualMachine("vmiWithPod", node)
 			podForVMI := NewHealthyPodForVirtualMachine("podForVMI", vmiWithPod)
 			vmiWithPodInDifferentNamespace := NewRunningVirtualMachine("vmiWithPodInDifferentNamespace", node)
@@ -113,7 +111,6 @@ var _ = Describe("Node controller with", func() {
 			vmiWithoutPod := NewRunningVirtualMachine("vmiWithoutPod", node)
 
 			vmis := filterStuckVirtualMachinesWithoutPods([]*virtv1.VirtualMachineInstance{
-				finalVMI,
 				vmiWithPod,
 				vmiWithPodInDifferentNamespace,
 				vmiWithoutPod,
@@ -121,9 +118,6 @@ var _ = Describe("Node controller with", func() {
 				podForVMI,
 				podInDifferentNamespace,
 			})
-
-			By("filtering out vmis in final state")
-			Expect(vmis).ToNot(ContainElement(finalVMI))
 
 			By("filtering out vmis which have a pod")
 			Expect(vmis).ToNot(ContainElement(vmiWithPod))
@@ -311,23 +305,6 @@ var _ = Describe("Node controller with", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 		})
-		table.DescribeTable("should ignore a vmi without a pod if the vmi is in ", func(phase virtv1.VirtualMachineInstancePhase) {
-			node := NewUnhealthyNode("testnode")
-			vmi := NewRunningVirtualMachine("vmi1", node)
-			vmi.Status.Phase = phase
-
-			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				return true, &k8sv1.PodList{}, nil
-			})
-
-			controller.checkVirtLauncherPodsAndUpdateVMIStatus(node.Name, []*virtv1.VirtualMachineInstance{vmi}, log.DefaultLogger())
-		},
-			table.Entry("unprocessed state", virtv1.VmPhaseUnset),
-			table.Entry("pending state", virtv1.Pending),
-			table.Entry("scheduling state", virtv1.Scheduling),
-			table.Entry("failed state", virtv1.Failed),
-			table.Entry("failed state", virtv1.Succeeded),
-		)
 
 		table.DescribeTable("should ignore a vmi which still has a healthy pod in", func(phase virtv1.VirtualMachineInstancePhase) {
 			node := NewUnhealthyNode("testnode")

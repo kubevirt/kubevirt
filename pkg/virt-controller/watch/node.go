@@ -194,9 +194,9 @@ func nodeIsSchedulable(node *v1.Node) bool {
 }
 
 func (c *NodeController) checkNodeForOrphanedAndErroredVMIs(nodeName string, node *v1.Node, logger *log.FilteredLogger) error {
-	vmis, err := lookup.VirtualMachinesOnNode(c.clientset, nodeName)
+	vmis, err := lookup.ActiveVirtualMachinesOnNode(c.clientset, nodeName)
 	if err != nil {
-		logger.Reason(err).Error("Failed fetch vmis for node")
+		logger.Reason(err).Error("Failed fetching vmis for node")
 		return err
 	}
 
@@ -409,15 +409,14 @@ func filterStuckVirtualMachinesWithoutPods(vmis []*virtv1.VirtualMachineInstance
 
 	filtered := []*virtv1.VirtualMachineInstance{}
 	for _, vmi := range vmis {
-		if vmi.IsScheduled() || vmi.IsRunning() {
-			if podsForVMI, exists := podsPerNamespace[vmi.Namespace]; exists {
-				if _, exists := podsForVMI[string(vmi.UID)]; exists {
-					continue
-				}
+		if podsForVMI, exists := podsPerNamespace[vmi.Namespace]; exists {
+			if _, exists := podsForVMI[string(vmi.UID)]; exists {
+				continue
 			}
-			filtered = append(filtered, vmi)
 		}
+		filtered = append(filtered, vmi)
 	}
+
 	return filtered
 }
 
