@@ -70,7 +70,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
@@ -241,11 +240,6 @@ func (app *virtHandlerApp) Run() {
 	// That record isn't deleted from this node until the VMI
 	// is completely torn down.
 	err = virtcache.InitializeGhostRecordCache(filepath.Join(app.VirtPrivateDir, "ghost-records"))
-	if err != nil {
-		panic(err)
-	}
-
-	err = network.CreateVirtHandlerNetworkInfoCache()
 	if err != nil {
 		panic(err)
 	}
