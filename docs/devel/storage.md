@@ -58,7 +58,7 @@ metadata:
   labels:
     app: containerized-data-importer
   annotations:
-    cdi.kubevirt.io/storage.import.endpoint: "https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img"   # Required.  Format: (http||s3)://www.myUrl.com/path/of/data
+    cdi.kubevirt.io/storage.import.endpoint: "https://download.cirros-cloud.net/0.5.0/cirros-0.5.0-x86_64-disk.img"   # Required.  Format: (http||s3)://www.myUrl.com/path/of/data
     cdi.kubevirt.io/storage.import.secretName: "" # Optional.  The name of the secret containing credentials for the data source
 spec:
   accessModes:
