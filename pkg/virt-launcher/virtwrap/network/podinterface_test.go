@@ -93,7 +93,6 @@ var _ = Describe("Pod Network", func() {
 
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = NewMockNetworkHandler(ctrl)
-		Handler = mockNetwork
 		podnic = podNICImpl{cacheFactory: cacheFactory, handler: mockNetwork}
 		podNICFactory = func(cacheFactory cache.InterfaceCacheFactory) podNIC {
 			return &podNICImpl{cacheFactory: cacheFactory, handler: mockNetwork}

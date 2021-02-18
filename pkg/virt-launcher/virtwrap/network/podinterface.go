@@ -171,7 +171,6 @@ func (l *podNICImpl) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error
 }
 
 func (l *podNICImpl) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error {
-	initHandler()
 
 	// There is nothing to plug for SR-IOV devices
 	if iface.SRIOV != nil {
@@ -242,7 +241,6 @@ func ensureDHCP(bindMechanism BindMechanism, podInterfaceName string) error {
 
 func (l *podNICImpl) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error {
 	precond.MustNotBeNil(domain)
-	initHandler()
 
 	// There is nothing to plug for SR-IOV devices
 	if iface.SRIOV != nil {

@@ -144,5 +144,5 @@ func isSecondaryMultusNetwork(net v1.Network) bool {
 }
 
 func newpodNIC(cacheFactory cache.InterfaceCacheFactory) podNIC {
-	return &podNICImpl{cacheFactory: cacheFactory, handler: Handler}
+	return &podNICImpl{cacheFactory: cacheFactory, handler: &NetworkUtilsHandler{}}
 }

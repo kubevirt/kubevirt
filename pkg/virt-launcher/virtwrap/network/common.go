@@ -120,8 +120,6 @@ type NetworkHandler interface {
 
 type NetworkUtilsHandler struct{}
 
-var Handler NetworkHandler
-
 func (h *NetworkUtilsHandler) LinkByName(name string) (netlink.Link, error) {
 	return netlink.LinkByName(name)
 }
@@ -486,12 +484,6 @@ func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
 // Allow mocking for tests
 var DHCPServer = dhcp.SingleClientDHCPServer
 var DHCPv6Server = dhcpv6.SingleClientDHCPv6Server
-
-func initHandler() {
-	if Handler == nil {
-		Handler = &NetworkUtilsHandler{}
-	}
-}
 
 // filter out irrelevant routes
 func filterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []netlink.Route) {
