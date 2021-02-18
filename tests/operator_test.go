@@ -35,6 +35,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	v12 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -886,7 +887,6 @@ spec:
 	})
 
 	Describe("should reconcile components", func() {
-
 		It("test updating a deployment is reverted to it's original state", func() {
 			envVarKey := "USER_ADDED_ENV"
 
@@ -907,7 +907,7 @@ spec:
 
 			By("Test that the added envvar was removed")
 			Eventually(func() bool {
-				vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
+				vc, err = virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), "virt-controller", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, env := range vc.Spec.Template.Spec.Containers[0].Env {
@@ -917,7 +917,20 @@ spec:
 				}
 
 				return true
-			}, 60*time.Second, 5*time.Second).Should(BeTrue())
+			}, 120*time.Second, 5*time.Second).Should(BeTrue(), "waiting for deployment to revert to original state")
+
+			generation := vc.ObjectMeta.Generation
+			currentKV := tests.GetCurrentKv(virtClient)
+			setGeneration := resourcemerge.ExpectedDeploymentGeneration(vc, currentKV.Status.Generations)
+
+			Expect(setGeneration).To(Equal(generation))
+
+			By("Test that the expected generation is unchanged")
+			Consistently(func() int64 {
+				currentKV := tests.GetCurrentKv(virtClient)
+				return resourcemerge.ExpectedDeploymentGeneration(vc, currentKV.Status.Generations)
+			}, 30*time.Second, 5*time.Second).Should(Equal(setGeneration))
+
 		})
 	})
 
