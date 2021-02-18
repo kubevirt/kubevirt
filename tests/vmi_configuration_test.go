@@ -568,7 +568,7 @@ var _ = Describe("Configurations", func() {
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
-					&expect.BExp{R: console.RetValue("236")},
+					&expect.BExp{R: console.RetValue("226")},
 				}, 10)).To(Succeed())
 
 			})
@@ -588,7 +588,7 @@ var _ = Describe("Configurations", func() {
 
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
-					&expect.BExp{R: console.RetValue("236")},
+					&expect.BExp{R: console.RetValue("226")},
 				}, 10)).To(Succeed())
 
 			})
