@@ -21,9 +21,7 @@ package network
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
-	"os"
 	"strings"
 
 	"github.com/coreos/go-iptables/iptables"
@@ -32,53 +30,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
-	"k8s.io/apimachinery/pkg/types"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-func mockVirtLauncherCachedPattern(path string) {
-	virtLauncherCachedPattern = path
-}
-
 var _ = Describe("Common Methods", func() {
-	pid := "self"
-	Context("Functions Read and Write from cache", func() {
-		It("should persist interface payload", func() {
-			tmpDir, err := ioutil.TempDir("", "commontest")
-			Expect(err).ToNot(HaveOccurred())
-			defer os.RemoveAll(tmpDir)
-			mockVirtLauncherCachedPattern(tmpDir + "/cache-%s.json")
-
-			ifaceName := "iface_name"
-			iface := api.Interface{Type: "fake_type", Source: api.InterfaceSource{Bridge: "fake_br"}}
-			err = writeToVirtLauncherCachedFile(&iface, pid, ifaceName)
-			Expect(err).ToNot(HaveOccurred())
-
-			var cached_iface api.Interface
-			err = readFromVirtLauncherCachedFile(&cached_iface, pid, ifaceName)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(iface).To(Equal(cached_iface))
-		})
-		It("should persist qemu arg payload", func() {
-			tmpDir, err := ioutil.TempDir("", "commontest")
-			Expect(err).ToNot(HaveOccurred())
-			defer os.RemoveAll(tmpDir)
-			mockVirtLauncherCachedPattern(tmpDir + "/cache-%s.json")
-
-			qemuArgName := "iface_name"
-			qemuArg := api.Arg{Value: "test_value"}
-			err = writeToVirtLauncherCachedFile(&qemuArg, pid, qemuArgName)
-			Expect(err).ToNot(HaveOccurred())
-
-			var cached_qemuArg api.Arg
-			err = readFromVirtLauncherCachedFile(&cached_qemuArg, pid, qemuArgName)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(qemuArg).To(Equal(cached_qemuArg))
-		})
-	})
 	Context("GetAvailableAddrsFromCIDR function", func() {
 		It("Should return 2 addresses", func() {
 			networkHandler := NetworkUtilsHandler{}
@@ -171,47 +125,5 @@ func createDummyVIF(vifName, ipv4cidr, ipv4gateway, ipv6cidr, macStr string, mtu
 }
 
 var _ = Describe("infocache", func() {
-	type SillyType struct{ A int }
-	It("readFromCachedFile reads what writeToCachedFile had written", func() {
-		written := SillyType{7}
-		read := SillyType{0}
-		tmpfile, err := ioutil.TempFile("", "silly")
-		Expect(err).ToNot(HaveOccurred())
-		defer os.Remove(tmpfile.Name())
 
-		writeToCachedFile(written, tmpfile.Name())
-		readFromCachedFile(&read, tmpfile.Name())
-		Expect(written).To(Equal(read))
-	})
-	It("ReadFromVirtHandlerCachedFile reads what WriteToVirtHandlerCachedFile had written", func() {
-		vmiuid := types.UID("123")
-		written := SillyType{7}
-		read := SillyType{0}
-
-		err := CreateVirtHandlerCacheDir(vmiuid)
-		Expect(err).ToNot(HaveOccurred())
-		defer RemoveVirtHandlerCacheDir(vmiuid)
-
-		err = WriteToVirtHandlerCachedFile(written, vmiuid, "eth0")
-		Expect(err).ToNot(HaveOccurred())
-		err = ReadFromVirtHandlerCachedFile(&read, vmiuid, "eth0")
-		Expect(err).ToNot(HaveOccurred())
-		Expect(written).To(Equal(read))
-	})
-	It("readFromVirtLauncherCachedFile reads what writeToVirtLauncherCachedFile had written", func() {
-		tmpDir, err := ioutil.TempDir("", "commontest")
-		Expect(err).ToNot(HaveOccurred())
-		defer os.RemoveAll(tmpDir)
-		mockVirtLauncherCachedPattern(tmpDir + "/cache-%s.json")
-
-		pid := "123"
-		written := SillyType{7}
-		read := SillyType{0}
-
-		err = writeToVirtLauncherCachedFile(written, pid, "eth0")
-		Expect(err).ToNot(HaveOccurred())
-		err = readFromVirtLauncherCachedFile(&read, pid, "eth0")
-		Expect(err).ToNot(HaveOccurred())
-		Expect(written).To(Equal(read))
-	})
 })
