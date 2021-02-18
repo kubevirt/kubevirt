@@ -36,8 +36,6 @@ import (
 	"github.com/golang/glog"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -194,6 +192,11 @@ func (app *virtHandlerApp) Run() {
 
 	app.markNodeAsUnschedulable(logger)
 
+	app.namespace, err = clientutil.GetNamespace()
+	if err != nil {
+		glog.Fatalf("Error searching for namespace: %v", err)
+	}
+
 	go func() {
 		sigint := make(chan os.Signal, 1)
 
@@ -210,33 +213,14 @@ func (app *virtHandlerApp) Run() {
 	// Scheme is used to create an ObjectReference from an Object (e.g. VirtualMachineInstance) during Event creation
 	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-handler", Host: app.HostOverride})
 
-	vmiSourceLabel, err := labels.Parse(fmt.Sprintf(v1.NodeNameLabel+" in (%s)", app.HostOverride))
-	if err != nil {
-		panic(err)
-	}
-	vmiTargetLabel, err := labels.Parse(fmt.Sprintf(v1.MigrationTargetNodeNameLabel+" in (%s)", app.HostOverride))
-	if err != nil {
-		panic(err)
-	}
-
 	// Wire VirtualMachineInstance controller
+	factory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, nil, app.namespace)
 
-	vmSourceSharedInformer := cache.NewSharedIndexInformer(
-		controller.NewListWatchFromClient(app.virtCli.RestClient(), "virtualmachineinstances", k8sv1.NamespaceAll, fields.Everything(), vmiSourceLabel),
-		&v1.VirtualMachineInstance{},
-		0,
-		cache.Indexers{},
-	)
-
-	vmTargetSharedInformer := cache.NewSharedIndexInformer(
-		controller.NewListWatchFromClient(app.virtCli.RestClient(), "virtualmachineinstances", k8sv1.NamespaceAll, fields.Everything(), vmiTargetLabel),
-		&v1.VirtualMachineInstance{},
-		0,
-		cache.Indexers{},
-	)
+	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
+	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
 
 	// Wire Domain controller
-	domainSharedInformer, err := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmSourceSharedInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
+	domainSharedInformer, err := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiSourceInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
 	if err != nil {
 		panic(err)
 	}
@@ -274,16 +258,9 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	app.namespace, err = clientutil.GetNamespace()
-	if err != nil {
-		glog.Fatalf("Error searching for namespace: %v", err)
-	}
-
 	if err := app.prepareCertManager(); err != nil {
 		glog.Fatalf("Error preparing the certificate manager: %v", err)
 	}
-
-	factory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, nil, app.namespace)
 
 	if err := app.setupTLS(factory); err != nil {
 		glog.Fatalf("Error constructing migration tls config: %v", err)
@@ -298,7 +275,6 @@ func (app *virtHandlerApp) Run() {
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
 	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
-	vmiInformer := factory.VMI()
 	app.clusterConfig = virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), factory.KubeVirt(), app.namespace)
 	// set log verbosity
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
@@ -310,8 +286,8 @@ func (app *virtHandlerApp) Run() {
 		app.PodIpAddress,
 		app.VirtShareDir,
 		app.VirtPrivateDir,
-		vmSourceSharedInformer,
-		vmTargetSharedInformer,
+		vmiSourceInformer,
+		vmiTargetInformer,
 		domainSharedInformer,
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
@@ -327,11 +303,11 @@ func (app *virtHandlerApp) Run() {
 
 	consoleHandler := rest.NewConsoleHandler(
 		podIsolationDetector,
-		vmiInformer,
+		vmiSourceInformer,
 	)
 
 	lifecycleHandler := rest.NewLifecycleHandler(
-		vmiInformer,
+		vmiSourceInformer,
 		app.VirtShareDir,
 	)
 
@@ -365,7 +341,7 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
 	}
 
-	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced, vmiInformer.HasSynced, factory.CRD().HasSynced)
+	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced, vmiSourceInformer.HasSynced, factory.CRD().HasSynced)
 
 	go vmController.Run(10, stop)
 
