@@ -70,6 +70,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
+const (
+	//VolumeReadyReason is the reason set when the volume is ready.
+	VolumeReadyReason = "VolumeReady"
+	//VolumeUnMountedFromPodReason is the reason set when the volume is unmounted from the virtlauncher pod
+	VolumeUnMountedFromPodReason = "VolumeUnMountedFromPod"
+	//VolumeMountedToPodReason is the reason set when the volume is mounted to the virtlauncher pod
+	VolumeMountedToPodReason = "VolumeMountedToPod"
+)
+
 type launcherClientInfo struct {
 	client              cmdclient.LauncherClient
 	socketFile          string
@@ -721,7 +730,8 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 								// mounted, and still in spec, and in phase we can change, update status to mounted.
 								volumeStatus.Phase = v1.HotplugVolumeMounted
 								volumeStatus.Message = fmt.Sprintf("Volume %s has been mounted in virt-launcher pod", volumeStatus.Name)
-								volumeStatus.Reason = "VolumeMountedToPod"
+								volumeStatus.Reason = VolumeMountedToPodReason
+								d.recorder.Event(vmi, k8sv1.EventTypeNormal, volumeStatus.Reason, volumeStatus.Message)
 							}
 						} else {
 							// Not mounted, check if the volume is in the spec, if not update status
@@ -729,14 +739,16 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 								// Not mounted.
 								volumeStatus.Phase = v1.HotplugVolumeUnMounted
 								volumeStatus.Message = fmt.Sprintf("Volume %s has been unmounted from virt-launcher pod", volumeStatus.Name)
-								volumeStatus.Reason = "VolumeUnMountedFromPod"
+								volumeStatus.Reason = VolumeUnMountedFromPodReason
+								d.recorder.Event(vmi, k8sv1.EventTypeNormal, volumeStatus.Reason, volumeStatus.Message)
 							}
 						}
 					} else {
 						// Successfully attached to VM.
 						volumeStatus.Phase = v1.VolumeReady
 						volumeStatus.Message = fmt.Sprintf("Successfully attach hotplugged volume %s to VM", volumeStatus.Name)
-						volumeStatus.Reason = "VolumeReady"
+						volumeStatus.Reason = VolumeReadyReason
+						d.recorder.Event(vmi, k8sv1.EventTypeNormal, volumeStatus.Reason, volumeStatus.Message)
 					}
 				}
 				newStatuses = append(newStatuses, volumeStatus)
