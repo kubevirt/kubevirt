@@ -17,7 +17,7 @@
  *
  */
 
-package network
+package cache
 
 /*
  ATTENTION: Rerun code generators when interface signatures are modified.
@@ -98,12 +98,12 @@ type podInterfaceCacheStore struct {
 
 func (p podInterfaceCacheStore) Read(iface string) (file *PodCacheInterface, err error) {
 	file = &PodCacheInterface{}
-	err = readFromVirtHandlerCachedFil(file, p.vmi.UID, iface)
+	err = readFromVirtHandlerCachedFile(file, p.vmi.UID, iface)
 	return
 }
 
 func (p podInterfaceCacheStore) Write(iface string, cacheInterface *PodCacheInterface) (err error) {
-	err = writeToVirtHandlerCachedFil(cacheInterface, p.vmi.UID, iface)
+	err = writeToVirtHandlerCachedFile(cacheInterface, p.vmi.UID, iface)
 	return
 }
 
@@ -154,12 +154,12 @@ func writeToVirtLauncherCachedFile(obj interface{}, pid, ifaceName string) error
 	return writeToCachedFile(obj, fileName)
 }
 
-func readFromVirtHandlerCachedFil(obj interface{}, vmiuid types.UID, ifaceName string) error {
+func readFromVirtHandlerCachedFile(obj interface{}, vmiuid types.UID, ifaceName string) error {
 	fileName := getInterfaceCacheFile(virtHandlerCachePattern, string(vmiuid), ifaceName)
 	return readFromCachedFile(obj, fileName)
 }
 
-func writeToVirtHandlerCachedFil(obj interface{}, vmiuid types.UID, ifaceName string) error {
+func writeToVirtHandlerCachedFile(obj interface{}, vmiuid types.UID, ifaceName string) error {
 	fileName := getInterfaceCacheFile(virtHandlerCachePattern, string(vmiuid), ifaceName)
 	if err := os.MkdirAll(filepath.Dir(fileName), 0755); err != nil {
 		return err
