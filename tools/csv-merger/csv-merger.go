@@ -334,7 +334,7 @@ func getHcoCsv() {
 		csvExtended.Spec.DisplayName = *specDisplayName
 	}
 
-	applyOverrides(csvExtended)
+	applyOverrides(&csvExtended)
 
 	util.MarshallObject(csvExtended, os.Stdout)
 }
@@ -432,7 +432,7 @@ func newCRDDescription(owned csvv1alpha1.CRDDescription) csvv1alpha1.CRDDescript
 	}
 }
 
-func applyOverrides(csvExtended ClusterServiceVersionExtended) {
+func applyOverrides(csvExtended *ClusterServiceVersionExtended) {
 	if *csvOverrides != "" {
 		csvOBytes := []byte(*csvOverrides)
 
@@ -440,7 +440,7 @@ func applyOverrides(csvExtended ClusterServiceVersionExtended) {
 
 		panicOnError(yaml.Unmarshal(csvOBytes, csvO))
 
-		panicOnError(mergo.Merge(&csvExtended, csvO, mergo.WithOverride))
+		panicOnError(mergo.Merge(csvExtended, csvO, mergo.WithOverride))
 	}
 }
 

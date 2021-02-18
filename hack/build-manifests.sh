@@ -249,21 +249,14 @@ hppCsv="${TEMPDIR}/${hhpFile}.${CSV_EXT}"
 vmImportFile=$(create_vm_import_csv)
 importCsv="${TEMPDIR}/${vmImportFile}.${CSV_EXT}"
 csvOverrides="${TEMPDIR}/csv_overrides.${CSV_EXT}"
-
+keywords="  keywords:
+  - KubeVirt
+  - Virtualization
+  - VM"
 cat > ${csvOverrides} <<- EOM
 ---
 spec:
-  links:
-  - name: KubeVirt project
-    url: https://kubevirt.io
-  - name: Source Code
-    url: https://github.com/kubevirt/hyperconverged-cluster-operator
-  maintainers:
-  - email: kubevirt-dev@googlegroups.com
-    name: KubeVirt project
-  maturity: alpha
-  provider:
-    name: KubeVirt project
+$keywords
 EOM
 
 # Write HCO CRDs
@@ -389,6 +382,11 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --related-images-list="${DIGEST_LIST}" \
   --operator-image-name="${HCO_OPERATOR_IMAGE}" \
   --webhook-image-name="${HCO_WEBHOOK_IMAGE}" > "${CSV_DIR}/${OPERATOR_NAME}.v${CSV_VERSION}.${CSV_EXT}"
+
+rendered_csv="$(cat "${CSV_DIR}/${OPERATOR_NAME}.v${CSV_VERSION}.${CSV_EXT}")"
+rendered_keywords="$(echo "$rendered_csv" |grep 'keywords' -A 3)"
+# assert that --csv-overrides work
+[ "$keywords" == "$rendered_keywords" ]
 
 # Copy all CRDs into the CRD and CSV directories
 rm -f ${CRD_DIR}/*

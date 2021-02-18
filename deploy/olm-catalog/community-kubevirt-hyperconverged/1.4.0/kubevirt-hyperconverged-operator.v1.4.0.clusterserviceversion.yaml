@@ -2525,6 +2525,7 @@ spec:
   keywords:
   - KubeVirt
   - Virtualization
+  - VM
   labels:
     alm-owner-kubevirt: kubevirt-hyperconverged
     operated-by: kubevirt-hyperconverged
