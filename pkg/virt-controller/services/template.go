@@ -94,7 +94,7 @@ const EXT_LOG_VERBOSITY_THRESHOLD = 5
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
-	RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool) (*k8sv1.Pod, error)
+	RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock, tempPod bool) (*k8sv1.Pod, error)
 	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 }
 
@@ -1255,8 +1255,23 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	return &pod, nil
 }
 
-func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool) (*k8sv1.Pod, error) {
+func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock, tempPod bool) (*k8sv1.Pod, error) {
 	zero := int64(0)
+	var command []string
+	if tempPod {
+		command = []string{"/bin/bash",
+			"-c",
+			"exit", "0"}
+	} else {
+		command = []string{"/bin/sh", "-c", "tail -f /dev/null"}
+	}
+
+	annotationsList := make(map[string]string)
+	if tempPod {
+		// mark pod as temp - only used for provisioning
+		annotationsList[v1.EphemeralProvisioningObject] = "true"
+	}
+
 	pod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "hp-volume-",
@@ -1270,13 +1285,14 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, 
 			Labels: map[string]string{
 				v1.AppLabel: "hotplug-disk",
 			},
+			Annotations: annotationsList,
 		},
 		Spec: k8sv1.PodSpec{
 			Containers: []k8sv1.Container{
 				{
 					Name:    "hotplug-disk",
 					Image:   t.launcherImage,
-					Command: []string{"/bin/sh", "-c", "tail -f /dev/null"},
+					Command: command,
 					Resources: k8sv1.ResourceRequirements{ //Took the request and limits from containerDisk init container.
 						Limits: map[k8sv1.ResourceName]resource.Quantity{
 							k8sv1.ResourceCPU:    resource.MustParse("100m"),

@@ -377,6 +377,87 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 	})
 
+	Context("WFFC storage", func() {
+		var (
+			vm *kubevirtv1.VirtualMachine
+		)
+
+		BeforeEach(func() {
+			hasWffc := tests.HasBindingModeWaitForFirstConsumer()
+			if !hasWffc {
+				Skip("Skip no local wffc storage class available")
+			}
+
+			template := tests.NewRandomFedoraVMI()
+			vm = createVirtualMachine(true, template)
+			Eventually(func() bool {
+				vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vm.Status.Ready
+			}, 300*time.Second, 1*time.Second).Should(BeTrue())
+		})
+
+		It("Should be able to add and use WFFC local storage", func() {
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+			testVolumes := make([]string, 0)
+			dvNames := make([]string, 0)
+			for i := 0; i < 3; i++ {
+				volumeName := fmt.Sprintf("volume%d", i)
+				By("Creating DataVolume")
+				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, tests.Config.StorageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
+				Expect(err).To(BeNil())
+				testVolumes = append(testVolumes, volumeName)
+				dvNames = append(dvNames, dv.Name)
+			}
+			defer func(dvNames []string, namespace string) {
+				for _, dvName := range dvNames {
+					By("Deleting the DataVolume")
+					ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(context.TODO(), dvName, metav1.DeleteOptions{})).To(Succeed())
+				}
+			}(dvNames, vmi.Namespace)
+
+			for i := 0; i < 3; i++ {
+				By("Adding volume " + strconv.Itoa(i) + " to running VM, dv name:" + dvNames[i])
+				addDVVolumeVMI(vm.Name, vm.Namespace, testVolumes[i], dvNames[i], "scsi")
+			}
+
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			verifyVolumeAndDiskVMIAdded(vmi, testVolumes...)
+			By("Verify the volume status of the hotplugged volume is ready")
+			verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, testVolumes...)
+			By("Obtaining the serial console")
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+			targets := getTargetsFromVolumeStatus(vmi, testVolumes...)
+			for i := range testVolumes {
+				Eventually(func() error {
+					return console.SafeExpectBatch(vmi, []expect.Batcher{
+						&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", targets[i])},
+						&expect.BExp{R: targets[i]},
+						&expect.BSnd{S: "echo $?\n"},
+						&expect.BExp{R: console.RetValue("0")},
+					}, 10)
+				}, 40*time.Second, 2*time.Second).Should(Succeed())
+			}
+			for _, target := range targets {
+				verifyCreateData(vmi, target)
+			}
+			for i, volumeName := range testVolumes {
+				By("removing volume " + volumeName + " from VM")
+				removeVolumeVMI(vm.Name, vm.Namespace, volumeName)
+				Eventually(func() error {
+					return console.SafeExpectBatch(vmi, []expect.Batcher{
+						&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", targets[i])},
+						&expect.BExp{R: fmt.Sprintf("ls: cannot access '%s'", targets[i])},
+					}, 5)
+				}, 90*time.Second, 2*time.Second).Should(Succeed())
+			}
+		})
+	})
+
 	Context("rook-ceph", func() {
 		Context("Online VM", func() {
 			var (
@@ -408,7 +489,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					Skip("Skip OCS tests when Ceph is not present")
 				}
 
-				template := tests.NewRandomFedoraVMIWitGuestAgent()
+				template := tests.NewRandomFedoraVMI()
 				node := findCPUManagerWorkerNode()
 				if node != "" {
 					template.Spec.NodeSelector = make(map[string]string)
@@ -794,7 +875,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					Skip("Skip OCS tests when Ceph is not present")
 				}
 
-				vmi = tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi = tests.NewRandomFedoraVMI()
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 			})
 
