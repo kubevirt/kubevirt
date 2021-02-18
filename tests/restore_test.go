@@ -228,16 +228,16 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					origSpec = vm.Spec.DeepCopy()
-					Expect(origSpec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("64M")))
+					Expect(origSpec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("128Mi")))
 
-					vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory] = resource.MustParse("128M")
+					vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory] = resource.MustParse("256Mi")
 					updatedVM, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
 					if errors.IsConflict(err) {
 						return false
 					}
 					vm = updatedVM
 					Expect(err).ToNot(HaveOccurred())
-					Expect(vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("128M")))
+					Expect(vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("256Mi")))
 					return true
 				}, 180*time.Second, time.Second).Should(BeTrue())
 

@@ -10,7 +10,7 @@ spec:
       type: ""
     resources:
       requests:
-        memory: 64M
+        memory: 128Mi
   selector:
     matchLabels:
       kubevirt.io/vmPreset: vmi-preset-small

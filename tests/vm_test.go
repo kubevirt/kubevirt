@@ -158,8 +158,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				vmi := tests.NewRandomVMI()
 
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
-
 				diskName := "disk0"
 				bus := "virtio"
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -204,8 +202,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}).Should(Not(BeNil()), 30)
 
 				vmi := tests.NewRandomVMI()
-
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 
 				diskName := "disk0"
 				bus := "virtio"
