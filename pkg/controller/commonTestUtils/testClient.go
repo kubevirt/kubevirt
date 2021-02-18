@@ -9,59 +9,65 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+type FakeWriteErrorGenerator func(obj client.Object) error
+type FakeReadErrorGenerator func(key client.ObjectKey) error
+
 type HcoTestClient struct {
 	client      client.Client
 	sw          *HcoTestStatusWriter
-	readErrors  TestErrors
-	writeErrors TestErrors
+	getError    FakeReadErrorGenerator
+	createError FakeWriteErrorGenerator
+	updateError FakeWriteErrorGenerator
+	deleteError FakeWriteErrorGenerator
 }
 
 func (c *HcoTestClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object) error {
-	if ok, err := c.readErrors.GetNextError(); ok {
-		return err
+	if c.getError != nil {
+		if err := c.getError(key); err != nil {
+			return err
+		}
 	}
 	return c.client.Get(ctx, key, obj)
 }
 
 func (c *HcoTestClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
-	if ok, err := c.writeErrors.GetNextError(); ok {
-		return err
-	}
 	return c.client.List(ctx, list, opts...)
 }
 
 func (c *HcoTestClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
-	if ok, err := c.writeErrors.GetNextError(); ok {
-		return err
+	if c.createError != nil {
+		if err := c.createError(obj); err != nil {
+			return err
+		}
 	}
+
 	return c.client.Create(ctx, obj, opts...)
 }
 
 func (c *HcoTestClient) Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error {
-	if ok, err := c.writeErrors.GetNextError(); ok {
-		return err
+	if c.deleteError != nil {
+		if err := c.deleteError(obj); err != nil {
+			return err
+		}
 	}
+
 	return c.client.Delete(ctx, obj, opts...)
 }
 
 func (c *HcoTestClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
-	if ok, err := c.writeErrors.GetNextError(); ok {
-		return err
+	if c.updateError != nil {
+		if err := c.updateError(obj); err != nil {
+			return err
+		}
 	}
 	return c.client.Update(ctx, obj, opts...)
 }
 
 func (c *HcoTestClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
-	if ok, err := c.writeErrors.GetNextError(); ok {
-		return err
-	}
 	return c.client.Patch(ctx, obj, patch, opts...)
 }
 
 func (c *HcoTestClient) DeleteAllOf(ctx context.Context, obj client.Object, opts ...client.DeleteAllOfOption) error {
-	if ok, err := c.writeErrors.GetNextError(); ok {
-		return err
-	}
 	return c.client.DeleteAllOf(ctx, obj, opts...)
 }
 
@@ -69,12 +75,20 @@ func (c *HcoTestClient) Status() client.StatusWriter {
 	return c.sw
 }
 
-func (c *HcoTestClient) InitiateReadErrors(errs ...error) {
-	c.readErrors = errs
+func (c *HcoTestClient) InitiateDeleteErrors(f FakeWriteErrorGenerator) {
+	c.deleteError = f
 }
 
-func (c *HcoTestClient) InitiateWriteErrors(errs ...error) {
-	c.writeErrors = errs
+func (c *HcoTestClient) InitiateUpdateErrors(f FakeWriteErrorGenerator) {
+	c.updateError = f
+}
+
+func (c *HcoTestClient) InitiateGetErrors(f FakeReadErrorGenerator) {
+	c.getError = f
+}
+
+func (c *HcoTestClient) InitiateCreateErrors(f FakeWriteErrorGenerator) {
+	c.createError = f
 }
 
 func (c *HcoTestClient) Scheme() *runtime.Scheme {
@@ -123,6 +137,10 @@ func (errs *TestErrors) GetNextError() (bool, error) {
 
 func InitClient(clientObjects []runtime.Object) *HcoTestClient {
 	// Create a fake client to mock API calls
-	cl := fake.NewFakeClient(clientObjects...)
+	cl := fake.NewClientBuilder().
+		WithRuntimeObjects(clientObjects...).
+		WithScheme(GetScheme()).
+		Build()
+
 	return &HcoTestClient{client: cl, sw: &HcoTestStatusWriter{client: cl}}
 }

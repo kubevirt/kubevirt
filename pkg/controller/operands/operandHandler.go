@@ -178,9 +178,7 @@ func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 				errorCh <- err
 			} else {
 				key := client.ObjectKeyFromObject(o)
-				if err := h.client.Get(tCtx, key, o); err == nil {
-					h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Killing", fmt.Sprintf("Removed %s %s", o.GetObjectKind().GroupVersionKind().Kind, key.Name))
-				}
+				h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Killing", fmt.Sprintf("Removed %s %s", o.GetObjectKind().GroupVersionKind().Kind, key.Name))
 			}
 		}(res, &wg)
 	}
@@ -200,8 +198,6 @@ func (h OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 
 		return nil
 	}
-
-	return nil
 }
 
 func (h *OperandHandler) Reset() {

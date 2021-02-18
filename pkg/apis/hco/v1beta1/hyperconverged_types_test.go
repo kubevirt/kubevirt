@@ -5,6 +5,8 @@ import (
 	. "github.com/onsi/gomega"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 	"testing"
 )
 
@@ -409,6 +411,66 @@ var _ = Describe("HyperconvergedTypes", func() {
 				}
 				Expect(fgs.IsWithHostModelCPUEnabled()).To(BeTrue())
 			})
+		})
+	})
+
+	Context("Test Auto generated code", func() {
+		enabled := true
+		disabled := false
+		hco := HyperConverged{
+			TypeMeta: metav1.TypeMeta{
+				Kind: "Hyperconverged",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "Hyperconverged",
+				Namespace: "namespace",
+			},
+			Spec: HyperConvergedSpec{
+				LocalStorageClassName: "LocalStorageClassName",
+				Infra: HyperConvergedConfig{
+					NodePlacement: &sdkapi.NodePlacement{
+						NodeSelector: map[string]string{"key1": "value1", "key2": "value2"},
+					},
+				},
+				Workloads: HyperConvergedConfig{
+					NodePlacement: &sdkapi.NodePlacement{
+						Tolerations: []corev1.Toleration{
+							{
+								Key:      "key1",
+								Operator: corev1.TolerationOpExists,
+								Effect:   corev1.TaintEffectNoSchedule,
+							},
+						},
+					},
+				},
+				FeatureGates: &HyperConvergedFeatureGates{
+					SRIOVLiveMigration: &enabled,
+					HotplugVolumes:     &disabled,
+					WithHostModelCPU:   &enabled,
+				},
+				Version: "v1.2.3",
+			},
+		}
+		It("Should copy the HC type", func() {
+			aCopy := hco.DeepCopy()
+
+			Expect(aCopy.Kind).Should(Equal("Hyperconverged"))
+			Expect(aCopy.Name).Should(Equal("Hyperconverged"))
+			Expect(aCopy.Namespace).Should(Equal("namespace"))
+			Expect(aCopy.Spec.LocalStorageClassName).Should(Equal("LocalStorageClassName"))
+			Expect(aCopy.Spec.Infra.NodePlacement).Should(Equal(hco.Spec.Infra.NodePlacement))
+			Expect(aCopy.Spec.Workloads.NodePlacement).Should(Equal(hco.Spec.Workloads.NodePlacement))
+			Expect(*aCopy.Spec.FeatureGates.SRIOVLiveMigration).Should(BeTrue())
+			Expect(*aCopy.Spec.FeatureGates.HotplugVolumes).Should(BeFalse())
+			Expect(*aCopy.Spec.FeatureGates.WithHostModelCPU).Should(BeTrue())
+			Expect(aCopy.Spec.FeatureGates.WithHostPassthroughCPU).Should(BeNil())
+		})
+
+		It("Should fail to compare if modified", func() {
+			aCopy := hco.DeepCopy()
+			aCopy.Spec.Infra.NodePlacement.NodeSelector["key1"] = "otherValue"
+			Expect(aCopy.Spec).ShouldNot(Equal(hco.Spec))
+			Expect(aCopy.Spec.Infra.NodePlacement).ShouldNot(Equal(hco.Spec.Infra.NodePlacement))
 		})
 	})
 })

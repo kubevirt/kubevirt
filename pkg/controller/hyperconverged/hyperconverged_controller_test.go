@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
@@ -52,8 +54,8 @@ var _ = Describe("HyperconvergedController", func() {
 		Context("HCO Lifecycle", func() {
 
 			BeforeEach(func() {
-				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.Conversion_image)
-				os.Setenv("VMWARE_CONTAINER", commonTestUtils.Vmware_image)
+				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.ConversionImage)
+				os.Setenv("VMWARE_CONTAINER", commonTestUtils.VmwareImage)
 				os.Setenv("OPERATOR_NAMESPACE", namespace)
 			})
 
@@ -706,7 +708,12 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(checkHcoReady()).To(BeTrue())
 				hco := commonTestUtils.NewHco()
 				cl := commonTestUtils.InitClient([]runtime.Object{hco})
-				cl.InitiateWriteErrors(nil, errors.New("fake write error"))
+				cl.InitiateCreateErrors(func(obj client.Object) error {
+					if _, ok := obj.(*cdiv1beta1.CDI); ok {
+						return errors.New("fake create error")
+					}
+					return nil
+				})
 				r := initReconciler(cl)
 
 				// Do the reconcile
@@ -728,7 +735,7 @@ var _ = Describe("HyperconvergedController", func() {
 					if cond.Type == hcov1beta1.ConditionReconcileComplete {
 						foundCond = true
 						Expect(cond.Status).Should(Equal(corev1.ConditionFalse))
-						Expect(cond.Message).Should(ContainSubstring("fake write error"))
+						Expect(cond.Message).Should(ContainSubstring("fake create error"))
 						break
 					}
 				}
@@ -743,7 +750,12 @@ var _ = Describe("HyperconvergedController", func() {
 					FeatureGates: []string{"fakeFg"}, // force update
 				}
 				cl := expected.initClient()
-				cl.InitiateWriteErrors(nil, errors.New("fake write error"))
+				cl.InitiateUpdateErrors(func(obj client.Object) error {
+					if _, ok := obj.(*kubevirtv1.KubeVirt); ok {
+						return errors.New("fake update error")
+					}
+					return nil
+				})
 
 				hcoutil.SetReady(true)
 				Expect(checkHcoReady()).To(BeTrue())
@@ -770,7 +782,7 @@ var _ = Describe("HyperconvergedController", func() {
 					if cond.Type == hcov1beta1.ConditionReconcileComplete {
 						foundCond = true
 						Expect(cond.Status).Should(Equal(corev1.ConditionFalse))
-						Expect(cond.Message).Should(ContainSubstring("fake write error"))
+						Expect(cond.Message).Should(ContainSubstring("fake update error"))
 						break
 					}
 				}
@@ -785,8 +797,8 @@ var _ = Describe("HyperconvergedController", func() {
 			origConds := expected.hco.Status.Conditions
 
 			BeforeEach(func() {
-				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.Conversion_image)
-				os.Setenv("VMWARE_CONTAINER", commonTestUtils.Vmware_image)
+				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.ConversionImage)
+				os.Setenv("VMWARE_CONTAINER", commonTestUtils.VmwareImage)
 				os.Setenv("OPERATOR_NAMESPACE", namespace)
 				os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
 			})
@@ -831,8 +843,8 @@ var _ = Describe("HyperconvergedController", func() {
 			okConds := expected.hco.Status.Conditions
 
 			BeforeEach(func() {
-				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.Conversion_image)
-				os.Setenv("VMWARE_CONTAINER", commonTestUtils.Vmware_image)
+				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.ConversionImage)
+				os.Setenv("VMWARE_CONTAINER", commonTestUtils.VmwareImage)
 				os.Setenv("OPERATOR_NAMESPACE", namespace)
 
 				expected.kv.Status.ObservedKubeVirtVersion = newComponentVersion
@@ -1459,10 +1471,12 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.hco.Status.Conditions = nil
 				cl := expected.initClient()
 				rsc := schema.GroupResource{Group: hcoutil.APIVersionGroup, Resource: "hyperconvergeds.hco.kubevirt.io"}
-				cl.InitiateWriteErrors(
-					nil,
-					apierrors.NewConflict(rsc, "hco", errors.New("test error")),
-				)
+				cl.InitiateUpdateErrors(func(obj client.Object) error {
+					if _, ok := obj.(*hcov1beta1.HyperConverged); ok {
+						return apierrors.NewConflict(rsc, "hco", errors.New("test error"))
+					}
+					return nil
+				})
 				r := initReconciler(cl)
 
 				r.ownVersion = os.Getenv(hcoutil.HcoKvIoVersionName)

@@ -3,6 +3,7 @@ package commonTestUtils
 import (
 	"context"
 	"fmt"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 
@@ -24,21 +25,21 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 // Name and Namespace of our primary resource
 const (
-	Name             = "kubevirt-hyperconverged"
-	Namespace        = "kubevirt-hyperconverged"
-	Conversion_image = "quay.io/kubevirt/kubevirt-v2v-conversion:v2.0.0"
-	Vmware_image     = "quay.io/kubevirt/kubevirt-vmware:v2.0.0"
+	Name            = "kubevirt-hyperconverged"
+	Namespace       = "kubevirt-hyperconverged"
+	ConversionImage = "quay.io/kubevirt/kubevirt-v2v-conversion:v2.0.0"
+	VmwareImage     = "quay.io/kubevirt/kubevirt-vmware:v2.0.0"
 )
 
 var (
-	TestLogger  = logf.Log.WithName("controller_hyperconverged")
+	TestLogger  = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("controller_hyperconverged")
 	TestRequest = reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      Name,

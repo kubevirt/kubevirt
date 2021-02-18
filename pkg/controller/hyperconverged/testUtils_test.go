@@ -44,13 +44,14 @@ var (
 
 func initReconciler(client client.Client) *ReconcileHyperConverged {
 	s := commonTestUtils.GetScheme()
-	operandHandler := operands.NewOperandHandler(client, s, true, &commonTestUtils.EventEmitterMock{})
+	eventEmitter := commonTestUtils.NewEventEmitterMock()
+	operandHandler := operands.NewOperandHandler(client, s, true, eventEmitter)
 	// Create a ReconcileHyperConverged object with the scheme and fake client
 	return &ReconcileHyperConverged{
 		client:             client,
 		scheme:             s,
 		operandHandler:     operandHandler,
-		eventEmitter:       &commonTestUtils.EventEmitterMock{},
+		eventEmitter:       eventEmitter,
 		cliDownloadHandler: &operands.CLIDownloadHandler{Client: client, Scheme: s},
 		firstLoop:          true,
 	}
@@ -188,8 +189,8 @@ func getBasicDeployment() *BasicExpected {
 	res.vmi = expectedVMI
 
 	res.imsConfig = operands.NewIMSConfigForCR(hco, namespace)
-	res.imsConfig.Data["v2v-conversion-image"] = commonTestUtils.Conversion_image
-	res.imsConfig.Data["kubevirt-vmware-image"] = commonTestUtils.Vmware_image
+	res.imsConfig.Data["v2v-conversion-image"] = commonTestUtils.ConversionImage
+	res.imsConfig.Data["kubevirt-vmware-image"] = commonTestUtils.VmwareImage
 
 	return res
 }
