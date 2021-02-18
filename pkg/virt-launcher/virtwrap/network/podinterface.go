@@ -364,16 +364,14 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 		if err != nil {
 			return nil, err
 		}
-		virtIface := &api.Interface{}
-		if mac != nil {
-			virtIface.MAC = &api.MAC{MAC: mac.String()}
-		}
+
 		return &MacvtapBindMechanism{
 			vmi:              vmi,
 			iface:            iface,
-			virtIface:        virtIface,
+			virtIface:        &api.Interface{},
 			domain:           domain,
 			podInterfaceName: podInterfaceName,
+			mac:              mac,
 			storeFactory:     storeFactory,
 		}, nil
 	}
@@ -1238,6 +1236,7 @@ type MacvtapBindMechanism struct {
 	domain           *api.Domain
 	podInterfaceName string
 	podNicLink       netlink.Link
+	mac              *net.HardwareAddr
 	storeFactory     cache.InterfaceCacheFactory
 }
 
@@ -1248,7 +1247,9 @@ func (b *MacvtapBindMechanism) discoverPodNetworkInterface() error {
 		return err
 	}
 	b.podNicLink = link
-	if b.virtIface.MAC == nil {
+	if b.mac != nil {
+		b.virtIface.MAC = &api.MAC{MAC: b.mac.String()}
+	} else {
 		// Get interface MAC address
 		b.virtIface.MAC = &api.MAC{MAC: b.podNicLink.Attrs().HardwareAddr.String()}
 	}
