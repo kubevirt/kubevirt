@@ -48,11 +48,10 @@ func (_mr *_MockBindMechanismRecorder) preparePodNetworkInterfaces() *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "preparePodNetworkInterfaces")
 }
 
-func (_m *MockBindMechanism) loadCachedInterface() (bool, error) {
+func (_m *MockBindMechanism) loadCachedInterface() error {
 	ret := _m.ctrl.Call(_m, "loadCachedInterface")
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 func (_mr *_MockBindMechanismRecorder) loadCachedInterface() *gomock.Call {
@@ -67,6 +66,16 @@ func (_m *MockBindMechanism) setCachedInterface() error {
 
 func (_mr *_MockBindMechanismRecorder) setCachedInterface() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "setCachedInterface")
+}
+
+func (_m *MockBindMechanism) wasCachedInterfaceLoaded() bool {
+	ret := _m.ctrl.Call(_m, "wasCachedInterfaceLoaded")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+func (_mr *_MockBindMechanismRecorder) wasCachedInterfaceLoaded() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "wasCachedInterfaceLoaded")
 }
 
 func (_m *MockBindMechanism) loadCachedVIF(pid string) error {
