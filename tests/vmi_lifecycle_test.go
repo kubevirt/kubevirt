@@ -744,7 +744,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			AfterEach(func() {
-				tests.RestoreKubeVirtResource()
+				tests.UpdateKubeVirtConfigValueAndWait(tests.KubeVirtDefaultConfig)
 
 				// Wait until virt-handler ds will have expected number of pods
 				Eventually(func() bool {
