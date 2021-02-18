@@ -165,7 +165,7 @@ var _ = Describe("[Serial]Slirp Networking", func() {
 			var t int64 = 0
 			vmi := v1.NewMinimalVMIWithNS(tests.NamespaceTestDefault, libvmi.RandName(libvmi.DefaultVmiName))
 			vmi.Spec.TerminationGracePeriodSeconds = &t
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
 			tests.AddEphemeralDisk(vmi, "disk0", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
