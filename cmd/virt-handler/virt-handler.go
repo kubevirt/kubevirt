@@ -319,7 +319,10 @@ func (app *virtHandlerApp) Run() {
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
 	defer close(stop)
+
 	factory.Start(stop)
+	go gracefulShutdownInformer.Run(stop)
+	go domainSharedInformer.Run(stop)
 
 	se, exists, err := selinux.NewSELinux()
 	if err == nil && exists {
