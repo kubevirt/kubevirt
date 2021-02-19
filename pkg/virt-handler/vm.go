@@ -1004,7 +1004,6 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	log.Log.Info("Starting virt-handler controller.")
 
 	// Wait for the domain cache to be synced
-	go c.domainInformer.Run(stopCh)
 	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced)
 
 	go c.deviceManagerController.Run(stopCh)
@@ -1021,9 +1020,6 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 		)
 	}
 
-	go c.vmiSourceInformer.Run(stopCh)
-	go c.vmiTargetInformer.Run(stopCh)
-	go c.gracefulShutdownInformer.Run(stopCh)
 	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiSourceInformer.HasSynced, c.vmiTargetInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
 
 	go c.heartBeat(c.heartBeatInterval, stopCh)
