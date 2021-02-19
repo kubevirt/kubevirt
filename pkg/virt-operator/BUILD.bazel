@@ -72,7 +72,6 @@ go_test(
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
-        "//vendor/github.com/openshift/api/operator/v1:go_default_library",
         "//vendor/github.com/openshift/api/security/v1:go_default_library",
         "//vendor/github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake:go_default_library",
         "//vendor/github.com/openshift/library-go/pkg/operator/resource/resourcemerge:go_default_library",

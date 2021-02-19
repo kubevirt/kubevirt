@@ -37,7 +37,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	operatorsv1 "github.com/openshift/api/operator/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
@@ -1685,43 +1684,69 @@ var _ = Describe("KubeVirt Operator", func() {
 			makeApiAndControllerReady()
 			makeHandlerReady()
 
-			kv.Status.Generations = append(kv.Status.Generations, operatorsv1.GenerationStatus{
-				Group:          "admissionregistration.k8s.io",
-				Resource:       "validatingwebhookconfigurations",
-				Namespace:      "",
-				Name:           "virt-operator-validator",
-				LastGeneration: 0,
-			})
-
-			kv.Status.Generations = append(kv.Status.Generations, operatorsv1.GenerationStatus{
-				Group:          "admissionregistration.k8s.io",
-				Resource:       "validatingwebhookconfigurations",
-				Namespace:      "",
-				Name:           "virt-api-validator",
-				LastGeneration: 0,
-			})
-
-			kv.Status.Generations = append(kv.Status.Generations, operatorsv1.GenerationStatus{
-				Group:          "admissionregistration.k8s.io",
-				Resource:       "mutatingwebhookconfigurations",
-				Namespace:      "",
-				Name:           "virt-operator-mutator",
-				LastGeneration: 0,
-			})
-
-			kv.Status.Generations = append(kv.Status.Generations, operatorsv1.GenerationStatus{
-				Group:          "admissionregistration.k8s.io",
-				Resource:       "mutatingwebhookconfigurations",
-				Namespace:      "",
-				Name:           "virt-api-mutator",
-				LastGeneration: 0,
-			})
-
 			fakeNamespaceModificationEvent()
 			shouldExpectNamespacePatch()
 
 			controller.Execute()
 
+		}, 15)
+
+		It("should update KubeVirt object if generation IDs do not match", func(done Done) {
+			defer close(done)
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+					Generation: int64(1),
+				},
+				Status: v1.KubeVirtStatus{
+					Phase:           v1.KubeVirtPhaseDeployed,
+					OperatorVersion: version.Get().String(),
+				},
+			}
+			defaultConfig.SetTargetDeploymentConfig(kv)
+			defaultConfig.SetObservedDeploymentConfig(kv)
+			util.UpdateConditionsCreated(kv)
+			util.UpdateConditionsAvailable(kv)
+
+			defaultConfig.SetTargetDeploymentConfig(kv)
+			defaultConfig.SetObservedDeploymentConfig(kv)
+			util.UpdateConditionsCreated(kv)
+			util.UpdateConditionsAvailable(kv)
+
+			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
+			addKubeVirt(kv)
+			addInstallStrategy(defaultConfig)
+			addAll(defaultConfig, kv)
+			addPodsAndPodDisruptionBudgets(defaultConfig)
+			makeApiAndControllerReady()
+			makeHandlerReady()
+
+			fakeNamespaceModificationEvent()
+			shouldExpectNamespacePatch()
+			shouldExpectPatchesAndUpdates()
+			shouldExpectKubeVirtUpdateStatus(1)
+
+			// invalid all lastGeneration versions
+			numGenerations := len(kv.Status.Generations)
+			for i := range kv.Status.Generations {
+				kv.Status.Generations[i].LastGeneration = -1
+			}
+
+			controller.Execute()
+
+			// add one for the namespace
+			Expect(totalPatches).To(Equal(numGenerations + 1))
+
+			// all these resources should be tracked by there generation so everyone that has been added should now be patched
+			// since they where the `lastGeneration` was set to -1 on the KubeVirt CR
+			Expect(resourceChanges["mutatingwebhookconfigurations"][Patched]).To(Equal(resourceChanges["mutatingwebhookconfigurations"][Added]))
+			Expect(resourceChanges["validatingwebhookconfigurations"][Patched]).To(Equal(resourceChanges["validatingwebhookconfigurations"][Added]))
+			Expect(resourceChanges["deployements"][Patched]).To(Equal(resourceChanges["deployements"][Added]))
+			Expect(resourceChanges["daemonsets"][Patched]).To(Equal(resourceChanges["daemonsets"][Added]))
 		}, 15)
 
 		It("should delete operator managed resources not in the deployed installstrategy", func() {
