@@ -181,10 +181,6 @@ github.com/mailru/easyjson/jwriter
 github.com/mattn/go-runewidth
 # github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
 github.com/matttproud/golang_protobuf_extensions/pbutil
-# github.com/mfranczy/crd-rest-coverage v0.1.0
-github.com/mfranczy/crd-rest-coverage/pkg/analysis
-github.com/mfranczy/crd-rest-coverage/pkg/report
-github.com/mfranczy/crd-rest-coverage/pkg/stats
 # github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
 github.com/mitchellh/go-ps
 # github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
@@ -604,9 +600,6 @@ k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/apiserver v0.20.2 => k8s.io/apiserver v0.20.2
-k8s.io/apiserver/pkg/apis/audit
-k8s.io/apiserver/pkg/apis/audit/v1
 # k8s.io/client-go v12.0.0+incompatible => k8s.io/client-go v0.20.2
 k8s.io/client-go/discovery
 k8s.io/client-go/discovery/fake
