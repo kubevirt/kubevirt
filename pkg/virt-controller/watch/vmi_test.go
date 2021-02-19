@@ -1036,7 +1036,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podFeeder.Add(pod)
 			podFeeder.Add(failedTargetPod2)
 
-			selectedPod, err := controller.currentPod(vmi)
+			selectedPod, err := kvcontroller.CurrentVMIPod(vmi, podInformer)
 			Expect(err).To(BeNil())
 
 			Expect(selectedPod.UID).To(Equal(pod.UID))
@@ -1189,12 +1189,21 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		table.DescribeTable("should remove the finalizer if no pod is present and the vmi is in ", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = phase
+			vmi.Status.LauncherContainerImageVersion = "madeup"
+			vmi.Labels = map[string]string{}
+			vmi.Labels[v1.OutdatedLauncherImageLabel] = ""
 			vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineInstanceFinalizer)
 			Expect(vmi.Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
 
 			addVirtualMachine(vmi)
 
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				// outdated launcher label should get cleared after being finalized
+				_, ok := arg.(*v1.VirtualMachineInstance).Labels[v1.OutdatedLauncherImageLabel]
+				Expect(ok).To(BeFalse())
+				// outdated launcher image should get cleared after being finalized
+				Expect(arg.(*v1.VirtualMachineInstance).Status.LauncherContainerImageVersion).To(Equal(""))
+
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(phase))
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
 				Expect(arg.(*v1.VirtualMachineInstance).Finalizers).ToNot(ContainElement(v1.VirtualMachineInstanceFinalizer))
@@ -1233,6 +1242,55 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Conditions)).To(Equal(0))
 			}).Return(vmi, nil)
+
+			controller.Execute()
+		})
+
+		It("should add outdated label if pod's image is outdated and VMI is in running state", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Running
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Status.Conditions = []k8sv1.PodCondition{{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue}}
+
+			pod.Spec.Containers = append(pod.Spec.Containers, k8sv1.Container{
+				Image: "madeup",
+				Name:  "compute",
+			})
+
+			addVirtualMachine(vmi)
+			addActivePods(vmi, pod.UID, "")
+			podFeeder.Add(pod)
+
+			patch := `[ { "op": "test", "path": "/status/conditions", "value": null }, { "op": "replace", "path": "/status/conditions", "value": [{"type":"Ready","status":"True","lastProbeTime":null,"lastTransitionTime":null}] }, { "op": "add", "path": "/status/launcherContainerImageVersion", "value": "madeup" }, { "op": "add", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} } ]`
+
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
+
+			controller.Execute()
+		})
+		It("should remove outdated label if pod's image up-to-date and VMI is in running state", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Running
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Status.Conditions = []k8sv1.PodCondition{{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue}}
+
+			if vmi.Labels == nil {
+				vmi.Labels = make(map[string]string)
+			}
+
+			vmi.Labels[v1.OutdatedLauncherImageLabel] = ""
+
+			pod.Spec.Containers = append(pod.Spec.Containers, k8sv1.Container{
+				Image: controller.templateService.GetLauncherImage(),
+				Name:  "compute",
+			})
+
+			addVirtualMachine(vmi)
+			addActivePods(vmi, pod.UID, "")
+			podFeeder.Add(pod)
+
+			patch := `[ { "op": "test", "path": "/status/conditions", "value": null }, { "op": "replace", "path": "/status/conditions", "value": [{"type":"Ready","status":"True","lastProbeTime":null,"lastTransitionTime":null}] }, { "op": "add", "path": "/status/launcherContainerImageVersion", "value": "a" }, { "op": "test", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} }, { "op": "replace", "path": "/metadata/labels", "value": {} } ]`
+
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 
 			controller.Execute()
 		})

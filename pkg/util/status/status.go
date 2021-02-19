@@ -130,6 +130,13 @@ func (u *updater) patchUnstructured(obj runtime.Object, patchType types.PatchTyp
 			return "", "", err
 		}
 		return oldObj.ResourceVersion, newObj.ResourceVersion, nil
+	case *v1.KubeVirt:
+		oldObj := obj.(*v1.KubeVirt)
+		newObj, err := u.cli.KubeVirt(a.GetNamespace()).Patch(a.GetName(), patchType, data)
+		if err != nil {
+			return "", "", err
+		}
+		return oldObj.ResourceVersion, newObj.ResourceVersion, nil
 	default:
 		panic("Unknown object")
 	}
@@ -143,6 +150,9 @@ func (u *updater) patchStatusUnstructured(obj runtime.Object, patchType types.Pa
 	switch obj.(type) {
 	case *v1.VirtualMachine:
 		_, err = u.cli.VirtualMachine(a.GetNamespace()).PatchStatus(a.GetName(), patchType, data)
+		return err
+	case *v1.KubeVirt:
+		_, err = u.cli.KubeVirt(a.GetNamespace()).PatchStatus(a.GetName(), patchType, data)
 		return err
 	default:
 		panic("Unknown object")
@@ -273,6 +283,10 @@ type KVStatusUpdater struct {
 
 func (v *KVStatusUpdater) UpdateStatus(kv *v1.KubeVirt) error {
 	return v.updater.update(kv)
+}
+
+func (v *KVStatusUpdater) PatchStatus(kv *v1.KubeVirt, pt types.PatchType, data []byte) error {
+	return v.updater.patch(kv, pt, data)
 }
 
 func NewKubeVirtStatusUpdater(cli kubecli.KubevirtClient) *KVStatusUpdater {

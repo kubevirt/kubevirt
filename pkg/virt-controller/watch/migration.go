@@ -307,7 +307,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Source node reported migration failed")
-		log.Log.Object(migration).Error("VMI reported migration failed.")
+		log.Log.Object(migration).Errorf("VMI %s/%s reported migration failed.", vmi.Namespace, vmi.Name)
 	} else if migration.DeletionTimestamp != nil && !migration.IsFinal() &&
 		!conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceMigrationAbortRequested) {
 		condition := virtv1.VirtualMachineInstanceMigrationCondition{
@@ -856,11 +856,7 @@ func (c *MigrationController) outboundMigrationsOnNode(node string, runningMigra
 func (c *MigrationController) findRunningMigrations() ([]*virtv1.VirtualMachineInstanceMigration, error) {
 
 	// Don't start new migrations if we wait for migration object updates because of new target pods
-	notFinishedMigrations, err := migrations.ListUnfinishedMigrations(c.migrationInformer)
-	if err != nil {
-		return nil, err
-	}
-
+	notFinishedMigrations := migrations.ListUnfinishedMigrations(c.migrationInformer)
 	var runningMigrations []*virtv1.VirtualMachineInstanceMigration
 	for _, migration := range notFinishedMigrations {
 		if migration.IsRunning() {

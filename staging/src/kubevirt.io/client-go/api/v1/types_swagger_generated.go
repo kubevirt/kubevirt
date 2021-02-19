@@ -41,19 +41,20 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                   "VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual\nstate of a system.\n\n+k8s:openapi-gen=true",
-		"nodeName":           "NodeName is the name where the VirtualMachineInstance is currently running.",
-		"reason":             "A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'\n+optional",
-		"conditions":         "Conditions are specific points in VirtualMachineInstance's pod runtime.",
-		"phase":              "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
-		"interfaces":         "Interfaces represent the details of available network interfaces.",
-		"guestOSInfo":        "Guest OS Information",
-		"migrationState":     "Represents the status of a live migration",
-		"migrationMethod":    "Represents the method using which the vmi can be migrated: live migration or block migration",
-		"qosClass":           "The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements\nSee PodQOSClass type for available QOS classes\nMore info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md\n+optional",
-		"evacuationNodeName": "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want\nto evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.\n+optional",
-		"activePods":         "ActivePods is a mapping of pod UID to node name.\nIt is possible for multiple pods to be running for a single VMI during migration.",
-		"volumeStatus":       "VolumeStatus contains the statuses of all the volumes\n+optional\n+listType=atomic",
+		"":                              "VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual\nstate of a system.\n\n+k8s:openapi-gen=true",
+		"nodeName":                      "NodeName is the name where the VirtualMachineInstance is currently running.",
+		"reason":                        "A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'\n+optional",
+		"conditions":                    "Conditions are specific points in VirtualMachineInstance's pod runtime.",
+		"phase":                         "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
+		"interfaces":                    "Interfaces represent the details of available network interfaces.",
+		"guestOSInfo":                   "Guest OS Information",
+		"migrationState":                "Represents the status of a live migration",
+		"migrationMethod":               "Represents the method using which the vmi can be migrated: live migration or block migration",
+		"qosClass":                      "The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements\nSee PodQOSClass type for available QOS classes\nMore info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md\n+optional",
+		"launcherContainerImageVersion": "LauncherContainerImageVersion indicates what container image is currently active for the vmi.",
+		"evacuationNodeName":            "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want\nto evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.\n+optional",
+		"activePods":                    "ActivePods is a mapping of pod UID to node name.\nIt is possible for multiple pods to be running for a single VMI during migration.",
+		"volumeStatus":                  "VolumeStatus contains the statuses of all the volumes\n+optional\n+listType=atomic",
 	}
 }
 
@@ -367,20 +368,30 @@ func (KubeVirtCertificateRotateStrategy) SwaggerDoc() map[string]string {
 	}
 }
 
+func (KubeVirtWorkloadUpdateStrategy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                      "KubeVirtWorkloadUpdateStrategy defines options related to updating a KubeVirt install\n\n+k8s:openapi-gen=true",
+		"workloadUpdateMethods": "WorkloadUpdateMethods defines the methods that can be used to disrupt workloads\nduring automated workload updates.\nWhen multiple methods are present, the least disruptive method takes\nprecedence over more disruptive methods. For example if both LiveMigrate and Shutdown\nmethods are listed, only VMs which are not live migratable will be restarted/shutdown\n\nAn empty list defaults to no automated workload updating\n\n+listType=atomic\n+optional",
+		"batchEvictionSize":     "BatchEvictionSize Represents the number of VMIs that can be forced updated per\nthe BatchShutdownInteral interval\n\nDefaults to 10\n\n+optional",
+		"batchEvictionInterval": "BatchEvictionInterval Represents the interval to wait before issuing the next\nbatch of shutdowns\n\nDefaults to 1 minute\n\n+optional",
+	}
+}
+
 func (KubeVirtSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                  "+k8s:openapi-gen=true",
-		"imageTag":          "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
-		"imageRegistry":     "The image registry to pull the container images from\nDefaults to the same registry the operator's container image is pulled from.",
-		"imagePullPolicy":   "The ImagePullPolicy to use.",
-		"monitorNamespace":  "The namespace Prometheus is deployed in\nDefaults to openshift-monitor",
-		"monitorAccount":    "The name of the Prometheus service account that needs read-access to KubeVirt endpoints\nDefaults to prometheus-k8s",
-		"uninstallStrategy": "Specifies if kubevirt can be deleted if workloads are still present.\nThis is mainly a precaution to avoid accidental data loss",
-		"productVersion":    "Designate the apps.kubevirt.io/version label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductVersion is not specified, KubeVirt's version will be used.",
-		"productName":       "Designate the apps.kubevirt.io/part-of label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductName is not specified, the part-of label will be omitted.",
-		"configuration":     "holds kubevirt configurations.\nsame as the virt-configMap",
-		"infra":             "selectors and tolerations that should apply to KubeVirt infrastructure components\n+optional",
-		"workloads":         "selectors and tolerations that should apply to KubeVirt workloads\n+optional",
+		"":                       "+k8s:openapi-gen=true",
+		"imageTag":               "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
+		"imageRegistry":          "The image registry to pull the container images from\nDefaults to the same registry the operator's container image is pulled from.",
+		"imagePullPolicy":        "The ImagePullPolicy to use.",
+		"monitorNamespace":       "The namespace Prometheus is deployed in\nDefaults to openshift-monitor",
+		"monitorAccount":         "The name of the Prometheus service account that needs read-access to KubeVirt endpoints\nDefaults to prometheus-k8s",
+		"workloadUpdateStrategy": "WorkloadUpdateStrategy defines at the cluster level how to handle\nautomated workload updates",
+		"uninstallStrategy":      "Specifies if kubevirt can be deleted if workloads are still present.\nThis is mainly a precaution to avoid accidental data loss",
+		"productVersion":         "Designate the apps.kubevirt.io/version label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductVersion is not specified, KubeVirt's version will be used.",
+		"productName":            "Designate the apps.kubevirt.io/part-of label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductName is not specified, the part-of label will be omitted.",
+		"configuration":          "holds kubevirt configurations.\nsame as the virt-configMap",
+		"infra":                  "selectors and tolerations that should apply to KubeVirt infrastructure components\n+optional",
+		"workloads":              "selectors and tolerations that should apply to KubeVirt workloads\n+optional",
 	}
 }
 

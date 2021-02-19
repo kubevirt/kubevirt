@@ -9,3 +9,4 @@ spec:
   configuration: {}
   customizeComponents: {}
   imagePullPolicy: {{.ImagePullPolicy}}
+  workloadUpdateStrategy: {}

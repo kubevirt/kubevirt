@@ -832,6 +832,22 @@ var CRDsValidation map[string]string = map[string]string{
         uninstallStrategy:
           description: Specifies if kubevirt can be deleted if workloads are still present. This is mainly a precaution to avoid accidental data loss
           type: string
+        workloadUpdateStrategy:
+          description: WorkloadUpdateStrategy defines at the cluster level how to handle automated workload updates
+          properties:
+            batchEvictionInterval:
+              description: "BatchEvictionInterval Represents the interval to wait before issuing the next batch of shutdowns \n Defaults to 1 minute"
+              type: string
+            batchEvictionSize:
+              description: "BatchEvictionSize Represents the number of VMIs that can be forced updated per the BatchShutdownInteral interval \n Defaults to 10"
+              type: integer
+            workloadUpdateMethods:
+              description: "WorkloadUpdateMethods defines the methods that can be used to disrupt workloads during automated workload updates. When multiple methods are present, the least disruptive method takes precedence over more disruptive methods. For example if both LiveMigrate and Shutdown methods are listed, only VMs which are not live migratable will be restarted/shutdown \n An empty list defaults to no automated workload updating"
+              items:
+                type: string
+              type: array
+              x-kubernetes-list-type: atomic
+          type: object
         workloads:
           description: selectors and tolerations that should apply to KubeVirt workloads
           properties:
@@ -1248,6 +1264,8 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         operatorVersion:
           type: string
+        outdatedVirtualMachineInstanceWorkloads:
+          type: integer
         phase:
           description: KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.
           type: string
@@ -4981,6 +4999,9 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
             type: object
           type: array
+        launcherContainerImageVersion:
+          description: LauncherContainerImageVersion indicates what container image is currently active for the vmi.
+          type: string
         migrationMethod:
           description: 'Represents the method using which the vmi can be migrated: live migration or block migration'
           type: string
