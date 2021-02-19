@@ -2,9 +2,12 @@ package virthandler
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -71,15 +74,67 @@ func changeOwnershipOfHostDisks(vmiWithAllPVCs *v1.VirtualMachineInstance, res i
 	return nil
 }
 
-func (d *VirtualMachineController) prepareStorage(vmiWithOnlyBlockPVCS, vmiWithAllPVCs *v1.VirtualMachineInstance) error {
-	res, err := d.podIsolationDetector.Detect(vmiWithAllPVCs)
-	if err != nil {
-		return err
-	}
+func (d *VirtualMachineController) prepareStorage(vmiWithOnlyBlockPVCS, vmiWithAllPVCs *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
 	if err := changeOwnershipOfBlockDevices(vmiWithOnlyBlockPVCS, res); err != nil {
 		return err
 	}
 	return changeOwnershipOfHostDisks(vmiWithAllPVCs, res)
+}
+
+func getTapDevices(vmi *v1.VirtualMachineInstance) []string {
+	macvtap := map[string]bool{}
+	for _, inf := range vmi.Spec.Domain.Devices.Interfaces {
+		if inf.Macvtap != nil {
+			macvtap[inf.Name] = true
+		}
+	}
+
+	tapDevices := []string{}
+	for _, net := range vmi.Spec.Networks {
+		_, ok := macvtap[net.Name]
+		if ok {
+			tapDevices = append(tapDevices, net.Multus.NetworkName)
+		}
+	}
+	return tapDevices
+}
+
+func (d *VirtualMachineController) prepareTap(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
+	tapDevices := getTapDevices(vmi)
+	for _, tap := range tapDevices {
+		path := filepath.Join(res.MountRoot(), "sys", "class", "net", tap, "ifindex")
+		b, err := ioutil.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("Failed to read if index, %v", err)
+		}
+
+		index, err := strconv.Atoi(strings.TrimSpace(string(b)))
+		if err != nil {
+			return err
+		}
+
+		pathToTap := filepath.Join(res.MountRoot(), "dev", fmt.Sprintf("tap%d", index))
+
+		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(pathToTap); err != nil {
+			return err
+		}
+	}
+	return nil
+
+}
+
+func (d *VirtualMachineController) nonRootSetup(origVMI, vmi *v1.VirtualMachineInstance) error {
+	res, err := d.podIsolationDetector.Detect(origVMI)
+	if err != nil {
+		return err
+	}
+	if err := d.prepareStorage(vmi, origVMI, res); err != nil {
+		return err
+	}
+	if err := d.prepareTap(origVMI, res); err != nil {
+		return err
+	}
+	return nil
 }
 
 func relabelFiles(newLabel string, files ...string) error {
@@ -93,6 +148,5 @@ func relabelFiles(newLabel string, files ...string) error {
 			return fmt.Errorf("error relabeling file %s with label %s. Reason: %v", file, newLabel, err)
 		}
 	}
-
 	return nil
 }
