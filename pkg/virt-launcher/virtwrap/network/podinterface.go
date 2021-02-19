@@ -1248,15 +1248,9 @@ func (b *MacvtapBindMechanism) discoverPodNetworkInterface() error {
 		return err
 	}
 	b.podNicLink = link
-
 	if b.virtIface.MAC == nil {
 		// Get interface MAC address
-		mac, err := Handler.GetMacDetails(b.podInterfaceName)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to get MAC for %s", b.podInterfaceName)
-			return err
-		}
-		b.virtIface.MAC = &api.MAC{MAC: mac.String()}
+		b.virtIface.MAC = &api.MAC{MAC: b.podNicLink.Attrs().HardwareAddr.String()}
 	}
 
 	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
