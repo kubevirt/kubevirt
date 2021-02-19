@@ -345,14 +345,14 @@ func (_mr *_MockNetworkHandlerRecorder) GetNFTIPString(arg0 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetNFTIPString", arg0)
 }
 
-func (_m *MockNetworkHandler) CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int) error {
-	ret := _m.ctrl.Call(_m, "CreateTapDevice", tapName, queueNumber, launcherPID, mtu)
+func (_m *MockNetworkHandler) CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error {
+	ret := _m.ctrl.Call(_m, "CreateTapDevice", tapName, queueNumber, launcherPID, mtu, tapOwner)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockNetworkHandlerRecorder) CreateTapDevice(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateTapDevice", arg0, arg1, arg2, arg3)
+func (_mr *_MockNetworkHandlerRecorder) CreateTapDevice(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateTapDevice", arg0, arg1, arg2, arg3, arg4)
 }
 
 func (_m *MockNetworkHandler) BindTapDeviceToBridge(tapName string, bridgeName string) error {
