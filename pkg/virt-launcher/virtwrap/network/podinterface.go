@@ -368,7 +368,6 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 		return &MacvtapBindMechanism{
 			vmi:              vmi,
 			iface:            iface,
-			virtIface:        &api.Interface{},
 			domain:           domain,
 			podInterfaceName: podInterfaceName,
 			mac:              mac,
@@ -1247,11 +1246,13 @@ func (b *MacvtapBindMechanism) discoverPodNetworkInterface() error {
 		return err
 	}
 	b.podNicLink = link
-	b.virtIface.MAC = &api.MAC{MAC: b.podIfaceMAC()}
-	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
-	b.virtIface.Target = &api.InterfaceTarget{
-		Device:  b.podInterfaceName,
-		Managed: "no",
+	b.virtIface = &api.Interface{
+		MAC: &api.MAC{MAC: b.podIfaceMAC()},
+		MTU: &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)},
+		Target: &api.InterfaceTarget{
+			Device:  b.podInterfaceName,
+			Managed: "no",
+		},
 	}
 
 	return nil
