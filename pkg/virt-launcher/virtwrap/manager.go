@@ -392,10 +392,10 @@ func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstanc
 	}
 	// the name of the volume should match the alias
 	for _, disk := range disks {
-		if disk.ReadOnly != nil && !migrationVols.isGeneratedVolume(disk.Alias.Name) {
+		if disk.ReadOnly != nil && !migrationVols.isGeneratedVolume(disk.Alias.GetName()) {
 			continue
 		}
-		if (disk.Type != "file" && disk.Type != "block") || migrationVols.isSharedVolume(disk.Alias.Name) {
+		if (disk.Type != "file" && disk.Type != "block") || migrationVols.isSharedVolume(disk.Alias.GetName()) {
 			continue
 		}
 		copyDisks = append(copyDisks, disk.Target.Device)
@@ -1682,7 +1682,7 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 	}
 	interfaces := devices.Interfaces
 	for _, nic := range interfaces {
-		if data, exist := taggedInterfaces[nic.Alias.Name]; exist {
+		if data, exist := taggedInterfaces[nic.Alias.GetName()]; exist {
 			address := nic.Address
 			var mac string
 			if nic.MAC != nil {

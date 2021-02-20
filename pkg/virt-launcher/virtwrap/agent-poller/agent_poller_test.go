@@ -159,25 +159,19 @@ var _ = Describe("Qemu agent poller", func() {
 					MAC: &api.MAC{
 						MAC: "0a:58:0a:f4:00:51",
 					},
-					Alias: &api.Alias{
-						Name: "ovs",
-					},
+					Alias: api.NewUserDefinedAlias("ovs"),
 				},
 				api.Interface{
 					MAC: &api.MAC{
 						MAC: "02:00:00:b0:17:66",
 					},
-					Alias: &api.Alias{
-						Name: "net1",
-					},
+					Alias: api.NewUserDefinedAlias("net1"),
 				},
 				api.Interface{
 					MAC: &api.MAC{
 						MAC: "02:11:11:b0:17:66",
 					},
-					Alias: &api.Alias{
-						Name: "net2",
-					},
+					Alias: api.NewUserDefinedAlias("net2"),
 				},
 			}
 
