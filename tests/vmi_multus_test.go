@@ -881,15 +881,21 @@ var _ = Describe("[Serial]SRIOV", func() {
 		It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {
 			cidrA := "192.168.1.1/24"
 			cidrB := "192.168.1.2/24"
+			ipA, err := cidrToIP(cidrA)
+			Expect(err).ToNot(HaveOccurred())
+			ipB, err := cidrToIP(cidrB)
+			Expect(err).ToNot(HaveOccurred())
+
 			//create two vms on the same sriov network
 			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, cidrA, cidrB)
 
 			assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642", func() {
+
 				Eventually(func() error {
-					return libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))
+					return libnet.PingFromVMConsole(vmi1, ipB)
 				}, 15*time.Second, time.Second).Should(Succeed())
 				Eventually(func() error {
-					return libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))
+					return libnet.PingFromVMConsole(vmi2, ipA)
 				}, 15*time.Second, time.Second).Should(Succeed())
 			})
 		})
@@ -897,15 +903,20 @@ var _ = Describe("[Serial]SRIOV", func() {
 		It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
 			cidrA := "fc00::1/64"
 			cidrB := "fc00::2/64"
+			ipA, err := cidrToIP(cidrA)
+			Expect(err).ToNot(HaveOccurred())
+			ipB, err := cidrToIP(cidrB)
+			Expect(err).ToNot(HaveOccurred())
+
 			//create two vms on the same sriov network
 			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, cidrA, cidrB)
 
 			assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642", func() {
 				Eventually(func() error {
-					return libnet.PingFromVMConsole(vmi1, cidrToIP(cidrB))
+					return libnet.PingFromVMConsole(vmi1, ipA)
 				}, 15*time.Second, time.Second).Should(Succeed())
 				Eventually(func() error {
-					return libnet.PingFromVMConsole(vmi2, cidrToIP(cidrA))
+					return libnet.PingFromVMConsole(vmi2, ipB)
 				}, 15*time.Second, time.Second).Should(Succeed())
 			})
 		})
@@ -915,8 +926,12 @@ var _ = Describe("[Serial]SRIOV", func() {
 				cidrVlaned1          = "192.168.0.1/24"
 				sriovVlanNetworkName = "sriov-vlan"
 			)
+			var ipVlaned1 string
 
 			BeforeEach(func() {
+				var err error
+				ipVlaned1, err = cidrToIP(cidrVlaned1)
+				Expect(err).ToNot(HaveOccurred())
 				createNetworkAttachementDefinition(sriovVlanNetworkName, tests.NamespaceTestDefault, sriovConfVlanCRD)
 			})
 
@@ -926,7 +941,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642", func() {
 					By("pinging from vlanedVMI2 and the anonymous vmi over vlan")
 					Eventually(func() error {
-						return libnet.PingFromVMConsole(vlanedVMI2, cidrToIP(cidrVlaned1))
+						return libnet.PingFromVMConsole(vlanedVMI2, ipVlaned1)
 					}, 15*time.Second, time.Second).ShouldNot(HaveOccurred())
 				})
 			})
@@ -937,7 +952,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 				assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642", func() {
 					By("pinging between nonVlanedVMIand the anonymous vmi")
 					Eventually(func() error {
-						return libnet.PingFromVMConsole(nonVlanedVMI, cidrToIP(cidrVlaned1))
+						return libnet.PingFromVMConsole(nonVlanedVMI, ipVlaned1)
 					}, 15*time.Second, time.Second).Should(HaveOccurred())
 				})
 			})
@@ -1041,16 +1056,20 @@ var _ = Describe("[Serial]Macvtap", func() {
 	Context("a virtual machine with one macvtap interface, with a custom MAC address", func() {
 		var serverVMI *v1.VirtualMachineInstance
 		var chosenMAC string
-		var serverCIDR string
 		var nodeList *k8sv1.NodeList
 		var nodeName string
+		var serverIP string
 
 		BeforeEach(func() {
 			nodeList = tests.GetAllSchedulableNodes(virtClient)
 			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
 			nodeName = nodeList.Items[0].Name
 			chosenMAC = "de:ad:00:00:be:af"
-			serverCIDR = "192.0.2.102/24"
+			serverCIDR := "192.0.2.102/24"
+
+			var err error
+			serverIP, err = cidrToIP(serverCIDR)
+			Expect(err).ToNot(HaveOccurred())
 
 			serverVMI = createCirrosVMIStaticIPOnNode(nodeName, macvtapNetworkName, "eth0", serverCIDR, &chosenMAC)
 		})
@@ -1065,9 +1084,8 @@ var _ = Describe("[Serial]Macvtap", func() {
 			BeforeEach(func() {
 				clientVMI = createCirrosVMIStaticIPOnNode(nodeName, macvtapNetworkName, "eth0", "192.0.2.101/24", nil)
 			})
-
 			It("can communicate with the virtual machine in the same network", func() {
-				Expect(libnet.PingFromVMConsole(clientVMI, cidrToIP(serverCIDR))).To(Succeed())
+				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
 			})
 		})
 	})
@@ -1156,10 +1174,12 @@ var _ = Describe("[Serial]Macvtap", func() {
 	})
 })
 
-func cidrToIP(cidr string) string {
+func cidrToIP(cidr string) (string, error) {
 	ip, _, err := net.ParseCIDR(cidr)
-	Expect(err).ToNot(HaveOccurred(), "Should be able to parse IP and prefix length from CIDR")
-	return ip.String()
+	if err != nil {
+		return "", err
+	}
+	return ip.String(), nil
 }
 
 func configVMIInterfaceWithSudo(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAddress string) error {
