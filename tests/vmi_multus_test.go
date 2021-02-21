@@ -606,8 +606,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 		tests.BeforeTestCleanup()
 		// Check if the hardware supports SRIOV
-		sriovcheck := checkSriovEnabled(virtClient, sriovResourceName)
-		if !sriovcheck {
+		if err := validateSRIOVSetup(virtClient, sriovResourceName, 1); err != nil {
 			Skip("Sriov is not enabled in this environment. Skip these tests using - export FUNC_TEST_ARGS='--ginkgo.skip=SRIOV'")
 		}
 
@@ -1371,21 +1370,26 @@ func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 	}, time.Minute, time.Second).Should(Equal(len(nodes.Items)))
 }
 
-func checkSriovEnabled(virtClient kubecli.KubevirtClient, sriovResourceName string) bool {
+func validateSRIOVSetup(virtClient kubecli.KubevirtClient, sriovResourceName string, minRequiredNodes int) error {
 	nodes := tests.GetAllSchedulableNodes(virtClient)
 	Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
+	var sriovEnabledNode int
 	for _, node := range nodes.Items {
 		resourceList := node.Status.Allocatable
 		for k, v := range resourceList {
 			if string(k) == sriovResourceName {
 				if v.Value() > 0 {
-					return true
+					sriovEnabledNode++
+					break
 				}
 			}
 		}
 	}
-	return false
+	if sriovEnabledNode < minRequiredNodes {
+		return fmt.Errorf("not enough compute nodes with SR-IOV support detected")
+	}
+	return nil
 }
 
 func validatePodKubevirtResourceName(virtClient kubecli.KubevirtClient, vmiPod *k8sv1.Pod, networkName, sriovResourceName string) error {
