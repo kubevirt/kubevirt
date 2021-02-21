@@ -267,6 +267,18 @@ func (w *ObjectEventWatcher) SetWarningsIgnoreList(ignoreList []string) *ObjectE
 	return w
 }
 
+func (w *ObjectEventWatcher) shouldIgnoreWarning(event *k8sv1.Event) bool {
+	if event.Type == string(WarningEvent) {
+		for _, message := range w.warningsIgnoreList {
+			if message == event.Message {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 /*
 SinceNow sets a watch starting point for events, from the moment on the connection to the apiserver
 was established.
@@ -330,24 +342,16 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 
 	if w.failOnWarnings {
 		f = func(event *k8sv1.Event) bool {
-			isIgnored := false
-			for _, message := range w.warningsIgnoreList {
-				if message == event.Message {
-					isIgnored = true
-					break
-				}
-			}
+			shouldIgnoreThisWarning := w.shouldIgnoreWarning(event)
 
 			msg := fmt.Sprintf("Event(%#v): type: '%v' reason: '%v' %v", event.InvolvedObject, event.Type, event.Reason, event.Message)
-			if event.Type == string(WarningEvent) && isIgnored == false {
-				log.Log.Reason(fmt.Errorf("unexpected warning event received")).ObjectRef(&event.InvolvedObject).Error(msg)
-				ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
-			} else {
-				if isIgnored {
-					msg = "Detected Ignored " + msg
-				}
-				log.Log.ObjectRef(&event.InvolvedObject).Info(msg)
+			if shouldIgnoreThisWarning {
+				msg = "Detected Ignored " + msg
 			}
+			if shouldIgnoreThisWarning == false {
+				ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
+			}
+			log.Log.ObjectRef(&event.InvolvedObject).Info(msg)
 
 			return processFunc(event)
 		}
