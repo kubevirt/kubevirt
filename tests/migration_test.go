@@ -321,7 +321,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: "stress --vm 1 --vm-bytes 800M --vm-keep --timeout 1600s&\n"},
+			&expect.BSnd{S: "stress --vm 1 --vm-bytes 8M --vm-keep --timeout 1600s&\n"},
 			&expect.BExp{R: console.PromptExpression},
 		}, 15)).To(Succeed(), "should run a stress test")
 		// give stress tool some time to trash more memory pages before returning control to next steps
