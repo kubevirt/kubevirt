@@ -48,7 +48,6 @@ import (
 	"time"
 
 	expect "github.com/google/goexpect"
-	covreport "github.com/mfranczy/crd-rest-coverage/pkg/report"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
 	. "github.com/onsi/gomega"
@@ -486,65 +485,6 @@ func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 	Eventually(checkForPodsToBeReady, timeout, 2*time.Second).Should(BeEmpty(), "There are pods in system which are not ready.")
 }
 
-func GenerateRESTReport() error {
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return err
-	}
-
-	auditLogPath := k8sAuditLogPath
-	if IsOpenShift() {
-		v := cluster.GetOpenShiftMajorVersion(virtClient)
-		if v == cluster.OpenShift4Major {
-			// audit log for OKD4 is not available yet and the path is unknown
-			log.Log.Info("Skipping the REST API report on OKD4")
-			return nil
-		}
-		auditLogPath = osAuditLogPath
-	}
-	logs, _, err := RunCommandWithNS("", "gocli", "scp", auditLogPath, "-")
-	if err != nil {
-		return err
-	}
-
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "audit-")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmpFile.Name())
-
-	if _, err = tmpFile.Write([]byte(logs)); err != nil {
-		return err
-	}
-	if err = tmpFile.Close(); err != nil {
-		return err
-	}
-
-	coverage, err := covreport.Generate(tmpFile.Name(), swaggerPath, "/apis/kubevirt.io")
-	if err != nil {
-		return err
-	}
-
-	artifactsPath := os.Getenv(artifactsEnv)
-	if artifactsPath == "" {
-		return fmt.Errorf("ARTIFACTS env is empty, unable to save the coverage report")
-	}
-	if _, err := os.Stat(artifactsPath); os.IsNotExist(err) {
-		if err = os.MkdirAll(artifactsPath, 0755); err != nil {
-			return err
-		}
-	} else if err != nil {
-		return err
-	}
-
-	err = covreport.Dump(filepath.Join(artifactsPath, "rest-coverage.json"), coverage)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func SynchronizedAfterTestSuiteCleanup() {
 	RestoreKubeVirtResource()
 
@@ -553,11 +493,6 @@ func SynchronizedAfterTestSuiteCleanup() {
 		deleteStorageClass(Config.StorageClassBlockVolume)
 	}
 	CleanNodes()
-
-	// Generate REST API coverage report
-	if err := GenerateRESTReport(); err != nil {
-		log.Log.Errorf("Could not generate REST coverage report %v", err)
-	}
 }
 
 func AfterTestSuitCleanup() {

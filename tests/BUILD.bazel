@@ -38,7 +38,6 @@ go_library(
         "//vendor/github.com/Masterminds/semver:go_default_library",
         "//vendor/github.com/google/go-github/v32/github:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",
-        "//vendor/github.com/mfranczy/crd-rest-coverage/pkg/report:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/ginkgo/config:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
