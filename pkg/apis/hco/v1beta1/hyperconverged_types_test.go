@@ -1,13 +1,14 @@
 package v1beta1
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
-	"testing"
 )
 
 const (
@@ -410,6 +411,34 @@ var _ = Describe("HyperconvergedTypes", func() {
 					WithHostModelCPU: &enabled,
 				}
 				Expect(fgs.IsWithHostModelCPUEnabled()).To(BeTrue())
+			})
+		})
+
+		Context("Test IsHypervStrictCheckEnabled", func() {
+			It("Should return false if HyperConvergedFeatureGates is nil", func() {
+				var fgs *HyperConvergedFeatureGates = nil
+				Expect(fgs.IsHypervStrictCheckEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if IsHypervStrictCheckEnabled does not exist", func() {
+				fgs := &HyperConvergedFeatureGates{}
+				Expect(fgs.IsHypervStrictCheckEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if IsHypervStrictCheckEnabled is false", func() {
+				disabled := false
+				fgs := &HyperConvergedFeatureGates{
+					HypervStrictCheck: &disabled,
+				}
+				Expect(fgs.IsHypervStrictCheckEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if IsHypervStrictCheckEnabled is true", func() {
+				enabled := true
+				fgs := &HyperConvergedFeatureGates{
+					HypervStrictCheck: &enabled,
+				}
+				Expect(fgs.IsHypervStrictCheckEnabled()).To(BeTrue())
 			})
 		})
 	})

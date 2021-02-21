@@ -47,6 +47,7 @@ spec:
             properties:
               featureGates:
                 default:
+                  hypervStrictCheck: true
                   withHostModelCPU: true
                   withHostPassthroughCPU: false
                 description: featureGates is a map of feature gate flags. Setting
@@ -55,6 +56,11 @@ spec:
                 properties:
                   hotplugVolumes:
                     description: Allow attaching a data volume to a running VMI
+                    type: boolean
+                  hypervStrictCheck:
+                    default: true
+                    description: Enable HyperV strict host checking for HyperV enlightenments
+                      Defaults to true, even when HyperConvergedFeatureGates is empty
                     type: boolean
                   sriovLiveMigration:
                     description: Allow migrating a virtual machine with SRIOV interfaces.

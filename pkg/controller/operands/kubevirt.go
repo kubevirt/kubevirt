@@ -45,6 +45,7 @@ const (
 	// ToDo: remove these and use KV's virtconfig constants when available
 	kvWithHostPassthroughCPU = "WithHostPassthroughCPU"
 	kvWithHostModelCPU       = "WithHostModelCPU"
+	kvHypervStrictCheck      = "HypervStrictCheck"
 )
 
 // ************  KubeVirt Handler  **************
@@ -294,33 +295,34 @@ func (h *kvConfigHooks) addEnabledFeatureGates(req *common.HcoRequest, foundFgSp
 
 func filterOutDisabledFeatureGates(req *common.HcoRequest, foundFgSplit []string, resultFg []string) (bool, []string) {
 	fgChanged := false
+	featureGateChecks := getFeatureGateChecks(req.Instance.Spec.FeatureGates)
 	for _, fg := range foundFgSplit {
-		// Remove if not in HC CR
-		switch fg {
-		case HotplugVolumesGate:
-			if !req.Instance.Spec.FeatureGates.IsHotplugVolumesEnabled() {
-				fgChanged = true
-				continue
-			}
-		case kvWithHostPassthroughCPU:
-			if !req.Instance.Spec.FeatureGates.IsWithHostPassthroughCPUEnabled() {
-				fgChanged = true
-				continue
-			}
-		case kvWithHostModelCPU:
-			if !req.Instance.Spec.FeatureGates.IsWithHostModelCPUEnabled() {
-				fgChanged = true
-				continue
-			}
-		case SRIOVLiveMigrationGate:
-			if !req.Instance.Spec.FeatureGates.IsSRIOVLiveMigrationEnabled() {
-				fgChanged = true
-				continue
-			}
+		if isFeatureGateMissingFrom(featureGateChecks, fg) {
+			fgChanged = true
+			continue
 		}
 		resultFg = append(resultFg, fg)
 	}
 	return fgChanged, resultFg
+}
+
+func isFeatureGateMissingFrom(checks featureGateChecks, featureGate string) bool {
+	if check, isKnown := checks[featureGate]; isKnown {
+		return !check()
+	}
+	return false
+}
+
+type featureGateChecks map[string]func() bool
+
+func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) featureGateChecks {
+	return map[string]func() bool{
+		HotplugVolumesGate:       featureGates.IsHotplugVolumesEnabled,
+		kvWithHostPassthroughCPU: featureGates.IsWithHostPassthroughCPUEnabled,
+		kvWithHostModelCPU:       featureGates.IsWithHostModelCPUEnabled,
+		SRIOVLiveMigrationGate:   featureGates.IsSRIOVLiveMigrationEnabled,
+		kvHypervStrictCheck:      featureGates.IsHypervStrictCheckEnabled,
+	}
 }
 
 func (h *kvConfigHooks) forceDefaultKeys(req *common.HcoRequest, found *corev1.ConfigMap, kubevirtConfig *corev1.ConfigMap) bool {
@@ -506,26 +508,12 @@ func NewKubeVirtConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *co
 
 // get list of feature gates from a specific operand list
 func getKvFeatureGateList(fgs *hcov1beta1.HyperConvergedFeatureGates) []string {
-	if fgs == nil {
-		return nil
-	}
-
-	res := make([]string, 0, 3)
-
-	if fgs.IsHotplugVolumesEnabled() {
-		res = append(res, HotplugVolumesGate)
-	}
-
-	if fgs.IsWithHostPassthroughCPUEnabled() {
-		res = append(res, kvWithHostPassthroughCPU)
-	}
-
-	if fgs.IsWithHostModelCPUEnabled() {
-		res = append(res, kvWithHostModelCPU)
-	}
-
-	if fgs.IsSRIOVLiveMigrationEnabled() {
-		res = append(res, SRIOVLiveMigrationGate)
+	checks := getFeatureGateChecks(fgs)
+	res := make([]string, 0, len(checks))
+	for gate, check := range checks {
+		if check() {
+			res = append(res, gate)
+		}
 	}
 
 	return res

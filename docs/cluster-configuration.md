@@ -135,6 +135,13 @@ Additional information: [LibvirtXMLCPUModel](https://wiki.openstack.org/wiki/Lib
 
 **note**: This should be enabled only when the Cluster is homogeneous from CPU HW perspective doc here
 
+### hypervStrictCheck Feature Gate
+Set the `hypervStrictCheck` feature gate in order to enable [HyperV enlightenments](https://kubevirt.io/user-guide/#/creation/guest-operating-system-information?id=hyperv-optimizations) for Kubevirt.
+
+**Default: `true`**
+
+To override the default, specify the featureGate in the HCO configuration.
+
 ### Feature Gates Example
 
 ```yaml

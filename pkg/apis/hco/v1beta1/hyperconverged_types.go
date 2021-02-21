@@ -40,7 +40,7 @@ type HyperConvergedSpec struct {
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
 	// +optional
 	// +TODO: Always keep the default FeatureGates in sync with the default field values in HyperConvergedFeatureGates //NOSONAR
-	// +kubebuilder:default={withHostModelCPU: true, withHostPassthroughCPU: false}
+	// +kubebuilder:default={withHostModelCPU: true, withHostPassthroughCPU: false, hypervStrictCheck: true}
 	FeatureGates *HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
 	// operator version
@@ -58,6 +58,7 @@ type HyperConvergedConfig struct {
 // by default yet.
 // +optional
 // +k8s:openapi-gen=true
+// +kubebuilder:default={}
 type HyperConvergedFeatureGates struct {
 	// Allow migrating a virtual machine with SRIOV interfaces.
 	// When enabled virt-launcher pods of virtual machines with SRIOV
@@ -80,6 +81,12 @@ type HyperConvergedFeatureGates struct {
 	// +optional
 	// +kubebuilder:default=true
 	WithHostModelCPU *bool `json:"withHostModelCPU,omitempty"`
+
+	// Enable HyperV strict host checking for HyperV enlightenments
+	// Defaults to true, even when HyperConvergedFeatureGates is empty
+	// +optional
+	// +kubebuilder:default=true
+	HypervStrictCheck *bool `json:"hypervStrictCheck,omitempty"`
 }
 
 func (fgs *HyperConvergedFeatureGates) IsHotplugVolumesEnabled() bool {
@@ -96,6 +103,10 @@ func (fgs *HyperConvergedFeatureGates) IsWithHostPassthroughCPUEnabled() bool {
 
 func (fgs *HyperConvergedFeatureGates) IsWithHostModelCPUEnabled() bool {
 	return (fgs != nil) && (fgs.WithHostModelCPU != nil) && (*fgs.WithHostModelCPU)
+}
+
+func (fgs *HyperConvergedFeatureGates) IsHypervStrictCheckEnabled() bool {
+	return (fgs != nil) && (fgs.HypervStrictCheck != nil) && (*fgs.HypervStrictCheck)
 }
 
 // HyperConvergedStatus defines the observed state of HyperConverged
