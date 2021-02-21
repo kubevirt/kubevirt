@@ -133,6 +133,17 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					"apps",
+				},
+				Resources: []string{
+					"daemonsets",
+				},
+				Verbs: []string{
+					"list",
+				},
+			},
+			{
+				APIGroups: []string{
 					"",
 				},
 				Resources: []string{

@@ -482,6 +482,12 @@ spec:
           - update
           - patch
         - apiGroups:
+          - apps
+          resources:
+          - daemonsets
+          verbs:
+          - list
+        - apiGroups:
           - ""
           resources:
           - persistentvolumeclaims
