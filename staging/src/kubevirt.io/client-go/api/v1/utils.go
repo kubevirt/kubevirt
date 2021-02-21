@@ -38,7 +38,7 @@ func NewMinimalVMIWithNS(namespace, name string) *VirtualMachineInstance {
 	vmi := NewVMIReferenceFromNameWithNS(namespace, name)
 	vmi.Spec = VirtualMachineInstanceSpec{Domain: DomainSpec{}}
 	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-		k8sv1.ResourceMemory: resource.MustParse("8192Ki"),
+		k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 	}
 	vmi.TypeMeta = k8smetav1.TypeMeta{
 		APIVersion: GroupVersion.String(),

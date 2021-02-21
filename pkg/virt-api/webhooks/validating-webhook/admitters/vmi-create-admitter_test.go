@@ -810,10 +810,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		It("should reject bigger guest memory than the memory limit", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			guestMemory := resource.MustParse("128Mi")
-
+			guestMemory := resource.MustParse("256Mi")
 			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+				k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 			}
 			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 

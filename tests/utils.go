@@ -1921,7 +1921,6 @@ func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 			Masquerade: &v1.InterfaceMasquerade{}}}}}
 
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
 
 	return vmi
 }

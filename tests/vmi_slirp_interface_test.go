@@ -27,7 +27,6 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -165,7 +164,6 @@ var _ = Describe("[Serial]Slirp Networking", func() {
 			var t int64 = 0
 			vmi := v1.NewMinimalVMIWithNS(tests.NamespaceTestDefault, libvmi.RandName(libvmi.DefaultVmiName))
 			vmi.Spec.TerminationGracePeriodSeconds = &t
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
 			tests.AddEphemeralDisk(vmi, "disk0", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)

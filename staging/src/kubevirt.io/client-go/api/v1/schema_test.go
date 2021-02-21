@@ -47,7 +47,7 @@ var exampleJSONFmt = `{
     "domain": {
       "resources": {
         "requests": {
-          "memory": "8Mi"
+          "memory": "128Mi"
         }
       },
       "cpu": {
