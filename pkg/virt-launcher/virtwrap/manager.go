@@ -156,6 +156,12 @@ type LibvirtDomainManager struct {
 	directIOChecker          converter.DirectIOChecker
 	disksInfo                map[string]*cmdv1.DiskInfo
 	cancelSafetyUnfreezeChan chan struct{}
+	migrateInfoStats         *stats.DomainJobInfo
+}
+
+type hostDeviceTypePrefix struct {
+	Type   converter.HostDeviceType
+	Prefix string
 }
 
 type pausedVMIs struct {
@@ -199,6 +205,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir string, age
 		directIOChecker:          directIOChecker,
 		disksInfo:                map[string]*cmdv1.DiskInfo{},
 		cancelSafetyUnfreezeChan: make(chan struct{}),
+		migrateInfoStats:         &stats.DomainJobInfo{},
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
@@ -1526,7 +1533,7 @@ func (l *LibvirtDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
 	statsTypes := libvirt.DOMAIN_STATS_BALLOON | libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING
 
-	return l.virConn.GetDomainStats(statsTypes, flags)
+	return l.virConn.GetDomainStats(statsTypes, l.migrateInfoStats, flags)
 }
 
 func formatPCIAddressStr(address *api.Address) string {
