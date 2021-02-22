@@ -420,12 +420,12 @@ var _ = Describe("HyperconvergedTypes", func() {
 				Expect(fgs.IsHypervStrictCheckEnabled()).To(BeFalse())
 			})
 
-			It("Should return false if IsHypervStrictCheckEnabled does not exist", func() {
+			It("Should return false if HypervStrictCheck does not exist", func() {
 				fgs := &HyperConvergedFeatureGates{}
 				Expect(fgs.IsHypervStrictCheckEnabled()).To(BeFalse())
 			})
 
-			It("Should return false if IsHypervStrictCheckEnabled is false", func() {
+			It("Should return false if HypervStrictCheck is false", func() {
 				disabled := false
 				fgs := &HyperConvergedFeatureGates{
 					HypervStrictCheck: &disabled,
@@ -433,7 +433,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 				Expect(fgs.IsHypervStrictCheckEnabled()).To(BeFalse())
 			})
 
-			It("Should return false if IsHypervStrictCheckEnabled is true", func() {
+			It("Should return true if HypervStrictCheck is true", func() {
 				enabled := true
 				fgs := &HyperConvergedFeatureGates{
 					HypervStrictCheck: &enabled,
