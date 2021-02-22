@@ -2954,6 +2954,23 @@ func NewBool(x bool) *bool {
 }
 
 func RenderPrivilegedPod(name string, cmd []string, args []string) *k8sv1.Pod {
+	pod := RenderPod(name, cmd, args)
+	pod.Spec.HostPID = true
+	pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{
+		RunAsUser: new(int64),
+	}
+	pod.Spec.Containers = []k8sv1.Container{
+		renderPrivilegedContainerSpec(
+			fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
+			name,
+			cmd,
+			args),
+	}
+
+	return pod
+}
+
+func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: name,
@@ -2965,25 +2982,38 @@ func RenderPrivilegedPod(name string, cmd []string, args []string) *k8sv1.Pod {
 		Spec: k8sv1.PodSpec{
 			RestartPolicy: k8sv1.RestartPolicyNever,
 			Containers: []k8sv1.Container{
-				{
-					Name:    name,
-					Image:   fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
-					Command: cmd,
-					Args:    args,
-					SecurityContext: &k8sv1.SecurityContext{
-						Privileged: NewBool(true),
-						RunAsUser:  new(int64),
-					},
-				},
-			},
-			HostPID: true,
-			SecurityContext: &k8sv1.PodSecurityContext{
-				RunAsUser: new(int64),
+				renderContainerSpec(
+					fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
+					name,
+					cmd,
+					args),
 			},
 		},
 	}
 
 	return &pod
+}
+
+func renderContainerSpec(imgPath string, name string, cmd []string, args []string) k8sv1.Container {
+	return k8sv1.Container{
+		Name:    name,
+		Image:   imgPath,
+		Command: cmd,
+		Args:    args,
+	}
+}
+
+func renderPrivilegedContainerSpec(imgPath string, name string, cmd []string, args []string) k8sv1.Container {
+	return k8sv1.Container{
+		Name:    name,
+		Image:   imgPath,
+		Command: cmd,
+		Args:    args,
+		SecurityContext: &k8sv1.SecurityContext{
+			Privileged: NewBool(true),
+			RunAsUser:  new(int64),
+		},
+	}
 }
 
 func NewVirtctlCommand(args ...string) *cobra.Command {
