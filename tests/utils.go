@@ -4409,7 +4409,6 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 }
 
 func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
-	By("Waiting for guest agent connection")
 	WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceAgentConnected, 12*60)
 }
 
