@@ -45,6 +45,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/assert"
 	"kubevirt.io/kubevirt/tests/console"
@@ -655,6 +656,23 @@ var _ = Describe("[Serial]SRIOV", func() {
 			return vmi
 		}
 
+		checkCloudInitDone := func(vmi *v1.VirtualMachineInstance) error {
+			err := wait.PollImmediate(time.Second, time.Minute, func() (bool, error) {
+				err := console.RunCommand(vmi, "cat /var/lib/cloud/instance/boot-finished", 2*time.Second)
+				if err != nil {
+					return false, nil
+				}
+
+				return true, nil
+			})
+
+			if err != nil {
+				log.DefaultLogger().Object(vmi).Infof("checkCloudInitDone failed: %v", err)
+				return err
+			}
+			return nil
+		}
+
 		waitVmi := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 			// Need to wait for cloud init to finish and start the agent inside the vmi.
 			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -664,6 +682,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			tests.WaitAgentConnected(virtClient, vmi)
 			By("Login and configurating VM via console")
 			Expect(libnet.WithIPv6(console.LoginToFedora)(vmi)).To(Succeed())
+			Expect(checkCloudInitDone(vmi)).To(Succeed())
 
 			return vmi
 		}

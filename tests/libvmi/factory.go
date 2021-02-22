@@ -47,6 +47,7 @@ func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 func NewSriovFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	userData := `#!/bin/bash
 	setenforce 0
+	rm -f /var/lib/cloud/instance/boot-finished
 	echo "fedora" | passwd fedora --stdin`
 
 	userData = addStartGuestAgentUserDataSuffix(userData)
