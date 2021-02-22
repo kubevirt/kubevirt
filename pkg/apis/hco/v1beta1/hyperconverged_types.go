@@ -40,7 +40,7 @@ type HyperConvergedSpec struct {
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
 	// +optional
 	// +TODO: Always keep the default FeatureGates in sync with the default field values in HyperConvergedFeatureGates //NOSONAR
-	// +kubebuilder:default={withHostModelCPU: true, withHostPassthroughCPU: false, hypervStrictCheck: true}
+	// +kubebuilder:default={withHostModelCPU: true, withHostPassthroughCPU: false, hypervStrictCheck: true, gpu: false, hostDevices: false}
 	FeatureGates *HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
 	// operator version
@@ -71,6 +71,16 @@ type HyperConvergedFeatureGates struct {
 	// +optional
 	HotplugVolumes *bool `json:"hotplugVolumes,omitempty"`
 
+	// Allow assigning GPU and vGPU devices to virtual machines
+	// +optional
+	// +kubebuilder:default=false
+	GPU *bool `json:"gpu,omitempty"`
+
+	// Allow assigning host devices to virtual machines
+	// +optional
+	// +kubebuilder:default=false
+	HostDevices *bool `json:"hostDevices,omitempty"`
+
 	// Allow migrating a virtual machine with CPU host-passthrough mode. This should be
 	// enabled only when the Cluster is homogeneous from CPU HW perspective doc here
 	// +optional
@@ -91,6 +101,14 @@ type HyperConvergedFeatureGates struct {
 
 func (fgs *HyperConvergedFeatureGates) IsHotplugVolumesEnabled() bool {
 	return (fgs != nil) && (fgs.HotplugVolumes != nil) && (*fgs.HotplugVolumes)
+}
+
+func (fgs *HyperConvergedFeatureGates) IsGPUAssignmentEnabled() bool {
+	return (fgs != nil) && (fgs.GPU != nil) && (*fgs.GPU)
+}
+
+func (fgs *HyperConvergedFeatureGates) IsHostDevicesAssignmentEnabled() bool {
+	return (fgs != nil) && (fgs.HostDevices != nil) && (*fgs.HostDevices)
 }
 
 func (fgs *HyperConvergedFeatureGates) IsSRIOVLiveMigrationEnabled() bool {

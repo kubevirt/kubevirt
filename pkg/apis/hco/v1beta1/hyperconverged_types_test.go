@@ -358,6 +358,62 @@ var _ = Describe("HyperconvergedTypes", func() {
 			})
 		})
 
+		Context("Test IsGPUAssignmentEnabled", func() {
+			It("Should return false if HyperConvergedFeatureGates is nil", func() {
+				var fgs *HyperConvergedFeatureGates = nil
+				Expect(fgs.IsGPUAssignmentEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if IsGPUAssignmentEnabled does not exist", func() {
+				fgs := &HyperConvergedFeatureGates{}
+				Expect(fgs.IsGPUAssignmentEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if IsGPUAssignmentEnabled is false", func() {
+				disabled := false
+				fgs := &HyperConvergedFeatureGates{
+					GPU: &disabled,
+				}
+				Expect(fgs.IsGPUAssignmentEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if IsGPUAssignmentEnabled is true", func() {
+				enabled := true
+				fgs := &HyperConvergedFeatureGates{
+					GPU: &enabled,
+				}
+				Expect(fgs.IsGPUAssignmentEnabled()).To(BeTrue())
+			})
+		})
+
+		Context("Test IsHostDevicesAssignmentEnabled", func() {
+			It("Should return false if HyperConvergedFeatureGates is nil", func() {
+				var fgs *HyperConvergedFeatureGates = nil
+				Expect(fgs.IsHostDevicesAssignmentEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if IsHostDevicesAssignmentEnabled does not exist", func() {
+				fgs := &HyperConvergedFeatureGates{}
+				Expect(fgs.IsHostDevicesAssignmentEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if IsHostDevicesAssignmentEnabled is false", func() {
+				disabled := false
+				fgs := &HyperConvergedFeatureGates{
+					HostDevices: &disabled,
+				}
+				Expect(fgs.IsHostDevicesAssignmentEnabled()).To(BeFalse())
+			})
+
+			It("Should return false if IsHostDevicesAssignmentEnabled is true", func() {
+				enabled := true
+				fgs := &HyperConvergedFeatureGates{
+					HostDevices: &enabled,
+				}
+				Expect(fgs.IsHostDevicesAssignmentEnabled()).To(BeTrue())
+			})
+		})
+
 		Context("Test IsWithHostPassthroughCPUEnabled", func() {
 			It("Should return false if HyperConvergedFeatureGates is nil", func() {
 				var fgs *HyperConvergedFeatureGates = nil

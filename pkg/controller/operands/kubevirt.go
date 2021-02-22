@@ -34,6 +34,8 @@ const (
 	DefaultNetworkInterface = "bridge"
 	HotplugVolumesGate      = "HotplugVolumes"
 	SRIOVLiveMigrationGate  = "SRIOVLiveMigration"
+	GPUGate                 = "GPU"
+	HostDevicesGate         = "HostDevices"
 )
 
 const (
@@ -322,6 +324,8 @@ func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) f
 		kvWithHostModelCPU:       featureGates.IsWithHostModelCPUEnabled,
 		SRIOVLiveMigrationGate:   featureGates.IsSRIOVLiveMigrationEnabled,
 		kvHypervStrictCheck:      featureGates.IsHypervStrictCheckEnabled,
+		GPUGate:                  featureGates.IsGPUAssignmentEnabled,
+		HostDevicesGate:          featureGates.IsHostDevicesAssignmentEnabled,
 	}
 }
 
