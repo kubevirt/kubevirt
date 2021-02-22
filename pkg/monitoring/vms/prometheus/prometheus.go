@@ -89,6 +89,36 @@ func tryToPushMetric(desc *prometheus.Desc, mv prometheus.Metric, err error, ch 
 	ch <- mv
 }
 
+func (metrics *vmiMetrics) updateMigrateInfo(jobInfo *stats.DomainJobInfo) {
+	if jobInfo.DataRemainingSet {
+		metrics.pushCommonMetric(
+			"kubevirt_migrate_vmi_data_remaining_bytes",
+			"The remaining VM data to be migrated.",
+			prometheus.GaugeValue,
+			float64(jobInfo.DataRemaining)*1024,
+		)
+	}
+
+	if jobInfo.DataProcessedSet {
+		metrics.pushCommonMetric(
+			"kubevirt_migrate_vmi_data_processed_bytes",
+			"The total VM data processed and migrated.",
+			prometheus.GaugeValue,
+			float64(jobInfo.DataProcessed)*1024,
+		)
+	}
+
+	if jobInfo.MemDirtyRateSet {
+		metrics.pushCommonMetric(
+			"kubevirt_migrate_vmi_dirty_memory_rate_bytes",
+			"The rate at which the memory is getting dirty in the VM being Migrated.",
+			prometheus.GaugeValue,
+			float64(jobInfo.MemDirtyRate)*1024,
+		)
+	}
+
+}
+
 func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 	if mem.RSSSet {
 		metrics.pushCommonMetric(
@@ -704,6 +734,7 @@ func (metrics *vmiMetrics) updateMetrics(vmStats *stats.DomainStats) {
 	if vmStats.CPUMapSet {
 		metrics.updateCPUAffinity(vmStats.CPUMap)
 	}
+	metrics.updateMigrateInfo(vmStats.MigrateDomainJobInfo)
 }
 
 func (metrics *vmiMetrics) newPrometheusDesc(name string, help string, customLabels []string) *prometheus.Desc {

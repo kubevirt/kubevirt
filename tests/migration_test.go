@@ -309,6 +309,84 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		return uid
 	}
 
+	runMigrationAndCollectMigrationMetrics := func(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, timeout int) string {
+		var pod *k8sv1.Pod
+		var metricsIPs []string
+		var family k8sv1.IPFamily = k8sv1.IPv4Protocol
+
+		vmiNodeOrig := vmi.Status.NodeName
+		By("Finding the prometheus endpoint")
+		pod, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(vmiNodeOrig).Pod()
+		Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
+		for _, ip := range pod.Status.PodIPs {
+			metricsIPs = append(metricsIPs, ip.IP)
+		}
+
+		By("Starting a Migration")
+		Eventually(func() error {
+			migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+			return err
+		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+		By("Waiting until the Migration Completes")
+
+		if family == k8sv1.IPv6Protocol {
+			libnet.SkipWhenNotDualStackCluster(virtClient)
+		}
+
+		ip := getSupportedIP(metricsIPs, family)
+
+		By("Scraping the Prometheus endpoint")
+		var metrics map[string]float64
+		var lines []string
+
+		Eventually(func() map[string]float64 {
+			metricsURL := prepareMetricsURL(ip, 8443)
+			out, _, err := tests.ExecuteCommandOnPodV2(virtClient,
+				pod,
+				"virt-handler",
+				[]string{
+					"curl",
+					"-L",
+					"-k",
+					metricsURL,
+				})
+			Expect(err).ToNot(HaveOccurred())
+			lines = takeMetricsWithPrefix(out, "kubevirt_migrate_vmi")
+			metrics, err = parseMetricsToMap(lines)
+			Expect(err).ToNot(HaveOccurred())
+			return metrics
+		}, 100*time.Second, 1*time.Second).ShouldNot(BeEmpty())
+
+		Expect(len(metrics)).To(BeNumerically(">=", float64(1.0)))
+		Expect(metrics).To(HaveLen(len(lines)))
+
+		By("Checking the collected metrics")
+		keys := getKeysFromMetrics(metrics)
+		for _, key := range keys {
+			value := metrics[key]
+			fmt.Fprintf(GinkgoWriter, "metric value was %f\n", value)
+			Expect(value).To(BeNumerically(">=", float64(0.0)))
+		}
+
+		uid := ""
+		Eventually(func() error {
+			migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+
+			Expect(migration.Status.Phase).ToNot(Equal(v1.MigrationFailed), "migration should not fail")
+
+			uid = string(migration.UID)
+			if migration.Status.Phase == v1.MigrationSucceeded {
+				return nil
+			}
+			return fmt.Errorf("migration is in the phase: %s", migration.Status.Phase)
+
+		}, timeout, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should succeed after %d s", timeout))
+		return uid
+	}
+
 	runStressTest := func(vmi *v1.VirtualMachineInstance, vmsize string, stressTimeoutSeconds int) {
 		By("Run a stress test to dirty some pages and slow down the migration")
 		stressCmd := fmt.Sprintf("stress --vm 1 --vm-bytes %sM --vm-keep --timeout %ds&\n", vmsize, stressTimeoutSeconds)
@@ -1423,6 +1501,37 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				// check VMI, confirm migration state
 				confirmVMIPostMigrationFailed(vmi, migrationUID)
+
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			})
+
+			It("[test_id:] Migration Metrics exposed to prometheus during VM migration", func() {
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+				// Need to wait for cloud init to finnish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				runStressTest(vmi, stressdefaultVMSize, stressdefaultTimeout)
+
+				// execute a migration, wait for finalized state
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := runMigrationAndCollectMigrationMetrics(vmi, migration, 180)
+
+				// check VMI, confirm migration state
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 
 				// delete VMI
 				By("Deleting the VMI")

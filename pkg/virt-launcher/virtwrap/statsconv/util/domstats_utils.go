@@ -181,6 +181,14 @@ var Testdataexpected = `{
      "Total": 0,
      "TotalSet": false
    }, 
+   "MigrateDomainJobInfo": {
+     "DataProcessed": 0,
+     "DataProcessedSet": false,
+     "DataRemaining": 0,
+     "DataRemainingSet": false,
+     "MemDirtyRate": 0,
+     "MemDirtyRateSet": false
+   },
    "Name": "testName", 
    "Net": [
      {
