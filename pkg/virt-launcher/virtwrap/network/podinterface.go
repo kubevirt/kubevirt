@@ -515,7 +515,7 @@ func (b *BridgeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, la
 		return err
 	}
 
-	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
+	// b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
 	b.virtIface.MAC = &api.MAC{MAC: b.vif.MAC.String()}
 	b.virtIface.Target = &api.InterfaceTarget{
 		Device:  tapDeviceName,
@@ -529,7 +529,7 @@ func (b *BridgeBindMechanism) decorateConfig() error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.GetName() == b.iface.Name {
-			ifaces[i].MTU = b.virtIface.MTU
+			// ifaces[i].MTU = b.virtIface.MTU
 			ifaces[i].MAC = &api.MAC{MAC: b.vif.MAC.String()}
 			ifaces[i].Target = b.virtIface.Target
 			break
@@ -861,7 +861,7 @@ func (b *MasqueradeBindMechanism) decorateConfig() error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.GetName() == b.iface.Name {
-			ifaces[i].MTU = b.virtIface.MTU
+			// ifaces[i].MTU = b.virtIface.MTU
 			ifaces[i].MAC = b.virtIface.MAC
 			ifaces[i].Target = b.virtIface.Target
 			break
@@ -1253,7 +1253,7 @@ func (b *MacvtapBindMechanism) discoverPodNetworkInterface() error {
 		b.virtIface.MAC = &api.MAC{MAC: mac.String()}
 	}
 
-	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
+	// b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
 	b.virtIface.Target = &api.InterfaceTarget{
 		Device:  b.podInterfaceName,
 		Managed: "no",
@@ -1270,7 +1270,7 @@ func (b *MacvtapBindMechanism) decorateConfig() error {
 	ifaces := b.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.GetName() == b.iface.Name {
-			ifaces[i].MTU = b.virtIface.MTU
+			// ifaces[i].MTU = b.virtIface.MTU
 			ifaces[i].MAC = b.virtIface.MAC
 			ifaces[i].Target = b.virtIface.Target
 			break
