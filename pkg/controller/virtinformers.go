@@ -73,6 +73,13 @@ type KubeInformerFactory interface {
 	// Watches for vmi objects
 	VMI() cache.SharedIndexInformer
 
+	// Watches for vmi objects assigned to a specific host
+	VMISourceHost(hostName string) cache.SharedIndexInformer
+
+	// Watches for vmi objects assigned to a specific host
+	// as a migration target
+	VMITargetHost(hostName string) cache.SharedIndexInformer
+
 	// Watches for VirtualMachineInstanceReplicaSet objects
 	VMIReplicaSet() cache.SharedIndexInformer
 
@@ -294,6 +301,40 @@ func (f *kubeInformerFactory) Namespace() cache.SharedIndexInformer {
 func (f *kubeInformerFactory) VMI() cache.SharedIndexInformer {
 	return f.getInformer("vmiInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachineinstances", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachineInstance{}, f.defaultResync, cache.Indexers{
+			cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+			"node": func(obj interface{}) (strings []string, e error) {
+				return []string{obj.(*kubev1.VirtualMachineInstance).Status.NodeName}, nil
+			},
+		})
+	})
+}
+
+func (f *kubeInformerFactory) VMISourceHost(hostName string) cache.SharedIndexInformer {
+	labelSelector, err := labels.Parse(fmt.Sprintf(kubev1.NodeNameLabel+" in (%s)", hostName))
+	if err != nil {
+		panic(err)
+	}
+
+	return f.getInformer("vmiInformer-sources", func() cache.SharedIndexInformer {
+		lw := NewListWatchFromClient(f.restClient, "virtualmachineinstances", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachineInstance{}, f.defaultResync, cache.Indexers{
+			cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+			"node": func(obj interface{}) (strings []string, e error) {
+				return []string{obj.(*kubev1.VirtualMachineInstance).Status.NodeName}, nil
+			},
+		})
+	})
+}
+
+func (f *kubeInformerFactory) VMITargetHost(hostName string) cache.SharedIndexInformer {
+	labelSelector, err := labels.Parse(fmt.Sprintf(kubev1.MigrationTargetNodeNameLabel+" in (%s)", hostName))
+	if err != nil {
+		panic(err)
+	}
+
+	return f.getInformer("vmiInformer-targets", func() cache.SharedIndexInformer {
+		lw := NewListWatchFromClient(f.restClient, "virtualmachineinstances", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachineInstance{}, f.defaultResync, cache.Indexers{
 			cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 			"node": func(obj interface{}) (strings []string, e error) {
