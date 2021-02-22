@@ -15,12 +15,12 @@ import (
 
 func NewHTTPServerPod(port int) *corev1.Pod {
 	serverCommand := fmt.Sprintf("nc -klp %d --sh-exec 'echo -e \"HTTP/1.1 200 OK\\nContent-Length: 12\\n\\nHello World!\"'", port)
-	return RenderPod("http-hello-world-server", []string{"/bin/bash"}, []string{"-c", serverCommand})
+	return RenderPrivilegedPod("http-hello-world-server", []string{"/bin/bash"}, []string{"-c", serverCommand})
 }
 
 func NewTCPServerPod(port int) *corev1.Pod {
 	serverCommand := fmt.Sprintf("nc -klp %d --sh-exec 'echo \"Hello World!\"'", port)
-	return RenderPod("tcp-hello-world-server", []string{"/bin/bash"}, []string{"-c", serverCommand})
+	return RenderPrivilegedPod("tcp-hello-world-server", []string{"/bin/bash"}, []string{"-c", serverCommand})
 }
 
 func CreatePodAndWaitUntil(pod *corev1.Pod, phaseToWait corev1.PodPhase) *corev1.Pod {

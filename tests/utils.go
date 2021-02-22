@@ -2953,7 +2953,7 @@ func NewBool(x bool) *bool {
 	return &x
 }
 
-func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
+func RenderPrivilegedPod(name string, cmd []string, args []string) *k8sv1.Pod {
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: name,
@@ -3707,7 +3707,7 @@ func CreateHostDiskImage(diskPath string) *k8sv1.Pod {
 }
 
 func RenderHostPathPod(podName string, dir string, hostPathType k8sv1.HostPathType, mountPropagation k8sv1.MountPropagationMode, cmd []string, args []string) *k8sv1.Pod {
-	pod := RenderPod(podName, cmd, args)
+	pod := RenderPrivilegedPod(podName, cmd, args)
 	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
 		Name:             "hostpath-mount",
 		MountPropagation: &mountPropagation,
