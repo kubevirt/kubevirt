@@ -278,14 +278,14 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 
 	finDropped := false
 	// Handle finalizers
-	if contains(req.Instance.ObjectMeta.Finalizers, badFinalizerName) {
+	if hcoutil.ContainsString(req.Instance.ObjectMeta.Finalizers, badFinalizerName) {
 		req.Logger.Info("removing a finalizer set in the past (without a fully qualified name)")
 		req.Instance.ObjectMeta.Finalizers, finDropped = drop(req.Instance.ObjectMeta.Finalizers, badFinalizerName)
 		req.Dirty = req.Dirty || finDropped
 	}
 	if req.Instance.ObjectMeta.DeletionTimestamp.IsZero() {
 		// Add the finalizer if it's not there
-		if !contains(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
+		if !hcoutil.ContainsString(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
 			req.Logger.Info("setting a finalizer (with fully qualified name)")
 			req.Instance.ObjectMeta.Finalizers = append(req.Instance.ObjectMeta.Finalizers, FinalizerName)
 			req.Dirty = req.Dirty || finDropped
@@ -482,12 +482,12 @@ func (r *ReconcileHyperConverged) ensureHcoDeleted(req *common.HcoRequest) (reco
 
 	// Remove the finalizers
 	finDropped := false
-	if contains(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
+	if hcoutil.ContainsString(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
 		req.Instance.ObjectMeta.Finalizers, finDropped = drop(req.Instance.ObjectMeta.Finalizers, FinalizerName)
 		req.Dirty = true
 		requeue = requeue || finDropped
 	}
-	if contains(req.Instance.ObjectMeta.Finalizers, badFinalizerName) {
+	if hcoutil.ContainsString(req.Instance.ObjectMeta.Finalizers, badFinalizerName) {
 		req.Instance.ObjectMeta.Finalizers, finDropped = drop(req.Instance.ObjectMeta.Finalizers, badFinalizerName)
 		req.Dirty = true
 		requeue = requeue || finDropped
@@ -873,15 +873,6 @@ func getSecondaryCRPlaceholder() (types.NamespacedName, error) {
 	hco.Namespace = namespace
 
 	return hco, nil
-}
-
-func contains(slice []string, s string) bool {
-	for _, element := range slice {
-		if element == s {
-			return true
-		}
-	}
-	return false
 }
 
 func drop(slice []string, s string) ([]string, bool) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
 	"github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	. "github.com/onsi/ginkgo"
@@ -157,6 +158,50 @@ var _ = Describe("Test operandHandler", func() {
 				Expect(qsList).ToNot(BeNil())
 				Expect(qsList.Items).To(HaveLen(1))
 				Expect(qsList.Items[0].Name).Should(Equal("test-quick-start"))
+			})
+		})
+
+		It("should handle errors on ensure loop", func() {
+			err := os.Setenv(manifestLocationVarName, testFileLocation)
+			Expect(err).ToNot(HaveOccurred())
+			hco := commonTestUtils.NewHco()
+			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd, hco})
+
+			eventEmitter := commonTestUtils.NewEventEmitterMock()
+
+			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), true, eventEmitter)
+			handler.FirstUseInitiation(commonTestUtils.GetScheme(), true, hco)
+
+			req := commonTestUtils.NewReq(hco)
+
+			// fail to create CDI
+			fakeError := fmt.Errorf("fake create CDI error")
+			cli.InitiateCreateErrors(func(obj client.Object) error {
+				if _, ok := obj.(*cdiv1beta1.CDI); ok {
+					return fakeError
+				}
+
+				return nil
+			})
+
+			err = handler.Ensure(req)
+			Expect(err).To(HaveOccurred())
+			Expect(err).Should(Equal(fakeError))
+
+			Expect(req.ComponentUpgradeInProgress).To(BeFalse())
+			cond := req.Conditions[hcov1beta1.ConditionReconcileComplete]
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).Should(Equal(corev1.ConditionFalse))
+			Expect(cond.Reason).Should(Equal(reconcileFailed))
+			Expect(cond.Message).Should(Equal(fmt.Sprintf("Error while reconciling: %v", fakeError)))
+
+			By("make sure the CDI object not created", func() {
+				// Read back CDI
+				cdiList := cdiv1beta1.CDIList{}
+				err := cli.List(req.Ctx, &cdiList)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(cdiList).ToNot(BeNil())
+				Expect(cdiList.Items).To(BeEmpty())
 			})
 		})
 

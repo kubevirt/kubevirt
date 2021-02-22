@@ -138,11 +138,11 @@ func getBasicDeployment() *BasicExpected {
 	expectedKVStorageConfig := operands.NewKubeVirtStorageConfigForCR(hco, namespace)
 	expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
 	res.kvStorageConfig = expectedKVStorageConfig
-	expectedKVStorageRole := operands.NewKubeVirtStorageRoleForCR(hco, namespace)
+	expectedKVStorageRole := operands.NewKubeVirtStorageRoleForCR(hco, namespace, commonTestUtils.GetScheme())
 	expectedKVStorageRole.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/roles/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
 	res.kvStorageRole = expectedKVStorageRole
 
-	expectedKVStorageRoleBinding := operands.NewKubeVirtStorageRoleBindingForCR(hco, namespace)
+	expectedKVStorageRoleBinding := operands.NewKubeVirtStorageRoleBindingForCR(hco, namespace, commonTestUtils.GetScheme())
 	expectedKVStorageRoleBinding.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/rolebindings/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
 	res.kvStorageRoleBinding = expectedKVStorageRoleBinding
 

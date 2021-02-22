@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
@@ -178,10 +181,11 @@ var _ = Describe("webhooks handler", func() {
 		It("should return error if KV CR is missing", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
-			cli := getFakeClient(s, hco)
-			kv, err := operands.NewKubeVirt(hco)
-			Expect(err).ToNot(HaveOccurred())
+			cli := getFakeClient(hco)
+
+			kv := operands.NewKubeVirtWithNameOnly(hco)
 			Expect(cli.Delete(ctx, kv)).To(BeNil())
+
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -196,7 +200,7 @@ var _ = Describe("webhooks handler", func() {
 				},
 			}
 
-			err = wh.ValidateUpdate(newHco, hco)
+			err := wh.ValidateUpdate(newHco, hco)
 			Expect(err).To(HaveOccurred())
 			Expect(apierrors.IsNotFound(err)).To(BeTrue())
 		})
@@ -212,8 +216,9 @@ var _ = Describe("webhooks handler", func() {
 					},
 				},
 			}
-			c := getFakeClient(s, hco)
-			cli := errorClient{c, kvUpdateFailure}
+			cli := getFakeClient(hco)
+			cli.InitiateUpdateErrors(getUpdateError(kvUpdateFailure))
+
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -230,7 +235,7 @@ var _ = Describe("webhooks handler", func() {
 		It("should return error if CDI CR is missing", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
-			cli := getFakeClient(s, hco)
+			cli := getFakeClient(hco)
 			cdi, err := operands.NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cli.Delete(ctx, cdi)).To(BeNil())
@@ -264,8 +269,8 @@ var _ = Describe("webhooks handler", func() {
 					},
 				},
 			}
-			c := getFakeClient(s, hco)
-			cli := errorClient{c, cdiUpdateFailure}
+			cli := getFakeClient(hco)
+			cli.InitiateUpdateErrors(getUpdateError(cdiUpdateFailure))
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -290,8 +295,9 @@ var _ = Describe("webhooks handler", func() {
 					},
 				},
 			}
-			c := getFakeClient(s, hco)
-			cli := errorClient{c, noFailure}
+			cli := getFakeClient(hco)
+			cli.InitiateUpdateErrors(getUpdateError(noFailure))
+
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -307,7 +313,7 @@ var _ = Describe("webhooks handler", func() {
 		It("should return error if NetworkAddons CR is missing", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
-			cli := getFakeClient(s, hco)
+			cli := getFakeClient(hco)
 			cna, err := operands.NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cli.Delete(ctx, cna)).To(BeNil())
@@ -341,8 +347,9 @@ var _ = Describe("webhooks handler", func() {
 					},
 				},
 			}
-			c := getFakeClient(s, hco)
-			cli := errorClient{c, networkUpdateFailure}
+			cli := getFakeClient(hco)
+			cli.InitiateUpdateErrors(getUpdateError(networkUpdateFailure))
+
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -359,7 +366,7 @@ var _ = Describe("webhooks handler", func() {
 		It("should return error if SSP CR is missing", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
-			cli := getFakeClient(s, hco)
+			cli := getFakeClient(hco)
 			Expect(cli.Delete(ctx, operands.NewSSP(hco))).To(BeNil())
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
@@ -391,8 +398,8 @@ var _ = Describe("webhooks handler", func() {
 					},
 				},
 			}
-			c := getFakeClient(s, hco)
-			cli := errorClient{c, sspUpdateFailure}
+			cli := getFakeClient(hco)
+			cli.InitiateUpdateErrors(getUpdateError(sspUpdateFailure))
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -410,7 +417,7 @@ var _ = Describe("webhooks handler", func() {
 		It("should return error if VMImport CR is missing", func() {
 			hco := &v1beta1.HyperConverged{}
 			ctx := context.TODO()
-			cli := getFakeClient(s, hco)
+			cli := getFakeClient(hco)
 			Expect(cli.Delete(ctx, operands.NewVMImportForCR(hco))).To(BeNil())
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
@@ -442,8 +449,9 @@ var _ = Describe("webhooks handler", func() {
 					},
 				},
 			}
-			c := getFakeClient(s, hco)
-			cli := errorClient{c, vmImportUpdateFailure}
+			cli := getFakeClient(hco)
+			cli.InitiateUpdateErrors(getUpdateError(vmImportUpdateFailure))
+
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -468,8 +476,9 @@ var _ = Describe("webhooks handler", func() {
 					},
 				},
 			}
-			c := getFakeClient(s, hco)
-			cli := errorClient{c, timeoutError}
+			cli := getFakeClient(hco)
+			cli.InitiateUpdateErrors(initiateTimeout)
+
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -483,11 +492,34 @@ var _ = Describe("webhooks handler", func() {
 			Expect(err).Should(Equal(context.DeadlineExceeded))
 		})
 
+		It("should not return error if nothing was changed", func() {
+			hco := &v1beta1.HyperConverged{
+				Spec: v1beta1.HyperConvergedSpec{
+					Infra: v1beta1.HyperConvergedConfig{
+						NodePlacement: newHyperConvergedConfig(),
+					},
+					Workloads: v1beta1.HyperConvergedConfig{
+						NodePlacement: newHyperConvergedConfig(),
+					},
+				},
+			}
+			cli := getFakeClient(hco)
+			cli.InitiateUpdateErrors(initiateTimeout)
+
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli, HcoValidNamespace, true)
+
+			newHco := &v1beta1.HyperConverged{}
+			hco.DeepCopyInto(newHco)
+
+			Expect(wh.ValidateUpdate(newHco, hco)).ToNot(HaveOccurred())
+		})
+
 		Context("plain-k8s tests", func() {
 			It("should return error in plain-k8s if KV CR is missing", func() {
 				hco := &v1beta1.HyperConverged{}
 				ctx := context.TODO()
-				cli := getFakeClient(s, hco)
+				cli := getFakeClient(hco)
 				kv, err := operands.NewKubeVirt(hco)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cli.Delete(ctx, kv)).To(BeNil())
@@ -521,8 +553,9 @@ var _ = Describe("webhooks handler", func() {
 						},
 					},
 				}
-				c := getFakeClient(s, hco)
-				cli := errorClient{c, vmImportUpdateFailure}
+				cli := getFakeClient(hco)
+				cli.InitiateUpdateErrors(getUpdateError(vmImportUpdateFailure))
+
 				wh := &WebhookHandler{}
 				wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -535,6 +568,141 @@ var _ = Describe("webhooks handler", func() {
 				Expect(err).NotTo(BeNil())
 				Expect(err).Should(Equal(ErrFakeVMImportError))
 			})
+		})
+	})
+
+	Context("validate delete validation webhook", func() {
+		It("should validate deletion", func() {
+			hco := &v1beta1.HyperConverged{}
+			cli := getFakeClient(hco)
+
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli, HcoValidNamespace, true)
+
+			err := wh.ValidateDelete(hco)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Validate that KV still exists, as it a dry-run deletion")
+			kv := operands.NewKubeVirtWithNameOnly(hco)
+			err = util.GetRuntimeObject(context.TODO(), cli, kv, logger)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Validate that CDI still exists, as it a dry-run deletion")
+			cdi := operands.NewCDIWithNameOnly(hco)
+			err = util.GetRuntimeObject(context.TODO(), cli, cdi, logger)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject if KV deletion fails", func() {
+			hco := &v1beta1.HyperConverged{}
+			cli := getFakeClient(hco)
+
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli, HcoValidNamespace, true)
+
+			cli.InitiateDeleteErrors(func(obj client.Object) error {
+				if unstructed, ok := obj.(runtime.Unstructured); ok {
+					kind := unstructed.GetObjectKind()
+					if kind.GroupVersionKind().Kind == "KubeVirt" {
+						return ErrFakeKvError
+					}
+				}
+				return nil
+			})
+
+			err := wh.ValidateDelete(hco)
+			Expect(err).To(HaveOccurred())
+			Expect(err).Should(Equal(ErrFakeKvError))
+		})
+
+		It("should reject if CDI deletion fails", func() {
+			hco := &v1beta1.HyperConverged{}
+			cli := getFakeClient(hco)
+
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli, HcoValidNamespace, true)
+
+			cli.InitiateDeleteErrors(func(obj client.Object) error {
+				if unstructed, ok := obj.(runtime.Unstructured); ok {
+					kind := unstructed.GetObjectKind()
+					if kind.GroupVersionKind().Kind == "CDI" {
+						return ErrFakeCdiError
+					}
+				}
+				return nil
+			})
+
+			err := wh.ValidateDelete(hco)
+			Expect(err).To(HaveOccurred())
+			Expect(err).Should(Equal(ErrFakeCdiError))
+		})
+
+		It("should ignore if KV does not exist", func() {
+			hco := &v1beta1.HyperConverged{}
+			cli := getFakeClient(hco)
+			ctx := context.TODO()
+
+			kv := operands.NewKubeVirtWithNameOnly(hco)
+			Expect(cli.Delete(ctx, kv)).To(BeNil())
+
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli, HcoValidNamespace, true)
+
+			err := wh.ValidateDelete(hco)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject if getting KV failed for not-not-exists error", func() {
+			hco := &v1beta1.HyperConverged{}
+			cli := getFakeClient(hco)
+
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli, HcoValidNamespace, true)
+
+			cli.InitiateGetErrors(func(key client.ObjectKey) error {
+				if key.Name == "kubevirt-kubevirt-hyperconverged" {
+					return ErrFakeKvError
+				}
+				return nil
+			})
+
+			err := wh.ValidateDelete(hco)
+			Expect(err).To(HaveOccurred())
+			Expect(err).Should(Equal(ErrFakeKvError))
+		})
+
+		It("should ignore if CDI does not exist", func() {
+			hco := &v1beta1.HyperConverged{}
+			cli := getFakeClient(hco)
+			ctx := context.TODO()
+
+			cdi := operands.NewCDIWithNameOnly(hco)
+			Expect(cli.Delete(ctx, cdi)).To(BeNil())
+
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli, HcoValidNamespace, true)
+
+			err := wh.ValidateDelete(hco)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject if getting CDI failed for not-not-exists error", func() {
+			hco := &v1beta1.HyperConverged{}
+			cli := getFakeClient(hco)
+
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli, HcoValidNamespace, true)
+
+			cli.InitiateGetErrors(func(key client.ObjectKey) error {
+				if key.Name == "cdi-kubevirt-hyperconverged" {
+					return ErrFakeCdiError
+				}
+				return nil
+			})
+
+			err := wh.ValidateDelete(hco)
+			Expect(err).To(HaveOccurred())
+			Expect(err).Should(Equal(ErrFakeCdiError))
 		})
 	})
 
@@ -553,7 +721,7 @@ var _ = Describe("webhooks handler", func() {
 
 		DescribeTable("should accept if annotation is valid",
 			func(annotationName, annotation string) {
-				cli := getFakeClient(s, hco)
+				cli := getFakeClient(hco)
 				wh := &WebhookHandler{}
 				wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -571,8 +739,9 @@ var _ = Describe("webhooks handler", func() {
 
 		DescribeTable("should reject if annotation is invalid",
 			func(annotationName, annotation string) {
-				c := getFakeClient(s, hco)
-				cli := errorClient{c, timeoutError}
+				cli := getFakeClient(hco)
+				cli.InitiateUpdateErrors(initiateTimeout)
+
 				wh := &WebhookHandler{}
 				wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -612,7 +781,7 @@ var _ = Describe("webhooks handler", func() {
 		}
 
 		It("should allow the delete of the namespace if Hyperconverged CR doesn't exist", func() {
-			cli := fake.NewFakeClientWithScheme(s)
+			cli := commonTestUtils.InitClient(nil)
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -622,7 +791,7 @@ var _ = Describe("webhooks handler", func() {
 		})
 
 		It("should not allow the delete of the namespace if Hyperconverged CR exists", func() {
-			cli := fake.NewFakeClientWithScheme(s, cr)
+			cli := commonTestUtils.InitClient([]runtime.Object{cr})
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -631,8 +800,27 @@ var _ = Describe("webhooks handler", func() {
 			Expect(allowed).To(BeFalse())
 		})
 
+		It("should not allow the delete of the namespace if failed to get Hyperconverged CR", func() {
+			cli := commonTestUtils.InitClient([]runtime.Object{cr})
+
+			cli.InitiateGetErrors(func(key client.ObjectKey) error {
+				if key.Name == "kubevirt-hyperconverged" {
+					return ErrFakeHcoError
+				}
+				return nil
+			})
+
+			wh := &WebhookHandler{}
+			wh.Init(logger, cli, HcoValidNamespace, true)
+
+			allowed, err := wh.HandleMutatingNsDelete(ns, false)
+			Expect(err).To(HaveOccurred())
+			Expect(err).Should(Equal(ErrFakeHcoError))
+			Expect(allowed).To(BeFalse())
+		})
+
 		It("should ignore other namespaces even if Hyperconverged CR exists", func() {
-			cli := fake.NewFakeClientWithScheme(s, cr)
+			cli := commonTestUtils.InitClient([]runtime.Object{cr})
 			wh := &WebhookHandler{}
 			wh.Init(logger, cli, HcoValidNamespace, true)
 
@@ -646,7 +834,6 @@ var _ = Describe("webhooks handler", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(allowed).To(BeTrue())
 		})
-
 	})
 })
 
@@ -682,7 +869,8 @@ func newHyperConvergedConfig() *sdkapi.NodePlacement {
 	}
 }
 
-func getFakeClient(s *runtime.Scheme, hco *v1beta1.HyperConverged) client.Client {
+func getFakeClient(hco *v1beta1.HyperConverged) *commonTestUtils.HcoTestClient {
+	hco.Name = "kubevirt-hyperconverged"
 	kv, err := operands.NewKubeVirt(hco)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -692,14 +880,7 @@ func getFakeClient(s *runtime.Scheme, hco *v1beta1.HyperConverged) client.Client
 	cna, err := operands.NewNetworkAddons(hco)
 	Expect(err).ToNot(HaveOccurred())
 
-	return fake.NewFakeClientWithScheme(
-		s,
-		hco,
-		kv,
-		cdi,
-		cna,
-		operands.NewSSP(hco),
-		operands.NewVMImportForCR(hco))
+	return commonTestUtils.InitClient([]runtime.Object{hco, kv, cdi, cna, operands.NewSSP(hco), operands.NewVMImportForCR(hco)})
 }
 
 type fakeFailure int
@@ -711,15 +892,10 @@ const (
 	networkUpdateFailure
 	sspUpdateFailure
 	vmImportUpdateFailure
-	timeoutError
 )
 
-type errorClient struct {
-	client.Client
-	failure fakeFailure
-}
-
 var (
+	ErrFakeHcoError      = errors.New("fake HyperConverged error")
 	ErrFakeKvError       = errors.New("fake KubeVirt error")
 	ErrFakeCdiError      = errors.New("fake CDI error")
 	ErrFakeNetworkError  = errors.New("fake Network error")
@@ -727,34 +903,53 @@ var (
 	ErrFakeVMImportError = errors.New("fake VMImport error")
 )
 
-func (ec errorClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
-	switch obj.(type) {
-	case *kubevirtv1.KubeVirt:
-		if ec.failure == kvUpdateFailure {
-			return ErrFakeKvError
+func getUpdateError(failure fakeFailure) commonTestUtils.FakeWriteErrorGenerator {
+	switch failure {
+	case kvUpdateFailure:
+		return func(obj client.Object) error {
+			if _, ok := obj.(*kubevirtv1.KubeVirt); ok {
+				return ErrFakeKvError
+			}
+			return nil
 		}
-	case *cdiv1beta1.CDI:
-		if ec.failure == cdiUpdateFailure {
-			return ErrFakeCdiError
-		}
-	case *networkaddonsv1.NetworkAddonsConfig:
-		if ec.failure == networkUpdateFailure {
-			return ErrFakeNetworkError
-		}
-	case *sspv1beta1.SSP:
-		if ec.failure == sspUpdateFailure {
-			return ErrFakeSspError
-		}
-	case *vmimportv1beta1.VMImportConfig:
-		if ec.failure == vmImportUpdateFailure {
-			return ErrFakeVMImportError
-		}
-	}
 
-	if ec.failure == timeoutError {
-		// timeout + 100 ms
-		time.Sleep(updateDryRunTimeOut + time.Millisecond*100)
-	}
+	case cdiUpdateFailure:
+		return func(obj client.Object) error {
+			if _, ok := obj.(*cdiv1beta1.CDI); ok {
+				return ErrFakeCdiError
+			}
+			return nil
+		}
 
-	return ec.Client.Update(ctx, obj, opts...)
+	case networkUpdateFailure:
+		return func(obj client.Object) error {
+			if _, ok := obj.(*networkaddonsv1.NetworkAddonsConfig); ok {
+				return ErrFakeNetworkError
+			}
+			return nil
+		}
+
+	case vmImportUpdateFailure:
+		return func(obj client.Object) error {
+			if _, ok := obj.(*vmimportv1beta1.VMImportConfig); ok {
+				return ErrFakeVMImportError
+			}
+			return nil
+		}
+
+	case sspUpdateFailure:
+		return func(obj client.Object) error {
+			if _, ok := obj.(*sspv1beta1.SSP); ok {
+				return ErrFakeSspError
+			}
+			return nil
+		}
+	default:
+		return nil
+	}
+}
+
+func initiateTimeout(_ client.Object) error {
+	time.Sleep(updateDryRunTimeOut + time.Millisecond*100)
+	return nil
 }

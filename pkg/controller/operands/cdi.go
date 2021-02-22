@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	cdiRoleName = "hco.kubevirt.io:config-reader"
+	cdiRoleName                   = "hco.kubevirt.io:config-reader"
+	HonorWaitForFirstConsumerGate = "HonorWaitForFirstConsumer"
 )
 
 type cdiHandler genericOperand
@@ -84,9 +85,9 @@ func (h *cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists
 	if found.Spec.Config != nil {
 		cdi.Spec.Config = &cdiv1beta1.CDIConfigSpec{}
 		found.Spec.Config.DeepCopyInto(cdi.Spec.Config)
+		// restore default feature gates
+		setDefaultFeatureGates(&cdi.Spec)
 	}
-
-	setDefaultFeatureGates(&cdi.Spec)
 
 	if !reflect.DeepEqual(found.Spec, cdi.Spec) ||
 		!reflect.DeepEqual(found.Labels, cdi.Labels) {
@@ -109,19 +110,19 @@ func (h *cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists
 }
 
 func setDefaultFeatureGates(spec *cdiv1beta1.CDISpec) {
-	featureGate := "HonorWaitForFirstConsumer"
-
 	if spec.Config == nil {
 		spec.Config = &cdiv1beta1.CDIConfigSpec{}
-	} else {
-		for _, value := range spec.Config.FeatureGates {
-			if value == featureGate {
-				return
-			}
-		}
 	}
 
-	spec.Config.FeatureGates = append(spec.Config.FeatureGates, featureGate)
+	if hcoutil.ContainsString(spec.Config.FeatureGates, HonorWaitForFirstConsumerGate) {
+		return
+	}
+
+	spec.Config.FeatureGates = append(spec.Config.FeatureGates, getDefaultFeatureGates()...)
+}
+
+func getDefaultFeatureGates() []string {
+	return []string{HonorWaitForFirstConsumerGate}
 }
 
 func (h *cdiHooks) postFound(req *common.HcoRequest, exists runtime.Object) error {
@@ -143,7 +144,7 @@ func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) (*cdiv1beta1.CDI, err
 
 	spec := cdiv1beta1.CDISpec{
 		UninstallStrategy: &uninstallStrategy,
-		Config:            &cdiv1beta1.CDIConfigSpec{FeatureGates: []string{"HonorWaitForFirstConsumer"}},
+		Config:            &cdiv1beta1.CDIConfigSpec{FeatureGates: getDefaultFeatureGates()},
 	}
 
 	if hc.Spec.Infra.NodePlacement != nil {
@@ -174,14 +175,11 @@ func NewCDIWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *cdiv1bet
 }
 
 func (h *cdiHooks) ensureKubeVirtStorageRole(req *common.HcoRequest) error {
-	kubevirtStorageRole := NewKubeVirtStorageRoleForCR(req.Instance, req.Namespace)
-	if err := controllerutil.SetControllerReference(req.Instance, kubevirtStorageRole, h.Scheme); err != nil {
-		return err
-	}
+	kubevirtStorageRole := NewKubeVirtStorageRoleForCR(req.Instance, req.Namespace, h.Scheme)
 
 	found := &rbacv1.Role{}
 	err := h.Client.Get(req.Ctx, client.ObjectKeyFromObject(kubevirtStorageRole), found)
-	if err != nil && apierrors.IsNotFound(err) {
+	if apierrors.IsNotFound(err) {
 		req.Logger.Info("Creating kubevirt storage role")
 		return h.Client.Create(req.Ctx, kubevirtStorageRole)
 	}
@@ -208,10 +206,7 @@ func (h *cdiHooks) ensureKubeVirtStorageRole(req *common.HcoRequest) error {
 }
 
 func (h *cdiHooks) ensureKubeVirtStorageRoleBinding(req *common.HcoRequest) error {
-	kubevirtStorageRoleBinding := NewKubeVirtStorageRoleBindingForCR(req.Instance, req.Namespace)
-	if err := controllerutil.SetControllerReference(req.Instance, kubevirtStorageRoleBinding, h.Scheme); err != nil {
-		return err
-	}
+	kubevirtStorageRoleBinding := NewKubeVirtStorageRoleBindingForCR(req.Instance, req.Namespace, h.Scheme)
 
 	found := &rbacv1.RoleBinding{}
 	err := h.Client.Get(req.Ctx, client.ObjectKeyFromObject(kubevirtStorageRoleBinding), found)
@@ -241,8 +236,8 @@ func (h *cdiHooks) ensureKubeVirtStorageRoleBinding(req *common.HcoRequest) erro
 	return nil
 }
 
-func NewKubeVirtStorageRoleForCR(cr *hcov1beta1.HyperConverged, namespace string) *rbacv1.Role {
-	return &rbacv1.Role{
+func NewKubeVirtStorageRoleForCR(cr *hcov1beta1.HyperConverged, namespace string, scheme *runtime.Scheme) *rbacv1.Role {
+	role := &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cdiRoleName,
 			Labels:    getLabels(cr, hcoutil.AppComponentStorage),
@@ -257,10 +252,13 @@ func NewKubeVirtStorageRoleForCR(cr *hcov1beta1.HyperConverged, namespace string
 			},
 		},
 	}
+
+	_ = controllerutil.SetControllerReference(cr, role, scheme)
+	return role
 }
 
-func NewKubeVirtStorageRoleBindingForCR(cr *hcov1beta1.HyperConverged, namespace string) *rbacv1.RoleBinding {
-	return &rbacv1.RoleBinding{
+func NewKubeVirtStorageRoleBindingForCR(cr *hcov1beta1.HyperConverged, namespace string, scheme *runtime.Scheme) *rbacv1.RoleBinding {
+	roleBinding := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cdiRoleName,
 			Labels:    getLabels(cr, hcoutil.AppComponentStorage),
@@ -279,6 +277,10 @@ func NewKubeVirtStorageRoleBindingForCR(cr *hcov1beta1.HyperConverged, namespace
 			},
 		},
 	}
+
+	_ = controllerutil.SetControllerReference(cr, roleBinding, scheme)
+
+	return roleBinding
 }
 
 // ************** CDI Storage Config Handler **************

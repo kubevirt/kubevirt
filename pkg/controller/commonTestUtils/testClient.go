@@ -2,6 +2,7 @@ package commonTestUtils
 
 import (
 	"context"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -41,6 +42,11 @@ func (c *HcoTestClient) Create(ctx context.Context, obj client.Object, opts ...c
 		}
 	}
 
+	for _, opt := range opts {
+		if do, ok := opt.(*client.CreateOptions); ok && len(do.DryRun) == 1 && do.DryRun[0] == metav1.DryRunAll {
+			return nil
+		}
+	}
 	return c.client.Create(ctx, obj, opts...)
 }
 
@@ -48,6 +54,12 @@ func (c *HcoTestClient) Delete(ctx context.Context, obj client.Object, opts ...c
 	if c.deleteError != nil {
 		if err := c.deleteError(obj); err != nil {
 			return err
+		}
+	}
+
+	for _, opt := range opts {
+		if do, ok := opt.(*client.DeleteOptions); ok && len(do.DryRun) == 1 && do.DryRun[0] == metav1.DryRunAll {
+			return nil
 		}
 	}
 
@@ -60,6 +72,13 @@ func (c *HcoTestClient) Update(ctx context.Context, obj client.Object, opts ...c
 			return err
 		}
 	}
+
+	for _, opt := range opts {
+		if do, ok := opt.(*client.UpdateOptions); ok && len(do.DryRun) == 1 && do.DryRun[0] == metav1.DryRunAll {
+			return nil
+		}
+	}
+
 	return c.client.Update(ctx, obj, opts...)
 }
 

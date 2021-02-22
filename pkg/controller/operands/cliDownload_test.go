@@ -3,6 +3,10 @@ package operands
 import (
 	"context"
 	"fmt"
+	"os"
+
+	"k8s.io/apimachinery/pkg/api/meta"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
@@ -15,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -62,6 +65,23 @@ var _ = Describe("CLI Download", func() {
 			Expect(err).To(BeNil())
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
+		})
+
+		It("Should override links' url and text by the env vars", func() {
+			origUrl := os.Getenv("VIRTCTL_DOWNLOAD_URL")
+			origText := os.Getenv("VIRTCTL_DOWNLOAD_TEXT")
+			defer os.Setenv("VIRTCTL_DOWNLOAD_URL", origUrl)
+			defer os.Setenv("VIRTCTL_DOWNLOAD_TEXT", origText)
+
+			_ = os.Setenv("VIRTCTL_DOWNLOAD_URL", "https://test-url:8443")
+			_ = os.Setenv("VIRTCTL_DOWNLOAD_TEXT", "link text")
+			expectedResource := NewConsoleCLIDownload(hco)
+			Expect(expectedResource.Spec.Links).Should(HaveLen(1))
+			Expect(expectedResource.Spec.Links).Should(ContainElement(consolev1.CLIDownloadLink{
+				Text: "link text",
+				Href: "https://test-url:8443",
+			}))
+
 		})
 
 		DescribeTable("should update if something changed", func(modifiedResource *consolev1.ConsoleCLIDownload) {
@@ -116,5 +136,37 @@ var _ = Describe("CLI Download", func() {
 				},
 			),
 		)
+
+		It("should return error if ConsoleCLIDownload was not found", func() {
+			cl := commonTestUtils.InitClient([]runtime.Object{})
+			handler := &CLIDownloadHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+
+			cl.InitiateCreateErrors(func(obj client.Object) error {
+				if _, ok := obj.(*consolev1.ConsoleCLIDownload); ok {
+					return &meta.NoResourceMatchError{}
+				}
+				return nil
+			})
+			err := handler.Ensure(req)
+			Expect(err).To(HaveOccurred())
+			Expect(meta.IsNoMatchError(err)).To(BeTrue())
+		})
+
+		It("should return error when update fails", func() {
+			expectedResource := NewConsoleCLIDownload(hco)
+			expectedResource.Spec.Links[0].Text = "wrong text"
+			cl := commonTestUtils.InitClient([]runtime.Object{expectedResource})
+			fakeErr := fmt.Errorf("fake ConsoleCLIDownload update error")
+			cl.InitiateUpdateErrors(func(obj client.Object) error {
+				if _, ok := obj.(*consolev1.ConsoleCLIDownload); ok {
+					return fakeErr
+				}
+				return nil
+			})
+			handler := &CLIDownloadHandler{Client: cl, Scheme: commonTestUtils.GetScheme()}
+			err := handler.Ensure(req)
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(Equal(fakeErr))
+		})
 	})
 })

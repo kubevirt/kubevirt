@@ -139,11 +139,8 @@ func (wh WebhookHandler) ValidateUpdate(requested *v1beta1.HyperConverged, exist
 		}
 		return nil
 	}
-
-	return nil
 }
 
-// currently only supports KV and CDI
 func (wh WebhookHandler) updateOperatorCr(ctx context.Context, hc *v1beta1.HyperConverged, exists client.Object, opts *client.UpdateOptions) error {
 	err := hcoutil.GetRuntimeObject(ctx, wh.cli, exists, wh.logger)
 	if err != nil {
@@ -196,15 +193,8 @@ func (wh WebhookHandler) ValidateDelete(hc *v1beta1.HyperConverged) error {
 
 	ctx := context.TODO()
 
-	kv, err := operands.NewKubeVirt(hc)
-	if err != nil {
-		return err
-	}
-
-	cdi, err := operands.NewCDI(hc)
-	if err != nil {
-		return err
-	}
+	kv := operands.NewKubeVirtWithNameOnly(hc)
+	cdi := operands.NewCDIWithNameOnly(hc)
 
 	for _, obj := range []client.Object{
 		kv,
