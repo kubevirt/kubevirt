@@ -2915,9 +2915,10 @@ func WaitUntilVMIReadyWithContext(ctx context.Context, vmi *v1.VirtualMachineIns
 	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-	// Lets make sure that the OS is up by waiting until we can login
-
-	ExpectWithOffset(1, loginTo(vmi)).To(Succeed())
+	if loginTo != nil {
+		// Lets make sure that the OS is up by waiting until we can login
+		ExpectWithOffset(1, loginTo(vmi)).To(Succeed())
+	}
 	return vmi
 }
 func NewInt32(x int32) *int32 {
