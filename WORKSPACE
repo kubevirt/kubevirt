@@ -323,10 +323,10 @@ container_pull(
 # instead of index.docker.io
 container_pull(
     name = "fedora_sriov_lane",
-    digest = "sha256:2d332d28863d0e415d58e335e836bd4f8a8c714e7a9d1f8f87418ef3db7c0afb",
+    digest = "sha256:0d88f9100eacd2020254a98461e28c879709c4eadd2cefe225c0c1892620c6cf",
     registry = "quay.io",
-    repository = "kubevirtci/fedora-sriov-testing",
-    #tag = "32",
+    repository = "oshoval/fedora-sriov-lane-container-disk-test",
+    tag = "devel2",
 )
 
 # Pull nfs-server image
