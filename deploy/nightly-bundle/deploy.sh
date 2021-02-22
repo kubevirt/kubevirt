@@ -101,9 +101,7 @@ kind: OperatorGroup
 metadata:
   name: "${TARGET_NAMESPACE}-group"
   namespace: "${TARGET_NAMESPACE}"
-spec:
-  targetNamespaces:
-  - "${TARGET_NAMESPACE}"
+spec: {}
 EOF
     fi
 

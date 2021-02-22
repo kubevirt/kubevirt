@@ -127,9 +127,7 @@ kind: OperatorGroup
 metadata:
   name: ${HCO_OPERATORGROUP_NAME}
   namespace: ${HCO_NAMESPACE}
-spec:
-  targetNamespaces:
-  - ${HCO_NAMESPACE}
+spec: {}
 EOF
 
 cat <<EOF | ${CMD} create -f -
@@ -179,6 +177,13 @@ EOF
 # Allow time for the install plan to be created a for the
 # hco-operator to be created. Otherwise kubectl wait will report EOF.
 ./hack/retry.sh 20 30 "${CMD} get subscription -n ${HCO_NAMESPACE} | grep -v EOF"
+
+# Wait for the CSV to be created
+./hack/retry.sh 20 30 "${CMD} get csv -n ${HCO_NAMESPACE} | grep -v EOF"
+# Adjust the OperatorGroup to the supported InstallMode of the CSV
+source hack/patch_og.sh
+patch_og ${INITIAL_CHANNEL}
+
 ./hack/retry.sh 20 30 "${CMD} get pods -n ${HCO_NAMESPACE} | grep hco-operator"
 
 ${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} ${HCO_WH_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="1200s"
@@ -230,7 +235,19 @@ ${CMD} patch subscription ${HCO_SUBSCRIPTION_NAME} -n ${HCO_NAMESPACE} -p "{\"sp
 Msg "Verify the subscription's currentCSV and installedCSV have moved to the new version"
 
 sleep 60
+patch_og ${TARGET_CHANNEL}
+sleep 30
+CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE} | grep ${INITIAL_CHANNEL})
+if [ -n "${CSV}" ] && [ ${OG_PATCHED} -eq 1 ]
+then
+  ${CMD} delete "${CSV}" -n ${HCO_NAMESPACE}
+fi
+
+sleep 30
+
 ${CMD} get pods -n ${HCO_NAMESPACE}
+./hack/retry.sh 30 60 "${CMD} get deployment -n ${HCO_NAMESPACE} | grep ${HCO_DEPLOYMENT_NAME}"
+
 ${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="1200s"
 ${CMD} wait deployment ${HCO_WH_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="1200s"
 

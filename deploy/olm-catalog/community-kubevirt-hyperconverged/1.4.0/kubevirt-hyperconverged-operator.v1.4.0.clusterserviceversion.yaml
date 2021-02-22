@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:a137fd1ee55ae8806cbdd66912c7931c7f567315f0a927b3a12090112e96edb1
-    createdAt: "2021-02-11 13:21:20"
+    createdAt: "2021-02-18 18:02:24"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -2514,13 +2514,13 @@ spec:
         serviceAccountName: hostpath-provisioner-operator
     strategy: deployment
   installModes:
-  - supported: true
+  - supported: false
     type: OwnNamespace
-  - supported: true
+  - supported: false
     type: SingleNamespace
   - supported: false
     type: MultiNamespace
-  - supported: false
+  - supported: true
     type: AllNamespaces
   keywords:
   - KubeVirt

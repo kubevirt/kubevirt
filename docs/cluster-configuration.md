@@ -222,7 +222,7 @@ metadata:
       ]
 ```
 
-**_Note:_** The full configurations options for Kubevirt, CDI and CNAO which are avialbale on the cluster, can be explored by using `kubectl explain <resource name>.spec`. For example:  
+**_Note:_** The full configurations options for Kubevirt, CDI and CNAO which are available on the cluster, can be explored by using `kubectl explain <resource name>.spec`. For example:  
 ```yaml
 $ kubectl explain kv.spec
 KIND:     KubeVirt

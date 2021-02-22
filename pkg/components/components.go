@@ -1146,11 +1146,11 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 			InstallModes: []csvv1alpha1.InstallMode{
 				csvv1alpha1.InstallMode{
 					Type:      csvv1alpha1.InstallModeTypeOwnNamespace,
-					Supported: true,
+					Supported: false,
 				},
 				csvv1alpha1.InstallMode{
 					Type:      csvv1alpha1.InstallModeTypeSingleNamespace,
-					Supported: true,
+					Supported: false,
 				},
 				csvv1alpha1.InstallMode{
 					Type:      csvv1alpha1.InstallModeTypeMultiNamespace,
@@ -1158,7 +1158,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 				},
 				csvv1alpha1.InstallMode{
 					Type:      csvv1alpha1.InstallModeTypeAllNamespaces,
-					Supported: false,
+					Supported: true,
 				},
 			},
 			// Skip this in favor of having a separate function to get

@@ -95,7 +95,10 @@ func (h HcCmdHelper) checkNameSpace() {
 		actualNS = requiredNS
 	}
 
-	if actualNS != requiredNS {
+	// Allowing the operator to be deployed in OperatorTestNamespace, in addition to OPERATOR_NAMESPACE env var,
+	// to unblock its publish in OperatorHub.io
+	nsAllowList := []string{requiredNS, hcoutil.OperatorTestNamespace}
+	if !stringInSlice(actualNS, nsAllowList) {
 		err := fmt.Errorf("%s is running in different namespace than expected", h.Name)
 		msg := fmt.Sprintf("Please re-deploy this %s into %v namespace", h.Name, requiredNS)
 		h.ExitOnError(err, msg, "Expected.Namespace", requiredNS, "Deployed.Namespace", actualNS)
@@ -115,4 +118,13 @@ func updateFlagSet(flags ...*flag.FlagSet) {
 	for _, f := range flags {
 		pflag.CommandLine.AddGoFlagSet(f)
 	}
+}
+
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
