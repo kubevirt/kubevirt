@@ -24,6 +24,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -160,5 +161,71 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 
 		resp := kvAdmitter.Admit(ar)
 		Expect(resp.Allowed).To(BeTrue())
+	})
+
+	table.DescribeTable("test validateCustomizeComponents", func(cc v1.CustomizeComponents, expectedCauses int) {
+		causes := validateCustomizeComponents(cc)
+		Expect(len(causes)).To(Equal(expectedCauses))
+	},
+		table.Entry("valid values accepted", v1.CustomizeComponents{
+			Patches: []v1.CustomizeComponentsPatch{
+				{
+					ResourceName: "virt-api",
+					ResourceType: "Deployment",
+					Type:         v1.StrategicMergePatchType,
+					Patch:        `{"json: "not valid"}`,
+				},
+			},
+		}, 1),
+		table.Entry("valid values accepted", v1.CustomizeComponents{
+			Patches: []v1.CustomizeComponentsPatch{
+				{
+					ResourceName: "virt-api",
+					ResourceType: "Deployment",
+					Type:         v1.StrategicMergePatchType,
+					Patch:        `{}`,
+				},
+			},
+		}, 0),
+	)
+
+	It("should reject with workload and JSON patch validation invalid", func() {
+		vmi := v1.NewMinimalVMI("testmigratevmiupdate")
+		kvAdmitter := getAdmitter(true, vmi)
+		kv := getKV()
+		kvBytes, _ := json.Marshal(&kv)
+
+		cc := getComponentConfig()
+		kv.Spec.Workloads = &cc
+		kv.Spec.CustomizeComponents = v1.CustomizeComponents{
+			Patches: []v1.CustomizeComponentsPatch{
+				{
+					ResourceName: "virt-api",
+					ResourceType: "Deployment",
+					Type:         v1.StrategicMergePatchType,
+					Patch:        ``,
+				},
+			},
+		}
+		kvUpdateBytes, _ := json.Marshal(&kv)
+
+		ar := &v1beta1.AdmissionReview{
+			Request: &v1beta1.AdmissionRequest{
+				Resource: webhooks.KubeVirtGroupVersionResource,
+				Object: runtime.RawExtension{
+					Raw: kvUpdateBytes,
+				},
+				OldObject: runtime.RawExtension{
+					Raw: kvBytes,
+				},
+				Operation: v1beta1.Update,
+			},
+		}
+
+		resp := kvAdmitter.Admit(ar)
+		Expect(resp.Allowed).To(BeFalse())
+		// 3 because empty type and resource, nonvalid JSON and can not change
+		// workload placement when vmi is running
+		Expect(len(resp.Result.Details.Causes)).To(Equal(2))
 	})
 })

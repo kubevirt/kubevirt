@@ -221,8 +221,10 @@ spec:
                       patch:
                         type: string
                       resourceName:
+                        minLength: 1
                         type: string
                       resourceType:
+                        minLength: 1
                         type: string
                       type:
                         type: string
