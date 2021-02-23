@@ -40,14 +40,13 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	cache2 "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache"
+	netcache "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache"
 
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 
@@ -122,7 +121,7 @@ func NewController(
 		containerDiskMounter:        container_disk.NewMounter(podIsolationDetector, virtPrivateDir+"/container-disk-mount-state"),
 		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter(podIsolationDetector, virtPrivateDir+"/hotplug-volume-mount-state"),
 		clusterConfig:               clusterConfig,
-		networkCacheStoreFactory:    cache2.NewInterfaceCacheFactory(),
+		networkCacheStoreFactory:    netcache.NewInterfaceCacheFactory(),
 		virtLauncherFSRunDirPattern: "/proc/%d/root/var/run",
 	}
 
@@ -152,7 +151,7 @@ func NewController(
 
 	c.launcherClients = make(map[types.UID]*launcherClientInfo)
 	c.phase1NetworkSetupCache = make(map[types.UID]int)
-	c.podInterfaceCache = make(map[string]*cache2.PodCacheInterface)
+	c.podInterfaceCache = make(map[string]*netcache.PodCacheInterface)
 
 	c.domainNotifyPipes = make(map[string]string)
 
@@ -193,11 +192,11 @@ type VirtualMachineController struct {
 
 	// key is the file path, value is the contents.
 	// if key exists, then don't read directly from file.
-	podInterfaceCache     map[string]*cache2.PodCacheInterface
+	podInterfaceCache     map[string]*netcache.PodCacheInterface
 	podInterfaceCacheLock sync.Mutex
 
 	domainNotifyPipes           map[string]string
-	networkCacheStoreFactory    cache2.InterfaceCacheFactory
+	networkCacheStoreFactory    netcache.InterfaceCacheFactory
 	virtLauncherFSRunDirPattern string
 }
 
@@ -468,7 +467,7 @@ func domainMigrated(domain *api.Domain) bool {
 	return false
 }
 
-func (d *VirtualMachineController) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*cache2.PodCacheInterface, error) {
+func (d *VirtualMachineController) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*netcache.PodCacheInterface, error) {
 	cacheKey := fmt.Sprintf("%s/%s", vmi.UID, ifaceName)
 
 	// Once the Interface files are set on the handler, they don't change
@@ -752,7 +751,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		if add {
 			newCondition := v1.VirtualMachineInstanceCondition{
 				Type:               v1.VirtualMachineInstanceAccessCredentialsSynchronized,
-				LastTransitionTime: v12.Now(),
+				LastTransitionTime: metav1.Now(),
 				Status:             status,
 				Message:            message,
 			}
@@ -786,7 +785,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		}
 
 		if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.EndTimestamp == nil {
-			now := v12.NewTime(time.Now())
+			now := metav1.NewTime(time.Now())
 			vmi.Status.MigrationState.EndTimestamp = &now
 		}
 
@@ -878,7 +877,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 	case channelConnected && !condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected):
 		agentCondition := v1.VirtualMachineInstanceCondition{
 			Type:          v1.VirtualMachineInstanceAgentConnected,
-			LastProbeTime: v12.Now(),
+			LastProbeTime: metav1.Now(),
 			Status:        k8sv1.ConditionTrue,
 		}
 		vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
@@ -906,7 +905,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceUnsupportedAgent) {
 				agentCondition := v1.VirtualMachineInstanceCondition{
 					Type:          v1.VirtualMachineInstanceUnsupportedAgent,
-					LastProbeTime: v12.Now(),
+					LastProbeTime: metav1.Now(),
 					Status:        k8sv1.ConditionTrue,
 				}
 				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
@@ -2374,7 +2373,7 @@ func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan
 
 	for {
 		wait.JitterUntil(func() {
-			now, err := json.Marshal(v12.Now())
+			now, err := json.Marshal(metav1.Now())
 			if err != nil {
 				log.DefaultLogger().Reason(err).Errorf("Can't determine date")
 				return
