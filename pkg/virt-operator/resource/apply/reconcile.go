@@ -53,7 +53,12 @@ import (
 const Duration7d = time.Hour * 24 * 7
 const Duration1d = time.Hour * 24
 
-const replaceSpecPatchTemplate = `{ "op": "replace", "path": "/spec", "value": %s }`
+const (
+	replaceSpecPatchTemplate     = `{ "op": "replace", "path": "/spec", "value": %s }`
+	replaceWebhooksValueTemplate = `{ "op": "replace", "path": "/webhooks", "value": %s }`
+
+	testGenerationJSONPatchTemplate = `{ "op": "test", "path": "/metadata/generation", "value": %d }`
+)
 
 func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry, id string, generation int64) bool {
 	if objectMeta.Annotations == nil {
