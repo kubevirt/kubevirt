@@ -1574,7 +1574,21 @@ func getMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource
 		overhead.Add(resource.MustParse("1Mi"))
 	}
 
+	addProbeOverheads(vmi, overhead)
+
 	return overhead
+}
+
+func addProbeOverheads(vmi *v1.VirtualMachineInstance, to *resource.Quantity) {
+	addProbeOverhead(vmi.Spec.LivenessProbe, to)
+	addProbeOverhead(vmi.Spec.ReadinessProbe, to)
+}
+
+func addProbeOverhead(probe *v1.Probe, to *resource.Quantity) {
+	virtProbeOverhead := resource.MustParse("10Mi")
+	if probe != nil && probe.Exec != nil {
+		to.Add(virtProbeOverhead)
+	}
 }
 
 func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
