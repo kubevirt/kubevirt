@@ -404,7 +404,9 @@ func (CustomizeComponents) SwaggerDoc() map[string]string {
 
 func (CustomizeComponentsPatch) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "+k8s:openapi-gen=true",
+		"":             "+k8s:openapi-gen=true",
+		"resourceName": "+kubebuilder:validation:MinLength=1",
+		"resourceType": "+kubebuilder:validation:MinLength=1",
 	}
 }
 

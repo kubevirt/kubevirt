@@ -417,8 +417,10 @@ var CRDsValidation map[string]string = map[string]string{
                   patch:
                     type: string
                   resourceName:
+                    minLength: 1
                     type: string
                   resourceType:
+                    minLength: 1
                     type: string
                   type:
                     type: string

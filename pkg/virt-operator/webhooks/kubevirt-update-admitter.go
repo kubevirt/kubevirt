@@ -48,6 +48,7 @@ func NewKubeVirtUpdateAdmitter(client kubecli.KubevirtClient) *KubeVirtUpdateAdm
 
 func (admitter *KubeVirtUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	// Get new and old KubeVirt from admission response
+	var results []metav1.StatusCause
 	newKV, oldKV, err := getAdmissionReviewKubeVirt(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
@@ -57,8 +58,10 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1be
 		return resp
 	}
 
+	results = validateCustomizeComponents(newKV.Spec.CustomizeComponents)
+
 	if reflect.DeepEqual(newKV.Spec.Workloads, oldKV.Spec.Workloads) {
-		return validating_webhooks.NewPassingAdmissionResponse()
+		return validating_webhooks.NewAdmissionResponse(results)
 	}
 
 	// reject update if it will move a virt-handler pod from a node that has
@@ -68,11 +71,9 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1be
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	if len(causes) > 0 {
-		return webhookutils.ToAdmissionResponse(causes)
-	}
+	results = append(results, causes...)
 
-	return validating_webhooks.NewPassingAdmissionResponse()
+	return validating_webhooks.NewAdmissionResponse(results)
 }
 
 func (admitter *KubeVirtUpdateAdmitter) validateWorkloadPlacementUpdate() ([]metav1.StatusCause, error) {
@@ -113,8 +114,27 @@ func getAdmissionReviewKubeVirt(ar *v1beta1.AdmissionReview) (new *v1.KubeVirt, 
 		if err != nil {
 			return nil, nil, err
 		}
+
 		return &newKV, &oldKV, nil
 	}
 
 	return &newKV, nil, nil
+}
+
+func validateCustomizeComponents(customization v1.CustomizeComponents) []metav1.StatusCause {
+	patches := customization.Patches
+	statuses := []metav1.StatusCause{}
+
+	for _, patch := range patches {
+		if json.Valid([]byte(patch.Patch)) {
+			continue
+		}
+
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("patch %q is not valid JSON", patch.Patch),
+		})
+	}
+
+	return statuses
 }
