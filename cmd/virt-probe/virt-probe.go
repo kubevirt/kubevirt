@@ -23,6 +23,7 @@ import (
 	goflag "flag"
 	"fmt"
 	"os"
+	"runtime/pprof"
 
 	"github.com/spf13/pflag"
 
@@ -37,6 +38,7 @@ func main() {
 	socket := pflag.String("socket", cmdclient.SocketOnGuest(), "Socket for connecting to the cmd server")
 	domainName := pflag.String("domainName", "", "Domain Name of the Virtual Machine to connect the agent to. Usually namespace_vmname")
 	command := pflag.String("command", "", "Command to execute on the guest")
+	memProfile := pflag.String("memProfile", "", "Path to store a memory profile. Profiling is skipped if empty")
 
 	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
 	pflag.Parse()
@@ -57,5 +59,21 @@ func main() {
 		log.Log.Reason(err).Critical("Failed executing the command")
 	}
 
+	saveMemoryProfile(*memProfile)
 	os.Exit(exitCode)
+}
+
+func saveMemoryProfile(path string) {
+	if len(path) > 0 {
+		log.Log.Info("creating memory profile")
+		f, err := os.Create(path)
+		if err != nil {
+			log.Log.Reason(err).Critical("creating memory profile")
+		}
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			log.Log.Reason(err).Critical("writing memory profile")
+		}
+		f.Close()
+		return
+	}
 }
