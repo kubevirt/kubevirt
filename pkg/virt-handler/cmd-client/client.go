@@ -652,7 +652,7 @@ func (c *VirtLauncherClient) Exec(domainName, command string, args []string) (in
 	stdOut = resp.StdOut
 
 	if !resp.Response.Success {
-		return exitCode, stdOut, fmt.Errorf("exec unsucessful: %s", resp.Response.Message)
+		return exitCode, stdOut, nil
 	}
 
 	return exitCode, stdOut, err
