@@ -21,7 +21,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -1115,39 +1114,13 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 
 	hostName := dns.SanitizeHostname(vmi)
 
-	annotationsList := map[string]string{
-		v1.DomainAnnotation: domain,
-	}
-	if tempPod {
-		// mark pod as temp - only used for provisioning
-		annotationsList[v1.EphemeralProvisioningObject] = "true"
-	}
-	for k, v := range vmi.Annotations {
-		// filtering so users will not see this on pod and in confusion
-		if strings.HasPrefix(k, "kubectl.kubernetes.io") ||
-			strings.HasPrefix(k, "kubevirt.io/storage-observed-api-version") ||
-			strings.HasPrefix(k, "kubevirt.io/latest-observed-api-version") {
-			continue
-		}
-		annotationsList[k] = v
-	}
-
-	cniAnnotations, err := getCniAnnotations(vmi)
+	podAnnotations, err := generatePodAnnotations(vmi)
 	if err != nil {
 		return nil, err
 	}
-	for k, v := range cniAnnotations {
-		annotationsList[k] = v
-	}
-
-	for _, network := range vmi.Spec.Networks {
-		if network.Multus != nil && network.Multus.Default {
-			annotationsList[MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION] = network.Multus.NetworkName
-		}
-	}
-
-	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {
-		annotationsList[ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
+	if tempPod {
+		// mark pod as temp - only used for provisioning
+		podAnnotations[v1.EphemeralProvisioningObject] = "true"
 	}
 
 	var initContainers []k8sv1.Container
@@ -1201,7 +1174,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
 			Labels:       podLabels,
-			Annotations:  annotationsList,
+			Annotations:  podAnnotations,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind),
 			},
@@ -1568,55 +1541,6 @@ func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 	return
 }
 
-func getIfaceByName(vmi *v1.VirtualMachineInstance, name string) *v1.Interface {
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.Name == name {
-			return &iface
-		}
-	}
-	return nil
-}
-
-func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[string]string, err error) {
-	ifaceListMap := make([]map[string]string, 0)
-	cniAnnotations = make(map[string]string, 0)
-
-	next_idx := 0
-	for _, network := range vmi.Spec.Networks {
-		// Set the type for the first network. All other networks must have same type.
-		if network.Multus != nil {
-			if network.Multus.Default {
-				continue
-			}
-			namespace, networkName := getNamespaceAndNetworkName(vmi, network.Multus.NetworkName)
-			ifaceMap := map[string]string{
-				"name":      networkName,
-				"namespace": namespace,
-				"interface": fmt.Sprintf("net%d", next_idx+1),
-			}
-			iface := getIfaceByName(vmi, network.Name)
-			if iface != nil && iface.MacAddress != "" {
-				// De-facto Standard doesn't define exact string format for
-				// MAC addresses pasted down to CNI.  Here we just pass through
-				// whatever the value our API layer accepted as legit.
-				// Note: while standard allows for 20-byte InfiniBand addresses,
-				// we forbid them in API.
-				ifaceMap["mac"] = iface.MacAddress
-			}
-			next_idx = next_idx + 1
-			ifaceListMap = append(ifaceListMap, ifaceMap)
-		}
-	}
-	if len(ifaceListMap) > 0 {
-		ifaceJsonString, err := json.Marshal(ifaceListMap)
-		if err != nil {
-			return map[string]string{}, fmt.Errorf("Failed to create JSON list from CNI interface map %s", ifaceListMap)
-		}
-		cniAnnotations[MultusNetworksAnnotation] = fmt.Sprintf("%s", ifaceJsonString)
-	}
-	return
-}
-
 func NewTemplateService(launcherImage string,
 	virtShareDir string,
 	virtLibDir string,
@@ -1684,4 +1608,52 @@ func generateContainerSecurityContext(selinuxType string) *k8sv1.SecurityContext
 			Level: "s0",
 		},
 	}
+}
+
+func generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
+	annotationsSet := map[string]string{
+		v1.DomainAnnotation: vmi.GetObjectMeta().GetName(),
+	}
+	for k, v := range filterVMIAnnotationsForPod(vmi.Annotations) {
+		annotationsSet[k] = v
+	}
+
+	multusAnnotation, err := generateMultusCNIAnnotation(vmi)
+	if err != nil {
+		return nil, err
+	}
+	if multusAnnotation != "" {
+		annotationsSet[MultusNetworksAnnotation] = multusAnnotation
+	}
+
+	if multusDefaultNetwork := lookupMultusDefaultNetworkName(vmi.Spec.Networks); multusDefaultNetwork != "" {
+		annotationsSet[MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION] = multusDefaultNetwork
+	}
+
+	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {
+		annotationsSet[ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
+	}
+	return annotationsSet, nil
+}
+
+func lookupMultusDefaultNetworkName(networks []v1.Network) string {
+	for _, network := range networks {
+		if network.Multus != nil && network.Multus.Default {
+			return network.Multus.NetworkName
+		}
+	}
+	return ""
+}
+
+func filterVMIAnnotationsForPod(vmiAnnotations map[string]string) map[string]string {
+	annotationsList := map[string]string{}
+	for k, v := range vmiAnnotations {
+		if strings.HasPrefix(k, "kubectl.kubernetes.io") ||
+			strings.HasPrefix(k, "kubevirt.io/storage-observed-api-version") ||
+			strings.HasPrefix(k, "kubevirt.io/latest-observed-api-version") {
+			continue
+		}
+		annotationsList[k] = v
+	}
+	return annotationsList
 }
