@@ -14,15 +14,15 @@ import (
 
 func NewFakeInMemoryNetworkCacheFactory() cache.InterfaceCacheFactory {
 	return &fakeInterfaceCacheFactory{
-		vmiCacheStores:    map[types.UID]cache.PodInterfaceCacheStore{},
-		domainCacheStores: map[string]cache.DomainInterfaceStore{},
+		vmiCacheStores:    map[types.UID]*fakePodInterfaceCacheStore{},
+		domainCacheStores: map[string]*fakeDomainInterfaceStore{},
 		lock:              &sync.Mutex{},
 	}
 }
 
 type fakeInterfaceCacheFactory struct {
-	vmiCacheStores    map[types.UID]cache.PodInterfaceCacheStore
-	domainCacheStores map[string]cache.DomainInterfaceStore
+	vmiCacheStores    map[types.UID]*fakePodInterfaceCacheStore
+	domainCacheStores map[string]*fakeDomainInterfaceStore
 	lock              *sync.Mutex
 }
 

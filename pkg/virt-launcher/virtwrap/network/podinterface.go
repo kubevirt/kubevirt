@@ -87,7 +87,7 @@ func writeVifFile(buf []byte, pid, name string) error {
 }
 
 func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, vmi *v1.VirtualMachineInstance, cacheFactory cache.InterfaceCacheFactory) error {
-	cache := &cache.PodCacheInterface{Iface: iface}
+	ifCache := &cache.PodCacheInterface{Iface: iface}
 
 	ipv4, ipv6, err := readIPAddressesFromLink(podInterfaceName)
 	if err != nil {
@@ -96,22 +96,22 @@ func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, vmi *v1.
 
 	switch {
 	case ipv4 != "" && ipv6 != "":
-		cache.PodIPs, err = sortIPsBasedOnPrimaryIP(ipv4, ipv6)
+		ifCache.PodIPs, err = sortIPsBasedOnPrimaryIP(ipv4, ipv6)
 		if err != nil {
 			return err
 		}
 	case ipv4 != "":
-		cache.PodIPs = []string{ipv4}
+		ifCache.PodIPs = []string{ipv4}
 	case ipv6 != "":
-		cache.PodIPs = []string{ipv6}
+		ifCache.PodIPs = []string{ipv6}
 	default:
 		return nil
 	}
 
-	cache.PodIP = cache.PodIPs[0]
-	err = cacheFactory.CacheForVMI(vmi).Write(iface.Name, cache)
+	ifCache.PodIP = ifCache.PodIPs[0]
+	err = cacheFactory.CacheForVMI(vmi).Write(iface.Name, ifCache)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to write pod Interface to cache, %s", err.Error())
+		log.Log.Reason(err).Errorf("failed to write pod Interface to ifCache, %s", err.Error())
 		return err
 	}
 
