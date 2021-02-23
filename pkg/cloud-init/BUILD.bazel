@@ -25,7 +25,6 @@ go_test(
     deps = [
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/precond:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
