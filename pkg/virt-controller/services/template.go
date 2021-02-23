@@ -1725,7 +1725,7 @@ func wrapExecProbeWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv1.Pro
 		return
 	}
 
-	wrappedCommand := []string{"virt-probe", "--domainName", api.VMINamespaceKeyFunc(vmi), "--command", originalCommand[0]}
+	wrappedCommand := []string{"virt-probe", "--domainName", api.VMINamespaceKeyFunc(vmi), "--command", originalCommand[0], "--"}
 	wrappedCommand = append(wrappedCommand, originalCommand[1:]...)
 
 	probe.Handler.Exec.Command = wrappedCommand
