@@ -15,7 +15,7 @@ configuration:
     - pciVendorSelector: "10DE:1EB8"
       resourceName: "nvidia.com/TU104GL_Tesla_T4"
     - pciVendorSelector: "8086:6F54"
-      resourceName: "intel.com/QAT"
+      resourceName: "intel.com/qat"
     mediatedDevices:
     - mdevNameSelector: "GRID T4-1Q"
       resourceName: "nvidia.com/GRID_T4-1Q"
