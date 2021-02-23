@@ -54,7 +54,9 @@ func (r *Reconciler) syncDeployment(deployment *appsv1.Deployment) error {
 	}
 
 	// Patch if old version
-	var ops []string
+	ops := []string{
+		fmt.Sprintf(testGenerationJSONPatchTemplate, cachedDeployment.ObjectMeta.Generation),
+	}
 
 	// Add Labels and Annotations Patches
 	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&deployment.ObjectMeta)
@@ -122,7 +124,9 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) error {
 	}
 
 	// Patch if old version
-	var ops []string
+	ops := []string{
+		fmt.Sprintf(testGenerationJSONPatchTemplate, cachedDaemonSet.ObjectMeta.Generation),
+	}
 
 	// Add Labels and Annotations Patches
 	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&daemonSet.ObjectMeta)
