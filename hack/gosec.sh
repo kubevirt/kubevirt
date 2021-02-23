@@ -7,10 +7,17 @@ mkdir -p $ARTIFACTS
 echo "Run go sec in pkg"
 cd $KUBEVIRT_DIR/pkg
 
-if [ -z $GOSEC ]; then
-    gosec -sort -quiet -out=${ARTIFACTS}/junit-gosec.xml -exclude-dir=testutils -fmt=junit-xml ./...
-else
+OUT="${ARTIFACTS}/junit-gosec.xml"
+ARGS="-sort -quiet -out=$OUT -exclude-dir=testutils -fmt=junit-xml ./..."
+if [ ! -z $GOSEC ]; then
     echo "Running subset"
     echo $GOSEC
-    gosec -include=$GOSEC -sort -quiet -out=${ARTIFACTS}/junit-gosec.xml -exclude-dir=testutils -fmt=junit-xml ./...
+    ARGS="-include=$GOSEC $ARGS"
+fi
+if gosec $ARGS; then
+    echo "no errors detected"
+    exit 0
+else
+    echo "report written to" $(echo "$OUT" | sed 's/.*_out/_out/')
+    exit 1
 fi
