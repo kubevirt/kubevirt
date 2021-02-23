@@ -2054,7 +2054,7 @@ func detachHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 		eventChan <- event.DevAlias
 	}
 
-	if domainEvent := cli.NewDomainEventDeviceRemoved(virConn, callback, eventChan); domainEvent != nil {
+	if domainEvent := cli.NewDomainEventDeviceRemoved(virConn, dom, callback, eventChan); domainEvent != nil {
 		const waitForDetachTimeout = 30 * time.Second
 		err := sriov.SafelyDetachHostDevices(domainSpec, domainEvent, dom, waitForDetachTimeout)
 		if err != nil {

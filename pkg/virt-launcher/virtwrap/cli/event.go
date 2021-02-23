@@ -27,6 +27,7 @@ import (
 
 type DomainEventDeviceRemoved struct {
 	connection     Connection
+	domain         VirDomain
 	registrationID int
 	callback       libvirt.DomainEventDeviceRemovedCallback
 	eventChan      <-chan interface{}
@@ -34,17 +35,19 @@ type DomainEventDeviceRemoved struct {
 
 func NewDomainEventDeviceRemoved(
 	connection Connection,
+	domain VirDomain,
 	callback libvirt.DomainEventDeviceRemovedCallback, eventChan <-chan interface{}) *DomainEventDeviceRemoved {
 
 	return &DomainEventDeviceRemoved{
 		connection: connection,
+		domain:     domain,
 		callback:   callback,
 		eventChan:  eventChan,
 	}
 }
 
 func (c *DomainEventDeviceRemoved) Register() error {
-	id, err := c.connection.VolatileDomainEventDeviceRemovedRegister(c.callback)
+	id, err := c.connection.VolatileDomainEventDeviceRemovedRegister(c.domain, c.callback)
 	if err != nil {
 		return fmt.Errorf("register callback failure: %v", err)
 	}
