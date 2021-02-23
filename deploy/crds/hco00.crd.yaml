@@ -49,7 +49,9 @@ spec:
                 default:
                   gpu: false
                   hostDevices: false
+                  hotplugVolumes: false
                   hypervStrictCheck: true
+                  sriovLiveMigration: false
                   withHostModelCPU: true
                   withHostPassthroughCPU: false
                 description: featureGates is a map of feature gate flags. Setting
@@ -65,6 +67,7 @@ spec:
                     description: Allow assigning host devices to virtual machines
                     type: boolean
                   hotplugVolumes:
+                    default: false
                     description: Allow attaching a data volume to a running VMI
                     type: boolean
                   hypervStrictCheck:
@@ -73,6 +76,7 @@ spec:
                       Defaults to true, even when HyperConvergedFeatureGates is empty
                     type: boolean
                   sriovLiveMigration:
+                    default: false
                     description: Allow migrating a virtual machine with SRIOV interfaces.
                       When enabled virt-launcher pods of virtual machines with SRIOV
                       interfaces run with CAP_SYS_RESOURCE capability. This may degrade

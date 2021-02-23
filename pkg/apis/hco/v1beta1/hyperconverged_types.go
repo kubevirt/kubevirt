@@ -40,7 +40,7 @@ type HyperConvergedSpec struct {
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
 	// +optional
 	// +TODO: Always keep the default FeatureGates in sync with the default field values in HyperConvergedFeatureGates //NOSONAR
-	// +kubebuilder:default={withHostModelCPU: true, withHostPassthroughCPU: false, hypervStrictCheck: true, gpu: false, hostDevices: false}
+	// +kubebuilder:default={sriovLiveMigration: false, hotplugVolumes: false, gpu: false, hostDevices: false, withHostPassthroughCPU: false, withHostModelCPU: true, hypervStrictCheck: true}
 	FeatureGates *HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
 	// operator version
@@ -65,10 +65,12 @@ type HyperConvergedFeatureGates struct {
 	// interfaces run with CAP_SYS_RESOURCE capability.
 	// This may degrade virt-launcher security.
 	// +optional
+	// +kubebuilder:default=false
 	SRIOVLiveMigration *bool `json:"sriovLiveMigration,omitempty"`
 
 	// Allow attaching a data volume to a running VMI
 	// +optional
+	// +kubebuilder:default=false
 	HotplugVolumes *bool `json:"hotplugVolumes,omitempty"`
 
 	// Allow assigning GPU and vGPU devices to virtual machines
