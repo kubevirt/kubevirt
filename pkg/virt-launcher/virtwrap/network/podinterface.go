@@ -61,8 +61,8 @@ type BindMechanism interface {
 	// ports are rewired, meaning, routes and IP addresses configured by
 	// CNI plugin may be gone. For this matter, we use a cached DhcpConfig file to
 	// pass discovered information between phases.
-	loadCachedDhcpConfig(pid string) error
-	setCachedDhcpConfig(pid string) error
+	loadCachedDhcpConfig() error
+	setCachedDhcpConfig() error
 
 	// The following entry points require domain initialized for the
 	// binding and can be used in phase2 only.
@@ -259,7 +259,7 @@ func (l *podNIC) PlugPhase1() error {
 			return errors.CreateCriticalNetworkError(err)
 		}
 
-		if err := bindMechanism.setCachedDhcpConfig(getPIDString(l.launcherPID)); err != nil {
+		if err := bindMechanism.setCachedDhcpConfig(); err != nil {
 			log.Log.Reason(err).Error("failed to save dhcpConfig configuration")
 			return errors.CreateCriticalNetworkError(err)
 		}
@@ -310,9 +310,8 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 		return err
 	}
 
-	pid := "self"
-	if err = bindMechanism.loadCachedDhcpConfig(pid); err != nil {
-		log.Log.Reason(err).Critical("failed to load cached dhcpConfig configuration")
+	if err = bindMechanism.loadCachedDhcpConfig(); err != nil {
+		log.Log.Reason(err).Critical("failed to load cached vif configuration")
 	}
 
 	if err := bindMechanism.decorateConfig(*domainIface); err != nil {
@@ -603,8 +602,8 @@ func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
 	return l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Write(l.iface.Name, &domainIface)
 }
 
-func (b *BridgeBindMechanism) loadCachedDhcpConfig(pid string) error {
-	dhcpConfig, err := b.cacheFactory.CacheDhcpConfigForPid(pid).Read(b.iface.Name)
+func (b *BridgeBindMechanism) loadCachedDhcpConfig() error {
+	dhcpConfig, err := b.cacheFactory.CacheDhcpConfigForPid(getPIDString(b.launcherPID)).Read(b.iface.Name)
 	if err != nil {
 		return err
 	}
@@ -613,8 +612,8 @@ func (b *BridgeBindMechanism) loadCachedDhcpConfig(pid string) error {
 	return nil
 }
 
-func (b *BridgeBindMechanism) setCachedDhcpConfig(pid string) error {
-	return b.cacheFactory.CacheDhcpConfigForPid(pid).Write(b.iface.Name, b.dhcpConfig)
+func (b *BridgeBindMechanism) setCachedDhcpConfig() error {
+	return b.cacheFactory.CacheDhcpConfigForPid(getPIDString(b.launcherPID)).Write(b.iface.Name, b.dhcpConfig)
 }
 
 func (b *BridgeBindMechanism) setInterfaceRoutes() error {
@@ -916,8 +915,8 @@ func (b *MasqueradeBindMechanism) decorateConfig(domainIface api.Interface) erro
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) loadCachedDhcpConfig(pid string) error {
-	dhcpConfig, err := b.cacheFactory.CacheDhcpConfigForPid(pid).Read(b.iface.Name)
+func (b *MasqueradeBindMechanism) loadCachedDhcpConfig() error {
+	dhcpConfig, err := b.cacheFactory.CacheDhcpConfigForPid(getPIDString(b.launcherPID)).Read(b.iface.Name)
 	if err != nil {
 		return err
 	}
@@ -927,8 +926,8 @@ func (b *MasqueradeBindMechanism) loadCachedDhcpConfig(pid string) error {
 	return nil
 }
 
-func (b *MasqueradeBindMechanism) setCachedDhcpConfig(pid string) error {
-	return b.cacheFactory.CacheDhcpConfigForPid(pid).Write(b.iface.Name, b.dhcpConfig)
+func (b *MasqueradeBindMechanism) setCachedDhcpConfig() error {
+	return b.cacheFactory.CacheDhcpConfigForPid(getPIDString(b.launcherPID)).Write(b.iface.Name, b.dhcpConfig)
 }
 
 func (b *MasqueradeBindMechanism) createBridge() error {
@@ -1280,11 +1279,11 @@ func (b *SlirpBindMechanism) decorateConfig(api.Interface) error {
 	return nil
 }
 
-func (b *SlirpBindMechanism) loadCachedDhcpConfig(string) error {
+func (b *SlirpBindMechanism) loadCachedDhcpConfig() error {
 	return nil
 }
 
-func (b *SlirpBindMechanism) setCachedDhcpConfig(string) error {
+func (b *SlirpBindMechanism) setCachedDhcpConfig() error {
 	return nil
 }
 
@@ -1351,11 +1350,11 @@ func (b *MacvtapBindMechanism) decorateConfig(domainIface api.Interface) error {
 	return nil
 }
 
-func (b *MacvtapBindMechanism) loadCachedDhcpConfig(_ string) error {
+func (b *MacvtapBindMechanism) loadCachedDhcpConfig() error {
 	return nil
 }
 
-func (b *MacvtapBindMechanism) setCachedDhcpConfig(_ string) error {
+func (b *MacvtapBindMechanism) setCachedDhcpConfig() error {
 	return nil
 }
 

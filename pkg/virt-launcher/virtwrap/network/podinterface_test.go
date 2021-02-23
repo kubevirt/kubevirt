@@ -768,7 +768,7 @@ var _ = Describe("Pod Network", func() {
 			bridge, ok := driver.(*BridgeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			Expect(bridge.loadCachedDhcpConfig(fmt.Sprintf("%d", pid))).To(HaveOccurred())
+			Expect(bridge.loadCachedDhcpConfig()).To(HaveOccurred())
 		})
 		It("should succeed when cache file present", func() {
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
@@ -780,9 +780,8 @@ var _ = Describe("Pod Network", func() {
 			bridge, ok := driver.(*BridgeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			pidStr := fmt.Sprintf("%d", pid)
-			Expect(bridge.setCachedDhcpConfig(pidStr)).ToNot(HaveOccurred())
-			Expect(bridge.loadCachedDhcpConfig(pidStr)).ToNot(HaveOccurred())
+			Expect(bridge.setCachedDhcpConfig()).ToNot(HaveOccurred())
+			Expect(bridge.loadCachedDhcpConfig()).ToNot(HaveOccurred())
 		})
 	})
 
@@ -797,14 +796,14 @@ var _ = Describe("Pod Network", func() {
 			slirp, ok := driver.(*SlirpBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			// it doesn't fail regardless, whether called without setCachedDhcpConfig...
-			Expect(slirp.loadCachedDhcpConfig(fmt.Sprintf("%d", pid))).NotTo(HaveOccurred())
+			// it doesn't fail regardless, whether called without setCachedVIF...
+			Expect(slirp.loadCachedDhcpConfig()).NotTo(HaveOccurred())
 
 			// ...or after it
-			err = slirp.setCachedDhcpConfig(fmt.Sprintf("%d", pid))
+			err = slirp.setCachedDhcpConfig()
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(slirp.loadCachedDhcpConfig(fmt.Sprintf("%d", pid))).NotTo(HaveOccurred())
+			Expect(slirp.loadCachedDhcpConfig()).NotTo(HaveOccurred())
 		})
 	})
 
@@ -819,7 +818,7 @@ var _ = Describe("Pod Network", func() {
 			masq, ok := driver.(*MasqueradeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			Expect(masq.loadCachedDhcpConfig(fmt.Sprintf("%d", pid))).To(HaveOccurred())
+			Expect(masq.loadCachedDhcpConfig()).To(HaveOccurred())
 		})
 		It("should succeed when cache file present", func() {
 			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
@@ -831,9 +830,8 @@ var _ = Describe("Pod Network", func() {
 			masq, ok := driver.(*MasqueradeBindMechanism)
 			Expect(ok).To(BeTrue())
 
-			pidStr := fmt.Sprintf("%d", pid)
-			Expect(masq.setCachedDhcpConfig(pidStr)).ToNot(HaveOccurred())
-			Expect(masq.loadCachedDhcpConfig(pidStr)).ToNot(HaveOccurred())
+			Expect(masq.setCachedDhcpConfig()).ToNot(HaveOccurred())
+			Expect(masq.loadCachedDhcpConfig()).ToNot(HaveOccurred())
 		})
 	})
 
