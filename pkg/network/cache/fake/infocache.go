@@ -38,7 +38,7 @@ func (f *fakeInterfaceCacheFactory) CacheForVMI(vmi *v1.VirtualMachineInstance) 
 	return f.vmiCacheStores[vmi.UID]
 }
 
-func (f *fakeInterfaceCacheFactory) CacheForPID(pid string) cache.DomainInterfaceStore {
+func (f *fakeInterfaceCacheFactory) CacheDomainInterfaceForPID(pid string) cache.DomainInterfaceStore {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	if store, exists := f.domainCacheStores[pid]; exists {

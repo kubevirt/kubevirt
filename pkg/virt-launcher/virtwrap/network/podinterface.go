@@ -606,7 +606,7 @@ func getPIDString(pid *int) string {
 }
 
 func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
-	ifaceConfig, err := l.cacheFactory.CacheForPID(getPIDString(l.launcherPID)).Read(l.iface.Name)
+	ifaceConfig, err := l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Read(l.iface.Name)
 
 	if os.IsNotExist(err) {
 		return nil, nil
@@ -620,7 +620,7 @@ func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
 }
 
 func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
-	return l.cacheFactory.CacheForPID(getPIDString(l.launcherPID)).Write(l.iface.Name, &domainIface)
+	return l.cacheFactory.CacheDomainInterfaceForPID(getPIDString(l.launcherPID)).Write(l.iface.Name, &domainIface)
 }
 
 func (b *BridgeBindMechanism) loadCachedDhcpConfig(pid string) error {

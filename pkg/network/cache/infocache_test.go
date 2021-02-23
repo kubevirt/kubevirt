@@ -69,12 +69,12 @@ var _ = Describe("Infocache", func() {
 			Model: &api.Model{Type: "a nice model"},
 		}
 		It("should return os.ErrNotExist if no cache entry exists", func() {
-			_, err := cacheFactory.CacheForPID("123").Read("abc")
+			_, err := cacheFactory.CacheDomainInterfaceForPID("123").Read("abc")
 			Expect(os.IsNotExist(err)).To(BeTrue())
 		})
 		It("should save and restore pod interface information", func() {
-			Expect(cacheFactory.CacheForPID("123").Write("abc", obj)).To(Succeed())
-			newObj, err := cacheFactory.CacheForPID("123").Read("abc")
+			Expect(cacheFactory.CacheDomainInterfaceForPID("123").Write("abc", obj)).To(Succeed())
+			newObj, err := cacheFactory.CacheDomainInterfaceForPID("123").Read("abc")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newObj).To(Equal(obj))
 		})

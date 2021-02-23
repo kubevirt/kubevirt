@@ -38,7 +38,7 @@ var virtLauncherCachedPattern = "/proc/%s/root/var/run/kubevirt-private/interfac
 
 type InterfaceCacheFactory interface {
 	CacheForVMI(vmi *v1.VirtualMachineInstance) PodInterfaceCacheStore
-	CacheForPID(pid string) DomainInterfaceStore
+	CacheDomainInterfaceForPID(pid string) DomainInterfaceStore
 }
 
 func NewInterfaceCacheFactory() *interfaceCacheFactory {
@@ -53,7 +53,7 @@ func (i *interfaceCacheFactory) CacheForVMI(vmi *v1.VirtualMachineInstance) PodI
 	return newPodInterfaceCacheStore(vmi, i.baseDir, virtHandlerCachePattern)
 }
 
-func (i *interfaceCacheFactory) CacheForPID(pid string) DomainInterfaceStore {
+func (i *interfaceCacheFactory) CacheDomainInterfaceForPID(pid string) DomainInterfaceStore {
 	return newDomainInterfaceStore(pid, i.baseDir, virtLauncherCachedPattern)
 }
 
