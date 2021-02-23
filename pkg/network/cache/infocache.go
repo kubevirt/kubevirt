@@ -35,10 +35,12 @@ const networkInfoDir = util.VirtPrivateDir + "/network-info-cache"
 const virtHandlerCachePattern = networkInfoDir + "/%s/%s"
 
 var virtLauncherCachedPattern = "/proc/%s/root/var/run/kubevirt-private/interface-cache-%s.json"
+var dhcpConfigCachedPattern = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
 
 type InterfaceCacheFactory interface {
 	CacheForVMI(vmi *v1.VirtualMachineInstance) PodInterfaceCacheStore
 	CacheDomainInterfaceForPID(pid string) DomainInterfaceStore
+	CacheDhcpConfigForPid(pid string) DhcpConfigStore
 }
 
 func NewInterfaceCacheFactory() *interfaceCacheFactory {
@@ -57,6 +59,10 @@ func (i *interfaceCacheFactory) CacheDomainInterfaceForPID(pid string) DomainInt
 	return newDomainInterfaceStore(pid, i.baseDir, virtLauncherCachedPattern)
 }
 
+func (i *interfaceCacheFactory) CacheDhcpConfigForPid(pid string) DhcpConfigStore {
+	return newDhcpConfigCacheStore(pid, i.baseDir, dhcpConfigCachedPattern)
+}
+
 type DomainInterfaceStore interface {
 	Read(ifaceName string) (*api.Interface, error)
 	Write(ifaceName string, cacheInterface *api.Interface) error
@@ -66,6 +72,11 @@ type PodInterfaceCacheStore interface {
 	Read(ifaceName string) (*PodCacheInterface, error)
 	Write(ifaceName string, cacheInterface *PodCacheInterface) error
 	Remove() error
+}
+
+type DhcpConfigStore interface {
+	Read(ifaceName string) (*DhcpConfig, error)
+	Write(ifaceName string, cacheInterface *DhcpConfig) error
 }
 
 type domainInterfaceStore struct {
@@ -112,6 +123,30 @@ func (p podInterfaceCacheStore) Remove() error {
 
 func newPodInterfaceCacheStore(vmi *v1.VirtualMachineInstance, baseDir, pattern string) PodInterfaceCacheStore {
 	return podInterfaceCacheStore{vmi: vmi, baseDir: baseDir, pattern: pattern}
+}
+
+type dhcpConfigCacheStore struct {
+	pid     string
+	pattern string
+	baseDir string
+}
+
+func (d dhcpConfigCacheStore) Read(ifaceName string) (*DhcpConfig, error) {
+	cachedIface := &DhcpConfig{}
+	err := readFromCachedFile(cachedIface, d.getInterfaceCacheFile(ifaceName))
+	return cachedIface, err
+}
+
+func (d dhcpConfigCacheStore) Write(ifaceName string, ifaceToCache *DhcpConfig) error {
+	return writeToCachedFile(ifaceToCache, d.getInterfaceCacheFile(ifaceName))
+}
+
+func (d dhcpConfigCacheStore) getInterfaceCacheFile(ifaceName string) string {
+	return getInterfaceCacheFile(d.baseDir, d.pattern, d.pid, ifaceName)
+}
+
+func newDhcpConfigCacheStore(pid string, baseDir, pattern string) dhcpConfigCacheStore {
+	return dhcpConfigCacheStore{pid: pid, baseDir: baseDir, pattern: pattern}
 }
 
 func writeToCachedFile(obj interface{}, fileName string) error {

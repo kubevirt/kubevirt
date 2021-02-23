@@ -15,6 +15,7 @@ func NewFakeInMemoryNetworkCacheFactory() cache.InterfaceCacheFactory {
 	return &fakeInterfaceCacheFactory{
 		vmiCacheStores:    map[types.UID]*fakePodInterfaceCacheStore{},
 		domainCacheStores: map[string]*fakeDomainInterfaceStore{},
+		dhcpConfigStores:  map[string]*fakeDhcpConfigCacheStore{},
 		lock:              &sync.Mutex{},
 	}
 }
@@ -22,6 +23,7 @@ func NewFakeInMemoryNetworkCacheFactory() cache.InterfaceCacheFactory {
 type fakeInterfaceCacheFactory struct {
 	vmiCacheStores    map[types.UID]*fakePodInterfaceCacheStore
 	domainCacheStores map[string]*fakeDomainInterfaceStore
+	dhcpConfigStores  map[string]*fakeDhcpConfigCacheStore
 	lock              *sync.Mutex
 }
 
@@ -49,6 +51,19 @@ func (f *fakeInterfaceCacheFactory) CacheDomainInterfaceForPID(pid string) cache
 		lock:  &sync.Mutex{},
 	}
 	return f.domainCacheStores[pid]
+}
+
+func (f *fakeInterfaceCacheFactory) CacheDhcpConfigForPid(pid string) cache.DhcpConfigStore {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if store, exists := f.dhcpConfigStores[pid]; exists {
+		return store
+	}
+	f.dhcpConfigStores[pid] = &fakeDhcpConfigCacheStore{
+		store: map[string]*cache.DhcpConfig{},
+		lock:  &sync.Mutex{},
+	}
+	return f.dhcpConfigStores[pid]
 }
 
 type fakePodInterfaceCacheStore struct {
@@ -97,5 +112,26 @@ func (f *fakeDomainInterfaceStore) Write(ifaceName string, cacheInterface *api.I
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	f.store[ifaceName] = cacheInterface
+	return nil
+}
+
+type fakeDhcpConfigCacheStore struct {
+	lock  *sync.Mutex
+	store map[string]*cache.DhcpConfig
+}
+
+func (f *fakeDhcpConfigCacheStore) Read(ifaceName string) (*cache.DhcpConfig, error) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if val, exists := f.store[ifaceName]; exists {
+		return val, nil
+	}
+	return nil, os.ErrNotExist
+}
+
+func (f *fakeDhcpConfigCacheStore) Write(ifaceName string, vifToCache *cache.DhcpConfig) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	f.store[ifaceName] = vifToCache
 	return nil
 }

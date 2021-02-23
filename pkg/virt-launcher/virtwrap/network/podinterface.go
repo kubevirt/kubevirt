@@ -20,9 +20,7 @@
 package network
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"strconv"
@@ -143,24 +141,6 @@ func findMultusIndex(vmi *v1.VirtualMachineInstance, networkToFind *v1.Network) 
 
 func isSecondaryMultusNetwork(net v1.Network) bool {
 	return net.Multus != nil && !net.Multus.Default
-}
-
-var vifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
-
-func setVifCacheFile(path string) {
-	vifCacheFile = path
-}
-
-func getVifFilePath(pid, name string) string {
-	return fmt.Sprintf(vifCacheFile, pid, name)
-}
-
-func writeVifFile(buf []byte, pid, name string) error {
-	err := ioutil.WriteFile(getVifFilePath(pid, name), buf, 0600)
-	if err != nil {
-		return fmt.Errorf("error writing vif object: %v", err)
-	}
-	return nil
 }
 
 func (l *podNIC) setPodInterfaceCache() error {
@@ -624,20 +604,17 @@ func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
 }
 
 func (b *BridgeBindMechanism) loadCachedDhcpConfig(pid string) error {
-	buf, err := ioutil.ReadFile(getVifFilePath(pid, b.iface.Name))
+	dhcpConfig, err := b.cacheFactory.CacheDhcpConfigForPid(pid).Read(b.iface.Name)
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal(buf, &b.dhcpConfig)
-	if err != nil {
-		return err
-	}
+	b.dhcpConfig = dhcpConfig
 	b.dhcpConfig.Gateway = b.dhcpConfig.Gateway.To4()
 	return nil
 }
 
 func (b *BridgeBindMechanism) setCachedDhcpConfig(pid string) error {
-	return setCachedVIF(*b.dhcpConfig, pid, b.iface.Name)
+	return b.cacheFactory.CacheDhcpConfigForPid(pid).Write(b.iface.Name, b.dhcpConfig)
 }
 
 func (b *BridgeBindMechanism) setInterfaceRoutes() error {
@@ -940,21 +917,18 @@ func (b *MasqueradeBindMechanism) decorateConfig(domainIface api.Interface) erro
 }
 
 func (b *MasqueradeBindMechanism) loadCachedDhcpConfig(pid string) error {
-	buf, err := ioutil.ReadFile(getVifFilePath(pid, b.iface.Name))
+	dhcpConfig, err := b.cacheFactory.CacheDhcpConfigForPid(pid).Read(b.iface.Name)
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal(buf, &b.dhcpConfig)
-	if err != nil {
-		return err
-	}
+	b.dhcpConfig = dhcpConfig
 	b.dhcpConfig.Gateway = b.dhcpConfig.Gateway.To4()
 	b.dhcpConfig.GatewayIpv6 = b.dhcpConfig.GatewayIpv6.To16()
 	return nil
 }
 
 func (b *MasqueradeBindMechanism) setCachedDhcpConfig(pid string) error {
-	return setCachedVIF(*b.dhcpConfig, pid, b.iface.Name)
+	return b.cacheFactory.CacheDhcpConfigForPid(pid).Write(b.iface.Name, b.dhcpConfig)
 }
 
 func (b *MasqueradeBindMechanism) createBridge() error {
@@ -1412,13 +1386,4 @@ func calculateNetworkQueues(vmi *v1.VirtualMachineInstance) uint32 {
 func isMultiqueue(vmi *v1.VirtualMachineInstance) bool {
 	return (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) &&
 		(*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
-}
-
-func setCachedVIF(vif cache.DhcpConfig, launcherPID string, ifaceName string) error {
-	buf, err := json.MarshalIndent(vif, "", "  ")
-	if err != nil {
-		return fmt.Errorf("error marshaling vif object: %v", err)
-	}
-
-	return writeVifFile(buf, launcherPID, ifaceName)
 }

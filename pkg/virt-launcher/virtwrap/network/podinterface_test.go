@@ -22,7 +22,6 @@ package network
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"runtime"
@@ -101,8 +100,6 @@ var _ = Describe("Pod Network", func() {
 	}
 	BeforeEach(func() {
 		cacheFactory = fake.NewFakeInMemoryNetworkCacheFactory()
-		tmpDir, _ := ioutil.TempDir("", "networktest")
-		setVifCacheFile(tmpDir + "/cache-vif-%s.json")
 
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = netdriver.NewMockNetworkHandler(ctrl)
