@@ -10,13 +10,16 @@ Compared to pods, we need a way to execute the command inside the actual VM and 
 To do that, we rely on the qemu-guest-agent to be available inside the VM.
 
 A command supplied to an exec probe, will be wrapped by `virt-probe` in the operator and forwarded to the guest.
-The probe will fail if the agent is not available.
+
+**Important:** If the qemu-guest-agent is not installed **and** enabled inside the VM, the probe will fail. 
+Many images don't enabled the agent by default so make sure you either run one that does or enable it. 
 
 Make sure to provide enough delay and failureThreshold for the VM and the agent to be online.
 
 ### Example
 
-**Note:** The Fedora image used in this example does not have the qemu-guest-agent available by default. We need to install it through the console until this is resolved.
+**Note:** The Fedora image used in this example does not have the qemu-guest-agent available by default. We need to install and enable it through the console until this is resolved.
+The cloud-init defined below will take care of the install for us, but we still need to enable it.
 
 1. Create VM manifest
 
@@ -47,7 +50,8 @@ spec:
         failureThreshold: 10
         initialDelaySeconds: 120
         periodSeconds: 10
-        timeoutSeconds: 1
+        # Note that timeoutSeconds value does not have any impact before K8s v1.20.
+        timeoutSeconds: 5
       domain:
         cpu:
           cores: 1
@@ -86,6 +90,8 @@ spec:
               password: fedora
               chpasswd:
                 expire: false
+              packages:
+                qemu-guest-agent
           name: cloudinitdisk
         - containerDisk:
             image: kubevirt/fedora-cloud-container-disk-demo
@@ -118,7 +124,6 @@ kubectl virt console probe-test
 ```
 
 ```sh
-sudo dnf install qemu-guest-agent -y
 sudo systemctl enable --now qemu-guest-agent
 ```
 
