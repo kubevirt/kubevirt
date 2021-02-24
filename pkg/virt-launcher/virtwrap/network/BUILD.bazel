@@ -9,6 +9,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/network:go_default_library",
         "//pkg/network/cache:go_default_library",
         "//pkg/network/driver:go_default_library",
         "//pkg/network/errors:go_default_library",
@@ -31,6 +32,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//pkg/network:go_default_library",
         "//pkg/network/cache:go_default_library",
         "//pkg/network/cache/fake:go_default_library",
         "//pkg/network/driver:go_default_library",

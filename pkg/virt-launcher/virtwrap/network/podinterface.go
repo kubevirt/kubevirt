@@ -32,6 +32,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
+	"kubevirt.io/kubevirt/pkg/network"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/errors"
@@ -46,8 +47,6 @@ const (
 	LibvirtDirectMigrationPort = 49152
 	LibvirtBlockMigrationPort  = 49153
 )
-
-const staticMasqueradeBridgeMAC = "02:00:00:00:00:00"
 
 type BindMechanism interface {
 	discoverPodNetworkInterface() error
@@ -906,7 +905,7 @@ func (b *MasqueradeBindMechanism) createBridge() error {
 		return err
 	}
 
-	mac, err := net.ParseMAC(staticMasqueradeBridgeMAC)
+	mac, err := net.ParseMAC(network.StaticMasqueradeBridgeMAC)
 	if err != nil {
 		return err
 	}

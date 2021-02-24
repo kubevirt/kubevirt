@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/network"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/cache/fake"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
@@ -129,7 +130,7 @@ var _ = Describe("Pod Network", func() {
 			},
 		}
 
-		masqueradeBridgeMAC, _ := net.ParseMAC(staticMasqueradeBridgeMAC)
+		masqueradeBridgeMAC, _ := net.ParseMAC(network.StaticMasqueradeBridgeMAC)
 		masqueradeBridgeTest = &netlink.Bridge{
 			LinkAttrs: netlink.LinkAttrs{
 				Name:         api.DefaultBridgeName,
