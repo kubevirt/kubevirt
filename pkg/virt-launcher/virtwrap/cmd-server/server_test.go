@@ -20,6 +20,7 @@
 package cmdserver
 
 import (
+	"context"
 	"errors"
 	"io/ioutil"
 	"os"
@@ -35,6 +36,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
@@ -251,6 +253,80 @@ var _ = Describe("Virt remote commands", func() {
 			domainManager.EXPECT().FinalizeVirtualMachineMigration(vmi).Return(errors.New("error"))
 
 			Expect(client.FinalizeVirtualMachineMigration(vmi)).ToNot(Succeed())
+		})
+
+		Context("exec", func() {
+			var (
+				testDomainName = "test"
+				testCommand    = "testCmd"
+				testArgs       = []string{"-v", "2"}
+				testExecErr    = errors.New("exec error")
+				testStdOut     = "stdOut"
+
+				expectExec = func() *gomock.Call {
+					return domainManager.EXPECT().Exec(
+						testDomainName,
+						testCommand,
+						testArgs,
+					)
+				}
+				execRequest = func() *cmdv1.ExecRequest {
+					return &cmdv1.ExecRequest{
+						DomainName: testDomainName,
+						Command:    testCommand,
+						Args:       testArgs,
+					}
+				}
+
+				server cmdv1.CmdServer
+			)
+
+			BeforeEach(func() {
+				server = &Launcher{
+					domainManager: domainManager,
+				}
+			})
+
+			It("should call exec", func() {
+				expectExec().Times(1)
+				server.Exec(context.TODO(), execRequest())
+			})
+			It("returns exec errors in the response", func() {
+				expectExec().Times(1).Return("", testExecErr)
+				resp, err := server.Exec(context.TODO(), execRequest())
+				Expect(err).To(HaveOccurred())
+				Expect(resp.Response.Success).To(BeFalse())
+				Expect(resp.Response.Message).To(Equal(testExecErr.Error()))
+			})
+			It("does not return exit code errors", func() {
+				expectExec().Times(1).Return("", agent.ExecExitCode{ExitCode: 1})
+				_, err := server.Exec(context.TODO(), execRequest())
+				Expect(err).To(BeNil())
+			})
+			It("returns non-zero exit code and stdOut if possible", func() {
+				expectExec().Times(1).Return(testStdOut, agent.ExecExitCode{ExitCode: 1})
+				resp, err := server.Exec(context.TODO(), execRequest())
+				Expect(err).To(BeNil())
+				Expect(resp.ExitCode).To(BeEquivalentTo(1))
+				Expect(resp.StdOut).To(Equal(testStdOut))
+			})
+			It("returns zero exit code and stdOut if possible", func() {
+				expectExec().Times(1).Return(testStdOut, nil)
+				resp, err := server.Exec(context.TODO(), execRequest())
+				Expect(err).To(BeNil())
+				Expect(resp.ExitCode).To(BeEquivalentTo(0))
+				Expect(resp.StdOut).To(Equal(testStdOut))
+			})
+			It("returns true success on execution (including failed executions)", func() {
+				// the success field just indicates the request was successful.
+				// A non-zero exit code does not mean the execution failed, just the command.
+				// An example of a failed execution would be when the guest-agent is not available,
+				// then success should not be true.
+				expectExec().Times(1).Return(testStdOut, agent.ExecExitCode{ExitCode: 1})
+				resp, err := server.Exec(context.TODO(), execRequest())
+				Expect(err).To(BeNil())
+				Expect(resp.Response.Success).To(BeTrue())
+			})
 		})
 	})
 

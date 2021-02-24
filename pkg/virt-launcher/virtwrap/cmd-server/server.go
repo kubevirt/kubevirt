@@ -448,16 +448,13 @@ func (l *Launcher) Exec(ctx context.Context, request *cmdv1.ExecRequest) (*cmdv1
 		},
 	}
 
-	out, err := l.domainManager.Exec(request.DomainName, request.Command, request.Args)
-	resp.StdOut = out
-
-	if err != nil {
-		resp.Response.Success = false
-		resp.Response.Message = err.Error()
-	}
+	stdOut, err := l.domainManager.Exec(request.DomainName, request.Command, request.Args)
+	resp.StdOut = stdOut
 
 	exitCode := agent.ExecExitCode{}
-	if !errors.As(err, &exitCode) {
+	if err != nil && !errors.As(err, &exitCode) {
+		resp.Response.Success = false
+		resp.Response.Message = err.Error()
 		return resp, err
 	}
 	resp.ExitCode = int32(exitCode.ExitCode)
