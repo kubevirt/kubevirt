@@ -20,7 +20,7 @@ func RunMigrationAndExpectCompletion(virtClient kubecli.KubevirtClient, migratio
 	Eventually(func() error {
 		migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
 		return err
-	}, timeout, 1*time.Second).Should(Succeed(), "migration should succeed")
+	}, timeout, 1*time.Second).Should(Succeed(), "migration creation should succeed")
 	migration = migrationCreated
 	By("Waiting until the Migration Completes")
 
@@ -41,6 +41,48 @@ func RunMigrationAndExpectCompletion(virtClient kubecli.KubevirtClient, migratio
 
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should succeed after %d s", timeout))
 	return uid
+}
+
+func RunMigrationAndExpectPending(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) string {
+	By("Starting a Migration")
+	var err error
+	var migrationCreated *v1.VirtualMachineInstanceMigration
+	Eventually(func() error {
+		migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+		return err
+	}, timeout, 1*time.Second).Should(Succeed(), "migration creation should succeed")
+	migration = migrationCreated
+	By("Waiting until the Migration Completes")
+
+	uid := ""
+	Eventually(func() error {
+		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		Expect(migration.Status.Phase).ToNot(Equal(v1.MigrationFailed), "migration should not fail")
+
+		uid = string(migration.UID)
+		if migration.Status.Phase != v1.MigrationPhaseUnset {
+			return nil
+		}
+		return fmt.Errorf("migration is in the phase: %s", migration.Status.Phase)
+
+	}, timeout, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration go pending after %d s", timeout))
+	return uid
+}
+
+func RunDuplicateMigrationAndExpectFailure(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) {
+	By("Starting a Migration")
+	Eventually(func() string {
+		_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+		if err != nil {
+			return err.Error()
+		} else {
+			return ""
+		}
+	}, timeout, 1*time.Second).Should(ContainSubstring(`admission webhook "migration-create-validator.kubevirt.io" denied the request: in-flight migration detected.`), "migration should fail")
 }
 
 func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, migrationUID string) {

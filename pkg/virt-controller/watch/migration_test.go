@@ -134,6 +134,14 @@ var _ = Describe("Migration watcher", func() {
 		})
 	}
 
+	shouldExpectVirtualMachineMigrationUID := func(vmi *v1.VirtualMachineInstance, migrationUid types.UID) {
+		vmiInterface.EXPECT().Update(gomock.Any()).DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState).ToNot(BeNil())
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.MigrationUID).To(Equal(migrationUid))
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.SourceNode).To(Equal(vmi.Status.NodeName))
+			return arg, nil
+		})
+	}
 	shouldExpectVirtualMachineHandoff := func(vmi *v1.VirtualMachineInstance, migrationUid types.UID, targetNode string) {
 		vmiInterface.EXPECT().Update(gomock.Any()).DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState).ToNot(BeNil())
@@ -234,7 +242,7 @@ var _ = Describe("Migration watcher", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
 
-		It("should create another target pods if only 4 migrations are in progress", func() {
+		It("should create another target pod if only 4 migrations are in progress", func() {
 			// It should create a pod for this one
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
@@ -476,6 +484,9 @@ var _ = Describe("Migration watcher", func() {
 			podFeeder.Add(pod)
 
 			shouldExpectMigrationFailedState(migration)
+			if phase == v1.MigrationPhaseUnset {
+				shouldExpectVirtualMachineMigrationUID(vmi, migration.UID)
+			}
 
 			controller.Execute()
 
@@ -528,6 +539,12 @@ var _ = Describe("Migration watcher", func() {
 			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
 			pod.Spec.NodeName = "node01"
 
+			// Manually initiate the migration on the VMI
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: migration.UID,
+				SourceNode:   vmi.Status.NodeName,
+			}
+
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
@@ -544,6 +561,12 @@ var _ = Describe("Migration watcher", func() {
 
 			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
 			pod.Spec.NodeName = "node01"
+
+			// Manually initiate the migration on the VMI
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: migration.UID,
+				SourceNode:   vmi.Status.NodeName,
+			}
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
@@ -564,6 +587,12 @@ var _ = Describe("Migration watcher", func() {
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationScheduled)
 			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
 			pod.Spec.NodeName = "node01"
+
+			// Manually initiate the migration on the VMI
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: migration.UID,
+				SourceNode:   vmi.Status.NodeName,
+			}
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)

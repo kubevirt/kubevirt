@@ -592,7 +592,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
-				// Need to wait for cloud init to finnish and start the agent inside the vmi.
+				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
@@ -794,6 +794,31 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				// check VMI, confirm migration state
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+			})
+			It("should reject a second migration on the same VMI if the first one is not finished", func() {
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				// Need to wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+				migration1 := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration2 := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				tests.RunMigrationAndExpectPending(virtClient, migration1, 10)
+				tests.RunDuplicateMigrationAndExpectFailure(virtClient, migration2, 5)
 
 				// delete VMI
 				By("Deleting the VMI")
