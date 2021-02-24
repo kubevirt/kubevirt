@@ -185,3 +185,36 @@ tests:
       - eval_time: 5m
         alertname: LowKVMNodesCount
         exp_alerts: []
+
+  # Memory utilization more than 90%
+  - interval: 1m
+    input_series:
+      - series: 'container_spec_memory_limit_bytes{pod="virt-launcher-testvm-123", container="compute"}'
+        values: "100 100 100 100 100 100"
+      - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute"}'
+        values: "91 91 91 91 91 91"
+
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: KubevirtVmHighMemoryUsage
+        exp_alerts:
+          - exp_annotations:
+              description: "Container compute in pod virt-launcher-testvm-123 memory utilization is more than 90%"
+              summary: "VM is at risk of being terminated by the runtime."
+            exp_labels:
+              severity: "warning"
+              pod: "virt-launcher-testvm-123"
+              container: "compute"
+
+  # Memory utilization less than 90%
+  - interval: 1m
+    input_series:
+      - series: 'container_spec_memory_limit_bytes{pod="virt-launcher-testvm-123", container="compute"}'
+        values: "100 100 100 100 100 100"
+      - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute"}'
+        values: "89 89 89 89 89 89"
+
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: KubevirtVmHighMemoryUsage
+        exp_alerts: []
