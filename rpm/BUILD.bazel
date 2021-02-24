@@ -16,7 +16,7 @@ bazeldnf(
 rpmtree(
     name = "launcherbase_x86_64",
     capabilities = {
-        "/usr/libexec/qemu-kvm": [
+        "/usr/bin/qemu-system-x86_64": [
             "cap_net_bind_service",
         ],
     },
@@ -639,7 +639,7 @@ rpmtree(
 rpmtree(
     name = "testimage_x86_64",
     capabilities = {
-        "/usr/libexec/qemu-kvm": [
+        "/usr/bin/qemu-system-x86_64": [
             "cap_net_bind_service",
         ],
     },
