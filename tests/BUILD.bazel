@@ -126,7 +126,6 @@ go_test(
         "migration_test.go",
         "operator_test.go",
         "pausing_test.go",
-        "probe_test.go",
         "probes_test.go",
         "replicaset_test.go",
         "security_features_test.go",
