@@ -1051,14 +1051,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 
 	if vmi.Spec.ReadinessProbe != nil {
 		compute.ReadinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
-		wrapExecProbeWithVirtProbe(vmi, compute.ReadinessProbe)
-		compute.ReadinessProbe.InitialDelaySeconds = compute.ReadinessProbe.InitialDelaySeconds + LibvirtStartupDelay
+		updateProbe(vmi, compute.ReadinessProbe)
 	}
 
 	if vmi.Spec.LivenessProbe != nil {
 		compute.LivenessProbe = copyProbe(vmi.Spec.LivenessProbe)
-		wrapExecProbeWithVirtProbe(vmi, compute.LivenessProbe)
-		compute.LivenessProbe.InitialDelaySeconds = compute.LivenessProbe.InitialDelaySeconds + LibvirtStartupDelay
+		updateProbe(vmi, compute.LivenessProbe)
 	}
 
 	for networkName, resourceName := range networkToResourceMap {
@@ -1589,6 +1587,11 @@ func addProbeOverhead(probe *v1.Probe, to *resource.Quantity) {
 	if probe != nil && probe.Exec != nil {
 		to.Add(virtProbeOverhead)
 	}
+}
+
+func updateProbe(vmi *v1.VirtualMachineInstance, computeProbe *k8sv1.Probe) {
+	wrapExecProbeWithVirtProbe(vmi, computeProbe)
+	computeProbe.InitialDelaySeconds = computeProbe.InitialDelaySeconds + LibvirtStartupDelay
 }
 
 func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
