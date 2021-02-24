@@ -686,21 +686,21 @@ func appendStatusCauseForProbeNotAllowedWithNoPodNetworkPresent(field *k8sfield.
 	}
 
 	if probe.HTTPGet != nil {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s is only allowed if the Pod Network is attached", field.Child("httpGet").String()),
-			Field:   field.String(),
-		})
+		causes = append(causes, podNetworkRequiredStatusCause(field.Child("httpGet")))
 	}
 
 	if probe.TCPSocket != nil {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s is only allowed if the Pod Network is attached", field.Child("tcpSocket").String()),
-			Field:   field.String(),
-		})
+		causes = append(causes, podNetworkRequiredStatusCause(field.Child("tcpSocket")))
 	}
 	return causes
+}
+
+func podNetworkRequiredStatusCause(field *k8sfield.Path) metav1.StatusCause {
+	return metav1.StatusCause{
+		Type:    metav1.CauseTypeFieldValueInvalid,
+		Message: fmt.Sprintf("%s is only allowed if the Pod Network is attached", field.String()),
+		Field:   field.String(),
+	}
 }
 
 func validateLiveMigration(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
