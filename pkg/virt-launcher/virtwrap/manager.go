@@ -637,6 +637,7 @@ func (l *LibvirtDomainManager) SetGuestTime(vmi *v1.VirtualMachineInstance) erro
 						log.Log.Object(vmi).Reason(err).Warning("failed to sync guest time")
 					}
 				} else {
+					log.Log.Object(vmi).Info("guest VM time sync finished successfully")
 					return
 				}
 			}
