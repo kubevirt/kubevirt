@@ -22,8 +22,11 @@ package install
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"strings"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
@@ -53,6 +56,7 @@ import (
 )
 
 const customSCCPrivilegedAccountsType = "KubevirtCustomSCCRule"
+const ManifestsEncodingGzipBase64 = "gzip+base64"
 
 //go:generate mockgen -source $GOFILE -imports "libvirt=libvirt.org/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
@@ -182,9 +186,46 @@ func (ins *Strategy) CRDs() []*extv1beta1.CustomResourceDefinition {
 	return ins.crds
 }
 
-func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, addMonitorServiceResources bool, operatorNamespace string) (*corev1.ConfigMap, error) {
+func encodeManifests(manifests []byte) (string, error) {
+	var buf bytes.Buffer
 
+	zw := gzip.NewWriter(&buf)
+	_, err := zw.Write(manifests)
+	if err != nil {
+		return "", err
+	}
+	if err = zw.Close(); err != nil {
+		return "", err
+	}
+	base64Strategy := base64.StdEncoding.EncodeToString(buf.Bytes())
+	return base64Strategy, nil
+}
+
+func decodeManifests(strategy []byte) (string, error) {
+	var decodedStrategy strings.Builder
+
+	gzippedStrategy, err := base64.StdEncoding.DecodeString(string(strategy))
+	if err != nil {
+		return "", err
+	}
+	buf := bytes.NewBuffer(gzippedStrategy)
+	zr, err := gzip.NewReader(buf)
+	if err != nil {
+		return "", err
+	}
+	if _, err := io.Copy(&decodedStrategy, zr); err != nil {
+		return "", err
+	}
+	return decodedStrategy.String(), nil
+}
+
+func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, addMonitorServiceResources bool, operatorNamespace string) (*corev1.ConfigMap, error) {
 	strategy, err := GenerateCurrentInstallStrategy(config, addMonitorServiceResources, operatorNamespace)
+	if err != nil {
+		return nil, err
+	}
+
+	manifests, err := encodeManifests(dumpInstallStrategyToBytes(strategy))
 	if err != nil {
 		return nil, err
 	}
@@ -201,10 +242,11 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, 
 				v1.InstallStrategyVersionAnnotation:    config.GetKubeVirtVersion(),
 				v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
 				v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
+				v1.InstallStrategyConfigMapEncoding:    ManifestsEncodingGzipBase64,
 			},
 		},
 		Data: map[string]string{
-			"manifests": string(dumpInstallStrategyToBytes(strategy)),
+			"manifests": manifests,
 		},
 	}
 	return configMap, nil
@@ -437,8 +479,29 @@ func mostRecentConfigMap(configMaps []*corev1.ConfigMap) *corev1.ConfigMap {
 	return configMap
 }
 
+func isEncoded(configMap *corev1.ConfigMap) bool {
+	_, ok := configMap.Annotations[v1.InstallStrategyConfigMapEncoding]
+	return ok
+}
+
+func getManifests(configMap *corev1.ConfigMap) (string, error) {
+	manifests, ok := configMap.Data["manifests"]
+	if !ok {
+		return "", fmt.Errorf("install strategy configmap %s does not contain 'manifests' key", configMap.Name)
+	}
+
+	if isEncoded(configMap) {
+		var err error
+
+		manifests, err = decodeManifests([]byte(manifests))
+		if err != nil {
+			return "", err
+		}
+	}
+	return manifests, nil
+}
+
 func LoadInstallStrategyFromCache(stores util.Stores, config *operatorutil.KubeVirtDeploymentConfig) (*Strategy, error) {
-	var configMap *corev1.ConfigMap
 	var matchingConfigMaps []*corev1.ConfigMap
 
 	for _, obj := range stores.InstallStrategyConfigMapCache.List() {
@@ -467,15 +530,12 @@ func LoadInstallStrategyFromCache(stores util.Stores, config *operatorutil.KubeV
 		return nil, fmt.Errorf("no install strategy configmap found for version %s with registry %s", config.GetKubeVirtVersion(), config.GetImageRegistry())
 	}
 
-	// choose the most recent configmap if multiple match.
-	configMap = mostRecentConfigMap(matchingConfigMaps)
-
-	data, ok := configMap.Data["manifests"]
-	if !ok {
-		return nil, fmt.Errorf("install strategy configmap %s does not contain 'manifests' key", configMap.Name)
+	manifests, err := getManifests(mostRecentConfigMap(matchingConfigMaps))
+	if err != nil {
+		return nil, err
 	}
 
-	strategy, err := loadInstallStrategyFromBytes(data)
+	strategy, err := loadInstallStrategyFromBytes(manifests)
 	if err != nil {
 		return nil, err
 	}
