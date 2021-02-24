@@ -1011,11 +1011,8 @@ var _ = Describe("[Serial]SRIOV", func() {
 				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 
-				assert.XFail(
-					"SR-IOV VF attachement at the target is pending implementation: "+
-						"https://github.com/kubevirt/kubevirt/pull/5037", func() {
-						Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest after migration")
-					})
+				Expect(checkMacAddress(vmi, interfaceName, mac)).To(Succeed(),
+					"SR-IOV VF is expected to exist in the guest after migration")
 			})
 		})
 
