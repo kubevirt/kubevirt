@@ -20,6 +20,7 @@ go_library(
     deps = [
         "//pkg/controller:go_default_library",
         "//pkg/hooks:go_default_library",
+        "//pkg/network:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/webhooks:go_default_library",
         "//pkg/util/webhooks/validating-webhooks:go_default_library",

@@ -35,6 +35,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/network"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -258,6 +259,8 @@ func validateInterfaceNetworkBasics(field *k8sfield.Path, networkExists bool, id
 		causes = appendStatusCauseForSlirpNotEnabled(field, causes, idx)
 	} else if iface.Masquerade != nil && networkData.Pod == nil {
 		causes = appendStatusCauseForMasqueradeWithourPodNetwork(field, causes, idx)
+	} else if iface.Masquerade != nil && network.IsReserved(iface.MacAddress) {
+		causes = appendStatusCauseForInvalidMasqueradeMacAddress(field, causes, idx)
 	} else if iface.InterfaceBindingMethod.Bridge != nil && networkData.NetworkSource.Pod != nil && !config.IsBridgeInterfaceOnPodNetworkEnabled() {
 		causes = appendStatusCauseForBridgeNotEnabled(field, causes, idx)
 	} else if iface.InterfaceBindingMethod.Macvtap != nil && !config.MacvtapEnabled() {
@@ -524,6 +527,15 @@ func appendStatusCauseForNetworkNotFound(field *k8sfield.Path, causes []metav1.S
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Message: fmt.Sprintf(nameOfTypeNotFoundMessagePattern, field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Name),
 		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+	})
+	return causes
+}
+
+func appendStatusCauseForInvalidMasqueradeMacAddress(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
+	causes = append(causes, metav1.StatusCause{
+		Type:    metav1.CauseTypeFieldValueInvalid,
+		Message: "The requested MAC address is reserved for the in-pod bridge. Please choose another one.",
+		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
 	})
 	return causes
 }
