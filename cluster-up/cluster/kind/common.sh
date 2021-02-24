@@ -86,7 +86,7 @@ function _run_registry() {
         docker rm $REGISTRY_NAME || true
         sleep 5
     done
-    docker run -d -p 5000:5000 --restart=always --name $REGISTRY_NAME registry:2
+    docker run -d -p $HOST_PORT:5000 --restart=always --name $REGISTRY_NAME registry:2
 }
 
 function _configure_registry_on_node() {
@@ -129,7 +129,7 @@ function prepare_config() {
 master_ip="127.0.0.1"
 kubeconfig=${BASE_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
 kubectl=${BASE_PATH}/$KUBEVIRT_PROVIDER/.kubectl
-docker_prefix=localhost:5000/kubevirt
+docker_prefix=localhost:${HOST_PORT}/kubevirt
 manifest_docker_prefix=registry:5000/kubevirt
 EOF
 }
