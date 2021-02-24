@@ -2953,6 +2953,23 @@ func NewBool(x bool) *bool {
 	return &x
 }
 
+func RenderPrivilegedPod(name string, cmd []string, args []string) *k8sv1.Pod {
+	pod := RenderPod(name, cmd, args)
+	pod.Spec.HostPID = true
+	pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{
+		RunAsUser: new(int64),
+	}
+	pod.Spec.Containers = []k8sv1.Container{
+		renderPrivilegedContainerSpec(
+			fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
+			name,
+			cmd,
+			args),
+	}
+
+	return pod
+}
+
 func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2965,25 +2982,38 @@ func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
 		Spec: k8sv1.PodSpec{
 			RestartPolicy: k8sv1.RestartPolicyNever,
 			Containers: []k8sv1.Container{
-				{
-					Name:    name,
-					Image:   fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
-					Command: cmd,
-					Args:    args,
-					SecurityContext: &k8sv1.SecurityContext{
-						Privileged: NewBool(true),
-						RunAsUser:  new(int64),
-					},
-				},
-			},
-			HostPID: true,
-			SecurityContext: &k8sv1.PodSecurityContext{
-				RunAsUser: new(int64),
+				renderContainerSpec(
+					fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
+					name,
+					cmd,
+					args),
 			},
 		},
 	}
 
 	return &pod
+}
+
+func renderContainerSpec(imgPath string, name string, cmd []string, args []string) k8sv1.Container {
+	return k8sv1.Container{
+		Name:    name,
+		Image:   imgPath,
+		Command: cmd,
+		Args:    args,
+	}
+}
+
+func renderPrivilegedContainerSpec(imgPath string, name string, cmd []string, args []string) k8sv1.Container {
+	return k8sv1.Container{
+		Name:    name,
+		Image:   imgPath,
+		Command: cmd,
+		Args:    args,
+		SecurityContext: &k8sv1.SecurityContext{
+			Privileged: NewBool(true),
+			RunAsUser:  new(int64),
+		},
+	}
 }
 
 func NewVirtctlCommand(args ...string) *cobra.Command {
@@ -3707,7 +3737,7 @@ func CreateHostDiskImage(diskPath string) *k8sv1.Pod {
 }
 
 func RenderHostPathPod(podName string, dir string, hostPathType k8sv1.HostPathType, mountPropagation k8sv1.MountPropagationMode, cmd []string, args []string) *k8sv1.Pod {
-	pod := RenderPod(podName, cmd, args)
+	pod := RenderPrivilegedPod(podName, cmd, args)
 	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
 		Name:             "hostpath-mount",
 		MountPropagation: &mountPropagation,
