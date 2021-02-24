@@ -44,7 +44,7 @@ var _ = Describe("[Serial]HostDevices", func() {
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Creating a Fedora VMI with the sound card as a host device")
-			randomVMI := tests.NewRandomFedoraVMIWitGuestAgent()
+			randomVMI := tests.NewRandomFedoraVMIWithGuestAgent()
 			hostDevs := []v1.HostDevice{
 				v1.HostDevice{
 					Name:       "sound",

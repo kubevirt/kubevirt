@@ -1145,7 +1145,7 @@ var _ = Describe("Configurations", func() {
 
 			prepareAgentVM := func() *v1.VirtualMachineInstance {
 				// TODO: actually review this once the VM image is present
-				agentVMI := tests.NewRandomFedoraVMIWitGuestAgent()
+				agentVMI := tests.NewRandomFedoraVMIWithGuestAgent()
 
 				By("Starting a VirtualMachineInstance")
 				agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
@@ -1216,7 +1216,7 @@ var _ = Describe("Configurations", func() {
 
 				By("Terminating guest agent and waiting for it to disappear.")
 				Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
-					&expect.BSnd{S: "systemctl stop guestagent\n"},
+					&expect.BSnd{S: "systemctl stop qemu-guest-agent\n"},
 					&expect.BExp{R: console.PromptExpression},
 				}, 400)).To(Succeed())
 
@@ -1311,7 +1311,7 @@ var _ = Describe("Configurations", func() {
 
 				By("Terminating guest agent and waiting for it to disappear.")
 				Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
-					&expect.BSnd{S: "systemctl stop guestagent\n"},
+					&expect.BSnd{S: "systemctl stop qemu-guest-agent\n"},
 					&expect.BExp{R: console.PromptExpression},
 				}, 400)).To(Succeed())
 
@@ -2589,7 +2589,7 @@ var _ = Describe("Configurations", func() {
 
 		BeforeEach(func() {
 			var bootOrder uint = 1
-			vmi = tests.NewRandomFedoraVMIWitGuestAgent()
+			vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("1024M")
 			vmi.Spec.Domain.Devices.Disks[0].BootOrder = &bootOrder
 		})
@@ -2648,11 +2648,11 @@ var _ = Describe("Configurations", func() {
 
 			By("Check virt-what-cpuid-helper does not match KVM")
 			Expect(console.ExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "virt-what-cpuid-helper > /dev/null 2>&1 && echo 'pass'\n"},
+				&expect.BSnd{S: "/usr/libexec/virt-what-cpuid-helper > /dev/null 2>&1 && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
-				&expect.BSnd{S: "$(sudo virt-what-cpuid-helper | grep -q KVMKVMKVM) || echo 'pass'\n"},
+				&expect.BSnd{S: "$(sudo /usr/libexec/virt-what-cpuid-helper | grep -q KVMKVMKVM) || echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
-			}, 1*time.Second)).To(Succeed())
+			}, 2*time.Second)).To(Succeed())
 		})
 
 		It("[test_id:5272]test cpuid default", func() {
@@ -2666,9 +2666,9 @@ var _ = Describe("Configurations", func() {
 
 			By("Check virt-what-cpuid-helper matches KVM")
 			Expect(console.ExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "virt-what-cpuid-helper > /dev/null 2>&1 && echo 'pass'\n"},
+				&expect.BSnd{S: "/usr/libexec/virt-what-cpuid-helper > /dev/null 2>&1 && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
-				&expect.BSnd{S: "$(sudo virt-what-cpuid-helper | grep -q KVMKVMKVM) && echo 'pass'\n"},
+				&expect.BSnd{S: "$(sudo /usr/libexec/virt-what-cpuid-helper | grep -q KVMKVMKVM) && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
 			}, 1*time.Second)).To(Succeed())
 		})

@@ -24,10 +24,6 @@ bazel run \
     //:bazeldnf -- rpmtree --public --name testimage_x86_64 \
     $basesystem \
     qemu-img \
-    qemu-guest-agent \
-    stress \
-    dmidecode \
-    virt-what \
     which \
     nginx \
     scsi-target-utils \
@@ -41,8 +37,6 @@ bazel run \
     //:bazeldnf -- rpmtree --public --arch=ppc64le --name testimage_ppc64le \
     $basesystem \
     qemu-img \
-    qemu-guest-agent \
-    stress \
     nginx \
     scsi-target-utils \
     procps-ng \

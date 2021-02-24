@@ -32,6 +32,7 @@ case "$IMAGE_NAME" in
 cirros) CONVERT_PATH=$CIRROS_IMAGE_PATH ;;
 alpine) CONVERT_PATH=$ALPINE_IMAGE_PATH ;;
 fedora-cloud) CONVERT_PATH=$FEDORA_IMAGE_PATH ;;
+fedora-with-test-tooling) CONVERT_PATH=$FEDORA_IMAGE_PATH ;;
 *)
     echo "failed to find image $IMAGE_NAME"
     ;;
@@ -57,11 +58,5 @@ elif [ -n "$AS_EMPTY" ]; then
     touch /tmp/healthy
     bash expose-as-iscsi.sh "${IMAGE_PATH}/disk.raw"
 else
-    # Expose binaries via nginx server
-    for executable in qemu-ga stress dmidecode /usr/libexec/virt-what-cpuid-helper; do
-        cp $(which $executable) /usr/share/nginx/html/
-    done
-    cp /usr/lib64/libpixman-1.so.0 /usr/share/nginx/html/
-
     /usr/sbin/nginx
 fi
