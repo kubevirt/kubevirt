@@ -651,9 +651,5 @@ func (c *VirtLauncherClient) Exec(domainName, command string, args []string) (in
 	exitCode = int(resp.ExitCode)
 	stdOut = resp.StdOut
 
-	if !resp.Response.Success {
-		return exitCode, stdOut, nil
-	}
-
 	return exitCode, stdOut, err
 }

@@ -20,15 +20,20 @@
 package cmdclient
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
+	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
 var _ = Describe("Virt remote commands", func() {
@@ -147,7 +152,65 @@ var _ = Describe("Virt remote commands", func() {
 
 			monEnabled = SocketMonitoringEnabled("/some/path/" + StandardLauncherSocketFileName)
 			Expect(monEnabled).To(BeTrue())
+		})
 
+		Context("exec", func() {
+			var (
+				ctrl          *gomock.Controller
+				mockCmdClient *cmdv1.MockCmdClient
+				client        LauncherClient
+			)
+
+			BeforeEach(func() {
+				ctrl = gomock.NewController(GinkgoT())
+				mockCmdClient = cmdv1.NewMockCmdClient(ctrl)
+				client = newV1Client(mockCmdClient, nil)
+			})
+			AfterEach(func() {
+				ctrl.Finish()
+			})
+
+			var (
+				testDomainName = "test"
+				testCommand    = "testCmd"
+				testArgs       = []string{"-v", "2"}
+				testClientErr  = errors.New("client error")
+				testStdOut     = "stdOut"
+
+				expectExec = func() *gomock.Call {
+					return mockCmdClient.EXPECT().Exec(gomock.Any(), &cmdv1.ExecRequest{
+						DomainName: testDomainName,
+						Command:    testCommand,
+						Args:       testArgs,
+					})
+				}
+			)
+			It("calls cmdclient.Exec", func() {
+				expectExec().Times(1)
+				client.Exec(testDomainName, testCommand, testArgs)
+			})
+			It("returns client errors", func() {
+				expectExec().Times(1).Return(&cmdv1.ExecResponse{}, testClientErr)
+				_, _, err := client.Exec(testDomainName, testCommand, testArgs)
+				Expect(err).To(HaveOccurred())
+			})
+			It("returns exitCode and stdOut if possible", func() {
+				expectExec().Times(1).Return(&cmdv1.ExecResponse{
+					ExitCode: 1,
+					StdOut:   testStdOut,
+				}, nil)
+				exitCode, stdOut, _ := client.Exec(testDomainName, testCommand, testArgs)
+				Expect(exitCode).To(Equal(1))
+				Expect(stdOut).To(Equal(testStdOut))
+			})
+			It("provide ctx with a shortTimeout", func() {
+				expectExec().Times(1).Do(func(ctx context.Context, _ *cmdv1.ExecRequest, _ ...grpc.CallOption) (*cmdv1.ExecResponse, error) {
+					_, ok := ctx.Deadline()
+					Expect(ok).To(BeTrue())
+					return nil, nil
+				})
+				client.Exec(testDomainName, testCommand, testArgs)
+			})
 		})
 	})
 })
