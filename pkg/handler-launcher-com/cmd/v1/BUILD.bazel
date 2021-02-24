@@ -18,10 +18,18 @@ go_proto_library(
 
 go_library(
     name = "go_default_library",
-    srcs = ["version.go"],
+    srcs = [
+        "generated_mock_cmd.go",
+        "version.go",
+    ],
     embed = [":kubevirt_cmd_go_proto"],
     importpath = "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1",
     visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
+        "//vendor/golang.org/x/net/context:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
 )
 
 proto_library(
