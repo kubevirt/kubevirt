@@ -4,9 +4,9 @@
 
 Run `make deps-update` to simply update the golang dependencies to their latest
 states. If specific changes are needed, first manipulate our main
-[go.mod](go.mod). Dependencies for
-[staging/client-go](staging/src/kubevirt.io/client-go) are located in a
-separate [go.mod](staging/src/kubevirt.io/client-go/go.mod). Changing in the
+[go.mod](../go.mod). Dependencies for
+[staging/client-go](../staging/src/kubevirt.io/client-go) are located in a
+separate [go.mod](../staging/src/kubevirt.io/client-go/go.mod). Changing in the
 staging area will be inherited by the main go.mod when running `make
 deps-update`.
 
@@ -14,17 +14,17 @@ deps-update`.
 
 We can build our own base images for various architectures with bazel without
 the need of machines of that architecture. Out test container base images is
-defined at this [BUILD.bazel](images/BUILD.bazel). If you need to add new RPMs
+defined at this [BUILD.bazel](../images/BUILD.bazel). If you need to add new RPMs
 into the  test base image, you can simply add the RPM package to
-[hack/rpm-deps.sh](hack/rpm-deps.sh) and run `make rpm-deps` afterwards.
+[hack/rpm-deps.sh](../hack/rpm-deps.sh) and run `make rpm-deps` afterwards.
 
 `make rpm-deps` can periodically be run to just update to the latest RPM
-packages. The resolved RPMs are then added to the [WORKSPACE](WORKSPACE) and
-the `rpmtree` targets in [rpm/BUILD.bazel](rpm/BUILD.bazel) are updated.
+packages. The resolved RPMs are then added to the [WORKSPACE](../WORKSPACE) and
+the `rpmtree` targets in [rpm/BUILD.bazel](../rpm/BUILD.bazel) are updated.
 Finally no longer needed RPM definitions are removed from the WORKSPACE.  The
 updated `rpmtree` dependencies are the base for the test image containers.
 
-To update the RPM repositories in use, change [repo.yaml](repo.yaml).
+To update the RPM repositories in use, change [repo.yaml](../repo.yaml).
 
 This is an example entry for Fedora 32 on `ppc64le`:
 
@@ -71,11 +71,11 @@ executing the `make verify-rpm-deps` command.
 
 ## Onboarding new architectures
 
-* Create architecture specific entries in [repo.yaml](repo.yaml) and
-[hack/rpm-deps.sh](hack/rpm-deps.sh).
+* Create architecture specific entries in [repo.yaml](../repo.yaml) and
+[hack/rpm-deps.sh](../hack/rpm-deps.sh).
 * Adjust the select clauses on all container entries to choose the right
   target architecture and the right base image.
-* Add architecture specific entries to [.bazelrc](.bazelrc)
+* Add architecture specific entries to [.bazelrc](../.bazelrc)
 
 For x86_64 libvirt-devel dependencies exist for linking and unit-testing.
 Updating or adding such targets for other architectures is only necessary if
