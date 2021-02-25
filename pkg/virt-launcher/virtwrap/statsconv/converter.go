@@ -49,7 +49,7 @@ func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in
 	out.Memory = Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem, inDomInfo)
 	out.Vcpu = Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in.Vcpu)
 	out.Net = Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in.Net, devAliasMap)
-	out.Block = Convert_libvirt_DomainStatsBlock_To_stats_DomainStatsBlock(in.Block)
+	out.Block = Convert_libvirt_DomainStatsBlock_To_stats_DomainStatsBlock(in.Block, devAliasMap)
 
 	return nil
 }
@@ -160,10 +160,10 @@ func Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in []libvirt.DomainS
 	return ret
 }
 
-func Convert_libvirt_DomainStatsBlock_To_stats_DomainStatsBlock(in []libvirt.DomainStatsBlock) []stats.DomainStatsBlock {
+func Convert_libvirt_DomainStatsBlock_To_stats_DomainStatsBlock(in []libvirt.DomainStatsBlock, devAliasMap map[string]string) []stats.DomainStatsBlock {
 	ret := make([]stats.DomainStatsBlock, 0, len(in))
 	for _, inItem := range in {
-		ret = append(ret, stats.DomainStatsBlock{
+		blkStat := stats.DomainStatsBlock{
 			NameSet:         inItem.NameSet,
 			Name:            inItem.Name,
 			BackingIndexSet: inItem.BackingIndexSet,
@@ -194,7 +194,13 @@ func Convert_libvirt_DomainStatsBlock_To_stats_DomainStatsBlock(in []libvirt.Dom
 			Capacity:        inItem.Capacity,
 			PhysicalSet:     inItem.PhysicalSet,
 			Physical:        inItem.Physical,
-		})
+		}
+
+		if inItem.NameSet {
+			blkStat.Alias, blkStat.AliasSet = devAliasMap[inItem.Name]
+		}
+
+		ret = append(ret, blkStat)
 	}
 	return ret
 }

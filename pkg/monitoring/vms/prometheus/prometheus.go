@@ -225,6 +225,11 @@ func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 			continue
 		}
 
+		diskName := block.Name
+		if block.AliasSet {
+			diskName = block.Alias
+		}
+
 		if block.RdReqsSet || block.WrReqsSet {
 			desc := metrics.newPrometheusDesc(
 				"kubevirt_vmi_storage_iops_total",
@@ -233,10 +238,10 @@ func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 			)
 
 			if block.RdReqsSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.RdReqs), []string{block.Name, "read"})
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.RdReqs), []string{diskName, "read"})
 			}
 			if block.WrReqsSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.WrReqs), []string{block.Name, "write"})
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.WrReqs), []string{diskName, "write"})
 			}
 		}
 
@@ -248,10 +253,10 @@ func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 			)
 
 			if block.RdBytesSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.RdBytes), []string{block.Name, "read"})
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.RdBytes), []string{diskName, "read"})
 			}
 			if block.WrBytesSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.WrBytes), []string{block.Name, "write"})
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.WrBytes), []string{diskName, "write"})
 			}
 		}
 
@@ -263,10 +268,10 @@ func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 			)
 
 			if block.RdTimesSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.RdTimes), []string{block.Name, "read"})
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.RdTimes), []string{diskName, "read"})
 			}
 			if block.WrTimesSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.WrTimes), []string{block.Name, "write"})
+				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.WrTimes), []string{diskName, "write"})
 			}
 		}
 	}

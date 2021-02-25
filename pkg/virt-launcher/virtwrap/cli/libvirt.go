@@ -335,6 +335,10 @@ func (l *LibvirtConnection) GetDeviceAliasMap(domain *libvirt.Domain) (map[strin
 		devAliasMap[iface.Target.Device] = iface.Alias.GetName()
 	}
 
+	for _, disk := range domSpec.Devices.Disks {
+		devAliasMap[disk.Target.Device] = disk.Alias.GetName()
+	}
+
 	return devAliasMap, nil
 }
 

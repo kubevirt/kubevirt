@@ -132,6 +132,8 @@ var Testdataexpected = `{
        "FlTimesSet": true, 
        "Name": "vda", 
        "NameSet": true, 
+       "Alias": "",
+       "AliasSet": false,
        "Path": "/var/lib/libvirt/images/f28-worker-0.qcow2", 
        "PathSet": true, 
        "Physical": 41385254912, 
