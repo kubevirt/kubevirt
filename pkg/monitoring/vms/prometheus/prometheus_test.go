@@ -471,7 +471,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_iops_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_iops_read_total"))
 		})
 
 		It("should handle block write iops metrics", func() {
@@ -498,7 +498,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_iops_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_iops_write_total"))
 		})
 
 		It("should handle block read bytes metrics", func() {
@@ -525,7 +525,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_traffic_bytes_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_read_traffic_bytes_total"))
 		})
 
 		It("should handle block write bytes metrics", func() {
@@ -552,7 +552,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_traffic_bytes_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_write_traffic_bytes_total"))
 		})
 
 		It("should handle block read time metrics", func() {
@@ -579,7 +579,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_times_ms_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_read_times_ms_total"))
 		})
 
 		It("should handle block write time metrics", func() {
@@ -606,7 +606,61 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_times_ms_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_write_times_ms_total"))
+		})
+
+		It("should handle block flush requests metrics", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu:    &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{},
+				Block: []stats.DomainStatsBlock{
+					{
+						NameSet:   true,
+						Name:      "vda",
+						FlReqsSet: true,
+						FlReqs:    1000,
+					},
+				},
+			}
+
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			result := <-ch
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_flush_requests_total"))
+		})
+
+		It("should handle block flush times metrics", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu:    &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{},
+				Block: []stats.DomainStatsBlock{
+					{
+						NameSet:    true,
+						Name:       "vda",
+						FlTimesSet: true,
+						FlTimes:    1000000,
+					},
+				},
+			}
+
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			result := <-ch
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_flush_times_ms_total"))
 		})
 
 		It("should not expose nameless block metrics", func() {

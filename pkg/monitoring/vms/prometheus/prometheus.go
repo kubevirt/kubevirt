@@ -225,54 +225,99 @@ func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 			continue
 		}
 
-		diskName := block.Name
+		blkLabels := []string{"drive"}
+		blkLabelValues := []string{block.Name}
+
 		if block.AliasSet {
-			diskName = block.Alias
+			blkLabelValues[0] = block.Alias
 		}
 
-		if block.RdReqsSet || block.WrReqsSet {
-			desc := metrics.newPrometheusDesc(
-				"kubevirt_vmi_storage_iops_total",
-				"I/O operation performed.",
-				[]string{"drive", "type"},
+		if block.RdReqsSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_storage_iops_read_total",
+				"I/O read operations",
+				prometheus.CounterValue,
+				float64(block.RdReqs),
+				blkLabels,
+				blkLabelValues,
 			)
-
-			if block.RdReqsSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.RdReqs), []string{diskName, "read"})
-			}
-			if block.WrReqsSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.WrReqs), []string{diskName, "write"})
-			}
 		}
 
-		if block.RdBytesSet || block.WrBytesSet {
-			desc := metrics.newPrometheusDesc(
-				"kubevirt_vmi_storage_traffic_bytes_total",
-				"storage traffic.",
-				[]string{"drive", "type"},
+		if block.WrReqsSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_storage_iops_write_total",
+				"I/O write operations",
+				prometheus.CounterValue,
+				float64(block.WrReqs),
+				blkLabels,
+				blkLabelValues,
 			)
-
-			if block.RdBytesSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.RdBytes), []string{diskName, "read"})
-			}
-			if block.WrBytesSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.WrBytes), []string{diskName, "write"})
-			}
 		}
 
-		if block.RdTimesSet || block.WrTimesSet {
-			desc := metrics.newPrometheusDesc(
-				"kubevirt_vmi_storage_times_ms_total",
-				"storage operation time.",
-				[]string{"drive", "type"},
+		if block.RdBytesSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_storage_read_traffic_bytes_total",
+				"Storage read traffic in bytes",
+				prometheus.CounterValue,
+				float64(block.RdBytes),
+				blkLabels,
+				blkLabelValues,
 			)
+		}
 
-			if block.RdTimesSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.RdTimes), []string{diskName, "read"})
-			}
-			if block.WrTimesSet {
-				metrics.pushPrometheusMetric(desc, prometheus.CounterValue, float64(block.WrTimes), []string{diskName, "write"})
-			}
+		if block.WrBytesSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_storage_write_traffic_bytes_total",
+				"Storage write traffic in bytes",
+				prometheus.CounterValue,
+				float64(block.WrBytes),
+				blkLabels,
+				blkLabelValues,
+			)
+		}
+
+		if block.RdTimesSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_storage_read_times_ms_total",
+				"Storage read operation time",
+				prometheus.CounterValue,
+				float64(block.RdTimes)/1000000,
+				blkLabels,
+				blkLabelValues,
+			)
+		}
+
+		if block.WrTimesSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_storage_write_times_ms_total",
+				"Storage write operation time",
+				prometheus.CounterValue,
+				float64(block.WrTimes)/1000000,
+				blkLabels,
+				blkLabelValues,
+			)
+		}
+
+		if block.FlReqsSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_storage_flush_requests_total",
+				"storage flush requests.",
+				prometheus.CounterValue,
+				float64(block.FlReqs),
+				blkLabels,
+				blkLabelValues,
+			)
+		}
+
+		if block.FlTimesSet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_storage_flush_times_ms_total",
+				"total time (ms) spent on cache flushing.",
+				prometheus.CounterValue,
+				float64(block.FlTimes)/1000000,
+				blkLabels,
+				blkLabelValues,
+			)
 		}
 	}
 }
