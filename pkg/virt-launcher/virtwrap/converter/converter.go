@@ -50,8 +50,6 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/util"
-
-	virtlauncherutil "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
 type HostDeviceType string
@@ -67,7 +65,8 @@ const (
 	resolvConf                       = "/etc/resolv.conf"
 )
 const (
-	multiQueueMaxQueues = uint32(256)
+	multiQueueMaxQueues  = uint32(256)
+	QEMUSeaBiosDebugPipe = "/QEMUSeaBiosDebugPipe"
 )
 
 type deviceNamer struct {
@@ -1504,7 +1503,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg,
 			api.Arg{Value: "-chardev"},
-			api.Arg{Value: fmt.Sprintf("file,id=firmwarelog,path=%s", virtlauncherutil.QEMUSeaBiosDebugPipe)},
+			api.Arg{Value: fmt.Sprintf("file,id=firmwarelog,path=%s", QEMUSeaBiosDebugPipe)},
 			api.Arg{Value: "-device"},
 			api.Arg{Value: "isa-debugcon,iobase=0x402,chardev=firmwarelog"})
 	}
