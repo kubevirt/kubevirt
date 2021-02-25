@@ -291,8 +291,7 @@ var _ = Describe("Pod Network", func() {
 		err := driver.discoverPodNetworkInterface()
 		Expect(err).ToNot(HaveOccurred())
 
-		queueNumber := uint32(0)
-		err = driver.preparePodNetworkInterfaces(queueNumber)
+		err = driver.preparePodNetworkInterfaces()
 		Expect(err).ToNot(HaveOccurred())
 
 		err = driver.decorateConfig()
