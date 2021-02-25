@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/user"
@@ -25,6 +26,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )
+
+const QEMUSeaBiosDebugPipe = "/QEMUSeaBiosDebugPipe"
 
 var LifeCycleTranslationMap = map[libvirt.DomainState]api.LifeCycle{
 	libvirt.DOMAIN_NOSTATE:     api.NoState,
@@ -314,6 +317,54 @@ func StartVirtlog(stopChan chan struct{}, domainName string) {
 			// this sleep is to avoid consumming all resources in the
 			// event of a virtlogd crash loop.
 			time.Sleep(time.Second)
+		}
+	}()
+	go func() {
+		const QEMUSeaBiosDebugPipeMode uint32 = 0666
+		const logLinePrefix = "[SeaBios]:"
+
+		err := syscall.Mkfifo(QEMUSeaBiosDebugPipe, QEMUSeaBiosDebugPipeMode)
+		if err != nil {
+			log.Log.Reason(err).Error(fmt.Sprintf("%s failed creating a pipe for sea bios debug logs: %s", logLinePrefix, err.Error()))
+			return
+		}
+
+		// Chmod is needed since umask is 0018. Therefore Mkfifo does not actually create a pipe with proper permissions.
+		err = syscall.Chmod(QEMUSeaBiosDebugPipe, QEMUSeaBiosDebugPipeMode)
+		if err != nil {
+			log.Log.Reason(err).Error(fmt.Sprintf("%s failed executing chmod on pipe for sea bios debug logs: %s", logLinePrefix, err.Error()))
+			return
+		}
+
+		QEMUPipe, err := os.OpenFile(QEMUSeaBiosDebugPipe, os.O_RDONLY, 0666)
+		defer QEMUPipe.Close()
+
+		if err != nil {
+			log.Log.Reason(err).Error(fmt.Sprintf("%s failed to open %s with an error: %s", logLinePrefix, QEMUSeaBiosDebugPipe, err.Error()))
+		}
+
+		var line []byte
+		reader := bufio.NewReader(QEMUPipe)
+
+		for {
+			for line, _, err = reader.ReadLine(); err == nil; line, _, err = reader.ReadLine() {
+				logLine := fmt.Sprintf("%s %s", logLinePrefix, string(line))
+
+				log.LogQemuLogLine(log.Log, logLine)
+
+				select {
+				case <-stopChan:
+					return
+				default:
+				}
+			}
+
+			if err != io.EOF {
+				log.Log.Reason(err).Error(fmt.Sprintf("%s reader failed with an error: %s", logLinePrefix, err.Error()))
+				return
+			}
+
+			log.Log.Errorf(fmt.Sprintf("%s exited, restarting", logLinePrefix))
 		}
 	}()
 }
