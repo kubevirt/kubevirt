@@ -1,4 +1,7 @@
 #!/bin/bash
+
+[ $(id -u) -ne 0 ] && echo "FATAL: this script requires sudo privileges" >&2 && exit 1
+
 set -xe
 
 SCRIPT_PATH=$(dirname "$(realpath "$0")")
