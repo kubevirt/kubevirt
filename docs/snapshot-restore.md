@@ -16,7 +16,7 @@ kubectl get volumesnapshotclass
 
 Make sure that the `provisioner` property of your `StorageClass` matches the `driver` property of the `VolumeSnapshotClass`
 
-Even if you have no `VlumeSnapshotClasses` in your cluster, `VirtualMachineSnapshots` are not totally useless.  They will still backup your `VirtualMachine` configuration.
+Even if you have no `VolumeSnapshotClasses` in your cluster, `VirtualMachineSnapshots` are not totally useless.  They will still backup your `VirtualMachine` configuration.
 
 ### Snapshot Feature Gate
 
@@ -30,7 +30,7 @@ kubectl patch -n kubevirt kubevirt kubevirt -p '{"spec": {"configuration": { "de
 
 To snapshot a `VirtualMachine` named `larry`, apply the following yaml.
 
-\* It is currently a requirement that `VirtualMachines` are halted before taking a snapshot.
+\* It is currently a requirement that `VirtualMachines` are shut down before taking a snapshot.
 
 ```yaml
 apiVersion: snapshot.kubevirt.io/v1alpha1
