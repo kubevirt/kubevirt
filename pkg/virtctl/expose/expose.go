@@ -204,6 +204,7 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 		ports = []v1.ServicePort{{Name: portName, Protocol: protocol, Port: port, TargetPort: targetPort}}
 	}
 
+	preferDualStack := v1.IPFamilyPolicyPreferDualStack
 	// actually create the service
 	service := &v1.Service{
 		ObjectMeta: k8smetav1.ObjectMeta{
@@ -217,6 +218,7 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 			Type:           serviceType,
 			LoadBalancerIP: loadBalancerIP,
 			IPFamilies:     []v1.IPFamily{ipFamily},
+			IPFamilyPolicy: &preferDualStack,
 		},
 	}
 
