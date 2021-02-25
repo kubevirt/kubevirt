@@ -7,7 +7,6 @@ aliases:
       - rmohr
       - stu-gott
       - fabiand
-      - codificat
       - danielBelenky
       - AlonaKaplan
       - dhiller
@@ -15,7 +14,9 @@ aliases:
       - ashleyschuett
       - mhenriks
       - enp0s3
+      - mazzystr
   emeritus_approvers:
+      - codificat
       - cynepco3hahue
       - slintes
       - mfranczy
