@@ -81,6 +81,8 @@ type DomainStatsVcpu struct {
 type DomainStatsNet struct {
 	NameSet    bool
 	Name       string
+	AliasSet   bool
+	Alias      string
 	RxBytesSet bool
 	RxBytes    uint64
 	RxPktsSet  bool

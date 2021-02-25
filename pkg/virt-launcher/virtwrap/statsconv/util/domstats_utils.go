@@ -177,6 +177,8 @@ var Testdataexpected = `{
      {
        "Name": "vnet0", 
        "NameSet": true, 
+       "Alias": "",
+       "AliasSet": false,
        "RxBytes": 29735062, 
        "RxBytesSet": true, 
        "RxDrop": 0, 

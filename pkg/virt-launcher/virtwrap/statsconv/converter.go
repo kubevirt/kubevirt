@@ -32,7 +32,7 @@ type DomainIdentifier interface {
 	GetUUIDString() (string, error)
 }
 
-func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in *libvirt.DomainStats, inMem []libvirt.DomainMemoryStat, out *stats.DomainStats) error {
+func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in *libvirt.DomainStats, inMem []libvirt.DomainMemoryStat, devAliasMap map[string]string, out *stats.DomainStats) error {
 	name, err := ident.GetName()
 	if err != nil {
 		return err
@@ -48,7 +48,7 @@ func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in
 	out.Cpu = Convert_libvirt_DomainStatsCpu_To_stats_DomainStatsCpu(in.Cpu)
 	out.Memory = Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem)
 	out.Vcpu = Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in.Vcpu)
-	out.Net = Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in.Net)
+	out.Net = Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in.Net, devAliasMap)
 	out.Block = Convert_libvirt_DomainStatsBlock_To_stats_DomainStatsBlock(in.Block)
 
 	return nil
@@ -112,10 +112,10 @@ func Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in []libvirt.Domai
 	return ret
 }
 
-func Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in []libvirt.DomainStatsNet) []stats.DomainStatsNet {
+func Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in []libvirt.DomainStatsNet, devAliasMap map[string]string) []stats.DomainStatsNet {
 	ret := make([]stats.DomainStatsNet, 0, len(in))
 	for _, inItem := range in {
-		ret = append(ret, stats.DomainStatsNet{
+		netStat := stats.DomainStatsNet{
 			NameSet:    inItem.NameSet,
 			Name:       inItem.Name,
 			RxBytesSet: inItem.RxBytesSet,
@@ -134,7 +134,13 @@ func Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in []libvirt.DomainS
 			TxErrs:     inItem.TxErrs,
 			TxDropSet:  inItem.TxDropSet,
 			TxDrop:     inItem.TxDrop,
-		})
+		}
+
+		if inItem.NameSet {
+			netStat.Alias, netStat.AliasSet = devAliasMap[inItem.Name]
+		}
+
+		ret = append(ret, netStat)
 	}
 	return ret
 }

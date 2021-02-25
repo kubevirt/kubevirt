@@ -136,3 +136,21 @@ A design proposal and its implementation history can be seen [here](https://docs
  # Other Metrics 
 ## kubevirt_vmi_outdated_count
 #### HELP kubevirt_vmi_outdated_count Indication for the number of VirtualMachineInstance workloads that are not running within the most up-to-date version of the virt-launcher environment.
+
+ # Other Metrics 
+## kubevirt_vmi_network_receive_bytes_total
+#### HELP kubevirt_vmi_network_receive_bytes_total Network traffic receive in bytes
+## kubevirt_vmi_network_receive_errors_total
+#### HELP kubevirt_vmi_network_receive_errors_total Network receive error packets
+## kubevirt_vmi_network_receive_packets_dropped_total
+#### HELP kubevirt_vmi_network_receive_packets_dropped_total The number of rx packets dropped on vNIC interfaces.
+## kubevirt_vmi_network_receive_packets_total
+#### HELP kubevirt_vmi_network_receive_packets_total Network traffic receive packets
+## kubevirt_vmi_network_transmit_bytes_total
+#### HELP kubevirt_vmi_network_transmit_bytes_total Network traffic transmit in bytes
+## kubevirt_vmi_network_transmit_errors_total
+#### HELP kubevirt_vmi_network_transmit_errors_total Network transmit error packets
+## kubevirt_vmi_network_transmit_packets_dropped_total
+#### HELP kubevirt_vmi_network_transmit_packets_dropped_total The number of tx packets dropped on vNIC interfaces.
+## kubevirt_vmi_network_transmit_packets_total
+#### HELP kubevirt_vmi_network_transmit_packets_total Network traffic transmit packets

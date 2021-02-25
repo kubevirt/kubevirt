@@ -22,6 +22,7 @@ package cli
 //go:generate mockgen -source $GOFILE -imports "libvirt=libvirt.org/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 import (
+	"encoding/xml"
 	"fmt"
 	"io"
 	"sync"
@@ -31,6 +32,7 @@ import (
 	libvirt "libvirt.org/libvirt-go"
 
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
@@ -277,8 +279,13 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 			return list, err
 		}
 
+		devAliasMap, err := l.GetDeviceAliasMap(domStat.Domain)
+		if err != nil {
+			return list, err
+		}
+
 		stat := &stats.DomainStats{}
-		err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(statsconv.DomainIdentifier(domStat.Domain), &domStats[i], memStats, stat)
+		err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(statsconv.DomainIdentifier(domStat.Domain), &domStats[i], memStats, devAliasMap, stat)
 		if err != nil {
 			return list, err
 		}
@@ -288,6 +295,26 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 	}
 
 	return list, nil
+}
+
+func (l *LibvirtConnection) GetDeviceAliasMap(domain *libvirt.Domain) (map[string]string, error) {
+	devAliasMap := make(map[string]string)
+
+	domSpec := &api.DomainSpec{}
+	domxml, err := domain.GetXMLDesc(0)
+	if err != nil {
+		return devAliasMap, err
+	}
+	err = xml.Unmarshal([]byte(domxml), domSpec)
+	if err != nil {
+		return devAliasMap, err
+	}
+
+	for _, iface := range domSpec.Devices.Interfaces {
+		devAliasMap[iface.Target.Device] = iface.Alias.GetName()
+	}
+
+	return devAliasMap, nil
 }
 
 // Installs a watchdog which will check periodically if the libvirt connection is still alive.
