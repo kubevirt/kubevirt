@@ -65,7 +65,7 @@ require (
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000
 	kubevirt.io/containerized-data-importer v1.30.0
-	kubevirt.io/controller-lifecycle-operator-sdk v0.1.1
+	kubevirt.io/controller-lifecycle-operator-sdk v0.1.2
 	kubevirt.io/qe-tools v0.1.6
 	libvirt.org/libvirt-go v6.5.0+incompatible
 	mvdan.cc/sh/v3 v3.1.1
