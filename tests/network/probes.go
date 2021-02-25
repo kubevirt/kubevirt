@@ -90,7 +90,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				serverStarter(vmi, readinessProbe, 1500)
 			} else {
 				By("Specifying a VMI with a readiness probe")
-				vmi = tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.ReadinessProbe = readinessProbe
 				vmi = vmiLauncher(virtClient)(vmi)
 
@@ -112,7 +112,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		table.DescribeTable("should fail", func(readinessProbe *v1.Probe, isExecProbe bool) {
 			By("Specifying a VMI with a readiness probe")
 			if isExecProbe {
-				vmi = tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.ReadinessProbe = readinessProbe
 				vmi = vmiLauncher(virtClient)(vmi)
 			} else {
@@ -167,7 +167,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				serverStarter(vmi, livenessProbe, 1500)
 			} else {
 				By("Specifying a VMI with a liveness probe")
-				vmi = tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.LivenessProbe = livenessProbe
 				vmi = vmiLauncher(virtClient)(vmi)
 
@@ -192,7 +192,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		table.DescribeTable("should fail the VMI", func(livenessProbe *v1.Probe, isExecProbe bool) {
 			By("Specifying a VMI with a livenessProbe probe")
 			if isExecProbe {
-				vmi = tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.LivenessProbe = livenessProbe
 				vmi = vmiLauncher(virtClient)(vmi)
 			} else {
