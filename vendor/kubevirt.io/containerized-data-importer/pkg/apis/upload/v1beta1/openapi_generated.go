@@ -13293,7 +13293,7 @@ func schema_pkg_apis_upload_v1beta1_UploadTokenRequest(ref common.ReferenceCallb
 						},
 					},
 				},
-				Required: []string{"spec"},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{

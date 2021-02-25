@@ -48,6 +48,18 @@ type DataVolumeSpec struct {
 	//DataVolumeContentType options: "kubevirt", "archive"
 	// +kubebuilder:validation:Enum="kubevirt";"archive"
 	ContentType DataVolumeContentType `json:"contentType,omitempty"`
+	// Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.
+	Checkpoints []DataVolumeCheckpoint `json:"checkpoints,omitempty"`
+	// FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.
+	FinalCheckpoint bool `json:"finalCheckpoint,omitempty"`
+}
+
+// DataVolumeCheckpoint defines a stage in a warm migration.
+type DataVolumeCheckpoint struct {
+	// Previous is the identifier of the snapshot from the previous checkpoint.
+	Previous string `json:"previous"`
+	// Current is the identifier of the snapshot created for this checkpoint.
+	Current string `json:"current"`
 }
 
 // DataVolumeContentType represents the types of the imported data
@@ -224,6 +236,8 @@ const (
 	Failed DataVolumePhase = "Failed"
 	// Unknown represents a DataVolumePhase of Unknown
 	Unknown DataVolumePhase = "Unknown"
+	// Paused represents a DataVolumePhase of Paused
+	Paused DataVolumePhase = "Paused"
 
 	// DataVolumeReady is the condition that indicates if the data volume is ready to be consumed.
 	DataVolumeReady DataVolumeConditionType = "Ready"
@@ -256,6 +270,27 @@ type CDI struct {
 	Status CDIStatus `json:"status"`
 }
 
+// CertConfig contains the tunables for TLS certificates
+type CertConfig struct {
+	// The requested 'duration' (i.e. lifetime) of the Certificate.
+	Duration *metav1.Duration `json:"duration,omitempty"`
+
+	// The amount of time before the currently issued certificate's `notAfter`
+	// time that we will begin to attempt to renew the certificate.
+	RenewBefore *metav1.Duration `json:"renewBefore,omitempty"`
+}
+
+// CDICertConfig has the CertConfigs for CDI
+type CDICertConfig struct {
+	// CA configuration
+	// CA certs are kept in the CA bundle as long as they are valid
+	CA *CertConfig `json:"ca,omitempty"`
+
+	// Server configuration
+	// Certs are rotated and discarded
+	Server *CertConfig `json:"server,omitempty"`
+}
+
 // CDISpec defines our specification for the CDI installation
 type CDISpec struct {
 	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
@@ -268,9 +303,25 @@ type CDISpec struct {
 	Infra sdkapi.NodePlacement `json:"infra,omitempty"`
 	// Restrict on which nodes CDI workload pods will be scheduled
 	Workloads sdkapi.NodePlacement `json:"workload,omitempty"`
+	// Clone strategy override: should we use a host-assisted copy even if snapshots are available?
+	// +kubebuilder:validation:Enum="copy";"snapshot"
+	CloneStrategyOverride *CDICloneStrategy `json:"cloneStrategyOverride,omitempty"`
 	// CDIConfig at CDI level
 	Config *CDIConfigSpec `json:"config,omitempty"`
+	// certificate configuration
+	CertConfig *CDICertConfig `json:"certConfig,omitempty"`
 }
+
+// CDICloneStrategy defines the preferred method for performing a CDI clone (override snapshot?)
+type CDICloneStrategy string
+
+const (
+	// CloneStrategyHostAssisted specifies slower, host-assisted copy
+	CloneStrategyHostAssisted = "copy"
+
+	// CloneStrategySnapshot specifies snapshot-based copying
+	CloneStrategySnapshot = "snapshot"
+)
 
 // CDIUninstallStrategy defines the state to leave CDI on uninstall
 type CDIUninstallStrategy string

@@ -10,10 +10,21 @@ func (DataVolume) SwaggerDoc() map[string]string {
 
 func (DataVolumeSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":            "DataVolumeSpec defines the DataVolume type specification",
-		"source":      "Source is the src of the data for the requested DataVolume",
-		"pvc":         "PVC is the PVC specification",
-		"contentType": "DataVolumeContentType options: \"kubevirt\", \"archive\"\n+kubebuilder:validation:Enum=\"kubevirt\";\"archive\"",
+		"":                "DataVolumeSpec defines the DataVolume type specification",
+		"source":          "Source is the src of the data for the requested DataVolume",
+		"pvc":             "PVC is the PVC specification",
+		"contentType":     "DataVolumeContentType options: \"kubevirt\", \"archive\"\n+kubebuilder:validation:Enum=\"kubevirt\";\"archive\"",
+		"checkpoints":     "Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.",
+		"finalCheckpoint": "FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.",
+		"preallocation":   "Preallocation controls whether storage for DataVolumes should be allocated in advance.",
+	}
+}
+
+func (DataVolumeCheckpoint) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "DataVolumeCheckpoint defines a stage in a warm migration.",
+		"previous": "Previous is the identifier of the snapshot from the previous checkpoint.",
+		"current":  "Current is the identifier of the snapshot created for this checkpoint.",
 	}
 }
 
@@ -118,14 +129,32 @@ func (CDI) SwaggerDoc() map[string]string {
 	}
 }
 
+func (CertConfig) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "CertConfig contains the tunables for TLS certificates",
+		"duration":    "The requested 'duration' (i.e. lifetime) of the Certificate.",
+		"renewBefore": "The amount of time before the currently issued certificate's `notAfter`\ntime that we will begin to attempt to renew the certificate.",
+	}
+}
+
+func (CDICertConfig) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "CDICertConfig has the CertConfigs for CDI",
+		"ca":     "CA configuration\nCA certs are kept in the CA bundle as long as they are valid",
+		"server": "Server configuration\nCerts are rotated and discarded",
+	}
+}
+
 func (CDISpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                  "CDISpec defines our specification for the CDI installation",
-		"imagePullPolicy":   "+kubebuilder:validation:Enum=Always;IfNotPresent;Never\nPullPolicy describes a policy for if/when to pull a container image",
-		"uninstallStrategy": "+kubebuilder:validation:Enum=RemoveWorkloads;BlockUninstallIfWorkloadsExist\nCDIUninstallStrategy defines the state to leave CDI on uninstall",
-		"infra":             "Rules on which nodes CDI infrastructure pods will be scheduled",
-		"workload":          "Restrict on which nodes CDI workload pods will be scheduled",
-		"config":            "CDIConfig at CDI level",
+		"":                      "CDISpec defines our specification for the CDI installation",
+		"imagePullPolicy":       "+kubebuilder:validation:Enum=Always;IfNotPresent;Never\nPullPolicy describes a policy for if/when to pull a container image",
+		"uninstallStrategy":     "+kubebuilder:validation:Enum=RemoveWorkloads;BlockUninstallIfWorkloadsExist\nCDIUninstallStrategy defines the state to leave CDI on uninstall",
+		"infra":                 "Rules on which nodes CDI infrastructure pods will be scheduled",
+		"workload":              "Restrict on which nodes CDI workload pods will be scheduled",
+		"cloneStrategyOverride": "Clone strategy override: should we use a host-assisted copy even if snapshots are available?\n+kubebuilder:validation:Enum=\"copy\";\"snapshot\"",
+		"config":                "CDIConfig at CDI level",
+		"certConfig":            "certificate configuration",
 	}
 }
 
@@ -164,6 +193,7 @@ func (CDIConfigSpec) SwaggerDoc() map[string]string {
 		"podResourceRequirements":  "ResourceRequirements describes the compute resource requirements.",
 		"featureGates":             "FeatureGates are a list of specific enabled feature gates",
 		"filesystemOverhead":       "FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes. A value is between 0 and 1, if not defined it is 0.055 (5.5% overhead)",
+		"preallocation":            "Preallocation controls whether storage for DataVolumes should be allocated in advance.",
 	}
 }
 
@@ -174,6 +204,7 @@ func (CDIConfigStatus) SwaggerDoc() map[string]string {
 		"scratchSpaceStorageClass":       "The calculated storage class to be used for scratch space",
 		"defaultPodResourceRequirements": "ResourceRequirements describes the compute resource requirements.",
 		"filesystemOverhead":             "FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes. A percentage value is between 0 and 1",
+		"preallocation":                  "Preallocation controls whether storage for DataVolumes should be allocated in advance.",
 	}
 }
 
