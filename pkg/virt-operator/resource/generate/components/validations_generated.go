@@ -17,12 +17,31 @@ var CRDsValidation map[string]string = map[string]string{
     spec:
       description: DataVolumeSpec contains the DataVolume specification.
       properties:
+        checkpoints:
+          description: Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.
+          items:
+            description: DataVolumeCheckpoint defines a stage in a warm migration.
+            properties:
+              current:
+                description: Current is the identifier of the snapshot created for this checkpoint.
+                type: string
+              previous:
+                description: Previous is the identifier of the snapshot from the previous checkpoint.
+                type: string
+            required:
+            - current
+            - previous
+            type: object
+          type: array
         contentType:
           description: 'DataVolumeContentType options: "kubevirt", "archive"'
           enum:
           - kubevirt
           - archive
           type: string
+        finalCheckpoint:
+          description: FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.
+          type: boolean
         pvc:
           description: PVC is the PVC specification
           properties:
@@ -1314,12 +1333,31 @@ var CRDsValidation map[string]string = map[string]string{
               spec:
                 description: DataVolumeSpec contains the DataVolume specification.
                 properties:
+                  checkpoints:
+                    description: Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.
+                    items:
+                      description: DataVolumeCheckpoint defines a stage in a warm migration.
+                      properties:
+                        current:
+                          description: Current is the identifier of the snapshot created for this checkpoint.
+                          type: string
+                        previous:
+                          description: Previous is the identifier of the snapshot from the previous checkpoint.
+                          type: string
+                      required:
+                      - current
+                      - previous
+                      type: object
+                    type: array
                   contentType:
                     description: 'DataVolumeContentType options: "kubevirt", "archive"'
                     enum:
                     - kubevirt
                     - archive
                     type: string
+                  finalCheckpoint:
+                    description: FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.
+                    type: boolean
                   pvc:
                     description: PVC is the PVC specification
                     properties:
@@ -7763,12 +7801,31 @@ var CRDsValidation map[string]string = map[string]string{
                           spec:
                             description: DataVolumeSpec contains the DataVolume specification.
                             properties:
+                              checkpoints:
+                                description: Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.
+                                items:
+                                  description: DataVolumeCheckpoint defines a stage in a warm migration.
+                                  properties:
+                                    current:
+                                      description: Current is the identifier of the snapshot created for this checkpoint.
+                                      type: string
+                                    previous:
+                                      description: Previous is the identifier of the snapshot from the previous checkpoint.
+                                      type: string
+                                  required:
+                                  - current
+                                  - previous
+                                  type: object
+                                type: array
                               contentType:
                                 description: 'DataVolumeContentType options: "kubevirt", "archive"'
                                 enum:
                                 - kubevirt
                                 - archive
                                 type: string
+                              finalCheckpoint:
+                                description: FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.
+                                type: boolean
                               pvc:
                                 description: PVC is the PVC specification
                                 properties:
