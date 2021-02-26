@@ -2852,6 +2852,131 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		})
 
+		Context("With block size", func() {
+
+			table.DescribeTable("It should accept a disk with a valid block size of", func(logicalSize, physicalSize int) {
+				vmi := v1.NewMinimalVMI("testvmi")
+
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: "blockdisk",
+					BlockSize: &v1.BlockSize{
+						Custom: &v1.CustomBlockSize{
+							Logical:  uint(logicalSize),
+							Physical: uint(physicalSize),
+						},
+					},
+				})
+
+				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+				Expect(len(causes)).To(Equal(0))
+			},
+				table.Entry("a 512n disk", 512, 512),
+				table.Entry("a 512e disk", 512, 4096),
+				table.Entry("a 4096n (4kn) disk", 4096, 4096),
+				table.Entry("a custom 1 MiB disk", 1048576, 1048576),
+			)
+
+			table.DescribeTable("It should deny a disk's block size configuration when", func(logicalSize, physicalSize int) {
+				vmi := v1.NewMinimalVMI("testvmi")
+
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: "blockdisk",
+					BlockSize: &v1.BlockSize{
+						Custom: &v1.CustomBlockSize{
+							Logical:  uint(logicalSize),
+							Physical: uint(physicalSize),
+						},
+					},
+				})
+
+				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+				Expect(len(causes)).To(Equal(2))
+				Expect(causes[0].Field).To(Equal("fake[0].blockSize.custom.logical"))
+				Expect(causes[1].Field).To(Equal("fake[0].blockSize.custom.physical"))
+			},
+				table.Entry("less than 512", 128, 128),
+				table.Entry("greater than 2 MiB", 3000000, 3000000),
+				table.Entry("not a power of 2", 1234, 1234),
+			)
+
+			It("Should deny a disk's block size configuration when logical > physical", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: "blockdisk",
+					BlockSize: &v1.BlockSize{
+						Custom: &v1.CustomBlockSize{
+							Logical:  4096,
+							Physical: 512,
+						},
+					},
+				})
+
+				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+				Expect(len(causes)).To(Equal(1))
+				Expect(causes[0].Field).To(Equal("fake[0].blockSize.custom.logical"))
+			})
+
+			It("Should accept disks with block size matching enabled", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+
+				_true := true
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: "blockdisk",
+					BlockSize: &v1.BlockSize{
+						MatchVolume: &v1.FeatureState{
+							Enabled: &_true,
+						},
+					},
+				})
+
+				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+				Expect(len(causes)).To(Equal(0))
+			})
+
+			It("Should reject disk with custom block size and size matching enabled", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+
+				_true := true
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: "blockdisk",
+					BlockSize: &v1.BlockSize{
+						Custom: &v1.CustomBlockSize{
+							Logical:  1234,
+							Physical: 1234,
+						},
+						MatchVolume: &v1.FeatureState{
+							Enabled: &_true,
+						},
+					},
+				})
+
+				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+				Expect(len(causes)).To(Equal(1))
+				Expect(causes[0].Field).To(Equal("fake[0].blockSize"))
+			})
+
+			It("Should accept disks with a custom block size and size matching explicitly disabled", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+
+				_false := false
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: "blockdisk",
+					BlockSize: &v1.BlockSize{
+						Custom: &v1.CustomBlockSize{
+							Logical:  4096,
+							Physical: 4096,
+						},
+						MatchVolume: &v1.FeatureState{
+							Enabled: &_false,
+						},
+					},
+				})
+
+				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+				Expect(len(causes)).To(Equal(0))
+			})
+		})
 	})
 
 	Context("with volume", func() {

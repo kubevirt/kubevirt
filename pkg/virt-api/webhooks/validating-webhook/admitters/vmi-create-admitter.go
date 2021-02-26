@@ -2131,6 +2131,52 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 				Field:   field.Child("domain", "devices", "disks").Index(idx).Child("name").String(),
 			})
 		}
+
+		if disk.BlockSize != nil {
+			hasCustomBlockSize := disk.BlockSize.Custom != nil
+			hasVolumeMatchingEnabled := disk.BlockSize.MatchVolume != nil && (disk.BlockSize.MatchVolume.Enabled == nil || *disk.BlockSize.MatchVolume.Enabled)
+			if hasCustomBlockSize && hasVolumeMatchingEnabled {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "Block size matching can't be enabled together with a custom value",
+					Field:   field.Index(idx).Child("blockSize").String(),
+				})
+			} else if hasCustomBlockSize {
+				customSize := disk.BlockSize.Custom
+				if customSize.Logical > customSize.Physical {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("Logical size %d must be the same or less than the physical size of %d", customSize.Logical, customSize.Physical),
+						Field:   field.Index(idx).Child("blockSize").Child("custom").Child("logical").String(),
+					})
+				} else {
+					checkSize := func(size uint) (bool, string) {
+						if size < 512 {
+							return false, fmt.Sprintf("Provided size of %d is less than the supported minimum size of 512", size)
+						} else if size > 2097152 {
+							return false, fmt.Sprintf("Provided size of %d is greater than the supported maximum size of 2 MiB", size)
+						} else if size&(size-1) != 0 {
+							return false, fmt.Sprintf("Provided size of %d is not a power of 2", size)
+						}
+						return true, ""
+					}
+					if sizeOk, reason := checkSize(customSize.Logical); !sizeOk {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: reason,
+							Field:   field.Index(idx).Child("blockSize").Child("custom").Child("logical").String(),
+						})
+					}
+					if sizeOk, reason := checkSize(customSize.Physical); !sizeOk {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: reason,
+							Field:   field.Index(idx).Child("blockSize").Child("custom").Child("physical").String(),
+						})
+					}
+				}
+			}
+		}
 	}
 
 	return causes

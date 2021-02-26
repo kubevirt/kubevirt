@@ -494,6 +494,26 @@ type Disk struct {
 	// If specified, disk address and its tag will be provided to the guest via config drive metadata
 	// +optional
 	Tag string `json:"tag,omitempty"`
+	// If specified, the virtual disk will be presented with the given block sizes.
+	// +optional
+	BlockSize *BlockSize `json:"blockSize,omitempty"`
+}
+
+// CustomBlockSize represents the desired logical and physical block size for a VM disk.
+//
+// +k8s:openapi-gen=true
+type CustomBlockSize struct {
+	Logical  uint `json:"logical"`
+	Physical uint `json:"physical"`
+}
+
+// BlockSize provides the option to change the block size presented to the VM for a disk.
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type BlockSize struct {
+	Custom      *CustomBlockSize `json:"custom,omitempty"`
+	MatchVolume *FeatureState    `json:"matchVolume,omitempty"`
 }
 
 // Represents the target of a volume to mount.
