@@ -5,6 +5,7 @@ package isolation
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	mountinfo "github.com/moby/sys/mountinfo"
 )
 
 // Mock of IsolationResult interface
@@ -68,17 +69,6 @@ func (_mr *_MockIsolationResultRecorder) MountRoot() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MountRoot")
 }
 
-func (_m *MockIsolationResult) MountInfoRoot() (*MountInfo, error) {
-	ret := _m.ctrl.Call(_m, "MountInfoRoot")
-	ret0, _ := ret[0].(*MountInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (_mr *_MockIsolationResultRecorder) MountInfoRoot() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "MountInfoRoot")
-}
-
 func (_m *MockIsolationResult) MountNamespace() string {
 	ret := _m.ctrl.Call(_m, "MountNamespace")
 	ret0, _ := ret[0].(string)
@@ -107,4 +97,15 @@ func (_m *MockIsolationResult) DoNetNS(_param0 func() error) error {
 
 func (_mr *_MockIsolationResultRecorder) DoNetNS(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DoNetNS", arg0)
+}
+
+func (_m *MockIsolationResult) Mounts(_param0 mountinfo.FilterFunc) ([]*mountinfo.Info, error) {
+	ret := _m.ctrl.Call(_m, "Mounts", _param0)
+	ret0, _ := ret[0].([]*mountinfo.Info)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockIsolationResultRecorder) Mounts(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Mounts", arg0)
 }

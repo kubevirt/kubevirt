@@ -26,33 +26,20 @@ package isolation
 */
 
 import (
-	"encoding/csv"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/containernetworking/plugins/pkg/ns"
+	mount "github.com/moby/sys/mountinfo"
 
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
-type MountInfo struct {
-	DeviceContainingFile string
-	Root                 string
-	MountPoint           string
-}
-
-// The unit test suite overwrites this function
-var mountInfoFunc = func(pid int) string {
-	return fmt.Sprintf("/proc/%d/mountinfo", pid)
-}
-
-func NewIsolationResult(pid int, slice string, controller []string) IsolationResult {
-	return &realIsolationResult{pid: pid, slice: slice, controller: controller}
-}
-
+// IsolationResult is the result of a succesful PodIsolationDetector.Detect
 type IsolationResult interface {
 	// cgroup slice
 	Slice() string
@@ -62,20 +49,24 @@ type IsolationResult interface {
 	PIDNamespace() string
 	// full path to the process root mount
 	MountRoot() string
-	// retrieve additional information about the process root mount
-	MountInfoRoot() (*MountInfo, error)
 	// full path to the mount namespace
 	MountNamespace() string
 	// full path to the network namespace
 	NetNamespace() string
 	// execute a function in the process network namespace
 	DoNetNS(func() error) error
+	// mounts for the process
+	Mounts(mount.FilterFunc) ([]*mount.Info, error)
 }
 
 type realIsolationResult struct {
 	pid        int
 	slice      string
 	controller []string
+}
+
+func NewIsolationResult(pid int, slice string, controller []string) IsolationResult {
+	return &realIsolationResult{pid: pid, slice: slice, controller: controller}
 }
 
 func (r *realIsolationResult) DoNetNS(f func() error) error {
@@ -100,129 +91,29 @@ func (r *realIsolationResult) MountNamespace() string {
 	return fmt.Sprintf("/proc/%d/ns/mnt", r.pid)
 }
 
-func (r *realIsolationResult) mountInfo() string {
-	return mountInfoFunc(r.pid)
-}
-
-func forEachRecord(filepath string, f func(record []string) bool) error {
-	in, err := os.Open(filepath)
-	if err != nil {
-		return fmt.Errorf("could not open file %s: %v", filepath, err)
-	}
-	defer util.CloseIOAndCheckErr(in, nil)
-	c := csv.NewReader(in)
-	c.Comma = ' '
-	c.LazyQuotes = true
-	for {
-		record, err := c.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			if e, ok := err.(*csv.ParseError); ok {
-				if e.Err != csv.ErrFieldCount {
-					return err
-				}
-			} else {
-				return err
-			}
-		}
-
-		if f(record) {
-			break
-		}
-	}
-	return nil
-}
-
-// MountInfoRoot returns information about the root entry in /proc/mountinfo
-func (r *realIsolationResult) MountInfoRoot() (mountInfo *MountInfo, err error) {
-	if err = forEachRecord(r.mountInfo(), func(record []string) bool {
-		if record[4] == "/" {
-			mountInfo = &MountInfo{
-				DeviceContainingFile: record[2],
-				Root:                 record[3],
-				MountPoint:           record[4],
-			}
-		}
-		return mountInfo != nil
-	}); err != nil {
-		return nil, err
-	}
-	if mountInfo == nil {
-		//impossible
-		err = fmt.Errorf("process has no root entry")
-	}
-	return
-}
-
-// IsMounted checks if a path in the mount namespace of a
-// given process isolation result is a mount point. Works with symlinks.
+// IsMounted checks if the given path is a mount point or not. Works with symlinks.
 func (r *realIsolationResult) IsMounted(mountPoint string) (isMounted bool, err error) {
-	mountPoint, err = filepath.EvalSymlinks(mountPoint)
-	if os.IsNotExist(err) {
-		return false, nil
-	}
+	mountPoint, err = filepath.Abs(mountPoint)
 	if err != nil {
-		return false, fmt.Errorf("could not resolve mount point path: %v", err)
+		return false, fmt.Errorf("failed to resolve %v to an absolute path: %v", mountPoint, err)
 	}
-	if err = forEachRecord(r.mountInfo(), func(record []string) bool {
-		isMounted = record[4] == mountPoint
-		return isMounted
-	}); err != nil {
-		return false, err
+	mountPoint, err = filepath.EvalSymlinks(mountPoint)
+	if err != nil {
+		return false, fmt.Errorf("could not resolve symlinks in path %v: %v", mountPoint, err)
 	}
-	return
+	return mount.Mounted(mountPoint)
 }
 
-// IsBlockDevice check if the path given is a block device or not.
+// IsBlockDevice checks if the given path is a block device or not.
 func (r *realIsolationResult) IsBlockDevice(path string) (bool, error) {
 	fileInfo, err := os.Stat(path)
-	if err == nil {
-		if !fileInfo.IsDir() && (fileInfo.Mode()&os.ModeDevice) != 0 {
-			return true, nil
-		}
+	if err != nil {
+		return false, fmt.Errorf("error checking for block device: %v", err)
+	}
+	if fileInfo.IsDir() || (fileInfo.Mode()&os.ModeDevice) == 0 {
 		return false, fmt.Errorf("found %v, but it's not a block device", path)
 	}
-	return false, fmt.Errorf("error checking for block device: %v", err)
-}
-
-// ParentMountInfoFor takes the mount info from a container, and looks the corresponding
-// entry in /proc/mountinfo of the isolation result of the given process.
-func (r *realIsolationResult) ParentMountInfoFor(mountInfo *MountInfo) (parentMountInfo *MountInfo, err error) {
-	if err = forEachRecord(r.mountInfo(), func(record []string) bool {
-		if record[2] == mountInfo.DeviceContainingFile {
-			parentMountInfo = &MountInfo{
-				DeviceContainingFile: record[2],
-				Root:                 record[3],
-				MountPoint:           record[4],
-			}
-		}
-		return parentMountInfo != nil
-	}); err != nil {
-		return nil, err
-	}
-	if parentMountInfo == nil {
-		err = fmt.Errorf("no parent entry for %v found in the mount namespace of %d", mountInfo.DeviceContainingFile, r.pid)
-	}
-	return
-}
-
-// FullPath takes the mount info from a container and composes the full path starting from
-// the root mount of the given process.
-func (r *realIsolationResult) FullPath(mountInfo *MountInfo) (path string, err error) {
-	// Handle btrfs subvolumes: mountInfo.Root seems to already provide the needed path
-	if strings.HasPrefix(mountInfo.Root, "/@") {
-		path = filepath.Join(r.MountRoot(), strings.TrimPrefix(mountInfo.Root, "/@"))
-		return
-	}
-
-	parentMountInfo, err := r.ParentMountInfoFor(mountInfo)
-	if err != nil {
-		return
-	}
-	path = filepath.Join(r.MountRoot(), parentMountInfo.Root, parentMountInfo.MountPoint, mountInfo.Root)
-	return
+	return true, nil
 }
 
 func (r *realIsolationResult) NetNamespace() string {
@@ -245,4 +136,63 @@ func NodeIsolationResult() *realIsolationResult {
 	return &realIsolationResult{
 		pid: 1,
 	}
+}
+
+// Mounts returns mounts for the given process based on the supplied filter
+func (r *realIsolationResult) Mounts(filter mount.FilterFunc) ([]*mount.Info, error) {
+	in, err := os.Open(fmt.Sprintf("/proc/%d/mountinfo", r.pid))
+	if err != nil {
+		return nil, fmt.Errorf("could not open file mountinfo for %d: %v", r.pid, err)
+	}
+	defer util.CloseIOAndCheckErr(in, nil)
+	return mount.GetMountsFromReader(in, filter)
+}
+
+// MountInfoRoot returns the mount information for the root mount point
+func MountInfoRoot(r IsolationResult) (mountInfo *mount.Info, err error) {
+	mounts, err := r.Mounts(mount.SingleEntryFilter("/"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to process mountinfo for pid %d: %v", r.Pid(), err)
+	}
+	if len(mounts) <= 0 {
+		return nil, fmt.Errorf("no root mount point entry found for pid %d", r.Pid())
+	}
+	return mounts[0], nil
+}
+
+// parentMountInfoFor takes the mountInfo record of a container (child) and
+// attempts to locate a mountpoint containing it on the parent.
+func parentMountInfoFor(parent IsolationResult, mountInfo *mount.Info) (*mount.Info, error) {
+	mounts, err := parent.Mounts(func(m *mount.Info) (bool, bool) {
+		return m.Major != mountInfo.Major || m.Minor != mountInfo.Minor ||
+			!strings.HasPrefix(mountInfo.Root, m.Root), false
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find mount for %v in the mount namespace of pid %d", mountInfo.Root, parent.Pid())
+	}
+
+	if len(mounts) <= 0 {
+		return nil, fmt.Errorf("no mount containing %v found in the mount namespace of pid %d", mountInfo.Root, parent.Pid())
+	} else if len(mounts) > 1 {
+		log.Log.Infof("found %d possible mount point candidates for path %v", len(mounts), mountInfo.Root)
+		sort.SliceStable(mounts, func(i, j int) bool {
+			return len(mounts[i].Root) > len(mounts[j].Root)
+		})
+	}
+
+	return mounts[0], nil
+}
+
+// ParentPathForRootMount takes a container (child) and composes a path to
+// the root mount point in the context of the parent.
+func ParentPathForRootMount(parent IsolationResult, child IsolationResult) (string, error) {
+	childRootMountInfo, err := MountInfoRoot(child)
+	if err != nil {
+		return "", err
+	}
+	parentMountInfo, err := parentMountInfoFor(parent, childRootMountInfo)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(parent.MountRoot(), parentMountInfo.Mountpoint, strings.TrimPrefix(childRootMountInfo.Root, parentMountInfo.Root)), nil
 }

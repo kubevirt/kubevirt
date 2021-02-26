@@ -34,6 +34,7 @@ require (
 	github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
 	github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
+	github.com/moby/sys/mountinfo v0.4.1
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
 	github.com/opencontainers/runc v1.0.0-rc92
