@@ -1061,7 +1061,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
-			for model, _ := range validInterfaceModels {
+			for model := range validInterfaceModels {
 				vmi.Spec.Domain.Devices.Interfaces[0].Model = model
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				// if this is processed correctly, it should not result in any error
@@ -2443,7 +2443,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			for policy, _ := range validCPUFeaturePolicies {
+			for policy := range validCPUFeaturePolicies {
 				vmi.Spec.Domain.CPU.Features[0].Policy = policy
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(len(causes)).To(Equal(0))

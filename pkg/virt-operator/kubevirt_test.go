@@ -885,12 +885,12 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		// webhooks and apiservice
 		validatingWebhook := components.NewVirtAPIValidatingWebhookConfiguration(config.GetNamespace())
-		for i, _ := range validatingWebhook.Webhooks {
+		for i := range validatingWebhook.Webhooks {
 			validatingWebhook.Webhooks[i].ClientConfig.CABundle = caBundle
 		}
 		all = append(all, validatingWebhook)
 		mutatingWebhook := components.NewVirtAPIMutatingWebhookConfiguration(config.GetNamespace())
-		for i, _ := range mutatingWebhook.Webhooks {
+		for i := range mutatingWebhook.Webhooks {
 			mutatingWebhook.Webhooks[i].ClientConfig.CABundle = caBundle
 		}
 		all = append(all, mutatingWebhook)
@@ -900,7 +900,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			all = append(all, apiService)
 		}
 		validatingWebhook = components.NewOpertorValidatingWebhookConfiguration(NAMESPACE)
-		for i, _ := range validatingWebhook.Webhooks {
+		for i := range validatingWebhook.Webhooks {
 			validatingWebhook.Webhooks[i].ClientConfig.CABundle = caBundle
 		}
 		all = append(all, validatingWebhook)

@@ -136,7 +136,7 @@ func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 	// can't set conditions without timestamps
 
 	objectmeta := ""
-	for k, _ := range openapispec.Definitions {
+	for k := range openapispec.Definitions {
 		if strings.Contains(k, "v1.ObjectMeta") {
 			objectmeta = k
 			break
@@ -269,7 +269,7 @@ func CreateOpenAPIValidator(webServices []*restful.WebService) *Validator {
 
 func (v *Validator) Validate(gvk schema.GroupVersionKind, obj map[string]interface{}) []error {
 	errs := []error{}
-	for k, _ := range obj {
+	for k := range obj {
 		if _, exists := v.topLevelKeys[k]; !exists {
 			errs = append(errs, errors.PropertyNotAllowed("", "body", k))
 		}
