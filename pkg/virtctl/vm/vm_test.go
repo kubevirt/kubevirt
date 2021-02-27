@@ -14,7 +14,6 @@ import (
 
 var _ = Describe("VirtualMachine", func() {
 
-	const unknownVM = "unknown-vm"
 	const vmName = "testvm"
 	var vmInterface *kubecli.MockVirtualMachineInterface
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
