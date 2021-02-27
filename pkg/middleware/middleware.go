@@ -150,34 +150,6 @@ func InternalErrorMiddleware(logger gklog.Logger) endpoint.Middleware {
 	}
 }
 
-func NewResourceNotFoundError(msg string) *ResourceNotFoundError {
-	return &ResourceNotFoundError{appError{err: fmt.Errorf(msg)}}
-}
-
-func NewBadRequestError(msg string) *BadRequestError {
-	return &BadRequestError{appError{err: fmt.Errorf(msg)}}
-}
-
-func NewResourceExistsError(resource string, name string) *ResourceNotFoundError {
-	return NewResourceConflictError(fmt.Sprintf("%s with name %s already exists", resource, name))
-}
-
 func NewResourceConflictError(msg string) *ResourceNotFoundError {
 	return &ResourceNotFoundError{appError{err: fmt.Errorf(msg)}}
-}
-
-func NewInternalServerError(err error) *InternalServerError {
-	return &InternalServerError{appError{err: err}}
-}
-
-func NewKubernetesError(result rest.Result) *KubernetesError {
-	return &KubernetesError{result: result}
-}
-
-func NewUnprocessibleEntityError(err error) *UnprocessableEntityError {
-	return &UnprocessableEntityError{appError{err: err}}
-}
-
-func NewUnsupportedMediaType(mediaType string) *UnsupportedMediaTypeError {
-	return &UnsupportedMediaTypeError{appError{err: fmt.Errorf("Media Type(s) '%s' not supported", mediaType)}}
 }

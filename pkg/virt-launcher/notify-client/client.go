@@ -140,13 +140,6 @@ func (n *Notifier) connect() error {
 	return err
 }
 
-func newV1Notifier(client notifyv1.NotifyClient, conn *grpc.ClientConn) *Notifier {
-	return &Notifier{
-		v1client: client,
-		conn:     conn,
-	}
-}
-
 func (n *Notifier) SendDomainEvent(event watch.Event) error {
 
 	var domainJSON []byte

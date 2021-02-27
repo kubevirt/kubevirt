@@ -1139,7 +1139,3 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 	logger.Info("Processed deletion for this round")
 	return nil
 }
-
-func isKubeVirtActive(kv *v1.KubeVirt) bool {
-	return kv.Status.Phase != v1.KubeVirtPhaseDeleted
-}
