@@ -1122,7 +1122,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			Args:            requestedHookSidecar.Args,
 			Resources:       resources,
 			VolumeMounts: []k8sv1.VolumeMount{
-				k8sv1.VolumeMount{
+				{
 					Name:      "hook-sidecar-sockets",
 					MountPath: hooks.HookSocketsSharedDirectory,
 				},
@@ -1147,7 +1147,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	if HaveContainerDiskVolume(vmi.Spec.Volumes) {
 
 		initContainerVolumeMounts := []k8sv1.VolumeMount{
-			k8sv1.VolumeMount{
+			{
 				Name:      "virt-bin-share-dir",
 				MountPath: "/init/usr/bin",
 			},

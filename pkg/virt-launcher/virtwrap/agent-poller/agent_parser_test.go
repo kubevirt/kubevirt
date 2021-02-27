@@ -155,19 +155,19 @@ var _ = Describe("Qemu agent poller", func() {
 			Expect(err).ToNot(HaveOccurred(), "should parse network inferfaces")
 
 			domInterfaces := []api.Interface{
-				api.Interface{
+				{
 					MAC: &api.MAC{
 						MAC: "0a:58:0a:f4:00:51",
 					},
 					Alias: api.NewUserDefinedAlias("ovs"),
 				},
-				api.Interface{
+				{
 					MAC: &api.MAC{
 						MAC: "02:00:00:b0:17:66",
 					},
 					Alias: api.NewUserDefinedAlias("net1"),
 				},
-				api.Interface{
+				{
 					MAC: &api.MAC{
 						MAC: "02:11:11:b0:17:66",
 					},
@@ -329,7 +329,7 @@ var _ = Describe("Qemu agent poller", func() {
 
 			filesystem, err := parseFilesystem(jsonInput)
 			expectedFilesystem := []api.Filesystem{
-				api.Filesystem{
+				{
 					Name:       "main",
 					Mountpoint: "/",
 					Type:       "ext",
@@ -356,7 +356,7 @@ var _ = Describe("Qemu agent poller", func() {
 
 			users, err := parseUsers(jsonInput)
 			expectedUsers := []api.User{
-				api.User{
+				{
 					Name:      "bob",
 					Domain:    "bobs",
 					LoginTime: 99999,

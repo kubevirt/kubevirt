@@ -383,21 +383,21 @@ var _ = Describe("Schema", func() {
 </cputune>`
 		var exampleCpuTune = CPUTune{
 			VCPUPin: []CPUTuneVCPUPin{
-				CPUTuneVCPUPin{
+				{
 					VCPU:   0,
 					CPUSet: "1",
 				},
-				CPUTuneVCPUPin{
+				{
 					VCPU:   1,
 					CPUSet: "5",
 				},
 			},
 			IOThreadPin: []CPUTuneIOThreadPin{
-				CPUTuneIOThreadPin{
+				{
 					IOThread: 0,
 					CPUSet:   "1",
 				},
-				CPUTuneIOThreadPin{
+				{
 					IOThread: 1,
 					CPUSet:   "5",
 				},

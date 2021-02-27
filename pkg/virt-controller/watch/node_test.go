@@ -471,7 +471,7 @@ func NewUnhealthyStuckTerminatingPodForVirtualMachine(podName string, vmi *virtv
 	pod := NewHealthyPodForVirtualMachine(podName, vmi)
 	pod.Status.Phase = k8sv1.PodPending
 	pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{
-		k8sv1.ContainerStatus{
+		{
 			State: k8sv1.ContainerState{
 				Terminated: &k8sv1.ContainerStateTerminated{},
 			},
