@@ -56,7 +56,7 @@ func GetVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) (string, bool, erro
 	basepath := ""
 	foundEntries := 0
 	foundBasepath := ""
-	for podUID, _ := range vmi.Status.ActivePods {
+	for podUID := range vmi.Status.ActivePods {
 		basepath = fmt.Sprintf("%s/%s/volumes/kubernetes.io~empty-dir/container-disks", podsBaseDir, string(podUID))
 		exists, err := diskutils.FileExists(basepath)
 		if err != nil {
@@ -130,7 +130,7 @@ func GetDiskTargetPartFromLauncherView(volumeIndex int) (string, error) {
 // can be provided which can for instance point to /tmp.
 func NewSocketPathGetter(baseDir string) SocketPathGetter {
 	return func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
-		for podUID, _ := range vmi.Status.ActivePods {
+		for podUID := range vmi.Status.ActivePods {
 			basepath := fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", baseDir, string(podUID))
 			socketPath := filepath.Join(basepath, fmt.Sprintf("disk_%d.sock", volumeIndex))
 			exists, _ := diskutils.FileExists(socketPath)

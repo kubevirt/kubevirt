@@ -404,7 +404,7 @@ func (d *VirtualMachineController) clearPodNetworkPhase1(vmi *v1.VirtualMachineI
 
 	// Clean Pod interface cache from map and files
 	d.podInterfaceCacheLock.Lock()
-	for key, _ := range d.podInterfaceCache {
+	for key := range d.podInterfaceCache {
 		if strings.Contains(key, string(vmi.UID)) {
 			delete(d.podInterfaceCache, key)
 		}

@@ -40,7 +40,7 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 	var cachedWebhook *admissionregistrationv1beta1.ValidatingWebhookConfiguration
 	webhook = webhook.DeepCopy()
 
-	for i, _ := range webhook.Webhooks {
+	for i := range webhook.Webhooks {
 		webhook.Webhooks[i].ClientConfig.CABundle = caBundle
 	}
 
@@ -137,7 +137,7 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 	var cachedWebhook *admissionregistrationv1beta1.MutatingWebhookConfiguration
 	webhook = webhook.DeepCopy()
 
-	for i, _ := range webhook.Webhooks {
+	for i := range webhook.Webhooks {
 		webhook.Webhooks[i].ClientConfig.CABundle = caBundle
 	}
 
