@@ -99,17 +99,17 @@ func (ctrl *VMSnapshotController) Init() {
 	ctrl.dvQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-dv")
 
 	ctrl.dynamicInformerMap = map[string]*dynamicInformer{
-		volumeSnapshotCRD:      &dynamicInformer{informerFunc: controller.VolumeSnapshotInformer},
-		volumeSnapshotClassCRD: &dynamicInformer{informerFunc: controller.VolumeSnapshotClassInformer},
+		volumeSnapshotCRD:      {informerFunc: controller.VolumeSnapshotInformer},
+		volumeSnapshotClassCRD: {informerFunc: controller.VolumeSnapshotClassInformer},
 	}
 
 	ctrl.eventHandlerMap = map[string]cache.ResourceEventHandlerFuncs{
-		volumeSnapshotCRD: cache.ResourceEventHandlerFuncs{
+		volumeSnapshotCRD: {
 			AddFunc:    ctrl.handleVolumeSnapshot,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVolumeSnapshot(newObj) },
 			DeleteFunc: ctrl.handleVolumeSnapshot,
 		},
-		volumeSnapshotClassCRD: cache.ResourceEventHandlerFuncs{
+		volumeSnapshotClassCRD: {
 			AddFunc:    ctrl.handleVolumeSnapshotClass,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVolumeSnapshotClass(newObj) },
 			DeleteFunc: ctrl.handleVolumeSnapshotClass,

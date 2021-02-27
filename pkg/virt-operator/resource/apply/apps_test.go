@@ -361,9 +361,9 @@ var _ = Describe("Apply Apps", func() {
 				NodeAffinity: &corev1.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 						NodeSelectorTerms: []corev1.NodeSelectorTerm{
-							corev1.NodeSelectorTerm{
+							{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
-									corev1.NodeSelectorRequirement{
+									{
 										Key:      "required",
 										Operator: "in",
 										Values:   []string{"test"},
@@ -373,10 +373,10 @@ var _ = Describe("Apply Apps", func() {
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-						corev1.PreferredSchedulingTerm{
+						{
 							Preference: corev1.NodeSelectorTerm{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
-									corev1.NodeSelectorRequirement{
+									{
 										Key:      "preferred",
 										Operator: "in",
 										Values:   []string{"test"},
@@ -388,14 +388,14 @@ var _ = Describe("Apply Apps", func() {
 				},
 				PodAffinity: &corev1.PodAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						corev1.PodAffinityTerm{
+						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{"required": "term"},
 							},
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						corev1.WeightedPodAffinityTerm{
+						{
 							PodAffinityTerm: corev1.PodAffinityTerm{
 								LabelSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{"preferred": "term"},
@@ -406,14 +406,14 @@ var _ = Describe("Apply Apps", func() {
 				},
 				PodAntiAffinity: &corev1.PodAntiAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						corev1.PodAffinityTerm{
+						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{"anti-required": "term"},
 							},
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						corev1.WeightedPodAffinityTerm{
+						{
 							PodAffinityTerm: corev1.PodAffinityTerm{
 								LabelSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{"anti-preferred": "term"},
@@ -428,9 +428,9 @@ var _ = Describe("Apply Apps", func() {
 				NodeAffinity: &corev1.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 						NodeSelectorTerms: []corev1.NodeSelectorTerm{
-							corev1.NodeSelectorTerm{
+							{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
-									corev1.NodeSelectorRequirement{
+									{
 										Key:      "required2",
 										Operator: "in",
 										Values:   []string{"test"},
@@ -440,10 +440,10 @@ var _ = Describe("Apply Apps", func() {
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-						corev1.PreferredSchedulingTerm{
+						{
 							Preference: corev1.NodeSelectorTerm{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
-									corev1.NodeSelectorRequirement{
+									{
 										Key:      "preferred2",
 										Operator: "in",
 										Values:   []string{"test"},
@@ -455,14 +455,14 @@ var _ = Describe("Apply Apps", func() {
 				},
 				PodAffinity: &corev1.PodAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						corev1.PodAffinityTerm{
+						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{"required2": "term"},
 							},
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						corev1.WeightedPodAffinityTerm{
+						{
 							PodAffinityTerm: corev1.PodAffinityTerm{
 								LabelSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{"preferred2": "term"},
@@ -473,14 +473,14 @@ var _ = Describe("Apply Apps", func() {
 				},
 				PodAntiAffinity: &corev1.PodAntiAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						corev1.PodAffinityTerm{
+						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{"anti-required2": "term"},
 							},
 						},
 					},
 					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-						corev1.WeightedPodAffinityTerm{
+						{
 							PodAffinityTerm: corev1.PodAffinityTerm{
 								LabelSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{"anti-preferred2": "term"},

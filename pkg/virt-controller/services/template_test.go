@@ -799,7 +799,7 @@ var _ = Describe("Template", func() {
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								Interfaces: []v1.Interface{
-									v1.Interface{
+									{
 										Name: "test1",
 										InterfaceBindingMethod: v1.InterfaceBindingMethod{
 											SRIOV: &v1.InterfaceSRIOV{},
@@ -2415,7 +2415,7 @@ var _ = Describe("Template", func() {
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								GPUs: []v1.GPU{
-									v1.GPU{
+									{
 										Name:       "gpu1",
 										DeviceName: "vendor.com/gpu_name",
 									},
@@ -2442,7 +2442,7 @@ var _ = Describe("Template", func() {
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								GPUs: []v1.GPU{
-									v1.GPU{
+									{
 										Name:       "gpu1",
 										DeviceName: "vendor.com/gpu_name",
 									},
@@ -2490,7 +2490,7 @@ var _ = Describe("Template", func() {
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								HostDevices: []v1.HostDevice{
-									v1.HostDevice{
+									{
 										Name:       "hostdev1",
 										DeviceName: "vendor.com/dev_name",
 									},
@@ -2517,7 +2517,7 @@ var _ = Describe("Template", func() {
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								HostDevices: []v1.HostDevice{
-									v1.HostDevice{
+									{
 										Name:       "hostdev1",
 										DeviceName: "vendor.com/dev_name",
 									},

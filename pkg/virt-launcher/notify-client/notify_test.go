@@ -173,10 +173,10 @@ var _ = Describe("Notify", func() {
 				mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).Return(`<kubevirt></kubevirt>`, nil)
 
 				interfaceStatus := []api.InterfaceStatus{
-					api.InterfaceStatus{
+					{
 						Name: "test", Ip: "1.1.1.1/24", Mac: "1", InterfaceName: "eth1",
 					},
-					api.InterfaceStatus{
+					{
 						Name: "test2",
 					},
 				}
@@ -290,7 +290,7 @@ var _ = Describe("Notify", func() {
 
 		It("Should generate a k8s event on IO errors", func(done Done) {
 			faultDisk := []libvirt.DomainDiskError{
-				libvirt.DomainDiskError{
+				{
 					Disk:  "vda",
 					Error: libvirt.DOMAIN_DISK_ERROR_NO_SPACE,
 				},

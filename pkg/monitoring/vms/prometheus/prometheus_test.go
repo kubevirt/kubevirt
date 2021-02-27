@@ -765,7 +765,7 @@ var _ = Describe("Utility functions", func() {
 
 		It("should handle different VMI phases", func() {
 			vmis := []*k6tv1.VirtualMachineInstance{
-				&k6tv1.VirtualMachineInstance{
+				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "running#0",
 						Annotations: map[string]string{
@@ -778,7 +778,7 @@ var _ = Describe("Utility functions", func() {
 						Phase: "Running",
 					},
 				},
-				&k6tv1.VirtualMachineInstance{
+				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "running#1",
 						Annotations: map[string]string{
@@ -791,7 +791,7 @@ var _ = Describe("Utility functions", func() {
 						Phase: "Running",
 					},
 				},
-				&k6tv1.VirtualMachineInstance{
+				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "pending#0",
 						Annotations: map[string]string{
@@ -804,7 +804,7 @@ var _ = Describe("Utility functions", func() {
 						Phase: "Pending",
 					},
 				},
-				&k6tv1.VirtualMachineInstance{
+				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "scheduling#0",
 						Annotations: map[string]string{
@@ -818,7 +818,7 @@ var _ = Describe("Utility functions", func() {
 						Phase: "Scheduling",
 					},
 				},
-				&k6tv1.VirtualMachineInstance{
+				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "scheduling#1",
 						Annotations: map[string]string{

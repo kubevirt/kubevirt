@@ -1070,7 +1070,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pod.Spec = k8sv1.PodSpec{
 				Containers: []k8sv1.Container{
-					k8sv1.Container{
+					{
 						Name: "test",
 						Resources: k8sv1.ResourceRequirements{
 							Requests: k8sv1.ResourceList{

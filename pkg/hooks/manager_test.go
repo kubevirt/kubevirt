@@ -52,7 +52,7 @@ func (s dynamicInfoServer) Info(ctx context.Context, params *hooksInfo.InfoParam
 			hooksV1alpha1.Version,
 		},
 		HookPoints: []*hooksInfo.HookPoint{
-			&hooksInfo.HookPoint{
+			{
 				Name:     s.hookPointName,
 				Priority: s.hookPointPriority,
 			},

@@ -443,7 +443,7 @@ func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkip
 				MatchNames: []string{namespace},
 			},
 			Endpoints: []promv1.Endpoint{
-				promv1.Endpoint{
+				{
 					Port:   "metrics",
 					Scheme: "https",
 					TLSConfig: &promv1.TLSConfig{
