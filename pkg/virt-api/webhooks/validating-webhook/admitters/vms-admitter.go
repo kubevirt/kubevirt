@@ -110,7 +110,7 @@ func (admitter *VMsAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	causes, err = admitter.validateVolumeRequests(ar.Request, &vm)
+	causes, err = admitter.validateVolumeRequests(&vm)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	} else if len(causes) > 0 {
@@ -138,7 +138,7 @@ func (admitter *VMsAdmitter) AdmitStatus(ar *v1beta1.AdmissionReview) *v1beta1.A
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	causes, err = admitter.validateVolumeRequests(ar.Request, vm)
+	causes, err = admitter.validateVolumeRequests(vm)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	} else if len(causes) > 0 {
@@ -292,7 +292,7 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	return causes
 }
 
-func (admitter *VMsAdmitter) validateVolumeRequests(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
+func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
 	if len(vm.Status.VolumeRequests) == 0 {
 		return nil, nil
 	}
