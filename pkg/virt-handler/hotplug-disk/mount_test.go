@@ -297,7 +297,7 @@ var _ = Describe("HotplugVolume block devices", func() {
 
 	It("getSourceMajorMinor should return an error if no uid", func() {
 		vmi.UID = ""
-		_, _, _, err := m.getSourceMajorMinor(vmi, "fghij")
+		_, _, _, err := m.getSourceMajorMinor("fghij")
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -307,7 +307,7 @@ var _ = Describe("HotplugVolume block devices", func() {
 		Expect(err).ToNot(HaveOccurred())
 		err = ioutil.WriteFile(deviceFile, []byte("test"), 0644)
 		Expect(err).ToNot(HaveOccurred())
-		major, minor, perm, err := m.getSourceMajorMinor(vmi, "fghij")
+		major, minor, perm, err := m.getSourceMajorMinor("fghij")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(major).To(Equal(int64(6)))
 		Expect(minor).To(Equal(int64(6)))
@@ -318,7 +318,7 @@ var _ = Describe("HotplugVolume block devices", func() {
 		deviceFile := filepath.Join(tempDir, "fghij", "volumes", "file")
 		err = os.MkdirAll(filepath.Dir(deviceFile), 0755)
 		Expect(err).ToNot(HaveOccurred())
-		major, minor, perm, err := m.getSourceMajorMinor(vmi, "fghij")
+		major, minor, perm, err := m.getSourceMajorMinor("fghij")
 		Expect(err).To(HaveOccurred())
 		Expect(major).To(Equal(int64(-1)))
 		Expect(minor).To(Equal(int64(-1)))
