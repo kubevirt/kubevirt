@@ -3793,10 +3793,7 @@ func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
 
 // SkipIfVersionBelow will skip tests if it runs on an environment with k8s version below specified
 func SkipIfVersionBelow(message string, expectedVersion string) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	curVersion, err := cluster.GetKubernetesVersion(virtClient)
+	curVersion, err := cluster.GetKubernetesVersion()
 	Expect(err).NotTo(HaveOccurred())
 
 	if curVersion < expectedVersion {
@@ -3805,10 +3802,7 @@ func SkipIfVersionBelow(message string, expectedVersion string) {
 }
 
 func SkipIfVersionAboveOrEqual(message string, expectedVersion string) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	curVersion, err := cluster.GetKubernetesVersion(virtClient)
+	curVersion, err := cluster.GetKubernetesVersion()
 	Expect(err).NotTo(HaveOccurred())
 
 	if curVersion >= expectedVersion {
@@ -3823,10 +3817,7 @@ func SkipIfOpenShift(message string) {
 }
 
 func SkipIfOpenShiftAndBelowOrEqualVersion(message string, version string) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	curVersion, err := cluster.GetKubernetesVersion(virtClient)
+	curVersion, err := cluster.GetKubernetesVersion()
 	Expect(err).NotTo(HaveOccurred())
 
 	// version is above
