@@ -45,7 +45,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("console", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Console{clientConfig: clientConfig}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 
@@ -67,7 +67,7 @@ func usage() string {
 	return usage
 }
 
-func (c *Console) Run(cmd *cobra.Command, args []string) error {
+func (c *Console) Run(args []string) error {
 	namespace, _, err := c.clientConfig.Namespace()
 	if err != nil {
 		return err

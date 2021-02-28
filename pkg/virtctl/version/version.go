@@ -21,7 +21,7 @@ func VersionCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("version", 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v := Version{clientConfig: clientConfig}
-			return v.Run(cmd, args)
+			return v.Run()
 		},
 	}
 	cmd.Flags().BoolVarP(&clientOnly, "client", "c", clientOnly, "Client version only (no server required).")
@@ -39,7 +39,7 @@ type Version struct {
 	clientConfig clientcmd.ClientConfig
 }
 
-func (v *Version) Run(cmd *cobra.Command, args []string) error {
+func (v *Version) Run() error {
 	fmt.Printf("Client Version: %s\n", fmt.Sprintf("%#v", version.Get()))
 
 	if !clientOnly {
