@@ -606,7 +606,7 @@ func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 	return nil
 }
 
-func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain, domainExists bool) error {
+func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.VirtualMachineInstance, domainExists bool) error {
 
 	vmiCopy := vmi.DeepCopy()
 
@@ -1176,14 +1176,10 @@ func (d *VirtualMachineController) getDomainFromCache(key string) (domain *api.D
 	return domain, exists, cachedUID, nil
 }
 
-func (d *VirtualMachineController) migrationOrphanedSourceNodeExecute(key string,
-	vmi *v1.VirtualMachineInstance,
-	vmiExists bool,
-	domain *api.Domain,
-	domainExists bool) error {
+func (d *VirtualMachineController) migrationOrphanedSourceNodeExecute(vmi *v1.VirtualMachineInstance, domainExists bool) error {
 
 	if domainExists {
-		err := d.processVmDelete(vmi, domain)
+		err := d.processVmDelete(vmi)
 		if err != nil {
 			return err
 		}
@@ -1204,11 +1200,7 @@ func (d *VirtualMachineController) migrationOrphanedSourceNodeExecute(key string
 	return nil
 }
 
-func (d *VirtualMachineController) migrationTargetExecute(key string,
-	vmi *v1.VirtualMachineInstance,
-	vmiExists bool,
-	domain *api.Domain,
-	domainExists bool) error {
+func (d *VirtualMachineController) migrationTargetExecute(vmi *v1.VirtualMachineInstance, vmiExists bool, domainExists bool) error {
 
 	// set to true when preparation of migration target should be aborted.
 	shouldAbort := false
@@ -1234,7 +1226,7 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 
 	if shouldAbort {
 		if domainExists {
-			err := d.processVmDelete(vmi, domain)
+			err := d.processVmDelete(vmi)
 			if err != nil {
 				return err
 			}
@@ -1265,7 +1257,7 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 			return err
 		}
 
-		err = d.migrationTargetUpdateVMIStatus(vmi, domain, domainExists)
+		err = d.migrationTargetUpdateVMIStatus(vmi, domainExists)
 		if err != nil {
 			return err
 		}
@@ -1454,7 +1446,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		syncErr = d.processVmShutdown(vmi, domain)
 	case shouldDelete:
 		log.Log.Object(vmi).V(3).Info("Processing deletion.")
-		syncErr = d.processVmDelete(vmi, domain)
+		syncErr = d.processVmDelete(vmi)
 	case shouldCleanUp:
 		log.Log.Object(vmi).V(3).Info("Processing local ephemeral data cleanup for shutdown domain.")
 		syncErr = d.processVmCleanup(vmi)
@@ -1558,22 +1550,14 @@ func (d *VirtualMachineController) execute(key string) error {
 		// a different execute path. The target execute path prepares
 		// the local environment for the migration, but does not
 		// start the VMI
-		return d.migrationTargetExecute(key,
-			vmi,
-			vmiExists,
-			domain,
-			domainExists)
+		return d.migrationTargetExecute(vmi, vmiExists, domainExists)
 	} else if vmiExists && d.isOrphanedMigrationSource(vmi) {
 		// 3. POST-MIGRATION SOURCE CLEANUP
 		//
 		// After a migration, the migrated domain still exists in the old
 		// source's domain cache. Ensure that any node that isn't currently
 		// the target or owner of the VMI handles deleting the domain locally.
-		return d.migrationOrphanedSourceNodeExecute(key,
-			vmi,
-			vmiExists,
-			domain,
-			domainExists)
+		return d.migrationOrphanedSourceNodeExecute(vmi, domainExists)
 	}
 	return d.defaultExecute(key,
 		vmi,
@@ -1848,7 +1832,7 @@ func (d *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 	return nil
 }
 
-func (d *VirtualMachineController) processVmDelete(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+func (d *VirtualMachineController) processVmDelete(vmi *v1.VirtualMachineInstance) error {
 
 	// Only attempt to shutdown/destroy if we still have a connection established with the pod.
 	client, err := d.getVerifiedLauncherClient(vmi)
