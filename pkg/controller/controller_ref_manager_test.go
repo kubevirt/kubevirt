@@ -37,7 +37,6 @@ var (
 	productionLabel         = map[string]string{"type": "production"}
 	testLabel               = map[string]string{"type": "testing"}
 	productionLabelSelector = labels.Set{"type": "production"}.AsSelector()
-	testLabelSelector       = labels.Set{"type": "testing"}.AsSelector()
 	controllerUID           = "123"
 )
 

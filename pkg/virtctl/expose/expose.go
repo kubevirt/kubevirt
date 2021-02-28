@@ -41,7 +41,6 @@ var strProtocol string
 var strTargetPort string
 var strServiceType string
 var portName string
-var namespace string
 var strIPFamily string
 
 // NewExposeCommand generates a new "expose" command
