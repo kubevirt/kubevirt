@@ -24,7 +24,7 @@ type FakePlugin struct {
 	Error      error
 }
 
-func (fp *FakePlugin) Start(stop chan struct{}) (err error) {
+func (fp *FakePlugin) Start(_ chan struct{}) (err error) {
 	atomic.AddInt32(&fp.Starts, 1)
 	return fp.Error
 }

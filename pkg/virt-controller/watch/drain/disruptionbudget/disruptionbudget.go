@@ -80,7 +80,7 @@ func (c *DisruptionBudgetController) deleteVirtualMachineInstance(obj interface{
 	c.enqueueVMI(obj)
 }
 
-func (c *DisruptionBudgetController) updateVirtualMachineInstance(old, curr interface{}) {
+func (c *DisruptionBudgetController) updateVirtualMachineInstance(_, curr interface{}) {
 	c.enqueueVMI(curr)
 }
 

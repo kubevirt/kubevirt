@@ -2472,7 +2472,7 @@ func (d *VirtualMachineController) deleteFunc(obj interface{}) {
 		d.Queue.Add(key)
 	}
 }
-func (d *VirtualMachineController) updateFunc(old, new interface{}) {
+func (d *VirtualMachineController) updateFunc(_, new interface{}) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
 		d.Queue.Add(key)

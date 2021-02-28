@@ -404,4 +404,4 @@ func SubResourcePath(subResource string) string {
 	return subResource
 }
 
-func Noop(request *restful.Request, response *restful.Response) {}
+func Noop(_ *restful.Request, _ *restful.Response) {}

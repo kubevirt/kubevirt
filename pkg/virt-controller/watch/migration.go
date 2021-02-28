@@ -603,7 +603,7 @@ func (c *MigrationController) deleteMigration(obj interface{}) {
 	c.enqueueMigration(obj)
 }
 
-func (c *MigrationController) updateMigration(old, curr interface{}) {
+func (c *MigrationController) updateMigration(_, curr interface{}) {
 	c.enqueueMigration(curr)
 }
 

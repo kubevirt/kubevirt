@@ -1155,7 +1155,7 @@ func (c *VMController) deleteVm(obj interface{}) {
 	c.enqueueVm(obj)
 }
 
-func (c *VMController) updateVm(old, curr interface{}) {
+func (c *VMController) updateVm(_, curr interface{}) {
 	c.enqueueVm(curr)
 }
 

@@ -474,7 +474,7 @@ func SetupCollector(virtCli kubecli.KubevirtClient, virtShareDir, nodeName strin
 	return co
 }
 
-func (co *Collector) Describe(ch chan<- *prometheus.Desc) {
+func (co *Collector) Describe(_ chan<- *prometheus.Desc) {
 	// TODO: Use DescribeByCollect?
 }
 

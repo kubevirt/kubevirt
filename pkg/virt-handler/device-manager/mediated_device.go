@@ -173,7 +173,7 @@ func (dpi *MediatedDevicePlugin) GetDeviceName() string {
 	return dpi.deviceName
 }
 
-func (dpi *MediatedDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	resourceName := dpi.deviceName
 	log.DefaultLogger().Infof("Allocate: resourceName: %s", dpi.deviceName)
 	log.DefaultLogger().Infof("Allocate: iommuMap: %v", dpi.iommuToMDEVMap)
@@ -245,7 +245,7 @@ func (dpi *MediatedDevicePlugin) Register() error {
 	return nil
 }
 
-func (dpi *MediatedDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
+func (dpi *MediatedDevicePlugin) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
 	// FIXME: sending an empty list up front should not be needed. This is a workaround for:
 	// https://github.com/kubevirt/kubevirt/issues/1196
 	// This can safely be removed once supported upstream Kubernetes is 1.10.3 or higher.
@@ -286,14 +286,14 @@ func (dpi *MediatedDevicePlugin) cleanup() error {
 	return nil
 }
 
-func (dpi *MediatedDevicePlugin) GetDevicePluginOptions(ctx context.Context, e *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
+func (dpi *MediatedDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
 	options := &pluginapi.DevicePluginOptions{
 		PreStartRequired: false,
 	}
 	return options, nil
 }
 
-func (dpi *MediatedDevicePlugin) PreStartContainer(ctx context.Context, in *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
+func (dpi *MediatedDevicePlugin) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
 	res := &pluginapi.PreStartContainerResponse{}
 	return res, nil
 }

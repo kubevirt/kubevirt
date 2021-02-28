@@ -48,7 +48,7 @@ type Notify struct {
 	vmiStore  cache.Store
 }
 
-func (n *Notify) HandleDomainEvent(ctx context.Context, request *notifyv1.DomainEventRequest) (*notifyv1.Response, error) {
+func (n *Notify) HandleDomainEvent(_ context.Context, request *notifyv1.DomainEventRequest) (*notifyv1.Response, error) {
 	response := &notifyv1.Response{
 		Success: true,
 	}
@@ -90,7 +90,7 @@ func (n *Notify) HandleDomainEvent(ctx context.Context, request *notifyv1.Domain
 	return response, nil
 }
 
-func (n *Notify) HandleK8SEvent(ctx context.Context, request *notifyv1.K8SEventRequest) (*notifyv1.Response, error) {
+func (n *Notify) HandleK8SEvent(_ context.Context, request *notifyv1.K8SEventRequest) (*notifyv1.Response, error) {
 	response := &notifyv1.Response{
 		Success: true,
 	}

@@ -161,7 +161,7 @@ func (dpi *PCIDevicePlugin) Start(stop chan struct{}) (err error) {
 	return err
 }
 
-func (dpi *PCIDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
+func (dpi *PCIDevicePlugin) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
 	// FIXME: sending an empty list up front should not be needed. This is a workaround for:
 	// https://github.com/kubevirt/kubevirt/issues/1196
 	// This can safely be removed once supported upstream Kubernetes is 1.10.3 or higher.
@@ -212,7 +212,7 @@ func formatVFIODeviceSpecs(devID string) []*pluginapi.DeviceSpec {
 	return devSpecs
 }
 
-func (dpi *PCIDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	resourceName := dpi.deviceName
 	resourceNameEnvVar := util.ResourceNameToEnvVar(PCI_RESOURCE_PREFIX, resourceName)
 	allocatedDevices := []string{}
@@ -362,14 +362,14 @@ func (dpi *PCIDevicePlugin) cleanup() error {
 	return nil
 }
 
-func (dpi *PCIDevicePlugin) GetDevicePluginOptions(ctx context.Context, e *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
+func (dpi *PCIDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
 	options := &pluginapi.DevicePluginOptions{
 		PreStartRequired: false,
 	}
 	return options, nil
 }
 
-func (dpi *PCIDevicePlugin) PreStartContainer(ctx context.Context, in *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
+func (dpi *PCIDevicePlugin) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
 	res := &pluginapi.PreStartContainerResponse{}
 	return res, nil
 }
