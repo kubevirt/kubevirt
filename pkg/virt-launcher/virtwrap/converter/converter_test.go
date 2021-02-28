@@ -59,7 +59,7 @@ var _ = Describe("Converter", func() {
 			}
 
 			var convertClock api.Clock
-			Convert_v1_Clock_To_api_Clock(clock, &convertClock, &ConverterContext{})
+			Convert_v1_Clock_To_api_Clock(clock, &convertClock)
 			data, err := xml.MarshalIndent(convertClock, "", "  ")
 			Expect(err).ToNot(HaveOccurred())
 

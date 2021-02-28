@@ -411,11 +411,11 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *Convert
 	}
 
 	if source.Sysprep != nil {
-		return Convert_v1_SysprepSource_To_api_Disk(source.Name, disk, c)
+		return Convert_v1_SysprepSource_To_api_Disk(source.Name, disk)
 	}
 
 	if source.HostDisk != nil {
-		return Convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, disk, c)
+		return Convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, disk)
 	}
 
 	if source.PersistentVolumeClaim != nil {
@@ -427,10 +427,10 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *Convert
 	}
 
 	if source.Ephemeral != nil {
-		return Convert_v1_EphemeralVolumeSource_To_api_Disk(source.Name, source.Ephemeral, disk, c)
+		return Convert_v1_EphemeralVolumeSource_To_api_Disk(source.Name, disk, c)
 	}
 	if source.EmptyDisk != nil {
-		return Convert_v1_EmptyDiskSource_To_api_Disk(source.Name, source.EmptyDisk, disk, c)
+		return Convert_v1_EmptyDiskSource_To_api_Disk(source.Name, source.EmptyDisk, disk)
 	}
 	if source.ConfigMap != nil {
 		return Convert_v1_Config_To_api_Disk(source.Name, disk, config.ConfigMap)
@@ -510,36 +510,36 @@ func GetHotplugBlockDeviceVolumePath(volumeName string) string {
 
 func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
 	if c.IsBlockPVC[name] {
-		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c)
+		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk)
 	}
-	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c)
+	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk)
 }
 
 // Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk converts a Hotplugged PVC to an api disk
 func Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
 	if c.IsBlockDV[name] {
-		return Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(name, disk, c)
+		return Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(name, disk)
 	}
-	return Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(name, disk, c)
+	return Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(name, disk)
 }
 
 func Convert_v1_DataVolume_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
 	if c.IsBlockDV[name] {
-		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c)
+		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk)
 	}
-	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c)
+	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk)
 }
 
 // Convert_v1_Hotplug_DataVolume_To_api_Disk converts a Hotplugged DataVolume to an api disk
 func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
 	if c.IsBlockDV[name] {
-		return Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(name, disk, c)
+		return Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(name, disk)
 	}
-	return Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(name, disk, c)
+	return Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(name, disk)
 }
 
 // Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the domain Disk representation
-func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, c *ConverterContext) error {
+func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = "stop"
@@ -548,7 +548,7 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.
 }
 
 // Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
-func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, c *ConverterContext) error {
+func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = "stop"
@@ -556,7 +556,7 @@ func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, di
 	return nil
 }
 
-func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, c *ConverterContext) error {
+func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk) error {
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = "stop"
@@ -565,7 +565,7 @@ func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk,
 }
 
 // Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk takes a block device source and builds the domain Disk representation
-func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, c *ConverterContext) error {
+func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk) error {
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = "stop"
@@ -573,7 +573,7 @@ func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *a
 	return nil
 }
 
-func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.Disk, c *ConverterContext) error {
+func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.Disk) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = "stop"
@@ -581,7 +581,7 @@ func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.D
 	return nil
 }
 
-func Convert_v1_SysprepSource_To_api_Disk(volumeName string, disk *api.Disk, c *ConverterContext) error {
+func Convert_v1_SysprepSource_To_api_Disk(volumeName string, disk *api.Disk) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.GetName())
 	}
@@ -613,7 +613,7 @@ func Convert_v1_CloudInitSource_To_api_Disk(source v1.VolumeSource, disk *api.Di
 	return nil
 }
 
-func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSource, disk *api.Disk, c *ConverterContext) error {
+func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSource, disk *api.Disk) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.GetName())
 	}
@@ -648,7 +648,7 @@ func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.Contain
 	return nil
 }
 
-func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, source *v1.EphemeralVolumeSource, disk *api.Disk, c *ConverterContext) error {
+func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, c *ConverterContext) error {
 	disk.Type = "file"
 	disk.Driver.Type = "qcow2"
 	disk.Driver.ErrorPolicy = "stop"
@@ -659,7 +659,7 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, source *v1.
 	}
 
 	backingDisk := &api.Disk{Driver: &api.DiskDriver{}}
-	err := Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName, backingDisk, c)
+	err := Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName, backingDisk)
 	if err != nil {
 		return err
 	}
@@ -697,7 +697,7 @@ func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) err
 	return nil
 }
 
-func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input, c *ConverterContext) error {
+func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input) error {
 	if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
 		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
 	}
@@ -720,7 +720,7 @@ func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input
 	return nil
 }
 
-func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *api.Clock, c *ConverterContext) error {
+func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *api.Clock) error {
 	if source.UTC != nil {
 		clock.Offset = "utc"
 		if source.UTC.OffsetSeconds != nil {
@@ -793,7 +793,7 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Feat
 	}
 	if source.Hyperv != nil {
 		features.Hyperv = &api.FeatureHyperv{}
-		err := Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source.Hyperv, features.Hyperv, c)
+		err := Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source.Hyperv, features.Hyperv)
 		if err != nil {
 			return nil
 		}
@@ -813,13 +813,13 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Feat
 	return nil
 }
 
-func Convert_v1_Machine_To_api_OSType(source *v1.Machine, ost *api.OSType, c *ConverterContext) error {
+func Convert_v1_Machine_To_api_OSType(source *v1.Machine, ost *api.OSType) error {
 	ost.Machine = source.Type
 
 	return nil
 }
 
-func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyperv *api.FeatureHyperv, c *ConverterContext) error {
+func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyperv *api.FeatureHyperv) error {
 	if source.Spinlocks != nil {
 		hyperv.Spinlocks = &api.FeatureSpinlocks{
 			State:   boolToOnOff(source.Spinlocks.Enabled, true),
@@ -1279,7 +1279,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		inputDevices := make([]api.Input, 0)
 		for i := range vmi.Spec.Domain.Devices.Inputs {
 			inputDevice := api.Input{}
-			err := Convert_v1_Input_To_api_InputDevice(&vmi.Spec.Domain.Devices.Inputs[i], &inputDevice, c)
+			err := Convert_v1_Input_To_api_InputDevice(&vmi.Spec.Domain.Devices.Inputs[i], &inputDevice)
 			if err != nil {
 				return err
 			}
@@ -1325,7 +1325,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	if vmi.Spec.Domain.Clock != nil {
 		clock := vmi.Spec.Domain.Clock
 		newClock := &api.Clock{}
-		err := Convert_v1_Clock_To_api_Clock(clock, newClock, c)
+		err := Convert_v1_Clock_To_api_Clock(clock, newClock)
 		if err != nil {
 			return err
 		}
@@ -1340,7 +1340,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 	apiOst := &vmi.Spec.Domain.Machine
-	err = Convert_v1_Machine_To_api_OSType(apiOst, &domain.Spec.OS.Type, c)
+	err = Convert_v1_Machine_To_api_OSType(apiOst, &domain.Spec.OS.Type)
 	if err != nil {
 		return err
 	}
@@ -1368,7 +1368,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 		// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
 		if vmi.IsCPUDedicated() {
-			if err := formatDomainCPUTune(vmi, domain, c); err != nil {
+			if err := formatDomainCPUTune(domain, c); err != nil {
 				log.Log.Reason(err).Error("failed to format domain cputune.")
 				return err
 			}
@@ -1592,7 +1592,7 @@ func calculateRequestedVCPUs(cpuTopology *api.CPUTopology) uint32 {
 	return cpuTopology.Cores * cpuTopology.Sockets * cpuTopology.Threads
 }
 
-func formatDomainCPUTune(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) error {
+func formatDomainCPUTune(domain *api.Domain, c *ConverterContext) error {
 	if len(c.CPUSet) == 0 {
 		return fmt.Errorf("failed for get pods pinned cpus")
 	}
