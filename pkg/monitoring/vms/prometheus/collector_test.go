@@ -41,7 +41,7 @@ var _ = Describe("Collector", func() {
 
 	Context("on running source", func() {
 		It("should scrape all the sources", func() {
-			fs := newFakeScraper(len(socketToVMI))
+			fs := newFakeScraper()
 			cc := NewConcurrentCollector(1)
 
 			skipped, completed := cc.Collect(socketToVMI, fs, 1*time.Second)
@@ -53,7 +53,7 @@ var _ = Describe("Collector", func() {
 
 	Context("on blocked source", func() {
 		It("should gather the available data", func() {
-			fs := newFakeScraper(len(socketToVMI))
+			fs := newFakeScraper()
 			fs.Block("a")
 			cc := NewConcurrentCollector(1)
 
@@ -64,7 +64,7 @@ var _ = Describe("Collector", func() {
 		})
 
 		It("should skip it on later collections", func() {
-			fs := newFakeScraper(len(socketToVMI))
+			fs := newFakeScraper()
 			fs.Block("a")
 			cc := NewConcurrentCollector(2)
 
@@ -90,7 +90,7 @@ var _ = Describe("Collector", func() {
 		})
 
 		It("should resume scraping when unblocks", func() {
-			fs := newFakeScraper(len(socketToVMI))
+			fs := newFakeScraper()
 			fs.Block("b")
 			cc := NewConcurrentCollector(1)
 
@@ -125,7 +125,7 @@ type fakeScraper struct {
 	blocked map[string]chan bool
 }
 
-func newFakeScraper(maxKeys int) *fakeScraper {
+func newFakeScraper() *fakeScraper {
 	return &fakeScraper{
 		blocked: make(map[string]chan bool),
 		ready:   make(map[string]chan bool),
@@ -153,7 +153,7 @@ func (fs *fakeScraper) Wakeup(key string) chan bool {
 	return nil
 }
 
-func (fs *fakeScraper) Scrape(key string, vmi *k6tv1.VirtualMachineInstance) {
+func (fs *fakeScraper) Scrape(key string, _ *k6tv1.VirtualMachineInstance) {
 	if c, ok := fs.blocked[key]; ok {
 		<-c
 		fs.ready[key] <- true
