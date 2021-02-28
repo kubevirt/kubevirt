@@ -228,7 +228,7 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachines(vmis []*virtv1
 //
 // If the error is nil, either the reconciliation succeeded, or no
 // reconciliation was necessary. The list of DataVolumes that you now own is returned.
-func (m *VirtualMachineControllerRefManager) ClaimMatchedDataVolumes(dataVolumes []*cdiv1.DataVolume, filters ...func(machine *cdiv1.DataVolume) bool) ([]*cdiv1.DataVolume, error) {
+func (m *VirtualMachineControllerRefManager) ClaimMatchedDataVolumes(dataVolumes []*cdiv1.DataVolume) ([]*cdiv1.DataVolume, error) {
 	var claimed []*cdiv1.DataVolume
 	var errlist []error
 
