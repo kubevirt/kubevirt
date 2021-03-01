@@ -46,7 +46,7 @@ var _ = Describe("[Serial]HostDevices", func() {
 			By("Creating a Fedora VMI with the sound card as a host device")
 			randomVMI := tests.NewRandomFedoraVMIWithGuestAgent()
 			hostDevs := []v1.HostDevice{
-				v1.HostDevice{
+				{
 					Name:       "sound",
 					DeviceName: deviceName,
 				},
