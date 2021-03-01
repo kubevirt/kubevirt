@@ -25,13 +25,13 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type UploadTokenRequest struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec contains the parameters of the request
 	Spec UploadTokenRequestSpec `json:"spec"`
 
 	// Status contains the status of the request
-	Status UploadTokenRequestStatus `json:"status,omitempty"`
+	Status UploadTokenRequestStatus `json:"status"`
 }
 
 // UploadTokenRequestSpec defines the parameters of the token request

@@ -9,6 +9,8 @@ go_library(
         "datavolume.go",
         "doc.go",
         "generated_expansion.go",
+        "objecttransfer.go",
+        "storageprofile.go",
     ],
     importpath = "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1beta1",
     visibility = ["//visibility:public"],

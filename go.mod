@@ -18,7 +18,7 @@ require (
 	github.com/go-openapi/spec v0.19.3
 	github.com/go-openapi/strfmt v0.19.0
 	github.com/go-openapi/validate v0.19.2
-	github.com/gogo/protobuf v1.3.1
+	github.com/gogo/protobuf v1.3.2
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.4.4
 	github.com/golang/protobuf v1.4.3
@@ -40,6 +40,7 @@ require (
 	github.com/opencontainers/selinux v1.6.0
 	github.com/openshift/api v0.0.0
 	github.com/openshift/client-go v0.0.0
+	github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2 // indirect
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190725173916-b56e63a643cc
 	github.com/operator-framework/operator-marketplace v0.0.0-20190617165322-1cbd32624349
 	github.com/pborman/uuid v1.2.0
@@ -65,7 +66,7 @@ require (
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000
 	kubevirt.io/containerized-data-importer v1.31.0
-	kubevirt.io/controller-lifecycle-operator-sdk v0.1.1
+	kubevirt.io/controller-lifecycle-operator-sdk v0.1.2
 	kubevirt.io/qe-tools v0.1.6
 	libvirt.org/libvirt-go v6.5.0+incompatible
 	mvdan.cc/sh/v3 v3.1.1

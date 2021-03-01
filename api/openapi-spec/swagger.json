@@ -12192,6 +12192,24 @@
     "description": "DataVolumeBlankImage provides the parameters to create a new raw blank image for the PVC",
     "type": "object"
    },
+   "v1alpha1.DataVolumeCheckpoint": {
+    "description": "DataVolumeCheckpoint defines a stage in a warm migration.",
+    "type": "object",
+    "required": [
+     "previous",
+     "current"
+    ],
+    "properties": {
+     "current": {
+      "description": "Current is the identifier of the snapshot created for this checkpoint.",
+      "type": "string"
+     },
+     "previous": {
+      "description": "Previous is the identifier of the snapshot from the previous checkpoint.",
+      "type": "string"
+     }
+    }
+   },
    "v1alpha1.DataVolumeSource": {
     "description": "DataVolumeSource represents the source for our Data Volume, this can be HTTP, Imageio, S3, Registry or an existing PVC",
     "type": "object",
@@ -12315,6 +12333,10 @@
      "url"
     ],
     "properties": {
+     "certConfigMap": {
+      "description": "CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate",
+      "type": "string"
+     },
      "secretRef": {
       "description": "SecretRef provides the secret reference needed to access the S3 source",
       "type": "string"
@@ -12363,9 +12385,24 @@
      "pvc"
     ],
     "properties": {
+     "checkpoints": {
+      "description": "Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1alpha1.DataVolumeCheckpoint"
+      }
+     },
      "contentType": {
       "description": "DataVolumeContentType options: \"kubevirt\", \"archive\"",
       "type": "string"
+     },
+     "finalCheckpoint": {
+      "description": "FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.",
+      "type": "boolean"
+     },
+     "preallocation": {
+      "description": "Preallocation controls whether storage for DataVolumes should be allocated in advance.",
+      "type": "boolean"
      },
      "pvc": {
       "description": "PVC is the PVC specification",

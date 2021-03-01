@@ -41,6 +41,14 @@ func (c *FakeCdiV1beta1) DataVolumes(namespace string) v1beta1.DataVolumeInterfa
 	return &FakeDataVolumes{c, namespace}
 }
 
+func (c *FakeCdiV1beta1) ObjectTransfers() v1beta1.ObjectTransferInterface {
+	return &FakeObjectTransfers{c}
+}
+
+func (c *FakeCdiV1beta1) StorageProfiles(namespace string) v1beta1.StorageProfileInterface {
+	return &FakeStorageProfiles{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeCdiV1beta1) RESTClient() rest.Interface {

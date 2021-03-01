@@ -30,6 +30,8 @@ type CdiV1beta1Interface interface {
 	CDIsGetter
 	CDIConfigsGetter
 	DataVolumesGetter
+	ObjectTransfersGetter
+	StorageProfilesGetter
 }
 
 // CdiV1beta1Client is used to interact with features provided by the cdi.kubevirt.io group.
@@ -47,6 +49,14 @@ func (c *CdiV1beta1Client) CDIConfigs() CDIConfigInterface {
 
 func (c *CdiV1beta1Client) DataVolumes(namespace string) DataVolumeInterface {
 	return newDataVolumes(c, namespace)
+}
+
+func (c *CdiV1beta1Client) ObjectTransfers() ObjectTransferInterface {
+	return newObjectTransfers(c)
+}
+
+func (c *CdiV1beta1Client) StorageProfiles(namespace string) StorageProfileInterface {
+	return newStorageProfiles(c, namespace)
 }
 
 // NewForConfig creates a new CdiV1beta1Client for the given config.

@@ -17,12 +17,34 @@ var CRDsValidation map[string]string = map[string]string{
     spec:
       description: DataVolumeSpec contains the DataVolume specification.
       properties:
+        checkpoints:
+          description: Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.
+          items:
+            description: DataVolumeCheckpoint defines a stage in a warm migration.
+            properties:
+              current:
+                description: Current is the identifier of the snapshot created for this checkpoint.
+                type: string
+              previous:
+                description: Previous is the identifier of the snapshot from the previous checkpoint.
+                type: string
+            required:
+            - current
+            - previous
+            type: object
+          type: array
         contentType:
           description: 'DataVolumeContentType options: "kubevirt", "archive"'
           enum:
           - kubevirt
           - archive
           type: string
+        finalCheckpoint:
+          description: FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.
+          type: boolean
+        preallocation:
+          description: Preallocation controls whether storage for DataVolumes should be allocated in advance.
+          type: boolean
         pvc:
           description: PVC is the PVC specification
           properties:
@@ -180,6 +202,9 @@ var CRDsValidation map[string]string = map[string]string{
             s3:
               description: DataVolumeSourceS3 provides the parameters to create a Data Volume from an S3 source
               properties:
+                certConfigMap:
+                  description: CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate
+                  type: string
                 secretRef:
                   description: SecretRef provides the secret reference needed to access the S3 source
                   type: string
@@ -1314,12 +1339,34 @@ var CRDsValidation map[string]string = map[string]string{
               spec:
                 description: DataVolumeSpec contains the DataVolume specification.
                 properties:
+                  checkpoints:
+                    description: Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.
+                    items:
+                      description: DataVolumeCheckpoint defines a stage in a warm migration.
+                      properties:
+                        current:
+                          description: Current is the identifier of the snapshot created for this checkpoint.
+                          type: string
+                        previous:
+                          description: Previous is the identifier of the snapshot from the previous checkpoint.
+                          type: string
+                      required:
+                      - current
+                      - previous
+                      type: object
+                    type: array
                   contentType:
                     description: 'DataVolumeContentType options: "kubevirt", "archive"'
                     enum:
                     - kubevirt
                     - archive
                     type: string
+                  finalCheckpoint:
+                    description: FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.
+                    type: boolean
+                  preallocation:
+                    description: Preallocation controls whether storage for DataVolumes should be allocated in advance.
+                    type: boolean
                   pvc:
                     description: PVC is the PVC specification
                     properties:
@@ -1477,6 +1524,9 @@ var CRDsValidation map[string]string = map[string]string{
                       s3:
                         description: DataVolumeSourceS3 provides the parameters to create a Data Volume from an S3 source
                         properties:
+                          certConfigMap:
+                            description: CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate
+                            type: string
                           secretRef:
                             description: SecretRef provides the secret reference needed to access the S3 source
                             type: string
@@ -7763,12 +7813,34 @@ var CRDsValidation map[string]string = map[string]string{
                           spec:
                             description: DataVolumeSpec contains the DataVolume specification.
                             properties:
+                              checkpoints:
+                                description: Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.
+                                items:
+                                  description: DataVolumeCheckpoint defines a stage in a warm migration.
+                                  properties:
+                                    current:
+                                      description: Current is the identifier of the snapshot created for this checkpoint.
+                                      type: string
+                                    previous:
+                                      description: Previous is the identifier of the snapshot from the previous checkpoint.
+                                      type: string
+                                  required:
+                                  - current
+                                  - previous
+                                  type: object
+                                type: array
                               contentType:
                                 description: 'DataVolumeContentType options: "kubevirt", "archive"'
                                 enum:
                                 - kubevirt
                                 - archive
                                 type: string
+                              finalCheckpoint:
+                                description: FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.
+                                type: boolean
+                              preallocation:
+                                description: Preallocation controls whether storage for DataVolumes should be allocated in advance.
+                                type: boolean
                               pvc:
                                 description: PVC is the PVC specification
                                 properties:
@@ -7926,6 +7998,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   s3:
                                     description: DataVolumeSourceS3 provides the parameters to create a Data Volume from an S3 source
                                     properties:
+                                      certConfigMap:
+                                        description: CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate
+                                        type: string
                                       secretRef:
                                         description: SecretRef provides the secret reference needed to access the S3 source
                                         type: string

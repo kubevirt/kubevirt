@@ -100,7 +100,7 @@ github.com/go-openapi/validate
 github.com/go-stack/stack
 # github.com/godbus/dbus/v5 v5.0.3
 github.com/godbus/dbus/v5
-# github.com/gogo/protobuf v1.3.1
+# github.com/gogo/protobuf v1.3.2
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/protoc-gen-gogo/descriptor
@@ -899,7 +899,7 @@ kubevirt.io/client-go/precond
 kubevirt.io/client-go/subresources
 kubevirt.io/client-go/util
 kubevirt.io/client-go/version
-# kubevirt.io/containerized-data-importer v1.26.1 => kubevirt.io/containerized-data-importer v1.26.1
+# kubevirt.io/containerized-data-importer v1.31.0 => kubevirt.io/containerized-data-importer v1.31.0
 kubevirt.io/containerized-data-importer/pkg/apis/core
 kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1
 kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1
@@ -907,7 +907,7 @@ kubevirt.io/containerized-data-importer/pkg/apis/upload
 kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1
 kubevirt.io/containerized-data-importer/pkg/apis/upload/v1beta1
 kubevirt.io/containerized-data-importer/pkg/clone
-# kubevirt.io/controller-lifecycle-operator-sdk v0.1.1
+# kubevirt.io/controller-lifecycle-operator-sdk v0.1.2
 kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api
 # kubevirt.io/qe-tools v0.1.6
 kubevirt.io/qe-tools/pkg/ginkgo-reporters
