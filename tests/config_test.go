@@ -342,7 +342,7 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 				tests.AddSecretDiskWithCustomLabel(vmi, secretName, "random2", "secretlabel")
 
 				// Ensure virtio for consistent order
-				for i, _ := range vmi.Spec.Domain.Devices.Disks {
+				for i := range vmi.Spec.Domain.Devices.Disks {
 					vmi.Spec.Domain.Devices.Disks[i].Disk = &v1.DiskTarget{Bus: "virtio"}
 				}
 

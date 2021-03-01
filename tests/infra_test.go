@@ -928,7 +928,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 			metrics := collectMetrics(ip, "kubevirt_vmi_memory_swap_")
 			var in, out bool
-			for k, _ := range metrics {
+			for k := range metrics {
 				if in && out {
 					break
 				}
