@@ -9,8 +9,8 @@ Sometimes the Help text on `/metrics` endpoint just isn't enough to explain what
 Kubevirt's version information
 
 Labels:
-* `goversion` - GO version used to compile this version of KubeVirt 
-* `kubeversion` - Git commit refspec that created this version of KubeVirt 
+* `goversion` - GO version used to compile this version of KubeVirt
+* `kubeversion` - Git commit refspec that created this version of KubeVirt
 
 ## Node Metric
 
@@ -20,7 +20,7 @@ Labels:
 The total amount of VMIs per node and phase.
 
 Labels:
-* `phase` - Phase of the VMI. It can be one of [Virtual Machine Instance Phases](https://github.com/kubevirt/kubevirt/blob/master/staging/src/kubevirt.io/client-go/api/v1/types.go#L415) 
+* `phase` - Phase of the VMI. It can be one of [Virtual Machine Instance Phases](https://github.com/kubevirt/kubevirt/blob/master/staging/src/kubevirt.io/client-go/api/v1/types.go#L415)
 * `node` - Node where the VMI is running on.
 
 ## VMI Metrics
@@ -34,7 +34,7 @@ All VMI metrics listed below contain, but are not limited to, these three labels
 #### kubevirt_vmi_memory_resident_bytes
 #### HELP kubevirt_vmi_memory_resident_bytes resident set size of the process running the domain.
 
-Total resident memory of the process running the VMI. 
+Total resident memory of the process running the VMI.
 
 #### kubevirt_vmi_memory_available_bytes
 #### HELP kubevirt_vmi_memory_available_bytes amount of usable memory as seen by the domain.
@@ -52,7 +52,7 @@ The total amount of unused memory as seen by the domain.
 The amount of traffic that is being read and written in swap memory.
 
 Extra labels:
-* `type` - Whether the data is being transmitted or received. `in` when transmitting and `out` when receiving. 
+* `type` - Whether the data is being transmitted or received. `in` when transmitting and `out` when receiving.
 
 #### kubevirt_vmi_network_errors_total
 #### HELP kubevirt_vmi_network_errors_total network errors.
@@ -115,7 +115,7 @@ The total amount of time spent in each vcpu state
 
 Extra labels:
 * `id` - Identifier to a single Virtual CPU.
-* `state` - Identify the Virtual CPU state. It can be one of libvirt vcpu's states: `OFFLINE`, `RUNNING` or `BLOCKED` 
+* `state` - Identify the Virtual CPU state. It can be one of libvirt vcpu's states: `OFFLINE`, `RUNNING` or `BLOCKED`
 
 
 
@@ -125,7 +125,7 @@ Improving Kubevirt's Observability is a important topic and we are currently wor
 
 A design proposal and its implementation history can be seen [here](https://docs.google.com/document/d/1bEwrnZZkVsCtz0PSyzlxOdhupL6GTurkUYcz7TXFM1g/edit)
 
- # Other Metrics 
+ # Other Metrics
 ## kubevirt_vmi_vcpu_wait_seconds
 #### HELP kubevirt_vmi_vcpu_wait_seconds vcpu time spent by waiting on I/O.
 ## leading_virt_controller
@@ -133,11 +133,11 @@ A design proposal and its implementation history can be seen [here](https://docs
 ## ready_virt_controller
 #### HELP ready_virt_controller Indication for a virt-controller that is ready to take the lead.
 
- # Other Metrics 
+ # Other Metrics
 ## kubevirt_vmi_outdated_count
 #### HELP kubevirt_vmi_outdated_count Indication for the number of VirtualMachineInstance workloads that are not running within the most up-to-date version of the virt-launcher environment.
 
- # Other Metrics 
+ # Other Metrics
 ## kubevirt_vmi_network_receive_bytes_total
 #### HELP kubevirt_vmi_network_receive_bytes_total Network traffic receive in bytes
 ## kubevirt_vmi_network_receive_errors_total
@@ -154,3 +154,19 @@ A design proposal and its implementation history can be seen [here](https://docs
 #### HELP kubevirt_vmi_network_transmit_packets_dropped_total The number of tx packets dropped on vNIC interfaces.
 ## kubevirt_vmi_network_transmit_packets_total
 #### HELP kubevirt_vmi_network_transmit_packets_total Network traffic transmit packets
+
+ # Other Metrics 
+## kubevirt_vmi_memory_actual_balloon_bytes
+#### HELP kubevirt_vmi_memory_actual_balloon_bytes current balloon bytes.
+## kubevirt_vmi_memory_pgmajfault
+#### HELP kubevirt_vmi_memory_pgmajfault The number of page faults when disk IO was required.
+## kubevirt_vmi_memory_pgminfault
+#### HELP kubevirt_vmi_memory_pgminfault The number of other page faults, when disk IO was not required.
+## kubevirt_vmi_memory_swap_in_traffic_bytes_total
+#### HELP kubevirt_vmi_memory_swap_in_traffic_bytes_total Swap in memory traffic in bytes
+## kubevirt_vmi_memory_swap_out_traffic_bytes_total
+#### HELP kubevirt_vmi_memory_swap_out_traffic_bytes_total Swap out memory traffic in bytes
+## kubevirt_vmi_memory_usable_bytes
+#### HELP kubevirt_vmi_memory_usable_bytes The amount of memory which can be reclaimed by balloon without causing host swapping in bytes.
+## kubevirt_vmi_memory_used_total_bytes
+#### HELP kubevirt_vmi_memory_used_total_bytes The amount of memory in bytes used by the domain.

@@ -155,7 +155,7 @@ var _ = Describe("Prometheus", func() {
 			result.Write(dto)
 
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_swap_traffic_bytes_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_swap_in_traffic_bytes_total"))
 			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
@@ -180,7 +180,132 @@ var _ = Describe("Prometheus", func() {
 			result.Write(dto)
 
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_swap_traffic_bytes_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_swap_out_traffic_bytes_total"))
+			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
+		})
+
+		It("should handle major page faults metrics", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu: &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{
+					MajorFaultSet: true,
+					MajorFault:    1024,
+				},
+			}
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			result := <-ch
+			dto := &io_prometheus_client.Metric{}
+			result.Write(dto)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_pgmajfault"))
+			Expect(dto.Counter.GetValue()).To(BeEquivalentTo(float64(1024)))
+		})
+
+		It("should handle minor page faults metrics", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu: &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{
+					MinorFaultSet: true,
+					MinorFault:    1024,
+				},
+			}
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			result := <-ch
+			dto := &io_prometheus_client.Metric{}
+			result.Write(dto)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_pgminfault"))
+			Expect(dto.Counter.GetValue()).To(BeEquivalentTo(float64(1024)))
+		})
+
+		It("should handle actual balloon metrics", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu: &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{
+					ActualBalloonSet: true,
+					ActualBalloon:    1,
+				},
+			}
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			result := <-ch
+			dto := &io_prometheus_client.Metric{}
+			result.Write(dto)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_actual_balloon_bytes"))
+			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
+		})
+
+		It("should handle the usable metrics", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu: &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{
+					UsableSet: true,
+					Usable:    1,
+				},
+			}
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			result := <-ch
+			dto := &io_prometheus_client.Metric{}
+			result.Write(dto)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_usable_bytes"))
+			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
+		})
+
+		It("should handle the total memory metrics", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu: &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{
+					TotalSet: true,
+					Total:    1,
+				},
+			}
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			result := <-ch
+			dto := &io_prometheus_client.Metric{}
+			result.Write(dto)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_used_total_bytes"))
 			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
