@@ -1323,7 +1323,7 @@ func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 								},
 							},
 							VolumeMounts: []k8sv1.VolumeMount{
-								k8sv1.VolumeMount{
+								{
 									Name:      "host",
 									MountPath: "/host",
 								},
@@ -1331,7 +1331,7 @@ func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 						},
 					},
 					Volumes: []k8sv1.Volume{
-						k8sv1.Volume{
+						{
 							Name: "host",
 							VolumeSource: k8sv1.VolumeSource{
 								HostPath: &k8sv1.HostPathVolumeSource{
