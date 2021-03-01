@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/assert"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -766,11 +767,13 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 				tcpPort := 8080
 				tests.StartPythonHttpServer(serverVMI, tcpPort)
 
-				By("Checking ping (IPv6) from vmi to cluster nodes gateway")
-				// Cluster nodes subnet (docker network gateway)
-				// Docker network subnet cidr definition:
-				// https://github.com/kubevirt/project-infra/blob/master/github/ci/shared-deployments/files/docker-daemon-mirror.conf#L5
-				Expect(libnet.PingFromVMConsole(serverVMI, "2001:db8:1::1")).To(Succeed())
+				assert.XFail("https://github.com/kubevirt/kubevirt/issues/5113", func() {
+					By("Checking ping (IPv6) from vmi to cluster nodes gateway")
+					// Cluster nodes subnet (docker network gateway)
+					// Docker network subnet cidr definition:
+					// https://github.com/kubevirt/project-infra/blob/master/github/ci/shared-deployments/files/docker-daemon-mirror.conf#L5
+					Expect(libnet.PingFromVMConsole(serverVMI, "2001:db8:1::1")).To(Succeed())
+				})
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
 			}, table.Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}),
