@@ -932,10 +932,10 @@ var _ = Describe("[Serial]Infrastructure", func() {
 				if in && out {
 					break
 				}
-				if strings.Contains(k, `type="in"`) {
+				if strings.Contains(k, `swap_in`) {
 					in = true
 				}
-				if strings.Contains(k, `type="out"`) {
+				if strings.Contains(k, `swap_out`) {
 					out = true
 				}
 			}
