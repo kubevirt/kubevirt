@@ -214,11 +214,7 @@ const (
 )
 
 const (
-	k8sAuditLogPath = "/var/log/k8s-audit/k8s-audit.log"
-	osAuditLogPath  = "/var/lib/origin/audit-ocp.log"
-	swaggerPath     = "api/openapi-spec/swagger.json"
-	artifactsEnv    = "ARTIFACTS"
-	tmpPath         = "/var/provision/kubevirt.io/tests"
+	tmpPath = "/var/provision/kubevirt.io/tests"
 )
 
 const (

@@ -39,11 +39,8 @@ import (
 )
 
 const (
-	WaitSecondsBeforeDeploymentCheck     = 2 * time.Second
 	DefaultStabilizationTimeoutInSeconds = 300
 	DefaultPollIntervalInSeconds         = 3
-	labelKey                             = "control-plane-test"
-	labelValue                           = "selected"
 )
 
 var _ = Describe("[Serial][ref_id:2717]KubeVirt control plane resilience", func() {
