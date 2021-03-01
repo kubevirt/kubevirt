@@ -1395,8 +1395,8 @@ func (c *VMIController) triggerHotplugPopulation(volume *virtv1.Volume, vmi *vir
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating hotplug population trigger pod for volume %s: %v", volume.Name, err)
 			return &syncErrorImpl{fmt.Errorf("Error creating hotplug population trigger pod %v", err), FailedCreatePodReason}
 		}
+		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created hotplug trigger pod for volume %s", volume.Name)
 	}
-	c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created hotplug trigger pod for volume %s", volume.Name)
 	return nil
 }
 
