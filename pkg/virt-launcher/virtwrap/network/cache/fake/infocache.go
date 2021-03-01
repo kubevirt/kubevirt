@@ -57,19 +57,19 @@ type fakePodInterfaceCacheStore struct {
 	store map[string]*cache.PodCacheInterface
 }
 
-func (f *fakePodInterfaceCacheStore) Read(iface string) (*cache.PodCacheInterface, error) {
+func (f *fakePodInterfaceCacheStore) Read(ifaceName string) (*cache.PodCacheInterface, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	if val, exists := f.store[iface]; exists {
+	if val, exists := f.store[ifaceName]; exists {
 		return val, nil
 	}
 	return nil, os.ErrNotExist
 }
 
-func (f *fakePodInterfaceCacheStore) Write(iface string, cacheInterface *cache.PodCacheInterface) error {
+func (f *fakePodInterfaceCacheStore) Write(ifaceName string, cacheInterface *cache.PodCacheInterface) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	f.store[iface] = cacheInterface
+	f.store[ifaceName] = cacheInterface
 	return nil
 }
 
@@ -85,18 +85,18 @@ type fakeDomainInterfaceStore struct {
 	store map[string]*api.Interface
 }
 
-func (f *fakeDomainInterfaceStore) Read(iface string) (*api.Interface, error) {
+func (f *fakeDomainInterfaceStore) Read(ifaceName string) (*api.Interface, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	if val, exists := f.store[iface]; exists {
+	if val, exists := f.store[ifaceName]; exists {
 		return val, nil
 	}
 	return nil, os.ErrNotExist
 }
 
-func (f *fakeDomainInterfaceStore) Write(iface string, cacheInterface *api.Interface) error {
+func (f *fakeDomainInterfaceStore) Write(ifaceName string, cacheInterface *api.Interface) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	f.store[iface] = cacheInterface
+	f.store[ifaceName] = cacheInterface
 	return nil
 }

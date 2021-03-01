@@ -32,10 +32,6 @@ import (
 
 	netutils "k8s.io/utils/net"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/vishvananda/netlink"
 
@@ -43,6 +39,8 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache"
 )
 
 var bridgeFakeIP = "169.254.75.1%d/32"

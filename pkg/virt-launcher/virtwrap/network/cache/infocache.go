@@ -58,13 +58,13 @@ func (i *interfaceCacheFactory) CacheForPID(pid string) DomainInterfaceStore {
 }
 
 type DomainInterfaceStore interface {
-	Read(iface string) (*api.Interface, error)
-	Write(iface string, cacheInterface *api.Interface) error
+	Read(ifaceName string) (*api.Interface, error)
+	Write(ifaceName string, cacheInterface *api.Interface) error
 }
 
 type PodInterfaceCacheStore interface {
-	Read(iface string) (*PodCacheInterface, error)
-	Write(iface string, cacheInterface *PodCacheInterface) error
+	Read(ifaceName string) (*PodCacheInterface, error)
+	Write(ifaceName string, cacheInterface *PodCacheInterface) error
 	Remove() error
 }
 
@@ -74,14 +74,14 @@ type domainInterfaceStore struct {
 	baseDir string
 }
 
-func (d domainInterfaceStore) Read(iface string) (file *api.Interface, err error) {
-	file = &api.Interface{}
-	err = readFromCachedFile(file, getInterfaceCacheFile(d.baseDir, d.pattern, d.pid, iface))
-	return
+func (d domainInterfaceStore) Read(ifaceName string) (*api.Interface, error) {
+	iface := &api.Interface{}
+	err := readFromCachedFile(iface, getInterfaceCacheFile(d.baseDir, d.pattern, d.pid, ifaceName))
+	return iface, err
 }
 
-func (d domainInterfaceStore) Write(iface string, cacheInterface *api.Interface) (err error) {
-	err = writeToCachedFile(cacheInterface, getInterfaceCacheFile(d.baseDir, d.pattern, d.pid, iface))
+func (d domainInterfaceStore) Write(ifaceName string, cacheInterface *api.Interface) (err error) {
+	err = writeToCachedFile(cacheInterface, getInterfaceCacheFile(d.baseDir, d.pattern, d.pid, ifaceName))
 	return
 }
 
@@ -95,10 +95,10 @@ type podInterfaceCacheStore struct {
 	baseDir string
 }
 
-func (p podInterfaceCacheStore) Read(iface string) (file *PodCacheInterface, err error) {
-	file = &PodCacheInterface{}
-	err = readFromCachedFile(file, getInterfaceCacheFile(p.baseDir, p.pattern, string(p.vmi.UID), iface))
-	return
+func (p podInterfaceCacheStore) Read(ifaceName string) (*PodCacheInterface, error) {
+	iface := &PodCacheInterface{}
+	err := readFromCachedFile(iface, getInterfaceCacheFile(p.baseDir, p.pattern, string(p.vmi.UID), ifaceName))
+	return iface, err
 }
 
 func (p podInterfaceCacheStore) Write(iface string, cacheInterface *PodCacheInterface) (err error) {
