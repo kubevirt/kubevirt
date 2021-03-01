@@ -93,7 +93,7 @@ const EXT_LOG_VERBOSITY_THRESHOLD = 5
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
-	RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, secret *k8sv1.Secret, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
+	RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
 	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	GetLauncherImage() string
 }
@@ -1234,15 +1234,16 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	return &pod, nil
 }
 
-func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, secret *k8sv1.Secret, isBlock bool, tempPod bool) (*k8sv1.Pod, error) {
+func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error) {
 	zero := int64(0)
+	sharedMount := k8sv1.MountPropagationHostToContainer
 	var command []string
 	if tempPod {
 		command = []string{"/bin/bash",
 			"-c",
 			"exit", "0"}
 	} else {
-		command = []string{"/bin/sh", "-c", "tail -f /dev/null"}
+		command = []string{"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"}
 	}
 
 	annotationsList := make(map[string]string)
@@ -1290,8 +1291,9 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, 
 					},
 					VolumeMounts: []k8sv1.VolumeMount{
 						{
-							Name:      "hotplug-disks",
-							MountPath: "/path",
+							Name:             "hotplug-disks",
+							MountPath:        "/path",
+							MountPropagation: &sharedMount,
 						},
 					},
 				},
@@ -1344,23 +1346,6 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, 
 		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
 			Name:      volume.Name,
 			MountPath: "/pvc",
-		})
-	}
-	if secret != nil {
-		var mode int32 = 0420
-		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
-			Name:      "hp-secret",
-			ReadOnly:  true,
-			MountPath: "/hppath",
-		})
-		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
-			Name: "hp-secret",
-			VolumeSource: k8sv1.VolumeSource{
-				Secret: &k8sv1.SecretVolumeSource{
-					SecretName:  secret.Name,
-					DefaultMode: &mode,
-				},
-			},
 		})
 	}
 	return pod, nil

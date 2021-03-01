@@ -986,7 +986,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			// Setup second PVC to use in this context
 			pvNode := tests.CreateHostPathPv(tests.CustomHostPath, tests.HostPathCustom)
 			tests.CreateHostPathPVC(tests.CustomHostPath, "1Gi")
-			template := tests.NewRandomFedoraVMIWitGuestAgent()
+			template := tests.NewRandomFedoraVMIWithGuestAgent()
 			if pvNode != "" {
 				template.Spec.NodeSelector = make(map[string]string)
 				template.Spec.NodeSelector[corev1.LabelHostname] = pvNode

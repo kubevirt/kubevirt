@@ -72,7 +72,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var kubeClient *fake.Clientset
 	var networkClient *fakenetworkclient.Clientset
 	var pvcInformer cache.SharedIndexInformer
-	var pvInformer cache.SharedIndexInformer
 
 	var dataVolumeSource *framework.FakeControllerSource
 	var dataVolumeInformer cache.SharedIndexInformer
@@ -119,39 +118,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(ok).To(BeTrue())
 			Expect(pod.Namespace).To(Equal(update.GetNamespace()))
 			Expect(pod.Name).To(Equal(update.GetName()))
-			return true, nil, nil
-		})
-	}
-
-	shouldExpectSecretCreation := func(secret *k8sv1.Secret) {
-		// Expect secret creation
-		kubeClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			update, ok := action.(testing.CreateAction)
-			Expect(ok).To(BeTrue())
-			Expect(update.GetObject().(*k8sv1.Secret).Name).To(Equal(secret.Name))
-			Expect(update.GetObject().(*k8sv1.Secret).Namespace).To(Equal(secret.Namespace))
-			return true, update.GetObject(), nil
-		})
-	}
-
-	shouldExpectSecretCreationWithFailure := func(secret *k8sv1.Secret) {
-		// Expect secret creation
-		kubeClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			update, ok := action.(testing.CreateAction)
-			Expect(ok).To(BeTrue())
-			Expect(update.GetObject().(*k8sv1.Secret).Name).To(Equal(secret.Name))
-			Expect(update.GetObject().(*k8sv1.Secret).Namespace).To(Equal(secret.Namespace))
-			return true, update.GetObject(), fmt.Errorf("Failure creating secret")
-		})
-	}
-
-	shouldExpectSecretDeletion := func(secret *k8sv1.Secret) {
-		// Expect secret deletion
-		kubeClient.Fake.PrependReactor("delete", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			update, ok := action.(testing.DeleteAction)
-			Expect(ok).To(BeTrue())
-			Expect(secret.Namespace).To(Equal(update.GetNamespace()))
-			Expect(secret.Name).To(Equal(update.GetName()))
 			return true, nil, nil
 		})
 	}
@@ -205,14 +171,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		go vmiInformer.Run(stop)
 		go podInformer.Run(stop)
 		go pvcInformer.Run(stop)
-		go pvInformer.Run(stop)
 
 		go dataVolumeInformer.Run(stop)
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
 			podInformer.HasSynced,
 			pvcInformer.HasSynced,
-			pvInformer.HasSynced,
 			dataVolumeInformer.HasSynced)).To(BeTrue())
 	}
 
@@ -229,13 +193,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
-		pvInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolume{})
 		controller = NewVMIController(
 			services.NewTemplateService("a", "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
 			vmiInformer,
 			podInformer,
 			pvcInformer,
-			pvInformer,
 			recorder,
 			virtClient,
 			dataVolumeInformer,
@@ -1889,7 +1851,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 		}
 
-		table.DescribeTable("handleHotplugVolumes should properly react to input", func(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod, createPodReaction func(*k8sv1.Pod, ...int), pvcFunc func(...int), pvcIndexes []int, orgStatus []v1.VolumeStatus, expectedEvent []string, deleteSecrets []string, expectedErr syncError) {
+		table.DescribeTable("handleHotplugVolumes should properly react to input", func(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod, createPodReaction func(*k8sv1.Pod, ...int), pvcFunc func(...int), pvcIndexes []int, orgStatus []v1.VolumeStatus, expectedEvent string, expectedErr syncError) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.VolumeStatus = orgStatus
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
@@ -1910,23 +1872,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			if createPodReaction != nil {
 				createPodReaction(virtlauncherPod, pvcIndexes...)
 			}
-			for _, secretName := range deleteSecrets {
-				secret := &k8sv1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "default",
-						Name:      secretName,
-					},
-				}
-				shouldExpectSecretDeletion(secret)
-			}
 			syncError := controller.handleHotplugVolumes(hotplugVolumes, hotplugAttachmentPods, vmi, virtlauncherPod, datavolumes)
 			if expectedErr != nil {
 				Expect(syncError).To(BeEquivalentTo(expectedErr))
 			} else {
 				Expect(syncError).ToNot(HaveOccurred())
 			}
-			for _, event := range expectedEvent {
-				testutils.ExpectEvent(recorder, event)
+			if expectedEvent != "" {
+				testutils.ExpectEvent(recorder, expectedEvent)
 			}
 		},
 			table.Entry("when volumes and pods match, the status should remain the same",
@@ -1936,8 +1889,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				preparePVC,
 				[]int{},
 				makeVolumeStatuses(),
-				[]string{},
-				[]string{},
+				"",
 				nil),
 			table.Entry("when volumes > pods, a new pod should be created with a status",
 				makeVolumes(1, 2),
@@ -1946,8 +1898,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				preparePVC,
 				[]int{2},
 				makeVolumeStatuses(),
-				[]string{SuccessfulCreatePodReason},
-				[]string{},
+				SuccessfulCreatePodReason,
 				nil),
 			table.Entry("when volumes > pods, but an existing status with a pod exist, should error",
 				makeVolumes(1, 2),
@@ -1956,8 +1907,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				preparePVC,
 				[]int{2},
 				makeExistingVolumeStatuses(2),
-				[]string{},
-				[]string{},
+				"",
 				&syncErrorImpl{fmt.Errorf("Missing pod for hotplugged volume %s", "volume2"), MissingAttachmentPodReason}),
 			table.Entry("when volumes > pods, and creating pod fails, should return the pod creation failure error",
 				makeVolumes(1, 2),
@@ -1966,8 +1916,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				preparePVC,
 				[]int{2},
 				makeVolumeStatuses(),
-				[]string{FailedCreatePodReason},
-				[]string{},
+				FailedCreatePodReason,
 				&syncErrorImpl{fmt.Errorf("Error creating attachment pod %v", fmt.Errorf("Error creating pod")), FailedCreatePodReason}),
 			table.Entry("when volumes > pods, should return error if pod already exists.",
 				makeVolumes(1, 2),
@@ -1976,8 +1925,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				preparePVC,
 				[]int{2},
 				makeVolumeStatuses(),
-				[]string{FailedCreatePodReason},
-				[]string{},
+				FailedCreatePodReason,
 				&syncErrorImpl{fmt.Errorf("Error creating attachment pod %v", fmt.Errorf("pod \"hp-volume\" already exists")), FailedCreatePodReason}),
 			table.Entry("when volumes < pods, the pod should be deleted",
 				makeVolumes(1),
@@ -1986,8 +1934,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				preparePVC,
 				[]int{2},
 				makeVolumeStatuses(),
-				[]string{SuccessfulDeletePodReason},
-				[]string{"claim2"},
+				SuccessfulDeletePodReason,
 				nil),
 			table.Entry("when volumes < pods, if pod deletion fails, it should return the error",
 				makeVolumes(1),
@@ -1996,8 +1943,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				preparePVC,
 				[]int{2},
 				makeVolumeStatuses(),
-				[]string{FailedDeletePodReason},
-				[]string{},
+				FailedDeletePodReason,
 				&syncErrorImpl{fmt.Errorf("Error deleting attachment pod %v", fmt.Errorf("Error deleting pod")), FailedDeletePodReason}),
 		)
 
@@ -2346,68 +2292,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 			Expect(vmi.Status.Phase).To(Equal(v1.Running))
 		})
-
-		table.DescribeTable("handleHostpathSecret", func(isHostpath, expectError bool, secretCreateFunc func(secret *k8sv1.Secret)) {
-			var hostpathVolumeSource *k8sv1.HostPathVolumeSource
-			if isHostpath {
-				hostpathVolumeSource = &k8sv1.HostPathVolumeSource{
-					Path: "/test",
-				}
-			}
-			testName := "testpvc"
-			testVolume := "testVolume"
-			pvc := &k8sv1.PersistentVolumeClaim{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: k8sv1.NamespaceDefault,
-					Name:      testName},
-				Spec: k8sv1.PersistentVolumeClaimSpec{
-					VolumeName: testVolume,
-				},
-				Status: k8sv1.PersistentVolumeClaimStatus{
-					Phase: k8sv1.ClaimBound,
-				},
-			}
-			pv := &k8sv1.PersistentVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: testVolume,
-				},
-				Spec: k8sv1.PersistentVolumeSpec{
-					PersistentVolumeSource: k8sv1.PersistentVolumeSource{
-						HostPath: hostpathVolumeSource,
-					},
-				},
-			}
-			pvcInformer.GetIndexer().Add(pvc)
-			pvInformer.GetIndexer().Add(pv)
-			if secretCreateFunc != nil {
-				secretCreateFunc(&k8sv1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      testName,
-						Namespace: k8sv1.NamespaceDefault,
-					},
-				})
-			}
-			secret, err := controller.handleHostpathSecret(testName, k8sv1.NamespaceDefault)
-			if expectError {
-				Expect(err).To(HaveOccurred())
-				Expect(secret).To(BeNil())
-			} else {
-				Expect(err).ToNot(HaveOccurred())
-				if isHostpath {
-					Expect(secret).ToNot(BeNil())
-					Expect(secret.Name).To(Equal(testName))
-				} else {
-					Expect(secret).To(BeNil())
-				}
-			}
-		},
-			table.Entry("should properly create secret if pvc is hostpath based", true, false, shouldExpectSecretCreation),
-			table.Entry("should not create a secret if pvc is not hostpath based", false, false, nil),
-			table.Entry("should return an error if creating the secret fails", true, true, shouldExpectSecretCreationWithFailure),
-		)
 	})
 })
 

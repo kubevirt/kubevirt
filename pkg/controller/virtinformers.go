@@ -122,9 +122,6 @@ type KubeInformerFactory interface {
 	// Watches for PersistentVolumeClaim objects
 	PersistentVolumeClaim() cache.SharedIndexInformer
 
-	// Watches for PersistentVolume objects
-	PersistentVolume() cache.SharedIndexInformer
-
 	// Watches for LimitRange objects
 	LimitRanges() cache.SharedIndexInformer
 
@@ -520,14 +517,6 @@ func (f *kubeInformerFactory) PersistentVolumeClaim() cache.SharedIndexInformer 
 		restClient := f.clientSet.CoreV1().RESTClient()
 		lw := cache.NewListWatchFromClient(restClient, "persistentvolumeclaims", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &k8sv1.PersistentVolumeClaim{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	})
-}
-
-func (f *kubeInformerFactory) PersistentVolume() cache.SharedIndexInformer {
-	return f.getInformer("persistentVolumeInformer", func() cache.SharedIndexInformer {
-		restClient := f.clientSet.CoreV1().RESTClient()
-		lw := cache.NewListWatchFromClient(restClient, "persistentvolumes", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &k8sv1.PersistentVolume{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

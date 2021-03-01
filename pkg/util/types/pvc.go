@@ -76,37 +76,3 @@ func IsSharedPVCFromClient(client kubecli.KubevirtClient, namespace string, clai
 	}
 	return
 }
-
-// GetPVCHostPathFromStore determines if the persistent volume bound to the passed in claim is a host path based
-// volume, and if so, returns the path of the volume. Returns a blank path if not a hostpath volume
-func GetPVCHostPathFromStore(pvcStore cache.Store, pvStore cache.Store, namespace string, claimName string) (string, error) {
-	var pvc *k8sv1.PersistentVolumeClaim
-	obj, exists, err := pvcStore.GetByKey(namespace + "/" + claimName)
-	if err != nil {
-		return "", err
-	}
-	if !exists {
-		return "", fmt.Errorf("Unable to find PVC %s/%s", namespace, claimName)
-	}
-	if _, ok := obj.(*k8sv1.PersistentVolumeClaim); ok {
-		pvc = obj.(*k8sv1.PersistentVolumeClaim)
-	}
-
-	if pvc.Status.Phase == k8sv1.ClaimBound && pvc.Spec.VolumeName != "" {
-		var pv *k8sv1.PersistentVolume
-		obj, exists, err := pvStore.GetByKey(pvc.Spec.VolumeName)
-		if err != nil {
-			return "", err
-		}
-		if !exists {
-			return "", fmt.Errorf("Unable to find PV %s", pvc.Spec.VolumeName)
-		}
-		if _, ok := obj.(*k8sv1.PersistentVolume); ok {
-			pv = obj.(*k8sv1.PersistentVolume)
-		}
-		if pv.Spec.HostPath != nil {
-			return pv.Spec.HostPath.Path, nil
-		}
-	}
-	return "", nil
-}

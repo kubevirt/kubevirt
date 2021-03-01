@@ -24,6 +24,7 @@ import (
 	"github.com/opencontainers/runc/libcontainer/cgroups/devices"
 	"github.com/opencontainers/runc/libcontainer/cgroups/fscommon"
 	"github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/prometheus/procfs"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -40,8 +41,8 @@ var (
 		return fmt.Sprintf("/proc/1/root/var/lib/kubelet/pods/%s/volumes", string(podUID))
 	}
 
-	secretBasePath = func(podUID types.UID) string {
-		return fmt.Sprintf("/proc/1/root/var/lib/kubelet/pods/%s/volumes/kubernetes.io~secret/hp-secret", string(podUID))
+	socketPath = func(podUID types.UID) string {
+		return fmt.Sprintf("pods/%s/volumes/kubernetes.io~empty-dir/hotplug-disks/hp.sock", string(podUID))
 	}
 
 	cgroupsBasePath = func() string {
@@ -70,6 +71,14 @@ var (
 
 	isBlockDevice = func(path string) (bool, error) {
 		return isolation.NodeIsolationResult().IsBlockDevice(path)
+	}
+
+	isolationDetector = func(path string) isolation.PodIsolationDetector {
+		return isolation.NewSocketBasedIsolationDetector(path)
+	}
+
+	procMounts = func(pid int) ([]*procfs.MountInfo, error) {
+		return procfs.GetProcMounts(pid)
 	}
 )
 
@@ -523,7 +532,7 @@ func (m *volumeMounter) createBlockDeviceFile(deviceName string, major, minor in
 }
 
 func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, record *vmiMountTargetRecord) error {
-	sourcePath, err := m.getSourcePodFilePath(sourceUID)
+	sourcePath, err := m.getSourcePodFilePath(sourceUID, vmi, volume)
 	if err != nil {
 		log.DefaultLogger().Infof("Error finding source path: %v", err)
 		return nil
@@ -564,8 +573,7 @@ func (m *volumeMounter) findVirtlauncherUID(vmi *v1.VirtualMachineInstance) type
 	return types.UID("")
 }
 
-func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID) (string, error) {
-	var err error
+func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.VirtualMachineInstance, volume string) (string, error) {
 	diskPath := ""
 	if sourceUID != types.UID("") {
 		basepath := sourcePodBasePath(sourceUID)
@@ -582,10 +590,21 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID) (string, error
 		}
 	}
 	if diskPath == "" {
-		// Check if we can find the source disk image from the emptyDir path file.
-		diskPath, err = m.getSourcePodFilePathFromSecret(sourceUID)
+		// Unfortunately I cannot use this approach for all storage, for instance in ceph the mount.Root is / which is obviously
+		// not the path we want to mount. So we stick with try sourcePodBasePath first, then if not found try mountinfo.
+		iso := isolationDetector("/path")
+		isoRes, err := iso.DetectForSocket(vmi, socketPath(sourceUID))
 		if err != nil {
 			return "", err
+		}
+		mounts, err := procMounts(isoRes.Pid())
+		if err != nil {
+			return "", err
+		}
+		for _, mount := range mounts {
+			if mount.MountPoint == "/pvc" {
+				return mount.Root, nil
+			}
 		}
 	}
 	if diskPath == "" {
@@ -593,32 +612,6 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID) (string, error
 		return diskPath, fmt.Errorf("Unable to find source disk image path for pod %s", sourceUID)
 	}
 	return diskPath, nil
-}
-
-func (m *volumeMounter) getSourcePodFilePathFromSecret(sourceUID types.UID) (string, error) {
-	pathFile := ""
-	if sourceUID != types.UID("") {
-		basepath := secretBasePath(sourceUID)
-		err := filepath.Walk(basepath, func(filePath string, info os.FileInfo, err error) error {
-			if path.Base(filePath) == "path" {
-				// Found path file
-				pathFile = filePath
-				return io.EOF
-			}
-			return nil
-		})
-		if err != nil && err != io.EOF {
-			return pathFile, err
-		}
-	}
-	if pathFile != "" {
-		pathBytes, err := ioutil.ReadFile(pathFile)
-		if err != nil {
-			return "", err
-		}
-		return string(pathBytes), nil
-	}
-	return "", nil
 }
 
 // Unmount unmounts all hotplug disk that are no longer part of the VMI
