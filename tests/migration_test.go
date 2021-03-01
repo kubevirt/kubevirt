@@ -1197,7 +1197,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				i := 0
 				errors := make(chan error, len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
-				for port, _ := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
+				for port := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
 					portI, _ := strconv.Atoi(port)
 					go func(i int, port int) {
 						defer GinkgoRecover()
