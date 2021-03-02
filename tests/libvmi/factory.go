@@ -34,14 +34,30 @@ const (
 // NewFedora instantiates a new Fedora based VMI configuration,
 // building its extra properties based on the specified With* options.
 func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
-	return newFedora(cd.ContainerDiskFedora, opts...)
+	return newFedoraWithUserDataSetPassword(cd.ContainerDiskFedora, opts...)
 }
 
 // NewTestToolingFedora instantiates a new Fedora based VMI configuration,
 // building its extra properties based on the specified With* options.
 // This image has tooling for the guest agent, stress, and more
 func NewTestToolingFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
-	return newFedora(cd.ContainerDiskFedoraTestTooling, opts...)
+	return newFedoraWithUserDataSetPassword(cd.ContainerDiskFedoraTestTooling, opts...)
+}
+
+// newFedoraWithUserDataSetPassword instantiates a new Fedora based VMI configuration,
+// building its extra properties based on the specified With* options.
+// Adding to it UserData which sets the password
+func newFedoraWithUserDataSetPassword(containerDisk cd.ContainerDisk, opts ...Option) *kvirtv1.VirtualMachineInstance {
+	userDataSetPassword := `#!/bin/bash
+	echo "fedora" | passwd fedora --stdin
+	echo `
+
+	fedoraOptions := []Option{
+		WithCloudInitNoCloudUserData(userDataSetPassword, false),
+	}
+	opts = append(fedoraOptions, opts...)
+
+	return newFedora(containerDisk, opts...)
 }
 
 // NewSriovFedora instantiates a new Fedora based VMI configuration,
@@ -55,16 +71,11 @@ func NewSriovFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 // containerDisk, building its extra properties based on the specified With*
 // options.
 func newFedora(containerDisk cd.ContainerDisk, opts ...Option) *kvirtv1.VirtualMachineInstance {
-	configurePassword := `#!/bin/bash
-	echo "fedora" |passwd fedora --stdin
-	echo `
-
 	fedoraOptions := []Option{
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
 		WithResourceMemory("512M"),
 		WithRng(),
 		WithContainerImage(cd.ContainerDiskFor(containerDisk)),
-		WithCloudInitNoCloudUserData(configurePassword, false),
 	}
 	opts = append(fedoraOptions, opts...)
 	return New(RandName(DefaultVmiName), opts...)
