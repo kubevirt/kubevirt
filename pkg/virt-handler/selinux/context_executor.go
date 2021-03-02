@@ -42,6 +42,13 @@ type ContextExecutor struct {
 }
 
 func NewContextExecutor(pid int, cmd *exec.Cmd) (*ContextExecutor, error) {
+	if !isSELinuxEnabled() {
+		return &ContextExecutor{
+			pid:          pid,
+			cmdToExecute: cmd,
+		}, nil
+	}
+
 	desiredLabel, err := getLabelForPID(pid)
 	if err != nil {
 		return nil, err
