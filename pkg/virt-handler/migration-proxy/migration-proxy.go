@@ -49,6 +49,10 @@ type ProxyManager interface {
 	StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, baseDir string) error
 	GetSourceListenerFiles(key string) []string
 	StopSourceListener(key string)
+
+	OpenListenerCount() int
+
+	GracefulShutdown()
 }
 
 type migrationProxyManager struct {
@@ -57,6 +61,8 @@ type migrationProxyManager struct {
 	managerLock     sync.Mutex
 	serverTLSConfig *tls.Config
 	clientTLSConfig *tls.Config
+
+	isShuttingDown bool
 }
 
 type migrationProxy struct {
@@ -72,6 +78,20 @@ type migrationProxy struct {
 	listener        net.Listener
 	serverTLSConfig *tls.Config
 	clientTLSConfig *tls.Config
+}
+
+func (m *migrationProxyManager) GracefulShutdown() {
+	m.managerLock.Lock()
+	defer m.managerLock.Unlock()
+
+	m.isShuttingDown = true
+}
+
+func (m *migrationProxyManager) OpenListenerCount() int {
+	m.managerLock.Lock()
+	defer m.managerLock.Unlock()
+
+	return len(m.sourceProxies) + len(m.targetProxies)
 }
 
 func GetMigrationPortsList(isBlockMigration bool) (ports []int) {
@@ -98,6 +118,11 @@ func SourceUnixFile(baseDir string, key string) string {
 func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles []string) error {
 	m.managerLock.Lock()
 	defer m.managerLock.Unlock()
+
+	if m.isShuttingDown {
+		return fmt.Errorf("unable to process new migration connections during virt-handler shutdown")
+	}
+
 	isExistingProxy := func(curProxies []*migrationProxy, targetUnixFiles []string) bool {
 		// make sure that all elements in the existing proxy match to the provided targetUnixFiles
 		if len(curProxies) != len(targetUnixFiles) {
@@ -215,6 +240,10 @@ func (m *migrationProxyManager) StopTargetListener(key string) {
 func (m *migrationProxyManager) StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, baseDir string) error {
 	m.managerLock.Lock()
 	defer m.managerLock.Unlock()
+
+	if m.isShuttingDown {
+		return fmt.Errorf("unable to process new migration connections during virt-handler shutdown")
+	}
 
 	isExistingProxy := func(curProxies []*migrationProxy, targetAddress string, destSrcPortMap map[string]int) bool {
 		if len(curProxies) != len(destSrcPortMap) {
