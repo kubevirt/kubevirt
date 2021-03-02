@@ -95,7 +95,7 @@ function gen_csv() {
     --prefix="${operatorName}" \
     --suffix-format="%02d.${CRD_EXT}" \
     $crds \
-    "/---/" "{*}"
+    "/^---$/" "{*}"
 }
 
 function create_virt_csv() {
