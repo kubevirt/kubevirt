@@ -1,3 +1,5 @@
+// +build !without_lxc
+
 /*
  * This file is part of the libvirt-go project
  *

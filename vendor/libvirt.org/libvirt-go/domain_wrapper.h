@@ -1035,5 +1035,19 @@ virDomainBackupGetXMLDescWrapper(virDomainPtr domain,
 				 unsigned int flags,
 				 virErrorPtr err);
 
+int
+virDomainAuthorizedSSHKeysGetWrapper(virDomainPtr domain,
+				     const char *user,
+				     char ***keys,
+				     unsigned int flags,
+				     virErrorPtr err);
+
+int
+virDomainAuthorizedSSHKeysSetWrapper(virDomainPtr domain,
+				     const char *user,
+				     const char **keys,
+				     unsigned int nkeys,
+				     unsigned int flags,
+				     virErrorPtr err);
 
 #endif /* LIBVIRT_GO_DOMAIN_WRAPPER_H__ */

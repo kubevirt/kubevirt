@@ -47,7 +47,7 @@ const (
 	IP_ADDR_TYPE_IPV6 = IPAddrType(C.VIR_IP_ADDR_TYPE_IPV6)
 )
 
-type NetworkXMLFlags int
+type NetworkXMLFlags uint
 
 const (
 	NETWORK_XML_INACTIVE = NetworkXMLFlags(C.VIR_NETWORK_XML_INACTIVE)
@@ -81,7 +81,7 @@ const (
 	NETWORK_SECTION_DNS_SRV           = NetworkUpdateSection(C.VIR_NETWORK_SECTION_DNS_SRV)
 )
 
-type NetworkUpdateFlags int
+type NetworkUpdateFlags uint
 
 const (
 	NETWORK_UPDATE_AFFECT_CURRENT = NetworkUpdateFlags(C.VIR_NETWORK_UPDATE_AFFECT_CURRENT)
@@ -374,7 +374,7 @@ func (n *Network) LookupNetworkPortByUUID(uuid []byte) (*NetworkPort, error) {
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-network.html#virNetworkPortCreateXML
-func (n *Network) PortCreateXML(xmlConfig string, flags uint) (*NetworkPort, error) {
+func (n *Network) PortCreateXML(xmlConfig string, flags uint32) (*NetworkPort, error) {
 	if C.LIBVIR_VERSION_NUMBER < 5005000 {
 		return nil, makeNotImplementedError("virNetworkPortCreateXML")
 	}
@@ -389,7 +389,7 @@ func (n *Network) PortCreateXML(xmlConfig string, flags uint) (*NetworkPort, err
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-network.html#virNetworkListAllPorts
-func (n *Network) ListAllPorts(flags uint) ([]NetworkPort, error) {
+func (n *Network) ListAllPorts(flags uint32) ([]NetworkPort, error) {
 	if C.LIBVIR_VERSION_NUMBER < 5005000 {
 		return []NetworkPort{}, makeNotImplementedError("virNetworkListAllPorts")
 	}

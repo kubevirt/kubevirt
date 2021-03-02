@@ -37,7 +37,7 @@ import (
 	"unsafe"
 )
 
-type InterfaceXMLFlags int
+type InterfaceXMLFlags uint
 
 const (
 	INTERFACE_XML_INACTIVE = InterfaceXMLFlags(C.VIR_INTERFACE_XML_INACTIVE)

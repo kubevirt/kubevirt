@@ -225,6 +225,17 @@ void domainEventBlockThresholdCallbackHelper(virConnectPtr conn,
     domainEventBlockThresholdCallback(conn, dom, dev, path, threshold, excess, (int)(intptr_t)opaque);
 }
 
+extern void domainEventMemoryFailureCallback(virConnectPtr, virDomainPtr, int, int, unsigned int, int);
+void domainEventMemoryFailureCallbackHelper(virConnectPtr conn,
+                                            virDomainPtr dom,
+                                            int recipient,
+                                            int action,
+                                            unsigned int flags,
+                                            void *opaque)
+{
+    domainEventMemoryFailureCallback(conn, dom, recipient, action, flags, (int)(intptr_t)opaque);
+}
+
 int
 virConnectDomainEventRegisterAnyWrapper(virConnectPtr c,
                                         virDomainPtr d,

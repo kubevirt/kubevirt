@@ -68,7 +68,7 @@ const (
 	DOMAIN_METADATA_ELEMENT     = DomainMetadataType(C.VIR_DOMAIN_METADATA_ELEMENT)
 )
 
-type DomainVcpuFlags int
+type DomainVcpuFlags uint
 
 const (
 	DOMAIN_VCPU_CONFIG       = DomainVcpuFlags(C.VIR_DOMAIN_VCPU_CONFIG)
@@ -87,7 +87,7 @@ const (
 	DOMAIN_AFFECT_LIVE    = DomainModificationImpact(C.VIR_DOMAIN_AFFECT_LIVE)
 )
 
-type DomainMemoryModFlags int
+type DomainMemoryModFlags uint
 
 const (
 	DOMAIN_MEM_CONFIG  = DomainMemoryModFlags(C.VIR_DOMAIN_MEM_CONFIG)
@@ -96,14 +96,14 @@ const (
 	DOMAIN_MEM_MAXIMUM = DomainMemoryModFlags(C.VIR_DOMAIN_MEM_MAXIMUM)
 )
 
-type DomainDestroyFlags int
+type DomainDestroyFlags uint
 
 const (
 	DOMAIN_DESTROY_DEFAULT  = DomainDestroyFlags(C.VIR_DOMAIN_DESTROY_DEFAULT)
 	DOMAIN_DESTROY_GRACEFUL = DomainDestroyFlags(C.VIR_DOMAIN_DESTROY_GRACEFUL)
 )
 
-type DomainShutdownFlags int
+type DomainShutdownFlags uint
 
 const (
 	DOMAIN_SHUTDOWN_DEFAULT        = DomainShutdownFlags(C.VIR_DOMAIN_SHUTDOWN_DEFAULT)
@@ -124,7 +124,7 @@ const (
 	DOMAIN_UNDEFINE_CHECKPOINTS_METADATA = DomainUndefineFlagsValues(C.VIR_DOMAIN_UNDEFINE_CHECKPOINTS_METADATA) // If last use of domain, then also remove any checkpoint metadata
 )
 
-type DomainDeviceModifyFlags int
+type DomainDeviceModifyFlags uint
 
 const (
 	DOMAIN_DEVICE_MODIFY_CONFIG  = DomainDeviceModifyFlags(C.VIR_DOMAIN_DEVICE_MODIFY_CONFIG)
@@ -133,7 +133,7 @@ const (
 	DOMAIN_DEVICE_MODIFY_FORCE   = DomainDeviceModifyFlags(C.VIR_DOMAIN_DEVICE_MODIFY_FORCE)
 )
 
-type DomainCreateFlags int
+type DomainCreateFlags uint
 
 const (
 	DOMAIN_NONE               = DomainCreateFlags(C.VIR_DOMAIN_NONE)
@@ -288,7 +288,7 @@ const (
 	DOMAIN_PAUSED_POSTCOPY_FAILED = DomainPausedReason(C.VIR_DOMAIN_PAUSED_POSTCOPY_FAILED) /* paused after failed post-copy */
 )
 
-type DomainXMLFlags int
+type DomainXMLFlags uint
 
 const (
 	DOMAIN_XML_SECURE     = DomainXMLFlags(C.VIR_DOMAIN_XML_SECURE)     /* dump security sensitive information too */
@@ -603,7 +603,7 @@ const (
 	DOMAIN_SHUTOFF_DAEMON        = DomainShutoffReason(C.VIR_DOMAIN_SHUTOFF_DAEMON)
 )
 
-type DomainBlockCommitFlags int
+type DomainBlockCommitFlags uint
 
 const (
 	DOMAIN_BLOCK_COMMIT_SHALLOW         = DomainBlockCommitFlags(C.VIR_DOMAIN_BLOCK_COMMIT_SHALLOW)
@@ -613,7 +613,7 @@ const (
 	DOMAIN_BLOCK_COMMIT_BANDWIDTH_BYTES = DomainBlockCommitFlags(C.VIR_DOMAIN_BLOCK_COMMIT_BANDWIDTH_BYTES)
 )
 
-type DomainBlockCopyFlags int
+type DomainBlockCopyFlags uint
 
 const (
 	DOMAIN_BLOCK_COPY_SHALLOW       = DomainBlockCopyFlags(C.VIR_DOMAIN_BLOCK_COPY_SHALLOW)
@@ -621,7 +621,7 @@ const (
 	DOMAIN_BLOCK_COPY_TRANSIENT_JOB = DomainBlockCopyFlags(C.VIR_DOMAIN_BLOCK_COPY_TRANSIENT_JOB)
 )
 
-type DomainBlockRebaseFlags int
+type DomainBlockRebaseFlags uint
 
 const (
 	DOMAIN_BLOCK_REBASE_SHALLOW         = DomainBlockRebaseFlags(C.VIR_DOMAIN_BLOCK_REBASE_SHALLOW)
@@ -633,32 +633,32 @@ const (
 	DOMAIN_BLOCK_REBASE_BANDWIDTH_BYTES = DomainBlockRebaseFlags(C.VIR_DOMAIN_BLOCK_REBASE_BANDWIDTH_BYTES)
 )
 
-type DomainBlockJobAbortFlags int
+type DomainBlockJobAbortFlags uint
 
 const (
 	DOMAIN_BLOCK_JOB_ABORT_ASYNC = DomainBlockJobAbortFlags(C.VIR_DOMAIN_BLOCK_JOB_ABORT_ASYNC)
 	DOMAIN_BLOCK_JOB_ABORT_PIVOT = DomainBlockJobAbortFlags(C.VIR_DOMAIN_BLOCK_JOB_ABORT_PIVOT)
 )
 
-type DomainBlockJobInfoFlags int
+type DomainBlockJobInfoFlags uint
 
 const (
 	DOMAIN_BLOCK_JOB_INFO_BANDWIDTH_BYTES = DomainBlockJobInfoFlags(C.VIR_DOMAIN_BLOCK_JOB_INFO_BANDWIDTH_BYTES)
 )
 
-type DomainBlockJobSetSpeedFlags int
+type DomainBlockJobSetSpeedFlags uint
 
 const (
 	DOMAIN_BLOCK_JOB_SPEED_BANDWIDTH_BYTES = DomainBlockJobSetSpeedFlags(C.VIR_DOMAIN_BLOCK_JOB_SPEED_BANDWIDTH_BYTES)
 )
 
-type DomainBlockPullFlags int
+type DomainBlockPullFlags uint
 
 const (
 	DOMAIN_BLOCK_PULL_BANDWIDTH_BYTES = DomainBlockPullFlags(C.VIR_DOMAIN_BLOCK_PULL_BANDWIDTH_BYTES)
 )
 
-type DomainBlockResizeFlags int
+type DomainBlockResizeFlags uint
 
 const (
 	DOMAIN_BLOCK_RESIZE_BYTES = DomainBlockResizeFlags(C.VIR_DOMAIN_BLOCK_RESIZE_BYTES)
@@ -668,13 +668,13 @@ type Domain struct {
 	ptr C.virDomainPtr
 }
 
-type DomainChannelFlags int
+type DomainChannelFlags uint
 
 const (
 	DOMAIN_CHANNEL_FORCE = DomainChannelFlags(C.VIR_DOMAIN_CHANNEL_FORCE)
 )
 
-type DomainConsoleFlags int
+type DomainConsoleFlags uint
 
 const (
 	DOMAIN_CONSOLE_FORCE = DomainConsoleFlags(C.VIR_DOMAIN_CONSOLE_FORCE)
@@ -690,7 +690,7 @@ const (
 	DOMAIN_CORE_DUMP_FORMAT_KDUMP_SNAPPY = DomainCoreDumpFormat(C.VIR_DOMAIN_CORE_DUMP_FORMAT_KDUMP_SNAPPY)
 )
 
-type DomainDefineFlags int
+type DomainDefineFlags uint
 
 const (
 	DOMAIN_DEFINE_VALIDATE = DomainDefineFlags(C.VIR_DOMAIN_DEFINE_VALIDATE)
@@ -707,7 +707,7 @@ const (
 	DOMAIN_JOB_CANCELLED = DomainJobType(C.VIR_DOMAIN_JOB_CANCELLED)
 )
 
-type DomainGetJobStatsFlags int
+type DomainGetJobStatsFlags uint
 
 const (
 	DOMAIN_JOB_STATS_COMPLETED      = DomainGetJobStatsFlags(C.VIR_DOMAIN_JOB_STATS_COMPLETED)
@@ -722,19 +722,19 @@ const (
 	DOMAIN_NUMATUNE_MEM_INTERLEAVE = DomainNumatuneMemMode(C.VIR_DOMAIN_NUMATUNE_MEM_INTERLEAVE)
 )
 
-type DomainOpenGraphicsFlags int
+type DomainOpenGraphicsFlags uint
 
 const (
 	DOMAIN_OPEN_GRAPHICS_SKIPAUTH = DomainOpenGraphicsFlags(C.VIR_DOMAIN_OPEN_GRAPHICS_SKIPAUTH)
 )
 
-type DomainSetUserPasswordFlags int
+type DomainSetUserPasswordFlags uint
 
 const (
 	DOMAIN_PASSWORD_ENCRYPTED = DomainSetUserPasswordFlags(C.VIR_DOMAIN_PASSWORD_ENCRYPTED)
 )
 
-type DomainRebootFlagValues int
+type DomainRebootFlagValues uint
 
 const (
 	DOMAIN_REBOOT_DEFAULT        = DomainRebootFlagValues(C.VIR_DOMAIN_REBOOT_DEFAULT)
@@ -745,7 +745,7 @@ const (
 	DOMAIN_REBOOT_PARAVIRT       = DomainRebootFlagValues(C.VIR_DOMAIN_REBOOT_PARAVIRT)
 )
 
-type DomainSaveRestoreFlags int
+type DomainSaveRestoreFlags uint
 
 const (
 	DOMAIN_SAVE_BYPASS_CACHE = DomainSaveRestoreFlags(C.VIR_DOMAIN_SAVE_BYPASS_CACHE)
@@ -753,7 +753,7 @@ const (
 	DOMAIN_SAVE_PAUSED       = DomainSaveRestoreFlags(C.VIR_DOMAIN_SAVE_PAUSED)
 )
 
-type DomainSetTimeFlags int
+type DomainSetTimeFlags uint
 
 const (
 	DOMAIN_TIME_SYNC = DomainSetTimeFlags(C.VIR_DOMAIN_TIME_SYNC)
@@ -781,7 +781,7 @@ const (
 	DOMAIN_STATS_MEMORY    = DomainStatsTypes(C.VIR_DOMAIN_STATS_MEMORY)
 )
 
-type DomainCoreDumpFlags int
+type DomainCoreDumpFlags uint
 
 const (
 	DUMP_CRASH        = DomainCoreDumpFlags(C.VIR_DUMP_CRASH)
@@ -791,14 +791,14 @@ const (
 	DUMP_MEMORY_ONLY  = DomainCoreDumpFlags(C.VIR_DUMP_MEMORY_ONLY)
 )
 
-type DomainMemoryFlags int
+type DomainMemoryFlags uint
 
 const (
 	MEMORY_VIRTUAL  = DomainMemoryFlags(C.VIR_MEMORY_VIRTUAL)
 	MEMORY_PHYSICAL = DomainMemoryFlags(C.VIR_MEMORY_PHYSICAL)
 )
 
-type DomainMigrateFlags int
+type DomainMigrateFlags uint
 
 const (
 	MIGRATE_LIVE              = DomainMigrateFlags(C.VIR_MIGRATE_LIVE)
@@ -821,13 +821,13 @@ const (
 	MIGRATE_PARALLEL          = DomainMigrateFlags(C.VIR_MIGRATE_PARALLEL)
 )
 
-type DomainMigrateMaxSpeedFlags int
+type DomainMigrateMaxSpeedFlags uint
 
 const (
 	MIGRATE_MAX_SPEED_POSTCOPY = DomainMigrateMaxSpeedFlags(C.VIR_DOMAIN_MIGRATE_MAX_SPEED_POSTCOPY)
 )
 
-type DomainSaveImageXMLFlags int
+type DomainSaveImageXMLFlags uint
 
 const (
 	DOMAIN_SAVE_IMAGE_XML_SECURE = DomainSaveImageXMLFlags(C.VIR_DOMAIN_SAVE_IMAGE_XML_SECURE)
@@ -839,6 +839,13 @@ const (
 	VCPU_OFFLINE = VcpuState(C.VIR_VCPU_OFFLINE)
 	VCPU_RUNNING = VcpuState(C.VIR_VCPU_RUNNING)
 	VCPU_BLOCKED = VcpuState(C.VIR_VCPU_BLOCKED)
+)
+
+type VcpuHostCpuState int
+
+const (
+	VCPU_INFO_CPU_OFFLINE     = VcpuHostCpuState(C.VIR_VCPU_INFO_CPU_OFFLINE)
+	VCPU_INFO_CPU_UNAVAILABLE = VcpuHostCpuState(C.VIR_VCPU_INFO_CPU_UNAVAILABLE)
 )
 
 type DomainJobOperationType int
@@ -856,7 +863,7 @@ const (
 	DOMAIN_JOB_OPERATION_BACKUP          = DomainJobOperationType(C.VIR_DOMAIN_JOB_OPERATION_BACKUP)
 )
 
-type DomainBackupBeginFlags int
+type DomainBackupBeginFlags uint
 
 const (
 	DOMAIN_BACKUP_BEGIN_REUSE_EXTERNAL = DomainBackupBeginFlags(C.VIR_DOMAIN_BACKUP_BEGIN_REUSE_EXTERNAL)
@@ -897,6 +904,7 @@ const (
 	DOMAIN_GUEST_INFO_TIMEZONE   = DomainGuestInfoTypes(C.VIR_DOMAIN_GUEST_INFO_TIMEZONE)
 	DOMAIN_GUEST_INFO_HOSTNAME   = DomainGuestInfoTypes(C.VIR_DOMAIN_GUEST_INFO_HOSTNAME)
 	DOMAIN_GUEST_INFO_FILESYSTEM = DomainGuestInfoTypes(C.VIR_DOMAIN_GUEST_INFO_FILESYSTEM)
+	DOMAIN_GUEST_INFO_DISKS      = DomainGuestInfoTypes(C.VIR_DOMAIN_GUEST_INFO_DISKS)
 )
 
 type DomainAgentSetResponseTimeoutValues int
@@ -912,6 +920,40 @@ type DomainGetHostnameFlags uint
 const (
 	DOMAIN_GET_HOSTNAME_AGENT = DomainGetHostnameFlags(C.VIR_DOMAIN_GET_HOSTNAME_AGENT)
 	DOMAIN_GET_HOSTNAME_LEASE = DomainGetHostnameFlags(C.VIR_DOMAIN_GET_HOSTNAME_LEASE)
+)
+
+type DomainMemoryFailureRecipientType uint
+
+const (
+	DOMAIN_EVENT_MEMORY_FAILURE_RECIPIENT_HYPERVISOR = DomainMemoryFailureRecipientType(C.VIR_DOMAIN_EVENT_MEMORY_FAILURE_RECIPIENT_HYPERVISOR)
+
+	DOMAIN_EVENT_MEMORY_FAILURE_RECIPIENT_GUEST = DomainMemoryFailureRecipientType(C.VIR_DOMAIN_EVENT_MEMORY_FAILURE_RECIPIENT_GUEST)
+)
+
+type DomainMemoryFailureActionType uint
+
+const (
+	DOMAIN_EVENT_MEMORY_FAILURE_ACTION_IGNORE = DomainMemoryFailureActionType(C.VIR_DOMAIN_EVENT_MEMORY_FAILURE_ACTION_IGNORE)
+
+	DOMAIN_EVENT_MEMORY_FAILURE_ACTION_INJECT = DomainMemoryFailureActionType(C.VIR_DOMAIN_EVENT_MEMORY_FAILURE_ACTION_INJECT)
+
+	DOMAIN_EVENT_MEMORY_FAILURE_ACTION_FATAL = DomainMemoryFailureActionType(C.VIR_DOMAIN_EVENT_MEMORY_FAILURE_ACTION_FATAL)
+
+	DOMAIN_EVENT_MEMORY_FAILURE_ACTION_RESET = DomainMemoryFailureActionType(C.VIR_DOMAIN_EVENT_MEMORY_FAILURE_ACTION_RESET)
+)
+
+type DomainMemoryFailureFlags uint
+
+const (
+	DOMAIN_MEMORY_FAILURE_ACTION_REQUIRED = DomainMemoryFailureFlags(C.VIR_DOMAIN_MEMORY_FAILURE_ACTION_REQUIRED)
+	DOMAIN_MEMORY_FAILURE_RECURSIVE       = DomainMemoryFailureFlags(C.VIR_DOMAIN_MEMORY_FAILURE_RECURSIVE)
+)
+
+type DomainAuthorizedSSHKeysFlags uint
+
+const (
+	DOMAIN_AUTHORIZED_SSH_KEYS_SET_APPEND = DomainAuthorizedSSHKeysFlags(C.VIR_DOMAIN_AUTHORIZED_SSH_KEYS_SET_APPEND)
+	DOMAIN_AUTHORIZED_SSH_KEYS_SET_REMOVE = DomainAuthorizedSSHKeysFlags(C.VIR_DOMAIN_AUTHORIZED_SSH_KEYS_SET_REMOVE)
 )
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainFree
@@ -1071,12 +1113,12 @@ func (d *Domain) GetAutostart() (bool, error) {
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainGetBlockInfo
-func (d *Domain) GetBlockInfo(disk string, flag uint) (*DomainBlockInfo, error) {
+func (d *Domain) GetBlockInfo(disk string, flags uint32) (*DomainBlockInfo, error) {
 	var cinfo C.virDomainBlockInfo
 	cDisk := C.CString(disk)
 	defer C.free(unsafe.Pointer(cDisk))
 	var err C.virError
-	result := C.virDomainGetBlockInfoWrapper(d.ptr, cDisk, &cinfo, C.uint(flag), &err)
+	result := C.virDomainGetBlockInfoWrapper(d.ptr, cDisk, &cinfo, C.uint(flags), &err)
 	if result == -1 {
 		return nil, makeError(&err)
 	}
@@ -1361,7 +1403,7 @@ func (d *Domain) SetInterfaceParameters(device string, params *DomainInterfacePa
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainGetMetadata
-func (d *Domain) GetMetadata(tipus DomainMetadataType, uri string, flags DomainModificationImpact) (string, error) {
+func (d *Domain) GetMetadata(metadataType DomainMetadataType, uri string, flags DomainModificationImpact) (string, error) {
 	var cUri *C.char
 	if uri != "" {
 		cUri = C.CString(uri)
@@ -1369,7 +1411,7 @@ func (d *Domain) GetMetadata(tipus DomainMetadataType, uri string, flags DomainM
 	}
 
 	var err C.virError
-	result := C.virDomainGetMetadataWrapper(d.ptr, C.int(tipus), cUri, C.uint(flags), &err)
+	result := C.virDomainGetMetadataWrapper(d.ptr, C.int(metadataType), cUri, C.uint(flags), &err)
 	if result == nil {
 		return "", makeError(&err)
 
@@ -1379,7 +1421,7 @@ func (d *Domain) GetMetadata(tipus DomainMetadataType, uri string, flags DomainM
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainSetMetadata
-func (d *Domain) SetMetadata(metaDataType DomainMetadataType, metaDataCont, uriKey, uri string, flags DomainModificationImpact) error {
+func (d *Domain) SetMetadata(metadataType DomainMetadataType, metaDataCont, uriKey, uri string, flags DomainModificationImpact) error {
 	var cMetaDataCont *C.char
 	var cUriKey *C.char
 	var cUri *C.char
@@ -1389,7 +1431,7 @@ func (d *Domain) SetMetadata(metaDataType DomainMetadataType, metaDataCont, uriK
 		defer C.free(unsafe.Pointer(cMetaDataCont))
 	}
 
-	if metaDataType == DOMAIN_METADATA_ELEMENT {
+	if metadataType == DOMAIN_METADATA_ELEMENT {
 		if uriKey != "" {
 			cUriKey = C.CString(uriKey)
 			defer C.free(unsafe.Pointer(cUriKey))
@@ -1398,7 +1440,7 @@ func (d *Domain) SetMetadata(metaDataType DomainMetadataType, metaDataCont, uriK
 		defer C.free(unsafe.Pointer(cUri))
 	}
 	var err C.virError
-	result := C.virDomainSetMetadataWrapper(d.ptr, C.int(metaDataType), cMetaDataCont, cUriKey, cUri, C.uint(flags), &err)
+	result := C.virDomainSetMetadataWrapper(d.ptr, C.int(metadataType), cMetaDataCont, cUriKey, cUri, C.uint(flags), &err)
 	if result == -1 {
 		return makeError(&err)
 	}
@@ -1426,7 +1468,7 @@ func (d *Domain) UndefineFlags(flags DomainUndefineFlagsValues) error {
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainSetMaxMemory
-func (d *Domain) SetMaxMemory(memory uint) error {
+func (d *Domain) SetMaxMemory(memory uint64) error {
 	var err C.virError
 	result := C.virDomainSetMaxMemoryWrapper(d.ptr, C.ulong(memory), &err)
 	if result == -1 {
@@ -1956,7 +1998,7 @@ func (d *Domain) PinVcpuFlags(vcpu uint, cpuMap []bool, flags DomainModification
 }
 
 type DomainIPAddress struct {
-	Type   int
+	Type   IPAddrType
 	Addr   string
 	Prefix uint
 }
@@ -1997,7 +2039,7 @@ func (d *Domain) ListAllInterfaceAddresses(src DomainInterfaceAddressesSource) (
 			var caddr *C.virDomainIPAddress
 			caddr = (*C.virDomainIPAddress)(unsafe.Pointer(uintptr(unsafe.Pointer(ciface.addrs)) + (unsafe.Sizeof(*caddr) * uintptr(k))))
 			ifaces[i].Addrs[k] = DomainIPAddress{}
-			ifaces[i].Addrs[k].Type = int(caddr._type)
+			ifaces[i].Addrs[k].Type = IPAddrType(caddr._type)
 			ifaces[i].Addrs[k].Addr = C.GoString(caddr.addr)
 			ifaces[i].Addrs[k].Prefix = uint(caddr.prefix)
 
@@ -2385,6 +2427,8 @@ type DomainMigrateParameters struct {
 	ParallelConnections       int
 	TLSDestinationSet         bool
 	TLSDestination            string
+	DisksURISet               bool
+	DisksURI                  string
 }
 
 func getMigrateParameterFieldInfo(params *DomainMigrateParameters) map[string]typedParamsFieldInfo {
@@ -2464,6 +2508,10 @@ func getMigrateParameterFieldInfo(params *DomainMigrateParameters) map[string]ty
 		C.VIR_MIGRATE_PARAM_TLS_DESTINATION: typedParamsFieldInfo{
 			set: &params.TLSDestinationSet,
 			s:   &params.TLSDestination,
+		},
+		C.VIR_MIGRATE_PARAM_DISKS_URI: typedParamsFieldInfo{
+			set: &params.DisksURISet,
+			s:   &params.DisksURI,
 		},
 	}
 }
@@ -4726,9 +4774,9 @@ func (d *Domain) SetGuestVcpus(cpus []bool, state bool, flags uint32) error {
 	for i := 0; i < len(cpus); i++ {
 		if cpus[i] {
 			if cpumap == "" {
-				cpumap = string(i)
+				cpumap = fmt.Sprintf("%d", i)
 			} else {
-				cpumap += "," + string(i)
+				cpumap += "," + fmt.Sprintf("%d", i)
 			}
 		}
 	}
@@ -4760,9 +4808,9 @@ func (d *Domain) SetVcpu(cpus []bool, state bool, flags uint32) error {
 	for i := 0; i < len(cpus); i++ {
 		if cpus[i] {
 			if cpumap == "" {
-				cpumap = string(i)
+				cpumap = fmt.Sprintf("%d", i)
 			} else {
-				cpumap += "," + string(i)
+				cpumap += "," + fmt.Sprintf("%d", i)
 			}
 		}
 	}
@@ -4855,7 +4903,7 @@ const (
 )
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainSetLifecycleAction
-func (d *Domain) SetLifecycleAction(lifecycleType uint32, action uint32, flags uint32) error {
+func (d *Domain) SetLifecycleAction(lifecycleType DomainLifecycle, action DomainLifecycleAction, flags uint32) error {
 	if C.LIBVIR_VERSION_NUMBER < 3009000 {
 		return makeNotImplementedError("virDomainSetLifecycleAction")
 	}
@@ -5067,23 +5115,23 @@ type DomainGuestInfoFileSystem struct {
 
 func getDomainGuestInfoFileSystemFieldInfo(idx int, params *DomainGuestInfoFileSystem) map[string]typedParamsFieldInfo {
 	return map[string]typedParamsFieldInfo{
-		fmt.Sprintf("fs.%d.disk.mountpoint", idx): typedParamsFieldInfo{
+		fmt.Sprintf("fs.%d.mountpoint", idx): typedParamsFieldInfo{
 			set: &params.MountPointSet,
 			s:   &params.MountPoint,
 		},
-		fmt.Sprintf("fs.%d.disk.name", idx): typedParamsFieldInfo{
+		fmt.Sprintf("fs.%d.name", idx): typedParamsFieldInfo{
 			set: &params.NameSet,
 			s:   &params.Name,
 		},
-		fmt.Sprintf("fs.%d.disk.fstype", idx): typedParamsFieldInfo{
+		fmt.Sprintf("fs.%d.fstype", idx): typedParamsFieldInfo{
 			set: &params.FSTypeSet,
 			s:   &params.FSType,
 		},
-		fmt.Sprintf("fs.%d.disk.total-bytes", idx): typedParamsFieldInfo{
+		fmt.Sprintf("fs.%d.total-bytes", idx): typedParamsFieldInfo{
 			set: &params.TotalBytesSet,
 			ul:  &params.TotalBytes,
 		},
-		fmt.Sprintf("fs.%d.disk.used-bytes", idx): typedParamsFieldInfo{
+		fmt.Sprintf("fs.%d.used-bytes", idx): typedParamsFieldInfo{
 			set: &params.UsedBytesSet,
 			ul:  &params.UsedBytes,
 		},
@@ -5097,9 +5145,70 @@ type domainGuestInfoFileSystemLengths struct {
 
 func getDomainGuestInfoFileSystemLengthsFieldInfo(idx int, params *domainGuestInfoFileSystemLengths) map[string]typedParamsFieldInfo {
 	return map[string]typedParamsFieldInfo{
-		fmt.Sprintf("disk.%d.count", idx): typedParamsFieldInfo{
+		fmt.Sprintf("fs.%d.disk.count", idx): typedParamsFieldInfo{
 			set: &params.DiskCountSet,
 			ui:  &params.DiskCount,
+		},
+	}
+}
+
+type DomainGuestInfoDiskDependency struct {
+	NameSet bool
+	Name    string
+}
+
+func getDomainGuestInfoDiskDependencyFieldInfo(idx1, idx2 int, params *DomainGuestInfoDiskDependency) map[string]typedParamsFieldInfo {
+	return map[string]typedParamsFieldInfo{
+		fmt.Sprintf("disk.%d.dependency.%d.name", idx1, idx2): typedParamsFieldInfo{
+			set: &params.NameSet,
+			s:   &params.Name,
+		},
+	}
+}
+
+type DomainGuestInfoDisk struct {
+	NameSet       bool
+	Name          string
+	PartitionSet  bool
+	Partition     bool
+	AliasSet      bool
+	Alias         string
+	GuestAliasSet bool
+	GuestAlias    string
+	Dependencies  []DomainGuestInfoDiskDependency
+}
+
+func getDomainGuestInfoDiskFieldInfo(idx int, params *DomainGuestInfoDisk) map[string]typedParamsFieldInfo {
+	return map[string]typedParamsFieldInfo{
+		fmt.Sprintf("disk.%d.name", idx): typedParamsFieldInfo{
+			set: &params.NameSet,
+			s:   &params.Name,
+		},
+		fmt.Sprintf("disk.%d.partition", idx): typedParamsFieldInfo{
+			set: &params.PartitionSet,
+			b:   &params.Partition,
+		},
+		fmt.Sprintf("disk.%d.alias", idx): typedParamsFieldInfo{
+			set: &params.AliasSet,
+			s:   &params.Alias,
+		},
+		fmt.Sprintf("disk.%d.guest_alias", idx): typedParamsFieldInfo{
+			set: &params.GuestAliasSet,
+			s:   &params.GuestAlias,
+		},
+	}
+}
+
+type domainGuestInfoDiskLengths struct {
+	DependencyCountSet bool
+	DependencyCount    uint
+}
+
+func getDomainGuestInfoDiskLengthsFieldInfo(idx int, params *domainGuestInfoDiskLengths) map[string]typedParamsFieldInfo {
+	return map[string]typedParamsFieldInfo{
+		fmt.Sprintf("disk.%d.dependency.count", idx): typedParamsFieldInfo{
+			set: &params.DependencyCountSet,
+			ui:  &params.DependencyCount,
 		},
 	}
 }
@@ -5111,6 +5220,7 @@ type DomainGuestInfo struct {
 	HostnameSet bool
 	Hostname    string
 	FileSystems []DomainGuestInfoFileSystem
+	Disks       []DomainGuestInfoDisk
 }
 
 func getDomainGuestInfoFieldInfo(params *DomainGuestInfo) map[string]typedParamsFieldInfo {
@@ -5127,6 +5237,8 @@ type domainGuestInfoLengths struct {
 	UserCount          uint
 	FileSystemCountSet bool
 	FileSystemCount    uint
+	DiskCountSet       bool
+	DiskCount          uint
 }
 
 func getDomainGuestInfoLengthsFieldInfo(params *domainGuestInfoLengths) map[string]typedParamsFieldInfo {
@@ -5138,6 +5250,10 @@ func getDomainGuestInfoLengthsFieldInfo(params *domainGuestInfoLengths) map[stri
 		"fs.count": typedParamsFieldInfo{
 			set: &params.FileSystemCountSet,
 			ui:  &params.FileSystemCount,
+		},
+		"disk.count": typedParamsFieldInfo{
+			set: &params.DiskCountSet,
+			ui:  &params.DiskCount,
 		},
 	}
 }
@@ -5235,6 +5351,38 @@ func (d *Domain) GetGuestInfo(types DomainGuestInfoTypes, flags uint32) (*Domain
 		}
 	}
 
+	if lengths.DiskCountSet && lengths.DiskCount > 0 {
+		info.Disks = make([]DomainGuestInfoDisk, lengths.DiskCount)
+		for i := 0; i < int(lengths.DiskCount); i++ {
+			diskInfo := getDomainGuestInfoDiskFieldInfo(i, &info.Disks[i])
+
+			_, gerr = typedParamsUnpack(cparams, cnparams, diskInfo)
+			if gerr != nil {
+				return nil, gerr
+			}
+
+			diskLengths := domainGuestInfoDiskLengths{}
+			diskLengthsInfo := getDomainGuestInfoDiskLengthsFieldInfo(i, &diskLengths)
+
+			_, gerr = typedParamsUnpack(cparams, cnparams, diskLengthsInfo)
+			if gerr != nil {
+				return nil, gerr
+			}
+
+			if diskLengths.DependencyCountSet && diskLengths.DependencyCount > 0 {
+				info.Disks[i].Dependencies = make([]DomainGuestInfoDiskDependency, diskLengths.DependencyCount)
+				for j := 0; j < int(diskLengths.DependencyCount); j++ {
+					diskInfo := getDomainGuestInfoDiskDependencyFieldInfo(i, j, &info.Disks[i].Dependencies[j])
+
+					_, gerr = typedParamsUnpack(cparams, cnparams, diskInfo)
+					if gerr != nil {
+						return nil, gerr
+					}
+				}
+			}
+		}
+	}
+
 	return &info, nil
 }
 
@@ -5291,4 +5439,55 @@ func (d *Domain) BackupGetXMLDesc(flags uint32) (string, error) {
 	defer C.free(unsafe.Pointer(ret))
 
 	return xml, nil
+}
+
+func (d *Domain) AuthorizedSSHKeysGet(user string, flags DomainAuthorizedSSHKeysFlags) ([]string, error) {
+	if C.LIBVIR_VERSION_NUMBER < 6010000 {
+		return []string{}, makeNotImplementedError("virDomainAuthorizedSSHKeysGet")
+	}
+	cuser := C.CString(user)
+	defer C.free(unsafe.Pointer(cuser))
+
+	var ckeys **C.char
+	var err C.virError
+	ret := C.virDomainAuthorizedSSHKeysGetWrapper(d.ptr, cuser, &ckeys, C.uint(flags), &err)
+	if ret == -1 {
+		return []string{}, makeError(&err)
+	}
+
+	keys := make([]string, int(ret))
+	for i := 0; i < int(ret); i++ {
+		cmodel := *(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(ckeys)) + (unsafe.Sizeof(*ckeys) * uintptr(i))))
+
+		defer C.free(unsafe.Pointer(cmodel))
+		keys[i] = C.GoString(cmodel)
+	}
+	defer C.free(unsafe.Pointer(ckeys))
+
+	return keys, nil
+}
+
+func (d *Domain) AuthorizedSSHKeysSet(user string, keys []string, flags DomainAuthorizedSSHKeysFlags) error {
+	if C.LIBVIR_VERSION_NUMBER < 6010000 {
+		return makeNotImplementedError("virDomainAuthorizedSSHKeysSet")
+	}
+	cuser := C.CString(user)
+	defer C.free(unsafe.Pointer(cuser))
+
+	ckeys := make([](*C.char), len(keys))
+
+	for i := 0; i < len(keys); i++ {
+		ckeys[i] = C.CString(keys[i])
+		defer C.free(unsafe.Pointer(ckeys[i]))
+	}
+
+	nkeys := len(keys)
+	var err C.virError
+	ret := C.virDomainAuthorizedSSHKeysSetWrapper(d.ptr, cuser, (**C.char)(unsafe.Pointer(&ckeys[0])), C.uint(nkeys), C.uint(flags), &err)
+	if ret == -1 {
+		return makeError(&err)
+	}
+
+	return nil
+
 }
