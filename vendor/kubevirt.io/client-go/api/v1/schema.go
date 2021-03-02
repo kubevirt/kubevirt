@@ -114,6 +114,18 @@ type ServiceAccountVolumeSource struct {
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
+// Represents a Sysprep volume source.
+//
+// +k8s:openapi-gen=true
+type SysprepSource struct {
+	// Secret references a k8s Secret that contains Sysprep answer file named autounattend.xml that should be attached as disk of CDROM type.
+	// + optional
+	Secret *v1.LocalObjectReference `json:"secret,omitempty"`
+	// ConfigMap references a ConfigMap that contains Sysprep answer file named autounattend.xml that should be attached as disk of CDROM type.
+	// + optional
+	ConfigMap *v1.LocalObjectReference `json:"configMap,omitempty"`
+}
+
 // Represents a cloud-init nocloud user data source.
 // More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
 //
@@ -599,6 +611,9 @@ type VolumeSource struct {
 	// More info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html
 	// +optional
 	CloudInitConfigDrive *CloudInitConfigDriveSource `json:"cloudInitConfigDrive,omitempty"`
+	// Represents a Sysprep volume source.
+	// +optional
+	Sysprep *SysprepSource `json:"sysprep,omitempty"`
 	// ContainerDisk references a docker image, embedding a qcow or raw disk.
 	// More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
 	// +optional
@@ -882,6 +897,10 @@ type Features struct {
 	// Configure how KVM presence is exposed to the guest.
 	// +optional
 	KVM *FeatureKVM `json:"kvm,omitempty"`
+	// Notify the guest that the host supports paravirtual spinlocks.
+	// For older kernels this feature should be explicitly disabled.
+	// +optional
+	Pvspinlock *FeatureState `json:"pvspinlock,omitempty"`
 }
 
 // Represents if a feature is enabled or disabled.

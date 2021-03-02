@@ -44,6 +44,14 @@ func (ServiceAccountVolumeSource) SwaggerDoc() map[string]string {
 	}
 }
 
+func (SysprepSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":          "Represents a Sysprep volume source.\n\n+k8s:openapi-gen=true",
+		"secret":    "Secret references a k8s Secret that contains Sysprep answer file named autounattend.xml that should be attached as disk of CDROM type.\n+ optional",
+		"configMap": "ConfigMap references a ConfigMap that contains Sysprep answer file named autounattend.xml that should be attached as disk of CDROM type.\n+ optional",
+	}
+}
+
 func (CloudInitNoCloudSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                     "Represents a cloud-init nocloud user data source.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n\n+k8s:openapi-gen=true",
@@ -303,6 +311,7 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
 		"cloudInitNoCloud":      "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
 		"cloudInitConfigDrive":  "CloudInitConfigDrive represents a cloud-init Config Drive user-data source.\nThe Config Drive data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.\nMore info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html\n+optional",
+		"sysprep":               "Represents a Sysprep volume source.\n+optional",
 		"containerDisk":         "ContainerDisk references a docker image, embedding a qcow or raw disk.\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
 		"ephemeral":             "Ephemeral is a special volume source that \"wraps\" specified source and provides copy-on-write image on top of it.\n+optional",
 		"emptyDisk":             "EmptyDisk represents a temporary disk which shares the vmis lifecycle.\nMore info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html\n+optional",
@@ -427,12 +436,13 @@ func (HypervTimer) SwaggerDoc() map[string]string {
 
 func (Features) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "+k8s:openapi-gen=true",
-		"acpi":   "ACPI enables/disables ACPI inside the guest.\nDefaults to enabled.\n+optional",
-		"apic":   "Defaults to the machine type setting.\n+optional",
-		"hyperv": "Defaults to the machine type setting.\n+optional",
-		"smm":    "SMM enables/disables System Management Mode.\nTSEG not yet implemented.\n+optional",
-		"kvm":    "Configure how KVM presence is exposed to the guest.\n+optional",
+		"":           "+k8s:openapi-gen=true",
+		"acpi":       "ACPI enables/disables ACPI inside the guest.\nDefaults to enabled.\n+optional",
+		"apic":       "Defaults to the machine type setting.\n+optional",
+		"hyperv":     "Defaults to the machine type setting.\n+optional",
+		"smm":        "SMM enables/disables System Management Mode.\nTSEG not yet implemented.\n+optional",
+		"kvm":        "Configure how KVM presence is exposed to the guest.\n+optional",
+		"pvspinlock": "Notify the guest that the host supports paravirtual spinlocks.\nFor older kernels this feature should be explicitly disabled.\n+optional",
 	}
 }
 
