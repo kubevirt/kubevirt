@@ -30,19 +30,60 @@ The deployment is completed when HCO custom resource reports its condition as `A
 
 For more explanation and advanced options for HCO deployment using kustomize, refer to [kustomize deployment documentation](deploy/kustomize/README.md).
 
-## Installing Unreleased Bundles Using Marketplace
-The hyperconverged cluster operator will publish the latest bundles to [quay.io/kubevirt-hyperconvered/hco-operatohub](https://quay.io/application/kubevirt-hyperconverged/hco-operatorhub)
-before publishing to operatorhub.io.
+## Installing Unreleased Bundle Using A Custom Catalog Source  
 
-Make the unreleased bundles available in Marketplace by adding the app registry:
+Hyperconverged Cluster Operator is publishing the latest bundle to [quay.io/kubevirt](https://quay.io/repository/kubevirt) 
+before publishing tagged, stable releases to [OperatorHub.io](https://operatorhub.io).  
+The latest bundle is `quay.io/kubevirt/hyperconverged-cluster-bundle:1.4.0-unstable`. It is built and pushed on every merge to 
+master branch, and contains the most up-to-date manifests, which are pointing to the most recent application images: `hyperconverged-cluster-operator` 
+and `hyperconverged-cluster-webhook`, which are built together with the bundle from the current code at the master branch.  
+The unreleased bundle can be consumed on a cluster by creating a CatalogSource pointing to the index image that contains 
+that bundle: `quay.io/kubevirt/hyperconverged-cluster-index:1.4.0-unstable`.
+
+Make the bundle available in the cluster's packagemanifest by adding the following CatalogSource:
 ```bash
-# Remove the hco-bundle from the community-operators sources
-$ kubectl get operatorsource -n openshift-marketplace community-operators -o yaml | sed "s/hco-operatorhub,//" | kubectl apply -f -
-
-# Add the unreleases bundle source
-$ curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/tools/quay-registry.sh | bash -s $QUAY_USERNAME $QUAY_PASSWORD
+cat <<EOF | oc apply -f -
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: hco-unstable-catalog-source
+  namespace: openshift-marketplace
+spec:
+  sourceType: grpc
+  image: quay.io/kubevirt/hyperconverged-cluster-index:1.4.0-unstable
+  displayName: Kubevirt Hyperconverged Cluster Operator
+  publisher: Kubevirt Project
+EOF
 ```
-
+Then, create a namespace, subscription and an OperatorGroup to deploy HCO via OLM:
+```bash
+cat <<EOF | oc apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+    name: kubevirt-hyperconverged
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+    name: kubevirt-hyperconverged-group
+    namespace: kubevirt-hyperconverged
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+    name: hco-operatorhub
+    namespace: kubevirt-hyperconverged
+spec:
+    source: hco-unstable-catalog-source
+    sourceNamespace: openshift-marketplace
+    name: community-kubevirt-hyperconverged
+    channel: "1.4.0"
+EOF
+```
+Then, create the HyperConverged custom resource to complete the installation.  
+Further information about the HyperConverged CR and its possible configuration options can be found 
+in the [Cluster Configuration](docs/cluster-configuration.md) doc.
 ## Using the HCO without OLM or Marketplace
 
 Run the following script to apply the HCO operator:
