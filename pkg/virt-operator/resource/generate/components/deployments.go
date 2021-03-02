@@ -404,6 +404,13 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	pod.ServiceAccountName = rbac.HandlerServiceAccountName
 	pod.HostPID = true
 
+	// give the handler grace period some padding
+	// in order to ensure we have a chance to cleanly exit
+	// before SIG_KILL
+	podGracePeriod := int64(330)
+	handlerGracePeriod := podGracePeriod - 15
+	podTemplateSpec.Spec.TerminationGracePeriodSeconds = &podGracePeriod
+
 	container := &pod.Containers[0]
 	container.Command = []string{
 		"virt-handler",
@@ -417,6 +424,8 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		"3",
 		"--console-server-port",
 		"8186",
+		"--graceful-shutdown-seconds",
+		fmt.Sprintf("%d", handlerGracePeriod),
 		"-v",
 		verbosity,
 	}

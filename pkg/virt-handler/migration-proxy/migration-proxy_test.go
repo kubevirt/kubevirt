@@ -226,7 +226,7 @@ var _ = Describe("MigrationProxy", func() {
 				defer manager.StopSourceListener(key1)
 
 				// now mark manager for shutdown
-				manager.GracefulShutdown()
+				manager.InitiateGracefulShutdown()
 				count := manager.OpenListenerCount()
 				Expect(count).To(Equal(2))
 
