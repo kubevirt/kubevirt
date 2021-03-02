@@ -99,6 +99,7 @@ func NewController(
 	serverTLSConfig *tls.Config,
 	clientTLSConfig *tls.Config,
 	podIsolationDetector isolation.PodIsolationDetector,
+	migrationProxy migrationproxy.ProxyManager,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -116,7 +117,7 @@ func NewController(
 		gracefulShutdownInformer:    gracefulShutdownInformer,
 		heartBeatInterval:           1 * time.Minute,
 		watchdogTimeoutSeconds:      watchdogTimeoutSeconds,
-		migrationProxy:              migrationproxy.NewMigrationProxyManager(serverTLSConfig, clientTLSConfig),
+		migrationProxy:              migrationProxy,
 		podIsolationDetector:        podIsolationDetector,
 		containerDiskMounter:        container_disk.NewMounter(podIsolationDetector, virtPrivateDir+"/container-disk-mount-state"),
 		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter(podIsolationDetector, virtPrivateDir+"/hotplug-volume-mount-state"),
@@ -1997,7 +1998,7 @@ func (d *VirtualMachineController) isMigrationSource(vmi *v1.VirtualMachineInsta
 
 }
 
-func (d *VirtualMachineController) handlePostSyncMigrationProxy(vmi *v1.VirtualMachineInstance) error {
+func (d *VirtualMachineController) handleTargetMigrationProxy(vmi *v1.VirtualMachineInstance) error {
 	// handle starting/stopping target migration proxy
 	migrationTargetSockets := []string{}
 	res, err := d.podIsolationDetector.Detect(vmi)
@@ -2027,36 +2028,43 @@ func (d *VirtualMachineController) handlePostSyncMigrationProxy(vmi *v1.VirtualM
 	return nil
 }
 
-func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineInstance) error {
-	// handle starting/stopping source migration proxy.
-	// start the source proxy once we know the target address
+func (d *VirtualMachineController) handlePostMigrationProxyCleanup(vmi *v1.VirtualMachineInstance) error {
 
-	if d.isMigrationSource(vmi) {
-		res, err := d.podIsolationDetector.Detect(vmi)
-		if err != nil {
-			return err
-		}
-		// the migration-proxy is no longer shared via host mount, so we
-		// pass in the virt-launcher's baseDir to reach the unix sockets.
-		baseDir := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "kubevirt"), res.Pid())
+	if vmi.Status.MigrationState == nil {
+		return nil
+	}
+
+	if vmi.Status.MigrationState.Completed || vmi.Status.MigrationState.Failed {
 		d.migrationProxy.StopTargetListener(string(vmi.UID))
-		if vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
-			msg := "No migration proxy has been created for this vmi"
-			return fmt.Errorf("%s", msg)
-		}
-		err = d.migrationProxy.StartSourceListener(
-			string(vmi.UID),
-			vmi.Status.MigrationState.TargetNodeAddress,
-			vmi.Status.MigrationState.TargetDirectMigrationNodePorts,
-			baseDir,
-		)
-		if err != nil {
-			return err
-		}
-
-	} else {
 		d.migrationProxy.StopSourceListener(string(vmi.UID))
 	}
+	return nil
+}
+
+func (d *VirtualMachineController) handleSourceMigrationProxy(vmi *v1.VirtualMachineInstance) error {
+
+	res, err := d.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return err
+	}
+	// the migration-proxy is no longer shared via host mount, so we
+	// pass in the virt-launcher's baseDir to reach the unix sockets.
+	baseDir := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "kubevirt"), res.Pid())
+	d.migrationProxy.StopTargetListener(string(vmi.UID))
+	if vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
+		msg := "No migration proxy has been created for this vmi"
+		return fmt.Errorf("%s", msg)
+	}
+	err = d.migrationProxy.StartSourceListener(
+		string(vmi.UID),
+		vmi.Status.MigrationState.TargetNodeAddress,
+		vmi.Status.MigrationState.TargetDirectMigrationNodePorts,
+		baseDir,
+	)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -2090,11 +2098,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		return fmt.Errorf("unable to create virt-launcher client connection: %v", err)
 	}
 
-	// this adds, removes, and replaces migration proxy connections as needed
-	err = d.handleMigrationProxy(vmi)
-	if err != nil {
-		return fmt.Errorf("failed to handle migration proxy: %v", err)
-	}
+	d.handlePostMigrationProxyCleanup(vmi)
 
 	if d.isPreMigrationTarget(vmi) {
 		if !migrations.IsMigrating(vmi) {
@@ -2131,12 +2135,18 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			}
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), "VirtualMachineInstance Migration Target Prepared.")
 
-			err = d.handlePostSyncMigrationProxy(vmi)
+			err = d.handleTargetMigrationProxy(vmi)
 			if err != nil {
 				return fmt.Errorf("failed to handle post sync migration proxy: %v", err)
 			}
 		}
 	} else if d.isMigrationSource(vmi) {
+
+		err = d.handleSourceMigrationProxy(vmi)
+		if err != nil {
+			return fmt.Errorf("failed to handle migration proxy: %v", err)
+		}
+
 		if vmi.Status.MigrationState.AbortRequested {
 			if vmi.Status.MigrationState.AbortStatus != v1.MigrationAbortInProgress {
 				err = client.CancelVirtualMachineMigration(vmi)
