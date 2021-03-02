@@ -52,7 +52,7 @@ type ProxyManager interface {
 
 	OpenListenerCount() int
 
-	GracefulShutdown()
+	InitiateGracefulShutdown()
 }
 
 type migrationProxyManager struct {
@@ -80,7 +80,7 @@ type migrationProxy struct {
 	clientTLSConfig *tls.Config
 }
 
-func (m *migrationProxyManager) GracefulShutdown() {
+func (m *migrationProxyManager) InitiateGracefulShutdown() {
 	m.managerLock.Lock()
 	defer m.managerLock.Unlock()
 
