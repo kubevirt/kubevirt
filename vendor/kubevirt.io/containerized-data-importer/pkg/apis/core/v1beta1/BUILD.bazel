@@ -8,6 +8,7 @@ go_library(
         "register.go",
         "types.go",
         "types_swagger_generated.go",
+        "types_transfer.go",
         "utils.go",
         "zz_generated.deepcopy.go",
     ],

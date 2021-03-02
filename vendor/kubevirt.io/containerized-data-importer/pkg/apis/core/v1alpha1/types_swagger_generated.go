@@ -16,6 +16,7 @@ func (DataVolumeSpec) SwaggerDoc() map[string]string {
 		"contentType":     "DataVolumeContentType options: \"kubevirt\", \"archive\"\n+kubebuilder:validation:Enum=\"kubevirt\";\"archive\"",
 		"checkpoints":     "Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.",
 		"finalCheckpoint": "FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.",
+		"preallocation":   "Preallocation controls whether storage for DataVolumes should be allocated in advance.",
 	}
 }
 
@@ -55,9 +56,10 @@ func (DataVolumeSourceUpload) SwaggerDoc() map[string]string {
 
 func (DataVolumeSourceS3) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":          "DataVolumeSourceS3 provides the parameters to create a Data Volume from an S3 source",
-		"url":       "URL is the url of the S3 source",
-		"secretRef": "SecretRef provides the secret reference needed to access the S3 source",
+		"":              "DataVolumeSourceS3 provides the parameters to create a Data Volume from an S3 source",
+		"url":           "URL is the url of the S3 source",
+		"secretRef":     "SecretRef provides the secret reference needed to access the S3 source",
+		"certConfigMap": "CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate\n+optional",
 	}
 }
 
@@ -188,9 +190,12 @@ func (CDIConfigSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                         "CDIConfigSpec defines specification for user configuration",
 		"uploadProxyURLOverride":   "Override the URL used when uploading to a DataVolume",
+		"importProxy":              "ImportProxy contains importer pod proxy configuration.\n+optional",
 		"scratchSpaceStorageClass": "Override the storage class to used for scratch space during transfer operations. The scratch space storage class is determined in the following order: 1. value of scratchSpaceStorageClass, if that doesn't exist, use the default storage class, if there is no default storage class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space",
 		"podResourceRequirements":  "ResourceRequirements describes the compute resource requirements.",
+		"featureGates":             "FeatureGates are a list of specific enabled feature gates",
 		"filesystemOverhead":       "FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes. A value is between 0 and 1, if not defined it is 0.055 (5.5% overhead)",
+		"preallocation":            "Preallocation controls whether storage for DataVolumes should be allocated in advance.",
 	}
 }
 
@@ -198,9 +203,11 @@ func (CDIConfigStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                               "CDIConfigStatus provides the most recently observed status of the CDI Config resource",
 		"uploadProxyURL":                 "The calculated upload proxy URL",
+		"importProxy":                    "ImportProxy contains importer pod proxy configuration.\n+optional",
 		"scratchSpaceStorageClass":       "The calculated storage class to be used for scratch space",
 		"defaultPodResourceRequirements": "ResourceRequirements describes the compute resource requirements.",
 		"filesystemOverhead":             "FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes. A percentage value is between 0 and 1",
+		"preallocation":                  "Preallocation controls whether storage for DataVolumes should be allocated in advance.",
 	}
 }
 
@@ -208,5 +215,15 @@ func (CDIConfigList) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":      "CDIConfigList provides the needed parameters to do request a list of CDIConfigs from the system\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
 		"items": "Items provides a list of CDIConfigs",
+	}
+}
+
+func (ImportProxy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":               "ImportProxy provides the information on how to configure the importer pod proxy.",
+		"HTTPProxy":      "HTTPProxy is the URL http://<username>:<pswd>@<ip>:<port> of the import proxy for HTTP requests.  Empty means unset and will not result in the import pod env var.\n+optional",
+		"HTTPSProxy":     "HTTPSProxy is the URL https://<username>:<pswd>@<ip>:<port> of the import proxy for HTTPS requests.  Empty means unset and will not result in the import pod env var.\n+optional",
+		"noProxy":        "NoProxy is a comma-separated list of hostnames and/or CIDRs for which the proxy should not be used. Empty means unset and will not result in the import pod env var.\n+optional",
+		"trustedCAProxy": "TrustedCAProxy is the name of a ConfigMap in the cdi namespace that contains a user-provided trusted certificate authority (CA) bundle.\nThe TrustedCAProxy field is consumed by the import controller that is resposible for coping it to a config map named trusted-ca-proxy-bundle-cm in the cdi namespace.\nHere is an example of the ConfigMap (in yaml):\n\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: trusted-ca-proxy-bundle-cm\n  namespace: cdi\ndata:\n  ca.pem: |",
 	}
 }

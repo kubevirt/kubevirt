@@ -108,6 +108,9 @@ type DataVolumeSourceS3 struct {
 	URL string `json:"url"`
 	//SecretRef provides the secret reference needed to access the S3 source
 	SecretRef string `json:"secretRef,omitempty"`
+	// CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate
+	// +optional
+	CertConfigMap string `json:"certConfigMap,omitempty"`
 }
 
 // DataVolumeSourceRegistry provides the parameters to create a Data Volume from an registry source
@@ -253,6 +256,58 @@ const (
 // DataVolumeCloneSourceSubresource is the subresource checked for permission to clone
 const DataVolumeCloneSourceSubresource = "source"
 
+//StorageProfile provides a CDI specific recommendation for storage parameters
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:storageversion
+// +kubebuilder:resource:scope=Cluster
+type StorageProfile struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   StorageProfileSpec   `json:"spec"`
+	Status StorageProfileStatus `json:"status,omitempty"`
+}
+
+//StorageProfileSpec defines specification for StorageProfile
+type StorageProfileSpec struct {
+	// ClaimPropertySets is a provided set of properties applicable to PVC
+	ClaimPropertySets []ClaimPropertySet `json:"claimPropertySets,omitempty"`
+}
+
+//StorageProfileStatus provides the most recently observed status of the StorageProfile
+type StorageProfileStatus struct {
+	// The StorageClass name for which capabilities are defined
+	StorageClass *string `json:"storageClass,omitempty"`
+	// The Storage class provisioner plugin name
+	Provisioner *string `json:"provisioner,omitempty"`
+	// ClaimPropertySets computed from the spec and detected in the system
+	ClaimPropertySets []ClaimPropertySet `json:"claimPropertySets,omitempty"`
+}
+
+// ClaimPropertySet is a set of properties applicable to PVC
+type ClaimPropertySet struct {
+	// AccessModes contains the desired access modes the volume should have.
+	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
+	// +optional
+	AccessModes []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty" protobuf:"bytes,1,rep,name=accessModes,casttype=PersistentVolumeAccessMode"`
+	// volumeMode defines what type of volume is required by the claim.
+	// Value of Filesystem is implied when not included in claim spec.
+	// +optional
+	VolumeMode *corev1.PersistentVolumeMode `json:"volumeMode,omitempty" protobuf:"bytes,6,opt,name=volumeMode,casttype=PersistentVolumeMode"`
+}
+
+//StorageProfileList provides the needed parameters to request a list of StorageProfile from the system
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type StorageProfileList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	// Items provides a list of StorageProfile
+	Items []StorageProfile `json:"items"`
+}
+
 // this has to be here otherwise informer-gen doesn't recognize it
 // see https://github.com/kubernetes/code-generator/issues/59
 // +genclient:nonNamespaced
@@ -391,6 +446,9 @@ type FilesystemOverhead struct {
 type CDIConfigSpec struct {
 	// Override the URL used when uploading to a DataVolume
 	UploadProxyURLOverride *string `json:"uploadProxyURLOverride,omitempty"`
+	// ImportProxy contains importer pod proxy configuration.
+	// +optional
+	ImportProxy *ImportProxy `json:"importProxy,omitempty"`
 	// Override the storage class to used for scratch space during transfer operations. The scratch space storage class is determined in the following order: 1. value of scratchSpaceStorageClass, if that doesn't exist, use the default storage class, if there is no default storage class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space
 	ScratchSpaceStorageClass *string `json:"scratchSpaceStorageClass,omitempty"`
 	// ResourceRequirements describes the compute resource requirements.
@@ -407,6 +465,9 @@ type CDIConfigSpec struct {
 type CDIConfigStatus struct {
 	// The calculated upload proxy URL
 	UploadProxyURL *string `json:"uploadProxyURL,omitempty"`
+	// ImportProxy contains importer pod proxy configuration.
+	// +optional
+	ImportProxy *ImportProxy `json:"importProxy,omitempty"`
 	// The calculated storage class to be used for scratch space
 	ScratchSpaceStorageClass string `json:"scratchSpaceStorageClass,omitempty"`
 	// ResourceRequirements describes the compute resource requirements.
@@ -425,4 +486,33 @@ type CDIConfigList struct {
 
 	// Items provides a list of CDIConfigs
 	Items []CDIConfig `json:"items"`
+}
+
+//ImportProxy provides the information on how to configure the importer pod proxy.
+type ImportProxy struct {
+	// HTTPProxy is the URL http://<username>:<pswd>@<ip>:<port> of the import proxy for HTTP requests.  Empty means unset and will not result in the import pod env var.
+	// +optional
+	HTTPProxy *string `json:"HTTPProxy,omitempty"`
+	// HTTPSProxy is the URL https://<username>:<pswd>@<ip>:<port> of the import proxy for HTTPS requests.  Empty means unset and will not result in the import pod env var.
+	// +optional
+	HTTPSProxy *string `json:"HTTPSProxy,omitempty"`
+	// NoProxy is a comma-separated list of hostnames and/or CIDRs for which the proxy should not be used. Empty means unset and will not result in the import pod env var.
+	// +optional
+	NoProxy *string `json:"noProxy,omitempty"`
+	// TrustedCAProxy is the name of a ConfigMap in the cdi namespace that contains a user-provided trusted certificate authority (CA) bundle.
+	// The TrustedCAProxy field is consumed by the import controller that is resposible for coping it to a config map named trusted-ca-proxy-bundle-cm in the cdi namespace.
+	// Here is an example of the ConfigMap (in yaml):
+	//
+	// apiVersion: v1
+	// kind: ConfigMap
+	// metadata:
+	//   name: trusted-ca-proxy-bundle-cm
+	//   namespace: cdi
+	// data:
+	//   ca.pem: |
+	//     -----BEGIN CERTIFICATE-----
+	// 	   ... <base64 encoded cert> ...
+	// 	   -----END CERTIFICATE-----
+	// +optional
+	TrustedCAProxy *string `json:"trustedCAProxy,omitempty"`
 }

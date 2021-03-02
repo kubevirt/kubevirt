@@ -47,7 +47,6 @@ github.com/go-openapi/swag
 # github.com/gobuffalo/flect v0.2.1
 github.com/gobuffalo/flect
 # github.com/gogo/protobuf v1.3.2
-## explicit
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys
 # github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e
@@ -533,7 +532,7 @@ k8s.io/utils/trace
 ## explicit
 kubevirt.io/client-go/api/v1
 kubevirt.io/client-go/precond
-# kubevirt.io/containerized-data-importer v1.30.0
+# kubevirt.io/containerized-data-importer v1.31.0
 ## explicit
 kubevirt.io/containerized-data-importer/pkg/apis/core
 kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1

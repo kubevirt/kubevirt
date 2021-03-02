@@ -75,6 +75,11 @@ spec:
               config:
                 description: CDIConfig at CDI level
                 properties:
+                  featureGates:
+                    description: FeatureGates are a list of specific enabled feature gates
+                    items:
+                      type: string
+                    type: array
                   filesystemOverhead:
                     description: FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes. A value is between 0 and 1, if not defined it is 0.055 (5.5% overhead)
                     properties:
@@ -89,6 +94,22 @@ spec:
                           type: string
                         description: StorageClass specifies how much space of a Filesystem volume should be reserved for safety. The keys are the storageClass and the values are the overhead. This value overrides the global value
                         type: object
+                    type: object
+                  importProxy:
+                    description: ImportProxy contains importer pod proxy configuration.
+                    properties:
+                      HTTPProxy:
+                        description: HTTPProxy is the URL http://<username>:<pswd>@<ip>:<port> of the import proxy for HTTP requests.  Empty means unset and will not result in the import pod env var.
+                        type: string
+                      HTTPSProxy:
+                        description: HTTPSProxy is the URL https://<username>:<pswd>@<ip>:<port> of the import proxy for HTTPS requests.  Empty means unset and will not result in the import pod env var.
+                        type: string
+                      noProxy:
+                        description: NoProxy is a comma-separated list of hostnames and/or CIDRs for which the proxy should not be used. Empty means unset and will not result in the import pod env var.
+                        type: string
+                      trustedCAProxy:
+                        description: "TrustedCAProxy is the name of a ConfigMap in the cdi namespace that contains a user-provided trusted certificate authority (CA) bundle. The TrustedCAProxy field is consumed by the import controller that is resposible for coping it to a config map named trusted-ca-proxy-bundle-cm in the cdi namespace. Here is an example of the ConfigMap (in yaml): \n apiVersion: v1 kind: ConfigMap metadata:   name: trusted-ca-proxy-bundle-cm   namespace: cdi data:   ca.pem: |     -----BEGIN CERTIFICATE----- \t   ... <base64 encoded cert> ... \t   -----END CERTIFICATE-----"
+                        type: string
                     type: object
                   podResourceRequirements:
                     description: ResourceRequirements describes the compute resource requirements.
@@ -112,6 +133,9 @@ spec:
                         description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                         type: object
                     type: object
+                  preallocation:
+                    description: Preallocation controls whether storage for DataVolumes should be allocated in advance.
+                    type: boolean
                   scratchSpaceStorageClass:
                     description: 'Override the storage class to used for scratch space during transfer operations. The scratch space storage class is determined in the following order: 1. value of scratchSpaceStorageClass, if that doesn''t exist, use the default storage class, if there is no default storage class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space'
                     type: string
@@ -1001,6 +1025,22 @@ spec:
                           type: string
                         description: StorageClass specifies how much space of a Filesystem volume should be reserved for safety. The keys are the storageClass and the values are the overhead. This value overrides the global value
                         type: object
+                    type: object
+                  importProxy:
+                    description: ImportProxy contains importer pod proxy configuration.
+                    properties:
+                      HTTPProxy:
+                        description: HTTPProxy is the URL http://<username>:<pswd>@<ip>:<port> of the import proxy for HTTP requests.  Empty means unset and will not result in the import pod env var.
+                        type: string
+                      HTTPSProxy:
+                        description: HTTPSProxy is the URL https://<username>:<pswd>@<ip>:<port> of the import proxy for HTTPS requests.  Empty means unset and will not result in the import pod env var.
+                        type: string
+                      noProxy:
+                        description: NoProxy is a comma-separated list of hostnames and/or CIDRs for which the proxy should not be used. Empty means unset and will not result in the import pod env var.
+                        type: string
+                      trustedCAProxy:
+                        description: "TrustedCAProxy is the name of a ConfigMap in the cdi namespace that contains a user-provided trusted certificate authority (CA) bundle. The TrustedCAProxy field is consumed by the import controller that is resposible for coping it to a config map named trusted-ca-proxy-bundle-cm in the cdi namespace. Here is an example of the ConfigMap (in yaml): \n apiVersion: v1 kind: ConfigMap metadata:   name: trusted-ca-proxy-bundle-cm   namespace: cdi data:   ca.pem: |     -----BEGIN CERTIFICATE----- \t   ... <base64 encoded cert> ... \t   -----END CERTIFICATE-----"
+                        type: string
                     type: object
                   podResourceRequirements:
                     description: ResourceRequirements describes the compute resource requirements.
