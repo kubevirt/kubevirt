@@ -90,12 +90,22 @@ function wait_on_kubevirt_ready() {
     oc wait -n kubevirt kv kubevirt --for condition=Available --timeout 15m
 }
 
+function get_path_or_empty_string_for_cmd() {
+    cmd="$1"
+    set +e
+    which "$cmd"
+    set -e
+}
+
 function run_tests() {
     mkdir -p "$ARTIFACT_DIR"
     # required to be set for test binary
     export ARTIFACTS=${ARTIFACT_DIR}
 
-    tests.test -v=5 -kubeconfig=${KUBECONFIG} -container-tag=${DOCKER_TAG} -container-tag-alt= -container-prefix=${DOCKER_PREFIX} -image-prefix-alt=-kv -oc-path=${BIN_DIR}/oc -kubectl-path=${BIN_DIR}/kubectl -gocli-path=$(pwd)/cluster-up/cli.sh -test.timeout 420m -ginkgo.noColor -ginkgo.succinct -ginkgo.slowSpecThreshold=60 ${KUBEVIRT_TESTS_FOCUS} -junit-output=${ARTIFACT_DIR}/junit.functest.xml -installed-namespace=kubevirt -previous-release-tag= -previous-release-registry=quay.io/kubevirt -deploy-testing-infra=false
+    OC_PATH=$(get_path_or_empty_string_for_cmd oc)
+    KUBECTL_PATH=$(get_path_or_empty_string_for_cmd kubectl)
+
+    tests.test -v=5 -kubeconfig=${KUBECONFIG} -container-tag=${DOCKER_TAG} -container-tag-alt= -container-prefix=${DOCKER_PREFIX} -image-prefix-alt=-kv -oc-path=${OC_PATH} -kubectl-path=${KUBECTL_PATH} -gocli-path=$(pwd)/cluster-up/cli.sh -test.timeout 420m -ginkgo.noColor -ginkgo.succinct -ginkgo.slowSpecThreshold=60 ${KUBEVIRT_TESTS_FOCUS} -junit-output=${ARTIFACT_DIR}/junit.functest.xml -installed-namespace=kubevirt -previous-release-tag= -previous-release-registry=quay.io/kubevirt -deploy-testing-infra=false
 }
 
 export PATH="$BIN_DIR:$PATH"
