@@ -507,7 +507,9 @@ var _ = Describe("ImageUpload", func() {
 			testInit(http.StatusOK, pvcSpecWithUploadSucceeded())
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
-			Expect(cmd()).NotTo(BeNil())
+			err := cmd()
+			Expect(err).NotTo(BeNil())
+			Expect(err.Error()).Should(ContainSubstring("No DataVolume is associated with the existing PVC"))
 		})
 
 		It("DV in phase WaitForFirstConsumer", func() {

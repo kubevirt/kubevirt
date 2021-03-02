@@ -439,6 +439,7 @@ func waitDvUploadScheduled(client kubecli.KubevirtClient, namespace, name string
 		if err != nil {
 			// DataVolume controller may not have created the DV yet ? TODO:
 			if k8serrors.IsNotFound(err) {
+				fmt.Printf("DV %s not found... \n", name)
 				return false, nil
 			}
 
@@ -617,10 +618,21 @@ func ensurePVCSupportsUpload(client kubernetes.Interface, pvc *v1.PersistentVolu
 	return pvc, nil
 }
 
-func getAndValidateUploadPVC(client kubernetes.Interface, namespace, name string, shouldExist bool) (*v1.PersistentVolumeClaim, error) {
+func getAndValidateUploadPVC(client kubecli.KubevirtClient, namespace, name string, shouldExist bool) (*v1.PersistentVolumeClaim, error) {
 	pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
+		fmt.Printf("PVC %s/%s not found \n", namespace, name)
 		return nil, err
+	}
+
+	if !createPVC {
+		_, err = client.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return nil, fmt.Errorf("No DataVolume is associated with the existing PVC %s/%s", namespace, name)
+			}
+			return nil, err
+		}
 	}
 
 	// for PVCs that exist, we ony want to use them if
