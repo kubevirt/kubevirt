@@ -448,6 +448,7 @@ type Input struct {
 
 // BEGIN HostDevice -----------------------------
 type HostDevice struct {
+	XMLName   xml.Name         `xml:"hostdev"`
 	Source    HostDeviceSource `xml:"source"`
 	Type      string           `xml:"type,attr"`
 	BootOrder *BootOrder       `xml:"boot,omitempty"`

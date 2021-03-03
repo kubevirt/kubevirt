@@ -528,16 +528,15 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		}
 		defer dom.Free()
 
-		migrateFlags := prepareMigrationFlags(isBlockMigration, options.UnsafeMigration, options.AllowAutoConverge, options.AllowPostCopy)
-		if options.UnsafeMigration {
-			log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
-		}
-
 		bandwidth, err := converter.QuantityToMebiByte(options.Bandwidth)
-
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Live migration failed. Invalid bandwidth supplied.")
 			return
+		}
+
+		if err := detachHostDevices(l.virConn, dom); err != nil {
+			log.Log.Object(vmi).Reason(err).Error(fmt.Sprintf("Live migration failed."))
+			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
 		}
 
 		xmlstr, err := domXMLWithoutKubevirtMetadata(dom, vmi)
@@ -562,6 +561,11 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		migrationErrorChan := make(chan error, 1)
 		defer close(migrationErrorChan)
 		go liveMigrationMonitor(vmi, l, options, migrationErrorChan)
+
+		migrateFlags := prepareMigrationFlags(isBlockMigration, options.UnsafeMigration, options.AllowAutoConverge, options.AllowPostCopy)
+		if options.UnsafeMigration {
+			log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
+		}
 
 		err = dom.MigrateToURI3(dstURI, params, migrateFlags)
 		if err != nil {
@@ -2037,4 +2041,25 @@ func (l *LibvirtDomainManager) GetFilesystems() ([]v1.VirtualMachineInstanceFile
 	}
 
 	return fsList, nil
+}
+
+func detachHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
+	domainSpec, err := util.GetDomainSpecWithFlags(dom, 0)
+	if err != nil {
+		return err
+	}
+
+	eventChan := make(chan interface{}, sriov.MaxConcurrentHotPlugDevicesEvents)
+	var callback libvirt.DomainEventDeviceRemovedCallback = func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventDeviceRemoved) {
+		eventChan <- event.DevAlias
+	}
+
+	if domainEvent := cli.NewDomainEventDeviceRemoved(virConn, dom, callback, eventChan); domainEvent != nil {
+		const waitForDetachTimeout = 30 * time.Second
+		err := sriov.SafelyDetachHostDevices(domainSpec, domainEvent, dom, waitForDetachTimeout)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

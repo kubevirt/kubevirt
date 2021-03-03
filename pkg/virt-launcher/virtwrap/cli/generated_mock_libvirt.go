@@ -104,6 +104,27 @@ func (_mr *_MockConnectionRecorder) AgentEventLifecycleRegister(arg0 interface{}
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AgentEventLifecycleRegister", arg0)
 }
 
+func (_m *MockConnection) VolatileDomainEventDeviceRemovedRegister(domain VirDomain, callback libvirt_go.DomainEventDeviceRemovedCallback) (int, error) {
+	ret := _m.ctrl.Call(_m, "VolatileDomainEventDeviceRemovedRegister", domain, callback)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockConnectionRecorder) VolatileDomainEventDeviceRemovedRegister(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "VolatileDomainEventDeviceRemovedRegister", arg0, arg1)
+}
+
+func (_m *MockConnection) DomainEventDeregister(registrationID int) error {
+	ret := _m.ctrl.Call(_m, "DomainEventDeregister", registrationID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockConnectionRecorder) DomainEventDeregister(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventDeregister", arg0)
+}
+
 func (_m *MockConnection) ListAllDomains(flags libvirt_go.ConnectListAllDomainsFlags) ([]VirDomain, error) {
 	ret := _m.ctrl.Call(_m, "ListAllDomains", flags)
 	ret0, _ := ret[0].([]VirDomain)

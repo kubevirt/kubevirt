@@ -48,6 +48,8 @@ type Connection interface {
 	DomainEventDeviceAddedRegister(callback libvirt.DomainEventDeviceAddedCallback) error
 	DomainEventDeviceRemovedRegister(callback libvirt.DomainEventDeviceRemovedCallback) error
 	AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) error
+	VolatileDomainEventDeviceRemovedRegister(domain VirDomain, callback libvirt.DomainEventDeviceRemovedCallback) (int, error)
+	DomainEventDeregister(registrationID int) error
 	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
 	NewStream(flags libvirt.StreamFlags) (Stream, error)
 	SetReconnectChan(reconnect chan bool)
@@ -165,7 +167,7 @@ func (l *LibvirtConnection) DomainEventDeviceRemovedRegister(callback libvirt.Do
 	}
 
 	l.domainDeviceRemovedEventCallbacks = append(l.domainDeviceRemovedEventCallbacks, callback)
-	_, err = l.Connect.DomainEventDeviceRemovedRegister(nil, callback)
+	_, err = l.VolatileDomainEventDeviceRemovedRegister(nil, callback)
 	l.checkConnectionLost(err)
 	return
 }
@@ -179,6 +181,18 @@ func (l *LibvirtConnection) AgentEventLifecycleRegister(callback libvirt.DomainE
 	_, err = l.Connect.DomainEventAgentLifecycleRegister(nil, callback)
 	l.checkConnectionLost(err)
 	return
+}
+
+func (l *LibvirtConnection) VolatileDomainEventDeviceRemovedRegister(domain VirDomain, callback libvirt.DomainEventDeviceRemovedCallback) (int, error) {
+	var dom *libvirt.Domain
+	if domain != nil {
+		dom = domain.(*libvirt.Domain)
+	}
+	return l.Connect.DomainEventDeviceRemovedRegister(dom, callback)
+}
+
+func (l *LibvirtConnection) DomainEventDeregister(registrationID int) error {
+	return l.Connect.DomainEventDeregister(registrationID)
 }
 
 func (l *LibvirtConnection) LookupDomainByName(name string) (dom VirDomain, err error) {
