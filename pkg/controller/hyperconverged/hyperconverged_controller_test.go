@@ -64,7 +64,7 @@ var _ = Describe("HyperconvergedController", func() {
 				r := initReconciler(cl)
 
 				res, err := r.Reconcile(context.TODO(), request)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res).Should(Equal(reconcile.Result{}))
 			})
 
@@ -111,6 +111,15 @@ var _ = Describe("HyperconvergedController", func() {
 
 			It("should create all managed resources", func() {
 				hco := commonTestUtils.NewHco()
+				enabled := true
+				disabled := false
+				hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{
+					SRIOVLiveMigration: &enabled,
+					HotplugVolumes:     &enabled,
+					GPU:                &disabled,
+					HostDevices:        &enabled,
+				}
+
 				cl := commonTestUtils.InitClient([]runtime.Object{hco})
 				r := initReconciler(cl)
 
@@ -157,6 +166,17 @@ var _ = Describe("HyperconvergedController", func() {
 					Reason:  reconcileInit,
 					Message: "Initializing HyperConverged cluster",
 				})))
+
+				// Get the KV
+				kvList := &kubevirtv1.KubeVirtList{}
+				Expect(cl.List(context.TODO(), kvList)).To(BeNil())
+				Expect(kvList.Items).Should(HaveLen(1))
+				kv := kvList.Items[0]
+				Expect(kv.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(10))
+
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements("DataVolumes", "SRIOV", "LiveMigration", "CPUManager", "CPUNodeDiscovery", "Sidecar", "Snapshot"))
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements("SRIOVLiveMigration", "HotplugVolumes", "HostDevices"))
 			})
 
 			It("should find all managed resources", func() {

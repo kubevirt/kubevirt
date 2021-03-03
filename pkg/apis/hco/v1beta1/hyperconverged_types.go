@@ -54,6 +54,8 @@ type HyperConvergedConfig struct {
 	NodePlacement *sdkapi.NodePlacement `json:"nodePlacement,omitempty"`
 }
 
+type FeatureGate *bool
+
 // HyperConvergedFeatureGates is a set of optional feature gates to enable or disable new features that are not enabled
 // by default yet.
 // +optional
@@ -66,39 +68,39 @@ type HyperConvergedFeatureGates struct {
 	// This may degrade virt-launcher security.
 	// +optional
 	// +kubebuilder:default=false
-	SRIOVLiveMigration *bool `json:"sriovLiveMigration,omitempty"`
+	SRIOVLiveMigration FeatureGate `json:"sriovLiveMigration,omitempty"`
 
 	// Allow attaching a data volume to a running VMI
 	// +optional
 	// +kubebuilder:default=false
-	HotplugVolumes *bool `json:"hotplugVolumes,omitempty"`
+	HotplugVolumes FeatureGate `json:"hotplugVolumes,omitempty"`
 
 	// Allow assigning GPU and vGPU devices to virtual machines
 	// +optional
 	// +kubebuilder:default=false
-	GPU *bool `json:"gpu,omitempty"`
+	GPU FeatureGate `json:"gpu,omitempty"`
 
 	// Allow assigning host devices to virtual machines
 	// +optional
 	// +kubebuilder:default=false
-	HostDevices *bool `json:"hostDevices,omitempty"`
+	HostDevices FeatureGate `json:"hostDevices,omitempty"`
 
 	// Allow migrating a virtual machine with CPU host-passthrough mode. This should be
 	// enabled only when the Cluster is homogeneous from CPU HW perspective doc here
 	// +optional
 	// +kubebuilder:default=false
-	WithHostPassthroughCPU *bool `json:"withHostPassthroughCPU,omitempty"`
+	WithHostPassthroughCPU FeatureGate `json:"withHostPassthroughCPU,omitempty"`
 
 	// Support migration for VMs with host-model CPU mode
 	// +optional
 	// +kubebuilder:default=true
-	WithHostModelCPU *bool `json:"withHostModelCPU,omitempty"`
+	WithHostModelCPU FeatureGate `json:"withHostModelCPU,omitempty"`
 
 	// Enable HyperV strict host checking for HyperV enlightenments
 	// Defaults to true, even when HyperConvergedFeatureGates is empty
 	// +optional
 	// +kubebuilder:default=true
-	HypervStrictCheck *bool `json:"hypervStrictCheck,omitempty"`
+	HypervStrictCheck FeatureGate `json:"hypervStrictCheck,omitempty"`
 }
 
 func (fgs *HyperConvergedFeatureGates) IsHotplugVolumesEnabled() bool {

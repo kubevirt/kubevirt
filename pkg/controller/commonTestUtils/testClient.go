@@ -13,6 +13,7 @@ import (
 type FakeWriteErrorGenerator func(obj client.Object) error
 type FakeReadErrorGenerator func(key client.ObjectKey) error
 
+// implements the client.Client interface (proxy pattern)
 type HcoTestClient struct {
 	client      client.Client
 	sw          *HcoTestStatusWriter

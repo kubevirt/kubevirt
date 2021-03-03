@@ -488,7 +488,7 @@ var _ = Describe("webhooks handler", func() {
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
 			err := wh.ValidateUpdate(newHco, hco)
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(HaveOccurred())
 			Expect(err).Should(Equal(context.DeadlineExceeded))
 		})
 

@@ -110,9 +110,6 @@ tolerations.
           effect: "NoSchedule"
   ```
 
-
-
-
 ## FeatureGates
 The `featureGates` field is an optional set of optional boolean feature enabler. The features in this list are advanced 
 or new features that are not enabled by default.
@@ -121,22 +118,29 @@ To enable a feature, add its name to the `featureGates` list and set it to `true
 disables the feature.
 
 ### hotplugVolumes Feature Gate
+
 Set the `hotplugVolumes` feature gate in order to allow attaching a data volume to a running VMI.
 
 ### withHostModelCPU Feature Gate
-Set the `withHostModelCPU`  feature gate in order to enable support migration for VMs with host-model CPU mode
+
+Set the `withHostModelCPU` feature gate in order to enable support migration for VMs with host-model CPU mode
 
 Additional information: [LibvirtXMLCPUModel](https://wiki.openstack.org/wiki/LibvirtXMLCPUModel)
 
 ### withHostPassthroughCPU Feature Gate
-Set the `withHostPassthroughCPU`  feature gate in order to allow migrating a virtual machine with CPU host-passthrough mode. 
+
+Set the `withHostPassthroughCPU` feature gate in order to allow migrating a virtual machine with CPU host-passthrough
+mode.
 
 Additional information: [LibvirtXMLCPUModel](https://wiki.openstack.org/wiki/LibvirtXMLCPUModel)
 
 **note**: This should be enabled only when the Cluster is homogeneous from CPU HW perspective doc here
 
 ### hypervStrictCheck Feature Gate
-Set the `hypervStrictCheck` feature gate in order to enable [HyperV enlightenments](https://kubevirt.io/user-guide/#/creation/guest-operating-system-information?id=hyperv-optimizations) for Kubevirt.
+
+Set the `hypervStrictCheck` feature gate in order to
+enable [HyperV enlightenments](https://kubevirt.io/user-guide/#/creation/guest-operating-system-information?id=hyperv-optimizations)
+for Kubevirt.
 
 **Default: `true`**
 

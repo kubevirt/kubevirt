@@ -301,6 +301,8 @@ var _ = Describe("HyperconvergedTypes", func() {
 	})
 
 	Context("HyperConvergedFeatureGates", func() {
+		disabled := false
+		enabled := true
 
 		Context("Test IsHotplugVolumesEnabled", func() {
 			It("Should return false if HyperConvergedFeatureGates is nil", func() {
@@ -314,15 +316,13 @@ var _ = Describe("HyperconvergedTypes", func() {
 			})
 
 			It("Should return false if HotplugVolumes is false", func() {
-				disabled := false
 				fgs := &HyperConvergedFeatureGates{
 					HotplugVolumes: &disabled,
 				}
 				Expect(fgs.IsHotplugVolumesEnabled()).To(BeFalse())
 			})
 
-			It("Should return false if HotplugVolumes is true", func() {
-				enabled := true
+			It("Should return true if HotplugVolumes is true", func() {
 				fgs := &HyperConvergedFeatureGates{
 					HotplugVolumes: &enabled,
 				}
@@ -342,15 +342,13 @@ var _ = Describe("HyperconvergedTypes", func() {
 			})
 
 			It("Should return false if IsSRIOVLiveMigrationEnabled is false", func() {
-				disabled := false
 				fgs := &HyperConvergedFeatureGates{
 					SRIOVLiveMigration: &disabled,
 				}
 				Expect(fgs.IsSRIOVLiveMigrationEnabled()).To(BeFalse())
 			})
 
-			It("Should return false if IsSRIOVLiveMigrationEnabled is true", func() {
-				enabled := true
+			It("Should return true if IsSRIOVLiveMigrationEnabled is true", func() {
 				fgs := &HyperConvergedFeatureGates{
 					SRIOVLiveMigration: &enabled,
 				}
@@ -370,15 +368,13 @@ var _ = Describe("HyperconvergedTypes", func() {
 			})
 
 			It("Should return false if IsGPUAssignmentEnabled is false", func() {
-				disabled := false
 				fgs := &HyperConvergedFeatureGates{
 					GPU: &disabled,
 				}
 				Expect(fgs.IsGPUAssignmentEnabled()).To(BeFalse())
 			})
 
-			It("Should return false if IsGPUAssignmentEnabled is true", func() {
-				enabled := true
+			It("Should return true if IsGPUAssignmentEnabled is true", func() {
 				fgs := &HyperConvergedFeatureGates{
 					GPU: &enabled,
 				}
@@ -398,15 +394,13 @@ var _ = Describe("HyperconvergedTypes", func() {
 			})
 
 			It("Should return false if IsHostDevicesAssignmentEnabled is false", func() {
-				disabled := false
 				fgs := &HyperConvergedFeatureGates{
 					HostDevices: &disabled,
 				}
 				Expect(fgs.IsHostDevicesAssignmentEnabled()).To(BeFalse())
 			})
 
-			It("Should return false if IsHostDevicesAssignmentEnabled is true", func() {
-				enabled := true
+			It("Should return true if IsHostDevicesAssignmentEnabled is true", func() {
 				fgs := &HyperConvergedFeatureGates{
 					HostDevices: &enabled,
 				}
@@ -426,15 +420,13 @@ var _ = Describe("HyperconvergedTypes", func() {
 			})
 
 			It("Should return false if WithHostPassthroughCPU is false", func() {
-				disabled := false
 				fgs := &HyperConvergedFeatureGates{
 					WithHostPassthroughCPU: &disabled,
 				}
 				Expect(fgs.IsWithHostPassthroughCPUEnabled()).To(BeFalse())
 			})
 
-			It("Should return false if WithHostPassthroughCPU is true", func() {
-				enabled := true
+			It("Should return true if WithHostPassthroughCPU is true", func() {
 				fgs := &HyperConvergedFeatureGates{
 					WithHostPassthroughCPU: &enabled,
 				}
@@ -454,15 +446,13 @@ var _ = Describe("HyperconvergedTypes", func() {
 			})
 
 			It("Should return false if WithHostModelCPU is false", func() {
-				disabled := false
 				fgs := &HyperConvergedFeatureGates{
 					WithHostModelCPU: &disabled,
 				}
 				Expect(fgs.IsWithHostModelCPUEnabled()).To(BeFalse())
 			})
 
-			It("Should return false if WithHostModelCPU is true", func() {
-				enabled := true
+			It("Should return true if WithHostModelCPU is true", func() {
 				fgs := &HyperConvergedFeatureGates{
 					WithHostModelCPU: &enabled,
 				}
@@ -482,7 +472,6 @@ var _ = Describe("HyperconvergedTypes", func() {
 			})
 
 			It("Should return false if HypervStrictCheck is false", func() {
-				disabled := false
 				fgs := &HyperConvergedFeatureGates{
 					HypervStrictCheck: &disabled,
 				}
@@ -490,7 +479,6 @@ var _ = Describe("HyperconvergedTypes", func() {
 			})
 
 			It("Should return true if HypervStrictCheck is true", func() {
-				enabled := true
 				fgs := &HyperConvergedFeatureGates{
 					HypervStrictCheck: &enabled,
 				}
