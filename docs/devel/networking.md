@@ -14,7 +14,7 @@ casually referred to as `binding` throughout this developer's guide.
 In this section we'll explain how VM networking is configured. In order to
 follow the principle of least privilege (where each component is limited
 to only its required privileges), the configuration of a KubeVirt VM interfaces
-is split into two distint phases:
+is split into two distinct phases:
 - [privileged networking configuration](#privileged-vmi-networking-configuration): occurs in the virt-handler process
 - [unprivileged networking configuration](#unprivileged-vmi-networking-configuration): occurs in the virt-launcher process
 
