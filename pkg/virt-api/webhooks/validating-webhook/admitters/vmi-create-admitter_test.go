@@ -3352,7 +3352,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 				SyNIC: &v1.FeatureState{
 					Enabled: &_true,
 				},
-				SyNICTimer: &v1.FeatureState{
+				SyNICTimer: &v1.SyNICTimer{
 					Enabled: &_true,
 				},
 			},
@@ -3376,7 +3376,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 				SyNIC: &v1.FeatureState{
 					Enabled: &_true,
 				},
-				SyNICTimer: &v1.FeatureState{
+				SyNICTimer: &v1.SyNICTimer{
 					Enabled: &_true,
 				},
 			},

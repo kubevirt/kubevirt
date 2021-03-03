@@ -262,7 +262,7 @@ type FeatureHyperv struct {
 	VPIndex         *FeatureState     `xml:"vpindex,omitempty"`
 	Runtime         *FeatureState     `xml:"runtime,omitempty"`
 	SyNIC           *FeatureState     `xml:"synic,omitempty"`
-	SyNICTimer      *FeatureState     `xml:"stimer,omitempty"`
+	SyNICTimer      *SyNICTimer       `xml:"stimer,omitempty"`
 	Reset           *FeatureState     `xml:"reset,omitempty"`
 	VendorID        *FeatureVendorID  `xml:"vendor_id,omitempty"`
 	Frequencies     *FeatureState     `xml:"frequencies,omitempty"`
@@ -275,6 +275,11 @@ type FeatureHyperv struct {
 type FeatureSpinlocks struct {
 	State   string  `xml:"state,attr,omitempty"`
 	Retries *uint32 `xml:"retries,attr,omitempty"`
+}
+
+type SyNICTimer struct {
+	Direct *FeatureState `xml:"direct,omitempty"`
+	State  string        `xml:"state,attr,omitempty"`
 }
 
 type FeaturePVSpinlock struct {

@@ -62,7 +62,7 @@ var _ = Describe("Defaults", func() {
 				VPIndex:         &FeatureState{},
 				Runtime:         &FeatureState{},
 				SyNIC:           &FeatureState{},
-				SyNICTimer:      &FeatureState{},
+				SyNICTimer:      &SyNICTimer{},
 				Reset:           &FeatureState{},
 				VendorID:        &FeatureVendorID{},
 				Frequencies:     &FeatureState{},
@@ -109,7 +109,7 @@ var _ = Describe("Defaults", func() {
 				VPIndex:         &FeatureState{Enabled: _false},
 				Runtime:         &FeatureState{Enabled: _true},
 				SyNIC:           &FeatureState{Enabled: _false},
-				SyNICTimer:      &FeatureState{Enabled: _true},
+				SyNICTimer:      &SyNICTimer{Enabled: _true, Direct: &FeatureState{Enabled: _true}},
 				Reset:           &FeatureState{Enabled: _false},
 				VendorID:        &FeatureVendorID{Enabled: _true},
 				Frequencies:     &FeatureState{Enabled: _false},
@@ -132,6 +132,7 @@ var _ = Describe("Defaults", func() {
 		Expect(*hyperv.Runtime.Enabled).To(BeTrue())
 		Expect(*hyperv.SyNIC.Enabled).To(BeFalse())
 		Expect(*hyperv.SyNICTimer.Enabled).To(BeTrue())
+		Expect(*hyperv.SyNICTimer.Direct.Enabled).To(BeTrue())
 		Expect(*hyperv.Reset.Enabled).To(BeFalse())
 		Expect(*hyperv.VendorID.Enabled).To(BeTrue())
 		Expect(*hyperv.Frequencies.Enabled).To(BeFalse())
@@ -148,7 +149,7 @@ var _ = Describe("Defaults", func() {
 				VPIndex:         &FeatureState{Enabled: _true},
 				Runtime:         &FeatureState{Enabled: _false},
 				SyNIC:           &FeatureState{Enabled: _true},
-				SyNICTimer:      &FeatureState{Enabled: _false},
+				SyNICTimer:      &SyNICTimer{Enabled: _false},
 				Reset:           &FeatureState{Enabled: _true},
 				VendorID:        &FeatureVendorID{Enabled: _false},
 				Frequencies:     &FeatureState{Enabled: _false},

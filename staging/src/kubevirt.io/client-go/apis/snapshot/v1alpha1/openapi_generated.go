@@ -389,6 +389,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.SSHPublicKeyAccessCredentialSource":                    schema_kubevirtio_client_go_api_v1_SSHPublicKeyAccessCredentialSource(ref),
 		"kubevirt.io/client-go/api/v1.SecretVolumeSource":                                    schema_kubevirtio_client_go_api_v1_SecretVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource":                            schema_kubevirtio_client_go_api_v1_ServiceAccountVolumeSource(ref),
+		"kubevirt.io/client-go/api/v1.SyNICTimer":                                            schema_kubevirtio_client_go_api_v1_SyNICTimer(ref),
 		"kubevirt.io/client-go/api/v1.SysprepSource":                                         schema_kubevirtio_client_go_api_v1_SysprepSource(ref),
 		"kubevirt.io/client-go/api/v1.Timer":                                                 schema_kubevirtio_client_go_api_v1_Timer(ref),
 		"kubevirt.io/client-go/api/v1.UserPasswordAccessCredential":                          schema_kubevirtio_client_go_api_v1_UserPasswordAccessCredential(ref),
@@ -15230,7 +15231,7 @@ func schema_kubevirtio_client_go_api_v1_FeatureHyperv(ref common.ReferenceCallba
 					"synictimer": {
 						SchemaProps: spec.SchemaProps{
 							Description: "SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load. Defaults to the machine type setting.",
-							Ref:         ref("kubevirt.io/client-go/api/v1.FeatureState"),
+							Ref:         ref("kubevirt.io/client-go/api/v1.SyNICTimer"),
 						},
 					},
 					"reset": {
@@ -15279,7 +15280,7 @@ func schema_kubevirtio_client_go_api_v1_FeatureHyperv(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.FeatureSpinlocks", "kubevirt.io/client-go/api/v1.FeatureState", "kubevirt.io/client-go/api/v1.FeatureVendorID"},
+			"kubevirt.io/client-go/api/v1.FeatureSpinlocks", "kubevirt.io/client-go/api/v1.FeatureState", "kubevirt.io/client-go/api/v1.FeatureVendorID", "kubevirt.io/client-go/api/v1.SyNICTimer"},
 	}
 }
 
@@ -17521,6 +17522,31 @@ func schema_kubevirtio_client_go_api_v1_ServiceAccountVolumeSource(ref common.Re
 				},
 			},
 		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_SyNICTimer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"direct": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.FeatureState"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.FeatureState"},
 	}
 }
 

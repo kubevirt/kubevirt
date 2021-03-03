@@ -1067,7 +1067,7 @@ var _ = Describe("Template", func() {
 									SyNIC: &v1.FeatureState{
 										Enabled: &enabled,
 									},
-									SyNICTimer: &v1.FeatureState{
+									SyNICTimer: &v1.SyNICTimer{
 										Enabled: &enabled,
 									},
 									Frequencies: &v1.FeatureState{

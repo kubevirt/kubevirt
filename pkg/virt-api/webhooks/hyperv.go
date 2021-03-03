@@ -127,20 +127,25 @@ func getHypervFeatureDependencies(field *k8sfield.Path, spec *v1.VirtualMachineI
 		Requires: &vpindex,
 	}
 
+	syNICTimer := &v1.FeatureState{}
+	if hyperv.SyNICTimer != nil {
+		syNICTimer.Enabled = hyperv.SyNICTimer.Enabled
+	}
+
 	features := []HypervFeature{
 		// keep in REVERSE order: leaves first.
-		HypervFeature{
+		{
 			State:    &hyperv.IPI,
 			Field:    hypervField.Child("ipi"),
 			Requires: &vpindex,
 		},
-		HypervFeature{
+		{
 			State:    &hyperv.TLBFlush,
 			Field:    hypervField.Child("tlbflush"),
 			Requires: &vpindex,
 		},
-		HypervFeature{
-			State:    &hyperv.SyNICTimer,
+		{
+			State:    &syNICTimer,
 			Field:    hypervField.Child("synictimer"),
 			Requires: &synic,
 		},
