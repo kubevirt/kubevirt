@@ -499,20 +499,18 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				node := &nodes.Items[0]
 				node, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable)), metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
-				timestamp := node.Annotations[v1.VirtHandlerHeartbeat]
+				oldTimestamp := node.Annotations[v1.VirtHandlerHeartbeat]
 
 				By("setting the schedulable label back to true")
 				Eventually(func() string {
 					n, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get nodes successfully")
+					if n.Labels[v1.VirtHandlerHeartbeat] == oldTimestamp {
+						By("Node heartbeat hasn't been updated yet, may take up to a minute")
+						return "false"
+					}
 					return n.Labels[v1.NodeSchedulable]
 				}, 2*time.Minute, 2*time.Second).Should(Equal("true"), "Nodes should be schedulable")
-				By("updating the heartbeat roughly every minute")
-				Expect(func() string {
-					n, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should get nodes successfully")
-					return n.Labels[v1.VirtHandlerHeartbeat]
-				}()).ShouldNot(Equal(timestamp), "Should not have old vmi heartbeat")
 			})
 
 			It("[test_id:3198]device plugins should re-register if the kubelet restarts", func() {
