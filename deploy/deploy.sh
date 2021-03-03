@@ -39,5 +39,7 @@ kubectl apply  -n $hco_namespace -f https://raw.githubusercontent.com/kubevirt/h
 kubectl apply  -n $hco_namespace -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/webhooks.yaml
 kubectl apply  -n $hco_namespace -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/operator.yaml
 
+kubectl -n $hco_namespace wait deployment/hyperconverged-cluster-webhook --for=condition=Available --timeout="300s"
+
 # Create an HCO CustomResource, which creates the KubeVirt CR, launching KubeVirt.
 kubectl apply  -n $hco_namespace -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/hco.cr.yaml
