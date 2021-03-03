@@ -1388,11 +1388,6 @@ func getVirtiofsCapabilities() []k8sv1.Capability {
 func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) []k8sv1.Capability {
 	capabilities := []k8sv1.Capability{}
 
-	if (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
-		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
-		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
-		capabilities = append(capabilities, CAP_NET_ADMIN)
-	}
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
 	capabilities = append(capabilities, CAP_SYS_NICE)
 

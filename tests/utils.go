@@ -218,9 +218,8 @@ const (
 )
 
 const (
-	capNetAdmin k8sv1.Capability = "NET_ADMIN"
-	capNetRaw   k8sv1.Capability = "NET_RAW"
-	capSysNice  k8sv1.Capability = "SYS_NICE"
+	capNetRaw  k8sv1.Capability = "NET_RAW"
+	capSysNice k8sv1.Capability = "SYS_NICE"
 )
 
 const MigrationWaitTime = 240
@@ -4986,7 +4985,6 @@ func DetectLatestUpstreamOfficialTag() (string, error) {
 func IsLauncherCapabilityValid(capability k8sv1.Capability) bool {
 	switch capability {
 	case
-		capNetAdmin,
 		capSysNice:
 		return true
 	}
