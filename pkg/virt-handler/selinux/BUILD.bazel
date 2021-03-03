@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "context_executor.go",
+        "executor.go",
         "labels.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/selinux",
