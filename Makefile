@@ -19,7 +19,7 @@ DO=eval
 export JOB_TYPE=prow
 endif
 
-sanity:
+sanity: generate-doc
 	go version
 	go fmt ./...
 	go mod tidy -v
@@ -143,6 +143,12 @@ bump-kubevirtci:
 	rm -rf _kubevirtci
 	./hack/bump-kubevirtci.sh
 
+generate-doc: build-docgen
+	_out/docgen ./pkg/apis/hco/v1beta1/hyperconverged_types.go > docs/api.md
+
+build-docgen:
+	go build -i -ldflags="-s -w" -o _out/docgen ./tools/docgen
+
 help: ## Show this help screen
 	@echo 'Usage: make <OPTIONS> ... <TARGETS>'
 	@echo ''
@@ -200,3 +206,5 @@ deploy_cr:
 		kubevirt-nightly-test \
 		local \
 		deploy_cr \
+		build-docgen \
+		generate-doc
