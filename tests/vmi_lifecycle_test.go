@@ -653,7 +653,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Eventually(func() []k8sv1.Node {
 					nodes = tests.GetAllSchedulableNodes(virtClient)
 					return nodes.Items
-				}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be schedulable nodes")
+				}, 2*time.Minute, 1*time.Second).ShouldNot(BeEmpty(), "There should be schedulable nodes")
 
 				node := nodes.Items[0]
 				nodeName = node.GetName()
