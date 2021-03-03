@@ -110,19 +110,25 @@ var RequiredGuestAgentCommands = []string{
 	"guest-get-time",
 	"guest-info",
 	"guest-shutdown",
-	"guest-file-open",
-	"guest-file-close",
-	"guest-file-read",
-	"guest-file-write",
 	"guest-network-get-interfaces",
 	"guest-get-fsinfo",
-	"guest-set-user-password",
-	"guest-exec-status",
-	"guest-exec",
 	"guest-get-host-name",
 	"guest-get-users",
 	"guest-get-timezone",
 	"guest-get-osinfo",
+}
+
+var SSHRelatedGuestAgentCommands = []string{
+	"guest-exec-status",
+	"guest-exec",
+	"guest-file-open",
+	"guest-file-close",
+	"guest-file-read",
+	"guest-file-write",
+}
+
+var PasswordRelatedGuestAgentCommands = []string{
+	"guest-set-user-password",
 }
 
 type launcherClientInfo struct {
@@ -1150,13 +1156,15 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	return nil
 }
 
-func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAgentCommandInfo) bool {
+func _guestAgentCommandSubsetSupported(requiredCommands []string, commands []v1.GuestAgentCommandInfo) bool {
 	var found bool
-	for _, cmd := range RequiredGuestAgentCommands {
+	for _, cmd := range requiredCommands {
 		found = false
 		for _, foundCmd := range commands {
-			if cmd == foundCmd.Name && foundCmd.Enabled {
-				found = true
+			if cmd == foundCmd.Name {
+				if foundCmd.Enabled {
+					found = true
+				}
 				break
 			}
 		}
@@ -1164,7 +1172,39 @@ func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAg
 			return false
 		}
 	}
-	// TODO: add support for situational commands
+	return true
+
+}
+
+func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAgentCommandInfo) bool {
+	if !_guestAgentCommandSubsetSupported(RequiredGuestAgentCommands, commands) {
+		return false
+	}
+
+	checkSSH := false
+	checkPasswd := false
+
+	if vmi != nil && vmi.Spec.AccessCredentials != nil {
+		for _, accessCredential := range vmi.Spec.AccessCredentials {
+			if accessCredential.SSHPublicKey != nil {
+				// defer checking the command list so we only do that once
+				checkSSH = true
+			}
+			if accessCredential.UserPassword != nil {
+				// defer checking the command list so we only do that once
+				checkPasswd = true
+			}
+
+		}
+	}
+
+	if checkSSH && !_guestAgentCommandSubsetSupported(SSHRelatedGuestAgentCommands, commands) {
+		return false
+	}
+
+	if checkPasswd && !_guestAgentCommandSubsetSupported(PasswordRelatedGuestAgentCommands, commands) {
+		return false
+	}
 
 	return true
 }
