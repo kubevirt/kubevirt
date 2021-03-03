@@ -5,12 +5,14 @@ go_library(
     srcs = [
         "context_executor.go",
         "executor.go",
+        "generated_mock_executor.go",
         "labels.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/selinux",
     visibility = ["//visibility:public"],
     deps = [
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/opencontainers/selinux/go-selinux:go_default_library",
     ],
 )
@@ -18,11 +20,13 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "context_executor_test.go",
         "labels_test.go",
         "selinux_suite_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
     ],

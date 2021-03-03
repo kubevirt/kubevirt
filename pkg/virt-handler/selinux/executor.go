@@ -19,6 +19,8 @@
 
 package selinux
 
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+
 import (
 	"os/exec"
 	"runtime"
