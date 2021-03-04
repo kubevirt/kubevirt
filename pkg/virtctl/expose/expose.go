@@ -67,7 +67,9 @@ virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplica
 
 	// flags for the "expose" command
 	cmd.Flags().StringVar(&serviceName, "name", "", "Name of the service created for the exposure of the VM.")
-	cmd.MarkFlagRequired("name")
+	if err := cmd.MarkFlagRequired("name"); err != nil {
+		panic(err)
+	}
 	cmd.Flags().StringVar(&clusterIP, "cluster-ip", "", "ClusterIP to be assigned to the service. Leave empty to auto-allocate, or set to 'None' to create a headless service.")
 	cmd.Flags().StringVar(&externalIP, "external-ip", "", "Additional external IP address (not managed by the cluster) to accept for the service. If this IP is routed to a node, the service can be accessed by this IP in addition to its generated service IP. Optional.")
 	cmd.Flags().StringVar(&loadBalancerIP, "load-balancer-ip", "", "IP to assign to the Load Balancer. If empty, an ephemeral IP will be created and used.")

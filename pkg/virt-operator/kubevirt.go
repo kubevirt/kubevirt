@@ -976,7 +976,9 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 	util.SetOperatorVersion(kv)
 
 	// Record the version we're targeting to install
-	config.SetTargetDeploymentConfig(kv)
+	if err := config.SetTargetDeploymentConfig(kv); err != nil {
+		return err
+	}
 
 	if kv.Status.Phase == "" {
 		kv.Status.Phase = v1.KubeVirtPhaseDeploying
@@ -1029,7 +1031,9 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 	// when synced==true that means SyncAll() has completed and has nothing left to wait on.
 	if synced {
 		// record the version that has been completely installed
-		config.SetObservedDeploymentConfig(kv)
+		if err := config.SetObservedDeploymentConfig(kv); err != nil {
+			return err
+		}
 
 		// update conditions
 		util.UpdateConditionsCreated(kv)

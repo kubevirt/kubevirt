@@ -112,7 +112,9 @@ func (d *DirectoryListWatcher) startBackground() error {
 			var e watch.EventType
 			select {
 			case <-d.stopChan:
-				d.watcher.Close()
+				if err := d.watcher.Close(); err != nil {
+					log.Log.Errorf("Failed to close watcher, %s", err)
+				}
 				return
 			case event := <-d.watcher.Events:
 				sendEvent := false

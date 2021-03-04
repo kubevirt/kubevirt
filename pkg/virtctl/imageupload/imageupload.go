@@ -136,7 +136,9 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringVar(&accessMode, "access-mode", "ReadWriteOnce", "The access mode for the PVC.")
 	cmd.Flags().BoolVar(&blockVolume, "block-volume", false, "Create a PVC with VolumeMode=Block (default Filesystem).")
 	cmd.Flags().StringVar(&imagePath, "image-path", "", "Path to the local VM image.")
-	cmd.MarkFlagRequired("image-path")
+	if err := cmd.MarkFlagRequired("image-path"); err != nil {
+		panic(err)
+	}
 	cmd.Flags().BoolVar(&noCreate, "no-create", false, "Don't attempt to create a new DataVolume/PVC.")
 	cmd.Flags().UintVar(&uploadPodWaitSecs, "wait-secs", 300, "Seconds to wait for upload pod to start.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())

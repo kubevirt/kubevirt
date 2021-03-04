@@ -23,6 +23,8 @@ import (
 	"net"
 	"syscall"
 
+	"kubevirt.io/client-go/log"
+
 	dhcpConn "github.com/krolaw/dhcp4/conn"
 
 	"golang.org/x/net/ipv4"
@@ -42,7 +44,9 @@ func NewUDP4FilterListener(interfaceName, laddr string) (c ServeIfConn, e error)
 	}
 	defer func() {
 		if e != nil {
-			l.Close()
+			if err := l.Close(); err != nil {
+				log.Log.Errorf("Failed to close listener, %s", err)
+			}
 		}
 	}()
 	p := ipv4.NewPacketConn(l)
