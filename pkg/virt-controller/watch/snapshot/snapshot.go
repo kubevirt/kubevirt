@@ -656,23 +656,26 @@ func (ctrl *VMSnapshotController) getVolumeSnapshotStatus(vm *kubevirtv1.Virtual
 			Reason:  fmt.Sprintf("Volume is nil [%s]", volume.Name),
 		}
 	}
-	sc, err := ctrl.getVolumeStorageClassForVolume(vm.Namespace, volume)
+	sc, err := ctrl.getVolumeStorageClass(vm.Namespace, volume)
 	if err != nil {
 		return kubevirtv1.VolumeSnapshotStatus{Name: volume.Name, Enabled: false, Reason: err.Error()}
 	}
-	if sc == "" {
+	snap, err := ctrl.getVolumeSnapshotClass(sc)
+	if err != nil {
+		return kubevirtv1.VolumeSnapshotStatus{Name: volume.Name, Enabled: false, Reason: err.Error()}
+	}
+	if snap == "" {
 		return kubevirtv1.VolumeSnapshotStatus{
 			Name:    volume.Name,
 			Enabled: false,
-			Reason:  fmt.Sprintf("No Volume Snapshot Storage Class found for volume [%s]", volume.Name),
+			Reason:  fmt.Sprintf("No VolumeSnapshotClass: Volume snapshots are not configured for this StorageClass [%s] [%s]", sc, volume.Name),
 		}
 	}
 
 	return kubevirtv1.VolumeSnapshotStatus{Name: volume.Name, Enabled: true}
 }
 
-func (ctrl *VMSnapshotController) getVolumeStorageClassForVolume(namespace string, volume *kubevirtv1.Volume) (string, error) {
-
+func (ctrl *VMSnapshotController) getVolumeStorageClass(namespace string, volume *kubevirtv1.Volume) (string, error) {
 	// TODO Add Ephemeral (add "|| volume.VolumeSource.Ephemeral != nil" to the `if` below)
 	if volume.VolumeSource.PersistentVolumeClaim != nil {
 		pvcKey := cacheKeyFunc(namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName)
@@ -687,7 +690,7 @@ func (ctrl *VMSnapshotController) getVolumeStorageClassForVolume(namespace strin
 		}
 		pvc := obj.(*corev1.PersistentVolumeClaim)
 		if pvc.Spec.StorageClassName != nil {
-			return ctrl.getVolumeSnapshotClass(*pvc.Spec.StorageClassName)
+			return *pvc.Spec.StorageClassName, nil
 		}
 		return "", nil
 	}
@@ -696,11 +699,9 @@ func (ctrl *VMSnapshotController) getVolumeStorageClassForVolume(namespace strin
 		if err != nil {
 			return "", err
 		}
-
-		return ctrl.getVolumeSnapshotClass(storageClassName)
+		return storageClassName, nil
 	}
-
-	return "", fmt.Errorf("Volume type does not suport snapshots")
+	return "", fmt.Errorf("Volume type has no StorageClass defined")
 }
 
 func (ctrl *VMSnapshotController) getStorageClassNameForDV(namespace string, dvName string) (string, error) {
