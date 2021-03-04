@@ -29,10 +29,11 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConverged":             schema_pkg_apis_hco_v1beta1_HyperConverged(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedFeatureGates": schema_pkg_apis_hco_v1beta1_HyperConvergedFeatureGates(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedSpec":         schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref),
-		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedStatus":       schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConverged":              schema_pkg_apis_hco_v1beta1_HyperConverged(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedFeatureGates":  schema_pkg_apis_hco_v1beta1_HyperConvergedFeatureGates(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedSpec":          schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedStatus":        schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.LiveMigrationConfigurations": schema_pkg_apis_hco_v1beta1_LiveMigrationConfigurations(ref),
 	}
 }
 
@@ -87,9 +88,30 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedFeatureGates(ref common.Reference
 				Description: "HyperConvergedFeatureGates is a set of optional feature gates to enable or disable new features that are not enabled by default yet.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"sriovLiveMigration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Allow migrating a virtual machine with SRIOV interfaces. When enabled virt-launcher pods of virtual machines with SRIOV interfaces run with CAP_SYS_RESOURCE capability. This may degrade virt-launcher security.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"hotplugVolumes": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Allow attaching a data volume to a running VMI",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"gpu": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Allow assigning GPU and vGPU devices to virtual machines",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hostDevices": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Allow assigning host devices to virtual machines",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -108,6 +130,13 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedFeatureGates(ref common.Reference
 							Format:      "",
 						},
 					},
+					"hypervStrictCheck": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enable HyperV strict host checking for HyperV enlightenments Defaults to true, even when HyperConvergedFeatureGates is empty",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -121,13 +150,6 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback
 				Description: "HyperConvergedSpec defines the desired state of HyperConverged",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"bareMetalPlatform": {
-						SchemaProps: spec.SchemaProps{
-							Description: "BareMetalPlatform indicates whether the infrastructure is baremetal.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
 					"localStorageClassName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "LocalStorageClassName the name of the local storage class.",
@@ -153,6 +175,12 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedFeatureGates"),
 						},
 					},
+					"liveMigrationConfig": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Live migration limits and timeouts are applied so that migration processes do not overwhelm the cluster.",
+							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.LiveMigrationConfigurations"),
+						},
+					},
 					"version": {
 						SchemaProps: spec.SchemaProps{
 							Description: "operator version",
@@ -164,7 +192,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedConfig", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedFeatureGates"},
+			"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedConfig", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedFeatureGates", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.LiveMigrationConfigurations"},
 	}
 }
 
@@ -225,5 +253,53 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref common.ReferenceCallba
 		},
 		Dependencies: []string{
 			"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.Version", "github.com/openshift/custom-resource-status/conditions/v1.Condition", "k8s.io/api/core/v1.ObjectReference"},
+	}
+}
+
+func schema_pkg_apis_hco_v1beta1_LiveMigrationConfigurations(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LiveMigrationConfigurations - Live migration limits and timeouts are applied so that migration processes do not overwhelm the cluster.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"parallelMigrationsPerCluster": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Number of migrations running in parallel in the cluster.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"parallelOutboundMigrationsPerNode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Maximum number of outbound migrations per node.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"bandwidthPerMigration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Bandwidth limit of each migration, in MiB/s.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"completionTimeoutPerGiB": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The migration will be canceled if it has not completed in this time, in seconds per GiB of memory. For example, a virtual machine instance with 6GiB memory will timeout if it has not completed migration in 4800 seconds. If the Migration Method is BlockMigration, the size of the migrating disks is included in the calculation.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"progressTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The migration will be canceled if memory copy fails to make progress in this time, in seconds.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+			},
+		},
 	}
 }

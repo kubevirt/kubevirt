@@ -4,5 +4,7 @@ kind: HyperConverged
 metadata:
   name: kubevirt-hyperconverged
 spec:
+  featureGates: {}
   infra: {}
+  liveMigrationConfig: {}
   workloads: {}

@@ -516,7 +516,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 						},
 					},
 				},
-				FeatureGates: &HyperConvergedFeatureGates{
+				FeatureGates: HyperConvergedFeatureGates{
 					SRIOVLiveMigration: &enabled,
 					HotplugVolumes:     &disabled,
 					WithHostModelCPU:   &enabled,

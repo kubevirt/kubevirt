@@ -3,6 +3,7 @@ package operands
 import (
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"os"
 	"reflect"
@@ -202,12 +203,18 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.KubeVirtConfigurati
 		return nil, err
 	}
 
+	kvLiveMigration, err := hcLiveMigrationToKv(hc.Spec.LiveMigrationConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	config := &kubevirtv1.KubeVirtConfiguration{
 		DeveloperConfiguration: devConfig,
 		SELinuxLauncherType:    SELinuxLauncherType,
 		NetworkConfiguration: &kubevirtv1.NetworkConfiguration{
 			NetworkInterface: string(kubevirtv1.MasqueradeInterface),
 		},
+		MigrationConfiguration: kvLiveMigration,
 	}
 
 	if smbiosConfig, ok := os.LookupEnv(smbiosEnvName); ok {
@@ -215,7 +222,7 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.KubeVirtConfigurati
 			config.SMBIOSConfig = &kubevirtv1.SMBiosConfiguration{}
 			err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(smbiosConfig), 1024).Decode(config.SMBIOSConfig)
 			if err != nil {
-				return config, err
+				return nil, err
 			}
 		}
 	}
@@ -229,8 +236,27 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.KubeVirtConfigurati
 	return config, nil
 }
 
+func hcLiveMigrationToKv(lm hcov1beta1.LiveMigrationConfigurations) (*kubevirtv1.MigrationConfiguration, error) {
+	var bandwidthPerMigration *resource.Quantity = nil
+	if lm.BandwidthPerMigration != nil {
+		bandwidthPerMigrationObject, err := resource.ParseQuantity(*lm.BandwidthPerMigration)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse the LiveMigrationConfig.bandwidthPerMigration field; %w", err)
+		}
+		bandwidthPerMigration = &bandwidthPerMigrationObject
+	}
+
+	return &kubevirtv1.MigrationConfiguration{
+		BandwidthPerMigration:             bandwidthPerMigration,
+		CompletionTimeoutPerGiB:           lm.CompletionTimeoutPerGiB,
+		ParallelOutboundMigrationsPerNode: lm.ParallelOutboundMigrationsPerNode,
+		ParallelMigrationsPerCluster:      lm.ParallelMigrationsPerCluster,
+		ProgressTimeout:                   lm.ProgressTimeout,
+	}, nil
+}
+
 func getKVDevConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.DeveloperConfiguration, error) {
-	fgs := getKvFeatureGateList(hc.Spec.FeatureGates)
+	fgs := getKvFeatureGateList(&hc.Spec.FeatureGates)
 
 	var kvmEmulation = false
 	kvmEmulationStr, ok := os.LookupEnv(kvmEmulationEnvName)
@@ -533,7 +559,7 @@ func translateKubeVirtConds(orig []kubevirtv1.KubeVirtCondition) []conditionsv1.
 }
 
 func NewKubeVirtConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
-	fgs := getKvFeatureGateList(cr.Spec.FeatureGates)
+	fgs := getKvFeatureGateList(&cr.Spec.FeatureGates)
 	featureGates := strings.Join(fgs, ",")
 
 	cm := &corev1.ConfigMap{

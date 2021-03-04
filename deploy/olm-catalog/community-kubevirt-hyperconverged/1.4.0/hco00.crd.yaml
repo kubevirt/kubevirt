@@ -46,14 +46,6 @@ spec:
             description: HyperConvergedSpec defines the desired state of HyperConverged
             properties:
               featureGates:
-                default:
-                  gpu: false
-                  hostDevices: false
-                  hotplugVolumes: false
-                  hypervStrictCheck: true
-                  sriovLiveMigration: false
-                  withHostModelCPU: true
-                  withHostPassthroughCPU: false
                 description: featureGates is a map of feature gate flags. Setting
                   a flag to `true` will enable the feature. Setting `false` or removing
                   the feature gate, disables the feature.
@@ -802,6 +794,42 @@ spec:
                           type: object
                         type: array
                     type: object
+                type: object
+              liveMigrationConfig:
+                description: Live migration limits and timeouts are applied so that
+                  migration processes do not overwhelm the cluster.
+                properties:
+                  bandwidthPerMigration:
+                    default: 64Mi
+                    description: Bandwidth limit of each migration, in MiB/s.
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    type: string
+                  completionTimeoutPerGiB:
+                    default: 800
+                    description: The migration will be canceled if it has not completed
+                      in this time, in seconds per GiB of memory. For example, a virtual
+                      machine instance with 6GiB memory will timeout if it has not
+                      completed migration in 4800 seconds. If the Migration Method
+                      is BlockMigration, the size of the migrating disks is included
+                      in the calculation.
+                    format: int64
+                    type: integer
+                  parallelMigrationsPerCluster:
+                    default: 5
+                    description: Number of migrations running in parallel in the cluster.
+                    format: int32
+                    type: integer
+                  parallelOutboundMigrationsPerNode:
+                    default: 2
+                    description: Maximum number of outbound migrations per node.
+                    format: int32
+                    type: integer
+                  progressTimeout:
+                    default: 150
+                    description: The migration will be canceled if memory copy fails
+                      to make progress in this time, in seconds.
+                    format: int64
+                    type: integer
                 type: object
               localStorageClassName:
                 description: LocalStorageClassName the name of the local storage class.

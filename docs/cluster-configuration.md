@@ -162,15 +162,75 @@ spec:
     withHostPassthroughCPU: true
 ```
 
+## Live Migration Configurations
+
+Set the live migration configurations by modifying the fields in the `liveMigrationConfig` under the `spec` field
+
+### bandwidthPerMigration
+
+Bandwidth limit of each migration, in MiB/s. The format is a number and with the `Mi` suffix, e.g. `64Mi`.
+
+**default**: 64Mi
+
+### completionTimeoutPerGiB
+
+The migration will be canceled if it has not completed in this time, in seconds per GiB of memory. For example, a
+virtual machine instance with 6GiB memory will timeout if it has not completed migration in 4800 seconds. If the
+Migration Method is BlockMigration, the size of the migrating disks is included in the calculation. The format is a
+number.
+
+**default**: 800
+
+### parallelMigrationsPerCluster
+
+Number of migrations running in parallel in the cluster. The format is a number.
+
+**default**: 5
+
+### parallelOutboundMigrationsPerNode
+
+Maximum number of outbound migrations per node. The format is a number.
+
+**default**: 2
+
+### progressTimeout:
+
+The migration will be canceled if memory copy fails to make progress in this time, in seconds. The format is a number.
+
+**default**: 150
+
+### Example
+
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  liveMigrationConfig:
+    bandwidthPerMigration: 64Mi
+    completionTimeoutPerGiB: 800
+    parallelMigrationsPerCluster: 5
+    parallelOutboundMigrationsPerNode: 2
+    progressTimeout: 150
+```
+
 ## Configurations via Annotations
-In addition to `featureGates` field in HyperConverged CR's spec, the user can set annotations in the HyperConverged CR to unfold more configuration options.  
-**Warning:** Annotations are less formal means of cluster configuration and may be dropped without the same deprecation process of a regular API, such as in the `spec` section.
+
+In addition to `featureGates` field in HyperConverged CR's spec, the user can set annotations in the HyperConverged CR
+to unfold more configuration options.  
+**Warning:** Annotations are less formal means of cluster configuration and may be dropped without the same deprecation
+process of a regular API, such as in the `spec` section.
 
 ### OvS Opt-In Annotation
+
 Starting from HCO version 1.3.0, OvS CNI support is disabled by default on new installations.  
-In order to enable the deployment of OvS CNI DaemonSet on all _workload_ nodes, an annotation of `deployOVS: true` must be set on HyperConverged CR.  
+In order to enable the deployment of OvS CNI DaemonSet on all _workload_ nodes, an annotation of `deployOVS: true` must
+be set on HyperConverged CR.  
 It can be set while creating the HyperConverged custom resource during the initial deployment, or during run time.
-* To enable OvS CNI on the cluster, the HyperConverged CR should be similar to:  
+
+* To enable OvS CNI on the cluster, the HyperConverged CR should be similar to:
+
 ```yaml
 apiVersion: hco.kubevirt.io/v1beta1
 kind: HyperConverged

@@ -113,7 +113,7 @@ var _ = Describe("HyperconvergedController", func() {
 				hco := commonTestUtils.NewHco()
 				enabled := true
 				disabled := false
-				hco.Spec.FeatureGates = &hcov1beta1.HyperConvergedFeatureGates{
+				hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
 					SRIOVLiveMigration: &enabled,
 					HotplugVolumes:     &enabled,
 					GPU:                &disabled,

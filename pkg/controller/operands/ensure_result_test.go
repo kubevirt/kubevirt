@@ -2,7 +2,7 @@ package operands
 
 import (
 	"errors"
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -10,7 +10,7 @@ import (
 var _ = Describe("HyperConverged Ensure Result", func() {
 
 	Context("HyperConverged Ensure Result", func() {
-		kv, err := NewKubeVirt(&hcov1beta1.HyperConverged{})
+		kv, err := NewKubeVirt(commonTestUtils.NewHco())
 		Expect(err).ToNot(HaveOccurred())
 
 		It("should create new EnsureResult with default values", func() {

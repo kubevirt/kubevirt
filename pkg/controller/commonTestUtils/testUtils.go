@@ -49,12 +49,26 @@ var (
 )
 
 func NewHco() *hcov1beta1.HyperConverged {
+	bandwidthPerMigration := "64Mi"
+	completionTimeoutPerGiB := int64(800)
+	parallelMigrationsPerCluster := uint32(5)
+	parallelOutboundMigrationsPerNode := uint32(2)
+	progressTimeout := int64(150)
+
 	return &hcov1beta1.HyperConverged{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      Name,
 			Namespace: Namespace,
 		},
-		Spec: hcov1beta1.HyperConvergedSpec{},
+		Spec: hcov1beta1.HyperConvergedSpec{
+			LiveMigrationConfig: hcov1beta1.LiveMigrationConfigurations{
+				BandwidthPerMigration:             &bandwidthPerMigration,
+				CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
+				ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
+				ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
+				ProgressTimeout:                   &progressTimeout,
+			},
+		},
 	}
 }
 

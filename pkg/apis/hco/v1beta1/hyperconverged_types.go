@@ -39,9 +39,12 @@ type HyperConvergedSpec struct {
 	// featureGates is a map of feature gate flags. Setting a flag to `true` will enable
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
 	// +optional
-	// +TODO: Always keep the default FeatureGates in sync with the default field values in HyperConvergedFeatureGates //NOSONAR
-	// +kubebuilder:default={sriovLiveMigration: false, hotplugVolumes: false, gpu: false, hostDevices: false, withHostPassthroughCPU: false, withHostModelCPU: true, hypervStrictCheck: true}
-	FeatureGates *HyperConvergedFeatureGates `json:"featureGates,omitempty"`
+	FeatureGates HyperConvergedFeatureGates `json:"featureGates,omitempty"`
+
+	// Live migration limits and timeouts are applied so that migration processes do not
+	// overwhelm the cluster.
+	// +optional
+	LiveMigrationConfig LiveMigrationConfigurations `json:"liveMigrationConfig,omitempty"`
 
 	// operator version
 	Version string `json:"version,omitempty"`
@@ -52,6 +55,39 @@ type HyperConvergedConfig struct {
 	// NodePlacement describes node scheduling configuration.
 	// +optional
 	NodePlacement *sdkapi.NodePlacement `json:"nodePlacement,omitempty"`
+}
+
+// LiveMigrationConfigurations - Live migration limits and timeouts are applied so that migration processes do not
+// overwhelm the cluster.
+// +optional
+// +k8s:openapi-gen=true
+type LiveMigrationConfigurations struct {
+	// Number of migrations running in parallel in the cluster.
+	// +optional
+	// +kubebuilder:default=5
+	ParallelMigrationsPerCluster *uint32 `json:"parallelMigrationsPerCluster,omitempty"`
+
+	// Maximum number of outbound migrations per node.
+	// +optional
+	// +kubebuilder:default=2
+	ParallelOutboundMigrationsPerNode *uint32 `json:"parallelOutboundMigrationsPerNode,omitempty"`
+
+	// Bandwidth limit of each migration, in MiB/s.
+	// +optional
+	// +kubebuilder:default="64Mi"
+	// +kubebuilder:validation:Pattern=^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+	BandwidthPerMigration *string `json:"bandwidthPerMigration,omitempty"`
+
+	// The migration will be canceled if it has not completed in this time, in seconds per GiB
+	// of memory. For example, a virtual machine instance with 6GiB memory will timeout if it has not completed
+	// migration in 4800 seconds. If the Migration Method is BlockMigration, the size of the migrating disks is included
+	// in the calculation.
+	// +kubebuilder:default=800
+	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
+
+	// The migration will be canceled if memory copy fails to make progress in this time, in seconds.
+	// +kubebuilder:default=150
+	ProgressTimeout *int64 `json:"progressTimeout,omitempty"`
 }
 
 type FeatureGate *bool
