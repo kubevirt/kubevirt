@@ -334,6 +334,16 @@ func (_mr *_MockVirDomainRecorder) DetachDevice(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DetachDevice", arg0)
 }
 
+func (_m *MockVirDomain) DetachDeviceFlags(xml string, flags libvirt_go.DomainDeviceModifyFlags) error {
+	ret := _m.ctrl.Call(_m, "DetachDeviceFlags", xml, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) DetachDeviceFlags(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DetachDeviceFlags", arg0, arg1)
+}
+
 func (_m *MockVirDomain) DestroyFlags(flags libvirt_go.DomainDestroyFlags) error {
 	ret := _m.ctrl.Call(_m, "DestroyFlags", flags)
 	ret0, _ := ret[0].(error)
