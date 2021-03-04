@@ -17,8 +17,8 @@ require (
 	github.com/imdario/mergo v0.3.11
 	github.com/kubevirt/cluster-network-addons-operator v0.47.0
 	github.com/kubevirt/vm-import-operator v0.3.0
-	github.com/onsi/ginkgo v1.14.2
-	github.com/onsi/gomega v1.10.4
+	github.com/onsi/ginkgo v1.15.0
+	github.com/onsi/gomega v1.10.5
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/openshift/custom-resource-status v0.0.0-20200602122900-c002fd1547ca
 	github.com/operator-framework/api v0.4.0

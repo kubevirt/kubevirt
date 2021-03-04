@@ -51,6 +51,7 @@ var _ = Describe("CDI Operand", func() {
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
+			Expect(foundResource.Annotations).To(Equal(map[string]string{"cdi.kubevirt.io/configAuthority": ""}))
 		})
 
 		It("should find if present", func() {
@@ -325,6 +326,33 @@ var _ = Describe("CDI Operand", func() {
 			// additionally contains HonorWaitForFirstConsumer
 			Expect(foundResource.Spec.Config.FeatureGates).To(ContainElement("HonorWaitForFirstConsumer"))
 
+		})
+
+		It("should NOT add HonorWaitForFirstConsumer featuregate if configauthority not set", func() {
+			expectedResource, err := NewCDI(hco)
+			Expect(err).ToNot(HaveOccurred())
+			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+			expectedResource.Spec.Config = nil
+			delete(expectedResource.Annotations, "cdi.kubevirt.io/configAuthority")
+
+			// mock a reconciliation triggered by a change in CDI CR
+			req.HCOTriggered = false
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
+			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeFalse())
+			Expect(res.Overwritten).To(BeFalse())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &cdiv1beta1.CDI{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					foundResource),
+			).To(BeNil())
+			Expect(foundResource.Spec.Config).To(BeNil())
 		})
 
 		It("should add HonorWaitForFirstConsumer featuregate if Spec.Config if empty", func() {
