@@ -157,7 +157,7 @@ var _ = Describe("Apply Apps", func() {
 			kv.Status.TargetKubeVirtVersion = Version
 			kv.Status.TargetDeploymentID = Id
 
-			SetPodDisruptionBudgetGeneration(&kv.Status.Generations, cachedPodDisruptionBudget)
+			SetGeneration(&kv.Status.Generations, cachedPodDisruptionBudget)
 			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
 			injectOperatorMetadata(kv, &cachedPodDisruptionBudget.ObjectMeta, Version, Registry, Id, true)
 			r := &Reconciler{

@@ -160,7 +160,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 			return fmt.Errorf("unable to create poddisruptionbudget %+v: %v", podDisruptionBudget, err)
 		}
 		log.Log.V(2).Infof("poddisruptionbudget %v created", podDisruptionBudget.GetName())
-		SetPodDisruptionBudgetGeneration(&kv.Status.Generations, podDisruptionBudget)
+		SetGeneration(&kv.Status.Generations, podDisruptionBudget)
 
 		return nil
 	}
@@ -168,7 +168,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	cachedPodDisruptionBudget = obj.(*policyv1beta1.PodDisruptionBudget)
 	modified := resourcemerge.BoolPtr(false)
 	existingCopy := cachedPodDisruptionBudget.DeepCopy()
-	expectedGeneration := ExpectedPodDisruptionBudgetGeneration(podDisruptionBudget, kv.Status.Generations)
+	expectedGeneration := GetExpectedGeneration(podDisruptionBudget, kv.Status.Generations)
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, podDisruptionBudget.ObjectMeta)
 	// there was no change to metadata, the generation was right
@@ -193,7 +193,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 		return fmt.Errorf("unable to patch poddisruptionbudget %+v: %v", podDisruptionBudget, err)
 	}
 
-	SetPodDisruptionBudgetGeneration(&kv.Status.Generations, podDisruptionBudget)
+	SetGeneration(&kv.Status.Generations, podDisruptionBudget)
 	log.Log.V(2).Infof("poddisruptionbudget %v patched", podDisruptionBudget.GetName())
 
 	return nil
