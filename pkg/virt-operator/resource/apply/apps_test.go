@@ -88,17 +88,17 @@ var _ = Describe("Apply Apps", func() {
 					return true, nil, fmt.Errorf("Patch failed!")
 				}
 				patched = true
-				return true, nil, nil
+				return true, &v1beta1.PodDisruptionBudget{}, nil
 			})
 
 			pdbClient.Fake.PrependReactor("create", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				_, ok := action.(testing.CreateAction)
+				update, ok := action.(testing.CreateAction)
 				Expect(ok).To(BeTrue())
 				if shouldCreateFail {
 					return true, nil, fmt.Errorf("Create failed!")
 				}
 				created = true
-				return true, nil, nil
+				return true, update.GetObject(), nil
 			})
 
 			stores = util.Stores{}
@@ -157,6 +157,7 @@ var _ = Describe("Apply Apps", func() {
 			kv.Status.TargetKubeVirtVersion = Version
 			kv.Status.TargetDeploymentID = Id
 
+			SetPodDisruptionBudgetGeneration(&kv.Status.Generations, cachedPodDisruptionBudget)
 			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
 			injectOperatorMetadata(kv, &cachedPodDisruptionBudget.ObjectMeta, Version, Registry, Id, true)
 			r := &Reconciler{
