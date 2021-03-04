@@ -44,6 +44,16 @@ build-manifests:
 build-manifests-prev:
 	RELEASE_DELTA=1 ./hack/build-manifests.sh
 
+build-prom-spec-dumper: ## Build binary from source
+	go build -i -ldflags="-s -w" -o _out/rule-spec-dumper ./hack/prom-rule-ci/rule-spec-dumper.go
+
+current-dir := $(realpath .)
+
+prom-rules-verify: build-prom-spec-dumper
+	./hack/prom-rule-ci/verify-rules.sh \
+		"${current-dir}/_out/rule-spec-dumper" \
+		"${current-dir}/hack/prom-rule-ci/prom-rules-tests.yaml"
+
 install:
 	go install ./cmd/...
 

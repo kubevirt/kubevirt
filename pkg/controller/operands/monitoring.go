@@ -244,24 +244,6 @@ func (h *prometheusRuleHooks) updateCr(req *common.HcoRequest, Client client.Cli
 
 // NewPrometheusRule creates PrometheusRule resource to define alert rules
 func NewPrometheusRule(hc *hcov1beta1.HyperConverged, namespace string) *monitoringv1.PrometheusRule {
-	spec := monitoringv1.PrometheusRuleSpec{
-		Groups: []monitoringv1.RuleGroup{{
-			Name: alertRuleGroup,
-			Rules: []monitoringv1.Rule{{
-				Alert: outOfBandUpdateAlert,
-				Expr:  intstr.FromString("sum(increase(hyperconverged_cluster_operator_out_of_band_modifications[1m])) by (component_name) > 0"),
-				For:   "60m",
-				Annotations: map[string]string{
-					"description": "Out-of-band modification for {{ $labels.component_name }} .",
-					"summary":     "Out-of-band CR modification was detected",
-				},
-				Labels: map[string]string{
-					"severity": "warning",
-				},
-			}},
-		}},
-	}
-
 	return &monitoringv1.PrometheusRule{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: monitoringv1.SchemeGroupVersion.String(),
@@ -272,6 +254,27 @@ func NewPrometheusRule(hc *hcov1beta1.HyperConverged, namespace string) *monitor
 			Labels:    getLabels(hc, hcoutil.AppComponentMonitoring),
 			Namespace: namespace,
 		},
-		Spec: spec,
+		Spec: *NewPrometheusRuleSpec(),
+	}
+}
+
+// NewPrometheusRuleSpec creates PrometheusRuleSpec for alert rules
+func NewPrometheusRuleSpec() *monitoringv1.PrometheusRuleSpec {
+	return &monitoringv1.PrometheusRuleSpec{
+		Groups: []monitoringv1.RuleGroup{{
+			Name: alertRuleGroup,
+			Rules: []monitoringv1.Rule{{
+				Alert: outOfBandUpdateAlert,
+				Expr:  intstr.FromString("sum(hyperconverged_cluster_operator_out_of_band_modifications) by (component_name) > 0"),
+				For:   "10m",
+				Annotations: map[string]string{
+					"description": "Out-of-band modification for {{ $labels.component_name }} .",
+					"summary":     "Out-of-band CR modification was detected",
+				},
+				Labels: map[string]string{
+					"severity": "warning",
+				},
+			}},
+		}},
 	}
 }

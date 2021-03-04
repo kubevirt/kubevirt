@@ -40,6 +40,9 @@ jobs:
       - name: Unit tests
         run: make test
 
+      - name: Prometheus alerts tests
+        run: make prom-rules-verify
+
       - uses: shogo82148/actions-goveralls@v1
         with:
           path-to-profile: coverprofiles/cover.coverprofile
