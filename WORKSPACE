@@ -4479,6 +4479,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-3.60.1-1.fc32.x86_64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-3.60.1-1.fc32.x86_64.rpm",
         "https://download-ib01.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-3.60.1-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/59c046c505b3fb870eccaa4e33fecb1babdb7d9b198c9326a0892eef90cb5ffe",
     ],
 )
 
@@ -4490,6 +4491,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-3.60.1-1.fc32.x86_64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-3.60.1-1.fc32.x86_64.rpm",
         "https://download-ib01.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-3.60.1-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/66d9e7c1654bc89bdf260739c6f8eb558f9d96a66f30465af5ce4352f7f2f84e",
     ],
 )
 
@@ -4501,6 +4503,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-freebl-3.60.1-1.fc32.x86_64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-freebl-3.60.1-1.fc32.x86_64.rpm",
         "https://download-ib01.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-softokn-freebl-3.60.1-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/15ee967faf2133624ab5fb36e8acb12e1126c34a5353821f460b9c9f55c29be5",
     ],
 )
 
@@ -4512,6 +4515,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-sysinit-3.60.1-1.fc32.x86_64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-sysinit-3.60.1-1.fc32.x86_64.rpm",
         "https://download-ib01.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-sysinit-3.60.1-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/4636b311abd4f77b9efa0cb041d994db2d0d66d76240be122d90b1db1d908aa2",
     ],
 )
 
@@ -4523,6 +4527,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-util-3.60.1-1.fc32.x86_64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-util-3.60.1-1.fc32.x86_64.rpm",
         "https://download-ib01.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nss-util-3.60.1-1.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/904f3d89b076a45fe9028797b016895793e60bbcdd587cf644a78a8e84622d3b",
     ],
 )
 
@@ -5818,6 +5823,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-3.8.7-2.fc32.x86_64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-3.8.7-2.fc32.x86_64.rpm",
         "https://download-ib01.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-3.8.7-2.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/159cf526f9b7a4c5d52df45cca139eb1ab19d1152cde04de6d6f7351d06a8b2d",
     ],
 )
 
@@ -5829,6 +5835,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-libs-3.8.7-2.fc32.x86_64.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-libs-3.8.7-2.fc32.x86_64.rpm",
         "https://download-ib01.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/p/python3-libs-3.8.7-2.fc32.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/493a89e8bedf2611ea4703dce82af98195c2ac7108ac4a35d30a2ea99273065f",
     ],
 )
 
@@ -6439,6 +6446,7 @@ rpm(
         "https://d2lzkl7pfhq30w.cloudfront.net/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/t/tzdata-2021a-1.fc32.noarch.rpm",
         "https://dl.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/t/tzdata-2021a-1.fc32.noarch.rpm",
         "https://fr2.rpmfind.net/linux/fedora-secondary/updates/32/Everything/ppc64le/Packages/t/tzdata-2021a-1.fc32.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/f8dbb263b4b844d3d0ef4b93d7502a78384759d07987e6ab678cc565122595b8",
     ],
 )
 
@@ -6450,6 +6458,7 @@ rpm(
         "https://fedora.mirror.constant.com/fedora/linux/updates/32/Everything/x86_64/Packages/t/tzdata-2021a-1.fc32.noarch.rpm",
         "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/t/tzdata-2021a-1.fc32.noarch.rpm",
         "https://download-ib01.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/t/tzdata-2021a-1.fc32.noarch.rpm",
+        "https://storage.googleapis.com/builddeps/f8dbb263b4b844d3d0ef4b93d7502a78384759d07987e6ab678cc565122595b8",
     ],
 )
 
