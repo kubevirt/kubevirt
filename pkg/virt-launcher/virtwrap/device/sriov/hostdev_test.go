@@ -25,6 +25,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"libvirt.org/libvirt-go"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/sriov"
@@ -313,7 +315,7 @@ type deviceDetacherStub struct {
 	fail bool
 }
 
-func (d deviceDetacherStub) DetachDevice(data string) error {
+func (d deviceDetacherStub) DetachDeviceFlags(data string, flags libvirt.DomainDeviceModifyFlags) error {
 	if d.fail {
 		return fmt.Errorf("detach device error")
 	}
