@@ -47,8 +47,9 @@ func (r *Reconciler) syncDeployment(deployment *appsv1.Deployment) error {
 	expectedGeneration := resourcemerge.ExpectedDeploymentGeneration(deployment, kv.Status.Generations)
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, deployment.ObjectMeta)
+
 	// there was no change to metadata, the generation matched
-	if !*modified && existingCopy.ObjectMeta.Generation == expectedGeneration {
+	if !*modified && existingCopy.GetGeneration() == expectedGeneration {
 		log.Log.V(4).Infof("deployment %v is up-to-date", deployment.GetName())
 		return nil
 	}
