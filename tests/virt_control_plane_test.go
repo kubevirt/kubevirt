@@ -230,6 +230,49 @@ var _ = Describe("[Serial][ref_id:2717]KubeVirt control plane resilience", func(
 
 		})
 
+		When("[test_id:2807]Control plane pods temporarily lose connection to Kubernetes API", func() {
+			// virt-handler is the only component that has the tools to add blackhole routes for testing healthz
+			componentName := "virt-handler"
+
+			readyFunc := func() int32 {
+				daemonSet, err := virtCli.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), componentName, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				return daemonSet.Status.NumberReady
+			}
+
+			blackHolePodFunc := func(addOrDel string) {
+				pods, err := virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: fmt.Sprintf("kubevirt.io=%s", componentName)})
+				Expect(err).NotTo(HaveOccurred())
+
+				serviceIp, err := tests.GetKubernetesApiServiceIp(virtCli)
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, pod := range pods.Items {
+					_, err = tests.ExecuteCommandOnPod(virtCli, &pod, componentName, []string{"ip", "route", addOrDel, "blackhole", serviceIp})
+					Expect(err).NotTo(HaveOccurred())
+				}
+			}
+
+			It("should begin to fail health checks", func() {
+				By("ensuring we have ready pods")
+				Eventually(readyFunc, 30*time.Second, time.Second).Should(BeNumerically(">", 0))
+
+				By("blocking connection to API on pods")
+				blackHolePodFunc("add")
+
+				By("ensuring we no longer have a ready pod")
+				Eventually(readyFunc, 120*time.Second, time.Second).Should(BeNumerically("==", 0))
+			})
+
+			It("should recover health checks", func() {
+				By("removing blockage to API")
+				blackHolePodFunc("del")
+
+				By("ensuring we now have a ready virt-handler daemonset")
+				Eventually(readyFunc, 30*time.Second, time.Second).Should(BeNumerically(">", 0))
+			})
+		})
+
 	})
 
 })

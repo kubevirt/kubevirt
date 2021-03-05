@@ -102,6 +102,8 @@ var (
 			Help: "Indication for a virt-controller that is ready to take the lead.",
 		},
 	)
+
+	apiHealthVersion = new(healthz.KubeApiHealthzVersion)
 )
 
 type VirtControllerApp struct {
@@ -244,6 +246,11 @@ func Execute() {
 	app.kubeVirtInformer = app.informerFactory.KubeVirt()
 	app.informerFactory.Start(stopChan)
 
+	// Wire up health check triggers
+	configMapInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+		apiHealthVersion.Clear()
+	})
+
 	cache.WaitForCacheSync(stopChan, configMapInformer.HasSynced, app.crdInformer.HasSynced, app.kubeVirtInformer.HasSynced)
 	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, app.crdInformer, app.kubeVirtInformer, app.kubevirtNamespace)
 
@@ -254,7 +261,7 @@ func Execute() {
 
 	webService := new(restful.WebService)
 	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
-	webService.Route(webService.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig)).Doc("Health endpoint"))
+	webService.Route(webService.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).Doc("Health endpoint"))
 	webService.Route(webService.GET("/leader").To(app.leaderProbe).Doc("Leader endpoint"))
 	restful.Add(webService)
 

@@ -138,7 +138,10 @@ type virtHandlerApp struct {
 	clusterConfig     *virtconfig.ClusterConfig
 }
 
-var _ service.Service = &virtHandlerApp{}
+var (
+	_                service.Service = &virtHandlerApp{}
+	apiHealthVersion                 = new(healthz.KubeApiHealthzVersion)
+)
 
 func (app *virtHandlerApp) prepareCertManager() (err error) {
 	app.clientcertmanager = bootstrap.NewFileCertificateManager(app.clientCertFilePath, app.clientKeyFilePath)
@@ -360,7 +363,7 @@ func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
 	mux := restful.NewContainer()
 	webService := new(restful.WebService)
 	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
-	webService.Route(webService.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig)).Doc("Health endpoint"))
+	webService.Route(webService.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).Doc("Health endpoint"))
 	mux.Add(webService)
 	log.Log.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
 	mux.Handle("/metrics", promvm.Handler(app.MaxRequestsInFlight))
@@ -457,6 +460,9 @@ func (app *virtHandlerApp) AddFlags() {
 
 func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) error {
 	kubevirtCAConfigInformer := factory.KubeVirtCAConfigMap()
+	kubevirtCAConfigInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+		apiHealthVersion.Clear()
+	})
 	caManager := webhooks.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace, app.caConfigMapName)
 
 	app.promTLSConfig = webhooks.SetupPromTLS(app.servercertmanager)
