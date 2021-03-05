@@ -641,7 +641,29 @@ var _ = Describe("[Serial]Operator", func() {
 					if vmi.Status.MigrationState == nil {
 						return fmt.Errorf("waiting for vmi %s/%s to migrate as part of update", vmi.Namespace, vmi.Name)
 					} else if !vmi.Status.MigrationState.Completed {
-						return fmt.Errorf("waiting for migration %s to complete for vmi %s/%s", string(vmi.Status.MigrationState.MigrationUID), vmi.Namespace, vmi.Name)
+
+						var startTime time.Time
+						var endTime time.Time
+						now := time.Now()
+
+						if vmi.Status.MigrationState.StartTimestamp != nil {
+							startTime = vmi.Status.MigrationState.StartTimestamp.Time
+						}
+						if vmi.Status.MigrationState.EndTimestamp != nil {
+							endTime = vmi.Status.MigrationState.EndTimestamp.Time
+						}
+
+						return fmt.Errorf("waiting for migration %s to complete for vmi %s/%s. Source Node [%s], Target Node [%s], Start Time [%s], End Time [%s], Now [%s], Failed: %t",
+							string(vmi.Status.MigrationState.MigrationUID),
+							vmi.Namespace,
+							vmi.Name,
+							vmi.Status.MigrationState.SourceNode,
+							vmi.Status.MigrationState.TargetNode,
+							startTime.String(),
+							endTime.String(),
+							now.String(),
+							vmi.Status.MigrationState.Failed,
+						)
 					}
 
 					_, hasOutdatedLabel := vmi.Labels[v1.OutdatedLauncherImageLabel]
@@ -650,7 +672,7 @@ var _ = Describe("[Serial]Operator", func() {
 					}
 				}
 				return nil
-			}, 320, 1).Should(BeNil(), "All VMIs should update via live migration")
+			}, 500, 1).Should(BeNil(), "All VMIs should update via live migration")
 
 			// this is put in an eventually loop because it's possible for the VMI to complete
 			// migrating and for the migration object to briefly lag behind in reporting
