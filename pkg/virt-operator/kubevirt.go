@@ -26,6 +26,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -78,10 +80,15 @@ func NewKubeVirtController(
 	operatorNamespace string,
 ) *KubeVirtController {
 
+	rl := workqueue.NewMaxOfRateLimiter(
+		workqueue.NewItemExponentialFailureRateLimiter(5*time.Second, 1000*time.Second),
+		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Every(5*time.Second), 1)},
+	)
+
 	c := KubeVirtController{
 		clientset:        clientset,
 		aggregatorClient: aggregatorClient,
-		queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		queue:            workqueue.NewRateLimitingQueue(rl),
 		kubeVirtInformer: informer,
 		recorder:         recorder,
 		stores:           stores,
@@ -587,6 +594,23 @@ func (c *KubeVirtController) execute(key string) error {
 
 	// Fetch the latest KubeVirt from cache
 	obj, exists, err := c.kubeVirtInformer.GetStore().GetByKey(key)
+	//namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	//if err != nil {
+	//	return err
+	//}
+	//kv, err := c.clientset.KubeVirt(namespace).Get(name, &metav1.GetOptions{})
+	//if err != nil {
+	//	// The Foo resource may no longer exist, in which case we stop
+	//	// processing.
+	//	if errors.IsNotFound(err) {
+	//		// when the resource is gone, deletion was handled already
+	//		log.Log.Infof("KubeVirt resource not found")
+	//		c.kubeVirtExpectations.DeleteExpectations(key)
+	//		return nil
+	//	}
+	//
+	//	return err
+	//}
 
 	if err != nil {
 		return err
