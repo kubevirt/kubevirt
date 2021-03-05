@@ -908,48 +908,26 @@ func (app *SubresourceAPIApp) FilesystemList(request *restful.Request, response 
 }
 
 func generateVMVolumeRequestPatch(vm *v1.VirtualMachine, volumeRequest *v1.VirtualMachineVolumeRequest) (string, error) {
-	verb := "add"
-	if len(vm.Status.VolumeRequests) > 0 {
-		verb = "replace"
-	}
-
+	verb := getPatchVerb(vm.Status.VolumeRequests)
 	vmCopy := vm.DeepCopy()
 
 	// We only validate the list against other items in the list at this point.
 	// The VM validation webhook will validate the list against the VMI spec
 	// during the Patch command
 	if volumeRequest.AddVolumeOptions != nil {
-		name := volumeRequest.AddVolumeOptions.Name
-		for _, request := range vm.Status.VolumeRequests {
-			if request.AddVolumeOptions != nil && request.AddVolumeOptions.Name == name {
-				return "", fmt.Errorf("Add volume request for volume [%s] already exists", name)
-			} else if request.RemoveVolumeOptions != nil && request.RemoveVolumeOptions.Name == name {
-				return "", fmt.Errorf("Unable to add volume. A remove volume request for volume [%s] already exists and is still being processed.", name)
-			}
+		if err := addAddVolumeRequests(vm, volumeRequest, vmCopy); err != nil {
+			return "", err
 		}
-		vmCopy.Status.VolumeRequests = append(vm.Status.VolumeRequests, *volumeRequest)
 	} else if volumeRequest.RemoveVolumeOptions != nil {
-		name := volumeRequest.RemoveVolumeOptions.Name
-		volumeRequestsList := []v1.VirtualMachineVolumeRequest{}
-		for _, request := range vm.Status.VolumeRequests {
-			if request.AddVolumeOptions != nil && request.AddVolumeOptions.Name == name {
-				// Filter matching AddVolume requests from the new list.
-				continue
-			} else if request.RemoveVolumeOptions != nil && request.RemoveVolumeOptions.Name == name {
-				return "", fmt.Errorf("A remove volume request for volume [%s] already exists and is still being processed.", name)
-			}
-
-			volumeRequestsList = append(volumeRequestsList, request)
+		if err := addRemoveVolumeRequests(vm, volumeRequest, vmCopy); err != nil {
+			return "", err
 		}
-		volumeRequestsList = append(volumeRequestsList, *volumeRequest)
-		vmCopy.Status.VolumeRequests = volumeRequestsList
 	}
 
 	oldJson, err := json.Marshal(vm.Status.VolumeRequests)
 	if err != nil {
 		return "", err
 	}
-
 	newJson, err := json.Marshal(vmCopy.Status.VolumeRequests)
 	if err != nil {
 		return "", err
@@ -960,6 +938,61 @@ func generateVMVolumeRequestPatch(vm *v1.VirtualMachine, volumeRequest *v1.Virtu
 	patch := fmt.Sprintf("[%s, %s]", test, update)
 
 	return patch, nil
+}
+
+func getPatchVerb(requests []v1.VirtualMachineVolumeRequest) string {
+	verb := "add"
+	if len(requests) > 0 {
+		verb = "replace"
+	}
+	return verb
+}
+
+func addAddVolumeRequests(vm *v1.VirtualMachine, volumeRequest *v1.VirtualMachineVolumeRequest, vmCopy *v1.VirtualMachine) error {
+	name := volumeRequest.AddVolumeOptions.Name
+	for _, request := range vm.Status.VolumeRequests {
+		if err := validateAddVolumeRequest(request, name); err != nil {
+			return err
+		}
+	}
+	vmCopy.Status.VolumeRequests = append(vm.Status.VolumeRequests, *volumeRequest)
+	return nil
+}
+
+func validateAddVolumeRequest(request v1.VirtualMachineVolumeRequest, name string) error {
+	if addVolumeRequestExists(request, name) {
+		return fmt.Errorf("add volume request for volume [%s] already exists", name)
+	}
+	if removeVolumeRequestExists(request, name) {
+		return fmt.Errorf("unable to add volume since a remove volume request for volume [%s] already exists and is still being processed", name)
+	}
+	return nil
+}
+
+func addRemoveVolumeRequests(vm *v1.VirtualMachine, volumeRequest *v1.VirtualMachineVolumeRequest, vmCopy *v1.VirtualMachine) error {
+	name := volumeRequest.RemoveVolumeOptions.Name
+	var volumeRequestsList []v1.VirtualMachineVolumeRequest
+	for _, request := range vm.Status.VolumeRequests {
+		if addVolumeRequestExists(request, name) {
+			// Filter matching AddVolume requests from the new list.
+			continue
+		}
+		if removeVolumeRequestExists(request, name) {
+			return fmt.Errorf("a remove volume request for volume [%s] already exists and is still being processed", name)
+		}
+		volumeRequestsList = append(volumeRequestsList, request)
+	}
+	volumeRequestsList = append(volumeRequestsList, *volumeRequest)
+	vmCopy.Status.VolumeRequests = volumeRequestsList
+	return nil
+}
+
+func removeVolumeRequestExists(request v1.VirtualMachineVolumeRequest, name string) bool {
+	return request.RemoveVolumeOptions != nil && request.RemoveVolumeOptions.Name == name
+}
+
+func addVolumeRequestExists(request v1.VirtualMachineVolumeRequest, name string) bool {
+	return request.AddVolumeOptions != nil && request.AddVolumeOptions.Name == name
 }
 
 func generateVMIVolumeRequestPatch(vmi *v1.VirtualMachineInstance, volumeRequest *v1.VirtualMachineVolumeRequest) (string, error) {
