@@ -2725,7 +2725,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Spec: v1.VirtualMachineInstanceSpec{
 					AccessCredentials: []v1.AccessCredential{
 						v1.AccessCredential{
-							UserPassword: &v1.UserPasswordAccessCredential{},
+							UserPassword: &v1.UserPasswordAccessCredential{
+								PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
+									QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
+								},
+							},
 						},
 					},
 				},
@@ -2734,7 +2738,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Spec: v1.VirtualMachineInstanceSpec{
 					AccessCredentials: []v1.AccessCredential{
 						v1.AccessCredential{
-							SSHPublicKey: &v1.SSHPublicKeyAccessCredential{},
+							SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+								PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+									QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{},
+								},
+							},
 						},
 					},
 				},

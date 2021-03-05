@@ -1188,11 +1188,11 @@ func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAg
 
 	if vmi != nil && vmi.Spec.AccessCredentials != nil {
 		for _, accessCredential := range vmi.Spec.AccessCredentials {
-			if accessCredential.SSHPublicKey != nil {
+			if accessCredential.SSHPublicKey != nil && accessCredential.SSHPublicKey.PropagationMethod.QemuGuestAgent != nil {
 				// defer checking the command list so we only do that once
 				checkSSH = true
 			}
-			if accessCredential.UserPassword != nil {
+			if accessCredential.UserPassword != nil && accessCredential.UserPassword.PropagationMethod.QemuGuestAgent != nil {
 				// defer checking the command list so we only do that once
 				checkPasswd = true
 			}
