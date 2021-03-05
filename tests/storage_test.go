@@ -349,7 +349,6 @@ var _ = Describe("Storage", func() {
 			})
 		})
 		Context("Run a VMI with VirtIO-FS and a datavolume", func() {
-			Skip("Skip due to flakiness")
 			var dataVolume *cdiv1.DataVolume
 			BeforeEach(func() {
 				if !tests.HasCDI() {
@@ -358,7 +357,7 @@ var _ = Describe("Storage", func() {
 				dataVolume = tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 			})
 
-			It("should be successfully started and virtiofs could be accessed", func() {
+			It("[QUARANTINE]should be successfully started and virtiofs could be accessed", func() {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
 
 				vmi := tests.NewRandomVMIWithFSFromDataVolume(dataVolume.Name)
@@ -879,8 +878,7 @@ var _ = Describe("Storage", func() {
 			})
 
 			// Not a candidate for NFS because local volumes are used in test
-			It("[test_id:1015] should be successfully started", func() {
-				Skip("Skip due to flakiness")
+			It("[QUARANTINE][test_id:1015] should be successfully started", func() {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi = tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)

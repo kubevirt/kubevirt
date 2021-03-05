@@ -298,6 +298,11 @@ if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" ]]; then
   export KUBEVIRT_E2E_FOCUS=rook-ceph
 fi
 
+# Only run quarantined tests if KUBEVIRT_QUARANTINE is set
+if [ -z "$KUBEVIRT_QUARANTINE" ]; then
+    KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|QUARANTINE"
+fi
+
 # Prepare RHEL PV for Template testing
 if [[ $TARGET =~ os-.* ]]; then
   ginko_params="$ginko_params|Networkpolicy"

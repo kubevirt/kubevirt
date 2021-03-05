@@ -999,8 +999,7 @@ spec:
 		// running a VM/VMI using that previous release
 		// Updating KubeVirt to the target tested code
 		// Ensuring VM/VMI is still operational after the update from previous release.
-		It("[test_id:3145]from previous release to target tested release", func() {
-			Skip("Skip due to flakiness")
+		It("[QUARANTINE][test_id:3145]from previous release to target tested release", func() {
 			if !tests.HasCDI() {
 				Skip("Skip Update test when CDI is not present")
 			}
@@ -1404,8 +1403,7 @@ spec:
 			allPodsAreReady(kv)
 		})
 
-		It("[test_id:3150]should be able to update kubevirt install with custom image tag", func() {
-			Skip("Skip due to flakiness")
+		It("[QUARANTINE][test_id:3150]should be able to update kubevirt install with custom image tag", func() {
 			if flags.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
 			}
