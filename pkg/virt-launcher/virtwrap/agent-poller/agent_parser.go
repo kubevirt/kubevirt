@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"regexp"
 
+	"kubevirt.io/client-go/log"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -204,6 +206,8 @@ func parseAgent(agentReply string) (AgentInfo, error) {
 	if err != nil {
 		return AgentInfo{}, err
 	}
+
+	log.Log.V(3).Infof("guest agent info: %v", gaInfo)
 
 	return gaInfo, nil
 }
