@@ -1177,7 +1177,9 @@ func _guestAgentCommandSubsetSupported(requiredCommands []string, commands []v1.
 }
 
 func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAgentCommandInfo) bool {
+	log.Log.V(3).Object(vmi).Infof("checking guest agent: %v", commands)
 	if !_guestAgentCommandSubsetSupported(RequiredGuestAgentCommands, commands) {
+		log.Log.V(3).Object(vmi).Info("This guest agent doesn't support required basic commands")
 		return false
 	}
 
@@ -1199,13 +1201,16 @@ func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAg
 	}
 
 	if checkSSH && !_guestAgentCommandSubsetSupported(SSHRelatedGuestAgentCommands, commands) {
+		log.Log.V(3).Object(vmi).Info("This guest agent doesn't support required public key commands")
 		return false
 	}
 
 	if checkPasswd && !_guestAgentCommandSubsetSupported(PasswordRelatedGuestAgentCommands, commands) {
+		log.Log.V(3).Object(vmi).Info("This guest agent doesn't support required password commands")
 		return false
 	}
 
+	log.Log.V(3).Object(vmi).Info("This guest agent is supported")
 	return true
 }
 
