@@ -40,12 +40,13 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+
+	netcache "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache"
 
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 
@@ -103,23 +104,25 @@ func NewController(
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	c := &VirtualMachineController{
-		Queue:                    queue,
-		recorder:                 recorder,
-		clientset:                clientset,
-		host:                     host,
-		ipAddress:                ipAddress,
-		virtShareDir:             virtShareDir,
-		vmiSourceInformer:        vmiSourceInformer,
-		vmiTargetInformer:        vmiTargetInformer,
-		domainInformer:           domainInformer,
-		gracefulShutdownInformer: gracefulShutdownInformer,
-		heartBeatInterval:        1 * time.Minute,
-		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
-		migrationProxy:           migrationproxy.NewMigrationProxyManager(serverTLSConfig, clientTLSConfig),
-		podIsolationDetector:     podIsolationDetector,
-		containerDiskMounter:     container_disk.NewMounter(podIsolationDetector, virtPrivateDir+"/container-disk-mount-state"),
-		hotplugVolumeMounter:     hotplug_volume.NewVolumeMounter(podIsolationDetector, virtPrivateDir+"/hotplug-volume-mount-state"),
-		clusterConfig:            clusterConfig,
+		Queue:                       queue,
+		recorder:                    recorder,
+		clientset:                   clientset,
+		host:                        host,
+		ipAddress:                   ipAddress,
+		virtShareDir:                virtShareDir,
+		vmiSourceInformer:           vmiSourceInformer,
+		vmiTargetInformer:           vmiTargetInformer,
+		domainInformer:              domainInformer,
+		gracefulShutdownInformer:    gracefulShutdownInformer,
+		heartBeatInterval:           1 * time.Minute,
+		watchdogTimeoutSeconds:      watchdogTimeoutSeconds,
+		migrationProxy:              migrationproxy.NewMigrationProxyManager(serverTLSConfig, clientTLSConfig),
+		podIsolationDetector:        podIsolationDetector,
+		containerDiskMounter:        container_disk.NewMounter(podIsolationDetector, virtPrivateDir+"/container-disk-mount-state"),
+		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter(podIsolationDetector, virtPrivateDir+"/hotplug-volume-mount-state"),
+		clusterConfig:               clusterConfig,
+		networkCacheStoreFactory:    netcache.NewInterfaceCacheFactory(),
+		virtLauncherFSRunDirPattern: "/proc/%d/root/var/run",
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -148,7 +151,7 @@ func NewController(
 
 	c.launcherClients = make(map[types.UID]*launcherClientInfo)
 	c.phase1NetworkSetupCache = make(map[types.UID]int)
-	c.podInterfaceCache = make(map[string]*network.PodCacheInterface)
+	c.podInterfaceCache = make(map[string]*netcache.PodCacheInterface)
 
 	c.domainNotifyPipes = make(map[string]string)
 
@@ -189,10 +192,12 @@ type VirtualMachineController struct {
 
 	// key is the file path, value is the contents.
 	// if key exists, then don't read directly from file.
-	podInterfaceCache     map[string]*network.PodCacheInterface
+	podInterfaceCache     map[string]*netcache.PodCacheInterface
 	podInterfaceCacheLock sync.Mutex
 
-	domainNotifyPipes map[string]string
+	domainNotifyPipes           map[string]string
+	networkCacheStoreFactory    netcache.InterfaceCacheFactory
+	virtLauncherFSRunDirPattern string
 }
 
 type virtLauncherCriticalNetworkError struct {
@@ -388,25 +393,25 @@ func (d *VirtualMachineController) hasTargetDetectedDomain(vmi *v1.VirtualMachin
 	return false, timeLeft
 }
 
-func (d *VirtualMachineController) clearPodNetworkPhase1(uid types.UID) {
+func (d *VirtualMachineController) clearPodNetworkPhase1(vmi *v1.VirtualMachineInstance) {
 	// no need to cleanup with empty uid
-	if string(uid) == "" {
+	if string(vmi.UID) == "" {
 		return
 	}
 	d.phase1NetworkSetupCacheLock.Lock()
-	delete(d.phase1NetworkSetupCache, uid)
+	delete(d.phase1NetworkSetupCache, vmi.UID)
 	d.phase1NetworkSetupCacheLock.Unlock()
 
 	// Clean Pod interface cache from map and files
 	d.podInterfaceCacheLock.Lock()
 	for key, _ := range d.podInterfaceCache {
-		if strings.Contains(key, string(uid)) {
+		if strings.Contains(key, string(vmi.UID)) {
 			delete(d.podInterfaceCache, key)
 		}
 	}
 	d.podInterfaceCacheLock.Unlock()
 
-	err := network.RemoveVirtHandlerCacheDir(uid)
+	err := d.networkCacheStoreFactory.CacheForVMI(vmi).Remove()
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to delete VMI Network cache files: %s", err.Error())
 	}
@@ -436,7 +441,7 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 		return false, nil
 	}
 
-	err = res.DoNetNS(func() error { return network.SetupPodNetworkPhase1(vmi, pid) })
+	err = res.DoNetNS(func() error { return network.SetupPodNetworkPhase1(vmi, pid, d.networkCacheStoreFactory) })
 	if err != nil {
 		_, critical := err.(*network.CriticalNetworkError)
 		if critical {
@@ -462,8 +467,8 @@ func domainMigrated(domain *api.Domain) bool {
 	return false
 }
 
-func (d *VirtualMachineController) getPodInterfacefromFileCache(uid types.UID, ifaceName string) (*network.PodCacheInterface, error) {
-	cacheKey := fmt.Sprintf("%s/%s", uid, ifaceName)
+func (d *VirtualMachineController) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*netcache.PodCacheInterface, error) {
+	cacheKey := fmt.Sprintf("%s/%s", vmi.UID, ifaceName)
 
 	// Once the Interface files are set on the handler, they don't change
 	// If already present in the map, don't read again
@@ -474,7 +479,8 @@ func (d *VirtualMachineController) getPodInterfacefromFileCache(uid types.UID, i
 	if exists {
 		return result, nil
 	}
-	network.ReadFromVirtHandlerCachedFile(&result, uid, ifaceName)
+	//FIXME error handling?
+	result, _ = d.networkCacheStoreFactory.CacheForVMI(vmi).Read(ifaceName)
 
 	d.podInterfaceCacheLock.Lock()
 	d.podInterfaceCache[cacheKey] = result
@@ -585,7 +591,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			interfaces := make([]v1.VirtualMachineInstanceNetworkInterface, 0)
 			for _, network := range vmi.Spec.Networks {
 				if network.NetworkSource.Pod != nil {
-					podIface, err := d.getPodInterfacefromFileCache(vmi.UID, network.Name)
+					podIface, err := d.getPodInterfacefromFileCache(vmi, network.Name)
 					if err != nil {
 						return err
 					}
@@ -648,7 +654,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 
 					// If it is a Combination of Masquerade+Pod network, check IP from file cache
 					if existingInterfacesSpecByName[domainInterface.Alias.GetName()].Masquerade != nil && existingNetworksByName[domainInterface.Alias.GetName()].NetworkSource.Pod != nil {
-						iface, err := d.getPodInterfacefromFileCache(vmi.UID, domainInterface.Alias.GetName())
+						iface, err := d.getPodInterfacefromFileCache(vmi, domainInterface.Alias.GetName())
 						if err != nil {
 							return err
 						}
@@ -745,7 +751,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		if add {
 			newCondition := v1.VirtualMachineInstanceCondition{
 				Type:               v1.VirtualMachineInstanceAccessCredentialsSynchronized,
-				LastTransitionTime: v12.Now(),
+				LastTransitionTime: metav1.Now(),
 				Status:             status,
 				Message:            message,
 			}
@@ -779,7 +785,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		}
 
 		if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.EndTimestamp == nil {
-			now := v12.NewTime(time.Now())
+			now := metav1.NewTime(time.Now())
 			vmi.Status.MigrationState.EndTimestamp = &now
 		}
 
@@ -871,7 +877,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 	case channelConnected && !condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected):
 		agentCondition := v1.VirtualMachineInstanceCondition{
 			Type:          v1.VirtualMachineInstanceAgentConnected,
-			LastProbeTime: v12.Now(),
+			LastProbeTime: metav1.Now(),
 			Status:        k8sv1.ConditionTrue,
 		}
 		vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
@@ -899,7 +905,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceUnsupportedAgent) {
 				agentCondition := v1.VirtualMachineInstanceCondition{
 					Type:          v1.VirtualMachineInstanceUnsupportedAgent,
-					LastProbeTime: v12.Now(),
+					LastProbeTime: metav1.Now(),
 					Status:        k8sv1.ConditionTrue,
 				}
 				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
@@ -1571,7 +1577,7 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 		return err
 	}
 
-	d.clearPodNetworkPhase1(vmi.UID)
+	d.clearPodNetworkPhase1(vmi)
 
 	// Watch dog file and command client must be the last things removed here
 	err = d.closeLauncherClient(vmi)
@@ -2000,10 +2006,10 @@ func (d *VirtualMachineController) handlePostSyncMigrationProxy(vmi *v1.VirtualM
 	}
 
 	// Get the libvirt connection socket file on the destination pod.
-	socketFile := fmt.Sprintf("/proc/%d/root/var/run/libvirt/libvirt-sock", res.Pid())
+	socketFile := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "libvirt/libvirt-sock"), res.Pid())
 	// the migration-proxy is no longer shared via host mount, so we
 	// pass in the virt-launcher's baseDir to reach the unix sockets.
-	baseDir := fmt.Sprintf("/proc/%d/root/var/run/kubevirt", res.Pid())
+	baseDir := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "kubevirt"), res.Pid())
 	migrationTargetSockets = append(migrationTargetSockets, socketFile)
 
 	isBlockMigration := vmi.Status.MigrationMethod == v1.BlockMigration
@@ -2032,7 +2038,7 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 		}
 		// the migration-proxy is no longer shared via host mount, so we
 		// pass in the virt-launcher's baseDir to reach the unix sockets.
-		baseDir := fmt.Sprintf("/proc/%d/root/var/run/kubevirt", res.Pid())
+		baseDir := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "kubevirt"), res.Pid())
 		d.migrationProxy.StopTargetListener(string(vmi.UID))
 		if vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
 			msg := "No migration proxy has been created for this vmi"
@@ -2367,7 +2373,7 @@ func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan
 
 	for {
 		wait.JitterUntil(func() {
-			now, err := json.Marshal(v12.Now())
+			now, err := json.Marshal(metav1.Now())
 			if err != nil {
 				log.DefaultLogger().Reason(err).Errorf("Can't determine date")
 				return

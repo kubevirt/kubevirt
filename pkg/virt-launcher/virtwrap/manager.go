@@ -43,6 +43,7 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	eventsclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -118,14 +119,15 @@ type LibvirtDomainManager struct {
 
 	credManager *accesscredentials.AccessCredentialManager
 
-	virtShareDir           string
-	notifier               *eventsclient.Notifier
-	lessPVCSpaceToleration int
-	paused                 pausedVMIs
-	agentData              *agentpoller.AsyncAgentStore
-	cloudInitDataStore     *cloudinit.CloudInitData
-	setGuestTimeContextPtr *contextStore
-	ovmfPath               string
+	virtShareDir             string
+	notifier                 *eventsclient.Notifier
+	lessPVCSpaceToleration   int
+	paused                   pausedVMIs
+	agentData                *agentpoller.AsyncAgentStore
+	cloudInitDataStore       *cloudinit.CloudInitData
+	setGuestTimeContextPtr   *contextStore
+	ovmfPath                 string
+	networkCacheStoreFactory cache.InterfaceCacheFactory
 }
 
 type migrationDisks struct {
@@ -170,8 +172,9 @@ func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 		paused: pausedVMIs{
 			paused: make(map[types.UID]bool, 0),
 		},
-		agentData: agentStore,
-		ovmfPath:  ovmfPath,
+		agentData:                agentStore,
+		ovmfPath:                 ovmfPath,
+		networkCacheStoreFactory: cache.NewInterfaceCacheFactory(),
 	}
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock)
 
@@ -1109,7 +1112,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		}
 	}
 
-	err = network.SetupPodNetworkPhase2(vmi, domain)
+	err = network.SetupPodNetworkPhase2(vmi, domain, l.networkCacheStoreFactory)
 	if err != nil {
 		return domain, fmt.Errorf("preparing the pod network failed: %v", err)
 	}

@@ -33,6 +33,8 @@ import (
 
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
+	cache2 "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache"
+	networkingfake "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache/fake"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -197,6 +199,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockIsolationDetector,
 		)
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
+		controller.networkCacheStoreFactory = networkingfake.NewFakeInMemoryNetworkCacheFactory()
+		controller.virtLauncherFSRunDirPattern = filepath.Join(shareDir, "%d")
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()
@@ -2028,16 +2032,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.Phase = v1.Scheduled
 			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
 
-			podCacheInterface := network.PodCacheInterface{
+			podCacheInterface := &cache2.PodCacheInterface{
 				Iface: &v1.Interface{
 					Name: interfaceName,
 				},
 				PodIP:  "1.1.1.1",
 				PodIPs: []string{"1.1.1.1", "fd10:244::8c4c"},
 			}
-			err = network.CreateVirtHandlerCacheDir(vmi.UID)
-			Expect(err).ToNot(HaveOccurred())
-			err = network.WriteToVirtHandlerCachedFile(podCacheInterface, vmi.UID, interfaceName)
+			err = controller.networkCacheStoreFactory.CacheForVMI(vmi).Write(interfaceName, podCacheInterface)
 			Expect(err).ToNot(HaveOccurred())
 
 			mockWatchdog.CreateFile(vmi)
@@ -2086,16 +2088,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 			}
 
-			podCacheInterface := network.PodCacheInterface{
+			podCacheInterface := &cache2.PodCacheInterface{
 				Iface: &v1.Interface{
 					Name: interfaceName,
 				},
 				PodIP:  podIPs[0],
 				PodIPs: podIPs,
 			}
-			err = network.CreateVirtHandlerCacheDir(vmi.UID)
-			Expect(err).ToNot(HaveOccurred())
-			err = network.WriteToVirtHandlerCachedFile(podCacheInterface, vmi.UID, interfaceName)
+			err = controller.networkCacheStoreFactory.CacheForVMI(vmi).Write(interfaceName, podCacheInterface)
 			Expect(err).ToNot(HaveOccurred())
 
 			mockWatchdog.CreateFile(vmi)

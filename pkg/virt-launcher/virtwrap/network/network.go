@@ -30,18 +30,13 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache"
 )
 
 const primaryPodInterfaceName = "eth0"
 
 var vifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
 var podNICFactory = newpodNIC
-
-type PodCacheInterface struct {
-	Iface  *v1.Interface `json:"iface,omitempty"`
-	PodIP  string        `json:"podIP,omitempty"`
-	PodIPs []string      `json:"podIPs,omitempty"`
-}
 
 // Network configuration is split into two parts, or phases, each executed in a
 // different context.
@@ -76,12 +71,12 @@ func getNetworksAndCniNetworks(vmi *v1.VirtualMachineInstance) (map[string]*v1.N
 	return networks, cniNetworks
 }
 
-func invokePodNICFactory(networks map[string]*v1.Network, ifaceName string) (podNIC, error) {
+func invokePodNICFactory(networks map[string]*v1.Network, ifaceName string, cacheFactory cache.InterfaceCacheFactory) (podNIC, error) {
 	network, ok := networks[ifaceName]
 	if !ok {
 		return nil, fmt.Errorf("failed to find a network %s", ifaceName)
 	}
-	return podNICFactory(network)
+	return podNICFactory(network, cacheFactory)
 }
 
 func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string]int, ifaceName string) string {
@@ -93,14 +88,10 @@ func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string
 	}
 }
 
-func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int) error {
-	err := CreateVirtHandlerCacheDir(vmi.ObjectMeta.UID)
-	if err != nil {
-		return err
-	}
+func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int, cacheFactory cache.InterfaceCacheFactory) error {
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
 	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		podnic, err := invokePodNICFactory(networks, iface.Name)
+		podnic, err := invokePodNICFactory(networks, iface.Name, cacheFactory)
 		if err != nil {
 			return err
 		}
@@ -113,10 +104,10 @@ func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int) error {
 	return nil
 }
 
-func SetupPodNetworkPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+func SetupPodNetworkPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain, cacheFactory cache.InterfaceCacheFactory) error {
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
 	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		podnic, err := invokePodNICFactory(networks, iface.Name)
+		podnic, err := invokePodNICFactory(networks, iface.Name, cacheFactory)
 		if err != nil {
 			return err
 		}
@@ -129,9 +120,9 @@ func SetupPodNetworkPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain) e
 	return nil
 }
 
-func newpodNIC(network *v1.Network) (podNIC, error) {
+func newpodNIC(network *v1.Network, cacheFactory cache.InterfaceCacheFactory) (podNIC, error) {
 	if network.Pod != nil || network.Multus != nil {
-		return new(podNICImpl), nil
+		return &podNICImpl{cacheFactory: cacheFactory}, nil
 	}
 	return nil, fmt.Errorf("Network not implemented")
 }

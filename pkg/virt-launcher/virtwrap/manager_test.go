@@ -1593,7 +1593,7 @@ func newVMI(namespace, name string) *v1.VirtualMachineInstance {
 func addCloudInitDisk(vmi *v1.VirtualMachineInstance, userData string, networkData string) {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:  "cloudinit",
-		Cache: v1.CacheNone,
+		Cache: v1.CacheWriteThrough,
 		IO:    v1.IONative,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
