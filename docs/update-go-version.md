@@ -4,7 +4,7 @@ A quick guide to update Kubevirt's Go version.
 To update the Go version we need to update the builder image so that it uses the new version,
 push it to the registry and finally let Kubevirt use the new builder image.
 
-In addition, Bazel has to be updated if the current version does not support the target Go version.
+In addition, [go rules for bazel](https://github.com/bazelbuild/rules_go) have to be updated if the current version does not support the target Go version.
 
 ## Updating Go Version
 ### Updating builder image
@@ -40,7 +40,7 @@ In addition, Bazel has to be updated if the current version does not support the
     )
     ```
 
-## Update Bazel Version
+## Update go rules for bazel
 * In [WORKSPACE](../WORKSPACE) find current Bazel release's SHA ID which can be found under `io_bazel_rules_go`.
   * Should look similar to:
     ```shell
