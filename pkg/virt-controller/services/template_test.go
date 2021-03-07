@@ -46,8 +46,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-const namespaceKubevirt = "kubevirt"
-
 var _ = Describe("Template", func() {
 	var qemuGid int64 = 107
 

@@ -56,7 +56,6 @@ const (
 	DataSourceNoCloud     DataSourceType     = "noCloud"
 	DataSourceConfigDrive DataSourceType     = "configDrive"
 	NICMetadataType       DeviceMetadataType = "nic"
-	DiskMetadataType      DeviceMetadataType = "disk"
 )
 
 // CloudInitData is a data source independent struct that
