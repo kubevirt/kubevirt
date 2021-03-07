@@ -863,7 +863,8 @@ var _ = Describe("Storage", func() {
 
 					By("Checking events")
 					objectEventWatcher := tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(30) * time.Second)
-					objectEventWatcher.FailOnWarnings()
+					wp := tests.WarningsPolicy{FailOnWarnings: true}
+					objectEventWatcher.SetWarningsPolicy(wp)
 					ctx, cancel := context.WithCancel(context.Background())
 					defer cancel()
 					objectEventWatcher.WaitFor(ctx, tests.EventType(hostdisk.EventTypeToleratedSmallPV), hostdisk.EventReasonToleratedSmallPV)
