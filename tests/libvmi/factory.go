@@ -64,6 +64,14 @@ func newFedoraWithUserDataSetPassword(containerDisk cd.ContainerDisk, opts ...Op
 // building its extra properties based on the specified With* options, the
 // image used include Guest Agent and some moduled needed by SRIOV.
 func NewSriovFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
+	userData := `#!/bin/bash
+	sudo rm -f /var/lib/cloud/instance/boot-finished`
+
+	fedoraOptions := []Option{
+		WithCloudInitNoCloudUserData(userData, false),
+	}
+	opts = append(fedoraOptions, opts...)
+
 	return newFedora(cd.ContainerDiskFedoraSRIOVLane, opts...)
 }
 
