@@ -768,10 +768,10 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 					},
 					{
 						Alert: "KubevirtVmHighMemoryUsage",
-						Expr:  intstr.FromString("(sum(container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'}) by (pod, container) / sum(container_spec_memory_limit_bytes{pod=~'virt-launcher-.*', container='compute'} > 0) by (pod, container) * 100) > 90"),
-						For:   "2m",
+						Expr:  intstr.FromString("sum by(pod, container) ( kube_pod_container_resource_limits_memory_bytes{pod=~'virt-launcher-.*', container='compute'} - on(pod,container) container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'}) < 20971520"),
+						For:   "1m",
 						Annotations: map[string]string{
-							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} memory utilization is more than 90%",
+							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} memory utilization is 20 MB close to the limit",
 							"summary":     "VM is at risk of being terminated by the runtime.",
 						},
 						Labels: map[string]string{

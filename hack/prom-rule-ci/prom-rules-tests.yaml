@@ -186,35 +186,35 @@ tests:
         alertname: LowKVMNodesCount
         exp_alerts: []
 
-  # Memory utilization more than 90%
+  # Memory utilization less than 20MB close to limit
   - interval: 1m
     input_series:
-      - series: 'container_spec_memory_limit_bytes{pod="virt-launcher-testvm-123", container="compute"}'
-        values: "100 100 100 100 100 100"
+      - series: 'kube_pod_container_resource_limits_memory_bytes{pod="virt-launcher-testvm-123", container="compute"}'
+        values: "67108864 67108864 67108864 67108864"
       - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute"}'
-        values: "91 91 91 91 91 91"
+        values: "47185920 48234496 48234496 49283072"
 
     alert_rule_test:
-      - eval_time: 2m
+      - eval_time: 1m
         alertname: KubevirtVmHighMemoryUsage
         exp_alerts:
           - exp_annotations:
-              description: "Container compute in pod virt-launcher-testvm-123 memory utilization is more than 90%"
+              description: "Container compute in pod virt-launcher-testvm-123 memory utilization is 20 MB close to the limit"
               summary: "VM is at risk of being terminated by the runtime."
             exp_labels:
               severity: "warning"
               pod: "virt-launcher-testvm-123"
               container: "compute"
 
-  # Memory utilization less than 90%
-  - interval: 1m
+  # Memory utilization more than 20MB close to limit
+  - interval: 30s
     input_series:
-      - series: 'container_spec_memory_limit_bytes{pod="virt-launcher-testvm-123", container="compute"}'
-        values: "100 100 100 100 100 100"
+      - series: 'kube_pod_container_resource_limits_memory_bytes{pod="virt-launcher-testvm-123", container="compute"}'
+        values: "67108864 67108864 67108864 67108864"
       - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute"}'
-        values: "89 89 89 89 89 89"
+        values: "19922944 18874368 18874368 17825792"
 
     alert_rule_test:
-      - eval_time: 2m
+      - eval_time: 1m
         alertname: KubevirtVmHighMemoryUsage
         exp_alerts: []
