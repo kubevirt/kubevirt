@@ -1887,6 +1887,13 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Free memory allocated for domains
+	defer func() {
+		for i := range doms {
+			err := doms[i].Free()
+			log.Log.Reason(err).Warning("Error freeing a domain")
+		}
+	}()
 
 	var list []*api.Domain
 	for _, dom := range doms {
@@ -1914,7 +1921,6 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 		}
 		domain.SetState(util.ConvState(status), util.ConvReason(status, reason))
 		list = append(list, domain)
-		dom.Free()
 	}
 
 	return list, nil

@@ -267,6 +267,13 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 	if err != nil {
 		return nil, err
 	}
+	// Free memory allocated for domains
+	defer func() {
+		for i := range domStats {
+			err := domStats[i].Domain.Free()
+			log.Log.Reason(err).Warning("Error freeing a domain.")
+		}
+	}()
 
 	var list []*stats.DomainStats
 	for i, domStat := range domStats {
@@ -284,7 +291,6 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 		}
 
 		list = append(list, stat)
-		domStat.Domain.Free()
 	}
 
 	return list, nil
