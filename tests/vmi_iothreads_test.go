@@ -234,11 +234,6 @@ var _ = Describe("[Serial]IOThreads", func() {
 				DedicatedCPUPlacement: true,
 				IsolateEmulatorThread: true,
 			}
-			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceMemory: resource.MustParse("64M"),
-				},
-			}
 
 			tests.AddEphemeralDisk(vmi, "disk1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			tests.AddEphemeralDisk(vmi, "ded2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))

@@ -19,7 +19,7 @@ spec:
       type: ""
     resources:
       requests:
-        memory: 64M
+        memory: 128Mi
   networks:
   - name: default
     pod: {}
