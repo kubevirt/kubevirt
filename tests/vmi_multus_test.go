@@ -1008,7 +1008,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			It("should be successful with a running VMI on the target", func() {
 				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, migrationWaitTime)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
 
 				assert.XFail(
@@ -1177,7 +1177,7 @@ var _ = Describe("[Serial]Macvtap", func() {
 		It("should be successful when the VMI MAC address is defined in its spec", func() {
 			By("starting the migration")
 			migration := tests.NewRandomMigration(clientVMI.Name, clientVMI.Namespace)
-			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, migrationWaitTime)
+			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 			// check VMI, confirm migration state
 			tests.ConfirmVMIPostMigration(virtClient, clientVMI, migrationUID)
@@ -1228,7 +1228,7 @@ var _ = Describe("[Serial]Macvtap", func() {
 
 			It("should keep connectivity after a migration", func() {
 				migration := tests.NewRandomMigration(serverVMI.Name, serverVMI.GetNamespace())
-				_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, migrationWaitTime)
+				_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *after* migrating the VMI")
 			})

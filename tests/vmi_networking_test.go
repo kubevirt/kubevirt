@@ -877,7 +877,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 				By("Execute migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				runMigrationAndExpectCompletion(migration, migrationWaitTime)
+				runMigrationAndExpectCompletion(migration, tests.MigrationWaitTime)
 
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
