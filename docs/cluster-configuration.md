@@ -117,37 +117,17 @@ or new features that are not enabled by default.
 To enable a feature, add its name to the `featureGates` list and set it to `true`. Missing or `false` feature gates 
 disables the feature.
 
-### hotplugVolumes Feature Gate
-
-Set the `hotplugVolumes` feature gate in order to allow attaching a data volume to a running VMI.
-
-### withHostModelCPU Feature Gate
-
-Set the `withHostModelCPU` feature gate in order to enable support migration for VMs with host-model CPU mode
-
-Additional information: [LibvirtXMLCPUModel](https://wiki.openstack.org/wiki/LibvirtXMLCPUModel)
-
 ### withHostPassthroughCPU Feature Gate
-
 Set the `withHostPassthroughCPU` feature gate in order to allow migrating a virtual machine with CPU host-passthrough
-mode.
+mode. This can provide slightly better CPU performance, but should be enabled only when the Cluster is homogeneous from
+CPU HW perspective.
+
+**Default**: `false`
 
 Additional information: [LibvirtXMLCPUModel](https://wiki.openstack.org/wiki/LibvirtXMLCPUModel)
 
-**note**: This should be enabled only when the Cluster is homogeneous from CPU HW perspective doc here
-
-### hypervStrictCheck Feature Gate
-
-Set the `hypervStrictCheck` feature gate in order to
-enable [HyperV enlightenments](https://kubevirt.io/user-guide/#/creation/guest-operating-system-information?id=hyperv-optimizations)
-for Kubevirt.
-
-**Default: `true`**
-
-To override the default, specify the featureGate in the HCO configuration.
 
 ### Feature Gates Example
-
 ```yaml
 apiVersion: hco.kubevirt.io/v1beta1
 kind: HyperConverged
@@ -157,8 +137,6 @@ spec:
   infra: {}
   workloads: {}
   featureGates:
-    hotplugVolumes: true
-    withHostModelCPU: true
     withHostPassthroughCPU: true
 ```
 

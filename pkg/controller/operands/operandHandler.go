@@ -56,6 +56,8 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshift
 		(*genericOperand)(newImsConfigHandler(client, scheme)),
 	}
 
+	Initiate(isOpenshiftCluster)
+
 	if isOpenshiftCluster {
 		operands = append(operands, []Operand{
 			newSspHandler(client, scheme),
@@ -70,6 +72,10 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshift
 		operands:     operands,
 		eventEmitter: eventEmitter,
 	}
+}
+
+func Initiate(isOpenshiftCluster bool) {
+	mandatoryKvFeatureGates = getMandatoryKvFeatureGates(isOpenshiftCluster)
 }
 
 // The k8s client is not available when calling to NewOperandHandler.

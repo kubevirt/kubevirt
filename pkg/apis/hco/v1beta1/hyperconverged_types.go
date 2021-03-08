@@ -96,75 +96,16 @@ type FeatureGate *bool
 // by default yet.
 // +optional
 // +k8s:openapi-gen=true
-// +kubebuilder:default={}
 type HyperConvergedFeatureGates struct {
-	// Allow migrating a virtual machine with SRIOV interfaces.
-	// When enabled virt-launcher pods of virtual machines with SRIOV
-	// interfaces run with CAP_SYS_RESOURCE capability.
-	// This may degrade virt-launcher security.
-	// +optional
-	// +kubebuilder:default=false
-	SRIOVLiveMigration FeatureGate `json:"sriovLiveMigration,omitempty"`
-
-	// Allow attaching a data volume to a running VMI
-	// +optional
-	// +kubebuilder:default=false
-	HotplugVolumes FeatureGate `json:"hotplugVolumes,omitempty"`
-
-	// Allow assigning GPU and vGPU devices to virtual machines
-	// +optional
-	// +kubebuilder:default=false
-	GPU FeatureGate `json:"gpu,omitempty"`
-
-	// Allow assigning host devices to virtual machines
-	// +optional
-	// +kubebuilder:default=false
-	HostDevices FeatureGate `json:"hostDevices,omitempty"`
-
 	// Allow migrating a virtual machine with CPU host-passthrough mode. This should be
 	// enabled only when the Cluster is homogeneous from CPU HW perspective doc here
 	// +optional
 	// +kubebuilder:default=false
 	WithHostPassthroughCPU FeatureGate `json:"withHostPassthroughCPU,omitempty"`
-
-	// Support migration for VMs with host-model CPU mode
-	// +optional
-	// +kubebuilder:default=true
-	WithHostModelCPU FeatureGate `json:"withHostModelCPU,omitempty"`
-
-	// Enable HyperV strict host checking for HyperV enlightenments
-	// Defaults to true, even when HyperConvergedFeatureGates is empty
-	// +optional
-	// +kubebuilder:default=true
-	HypervStrictCheck FeatureGate `json:"hypervStrictCheck,omitempty"`
-}
-
-func (fgs *HyperConvergedFeatureGates) IsHotplugVolumesEnabled() bool {
-	return (fgs != nil) && (fgs.HotplugVolumes != nil) && (*fgs.HotplugVolumes)
-}
-
-func (fgs *HyperConvergedFeatureGates) IsGPUAssignmentEnabled() bool {
-	return (fgs != nil) && (fgs.GPU != nil) && (*fgs.GPU)
-}
-
-func (fgs *HyperConvergedFeatureGates) IsHostDevicesAssignmentEnabled() bool {
-	return (fgs != nil) && (fgs.HostDevices != nil) && (*fgs.HostDevices)
-}
-
-func (fgs *HyperConvergedFeatureGates) IsSRIOVLiveMigrationEnabled() bool {
-	return (fgs != nil) && (fgs.SRIOVLiveMigration != nil) && (*fgs.SRIOVLiveMigration)
 }
 
 func (fgs *HyperConvergedFeatureGates) IsWithHostPassthroughCPUEnabled() bool {
 	return (fgs != nil) && (fgs.WithHostPassthroughCPU != nil) && (*fgs.WithHostPassthroughCPU)
-}
-
-func (fgs *HyperConvergedFeatureGates) IsWithHostModelCPUEnabled() bool {
-	return (fgs != nil) && (fgs.WithHostModelCPU != nil) && (*fgs.WithHostModelCPU)
-}
-
-func (fgs *HyperConvergedFeatureGates) IsHypervStrictCheckEnabled() bool {
-	return (fgs != nil) && (fgs.HypervStrictCheck != nil) && (*fgs.HypervStrictCheck)
 }
 
 // HyperConvergedStatus defines the observed state of HyperConverged

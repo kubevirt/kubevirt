@@ -304,110 +304,6 @@ var _ = Describe("HyperconvergedTypes", func() {
 		disabled := false
 		enabled := true
 
-		Context("Test IsHotplugVolumesEnabled", func() {
-			It("Should return false if HyperConvergedFeatureGates is nil", func() {
-				var fgs *HyperConvergedFeatureGates = nil
-				Expect(fgs.IsHotplugVolumesEnabled()).To(BeFalse())
-			})
-
-			It("Should return false if HotplugVolumes does not exist", func() {
-				fgs := &HyperConvergedFeatureGates{}
-				Expect(fgs.IsHotplugVolumesEnabled()).To(BeFalse())
-			})
-
-			It("Should return false if HotplugVolumes is false", func() {
-				fgs := &HyperConvergedFeatureGates{
-					HotplugVolumes: &disabled,
-				}
-				Expect(fgs.IsHotplugVolumesEnabled()).To(BeFalse())
-			})
-
-			It("Should return true if HotplugVolumes is true", func() {
-				fgs := &HyperConvergedFeatureGates{
-					HotplugVolumes: &enabled,
-				}
-				Expect(fgs.IsHotplugVolumesEnabled()).To(BeTrue())
-			})
-		})
-
-		Context("Test IsSRIOVLiveMigrationEnabled", func() {
-			It("Should return false if HyperConvergedFeatureGates is nil", func() {
-				var fgs *HyperConvergedFeatureGates = nil
-				Expect(fgs.IsSRIOVLiveMigrationEnabled()).To(BeFalse())
-			})
-
-			It("Should return false if IsSRIOVLiveMigrationEnabled does not exist", func() {
-				fgs := &HyperConvergedFeatureGates{}
-				Expect(fgs.IsSRIOVLiveMigrationEnabled()).To(BeFalse())
-			})
-
-			It("Should return false if IsSRIOVLiveMigrationEnabled is false", func() {
-				fgs := &HyperConvergedFeatureGates{
-					SRIOVLiveMigration: &disabled,
-				}
-				Expect(fgs.IsSRIOVLiveMigrationEnabled()).To(BeFalse())
-			})
-
-			It("Should return true if IsSRIOVLiveMigrationEnabled is true", func() {
-				fgs := &HyperConvergedFeatureGates{
-					SRIOVLiveMigration: &enabled,
-				}
-				Expect(fgs.IsSRIOVLiveMigrationEnabled()).To(BeTrue())
-			})
-		})
-
-		Context("Test IsGPUAssignmentEnabled", func() {
-			It("Should return false if HyperConvergedFeatureGates is nil", func() {
-				var fgs *HyperConvergedFeatureGates = nil
-				Expect(fgs.IsGPUAssignmentEnabled()).To(BeFalse())
-			})
-
-			It("Should return false if IsGPUAssignmentEnabled does not exist", func() {
-				fgs := &HyperConvergedFeatureGates{}
-				Expect(fgs.IsGPUAssignmentEnabled()).To(BeFalse())
-			})
-
-			It("Should return false if IsGPUAssignmentEnabled is false", func() {
-				fgs := &HyperConvergedFeatureGates{
-					GPU: &disabled,
-				}
-				Expect(fgs.IsGPUAssignmentEnabled()).To(BeFalse())
-			})
-
-			It("Should return true if IsGPUAssignmentEnabled is true", func() {
-				fgs := &HyperConvergedFeatureGates{
-					GPU: &enabled,
-				}
-				Expect(fgs.IsGPUAssignmentEnabled()).To(BeTrue())
-			})
-		})
-
-		Context("Test IsHostDevicesAssignmentEnabled", func() {
-			It("Should return false if HyperConvergedFeatureGates is nil", func() {
-				var fgs *HyperConvergedFeatureGates = nil
-				Expect(fgs.IsHostDevicesAssignmentEnabled()).To(BeFalse())
-			})
-
-			It("Should return false if IsHostDevicesAssignmentEnabled does not exist", func() {
-				fgs := &HyperConvergedFeatureGates{}
-				Expect(fgs.IsHostDevicesAssignmentEnabled()).To(BeFalse())
-			})
-
-			It("Should return false if IsHostDevicesAssignmentEnabled is false", func() {
-				fgs := &HyperConvergedFeatureGates{
-					HostDevices: &disabled,
-				}
-				Expect(fgs.IsHostDevicesAssignmentEnabled()).To(BeFalse())
-			})
-
-			It("Should return true if IsHostDevicesAssignmentEnabled is true", func() {
-				fgs := &HyperConvergedFeatureGates{
-					HostDevices: &enabled,
-				}
-				Expect(fgs.IsHostDevicesAssignmentEnabled()).To(BeTrue())
-			})
-		})
-
 		Context("Test IsWithHostPassthroughCPUEnabled", func() {
 			It("Should return false if HyperConvergedFeatureGates is nil", func() {
 				var fgs *HyperConvergedFeatureGates = nil
@@ -433,63 +329,11 @@ var _ = Describe("HyperconvergedTypes", func() {
 				Expect(fgs.IsWithHostPassthroughCPUEnabled()).To(BeTrue())
 			})
 		})
-
-		Context("Test IsWithHostModelCPUEnabled", func() {
-			It("Should return false if HyperConvergedFeatureGates is nil", func() {
-				var fgs *HyperConvergedFeatureGates = nil
-				Expect(fgs.IsWithHostModelCPUEnabled()).To(BeFalse())
-			})
-
-			It("Should return false if WithHostModelCPU does not exist", func() {
-				fgs := &HyperConvergedFeatureGates{}
-				Expect(fgs.IsWithHostModelCPUEnabled()).To(BeFalse())
-			})
-
-			It("Should return false if WithHostModelCPU is false", func() {
-				fgs := &HyperConvergedFeatureGates{
-					WithHostModelCPU: &disabled,
-				}
-				Expect(fgs.IsWithHostModelCPUEnabled()).To(BeFalse())
-			})
-
-			It("Should return true if WithHostModelCPU is true", func() {
-				fgs := &HyperConvergedFeatureGates{
-					WithHostModelCPU: &enabled,
-				}
-				Expect(fgs.IsWithHostModelCPUEnabled()).To(BeTrue())
-			})
-		})
-
-		Context("Test IsHypervStrictCheckEnabled", func() {
-			It("Should return false if HyperConvergedFeatureGates is nil", func() {
-				var fgs *HyperConvergedFeatureGates = nil
-				Expect(fgs.IsHypervStrictCheckEnabled()).To(BeFalse())
-			})
-
-			It("Should return false if HypervStrictCheck does not exist", func() {
-				fgs := &HyperConvergedFeatureGates{}
-				Expect(fgs.IsHypervStrictCheckEnabled()).To(BeFalse())
-			})
-
-			It("Should return false if HypervStrictCheck is false", func() {
-				fgs := &HyperConvergedFeatureGates{
-					HypervStrictCheck: &disabled,
-				}
-				Expect(fgs.IsHypervStrictCheckEnabled()).To(BeFalse())
-			})
-
-			It("Should return true if HypervStrictCheck is true", func() {
-				fgs := &HyperConvergedFeatureGates{
-					HypervStrictCheck: &enabled,
-				}
-				Expect(fgs.IsHypervStrictCheckEnabled()).To(BeTrue())
-			})
-		})
 	})
 
 	Context("Test Auto generated code", func() {
 		enabled := true
-		disabled := false
+
 		hco := HyperConverged{
 			TypeMeta: metav1.TypeMeta{
 				Kind: "Hyperconverged",
@@ -517,9 +361,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 					},
 				},
 				FeatureGates: HyperConvergedFeatureGates{
-					SRIOVLiveMigration: &enabled,
-					HotplugVolumes:     &disabled,
-					WithHostModelCPU:   &enabled,
+					WithHostPassthroughCPU: &enabled,
 				},
 				Version: "v1.2.3",
 			},
@@ -533,10 +375,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 			Expect(aCopy.Spec.LocalStorageClassName).Should(Equal("LocalStorageClassName"))
 			Expect(aCopy.Spec.Infra.NodePlacement).Should(Equal(hco.Spec.Infra.NodePlacement))
 			Expect(aCopy.Spec.Workloads.NodePlacement).Should(Equal(hco.Spec.Workloads.NodePlacement))
-			Expect(*aCopy.Spec.FeatureGates.SRIOVLiveMigration).Should(BeTrue())
-			Expect(*aCopy.Spec.FeatureGates.HotplugVolumes).Should(BeFalse())
-			Expect(*aCopy.Spec.FeatureGates.WithHostModelCPU).Should(BeTrue())
-			Expect(aCopy.Spec.FeatureGates.WithHostPassthroughCPU).Should(BeNil())
+			Expect(*aCopy.Spec.FeatureGates.WithHostPassthroughCPU).Should(BeTrue())
 		})
 
 		It("Should fail to compare if modified", func() {

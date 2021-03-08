@@ -38,6 +38,8 @@ func (wh *WebhookHandler) Init(logger logr.Logger, cli client.Client, namespace 
 	wh.cli = cli
 	wh.namespace = namespace
 	wh.isOpenshift = isOpenshift
+
+	operands.Initiate(isOpenshift)
 }
 
 func (wh WebhookHandler) ValidateCreate(hc *v1beta1.HyperConverged) error {

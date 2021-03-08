@@ -112,12 +112,8 @@ var _ = Describe("HyperconvergedController", func() {
 			It("should create all managed resources", func() {
 				hco := commonTestUtils.NewHco()
 				enabled := true
-				disabled := false
 				hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-					SRIOVLiveMigration: &enabled,
-					HotplugVolumes:     &enabled,
-					GPU:                &disabled,
-					HostDevices:        &enabled,
+					WithHostPassthroughCPU: &enabled,
 				}
 
 				cl := commonTestUtils.InitClient([]runtime.Object{hco})
@@ -173,10 +169,22 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(kvList.Items).Should(HaveLen(1))
 				kv := kvList.Items[0]
 				Expect(kv.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
-				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(10))
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(12))
 
-				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements("DataVolumes", "SRIOV", "LiveMigration", "CPUManager", "CPUNodeDiscovery", "Sidecar", "Snapshot"))
-				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements("SRIOVLiveMigration", "HotplugVolumes", "HostDevices"))
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements(
+					"DataVolumes",
+					"SRIOV",
+					"LiveMigration",
+					"CPUManager",
+					"CPUNodeDiscovery",
+					"Snapshot",
+					"HotplugVolumes",
+					"GPU",
+					"HostDevices",
+					"WithHostModelCPU",
+					"HypervStrictCheck"),
+				)
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement("WithHostPassthroughCPU"))
 			})
 
 			It("should find all managed resources", func() {
@@ -858,6 +866,7 @@ var _ = Describe("HyperconvergedController", func() {
 			// have the correct labels
 			os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
 
+			operands.Initiate(true)
 			expected := getBasicDeployment()
 			origConditions := expected.hco.Status.Conditions
 			okConds := expected.hco.Status.Conditions

@@ -33,26 +33,21 @@ If there is a real need for a new feature gate, please follow these steps:
         - add detailed description in the comment
         - default annotation
         - optional annotation
-
 for example:
-
-  ```golang
-  // Allow migrating a virtual machine with SRIOV interfaces.
-// When enabled virt-launcher pods of virtual machines with SRIOV
-// interfaces run with CAP_SYS_RESOURCE capability.
-// This may degrade virt-launcher security.
-// +optional
-// +kubebuilder:default=false
-SRIOVLiveMigration FeatureGate `json:"sriovLiveMigration,omitempty"`
-  ```
+    ```golang
+	// Allow migrating a virtual machine with CPU host-passthrough mode. This should be
+    // enabled only when the Cluster is homogeneous from CPU HW perspective doc here
+    // +optional
+    // +kubebuilder:default=false
+    WithHostPassthroughCPU FeatureGate `json:"withHostPassthroughCPU,omitempty"`
+    ```
 
 1. Add `IsEnabled` method for the new feature gate. It should be something like this:
-
-  ```golang
-  func (fgs *HyperConvergedFeatureGates) IsHotplugVolumesEnabled() bool {
-return (fgs != nil) && (fgs.HotplugVolumes != nil) && (*fgs.HotplugVolumes)
-}
-  ```
+   ```golang
+   func (fgs *HyperConvergedFeatureGates) IsWithHostPassthroughCPUEnabled() bool {
+      return (fgs != nil) && (fgs.WithHostPassthroughCPU != nil) && (*fgs.WithHostPassthroughCPU)
+   }
+   ```
 1. Run openapi-gen code generation (the GOPATH below is an example. use the right value for your settings)
     ```shell
     GOPATH=~/go GO111MODULE=auto openapi-gen --output-file-base zz_generated.openapi --input-dirs="github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1" --output-package github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1
@@ -64,7 +59,6 @@ return (fgs != nil) && (fgs.HotplugVolumes != nil) && (*fgs.HotplugVolumes)
 1. Add a set of unit tests
    in [pkg/apis/hco/v1beta1/hyperconverged_types_test.go](pkg/apis/hco/v1beta1/hyperconverged_types_test.go)
    to check this new function.
-1. Add the new feature gate to the default of the FeatureGates field in the `HyperConvergedSpec` struct
 1. Add the new feature gate to the relevant operator handler. Currently, this is only supported for KubeVirt. For
    KubeVirt, do the following:
    In [pkg/controller/operands/kubevirt.go](pkg/controller/operands/kubevirt.go)

@@ -88,51 +88,9 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedFeatureGates(ref common.Reference
 				Description: "HyperConvergedFeatureGates is a set of optional feature gates to enable or disable new features that are not enabled by default yet.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"sriovLiveMigration": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Allow migrating a virtual machine with SRIOV interfaces. When enabled virt-launcher pods of virtual machines with SRIOV interfaces run with CAP_SYS_RESOURCE capability. This may degrade virt-launcher security.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"hotplugVolumes": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Allow attaching a data volume to a running VMI",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"gpu": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Allow assigning GPU and vGPU devices to virtual machines",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"hostDevices": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Allow assigning host devices to virtual machines",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
 					"withHostPassthroughCPU": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Allow migrating a virtual machine with CPU host-passthrough mode. This should be enabled only when the Cluster is homogeneous from CPU HW perspective doc here",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"withHostModelCPU": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Support migration for VMs with host-model CPU mode",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"hypervStrictCheck": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Enable HyperV strict host checking for HyperV enlightenments Defaults to true, even when HyperConvergedFeatureGates is empty",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

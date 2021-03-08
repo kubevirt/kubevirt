@@ -35,6 +35,8 @@ const (
 	SmbiosConfigKey         = "smbios"
 	SELinuxLauncherTypeKey  = "selinuxLauncherType"
 	DefaultNetworkInterface = "bridge"
+
+	SELinuxLauncherType = "virt_launcher.process"
 )
 
 // env vars
@@ -67,16 +69,17 @@ const (
 	// Enables schedule VMIs according to their CPU model
 	kvCPUNodeDiscoveryGate = "CPUNodeDiscovery"
 
-	// Enables using our sidecar hooks for injecting custom logic into the VMI startup flow. This is a very advanced
-	// feature that has security implications, which is why it is opt-in only
-	// TODO: Remove this feature gate because it creates a security issue:
-	// it allows anyone to execute arbitrary third party code in the VMI pod.
-	// Since the VMI pods execute with capabilities that a user may not actually
-	// have, it's a path to privilege escalation.
-	kvSidecarGate = "Sidecar"
-
 	// Enables the alpha offline snapshot functionality
 	kvSnapshotGate = "Snapshot"
+
+	// Allow attaching a data volume to a running VMI
+	kvHotplugVolumesGate = "HotplugVolumes"
+
+	// Allow assigning GPU and vGPU devices to virtual machines
+	kvGPUGate = "GPU"
+
+	// Allow assigning host devices to virtual machines
+	kvHostDevicesGate = "HostDevices"
 )
 
 var (
@@ -86,21 +89,36 @@ var (
 		kvLiveMigrationGate,
 		kvCPUManagerGate,
 		kvCPUNodeDiscoveryGate,
-		kvSidecarGate,
 		kvSnapshotGate,
+		kvHotplugVolumesGate,
+		kvGPUGate,
+		kvHostDevicesGate,
+	}
+
+	// holds a list of mandatory KubeVirt feature gates. Some of them are the hard coded feature gates and some of
+	// them are added according to conditions; e.g. if SSP is deployed.
+	mandatoryKvFeatureGates []string
+)
+
+// These KubeVirt feature gates are automatically enabled in KubeVirt if SSP is deployed
+const (
+	// Support migration for VMs with host-model CPU mode
+	kvWithHostModelCPU = "WithHostModelCPU"
+
+	// Enable HyperV strict host checking for HyperV enlightenments
+	kvHypervStrictCheck = "HypervStrictCheck"
+)
+
+var (
+	sspConditionKvFgs = []string{
+		kvWithHostModelCPU,
+		kvHypervStrictCheck,
 	}
 )
 
 // KubeVirt feature gates that are exposed in HCO API
 const (
-	HotplugVolumesGate       = "HotplugVolumes"
 	kvWithHostPassthroughCPU = "WithHostPassthroughCPU"
-	kvWithHostModelCPU       = "WithHostModelCPU"
-	SRIOVLiveMigrationGate   = "SRIOVLiveMigration"
-	kvHypervStrictCheck      = "HypervStrictCheck"
-	GPUGate                  = "GPU"
-	HostDevicesGate          = "HostDevices"
-	SELinuxLauncherType      = "virt_launcher.process"
 )
 
 // ************  KubeVirt Handler  **************
@@ -408,13 +426,7 @@ type featureGateChecks map[string]func() bool
 
 func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) featureGateChecks {
 	return map[string]func() bool{
-		HotplugVolumesGate:       featureGates.IsHotplugVolumesEnabled,
 		kvWithHostPassthroughCPU: featureGates.IsWithHostPassthroughCPUEnabled,
-		kvWithHostModelCPU:       featureGates.IsWithHostModelCPUEnabled,
-		SRIOVLiveMigrationGate:   featureGates.IsSRIOVLiveMigrationEnabled,
-		kvHypervStrictCheck:      featureGates.IsHypervStrictCheckEnabled,
-		GPUGate:                  featureGates.IsGPUAssignmentEnabled,
-		HostDevicesGate:          featureGates.IsHostDevicesAssignmentEnabled,
 	}
 }
 
@@ -595,11 +607,19 @@ func NewKubeVirtConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *co
 	return cm
 }
 
+func getMandatoryKvFeatureGates(isOpenshiftCluster bool) []string {
+	mandatoryFeatureGates := append(hardCodeKvFgs)
+	if isOpenshiftCluster {
+		mandatoryFeatureGates = append(mandatoryFeatureGates, sspConditionKvFgs...)
+	}
+	return mandatoryFeatureGates
+}
+
 // get list of feature gates or KV FG list
 func getKvFeatureGateList(fgs *hcov1beta1.HyperConvergedFeatureGates) []string {
 	checks := getFeatureGateChecks(fgs)
-	res := make([]string, 0, len(checks)+len(hardCodeKvFgs))
-	res = append(res, hardCodeKvFgs...)
+	res := make([]string, 0, len(checks)+len(mandatoryKvFeatureGates))
+	res = append(res, mandatoryKvFeatureGates...)
 
 	for gate, check := range checks {
 		if check() {

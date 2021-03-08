@@ -43,13 +43,7 @@ HyperConvergedFeatureGates is a set of optional feature gates to enable or disab
 
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
-| sriovLiveMigration | Allow migrating a virtual machine with SRIOV interfaces. When enabled virt-launcher pods of virtual machines with SRIOV interfaces run with CAP_SYS_RESOURCE capability. This may degrade virt-launcher security. | FeatureGate | false | false |
-| hotplugVolumes | Allow attaching a data volume to a running VMI | FeatureGate | false | false |
-| gpu | Allow assigning GPU and vGPU devices to virtual machines | FeatureGate | false | false |
-| hostDevices | Allow assigning host devices to virtual machines | FeatureGate | false | false |
 | withHostPassthroughCPU | Allow migrating a virtual machine with CPU host-passthrough mode. This should be enabled only when the Cluster is homogeneous from CPU HW perspective doc here | FeatureGate | false | false |
-| withHostModelCPU | Support migration for VMs with host-model CPU mode | FeatureGate | true | false |
-| hypervStrictCheck | Enable HyperV strict host checking for HyperV enlightenments Defaults to true, even when HyperConvergedFeatureGates is empty | FeatureGate | true | false |
 
 [Back to TOC](#table-of-contents)
 

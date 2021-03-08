@@ -50,34 +50,6 @@ spec:
                   a flag to `true` will enable the feature. Setting `false` or removing
                   the feature gate, disables the feature.
                 properties:
-                  gpu:
-                    default: false
-                    description: Allow assigning GPU and vGPU devices to virtual machines
-                    type: boolean
-                  hostDevices:
-                    default: false
-                    description: Allow assigning host devices to virtual machines
-                    type: boolean
-                  hotplugVolumes:
-                    default: false
-                    description: Allow attaching a data volume to a running VMI
-                    type: boolean
-                  hypervStrictCheck:
-                    default: true
-                    description: Enable HyperV strict host checking for HyperV enlightenments
-                      Defaults to true, even when HyperConvergedFeatureGates is empty
-                    type: boolean
-                  sriovLiveMigration:
-                    default: false
-                    description: Allow migrating a virtual machine with SRIOV interfaces.
-                      When enabled virt-launcher pods of virtual machines with SRIOV
-                      interfaces run with CAP_SYS_RESOURCE capability. This may degrade
-                      virt-launcher security.
-                    type: boolean
-                  withHostModelCPU:
-                    default: true
-                    description: Support migration for VMs with host-model CPU mode
-                    type: boolean
                   withHostPassthroughCPU:
                     default: false
                     description: Allow migrating a virtual machine with CPU host-passthrough
