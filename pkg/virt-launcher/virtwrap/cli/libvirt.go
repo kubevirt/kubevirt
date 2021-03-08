@@ -271,7 +271,9 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 	defer func() {
 		for i := range domStats {
 			err := domStats[i].Domain.Free()
-			log.Log.Reason(err).Warning("Error freeing a domain.")
+			if err != nil {
+				log.Log.Reason(err).Warning("Error freeing a domain.")
+			}
 		}
 	}()
 

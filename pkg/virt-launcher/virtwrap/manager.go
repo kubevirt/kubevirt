@@ -1891,7 +1891,9 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 	defer func() {
 		for i := range doms {
 			err := doms[i].Free()
-			log.Log.Reason(err).Warning("Error freeing a domain")
+			if err != nil {
+				log.Log.Reason(err).Warning("Error freeing a domain")
+			}
 		}
 	}()
 
