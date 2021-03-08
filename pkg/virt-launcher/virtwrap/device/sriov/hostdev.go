@@ -41,6 +41,8 @@ const (
 	AliasPrefix = "sriov-"
 
 	MaxConcurrentHotPlugDevicesEvents = 32
+
+	affectLiveAndConfigLibvirtFlags = libvirt.DOMAIN_DEVICE_MODIFY_LIVE | libvirt.DOMAIN_DEVICE_MODIFY_CONFIG
 )
 
 func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
@@ -145,7 +147,7 @@ func detachHostDevices(dom deviceDetacher, hostDevices []api.HostDevice) error {
 		if err != nil {
 			return fmt.Errorf("failed to encode (xml) hostdev %v, err: %v", hostDev, err)
 		}
-		err = dom.DetachDeviceFlags(string(devXML), libvirt.DOMAIN_DEVICE_MODIFY_LIVE|libvirt.DOMAIN_DEVICE_MODIFY_CONFIG)
+		err = dom.DetachDeviceFlags(string(devXML), affectLiveAndConfigLibvirtFlags)
 		if err != nil {
 			return fmt.Errorf("failed to detach hostdev %s, err: %v", devXML, err)
 		}
@@ -218,7 +220,7 @@ func attachHostDevice(dom deviceAttacher, hostDev api.HostDevice) error {
 	if err != nil {
 		return fmt.Errorf("failed to encode (xml) host-device %v, err: %v", hostDev, err)
 	}
-	err = dom.AttachDeviceFlags(string(devXML), libvirt.DOMAIN_DEVICE_MODIFY_LIVE|libvirt.DOMAIN_DEVICE_MODIFY_CONFIG)
+	err = dom.AttachDeviceFlags(string(devXML), affectLiveAndConfigLibvirtFlags)
 	if err != nil {
 		return fmt.Errorf("failed to attach host-device %s, err: %v", devXML, err)
 	}
