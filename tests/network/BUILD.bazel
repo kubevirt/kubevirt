@@ -9,6 +9,7 @@ go_library(
         "services.go",
         "vmi_multus.go",
         "vmi_networking.go",
+        "vmi_slirp_interface.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/network",
     visibility = ["//visibility:public"],
