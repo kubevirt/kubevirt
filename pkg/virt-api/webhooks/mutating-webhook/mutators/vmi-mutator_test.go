@@ -585,7 +585,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	It("should set the hyperv dependencies", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
-				SyNICTimer: &v1.FeatureState{
+				SyNICTimer: &v1.SyNICTimer{
 					Enabled: &_true,
 				},
 			},
@@ -667,7 +667,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Relaxed: &v1.FeatureState{
 					Enabled: &_true,
 				},
-				SyNICTimer: &v1.FeatureState{
+				SyNICTimer: &v1.SyNICTimer{
 					Enabled: &_true,
 				},
 			},
@@ -685,7 +685,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			SyNIC: &v1.FeatureState{
 				Enabled: &_true,
 			},
-			SyNICTimer: &v1.FeatureState{
+			SyNICTimer: &v1.SyNICTimer{
 				Enabled: &_true,
 			},
 		}
@@ -707,7 +707,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					Enabled: &_false,
 				},
 				// should enable SyNIC
-				SyNICTimer: &v1.FeatureState{
+				SyNICTimer: &v1.SyNICTimer{
 					Enabled: &_true,
 				},
 			},
@@ -724,7 +724,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			SyNIC: &v1.FeatureState{
 				Enabled: &_true,
 			},
-			SyNICTimer: &v1.FeatureState{
+			SyNICTimer: &v1.SyNICTimer{
 				Enabled: &_true,
 			},
 		}

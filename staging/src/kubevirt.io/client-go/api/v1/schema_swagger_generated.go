@@ -446,6 +446,12 @@ func (Features) SwaggerDoc() map[string]string {
 	}
 }
 
+func (SyNICTimer) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
 func (FeatureState) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":        "Represents if a feature is enabled or disabled.\n\n+k8s:openapi-gen=true",

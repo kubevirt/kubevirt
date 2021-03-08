@@ -121,7 +121,10 @@ var exampleJSONFmt = `{
             "enabled": false
           },
           "synictimer": {
-            "enabled": true
+            "enabled": true,
+            "direct": {
+              "enabled": true
+            }
           },
           "reset": {
             "enabled": false
@@ -360,7 +363,7 @@ var _ = Describe("Schema", func() {
 				VPIndex:         &FeatureState{Enabled: _false},
 				Runtime:         &FeatureState{Enabled: _true},
 				SyNIC:           &FeatureState{Enabled: _false},
-				SyNICTimer:      &FeatureState{Enabled: _true},
+				SyNICTimer:      &SyNICTimer{Enabled: _true, Direct: &FeatureState{Enabled: _true}},
 				Reset:           &FeatureState{Enabled: _false},
 				VendorID:        &FeatureVendorID{Enabled: _true, VendorID: "vendor"},
 				Frequencies:     &FeatureState{Enabled: _false},

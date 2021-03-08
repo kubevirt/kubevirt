@@ -139,42 +139,48 @@ func makeHVFeatureLabelTable(vmi *v1.VirtualMachineInstance) []hvFeatureLabel {
 	// to learn about dependencies between enlightenments
 
 	hyperv := vmi.Spec.Domain.Features.Hyperv // shortcut
+
+	syNICTimer := &v1.FeatureState{}
+	if hyperv.SyNICTimer != nil {
+		syNICTimer.Enabled = hyperv.SyNICTimer.Enabled
+	}
+
 	return []hvFeatureLabel{
-		hvFeatureLabel{
+		{
 			Feature: hyperv.VPIndex,
 			Label:   "vpindex",
 		},
-		hvFeatureLabel{
+		{
 			Feature: hyperv.Runtime,
 			Label:   "runtime",
 		},
-		hvFeatureLabel{
+		{
 			Feature: hyperv.Reset,
 			Label:   "reset",
 		},
-		hvFeatureLabel{
+		{
 			// TODO: SyNIC depends on vp-index on QEMU level. We should enforce this constraint.
 			Feature: hyperv.SyNIC,
 			Label:   "synic",
 		},
-		hvFeatureLabel{
+		{
 			// TODO: SyNICTimer depends on SyNIC and Relaxed. We should enforce this constraint.
-			Feature: hyperv.SyNICTimer,
+			Feature: syNICTimer,
 			Label:   "synictimer",
 		},
-		hvFeatureLabel{
+		{
 			Feature: hyperv.Frequencies,
 			Label:   "frequencies",
 		},
-		hvFeatureLabel{
+		{
 			Feature: hyperv.Reenlightenment,
 			Label:   "reenlightenment",
 		},
-		hvFeatureLabel{
+		{
 			Feature: hyperv.TLBFlush,
 			Label:   "tlbflush",
 		},
-		hvFeatureLabel{
+		{
 			Feature: hyperv.IPI,
 			Label:   "ipi",
 		},

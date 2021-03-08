@@ -2518,8 +2518,14 @@ var CRDsValidation map[string]string = map[string]string{
                             synictimer:
                               description: SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load. Defaults to the machine type setting.
                               properties:
+                                direct:
+                                  description: Represents if a feature is enabled or disabled.
+                                  properties:
+                                    enabled:
+                                      description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                      type: boolean
+                                  type: object
                                 enabled:
-                                  description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
                                   type: boolean
                               type: object
                             tlbflush:
@@ -4317,8 +4323,14 @@ var CRDsValidation map[string]string = map[string]string{
                     synictimer:
                       description: SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load. Defaults to the machine type setting.
                       properties:
+                        direct:
+                          description: Represents if a feature is enabled or disabled.
+                          properties:
+                            enabled:
+                              description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                              type: boolean
+                          type: object
                         enabled:
-                          description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
                           type: boolean
                       type: object
                     tlbflush:
@@ -5712,8 +5724,14 @@ var CRDsValidation map[string]string = map[string]string{
                     synictimer:
                       description: SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load. Defaults to the machine type setting.
                       properties:
+                        direct:
+                          description: Represents if a feature is enabled or disabled.
+                          properties:
+                            enabled:
+                              description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                              type: boolean
+                          type: object
                         enabled:
-                          description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
                           type: boolean
                       type: object
                     tlbflush:
@@ -6883,8 +6901,14 @@ var CRDsValidation map[string]string = map[string]string{
                             synictimer:
                               description: SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load. Defaults to the machine type setting.
                               properties:
+                                direct:
+                                  description: Represents if a feature is enabled or disabled.
+                                  properties:
+                                    enabled:
+                                      description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                      type: boolean
+                                  type: object
                                 enabled:
-                                  description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
                                   type: boolean
                               type: object
                             tlbflush:
@@ -8992,8 +9016,14 @@ var CRDsValidation map[string]string = map[string]string{
                                         synictimer:
                                           description: SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load. Defaults to the machine type setting.
                                           properties:
+                                            direct:
+                                              description: Represents if a feature is enabled or disabled.
+                                              properties:
+                                                enabled:
+                                                  description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
+                                                  type: boolean
+                                              type: object
                                             enabled:
-                                              description: Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.
                                               type: boolean
                                           type: object
                                         tlbflush:

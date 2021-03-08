@@ -9701,7 +9701,7 @@
      },
      "synictimer": {
       "description": "SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load. Defaults to the machine type setting.",
-      "$ref": "#/definitions/v1.FeatureState"
+      "$ref": "#/definitions/v1.SyNICTimer"
      },
      "tlbflush": {
       "description": "TLBFlush improves performances in overcommited environments. Requires vpindex. Defaults to the machine type setting.",
@@ -10873,6 +10873,17 @@
      "serviceAccountName": {
       "description": "Name of the service account in the pod's namespace to use. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/",
       "type": "string"
+     }
+    }
+   },
+   "v1.SyNICTimer": {
+    "type": "object",
+    "properties": {
+     "direct": {
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "enabled": {
+      "type": "boolean"
      }
     }
    },

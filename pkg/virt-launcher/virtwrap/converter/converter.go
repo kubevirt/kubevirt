@@ -843,11 +843,12 @@ func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyp
 			Value: source.VendorID.VendorID,
 		}
 	}
+
 	hyperv.Relaxed = convertFeatureState(source.Relaxed)
 	hyperv.Reset = convertFeatureState(source.Reset)
 	hyperv.Runtime = convertFeatureState(source.Runtime)
 	hyperv.SyNIC = convertFeatureState(source.SyNIC)
-	hyperv.SyNICTimer = convertFeatureState(source.SyNICTimer)
+	hyperv.SyNICTimer = convertV1ToAPISyNICTimer(source.SyNICTimer)
 	hyperv.VAPIC = convertFeatureState(source.VAPIC)
 	hyperv.VPIndex = convertFeatureState(source.VPIndex)
 	hyperv.Frequencies = convertFeatureState(source.Frequencies)
@@ -856,6 +857,19 @@ func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyp
 	hyperv.IPI = convertFeatureState(source.IPI)
 	hyperv.EVMCS = convertFeatureState(source.EVMCS)
 	return nil
+}
+
+func convertV1ToAPISyNICTimer(syNICTimer *v1.SyNICTimer) *api.SyNICTimer {
+	result := &api.SyNICTimer{
+		State: boolToOnOff(syNICTimer.Enabled, true),
+	}
+
+	if syNICTimer.Direct != nil {
+		result.Direct = &api.FeatureState{
+			State: boolToOnOff(syNICTimer.Direct.Enabled, true),
+		}
+	}
+	return result
 }
 
 func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *ConverterContext) {

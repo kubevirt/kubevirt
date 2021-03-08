@@ -68,9 +68,10 @@ var getWindowsVMISpec = func() v1.VirtualMachineInstanceSpec {
 				ACPI: v1.FeatureState{},
 				APIC: &v1.FeatureAPIC{},
 				Hyperv: &v1.FeatureHyperv{
-					Relaxed:   &v1.FeatureState{},
-					VAPIC:     &v1.FeatureState{},
-					Spinlocks: &v1.FeatureSpinlocks{Retries: &spinlocks},
+					Relaxed:    &v1.FeatureState{},
+					SyNICTimer: &v1.SyNICTimer{Direct: &v1.FeatureState{}},
+					VAPIC:      &v1.FeatureState{},
+					Spinlocks:  &v1.FeatureSpinlocks{Retries: &spinlocks},
 				},
 			},
 			Clock: &v1.Clock{

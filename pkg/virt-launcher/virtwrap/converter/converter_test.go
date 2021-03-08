@@ -203,7 +203,7 @@ var _ = Describe("Converter", func() {
 					VPIndex:         &v1.FeatureState{Enabled: &_true},
 					Runtime:         &v1.FeatureState{Enabled: &_false},
 					SyNIC:           &v1.FeatureState{Enabled: &_true},
-					SyNICTimer:      &v1.FeatureState{Enabled: &_false},
+					SyNICTimer:      &v1.SyNICTimer{Enabled: &_true, Direct: &v1.FeatureState{Enabled: &_true}},
 					Reset:           &v1.FeatureState{Enabled: &_true},
 					VendorID:        &v1.FeatureVendorID{Enabled: &_false, VendorID: "myvendor"},
 					Frequencies:     &v1.FeatureState{Enabled: &_false},
@@ -656,7 +656,9 @@ var _ = Describe("Converter", func() {
       <vpindex state="on"></vpindex>
       <runtime state="off"></runtime>
       <synic state="on"></synic>
-      <stimer state="off"></stimer>
+      <stimer state="on">
+        <direct state="on"></direct>
+      </stimer>
       <reset state="on"></reset>
       <vendor_id state="off" value="myvendor"></vendor_id>
       <frequencies state="off"></frequencies>
@@ -869,7 +871,9 @@ var _ = Describe("Converter", func() {
       <vpindex state="on"></vpindex>
       <runtime state="off"></runtime>
       <synic state="on"></synic>
-      <stimer state="off"></stimer>
+      <stimer state="on">
+        <direct state="on"></direct>
+      </stimer>
       <reset state="on"></reset>
       <vendor_id state="off" value="myvendor"></vendor_id>
       <frequencies state="off"></frequencies>
@@ -1098,7 +1102,9 @@ var _ = Describe("Converter", func() {
       <vpindex state="on"></vpindex>
       <runtime state="off"></runtime>
       <synic state="on"></synic>
-      <stimer state="off"></stimer>
+      <stimer state="on">
+        <direct state="on"></direct>
+      </stimer>
       <reset state="on"></reset>
       <vendor_id state="off" value="myvendor"></vendor_id>
       <frequencies state="off"></frequencies>
