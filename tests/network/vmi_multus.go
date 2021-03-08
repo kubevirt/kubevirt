@@ -17,7 +17,7 @@
  *
  */
 
-package tests_test
+package network
 
 import (
 	"context"
