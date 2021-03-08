@@ -10,7 +10,7 @@ ENV USER_UID=1001 \
     TEST_OUT_PATH=/test
 
 WORKDIR ${TEST_OUT_PATH}
-ENTRYPOINT ./hack/run-tests.sh
+ENTRYPOINT ["./hack/run-tests.sh"]
 
 RUN curl -Lo /usr/local/bin/kubectl "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl" && \
     chmod a+x /usr/local/bin/kubectl && \

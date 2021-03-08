@@ -114,7 +114,6 @@ cluster-clean:
 
 ci-functest: build-functest test-functional
 
-# will revert
 functest: build-functest test-functional-in-container
 
 build-functest:

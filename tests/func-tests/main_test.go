@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	ginkgo_reporters "kubevirt.io/qe-tools/pkg/ginkgo-reporters"
 	"testing"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
@@ -11,12 +12,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kubevirt.io/client-go/kubecli"
 	testscore "kubevirt.io/kubevirt/tests"
-	flags "kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 func TestTests(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Tests Suite")
+	RunSpecsWithDefaultAndCustomReporters(t, "Tests Suite", NewReporters())
+}
+
+// NewReporters is a function to gather new ginkgo test reporters
+func NewReporters() []Reporter {
+	reporters := make([]Reporter, 0)
+	if ginkgo_reporters.Polarion.Run {
+		reporters = append(reporters, &ginkgo_reporters.Polarion)
+	}
+	if ginkgo_reporters.JunitOutput != "" {
+		reporters = append(reporters, ginkgo_reporters.NewJunitReporter())
+	}
+	return reporters
 }
 
 var _ = BeforeSuite(func() {

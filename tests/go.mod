@@ -3,13 +3,12 @@ module github.com/kubevirt/hyperconverged-cluster-operator/tests
 go 1.15
 
 require (
-	github.com/onsi/ginkgo v1.14.2
-	github.com/onsi/gomega v1.10.4
+	github.com/onsi/ginkgo v1.15.0
+	github.com/onsi/gomega v1.10.5
 )
 
 require (
 	github.com/evanphx/json-patch v4.9.0+incompatible // indirect
-	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-openapi/spec v0.19.7 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/mock v1.4.0 // indirect
@@ -22,6 +21,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	kubevirt.io/client-go v0.36.0
 	kubevirt.io/kubevirt v0.36.0
+	kubevirt.io/qe-tools v0.1.6
 )
 
 // Pinned to kubernetes-1.16.4 to kubevirt.io/kubevirt v0.33.0
