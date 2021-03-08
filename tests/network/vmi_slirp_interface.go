@@ -20,6 +20,7 @@
 package network
 
 import (
+	"fmt"
 	"strings"
 
 	expect "github.com/google/goexpect"
@@ -36,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -146,10 +148,15 @@ var _ = SIGDescribe("[Serial]Slirp Networking", func() {
 
 	table.DescribeTable("[outside_connectivity]should be able to communicate with the outside world", func(vmiRef **v1.VirtualMachineInstance) {
 		vmi := *vmiRef
+		dns := "google.com"
+		if flags.ConnectivityCheckDNS != "" {
+			dns = flags.ConnectivityCheckDNS
+		}
+
 		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: "curl -o /dev/null -s -w \"%%{http_code}\\n\" -k https://google.com\n"},
+			&expect.BSnd{S: fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" -k https://%s\n", dns)},
 			&expect.BExp{R: "301"},
 		}, 180)).To(Succeed())
 	},

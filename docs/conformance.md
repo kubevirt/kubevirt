@@ -62,6 +62,12 @@ Skipped: 579
 make conformance
 ```
 
+To run without outside connectivity tests add the argument:
+
+```bash
+make conformance SKIP_OUTSIDE_CONN_TESTS=true
+```
+
 ## Generate manifests
 
 Conformance tests plugin manifest template under
