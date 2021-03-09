@@ -245,7 +245,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
 		},
-			table.Entry("[test_id:1539]the Inbound VirtualMachineInstance", "InboundVMI"),
+			table.Entry("[QUARANTINE][owner:@sig-network][test_id:1539]the Inbound VirtualMachineInstance", "InboundVMI"),
 			table.Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", "InboundVMIWithPodNetworkSet"),
 			table.Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", "InboundVMIWithCustomMacAddress"),
 			table.Entry("[test_id:1542]the internet", "Internet"),
