@@ -13,6 +13,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/util:go_default_library",
         "//pkg/util/sysctl:go_default_library",
         "//pkg/virt-handler/selinux:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
