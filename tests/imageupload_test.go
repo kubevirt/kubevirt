@@ -143,7 +143,7 @@ var _ = Describe("[Serial]ImageUpload", func() {
 				"--image-path", imagePath,
 				"--size", pvcSize,
 				"--uploadproxy-url", fmt.Sprintf("https://127.0.0.1:%d", localUploadProxyPort),
-				"--wait-secs", "30",
+				"--wait-secs", "60",
 				"--storage-class", sc,
 				"--insecure")
 			err := virtctlCmd()
