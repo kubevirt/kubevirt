@@ -594,23 +594,6 @@ func (c *KubeVirtController) execute(key string) error {
 
 	// Fetch the latest KubeVirt from cache
 	obj, exists, err := c.kubeVirtInformer.GetStore().GetByKey(key)
-	//namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	//if err != nil {
-	//	return err
-	//}
-	//kv, err := c.clientset.KubeVirt(namespace).Get(name, &metav1.GetOptions{})
-	//if err != nil {
-	//	// The Foo resource may no longer exist, in which case we stop
-	//	// processing.
-	//	if errors.IsNotFound(err) {
-	//		// when the resource is gone, deletion was handled already
-	//		log.Log.Infof("KubeVirt resource not found")
-	//		c.kubeVirtExpectations.DeleteExpectations(key)
-	//		return nil
-	//	}
-	//
-	//	return err
-	//}
 
 	if err != nil {
 		return err

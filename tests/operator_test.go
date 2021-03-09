@@ -920,16 +920,16 @@ spec:
 			}, 120*time.Second, 5*time.Second).Should(BeTrue(), "waiting for deployment to revert to original state")
 
 			generation := vc.ObjectMeta.Generation
-			currentKV := tests.GetCurrentKv(virtClient)
-			setGeneration := resourcemerge.ExpectedDeploymentGeneration(vc, currentKV.Status.Generations)
-
-			Expect(setGeneration).To(Equal(generation))
+			Eventually(func() int64 {
+				currentKV := tests.GetCurrentKv(virtClient)
+				return resourcemerge.ExpectedDeploymentGeneration(vc, currentKV.Status.Generations)
+			}, 60*time.Second, 5*time.Second).Should(Equal(generation), "reverted deployment generation should be set on KV resource")
 
 			By("Test that the expected generation is unchanged")
 			Consistently(func() int64 {
 				currentKV := tests.GetCurrentKv(virtClient)
 				return resourcemerge.ExpectedDeploymentGeneration(vc, currentKV.Status.Generations)
-			}, 30*time.Second, 5*time.Second).Should(Equal(setGeneration))
+			}, 30*time.Second, 5*time.Second).Should(Equal(generation))
 
 		})
 	})
