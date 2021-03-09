@@ -143,7 +143,7 @@ if ! $KUBEVIRT_CRI exec ${USE_TTY} ${BUILDER}-bazel-server /entrypoint.sh "$@"; 
     fi
     set -x
     # Copy the junit where prow can pick it up
-    if [ "$@" = "./hack/gosec.sh" ] && [ "$CI" = "true" ]; then
+    if [ -f ${OUT_DIR}/artifacts/junit-gosec.xml ] && [ "$CI" = "true" ]; then
         echo "Moving file in prow"
         mv ${OUT_DIR}/artifacts/junit-gosec.xml ${ARTIFACTS}
     fi
