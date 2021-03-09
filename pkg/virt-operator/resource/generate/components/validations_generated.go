@@ -5225,6 +5225,7 @@ var CRDsValidation map[string]string = map[string]string{
   type: object
 `,
 	"virtualmachineinstancepreset": `openAPIV3Schema:
+  description: 'VirtualMachineInstancePreset defines a VMI spec.domain to be applied to all VMIs that match the provided label selector More info: https://kubevirt.io/user-guide/virtual_machines/presets/#overrides'
   properties:
     apiVersion:
       description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'

@@ -935,6 +935,8 @@ const (
 	MigrationFailed VirtualMachineInstanceMigrationPhase = "Failed"
 )
 
+// VirtualMachineInstancePreset defines a VMI spec.domain to be applied to all VMIs that match the provided label selector
+// More info: https://kubevirt.io/user-guide/virtual_machines/presets/#overrides
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
