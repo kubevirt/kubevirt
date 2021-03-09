@@ -665,7 +665,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 			// Kubevirt re-enqueue the request once it happens, so its safe to ignore this warning.
 			// see https://github.com/kubevirt/kubevirt/issues/5027
 			warningsIgnoreList := []string{"unknown error encountered sending command SyncVMI: rpc error: code = DeadlineExceeded desc = context deadline exceeded"}
-			tests.WaitUntilVMIReadyIgnoreSelectedWarnings(vmi, libnet.WithIPv6(console.LoginToFedora), warningsIgnoreList)
+			tests.WaitUntilVMIReadyIgnoreSelectedWarnings(vmi, console.LoginToFedora, warningsIgnoreList)
 			tests.WaitAgentConnected(virtClient, vmi)
 			return vmi
 		}
