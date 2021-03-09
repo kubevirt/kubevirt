@@ -1,0 +1,21 @@
+name: Publish Tagged Version to Community Operators
+
+on:
+  push:
+    tags:
+      - v1.*
+jobs:
+  publish_hco:
+    if: (github.repository == 'kubevirt/hyperconverged-cluster-operator')
+    name: Publish HCO tagged version to community-operators
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the latest code
+        uses: actions/checkout@v2
+        with:
+          ref: master
+      - name: Run Publisher script
+        run: |
+          GIT_TAG=${{ github.ref }} \
+          HCO_TOKEN=${{ secrets.HCO_BOT_TOKEN }} \
+          ./automation/publisher/publisher.sh

@@ -9,5 +9,5 @@ LABEL operators.operatorframework.io.bundle.package.v1=community-kubevirt-hyperc
 LABEL operators.operatorframework.io.bundle.channels.v1=${VERSION}
 LABEL operators.operatorframework.io.bundle.channel.default.v1=${VERSION}
 
-COPY community-kubevirt-hyperconverged/${VERSION}/*.yaml /manifests/
+COPY community-kubevirt-hyperconverged/${VERSION}/manifests/ /manifests/
 COPY community-kubevirt-hyperconverged/${VERSION}/metadata /metadata/

@@ -981,14 +981,15 @@ func GetInstallStrategyBase(params *DeploymentOperatorParams) *csvv1alpha1.Strat
 }
 
 type CSVBaseParams struct {
-	Name        string
-	Namespace   string
-	DisplayName string
-	Description string
-	Image       string
-	Replaces    string
-	Version     semver.Version
-	CrdDisplay  string
+	Name            string
+	Namespace       string
+	DisplayName     string
+	MetaDescription string
+	Description     string
+	Image           string
+	Replaces        string
+	Version         semver.Version
+	CrdDisplay      string
 }
 
 // GetCSVBase returns a base HCO CSV without an InstallStrategy
@@ -1092,7 +1093,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 				"categories":     "OpenShift Optional",
 				"containerImage": params.Image,
 				"createdAt":      time.Now().Format("2006-01-02 15:04:05"),
-				"description":    params.Description,
+				"description":    params.MetaDescription,
 				"repository":     "https://github.com/kubevirt/hyperconverged-cluster-operator",
 				"support":        "false",
 				"operatorframework.io/suggested-namespace":     params.Namespace,

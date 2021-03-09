@@ -272,7 +272,8 @@ csplit --digits=2 --quiet --elide-empty-files \
 popd
 
 rm -fr "${CSV_DIR}"
-mkdir -p "${CSV_DIR}/metadata"
+mkdir -p "${CSV_DIR}/metadata" "${CSV_DIR}/manifests"
+
 
 cat << EOF > "${CSV_DIR}/metadata/annotations.yaml"
 annotations:
@@ -353,6 +354,7 @@ else
 fi
 
 # Build and merge CSVs
+CSV_DIR=${CSV_DIR}/manifests
 ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --cna-csv="$(<${cnaCsv})" \
   --virt-csv="$(<${virtCsv})" \
@@ -368,6 +370,7 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --hco-kv-io-version="${CSV_VERSION}" \
   --spec-displayname="KubeVirt HyperConverged Cluster Operator" \
   --spec-description="$(<${PROJECT_ROOT}/docs/operator_description.md)" \
+  --metadata-description="A unified operator deploying and controlling KubeVirt and its supporting operators with opinionated defaults" \
   --crd-display="HyperConverged Cluster Operator" \
   --smbios="${SMBIOS}" \
   --csv-overrides="$(<${csvOverrides})" \
@@ -412,8 +415,8 @@ rm -rf ${TEMPDIR}
 
 rm -rf "${INDEX_IMAGE_DIR:?}"
 mkdir -p "${INDEX_IMAGE_DIR:?}/${PACKAGE_NAME}"
-cp -r "${CSV_DIR}" "${INDEX_IMAGE_DIR:?}/${PACKAGE_NAME}/"
+cp -r "${CSV_DIR%/*}" "${INDEX_IMAGE_DIR:?}/${PACKAGE_NAME}/"
 cp "${OLM_DIR}/bundle.Dockerfile" "${INDEX_IMAGE_DIR:?}/"
 
-INDEX_IMAGE_CSV="${INDEX_IMAGE_DIR}/${PACKAGE_NAME}/${CSV_VERSION}/kubevirt-hyperconverged-operator.v${CSV_VERSION}.${CSV_EXT}"
+INDEX_IMAGE_CSV="${INDEX_IMAGE_DIR}/${PACKAGE_NAME}/${CSV_VERSION}/manifests/kubevirt-hyperconverged-operator.v${CSV_VERSION}.${CSV_EXT}"
 sed -r -i "s|createdAt: \".*\$|createdAt: \"2020-10-23 08:58:25\"|; s|quay.io/kubevirt/hyperconverged-cluster-operator.*$|+IMAGE_TO_REPLACE+|; s|quay.io/kubevirt/hyperconverged-cluster-webhook.*$|+WEBHOOK_IMAGE_TO_REPLACE+|" ${INDEX_IMAGE_CSV}

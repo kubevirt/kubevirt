@@ -102,7 +102,7 @@ var (
 	machinetype         = flag.String("machinetype", "", "Custom MACHINETYPE string for KubeVirt ConfigMap")
 	csvVersion          = flag.String("csv-version", "", "CSV version")
 	replacesCsvVersion  = flag.String("replaces-csv-version", "", "CSV version to replace")
-	metadataDescription = flag.String("metadata-description", "", "Metadata")
+	metadataDescription = flag.String("metadata-description", "", "One-Liner Description")
 	specDescription     = flag.String("spec-description", "", "Description")
 	specDisplayName     = flag.String("spec-displayname", "", "Display Name")
 	namespace           = flag.String("namespace", "kubevirt-hyperconverged", "Namespace")
@@ -497,14 +497,15 @@ func getRelatedImages() RelatedImageSet {
 
 func getCsvBaseParams(replaces string, version semver.Version) *components.CSVBaseParams {
 	return &components.CSVBaseParams{
-		Name:        operatorName,
-		Namespace:   *namespace,
-		DisplayName: *specDisplayName,
-		Description: *specDescription,
-		Image:       *operatorImage,
-		Replaces:    replaces,
-		Version:     version,
-		CrdDisplay:  *crdDisplay,
+		Name:            operatorName,
+		Namespace:       *namespace,
+		DisplayName:     *specDisplayName,
+		MetaDescription: *metadataDescription,
+		Description:     *specDescription,
+		Image:           *operatorImage,
+		Replaces:        replaces,
+		Version:         version,
+		CrdDisplay:      *crdDisplay,
 	}
 }
 
