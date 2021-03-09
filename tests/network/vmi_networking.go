@@ -54,7 +54,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", func() {
+var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
