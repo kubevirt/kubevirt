@@ -30,7 +30,8 @@ kubectl patch -n kubevirt kubevirt kubevirt -p '{"spec": {"configuration": { "de
 
 To snapshot a `VirtualMachine` named `larry`, apply the following yaml.
 
-\* It is currently a requirement that `VirtualMachines` are shut down before taking a snapshot.
+\* It is currently a requirement that `VirtualMachines` are shut down before taking a snapshot  
+(One way to achieve this is via virtctl - `cluster-up/virtctl.sh stop larry` and when appropriate, start again: `cluster-up/virtctl.sh start larry`).
 
 ```yaml
 apiVersion: snapshot.kubevirt.io/v1alpha1
