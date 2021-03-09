@@ -2182,7 +2182,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                 type: integer
                               cache:
-                                description: Cache specifies which kvm disk cache mode should be used.
+                                description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                                 type: string
                               cdrom:
                                 description: Attach a volume as a cdrom to the vmi.
@@ -3244,7 +3244,7 @@ var CRDsValidation map[string]string = map[string]string{
                         description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                         type: integer
                       cache:
-                        description: Cache specifies which kvm disk cache mode should be used.
+                        description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                         type: string
                       cdrom:
                         description: Attach a volume as a cdrom to the vmi.
@@ -3987,7 +3987,7 @@ var CRDsValidation map[string]string = map[string]string{
                         description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                         type: integer
                       cache:
-                        description: Cache specifies which kvm disk cache mode should be used.
+                        description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                         type: string
                       cdrom:
                         description: Attach a volume as a cdrom to the vmi.
@@ -5389,7 +5389,7 @@ var CRDsValidation map[string]string = map[string]string{
                         description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                         type: integer
                       cache:
-                        description: Cache specifies which kvm disk cache mode should be used.
+                        description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                         type: string
                       cdrom:
                         description: Attach a volume as a cdrom to the vmi.
@@ -6566,7 +6566,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                 type: integer
                               cache:
-                                description: Cache specifies which kvm disk cache mode should be used.
+                                description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                                 type: string
                               cdrom:
                                 description: Attach a volume as a cdrom to the vmi.
@@ -8681,7 +8681,7 @@ var CRDsValidation map[string]string = map[string]string{
                                             description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                             type: integer
                                           cache:
-                                            description: Cache specifies which kvm disk cache mode should be used.
+                                            description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                                             type: string
                                           cdrom:
                                             description: Attach a volume as a cdrom to the vmi.
@@ -9743,7 +9743,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.
                                     type: integer
                                   cache:
-                                    description: Cache specifies which kvm disk cache mode should be used.
+                                    description: 'Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.'
                                     type: string
                                   cdrom:
                                     description: Attach a volume as a cdrom to the vmi.
