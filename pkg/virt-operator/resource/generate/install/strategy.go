@@ -610,28 +610,6 @@ func loadInstallStrategyFromBytes(data string) (*Strategy, error) {
 	return strategy, nil
 }
 
-func remove(users []string, user string) ([]string, bool) {
-	var newUsers []string
-	modified := false
-	for _, u := range users {
-		if u != user {
-			newUsers = append(newUsers, u)
-		} else {
-			modified = true
-		}
-	}
-	return newUsers, modified
-}
-
-func contains(users []string, user string) bool {
-	for _, u := range users {
-		if u == user {
-			return true
-		}
-	}
-	return false
-}
-
 func isNamespaceExist(clientset kubecli.KubevirtClient, ns string) (bool, error) {
 	_, err := clientset.CoreV1().Namespaces().Get(context.Background(), ns, metav1.GetOptions{})
 	if err == nil {

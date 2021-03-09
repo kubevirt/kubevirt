@@ -616,14 +616,6 @@ func Convert_v1_CloudInitSource_To_api_Disk(source v1.VolumeSource, disk *api.Di
 	return nil
 }
 
-func Convert_v1_IgnitionData_To_api_Disk(disk *api.Disk, c *ConverterContext) error {
-	disk.Source.File = fmt.Sprintf("%s/%s", ignition.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace), c.VirtualMachine.Annotations[v1.IgnitionAnnotation])
-	disk.Type = "file"
-	disk.Driver.Type = "raw"
-	disk.Driver.ErrorPolicy = "stop"
-	return nil
-}
-
 func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSource, disk *api.Disk, c *ConverterContext) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.GetName())

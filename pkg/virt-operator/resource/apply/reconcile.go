@@ -399,14 +399,6 @@ func getTargetVersionRegistryID(kv *v1.KubeVirt) (version string, registry strin
 	return
 }
 
-func getPortProtocol(port *corev1.ServicePort) corev1.Protocol {
-	if port.Protocol == "" {
-		return corev1.ProtocolTCP
-	}
-
-	return port.Protocol
-}
-
 func isServiceClusterIP(service *corev1.Service) bool {
 	if service.Spec.Type == "" || service.Spec.Type == corev1.ServiceTypeClusterIP {
 		return true
