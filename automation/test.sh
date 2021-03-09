@@ -40,6 +40,9 @@ if [[ $TARGET =~ windows.* ]]; then
 elif [[ $TARGET =~ cnao ]]; then
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_PROVIDER=${TARGET/-cnao/}
+elif [[ $TARGET =~ sig-network ]]; then
+  export KUBEVIRT_WITH_CNAO=true
+  export KUBEVIRT_PROVIDER=${TARGET/-sig-network/}
 else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
@@ -282,6 +285,8 @@ EOF
   export KUBEVIRT_E2E_FOCUS=Windows
 elif [[ $TARGET =~ (cnao|multus) ]]; then
   export KUBEVIRT_E2E_FOCUS="Multus|Networking|VMIlifecycle|Expose|Macvtap"
+elif [[ $TARGET =~ sig-network ]]; then
+  export KUBEVIRT_E2E_FOCUS="\\[sig-network\\]"
 elif [[ $TARGET =~ sriov.* ]]; then
   export KUBEVIRT_E2E_FOCUS=SRIOV
 elif [[ $TARGET =~ gpu.* ]]; then
