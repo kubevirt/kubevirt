@@ -860,6 +860,10 @@ func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyp
 }
 
 func convertV1ToAPISyNICTimer(syNICTimer *v1.SyNICTimer) *api.SyNICTimer {
+	if syNICTimer == nil {
+		return nil
+	}
+
 	result := &api.SyNICTimer{
 		State: boolToOnOff(syNICTimer.Enabled, true),
 	}
