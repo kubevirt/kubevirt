@@ -58,45 +58,28 @@ type podNIC interface {
 	PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
 }
 
-func getNetworksAndCniNetworks(vmi *v1.VirtualMachineInstance) (map[string]*v1.Network, map[string]int) {
-	networks := map[string]*v1.Network{}
-	cniNetworks := map[string]int{}
-	for _, network := range vmi.Spec.Networks {
-		networks[network.Name] = network.DeepCopy()
-		if networks[network.Name].Multus != nil && !networks[network.Name].Multus.Default {
-			// multus pod interfaces start from 1
-			cniNetworks[network.Name] = len(cniNetworks) + 1
-		}
-	}
-	return networks, cniNetworks
-}
-
-func invokePodNICFactory(networks map[string]*v1.Network, ifaceName string, cacheFactory cache.InterfaceCacheFactory) (podNIC, error) {
-	network, ok := networks[ifaceName]
-	if !ok {
-		return nil, fmt.Errorf("failed to find a network %s", ifaceName)
-	}
-	return podNICFactory(network, cacheFactory)
-}
-
-func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string]int, ifaceName string) string {
+func getPodInterfaceName(networks map[string]*v1.Network, multusIndices map[string]int, ifaceName string) string {
 	if networks[ifaceName].Multus != nil && !networks[ifaceName].Multus.Default {
 		// multus pod interfaces named netX
-		return fmt.Sprintf("net%d", cniNetworks[ifaceName])
+		return fmt.Sprintf("net%d", multusIndices[ifaceName])
 	} else {
 		return primaryPodInterfaceName
 	}
 }
 
 func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int, cacheFactory cache.InterfaceCacheFactory) error {
-	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
+	networks := mapNetworksByName(vmi.Spec.Networks)
+	primaryNet := lookupPrimaryNetwork(vmi.Spec.Networks)
+	secondaryNets := filterSecondaryMultusNetworks(vmi.Spec.Networks)
+	podInterfaceNames := mapPodInterfaceNameByNetwork(primaryNet, secondaryNets)
 	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		podnic, err := invokePodNICFactory(networks, iface.Name, cacheFactory)
-		if err != nil {
-			return err
+		network, ok := networks[iface.Name]
+		if !ok {
+			return fmt.Errorf("failed to find a network %s", iface.Name)
 		}
-		podInterfaceName := getPodInterfaceName(networks, cniNetworks, iface.Name)
-		err = podNIC.PlugPhase1(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], podInterfaceName, pid)
+		podnic := podNICFactory(cacheFactory)
+		podInterfaceName := podInterfaceNames[network.Name]
+		err := podNIC.PlugPhase1(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], &network, podInterfaceName, pid)
 		if err != nil {
 			return err
 		}
@@ -105,14 +88,18 @@ func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int, cacheFactory
 }
 
 func SetupPodNetworkPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain, cacheFactory cache.InterfaceCacheFactory) error {
-	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
+	networks := mapNetworksByName(vmi.Spec.Networks)
+	primaryNet := lookupPrimaryNetwork(vmi.Spec.Networks)
+	secondaryNets := filterSecondaryMultusNetworks(vmi.Spec.Networks)
+	podInterfaceNames := mapPodInterfaceNameByNetwork(primaryNet, secondaryNets)
 	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		podnic, err := invokePodNICFactory(networks, iface.Name, cacheFactory)
-		if err != nil {
-			return err
+		network, ok := networks[iface.Name]
+		if !ok {
+			return fmt.Errorf("failed to find a network %s", iface.Name)
 		}
-		podInterfaceName := getPodInterfaceName(networks, cniNetworks, iface.Name)
-		err = podNIC.PlugPhase2(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], networks[iface.Name], domain, podInterfaceName)
+		podnic := podNICFactory(cacheFactory)
+		podInterfaceName := podInterfaceNames[network.Name]
+		err := podNIC.PlugPhase2(podnic, vmi, &vmi.Spec.Domain.Devices.Interfaces[i], &network, domain, podInterfaceName)
 		if err != nil {
 			return err
 		}
@@ -120,9 +107,52 @@ func SetupPodNetworkPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain, c
 	return nil
 }
 
-func newpodNIC(network *v1.Network, cacheFactory cache.InterfaceCacheFactory) (podNIC, error) {
-	if network.Pod != nil || network.Multus != nil {
-		return &podNICImpl{cacheFactory: cacheFactory}, nil
+func mapNetworksByName(nets []v1.Network) map[string]v1.Network {
+	networks := map[string]v1.Network{}
+	for _, net := range nets {
+		networks[net.Name] = net
 	}
-	return nil, fmt.Errorf("Network not implemented")
+	return networks
+}
+
+func mapPodInterfaceNameByNetwork(primaryMultusNetwork *v1.Network, secondaryMultusNetworks []v1.Network) map[string]string {
+	m := map[string]string{}
+	for i, net := range secondaryMultusNetworks {
+		m[net.Name] = getSecondaryPodInterfaceName(i)
+	}
+	if primaryMultusNetwork != nil {
+		m[primaryMultusNetwork.Name] = primaryPodInterfaceName
+	}
+	return m
+}
+
+func getSecondaryPodInterfaceName(index int) string {
+	return fmt.Sprintf("net%d", index+1)
+}
+
+func lookupPrimaryNetwork(nets []v1.Network) *v1.Network {
+	for _, net := range nets {
+		if !isSecondaryMultusNetwork(net) {
+			return &net
+		}
+	}
+	return nil
+}
+
+func filterSecondaryMultusNetworks(nets []v1.Network) []v1.Network {
+	var secondary []v1.Network
+	for _, net := range nets {
+		if isSecondaryMultusNetwork(net) {
+			secondary = append(secondary, net)
+		}
+	}
+	return secondary
+}
+
+func isSecondaryMultusNetwork(net v1.Network) bool {
+	return net.Multus != nil && !net.Multus.Default
+}
+
+func newpodNIC(cacheFactory cache.InterfaceCacheFactory) podNIC {
+	return &podNICImpl{cacheFactory: cacheFactory}
 }

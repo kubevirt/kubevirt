@@ -51,8 +51,8 @@ var _ = Describe("Network", func() {
 
 	Context("interface configuration", func() {
 		It("should configure bridged pod networking by default", func() {
-			podNICFactory = func(network *v1.Network, cacheFactory cache.InterfaceCacheFactory) (podNIC, error) {
-				return mockpodNIC, nil
+			podNICFactory = func(cacheFactory cache.InterfaceCacheFactory) podNIC {
+				return mockpodNIC
 			}
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
 			iface := v1.DefaultBridgeNetworkInterface()
@@ -68,8 +68,8 @@ var _ = Describe("Network", func() {
 			Expect(err).To(BeNil())
 		})
 		It("should configure networking with multus", func() {
-			podNICFactory = func(network *v1.Network, cacheFactory cache.InterfaceCacheFactory) (podNIC, error) {
-				return mockpodNIC, nil
+			podNICFactory = func(cacheFactory cache.InterfaceCacheFactory) podNIC {
+				return mockpodNIC
 			}
 			const multusInterfaceName = "net1"
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
@@ -87,8 +87,8 @@ var _ = Describe("Network", func() {
 			Expect(err).To(BeNil())
 		})
 		It("should configure networking with multus and a default multus network", func() {
-			podNICFactory = func(network *v1.Network, cacheFactory cache.InterfaceCacheFactory) (podNIC, error) {
-				return mockpodNIC, nil
+			podNICFactory = func(cacheFactory cache.InterfaceCacheFactory) podNIC {
+				return mockpodNIC
 			}
 
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
