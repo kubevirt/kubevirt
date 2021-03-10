@@ -1160,7 +1160,7 @@ spec:
 			waitForUpdateCondition(kv)
 
 			By("Waiting for KV to stabilize")
-			waitForKv(kv)
+			waitForKvWithTimeout(kv, 420)
 
 			By("Verifying infrastructure Is Updated")
 			allPodsAreReady(kv)
