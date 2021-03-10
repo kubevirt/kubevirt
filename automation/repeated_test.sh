@@ -38,7 +38,7 @@ function new_tests {
     git diff --name-status "${target_commit}".. -- tests/ \
         | grep -v -E '^D.*' \
         | grep -v '_suite' \
-        | grep -E '_test\.go$' \
+        | grep -oE '(\w|\/)+_test\.go$' \
         | sed -E 's/[AM]\s+tests\/(.*_test)\.go/\1/' \
         | tr '\n' '|' \
         | sed -E 's/\|$//'
@@ -93,7 +93,7 @@ echo "Number of per lane runs: $NUM_TESTS"
 
 test_start_pattern='(Specify|It|Entry)\('
 tests_total_estimate=$(find tests/ -name '*_test.go' -print0 | xargs -0 grep -hcE "${test_start_pattern}" | awk '{total += $1} END {print total}')
-tests_to_run_estimate=$(echo "${NEW_TESTS}" | tr '|' '\n' | sed 's/.*/tests\/&\.go/g' | xargs grep -hcE "${test_start_pattern}" | awk '{total += $1} END {print total}')
+tests_to_run_estimate=$(echo "${NEW_TESTS}" | tr '|' '\n' | xargs grep -hcE "${test_start_pattern}" | awk '{total += $1} END {print total}')
 tests_total_for_all_runs_estimate=$(expr $tests_to_run_estimate \* $NUM_TESTS \* ${#TEST_LANES[@]})
 echo -e "Estimates:\ttests_total_estimate: $tests_total_estimate\ttests_total_for_all_runs_estimate: $tests_total_for_all_runs_estimate"
 if [ $tests_total_for_all_runs_estimate -gt $tests_total_estimate ]; then
