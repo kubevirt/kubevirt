@@ -44,6 +44,11 @@ else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
 
+if [ ! -z "$KUBEVIRTCI_PR" ]; then
+    # Disable CI flag to skip conformance
+    CI="false" hack/pin-kubevirtci-pr.sh $KUBEVIRTCI_PR
+fi
+
 if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
   echo "The cluster provider $KUBEVIRT_PROVIDER does not exist"
   exit 1
