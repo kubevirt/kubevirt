@@ -21,7 +21,7 @@ git clone https://github.com/$remote/kubevirtci -b $branch
 rsync kubevirtci/cluster-up cluster-up
 rsync -rt --links ./kubevirtci/cluster-up/* ./cluster-up/
 
-#provision
+provision
 
 echo "export KUBEVIRTCI_GOCLI_CONTAINER=quay.io/kubevirtci/gocli:latest" >> cluster-up/hack/common.sh
 echo "export KUBEVIRTCI_PROVISION_CHECK=1" >> cluster-up/hack/common.sh

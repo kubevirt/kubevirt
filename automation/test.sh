@@ -44,6 +44,8 @@ else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
 
+export KUBEVIRTCI_PR=qinqon:dnm-test-kubevirt-pr-5186
+
 if [ ! -z "$KUBEVIRTCI_PR" ]; then
     ./hack/pin-kubevirtci-pr $KUBEVIRTCI_PR
 fi
