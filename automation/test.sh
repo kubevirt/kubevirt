@@ -44,6 +44,7 @@ else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
 
+export KUBEVIRTCI_PR="qinqon:configure-node-cidr-by-default"
 if [ ! -z "$KUBEVIRTCI_PR" ]; then
     hack/pin-kubevirtci-pr.sh $KUBEVIRTCI_PR
 fi
