@@ -98,7 +98,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server,no ip family specified ", tcpProbe, blankIPFamily),
 			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, v1.IPv4Protocol),
 			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, v1.IPv6Protocol),
-			table.Entry("[test_id:1202][posneg:positive]with working HTTP probe and http server, no ip family is specified ", httpProbe, blankIPFamily),
+			table.Entry("[QUARANTINE][owner:@sig-network][test_id:1202][posneg:positive]with working HTTP probe and http server, no ip family is specified ", httpProbe, blankIPFamily),
 			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, v1.IPv4Protocol),
 			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, v1.IPv6Protocol),
 		)
