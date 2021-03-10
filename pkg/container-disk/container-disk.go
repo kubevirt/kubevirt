@@ -44,6 +44,8 @@ var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
 
 type SocketPathGetter func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error)
 
+const ephemeralStorageOverheadSize = "50M"
+
 func GetLegacyVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) string {
 	return filepath.Join(mountBaseDir, string(vmi.UID))
 }
@@ -187,19 +189,17 @@ func generateContainersHelper(vmi *v1.VirtualMachineInstance, podVolumeName stri
 			diskContainerName := fmt.Sprintf("volume%s", volume.Name)
 			diskContainerImage := volume.ContainerDisk.Image
 			resources := kubev1.ResourceRequirements{}
+			resources.Limits = make(kubev1.ResourceList)
+			resources.Requests = make(kubev1.ResourceList)
+			resources.Limits[kubev1.ResourceMemory] = resource.MustParse("40M")
+			resources.Requests[kubev1.ResourceCPU] = resource.MustParse("10m")
+			resources.Requests[kubev1.ResourceEphemeralStorage] = resource.MustParse(ephemeralStorageOverheadSize)
+
 			if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
-				resources.Limits = make(kubev1.ResourceList)
 				resources.Limits[kubev1.ResourceCPU] = resource.MustParse("10m")
-				resources.Limits[kubev1.ResourceMemory] = resource.MustParse("40M")
-				resources.Requests = make(kubev1.ResourceList)
-				resources.Requests[kubev1.ResourceCPU] = resource.MustParse("10m")
 				resources.Requests[kubev1.ResourceMemory] = resource.MustParse("40M")
 			} else {
-				resources.Limits = make(kubev1.ResourceList)
 				resources.Limits[kubev1.ResourceCPU] = resource.MustParse("100m")
-				resources.Limits[kubev1.ResourceMemory] = resource.MustParse("40M")
-				resources.Requests = make(kubev1.ResourceList)
-				resources.Requests[kubev1.ResourceCPU] = resource.MustParse("10m")
 				resources.Requests[kubev1.ResourceMemory] = resource.MustParse("1M")
 			}
 			var args []string

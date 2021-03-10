@@ -181,7 +181,29 @@ var _ = Describe("ContainerDisk", func() {
 					},
 				}
 				containers := GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
-				Expect(containers[0].Resources.Limits).To(HaveLen(2))
+
+				containerResourceSpecs := []k8sv1.ResourceList{containers[0].Resources.Limits, containers[0].Resources.Requests}
+
+				for _, containerResourceSpec := range containerResourceSpecs {
+					Expect(containerResourceSpec).To(And(HaveKey(k8sv1.ResourceCPU), HaveKey(k8sv1.ResourceMemory)))
+				}
+			})
+			It("by verifying that ephemeral storage request is set to every container", func() {
+
+				vmi := v1.NewMinimalVMI("fake-vmi")
+				appendContainerDisk(vmi, "r0")
+				containers := GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
+
+				expectedEphemeralStorageRequest := resource.MustParse(ephemeralStorageOverheadSize)
+
+				containerResourceSpecs := make([]k8sv1.ResourceList, 0)
+				for _, container := range containers {
+					containerResourceSpecs = append(containerResourceSpecs, container.Resources.Requests)
+				}
+
+				for _, containerResourceSpec := range containerResourceSpecs {
+					Expect(containerResourceSpec).To(HaveKeyWithValue(k8sv1.ResourceEphemeralStorage, expectedEphemeralStorageRequest))
+				}
 			})
 			It("by verifying container generation", func() {
 				vmi := v1.NewMinimalVMI("fake-vmi")
