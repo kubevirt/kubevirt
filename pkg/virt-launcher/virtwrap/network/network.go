@@ -35,7 +35,6 @@ import (
 
 const primaryPodInterfaceName = "eth0"
 
-var vifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
 var podNICFactory = newpodNIC
 
 // Network configuration is split into two parts, or phases, each executed in a
