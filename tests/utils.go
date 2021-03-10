@@ -738,8 +738,9 @@ func AdjustKubeVirtResource() {
 	PanicOnError(err)
 
 	kv := GetCurrentKv(virtClient)
-
 	originalKV = kv.DeepCopy()
+
+	KubeVirtDefaultConfig = originalKV.Spec.Configuration
 
 	if !flags.ApplyDefaulte2eConfiguration {
 		return
