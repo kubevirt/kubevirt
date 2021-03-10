@@ -58,15 +58,6 @@ type podNIC interface {
 	PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
 }
 
-func getPodInterfaceName(networks map[string]*v1.Network, multusIndices map[string]int, ifaceName string) string {
-	if networks[ifaceName].Multus != nil && !networks[ifaceName].Multus.Default {
-		// multus pod interfaces named netX
-		return fmt.Sprintf("net%d", multusIndices[ifaceName])
-	} else {
-		return primaryPodInterfaceName
-	}
-}
-
 func SetupPodNetworkPhase1(vmi *v1.VirtualMachineInstance, pid int, cacheFactory cache.InterfaceCacheFactory) error {
 	networks := mapNetworksByName(vmi.Spec.Networks)
 	primaryNet := lookupPrimaryNetwork(vmi.Spec.Networks)
