@@ -1410,7 +1410,7 @@ var _ = Describe("Configurations", func() {
 
 		Context("with Clock and timezone", func() {
 
-			It("[test_id:5268]guest should see timezone", func() {
+			It("[QUARANTINE][owner:@sig-compute][test_id:5268]guest should see timezone", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				timezone := "America/New_York"
 				tz := v1.ClockOffsetTimezone(timezone)
