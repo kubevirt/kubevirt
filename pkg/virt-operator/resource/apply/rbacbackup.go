@@ -23,15 +23,7 @@ func (r *Reconciler) backupRbac() error {
 		if !ok || !needsClusterRoleBackup(r.kv, r.stores, cachedCr) {
 			continue
 		}
-		imageTag, ok := cachedCr.Annotations[v1.InstallStrategyVersionAnnotation]
-		if !ok {
-			continue
-		}
-		imageRegistry, ok := cachedCr.Annotations[v1.InstallStrategyRegistryAnnotation]
-		if !ok {
-			continue
-		}
-		id, ok := cachedCr.Annotations[v1.InstallStrategyIdentifierAnnotation]
+		imageTag, imageRegistry, id, ok := getInstallStrategyAnnotations(&cachedCr.ObjectMeta)
 		if !ok {
 			continue
 		}
@@ -63,15 +55,7 @@ func (r *Reconciler) backupRbac() error {
 		if !ok || !needsClusterRoleBindingBackup(r.kv, r.stores, cachedCrb) {
 			continue
 		}
-		imageTag, ok := cachedCrb.Annotations[v1.InstallStrategyVersionAnnotation]
-		if !ok {
-			continue
-		}
-		imageRegistry, ok := cachedCrb.Annotations[v1.InstallStrategyRegistryAnnotation]
-		if !ok {
-			continue
-		}
-		id, ok := cachedCrb.Annotations[v1.InstallStrategyIdentifierAnnotation]
+		imageTag, imageRegistry, id, ok := getInstallStrategyAnnotations(&cachedCrb.ObjectMeta)
 		if !ok {
 			continue
 		}
@@ -102,15 +86,7 @@ func (r *Reconciler) backupRbac() error {
 		if !ok || !needsRoleBackup(r.kv, r.stores, cachedCr) {
 			continue
 		}
-		imageTag, ok := cachedCr.Annotations[v1.InstallStrategyVersionAnnotation]
-		if !ok {
-			continue
-		}
-		imageRegistry, ok := cachedCr.Annotations[v1.InstallStrategyRegistryAnnotation]
-		if !ok {
-			continue
-		}
-		id, ok := cachedCr.Annotations[v1.InstallStrategyIdentifierAnnotation]
+		imageTag, imageRegistry, id, ok := getInstallStrategyAnnotations(&cachedCr.ObjectMeta)
 		if !ok {
 			continue
 		}
@@ -141,16 +117,8 @@ func (r *Reconciler) backupRbac() error {
 		if !ok || !needsRoleBindingBackup(r.kv, r.stores, cachedRb) {
 			continue
 		}
-		imageTag, ok := cachedRb.Annotations[v1.InstallStrategyVersionAnnotation]
-		if !ok {
-			continue
-		}
-		imageRegistry, ok := cachedRb.Annotations[v1.InstallStrategyRegistryAnnotation]
-		if !ok {
-			continue
-		}
-		id, ok := cachedRb.Annotations[v1.InstallStrategyIdentifierAnnotation]
-		if !ok {
+		imageTag, imageRegistry, id, ok := getInstallStrategyAnnotations(&cachedRb.ObjectMeta)
+		if ok {
 			continue
 		}
 
@@ -177,8 +145,8 @@ func (r *Reconciler) backupRbac() error {
 }
 
 func needsClusterRoleBackup(kv *v1.KubeVirt, stores util.Stores, cr *rbacv1.ClusterRole) bool {
-	backup, imageTag, imageRegistry, id := shouldBackupRBACObject(kv, &cr.ObjectMeta)
-	if !backup {
+	imageTag, imageRegistry, id, shouldBackup := shouldBackupRBACObject(kv, &cr.ObjectMeta)
+	if !shouldBackup {
 		return false
 	}
 
@@ -213,8 +181,8 @@ func needsClusterRoleBackup(kv *v1.KubeVirt, stores util.Stores, cr *rbacv1.Clus
 
 func needsRoleBindingBackup(kv *v1.KubeVirt, stores util.Stores, rb *rbacv1.RoleBinding) bool {
 
-	backup, imageTag, imageRegistry, id := shouldBackupRBACObject(kv, &rb.ObjectMeta)
-	if !backup {
+	imageTag, imageRegistry, id, shouldBackup := shouldBackupRBACObject(kv, &rb.ObjectMeta)
+	if !shouldBackup {
 		return false
 	}
 
@@ -249,8 +217,8 @@ func needsRoleBindingBackup(kv *v1.KubeVirt, stores util.Stores, rb *rbacv1.Role
 
 func needsRoleBackup(kv *v1.KubeVirt, stores util.Stores, r *rbacv1.Role) bool {
 
-	backup, imageTag, imageRegistry, id := shouldBackupRBACObject(kv, &r.ObjectMeta)
-	if !backup {
+	imageTag, imageRegistry, id, shouldBackup := shouldBackupRBACObject(kv, &r.ObjectMeta)
+	if !shouldBackup {
 		return false
 	}
 
@@ -283,48 +251,36 @@ func needsRoleBackup(kv *v1.KubeVirt, stores util.Stores, r *rbacv1.Role) bool {
 	return true
 }
 
-func shouldBackupRBACObject(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta) (bool, string, string, string) {
+func shouldBackupRBACObject(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta) (imageTag, imageRegistry, id string, shouldBackup bool) {
 	curVersion, curImageRegistry, curID := getTargetVersionRegistryID(kv)
+	shouldBackup = false
 
 	if objectMatchesVersion(objectMeta, curVersion, curImageRegistry, curID, kv.GetGeneration()) {
 		// matches current target version already, so doesn't need backup
-		return false, "", "", ""
+		return
 	}
 
 	if objectMeta.Annotations == nil {
-		return false, "", "", ""
+		return
 	}
 
 	_, ok := objectMeta.Annotations[v1.EphemeralBackupObject]
 	if ok {
 		// ephemeral backup objects don't need to be backed up because
 		// they are the backup
-		return false, "", "", ""
+		return
 	}
 
-	version, ok := objectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
-	if !ok {
-		return false, "", "", ""
-	}
+	imageTag, imageRegistry, id, shouldBackup = getInstallStrategyAnnotations(objectMeta)
 
-	imageRegistry, ok := objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
-	if !ok {
-		return false, "", "", ""
-	}
-
-	id, ok := objectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation]
-	if !ok {
-		return false, "", "", ""
-	}
-
-	return true, version, imageRegistry, id
+	return
 
 }
 
 func needsClusterRoleBindingBackup(kv *v1.KubeVirt, stores util.Stores, crb *rbacv1.ClusterRoleBinding) bool {
 
-	backup, imageTag, imageRegistry, id := shouldBackupRBACObject(kv, &crb.ObjectMeta)
-	if !backup {
+	imageTag, imageRegistry, id, shouldBackup := shouldBackupRBACObject(kv, &crb.ObjectMeta)
+	if !shouldBackup {
 		return false
 	}
 
@@ -355,4 +311,24 @@ func needsClusterRoleBindingBackup(kv *v1.KubeVirt, stores util.Stores, crb *rba
 	}
 
 	return true
+}
+
+func getInstallStrategyAnnotations(meta *metav1.ObjectMeta) (imageTag, imageRegistry, id string, ok bool) {
+	ok = false
+
+	imageTag, ok = meta.Annotations[v1.InstallStrategyVersionAnnotation]
+	if !ok {
+		return
+	}
+	imageRegistry, ok = meta.Annotations[v1.InstallStrategyRegistryAnnotation]
+	if !ok {
+		return
+	}
+	id, ok = meta.Annotations[v1.InstallStrategyIdentifierAnnotation]
+	if !ok {
+		return
+	}
+
+	ok = true
+	return
 }
