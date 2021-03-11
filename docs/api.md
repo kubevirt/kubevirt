@@ -13,6 +13,9 @@ This Document documents the types introduced by the hyperconverged-cluster-opera
 * [HyperConvergedSpec](#hyperconvergedspec)
 * [HyperConvergedStatus](#hyperconvergedstatus)
 * [LiveMigrationConfigurations](#livemigrationconfigurations)
+* [MediatedHostDevice](#mediatedhostdevice)
+* [PciHostDevice](#pcihostdevice)
+* [PermittedHostDevices](#permittedhostdevices)
 * [Version](#version)
 
 ## HyperConverged
@@ -69,6 +72,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | workloads | workloads HyperConvergedConfig influences the pod configuration (currently only placement) of components which need to be running on a node where virtualization workloads should be able to run. Changes to Workloads HyperConvergedConfig can be applied only without existing workload. | [HyperConvergedConfig](#hyperconvergedconfig) |  | false |
 | featureGates | featureGates is a map of feature gate flags. Setting a flag to `true` will enable the feature. Setting `false` or removing the feature gate, disables the feature. | [HyperConvergedFeatureGates](#hyperconvergedfeaturegates) |  | false |
 | liveMigrationConfig | Live migration limits and timeouts are applied so that migration processes do not overwhelm the cluster. | [LiveMigrationConfigurations](#livemigrationconfigurations) |  | false |
+| permittedHostDevices | PermittedHostDevices holds inforamtion about devices allowed for passthrough | *[PermittedHostDevices](#permittedhostdevices) |  | false |
 | version | operator version | string |  | false |
 
 [Back to TOC](#table-of-contents)
@@ -96,6 +100,41 @@ LiveMigrationConfigurations - Live migration limits and timeouts are applied so 
 | bandwidthPerMigration | Bandwidth limit of each migration, in MiB/s. | *string | "64Mi" | false |
 | completionTimeoutPerGiB | The migration will be canceled if it has not completed in this time, in seconds per GiB of memory. For example, a virtual machine instance with 6GiB memory will timeout if it has not completed migration in 4800 seconds. If the Migration Method is BlockMigration, the size of the migrating disks is included in the calculation. | *int64 | 800 | false |
 | progressTimeout | The migration will be canceled if memory copy fails to make progress in this time, in seconds. | *int64 | 150 | false |
+
+[Back to TOC](#table-of-contents)
+
+## MediatedHostDevice
+
+MediatedHostDevice represents a host mediated device allowed for passthrough
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| mdevNameSelector |  | string |  | true |
+| resourceName |  | string |  | true |
+| externalResourceProvider |  | bool |  | false |
+
+[Back to TOC](#table-of-contents)
+
+## PciHostDevice
+
+PciHostDevice represents a host PCI device allowed for passthrough
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| pciVendorSelector |  | string |  | true |
+| resourceName |  | string |  | true |
+| externalResourceProvider |  | bool |  | false |
+
+[Back to TOC](#table-of-contents)
+
+## PermittedHostDevices
+
+PermittedHostDevices holds inforamtion about devices allowed for passthrough
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| pciHostDevices |  | [][PciHostDevice](#pcihostdevice) |  | false |
+| mediatedDevices |  | [][MediatedHostDevice](#mediatedhostdevice) |  | false |
 
 [Back to TOC](#table-of-contents)
 

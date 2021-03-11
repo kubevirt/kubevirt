@@ -233,6 +233,7 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.KubeVirtConfigurati
 			NetworkInterface: string(kubevirtv1.MasqueradeInterface),
 		},
 		MigrationConfiguration: kvLiveMigration,
+		PermittedHostDevices:   toKvPermittedHostDevices(hc.Spec.PermittedHostDevices),
 	}
 
 	if smbiosConfig, ok := os.LookupEnv(smbiosEnvName); ok {
@@ -252,6 +253,49 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtv1.KubeVirtConfigurati
 	}
 
 	return config, nil
+}
+
+func toKvPermittedHostDevices(permittedDevices *hcov1beta1.PermittedHostDevices) *kubevirtv1.PermittedHostDevices {
+	if permittedDevices == nil {
+		return nil
+	}
+
+	return &kubevirtv1.PermittedHostDevices{
+		PciHostDevices:  toKvPciHostDevices(permittedDevices.PciHostDevices),
+		MediatedDevices: toKvMediatedDevices(permittedDevices.MediatedDevices),
+	}
+}
+
+func toKvPciHostDevices(hcoPciHostdevices []hcov1beta1.PciHostDevice) []kubevirtv1.PciHostDevice {
+	if len(hcoPciHostdevices) > 0 {
+		pciHostDevices := make([]kubevirtv1.PciHostDevice, len(hcoPciHostdevices))
+		for i, hcoPciHostDevice := range hcoPciHostdevices {
+			pciHostDevices[i] = kubevirtv1.PciHostDevice{
+				PCIVendorSelector:        hcoPciHostDevice.PCIVendorSelector,
+				ResourceName:             hcoPciHostDevice.ResourceName,
+				ExternalResourceProvider: hcoPciHostDevice.ExternalResourceProvider,
+			}
+		}
+
+		return pciHostDevices
+	}
+	return nil
+}
+
+func toKvMediatedDevices(hcoMediatedDevices []hcov1beta1.MediatedHostDevice) []kubevirtv1.MediatedHostDevice {
+	if len(hcoMediatedDevices) > 0 {
+		mediatedDevices := make([]kubevirtv1.MediatedHostDevice, len(hcoMediatedDevices))
+		for i, hcoMediatedHostDevice := range hcoMediatedDevices {
+			mediatedDevices[i] = kubevirtv1.MediatedHostDevice{
+				MDEVNameSelector:         hcoMediatedHostDevice.MDEVNameSelector,
+				ResourceName:             hcoMediatedHostDevice.ResourceName,
+				ExternalResourceProvider: hcoMediatedHostDevice.ExternalResourceProvider,
+			}
+		}
+
+		return mediatedDevices
+	}
+	return nil
 }
 
 func hcLiveMigrationToKv(lm hcov1beta1.LiveMigrationConfigurations) (*kubevirtv1.MigrationConfiguration, error) {

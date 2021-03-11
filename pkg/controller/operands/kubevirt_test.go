@@ -427,6 +427,319 @@ Version: 1.2.3`)
 			Expect(*mc.ProgressTimeout).To(Equal(progressTimeout))
 		})
 
+		It("should propagate the permitted host devices configuration from the HC", func() {
+			existKv, err := NewKubeVirt(hco)
+			Expect(err).ToNot(HaveOccurred())
+
+			hco.Spec.PermittedHostDevices = &hcov1beta1.PermittedHostDevices{
+				PciHostDevices: []hcov1beta1.PciHostDevice{
+					{
+						PCIVendorSelector:        "vendor1",
+						ResourceName:             "resourceName1",
+						ExternalResourceProvider: true,
+					},
+					{
+						PCIVendorSelector:        "vendor2",
+						ResourceName:             "resourceName2",
+						ExternalResourceProvider: false,
+					},
+					{
+						PCIVendorSelector:        "vendor3",
+						ResourceName:             "resourceName3",
+						ExternalResourceProvider: true,
+					},
+				},
+				MediatedDevices: []hcov1beta1.MediatedHostDevice{
+					{
+						MDEVNameSelector:         "selector1",
+						ResourceName:             "resource1",
+						ExternalResourceProvider: true,
+					},
+					{
+						MDEVNameSelector:         "selector2",
+						ResourceName:             "resource2",
+						ExternalResourceProvider: false,
+					},
+					{
+						MDEVNameSelector:         "selector3",
+						ResourceName:             "resource3",
+						ExternalResourceProvider: true,
+					},
+					{
+						MDEVNameSelector:         "selector4",
+						ResourceName:             "resource4",
+						ExternalResourceProvider: false,
+					},
+				},
+			}
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existKv})
+			handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &kubevirtv1.KubeVirt{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			phd := foundResource.Spec.Configuration.PermittedHostDevices
+			Expect(phd).ToNot(BeNil())
+			Expect(phd.PciHostDevices).To(HaveLen(3))
+			Expect(phd.PciHostDevices).To(ContainElements(
+				kubevirtv1.PciHostDevice{
+					PCIVendorSelector:        "vendor1",
+					ResourceName:             "resourceName1",
+					ExternalResourceProvider: true,
+				},
+				kubevirtv1.PciHostDevice{
+					PCIVendorSelector:        "vendor2",
+					ResourceName:             "resourceName2",
+					ExternalResourceProvider: false,
+				},
+				kubevirtv1.PciHostDevice{
+					PCIVendorSelector:        "vendor3",
+					ResourceName:             "resourceName3",
+					ExternalResourceProvider: true,
+				},
+			))
+
+			Expect(phd.MediatedDevices).To(HaveLen(4))
+			Expect(phd.MediatedDevices).To(ContainElements(
+				kubevirtv1.MediatedHostDevice{
+					MDEVNameSelector:         "selector1",
+					ResourceName:             "resource1",
+					ExternalResourceProvider: true,
+				},
+				kubevirtv1.MediatedHostDevice{
+					MDEVNameSelector:         "selector2",
+					ResourceName:             "resource2",
+					ExternalResourceProvider: false,
+				},
+				kubevirtv1.MediatedHostDevice{
+					MDEVNameSelector:         "selector3",
+					ResourceName:             "resource3",
+					ExternalResourceProvider: true,
+				},
+				kubevirtv1.MediatedHostDevice{
+					MDEVNameSelector:         "selector4",
+					ResourceName:             "resource4",
+					ExternalResourceProvider: false,
+				},
+			))
+		})
+
+		It("should update the permitted host devices configuration from the HC", func() {
+			existKv, err := NewKubeVirt(hco)
+			Expect(err).ToNot(HaveOccurred())
+
+			existKv.Spec.Configuration.PermittedHostDevices = &kubevirtv1.PermittedHostDevices{
+				PciHostDevices: []kubevirtv1.PciHostDevice{
+					{
+						PCIVendorSelector:        "other1",
+						ResourceName:             "otherResourceName1",
+						ExternalResourceProvider: true,
+					},
+					{
+						PCIVendorSelector:        "other2",
+						ResourceName:             "otherResourceName2",
+						ExternalResourceProvider: false,
+					},
+					{
+						PCIVendorSelector:        "other3",
+						ResourceName:             "otherResourceName3",
+						ExternalResourceProvider: true,
+					},
+					{
+						PCIVendorSelector:        "other4",
+						ResourceName:             "otherResourceName4",
+						ExternalResourceProvider: true,
+					},
+				},
+				MediatedDevices: []kubevirtv1.MediatedHostDevice{
+					{
+						MDEVNameSelector:         "otherSelector1",
+						ResourceName:             "otherResource1",
+						ExternalResourceProvider: false,
+					},
+					{
+						MDEVNameSelector:         "otherSelector2",
+						ResourceName:             "otherResource2",
+						ExternalResourceProvider: true,
+					},
+					{
+						MDEVNameSelector:         "otherSelector3",
+						ResourceName:             "otherResource3",
+						ExternalResourceProvider: true,
+					},
+				},
+			}
+
+			hco.Spec.PermittedHostDevices = &hcov1beta1.PermittedHostDevices{
+				PciHostDevices: []hcov1beta1.PciHostDevice{
+					{
+						PCIVendorSelector:        "vendor1",
+						ResourceName:             "resourceName1",
+						ExternalResourceProvider: true,
+					},
+					{
+						PCIVendorSelector:        "vendor2",
+						ResourceName:             "resourceName2",
+						ExternalResourceProvider: false,
+					},
+					{
+						PCIVendorSelector:        "vendor3",
+						ResourceName:             "resourceName3",
+						ExternalResourceProvider: true,
+					},
+				},
+				MediatedDevices: []hcov1beta1.MediatedHostDevice{
+					{
+						MDEVNameSelector:         "selector1",
+						ResourceName:             "resource1",
+						ExternalResourceProvider: true,
+					},
+					{
+						MDEVNameSelector:         "selector2",
+						ResourceName:             "resource2",
+						ExternalResourceProvider: false,
+					},
+					{
+						MDEVNameSelector:         "selector3",
+						ResourceName:             "resource3",
+						ExternalResourceProvider: true,
+					},
+					{
+						MDEVNameSelector:         "selector4",
+						ResourceName:             "resource4",
+						ExternalResourceProvider: false,
+					},
+				},
+			}
+
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existKv})
+
+			By("Check before reconciling", func() {
+				foundResource := &kubevirtv1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				phd := foundResource.Spec.Configuration.PermittedHostDevices
+				Expect(phd).ToNot(BeNil())
+				Expect(phd.PciHostDevices).To(HaveLen(4))
+				Expect(phd.PciHostDevices).To(ContainElements(
+					kubevirtv1.PciHostDevice{
+						PCIVendorSelector:        "other1",
+						ResourceName:             "otherResourceName1",
+						ExternalResourceProvider: true,
+					},
+					kubevirtv1.PciHostDevice{
+						PCIVendorSelector:        "other2",
+						ResourceName:             "otherResourceName2",
+						ExternalResourceProvider: false,
+					},
+					kubevirtv1.PciHostDevice{
+						PCIVendorSelector:        "other3",
+						ResourceName:             "otherResourceName3",
+						ExternalResourceProvider: true,
+					},
+					kubevirtv1.PciHostDevice{
+						PCIVendorSelector:        "other4",
+						ResourceName:             "otherResourceName4",
+						ExternalResourceProvider: true,
+					},
+				))
+
+				Expect(phd.MediatedDevices).To(HaveLen(3))
+				Expect(phd.MediatedDevices).To(ContainElements(
+					kubevirtv1.MediatedHostDevice{
+						MDEVNameSelector:         "otherSelector1",
+						ResourceName:             "otherResource1",
+						ExternalResourceProvider: false,
+					},
+					kubevirtv1.MediatedHostDevice{
+						MDEVNameSelector:         "otherSelector2",
+						ResourceName:             "otherResource2",
+						ExternalResourceProvider: true,
+					},
+					kubevirtv1.MediatedHostDevice{
+						MDEVNameSelector:         "otherSelector3",
+						ResourceName:             "otherResource3",
+						ExternalResourceProvider: true,
+					},
+				))
+
+			})
+
+			handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+			res := handler.ensure(req)
+
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Updated).To(BeTrue())
+			Expect(res.Err).To(BeNil())
+
+			foundResource := &kubevirtv1.KubeVirt{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: existKv.Name, Namespace: existKv.Namespace},
+					foundResource),
+			).To(BeNil())
+
+			By("Check after reconcile")
+			phd := foundResource.Spec.Configuration.PermittedHostDevices
+			Expect(phd).ToNot(BeNil())
+			Expect(phd.PciHostDevices).To(HaveLen(3))
+			Expect(phd.PciHostDevices).To(ContainElements(
+				kubevirtv1.PciHostDevice{
+					PCIVendorSelector:        "vendor1",
+					ResourceName:             "resourceName1",
+					ExternalResourceProvider: true,
+				},
+				kubevirtv1.PciHostDevice{
+					PCIVendorSelector:        "vendor2",
+					ResourceName:             "resourceName2",
+					ExternalResourceProvider: false,
+				},
+				kubevirtv1.PciHostDevice{
+					PCIVendorSelector:        "vendor3",
+					ResourceName:             "resourceName3",
+					ExternalResourceProvider: true,
+				},
+			))
+
+			Expect(phd.MediatedDevices).To(HaveLen(4))
+			Expect(phd.MediatedDevices).To(ContainElements(
+				kubevirtv1.MediatedHostDevice{
+					MDEVNameSelector:         "selector1",
+					ResourceName:             "resource1",
+					ExternalResourceProvider: true,
+				},
+				kubevirtv1.MediatedHostDevice{
+					MDEVNameSelector:         "selector2",
+					ResourceName:             "resource2",
+					ExternalResourceProvider: false,
+				},
+				kubevirtv1.MediatedHostDevice{
+					MDEVNameSelector:         "selector3",
+					ResourceName:             "resource3",
+					ExternalResourceProvider: true,
+				},
+				kubevirtv1.MediatedHostDevice{
+					MDEVNameSelector:         "selector4",
+					ResourceName:             "resource4",
+					ExternalResourceProvider: false,
+				},
+			))
+		})
+
 		Context("Test node placement", func() {
 			It("should add node placement if missing in KubeVirt", func() {
 				existingResource, err := NewKubeVirt(hco)
@@ -1331,6 +1644,109 @@ Version: 1.2.3`)
 			mc, err := hcLiveMigrationToKv(lmc)
 			Expect(err).To(HaveOccurred())
 			Expect(mc).To(BeNil())
+		})
+	})
+
+	Context("Test toKvPermittedHostDevices", func() {
+		It("should return nil if the input is nil", func() {
+			Expect(toKvPermittedHostDevices(nil)).To(BeNil())
+		})
+
+		It("should return an empty lists if the input is empty", func() {
+			kvCopy := toKvPermittedHostDevices(&hcov1beta1.PermittedHostDevices{})
+			Expect(kvCopy).ToNot(BeNil())
+			Expect(kvCopy.PciHostDevices).To(BeEmpty())
+			Expect(kvCopy.MediatedDevices).To(BeEmpty())
+		})
+
+		It("should copy all the values", func() {
+			hcoCopy := &hcov1beta1.PermittedHostDevices{
+				PciHostDevices: []hcov1beta1.PciHostDevice{
+					{
+						PCIVendorSelector:        "vendor1",
+						ResourceName:             "resourceName1",
+						ExternalResourceProvider: true,
+					},
+					{
+						PCIVendorSelector:        "vendor2",
+						ResourceName:             "resourceName2",
+						ExternalResourceProvider: false,
+					},
+					{
+						PCIVendorSelector:        "vendor3",
+						ResourceName:             "resourceName3",
+						ExternalResourceProvider: true,
+					},
+				},
+				MediatedDevices: []hcov1beta1.MediatedHostDevice{
+					{
+						MDEVNameSelector:         "selector1",
+						ResourceName:             "resource1",
+						ExternalResourceProvider: true,
+					},
+					{
+						MDEVNameSelector:         "selector2",
+						ResourceName:             "resource2",
+						ExternalResourceProvider: false,
+					},
+					{
+						MDEVNameSelector:         "selector3",
+						ResourceName:             "resource3",
+						ExternalResourceProvider: true,
+					},
+					{
+						MDEVNameSelector:         "selector4",
+						ResourceName:             "resource4",
+						ExternalResourceProvider: false,
+					},
+				},
+			}
+
+			kvCopy := toKvPermittedHostDevices(hcoCopy)
+			Expect(kvCopy).ToNot(BeNil())
+
+			Expect(kvCopy.PciHostDevices).To(HaveLen(3))
+			Expect(kvCopy.PciHostDevices).To(ContainElements(
+				kubevirtv1.PciHostDevice{
+					PCIVendorSelector:        "vendor1",
+					ResourceName:             "resourceName1",
+					ExternalResourceProvider: true,
+				},
+				kubevirtv1.PciHostDevice{
+					PCIVendorSelector:        "vendor2",
+					ResourceName:             "resourceName2",
+					ExternalResourceProvider: false,
+				},
+				kubevirtv1.PciHostDevice{
+					PCIVendorSelector:        "vendor3",
+					ResourceName:             "resourceName3",
+					ExternalResourceProvider: true,
+				},
+			))
+
+			Expect(kvCopy.MediatedDevices).To(HaveLen(4))
+			Expect(kvCopy.MediatedDevices).To(ContainElements(
+				kubevirtv1.MediatedHostDevice{
+					MDEVNameSelector:         "selector1",
+					ResourceName:             "resource1",
+					ExternalResourceProvider: true,
+				},
+				kubevirtv1.MediatedHostDevice{
+					MDEVNameSelector:         "selector2",
+					ResourceName:             "resource2",
+					ExternalResourceProvider: false,
+				},
+				kubevirtv1.MediatedHostDevice{
+					MDEVNameSelector:         "selector3",
+					ResourceName:             "resource3",
+					ExternalResourceProvider: true,
+				},
+				kubevirtv1.MediatedHostDevice{
+					MDEVNameSelector:         "selector4",
+					ResourceName:             "resource4",
+					ExternalResourceProvider: false,
+				},
+			))
 		})
 	})
 })

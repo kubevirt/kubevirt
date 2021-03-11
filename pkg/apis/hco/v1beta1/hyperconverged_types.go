@@ -46,6 +46,10 @@ type HyperConvergedSpec struct {
 	// +optional
 	LiveMigrationConfig LiveMigrationConfigurations `json:"liveMigrationConfig,omitempty"`
 
+	// PermittedHostDevices holds inforamtion about devices allowed for passthrough
+	// +optional
+	PermittedHostDevices *PermittedHostDevices `json:"permittedHostDevices,omitempty"`
+
 	// operator version
 	Version string `json:"version,omitempty"`
 }
@@ -106,6 +110,31 @@ type HyperConvergedFeatureGates struct {
 
 func (fgs *HyperConvergedFeatureGates) IsWithHostPassthroughCPUEnabled() bool {
 	return (fgs != nil) && (fgs.WithHostPassthroughCPU != nil) && (*fgs.WithHostPassthroughCPU)
+}
+
+// PermittedHostDevices holds inforamtion about devices allowed for passthrough
+// +k8s:openapi-gen=true
+type PermittedHostDevices struct {
+	// +listType=atomic
+	PciHostDevices []PciHostDevice `json:"pciHostDevices,omitempty"`
+	// +listType=atomic
+	MediatedDevices []MediatedHostDevice `json:"mediatedDevices,omitempty"`
+}
+
+// PciHostDevice represents a host PCI device allowed for passthrough
+// +k8s:openapi-gen=true
+type PciHostDevice struct {
+	PCIVendorSelector        string `json:"pciVendorSelector"`
+	ResourceName             string `json:"resourceName"`
+	ExternalResourceProvider bool   `json:"externalResourceProvider,omitempty"`
+}
+
+// MediatedHostDevice represents a host mediated device allowed for passthrough
+// +k8s:openapi-gen=true
+type MediatedHostDevice struct {
+	MDEVNameSelector         string `json:"mdevNameSelector"`
+	ResourceName             string `json:"resourceName"`
+	ExternalResourceProvider bool   `json:"externalResourceProvider,omitempty"`
 }
 
 // HyperConvergedStatus defines the observed state of HyperConverged

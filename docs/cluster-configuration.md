@@ -193,6 +193,65 @@ spec:
     progressTimeout: 150
 ```
 
+## Listing Permitted Devices
+Administrators can control which host devices are exposed and permitted to be used in the cluster. Permitted host
+devices in the cluster will need to be allowlisted in KubeVirt CR by its `vendor:product` selector for PCI devices or
+mediated device names. Use the `permittedHostDevices` field in order to manage the permitted host devices.
+
+The `permittedHostDevices` field is an optional field under the HyperConverged `spec` field.
+
+The `permittedHostDevices` field contains two optional arrays: the `pciHostDevices` and the `mediatedDevices` array.
+
+HCO propagates these arrays as is to the KubeVirt custom resource; i.e. no merge is done, but a replacement.
+
+The `pciHostDevices` array is an array of `PciHostDevice` objects. The fields of this object are:
+* `pciVendorSelector` - a combination of a **`vendor_id:product_id`** required to identify a PCI device on a host.
+
+   This identifier 10de:1eb8 can be found using `lspci`; for example:
+   ```shell
+   lspci -nnv | grep -i nvidia
+   ```
+  
+* `resourceName` - name by which a device is advertised and being requested.
+* `externalResourceProvider` - indicates that this resource is being provided by an external device plugin.
+  
+  KubeVirt in this case will only permit the usage of this device in the cluster but will leave the allocation and 
+  monitoring to an external device plugin.
+
+  **default**: `false`
+
+The `mediatedDevices` array is an array of `MediatedDevice` objects. The fields of this object are:
+* `mdevNameSelector` - name of a mediated device type required to identify a mediated device on a host.
+
+   For example: mdev type nvidia-226 represents GRID T4-2A.
+  
+   The selector is matched against the content of `/sys/class/mdev_bus/$mdevUUID/mdev_type/name`.                   
+* `resourceName` - name by which a device is advertised and being requested.    
+* `externalResourceProvider` - indicates that this resource is being provided by an external device plugin.
+
+  KubeVirt in this case will only permit the usage of this device in the cluster but will leave the allocation and
+  monitoring to an external device plugin.
+  
+  **default**: `false`
+
+### Permitted Host Devises Example
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  permittedHostDevices:
+    pciHostDevices:
+      - pciVendorSelector: "10DE:1EB8"
+        resourceName: "nvidia.com/TU104GL_Tesla_T4"
+        externalResourceProvider: true
+      - pciVendorSelector: "8086:6F54"
+        resourceName: "intel.com/qat"
+    mediatedDevices:
+      - mdevNameSelector: "GRID T4-1Q"
+        resourceName: "nvidia.com/GRID_T4-1Q"
+```
 ## Configurations via Annotations
 
 In addition to `featureGates` field in HyperConverged CR's spec, the user can set annotations in the HyperConverged CR

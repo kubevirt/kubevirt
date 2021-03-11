@@ -806,6 +806,45 @@ spec:
               localStorageClassName:
                 description: LocalStorageClassName the name of the local storage class.
                 type: string
+              permittedHostDevices:
+                description: PermittedHostDevices holds inforamtion about devices
+                  allowed for passthrough
+                properties:
+                  mediatedDevices:
+                    items:
+                      description: MediatedHostDevice represents a host mediated device
+                        allowed for passthrough
+                      properties:
+                        externalResourceProvider:
+                          type: boolean
+                        mdevNameSelector:
+                          type: string
+                        resourceName:
+                          type: string
+                      required:
+                      - mdevNameSelector
+                      - resourceName
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  pciHostDevices:
+                    items:
+                      description: PciHostDevice represents a host PCI device allowed
+                        for passthrough
+                      properties:
+                        externalResourceProvider:
+                          type: boolean
+                        pciVendorSelector:
+                          type: string
+                        resourceName:
+                          type: string
+                      required:
+                      - pciVendorSelector
+                      - resourceName
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                type: object
               version:
                 description: operator version
                 type: string
