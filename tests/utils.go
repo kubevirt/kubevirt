@@ -5108,3 +5108,20 @@ func IsLauncherCapabilityDropped(capability k8sv1.Capability) bool {
 	}
 	return false
 }
+
+// VMILauncher waiting for the VMI to be up but ignoring warnings like a disconnected guest-agent
+func VMILauncher(virtClient kubecli.KubevirtClient) func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
+	return func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
+		By("Starting a VirtualMachineInstance")
+		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
+		Expect(err).To(BeNil())
+
+		By("Waiting the VirtualMachineInstance start")
+		vmi, ok := obj.(*v1.VirtualMachineInstance)
+		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
+		// Warnings are okay. We'll receive a warning that the agent isn't connected
+		// during bootup, but that is transient
+		Expect(WaitForSuccessfulVMIStartIgnoreWarnings(obj)).ToNot(BeEmpty())
+		return vmi
+	}
+}

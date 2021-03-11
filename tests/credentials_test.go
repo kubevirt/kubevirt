@@ -39,22 +39,6 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-func vmiLauncher(virtClient kubecli.KubevirtClient) func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-	return func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-		By("Starting a VirtualMachineInstance")
-		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do(context.Background()).Get()
-		Expect(err).To(BeNil())
-
-		By("Waiting the VirtualMachineInstance start")
-		vmi, ok := obj.(*v1.VirtualMachineInstance)
-		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-		// Warnings are okay. We'll receive a warning that the agent isn't connected
-		// during bootup, but that is transient
-		Expect(tests.WaitForSuccessfulVMIStartIgnoreWarnings(obj)).ToNot(BeEmpty())
-		return vmi
-	}
-}
-
 var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 
 	var err error
@@ -69,7 +53,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
 
-		LaunchVMI = vmiLauncher(virtClient)
+		LaunchVMI = tests.VMILauncher(virtClient)
 
 		ExecutingBatchCmd = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
 			By("Checking that the VirtualMachineInstance serial console output equals to expected one")
