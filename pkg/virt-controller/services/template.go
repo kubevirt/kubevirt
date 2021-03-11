@@ -938,11 +938,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			"-c",
 			"echo", "bound PVCs"}
 	} else {
+		command = []string{"/usr/bin/helper.sh"}
 		binary := "/usr/bin/virt-launcher"
 		if nonRoot {
 			binary = "/usr/bin/virt-launcher-cap"
 		}
-		command = []string{binary,
+		commandL := []string{binary,
 			"--qemu-timeout", "5m",
 			"--name", domain,
 			"--uid", string(vmi.UID),
@@ -955,6 +956,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			"--less-pvc-space-toleration", strconv.Itoa(lessPVCSpaceToleration),
 			"--ovmf-path", ovmfPath,
 		}
+		command = append(command, commandL...)
 		if nonRoot {
 			command = append(command, "--run-as-nonroot")
 		}
