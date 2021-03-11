@@ -1035,9 +1035,6 @@ var _ = SIGDescribe("Hotplug", func() {
 					&expect.BExp{R: fmt.Sprintf("ls: cannot access '%s'", targets[0])},
 				}, 10)
 			}, 40*time.Second, 2*time.Second).Should(Succeed())
-			By("Verifying the secret is gone")
-			_, err = virtClient.CoreV1().Secrets(vmi.Namespace).Get(context.Background(), name, metav1.GetOptions{})
-			Expect(err).To(HaveOccurred())
 		})
 	})
 })
