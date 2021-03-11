@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"os"
@@ -188,46 +189,26 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should find all managed resources", func() {
-				hco := &hcov1beta1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1beta1.HyperConvergedSpec{},
-					Status: hcov1beta1.HyperConvergedStatus{
-						Conditions: []conditionsv1.Condition{
-							{
-								Type:    hcov1beta1.ConditionReconcileComplete,
-								Status:  corev1.ConditionTrue,
-								Reason:  reconcileCompleted,
-								Message: reconcileCompletedMessage,
-							},
+
+				expected := getBasicDeployment()
+				expected.hco.Status = hcov1beta1.HyperConvergedStatus{
+					Conditions: []conditionsv1.Condition{
+						{
+							Type:    hcov1beta1.ConditionReconcileComplete,
+							Status:  corev1.ConditionTrue,
+							Reason:  reconcileCompleted,
+							Message: reconcileCompletedMessage,
 						},
 					},
 				}
-				// These are all of the objects that we expect to "find" in the client because
-				// we already created them in a previous reconcile.
-				expectedKVConfig := operands.NewKubeVirtConfigForCR(hco, namespace)
-				expectedKVConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVConfig.Namespace, expectedKVConfig.Name)
-				expectedKVStorageConfig := operands.NewKubeVirtStorageConfigForCR(hco, namespace)
-				expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
-				expectedKVStorageRole := operands.NewKubeVirtStorageRoleForCR(hco, namespace, commonTestUtils.GetScheme())
-				expectedKVStorageRole.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/roles/%s", expectedKVStorageRole.Namespace, expectedKVStorageRole.Name)
-				expectedKVStorageRoleBinding := operands.NewKubeVirtStorageRoleBindingForCR(hco, namespace, commonTestUtils.GetScheme())
-				expectedKVStorageRoleBinding.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/rolebindings/%s", expectedKVStorageRoleBinding.Namespace, expectedKVStorageRoleBinding.Name)
-				expectedKV, err := operands.NewKubeVirt(hco, namespace)
-				Expect(err).ToNot(HaveOccurred())
-				expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)
-				expectedCDI, err := operands.NewCDI(hco)
-				Expect(err).ToNot(HaveOccurred())
-				expectedCDI.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cdis/%s", expectedCDI.Namespace, expectedCDI.Name)
-				expectedCNA, err := operands.NewNetworkAddons(hco)
-				Expect(err).ToNot(HaveOccurred())
-				expectedCNA.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cnas/%s", expectedCNA.Namespace, expectedCNA.Name)
-				expectedSSP := operands.NewSSP(hco)
-				expectedSSP.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/ctbs/%s", expectedSSP.Namespace, expectedSSP.Name)
-				// Add all of the objects to the client
-				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedKVConfig, expectedKVStorageConfig, expectedKVStorageRole, expectedKVStorageRoleBinding, expectedKV, expectedCDI, expectedCNA, expectedSSP})
+
+				expected.kv.Status.Conditions = nil
+				expected.cdi.Status.Conditions = nil
+				expected.cna.Status.Conditions = nil
+				expected.ssp.Status.Conditions = nil
+				expected.vmi.Status.Conditions = nil
+				cl := expected.initClient()
+
 				r := initReconciler(cl)
 
 				// Do the reconcile
@@ -239,7 +220,7 @@ var _ = Describe("HyperconvergedController", func() {
 				foundResource := &hcov1beta1.HyperConverged{}
 				Expect(
 					cl.Get(context.TODO(),
-						types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
+						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
 						foundResource),
 				).To(BeNil())
 				// Check conditions
@@ -271,46 +252,19 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should label all managed resources", func() {
-				hco := &hcov1beta1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1beta1.HyperConvergedSpec{},
-					Status: hcov1beta1.HyperConvergedStatus{
-						Conditions: []conditionsv1.Condition{
-							{
-								Type:    hcov1beta1.ConditionReconcileComplete,
-								Status:  corev1.ConditionTrue,
-								Reason:  reconcileCompleted,
-								Message: reconcileCompletedMessage,
-							},
+				expected := getBasicDeployment()
+				expected.hco.Status = hcov1beta1.HyperConvergedStatus{
+					Conditions: []conditionsv1.Condition{
+						{
+							Type:    hcov1beta1.ConditionReconcileComplete,
+							Status:  corev1.ConditionTrue,
+							Reason:  reconcileCompleted,
+							Message: reconcileCompletedMessage,
 						},
 					},
 				}
-				// These are all of the objects that we expect to "find" in the client because
-				// we already created them in a previous reconcile.
-				expectedKVConfig := operands.NewKubeVirtConfigForCR(hco, namespace)
-				expectedKVConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVConfig.Namespace, expectedKVConfig.Name)
-				expectedKVStorageConfig := operands.NewKubeVirtStorageConfigForCR(hco, namespace)
-				expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
-				expectedKVStorageRole := operands.NewKubeVirtStorageRoleForCR(hco, namespace, commonTestUtils.GetScheme())
-				expectedKVStorageRole.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/roles/%s", expectedKVStorageRole.Namespace, expectedKVStorageRole.Name)
-				expectedKVStorageRoleBinding := operands.NewKubeVirtStorageRoleBindingForCR(hco, namespace, commonTestUtils.GetScheme())
-				expectedKVStorageRoleBinding.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/rolebindings/%s", expectedKVStorageRoleBinding.Namespace, expectedKVStorageRoleBinding.Name)
-				expectedKV, err := operands.NewKubeVirt(hco, namespace)
-				Expect(err).ToNot(HaveOccurred())
-				expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)
-				expectedCDI, err := operands.NewCDI(hco)
-				Expect(err).ToNot(HaveOccurred())
-				expectedCDI.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cdis/%s", expectedCDI.Namespace, expectedCDI.Name)
-				expectedCNA, err := operands.NewNetworkAddons(hco)
-				Expect(err).ToNot(HaveOccurred())
-				expectedCNA.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cnas/%s", expectedCNA.Namespace, expectedCNA.Name)
-				expectedSSP := operands.NewSSP(hco)
-				expectedSSP.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/ssps/%s", expectedSSP.Namespace, expectedSSP.Name)
-				// Add all of the objects to the client
-				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedKVConfig, expectedKVStorageConfig, expectedKVStorageRole, expectedKVStorageRoleBinding, expectedKV, expectedCDI, expectedCNA, expectedSSP})
+
+				cl := expected.initClient()
 				r := initReconciler(cl)
 
 				// Do the reconcile
@@ -322,7 +276,7 @@ var _ = Describe("HyperconvergedController", func() {
 				foundResource := &hcov1beta1.HyperConverged{}
 				Expect(
 					cl.Get(context.TODO(),
-						types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
+						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
 						foundResource),
 				).To(BeNil())
 
@@ -338,7 +292,7 @@ var _ = Describe("HyperconvergedController", func() {
 					).To(BeNil())
 
 					foundLabels := foundRelatedObj.GetLabels()
-					Expect(foundLabels[hcoutil.AppLabel]).Should(Equal(hco.Name))
+					Expect(foundLabels[hcoutil.AppLabel]).Should(Equal(expected.hco.Name))
 					Expect(foundLabels[hcoutil.AppLabelPartOf]).Should(Equal(hcoutil.HyperConvergedCluster))
 					Expect(foundLabels[hcoutil.AppLabelManagedBy]).Should(Equal(hcoutil.OperatorName))
 					Expect(foundLabels[hcoutil.AppLabelVersion]).Should(Equal(version.Version))
@@ -347,90 +301,19 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should complete when components are finished", func() {
-				hco := &hcov1beta1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1beta1.HyperConvergedSpec{},
-					Status: hcov1beta1.HyperConvergedStatus{
-						Conditions: []conditionsv1.Condition{
-							conditionsv1.Condition{
-								Type:    hcov1beta1.ConditionReconcileComplete,
-								Status:  corev1.ConditionTrue,
-								Reason:  reconcileCompleted,
-								Message: reconcileCompletedMessage,
-							},
+				expected := getBasicDeployment()
+				expected.hco.Status = hcov1beta1.HyperConvergedStatus{
+					Conditions: []conditionsv1.Condition{
+						{
+							Type:    hcov1beta1.ConditionReconcileComplete,
+							Status:  corev1.ConditionTrue,
+							Reason:  reconcileCompleted,
+							Message: reconcileCompletedMessage,
 						},
 					},
 				}
-				// These are all of the objects that we expect to "find" in the client because
-				// we already created them in a previous reconcile.
-				expectedKVConfig := operands.NewKubeVirtConfigForCR(hco, namespace)
-				expectedKVConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVConfig.Namespace, expectedKVConfig.Name)
-				expectedKVStorageConfig := operands.NewKubeVirtStorageConfigForCR(hco, namespace)
-				expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
-				expectedKVStorageRole := operands.NewKubeVirtStorageRoleForCR(hco, namespace, commonTestUtils.GetScheme())
-				expectedKVStorageRole.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/role/%s", expectedKVStorageRole.Namespace, expectedKVStorageRole.Name)
-				expectedKVStorageRoleBinding := operands.NewKubeVirtStorageRoleBindingForCR(hco, namespace, commonTestUtils.GetScheme())
-				expectedKVStorageRoleBinding.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/role/%s", expectedKVStorageRoleBinding.Namespace, expectedKVStorageRoleBinding.Name)
-				expectedKV, err := operands.NewKubeVirt(hco, namespace)
-				Expect(err).ToNot(HaveOccurred())
 
-				expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)
-				expectedKV.Status.Conditions = []kubevirtv1.KubeVirtCondition{
-					{
-						Type:   kubevirtv1.KubeVirtConditionAvailable,
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   kubevirtv1.KubeVirtConditionProgressing,
-						Status: corev1.ConditionFalse,
-					},
-					{
-						Type:   kubevirtv1.KubeVirtConditionDegraded,
-						Status: corev1.ConditionFalse,
-					},
-				}
-				expectedCDI, err := operands.NewCDI(hco)
-				Expect(err).ToNot(HaveOccurred())
-				expectedCDI.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cdis/%s", expectedCDI.Namespace, expectedCDI.Name)
-				expectedCDI.Status.Conditions = []conditionsv1.Condition{
-					{
-						Type:   conditionsv1.ConditionAvailable,
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   conditionsv1.ConditionProgressing,
-						Status: corev1.ConditionFalse,
-					},
-					{
-						Type:   conditionsv1.ConditionDegraded,
-						Status: corev1.ConditionFalse,
-					},
-				}
-				expectedCNA, err := operands.NewNetworkAddons(hco)
-				Expect(err).ToNot(HaveOccurred())
-				expectedCNA.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cnas/%s", expectedCNA.Namespace, expectedCNA.Name)
-				expectedCNA.Status.Conditions = []conditionsv1.Condition{
-					{
-						Type:   conditionsv1.ConditionAvailable,
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   conditionsv1.ConditionProgressing,
-						Status: corev1.ConditionFalse,
-					},
-					{
-						Type:   conditionsv1.ConditionDegraded,
-						Status: corev1.ConditionFalse,
-					},
-				}
-				expectedSSP := operands.NewSSP(hco)
-				expectedSSP.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/ctbs/%s", expectedSSP.Namespace, expectedSSP.Name)
-				expectedSSP.Status.Conditions = getGenericCompletedConditions()
-				// Add all of the objects to the client
-				cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedKVConfig, expectedKVStorageConfig, expectedKV, expectedCDI, expectedCNA, expectedSSP})
+				cl := expected.initClient()
 				r := initReconciler(cl)
 
 				// Do the reconcile
@@ -442,7 +325,7 @@ var _ = Describe("HyperconvergedController", func() {
 				foundResource := &hcov1beta1.HyperConverged{}
 				Expect(
 					cl.Get(context.TODO(),
-						types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
+						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
 						foundResource),
 				).To(BeNil())
 				// Check conditions
@@ -591,7 +474,6 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It(`should be not available when components with missing "Available" condition`, func() {
-
 				expected := getBasicDeployment()
 
 				origKvConds := expected.kv.Status.Conditions
@@ -666,7 +548,7 @@ var _ = Describe("HyperconvergedController", func() {
 				).To(BeNil())
 
 				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
-				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(15))
+				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(14))
 				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
 
 				// Now, delete HCO
@@ -866,10 +748,18 @@ var _ = Describe("HyperconvergedController", func() {
 			// have the correct labels
 			os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
 
-			operands.Initiate(true)
-			expected := getBasicDeployment()
-			origConditions := expected.hco.Status.Conditions
-			okConds := expected.hco.Status.Conditions
+			var (
+				expected       *BasicExpected
+				origConditions []conditionsv1.Condition
+				okConds        []conditionsv1.Condition
+			)
+
+			BeforeEach(func() {
+				operands.Initiate(true)
+				expected = getBasicDeployment()
+				origConditions = expected.hco.Status.Conditions
+				okConds = expected.hco.Status.Conditions
+			})
 
 			BeforeEach(func() {
 				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.ConversionImage)
@@ -1194,6 +1084,246 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(cond.Status).Should(BeEquivalentTo("False"))
 				Expect(cond.Reason).Should(Equal(reconcileCompleted))
 				Expect(cond.Message).Should(Equal(reconcileCompletedMessage))
+			})
+
+			Context("Drop KubeVirt configMap", func() {
+				bandwidthPerMigration := "64Mi"
+				completionTimeoutPerGiB := int64(800)
+				parallelMigrationsPerCluster := uint32(5)
+				parallelOutboundMigrationsPerNode := uint32(2)
+				progressTimeout := int64(150)
+
+				It("should drop KubeVirt configMap and create backup", func() {
+					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+					expected.hco.Spec.Version = oldVersion
+
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					})
+
+					cl := commonTestUtils.InitClient(resources)
+					foundResource, requeue := doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, corev1.ConditionTrue)
+
+					foundKvCm, foundBackup := searchKvConfigMaps(cl)
+					Expect(foundKvCm).To(BeFalse())
+					Expect(foundBackup).To(BeTrue())
+
+					Expect(searchInRelatedObjects(foundResource.Status.RelatedObjects, "ConfigMap", kvCmName)).To(BeFalse())
+				})
+
+				It("should adopt KubeVirt configMap into HC CR, drop it and create backup", func() {
+					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+					expected.hco.Spec.Version = oldVersion
+
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+						Data: map[string]string{
+							liveMigrationKey: `parallelMigrationsPerCluster: 5
+parallelOutboundMigrationsPerNode: 2
+bandwidthPerMigration: 64Mi
+completionTimeoutPerGiB: 800
+progressTimeout: 150`,
+						},
+					})
+
+					cl := commonTestUtils.InitClient(resources)
+					foundResource, requeue := doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeTrue())
+					checkAvailability(foundResource, corev1.ConditionUnknown)
+
+					By("Check that the LifeMigrationConfig field contains the configmap values")
+					lmc := foundResource.Spec.LiveMigrationConfig
+					Expect(*lmc.BandwidthPerMigration).Should(Equal(bandwidthPerMigration))
+					Expect(*lmc.CompletionTimeoutPerGiB).Should(Equal(completionTimeoutPerGiB))
+					Expect(*lmc.ParallelMigrationsPerCluster).Should(Equal(parallelMigrationsPerCluster))
+					Expect(*lmc.ParallelOutboundMigrationsPerNode).Should(Equal(parallelOutboundMigrationsPerNode))
+					Expect(*lmc.ProgressTimeout).Should(Equal(progressTimeout))
+
+					By("Check that KV's MigrationConfiguration field does not contain the configmap values, yet")
+					kv := operands.NewKubeVirtWithNameOnly(foundResource)
+					err := hcoutil.GetRuntimeObject(context.TODO(), cl, kv, log)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(kv.Spec.Configuration.MigrationConfiguration.BandwidthPerMigration).To(BeNil())
+					Expect(kv.Spec.Configuration.MigrationConfiguration.CompletionTimeoutPerGiB).To(BeNil())
+					Expect(kv.Spec.Configuration.MigrationConfiguration.ParallelMigrationsPerCluster).To(BeNil())
+					Expect(kv.Spec.Configuration.MigrationConfiguration.ParallelOutboundMigrationsPerNode).To(BeNil())
+					Expect(kv.Spec.Configuration.MigrationConfiguration.ProgressTimeout).To(BeNil())
+
+					foundKvCm, foundBackup := searchKvConfigMaps(cl)
+					Expect(foundKvCm).To(BeFalse())
+					Expect(foundBackup).To(BeTrue())
+
+					Expect(searchInRelatedObjects(foundResource.Status.RelatedObjects, "ConfigMap", kvCmName)).To(BeFalse())
+
+					By("Run reconclie again")
+					foundResource, requeue = doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, corev1.ConditionTrue)
+
+					By("Check that KV's MigrationConfiguration field contains the configmap values")
+					kv = operands.NewKubeVirtWithNameOnly(foundResource)
+					err = hcoutil.GetRuntimeObject(context.TODO(), cl, kv, log)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(*kv.Spec.Configuration.MigrationConfiguration.BandwidthPerMigration).Should(Equal(resource.MustParse(bandwidthPerMigration)))
+					Expect(*kv.Spec.Configuration.MigrationConfiguration.CompletionTimeoutPerGiB).Should(Equal(completionTimeoutPerGiB))
+					Expect(*kv.Spec.Configuration.MigrationConfiguration.ParallelMigrationsPerCluster).Should(Equal(parallelMigrationsPerCluster))
+					Expect(*kv.Spec.Configuration.MigrationConfiguration.ParallelOutboundMigrationsPerNode).Should(Equal(parallelOutboundMigrationsPerNode))
+					Expect(*kv.Spec.Configuration.MigrationConfiguration.ProgressTimeout).Should(Equal(progressTimeout))
+
+					foundKvCm, foundBackup = searchKvConfigMaps(cl)
+					Expect(foundKvCm).To(BeFalse())
+					Expect(foundBackup).To(BeTrue())
+
+					Expect(searchInRelatedObjects(foundResource.Status.RelatedObjects, "ConfigMap", kvCmName)).To(BeFalse())
+
+				})
+
+				It("should adopt KubeVirt configMap into HC CR if the values are different, drop the cm and create backup", func() {
+					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+					expected.hco.Spec.Version = oldVersion
+					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &bandwidthPerMigration
+					expected.hco.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = &completionTimeoutPerGiB
+					expected.hco.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode = &parallelOutboundMigrationsPerNode
+					expected.hco.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster = &parallelMigrationsPerCluster
+					expected.hco.Spec.LiveMigrationConfig.ProgressTimeout = &progressTimeout
+
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+						Data: map[string]string{
+							liveMigrationKey: `parallelMigrationsPerCluster: 4
+parallelOutboundMigrationsPerNode: 4
+bandwidthPerMigration: 16Mi
+completionTimeoutPerGiB: 400
+progressTimeout: 300`,
+						},
+					})
+
+					cl := commonTestUtils.InitClient(resources)
+					foundResource, requeue := doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeTrue())
+					checkAvailability(foundResource, corev1.ConditionUnknown)
+
+					By("Check that the LifeMigrationConfig field contains the configmap values")
+					lmc := foundResource.Spec.LiveMigrationConfig
+					Expect(*lmc.BandwidthPerMigration).Should(Equal("16Mi"))
+					Expect(*lmc.CompletionTimeoutPerGiB).Should(Equal(int64(400)))
+					Expect(*lmc.ParallelMigrationsPerCluster).Should(Equal(uint32(4)))
+					Expect(*lmc.ParallelOutboundMigrationsPerNode).Should(Equal(uint32(4)))
+					Expect(*lmc.ProgressTimeout).Should(Equal(int64(300)))
+
+					By("Check that KV's MigrationConfiguration field does not contain the configmap values, yet")
+					kv := operands.NewKubeVirtWithNameOnly(foundResource)
+					err := hcoutil.GetRuntimeObject(context.TODO(), cl, kv, log)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(kv.Spec.Configuration.MigrationConfiguration.BandwidthPerMigration).To(BeNil())
+					Expect(kv.Spec.Configuration.MigrationConfiguration.CompletionTimeoutPerGiB).To(BeNil())
+					Expect(kv.Spec.Configuration.MigrationConfiguration.ParallelMigrationsPerCluster).To(BeNil())
+					Expect(kv.Spec.Configuration.MigrationConfiguration.ParallelOutboundMigrationsPerNode).To(BeNil())
+					Expect(kv.Spec.Configuration.MigrationConfiguration.ProgressTimeout).To(BeNil())
+
+					foundKvCm, foundBackup := searchKvConfigMaps(cl)
+					Expect(foundKvCm).To(BeFalse())
+					Expect(foundBackup).To(BeTrue())
+
+					Expect(searchInRelatedObjects(foundResource.Status.RelatedObjects, "ConfigMap", kvCmName)).To(BeFalse())
+
+					By("Run reconclie again")
+					foundResource, requeue = doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, corev1.ConditionTrue)
+
+					By("Check that KV's MigrationConfiguration field contains the configmap values")
+					kv = operands.NewKubeVirtWithNameOnly(foundResource)
+					err = hcoutil.GetRuntimeObject(context.TODO(), cl, kv, log)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(*kv.Spec.Configuration.MigrationConfiguration.BandwidthPerMigration).Should(Equal(resource.MustParse("16Mi")))
+					Expect(*kv.Spec.Configuration.MigrationConfiguration.CompletionTimeoutPerGiB).Should(Equal(int64(400)))
+					Expect(*kv.Spec.Configuration.MigrationConfiguration.ParallelMigrationsPerCluster).Should(Equal(uint32(4)))
+					Expect(*kv.Spec.Configuration.MigrationConfiguration.ParallelOutboundMigrationsPerNode).Should(Equal(uint32(4)))
+					Expect(*kv.Spec.Configuration.MigrationConfiguration.ProgressTimeout).Should(Equal(int64(300)))
+
+					foundKvCm, foundBackup = searchKvConfigMaps(cl)
+					Expect(foundKvCm).To(BeFalse())
+					Expect(foundBackup).To(BeTrue())
+
+					Expect(searchInRelatedObjects(foundResource.Status.RelatedObjects, "ConfigMap", kvCmName)).To(BeFalse())
+				})
+
+				It("should ignore KubeVirt configMap into HC CR if there is no change, drop the cm and create backup", func() {
+					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+					expected.hco.Spec.Version = oldVersion
+					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &bandwidthPerMigration
+					expected.hco.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = &completionTimeoutPerGiB
+					expected.hco.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode = &parallelOutboundMigrationsPerNode
+					expected.hco.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster = &parallelMigrationsPerCluster
+					expected.hco.Spec.LiveMigrationConfig.ProgressTimeout = &progressTimeout
+
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+						Data: map[string]string{
+							liveMigrationKey: `parallelMigrationsPerCluster: 5
+parallelOutboundMigrationsPerNode: 2
+bandwidthPerMigration: 64Mi
+completionTimeoutPerGiB: 800
+progressTimeout: 150`,
+						},
+					})
+
+					cl := commonTestUtils.InitClient(resources)
+					foundResource, requeue := doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, corev1.ConditionTrue)
+
+					By("Check that the LifeMigrationConfig field contains the configmap values")
+					lmc := foundResource.Spec.LiveMigrationConfig
+					Expect(*lmc.BandwidthPerMigration).Should(Equal(bandwidthPerMigration))
+					Expect(*lmc.CompletionTimeoutPerGiB).Should(Equal(completionTimeoutPerGiB))
+					Expect(*lmc.ParallelMigrationsPerCluster).Should(Equal(parallelMigrationsPerCluster))
+					Expect(*lmc.ParallelOutboundMigrationsPerNode).Should(Equal(parallelOutboundMigrationsPerNode))
+					Expect(*lmc.ProgressTimeout).Should(Equal(progressTimeout))
+
+					By("Check that KV's MigrationConfiguration field contains the configmap values")
+					kv := operands.NewKubeVirtWithNameOnly(foundResource)
+					err := hcoutil.GetRuntimeObject(context.TODO(), cl, kv, log)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(*kv.Spec.Configuration.MigrationConfiguration.BandwidthPerMigration).Should(Equal(resource.MustParse(bandwidthPerMigration)))
+					Expect(*kv.Spec.Configuration.MigrationConfiguration.CompletionTimeoutPerGiB).Should(Equal(completionTimeoutPerGiB))
+					Expect(*kv.Spec.Configuration.MigrationConfiguration.ParallelMigrationsPerCluster).Should(Equal(parallelMigrationsPerCluster))
+					Expect(*kv.Spec.Configuration.MigrationConfiguration.ParallelOutboundMigrationsPerNode).Should(Equal(parallelOutboundMigrationsPerNode))
+					Expect(*kv.Spec.Configuration.MigrationConfiguration.ProgressTimeout).Should(Equal(progressTimeout))
+
+					foundKvCm, foundBackup := searchKvConfigMaps(cl)
+					Expect(foundKvCm).To(BeFalse())
+					Expect(foundBackup).To(BeTrue())
+
+					Expect(searchInRelatedObjects(foundResource.Status.RelatedObjects, "ConfigMap", kvCmName)).To(BeFalse())
+				})
 			})
 		})
 
@@ -1635,5 +1765,631 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 		})
+
+		Context("Test migrateBeforeUpgrade", func() {
+			bandwidthPerMigration := "64Mi"
+			completionTimeoutPerGiB := int64(800)
+			parallelMigrationsPerCluster := uint32(5)
+			parallelOutboundMigrationsPerNode := uint32(2)
+			progressTimeout := int64(150)
+
+			var expected *BasicExpected
+			BeforeEach(func() {
+				expected = getBasicDeployment()
+			})
+
+			Context("Positive Tests", func() {
+				It("Should delete the CM and create a backup", func() {
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					})
+					cl := commonTestUtils.InitClient(resources)
+
+					r := initReconciler(cl)
+
+					req := commonTestUtils.NewReq(expected.hco)
+
+					modified, err := r.migrateBeforeUpgrade(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(modified).To(BeFalse())
+
+					foundKvCm, foundBackup := searchKvConfigMaps(cl)
+					Expect(foundKvCm).To(BeFalse())
+					Expect(foundBackup).To(BeTrue())
+
+					By("Check events")
+					events := r.eventEmitter.(*commonTestUtils.EventEmitterMock)
+					expectedEvents := []commonTestUtils.MockEvent{
+						{
+							EventType: corev1.EventTypeNormal,
+							Reason:    "Created",
+							Msg:       "Created ConfigMap kubevirt-config-backup",
+						},
+						{
+							EventType: corev1.EventTypeNormal,
+							Reason:    "Killing",
+							Msg:       "Removed ConfigMap kubevirt-config",
+						},
+					}
+
+					Expect(events.CheckEvents(expectedEvents)).To(BeTrue())
+				})
+
+				It("Should do nothing if the kv configMap does not exists", func() {
+					cl := expected.initClient()
+
+					r := initReconciler(cl)
+					req := commonTestUtils.NewReq(expected.hco)
+
+					modified, err := r.migrateBeforeUpgrade(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(modified).To(BeFalse())
+
+					foundKvCm, foundBackup := searchKvConfigMaps(cl)
+					Expect(foundKvCm).To(BeFalse())
+					Expect(foundBackup).To(BeFalse())
+
+					By("Check events")
+					events := r.eventEmitter.(*commonTestUtils.EventEmitterMock)
+					expectedEvents := []commonTestUtils.MockEvent{
+						{
+							EventType: corev1.EventTypeNormal,
+							Reason:    "Created",
+							Msg:       "Created ConfigMap kubevirt-config-backup",
+						},
+					}
+					Expect(events.CheckEvents(expectedEvents)).To(BeFalse())
+
+					expectedEvents = []commonTestUtils.MockEvent{
+						{
+							EventType: corev1.EventTypeNormal,
+							Reason:    "Killing",
+							Msg:       "Removed ConfigMap kubevirt-config",
+						},
+					}
+					Expect(events.CheckEvents(expectedEvents)).To(BeFalse())
+				})
+
+				It("Should drop the KV CM if both kv configMap and its backup exist", func() {
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					})
+
+					resources = append(resources, &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      backupKvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					})
+
+					cl := commonTestUtils.InitClient(resources)
+
+					r := initReconciler(cl)
+					req := commonTestUtils.NewReq(expected.hco)
+
+					modified, err := r.migrateBeforeUpgrade(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(modified).To(BeFalse())
+
+					foundKvCm, foundBackup := searchKvConfigMaps(cl)
+					Expect(foundKvCm).To(BeFalse())
+					Expect(foundBackup).To(BeTrue())
+
+					By("Don't expect the create backup event")
+					events := r.eventEmitter.(*commonTestUtils.EventEmitterMock)
+					expectedEvents := []commonTestUtils.MockEvent{
+						{
+							EventType: corev1.EventTypeNormal,
+							Reason:    "Created",
+							Msg:       "Created ConfigMap kubevirt-config-backup",
+						},
+					}
+					Expect(events.CheckEvents(expectedEvents)).To(BeFalse())
+
+					By("Expect the delete cm event")
+					expectedEvents = []commonTestUtils.MockEvent{
+						{
+							EventType: corev1.EventTypeNormal,
+							Reason:    "Killing",
+							Msg:       "Removed ConfigMap kubevirt-config",
+						},
+					}
+					Expect(events.CheckEvents(expectedEvents)).To(BeTrue())
+				})
+
+				It("Should adopt KV configuration from the configMap, if missing in HCO", func() {
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+						Data: map[string]string{
+							liveMigrationKey: `parallelMigrationsPerCluster: 5
+parallelOutboundMigrationsPerNode: 2
+bandwidthPerMigration: 64Mi
+completionTimeoutPerGiB: 800
+progressTimeout: 150`,
+						},
+					})
+					cl := commonTestUtils.InitClient(resources)
+
+					r := initReconciler(cl)
+					req := commonTestUtils.NewReq(expected.hco)
+
+					modified, err := r.migrateBeforeUpgrade(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(modified).To(BeTrue())
+
+					foundKvCm, foundBackup := searchKvConfigMaps(cl)
+					Expect(foundKvCm).To(BeFalse())
+					Expect(foundBackup).To(BeTrue())
+
+					Expect(*req.Instance.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Equal(bandwidthPerMigration))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB).Should(Equal(completionTimeoutPerGiB))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster).Should(Equal(parallelMigrationsPerCluster))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode).Should(Equal(parallelOutboundMigrationsPerNode))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.ProgressTimeout).Should(Equal(progressTimeout))
+
+					By("Check events")
+					events := r.eventEmitter.(*commonTestUtils.EventEmitterMock)
+					expectedEvents := []commonTestUtils.MockEvent{
+						{
+							EventType: corev1.EventTypeNormal,
+							Reason:    "Created",
+							Msg:       "Created ConfigMap kubevirt-config-backup",
+						},
+						{
+							EventType: corev1.EventTypeNormal,
+							Reason:    "Killing",
+							Msg:       "Removed ConfigMap kubevirt-config",
+						},
+					}
+					Expect(events.CheckEvents(expectedEvents)).To(BeTrue())
+				})
+
+				It("Should adopt KV configuration from the configMap, with unknown key", func() {
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+						Data: map[string]string{
+							liveMigrationKey: `parallelMigrationsPerCluster: 5
+parallelOutboundMigrationsPerNode: 2
+bandwidthPerMigration: 64Mi
+completionTimeoutPerGiB: 800
+progressTimeout: 150
+unknownKey: 42`,
+						},
+					})
+					cl := commonTestUtils.InitClient(resources)
+
+					r := initReconciler(cl)
+					req := commonTestUtils.NewReq(expected.hco)
+
+					modified, err := r.migrateBeforeUpgrade(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(modified).To(BeTrue())
+
+					foundKvCm, foundBackup := searchKvConfigMaps(cl)
+					Expect(foundKvCm).To(BeFalse())
+					Expect(foundBackup).To(BeTrue())
+
+					Expect(*req.Instance.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Equal(bandwidthPerMigration))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB).Should(Equal(completionTimeoutPerGiB))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster).Should(Equal(parallelMigrationsPerCluster))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode).Should(Equal(parallelOutboundMigrationsPerNode))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.ProgressTimeout).Should(Equal(progressTimeout))
+				})
+
+				It("Should adopt KV configuration from the configMap, with missing keys", func() {
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+						Data: map[string]string{
+							liveMigrationKey: `parallelMigrationsPerCluster: 5
+completionTimeoutPerGiB: 800
+progressTimeout: 150`,
+						},
+					})
+					cl := commonTestUtils.InitClient(resources)
+
+					r := initReconciler(cl)
+					req := commonTestUtils.NewReq(expected.hco)
+
+					modified, err := r.migrateBeforeUpgrade(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(modified).To(BeTrue())
+
+					foundKvCm, foundBackup := searchKvConfigMaps(cl)
+					Expect(foundKvCm).To(BeFalse())
+					Expect(foundBackup).To(BeTrue())
+
+					Expect(req.Instance.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(BeNil())
+					Expect(*req.Instance.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB).Should(Equal(completionTimeoutPerGiB))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster).Should(Equal(parallelMigrationsPerCluster))
+					Expect(req.Instance.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode).Should(BeNil())
+					Expect(*req.Instance.Spec.LiveMigrationConfig.ProgressTimeout).Should(Equal(progressTimeout))
+				})
+
+				It("Should ignore KV configuration from the configMap, if if HCO contains the same values", func() {
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+						Data: map[string]string{
+							liveMigrationKey: `parallelMigrationsPerCluster: 5
+parallelOutboundMigrationsPerNode: 2
+bandwidthPerMigration: 64Mi
+completionTimeoutPerGiB: 800
+progressTimeout: 150`,
+						},
+					})
+
+					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &bandwidthPerMigration
+					expected.hco.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = &completionTimeoutPerGiB
+					expected.hco.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode = &parallelOutboundMigrationsPerNode
+					expected.hco.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster = &parallelMigrationsPerCluster
+					expected.hco.Spec.LiveMigrationConfig.ProgressTimeout = &progressTimeout
+
+					cl := commonTestUtils.InitClient(resources)
+
+					r := initReconciler(cl)
+					req := commonTestUtils.NewReq(expected.hco)
+
+					modified, err := r.migrateBeforeUpgrade(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(modified).To(BeFalse())
+
+					foundKvCm, foundBackup := searchKvConfigMaps(cl)
+					Expect(foundKvCm).To(BeFalse())
+					Expect(foundBackup).To(BeTrue())
+
+					Expect(*req.Instance.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Equal(bandwidthPerMigration))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB).Should(Equal(completionTimeoutPerGiB))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster).Should(Equal(parallelMigrationsPerCluster))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode).Should(Equal(parallelOutboundMigrationsPerNode))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.ProgressTimeout).Should(Equal(progressTimeout))
+				})
+
+				It("Should adopt KV configuration from the configMap, if if HCO contains the different values", func() {
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+						Data: map[string]string{
+							liveMigrationKey: `parallelMigrationsPerCluster: 4
+parallelOutboundMigrationsPerNode: 4
+bandwidthPerMigration: 16Mi
+completionTimeoutPerGiB: 400
+progressTimeout: 300`,
+						},
+					})
+
+					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &bandwidthPerMigration
+					expected.hco.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = &completionTimeoutPerGiB
+					expected.hco.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode = &parallelOutboundMigrationsPerNode
+					expected.hco.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster = &parallelMigrationsPerCluster
+					expected.hco.Spec.LiveMigrationConfig.ProgressTimeout = &progressTimeout
+
+					cl := commonTestUtils.InitClient(resources)
+
+					r := initReconciler(cl)
+					req := commonTestUtils.NewReq(expected.hco)
+
+					modified, err := r.migrateBeforeUpgrade(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(modified).To(BeTrue())
+
+					foundKvCm, foundBackup := searchKvConfigMaps(cl)
+					Expect(foundKvCm).To(BeFalse())
+					Expect(foundBackup).To(BeTrue())
+
+					Expect(*req.Instance.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Equal("16Mi"))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB).Should(Equal(int64(400)))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster).Should(Equal(uint32(4)))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode).Should(Equal(uint32(4)))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.ProgressTimeout).Should(Equal(int64(300)))
+				})
+
+				It("Should adopt KV configuration from the configMap with missing keys, if if HCO contains the livemigration config", func() {
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+						Data: map[string]string{
+							liveMigrationKey: `parallelMigrationsPerCluster: 4
+completionTimeoutPerGiB: 400
+progressTimeout: 300`,
+						},
+					})
+
+					expected.hco.Spec.LiveMigrationConfig.BandwidthPerMigration = &bandwidthPerMigration
+					expected.hco.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = &completionTimeoutPerGiB
+					expected.hco.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode = &parallelOutboundMigrationsPerNode
+					expected.hco.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster = &parallelMigrationsPerCluster
+					expected.hco.Spec.LiveMigrationConfig.ProgressTimeout = &progressTimeout
+
+					cl := commonTestUtils.InitClient(resources)
+
+					r := initReconciler(cl)
+					req := commonTestUtils.NewReq(expected.hco)
+
+					modified, err := r.migrateBeforeUpgrade(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(modified).To(BeTrue())
+
+					foundKvCm, foundBackup := searchKvConfigMaps(cl)
+					Expect(foundKvCm).To(BeFalse())
+					Expect(foundBackup).To(BeTrue())
+
+					Expect(*req.Instance.Spec.LiveMigrationConfig.BandwidthPerMigration).Should(Equal(bandwidthPerMigration))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB).Should(Equal(int64(400)))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster).Should(Equal(uint32(4)))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode).Should(Equal(parallelOutboundMigrationsPerNode))
+					Expect(*req.Instance.Spec.LiveMigrationConfig.ProgressTimeout).Should(Equal(int64(300)))
+				})
+			})
+
+			Context("Test Errors", func() {
+				It("Should return error if failed to read KV CM", func() {
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					})
+					cl := commonTestUtils.InitClient(resources)
+					fakeError := fmt.Errorf("fake read error")
+					cl.InitiateGetErrors(func(key client.ObjectKey) error {
+						if key.Name == kvCmName {
+							return fakeError
+						}
+						return nil
+					})
+
+					r := initReconciler(cl)
+					req := commonTestUtils.NewReq(expected.hco)
+
+					modified, err := r.migrateBeforeUpgrade(req)
+					Expect(err).To(HaveOccurred())
+					Expect(err).Should(Equal(fakeError))
+					Expect(modified).Should(BeFalse())
+
+					By("Make sure that no event emitted")
+					events := r.eventEmitter.(*commonTestUtils.EventEmitterMock)
+					expectedEvents := []commonTestUtils.MockEvent{
+						{
+							EventType: corev1.EventTypeNormal,
+							Reason:    "Created",
+							Msg:       "Created ConfigMap kubevirt-config-backup",
+						},
+					}
+					Expect(events.CheckEvents(expectedEvents)).To(BeFalse())
+
+					expectedEvents = []commonTestUtils.MockEvent{
+						{
+							EventType: corev1.EventTypeNormal,
+							Reason:    "Killing",
+							Msg:       "Removed ConfigMap kubevirt-config",
+						},
+					}
+					Expect(events.CheckEvents(expectedEvents)).To(BeFalse())
+				})
+
+				It("Should return error if failed to create the KV backup CM", func() {
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					})
+					cl := commonTestUtils.InitClient(resources)
+					fakeError := fmt.Errorf("fake create error")
+					cl.InitiateCreateErrors(func(obj client.Object) error {
+						cm, ok := obj.(*corev1.ConfigMap)
+						if ok && cm.Name == backupKvCmName {
+							return fakeError
+						}
+						return nil
+					})
+
+					r := initReconciler(cl)
+					req := commonTestUtils.NewReq(expected.hco)
+
+					modified, err := r.migrateBeforeUpgrade(req)
+					Expect(err).To(HaveOccurred())
+					Expect(err).Should(Equal(fakeError))
+					Expect(modified).Should(BeFalse())
+
+					By("Make sure that no event emitted")
+					events := r.eventEmitter.(*commonTestUtils.EventEmitterMock)
+					expectedEvents := []commonTestUtils.MockEvent{
+						{
+							EventType: corev1.EventTypeNormal,
+							Reason:    "Created",
+							Msg:       "Created ConfigMap kubevirt-config-backup",
+						},
+					}
+					Expect(events.CheckEvents(expectedEvents)).To(BeFalse())
+
+					expectedEvents = []commonTestUtils.MockEvent{
+						{
+							EventType: corev1.EventTypeNormal,
+							Reason:    "Killing",
+							Msg:       "Removed ConfigMap kubevirt-config",
+						},
+					}
+					Expect(events.CheckEvents(expectedEvents)).To(BeFalse())
+				})
+
+				It("Should return error if format of the MC is wrong", func() {
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+						Data: map[string]string{
+							liveMigrationKey: `wrong yaml format`,
+						},
+					})
+					cl := commonTestUtils.InitClient(resources)
+
+					r := initReconciler(cl)
+					req := commonTestUtils.NewReq(expected.hco)
+
+					modified, err := r.migrateBeforeUpgrade(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(modified).Should(BeFalse())
+
+					By("check that the create backup and the delete cm events were emitted")
+					events := r.eventEmitter.(*commonTestUtils.EventEmitterMock)
+					expectedEvents := []commonTestUtils.MockEvent{
+						{
+							EventType: corev1.EventTypeNormal,
+							Reason:    "Created",
+							Msg:       "Created ConfigMap kubevirt-config-backup",
+						},
+						{
+							EventType: corev1.EventTypeNormal,
+							Reason:    "Killing",
+							Msg:       "Removed ConfigMap kubevirt-config",
+						},
+					}
+					Expect(events.CheckEvents(expectedEvents)).To(BeTrue())
+				})
+
+				It("Should return error if failed to delete KV CM", func() {
+					resources := append(expected.toArray(), &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kvCmName,
+							Namespace: namespace,
+							Labels: map[string]string{
+								hcoutil.AppLabel: expected.hco.Name,
+							},
+						},
+					})
+
+					cl := commonTestUtils.InitClient(resources)
+
+					fakeError := fmt.Errorf("fake delete error")
+					cl.InitiateDeleteErrors(func(obj client.Object) error {
+						if unstructed, ok := obj.(runtime.Unstructured); ok {
+							kind := unstructed.GetObjectKind()
+							if kind.GroupVersionKind().Kind == "ConfigMap" && obj.GetName() == kvCmName {
+								return fakeError
+							}
+						}
+						return nil
+					})
+
+					r := initReconciler(cl)
+					req := commonTestUtils.NewReq(expected.hco)
+
+					modified, err := r.migrateBeforeUpgrade(req)
+					Expect(err).To(HaveOccurred())
+					Expect(err).Should(Equal(fakeError))
+					Expect(modified).Should(BeFalse())
+
+					By("check that the create backup event was emitted")
+					events := r.eventEmitter.(*commonTestUtils.EventEmitterMock)
+					expectedEvents := []commonTestUtils.MockEvent{
+						{
+							EventType: corev1.EventTypeNormal,
+							Reason:    "Created",
+							Msg:       "Created ConfigMap kubevirt-config-backup",
+						},
+					}
+					Expect(events.CheckEvents(expectedEvents)).To(BeTrue())
+
+					By("check that the delete cm event was not emitted")
+					expectedEvents = []commonTestUtils.MockEvent{
+						{
+							EventType: corev1.EventTypeNormal,
+							Reason:    "Killing",
+							Msg:       "Removed ConfigMap kubevirt-config",
+						},
+					}
+					Expect(events.CheckEvents(expectedEvents)).To(BeFalse())
+				})
+			})
+		})
 	})
 })
+
+func searchKvConfigMaps(cl client.Client) (bool, bool) {
+	cms := &corev1.ConfigMapList{}
+
+	err := cl.List(context.TODO(), cms, client.InNamespace(namespace))
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	foundKvCm := false
+	foundBackup := false
+	for _, cm := range cms.Items {
+		if cm.Name == kvCmName {
+			foundKvCm = true
+		}
+
+		if cm.Name == backupKvCmName {
+			foundBackup = true
+		}
+	}
+
+	return foundKvCm, foundBackup
+}
+
+func searchInRelatedObjects(relatedObjects []corev1.ObjectReference, kind, name string) bool {
+	for _, obj := range relatedObjects {
+		if obj.Kind == kind && obj.Name == name {
+			return true
+		}
+	}
+	return false
+}

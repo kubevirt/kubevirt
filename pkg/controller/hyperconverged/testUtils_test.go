@@ -60,7 +60,6 @@ func initReconciler(client client.Client) *ReconcileHyperConverged {
 type BasicExpected struct {
 	hco                  *hcov1beta1.HyperConverged
 	pc                   *schedulingv1.PriorityClass
-	kvConfig             *corev1.ConfigMap
 	kvStorageConfig      *corev1.ConfigMap
 	kvStorageRole        *rbacv1.Role
 	kvStorageRoleBinding *rbacv1.RoleBinding
@@ -79,7 +78,6 @@ func (be BasicExpected) toArray() []runtime.Object {
 	return []runtime.Object{
 		be.hco,
 		be.pc,
-		be.kvConfig,
 		be.kvStorageConfig,
 		be.kvStorageRole,
 		be.kvStorageRoleBinding,
@@ -129,11 +127,6 @@ func getBasicDeployment() *BasicExpected {
 	res.mService = operands.NewMetricsService(hco, namespace)
 	res.serviceMonitor = operands.NewServiceMonitor(hco, namespace)
 	res.promRule = operands.NewPrometheusRule(hco, namespace)
-	// These are all of the objects that we expect to "find" in the client because
-	// we already created them in a previous reconcile.
-	expectedKVConfig := operands.NewKubeVirtConfigForCR(hco, namespace)
-	expectedKVConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVConfig.Namespace, expectedKVConfig.Name)
-	res.kvConfig = expectedKVConfig
 
 	expectedKVStorageConfig := operands.NewKubeVirtStorageConfigForCR(hco, namespace)
 	expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
@@ -260,7 +253,7 @@ func checkAvailability(hco *hcov1beta1.HyperConverged, expected corev1.Condition
 	for _, cond := range hco.Status.Conditions {
 		if cond.Type == conditionsv1.ConditionType(kubevirtv1.KubeVirtConditionAvailable) {
 			found = true
-			Expect(cond.Status).To(Equal(expected))
+			ExpectWithOffset(1, cond.Status).To(Equal(expected))
 			break
 		}
 	}

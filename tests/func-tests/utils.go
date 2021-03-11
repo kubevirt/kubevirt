@@ -7,10 +7,6 @@ import (
 	"os"
 )
 
-const (
-	KubevirtCfgMap = "kubevirt-config"
-)
-
 var KubeVirtStorageClassLocal string
 
 func init() {

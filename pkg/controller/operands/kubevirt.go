@@ -336,139 +336,12 @@ func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig) *kubevirtv1.C
 	return nil
 }
 
-// ***********  KubeVirt Config Handler  ************
-type kvConfigHandler genericOperand
-
-func newKvConfigHandler(Client client.Client, Scheme *runtime.Scheme) *kvConfigHandler {
-	return &kvConfigHandler{
-		Client:                 Client,
-		Scheme:                 Scheme,
-		crType:                 "KubeVirtConfig",
-		removeExistingOwner:    false,
-		setControllerReference: false,
-		isCr:                   false,
-		hooks:                  &kvConfigHooks{},
-	}
-}
-
-type kvConfigHooks struct{}
-
-func (h kvConfigHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
-	return NewKubeVirtConfigForCR(hc, hc.Namespace), nil
-}
-func (h kvConfigHooks) getEmptyCr() client.Object                             { return &corev1.ConfigMap{} }
-func (h kvConfigHooks) validate() error                                       { return nil }
-func (h kvConfigHooks) postFound(*common.HcoRequest, runtime.Object) error    { return nil }
-func (h kvConfigHooks) getConditions(runtime.Object) []conditionsv1.Condition { return nil }
-func (h kvConfigHooks) checkComponentVersion(runtime.Object) bool             { return true }
-func (h kvConfigHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
-	return &cr.(*corev1.ConfigMap).ObjectMeta
-}
-func (h kvConfigHooks) reset() { /* no implementation */ }
-
-func (h *kvConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
-	kubevirtConfig, ok1 := required.(*corev1.ConfigMap)
-	found, ok2 := exists.(*corev1.ConfigMap)
-	if !ok1 || !ok2 {
-		return false, false, errors.New("can't convert to ConfigMap")
-	}
-
-	changed := false
-	if req.UpgradeMode {
-		changed = h.updateDataOnUpgrade(req, found, kubevirtConfig)
-	}
-
-	changed = h.updateData(found, kubevirtConfig) || changed
-
-	if !reflect.DeepEqual(found.Labels, kubevirtConfig.Labels) {
-		util.DeepCopyLabels(&kubevirtConfig.ObjectMeta, &found.ObjectMeta)
-		changed = true
-	}
-
-	if changed {
-		return h.updateKvConfigMap(req, Client, found)
-	}
-
-	return false, false, nil
-}
-func (h *kvConfigHooks) updateDataOnUpgrade(req *common.HcoRequest, found *corev1.ConfigMap, kubevirtConfig *corev1.ConfigMap) bool {
-	changed := false
-	if h.forceDefaultKeys(req, found, kubevirtConfig) {
-		changed = true
-	}
-
-	if h.removeOldKeys(req, found) {
-		changed = true
-	}
-
-	return changed
-}
-
-func (h *kvConfigHooks) updateData(found *corev1.ConfigMap, required *corev1.ConfigMap) bool {
-	if found.Data[FeatureGatesKey] != required.Data[FeatureGatesKey] {
-		found.Data[FeatureGatesKey] = required.Data[FeatureGatesKey]
-		return true
-	}
-
-	return false
-}
-
-func (h *kvConfigHooks) updateKvConfigMap(req *common.HcoRequest, Client client.Client, found *corev1.ConfigMap) (bool, bool, error) {
-	err := Client.Update(req.Ctx, found)
-	if err != nil {
-		req.Logger.Error(err, "Failed updating the kubevirt config map")
-		return false, false, err
-	}
-	return true, false, nil
-}
-
 type featureGateChecks map[string]func() bool
 
 func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) featureGateChecks {
 	return map[string]func() bool{
 		kvWithHostPassthroughCPU: featureGates.IsWithHostPassthroughCPUEnabled,
 	}
-}
-
-func (h *kvConfigHooks) forceDefaultKeys(req *common.HcoRequest, found *corev1.ConfigMap, kubevirtConfig *corev1.ConfigMap) bool {
-	changed := false
-	// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey,
-	// virtconfig.FeatureGatesKey and virtconfig.UseEmulationKey are going to be manipulated
-	// and only on HCO upgrades.
-	// virtconfig.MigrationsConfigKey is going to be removed if set in the past (only during upgrades).
-	// TODO: This is going to change in the next HCO release where the whole configMap is going
-	// to be continuously reconciled
-	for _, k := range []string{
-		SmbiosConfigKey,
-		MachineTypeKey,
-		SELinuxLauncherTypeKey,
-		UseEmulationKey,
-	} {
-		// don't change the order. putting "changed" as the first part of the condition will cause skipping the
-		// implementation of the forceDefaultValues function.
-		changed = h.forceDefaultValues(req, found, kubevirtConfig, k) || changed
-	}
-
-	return changed
-}
-
-func (h *kvConfigHooks) removeOldKeys(req *common.HcoRequest, found *corev1.ConfigMap) bool {
-	if _, ok := found.Data[MigrationsConfigKey]; ok {
-		req.Logger.Info(fmt.Sprintf("Deleting %s on existing KubeVirt config", MigrationsConfigKey))
-		delete(found.Data, MigrationsConfigKey)
-		return true
-	}
-	return false
-
-}
-
-func (h *kvConfigHooks) forceDefaultValues(req *common.HcoRequest, found *corev1.ConfigMap, kubevirtConfig *corev1.ConfigMap, k string) bool {
-	if found.Data[k] != kubevirtConfig.Data[k] {
-		req.Logger.Info(fmt.Sprintf("Updating %s on existing KubeVirt config", k))
-		found.Data[k] = kubevirtConfig.Data[k]
-		return true
-	}
-	return false
 }
 
 // ***********  KubeVirt Priority Class  ************
@@ -568,43 +441,6 @@ func translateKubeVirtConds(orig []kubevirtv1.KubeVirtCondition) []conditionsv1.
 	}
 
 	return translated
-}
-
-func NewKubeVirtConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
-	fgs := getKvFeatureGateList(&cr.Spec.FeatureGates)
-	featureGates := strings.Join(fgs, ",")
-
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kubevirt-config",
-			Labels:    getLabels(cr, hcoutil.AppComponentCompute),
-			Namespace: namespace,
-		},
-		// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey,
-		// virtconfig.FeatureGatesKey and virtconfig.UseEmulationKey are going to be manipulated
-		// and only on HCO upgrades.
-		// virtconfig.MigrationsConfigKey is going to be removed if set in the past (only during upgrades).
-		// TODO: This is going to change in the next HCO release where the whole configMap is going
-		// to be continuously reconciled
-		Data: map[string]string{
-			FeatureGatesKey:        featureGates,
-			SELinuxLauncherTypeKey: "virt_launcher.process",
-			NetworkInterfaceKey:    kubevirtDefaultNetworkInterfaceValue,
-		},
-	}
-	val, ok := os.LookupEnv(smbiosEnvName)
-	if ok && val != "" {
-		cm.Data[SmbiosConfigKey] = val
-	}
-	val, ok = os.LookupEnv(machineTypeEnvName)
-	if ok && val != "" {
-		cm.Data[MachineTypeKey] = val
-	}
-	val, ok = os.LookupEnv(kvmEmulationEnvName)
-	if ok && val != "" {
-		cm.Data[UseEmulationKey] = val
-	}
-	return cm
 }
 
 func getMandatoryKvFeatureGates(isOpenshiftCluster bool) []string {
