@@ -2044,6 +2044,60 @@ var _ = Describe("Converter", func() {
 		)
 	})
 
+	Context("HyperV features", func() {
+		table.DescribeTable("should convert hyperv features", func(hyperV *v1.FeatureHyperv, result *api.FeatureHyperv) {
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Features: &v1.Features{
+							Hyperv: hyperV,
+						},
+					},
+				},
+			}
+
+			domain := vmiToDomain(&vmi, &ConverterContext{UseEmulation: true})
+			Expect(domain.Spec.Features.Hyperv).To(Equal(result))
+
+		},
+			table.Entry("and add the vapic feature", &v1.FeatureHyperv{VAPIC: &v1.FeatureState{}}, &api.FeatureHyperv{VAPIC: &api.FeatureState{State: "on"}}),
+			table.Entry("and add the stimer direct feature", &v1.FeatureHyperv{
+				SyNICTimer: &v1.SyNICTimer{
+					Direct: &v1.FeatureState{},
+				},
+			}, &api.FeatureHyperv{
+				SyNICTimer: &api.SyNICTimer{
+					State:  "on",
+					Direct: &api.FeatureState{State: "on"},
+				},
+			}),
+			table.Entry("and add the stimer feature without direct", &v1.FeatureHyperv{
+				SyNICTimer: &v1.SyNICTimer{},
+			}, &api.FeatureHyperv{
+				SyNICTimer: &api.SyNICTimer{
+					State: "on",
+				},
+			}),
+			table.Entry("and add the vapic and the stimer direct feature", &v1.FeatureHyperv{
+				SyNICTimer: &v1.SyNICTimer{
+					Direct: &v1.FeatureState{},
+				},
+				VAPIC: &v1.FeatureState{},
+			}, &api.FeatureHyperv{
+				SyNICTimer: &api.SyNICTimer{
+					State:  "on",
+					Direct: &api.FeatureState{State: "on"},
+				},
+				VAPIC: &api.FeatureState{State: "on"},
+			}),
+		)
+	})
+
 	Context("serial console", func() {
 
 		table.DescribeTable("should check autoAttachSerialConsole", func(autoAttach *bool, devices int) {
