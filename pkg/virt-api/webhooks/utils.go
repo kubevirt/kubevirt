@@ -39,7 +39,6 @@ import (
 )
 
 var webhookInformers *Informers
-var once sync.Once
 
 var Validator = openapi.CreateOpenAPIValidator(rest.ComposeAPIDefinitions())
 
