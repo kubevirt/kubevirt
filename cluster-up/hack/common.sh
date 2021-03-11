@@ -21,6 +21,7 @@ KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.18}
 KUBEVIRT_NUM_NODES=${KUBEVIRT_NUM_NODES:-1}
 KUBEVIRT_MEMORY_SIZE=${KUBEVIRT_MEMORY_SIZE:-5120M}
 KUBEVIRT_NUM_SECONDARY_NICS=${KUBEVIRT_NUM_SECONDARY_NICS:-0}
+KUBEVIRT_DEPLOY_ISTIO=${KUBEVIRT_DEPLOY_ISTIO:-false}
 
 # If on a developer setup, expose ocp on 8443, so that the openshift web console can be used (the port is important because of auth redirects)
 # http and https ports are accessed by testing framework and should not be randomized
@@ -34,4 +35,4 @@ provider_prefix=${JOB_NAME:-${KUBEVIRT_PROVIDER}}${EXECUTOR_NUMBER}
 job_prefix=${JOB_NAME:-kubevirt}${EXECUTOR_NUMBER}
 
 mkdir -p $KUBEVIRTCI_CONFIG_PATH/$KUBEVIRT_PROVIDER
-KUBEVIRTCI_TAG=2102102051-a2b389f
+KUBEVIRTCI_TAG=2103111738-8f48705

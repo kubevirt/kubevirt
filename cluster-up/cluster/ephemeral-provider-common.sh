@@ -68,6 +68,9 @@ function _add_common_params() {
           params=" --etcd-capacity $KUBEVIRT_WITH_ETC_CAPACITY $params"
         fi
     fi
+    if [ $KUBEVIRT_DEPLOY_ISTIO == "true" ]; then
+       params=" --enable-istio $params"
+    fi
 
     echo $params
 }
