@@ -10,6 +10,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/errors:go_default_library",
         "//pkg/virt-launcher/virtwrap/stats:go_default_library",
         "//pkg/virt-launcher/virtwrap/statsconv:go_default_library",
