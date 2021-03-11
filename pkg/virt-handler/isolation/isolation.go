@@ -99,6 +99,9 @@ func (r *realIsolationResult) IsMounted(mountPoint string) (isMounted bool, err 
 	}
 	mountPoint, err = filepath.EvalSymlinks(mountPoint)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
 		return false, fmt.Errorf("could not resolve symlinks in path %v: %v", mountPoint, err)
 	}
 	return mount.Mounted(mountPoint)

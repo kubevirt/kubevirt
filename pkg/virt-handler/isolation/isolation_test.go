@@ -31,6 +31,18 @@ var _ = Describe("IsolationResult", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(mounted).To(BeTrue())
 		})
+
+		It("Should resolve relative paths", func() {
+			mounted, err := isolationResult.IsMounted("/var/..")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mounted).To(BeTrue())
+		})
+
+		It("Should regard a non-existent path as not mounted, not as an error", func() {
+			mounted, err := isolationResult.IsMounted("/aasdfjhk")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mounted).To(BeFalse())
+		})
 	})
 
 	Context("Container IsolationResult", func() {
