@@ -30,16 +30,16 @@ EOF
 function new_tests {
     local target_commit
     target_commit="$1"
-    # 1. fetch the changed file names from within the tests/ directory
-    # 2. grep all files ending with '_test.go'
-    # 3. remove `tests/` and `.go` to only have the test name
+    # 1. fetch the names of all added, copied, modified or renamed files
+    #    from within the tests/ directory
+    # 2. print only the last column of the line (in case of rename this is the new name)
+    # 3. grep all files ending with '.go' but not with '_suite.go'
     # 4. replace newline with `|`
     # 5. remove last `|`
-    git diff --name-status "${target_commit}".. -- tests/ \
-        | grep -v -E '^D.*' \
-        | grep -v '_suite' \
-        | grep -oE '(\w|\/)+_test\.go$' \
-        | sed -E 's/[AM]\s+tests\/(.*_test)\.go/\1/' \
+    git diff --diff-filter=ACMR --name-status "${target_commit}".. -- tests/ \
+        | awk '{print $NF}' \
+        | grep '\.go' \
+        | grep -v '_suite\.go' \
         | tr '\n' '|' \
         | sed -E 's/\|$//'
 }
