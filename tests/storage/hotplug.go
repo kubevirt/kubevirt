@@ -976,4 +976,68 @@ var _ = SIGDescribe("Hotplug", func() {
 			})
 		})
 	})
+
+	Context("hostpath", func() {
+		var (
+			vm *kubevirtv1.VirtualMachine
+		)
+
+		BeforeEach(func() {
+			// Setup second PVC to use in this context
+			pvNode := tests.CreateHostPathPv(tests.CustomHostPath, tests.HostPathCustom)
+			tests.CreateHostPathPVC(tests.CustomHostPath, "1Gi")
+			template := tests.NewRandomFedoraVMIWithGuestAgent()
+			if pvNode != "" {
+				template.Spec.NodeSelector = make(map[string]string)
+				template.Spec.NodeSelector[corev1.LabelHostname] = pvNode
+			}
+			vm = createVirtualMachine(true, template)
+			Eventually(func() bool {
+				vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vm.Status.Ready
+			}, 300*time.Second, 1*time.Second).Should(BeTrue())
+		}, 120)
+
+		It("should attach a hostpath based volume to running VM", func() {
+			By("Creating DataVolume")
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+
+			By("Adding volume to running VM")
+			name := fmt.Sprintf("disk-%s", tests.CustomHostPath)
+			addPVCVolumeVMI(vm.Name, vm.Namespace, "testvolume", name, "scsi")
+
+			By("Verifying the volume and disk are in the VM and VMI")
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			verifyVolumeAndDiskVMIAdded(vmi, "testvolume")
+			By("Verify the volume status of the hotplugged volume is ready")
+			verifyVolumeStatus(vmi, kubevirtv1.VolumeReady, "testvolume")
+
+			By("Obtaining the serial console")
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+			targets := getTargetsFromVolumeStatus(vmi, "testvolume")
+			Eventually(func() error {
+				return console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", targets[0])},
+					&expect.BExp{R: targets[0]},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: console.RetValue("0")},
+				}, 10)
+			}, 40*time.Second, 2*time.Second).Should(Succeed())
+			By("removing volume from VM")
+			removeVolumeVMI(vm.Name, vm.Namespace, "testvolume")
+			Eventually(func() error {
+				return console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", targets[0])},
+					&expect.BExp{R: fmt.Sprintf("ls: cannot access '%s'", targets[0])},
+				}, 10)
+			}, 40*time.Second, 2*time.Second).Should(Succeed())
+			By("Verifying the secret is gone")
+			_, err = virtClient.CoreV1().Secrets(vmi.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+			Expect(err).To(HaveOccurred())
+		})
+	})
 })

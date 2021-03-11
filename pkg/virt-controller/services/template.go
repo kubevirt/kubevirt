@@ -94,7 +94,7 @@ const ephemeralStorageOverheadSize = "50M"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
-	RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock, tempPod bool) (*k8sv1.Pod, error)
+	RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
 	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	GetLauncherImage() string
 }
@@ -1253,15 +1253,16 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	return &pod, nil
 }
 
-func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock, tempPod bool) (*k8sv1.Pod, error) {
+func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error) {
 	zero := int64(0)
+	sharedMount := k8sv1.MountPropagationHostToContainer
 	var command []string
 	if tempPod {
 		command = []string{"/bin/bash",
 			"-c",
 			"exit", "0"}
 	} else {
-		command = []string{"/bin/sh", "-c", "tail -f /dev/null"}
+		command = []string{"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"}
 	}
 
 	annotationsList := make(map[string]string)
@@ -1305,6 +1306,13 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, 
 						SELinuxOptions: &k8sv1.SELinuxOptions{
 							Level: "s0",
 							Type:  t.clusterConfig.GetSELinuxLauncherType(),
+						},
+					},
+					VolumeMounts: []k8sv1.VolumeMount{
+						{
+							Name:             "hotplug-disks",
+							MountPath:        "/path",
+							MountPropagation: &sharedMount,
 						},
 					},
 				},
@@ -1354,12 +1362,10 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, 
 			RunAsUser: &[]int64{0}[0],
 		}
 	} else {
-		pod.Spec.Containers[0].VolumeMounts = []k8sv1.VolumeMount{
-			{
-				Name:      volume.Name,
-				MountPath: "/pvc",
-			},
-		}
+		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
+			Name:      volume.Name,
+			MountPath: "/pvc",
+		})
 	}
 	return pod, nil
 }
