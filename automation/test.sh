@@ -46,7 +46,8 @@ fi
 
 export KUBEVIRTCI_PR="qinqon:configure-node-cidr-by-default"
 if [ ! -z "$KUBEVIRTCI_PR" ]; then
-    hack/pin-kubevirtci-pr.sh $KUBEVIRTCI_PR
+    # Put CI to false to skip conformance
+    CI="false" hack/pin-kubevirtci-pr.sh $KUBEVIRTCI_PR
 fi
 
 if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
