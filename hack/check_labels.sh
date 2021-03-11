@@ -21,7 +21,7 @@
 set -euo pipefail
 
 KUBECTL_BINARY="${KUBECTL_BINARY:-"kubectl"}"
-HCO_NAMESPACE="${HCO_NAMESPACE:-"kubevirt-hyperconverged"}"
+INSTALLED_NAMESPACE="${INSTALLED_NAMESPACE:-"kubevirt-hyperconverged"}"
 HCO_RESOURCE_NAME="${HCO_RESOURCE_NAME:-"kubevirt-hyperconverged"}"
 
 function check_label_value() {
@@ -59,7 +59,7 @@ function check_labels(){
 }
 
 echo "Fetching related objects..."
-related_obj_json="$(${KUBECTL_BINARY} get  hco "${HCO_RESOURCE_NAME}" -n "${HCO_NAMESPACE}" -o jsonpath='{.status .relatedObjects}')"
+related_obj_json="$(${KUBECTL_BINARY} get  hco "${HCO_RESOURCE_NAME}" -n "${INSTALLED_NAMESPACE}" -o jsonpath='{.status .relatedObjects}')"
 
 echo "Putting related objects into array..."
 related_obj_array=()

@@ -15,8 +15,8 @@ var _ = Describe("[rfe_id:393][crit:medium][vendor:cnv-qe@redhat.com][level:syst
 	virtClient, err := kubecli.GetKubevirtClient()
 	testscore.PanicOnError(err)
 
-	cfg := virtClient.Config()
-
+	// don't break other tests
+	cfg := rest.CopyConfig(virtClient.Config())
 	cfg.Impersonate = rest.ImpersonationConfig{
 		UserName: "non-existent-user",
 		Groups:   []string{"system:authenticated"},

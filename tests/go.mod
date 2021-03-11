@@ -14,10 +14,12 @@ require (
 	github.com/golang/mock v1.4.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
 	github.com/kubevirt/cluster-network-addons-operator v0.43.0
+	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	google.golang.org/appengine v1.6.5 // indirect
-	k8s.io/api v0.19.0-rc.2
-	k8s.io/apimachinery v0.19.0-rc.2
+	gopkg.in/yaml.v2 v2.4.0
+	k8s.io/api v0.19.2
+	k8s.io/apimachinery v0.19.2
 	k8s.io/client-go v12.0.0+incompatible
 	kubevirt.io/client-go v0.36.0
 	kubevirt.io/kubevirt v0.36.0
@@ -64,9 +66,9 @@ replace (
 	kubevirt.io/client-go => kubevirt.io/client-go v0.36.0
 )
 
-// Aligning with https://github.com/kubevirt/containerized-data-importer/blob/release-v1.24.1
+// Aligning with https://github.com/kubevirt/containerized-data-importer/blob/release-v1.31.0
 replace (
-	github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
+	github.com/openshift/api => github.com/openshift/api v0.0.0-20201120165435-072a4cd8ca42
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
 	github.com/openshift/library-go => github.com/mhenriks/library-go v0.0.0-20200116194830-9fcc1a687a9d
 	sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v0.0.0-20190302045857-e85c7b244fd2

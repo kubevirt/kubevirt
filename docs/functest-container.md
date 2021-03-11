@@ -27,23 +27,44 @@ kubectl run functest --image=quay.io/kubevirt/hyperconverged-cluster-functest:1.
 - If your systems are running in a namespace different from `kubevirt-hypercongerged`, you have to set the environment variable `INSTALLED_NAMESPACE` 
 
 
-## Arguments
+## Arguments and Configuration
 
-The arguments passed to this container image are directly passed to `func-tests.test` binary in the image.
+The arguments passed to this container image are directly passed to `func-tests.test` binary in the image. See [the example](#example-command)
+
+To provide test configuration, use `--config-file` flag and mount your configuration file into that path. 
+```shell
+docker run \
+  -v /put-your-configuration-file-here.yaml:/tmp/testconf \
+  quay.io/kubevirt/hyperconverged-cluster-functest:1.4.0-unstable \
+  --config-file /tmp/testconf    
+```
+
+The content of the configuration file must be a valid yaml representation of `TestConfig` in [config.go](../tests/func-tests/config.go)
+
+***Configuration File Example***
+```yaml
+quickStart:
+  testItems:
+    - name: test-quick-start
+      displayName: Test Quickstart Tour
+```
 
 ## Example Command
 
 ```shell
 docker run  --network=host  \
-  --env KUBECONFIG=/tmp/conf \
-  -v $KUBECONFIG:/tmp/conf \
-  -v /tmp/out:/tmp/out  \
-  quay.io/kubevirt/hyperconverged-cluster-functest:1.4.0-unstable  \
-  --polarion-execution=true \
-  --polarion-project-id=CNV \
-  --polarion-report-file=/tmp/out/polarion_results.xml 
-  --test-suite-params="env_tier=tier1" \
-  --junit-output=/tmp/out/junit.xml \
-  --polarion-custom-plannedin=234235
-
+    --env INSTALLED_NAMESPACE=openshift-cnv \
+    --env KUBECONFIG=/tmp/kubeconf \
+    -v $KUBECONFIG:/tmp/kubeconf \
+    -v $MY_TEST_CONF:/tmp/testconf \
+    -v /tmp/out:/tmp/out  \
+    quay.io/kubevirt/hyperconverged-cluster-functest:1.4.0-unstable   \
+    --polarion-execution=true \
+    --polarion-project-id=CNV \
+    --polarion-report-file=/tmp/out/polarion_results.xml \
+    --test-suite-params="env_tier=tier1" \
+    --junit-output=/tmp/out/junit.xml \
+    --polarion-custom-plannedin=234235 \
+    --config-file /tmp/testconf
 ```
+
