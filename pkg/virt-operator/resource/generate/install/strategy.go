@@ -34,7 +34,7 @@ import (
 	"github.com/golang/glog"
 	secv1 "github.com/openshift/api/security/v1"
 	"k8s.io/api/admissionregistration/v1beta1"
-	v1beta12 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
+	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -63,10 +63,10 @@ const ManifestsEncodingGzipBase64 = "gzip+base64"
 //go:generate mockgen -source $GOFILE -imports "libvirt=libvirt.org/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 type APIServiceInterface interface {
-	Get(ctx context.Context, name string, options metav1.GetOptions) (*v1beta12.APIService, error)
-	Create(ctx context.Context, apiService *v1beta12.APIService, opts metav1.CreateOptions) (*v1beta12.APIService, error)
+	Get(ctx context.Context, name string, options metav1.GetOptions) (*apiregv1.APIService, error)
+	Create(ctx context.Context, apiService *apiregv1.APIService, opts metav1.CreateOptions) (*apiregv1.APIService, error)
 	Delete(ctx context.Context, name string, options metav1.DeleteOptions) error
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1beta12.APIService, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *apiregv1.APIService, err error)
 }
 
 type Strategy struct {
@@ -85,7 +85,7 @@ type Strategy struct {
 	daemonSets                      []*appsv1.DaemonSet
 	validatingWebhookConfigurations []*v1beta1.ValidatingWebhookConfiguration
 	mutatingWebhookConfigurations   []*v1beta1.MutatingWebhookConfiguration
-	apiServices                     []*v1beta12.APIService
+	apiServices                     []*apiregv1.APIService
 	certificateSecrets              []*corev1.Secret
 	sccs                            []*secv1.SecurityContextConstraints
 	serviceMonitors                 []*promv1.ServiceMonitor
@@ -160,7 +160,7 @@ func (ins *Strategy) MutatingWebhookConfigurations() []*admissionregistrationv1b
 	return ins.mutatingWebhookConfigurations
 }
 
-func (ins *Strategy) APIServices() []*v1beta12.APIService {
+func (ins *Strategy) APIServices() []*apiregv1.APIService {
 	return ins.apiServices
 }
 
@@ -574,7 +574,7 @@ func loadInstallStrategyFromBytes(data string) (*Strategy, error) {
 			}
 			strategy.mutatingWebhookConfigurations = append(strategy.mutatingWebhookConfigurations, webhook)
 		case "APIService":
-			apiService := &v1beta12.APIService{}
+			apiService := &apiregv1.APIService{}
 			if err := yaml.Unmarshal([]byte(entry), &apiService); err != nil {
 				return nil, err
 			}

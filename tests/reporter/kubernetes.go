@@ -19,7 +19,7 @@ import (
 	"github.com/onsi/ginkgo/types"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	apiservices "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
+	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	v12 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -456,7 +456,7 @@ func (r *KubernetesReporter) logAPIServices(virtCli kubecli.KubevirtClient) {
 		fmt.Fprintf(os.Stderr, "failed to fetch apiServices: %v\n", err)
 		return
 	}
-	apiServices := apiservices.APIServiceList{}
+	apiServices := apiregv1.APIServiceList{}
 	err = json.Unmarshal(result, &apiServices)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to unmarshal raw result to apiServicesList: %v\n", err)

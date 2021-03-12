@@ -172,7 +172,7 @@ var _ = Describe("[Serial][owner:@sig-compute]Infrastructure", func() {
 
 			By("checking that the ca bundle gets propagated to the apiservice")
 			Eventually(func() bool {
-				apiService, err := aggregatorClient.ApiregistrationV1beta1().APIServices().Get(context.Background(), fmt.Sprintf("%s.subresources.kubevirt.io", v1.ApiLatestVersion), metav1.GetOptions{})
+				apiService, err := aggregatorClient.ApiregistrationV1().APIServices().Get(context.Background(), fmt.Sprintf("%s.subresources.kubevirt.io", v1.ApiLatestVersion), metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return tests.ContainsCrt(apiService.Spec.CABundle, newCA)
 			}, 10*time.Second, 1*time.Second).Should(BeTrue())

@@ -33,7 +33,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
+	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -222,7 +222,7 @@ func DeleteAll(kv *v1.KubeVirt,
 	// delete apiservices
 	objects = stores.APIServiceCache.List()
 	for _, obj := range objects {
-		if apiservice, ok := obj.(*v1beta1.APIService); ok && apiservice.DeletionTimestamp == nil {
+		if apiservice, ok := obj.(*apiregv1.APIService); ok && apiservice.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(apiservice); err == nil {
 				expectations.APIService.AddExpectedDeletion(kvkey, key)
 				err := aggregatorclient.Delete(context.Background(), apiservice.Name, deleteOptions)

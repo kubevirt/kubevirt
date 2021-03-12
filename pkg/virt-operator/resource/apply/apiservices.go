@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
+	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	"kubevirt.io/client-go/log"
 )
@@ -19,7 +19,7 @@ func (r *Reconciler) createOrUpdateAPIServices(caBundle []byte) error {
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
 	for _, apiService := range r.targetStrategy.APIServices() {
-		var cachedAPIService *v1beta1.APIService
+		var cachedAPIService *apiregv1.APIService
 		var err error
 
 		apiService = apiService.DeepCopy()
@@ -38,7 +38,7 @@ func (r *Reconciler) createOrUpdateAPIServices(caBundle []byte) error {
 				exists = true
 			}
 		} else if exists {
-			cachedAPIService = obj.(*v1beta1.APIService)
+			cachedAPIService = obj.(*apiregv1.APIService)
 		}
 
 		certsMatch := true
