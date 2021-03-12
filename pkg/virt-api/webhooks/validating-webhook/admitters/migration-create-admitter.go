@@ -26,9 +26,11 @@ import (
 	"k8s.io/api/admission/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -36,6 +38,7 @@ import (
 
 type MigrationCreateAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
+	VirtClient    kubecli.KubevirtClient
 }
 
 func (admitter *MigrationCreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
@@ -72,7 +75,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1b
 
 	// Don't allow introducing a migration job for a VMI that has already finalized
 	if vmi.IsFinal() {
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("Cannot migrated VMI in finalized state."))
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("Cannot migrate VMI in finalized state."))
 	}
 
 	// Reject migration jobs for non-migratable VMIs
@@ -87,12 +90,23 @@ func (admitter *MigrationCreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1b
 
 	// Don't allow new migration jobs to be introduced when previous migration jobs
 	// are already in flight.
-	if vmi.Status.MigrationState != nil &&
-		string(vmi.Status.MigrationState.MigrationUID) != "" &&
-		!vmi.Status.MigrationState.Completed &&
-		!vmi.Status.MigrationState.Failed {
-
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("in-flight migration detected. Active migration job (%s) is currently already in progress for VMI %s.", string(vmi.Status.MigrationState.MigrationUID), vmi.Name))
+	labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, migration.Spec.VMIName))
+	if err != nil {
+		return webhookutils.ToAdmissionResponseError(err)
+	}
+	list, err := admitter.VirtClient.VirtualMachineInstanceMigration(migration.Namespace).List(&metav1.ListOptions{
+		LabelSelector: labelSelector.String(),
+	})
+	if err != nil {
+		return webhookutils.ToAdmissionResponseError(err)
+	}
+	if len(list.Items) > 0 {
+		for _, mig := range list.Items {
+			if mig.Status.Phase == v1.MigrationSucceeded || mig.Status.Phase == v1.MigrationFailed {
+				continue
+			}
+			return webhookutils.ToAdmissionResponseError(fmt.Errorf("in-flight migration detected. Active migration job (%s) is currently already in progress for VMI %s.", string(mig.UID), mig.Spec.VMIName))
+		}
 	}
 
 	reviewResponse := v1beta1.AdmissionResponse{}
