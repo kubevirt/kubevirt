@@ -35,7 +35,7 @@ bazel build \
     --config=${ARCHITECTURE} \
     //cmd/virtctl:virtctl \
     //cmd/dump:dump \
-    //tools/manifest-templator:manifest-templator \
+    //tools/manifest-templator:templator \
     //vendor/github.com/onsi/ginkgo/ginkgo:ginkgo \
     //tests:go_default_test \
     //tools/junit-merger:junit-merger

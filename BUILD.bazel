@@ -310,7 +310,7 @@ genrule(
 genrule(
     name = "build-manifest-templator",
     srcs = [
-        "//tools/manifest-templator:manifest-templator",
+        "//tools/manifest-templator:templator",
     ],
     outs = ["manifest-templator-copier"],
     cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
