@@ -3,7 +3,7 @@ FROM ${ARCH}/fedora:32
 
 COPY qemu-ppc64le-static /usr/bin/qemu-ppc64le-static
 
-ENV BAZEL_VERSION 3.4.1
+ENV BAZEL_VERSION 3.7.2
 
 ENV KUBEVIRT_CREATE_BAZELRCS false
 
