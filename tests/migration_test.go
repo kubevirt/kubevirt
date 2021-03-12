@@ -826,6 +826,49 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
+			It("should reject additional migrations on the same VMI if the first one is not finished", func() {
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				// Need to wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+				By("Starting a first migration")
+				migration1 := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration1, err = virtClient.VirtualMachineInstanceMigration(migration1.Namespace).Create(migration1)
+				Expect(err).To(BeNil())
+
+				// Successfully tested with 40, but requests start getting throttled above 10, which is better to avoid to prevent flakyness
+				By("Starting 10 more migrations expecting all to fail to create")
+				var wg sync.WaitGroup
+				for n := 0; n < 10; n++ {
+					wg.Add(1)
+					go func(n int) {
+						defer GinkgoRecover()
+						defer wg.Done()
+						migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+						_, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+						Expect(err).To(HaveOccurred(), fmt.Sprintf("Extra migration %d should have failed to create", n))
+						Expect(err.Error()).To(ContainSubstring(`admission webhook "migration-create-validator.kubevirt.io" denied the request: in-flight migration detected.`))
+					}(n)
+				}
+				wg.Wait()
+
+				tests.ExpectMigrationSuccess(virtClient, migration1, tests.MigrationWaitTime)
+
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+			})
 		})
 		Context("with an Alpine shared ISCSI PVC (using ISCSI IPv4 address)", func() {
 			var pvName string

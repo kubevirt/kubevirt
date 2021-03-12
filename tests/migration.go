@@ -13,17 +13,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-func RunMigrationAndExpectCompletion(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) string {
-	By("Starting a Migration")
-	var err error
-	var migrationCreated *v1.VirtualMachineInstanceMigration
-	Eventually(func() error {
-		migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
-		return err
-	}, timeout, 1*time.Second).Should(Succeed(), "migration should succeed")
-	migration = migrationCreated
+func ExpectMigrationSuccess(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) string {
 	By("Waiting until the Migration Completes")
-
 	uid := ""
 	Eventually(func() error {
 		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
@@ -41,6 +32,19 @@ func RunMigrationAndExpectCompletion(virtClient kubecli.KubevirtClient, migratio
 
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should succeed after %d s", timeout))
 	return uid
+}
+
+func RunMigrationAndExpectCompletion(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) string {
+	By("Starting a Migration")
+	var err error
+	var migrationCreated *v1.VirtualMachineInstanceMigration
+	Eventually(func() error {
+		migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+		return err
+	}, timeout, 1*time.Second).Should(Succeed(), "migration creation should succeed")
+	migration = migrationCreated
+
+	return ExpectMigrationSuccess(virtClient, migration, timeout)
 }
 
 func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, migrationUID string) {

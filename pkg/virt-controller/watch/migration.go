@@ -171,6 +171,12 @@ func (c *MigrationController) execute(key string) error {
 	if !controller.ObservedLatestApiVersionAnnotation(migration) {
 		migration := migration.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(migration)
+		// Ensure the migration contains our selector label
+		if migration.Labels == nil {
+			migration.Labels = map[string]string{virtv1.MigrationSelectorLabel: migration.Spec.VMIName}
+		} else if _, exist := migration.Labels[virtv1.MigrationSelectorLabel]; !exist {
+			migration.Labels[virtv1.MigrationSelectorLabel] = migration.Spec.VMIName
+		}
 		_, err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Update(migration)
 		return err
 	}

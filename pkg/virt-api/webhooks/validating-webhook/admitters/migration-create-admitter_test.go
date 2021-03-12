@@ -22,6 +22,7 @@ package admitters
 import (
 	"encoding/json"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -38,7 +40,16 @@ import (
 
 var _ = Describe("Validating MigrationCreate Admitter", func() {
 	config, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
-	migrationCreateAdmitter := &MigrationCreateAdmitter{ClusterConfig: config}
+
+	// Mock VirtualMachineInstanceMigration
+	var ctrl *gomock.Controller
+	var virtClient *kubecli.MockKubevirtClient
+	ctrl = gomock.NewController(GinkgoT())
+	migrationInterface := kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
+	virtClient = kubecli.NewMockKubevirtClient(ctrl)
+	virtClient.EXPECT().VirtualMachineInstanceMigration("default").Return(migrationInterface).AnyTimes()
+
+	migrationCreateAdmitter := &MigrationCreateAdmitter{ClusterConfig: config, VirtClient: virtClient}
 
 	enableFeatureGate := func(featureGate string) {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
@@ -48,6 +59,10 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	disableFeatureGates := func() {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{})
 	}
+
+	BeforeEach(func() {
+		migrationInterface.EXPECT().List(gomock.Any()).Return(&v1.VirtualMachineInstanceMigrationList{}, nil).Times(1)
+	})
 
 	AfterEach(func() {
 		disableFeatureGates()
@@ -144,15 +159,16 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	})
 
 	It("should reject Migration spec on create when another VMI migration is in-flight", func() {
-		vmi := v1.NewMinimalVMI("testmigratevmi2")
-		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-			MigrationUID: "123",
-			Completed:    false,
-			Failed:       false,
+		inFlightMigration := v1.VirtualMachineInstanceMigration{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "default",
+			},
+			Spec: v1.VirtualMachineInstanceMigrationSpec{
+				VMIName: "testmigratevmi2",
+			},
 		}
 
-		informers := webhooks.GetInformers()
-		informers.VMIInformer.GetIndexer().Add(vmi)
+		migrationInterface.EXPECT().List(gomock.Any()).Return(kubecli.NewMigrationList(inFlightMigration), nil).AnyTimes()
 
 		migration := v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
