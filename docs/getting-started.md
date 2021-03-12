@@ -232,8 +232,8 @@ NAME                              READY     STATUS    RESTARTS   AGE
 virt-launcher-vmi-ephemeral9q7es  1/1       Running   0          10s
 
 $ ./cluster-up/kubectl.sh get vmis
-NAME           LABELS                        DATA
-vmi-ephemera    kubevirt.io/nodeName=node01   {"apiVersion":"kubevirt.io/v1alpha2","kind":"VMI","...
+NAME            AGE   PHASE     IP              NODENAME
+vmi-ephemeral   11s   Running   10.244.140.77   node02
 
 $ ./cluster-up/kubectl.sh get vmis -o json
 {
