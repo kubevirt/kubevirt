@@ -66,7 +66,8 @@ bazel run \
     findutils \
     procps-ng \
     iptables \
-    tar
+    tar \
+    strace
 
 # remove all RPMs which are no longer referenced by a rpmtree
 bazel run \

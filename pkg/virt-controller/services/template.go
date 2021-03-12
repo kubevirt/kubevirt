@@ -62,6 +62,7 @@ const virtiofsDebugLogs = "virtiofsdDebugLogs"
 const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
 
 const CAP_NET_ADMIN = "NET_ADMIN"
+const CAP_SYS_PTRACE = "SYS_PTRACE"
 const CAP_NET_RAW = "NET_RAW"
 const CAP_SYS_ADMIN = "SYS_ADMIN"
 const CAP_SYS_NICE = "SYS_NICE"
@@ -938,7 +939,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			"-c",
 			"echo", "bound PVCs"}
 	} else {
-		command = []string{"/usr/bin/helper.sh"}
+		command = []string{"/usr/bin/helper-cap.sh"}
 		binary := "/usr/bin/virt-launcher"
 		if nonRoot {
 			binary = "/usr/bin/virt-launcher-cap"
@@ -957,6 +958,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 			"--ovmf-path", ovmfPath,
 		}
 		command = append(command, commandL...)
+		// command = commandL
 		if nonRoot {
 			command = append(command, "--run-as-nonroot")
 		}
@@ -1450,7 +1452,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, 
 
 func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) []k8sv1.Capability {
 	if util.IsNonRootVMI(vmi) {
-		return []k8sv1.Capability{CAP_NET_ADMIN}
+		return []k8sv1.Capability{CAP_NET_ADMIN, CAP_SYS_PTRACE}
 	}
 	capabilities := []k8sv1.Capability{}
 

@@ -105,13 +105,21 @@ passwd_file(
     ],
 )
 
-pkg_tar(
-    name = "helper",
-    srcs = [
-        ":helper.sh",
-    ],
-    mode = "0777",
-    package_dir = "/usr/bin",
+# pkg_tar(
+#     name = "helper",
+#     srcs = [
+#         ":helper-cap",
+#     ],
+#     mode = "0777",
+#     package_dir = "/usr/bin",
+# )
+
+genrule(
+    name = "helper-cap",
+    srcs = [":helper.sh"],
+    outs = ["helper-cap.tar.gz"],
+    cmd = "path=$$(readlink -f $(location helper.sh)) && cp $$path helper-cap.sh && chmod 777 helper-cap.sh && setcap 'cap_sys_ptrace+ep' helper-cap.sh && tar --xattrs -czvf helper-cap.tar.gz helper-cap.sh && mv helper-cap.tar.gz $@",
+    visibility = ["//visibility:public"],
 )
 
 pkg_tar(
@@ -142,7 +150,6 @@ container_image(
         ":libvirt-config",
         ":passwd-tar",
         "//rpm:launcherbase_x86_64",
-        ":helper",
     ],
 )
 
@@ -159,6 +166,9 @@ container_image(
         ":virt-launcher",
         "//cmd/container-disk-v2alpha:container-disk",
     ],
-    tars = [":setcaps"],
+    tars = [
+        ":setcaps",
+        ":helper-cap",
+    ],
     visibility = ["//visibility:public"],
 )

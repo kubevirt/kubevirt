@@ -2976,14 +2976,13 @@ rpm(
 )
 
 rpm(
-    name = "libnfsidmap-1__2.5.2-1.rc4.fc32.x86_64",
-    sha256 = "9d4c7686724a268a09e4aa63afeae419823befde6dd90ef3e3c1eb13bb28f493",
+    name = "libnfsidmap-1__2.5.3-0.fc32.x86_64",
+    sha256 = "9ce3b810eb94bc457d563aa1fc3c50a732e26ebd4aa0ed8780c3822550aaec37",
     urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/libnfsidmap-2.5.2-1.rc4.fc32.x86_64.rpm",
-        "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/l/libnfsidmap-2.5.2-1.rc4.fc32.x86_64.rpm",
-        "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/l/libnfsidmap-2.5.2-1.rc4.fc32.x86_64.rpm",
-        "https://fedora.ipacct.com/fedora/linux/updates/32/Everything/x86_64/Packages/l/libnfsidmap-2.5.2-1.rc4.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/9d4c7686724a268a09e4aa63afeae419823befde6dd90ef3e3c1eb13bb28f493",
+        "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/l/libnfsidmap-2.5.3-0.fc32.x86_64.rpm",
+        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libnfsidmap-2.5.3-0.fc32.x86_64.rpm",
+        "https://ftp.lip6.fr/ftp/pub/linux/distributions/fedora/updates/32/Everything/x86_64/Packages/l/libnfsidmap-2.5.3-0.fc32.x86_64.rpm",
+        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/l/libnfsidmap-2.5.3-0.fc32.x86_64.rpm",
     ],
 )
 
@@ -3582,13 +3581,13 @@ rpm(
 )
 
 rpm(
-    name = "libtpms-0__0.7.5-0.20210218gite271498466.fc32.x86_64",
-    sha256 = "0eda22ad774286601d1da242b43af3f8392073d3464a3c1241f70ac019ac4656",
+    name = "libtpms-0__0.7.7-0.20210302gitfd5bd3fb1d.fc32.x86_64",
+    sha256 = "8deef9482fe7c7fa97f44396481b3c47d0a650948affbbdaa0e2f0f47e65903c",
     urls = [
-        "https://mirror.karneval.cz/pub/linux/fedora/linux/updates/32/Everything/x86_64/Packages/l/libtpms-0.7.5-0.20210218gite271498466.fc32.x86_64.rpm",
-        "https://mirror.serverion.com/fedora/updates/32/Everything/x86_64/Packages/l/libtpms-0.7.5-0.20210218gite271498466.fc32.x86_64.rpm",
-        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libtpms-0.7.5-0.20210218gite271498466.fc32.x86_64.rpm",
-        "https://mirror.init7.net/fedora/fedora/linux/updates/32/Everything/x86_64/Packages/l/libtpms-0.7.5-0.20210218gite271498466.fc32.x86_64.rpm",
+        "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/l/libtpms-0.7.7-0.20210302gitfd5bd3fb1d.fc32.x86_64.rpm",
+        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/l/libtpms-0.7.7-0.20210302gitfd5bd3fb1d.fc32.x86_64.rpm",
+        "https://ftp.lip6.fr/ftp/pub/linux/distributions/fedora/updates/32/Everything/x86_64/Packages/l/libtpms-0.7.7-0.20210302gitfd5bd3fb1d.fc32.x86_64.rpm",
+        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/l/libtpms-0.7.7-0.20210302gitfd5bd3fb1d.fc32.x86_64.rpm",
     ],
 )
 
@@ -4292,14 +4291,13 @@ rpm(
 )
 
 rpm(
-    name = "nfs-utils-1__2.5.2-1.rc4.fc32.x86_64",
-    sha256 = "0a6b38f901bf128d69026d76b2cc9a8ea0ff19db99761b1af8a274055656228b",
+    name = "nfs-utils-1__2.5.3-0.fc32.x86_64",
+    sha256 = "9e810f9cd3ab84bd0336a1eba47b2b1ca581f98875e3a2bf3ddc191dec523cde",
     urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/n/nfs-utils-2.5.2-1.rc4.fc32.x86_64.rpm",
-        "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/n/nfs-utils-2.5.2-1.rc4.fc32.x86_64.rpm",
-        "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/n/nfs-utils-2.5.2-1.rc4.fc32.x86_64.rpm",
-        "https://fedora.ipacct.com/fedora/linux/updates/32/Everything/x86_64/Packages/n/nfs-utils-2.5.2-1.rc4.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/0a6b38f901bf128d69026d76b2cc9a8ea0ff19db99761b1af8a274055656228b",
+        "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/n/nfs-utils-2.5.3-0.fc32.x86_64.rpm",
+        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/n/nfs-utils-2.5.3-0.fc32.x86_64.rpm",
+        "https://ftp.lip6.fr/ftp/pub/linux/distributions/fedora/updates/32/Everything/x86_64/Packages/n/nfs-utils-2.5.3-0.fc32.x86_64.rpm",
+        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/n/nfs-utils-2.5.3-0.fc32.x86_64.rpm",
     ],
 )
 
@@ -6381,6 +6379,17 @@ rpm(
         "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/s/sqlite-libs-3.34.0-1.fc32.x86_64.rpm",
         "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/s/sqlite-libs-3.34.0-1.fc32.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/19c1021f1729ea60b0b8f6056953150847196732e84745a118d442c2dea19cfb",
+    ],
+)
+
+rpm(
+    name = "strace-0__5.10-1.fc32.x86_64",
+    sha256 = "2e6798eb328538c5709024618ec3830cbfc0529da70846a3823a7640d12a76b5",
+    urls = [
+        "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/s/strace-5.10-1.fc32.x86_64.rpm",
+        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/s/strace-5.10-1.fc32.x86_64.rpm",
+        "https://ftp.lip6.fr/ftp/pub/linux/distributions/fedora/updates/32/Everything/x86_64/Packages/s/strace-5.10-1.fc32.x86_64.rpm",
+        "https://ewr.edge.kernel.org/fedora-buffet/fedora/linux/updates/32/Everything/x86_64/Packages/s/strace-5.10-1.fc32.x86_64.rpm",
     ],
 )
 
