@@ -317,6 +317,7 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 		if mac != nil {
 			vif.MAC = *mac
 		}
+
 		return &BridgeBindMechanism{iface: iface,
 			virtIface:           &api.Interface{},
 			vmi:                 vmi,
@@ -336,6 +337,7 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 		if mac != nil {
 			vif.MAC = *mac
 		}
+
 		return &MasqueradeBindMechanism{iface: iface,
 			virtIface:           &api.Interface{},
 			vmi:                 vmi,
@@ -490,7 +492,7 @@ func (b *BridgeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, la
 		return err
 	}
 
-	err := createAndBindTapToBridge(tapDeviceName, b.bridgeInterfaceName, queueNumber, launcherPID, int(b.vif.Mtu))
+	err := createAndBindTapToBridge(tapDeviceName, b.bridgeInterfaceName, queueNumber, launcherPID, int(b.vif.Mtu), "0")
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -818,7 +820,7 @@ func (b *MasqueradeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32
 	}
 
 	tapDeviceName := generateTapDeviceName(b.podInterfaceName)
-	err = createAndBindTapToBridge(tapDeviceName, b.bridgeInterfaceName, queueNumber, launcherPID, int(b.vif.Mtu))
+	err = createAndBindTapToBridge(tapDeviceName, b.bridgeInterfaceName, queueNumber, launcherPID, int(b.vif.Mtu), "0")
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -1309,8 +1311,8 @@ func (b *MacvtapBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-func createAndBindTapToBridge(deviceName string, bridgeIfaceName string, queueNumber uint32, launcherPID int, mtu int) error {
-	err := Handler.CreateTapDevice(deviceName, queueNumber, launcherPID, mtu)
+func createAndBindTapToBridge(deviceName string, bridgeIfaceName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error {
+	err := Handler.CreateTapDevice(deviceName, queueNumber, launcherPID, mtu, tapOwner)
 	if err != nil {
 		return err
 	}
