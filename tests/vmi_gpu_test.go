@@ -66,7 +66,7 @@ var _ = Describe("[Serial]GPU", func() {
 			gpuName := "random.com/gpu"
 			randomVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			gpus := []v1.GPU{
-				v1.GPU{
+				{
 					Name:       "gpu1",
 					DeviceName: gpuName,
 				},
@@ -100,7 +100,7 @@ var _ = Describe("[Serial]GPU", func() {
 			Expect(gpuName).ToNot(Equal(""))
 			randomVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			gpus := []v1.GPU{
-				v1.GPU{
+				{
 					Name:       "gpu1",
 					DeviceName: gpuName,
 				},

@@ -214,11 +214,7 @@ const (
 )
 
 const (
-	k8sAuditLogPath = "/var/log/k8s-audit/k8s-audit.log"
-	osAuditLogPath  = "/var/lib/origin/audit-ocp.log"
-	swaggerPath     = "api/openapi-spec/swagger.json"
-	artifactsEnv    = "ARTIFACTS"
-	tmpPath         = "/var/provision/kubevirt.io/tests"
+	tmpPath = "/var/provision/kubevirt.io/tests"
 )
 
 const (
@@ -565,7 +561,7 @@ func CleanNodes() {
 		}
 		new.Spec.Taints = taints
 
-		for k, _ := range node.Labels {
+		for k := range node.Labels {
 			if strings.HasPrefix(k, "tests.kubevirt.io") {
 				found = true
 				delete(new.Labels, k)
@@ -2947,10 +2943,6 @@ func NewInt32(x int32) *int32 {
 	return &x
 }
 
-func NewInt64(x int64) *int64 {
-	return &x
-}
-
 func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	name := "replicaset" + rand.String(5)
 	rs := &v1.VirtualMachineInstanceReplicaSet{
@@ -4770,20 +4762,6 @@ func FormatIPForURL(ip string) string {
 		return "[" + ip + "]"
 	}
 	return ip
-}
-
-func getClusterDnsServiceIP(virtClient kubecli.KubevirtClient) (string, error) {
-	dnsServiceName := "kube-dns"
-	dnsNamespace := "kube-system"
-	if IsOpenShift() {
-		dnsServiceName = "dns-default"
-		dnsNamespace = "openshift-dns"
-	}
-	kubeDNSService, err := virtClient.CoreV1().Services(dnsNamespace).Get(context.Background(), dnsServiceName, metav1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-	return kubeDNSService.Spec.ClusterIP, nil
 }
 
 func IsRunningOnKindInfra() bool {
