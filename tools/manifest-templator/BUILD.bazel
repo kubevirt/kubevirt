@@ -16,7 +16,7 @@ go_library(
 )
 
 go_binary(
-    name = "manifest-templator",
+    name = "templator",
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
 )
