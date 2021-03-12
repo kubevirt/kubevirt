@@ -1021,7 +1021,7 @@ spec:
 		// running a VM/VMI using that previous release
 		// Updating KubeVirt to the target tested code
 		// Ensuring VM/VMI is still operational after the update from previous release.
-		It("[QUARANTINE][owner:@sig-compute][test_id:3145]from previous release to target tested release", func() {
+		It("[release-blocker][owner:@sig-compute][test_id:3145]from previous release to target tested release", func() {
 			if !tests.HasCDI() {
 				Skip("Skip Update test when CDI is not present")
 			}
