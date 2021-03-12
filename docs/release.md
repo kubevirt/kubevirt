@@ -267,15 +267,12 @@ The release itself is only a git signed tag as it's used for minor releases as w
 
 # Merging to Release Branches
 
-> **Note:** Before a bug is fixed in a stable release branch, the same bug must
-> be fixed in the `master` branch. The only exception is when a bug exists in a
-> stable branch only.
-
 For every release a branch will be created following the pattern `release-x.y`.
 For now, community members can propose pull requests to be included into a
 stable branch.
 Those pull requests should be limited to bug fixes and must not be
-enhancements.
+enhancements. More info related to the policy around backporting can be found
+in this document, [docs/release-branch-backporting.md](https://github.com/kubevirt/kubevirt/blob/master/docs/release-branch-backporting.md)
 
 Cherry picking can be used to pick a merge commit from the master branch
 to a stable branch. An example:
