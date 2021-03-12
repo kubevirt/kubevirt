@@ -1160,13 +1160,15 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 			return err
 		}
 
-		err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
-			strings.ToLower(port.Protocol),
-			"dport",
-			strconv.Itoa(int(port.Port)),
-			"counter", "dnat", "to", b.getDhcpConfigIpByProtocol(proto))
-		if err != nil {
-			return err
+		if !hasIstioSidecarInjectionEnabled(b.vmi) {
+			err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
+				strings.ToLower(port.Protocol),
+				"dport",
+				strconv.Itoa(int(port.Port)),
+				"counter", "dnat", "to", b.getDhcpConfigIpByProtocol(proto))
+			if err != nil {
+				return err
+			}
 		}
 
 		err = b.handler.NftablesAppendRule(proto, "nat", "output",
@@ -1178,8 +1180,28 @@ func (b *MasqueradeBindMechanism) createNatRulesUsingNftables(proto iptables.Pro
 		if err != nil {
 			return err
 		}
-	}
 
+		if hasIstioSidecarInjectionEnabled(b.vmi) && proto == iptables.ProtocolIPv4 {
+			err = b.handler.NftablesAppendRule(proto, "nat", "output",
+				b.handler.GetNFTIPString(proto), "saddr", getEnvoyLoopbackAddress(),
+				strings.ToLower(port.Protocol),
+				"dport",
+				strconv.Itoa(int(port.Port)),
+				"counter", "dnat", "to", b.getDhcpConfigIpByProtocol(proto))
+			if err != nil {
+				return err
+			}
+			err = b.handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_POSTINBOUND",
+				b.handler.GetNFTIPString(proto), "saddr", getEnvoyLoopbackAddress(),
+				strings.ToLower(port.Protocol),
+				"dport",
+				strconv.Itoa(int(port.Port)),
+				"counter", "snat", "to", b.getGatewayByProtocol(proto))
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -1212,6 +1234,17 @@ func (b *MasqueradeBindMechanism) getDhcpConfigIpByProtocol(proto iptables.Proto
 	} else {
 		return b.dhcpConfig.IPv6.IP.String()
 	}
+}
+
+func hasIstioSidecarInjectionEnabled(vmi *v1.VirtualMachineInstance) bool {
+	if val, ok := vmi.GetAnnotations()["sidecar.istio.io/inject"]; ok {
+		return strings.ToLower(val) == "true"
+	}
+	return false
+}
+
+func getEnvoyLoopbackAddress() string {
+	return "127.0.0.6"
 }
 
 func getLoopbackAdrress(proto iptables.Protocol) string {
