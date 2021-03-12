@@ -53,6 +53,31 @@ func (admitter *MigrationUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1b
 		})
 	}
 
+	// Reject Migration update if selector label changed on an in-flight migration
+	if newMigration.Status.Phase != v1.MigrationSucceeded && newMigration.Status.Phase != v1.MigrationFailed && oldMigration.Labels != nil {
+		oldLabel, oldExists := oldMigration.Labels[v1.MigrationSelectorLabel]
+		if newMigration.Labels == nil {
+			if oldExists {
+				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+					{
+						Type:    metav1.CauseTypeFieldValueNotSupported,
+						Message: "selector label can't be removed from an in-flight migration",
+					},
+				})
+			}
+		} else {
+			newLabel, newExists := newMigration.Labels[v1.MigrationSelectorLabel]
+			if oldExists && (!newExists || newLabel != oldLabel) {
+				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+					{
+						Type:    metav1.CauseTypeFieldValueNotSupported,
+						Message: "selector label can't be modified on an in-flight migration",
+					},
+				})
+			}
+		}
+	}
+
 	reviewResponse := v1beta1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
