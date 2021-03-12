@@ -263,7 +263,7 @@ genrule(
         "//cmd/virtctl",
     ],
     outs = ["virtctl-copier"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 
@@ -273,7 +273,7 @@ genrule(
         "//cmd/virtctl:virtctl-amd64",
     ],
     outs = ["virtctl-copier-amd64"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 
@@ -283,7 +283,7 @@ genrule(
         "//cmd/virtctl:virtctl-darwin",
     ],
     outs = ["virtctl-copier-darwin"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 
@@ -293,7 +293,7 @@ genrule(
         "//cmd/virtctl:virtctl-windows",
     ],
     outs = ["virtctl-copier-windows"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 
@@ -303,17 +303,17 @@ genrule(
         "//vendor/github.com/onsi/ginkgo/ginkgo",
     ],
     outs = ["ginkgo-copier"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 
 genrule(
     name = "build-manifest-templator",
     srcs = [
-        "//tools/manifest-templator",
+        "//tools/manifest-templator:manifest-templator",
     ],
     outs = ["manifest-templator-copier"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 
@@ -323,7 +323,7 @@ genrule(
         "//tools/junit-merger",
     ],
     outs = ["junit-merger-copier"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 
@@ -334,7 +334,7 @@ genrule(
         "//tests:go_default_test",
     ],
     outs = ["functests-copier"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 
@@ -344,7 +344,7 @@ genrule(
         "//cmd/dump",
     ],
     outs = ["dump-copier"],
-    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
 
