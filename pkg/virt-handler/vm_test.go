@@ -66,7 +66,6 @@ import (
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
-	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -183,7 +182,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockContainerDiskMounter = container_disk.NewMockMounter(ctrl)
 		mockHotplugVolumeMounter = hotplug_volume.NewMockVolumeMounter(ctrl)
 
-		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig)
 		controller = NewController(recorder,
 			virtClient,
 			host,
@@ -200,7 +198,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			tlsConfig,
 			tlsConfig,
 			mockIsolationDetector,
-			migrationProxy,
 		)
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
 		controller.networkCacheStoreFactory = networkingfake.NewFakeInMemoryNetworkCacheFactory()

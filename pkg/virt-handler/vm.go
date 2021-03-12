@@ -99,7 +99,6 @@ func NewController(
 	serverTLSConfig *tls.Config,
 	clientTLSConfig *tls.Config,
 	podIsolationDetector isolation.PodIsolationDetector,
-	migrationProxy migrationproxy.ProxyManager,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -117,7 +116,7 @@ func NewController(
 		gracefulShutdownInformer:    gracefulShutdownInformer,
 		heartBeatInterval:           1 * time.Minute,
 		watchdogTimeoutSeconds:      watchdogTimeoutSeconds,
-		migrationProxy:              migrationProxy,
+		migrationProxy:              migrationproxy.NewMigrationProxyManager(serverTLSConfig, clientTLSConfig),
 		podIsolationDetector:        podIsolationDetector,
 		containerDiskMounter:        container_disk.NewMounter(podIsolationDetector, virtPrivateDir+"/container-disk-mount-state"),
 		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter(podIsolationDetector, virtPrivateDir+"/hotplug-volume-mount-state"),
@@ -2030,11 +2029,7 @@ func (d *VirtualMachineController) handleTargetMigrationProxy(vmi *v1.VirtualMac
 
 func (d *VirtualMachineController) handlePostMigrationProxyCleanup(vmi *v1.VirtualMachineInstance) error {
 
-	if vmi.Status.MigrationState == nil {
-		return nil
-	}
-
-	if vmi.Status.MigrationState.Completed || vmi.Status.MigrationState.Failed {
+	if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.Completed || vmi.Status.MigrationState.Failed {
 		d.migrationProxy.StopTargetListener(string(vmi.UID))
 		d.migrationProxy.StopSourceListener(string(vmi.UID))
 	}
@@ -2074,8 +2069,192 @@ func (d *VirtualMachineController) getLauncherClinetInfo(vmi *v1.VirtualMachineI
 	return d.launcherClients[vmi.UID]
 }
 
-func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance) error {
+func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.VirtualMachineInstance) error {
+	client, err := d.getLauncherClient(origVMI)
+	if err != nil {
+		return fmt.Errorf("unable to create virt-launcher client connection: %v", err)
+	}
+
 	vmi := origVMI.DeepCopy()
+
+	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
+	if err != nil {
+		return err
+	}
+
+	err = d.handleSourceMigrationProxy(vmi)
+	if err != nil {
+		return fmt.Errorf("failed to handle migration proxy: %v", err)
+	}
+
+	if vmi.Status.MigrationState.AbortRequested {
+		if vmi.Status.MigrationState.AbortStatus != v1.MigrationAbortInProgress {
+			err = client.CancelVirtualMachineMigration(vmi)
+			if err != nil {
+				return err
+			}
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is aborting migration.")
+		}
+	} else {
+		migrationConfiguration := d.clusterConfig.GetMigrationConfiguration()
+
+		options := &cmdclient.MigrationOptions{
+			Bandwidth:               *migrationConfiguration.BandwidthPerMigration,
+			ProgressTimeout:         *migrationConfiguration.ProgressTimeout,
+			CompletionTimeoutPerGiB: *migrationConfiguration.CompletionTimeoutPerGiB,
+			UnsafeMigration:         *migrationConfiguration.UnsafeMigrationOverride,
+			AllowAutoConverge:       *migrationConfiguration.AllowAutoConverge,
+			AllowPostCopy:           *migrationConfiguration.AllowPostCopy,
+		}
+
+		err = client.MigrateVirtualMachine(vmi, options)
+		if err != nil {
+			return err
+		}
+		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is migrating.")
+	}
+	return nil
+}
+func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.VirtualMachineInstance) error {
+	client, err := d.getLauncherClient(origVMI)
+	if err != nil {
+		return fmt.Errorf("unable to create virt-launcher client connection: %v", err)
+	}
+
+	vmi := origVMI.DeepCopy()
+
+	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
+	if err != nil {
+		return err
+	}
+
+	// If the migration has already started,
+	// then there's nothing left to prepare on the target side
+	if migrations.IsMigrating(vmi) {
+		return nil
+	}
+
+	// give containerDisks some time to become ready before throwing errors on retries
+	info := d.getLauncherClinetInfo(vmi)
+	if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.notInitializedSince); !ready {
+		if err != nil {
+			return err
+		}
+		d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*1)
+		return nil
+	}
+
+	// Mount container disks
+	if err := d.containerDiskMounter.Mount(vmi, false); err != nil {
+		return err
+	}
+
+	// configure network inside virt-launcher compute container
+	criticalNetworkError, err := d.setPodNetworkPhase1(vmi)
+	if err != nil {
+		if criticalNetworkError {
+			return &virtLauncherCriticalNetworkError{fmt.Sprintf("failed to configure vmi network for migration target: %v", err)}
+		} else {
+			return fmt.Errorf("failed to configure vmi network for migration target: %v", err)
+		}
+
+	}
+
+	if err := client.SyncMigrationTarget(vmi); err != nil {
+		return fmt.Errorf("syncing migration target failed: %v", err)
+
+	}
+	d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), "VirtualMachineInstance Migration Target Prepared.")
+
+	err = d.handleTargetMigrationProxy(vmi)
+	if err != nil {
+		return fmt.Errorf("failed to handle post sync migration proxy: %v", err)
+	}
+	return nil
+}
+func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMachineInstance) error {
+	client, err := d.getLauncherClient(origVMI)
+	if err != nil {
+		return fmt.Errorf("unable to create virt-launcher client connection: %v", err)
+	}
+
+	vmi := origVMI.DeepCopy()
+
+	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
+	if err != nil {
+		return err
+	}
+
+	if !vmi.IsRunning() && !vmi.IsFinal() {
+
+		// give containerDisks some time to become ready before throwing errors on retries
+		info := d.getLauncherClinetInfo(vmi)
+		if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.notInitializedSince); !ready {
+			if err != nil {
+				return err
+			}
+			d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*1)
+			return nil
+		}
+
+		if err := d.containerDiskMounter.Mount(vmi, true); err != nil {
+			return err
+		}
+
+		criticalNetworkError, err := d.setPodNetworkPhase1(vmi)
+		if err != nil {
+			if criticalNetworkError {
+				return &virtLauncherCriticalNetworkError{fmt.Sprintf("failed to configure vmi network: %v", err)}
+			} else {
+				return fmt.Errorf("failed to configure vmi network: %v", err)
+			}
+
+		}
+
+		// set runtime limits as needed
+		err = d.podIsolationDetector.AdjustResources(vmi)
+		if err != nil {
+			return fmt.Errorf("failed to adjust resources: %v", err)
+		}
+	} else if vmi.IsRunning() {
+		if err := d.hotplugVolumeMounter.Mount(vmi); err != nil {
+			return err
+		}
+	}
+
+	smbios := d.clusterConfig.GetSMBIOS()
+	period := d.clusterConfig.GetMemBalloonStatsPeriod()
+
+	options := &cmdv1.VirtualMachineOptions{
+		VirtualMachineSMBios: &cmdv1.SMBios{
+			Family:       smbios.Family,
+			Product:      smbios.Product,
+			Manufacturer: smbios.Manufacturer,
+			Sku:          smbios.Sku,
+			Version:      smbios.Version,
+		},
+		MemBalloonStatsPeriod: period,
+	}
+
+	err = client.SyncVirtualMachine(vmi, options)
+	if err != nil {
+		isSecbootError := strings.Contains(err.Error(), "EFI OVMF roms missing")
+		if isSecbootError {
+			return &virtLauncherCriticalSecurebootError{fmt.Sprintf("mismatch of Secure Boot setting and bootloaders: %v", err)}
+		}
+		return err
+	}
+	d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), "VirtualMachineInstance defined.")
+	if vmi.IsRunning() {
+		// Umount any disks no longer mounted
+		if err := d.hotplugVolumeMounter.Unmount(vmi); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstance) error {
 
 	isUnresponsive, isInitialized, err := d.isLauncherClientUnresponsive(vmi)
 	if err != nil {
@@ -2088,161 +2267,15 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		return goerror.New(fmt.Sprintf("Can not update a VirtualMachineInstance with unresponsive command server."))
 	}
 
-	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
-	if err != nil {
-		return err
-	}
-
-	client, err := d.getLauncherClient(vmi)
-	if err != nil {
-		return fmt.Errorf("unable to create virt-launcher client connection: %v", err)
-	}
-
 	d.handlePostMigrationProxyCleanup(vmi)
 
 	if d.isPreMigrationTarget(vmi) {
-		if !migrations.IsMigrating(vmi) {
-
-			// give containerDisks some time to become ready before throwing errors on retries
-			info := d.getLauncherClinetInfo(vmi)
-			if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.notInitializedSince); !ready {
-				if err != nil {
-					return err
-				}
-				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*1)
-				return nil
-			}
-
-			// Mount container disks
-			if err := d.containerDiskMounter.Mount(vmi, false); err != nil {
-				return err
-			}
-
-			// configure network inside virt-launcher compute container
-			criticalNetworkError, err := d.setPodNetworkPhase1(vmi)
-			if err != nil {
-				if criticalNetworkError {
-					return &virtLauncherCriticalNetworkError{fmt.Sprintf("failed to configure vmi network for migration target: %v", err)}
-				} else {
-					return fmt.Errorf("failed to configure vmi network for migration target: %v", err)
-				}
-
-			}
-
-			if err := client.SyncMigrationTarget(vmi); err != nil {
-				return fmt.Errorf("syncing migration target failed: %v", err)
-
-			}
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), "VirtualMachineInstance Migration Target Prepared.")
-
-			err = d.handleTargetMigrationProxy(vmi)
-			if err != nil {
-				return fmt.Errorf("failed to handle post sync migration proxy: %v", err)
-			}
-		}
+		return d.vmUpdateHelperMigrationTarget(vmi)
 	} else if d.isMigrationSource(vmi) {
-
-		err = d.handleSourceMigrationProxy(vmi)
-		if err != nil {
-			return fmt.Errorf("failed to handle migration proxy: %v", err)
-		}
-
-		if vmi.Status.MigrationState.AbortRequested {
-			if vmi.Status.MigrationState.AbortStatus != v1.MigrationAbortInProgress {
-				err = client.CancelVirtualMachineMigration(vmi)
-				if err != nil {
-					return err
-				}
-				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is aborting migration.")
-			}
-		} else {
-			migrationConfiguration := d.clusterConfig.GetMigrationConfiguration()
-
-			options := &cmdclient.MigrationOptions{
-				Bandwidth:               *migrationConfiguration.BandwidthPerMigration,
-				ProgressTimeout:         *migrationConfiguration.ProgressTimeout,
-				CompletionTimeoutPerGiB: *migrationConfiguration.CompletionTimeoutPerGiB,
-				UnsafeMigration:         *migrationConfiguration.UnsafeMigrationOverride,
-				AllowAutoConverge:       *migrationConfiguration.AllowAutoConverge,
-				AllowPostCopy:           *migrationConfiguration.AllowPostCopy,
-			}
-
-			err = client.MigrateVirtualMachine(vmi, options)
-			if err != nil {
-				return err
-			}
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is migrating.")
-		}
+		return d.vmUpdateHelperMigrationSource(vmi)
 	} else {
-		if !vmi.IsRunning() && !vmi.IsFinal() {
-
-			// give containerDisks some time to become ready before throwing errors on retries
-			info := d.getLauncherClinetInfo(vmi)
-			if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.notInitializedSince); !ready {
-				if err != nil {
-					return err
-				}
-				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*1)
-				return nil
-			}
-
-			if err := d.containerDiskMounter.Mount(vmi, true); err != nil {
-				return err
-			}
-
-			criticalNetworkError, err := d.setPodNetworkPhase1(vmi)
-			if err != nil {
-				if criticalNetworkError {
-					return &virtLauncherCriticalNetworkError{fmt.Sprintf("failed to configure vmi network: %v", err)}
-				} else {
-					return fmt.Errorf("failed to configure vmi network: %v", err)
-				}
-
-			}
-
-			// set runtime limits as needed
-			err = d.podIsolationDetector.AdjustResources(vmi)
-			if err != nil {
-				return fmt.Errorf("failed to adjust resources: %v", err)
-			}
-		} else if vmi.IsRunning() {
-			if err := d.hotplugVolumeMounter.Mount(vmi); err != nil {
-				return err
-			}
-		}
-
-		smbios := d.clusterConfig.GetSMBIOS()
-		period := d.clusterConfig.GetMemBalloonStatsPeriod()
-
-		options := &cmdv1.VirtualMachineOptions{
-			VirtualMachineSMBios: &cmdv1.SMBios{
-				Family:       smbios.Family,
-				Product:      smbios.Product,
-				Manufacturer: smbios.Manufacturer,
-				Sku:          smbios.Sku,
-				Version:      smbios.Version,
-			},
-			MemBalloonStatsPeriod: period,
-		}
-
-		err = client.SyncVirtualMachine(vmi, options)
-		if err != nil {
-			isSecbootError := strings.Contains(err.Error(), "EFI OVMF roms missing")
-			if isSecbootError {
-				return &virtLauncherCriticalSecurebootError{fmt.Sprintf("mismatch of Secure Boot setting and bootloaders: %v", err)}
-			}
-			return err
-		}
-		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), "VirtualMachineInstance defined.")
-		if vmi.IsRunning() {
-			// Umount any disks no longer mounted
-			if err := d.hotplugVolumeMounter.Unmount(vmi); err != nil {
-				return err
-			}
-		}
+		return d.vmUpdateHelperDefault(vmi)
 	}
-
-	return err
 }
 
 func (d *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain, vmi *v1.VirtualMachineInstance) error {
