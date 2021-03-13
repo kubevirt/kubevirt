@@ -9094,6 +9094,18 @@
      }
     }
    },
+   "v1.BlockSize": {
+    "description": "BlockSize provides the option to change the block size presented to the VM for a disk. Only one of its members may be specified.",
+    "type": "object",
+    "properties": {
+     "custom": {
+      "$ref": "#/definitions/v1.CustomBlockSize"
+     },
+     "matchVolume": {
+      "$ref": "#/definitions/v1.FeatureState"
+     }
+    }
+   },
    "v1.Bootloader": {
     "description": "Represents the firmware blob used to assist in the domain creation process. Used for setting the QEMU BIOS file path for the libvirt domain.",
     "type": "object",
@@ -9361,6 +9373,24 @@
      }
     }
    },
+   "v1.CustomBlockSize": {
+    "description": "CustomBlockSize represents the desired logical and physical block size for a VM disk.",
+    "type": "object",
+    "required": [
+     "logical",
+     "physical"
+    ],
+    "properties": {
+     "logical": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "physical": {
+      "type": "integer",
+      "format": "int32"
+     }
+    }
+   },
    "v1.CustomizeComponents": {
     "type": "object",
     "properties": {
@@ -9618,6 +9648,10 @@
      "name"
     ],
     "properties": {
+     "blockSize": {
+      "description": "If specified, the virtual disk will be presented with the given block sizes.",
+      "$ref": "#/definitions/v1.BlockSize"
+     },
      "bootOrder": {
       "description": "BootOrder is an integer value \u003e 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.",
       "type": "integer",
