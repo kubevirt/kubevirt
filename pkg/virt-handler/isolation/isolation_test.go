@@ -2,6 +2,7 @@ package isolation
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -32,8 +33,27 @@ var _ = Describe("IsolationResult", func() {
 			Expect(mounted).To(BeTrue())
 		})
 
-		It("Should resolve relative paths", func() {
+		It("Should resolve absolute paths with relative navigation", func() {
 			mounted, err := isolationResult.IsMounted("/var/..")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mounted).To(BeTrue())
+		})
+
+		It("Should resolve relative paths", func() {
+			_, err := isolationResult.IsMounted(".")
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("Should resolve symlinks", func() {
+			tmpDir, err := ioutil.TempDir("", "kubevirt")
+			Expect(err).ToNot(HaveOccurred())
+			defer os.RemoveAll(tmpDir)
+
+			symlinkPath := filepath.Join(tmpDir, "mysymlink")
+			err = os.Symlink("/", symlinkPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			mounted, err := isolationResult.IsMounted(symlinkPath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(mounted).To(BeTrue())
 		})
