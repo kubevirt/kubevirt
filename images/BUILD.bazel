@@ -54,7 +54,7 @@ group_entry(
 group_entry(
     name = "root-group",
     gid = 0,
-    groupname = "nginx",
+    groupname = "root",
 )
 
 group_file(
