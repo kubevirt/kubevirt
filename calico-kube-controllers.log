@@ -1,0 +1,29 @@
+2021-03-14 11:11:06.376 [INFO][1] main.go 92: Loaded configuration from environment config=&config.Config{LogLevel:"info", WorkloadEndpointWorkers:1, ProfileWorkers:1, PolicyWorkers:1, NodeWorkers:1, Kubeconfig:"", DatastoreType:"kubernetes"}
+W0314 11:11:06.379221       1 client_config.go:552] Neither --kubeconfig nor --master was specified.  Using the inClusterConfig.  This might not work.
+2021-03-14 11:11:06.381 [INFO][1] main.go 113: Ensuring Calico datastore is initialized
+2021-03-14 11:11:06.401 [INFO][1] main.go 153: Getting initial config snapshot from datastore
+2021-03-14 11:11:06.431 [INFO][1] main.go 156: Got initial config snapshot
+2021-03-14 11:11:06.432 [INFO][1] watchersyncer.go 89: Start called
+2021-03-14 11:11:06.432 [INFO][1] main.go 173: Starting status report routine
+2021-03-14 11:11:06.432 [INFO][1] main.go 182: Starting Prometheus metrics server on port 9094
+2021-03-14 11:11:06.432 [INFO][1] main.go 418: Starting controller ControllerType="Node"
+2021-03-14 11:11:06.432 [INFO][1] node_controller.go 143: Starting Node controller
+2021-03-14 11:11:06.432 [INFO][1] watchersyncer.go 127: Sending status update Status=wait-for-ready
+2021-03-14 11:11:06.432 [INFO][1] node_syncer.go 60: Node controller syncer status updated: wait-for-ready
+2021-03-14 11:11:06.432 [INFO][1] watchersyncer.go 147: Starting main event processing loop
+2021-03-14 11:11:06.432 [INFO][1] watchercache.go 174: Full resync is required ListRoot="/calico/ipam/v2/assignment/"
+2021-03-14 11:11:06.433 [INFO][1] watchercache.go 174: Full resync is required ListRoot="/calico/resources/v3/projectcalico.org/nodes"
+2021-03-14 11:11:06.433 [INFO][1] resources.go 349: Main client watcher loop
+2021-03-14 11:11:06.441 [INFO][1] watchercache.go 271: Sending synced update ListRoot="/calico/resources/v3/projectcalico.org/nodes"
+2021-03-14 11:11:06.442 [INFO][1] watchersyncer.go 127: Sending status update Status=resync
+2021-03-14 11:11:06.443 [INFO][1] node_syncer.go 60: Node controller syncer status updated: resync
+2021-03-14 11:11:06.443 [INFO][1] watchersyncer.go 209: Received InSync event from one of the watcher caches
+2021-03-14 11:11:06.443 [INFO][1] watchercache.go 271: Sending synced update ListRoot="/calico/ipam/v2/assignment/"
+2021-03-14 11:11:06.443 [INFO][1] watchersyncer.go 209: Received InSync event from one of the watcher caches
+2021-03-14 11:11:06.443 [INFO][1] watchersyncer.go 221: All watchers have sync'd data - sending data and final sync
+2021-03-14 11:11:06.443 [INFO][1] watchersyncer.go 127: Sending status update Status=in-sync
+2021-03-14 11:11:06.443 [INFO][1] node_syncer.go 60: Node controller syncer status updated: in-sync
+2021-03-14 11:11:06.452 [INFO][1] hostendpoints.go 90: successfully synced all hostendpoints
+2021-03-14 11:11:06.532 [INFO][1] node_controller.go 159: Node controller is now running
+2021-03-14 11:11:06.540 [INFO][1] ipam.go 69: Synchronizing IPAM data
+2021-03-14 11:11:06.569 [INFO][1] ipam.go 78: Node and IPAM data is in sync
