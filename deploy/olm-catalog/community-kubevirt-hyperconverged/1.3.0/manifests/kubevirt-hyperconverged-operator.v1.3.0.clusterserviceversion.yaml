@@ -7,7 +7,7 @@ metadata:
     capabilities: Full Lifecycle
     categories: OpenShift Optional
     certified: "false"
-    containerImage: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:914c75180c2c1aa6bfabc033ee3bd9d1a0169999e0958aab8c44bad9aa262719
+    containerImage: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:172c85edfc45fec4bb0a820c7c67bcd6f2449629811ff0953a7646564eba1d0e
     createdAt: "2021-01-18 15:57:46"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
@@ -1802,7 +1802,7 @@ spec:
                   value: OPERATOR
                 - name: KVM_EMULATION
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:914c75180c2c1aa6bfabc033ee3bd9d1a0169999e0958aab8c44bad9aa262719
+                  value: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:172c85edfc45fec4bb0a820c7c67bcd6f2449629811ff0953a7646564eba1d0e
                 - name: OPERATOR_NAME
                   value: hyperconverged-cluster-operator
                 - name: OPERATOR_NAMESPACE
@@ -1838,7 +1838,7 @@ spec:
                   value: v0.7.0
                 - name: VM_IMPORT_VERSION
                   value: v0.2.5
-                image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:914c75180c2c1aa6bfabc033ee3bd9d1a0169999e0958aab8c44bad9aa262719
+                image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:172c85edfc45fec4bb0a820c7c67bcd6f2449629811ff0953a7646564eba1d0e
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
                   failureThreshold: 1
@@ -1881,7 +1881,7 @@ spec:
                 - name: APP
                   value: WEBHOOK
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/hyperconverged-cluster-webhook@sha256:b0c670ce23cbca458c8dca188379c77e7211cb48fd8023684af6c32fb6b9299f
+                  value: quay.io/kubevirt/hyperconverged-cluster-webhook@sha256:69c3ea3c629812320bfef6d8b7b5be13230c69fb1d67dd6059df62694e3d3c6b
                 - name: OPERATOR_NAME
                   value: hyperconverged-cluster-webhook
                 - name: OPERATOR_NAMESPACE
@@ -1891,7 +1891,7 @@ spec:
                     fieldRef:
                       fieldPath: metadata.name
                 - name: WATCH_NAMESPACE
-                image: quay.io/kubevirt/hyperconverged-cluster-webhook@sha256:b0c670ce23cbca458c8dca188379c77e7211cb48fd8023684af6c32fb6b9299f
+                image: quay.io/kubevirt/hyperconverged-cluster-webhook@sha256:69c3ea3c629812320bfef6d8b7b5be13230c69fb1d67dd6059df62694e3d3c6b
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
                   failureThreshold: 1
@@ -2473,9 +2473,9 @@ spec:
     name: hostpath-provisioner
   - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:a51e9b075a60600244757386f5894b314170543edb1d7f4738f4860a19602072
     name: hostpath-provisioner-operator
-  - image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:914c75180c2c1aa6bfabc033ee3bd9d1a0169999e0958aab8c44bad9aa262719
+  - image: quay.io/kubevirt/hyperconverged-cluster-operator@sha256:172c85edfc45fec4bb0a820c7c67bcd6f2449629811ff0953a7646564eba1d0e
     name: hyperconverged-cluster-operator
-  - image: quay.io/kubevirt/hyperconverged-cluster-webhook@sha256:b0c670ce23cbca458c8dca188379c77e7211cb48fd8023684af6c32fb6b9299f
+  - image: quay.io/kubevirt/hyperconverged-cluster-webhook@sha256:69c3ea3c629812320bfef6d8b7b5be13230c69fb1d67dd6059df62694e3d3c6b
     name: hyperconverged-cluster-webhook
   - image: quay.io/kubevirt/kubemacpool@sha256:e68811ce7697ab0f1257f307fcd63b08b6295de7f300e01a982e4e624bfa7398
     name: kubemacpool
