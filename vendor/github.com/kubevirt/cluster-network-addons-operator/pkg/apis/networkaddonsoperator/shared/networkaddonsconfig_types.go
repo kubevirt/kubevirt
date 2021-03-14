@@ -23,12 +23,14 @@ type NetworkAddonsConfigSpec struct {
 // +k8s:openapi-gen=true
 // SelfSignConfiguration defines self sign configuration
 type SelfSignConfiguration struct {
-	// CARotateInterval defines duration for CA and certificate
-	CARotateInterval   string `json:"caRotateInterval,omitempty"`
-	// CAOverlapInterval defines the duration of CA Certificates at CABundle if not set it will default to CARotateInterval
-	CAOverlapInterval  string `json:"caOverlapInterval,omitempty"`
-	// CertRotateInterval defines duration for of service certificate
+	// CARotateInterval defines duration for CA expiration
+	CARotateInterval string `json:"caRotateInterval,omitempty"`
+	// CAOverlapInterval defines the duration where expired CA certificate can overlap with new one, in order to allow fluent CA rotation transitioning
+	CAOverlapInterval string `json:"caOverlapInterval,omitempty"`
+	// CertRotateInterval defines duration for of service certificate expiration
 	CertRotateInterval string `json:"certRotateInterval,omitempty"`
+	// CertOverlapInterval defines the duration where expired service certificate can overlap with new one, in order to allow fluent service rotation transitioning
+	CertOverlapInterval string `json:"certOverlapInterval,omitempty"`
 }
 
 // +k8s:openapi-gen=true

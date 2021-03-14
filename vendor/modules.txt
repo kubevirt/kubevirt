@@ -28,8 +28,6 @@ github.com/fsnotify/fsnotify
 # github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 ## explicit
 github.com/ghodss/yaml
-# github.com/go-logfmt/logfmt v0.5.0
-## explicit
 # github.com/go-logr/logr v0.3.0 => github.com/go-logr/logr v0.3.0
 ## explicit
 github.com/go-logr/logr
@@ -87,7 +85,7 @@ github.com/imdario/mergo
 github.com/json-iterator/go
 # github.com/konsorten/go-windows-terminal-sequences v1.0.3
 github.com/konsorten/go-windows-terminal-sequences
-# github.com/kubevirt/cluster-network-addons-operator v0.47.0
+# github.com/kubevirt/cluster-network-addons-operator v0.48.0
 ## explicit
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared
@@ -97,7 +95,7 @@ github.com/kubevirt/cluster-network-addons-operator/pkg/names
 # github.com/kubevirt/vm-import-operator v0.3.0
 ## explicit
 github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1
-# github.com/mailru/easyjson v0.7.0
+# github.com/mailru/easyjson v0.7.1
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
@@ -627,7 +625,6 @@ sigs.k8s.io/yaml
 # github.com/go-kit/kit => github.com/go-kit/kit v0.3.0
 # github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.5.1
 # github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
-# github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.0.0-20190424153033-d3245f150225
 # kubevirt.io/client-go => kubevirt.io/client-go v0.39.0
 # github.com/openshift/api => github.com/openshift/api v0.0.0-20201120165435-072a4cd8ca42
 # github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
