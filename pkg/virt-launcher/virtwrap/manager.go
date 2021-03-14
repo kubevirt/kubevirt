@@ -485,8 +485,6 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 
 	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
 
-		isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
-
 		loopbackAddress := ip.GetLoopbackAddress()
 
 		stopMigrationProxyServer, err := startMigrationProxyServer(l.virtShareDir, vmi, loopbackAddress)
@@ -495,10 +493,6 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 			return
 		}
 		defer stopMigrationProxyServer()
-
-		// For a tunnelled migration, this is always the uri
-		dstURI := fmt.Sprintf("qemu+tcp://%s/system", net.JoinHostPort(loopbackAddress, strconv.Itoa(LibvirtLocalConnectionPort)))
-		migrURI := fmt.Sprintf("tcp://%s", ip.NormalizeIPAddress(loopbackAddress))
 
 		domName := api.VMINamespaceKeyFunc(vmi)
 		dom, err := l.virConn.LookupDomainByName(domName)
@@ -509,16 +503,18 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		}
 		defer dom.Free()
 
+		if err := hotUnplugHostDevices(l.virConn, dom); err != nil {
+			log.Log.Object(vmi).Reason(err).Error(fmt.Sprintf("Live migration failed."))
+			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
+		}
+
 		bandwidth, err := converter.QuantityToMebiByte(options.Bandwidth)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Live migration failed. Invalid bandwidth supplied.")
 			return
 		}
 
-		if err := hotUnplugHostDevices(l.virConn, dom); err != nil {
-			log.Log.Object(vmi).Reason(err).Error(fmt.Sprintf("Live migration failed."))
-			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
-		}
+		migrURI := fmt.Sprintf("tcp://%s", ip.NormalizeIPAddress(loopbackAddress))
 
 		xmlstr, err := domXMLWithoutKubevirtMetadata(dom, vmi)
 		if err != nil {
@@ -543,11 +539,13 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		defer close(migrationErrorChan)
 		go liveMigrationMonitor(vmi, l, options, migrationErrorChan)
 
+		isBlockMigration := vmi.Status.MigrationMethod == v1.BlockMigration
 		migrateFlags := prepareMigrationFlags(isBlockMigration, options.UnsafeMigration, options.AllowAutoConverge, options.AllowPostCopy)
 		if options.UnsafeMigration {
 			log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
 		}
 
+		dstURI := fmt.Sprintf("qemu+tcp://%s/system", net.JoinHostPort(loopbackAddress, strconv.Itoa(LibvirtLocalConnectionPort)))
 		err = dom.MigrateToURI3(dstURI, params, migrateFlags)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
