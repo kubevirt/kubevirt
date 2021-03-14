@@ -1,426 +1,423 @@
-NAMESPACE     LAST SEEN   TYPE      REASON                    OBJECT                                          MESSAGE
-default       42m         Normal    NodeHasSufficientPID      node/node01                                     Node node01 status is now: NodeHasSufficientPID
-default       42m         Normal    NodeHasSufficientMemory   node/node01                                     Node node01 status is now: NodeHasSufficientMemory
-default       42m         Normal    NodeHasNoDiskPressure     node/node01                                     Node node01 status is now: NodeHasNoDiskPressure
-kube-system   40m         Normal    LeaderElection            endpoints/kube-controller-manager               node01_9f5db214-be4d-4b2a-b089-da8d24b0e459 became leader
-kube-system   40m         Normal    LeaderElection            lease/kube-controller-manager                   node01_9f5db214-be4d-4b2a-b089-da8d24b0e459 became leader
-default       40m         Normal    NodeAllocatableEnforced   node/node01                                     Updated Node Allocatable limit across pods
-default       40m         Normal    NodeHasSufficientPID      node/node01                                     Node node01 status is now: NodeHasSufficientPID
-default       40m         Normal    Starting                  node/node01                                     Starting kubelet.
-default       40m         Normal    NodeHasNoDiskPressure     node/node01                                     Node node01 status is now: NodeHasNoDiskPressure
-default       40m         Normal    NodeHasSufficientMemory   node/node01                                     Node node01 status is now: NodeHasSufficientMemory
-kube-system   40m         Normal    ScalingReplicaSet         deployment/coredns                              Scaled up replica set coredns-5467dd7dc9 to 2
-default       40m         Normal    SuccessfulCreate          daemonset/local-volume-provisioner              Created pod: local-volume-provisioner-wlz22
-kube-system   40m         Normal    SuccessfulCreate          daemonset/kube-proxy                            Created pod: kube-proxy-2wrsn
-kube-system   40m         Normal    SuccessfulCreate          replicaset/calico-kube-controllers-5f8b96b548   Created pod: calico-kube-controllers-5f8b96b548-nlvjs
-kube-system   40m         Normal    SuccessfulCreate          replicaset/coredns-5467dd7dc9                   Created pod: coredns-5467dd7dc9-shckh
-default       40m         Normal    RegisteredNode            node/node01                                     Node node01 event: Registered Node node01 in Controller
-kube-system   40m         Normal    NoPods                    poddisruptionbudget/calico-kube-controllers     No matching pods found
-default       40m         Normal    NodeReady                 node/node01                                     Node node01 status is now: NodeReady
-kube-system   40m         Normal    SuccessfulCreate          daemonset/calico-node                           Created pod: calico-node-nwbwk
-kube-system   40m         Normal    SuccessfulCreate          replicaset/coredns-5467dd7dc9                   Created pod: coredns-5467dd7dc9-q75s5
-kube-system   40m         Normal    ScalingReplicaSet         deployment/calico-kube-controllers              Scaled up replica set calico-kube-controllers-5f8b96b548 to 1
-kube-system   40m         Normal    Scheduled                 pod/calico-kube-controllers-5f8b96b548-nlvjs    Successfully assigned kube-system/calico-kube-controllers-5f8b96b548-nlvjs to node01
-kube-system   40m         Normal    Scheduled                 pod/coredns-5467dd7dc9-shckh                    Successfully assigned kube-system/coredns-5467dd7dc9-shckh to node01
-kube-system   40m         Normal    Started                   pod/calico-node-nwbwk                           Started container upgrade-ipam
-kube-system   40m         Normal    Created                   pod/calico-node-nwbwk                           Created container upgrade-ipam
-kube-system   40m         Normal    Pulled                    pod/calico-node-nwbwk                           Container image "docker.io/calico/cni:v3.18.0" already present on machine
-kube-system   40m         Normal    Scheduled                 pod/calico-node-nwbwk                           Successfully assigned kube-system/calico-node-nwbwk to node01
-kube-system   40m         Normal    Scheduled                 pod/kube-proxy-2wrsn                            Successfully assigned kube-system/kube-proxy-2wrsn to node01
-kube-system   40m         Normal    LeaderElection            endpoints/kube-scheduler                        node01_341ca4c7-5a56-47a7-a129-3b6e623b9846 became leader
-kube-system   40m         Normal    LeaderElection            lease/kube-scheduler                            node01_341ca4c7-5a56-47a7-a129-3b6e623b9846 became leader
-default       40m         Normal    Starting                  node/node02                                     Starting kubelet.
-kube-system   40m         Normal    Scheduled                 pod/coredns-5467dd7dc9-q75s5                    Successfully assigned kube-system/coredns-5467dd7dc9-q75s5 to node01
-default       40m         Normal    Scheduled                 pod/local-volume-provisioner-wlz22              Successfully assigned default/local-volume-provisioner-wlz22 to node01
-kube-system   40m         Normal    SuccessfulCreate          daemonset/calico-node                           Created pod: calico-node-9tg7x
-kube-system   40m         Normal    SuccessfulCreate          daemonset/kube-proxy                            Created pod: kube-proxy-l6lhc
-default       40m         Normal    NodeAllocatableEnforced   node/node02                                     Updated Node Allocatable limit across pods
-default       40m         Normal    NodeHasSufficientPID      node/node02                                     Node node02 status is now: NodeHasSufficientPID
-default       40m         Normal    NodeHasNoDiskPressure     node/node02                                     Node node02 status is now: NodeHasNoDiskPressure
-default       40m         Normal    NodeHasSufficientMemory   node/node02                                     Node node02 status is now: NodeHasSufficientMemory
-kube-system   40m         Normal    Scheduled                 pod/calico-node-9tg7x                           Successfully assigned kube-system/calico-node-9tg7x to node02
-kube-system   40m         Normal    Scheduled                 pod/kube-proxy-l6lhc                            Successfully assigned kube-system/kube-proxy-l6lhc to node02
-default       40m         Normal    Starting                  node/node01                                     Starting kube-proxy.
-kube-system   40m         Normal    Created                   pod/kube-proxy-2wrsn                            Created container kube-proxy
-kube-system   40m         Normal    Created                   pod/calico-node-nwbwk                           Created container install-cni
-kube-system   40m         Normal    Pulled                    pod/calico-node-nwbwk                           Container image "docker.io/calico/cni:v3.18.0" already present on machine
-kube-system   40m         Normal    Pulled                    pod/kube-proxy-2wrsn                            Container image "k8s.gcr.io/kube-proxy:v1.18.16" already present on machine
-kube-system   40m         Normal    Created                   pod/calico-node-9tg7x                           Created container upgrade-ipam
-kube-system   40m         Normal    Pulled                    pod/calico-node-nwbwk                           Container image "docker.io/calico/pod2daemon-flexvol:v3.18.0" already present on machine
-kube-system   40m         Normal    Started                   pod/kube-proxy-2wrsn                            Started container kube-proxy
-kube-system   40m         Normal    Started                   pod/calico-node-nwbwk                           Started container install-cni
-kube-system   40m         Normal    Pulled                    pod/calico-node-9tg7x                           Container image "docker.io/calico/cni:v3.18.0" already present on machine
-default       40m         Normal    Starting                  node/node01                                     Starting kube-proxy.
-default       40m         Normal    Starting                  node/node02                                     Starting kube-proxy.
-kube-system   40m         Normal    Started                   pod/calico-node-9tg7x                           Started container upgrade-ipam
-kube-system   40m         Normal    Created                   pod/calico-node-nwbwk                           Created container flexvol-driver
-kube-system   40m         Normal    Pulled                    pod/calico-node-9tg7x                           Container image "docker.io/calico/cni:v3.18.0" already present on machine
-kube-system   40m         Normal    Started                   pod/kube-proxy-l6lhc                            Started container kube-proxy
-kube-system   40m         Normal    Pulled                    pod/calico-node-nwbwk                           Container image "docker.io/calico/node:v3.18.0" already present on machine
-kube-system   40m         Normal    Started                   pod/calico-node-nwbwk                           Started container flexvol-driver
-kube-system   40m         Normal    Started                   pod/calico-node-9tg7x                           Started container install-cni
-kube-system   40m         Normal    Created                   pod/calico-node-9tg7x                           Created container install-cni
-default       40m         Normal    Starting                  node/node02                                     Starting kube-proxy.
-default       40m         Normal    RegisteredNode            node/node02                                     Node node02 event: Registered Node node02 in Controller
-kube-system   40m         Normal    Pulled                    pod/kube-proxy-l6lhc                            Container image "k8s.gcr.io/kube-proxy:v1.18.16" already present on machine
-kube-system   40m         Normal    Created                   pod/kube-proxy-l6lhc                            Created container kube-proxy
-kube-system   40m         Normal    Created                   pod/calico-node-9tg7x                           Created container flexvol-driver
-kube-system   40m         Normal    Created                   pod/calico-node-nwbwk                           Created container calico-node
-kube-system   40m         Normal    Pulled                    pod/calico-node-9tg7x                           Container image "docker.io/calico/pod2daemon-flexvol:v3.18.0" already present on machine
-kube-system   40m         Normal    Started                   pod/calico-node-9tg7x                           Started container flexvol-driver
-kube-system   40m         Normal    Started                   pod/calico-node-nwbwk                           Started container calico-node
-default       40m         Warning   FailedCreatePodSandBox    pod/local-volume-provisioner-wlz22              Failed to create pod sandbox: rpc error: code = Unknown desc = failed to set up sandbox container "027ce8974b85493883231f38727374ef45dc2ee977cbfe4a99882fbf68b7dcac" network for pod "local-volume-provisioner-wlz22": networkPlugin cni failed to set up pod "local-volume-provisioner-wlz22_default" network: error getting ClusterInformation: Get "https://[10.96.0.1]:443/apis/crd.projectcalico.org/v1/clusterinformations/default": x509: certificate signed by unknown authority (possibly because of "crypto/rsa: verification error" while trying to verify candidate authority certificate "kubernetes")
-kube-system   40m         Normal    Created                   pod/calico-node-9tg7x                           Created container calico-node
-kube-system   40m         Normal    Started                   pod/calico-node-9tg7x                           Started container calico-node
-kube-system   40m         Warning   FailedCreatePodSandBox    pod/coredns-5467dd7dc9-shckh                    Failed to create pod sandbox: rpc error: code = Unknown desc = failed to set up sandbox container "76a70e3f62899181c5b45e63acf90126441ec35dc8ae77559b451876a5fe49fa" network for pod "coredns-5467dd7dc9-shckh": networkPlugin cni failed to set up pod "coredns-5467dd7dc9-shckh_kube-system" network: error getting ClusterInformation: Get "https://[10.96.0.1]:443/apis/crd.projectcalico.org/v1/clusterinformations/default": x509: certificate signed by unknown authority (possibly because of "crypto/rsa: verification error" while trying to verify candidate authority certificate "kubernetes")
-kube-system   40m         Warning   FailedCreatePodSandBox    pod/coredns-5467dd7dc9-q75s5                    Failed to create pod sandbox: rpc error: code = Unknown desc = failed to set up sandbox container "031f2d28c141ec49c15e0ba0b199b49ecfbcec77d1cb90e70fa9674365261431" network for pod "coredns-5467dd7dc9-q75s5": networkPlugin cni failed to set up pod "coredns-5467dd7dc9-q75s5_kube-system" network: error getting ClusterInformation: Get "https://[10.96.0.1]:443/apis/crd.projectcalico.org/v1/clusterinformations/default": x509: certificate signed by unknown authority (possibly because of "crypto/rsa: verification error" while trying to verify candidate authority certificate "kubernetes")
-kube-system   40m         Normal    Pulled                    pod/calico-node-9tg7x                           Container image "docker.io/calico/node:v3.18.0" already present on machine
-kube-system   40m         Warning   FailedCreatePodSandBox    pod/calico-kube-controllers-5f8b96b548-nlvjs    Failed to create pod sandbox: rpc error: code = Unknown desc = failed to set up sandbox container "77510fc94aa5adb50f39f0780c32ef73620fe785bdb7bf726a25b801e64a80a1" network for pod "calico-kube-controllers-5f8b96b548-nlvjs": networkPlugin cni failed to set up pod "calico-kube-controllers-5f8b96b548-nlvjs_kube-system" network: error getting ClusterInformation: Get "https://[10.96.0.1]:443/apis/crd.projectcalico.org/v1/clusterinformations/default": x509: certificate signed by unknown authority (possibly because of "crypto/rsa: verification error" while trying to verify candidate authority certificate "kubernetes")
-kube-system   40m         Normal    SandboxChanged            pod/coredns-5467dd7dc9-q75s5                    Pod sandbox changed, it will be killed and re-created.
-kube-system   40m         Warning   Unhealthy                 pod/calico-node-nwbwk                           Readiness probe failed: calico/node is not ready: BIRD is not ready: Error querying BIRD: unable to connect to BIRDv4 socket: dial unix /var/run/calico/bird.ctl: connect: connection refused
-kube-system   40m         Normal    Pulled                    pod/coredns-5467dd7dc9-shckh                    Container image "k8s.gcr.io/coredns:1.6.7" already present on machine
-kube-system   40m         Normal    SandboxChanged            pod/coredns-5467dd7dc9-shckh                    Pod sandbox changed, it will be killed and re-created.
-kube-system   40m         Normal    SandboxChanged            pod/calico-kube-controllers-5f8b96b548-nlvjs    Pod sandbox changed, it will be killed and re-created.
-kube-system   40m         Normal    Pulled                    pod/calico-kube-controllers-5f8b96b548-nlvjs    Container image "docker.io/calico/kube-controllers:v3.18.0" already present on machine
-default       40m         Normal    SandboxChanged            pod/local-volume-provisioner-wlz22              Pod sandbox changed, it will be killed and re-created.
-kube-system   40m         Normal    Started                   pod/coredns-5467dd7dc9-shckh                    Started container coredns
-kube-system   40m         Normal    Pulled                    pod/coredns-5467dd7dc9-q75s5                    Container image "k8s.gcr.io/coredns:1.6.7" already present on machine
-kube-system   40m         Normal    Started                   pod/coredns-5467dd7dc9-q75s5                    Started container coredns
-kube-system   40m         Normal    Created                   pod/calico-kube-controllers-5f8b96b548-nlvjs    Created container calico-kube-controllers
-default       40m         Normal    Started                   pod/local-volume-provisioner-wlz22              Started container provisioner
-default       40m         Normal    Created                   pod/local-volume-provisioner-wlz22              Created container provisioner
-kube-system   40m         Normal    Started                   pod/calico-kube-controllers-5f8b96b548-nlvjs    Started container calico-kube-controllers
-kube-system   40m         Normal    Created                   pod/coredns-5467dd7dc9-shckh                    Created container coredns
-default       40m         Normal    Pulled                    pod/local-volume-provisioner-wlz22              Container image "quay.io/external_storage/local-volume-provisioner:v2.3.2" already present on machine
-kube-system   40m         Normal    Created                   pod/coredns-5467dd7dc9-q75s5                    Created container coredns
-kube-system   40m         Warning   Unhealthy                 pod/calico-node-9tg7x                           Readiness probe failed: calico/node is not ready: BIRD is not ready: Error querying BIRD: unable to connect to BIRDv4 socket: dial unix /var/run/calico/bird.ctl: connect: connection refused
-default       40m         Normal    NodeReady                 node/node02                                     Node node02 status is now: NodeReady
-default       40m         Normal    SuccessfulCreate          daemonset/local-volume-provisioner              Created pod: local-volume-provisioner-lgrkc
-default       40m         Normal    Scheduled                 pod/local-volume-provisioner-lgrkc              Successfully assigned default/local-volume-provisioner-lgrkc to node02
-default       40m         Normal    Started                   pod/local-volume-provisioner-lgrkc              Started container provisioner
-default       40m         Normal    Created                   pod/local-volume-provisioner-lgrkc              Created container provisioner
-default       40m         Normal    Pulled                    pod/local-volume-provisioner-lgrkc              Container image "quay.io/external_storage/local-volume-provisioner:v2.3.2" already present on machine
-cdi           35m         Normal    ScalingReplicaSet         deployment/cdi-operator                         Scaled up replica set cdi-operator-598ff47d7c to 1
-cdi           35m         Normal    SuccessfulCreate          replicaset/cdi-operator-598ff47d7c              Created pod: cdi-operator-598ff47d7c-wm9c8
-cdi           35m         Normal    Scheduled                 pod/cdi-operator-598ff47d7c-wm9c8               Successfully assigned cdi/cdi-operator-598ff47d7c-wm9c8 to node02
-kubevirt      35m         Normal    ScalingReplicaSet         deployment/cdi-http-import-server               Scaled up replica set cdi-http-import-server-54b6fd5dd5 to 1
-cdi           35m         Normal    Pulling                   pod/cdi-operator-598ff47d7c-wm9c8               Pulling image "quay.io/kubevirt/cdi-operator:v1.31.0"
-kubevirt      35m         Warning   FailedCreate              replicaset/cdi-http-import-server-54b6fd5dd5    Error creating: pods "cdi-http-import-server-54b6fd5dd5-" is forbidden: error looking up service account kubevirt/kubevirt-testing: serviceaccount "kubevirt-testing" not found
-kubevirt      35m         Normal    Scheduled                 pod/cdi-http-import-server-54b6fd5dd5-wp654     Successfully assigned kubevirt/cdi-http-import-server-54b6fd5dd5-wp654 to node02
-kubevirt      35m         Normal    SuccessfulCreate          replicaset/cdi-http-import-server-54b6fd5dd5    Created pod: cdi-http-import-server-54b6fd5dd5-wp654
-kubevirt      35m         Normal    SuccessfulCreate          daemonset/disks-images-provider                 Created pod: disks-images-provider-8vjhb
-kubevirt      35m         Normal    SuccessfulCreate          daemonset/disks-images-provider                 Created pod: disks-images-provider-tkt6s
-kubevirt      35m         Normal    Scheduled                 pod/disks-images-provider-tkt6s                 Successfully assigned kubevirt/disks-images-provider-tkt6s to node02
-kubevirt      35m         Normal    Scheduled                 pod/disks-images-provider-8vjhb                 Successfully assigned kubevirt/disks-images-provider-8vjhb to node01
-kubevirt      35m         Normal    Pulling                   pod/disks-images-provider-8vjhb                 Pulling image "registry:5000/kubevirt/disks-images-provider:devel"
-kubevirt      35m         Normal    Pulling                   pod/cdi-http-import-server-54b6fd5dd5-wp654     Pulling image "registry:5000/kubevirt/cdi-http-import-server:devel"
-kubevirt      35m         Normal    Pulled                    pod/disks-images-provider-8vjhb                 Successfully pulled image "registry:5000/kubevirt/disks-images-provider:devel"
-kubevirt      35m         Normal    Created                   pod/disks-images-provider-8vjhb                 Created container target
-kubevirt      35m         Normal    Started                   pod/disks-images-provider-8vjhb                 Started container target
-kubevirt      35m         Warning   Unhealthy                 pod/disks-images-provider-8vjhb                 Readiness probe failed: cat: /ready: No such file or directory
-cdi           35m         Normal    Created                   pod/cdi-operator-598ff47d7c-wm9c8               Created container cdi-operator
-cdi           35m         Normal    Started                   pod/cdi-operator-598ff47d7c-wm9c8               Started container cdi-operator
-cdi           35m         Normal    Pulled                    pod/cdi-operator-598ff47d7c-wm9c8               Successfully pulled image "quay.io/kubevirt/cdi-operator:v1.31.0"
-kubevirt      35m         Normal    Created                   pod/cdi-http-import-server-54b6fd5dd5-wp654     Created container cdi-http-import-server
-kubevirt      35m         Normal    Pulled                    pod/cdi-http-import-server-54b6fd5dd5-wp654     Successfully pulled image "registry:5000/kubevirt/cdi-http-import-server:devel"
-kubevirt      35m         Normal    Started                   pod/cdi-http-import-server-54b6fd5dd5-wp654     Started container cdi-http-import-server
-cdi           35m         Normal    LeaderElection            configmap/cdi-operator-leader-election-helper   cdi-operator-598ff47d7c-wm9c8_e5cbb464-307c-405d-946e-470f29fd8352 became leader
-kubevirt      35m         Normal    Created                   pod/disks-images-provider-tkt6s                 Created container target
-kubevirt      35m         Normal    Pulling                   pod/disks-images-provider-tkt6s                 Pulling image "registry:5000/kubevirt/disks-images-provider:devel"
-kubevirt      35m         Normal    Pulled                    pod/disks-images-provider-tkt6s                 Successfully pulled image "registry:5000/kubevirt/disks-images-provider:devel"
-kubevirt      35m         Normal    Started                   pod/disks-images-provider-tkt6s                 Started container target
-default       35m         Normal    DeployStarted             cdi/cdi                                         Started Deployment
-default       35m         Normal    CreateResourceSuccess     cdi/cdi                                         Successfully created resource *v1.ClusterRole cdi-apiserver
-default       35m         Normal    CreateResourceSuccess     cdi/cdi                                         Successfully created resource *v1.ClusterRoleBinding cdi-apiserver
-default       35m         Normal    CreateResourceSuccess     cdi/cdi                                         Successfully created resource *v1.CustomResourceDefinition datavolumes.cdi.kubevirt.io
-default       35m         Normal    CreateResourceSuccess     cdi/cdi                                         Successfully created resource *v1.CustomResourceDefinition storageprofiles.cdi.kubevirt.io
-cdi           35m         Normal    Scheduled                 pod/cdi-apiserver-7bfc8ff9c5-w4dxk              Successfully assigned cdi/cdi-apiserver-7bfc8ff9c5-w4dxk to node02
-default       35m         Normal    CreateResourceSuccess     cdi/cdi                                         Successfully created resource *v1.CustomResourceDefinition objecttransfers.cdi.kubevirt.io
-default       35m         Normal    CreateResourceSuccess     cdi/cdi                                         Successfully created resource *v1.ClusterRole cdi
-default       35m         Normal    CreateResourceSuccess     cdi/cdi                                         Successfully created resource *v1.ClusterRole cdi-uploadproxy
-cdi           35m         Normal    SuccessfulCreate          replicaset/cdi-apiserver-7bfc8ff9c5             Created pod: cdi-apiserver-7bfc8ff9c5-w4dxk
-default       35m         Normal    CreateResourceSuccess     cdi/cdi                                         Successfully created resource *v1.CustomResourceDefinition cdiconfigs.cdi.kubevirt.io
-default       35m         Normal    CreateResourceSuccess     cdi/cdi                                         Successfully created resource *v1.ClusterRoleBinding cdi-sa
-cdi           35m         Normal    ScalingReplicaSet         deployment/cdi-apiserver                        Scaled up replica set cdi-apiserver-7bfc8ff9c5 to 1
-cdi           35m         Normal    Scheduled                 pod/cdi-deployment-7ddfcd78bd-tb2mw             Successfully assigned cdi/cdi-deployment-7ddfcd78bd-tb2mw to node02
-cdi           35m         Warning   FailedMount               pod/cdi-apiserver-7bfc8ff9c5-w4dxk              MountVolume.SetUp failed for volume "ca-bundle" : configmap "cdi-apiserver-signer-bundle" not found
-cdi           35m         Normal    SuccessfulCreate          replicaset/cdi-deployment-7ddfcd78bd            Created pod: cdi-deployment-7ddfcd78bd-tb2mw
-cdi           35m         Warning   FailedMount               pod/cdi-apiserver-7bfc8ff9c5-w4dxk              MountVolume.SetUp failed for volume "server-cert" : secret "cdi-apiserver-server-cert" not found
-cdi           35m         Normal    ScalingReplicaSet         deployment/cdi-deployment                       Scaled up replica set cdi-deployment-7ddfcd78bd to 1
-default       35m         Normal    CreateResourceSuccess     cdi/cdi                                         (combined from similar events): Successfully created resource *v1.Role cdi-deployment
-kubevirt      35m         Normal    ScalingReplicaSet         deployment/virt-operator                        Scaled up replica set virt-operator-854547ddc4 to 2
-kubevirt      35m         Normal    SuccessfulCreate          replicaset/virt-operator-854547ddc4             Created pod: virt-operator-854547ddc4-jnvtn
-kubevirt      35m         Normal    SuccessfulCreate          replicaset/virt-operator-854547ddc4             Created pod: virt-operator-854547ddc4-ctbxc
-kubevirt      35m         Normal    Scheduled                 pod/virt-operator-854547ddc4-jnvtn              Successfully assigned kubevirt/virt-operator-854547ddc4-jnvtn to node01
-kubevirt      35m         Normal    Scheduled                 pod/virt-operator-854547ddc4-ctbxc              Successfully assigned kubevirt/virt-operator-854547ddc4-ctbxc to node02
-cdi           35m         Normal    SuccessfulCreate          replicaset/cdi-uploadproxy-f7547d9bd            Created pod: cdi-uploadproxy-f7547d9bd-mxr56
-cdi           35m         Normal    SignerUpdateRequired      namespace/cdi                                   "cdi-apiserver-signer" in "cdi" requires a new signing cert/key pair: missing notAfter
-cdi           35m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-tb2mw             MountVolume.SetUp failed for volume "uploadserver-ca-bundle" : configmap "cdi-uploadserver-signer-bundle" not found
-cdi           35m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-tb2mw             MountVolume.SetUp failed for volume "uploadserver-client-ca-bundle" : configmap "cdi-uploadserver-client-signer-bundle" not found
-cdi           35m         Warning   FailedMount               pod/cdi-uploadproxy-f7547d9bd-mxr56             MountVolume.SetUp failed for volume "client-cert" : secret "cdi-uploadserver-client-cert" not found
-cdi           35m         Normal    Scheduled                 pod/cdi-uploadproxy-f7547d9bd-mxr56             Successfully assigned cdi/cdi-uploadproxy-f7547d9bd-mxr56 to node02
-cdi           35m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-tb2mw             MountVolume.SetUp failed for volume "uploadserver-ca-cert" : secret "cdi-uploadserver-signer" not found
-cdi           35m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-tb2mw             MountVolume.SetUp failed for volume "uploadserver-client-ca-cert" : secret "cdi-uploadserver-client-signer" not found
-cdi           35m         Normal    ScalingReplicaSet         deployment/cdi-uploadproxy                      Scaled up replica set cdi-uploadproxy-f7547d9bd to 1
-cdi           35m         Normal    SecretCreated             namespace/cdi                                   Created Secret/cdi-uploadproxy-signer -n cdi because it was missing
-cdi           35m         Normal    ConfigMapUpdated          namespace/cdi                                   Updated ConfigMap/cdi-uploadproxy-signer-bundle -n cdi:
+NAMESPACE     LAST SEEN   TYPE      REASON                    OBJECT                                                                MESSAGE
+kubevirt      11m         Normal    Scheduled                 pod/cdi-http-import-server-54b6fd5dd5-xs8gh                           Successfully assigned kubevirt/cdi-http-import-server-54b6fd5dd5-xs8gh to node02
+kubevirt      11m         Normal    Scheduled                 pod/virt-operator-5d59875949-ghdb8                                    Successfully assigned kubevirt/virt-operator-5d59875949-ghdb8 to node02
+kubevirt      11m         Normal    Scheduled                 pod/virt-operator-5d59875949-87tkq                                    Successfully assigned kubevirt/virt-operator-5d59875949-87tkq to node01
+kubevirt      3m51s       Normal    Scheduled                 pod/virt-handler-tdgm4                                                Successfully assigned kubevirt/virt-handler-tdgm4 to node02
+kubevirt      68s         Normal    Scheduled                 pod/virt-handler-qr657                                                Successfully assigned kubevirt/virt-handler-qr657 to node01
+kubevirt      68s         Normal    Scheduled                 pod/virt-handler-q4mph                                                Successfully assigned kubevirt/virt-handler-q4mph to node02
+kubevirt      9m59s       Normal    Scheduled                 pod/virt-handler-npn48                                                Successfully assigned kubevirt/virt-handler-npn48 to node02
+kubevirt      4m16s       Normal    Scheduled                 pod/virt-handler-bf66n                                                Successfully assigned kubevirt/virt-handler-bf66n to node01
+kubevirt      5m34s       Normal    Scheduled                 pod/virt-handler-b7t4m                                                Successfully assigned kubevirt/virt-handler-b7t4m to node02
+kubevirt      9m59s       Normal    Scheduled                 pod/virt-handler-9khdq                                                Successfully assigned kubevirt/virt-handler-9khdq to node01
+cdi           11m         Normal    Scheduled                 pod/cdi-deployment-7ddfcd78bd-9t5vt                                   Successfully assigned cdi/cdi-deployment-7ddfcd78bd-9t5vt to node02
+kubevirt      5m34s       Normal    Scheduled                 pod/virt-handler-4t2h8                                                Successfully assigned kubevirt/virt-handler-4t2h8 to node01
+kubevirt      9m59s       Normal    Scheduled                 pod/virt-controller-6567d768b7-x9wkz                                  Successfully assigned kubevirt/virt-controller-6567d768b7-x9wkz to node02
+kubevirt      68s         Normal    Scheduled                 pod/virt-controller-6567d768b7-cxzk7                                  Successfully assigned kubevirt/virt-controller-6567d768b7-cxzk7 to node02
+kubevirt      68s         Normal    Scheduled                 pod/virt-controller-6567d768b7-49rjt                                  Successfully assigned kubevirt/virt-controller-6567d768b7-49rjt to node01
+kubevirt      9m59s       Normal    Scheduled                 pod/virt-controller-6567d768b7-2lvvz                                  Successfully assigned kubevirt/virt-controller-6567d768b7-2lvvz to node01
+kubevirt      3m57s       Normal    Scheduled                 pod/virt-controller-5cc84d7f65-7qlnz                                  Successfully assigned kubevirt/virt-controller-5cc84d7f65-7qlnz to node02
+kubevirt      3m35s       Normal    Scheduled                 pod/virt-controller-5cc84d7f65-5p7r8                                  Successfully assigned kubevirt/virt-controller-5cc84d7f65-5p7r8 to node01
+kubevirt      5m34s       Normal    Scheduled                 pod/virt-controller-586bbf884c-hllcr                                  Successfully assigned kubevirt/virt-controller-586bbf884c-hllcr to node02
+kubevirt      5m34s       Normal    Scheduled                 pod/virt-controller-586bbf884c-7srbt                                  Successfully assigned kubevirt/virt-controller-586bbf884c-7srbt to node01
+default       15m         Normal    Scheduled                 pod/local-volume-provisioner-2979t                                    Successfully assigned default/local-volume-provisioner-2979t to node02
+kubevirt      10m         Normal    Scheduled                 pod/virt-api-964754645-qvm4d                                          Successfully assigned kubevirt/virt-api-964754645-qvm4d to node01
+kubevirt      98s         Normal    Scheduled                 pod/virt-api-964754645-qpbgb                                          Successfully assigned kubevirt/virt-api-964754645-qpbgb to node02
+kubevirt      98s         Normal    Scheduled                 pod/virt-api-964754645-png8z                                          Successfully assigned kubevirt/virt-api-964754645-png8z to node01
+kubevirt      2m49s       Normal    Scheduled                 pod/virt-api-6cc5c844cc-68fk9                                         Successfully assigned kubevirt/virt-api-6cc5c844cc-68fk9 to node01
+kubevirt      3m10s       Normal    Scheduled                 pod/virt-api-6cc5c844cc-44fcx                                         Successfully assigned kubevirt/virt-api-6cc5c844cc-44fcx to node02
+cdi           11m         Normal    Scheduled                 pod/cdi-operator-598ff47d7c-chzkn                                     Successfully assigned cdi/cdi-operator-598ff47d7c-chzkn to node02
+kube-system   15m         Normal    Scheduled                 pod/calico-kube-controllers-5f8b96b548-4ll2b                          Successfully assigned kube-system/calico-kube-controllers-5f8b96b548-4ll2b to node01
+kubevirt      6m4s        Normal    Scheduled                 pod/virt-api-66fbb94949-rbj62                                         Successfully assigned kubevirt/virt-api-66fbb94949-rbj62 to node01
+kubevirt      6m4s        Normal    Scheduled                 pod/virt-api-66fbb94949-7zx9z                                         Successfully assigned kubevirt/virt-api-66fbb94949-7zx9z to node02
+kubevirt      6m10s       Normal    Scheduled                 pod/kubevirt-ca3305e323426cff17fb046db603b900b36e3016-job4ssfzv549s   Successfully assigned kubevirt/kubevirt-ca3305e323426cff17fb046db603b900b36e3016-job4ssfzv549s to node02
+kubevirt      11m         Normal    Scheduled                 pod/disks-images-provider-8gdxf                                       Successfully assigned kubevirt/disks-images-provider-8gdxf to node01
+kubevirt      4m27s       Normal    Scheduled                 pod/kubevirt-9b14fe4e6c05b089ff7b099a9c3f5687ad8cd3b0-job96sts7mw7l   Successfully assigned kubevirt/kubevirt-9b14fe4e6c05b089ff7b099a9c3f5687ad8cd3b0-job96sts7mw7l to node02
+kube-system   15m         Normal    Scheduled                 pod/coredns-5467dd7dc9-jtqn5                                          Successfully assigned kube-system/coredns-5467dd7dc9-jtqn5 to node01
+cdi           11m         Normal    Scheduled                 pod/cdi-uploadproxy-f7547d9bd-jdn47                                   Successfully assigned cdi/cdi-uploadproxy-f7547d9bd-jdn47 to node02
+kubevirt      104s        Normal    Scheduled                 pod/kubevirt-42a69e56400530e39c1f331a53ad268a218dd3fd-jobvsr2b4tcdt   Successfully assigned kubevirt/kubevirt-42a69e56400530e39c1f331a53ad268a218dd3fd-jobvsr2b4tcdt to node02
+kube-system   15m         Normal    Scheduled                 pod/kube-proxy-kblbr                                                  Successfully assigned kube-system/kube-proxy-kblbr to node01
+default       15m         Normal    Scheduled                 pod/local-volume-provisioner-4vrsv                                    Successfully assigned default/local-volume-provisioner-4vrsv to node01
+cdi           11m         Normal    Scheduled                 pod/cdi-apiserver-7bfc8ff9c5-fslw5                                    Successfully assigned cdi/cdi-apiserver-7bfc8ff9c5-fslw5 to node02
+kube-system   15m         Normal    Scheduled                 pod/calico-node-s22sv                                                 Successfully assigned kube-system/calico-node-s22sv to node01
+kubevirt      11m         Normal    Scheduled                 pod/disks-images-provider-m6tk5                                       Successfully assigned kubevirt/disks-images-provider-m6tk5 to node02
+kubevirt      10m         Normal    Scheduled                 pod/virt-api-964754645-zwff4                                          Successfully assigned kubevirt/virt-api-964754645-zwff4 to node02
+kube-system   15m         Normal    Scheduled                 pod/coredns-5467dd7dc9-n26ps                                          Successfully assigned kube-system/coredns-5467dd7dc9-n26ps to node01
+kube-system   15m         Normal    Scheduled                 pod/calico-node-dfrl7                                                 Successfully assigned kube-system/calico-node-dfrl7 to node02
+kubevirt      10m         Normal    Scheduled                 pod/kubevirt-42a69e56400530e39c1f331a53ad268a218dd3fd-jobb2sjzd7kwv   Successfully assigned kubevirt/kubevirt-42a69e56400530e39c1f331a53ad268a218dd3fd-jobb2sjzd7kwv to node02
+kube-system   15m         Normal    Scheduled                 pod/kube-proxy-jh864                                                  Successfully assigned kube-system/kube-proxy-jh864 to node02
+default       16m         Normal    Starting                  node/node01                                                           Starting kubelet.
+default       16m         Normal    NodeReady                 node/node01                                                           Node node01 status is now: NodeReady
+default       16m         Normal    NodeHasNoDiskPressure     node/node01                                                           Node node01 status is now: NodeHasNoDiskPressure
+default       16m         Normal    NodeAllocatableEnforced   node/node01                                                           Updated Node Allocatable limit across pods
+default       16m         Normal    NodeHasSufficientPID      node/node01                                                           Node node01 status is now: NodeHasSufficientPID
+default       16m         Normal    NodeHasSufficientMemory   node/node01                                                           Node node01 status is now: NodeHasSufficientMemory
+kube-system   16m         Normal    Created                   pod/kube-scheduler-node01                                             Created container kube-scheduler
+kube-system   16m         Normal    Pulled                    pod/kube-scheduler-node01                                             Container image "k8s.gcr.io/kube-scheduler:v1.18.16" already present on machine
+kube-system   16m         Normal    Started                   pod/kube-controller-manager-node01                                    Started container kube-controller-manager
+kube-system   16m         Normal    Started                   pod/kube-scheduler-node01                                             Started container kube-scheduler
+kube-system   16m         Normal    Pulled                    pod/kube-controller-manager-node01                                    Container image "k8s.gcr.io/kube-controller-manager:v1.18.16" already present on machine
+kube-system   16m         Normal    Created                   pod/kube-controller-manager-node01                                    Created container kube-controller-manager
+kube-system   16m         Normal    LeaderElection            lease/kube-scheduler                                                  node01_819e8f8e-b529-4b85-9328-88b9f6ba9aef became leader
+kube-system   16m         Normal    LeaderElection            endpoints/kube-scheduler                                              node01_819e8f8e-b529-4b85-9328-88b9f6ba9aef became leader
+kube-system   16m         Normal    LeaderElection            endpoints/kube-controller-manager                                     node01_ac97cc5e-2a82-4bbf-9418-8767e406bd8d became leader
+kube-system   16m         Normal    LeaderElection            lease/kube-controller-manager                                         node01_ac97cc5e-2a82-4bbf-9418-8767e406bd8d became leader
+kube-system   15m         Normal    SuccessfulCreate          daemonset/kube-proxy                                                  Created pod: kube-proxy-kblbr
+default       15m         Normal    SuccessfulCreate          daemonset/local-volume-provisioner                                    Created pod: local-volume-provisioner-4vrsv
+kube-system   15m         Normal    SuccessfulCreate          daemonset/calico-node                                                 Created pod: calico-node-s22sv
+default       15m         Normal    RegisteredNode            node/node01                                                           Node node01 event: Registered Node node01 in Controller
+kube-system   15m         Normal    ScalingReplicaSet         deployment/calico-kube-controllers                                    Scaled up replica set calico-kube-controllers-5f8b96b548 to 1
+kube-system   15m         Normal    ScalingReplicaSet         deployment/coredns                                                    Scaled up replica set coredns-5467dd7dc9 to 2
+kube-system   15m         Normal    SuccessfulCreate          replicaset/coredns-5467dd7dc9                                         Created pod: coredns-5467dd7dc9-jtqn5
+kube-system   15m         Normal    SuccessfulCreate          replicaset/coredns-5467dd7dc9                                         Created pod: coredns-5467dd7dc9-n26ps
+kube-system   15m         Normal    SuccessfulCreate          replicaset/calico-kube-controllers-5f8b96b548                         Created pod: calico-kube-controllers-5f8b96b548-4ll2b
+kube-system   15m         Normal    Started                   pod/calico-node-s22sv                                                 Started container upgrade-ipam
+kube-system   15m         Normal    Pulled                    pod/calico-node-s22sv                                                 Container image "docker.io/calico/cni:v3.18.0" already present on machine
+kube-system   15m         Normal    Created                   pod/calico-node-s22sv                                                 Created container install-cni
+kube-system   15m         Normal    Pulled                    pod/calico-node-s22sv                                                 Container image "docker.io/calico/cni:v3.18.0" already present on machine
+kube-system   15m         Normal    Started                   pod/calico-node-s22sv                                                 Started container install-cni
+kube-system   15m         Normal    Created                   pod/calico-node-s22sv                                                 Created container upgrade-ipam
+default       15m         Normal    Starting                  node/node01                                                           Starting kube-proxy.
+kube-system   15m         Normal    Pulled                    pod/kube-proxy-kblbr                                                  Container image "k8s.gcr.io/kube-proxy:v1.18.16" already present on machine
+kube-system   15m         Normal    Created                   pod/kube-proxy-kblbr                                                  Created container kube-proxy
+kube-system   15m         Normal    Pulled                    pod/calico-node-s22sv                                                 Container image "docker.io/calico/pod2daemon-flexvol:v3.18.0" already present on machine
+kube-system   15m         Normal    Started                   pod/calico-node-s22sv                                                 Started container flexvol-driver
+kube-system   15m         Normal    Created                   pod/calico-node-s22sv                                                 Created container flexvol-driver
+kube-system   15m         Normal    Started                   pod/kube-proxy-kblbr                                                  Started container kube-proxy
+kube-system   15m         Normal    Created                   pod/calico-node-s22sv                                                 Created container calico-node
+default       15m         Normal    Starting                  node/node01                                                           Starting kube-proxy.
+kube-system   15m         Normal    Pulled                    pod/calico-node-s22sv                                                 Container image "docker.io/calico/node:v3.18.0" already present on machine
+kube-system   15m         Normal    Pulled                    pod/coredns-5467dd7dc9-n26ps                                          Container image "k8s.gcr.io/coredns:1.6.7" already present on machine
+kube-system   15m         Normal    Started                   pod/calico-node-s22sv                                                 Started container calico-node
+kube-system   15m         Normal    Created                   pod/coredns-5467dd7dc9-n26ps                                          Created container coredns
+kube-system   15m         Normal    Started                   pod/coredns-5467dd7dc9-jtqn5                                          Started container coredns
+kube-system   15m         Normal    Created                   pod/coredns-5467dd7dc9-jtqn5                                          Created container coredns
+kube-system   15m         Normal    Pulled                    pod/coredns-5467dd7dc9-jtqn5                                          Container image "k8s.gcr.io/coredns:1.6.7" already present on machine
+kube-system   15m         Normal    Started                   pod/coredns-5467dd7dc9-n26ps                                          Started container coredns
+default       15m         Warning   FailedCreatePodSandBox    pod/local-volume-provisioner-4vrsv                                    Failed to create pod sandbox: rpc error: code = Unknown desc = failed to set up sandbox container "558ac9ae6ed20a771fdd23433af7a0d1691ddf34e8f948e486abb440ec09f49f" network for pod "local-volume-provisioner-4vrsv": networkPlugin cni failed to set up pod "local-volume-provisioner-4vrsv_default" network: error getting ClusterInformation: Get "https://[10.96.0.1]:443/apis/crd.projectcalico.org/v1/clusterinformations/default": x509: certificate signed by unknown authority (possibly because of "crypto/rsa: verification error" while trying to verify candidate authority certificate "kubernetes")
+kube-system   15m         Warning   FailedCreatePodSandBox    pod/calico-kube-controllers-5f8b96b548-4ll2b                          Failed to create pod sandbox: rpc error: code = Unknown desc = failed to set up sandbox container "0e2fc2e78a166d84822b3eec437bab822c40db6742551612496574a0993b5404" network for pod "calico-kube-controllers-5f8b96b548-4ll2b": networkPlugin cni failed to set up pod "calico-kube-controllers-5f8b96b548-4ll2b_kube-system" network: error getting ClusterInformation: Get "https://[10.96.0.1]:443/apis/crd.projectcalico.org/v1/clusterinformations/default": x509: certificate signed by unknown authority (possibly because of "crypto/rsa: verification error" while trying to verify candidate authority certificate "kubernetes")
+kube-system   15m         Normal    Pulled                    pod/calico-kube-controllers-5f8b96b548-4ll2b                          Container image "docker.io/calico/kube-controllers:v3.18.0" already present on machine
+kube-system   15m         Normal    SandboxChanged            pod/calico-kube-controllers-5f8b96b548-4ll2b                          Pod sandbox changed, it will be killed and re-created.
+default       15m         Normal    Started                   pod/local-volume-provisioner-4vrsv                                    Started container provisioner
+default       15m         Normal    Pulled                    pod/local-volume-provisioner-4vrsv                                    Container image "quay.io/external_storage/local-volume-provisioner:v2.3.2" already present on machine
+default       15m         Normal    SandboxChanged            pod/local-volume-provisioner-4vrsv                                    Pod sandbox changed, it will be killed and re-created.
+kube-system   15m         Normal    Created                   pod/calico-kube-controllers-5f8b96b548-4ll2b                          Created container calico-kube-controllers
+kube-system   15m         Normal    Started                   pod/calico-kube-controllers-5f8b96b548-4ll2b                          Started container calico-kube-controllers
+default       15m         Normal    Created                   pod/local-volume-provisioner-4vrsv                                    Created container provisioner
+default       15m         Normal    NodeAllocatableEnforced   node/node02                                                           Updated Node Allocatable limit across pods
+kube-system   15m         Normal    SuccessfulCreate          daemonset/calico-node                                                 Created pod: calico-node-dfrl7
+kube-system   15m         Normal    SuccessfulCreate          daemonset/kube-proxy                                                  Created pod: kube-proxy-jh864
+default       15m         Normal    Starting                  node/node02                                                           Starting kubelet.
+default       15m         Normal    NodeHasSufficientMemory   node/node02                                                           Node node02 status is now: NodeHasSufficientMemory
+default       15m         Normal    NodeHasNoDiskPressure     node/node02                                                           Node node02 status is now: NodeHasNoDiskPressure
+default       15m         Normal    NodeHasSufficientPID      node/node02                                                           Node node02 status is now: NodeHasSufficientPID
+kube-system   15m         Normal    Pulled                    pod/calico-node-dfrl7                                                 Container image "docker.io/calico/cni:v3.18.0" already present on machine
+kube-system   15m         Normal    Created                   pod/calico-node-dfrl7                                                 Created container upgrade-ipam
+kube-system   15m         Normal    Started                   pod/calico-node-dfrl7                                                 Started container install-cni
+kube-system   15m         Normal    Created                   pod/kube-proxy-jh864                                                  Created container kube-proxy
+kube-system   15m         Normal    Pulled                    pod/calico-node-dfrl7                                                 Container image "docker.io/calico/cni:v3.18.0" already present on machine
+kube-system   15m         Normal    Started                   pod/kube-proxy-jh864                                                  Started container kube-proxy
+kube-system   15m         Normal    Pulled                    pod/kube-proxy-jh864                                                  Container image "k8s.gcr.io/kube-proxy:v1.18.16" already present on machine
+kube-system   15m         Normal    Started                   pod/calico-node-dfrl7                                                 Started container upgrade-ipam
+default       15m         Normal    Starting                  node/node02                                                           Starting kube-proxy.
+kube-system   15m         Normal    Created                   pod/calico-node-dfrl7                                                 Created container install-cni
+default       15m         Normal    Starting                  node/node02                                                           Starting kube-proxy.
+kube-system   15m         Normal    Started                   pod/calico-node-dfrl7                                                 Started container flexvol-driver
+kube-system   15m         Normal    Pulled                    pod/calico-node-dfrl7                                                 Container image "docker.io/calico/pod2daemon-flexvol:v3.18.0" already present on machine
+kube-system   15m         Normal    Created                   pod/calico-node-dfrl7                                                 Created container flexvol-driver
+kube-system   15m         Normal    Created                   pod/calico-node-dfrl7                                                 Created container calico-node
+default       15m         Normal    RegisteredNode            node/node02                                                           Node node02 event: Registered Node node02 in Controller
+kube-system   15m         Normal    Pulled                    pod/calico-node-dfrl7                                                 Container image "docker.io/calico/node:v3.18.0" already present on machine
+kube-system   15m         Normal    Started                   pod/calico-node-dfrl7                                                 Started container calico-node
+kube-system   15m         Warning   Unhealthy                 pod/calico-node-s22sv                                                 Readiness probe failed: 2021-03-14 12:01:41.897 [INFO][335] confd/health.go 180: Number of node(s) with BGP peering established = 0
+calico/node is not ready: BIRD is not ready: BGP not established with 192.168.66.102
+kube-system   15m         Warning   Unhealthy                 pod/calico-node-dfrl7                                                 Readiness probe failed: calico/node is not ready: BIRD is not ready: Error querying BIRD: unable to connect to BIRDv4 socket: dial unix /var/run/calico/bird.ctl: connect: connection refused
+default       15m         Normal    SuccessfulCreate          daemonset/local-volume-provisioner                                    Created pod: local-volume-provisioner-2979t
+default       15m         Normal    NodeReady                 node/node02                                                           Node node02 status is now: NodeReady
+default       15m         Normal    Pulled                    pod/local-volume-provisioner-2979t                                    Container image "quay.io/external_storage/local-volume-provisioner:v2.3.2" already present on machine
+default       15m         Normal    Created                   pod/local-volume-provisioner-2979t                                    Created container provisioner
+default       15m         Normal    Started                   pod/local-volume-provisioner-2979t                                    Started container provisioner
+kubevirt      11m         Warning   FailedCreate              replicaset/cdi-http-import-server-54b6fd5dd5                          Error creating: pods "cdi-http-import-server-54b6fd5dd5-" is forbidden: error looking up service account kubevirt/kubevirt-testing: serviceaccount "kubevirt-testing" not found
+kubevirt      11m         Normal    ScalingReplicaSet         deployment/cdi-http-import-server                                     Scaled up replica set cdi-http-import-server-54b6fd5dd5 to 1
+kubevirt      11m         Warning   FailedCreate              daemonset/disks-images-provider                                       Error creating: pods "disks-images-provider-" is forbidden: error looking up service account kubevirt/kubevirt-testing: serviceaccount "kubevirt-testing" not found
+cdi           11m         Normal    ScalingReplicaSet         deployment/cdi-operator                                               Scaled up replica set cdi-operator-598ff47d7c to 1
+cdi           11m         Normal    SuccessfulCreate          replicaset/cdi-operator-598ff47d7c                                    Created pod: cdi-operator-598ff47d7c-chzkn
+kubevirt      11m         Normal    SuccessfulCreate          daemonset/disks-images-provider                                       Created pod: disks-images-provider-m6tk5
+cdi           11m         Normal    Pulling                   pod/cdi-operator-598ff47d7c-chzkn                                     Pulling image "quay.io/kubevirt/cdi-operator:v1.31.0"
+kubevirt      11m         Normal    SuccessfulCreate          replicaset/cdi-http-import-server-54b6fd5dd5                          Created pod: cdi-http-import-server-54b6fd5dd5-xs8gh
+kubevirt      11m         Normal    SuccessfulCreate          daemonset/disks-images-provider                                       Created pod: disks-images-provider-8gdxf
+kubevirt      11m         Warning   FailedCreatePodSandBox    pod/cdi-http-import-server-54b6fd5dd5-xs8gh                           Failed to create pod sandbox: rpc error: code = Unknown desc = failed to set up sandbox container "3851ed6210d8de698d87849f90c83188e6b913ca9ddd149ca42c21ce00def35c" network for pod "cdi-http-import-server-54b6fd5dd5-xs8gh": networkPlugin cni failed to set up pod "cdi-http-import-server-54b6fd5dd5-xs8gh_kubevirt" network: operation not permitted
+kubevirt      11m         Normal    SandboxChanged            pod/cdi-http-import-server-54b6fd5dd5-xs8gh                           Pod sandbox changed, it will be killed and re-created.
+kubevirt      11m         Normal    Started                   pod/disks-images-provider-8gdxf                                       Started container target
+kubevirt      11m         Normal    Created                   pod/disks-images-provider-8gdxf                                       Created container target
+kubevirt      11m         Normal    Pulled                    pod/disks-images-provider-8gdxf                                       Successfully pulled image "registry:5000/kubevirt/disks-images-provider:devel"
+kubevirt      11m         Normal    Pulling                   pod/disks-images-provider-8gdxf                                       Pulling image "registry:5000/kubevirt/disks-images-provider:devel"
+kubevirt      11m         Normal    Pulling                   pod/cdi-http-import-server-54b6fd5dd5-xs8gh                           Pulling image "registry:5000/kubevirt/cdi-http-import-server:devel"
+kubevirt      11m         Warning   Unhealthy                 pod/disks-images-provider-8gdxf                                       Readiness probe failed: cat: /ready: No such file or directory
+kubevirt      11m         Normal    Started                   pod/cdi-http-import-server-54b6fd5dd5-xs8gh                           Started container cdi-http-import-server
+cdi           11m         Normal    Started                   pod/cdi-operator-598ff47d7c-chzkn                                     Started container cdi-operator
+kubevirt      11m         Normal    Created                   pod/cdi-http-import-server-54b6fd5dd5-xs8gh                           Created container cdi-http-import-server
+cdi           11m         Normal    Created                   pod/cdi-operator-598ff47d7c-chzkn                                     Created container cdi-operator
+kubevirt      11m         Normal    Pulled                    pod/cdi-http-import-server-54b6fd5dd5-xs8gh                           Successfully pulled image "registry:5000/kubevirt/cdi-http-import-server:devel"
+cdi           11m         Normal    Pulled                    pod/cdi-operator-598ff47d7c-chzkn                                     Successfully pulled image "quay.io/kubevirt/cdi-operator:v1.31.0"
+kubevirt      11m         Normal    Pulled                    pod/disks-images-provider-m6tk5                                       Successfully pulled image "registry:5000/kubevirt/disks-images-provider:devel"
+kubevirt      11m         Normal    Started                   pod/disks-images-provider-m6tk5                                       Started container target
+kubevirt      11m         Normal    Pulling                   pod/disks-images-provider-m6tk5                                       Pulling image "registry:5000/kubevirt/disks-images-provider:devel"
+cdi           11m         Normal    LeaderElection            configmap/cdi-operator-leader-election-helper                         cdi-operator-598ff47d7c-chzkn_3fd9cc72-81e4-49f4-85e8-07b60b604cd0 became leader
+kubevirt      11m         Normal    Created                   pod/disks-images-provider-m6tk5                                       Created container target
+default       11m         Normal    DeployStarted             cdi/cdi                                                               Started Deployment
+default       11m         Normal    CreateResourceSuccess     cdi/cdi                                                               Successfully created resource *v1.ClusterRole cdi-apiserver
+default       11m         Normal    CreateResourceSuccess     cdi/cdi                                                               Successfully created resource *v1.ClusterRoleBinding cdi-apiserver
+default       11m         Normal    CreateResourceSuccess     cdi/cdi                                                               Successfully created resource *v1.ClusterRole cdi.kubevirt.io:config-reader
+default       11m         Normal    CreateResourceSuccess     cdi/cdi                                                               Successfully created resource *v1.ClusterRole cdi.kubevirt.io:edit
+default       11m         Normal    CreateResourceSuccess     cdi/cdi                                                               Successfully created resource *v1.ClusterRole cdi.kubevirt.io:admin
+default       11m         Normal    CreateResourceSuccess     cdi/cdi                                                               Successfully created resource *v1.ClusterRoleBinding cdi-uploadproxy
+default       11m         Normal    CreateResourceSuccess     cdi/cdi                                                               Successfully created resource *v1.ClusterRole cdi-uploadproxy
+default       11m         Normal    CreateResourceSuccess     cdi/cdi                                                               Successfully created resource *v1.ClusterRoleBinding cdi.kubevirt.io:config-reader
+default       11m         Normal    CreateResourceSuccess     cdi/cdi                                                               Successfully created resource *v1.ClusterRole cdi.kubevirt.io:view
+cdi           11m         Normal    ScalingReplicaSet         deployment/cdi-apiserver                                              Scaled up replica set cdi-apiserver-7bfc8ff9c5 to 1
+cdi           11m         Normal    SuccessfulCreate          replicaset/cdi-apiserver-7bfc8ff9c5                                   Created pod: cdi-apiserver-7bfc8ff9c5-fslw5
+cdi           11m         Warning   FailedMount               pod/cdi-apiserver-7bfc8ff9c5-fslw5                                    MountVolume.SetUp failed for volume "ca-bundle" : configmap "cdi-apiserver-signer-bundle" not found
+cdi           11m         Normal    ScalingReplicaSet         deployment/cdi-deployment                                             Scaled up replica set cdi-deployment-7ddfcd78bd to 1
+cdi           11m         Warning   FailedMount               pod/cdi-apiserver-7bfc8ff9c5-fslw5                                    MountVolume.SetUp failed for volume "server-cert" : secret "cdi-apiserver-server-cert" not found
+cdi           11m         Normal    SuccessfulCreate          replicaset/cdi-deployment-7ddfcd78bd                                  Created pod: cdi-deployment-7ddfcd78bd-9t5vt
+default       11m         Normal    CreateResourceSuccess     cdi/cdi                                                               (combined from similar events): Successfully created resource *v1.Role cdi-deployment
+cdi           11m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-9t5vt                                   MountVolume.SetUp failed for volume "uploadserver-client-ca-cert" : secret "cdi-uploadserver-client-signer" not found
+cdi           11m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-9t5vt                                   MountVolume.SetUp failed for volume "uploadserver-ca-cert" : secret "cdi-uploadserver-signer" not found
+cdi           11m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-9t5vt                                   MountVolume.SetUp failed for volume "uploadserver-ca-bundle" : configmap "cdi-uploadserver-signer-bundle" not found
+kubevirt      11m         Warning   Unhealthy                 pod/disks-images-provider-m6tk5                                       Readiness probe failed: cat: /ready: No such file or directory
+cdi           11m         Normal    SignerUpdateRequired      namespace/cdi                                                         "cdi-apiserver-signer" in "cdi" requires a new signing cert/key pair: missing notAfter
+kubevirt      11m         Normal    SuccessfulCreate          replicaset/virt-operator-5d59875949                                   Created pod: virt-operator-5d59875949-87tkq
+kubevirt      11m         Normal    SuccessfulCreate          replicaset/virt-operator-5d59875949                                   Created pod: virt-operator-5d59875949-ghdb8
+cdi           11m         Warning   FailedMount               pod/cdi-uploadproxy-f7547d9bd-jdn47                                   MountVolume.SetUp failed for volume "client-cert" : secret "cdi-uploadserver-client-cert" not found
+cdi           11m         Normal    SuccessfulCreate          replicaset/cdi-uploadproxy-f7547d9bd                                  Created pod: cdi-uploadproxy-f7547d9bd-jdn47
+kubevirt      11m         Normal    ScalingReplicaSet         deployment/virt-operator                                              Scaled up replica set virt-operator-5d59875949 to 2
+cdi           11m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-9t5vt                                   MountVolume.SetUp failed for volume "uploadserver-client-ca-bundle" : configmap "cdi-uploadserver-client-signer-bundle" not found
+cdi           11m         Normal    ScalingReplicaSet         deployment/cdi-uploadproxy                                            Scaled up replica set cdi-uploadproxy-f7547d9bd to 1
+cdi           11m         Warning   FailedMount               pod/cdi-uploadproxy-f7547d9bd-jdn47                                   MountVolume.SetUp failed for volume "server-cert" : secret "cdi-uploadproxy-server-cert" not found
+cdi           11m         Normal    SecretCreated             namespace/cdi                                                         Created Secret/cdi-apiserver-signer -n cdi because it was missing
+cdi           11m         Normal    CABundleUpdateRequired    namespace/cdi                                                         "cdi-apiserver-signer-bundle" in "cdi" requires a new cert
+cdi           11m         Normal    ConfigMapUpdated          namespace/cdi                                                         Updated ConfigMap/cdi-apiserver-signer-bundle -n cdi:
 cause by changes in data.ca-bundle.crt
-cdi           35m         Normal    TargetUpdateRequired      namespace/cdi                                   "cdi-uploadproxy-server-cert" in "cdi" requires a new target cert/key pair: missing notAfter
-cdi           35m         Normal    CABundleUpdateRequired    namespace/cdi                                   "cdi-uploadproxy-signer-bundle" in "cdi" requires a new cert
-cdi           35m         Normal    SecretCreated             namespace/cdi                                   Created Secret/cdi-apiserver-server-cert -n cdi because it was missing
-cdi           35m         Normal    SecretDeleted             namespace/cdi                                   Deleted Secret/cdi-apiserver-server-cert -n cdi
-cdi           35m         Normal    TargetUpdateRequired      namespace/cdi                                   "cdi-apiserver-server-cert" in "cdi" requires a new target cert/key pair: missing notAfter
-cdi           35m         Normal    ConfigMapUpdated          namespace/cdi                                   Updated ConfigMap/cdi-apiserver-signer-bundle -n cdi:
+cdi           11m         Normal    SecretDeleted             namespace/cdi                                                         Deleted Secret/cdi-apiserver-server-cert -n cdi
+cdi           11m         Normal    SignerUpdateRequired      namespace/cdi                                                         "cdi-uploadproxy-signer" in "cdi" requires a new signing cert/key pair: missing notAfter
+kubevirt      11m         Normal    Created                   pod/virt-operator-5d59875949-87tkq                                    Created container virt-operator
+cdi           11m         Normal    SecretCreated             namespace/cdi                                                         Created Secret/cdi-apiserver-server-cert -n cdi because it was missing
+kubevirt      11m         Normal    Pulled                    pod/virt-operator-5d59875949-87tkq                                    Container image "registry:5000/kubevirt/virt-operator@sha256:896d9d682c1a08a691a04dbcf9c5bba3bf22884c9e56ca8168e715c03b7bdf19" already present on machine
+cdi           11m         Normal    TargetUpdateRequired      namespace/cdi                                                         "cdi-apiserver-server-cert" in "cdi" requires a new target cert/key pair: missing notAfter
+cdi           11m         Normal    SecretDeleted             namespace/cdi                                                         Deleted Secret/cdi-apiserver-signer -n cdi
+kubevirt      11m         Normal    Pulled                    pod/virt-operator-5d59875949-ghdb8                                    Container image "registry:5000/kubevirt/virt-operator@sha256:896d9d682c1a08a691a04dbcf9c5bba3bf22884c9e56ca8168e715c03b7bdf19" already present on machine
+kubevirt      11m         Normal    Created                   pod/virt-operator-5d59875949-ghdb8                                    Created container virt-operator
+cdi           11m         Normal    SecretCreated             namespace/cdi                                                         Created Secret/cdi-uploadproxy-signer -n cdi because it was missing
+cdi           11m         Normal    SecretDeleted             namespace/cdi                                                         Deleted Secret/cdi-uploadserver-signer -n cdi
+cdi           11m         Warning   FailedMount               pod/cdi-uploadproxy-f7547d9bd-jdn47                                   MountVolume.SetUp failed for volume "server-cert" : references non-existent secret key: tls.crt
+cdi           11m         Warning   FailedMount               pod/cdi-uploadproxy-f7547d9bd-jdn47                                   MountVolume.SetUp failed for volume "client-cert" : references non-existent secret key: tls.crt
+kubevirt      11m         Normal    Started                   pod/virt-operator-5d59875949-87tkq                                    Started container virt-operator
+cdi           11m         Normal    CABundleUpdateRequired    namespace/cdi                                                         "cdi-uploadproxy-signer-bundle" in "cdi" requires a new cert
+cdi           11m         Normal    ConfigMapUpdated          namespace/cdi                                                         Updated ConfigMap/cdi-uploadproxy-signer-bundle -n cdi:
 cause by changes in data.ca-bundle.crt
-cdi           35m         Normal    CABundleUpdateRequired    namespace/cdi                                   "cdi-apiserver-signer-bundle" in "cdi" requires a new cert
-cdi           35m         Normal    SignerUpdateRequired      namespace/cdi                                   "cdi-uploadproxy-signer" in "cdi" requires a new signing cert/key pair: missing notAfter
-kubevirt      35m         Normal    Pulled                    pod/virt-operator-854547ddc4-jnvtn              Container image "registry:5000/kubevirt/virt-operator@sha256:7fda75c254f9db48da44c87603357b256fd3aa5d889cb192f482352e4dc5ffde" already present on machine
-cdi           35m         Normal    SecretDeleted             namespace/cdi                                   Deleted Secret/cdi-apiserver-signer -n cdi
-kubevirt      35m         Normal    Started                   pod/virt-operator-854547ddc4-ctbxc              Started container virt-operator
-kubevirt      35m         Normal    Created                   pod/virt-operator-854547ddc4-jnvtn              Created container virt-operator
-kubevirt      35m         Normal    Started                   pod/virt-operator-854547ddc4-jnvtn              Started container virt-operator
-kubevirt      35m         Normal    Created                   pod/virt-operator-854547ddc4-ctbxc              Created container virt-operator
-kubevirt      35m         Normal    Pulled                    pod/virt-operator-854547ddc4-ctbxc              Container image "registry:5000/kubevirt/virt-operator@sha256:7fda75c254f9db48da44c87603357b256fd3aa5d889cb192f482352e4dc5ffde" already present on machine
-cdi           35m         Normal    SecretCreated             namespace/cdi                                   Created Secret/cdi-apiserver-signer -n cdi because it was missing
-cdi           35m         Normal    SecretDeleted             namespace/cdi                                   Deleted Secret/cdi-uploadproxy-signer -n cdi
-cdi           35m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-tb2mw             MountVolume.SetUp failed for volume "uploadserver-client-ca-bundle" : configmap references non-existent config key: ca-bundle.crt
-cdi           35m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-tb2mw             MountVolume.SetUp failed for volume "uploadserver-ca-cert" : references non-existent secret key: tls.crt
-cdi           35m         Normal    TargetUpdateRequired      namespace/cdi                                   "cdi-uploadserver-client-cert" in "cdi" requires a new target cert/key pair: missing notAfter
-kubevirt      35m         Warning   Unhealthy                 pod/disks-images-provider-tkt6s                 Readiness probe failed: cat: /ready: No such file or directory
-cdi           35m         Warning   FailedMount               pod/cdi-uploadproxy-f7547d9bd-mxr56             MountVolume.SetUp failed for volume "client-cert" : references non-existent secret key: tls.crt
-cdi           35m         Normal    ConfigMapUpdated          namespace/cdi                                   Updated ConfigMap/cdi-uploadserver-client-signer-bundle -n cdi:
+cdi           11m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-9t5vt                                   MountVolume.SetUp failed for volume "uploadserver-client-ca-cert" : references non-existent secret key: tls.crt
+cdi           11m         Normal    TargetUpdateRequired      namespace/cdi                                                         "cdi-uploadproxy-server-cert" in "cdi" requires a new target cert/key pair: missing notAfter
+cdi           11m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-9t5vt                                   MountVolume.SetUp failed for volume "uploadserver-ca-cert" : references non-existent secret key: tls.crt
+cdi           11m         Normal    SecretDeleted             namespace/cdi                                                         Deleted Secret/cdi-uploadproxy-server-cert -n cdi
+cdi           11m         Normal    SecretCreated             namespace/cdi                                                         Created Secret/cdi-uploadproxy-server-cert -n cdi because it was missing
+cdi           11m         Normal    SignerUpdateRequired      namespace/cdi                                                         "cdi-uploadserver-signer" in "cdi" requires a new signing cert/key pair: missing notAfter
+cdi           11m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-9t5vt                                   MountVolume.SetUp failed for volume "uploadserver-client-ca-bundle" : configmap references non-existent config key: ca-bundle.crt
+kubevirt      11m         Normal    Started                   pod/virt-operator-5d59875949-ghdb8                                    Started container virt-operator
+cdi           11m         Normal    SecretDeleted             namespace/cdi                                                         Deleted Secret/cdi-uploadproxy-signer -n cdi
+cdi           11m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-9t5vt                                   MountVolume.SetUp failed for volume "uploadserver-ca-bundle" : configmap references non-existent config key: ca-bundle.crt
+cdi           11m         Normal    CABundleUpdateRequired    namespace/cdi                                                         "cdi-uploadserver-client-signer-bundle" in "cdi" requires a new cert
+cdi           11m         Normal    CABundleUpdateRequired    namespace/cdi                                                         "cdi-uploadserver-signer-bundle" in "cdi" requires a new cert
+cdi           11m         Normal    SecretCreated             namespace/cdi                                                         Created Secret/cdi-uploadserver-client-cert -n cdi because it was missing
+cdi           11m         Normal    ConfigMapUpdated          namespace/cdi                                                         Updated ConfigMap/cdi-uploadserver-signer-bundle -n cdi:
 cause by changes in data.ca-bundle.crt
-cdi           35m         Normal    CABundleUpdateRequired    namespace/cdi                                   "cdi-uploadserver-client-signer-bundle" in "cdi" requires a new cert
-cdi           35m         Normal    SecretCreated             namespace/cdi                                   Created Secret/cdi-uploadserver-client-signer -n cdi because it was missing
-cdi           35m         Normal    SignerUpdateRequired      namespace/cdi                                   "cdi-uploadserver-client-signer" in "cdi" requires a new signing cert/key pair: missing notAfter
-cdi           35m         Normal    ConfigMapUpdated          namespace/cdi                                   Updated ConfigMap/cdi-uploadserver-signer-bundle -n cdi:
+cdi           11m         Normal    SignerUpdateRequired      namespace/cdi                                                         "cdi-uploadserver-client-signer" in "cdi" requires a new signing cert/key pair: missing notAfter
+cdi           11m         Normal    SecretDeleted             namespace/cdi                                                         Deleted Secret/cdi-uploadserver-client-signer -n cdi
+cdi           11m         Normal    SecretCreated             namespace/cdi                                                         Created Secret/cdi-uploadserver-client-signer -n cdi because it was missing
+cdi           11m         Normal    SecretCreated             namespace/cdi                                                         Created Secret/cdi-uploadserver-signer -n cdi because it was missing
+cdi           11m         Normal    ConfigMapUpdated          namespace/cdi                                                         Updated ConfigMap/cdi-uploadserver-client-signer-bundle -n cdi:
 cause by changes in data.ca-bundle.crt
-cdi           35m         Warning   FailedMount               pod/cdi-uploadproxy-f7547d9bd-mxr56                                   MountVolume.SetUp failed for volume "server-cert" : references non-existent secret key: tls.crt
-cdi           35m         Normal    SecretCreated             namespace/cdi                                                         Created Secret/cdi-uploadserver-signer -n cdi because it was missing
-cdi           35m         Normal    SecretDeleted             namespace/cdi                                                         Deleted Secret/cdi-uploadserver-signer -n cdi
-cdi           35m         Normal    SignerUpdateRequired      namespace/cdi                                                         "cdi-uploadserver-signer" in "cdi" requires a new signing cert/key pair: missing notAfter
-cdi           35m         Normal    SecretCreated             namespace/cdi                                                         Created Secret/cdi-uploadproxy-server-cert -n cdi because it was missing
-cdi           35m         Normal    SecretDeleted             namespace/cdi                                                         Deleted Secret/cdi-uploadproxy-server-cert -n cdi
-cdi           35m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-tb2mw                                   MountVolume.SetUp failed for volume "uploadserver-ca-bundle" : configmap references non-existent config key: ca-bundle.crt
-cdi           35m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-tb2mw                                   MountVolume.SetUp failed for volume "uploadserver-client-ca-cert" : references non-existent secret key: tls.crt
-cdi           35m         Normal    CABundleUpdateRequired    namespace/cdi                                                         "cdi-uploadserver-signer-bundle" in "cdi" requires a new cert
-cdi           35m         Normal    SecretDeleted             namespace/cdi                                                         Deleted Secret/cdi-uploadserver-client-signer -n cdi
-cdi           35m         Normal    SecretCreated             namespace/cdi                                                         Created Secret/cdi-uploadserver-client-cert -n cdi because it was missing
-cdi           35m         Normal    SecretDeleted             namespace/cdi                                                         Deleted Secret/cdi-uploadserver-client-cert -n cdi
-cdi           35m         Normal    Pulling                   pod/cdi-apiserver-7bfc8ff9c5-w4dxk                                    Pulling image "quay.io/kubevirt/cdi-apiserver:v1.31.0"
-cdi           35m         Normal    Pulling                   pod/cdi-uploadproxy-f7547d9bd-mxr56                                   Pulling image "quay.io/kubevirt/cdi-uploadproxy:v1.31.0"
-cdi           35m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-tb2mw                                   MountVolume.SetUp failed for volume "cdi-api-signing-key" : secret "cdi-api-signing-key" not found
-cdi           35m         Normal    Pulled                    pod/cdi-apiserver-7bfc8ff9c5-w4dxk                                    Successfully pulled image "quay.io/kubevirt/cdi-apiserver:v1.31.0"
-cdi           35m         Normal    Created                   pod/cdi-apiserver-7bfc8ff9c5-w4dxk                                    Created container cdi-apiserver
-cdi           35m         Normal    Started                   pod/cdi-apiserver-7bfc8ff9c5-w4dxk                                    Started container cdi-apiserver
-cdi           35m         Normal    Started                   pod/cdi-uploadproxy-f7547d9bd-mxr56                                   Started container cdi-uploadproxy
-cdi           35m         Normal    Pulled                    pod/cdi-uploadproxy-f7547d9bd-mxr56                                   Successfully pulled image "quay.io/kubevirt/cdi-uploadproxy:v1.31.0"
-cdi           35m         Normal    Created                   pod/cdi-uploadproxy-f7547d9bd-mxr56                                   Created container cdi-uploadproxy
-cdi           35m         Normal    Pulling                   pod/cdi-deployment-7ddfcd78bd-tb2mw                                   Pulling image "quay.io/kubevirt/cdi-controller:v1.31.0"
-kubevirt      34m         Warning   Unhealthy                 pod/virt-operator-854547ddc4-jnvtn                                    Readiness probe failed: Get https://10.244.196.134:8443/metrics: dial tcp 10.244.196.134:8443: connect: connection refused
-cdi           34m         Normal    Created                   pod/cdi-deployment-7ddfcd78bd-tb2mw                                   Created container cdi-controller
-cdi           34m         Normal    LeaderElection            configmap/cdi-controller-leader-election-helper                       cdi-deployment-7ddfcd78bd-tb2mw_e83ff142-a4ff-4a1d-a8e4-96159bde38c6 became leader
-cdi           34m         Normal    Started                   pod/cdi-deployment-7ddfcd78bd-tb2mw                                   Started container cdi-controller
-cdi           34m         Normal    Pulled                    pod/cdi-deployment-7ddfcd78bd-tb2mw                                   Successfully pulled image "quay.io/kubevirt/cdi-controller:v1.31.0"
-kubevirt      34m         Warning   Unhealthy                 pod/virt-operator-854547ddc4-ctbxc                                    Readiness probe failed: Get https://10.244.140.69:8443/metrics: dial tcp 10.244.140.69:8443: connect: connection refused
-kubevirt      34m         Normal    LeaderElection            endpoints/virt-operator                                               virt-operator-854547ddc4-jnvtn became leader
-kubevirt      34m         Normal    SuccessfulCreate          job/kubevirt-dea312b9a923fc8be804043b5d24f7bdf88d8845-job2j6kc        Created pod: kubevirt-dea312b9a923fc8be804043b5d24f7bdf88d8845-job2j6kch4ql6
-kubevirt      34m         Normal    Scheduled                 pod/kubevirt-dea312b9a923fc8be804043b5d24f7bdf88d8845-job2j6kch4ql6   Successfully assigned kubevirt/kubevirt-dea312b9a923fc8be804043b5d24f7bdf88d8845-job2j6kch4ql6 to node02
-kubevirt      34m         Normal    Created                   pod/kubevirt-dea312b9a923fc8be804043b5d24f7bdf88d8845-job2j6kch4ql6   Created container install-strategy-upload
-kubevirt      34m         Normal    Started                   pod/kubevirt-dea312b9a923fc8be804043b5d24f7bdf88d8845-job2j6kch4ql6   Started container install-strategy-upload
-kubevirt      34m         Normal    Pulled                    pod/kubevirt-dea312b9a923fc8be804043b5d24f7bdf88d8845-job2j6kch4ql6   Container image "registry:5000/kubevirt/virt-operator@sha256:7fda75c254f9db48da44c87603357b256fd3aa5d889cb192f482352e4dc5ffde" already present on machine
-kubevirt      34m         Normal    Completed                 job/kubevirt-dea312b9a923fc8be804043b5d24f7bdf88d8845-job2j6kc        Job completed
-kubevirt      34m         Normal    ScalingReplicaSet         deployment/virt-api                                                   Scaled up replica set virt-api-6747df4d4b to 2
-kubevirt      34m         Normal    SuccessfulCreate          replicaset/virt-api-6747df4d4b                                        Created pod: virt-api-6747df4d4b-2qbvr
-kubevirt      34m         Normal    SuccessfulCreate          replicaset/virt-api-6747df4d4b                                        Created pod: virt-api-6747df4d4b-4rmnm
-kubevirt      34m         Normal    Scheduled                 pod/virt-api-6747df4d4b-4rmnm                                         Successfully assigned kubevirt/virt-api-6747df4d4b-4rmnm to node02
-kubevirt      34m         Normal    Scheduled                 pod/virt-api-6747df4d4b-2qbvr                                         Successfully assigned kubevirt/virt-api-6747df4d4b-2qbvr to node01
-kubevirt      34m         Normal    Pulled                    pod/virt-api-6747df4d4b-2qbvr                                         Container image "registry:5000/kubevirt/virt-api@sha256:efa8ed0e96179e6b2fb2b17ec740ea9abddce64a7ec1f17bd01a5121df4802ef" already present on machine
-kubevirt      34m         Normal    Started                   pod/virt-api-6747df4d4b-4rmnm                                         Started container virt-api
-kubevirt      34m         Normal    Created                   pod/virt-api-6747df4d4b-4rmnm                                         Created container virt-api
-kubevirt      34m         Normal    Created                   pod/virt-api-6747df4d4b-2qbvr                                         Created container virt-api
-kubevirt      34m         Normal    Started                   pod/virt-api-6747df4d4b-2qbvr                                         Started container virt-api
-kubevirt      34m         Normal    Pulled                    pod/virt-api-6747df4d4b-4rmnm                                         Container image "registry:5000/kubevirt/virt-api@sha256:efa8ed0e96179e6b2fb2b17ec740ea9abddce64a7ec1f17bd01a5121df4802ef" already present on machine
-kubevirt      34m         Normal    NoPods                    poddisruptionbudget/virt-controller-pdb                               No matching pods found
-kubevirt      34m         Normal    SuccessfulCreate          replicaset/virt-controller-694b49b67d                                 Created pod: virt-controller-694b49b67d-t78qm
-kubevirt      34m         Normal    SuccessfulCreate          replicaset/virt-controller-694b49b67d                                 Created pod: virt-controller-694b49b67d-pm8pd
-kubevirt      34m         Normal    Scheduled                 pod/virt-controller-694b49b67d-pm8pd                                  Successfully assigned kubevirt/virt-controller-694b49b67d-pm8pd to node02
-kubevirt      34m         Normal    Scheduled                 pod/virt-controller-694b49b67d-t78qm                                  Successfully assigned kubevirt/virt-controller-694b49b67d-t78qm to node01
-kubevirt      34m         Normal    ScalingReplicaSet         deployment/virt-controller                                            Scaled up replica set virt-controller-694b49b67d to 2
-kubevirt      34m         Normal    Scheduled                 pod/virt-handler-xvjwt                                                Successfully assigned kubevirt/virt-handler-xvjwt to node01
-kubevirt      34m         Normal    SuccessfulCreate          daemonset/virt-handler                                                Created pod: virt-handler-xvjwt
-kubevirt      34m         Normal    SuccessfulCreate          daemonset/virt-handler                                                Created pod: virt-handler-qkb7n
-kubevirt      34m         Normal    Scheduled                 pod/virt-handler-qkb7n                                                Successfully assigned kubevirt/virt-handler-qkb7n to node02
-kubevirt      34m         Normal    Pulled                    pod/virt-handler-qkb7n                                                Container image "registry:5000/kubevirt/virt-handler@sha256:efa653f6840f4c9d19f6918fe7e6b5e51ce17ea3dc94c98f2bc4e5d7baa4de40" already present on machine
-kubevirt      34m         Normal    Created                   pod/virt-handler-qkb7n                                                Created container virt-handler
-kubevirt      34m         Normal    Pulled                    pod/virt-controller-694b49b67d-pm8pd                                  Container image "registry:5000/kubevirt/virt-controller@sha256:8e2360c20f08c6f2276f56b2c110c2e79f4201cdcfc35ee37cd3de7e98f1f649" already present on machine
-kubevirt      34m         Normal    Created                   pod/virt-controller-694b49b67d-pm8pd                                  Created container virt-controller
-kubevirt      34m         Normal    Started                   pod/virt-handler-qkb7n                                                Started container virt-handler
-kubevirt      34m         Normal    Started                   pod/virt-controller-694b49b67d-pm8pd                                  Started container virt-controller
-kubevirt      34m         Normal    Pulled                    pod/virt-controller-694b49b67d-t78qm                                  Container image "registry:5000/kubevirt/virt-controller@sha256:8e2360c20f08c6f2276f56b2c110c2e79f4201cdcfc35ee37cd3de7e98f1f649" already present on machine
-kubevirt      34m         Normal    Created                   pod/virt-controller-694b49b67d-t78qm                                  Created container virt-controller
-kubevirt      34m         Normal    Pulled                    pod/virt-handler-xvjwt                                                Container image "registry:5000/kubevirt/virt-handler@sha256:efa653f6840f4c9d19f6918fe7e6b5e51ce17ea3dc94c98f2bc4e5d7baa4de40" already present on machine
-kubevirt      34m         Normal    Started                   pod/virt-handler-xvjwt                                                Started container virt-handler
-kubevirt      34m         Normal    Started                   pod/virt-controller-694b49b67d-t78qm                                  Started container virt-controller
-kubevirt      34m         Normal    Created                   pod/virt-handler-xvjwt                                                Created container virt-handler
-kubevirt      34m         Normal    LeaderElection            endpoints/virt-controller                                             virt-controller-694b49b67d-pm8pd became leader
-kubevirt      32m         Warning   Unhealthy                 pod/virt-api-6747df4d4b-2qbvr                                         Readiness probe failed: Get https://10.244.196.135:8443/apis/subresources.kubevirt.io/v1/healthz: dial tcp 10.244.196.135:8443: connect: connection refused
-kubevirt      32m         Normal    Killing                   pod/virt-handler-xvjwt                                                Stopping container virt-handler
-kubevirt      32m         Normal    Killing                   pod/virt-api-6747df4d4b-4rmnm                                         Stopping container virt-api
-kubevirt      32m         Normal    Killing                   pod/virt-handler-qkb7n                                                Stopping container virt-handler
-kubevirt      32m         Normal    Killing                   pod/virt-controller-694b49b67d-t78qm                                  Stopping container virt-controller
-kubevirt      32m         Normal    Killing                   pod/virt-api-6747df4d4b-2qbvr                                         Stopping container virt-api
-kubevirt      32m         Normal    Killing                   pod/virt-controller-694b49b67d-pm8pd                                  Stopping container virt-controller
-kubevirt      32m         Warning   Unhealthy                 pod/virt-controller-694b49b67d-t78qm                                  Readiness probe failed: Get https://10.244.196.136:8443/leader: dial tcp 10.244.196.136:8443: connect: invalid argument
-kubevirt      32m         Normal    Scheduled                 pod/kubevirt-eec7dac5c260dc1022c35e1cc9fb77f87bce3319-jobwwwfncvxnv   Successfully assigned kubevirt/kubevirt-eec7dac5c260dc1022c35e1cc9fb77f87bce3319-jobwwwfncvxnv to node02
-kubevirt      32m         Normal    SuccessfulCreate          job/kubevirt-eec7dac5c260dc1022c35e1cc9fb77f87bce3319-jobwwwfn        Created pod: kubevirt-eec7dac5c260dc1022c35e1cc9fb77f87bce3319-jobwwwfncvxnv
-kubevirt      32m         Warning   Unhealthy                 pod/virt-handler-xvjwt                                                Liveness probe failed: Get https://10.244.196.137:8443/healthz: dial tcp 10.244.196.137:8443: connect: invalid argument
-kubevirt      32m         Normal    Pulled                    pod/kubevirt-eec7dac5c260dc1022c35e1cc9fb77f87bce3319-jobwwwfncvxnv   Container image "registry:5000/kubevirt/virt-operator@sha256:7fda75c254f9db48da44c87603357b256fd3aa5d889cb192f482352e4dc5ffde" already present on machine
-kubevirt      32m         Normal    Started                   pod/kubevirt-eec7dac5c260dc1022c35e1cc9fb77f87bce3319-jobwwwfncvxnv   Started container install-strategy-upload
-kubevirt      32m         Normal    Created                   pod/kubevirt-eec7dac5c260dc1022c35e1cc9fb77f87bce3319-jobwwwfncvxnv   Created container install-strategy-upload
-kubevirt      32m         Normal    Completed                 job/kubevirt-eec7dac5c260dc1022c35e1cc9fb77f87bce3319-jobwwwfn        Job completed
-kubevirt      32m         Normal    Scheduled                 pod/virt-api-7869dbddfc-tplq6                                         Successfully assigned kubevirt/virt-api-7869dbddfc-tplq6 to node01
-kubevirt      32m         Normal    SuccessfulCreate          replicaset/virt-api-7869dbddfc                                        Created pod: virt-api-7869dbddfc-k264x
-kubevirt      32m         Normal    SuccessfulCreate          replicaset/virt-api-7869dbddfc                                        Created pod: virt-api-7869dbddfc-tplq6
-kubevirt      32m         Normal    Scheduled                 pod/virt-api-7869dbddfc-k264x                                         Successfully assigned kubevirt/virt-api-7869dbddfc-k264x to node02
-kubevirt      32m         Normal    ScalingReplicaSet         deployment/virt-api                                                   Scaled up replica set virt-api-7869dbddfc to 2
-kubevirt      31m         Normal    Created                   pod/virt-api-7869dbddfc-tplq6                                         Created container virt-api
-kubevirt      31m         Normal    Pulled                    pod/virt-api-7869dbddfc-tplq6                                         Container image "registry:5000/kubevirt/virt-api@sha256:efa8ed0e96179e6b2fb2b17ec740ea9abddce64a7ec1f17bd01a5121df4802ef" already present on machine
-kubevirt      31m         Normal    Started                   pod/virt-api-7869dbddfc-k264x                                         Started container virt-api
-kubevirt      31m         Normal    Created                   pod/virt-api-7869dbddfc-k264x                                         Created container virt-api
-kubevirt      31m         Normal    Pulled                    pod/virt-api-7869dbddfc-k264x                                         Container image "registry:5000/kubevirt/virt-api@sha256:efa8ed0e96179e6b2fb2b17ec740ea9abddce64a7ec1f17bd01a5121df4802ef" already present on machine
-kubevirt      31m         Normal    Started                   pod/virt-api-7869dbddfc-tplq6                                         Started container virt-api
-kubevirt      31m         Normal    NoPods                    poddisruptionbudget/virt-controller-pdb                               No matching pods found
-kubevirt      31m         Normal    Scheduled                 pod/virt-handler-jpn5n                                                Successfully assigned kubevirt/virt-handler-jpn5n to node01
-kubevirt      31m         Normal    Scheduled                 pod/virt-controller-7c9666d597-lrd7t                                  Successfully assigned kubevirt/virt-controller-7c9666d597-lrd7t to node01
-kubevirt      31m         Normal    SuccessfulCreate          replicaset/virt-controller-7c9666d597                                 Created pod: virt-controller-7c9666d597-lrd7t
-kubevirt      31m         Normal    SuccessfulCreate          daemonset/virt-handler                                                Created pod: virt-handler-jp2rh
-kubevirt      31m         Normal    ScalingReplicaSet         deployment/virt-controller                                            Scaled up replica set virt-controller-7c9666d597 to 2
-kubevirt      31m         Normal    Scheduled                 pod/virt-controller-7c9666d597-qzzc7                                  Successfully assigned kubevirt/virt-controller-7c9666d597-qzzc7 to node02
-kubevirt      31m         Normal    Scheduled                 pod/virt-handler-jp2rh                                                Successfully assigned kubevirt/virt-handler-jp2rh to node02
-kubevirt      31m         Normal    SuccessfulCreate          replicaset/virt-controller-7c9666d597                                 Created pod: virt-controller-7c9666d597-qzzc7
-kubevirt      31m         Normal    SuccessfulCreate          daemonset/virt-handler                                                Created pod: virt-handler-jpn5n
-kubevirt      31m         Normal    Created                   pod/virt-handler-jp2rh                                                Created container virt-handler
-kubevirt      31m         Normal    Pulled                    pod/virt-controller-7c9666d597-lrd7t                                  Container image "registry:5000/kubevirt/virt-controller@sha256:8e2360c20f08c6f2276f56b2c110c2e79f4201cdcfc35ee37cd3de7e98f1f649" already present on machine
-kubevirt      31m         Normal    Started                   pod/virt-controller-7c9666d597-qzzc7                                  Started container virt-controller
-kubevirt      31m         Normal    Created                   pod/virt-controller-7c9666d597-qzzc7                                  Created container virt-controller
-kubevirt      31m         Normal    Pulled                    pod/virt-controller-7c9666d597-qzzc7                                  Container image "registry:5000/kubevirt/virt-controller@sha256:8e2360c20f08c6f2276f56b2c110c2e79f4201cdcfc35ee37cd3de7e98f1f649" already present on machine
-kubevirt      31m         Normal    Created                   pod/virt-handler-jpn5n                                                Created container virt-handler
-kubevirt      31m         Normal    Pulled                    pod/virt-handler-jpn5n                                                Container image "registry:5000/kubevirt/virt-handler@sha256:efa653f6840f4c9d19f6918fe7e6b5e51ce17ea3dc94c98f2bc4e5d7baa4de40" already present on machine
-kubevirt      31m         Normal    Started                   pod/virt-handler-jp2rh                                                Started container virt-handler
-kubevirt      31m         Normal    Pulled                    pod/virt-handler-jp2rh                                                Container image "registry:5000/kubevirt/virt-handler@sha256:efa653f6840f4c9d19f6918fe7e6b5e51ce17ea3dc94c98f2bc4e5d7baa4de40" already present on machine
-kubevirt      31m         Normal    Started                   pod/virt-handler-jpn5n                                                Started container virt-handler
-kubevirt      31m         Normal    Created                   pod/virt-controller-7c9666d597-lrd7t                                  Created container virt-controller
-kubevirt      31m         Normal    Started                   pod/virt-controller-7c9666d597-lrd7t                                  Started container virt-controller
-kubevirt      31m         Normal    LeaderElection            endpoints/virt-controller                                             virt-controller-7c9666d597-qzzc7 became leader
-default       30m         Normal    CreateResourceSuccess     cdi/cdi                                                               Successfully ensured upload proxy route exists
-kubevirt      30m         Normal    SuccessfulCreate          job/kubevirt-9b14fe4e6c05b089ff7b099a9c3f5687ad8cd3b0-jobbnp6m        Created pod: kubevirt-9b14fe4e6c05b089ff7b099a9c3f5687ad8cd3b0-jobbnp6mc4kzn
-kubevirt      30m         Normal    Scheduled                 pod/kubevirt-9b14fe4e6c05b089ff7b099a9c3f5687ad8cd3b0-jobbnp6mc4kzn   Successfully assigned kubevirt/kubevirt-9b14fe4e6c05b089ff7b099a9c3f5687ad8cd3b0-jobbnp6mc4kzn to node01
-kubevirt      30m         Normal    Pulled                    pod/kubevirt-9b14fe4e6c05b089ff7b099a9c3f5687ad8cd3b0-jobbnp6mc4kzn   Container image "registry:5000/kubevirt/virt-operator:devel_alt" already present on machine
-kubevirt      30m         Normal    Started                   pod/kubevirt-9b14fe4e6c05b089ff7b099a9c3f5687ad8cd3b0-jobbnp6mc4kzn   Started container install-strategy-upload
-kubevirt      30m         Normal    Created                   pod/kubevirt-9b14fe4e6c05b089ff7b099a9c3f5687ad8cd3b0-jobbnp6mc4kzn   Created container install-strategy-upload
-kubevirt      30m         Normal    Completed                 job/kubevirt-9b14fe4e6c05b089ff7b099a9c3f5687ad8cd3b0-jobbnp6m        Job completed
-kubevirt      30m         Normal    Killing                   pod/virt-handler-jp2rh                                                Stopping container virt-handler
-kubevirt      30m         Normal    SuccessfulDelete          daemonset/virt-handler                                                Deleted pod: virt-handler-jp2rh
-kubevirt      30m         Normal    SuccessfulCreate          daemonset/virt-handler                                                Created pod: virt-handler-s6bbv
-kubevirt      30m         Normal    Scheduled                 pod/virt-handler-s6bbv                                                Successfully assigned kubevirt/virt-handler-s6bbv to node02
-kubevirt      30m         Normal    Started                   pod/virt-handler-s6bbv                                                Started container virt-handler
-kubevirt      30m         Normal    Pulled                    pod/virt-handler-s6bbv                                                Container image "registry:5000/kubevirt/virt-handler:devel_alt" already present on machine
-kubevirt      30m         Normal    Created                   pod/virt-handler-s6bbv                                                Created container virt-handler
-kubevirt      29m         Normal    Killing                   pod/virt-handler-jpn5n                                                Stopping container virt-handler
-kubevirt      29m         Normal    SuccessfulDelete          daemonset/virt-handler                                                Deleted pod: virt-handler-jpn5n
-kubevirt      29m         Normal    Scheduled                 pod/virt-handler-jlndh                                                Successfully assigned kubevirt/virt-handler-jlndh to node01
-kubevirt      29m         Normal    SuccessfulCreate          daemonset/virt-handler                                                Created pod: virt-handler-jlndh
-kubevirt      29m         Normal    Pulled                    pod/virt-handler-jlndh                                                Container image "registry:5000/kubevirt/virt-handler:devel_alt" already present on machine
-kubevirt      29m         Normal    Created                   pod/virt-handler-jlndh                                                Created container virt-handler
-kubevirt      29m         Normal    Started                   pod/virt-handler-jlndh                                                Started container virt-handler
-kubevirt      29m         Normal    ScalingReplicaSet         deployment/virt-controller                                            Scaled up replica set virt-controller-5cc84d7f65 to 1
-kubevirt      29m         Normal    Scheduled                 pod/virt-controller-5cc84d7f65-lkr9n                                  Successfully assigned kubevirt/virt-controller-5cc84d7f65-lkr9n to node01
-kubevirt      29m         Normal    SuccessfulCreate          replicaset/virt-controller-5cc84d7f65                                 Created pod: virt-controller-5cc84d7f65-lkr9n
-kubevirt      29m         Normal    Pulled                    pod/virt-controller-5cc84d7f65-lkr9n                                  Container image "registry:5000/kubevirt/virt-controller:devel_alt" already present on machine
-kubevirt      29m         Normal    Created                   pod/virt-controller-5cc84d7f65-lkr9n                                  Created container virt-controller
-kubevirt      29m         Normal    Started                   pod/virt-controller-5cc84d7f65-lkr9n                                  Started container virt-controller
-kubevirt      28m         Normal    Scheduled                 pod/virt-controller-5cc84d7f65-ht8xz                                  Successfully assigned kubevirt/virt-controller-5cc84d7f65-ht8xz to node02
-kubevirt      28m         Normal    SuccessfulCreate          replicaset/virt-controller-5cc84d7f65                                 Created pod: virt-controller-5cc84d7f65-ht8xz
-kubevirt      28m         Normal    ScalingReplicaSet         deployment/virt-controller                                            Scaled down replica set virt-controller-7c9666d597 to 1
-kubevirt      28m         Normal    SuccessfulDelete          replicaset/virt-controller-7c9666d597                                 Deleted pod: virt-controller-7c9666d597-lrd7t
-kubevirt      28m         Normal    Killing                   pod/virt-controller-7c9666d597-lrd7t                                  Stopping container virt-controller
-kubevirt      28m         Normal    ScalingReplicaSet         deployment/virt-controller                                            Scaled up replica set virt-controller-5cc84d7f65 to 2
-kubevirt      28m         Normal    Created                   pod/virt-controller-5cc84d7f65-ht8xz                                  Created container virt-controller
-kubevirt      28m         Warning   Unhealthy                 pod/virt-controller-7c9666d597-lrd7t                                  Readiness probe failed: Get https://10.244.196.140:8443/leader: dial tcp 10.244.196.140:8443: connect: invalid argument
-kubevirt      28m         Normal    Pulled                    pod/virt-controller-5cc84d7f65-ht8xz                                  Container image "registry:5000/kubevirt/virt-controller:devel_alt" already present on machine
-kubevirt      28m         Normal    Started                   pod/virt-controller-5cc84d7f65-ht8xz                                  Started container virt-controller
-kubevirt      28m         Normal    SuccessfulDelete          replicaset/virt-controller-7c9666d597                                 Deleted pod: virt-controller-7c9666d597-qzzc7
-kubevirt      28m         Normal    ScalingReplicaSet         deployment/virt-controller                                            Scaled down replica set virt-controller-7c9666d597 to 0
-kubevirt      28m         Normal    Killing                   pod/virt-controller-7c9666d597-qzzc7                                  Stopping container virt-controller
-kubevirt      28m         Normal    ScalingReplicaSet         deployment/virt-api                                                   Scaled up replica set virt-api-6cc5c844cc to 1
-kubevirt      28m         Normal    SuccessfulCreate          replicaset/virt-api-6cc5c844cc                                        Created pod: virt-api-6cc5c844cc-pmc2j
-kubevirt      28m         Normal    Scheduled                 pod/virt-api-6cc5c844cc-pmc2j                                         Successfully assigned kubevirt/virt-api-6cc5c844cc-pmc2j to node01
-kubevirt      28m         Normal    Created                   pod/virt-api-6cc5c844cc-pmc2j                                         Created container virt-api
-kubevirt      28m         Normal    Pulled                    pod/virt-api-6cc5c844cc-pmc2j                                         Container image "registry:5000/kubevirt/virt-api:devel_alt" already present on machine
-kubevirt      28m         Normal    Started                   pod/virt-api-6cc5c844cc-pmc2j                                         Started container virt-api
-kubevirt      28m         Normal    LeaderElection            endpoints/virt-controller                                             virt-controller-5cc84d7f65-ht8xz became leader
-kubevirt      27m         Normal    ScalingReplicaSet         deployment/virt-api                                                   Scaled up replica set virt-api-6cc5c844cc to 2
-kubevirt      27m         Normal    SuccessfulDelete          replicaset/virt-api-7869dbddfc                                        Deleted pod: virt-api-7869dbddfc-tplq6
-kubevirt      27m         Normal    Killing                   pod/virt-api-7869dbddfc-tplq6                                         Stopping container virt-api
-kubevirt      27m         Normal    Scheduled                 pod/virt-api-6cc5c844cc-74cll                                         Successfully assigned kubevirt/virt-api-6cc5c844cc-74cll to node02
-kubevirt      27m         Normal    ScalingReplicaSet         deployment/virt-api                                                   Scaled down replica set virt-api-7869dbddfc to 1
-kubevirt      27m         Normal    SuccessfulCreate          replicaset/virt-api-6cc5c844cc                                        Created pod: virt-api-6cc5c844cc-74cll
-kubevirt      27m         Normal    Started                   pod/virt-api-6cc5c844cc-74cll                                         Started container virt-api
-kubevirt      27m         Normal    Pulled                    pod/virt-api-6cc5c844cc-74cll                                         Container image "registry:5000/kubevirt/virt-api:devel_alt" already present on machine
-kubevirt      27m         Normal    Created                   pod/virt-api-6cc5c844cc-74cll                                         Created container virt-api
-kubevirt      27m         Normal    Killing                   pod/virt-api-7869dbddfc-k264x                                         Stopping container virt-api
-kubevirt      27m         Normal    SuccessfulDelete          replicaset/virt-api-7869dbddfc                                        Deleted pod: virt-api-7869dbddfc-k264x
-kubevirt      27m         Normal    ScalingReplicaSet         deployment/virt-api                                                   Scaled down replica set virt-api-7869dbddfc to 0
-kubevirt      17m         Normal    Killing                   pod/virt-handler-jlndh                                                Stopping container virt-handler
-kubevirt      17m         Normal    Killing                   pod/virt-handler-s6bbv                                                Stopping container virt-handler
-kubevirt      17m         Normal    Killing                   pod/virt-api-6cc5c844cc-pmc2j                                         Stopping container virt-api
-kubevirt      17m         Normal    Killing                   pod/virt-controller-5cc84d7f65-ht8xz                                  Stopping container virt-controller
-kubevirt      17m         Normal    Killing                   pod/virt-controller-5cc84d7f65-lkr9n                                  Stopping container virt-controller
-kubevirt      17m         Normal    Killing                   pod/virt-api-6cc5c844cc-74cll                                         Stopping container virt-api
-kubevirt      17m         Warning   Unhealthy                 pod/virt-controller-5cc84d7f65-lkr9n                                  Liveness probe failed: Get https://10.244.196.143:8443/healthz: dial tcp 10.244.196.143:8443: connect: connection refused
-kubevirt      17m         Warning   Unhealthy                 pod/virt-api-6cc5c844cc-74cll                                         Readiness probe failed: Get https://10.244.140.87:8443/apis/subresources.kubevirt.io/v1/healthz: dial tcp 10.244.140.87:8443: connect: connection refused
-kubevirt      17m         Warning   Unhealthy                 pod/virt-handler-jlndh                                                Readiness probe failed: Get https://10.244.196.142:8443/healthz: dial tcp 10.244.196.142:8443: connect: invalid argument
-kubevirt      17m         Normal    Scheduled                 pod/kubevirt-dea312b9a923fc8be804043b5d24f7bdf88d8845-job82k5lmrb57   Successfully assigned kubevirt/kubevirt-dea312b9a923fc8be804043b5d24f7bdf88d8845-job82k5lmrb57 to node02
-kubevirt      17m         Normal    SuccessfulCreate          job/kubevirt-dea312b9a923fc8be804043b5d24f7bdf88d8845-job82k5l        Created pod: kubevirt-dea312b9a923fc8be804043b5d24f7bdf88d8845-job82k5lmrb57
-kubevirt      17m         Warning   Unhealthy                 pod/virt-handler-s6bbv                                                Readiness probe failed: Get https://10.244.140.85:8443/healthz: dial tcp 10.244.140.85:8443: connect: invalid argument
-kubevirt      17m         Normal    Started                   pod/kubevirt-dea312b9a923fc8be804043b5d24f7bdf88d8845-job82k5lmrb57   Started container install-strategy-upload
-kubevirt      17m         Normal    Created                   pod/kubevirt-dea312b9a923fc8be804043b5d24f7bdf88d8845-job82k5lmrb57   Created container install-strategy-upload
-kubevirt      17m         Normal    Pulled                    pod/kubevirt-dea312b9a923fc8be804043b5d24f7bdf88d8845-job82k5lmrb57   Container image "registry:5000/kubevirt/virt-operator@sha256:7fda75c254f9db48da44c87603357b256fd3aa5d889cb192f482352e4dc5ffde" already present on machine
-kubevirt      17m         Normal    Completed                 job/kubevirt-dea312b9a923fc8be804043b5d24f7bdf88d8845-job82k5l        Job completed
-kubevirt      17m         Normal    ScalingReplicaSet         deployment/virt-api                                                   Scaled up replica set virt-api-6747df4d4b to 2
-kubevirt      17m         Normal    Scheduled                 pod/virt-api-6747df4d4b-7qn92                                         Successfully assigned kubevirt/virt-api-6747df4d4b-7qn92 to node02
-kubevirt      17m         Normal    SuccessfulCreate          replicaset/virt-api-6747df4d4b                                        Created pod: virt-api-6747df4d4b-w6txw
-kubevirt      17m         Normal    SuccessfulCreate          replicaset/virt-api-6747df4d4b                                        Created pod: virt-api-6747df4d4b-7qn92
-kubevirt      17m         Normal    Scheduled                 pod/virt-api-6747df4d4b-w6txw                                         Successfully assigned kubevirt/virt-api-6747df4d4b-w6txw to node01
-kubevirt      17m         Normal    NoPods                    poddisruptionbudget/virt-api-pdb                                      No matching pods found
-kubevirt      17m         Normal    Started                   pod/virt-api-6747df4d4b-7qn92                                         Started container virt-api
-kubevirt      17m         Normal    Created                   pod/virt-api-6747df4d4b-w6txw                                         Created container virt-api
-kubevirt      17m         Normal    Pulled                    pod/virt-api-6747df4d4b-w6txw                                         Container image "registry:5000/kubevirt/virt-api@sha256:efa8ed0e96179e6b2fb2b17ec740ea9abddce64a7ec1f17bd01a5121df4802ef" already present on machine
-kubevirt      17m         Normal    Created                   pod/virt-api-6747df4d4b-7qn92                                         Created container virt-api
-kubevirt      17m         Normal    Pulled                    pod/virt-api-6747df4d4b-7qn92                                         Container image "registry:5000/kubevirt/virt-api@sha256:efa8ed0e96179e6b2fb2b17ec740ea9abddce64a7ec1f17bd01a5121df4802ef" already present on machine
-kubevirt      17m         Normal    Started                   pod/virt-api-6747df4d4b-w6txw                                         Started container virt-api
-kubevirt      16m         Normal    Scheduled                 pod/virt-handler-5m6z6                                                Successfully assigned kubevirt/virt-handler-5m6z6 to node01
-kubevirt      16m         Normal    Scheduled                 pod/virt-controller-694b49b67d-62t98                                  Successfully assigned kubevirt/virt-controller-694b49b67d-62t98 to node02
-kubevirt      16m         Normal    ScalingReplicaSet         deployment/virt-controller                                            Scaled up replica set virt-controller-694b49b67d to 2
-kubevirt      16m         Normal    SuccessfulCreate          daemonset/virt-handler                                                Created pod: virt-handler-5m6z6
-kubevirt      16m         Normal    SuccessfulCreate          daemonset/virt-handler                                                Created pod: virt-handler-lct2p
-kubevirt      16m         Normal    Scheduled                 pod/virt-controller-694b49b67d-2sknj                                  Successfully assigned kubevirt/virt-controller-694b49b67d-2sknj to node01
-kubevirt      16m         Normal    Scheduled                 pod/virt-handler-lct2p                                                Successfully assigned kubevirt/virt-handler-lct2p to node02
-kubevirt      16m         Normal    SuccessfulCreate          replicaset/virt-controller-694b49b67d                                 Created pod: virt-controller-694b49b67d-2sknj
-kubevirt      16m         Normal    NoPods                    poddisruptionbudget/virt-controller-pdb                               No matching pods found
-kubevirt      16m         Normal    SuccessfulCreate          replicaset/virt-controller-694b49b67d                                 Created pod: virt-controller-694b49b67d-62t98
-kubevirt      16m         Normal    Created                   pod/virt-controller-694b49b67d-62t98                                  Created container virt-controller
-kubevirt      16m         Normal    Pulled                    pod/virt-handler-5m6z6                                                Container image "registry:5000/kubevirt/virt-handler@sha256:efa653f6840f4c9d19f6918fe7e6b5e51ce17ea3dc94c98f2bc4e5d7baa4de40" already present on machine
-kubevirt      16m         Normal    Pulled                    pod/virt-controller-694b49b67d-62t98                                  Container image "registry:5000/kubevirt/virt-controller@sha256:8e2360c20f08c6f2276f56b2c110c2e79f4201cdcfc35ee37cd3de7e98f1f649" already present on machine
-kubevirt      16m         Normal    Created                   pod/virt-handler-lct2p                                                Created container virt-handler
-kubevirt      16m         Normal    Started                   pod/virt-controller-694b49b67d-62t98                                  Started container virt-controller
-kubevirt      16m         Normal    Started                   pod/virt-handler-lct2p                                                Started container virt-handler
-kubevirt      16m         Normal    Started                   pod/virt-handler-5m6z6                                                Started container virt-handler
-kubevirt      16m         Normal    Pulled                    pod/virt-handler-lct2p                                                Container image "registry:5000/kubevirt/virt-handler@sha256:efa653f6840f4c9d19f6918fe7e6b5e51ce17ea3dc94c98f2bc4e5d7baa4de40" already present on machine
-kubevirt      16m         Normal    Created                   pod/virt-handler-5m6z6                                                Created container virt-handler
-kubevirt      16m         Normal    Created                   pod/virt-controller-694b49b67d-2sknj                                  Created container virt-controller
-kubevirt      16m         Normal    Pulled                    pod/virt-controller-694b49b67d-2sknj                                  Container image "registry:5000/kubevirt/virt-controller@sha256:8e2360c20f08c6f2276f56b2c110c2e79f4201cdcfc35ee37cd3de7e98f1f649" already present on machine
-kubevirt      16m         Normal    Started                   pod/virt-controller-694b49b67d-2sknj                                  Started container virt-controller
-kubevirt      16m         Normal    LeaderElection            endpoints/virt-controller                                             virt-controller-694b49b67d-62t98 became leader
-default       5m21s       Normal    CreateResourceSuccess     cdi/cdi                                                               Successfully ensured SecurityContextConstraint exists
+cdi           11m         Normal    TargetUpdateRequired      namespace/cdi                                                         "cdi-uploadserver-client-cert" in "cdi" requires a new target cert/key pair: missing notAfter
+cdi           11m         Normal    SecretDeleted             namespace/cdi                                                         Deleted Secret/cdi-uploadserver-client-cert -n cdi
+cdi           11m         Normal    Pulling                   pod/cdi-apiserver-7bfc8ff9c5-fslw5                                    Pulling image "quay.io/kubevirt/cdi-apiserver:v1.31.0"
+cdi           10m         Normal    Pulling                   pod/cdi-uploadproxy-f7547d9bd-jdn47                                   Pulling image "quay.io/kubevirt/cdi-uploadproxy:v1.31.0"
+cdi           10m         Warning   FailedMount               pod/cdi-deployment-7ddfcd78bd-9t5vt                                   MountVolume.SetUp failed for volume "cdi-api-signing-key" : secret "cdi-api-signing-key" not found
+cdi           10m         Normal    Pulled                    pod/cdi-apiserver-7bfc8ff9c5-fslw5                                    Successfully pulled image "quay.io/kubevirt/cdi-apiserver:v1.31.0"
+cdi           10m         Normal    Created                   pod/cdi-apiserver-7bfc8ff9c5-fslw5                                    Created container cdi-apiserver
+cdi           10m         Normal    Started                   pod/cdi-apiserver-7bfc8ff9c5-fslw5                                    Started container cdi-apiserver
+cdi           10m         Normal    Pulled                    pod/cdi-uploadproxy-f7547d9bd-jdn47                                   Successfully pulled image "quay.io/kubevirt/cdi-uploadproxy:v1.31.0"
+cdi           10m         Normal    Created                   pod/cdi-uploadproxy-f7547d9bd-jdn47                                   Created container cdi-uploadproxy
+cdi           10m         Normal    Started                   pod/cdi-uploadproxy-f7547d9bd-jdn47                                   Started container cdi-uploadproxy
+cdi           10m         Normal    Pulling                   pod/cdi-deployment-7ddfcd78bd-9t5vt                                   Pulling image "quay.io/kubevirt/cdi-controller:v1.31.0"
+kubevirt      10m         Warning   Unhealthy                 pod/virt-operator-5d59875949-ghdb8                                    Readiness probe failed: Get https://10.244.140.70:8443/metrics: dial tcp 10.244.140.70:8443: connect: connection refused
+cdi           10m         Normal    Created                   pod/cdi-deployment-7ddfcd78bd-9t5vt                                   Created container cdi-controller
+cdi           10m         Normal    LeaderElection            configmap/cdi-controller-leader-election-helper                       cdi-deployment-7ddfcd78bd-9t5vt_bb40df0d-9556-45aa-b697-6fd3556c8e04 became leader
+cdi           10m         Normal    Started                   pod/cdi-deployment-7ddfcd78bd-9t5vt                                   Started container cdi-controller
+cdi           10m         Normal    Pulled                    pod/cdi-deployment-7ddfcd78bd-9t5vt                                   Successfully pulled image "quay.io/kubevirt/cdi-controller:v1.31.0"
+kubevirt      10m         Warning   Unhealthy                 pod/virt-operator-5d59875949-87tkq                                    Readiness probe failed: Get https://10.244.196.134:8443/metrics: dial tcp 10.244.196.134:8443: connect: connection refused
+kubevirt      10m         Normal    SuccessfulCreate          job/kubevirt-42a69e56400530e39c1f331a53ad268a218dd3fd-jobb2sjz        Created pod: kubevirt-42a69e56400530e39c1f331a53ad268a218dd3fd-jobb2sjzd7kwv
+kubevirt      10m         Normal    LeaderElection            endpoints/virt-operator                                               virt-operator-5d59875949-87tkq became leader
+kubevirt      10m         Normal    Created                   pod/kubevirt-42a69e56400530e39c1f331a53ad268a218dd3fd-jobb2sjzd7kwv   Created container install-strategy-upload
+kubevirt      10m         Normal    Started                   pod/kubevirt-42a69e56400530e39c1f331a53ad268a218dd3fd-jobb2sjzd7kwv   Started container install-strategy-upload
+kubevirt      10m         Normal    Pulled                    pod/kubevirt-42a69e56400530e39c1f331a53ad268a218dd3fd-jobb2sjzd7kwv   Container image "registry:5000/kubevirt/virt-operator@sha256:896d9d682c1a08a691a04dbcf9c5bba3bf22884c9e56ca8168e715c03b7bdf19" already present on machine
+kubevirt      10m         Normal    Completed                 job/kubevirt-42a69e56400530e39c1f331a53ad268a218dd3fd-jobb2sjz        Job completed
+kubevirt      10m         Normal    ScalingReplicaSet         deployment/virt-api                                                   Scaled up replica set virt-api-964754645 to 2
+kubevirt      10m         Normal    SuccessfulCreate          replicaset/virt-api-964754645                                         Created pod: virt-api-964754645-zwff4
+kubevirt      10m         Normal    SuccessfulCreate          replicaset/virt-api-964754645                                         Created pod: virt-api-964754645-qvm4d
+kubevirt      10m         Normal    Started                   pod/virt-api-964754645-qvm4d                                          Started container virt-api
+kubevirt      10m         Normal    Pulled                    pod/virt-api-964754645-zwff4                                          Container image "registry:5000/kubevirt/virt-api@sha256:4d99288ca3dfb792186da051a8adc6d1ca3bd29c604a101ac40a3a97b2e97ff4" already present on machine
+kubevirt      10m         Normal    Created                   pod/virt-api-964754645-qvm4d                                          Created container virt-api
+kubevirt      10m         Normal    Pulled                    pod/virt-api-964754645-qvm4d                                          Container image "registry:5000/kubevirt/virt-api@sha256:4d99288ca3dfb792186da051a8adc6d1ca3bd29c604a101ac40a3a97b2e97ff4" already present on machine
+kubevirt      10m         Normal    Started                   pod/virt-api-964754645-zwff4                                          Started container virt-api
+kubevirt      10m         Normal    Created                   pod/virt-api-964754645-zwff4                                          Created container virt-api
+kubevirt      10m         Normal    NoPods                    poddisruptionbudget/virt-controller-pdb                               No matching pods found
+kubevirt      10m         Normal    SuccessfulCreate          daemonset/virt-handler                                                Created pod: virt-handler-npn48
+kubevirt      10m         Normal    SuccessfulCreate          daemonset/virt-handler                                                Created pod: virt-handler-9khdq
+kubevirt      10m         Normal    SuccessfulCreate          replicaset/virt-controller-6567d768b7                                 Created pod: virt-controller-6567d768b7-x9wkz
+kubevirt      10m         Normal    SuccessfulCreate          replicaset/virt-controller-6567d768b7                                 Created pod: virt-controller-6567d768b7-2lvvz
+kubevirt      10m         Normal    ScalingReplicaSet         deployment/virt-controller                                            Scaled up replica set virt-controller-6567d768b7 to 2
+kubevirt      9m59s       Normal    Created                   pod/virt-controller-6567d768b7-x9wkz                                  Created container virt-controller
+kubevirt      9m59s       Normal    Started                   pod/virt-controller-6567d768b7-x9wkz                                  Started container virt-controller
+kubevirt      9m59s       Normal    Pulled                    pod/virt-handler-npn48                                                Container image "registry:5000/kubevirt/virt-handler@sha256:5a51f9f9039fbc05866389b3ca05a319114c5d323fc88456739a37a0b5ff575a" already present on machine
+kubevirt      9m59s       Normal    Created                   pod/virt-handler-npn48                                                Created container virt-handler
+kubevirt      9m59s       Normal    Created                   pod/virt-handler-9khdq                                                Created container virt-handler
+kubevirt      9m59s       Normal    Pulled                    pod/virt-controller-6567d768b7-2lvvz                                  Container image "registry:5000/kubevirt/virt-controller@sha256:8c8cf8fd0bbafafe14696b5bd6ec50645fb329bec1ab2db064ce2ac8f14784e4" already present on machine
+kubevirt      9m59s       Normal    Created                   pod/virt-controller-6567d768b7-2lvvz                                  Created container virt-controller
+kubevirt      9m59s       Normal    Pulled                    pod/virt-controller-6567d768b7-x9wkz                                  Container image "registry:5000/kubevirt/virt-controller@sha256:8c8cf8fd0bbafafe14696b5bd6ec50645fb329bec1ab2db064ce2ac8f14784e4" already present on machine
+kubevirt      9m59s       Normal    Pulled                    pod/virt-handler-9khdq                                                Container image "registry:5000/kubevirt/virt-handler@sha256:5a51f9f9039fbc05866389b3ca05a319114c5d323fc88456739a37a0b5ff575a" already present on machine
+kubevirt      9m58s       Normal    Started                   pod/virt-handler-npn48                                                Started container virt-handler
+kubevirt      9m58s       Normal    Started                   pod/virt-controller-6567d768b7-2lvvz                                  Started container virt-controller
+kubevirt      9m58s       Normal    Started                   pod/virt-handler-9khdq                                                Started container virt-handler
+kubevirt      9m56s       Normal    LeaderElection            endpoints/virt-controller                                             virt-controller-6567d768b7-x9wkz became leader
+kubevirt      6m12s       Normal    Killing                   pod/virt-api-964754645-qvm4d                                          Stopping container virt-api
+kubevirt      6m12s       Normal    Killing                   pod/virt-handler-npn48                                                Stopping container virt-handler
+kubevirt      6m12s       Normal    Killing                   pod/virt-controller-6567d768b7-x9wkz                                  Stopping container virt-controller
+kubevirt      6m12s       Normal    Killing                   pod/virt-handler-9khdq                                                Stopping container virt-handler
+kubevirt      6m12s       Normal    Killing                   pod/virt-controller-6567d768b7-2lvvz                                  Stopping container virt-controller
+kubevirt      6m12s       Normal    Killing                   pod/virt-api-964754645-zwff4                                          Stopping container virt-api
+kubevirt      6m11s       Warning   Unhealthy                 pod/virt-controller-6567d768b7-2lvvz                                  Readiness probe failed: Get https://10.244.196.136:8443/leader: dial tcp 10.244.196.136:8443: connect: invalid argument
+kubevirt      6m10s       Normal    SuccessfulCreate          job/kubevirt-ca3305e323426cff17fb046db603b900b36e3016-job4ssfz        Created pod: kubevirt-ca3305e323426cff17fb046db603b900b36e3016-job4ssfzv549s
+kubevirt      6m10s       Warning   Unhealthy                 pod/virt-api-964754645-qvm4d                                          Readiness probe failed: Get https://10.244.196.135:8443/apis/subresources.kubevirt.io/v1/healthz: dial tcp 10.244.196.135:8443: connect: invalid argument
+kubevirt      6m9s        Normal    Created                   pod/kubevirt-ca3305e323426cff17fb046db603b900b36e3016-job4ssfzv549s   Created container install-strategy-upload
+kubevirt      6m9s        Normal    Pulled                    pod/kubevirt-ca3305e323426cff17fb046db603b900b36e3016-job4ssfzv549s   Container image "registry:5000/kubevirt/virt-operator@sha256:896d9d682c1a08a691a04dbcf9c5bba3bf22884c9e56ca8168e715c03b7bdf19" already present on machine
+kubevirt      6m9s        Normal    Started                   pod/kubevirt-ca3305e323426cff17fb046db603b900b36e3016-job4ssfzv549s   Started container install-strategy-upload
+kubevirt      6m7s        Normal    Completed                 job/kubevirt-ca3305e323426cff17fb046db603b900b36e3016-job4ssfz        Job completed
+kubevirt      6m4s        Normal    SuccessfulCreate          replicaset/virt-api-66fbb94949                                        Created pod: virt-api-66fbb94949-rbj62
+kubevirt      6m4s        Normal    ScalingReplicaSet         deployment/virt-api                                                   Scaled up replica set virt-api-66fbb94949 to 2
+kubevirt      6m4s        Normal    SuccessfulCreate          replicaset/virt-api-66fbb94949                                        Created pod: virt-api-66fbb94949-7zx9z
+kubevirt      6m3s        Normal    Pulled                    pod/virt-api-66fbb94949-7zx9z                                         Container image "registry:5000/kubevirt/virt-api@sha256:4d99288ca3dfb792186da051a8adc6d1ca3bd29c604a101ac40a3a97b2e97ff4" already present on machine
+kubevirt      6m3s        Normal    Created                   pod/virt-api-66fbb94949-rbj62                                         Created container virt-api
+kubevirt      6m3s        Normal    Pulled                    pod/virt-api-66fbb94949-rbj62                                         Container image "registry:5000/kubevirt/virt-api@sha256:4d99288ca3dfb792186da051a8adc6d1ca3bd29c604a101ac40a3a97b2e97ff4" already present on machine
+kubevirt      6m3s        Normal    Created                   pod/virt-api-66fbb94949-7zx9z                                         Created container virt-api
+kubevirt      6m3s        Normal    Started                   pod/virt-api-66fbb94949-rbj62                                         Started container virt-api
+kubevirt      6m3s        Normal    Started                   pod/virt-api-66fbb94949-7zx9z                                         Started container virt-api
+kubevirt      5m34s       Normal    SuccessfulCreate          daemonset/virt-handler                                                Created pod: virt-handler-4t2h8
+kubevirt      5m34s       Normal    ScalingReplicaSet         deployment/virt-controller                                            Scaled up replica set virt-controller-586bbf884c to 2
+kubevirt      5m34s       Normal    SuccessfulCreate          replicaset/virt-controller-586bbf884c                                 Created pod: virt-controller-586bbf884c-7srbt
+kubevirt      5m34s       Normal    SuccessfulCreate          daemonset/virt-handler                                                Created pod: virt-handler-b7t4m
+kubevirt      5m34s       Normal    NoPods                    poddisruptionbudget/virt-controller-pdb                               No matching pods found
+kubevirt      5m34s       Normal    SuccessfulCreate          replicaset/virt-controller-586bbf884c                                 Created pod: virt-controller-586bbf884c-hllcr
+kubevirt      5m33s       Normal    Created                   pod/virt-controller-586bbf884c-hllcr                                  Created container virt-controller
+kubevirt      5m33s       Normal    Started                   pod/virt-handler-b7t4m                                                Started container virt-handler
+kubevirt      5m33s       Normal    Created                   pod/virt-handler-b7t4m                                                Created container virt-handler
+kubevirt      5m33s       Normal    Created                   pod/virt-handler-4t2h8                                                Created container virt-handler
+kubevirt      5m33s       Normal    Started                   pod/virt-handler-4t2h8                                                Started container virt-handler
+kubevirt      5m33s       Normal    Pulled                    pod/virt-handler-4t2h8                                                Container image "registry:5000/kubevirt/virt-handler@sha256:5a51f9f9039fbc05866389b3ca05a319114c5d323fc88456739a37a0b5ff575a" already present on machine
+kubevirt      5m33s       Normal    Pulled                    pod/virt-controller-586bbf884c-hllcr                                  Container image "registry:5000/kubevirt/virt-controller@sha256:8c8cf8fd0bbafafe14696b5bd6ec50645fb329bec1ab2db064ce2ac8f14784e4" already present on machine
+kubevirt      5m33s       Normal    Created                   pod/virt-controller-586bbf884c-7srbt                                  Created container virt-controller
+kubevirt      5m33s       Normal    Pulled                    pod/virt-controller-586bbf884c-7srbt                                  Container image "registry:5000/kubevirt/virt-controller@sha256:8c8cf8fd0bbafafe14696b5bd6ec50645fb329bec1ab2db064ce2ac8f14784e4" already present on machine
+kubevirt      5m33s       Normal    Pulled                    pod/virt-handler-b7t4m                                                Container image "registry:5000/kubevirt/virt-handler@sha256:5a51f9f9039fbc05866389b3ca05a319114c5d323fc88456739a37a0b5ff575a" already present on machine
+kubevirt      5m32s       Normal    Started                   pod/virt-controller-586bbf884c-hllcr                                  Started container virt-controller
+kubevirt      5m32s       Normal    Started                   pod/virt-controller-586bbf884c-7srbt                                  Started container virt-controller
+kubevirt      5m14s       Normal    LeaderElection            endpoints/virt-controller                                             virt-controller-586bbf884c-hllcr became leader
+kubevirt      4m28s       Normal    SuccessfulCreate          job/kubevirt-9b14fe4e6c05b089ff7b099a9c3f5687ad8cd3b0-job96sts        Created pod: kubevirt-9b14fe4e6c05b089ff7b099a9c3f5687ad8cd3b0-job96sts7mw7l
+kubevirt      4m27s       Normal    Pulled                    pod/kubevirt-9b14fe4e6c05b089ff7b099a9c3f5687ad8cd3b0-job96sts7mw7l   Container image "registry:5000/kubevirt/virt-operator:devel_alt" already present on machine
+kubevirt      4m27s       Normal    Created                   pod/kubevirt-9b14fe4e6c05b089ff7b099a9c3f5687ad8cd3b0-job96sts7mw7l   Created container install-strategy-upload
+kubevirt      4m26s       Normal    Started                   pod/kubevirt-9b14fe4e6c05b089ff7b099a9c3f5687ad8cd3b0-job96sts7mw7l   Started container install-strategy-upload
+kubevirt      4m23s       Normal    Completed                 job/kubevirt-9b14fe4e6c05b089ff7b099a9c3f5687ad8cd3b0-job96sts        Job completed
+kubevirt      4m19s       Normal    SuccessfulDelete          daemonset/virt-handler                                                Deleted pod: virt-handler-4t2h8
+kubevirt      4m19s       Normal    Killing                   pod/virt-handler-4t2h8                                                Stopping container virt-handler
+kubevirt      4m17s       Normal    SuccessfulCreate          daemonset/virt-handler                                                Created pod: virt-handler-bf66n
+kubevirt      4m16s       Normal    Pulled                    pod/virt-handler-bf66n                                                Container image "registry:5000/kubevirt/virt-handler:devel_alt" already present on machine
+kubevirt      4m16s       Normal    Started                   pod/virt-handler-bf66n                                                Started container virt-handler
+kubevirt      4m16s       Normal    Created                   pod/virt-handler-bf66n                                                Created container virt-handler
+kubevirt      4m          Normal    Killing                   pod/virt-handler-b7t4m                                                Stopping container virt-handler
+kubevirt      4m          Normal    SuccessfulDelete          daemonset/virt-handler                                                Deleted pod: virt-handler-b7t4m
+kubevirt      3m58s       Normal    SuccessfulCreate          replicaset/virt-controller-5cc84d7f65                                 Created pod: virt-controller-5cc84d7f65-7qlnz
+kubevirt      3m58s       Normal    ScalingReplicaSet         deployment/virt-controller                                            Scaled up replica set virt-controller-5cc84d7f65 to 1
+kubevirt      3m57s       Normal    Created                   pod/virt-controller-5cc84d7f65-7qlnz                                  Created container virt-controller
+kubevirt      3m57s       Normal    Pulled                    pod/virt-controller-5cc84d7f65-7qlnz                                  Container image "registry:5000/kubevirt/virt-controller:devel_alt" already present on machine
+kubevirt      3m57s       Normal    Started                   pod/virt-controller-5cc84d7f65-7qlnz                                  Started container virt-controller
+kubevirt      3m52s       Normal    SuccessfulCreate          daemonset/virt-handler                                                Created pod: virt-handler-tdgm4
+kubevirt      3m51s       Normal    Started                   pod/virt-handler-tdgm4                                                Started container virt-handler
+kubevirt      3m51s       Normal    Created                   pod/virt-handler-tdgm4                                                Created container virt-handler
+kubevirt      3m51s       Normal    Pulled                    pod/virt-handler-tdgm4                                                Container image "registry:5000/kubevirt/virt-handler:devel_alt" already present on machine
+kubevirt      3m35s       Normal    SuccessfulCreate          replicaset/virt-controller-5cc84d7f65                                 Created pod: virt-controller-5cc84d7f65-5p7r8
+kubevirt      3m35s       Normal    SuccessfulDelete          replicaset/virt-controller-586bbf884c                                 Deleted pod: virt-controller-586bbf884c-hllcr
+kubevirt      3m35s       Normal    ScalingReplicaSet         deployment/virt-controller                                            Scaled down replica set virt-controller-586bbf884c to 1
+kubevirt      3m35s       Normal    Killing                   pod/virt-controller-586bbf884c-hllcr                                  Stopping container virt-controller
+kubevirt      3m35s       Normal    ScalingReplicaSet         deployment/virt-controller                                            Scaled up replica set virt-controller-5cc84d7f65 to 2
+kubevirt      3m34s       Normal    Created                   pod/virt-controller-5cc84d7f65-5p7r8                                  Created container virt-controller
+kubevirt      3m34s       Normal    Started                   pod/virt-controller-5cc84d7f65-5p7r8                                  Started container virt-controller
+kubevirt      3m34s       Normal    Pulled                    pod/virt-controller-5cc84d7f65-5p7r8                                  Container image "registry:5000/kubevirt/virt-controller:devel_alt" already present on machine
+kubevirt      3m20s       Normal    LeaderElection            endpoints/virt-controller                                             virt-controller-5cc84d7f65-7qlnz became leader
+kubevirt      3m12s       Normal    SuccessfulDelete          replicaset/virt-controller-586bbf884c                                 Deleted pod: virt-controller-586bbf884c-7srbt
+kubevirt      3m12s       Normal    Killing                   pod/virt-controller-586bbf884c-7srbt                                  Stopping container virt-controller
+kubevirt      3m12s       Normal    ScalingReplicaSet         deployment/virt-controller                                            Scaled down replica set virt-controller-586bbf884c to 0
+kubevirt      3m10s       Normal    SuccessfulCreate          replicaset/virt-api-6cc5c844cc                                        Created pod: virt-api-6cc5c844cc-44fcx
+kubevirt      3m10s       Normal    ScalingReplicaSet         deployment/virt-api                                                   Scaled up replica set virt-api-6cc5c844cc to 1
+kubevirt      3m9s        Normal    Pulled                    pod/virt-api-6cc5c844cc-44fcx                                         Container image "registry:5000/kubevirt/virt-api:devel_alt" already present on machine
+kubevirt      3m9s        Normal    Started                   pod/virt-api-6cc5c844cc-44fcx                                         Started container virt-api
+kubevirt      3m9s        Normal    Created                   pod/virt-api-6cc5c844cc-44fcx                                         Created container virt-api
+kubevirt      2m50s       Normal    ScalingReplicaSet         deployment/virt-api                                                   Scaled up replica set virt-api-6cc5c844cc to 2
+kubevirt      2m50s       Normal    SuccessfulCreate          replicaset/virt-api-6cc5c844cc                                        Created pod: virt-api-6cc5c844cc-68fk9
+kubevirt      2m50s       Normal    Killing                   pod/virt-api-66fbb94949-7zx9z                                         Stopping container virt-api
+kubevirt      2m50s       Normal    ScalingReplicaSet         deployment/virt-api                                                   Scaled down replica set virt-api-66fbb94949 to 1
+kubevirt      2m50s       Normal    SuccessfulDelete          replicaset/virt-api-66fbb94949                                        Deleted pod: virt-api-66fbb94949-7zx9z
+kubevirt      2m49s       Warning   Unhealthy                 pod/virt-api-66fbb94949-7zx9z                                         Readiness probe failed: Get https://10.244.140.79:8443/apis/subresources.kubevirt.io/v1/healthz: dial tcp 10.244.140.79:8443: connect: invalid argument
+kubevirt      2m49s       Normal    Created                   pod/virt-api-6cc5c844cc-68fk9                                         Created container virt-api
+kubevirt      2m49s       Normal    Pulled                    pod/virt-api-6cc5c844cc-68fk9                                         Container image "registry:5000/kubevirt/virt-api:devel_alt" already present on machine
+kubevirt      2m49s       Normal    Started                   pod/virt-api-6cc5c844cc-68fk9                                         Started container virt-api
+kubevirt      2m31s       Normal    ScalingReplicaSet         deployment/virt-api                                                   Scaled down replica set virt-api-66fbb94949 to 0
+kubevirt      2m31s       Normal    Killing                   pod/virt-api-66fbb94949-rbj62                                         Stopping container virt-api
+kubevirt      2m31s       Normal    SuccessfulDelete          replicaset/virt-api-66fbb94949                                        Deleted pod: virt-api-66fbb94949-rbj62
+kubevirt      107s        Normal    Killing                   pod/virt-api-6cc5c844cc-68fk9                                         Stopping container virt-api
+kubevirt      107s        Normal    Killing                   pod/virt-handler-tdgm4                                                Stopping container virt-handler
+kubevirt      107s        Normal    Killing                   pod/virt-controller-5cc84d7f65-5p7r8                                  Stopping container virt-controller
+kubevirt      107s        Normal    Killing                   pod/virt-api-6cc5c844cc-44fcx                                         Stopping container virt-api
+kubevirt      107s        Normal    Killing                   pod/virt-handler-bf66n                                                Stopping container virt-handler
+kubevirt      107s        Normal    Killing                   pod/virt-controller-5cc84d7f65-7qlnz                                  Stopping container virt-controller
+kubevirt      105s        Normal    SuccessfulCreate          job/kubevirt-42a69e56400530e39c1f331a53ad268a218dd3fd-jobvsr2b        Created pod: kubevirt-42a69e56400530e39c1f331a53ad268a218dd3fd-jobvsr2b4tcdt
+kubevirt      105s        Warning   Unhealthy                 pod/virt-controller-5cc84d7f65-7qlnz                                  Readiness probe failed: Get https://10.244.140.85:8443/leader: dial tcp 10.244.140.85:8443: connect: invalid argument
+kubevirt      104s        Normal    Pulled                    pod/kubevirt-42a69e56400530e39c1f331a53ad268a218dd3fd-jobvsr2b4tcdt   Container image "registry:5000/kubevirt/virt-operator@sha256:896d9d682c1a08a691a04dbcf9c5bba3bf22884c9e56ca8168e715c03b7bdf19" already present on machine
+kubevirt      104s        Normal    Created                   pod/kubevirt-42a69e56400530e39c1f331a53ad268a218dd3fd-jobvsr2b4tcdt   Created container install-strategy-upload
+kubevirt      104s        Normal    Started                   pod/kubevirt-42a69e56400530e39c1f331a53ad268a218dd3fd-jobvsr2b4tcdt   Started container install-strategy-upload
+kubevirt      102s        Normal    Completed                 job/kubevirt-42a69e56400530e39c1f331a53ad268a218dd3fd-jobvsr2b        Job completed
+kubevirt      99s         Normal    ScalingReplicaSet         deployment/virt-api                                                   Scaled up replica set virt-api-964754645 to 2
+kubevirt      99s         Normal    SuccessfulCreate          replicaset/virt-api-964754645                                         Created pod: virt-api-964754645-png8z
+kubevirt      99s         Normal    SuccessfulCreate          replicaset/virt-api-964754645                                         Created pod: virt-api-964754645-qpbgb
+kubevirt      97s         Normal    Created                   pod/virt-api-964754645-png8z                                          Created container virt-api
+kubevirt      97s         Normal    Pulled                    pod/virt-api-964754645-qpbgb                                          Container image "registry:5000/kubevirt/virt-api@sha256:4d99288ca3dfb792186da051a8adc6d1ca3bd29c604a101ac40a3a97b2e97ff4" already present on machine
+kubevirt      97s         Normal    Created                   pod/virt-api-964754645-qpbgb                                          Created container virt-api
+kubevirt      97s         Normal    Pulled                    pod/virt-api-964754645-png8z                                          Container image "registry:5000/kubevirt/virt-api@sha256:4d99288ca3dfb792186da051a8adc6d1ca3bd29c604a101ac40a3a97b2e97ff4" already present on machine
+kubevirt      97s         Normal    Started                   pod/virt-api-964754645-png8z                                          Started container virt-api
+kubevirt      97s         Normal    Started                   pod/virt-api-964754645-qpbgb                                          Started container virt-api
+kubevirt      68s         Normal    SuccessfulCreate          daemonset/virt-handler                                                Created pod: virt-handler-q4mph
+kubevirt      68s         Normal    SuccessfulCreate          replicaset/virt-controller-6567d768b7                                 Created pod: virt-controller-6567d768b7-cxzk7
+kubevirt      68s         Normal    SuccessfulCreate          replicaset/virt-controller-6567d768b7                                 Created pod: virt-controller-6567d768b7-49rjt
+kubevirt      68s         Normal    NoPods                    poddisruptionbudget/virt-controller-pdb                               No matching pods found
+kubevirt      68s         Normal    SuccessfulCreate          daemonset/virt-handler                                                Created pod: virt-handler-qr657
+kubevirt      68s         Normal    ScalingReplicaSet         deployment/virt-controller                                            Scaled up replica set virt-controller-6567d768b7 to 2
+kubevirt      67s         Normal    Created                   pod/virt-controller-6567d768b7-49rjt                                  Created container virt-controller
+kubevirt      67s         Normal    Started                   pod/virt-controller-6567d768b7-49rjt                                  Started container virt-controller
+kubevirt      67s         Normal    Pulled                    pod/virt-controller-6567d768b7-cxzk7                                  Container image "registry:5000/kubevirt/virt-controller@sha256:8c8cf8fd0bbafafe14696b5bd6ec50645fb329bec1ab2db064ce2ac8f14784e4" already present on machine
+kubevirt      67s         Normal    Created                   pod/virt-controller-6567d768b7-cxzk7                                  Created container virt-controller
+kubevirt      67s         Normal    Created                   pod/virt-handler-q4mph                                                Created container virt-handler
+kubevirt      67s         Normal    Started                   pod/virt-controller-6567d768b7-cxzk7                                  Started container virt-controller
+kubevirt      67s         Normal    Started                   pod/virt-handler-q4mph                                                Started container virt-handler
+kubevirt      67s         Normal    Pulled                    pod/virt-handler-q4mph                                                Container image "registry:5000/kubevirt/virt-handler@sha256:5a51f9f9039fbc05866389b3ca05a319114c5d323fc88456739a37a0b5ff575a" already present on machine
+kubevirt      67s         Normal    Started                   pod/virt-handler-qr657                                                Started container virt-handler
+kubevirt      67s         Normal    Created                   pod/virt-handler-qr657                                                Created container virt-handler
+kubevirt      67s         Normal    Pulled                    pod/virt-handler-qr657                                                Container image "registry:5000/kubevirt/virt-handler@sha256:5a51f9f9039fbc05866389b3ca05a319114c5d323fc88456739a37a0b5ff575a" already present on machine
+kubevirt      67s         Normal    Pulled                    pod/virt-controller-6567d768b7-49rjt                                  Container image "registry:5000/kubevirt/virt-controller@sha256:8c8cf8fd0bbafafe14696b5bd6ec50645fb329bec1ab2db064ce2ac8f14784e4" already present on machine
+kubevirt      49s         Normal    LeaderElection            endpoints/virt-controller                                             virt-controller-6567d768b7-cxzk7 became leader
+default       41s         Normal    CreateResourceSuccess     cdi/cdi                                                               Successfully ensured SecurityContextConstraint exists
