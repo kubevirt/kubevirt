@@ -1040,6 +1040,7 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 			logger.Info("All KubeVirt components ready")
 			kv.Status.Phase = v1.KubeVirtPhaseDeployed
 			util.UpdateConditionsAvailable(kv)
+			kv.Status.ObservedGeneration = &kv.ObjectMeta.Generation
 			return nil
 		}
 	}

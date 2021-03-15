@@ -298,7 +298,11 @@ var _ = Describe("[Serial]Operator", func() {
 						degraded = true
 					}
 				}
-
+				if kv.Status.ObservedGeneration != nil {
+					Expect(*kv.Status.ObservedGeneration).ToNot(Equal(kv.ObjectMeta.Generation),
+						"If virt-operator is not fully in sync the observed generation must not not match the current configuration",
+					)
+				}
 				if !available || !progressing || !degraded {
 					return fmt.Errorf("Waiting for conditions to indicate update (conditions: %+v)", kv.Status.Conditions)
 				}
@@ -335,8 +339,16 @@ var _ = Describe("[Serial]Operator", func() {
 				}
 
 				if !available || progressing || degraded || !created {
+					if kv.Status.ObservedGeneration != nil {
+						Expect(*kv.Status.ObservedGeneration).ToNot(Equal(kv.ObjectMeta.Generation),
+							"If virt-operator is not fully in sync the observed generation must not not match the current configuration",
+						)
+					}
 					return fmt.Errorf("Waiting for conditions to indicate deployment (conditions: %+v)", kv.Status.Conditions)
 				}
+				Expect(*kv.Status.ObservedGeneration).To(Equal(kv.ObjectMeta.Generation),
+					"If virt-operator is fully synced, the observed generation must match the current generation",
+				)
 				return nil
 			}, time.Duration(timeoutSeconds)*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		}

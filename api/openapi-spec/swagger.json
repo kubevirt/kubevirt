@@ -10317,6 +10317,10 @@
      "observedDeploymentID": {
       "type": "string"
      },
+     "observedGeneration": {
+      "type": "integer",
+      "format": "int64"
+     },
      "observedKubeVirtRegistry": {
       "type": "string"
      },
