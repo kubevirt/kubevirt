@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"libvirt.org/libvirt-go"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -94,7 +96,7 @@ func createHostDevice(iface v1.Interface, hostPCIAddress string) (*api.HostDevic
 }
 
 type deviceDetacher interface {
-	DetachDevice(xmlData string) error
+	DetachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error
 }
 
 type eventRegistrar interface {
@@ -143,7 +145,7 @@ func detachHostDevices(dom deviceDetacher, hostDevices []api.HostDevice) error {
 		if err != nil {
 			return fmt.Errorf("failed to encode (xml) hostdev %v, err: %v", hostDev, err)
 		}
-		err = dom.DetachDevice(string(devXML))
+		err = dom.DetachDeviceFlags(string(devXML), libvirt.DOMAIN_DEVICE_MODIFY_LIVE|libvirt.DOMAIN_DEVICE_MODIFY_CONFIG)
 		if err != nil {
 			return fmt.Errorf("failed to detach hostdev %s, err: %v", devXML, err)
 		}
