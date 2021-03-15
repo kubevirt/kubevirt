@@ -9448,7 +9448,7 @@
       "type": "boolean"
      },
      "blockMultiQueue": {
-      "description": "Whether or not to enable virtio multi-queue for block devices",
+      "description": "Whether or not to enable virtio multi-queue for block devices. Defaults to false.",
       "type": "boolean"
      },
      "disableHotplug": {

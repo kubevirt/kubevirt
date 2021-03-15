@@ -14752,7 +14752,7 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 					},
 					"blockMultiQueue": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Whether or not to enable virtio multi-queue for block devices",
+							Description: "Whether or not to enable virtio multi-queue for block devices. Defaults to false.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

@@ -398,7 +398,8 @@ type Devices struct {
 	// Whether to have random number generator from host
 	// +optional
 	Rng *Rng `json:"rng,omitempty"`
-	// Whether or not to enable virtio multi-queue for block devices
+	// Whether or not to enable virtio multi-queue for block devices.
+	// Defaults to false.
 	// +optional
 	BlockMultiQueue *bool `json:"blockMultiQueue,omitempty"`
 	// If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.
