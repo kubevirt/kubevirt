@@ -2931,6 +2931,9 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         observedDeploymentID:
           type: string
+        observedGeneration:
+          format: int64
+          type: integer
         observedKubeVirtRegistry:
           type: string
         observedKubeVirtVersion:

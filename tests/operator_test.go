@@ -361,8 +361,20 @@ var _ = Describe("[Serial][sig-operator]Operator", func() {
 				}
 
 				if !available || progressing || degraded || !created {
+					if kv.Status.ObservedGeneration != nil {
+						if *kv.Status.ObservedGeneration == kv.ObjectMeta.Generation {
+							return fmt.Errorf("observed generation must not match the current configuration")
+						}
+					}
 					return fmt.Errorf("Waiting for conditions to indicate deployment (conditions: %+v)", kv.Status.Conditions)
 				}
+
+				if kv.Status.ObservedGeneration != nil {
+					if *kv.Status.ObservedGeneration != kv.ObjectMeta.Generation {
+						return fmt.Errorf("the observed generation must match the current generation")
+					}
+				}
+
 				return nil
 			}, time.Duration(timeoutSeconds)*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		}
