@@ -497,9 +497,48 @@ func canUpdateToUnmounted(currentPhase v1.VolumePhase) bool {
 	return currentPhase == v1.VolumeReady || currentPhase == v1.HotplugVolumeMounted || currentPhase == v1.HotplugVolumeAttachedToNode
 }
 
-func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(vmi *v1.VirtualMachineInstance) error {
+func (d *VirtualMachineController) setMigrationProgressStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) *v1.VirtualMachineInstance {
 
+	if domain == nil ||
+		domain.Spec.Metadata.KubeVirt.Migration == nil ||
+		vmi.Status.MigrationState == nil ||
+		!d.isMigrationSource(vmi) {
+		return vmi
+	}
+
+	migrationMetadata := domain.Spec.Metadata.KubeVirt.Migration
+	if migrationMetadata.UID != vmi.Status.MigrationState.MigrationUID {
+		return vmi
+	}
+
+	if vmi.Status.MigrationState.EndTimestamp == nil && migrationMetadata.EndTimestamp != nil {
+		if migrationMetadata.Failed {
+			d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason:%s", string(migrationMetadata.UID), migrationMetadata.FailureReason))
+		}
+	}
+
+	if vmi.Status.MigrationState.StartTimestamp == nil {
+		vmi.Status.MigrationState.StartTimestamp = migrationMetadata.StartTimestamp
+	}
+	if vmi.Status.MigrationState.EndTimestamp == nil {
+		vmi.Status.MigrationState.EndTimestamp = migrationMetadata.EndTimestamp
+	}
+	vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortStatus(migrationMetadata.AbortStatus)
+	vmi.Status.MigrationState.Completed = migrationMetadata.Completed
+	vmi.Status.MigrationState.Failed = migrationMetadata.Failed
+	vmi.Status.MigrationState.Mode = migrationMetadata.Mode
+	return vmi
+}
+
+func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.VirtualMachineInstance, domain *api.Domain) error {
+
+	vmi := origVMI.DeepCopy()
 	oldStatus := vmi.DeepCopy().Status
+
+	// if a migration happens very quickly, it's possible parts of the in
+	// progress status wasn't set. We need to make sure we set this even
+	// if the migration has completed
+	vmi = d.setMigrationProgressStatus(vmi, domain)
 
 	// handle migrations differently than normal status updates.
 	//
@@ -620,22 +659,25 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 	return nil
 }
 
-func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
+func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 	hasHotplug := false
 
 	// Don't update the VirtualMachineInstance if it is already in a final state
-	if vmi.IsFinal() {
+	if origVMI.IsFinal() {
 		return nil
-	} else if vmi.Status.NodeName != "" && vmi.Status.NodeName != d.host {
+	} else if origVMI.Status.NodeName != "" && origVMI.Status.NodeName != d.host {
 		// Only update the VMI's phase if this node owns the VMI.
 		// not owned by this host, likely the result of a migration
 		return nil
 	} else if domainMigrated(domain) {
-		return d.migrationSourceUpdateVMIStatus(vmi)
+		return d.migrationSourceUpdateVMIStatus(origVMI, domain)
 	}
 
+	vmi := origVMI.DeepCopy()
 	oldStatus := vmi.DeepCopy().Status
+
+	vmi = d.setMigrationProgressStatus(vmi, domain)
 
 	if domain != nil {
 		if vmi.Status.GuestOSInfo.Name != domain.Status.OSInfo.Name {
@@ -828,30 +870,6 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 				newInterfaces = append(newInterfaces, newInterface)
 			}
 			vmi.Status.Interfaces = newInterfaces
-		}
-	}
-
-	// Update migration progress if domain reports anything in the migration metadata.
-	if domain != nil && domain.Spec.Metadata.KubeVirt.Migration != nil && vmi.Status.MigrationState != nil && d.isMigrationSource(vmi) {
-		migrationMetadata := domain.Spec.Metadata.KubeVirt.Migration
-		if migrationMetadata.UID == vmi.Status.MigrationState.MigrationUID {
-
-			if vmi.Status.MigrationState.EndTimestamp == nil && migrationMetadata.EndTimestamp != nil {
-				if migrationMetadata.Failed {
-					d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason:%s", string(migrationMetadata.UID), migrationMetadata.FailureReason))
-				}
-			}
-
-			if vmi.Status.MigrationState.StartTimestamp == nil {
-				vmi.Status.MigrationState.StartTimestamp = migrationMetadata.StartTimestamp
-			}
-			if vmi.Status.MigrationState.EndTimestamp == nil {
-				vmi.Status.MigrationState.EndTimestamp = migrationMetadata.EndTimestamp
-			}
-			vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortStatus(migrationMetadata.AbortStatus)
-			vmi.Status.MigrationState.Completed = migrationMetadata.Completed
-			vmi.Status.MigrationState.Failed = migrationMetadata.Failed
-			vmi.Status.MigrationState.Mode = migrationMetadata.Mode
 		}
 	}
 
@@ -1457,7 +1475,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 
 	// Update the VirtualMachineInstance status, if the VirtualMachineInstance exists
 	if vmiExists {
-		err = d.updateVMIStatus(vmi.DeepCopy(), domain, syncErr)
+		err = d.updateVMIStatus(vmi, domain, syncErr)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Updating the VirtualMachineInstance status failed.")
 			return err
