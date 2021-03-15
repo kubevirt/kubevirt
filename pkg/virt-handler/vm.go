@@ -497,6 +497,79 @@ func canUpdateToUnmounted(currentPhase v1.VolumePhase) bool {
 	return currentPhase == v1.VolumeReady || currentPhase == v1.HotplugVolumeMounted || currentPhase == v1.HotplugVolumeAttachedToNode
 }
 
+func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(vmi *v1.VirtualMachineInstance) error {
+
+	oldStatus := vmi.DeepCopy().Status
+
+	// handle migrations differently than normal status updates.
+	//
+	// When a successful migration is detected, we must transfer ownership of the VMI
+	// from the source node (this node) to the target node (node the domain was migrated to).
+	//
+	// Transfer owership by...
+	// 1. Marking vmi.Status.MigationState as completed
+	// 2. Update the vmi.Status.NodeName to reflect the target node's name
+	// 3. Update the VMI's NodeNameLabel annotation to reflect the target node's name
+	// 4. Clear the LauncherContainerImageVersion which virt-controller will detect
+	//    and accurately based on the version used on the target pod
+	//
+	// After a migration, the VMI's phase is no longer owned by this node. Only the
+	// MigrationState status field is elgible to be mutated.
+	migrationHost := ""
+	if vmi.Status.MigrationState != nil {
+		migrationHost = vmi.Status.MigrationState.TargetNode
+	}
+
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.EndTimestamp == nil {
+		now := metav1.NewTime(time.Now())
+		vmi.Status.MigrationState.EndTimestamp = &now
+	}
+
+	targetNodeDetectedDomain, timeLeft := d.hasTargetDetectedDomain(vmi)
+	// If we can't detect where the migration went to, then we have no
+	// way of transferring ownership. The only option here is to move the
+	// vmi to failed.  The cluster vmi controller will then tear down the
+	// resulting pods.
+	if migrationHost == "" {
+		// migrated to unknown host.
+		vmi.Status.Phase = v1.Failed
+		vmi.Status.MigrationState.Completed = true
+		vmi.Status.MigrationState.Failed = true
+
+		d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to unknown host."))
+	} else if !targetNodeDetectedDomain {
+		if timeLeft <= 0 {
+			vmi.Status.Phase = v1.Failed
+			vmi.Status.MigrationState.Completed = true
+			vmi.Status.MigrationState.Failed = true
+
+			d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance's domain was never observed on the target after the migration completed within the timeout period."))
+		} else {
+			log.Log.Object(vmi).Info("Waiting on the target node to observe the migrated domain before performing the handoff")
+		}
+	} else if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetNodeDomainDetected {
+		// this is the migration ACK.
+		// At this point we know that the migration has completed and that
+		// the target node has seen the domain event.
+		vmi.Labels[v1.NodeNameLabel] = migrationHost
+		delete(vmi.Labels, v1.OutdatedLauncherImageLabel)
+		vmi.Status.LauncherContainerImageVersion = ""
+		vmi.Status.NodeName = migrationHost
+		// clean the evacuation node name since have already migrated to a new node
+		vmi.Status.EvacuationNodeName = ""
+		vmi.Status.MigrationState.Completed = true
+		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to node %s.", migrationHost))
+	}
+
+	if !reflect.DeepEqual(oldStatus, vmi.Status) {
+		_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmi)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain, domainExists bool) error {
 
 	vmiCopy := vmi.DeepCopy()
@@ -558,6 +631,8 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		// Only update the VMI's phase if this node owns the VMI.
 		// not owned by this host, likely the result of a migration
 		return nil
+	} else if domainMigrated(domain) {
+		return d.migrationSourceUpdateVMIStatus(vmi)
 	}
 
 	oldStatus := vmi.DeepCopy().Status
@@ -812,76 +887,6 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 				d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.AccessCredentialsSyncFailed.String(), message)
 			}
 		}
-	}
-
-	// handle migrations differently than normal status updates.
-	//
-	// When a successful migration is detected, we must transfer ownership of the VMI
-	// from the source node (this node) to the target node (node the domain was migrated to).
-	//
-	// Transfer owership by...
-	// 1. Marking vmi.Status.MigationState as completed
-	// 2. Update the vmi.Status.NodeName to reflect the target node's name
-	// 3. Update the VMI's NodeNameLabel annotation to reflect the target node's name
-	// 4. Clear the LauncherContainerImageVersion which virt-controller will detect
-	//    and accurately based on the version used on the target pod
-	//
-	// After a migration, the VMI's phase is no longer owned by this node. Only the
-	// MigrationState status field is elgible to be mutated.
-	if domainMigrated(domain) {
-		migrationHost := ""
-		if vmi.Status.MigrationState != nil {
-			migrationHost = vmi.Status.MigrationState.TargetNode
-		}
-
-		if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.EndTimestamp == nil {
-			now := metav1.NewTime(time.Now())
-			vmi.Status.MigrationState.EndTimestamp = &now
-		}
-
-		targetNodeDetectedDomain, timeLeft := d.hasTargetDetectedDomain(vmi)
-		// If we can't detect where the migration went to, then we have no
-		// way of transferring ownership. The only option here is to move the
-		// vmi to failed.  The cluster vmi controller will then tear down the
-		// resulting pods.
-		if migrationHost == "" {
-			// migrated to unknown host.
-			vmi.Status.Phase = v1.Failed
-			vmi.Status.MigrationState.Completed = true
-			vmi.Status.MigrationState.Failed = true
-
-			d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to unknown host."))
-		} else if !targetNodeDetectedDomain {
-			if timeLeft <= 0 {
-				vmi.Status.Phase = v1.Failed
-				vmi.Status.MigrationState.Completed = true
-				vmi.Status.MigrationState.Failed = true
-
-				d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance's domain was never observed on the target after the migration completed within the timeout period."))
-			} else {
-				log.Log.Object(vmi).Info("Waiting on the target node to observe the migrated domain before performing the handoff")
-			}
-		} else if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetNodeDomainDetected {
-			// this is the migration ACK.
-			// At this point we know that the migration has completed and that
-			// the target node has seen the domain event.
-			vmi.Labels[v1.NodeNameLabel] = migrationHost
-			delete(vmi.Labels, v1.OutdatedLauncherImageLabel)
-			vmi.Status.LauncherContainerImageVersion = ""
-			vmi.Status.NodeName = migrationHost
-			// clean the evacuation node name since have already migrated to a new node
-			vmi.Status.EvacuationNodeName = ""
-			vmi.Status.MigrationState.Completed = true
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to node %s.", migrationHost))
-		}
-
-		if !reflect.DeepEqual(oldStatus, vmi.Status) {
-			_, err = d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmi)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
 	}
 
 	// Calculate the new VirtualMachineInstance state based on what libvirt reported
