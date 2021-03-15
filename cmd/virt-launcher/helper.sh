@@ -6,7 +6,7 @@ ls -alZ /dev/termination-log
 ls -alZ /etc/resolv.conf
 ls -alZ /etc/hostname
 ls -alZ /run/kubevirt
-ls -alZ /run/kubevirt-ephemeral-disk
+ls -alZ /run/kubevirt-ephemeral-disks
 ls -alZ /run/kubevirt-private
 ls -alZ /run/libvirt
 ls -alZ /run/kubevirt/container-disks

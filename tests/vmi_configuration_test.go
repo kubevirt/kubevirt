@@ -1979,7 +1979,7 @@ var _ = Describe("Configurations", func() {
 				}
 				Expect(cpuManagerEnabled).To(BeTrue())
 			})
-			It("[test_id:991]should be scheduled on a node with running cpu manager", func() {
+			FIt("[test_id:991]should be scheduled on a node with running cpu manager", func() {
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,

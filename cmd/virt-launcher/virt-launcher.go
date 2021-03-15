@@ -382,12 +382,12 @@ func main() {
 	stopChan := make(chan struct{})
 
 	l := util.NewLibvirtWraper(*runWithNonRoot)
-	// err = l.SetupLibvirt()
-	// if err != nil {
-	// 	panic(err)
-	// }
+	err = l.SetupLibvirt()
+	if err != nil {
+		panic(err)
+	}
 
-	// l.StartLibvirt(stopChan)
+	l.StartLibvirt(stopChan)
 	// only single domain should be present
 	domainName := api.VMINamespaceKeyFunc(vmi)
 
