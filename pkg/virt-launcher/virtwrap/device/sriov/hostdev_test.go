@@ -21,6 +21,7 @@ package sriov_test
 
 import (
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -253,7 +254,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			c := newCallbackerStub(false, false)
 			c.sendEvent("non-sriov")
 			d := deviceDetacherStub{}
-			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 1)).To(HaveOccurred())
+			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 10*time.Millisecond)).To(HaveOccurred())
 			Expect(len(c.EventChannel())).To(Equal(0))
 		})
 
@@ -264,7 +265,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			c := newCallbackerStub(false, true)
 			c.sendEvent(api.UserAliasPrefix + hostDevice.Alias.GetName())
 			d := deviceDetacherStub{}
-			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 1)).To(Succeed())
+			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 10*time.Millisecond)).To(Succeed())
 		})
 
 		It("succeeds detaching 2 sriov devices", func() {
@@ -275,7 +276,7 @@ var _ = Describe("SRIOV HostDevice", func() {
 			c.sendEvent(api.UserAliasPrefix + hostDevice.Alias.GetName())
 			c.sendEvent(api.UserAliasPrefix + hostDevice2.Alias.GetName())
 			d := deviceDetacherStub{}
-			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 1)).To(Succeed())
+			Expect(sriov.SafelyDetachHostDevices(domainSpec, c, d, 10*time.Millisecond)).To(Succeed())
 		})
 	})
 })
