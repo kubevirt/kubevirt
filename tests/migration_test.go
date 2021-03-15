@@ -880,7 +880,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
-			It("[test_id:1377]should be successfully migrated multiple times", func() {
+			It("[release-blocker][test_id:1377]should be successfully migrated multiple times", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 				vmi = runVMIAndExpectLaunch(vmi, 180)
@@ -2019,7 +2019,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		})
 		Context("with multiple VMIs with eviction policies set", func() {
 
-			It("[test_id:3245]should not migrate more than two VMIs at the same time from a node", func() {
+			It("[release-blocker][test_id:3245]should not migrate more than two VMIs at the same time from a node", func() {
 				var vmis []*v1.VirtualMachineInstance
 				for i := 0; i < 4; i++ {
 					vmi := cirrosVMIWithEvictionStrategy()
