@@ -37,22 +37,13 @@ import (
 
 var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 
-	getAdmitter := func(needsVMIMock bool, vmi *v1.VirtualMachineInstance) *KubeVirtUpdateAdmitter {
+	getAdmitter := func(needsVMIMock bool) *KubeVirtUpdateAdmitter {
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
 
 		if needsVMIMock {
 			vmiInterface := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 			virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(vmiInterface).AnyTimes()
-
-			items := []v1.VirtualMachineInstance{}
-			if vmi != nil {
-				items = append(items, *vmi)
-			}
-
-			vmiInterface.EXPECT().List(gomock.Any()).Return(&v1.VirtualMachineInstanceList{
-				Items: items,
-			}, nil)
 		}
 
 		return NewKubeVirtUpdateAdmitter(virtClient)
@@ -80,7 +71,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 	}
 
 	It("should accept workload update when no VMIS are running", func() {
-		kvAdmitter := getAdmitter(true, nil)
+		kvAdmitter := getAdmitter(true)
 		kv := getKV()
 		kvBytes, _ := json.Marshal(&kv)
 
@@ -105,36 +96,8 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
-	It("should reject workload update when VMIS are running", func() {
-		vmi := v1.NewMinimalVMI("testmigratevmiupdate")
-		kvAdmitter := getAdmitter(true, vmi)
-		kv := getKV()
-		kvBytes, _ := json.Marshal(&kv)
-
-		cc := getComponentConfig()
-		kv.Spec.Workloads = &cc
-		kvUpdateBytes, _ := json.Marshal(&kv)
-
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
-				Resource: webhooks.KubeVirtGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: kvUpdateBytes,
-				},
-				OldObject: runtime.RawExtension{
-					Raw: kvBytes,
-				},
-				Operation: v1beta1.Update,
-			},
-		}
-
-		resp := kvAdmitter.Admit(ar)
-		Expect(resp.Allowed).To(BeFalse())
-		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
-	})
-
 	It("should accept KV update with VMIS running if workloads object is not changed", func() {
-		kvAdmitter := getAdmitter(false, nil)
+		kvAdmitter := getAdmitter(false)
 		kv := getKV()
 		cc := getComponentConfig()
 		kv.Spec.Workloads = &cc
@@ -189,9 +152,8 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		}, 0),
 	)
 
-	It("should reject with workload and JSON patch validation invalid", func() {
-		vmi := v1.NewMinimalVMI("testmigratevmiupdate")
-		kvAdmitter := getAdmitter(true, vmi)
+	It("should reject with JSON patch validation invalid", func() {
+		kvAdmitter := getAdmitter(true)
 		kv := getKV()
 		kvBytes, _ := json.Marshal(&kv)
 
@@ -224,8 +186,6 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 
 		resp := kvAdmitter.Admit(ar)
 		Expect(resp.Allowed).To(BeFalse())
-		// 3 because empty type and resource, nonvalid JSON and can not change
-		// workload placement when vmi is running
-		Expect(len(resp.Result.Details.Causes)).To(Equal(2))
+		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 	})
 })
