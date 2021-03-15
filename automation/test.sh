@@ -48,6 +48,8 @@ elif [[ $TARGET =~ cnao ]]; then
 elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_PROVIDER=${TARGET/-sig-network/}
+elif [[ $TARGET =~ sig-storage ]]; then
+  export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
 else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
@@ -297,6 +299,8 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     export KUBEVIRT_E2E_FOCUS="Multus|Networking|VMIlifecycle|Expose|Macvtap"
   elif [[ $TARGET =~ sig-network ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-network\\]"
+  elif [[ $TARGET =~ sig-storage ]]; then
+    export KUBEVIRT_E2E_FOCUS="\\[sig-storage\\]"
   elif [[ $TARGET =~ sriov.* ]]; then
     export KUBEVIRT_E2E_FOCUS=SRIOV
   elif [[ $TARGET =~ gpu.* ]]; then
