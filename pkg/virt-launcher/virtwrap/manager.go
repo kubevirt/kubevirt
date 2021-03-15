@@ -503,15 +503,8 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		}
 		defer dom.Free()
 
-		if err := hotUnplugHostDevices(l.virConn, dom); err != nil {
-			log.Log.Object(vmi).Reason(err).Error(fmt.Sprintf("Live migration failed."))
-			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
-			return
-		}
-
-		params, err := prepareMigrationParams(options, vmi, loopbackAddress, dom)
+		params, err := setupMigration(l, vmi, dom, options, loopbackAddress)
 		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
 			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
 			return
 		}
@@ -535,6 +528,20 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		}
 		log.Log.Object(vmi).Infof("Live migration succeeded.")
 	}(l, vmi)
+}
+
+func setupMigration(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance, dom cli.VirDomain, options *cmdclient.MigrationOptions, loopbackAddress string) (*libvirt.DomainMigrateParameters, error) {
+	if err := hotUnplugHostDevices(l.virConn, dom); err != nil {
+		log.Log.Object(vmi).Reason(err).Error(fmt.Sprintf("Live migration failed."))
+		return nil, err
+	}
+
+	params, err := prepareMigrationParams(options, vmi, loopbackAddress, dom)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
+		return nil, err
+	}
+	return params, nil
 }
 
 func prepareMigrationParams(options *cmdclient.MigrationOptions, vmi *v1.VirtualMachineInstance, loopbackAddress string, dom cli.VirDomain) (*libvirt.DomainMigrateParameters, error) {
