@@ -508,31 +508,10 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
 		}
 
-		bandwidth, err := converter.QuantityToMebiByte(options.Bandwidth)
+		params, err := prepareMigrationParams(options, vmi, loopbackAddress, dom)
 		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Live migration failed. Invalid bandwidth supplied.")
+			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
 			return
-		}
-
-		migrURI := fmt.Sprintf("tcp://%s", ip.NormalizeIPAddress(loopbackAddress))
-
-		xmlstr, err := domXMLWithoutKubevirtMetadata(dom, vmi)
-		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Live migration failed. Could not compute target XML.")
-			return
-		}
-
-		params := &libvirt.DomainMigrateParameters{
-			Bandwidth:  bandwidth, // MiB/s
-			URI:        migrURI,
-			URISet:     true,
-			DestXML:    xmlstr,
-			DestXMLSet: true,
-		}
-		copyDisks := getDiskTargetsForMigration(dom, vmi)
-		if len(copyDisks) != 0 {
-			params.MigrateDisks = copyDisks
-			params.MigrateDisksSet = true
 		}
 		// start live migration tracking
 		migrationErrorChan := make(chan error, 1)
@@ -554,6 +533,34 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		}
 		log.Log.Object(vmi).Infof("Live migration succeeded.")
 	}(l, vmi)
+}
+
+func prepareMigrationParams(options *cmdclient.MigrationOptions, vmi *v1.VirtualMachineInstance, loopbackAddress string, dom cli.VirDomain) (*libvirt.DomainMigrateParameters, error) {
+	bandwidth, err := converter.QuantityToMebiByte(options.Bandwidth)
+	if err != nil {
+		return nil, fmt.Errorf("invalid bandwidth supplied, err: %v", err)
+	}
+
+	migrURI := fmt.Sprintf("tcp://%s", ip.NormalizeIPAddress(loopbackAddress))
+
+	xmlstr, err := domXMLWithoutKubevirtMetadata(dom, vmi)
+	if err != nil {
+		return nil, fmt.Errorf("could not compute target XML, err: %v", err)
+	}
+
+	params := &libvirt.DomainMigrateParameters{
+		Bandwidth:  bandwidth, // MiB/s
+		URI:        migrURI,
+		URISet:     true,
+		DestXML:    xmlstr,
+		DestXMLSet: true,
+	}
+	copyDisks := getDiskTargetsForMigration(dom, vmi)
+	if len(copyDisks) != 0 {
+		params.MigrateDisks = copyDisks
+		params.MigrateDisksSet = true
+	}
+	return params, nil
 }
 
 // startMigrationProxyServer starts a local migration proxy.
