@@ -506,6 +506,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		if err := hotUnplugHostDevices(l.virConn, dom); err != nil {
 			log.Log.Object(vmi).Reason(err).Error(fmt.Sprintf("Live migration failed."))
 			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
+			return
 		}
 
 		params, err := prepareMigrationParams(options, vmi, loopbackAddress, dom)
