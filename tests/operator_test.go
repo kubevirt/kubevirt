@@ -56,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/assert"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -1249,8 +1250,11 @@ spec:
 				}, 90*time.Second, 1*time.Second).Should(BeTrue())
 			}
 
-			By("Verifying all migratable vmi workloads are updated via live migration")
-			verifyVMIsUpdated(migratableVMIs, launcherSha)
+			// QUARANTINED Logic - tracked by issue https://github.com/kubevirt/kubevirt/issues/5228
+			assert.XFail("https://github.com/kubevirt/kubevirt/issues/5228", func() {
+				By("Verifying all migratable vmi workloads are updated via live migration")
+				verifyVMIsUpdated(migratableVMIs, launcherSha)
+			})
 
 			By("Deleting migratable VMIs")
 			deleteAllVMIs(migratableVMIs)
