@@ -497,6 +497,56 @@ func canUpdateToUnmounted(currentPhase v1.VolumePhase) bool {
 	return currentPhase == v1.VolumeReady || currentPhase == v1.HotplugVolumeMounted || currentPhase == v1.HotplugVolumeAttachedToNode
 }
 
+func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain, domainExists bool) error {
+
+	vmiCopy := vmi.DeepCopy()
+
+	// Handle post migration
+	if domainExists && vmi.Status.MigrationState != nil && !vmi.Status.MigrationState.TargetNodeDomainDetected {
+		// record that we've see the domain populated on the target's node
+		log.Log.Object(vmi).Info("The target node received the migrated domain")
+		vmiCopy.Status.MigrationState.TargetNodeDomainDetected = true
+		d.setVMIGuestTime(vmi)
+	}
+
+	if !migrations.IsMigrating(vmi) {
+		destSrcPortsMap := d.migrationProxy.GetTargetListenerPorts(string(vmi.UID))
+		if len(destSrcPortsMap) == 0 {
+			msg := "target migration listener is not up for this vmi"
+			log.Log.Object(vmi).Error(msg)
+			return fmt.Errorf(msg)
+		}
+
+		hostAddress := ""
+
+		// advertise the listener address to the source node
+		if vmi.Status.MigrationState != nil {
+			hostAddress = vmi.Status.MigrationState.TargetNodeAddress
+		}
+		if hostAddress != d.ipAddress {
+			portsList := make([]string, 0, len(destSrcPortsMap))
+
+			for k := range destSrcPortsMap {
+				portsList = append(portsList, k)
+			}
+			portsStrList := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(portsList)), ","), "[]")
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s, on ports: %s", d.ipAddress, portsStrList))
+			vmiCopy.Status.MigrationState.TargetNodeAddress = d.ipAddress
+			vmiCopy.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPortsMap
+		}
+	}
+
+	// update the VMI if necessary
+	if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) {
+		_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmiCopy)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 	hasHotplug := false
@@ -1188,7 +1238,6 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 
 	} else if shouldUpdate {
 		log.Log.Object(vmi).Info("Processing vmi migration target update")
-		vmiCopy := vmi.DeepCopy()
 
 		// prepare the POD for the migration
 		err := d.processVmUpdate(vmi)
@@ -1196,50 +1245,10 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 			return err
 		}
 
-		// Handle post migration
-		if domainExists && vmi.Status.MigrationState != nil && !vmi.Status.MigrationState.TargetNodeDomainDetected {
-			// record that we've see the domain populated on the target's node
-			log.Log.Object(vmi).Info("The target node received the migrated domain")
-			vmiCopy.Status.MigrationState.TargetNodeDomainDetected = true
-			d.setVMIGuestTime(vmi)
+		err = d.migrationTargetUpdateVMIStatus(vmi, domain, domainExists)
+		if err != nil {
+			return err
 		}
-		if !migrations.IsMigrating(vmi) {
-
-			destSrcPortsMap := d.migrationProxy.GetTargetListenerPorts(string(vmi.UID))
-			if len(destSrcPortsMap) == 0 {
-				msg := "target migration listener is not up for this vmi"
-				log.Log.Object(vmi).Error(msg)
-				return fmt.Errorf(msg)
-			}
-
-			hostAddress := ""
-
-			// advertise the listener address to the source node
-			if vmi.Status.MigrationState != nil {
-				hostAddress = vmi.Status.MigrationState.TargetNodeAddress
-			}
-			if hostAddress != d.ipAddress {
-				portsList := make([]string, 0, len(destSrcPortsMap))
-
-				for k := range destSrcPortsMap {
-					portsList = append(portsList, k)
-				}
-				portsStrList := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(portsList)), ","), "[]")
-				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s, on ports: %s", d.ipAddress, portsStrList))
-				vmiCopy.Status.MigrationState.TargetNodeAddress = d.ipAddress
-				vmiCopy.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPortsMap
-			}
-		}
-
-		// update the VMI if necessary
-		if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) {
-			_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmiCopy)
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
 	}
 
 	return nil
