@@ -531,6 +531,9 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 }
 
 func setupMigration(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance, dom cli.VirDomain, options *cmdclient.MigrationOptions, loopbackAddress string) (*libvirt.DomainMigrateParameters, error) {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
 	if err := hotUnplugHostDevices(l.virConn, dom); err != nil {
 		log.Log.Object(vmi).Reason(err).Error(fmt.Sprintf("Live migration failed."))
 		return nil, err
