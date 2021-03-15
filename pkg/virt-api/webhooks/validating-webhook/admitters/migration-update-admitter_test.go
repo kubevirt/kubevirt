@@ -24,7 +24,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -76,8 +76,8 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 
 		enableFeatureGate(virtconfig.LiveMigrationGate)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.MigrationGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: newMigrationBytes,
@@ -85,7 +85,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 				OldObject: runtime.RawExtension{
 					Raw: oldMigrationBytes,
 				},
-				Operation: v1beta1.Update,
+				Operation: admissionv1.Update,
 			},
 		}
 
@@ -114,8 +114,8 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 
 		enableFeatureGate(virtconfig.LiveMigrationGate)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.MigrationGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: migrationBytes,
@@ -123,7 +123,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 				OldObject: runtime.RawExtension{
 					Raw: migrationBytes,
 				},
-				Operation: v1beta1.Update,
+				Operation: admissionv1.Update,
 			},
 		}
 
@@ -160,8 +160,8 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 
 		enableFeatureGate(virtconfig.LiveMigrationGate)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.MigrationGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: newMigrationBytes,
@@ -169,7 +169,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 				OldObject: runtime.RawExtension{
 					Raw: oldMigrationBytes,
 				},
-				Operation: v1beta1.Update,
+				Operation: admissionv1.Update,
 			},
 		}
 
@@ -206,8 +206,8 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 
 		enableFeatureGate(virtconfig.LiveMigrationGate)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.MigrationGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: newMigrationBytes,
@@ -215,7 +215,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 				OldObject: runtime.RawExtension{
 					Raw: oldMigrationBytes,
 				},
-				Operation: v1beta1.Update,
+				Operation: admissionv1.Update,
 			},
 		}
 
@@ -252,8 +252,8 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 
 		enableFeatureGate(virtconfig.LiveMigrationGate)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.MigrationGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: newMigrationBytes,
@@ -261,7 +261,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 				OldObject: runtime.RawExtension{
 					Raw: oldMigrationBytes,
 				},
-				Operation: v1beta1.Update,
+				Operation: admissionv1.Update,
 			},
 		}
 

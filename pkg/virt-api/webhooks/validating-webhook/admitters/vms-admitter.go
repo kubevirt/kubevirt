@@ -26,7 +26,7 @@ import (
 	"reflect"
 	"strings"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	authv1 "k8s.io/api/authorization/v1"
 	k8svalidation "k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,7 +73,7 @@ func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.Kube
 	}
 }
 
-func (admitter *VMsAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineGroupVersionResource.Group, webhooks.VirtualMachineGroupVersionResource.Resource) {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineGroupVersionResource.Resource)
 		return webhookutils.ToAdmissionResponseError(err)
@@ -122,12 +122,12 @@ func (admitter *VMsAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
 }
 
-func (admitter *VMsAdmitter) AdmitStatus(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (admitter *VMsAdmitter) AdmitStatus(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	vm, _, err := webhookutils.GetVMFromAdmissionReview(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
@@ -150,12 +150,12 @@ func (admitter *VMsAdmitter) AdmitStatus(ar *v1beta1.AdmissionReview) *v1beta1.A
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
 }
 
-func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
+func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
 	var causes []metav1.StatusCause
 
 	for idx, dataVolume := range vm.Spec.DataVolumeTemplates {
@@ -445,12 +445,12 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 
 }
 
-func validateStateChangeRequests(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
+func validateStateChangeRequests(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
 	// Only rename request is validated
 	renameRequest := getRenameRequest(vm)
 
 	// Prevent creation of VM with rename request
-	if ar.Operation == v1beta1.Create {
+	if ar.Operation == admissionv1.Create {
 		if renameRequest != nil {
 			return []metav1.StatusCause{{
 				Type:    metav1.CauseTypeFieldValueInvalid,
@@ -458,7 +458,7 @@ func validateStateChangeRequests(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMac
 				Field:   k8sfield.NewPath("Status", "stateChangeRequests").String(),
 			}}
 		}
-	} else if ar.Operation == v1beta1.Update {
+	} else if ar.Operation == admissionv1.Update {
 		existingVM := &v1.VirtualMachine{}
 		err := json.Unmarshal(ar.OldObject.Raw, existingVM)
 
@@ -522,8 +522,8 @@ func validateStateChangeRequests(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMac
 	return nil
 }
 
-func validateSnapshotStatus(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
-	if ar.Operation != v1beta1.Update || vm.Status.SnapshotInProgress == nil {
+func validateSnapshotStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
+	if ar.Operation != admissionv1.Update || vm.Status.SnapshotInProgress == nil {
 		return nil
 	}
 

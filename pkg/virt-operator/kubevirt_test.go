@@ -39,7 +39,7 @@ import (
 	secv1 "github.com/openshift/api/security/v1"
 	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -263,9 +263,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		informers.DaemonSet, daemonSetSource = testutils.NewFakeInformerFor(&appsv1.DaemonSet{})
 		stores.DaemonSetCache = informers.DaemonSet.GetStore()
 
-		informers.ValidationWebhook, validatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1beta1.ValidatingWebhookConfiguration{})
+		informers.ValidationWebhook, validatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingWebhookConfiguration{})
 		stores.ValidationWebhookCache = informers.ValidationWebhook.GetStore()
-		informers.MutatingWebhook, mutatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1beta1.MutatingWebhookConfiguration{})
+		informers.MutatingWebhook, mutatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1.MutatingWebhookConfiguration{})
 		stores.MutatingWebhookCache = informers.MutatingWebhook.GetStore()
 		informers.APIService, apiserviceSource = testutils.NewFakeInformerFor(&apiregv1.APIService{})
 		stores.APIServiceCache = informers.APIService.GetStore()
@@ -325,7 +325,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		promClient = promclientfake.NewSimpleClientset()
 
-		virtClient.EXPECT().AdmissionregistrationV1beta1().Return(kubeClient.AdmissionregistrationV1beta1()).AnyTimes()
+		virtClient.EXPECT().AdmissionregistrationV1().Return(kubeClient.AdmissionregistrationV1()).AnyTimes()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().BatchV1().Return(kubeClient.BatchV1()).AnyTimes()
 		virtClient.EXPECT().RbacV1().Return(kubeClient.RbacV1()).AnyTimes()
@@ -476,7 +476,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
-	addValidatingWebhook := func(wh *admissionregistrationv1beta1.ValidatingWebhookConfiguration, kv *v1.KubeVirt) {
+	addValidatingWebhook := func(wh *admissionregistrationv1.ValidatingWebhookConfiguration, kv *v1.KubeVirt) {
 		mockQueue.ExpectAdds(1)
 		if kv != nil {
 			apply.SetValidatingWebhookConfigurationGeneration(&kv.Status.Generations, wh)
@@ -486,7 +486,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
-	addMutatingWebhook := func(wh *admissionregistrationv1beta1.MutatingWebhookConfiguration, kv *v1.KubeVirt) {
+	addMutatingWebhook := func(wh *admissionregistrationv1.MutatingWebhookConfiguration, kv *v1.KubeVirt) {
 		mockQueue.ExpectAdds(1)
 		if kv != nil {
 			apply.SetMutatingWebhookConfigurationGeneration(&kv.Status.Generations, wh)
@@ -583,11 +583,11 @@ var _ = Describe("KubeVirt Operator", func() {
 		case *appsv1.DaemonSet:
 			injectMetadata(&obj.(*appsv1.DaemonSet).ObjectMeta, config)
 			addDaemonset(resource, kv)
-		case *admissionregistrationv1beta1.ValidatingWebhookConfiguration:
-			injectMetadata(&obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration).ObjectMeta, config)
+		case *admissionregistrationv1.ValidatingWebhookConfiguration:
+			injectMetadata(&obj.(*admissionregistrationv1.ValidatingWebhookConfiguration).ObjectMeta, config)
 			addValidatingWebhook(resource, kv)
-		case *admissionregistrationv1beta1.MutatingWebhookConfiguration:
-			injectMetadata(&obj.(*admissionregistrationv1beta1.MutatingWebhookConfiguration).ObjectMeta, config)
+		case *admissionregistrationv1.MutatingWebhookConfiguration:
+			injectMetadata(&obj.(*admissionregistrationv1.MutatingWebhookConfiguration).ObjectMeta, config)
 			addMutatingWebhook(resource, kv)
 		case *apiregv1.APIService:
 			injectMetadata(&obj.(*apiregv1.APIService).ObjectMeta, config)
@@ -846,7 +846,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		registry := fmt.Sprintf("rand-%s", rand.String(10))
 		config := getConfig(registry, version)
 
-		validationWebhook := &admissionregistrationv1beta1.ValidatingWebhookConfiguration{
+		validationWebhook := &admissionregistrationv1.ValidatingWebhookConfiguration{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "virt-operator-tmp-webhook",
 			},
@@ -1262,13 +1262,13 @@ var _ = Describe("KubeVirt Operator", func() {
 	webhookValidationPatchFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		genericPatchFunc(action)
 
-		return true, &admissionregistrationv1beta1.ValidatingWebhookConfiguration{}, nil
+		return true, &admissionregistrationv1.ValidatingWebhookConfiguration{}, nil
 	}
 
 	webhookMutatingPatchFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		genericPatchFunc(action)
 
-		return true, &admissionregistrationv1beta1.MutatingWebhookConfiguration{}, nil
+		return true, &admissionregistrationv1.MutatingWebhookConfiguration{}, nil
 	}
 
 	deploymentPatchFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {

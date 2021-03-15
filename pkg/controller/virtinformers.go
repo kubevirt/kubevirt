@@ -29,7 +29,7 @@ import (
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	secv1 "github.com/openshift/api/security/v1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -724,8 +724,8 @@ func (f *kubeInformerFactory) OperatorValidationWebhook() cache.SharedIndexInfor
 			panic(err)
 		}
 
-		lw := NewListWatchFromClient(f.clientSet.AdmissionregistrationV1beta1().RESTClient(), "validatingwebhookconfigurations", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
-		return cache.NewSharedIndexInformer(lw, &admissionregistrationv1beta1.ValidatingWebhookConfiguration{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		lw := NewListWatchFromClient(f.clientSet.AdmissionregistrationV1().RESTClient(), "validatingwebhookconfigurations", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &admissionregistrationv1.ValidatingWebhookConfiguration{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 
@@ -736,8 +736,8 @@ func (f *kubeInformerFactory) OperatorMutatingWebhook() cache.SharedIndexInforme
 			panic(err)
 		}
 
-		lw := NewListWatchFromClient(f.clientSet.AdmissionregistrationV1beta1().RESTClient(), "mutatingwebhookconfigurations", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
-		return cache.NewSharedIndexInformer(lw, &admissionregistrationv1beta1.MutatingWebhookConfiguration{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		lw := NewListWatchFromClient(f.clientSet.AdmissionregistrationV1().RESTClient(), "mutatingwebhookconfigurations", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &admissionregistrationv1.MutatingWebhookConfiguration{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

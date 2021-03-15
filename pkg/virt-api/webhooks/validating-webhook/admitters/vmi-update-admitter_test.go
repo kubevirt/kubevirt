@@ -28,7 +28,7 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	authv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -58,12 +58,12 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	config, _, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 	vmiUpdateAdmitter := &VMIUpdateAdmitter{config}
 
-	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse) {
+	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
 		json.Unmarshal([]byte(data), &input)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: gvr,
 				Object: runtime.RawExtension{
 					Raw: []byte(data),
@@ -98,8 +98,8 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		newVMIBytes, _ := json.Marshal(&updateVmi)
 		oldVMIBytes, _ := json.Marshal(&vmi)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: newVMIBytes,
@@ -107,7 +107,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				OldObject: runtime.RawExtension{
 					Raw: oldVMIBytes,
 				},
-				Operation: v1beta1.Update,
+				Operation: admissionv1.Update,
 			},
 		}
 
@@ -126,8 +126,8 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			updateVmi.Labels = updateVmiLabels
 			newVMIBytes, _ := json.Marshal(&updateVmi)
 			oldVMIBytes, _ := json.Marshal(&vmi)
-			ar := &v1beta1.AdmissionReview{
-				Request: &v1beta1.AdmissionRequest{
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
 					UserInfo: authv1.UserInfo{Username: "system:serviceaccount:someNamespace:someUser"},
 					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
 					Object: runtime.RawExtension{
@@ -136,7 +136,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 					OldObject: runtime.RawExtension{
 						Raw: oldVMIBytes,
 					},
-					Operation: v1beta1.Update,
+					Operation: admissionv1.Update,
 				},
 			}
 			resp := admitVMILabelsUpdate(updateVmi, vmi, ar)
@@ -169,8 +169,8 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			updateVmi.Labels = updateVmiLabels
 			newVMIBytes, _ := json.Marshal(&updateVmi)
 			oldVMIBytes, _ := json.Marshal(&vmi)
-			ar := &v1beta1.AdmissionReview{
-				Request: &v1beta1.AdmissionRequest{
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
 					UserInfo: authv1.UserInfo{Username: "system:serviceaccount:kubevirt:" + serviceAccount},
 					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
 					Object: runtime.RawExtension{
@@ -179,7 +179,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 					OldObject: runtime.RawExtension{
 						Raw: oldVMIBytes,
 					},
-					Operation: v1beta1.Update,
+					Operation: admissionv1.Update,
 				},
 			}
 			resp := admitVMILabelsUpdate(updateVmi, vmi, ar)
@@ -211,8 +211,8 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			updateVmi.Labels = updateVmiLabels
 			newVMIBytes, _ := json.Marshal(&updateVmi)
 			oldVMIBytes, _ := json.Marshal(&vmi)
-			ar := &v1beta1.AdmissionReview{
-				Request: &v1beta1.AdmissionRequest{
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
 					UserInfo: authv1.UserInfo{Username: "system:serviceaccount:someNamespace:someUser"},
 					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
 					Object: runtime.RawExtension{
@@ -221,7 +221,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 					OldObject: runtime.RawExtension{
 						Raw: oldVMIBytes,
 					},
-					Operation: v1beta1.Update,
+					Operation: admissionv1.Update,
 				},
 			}
 			resp := admitVMILabelsUpdate(updateVmi, vmi, ar)
@@ -374,7 +374,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		return res
 	}
 
-	makeExpected := func(message, field string) *v1beta1.AdmissionResponse {
+	makeExpected := func(message, field string) *admissionv1.AdmissionResponse {
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{
 				Type:    metav1.CauseTypeFieldValueInvalid,
@@ -406,7 +406,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		table.Entry("Should return 3 volumes if  1 hotplugged volume", makeVolumes(0, 1, 2, 3), makeStatus(4, 1), makeResult(0, 1, 2)),
 	)
 
-	table.DescribeTable("Should return proper admission response", func(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, volumeStatuses []v1.VolumeStatus, expected *v1beta1.AdmissionResponse) {
+	table.DescribeTable("Should return proper admission response", func(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, volumeStatuses []v1.VolumeStatus, expected *admissionv1.AdmissionResponse) {
 		newVMI := v1.NewMinimalVMI("testvmi")
 		newVMI.Spec.Volumes = newVolumes
 		newVMI.Spec.Domain.Devices.Disks = newDisks
@@ -498,8 +498,8 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 
 		newVMIBytes, _ := json.Marshal(&updateVmi)
 		oldVMIBytes, _ := json.Marshal(&vmi)
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				UserInfo: authv1.UserInfo{Username: user},
 				Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
 				Object: runtime.RawExtension{
@@ -508,7 +508,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				OldObject: runtime.RawExtension{
 					Raw: oldVMIBytes,
 				},
-				Operation: v1beta1.Update,
+				Operation: admissionv1.Update,
 			},
 		}
 		resp := vmiUpdateAdmitter.Admit(ar)

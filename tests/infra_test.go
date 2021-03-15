@@ -153,7 +153,7 @@ var _ = Describe("[Serial][owner:@sig-compute]Infrastructure", func() {
 
 			By("checking that the ca bundle gets propagated to the validating webhook")
 			Eventually(func() bool {
-				webhook, err := virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(context.Background(), components.VirtAPIValidatingWebhookName, metav1.GetOptions{})
+				webhook, err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), components.VirtAPIValidatingWebhookName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				if len(webhook.Webhooks) > 0 {
 					return tests.ContainsCrt(webhook.Webhooks[0].ClientConfig.CABundle, newCA)
@@ -162,7 +162,7 @@ var _ = Describe("[Serial][owner:@sig-compute]Infrastructure", func() {
 			}, 10*time.Second, 1*time.Second).Should(BeTrue())
 			By("checking that the ca bundle gets propagated to the mutating webhook")
 			Eventually(func() bool {
-				webhook, err := virtClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(context.Background(), components.VirtAPIMutatingWebhookName, metav1.GetOptions{})
+				webhook, err := virtClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), components.VirtAPIMutatingWebhookName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				if len(webhook.Webhooks) > 0 {
 					return tests.ContainsCrt(webhook.Webhooks[0].ClientConfig.CABundle, newCA)

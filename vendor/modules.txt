@@ -499,8 +499,8 @@ gopkg.in/inf.v0
 gopkg.in/tomb.v1
 # gopkg.in/yaml.v2 v2.3.0
 gopkg.in/yaml.v2
-# k8s.io/api v0.20.2 => k8s.io/api v0.20.2
-k8s.io/api/admission/v1beta1
+# k8s.io/api v0.20.4 => k8s.io/api v0.20.2
+k8s.io/api/admission/v1
 k8s.io/api/admissionregistration/v1
 k8s.io/api/admissionregistration/v1beta1
 k8s.io/api/apiserverinternal/v1alpha1

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
@@ -20,7 +20,7 @@ type PodEvictionAdmitter struct {
 	VirtClient    kubecli.KubevirtClient
 }
 
-func (admitter *PodEvictionAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if !admitter.ClusterConfig.LiveMigrationEnabled() {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
@@ -65,7 +65,7 @@ func (admitter *PodEvictionAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1
 	return validating_webhooks.NewPassingAdmissionResponse()
 }
 
-func (admitter *PodEvictionAdmitter) markVMI(ar *v1beta1.AdmissionReview, vmi *virtv1.VirtualMachineInstance, dryRun bool) (err error) {
+func (admitter *PodEvictionAdmitter) markVMI(ar *admissionv1.AdmissionReview, vmi *virtv1.VirtualMachineInstance, dryRun bool) (err error) {
 	vmiCopy := vmi.DeepCopy()
 	vmiCopy.Status.EvacuationNodeName = vmi.Status.NodeName
 	if !dryRun {
@@ -74,8 +74,8 @@ func (admitter *PodEvictionAdmitter) markVMI(ar *v1beta1.AdmissionReview, vmi *v
 	return err
 }
 
-func denied(message string) *v1beta1.AdmissionResponse {
-	return &v1beta1.AdmissionResponse{
+func denied(message string) *admissionv1.AdmissionResponse {
+	return &admissionv1.AdmissionResponse{
 		Allowed: false,
 		Result: &metav1.Status{
 			Message: message,

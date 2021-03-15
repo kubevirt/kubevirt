@@ -30,7 +30,7 @@ import (
 	"github.com/blang/semver"
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -314,14 +314,14 @@ func haveDaemonSetsRolledOver(targetStrategy *install.Strategy, kv *v1.KubeVirt,
 
 func (r *Reconciler) createDummyWebhookValidator() error {
 
-	var webhooks []admissionregistrationv1beta1.ValidatingWebhook
+	var webhooks []admissionregistrationv1.ValidatingWebhook
 
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
 	// If webhook already exists in cache, then exit.
 	objects := r.stores.ValidationWebhookCache.List()
 	for _, obj := range objects {
-		if webhook, ok := obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok {
+		if webhook, ok := obj.(*admissionregistrationv1.ValidatingWebhookConfiguration); ok {
 
 			if objectMatchesVersion(&webhook.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
 				// already created blocking webhook for this version
@@ -331,7 +331,8 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 	}
 
 	// generate a fake cert. this isn't actually used
-	failurePolicy := admissionregistrationv1beta1.Fail
+	sideEffectNone := admissionregistrationv1.SideEffectClassNone
+	failurePolicy := admissionregistrationv1.Fail
 
 	for _, crd := range r.targetStrategy.CRDs() {
 		_, exists, _ := r.stores.CrdCache.Get(crd)
@@ -342,21 +343,23 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 			continue
 		}
 		path := fmt.Sprintf("/fake-path/%s", crd.Name)
-		webhooks = append(webhooks, admissionregistrationv1beta1.ValidatingWebhook{
-			Name:          fmt.Sprintf("%s-tmp-validator", crd.Name),
-			FailurePolicy: &failurePolicy,
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{
-					admissionregistrationv1beta1.Create,
+		webhooks = append(webhooks, admissionregistrationv1.ValidatingWebhook{
+			Name:                    fmt.Sprintf("%s-tmp-validator", crd.Name),
+			AdmissionReviewVersions: []string{"v1", "v1beta1"},
+			SideEffects:             &sideEffectNone,
+			FailurePolicy:           &failurePolicy,
+			Rules: []admissionregistrationv1.RuleWithOperations{{
+				Operations: []admissionregistrationv1.OperationType{
+					admissionregistrationv1.Create,
 				},
-				Rule: admissionregistrationv1beta1.Rule{
+				Rule: admissionregistrationv1.Rule{
 					APIGroups:   []string{crd.Spec.Group},
 					APIVersions: v1.ApiSupportedWebhookVersions,
 					Resources:   []string{crd.Spec.Names.Plural},
 				},
 			}},
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
+			ClientConfig: admissionregistrationv1.WebhookClientConfig{
+				Service: &admissionregistrationv1.ServiceReference{
 					Namespace: r.kv.Namespace,
 					Name:      "fake-validation-service",
 					Path:      &path,
@@ -378,7 +381,7 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 		webhook.ClientConfig.CABundle = signingCertBytes
 	}
 
-	validationWebhook := &admissionregistrationv1beta1.ValidatingWebhookConfiguration{
+	validationWebhook := &admissionregistrationv1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-operator-tmp-webhook",
 		},
@@ -387,7 +390,7 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 	injectOperatorMetadata(r.kv, &validationWebhook.ObjectMeta, version, imageRegistry, id, true)
 
 	r.expectations.ValidationWebhook.RaiseExpectations(r.kvKey, 1, 0)
-	_, err := r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(context.Background(), validationWebhook, metav1.CreateOptions{})
+	_, err := r.clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), validationWebhook, metav1.CreateOptions{})
 	if err != nil {
 		r.expectations.ValidationWebhook.LowerExpectations(r.kvKey, 1, 0)
 		return fmt.Errorf("unable to create validation webhook: %v", err)
@@ -665,7 +668,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	// remove unused validating webhooks
 	objects := r.stores.ValidationWebhookCache.List()
 	for _, obj := range objects {
-		if webhook, ok := obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil {
+		if webhook, ok := obj.(*admissionregistrationv1.ValidatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil {
 			found := false
 			if strings.HasPrefix(webhook.Name, "virt-operator-tmp-webhook") {
 				continue
@@ -688,7 +691,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(webhook); err == nil {
 					r.expectations.ValidationWebhook.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
+					err := r.clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
 					if err != nil {
 						r.expectations.ValidationWebhook.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete webhook %+v: %v", webhook, err)
@@ -702,7 +705,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	// remove unused mutating webhooks
 	objects = r.stores.MutatingWebhookCache.List()
 	for _, obj := range objects {
-		if webhook, ok := obj.(*admissionregistrationv1beta1.MutatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil {
+		if webhook, ok := obj.(*admissionregistrationv1.MutatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil {
 			found := false
 			for _, targetWebhook := range r.targetStrategy.MutatingWebhookConfigurations() {
 				if targetWebhook.Name == webhook.Name {
@@ -720,7 +723,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(webhook); err == nil {
 					r.expectations.MutatingWebhook.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
+					err := r.clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
 					if err != nil {
 						r.expectations.MutatingWebhook.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete webhook %+v: %v", webhook, err)

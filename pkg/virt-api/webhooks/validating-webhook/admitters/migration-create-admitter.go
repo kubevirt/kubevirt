@@ -23,7 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -74,7 +74,7 @@ func (admitter *MigrationCreateAdmitter) ensureNoConflict(migration *v1.VirtualM
 	return nil
 }
 
-func (admitter *MigrationCreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (admitter *MigrationCreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	migration, _, err := getAdmissionReviewMigration(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
@@ -124,12 +124,12 @@ func (admitter *MigrationCreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1b
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
 }
 
-func getAdmissionReviewMigration(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineInstanceMigration, old *v1.VirtualMachineInstanceMigration, err error) {
+func getAdmissionReviewMigration(ar *admissionv1.AdmissionReview) (new *v1.VirtualMachineInstanceMigration, old *v1.VirtualMachineInstanceMigration, err error) {
 
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.MigrationGroupVersionResource.Group, webhooks.MigrationGroupVersionResource.Resource) {
 		return nil, nil, fmt.Errorf("expect resource to be '%s'", webhooks.MigrationGroupVersionResource)
@@ -143,7 +143,7 @@ func getAdmissionReviewMigration(ar *v1beta1.AdmissionReview) (new *v1.VirtualMa
 		return nil, nil, err
 	}
 
-	if ar.Request.Operation == v1beta1.Update {
+	if ar.Request.Operation == admissionv1.Update {
 		raw := ar.Request.OldObject.Raw
 		oldMigration := v1.VirtualMachineInstanceMigration{}
 		err = json.Unmarshal(raw, &oldMigration)

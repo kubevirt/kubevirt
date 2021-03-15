@@ -23,7 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -44,7 +44,7 @@ func NewKubeVirtUpdateAdmitter(client kubecli.KubevirtClient) *KubeVirtUpdateAdm
 	}
 }
 
-func (admitter *KubeVirtUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	// Get new and old KubeVirt from admission response
 	newKV, _, err := getAdmissionReviewKubeVirt(ar)
 	if err != nil {
@@ -60,7 +60,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1be
 	return validating_webhooks.NewAdmissionResponse(results)
 }
 
-func getAdmissionReviewKubeVirt(ar *v1beta1.AdmissionReview) (new *v1.KubeVirt, old *v1.KubeVirt, err error) {
+func getAdmissionReviewKubeVirt(ar *admissionv1.AdmissionReview) (new *v1.KubeVirt, old *v1.KubeVirt, err error) {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, KubeVirtGroupVersionResource.Group, KubeVirtGroupVersionResource.Resource) {
 		return nil, nil, fmt.Errorf("expect resource to be '%s'", KubeVirtGroupVersionResource)
 	}
@@ -73,7 +73,7 @@ func getAdmissionReviewKubeVirt(ar *v1beta1.AdmissionReview) (new *v1.KubeVirt, 
 		return nil, nil, err
 	}
 
-	if ar.Request.Operation == v1beta1.Update {
+	if ar.Request.Operation == admissionv1.Update {
 		raw := ar.Request.OldObject.Raw
 		oldKV := v1.KubeVirt{}
 		err = json.Unmarshal(raw, &oldKV)

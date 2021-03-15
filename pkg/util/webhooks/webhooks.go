@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -17,7 +17,7 @@ import (
 )
 
 // GetAdmissionReview
-func GetAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {
+func GetAdmissionReview(r *http.Request) (*admissionv1.AdmissionReview, error) {
 	var body []byte
 	if r.Body != nil {
 		if data, err := ioutil.ReadAll(r.Body); err == nil {
@@ -31,16 +31,16 @@ func GetAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {
 		return nil, fmt.Errorf("contentType=%s, expect application/json", contentType)
 	}
 
-	ar := &v1beta1.AdmissionReview{}
+	ar := &admissionv1.AdmissionReview{}
 	err := json.Unmarshal(body, ar)
 	return ar, err
 }
 
 // ToAdmissionResponseError
-func ToAdmissionResponseError(err error) *v1beta1.AdmissionResponse {
+func ToAdmissionResponseError(err error) *admissionv1.AdmissionResponse {
 	log.Log.Reason(err).Error("admission generic error")
 
-	return &v1beta1.AdmissionResponse{
+	return &admissionv1.AdmissionResponse{
 		Result: &v1.Status{
 			Message: err.Error(),
 			Code:    http.StatusBadRequest,
@@ -48,7 +48,7 @@ func ToAdmissionResponseError(err error) *v1beta1.AdmissionResponse {
 	}
 }
 
-func ToAdmissionResponse(causes []v1.StatusCause) *v1beta1.AdmissionResponse {
+func ToAdmissionResponse(causes []v1.StatusCause) *admissionv1.AdmissionResponse {
 	log.Log.Infof("rejected vmi admission")
 
 	globalMessage := ""
@@ -60,7 +60,7 @@ func ToAdmissionResponse(causes []v1.StatusCause) *v1beta1.AdmissionResponse {
 		}
 	}
 
-	return &v1beta1.AdmissionResponse{
+	return &admissionv1.AdmissionResponse{
 		Result: &v1.Status{
 			Message: globalMessage,
 			Reason:  v1.StatusReasonInvalid,
@@ -72,7 +72,7 @@ func ToAdmissionResponse(causes []v1.StatusCause) *v1beta1.AdmissionResponse {
 	}
 }
 
-func ValidationErrorsToAdmissionResponse(errs []error) *v1beta1.AdmissionResponse {
+func ValidationErrorsToAdmissionResponse(errs []error) *admissionv1.AdmissionResponse {
 	var causes []v1.StatusCause
 	for _, e := range errs {
 		causes = append(causes,
@@ -84,7 +84,7 @@ func ValidationErrorsToAdmissionResponse(errs []error) *v1beta1.AdmissionRespons
 	return ToAdmissionResponse(causes)
 }
 
-func ValidateSchema(gvk schema.GroupVersionKind, data []byte) *v1beta1.AdmissionResponse {
+func ValidateSchema(gvk schema.GroupVersionKind, data []byte) *admissionv1.AdmissionResponse {
 	in := map[string]interface{}{}
 	err := json.Unmarshal(data, &in)
 	if err != nil {
@@ -110,7 +110,7 @@ func ValidateRequestResource(request v1.GroupVersionResource, group string, reso
 	return false
 }
 
-func ValidateStatus(data []byte) *v1beta1.AdmissionResponse {
+func ValidateStatus(data []byte) *admissionv1.AdmissionResponse {
 	in := map[string]interface{}{}
 	err := json.Unmarshal(data, &in)
 	if err != nil {
@@ -128,7 +128,7 @@ func ValidateStatus(data []byte) *v1beta1.AdmissionResponse {
 	return nil
 }
 
-func GetVMIFromAdmissionReview(ar *v1beta1.AdmissionReview) (new *v12.VirtualMachineInstance, old *v12.VirtualMachineInstance, err error) {
+func GetVMIFromAdmissionReview(ar *admissionv1.AdmissionReview) (new *v12.VirtualMachineInstance, old *v12.VirtualMachineInstance, err error) {
 
 	if !ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineInstanceGroupVersionResource.Group, webhooks.VirtualMachineInstanceGroupVersionResource.Resource) {
 		return nil, nil, fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceGroupVersionResource.Resource)
@@ -142,7 +142,7 @@ func GetVMIFromAdmissionReview(ar *v1beta1.AdmissionReview) (new *v12.VirtualMac
 		return nil, nil, err
 	}
 
-	if ar.Request.Operation == v1beta1.Update {
+	if ar.Request.Operation == admissionv1.Update {
 		raw := ar.Request.OldObject.Raw
 		oldVMI := v12.VirtualMachineInstance{}
 
@@ -156,7 +156,7 @@ func GetVMIFromAdmissionReview(ar *v1beta1.AdmissionReview) (new *v12.VirtualMac
 	return &newVMI, nil, nil
 }
 
-func GetVMFromAdmissionReview(ar *v1beta1.AdmissionReview) (new *v12.VirtualMachine, old *v12.VirtualMachine, err error) {
+func GetVMFromAdmissionReview(ar *admissionv1.AdmissionReview) (new *v12.VirtualMachine, old *v12.VirtualMachine, err error) {
 
 	if !ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineGroupVersionResource.Group, webhooks.VirtualMachineGroupVersionResource.Resource) {
 		return nil, nil, fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineGroupVersionResource.Resource)
@@ -170,7 +170,7 @@ func GetVMFromAdmissionReview(ar *v1beta1.AdmissionReview) (new *v12.VirtualMach
 		return nil, nil, err
 	}
 
-	if ar.Request.Operation == v1beta1.Update {
+	if ar.Request.Operation == admissionv1.Update {
 		raw := ar.Request.OldObject.Raw
 		oldVM := v12.VirtualMachine{}
 

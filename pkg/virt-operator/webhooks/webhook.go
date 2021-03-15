@@ -3,7 +3,7 @@ package webhooks
 import (
 	"fmt"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -30,7 +30,7 @@ type KubeVirtDeletionAdmitter struct {
 	client kubecli.KubevirtClient
 }
 
-func (k *KubeVirtDeletionAdmitter) Admit(review *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (k *KubeVirtDeletionAdmitter) Admit(review *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	var kv *v1.KubeVirt
 	var err error
 	if review.Request.Name != "" {

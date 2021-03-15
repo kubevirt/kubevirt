@@ -32,7 +32,7 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -101,8 +101,8 @@ var _ = Describe("Validating VM Admitter", func() {
 		}
 		vmBytes, _ := json.Marshal(&vm)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.VirtualMachineGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: vmBytes,
@@ -138,8 +138,8 @@ var _ = Describe("Validating VM Admitter", func() {
 		}
 		vmBytes, _ := json.Marshal(&vm)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.VirtualMachineGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: vmBytes,
@@ -226,8 +226,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		})
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.VirtualMachineGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: vmBytes,
@@ -412,8 +412,8 @@ var _ = Describe("Validating VM Admitter", func() {
 		}
 		vmBytes, _ := json.Marshal(&vm)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.VirtualMachineGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: vmBytes,
@@ -613,8 +613,8 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		vmBytes, _ := json.Marshal(&vm)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.VirtualMachineGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: vmBytes,
@@ -662,8 +662,8 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		vmBytes, _ := json.Marshal(&vm)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
 				Resource: webhooks.VirtualMachineGroupVersionResource,
 				Object: runtime.RawExtension{
 					Raw: vmBytes,
@@ -681,7 +681,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	Context("VM rename", func() {
 		var (
 			vm         *v1.VirtualMachine
-			ar         *v1beta1.AdmissionReview
+			ar         *admissionv1.AdmissionReview
 			running    bool
 			notRunning bool
 		)
@@ -707,9 +707,9 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		Context("vm creation", func() {
 			BeforeEach(func() {
-				ar = &v1beta1.AdmissionReview{
-					Request: &v1beta1.AdmissionRequest{
-						Operation: v1beta1.Create,
+				ar = &admissionv1.AdmissionReview{
+					Request: &admissionv1.AdmissionRequest{
+						Operation: admissionv1.Create,
 						Resource:  webhooks.VirtualMachineGroupVersionResource,
 					},
 				}
@@ -754,9 +754,9 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		Context("vm update/patch", func() {
 			BeforeEach(func() {
-				ar = &v1beta1.AdmissionReview{
-					Request: &v1beta1.AdmissionRequest{
-						Operation: v1beta1.Update,
+				ar = &admissionv1.AdmissionReview{
+					Request: &admissionv1.AdmissionRequest{
+						Operation: admissionv1.Update,
 						Resource:  webhooks.VirtualMachineGroupVersionResource,
 					},
 				}
@@ -1414,7 +1414,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				}
 			}
 
-			ar := &v1beta1.AdmissionRequest{
+			ar := &admissionv1.AdmissionRequest{
 				Namespace: arNamespace,
 			}
 
@@ -1454,7 +1454,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				},
 			}
 
-			ar := &v1beta1.AdmissionRequest{}
+			ar := &admissionv1.AdmissionRequest{}
 
 			vmsAdmitter.cloneAuthFunc = makeCloneAdmitFailFunc(failMessage, failErr)
 			causes, err := vmsAdmitter.authorizeVirtualMachineSpec(ar, vm)
@@ -1491,9 +1491,9 @@ var _ = Describe("Validating VM Admitter", func() {
 		allow := mutateFn(vm)
 		objectBytes, _ := json.Marshal(vm)
 
-		ar := &v1beta1.AdmissionReview{
-			Request: &v1beta1.AdmissionRequest{
-				Operation: v1beta1.Update,
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Operation: admissionv1.Update,
 				Resource:  webhooks.VirtualMachineGroupVersionResource,
 				OldObject: runtime.RawExtension{
 					Raw: oldObjectBytes,

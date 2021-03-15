@@ -27,7 +27,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -129,8 +129,8 @@ var _ = Describe("Pod eviction admitter", func() {
 					Status: k8sv1.PodStatus{},
 				}
 
-				ar := &v1beta1.AdmissionReview{
-					Request: &v1beta1.AdmissionRequest{
+				ar := &admissionv1.AdmissionReview{
+					Request: &admissionv1.AdmissionRequest{
 						Name:      pod.Name,
 						Namespace: pod.Namespace,
 					},
@@ -181,8 +181,8 @@ var _ = Describe("Pod eviction admitter", func() {
 					Status: k8sv1.PodStatus{},
 				}
 
-				ar := &v1beta1.AdmissionReview{
-					Request: &v1beta1.AdmissionRequest{
+				ar := &admissionv1.AdmissionReview{
+					Request: &admissionv1.AdmissionRequest{
 						Name:      pod.Name,
 						Namespace: pod.Namespace,
 					},
@@ -228,8 +228,8 @@ var _ = Describe("Pod eviction admitter", func() {
 					Status: k8sv1.PodStatus{},
 				}
 
-				ar := &v1beta1.AdmissionReview{
-					Request: &v1beta1.AdmissionRequest{
+				ar := &admissionv1.AdmissionReview{
+					Request: &admissionv1.AdmissionRequest{
 						Name:      pod.Name,
 						Namespace: pod.Namespace,
 						DryRun:    &dryRun,
@@ -278,8 +278,8 @@ var _ = Describe("Pod eviction admitter", func() {
 					},
 				}
 
-				ar := &v1beta1.AdmissionReview{
-					Request: &v1beta1.AdmissionRequest{
+				ar := &admissionv1.AdmissionReview{
+					Request: &admissionv1.AdmissionRequest{
 						Name:      pod.Name,
 						Namespace: pod.Namespace,
 					},
@@ -308,7 +308,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		}
 
 		It("Should allow any review request", func() {
-			resp := podEvictionAdmitter.Admit(&v1beta1.AdmissionReview{})
+			resp := podEvictionAdmitter.Admit(&admissionv1.AdmissionReview{})
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
