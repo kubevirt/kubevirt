@@ -1417,7 +1417,9 @@ type CustomizeComponents struct {
 
 // +k8s:openapi-gen=true
 type CustomizeComponentsPatch struct {
-	ResourceName string    `json:"resourceName"`
+	// +kubebuilder:validation:MinLength=1
+	ResourceName string `json:"resourceName"`
+	// +kubebuilder:validation:MinLength=1
 	ResourceType string    `json:"resourceType"`
 	Patch        string    `json:"patch"`
 	Type         PatchType `json:"type"`
