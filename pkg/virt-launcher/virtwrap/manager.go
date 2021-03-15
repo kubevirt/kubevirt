@@ -511,6 +511,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		params, err := prepareMigrationParams(options, vmi, loopbackAddress, dom)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
+			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
 			return
 		}
 		// start live migration tracking
