@@ -20,13 +20,10 @@
 package virthandler
 
 import (
-	"context"
 	"crypto/tls"
-	"encoding/json"
 	goerror "errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -48,6 +45,8 @@ import (
 
 	netcache "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache"
 
+	"kubevirt.io/kubevirt/pkg/virt-handler/heartbeat"
+
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
@@ -61,8 +60,6 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
-	virtutil "kubevirt.io/kubevirt/pkg/util"
-	clusterutils "kubevirt.io/kubevirt/pkg/util/cluster"
 	pvcutils "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
@@ -156,6 +153,7 @@ func NewController(
 	c.domainNotifyPipes = make(map[string]string)
 
 	c.deviceManagerController = device_manager.NewDeviceController(c.host, maxDevices, clusterConfig)
+	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
 
 	return c
 }
@@ -198,6 +196,7 @@ type VirtualMachineController struct {
 	domainNotifyPipes           map[string]string
 	networkCacheStoreFactory    netcache.InterfaceCacheFactory
 	virtLauncherFSRunDirPattern string
+	heartBeat                   *heartbeat.HeartBeat
 }
 
 type virtLauncherCriticalNetworkError struct {
@@ -1023,7 +1022,7 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiSourceInformer.HasSynced, c.vmiTargetInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
 
-	go c.heartBeat(c.heartBeatInterval, stopCh)
+	go c.heartBeat.Run(c.heartBeatInterval, stopCh)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -2359,75 +2358,6 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 	if err == nil {
 		d.Queue.Add(key)
 	}
-}
-
-func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan struct{}) {
-	// This is a temporary workaround until k8s bug #66525 is resolved
-	cpuManagerPath := virtutil.CPUManagerPath
-	if t, err := clusterutils.IsOnOpenShift(d.clientset); err != nil {
-		// in that case leave the default cpuManagerPath
-		log.DefaultLogger().Reason(err).Errorf("Unable to detect cluster provider on %s, setting a default cpuManager file path %s", d.host, cpuManagerPath)
-	} else if t && clusterutils.GetOpenShiftMajorVersion(d.clientset) == clusterutils.OpenShift3Major {
-		cpuManagerPath = virtutil.CPUManagerOS3Path
-	}
-
-	for {
-		wait.JitterUntil(func() {
-			now, err := json.Marshal(metav1.Now())
-			if err != nil {
-				log.DefaultLogger().Reason(err).Errorf("Can't determine date")
-				return
-			}
-
-			kubevirtSchedulable := "true"
-			if !d.deviceManagerController.Initialized() {
-				kubevirtSchedulable = "false"
-			}
-
-			data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s"}, "annotations": {"%s": %s}}}`, v1.NodeSchedulable, kubevirtSchedulable, v1.VirtHandlerHeartbeat, string(now)))
-			_, err = d.clientset.CoreV1().Nodes().Patch(context.Background(), d.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
-			if err != nil {
-				log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", d.host)
-				return
-			}
-			log.DefaultLogger().V(4).Infof("Heartbeat sent")
-			// Label the node if cpu manager is running on it
-			// This is a temporary workaround until k8s bug #66525 is resolved
-			if d.clusterConfig.CPUManagerEnabled() {
-				d.updateNodeCpuManagerLabel(cpuManagerPath)
-			}
-		}, interval, 1.2, true, stopCh)
-	}
-}
-
-func (d *VirtualMachineController) updateNodeCpuManagerLabel(cpuManagerPath string) {
-	var cpuManagerOptions map[string]interface{}
-	// #nosec No risk for path injection. cpuManagerPath is composed of static values from pkg/util
-	content, err := ioutil.ReadFile(cpuManagerPath)
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
-		return
-	}
-
-	err = json.Unmarshal(content, &cpuManagerOptions)
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
-		return
-	}
-
-	isEnabled := false
-	if v, ok := cpuManagerOptions["policyName"]; ok && v == "static" {
-		isEnabled = true
-	}
-
-	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%t"}}}`, v1.CPUManager, isEnabled))
-	_, err = d.clientset.CoreV1().Nodes().Patch(context.Background(), d.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
-		return
-	}
-	log.DefaultLogger().V(4).Infof("Node has CPU Manager running")
-
 }
 
 func (d *VirtualMachineController) setVMIGuestTime(vmi *v1.VirtualMachineInstance) error {
