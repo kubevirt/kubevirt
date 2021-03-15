@@ -650,15 +650,23 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var virtHandlerAvailablePods int32
 
 			BeforeEach(func() {
-				var nodes *k8sv1.NodeList
 
-				Eventually(func() []k8sv1.Node {
-					nodes = tests.GetAllSchedulableNodes(virtClient)
-					return nodes.Items
-				}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be schedulable nodes")
+				// Schedule a vmi and make sure that virt-handler gets evicted from the node where the vmi was started
+				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo hi!")
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 
-				node := nodes.Items[0]
-				nodeName = node.GetName()
+				// Ensure that the VMI is running. This is necessary to ensure that virt-handler is fully responsible for
+				// the VMI. Otherwise virt-controller may move the VMI to failed instead of the node controller.
+				nodeName = tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+
+				virtHandler, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client")
+
+				ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Should get virthandler daemonset")
+				// Save virt-handler number of desired pods
+				virtHandlerAvailablePods = ds.Status.DesiredNumberScheduled
 
 				kv := tests.GetCurrentKv(virtClient)
 				kv.Spec.Workloads = &v1.ComponentConfig{
@@ -678,22 +686,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 				_, err = virtClient.KubeVirt(kv.Namespace).Update(kv)
 				Expect(err).ToNot(HaveOccurred(), "Should update kubevirt infra placement")
-
-				// Schedule a vmi and make sure that virt-handler gets evicted from the node where the vmi was started
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo hi!")
-				vmi.Spec.NodeSelector = map[string]string{
-					"kubernetes.io/hostname": nodeName,
-				}
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
-				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
-
-				virtHandler, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
-				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client")
-
-				ds, err := virtClient.AppsV1().DaemonSets(virtHandler.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get virthandler daemonset")
-				// Save virt-handler number of desired pods
-				virtHandlerAvailablePods = ds.Status.DesiredNumberScheduled
 
 				Eventually(func() bool {
 					_, err := virtClient.CoreV1().Pods(virtHandler.Namespace).Get(context.Background(), virtHandler.Name, metav1.GetOptions{})
