@@ -22,10 +22,8 @@ package webhooks
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	"k8s.io/api/admission/v1beta1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -48,8 +46,7 @@ func NewKubeVirtUpdateAdmitter(client kubecli.KubevirtClient) *KubeVirtUpdateAdm
 
 func (admitter *KubeVirtUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	// Get new and old KubeVirt from admission response
-	var results []metav1.StatusCause
-	newKV, oldKV, err := getAdmissionReviewKubeVirt(ar)
+	newKV, _, err := getAdmissionReviewKubeVirt(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -58,40 +55,9 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1be
 		return resp
 	}
 
-	results = validateCustomizeComponents(newKV.Spec.CustomizeComponents)
-
-	if reflect.DeepEqual(newKV.Spec.Workloads, oldKV.Spec.Workloads) {
-		return validating_webhooks.NewAdmissionResponse(results)
-	}
-
-	// reject update if it will move a virt-handler pod from a node that has
-	// a vmi running on it
-	causes, err := admitter.validateWorkloadPlacementUpdate()
-	if err != nil {
-		return webhookutils.ToAdmissionResponseError(err)
-	}
-
-	results = append(results, causes...)
+	results := validateCustomizeComponents(newKV.Spec.CustomizeComponents)
 
 	return validating_webhooks.NewAdmissionResponse(results)
-}
-
-func (admitter *KubeVirtUpdateAdmitter) validateWorkloadPlacementUpdate() ([]metav1.StatusCause, error) {
-	vmis, err := admitter.Client.VirtualMachineInstance(corev1.NamespaceAll).List(&metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	if len(vmis.Items) > 0 {
-		return []metav1.StatusCause{
-			{
-				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: "can't update placement of workload pods while there are running vms",
-			},
-		}, nil
-	}
-
-	return []metav1.StatusCause{}, nil
 }
 
 func getAdmissionReviewKubeVirt(ar *v1beta1.AdmissionReview) (new *v1.KubeVirt, old *v1.KubeVirt, err error) {
