@@ -157,6 +157,8 @@ func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) (*networkad
 		}
 	}
 
+	// TODO: support passing certificate rotation configuration to CNAO spec
+
 	cna := NewNetworkAddonsWithNameOnly(hc, opts...)
 	cna.Spec = cnaoSpec
 

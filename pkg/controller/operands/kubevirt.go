@@ -3,12 +3,13 @@ package operands
 import (
 	"errors"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/util/yaml"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
@@ -204,6 +205,8 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtv1.Kub
 		Workloads:         hcoConfig2KvConfig(hc.Spec.Workloads),
 		Configuration:     *config,
 	}
+
+	// TODO: support passing certificate rotation configuration to KubeVirt spec
 
 	kv := NewKubeVirtWithNameOnly(hc, opts...)
 	kv.Spec = spec

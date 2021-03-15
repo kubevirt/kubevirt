@@ -159,6 +159,27 @@ func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) (*cdiv1beta1.CDI, err
 		hc.Spec.Workloads.NodePlacement.DeepCopyInto(&spec.Workloads)
 	}
 
+	certConfig := hc.Spec.CertConfig
+	if certConfig == nil {
+		certConfig = getDefaultCertConfig()
+	}
+
+	spec.CertConfig = &cdiv1beta1.CDICertConfig{}
+
+	if certConfig.CA != nil {
+		spec.CertConfig.CA = &cdiv1beta1.CertConfig{
+			Duration:    certConfig.CA.Duration.DeepCopy(),
+			RenewBefore: certConfig.CA.RenewBefore.DeepCopy(),
+		}
+	}
+
+	if certConfig.Server != nil {
+		spec.CertConfig.Server = &cdiv1beta1.CertConfig{
+			Duration:    certConfig.Server.Duration.DeepCopy(),
+			RenewBefore: certConfig.Server.RenewBefore.DeepCopy(),
+		}
+	}
+
 	cdi := NewCDIWithNameOnly(hc, opts...)
 	cdi.Spec = spec
 

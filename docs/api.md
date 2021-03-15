@@ -6,7 +6,9 @@ This Document documents the types introduced by the hyperconverged-cluster-opera
 > Note this document is generated from code comments. When contributing a change to this document please do so by changing the code comments.
 
 ## Table of Contents
+* [CertRotateConfig](#certrotateconfig)
 * [HyperConverged](#hyperconverged)
+* [HyperConvergedCertConfig](#hyperconvergedcertconfig)
 * [HyperConvergedConfig](#hyperconvergedconfig)
 * [HyperConvergedFeatureGates](#hyperconvergedfeaturegates)
 * [HyperConvergedList](#hyperconvergedlist)
@@ -18,6 +20,17 @@ This Document documents the types introduced by the hyperconverged-cluster-opera
 * [PermittedHostDevices](#permittedhostdevices)
 * [Version](#version)
 
+## CertRotateConfig
+
+CertConfig contains the tunables for TLS certificates.
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| duration | The requested 'duration' (i.e. lifetime) of the Certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration) | metav1.Duration |  | false |
+| renewBefore | The amount of time before the currently issued certificate's `notAfter` time that we will begin to attempt to renew the certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration) | metav1.Duration |  | false |
+
+[Back to TOC](#table-of-contents)
+
 ## HyperConverged
 
 HyperConverged is the Schema for the hyperconvergeds API
@@ -27,6 +40,17 @@ HyperConverged is the Schema for the hyperconvergeds API
 | metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta) |  | false |
 | spec |  | [HyperConvergedSpec](#hyperconvergedspec) |  | false |
 | status |  | [HyperConvergedStatus](#hyperconvergedstatus) |  | false |
+
+[Back to TOC](#table-of-contents)
+
+## HyperConvergedCertConfig
+
+HyperConvergedCertConfig holds the CertConfig entries for the HCO operands
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| ca | CA configuration - CA certs are kept in the CA bundle as long as they are valid | *[CertRotateConfig](#certrotateconfig) | {duration: "48h", renewBefore: "24h"} | false |
+| server | Server configuration - Certs are rotated and discarded | *[CertRotateConfig](#certrotateconfig) | {duration: "24h", renewBefore: "12h"} | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -73,6 +97,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | featureGates | featureGates is a map of feature gate flags. Setting a flag to `true` will enable the feature. Setting `false` or removing the feature gate, disables the feature. | [HyperConvergedFeatureGates](#hyperconvergedfeaturegates) |  | false |
 | liveMigrationConfig | Live migration limits and timeouts are applied so that migration processes do not overwhelm the cluster. | [LiveMigrationConfigurations](#livemigrationconfigurations) |  | false |
 | permittedHostDevices | PermittedHostDevices holds inforamtion about devices allowed for passthrough | *[PermittedHostDevices](#permittedhostdevices) |  | false |
+| certConfig | certConfig holds the rotation policy for internal, self-signed certificates | *[HyperConvergedCertConfig](#hyperconvergedcertconfig) |  | false |
 | version | operator version | string |  | false |
 
 [Back to TOC](#table-of-contents)
