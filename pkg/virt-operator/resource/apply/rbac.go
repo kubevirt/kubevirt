@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -63,17 +64,25 @@ func (r *Reconciler) createOrUpdate(role interface{},
 			return fmt.Errorf("unable to create %v %+v: %v", roleTypeName, role, err)
 		}
 		log.Log.V(2).Infof("%v %v created", roleTypeName, roleMeta.GetName())
-	} else if !objectMatchesVersion(getRoleMetaObject(cachedRole, roleType), imageTag, imageRegistry, id, r.kv.GetGeneration()) {
-		// Update existing, we don't need to patch for rbac rules.
-		err = updateRole()
-		if err != nil {
-			return fmt.Errorf("unable to update %v %+v: %v", roleTypeName, role, err)
-		}
-		log.Log.V(2).Infof("%v %v updated", roleTypeName, roleMeta.GetName())
-
-	} else {
-		log.Log.V(4).Infof("%v %v already exists", roleTypeName, roleMeta.GetName())
+		return nil
 	}
+
+	modified := resourcemerge.BoolPtr(false)
+	cachedRoleMeta := getRoleMetaObject(cachedRole, roleType)
+	resourcemerge.EnsureObjectMeta(modified, cachedRoleMeta.DeepCopy(), *roleMeta)
+
+	// there was no change to metadata, the generation matched
+	if !*modified && areRoleRulesEqual(role, cachedRole, roleType) {
+		log.Log.V(4).Infof("%v %v already exists", roleTypeName, roleMeta.GetName())
+		return nil
+	}
+
+	// Update existing, we don't need to patch for rbac rules.
+	err = updateRole()
+	if err != nil {
+		return fmt.Errorf("unable to update %v %+v: %v", roleTypeName, role, err)
+	}
+	log.Log.V(2).Infof("%v %v updated", roleTypeName, roleMeta.GetName())
 
 	return nil
 }
@@ -201,6 +210,55 @@ func getRoleMetaObject(role interface{}, roleType RoleType) (meta *metav1.Object
 	case TypeClusterRoleBinding:
 		roleBinding := role.(*rbacv1.ClusterRoleBinding)
 		meta = &roleBinding.ObjectMeta
+	}
+
+	return
+}
+
+func areRoleRulesEqual(role1 interface{}, role2 interface{}, roleType RoleType) (equal bool) {
+	// This is to avoid using reflections for performance reasons
+	arePolicyRulesEqual := func(pr1 []rbacv1.PolicyRule, pr2 []rbacv1.PolicyRule) bool {
+		if len(pr1) != len(pr2) {
+			return false
+		}
+
+		areStringListsEqual := func(strList1 []string, strList2 []string) bool {
+			if len(strList1) != len(strList2) {
+				return false
+			}
+			for i := range strList1 {
+				if strList1[i] != strList2[i] {
+					return false
+				}
+			}
+			return true
+		}
+
+		for i := range pr1 {
+			if !areStringListsEqual(pr1[i].Verbs, pr2[i].Verbs) || !areStringListsEqual(pr1[i].Resources, pr2[i].Resources) ||
+				!areStringListsEqual(pr1[i].APIGroups, pr2[i].APIGroups) || !areStringListsEqual(pr1[i].NonResourceURLs, pr2[i].NonResourceURLs) ||
+				!areStringListsEqual(pr1[i].ResourceNames, pr2[i].ResourceNames) {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	switch roleType {
+	case TypeRole:
+		role1Obj := role1.(*rbacv1.Role)
+		role2Obj := role2.(*rbacv1.Role)
+		equal = arePolicyRulesEqual(role1Obj.Rules, role2Obj.Rules)
+	case TypeClusterRole:
+		role1Obj := role1.(*rbacv1.ClusterRole)
+		role2Obj := role2.(*rbacv1.ClusterRole)
+		equal = arePolicyRulesEqual(role1Obj.Rules, role2Obj.Rules)
+	// Bindings do not have "rules" attribute
+	case TypeRoleBinding:
+		fallthrough
+	case TypeClusterRoleBinding:
+		equal = true
 	}
 
 	return
