@@ -5,22 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"time"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
-
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"github.com/kubevirt/hyperconverged-cluster-operator/version"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -35,12 +29,17 @@ import (
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	"github.com/openshift/custom-resource-status/testlib"
 
-	// networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
+
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/operands"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	"github.com/kubevirt/hyperconverged-cluster-operator/version"
 )
 
 // name and namespace of our primary resource
@@ -699,6 +698,50 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(foundCond).To(BeTrue())
 
 				Expect(checkHcoReady()).To(BeFalse())
+			})
+
+			It("should remove the kubevirt-config CM not in upgrade", func() {
+				cm := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      kvCmName,
+						Namespace: commonTestUtils.Namespace,
+					},
+					Data: map[string]string{
+						"fakeKey": "fakeValue",
+					},
+				}
+				expected := getBasicDeployment()
+				cl := commonTestUtils.InitClient(append(expected.toArray(), cm))
+
+				By("Make sure the CM is there before starting", func() {
+					res := &corev1.ConfigMap{}
+					err := cl.Get(context.TODO(),
+						types.NamespacedName{Name: kvCmName, Namespace: namespace},
+						res)
+
+					Expect(err).ToNot(HaveOccurred())
+					Expect(res.Data["fakeKey"]).Should(Equal("fakeValue"))
+				})
+
+				foundResource, requeue := doReconcile(cl, expected.hco)
+				Expect(requeue).To(BeFalse())
+				checkAvailability(foundResource, corev1.ConditionTrue)
+
+				By("should not find the configMap")
+				res := &corev1.ConfigMap{}
+				err := cl.Get(context.TODO(),
+					types.NamespacedName{Name: kvCmName, Namespace: namespace},
+					res)
+
+				Expect(apierrors.IsNotFound(err)).To(BeTrue())
+
+				By("should not find backup in this case")
+				res = &corev1.ConfigMap{}
+				err = cl.Get(context.TODO(),
+					types.NamespacedName{Name: backupKvCmName, Namespace: namespace},
+					foundResource)
+
+				Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			})
 		})
 

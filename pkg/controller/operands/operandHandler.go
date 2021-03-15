@@ -53,6 +53,7 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, isOpenshift
 		(*genericOperand)(newCnaHandler(client, scheme)),
 		(*genericOperand)(newVmImportHandler(client, scheme)),
 		(*genericOperand)(newImsConfigHandler(client, scheme)),
+		newKubeVirtCmHandler(client, eventEmitter),
 	}
 
 	Initiate(isOpenshiftCluster)

@@ -184,9 +184,9 @@ func GetCSVfromPod(pod *corev1.Pod, c client.Reader, logger logr.Logger) (*csvv1
 	return csv, nil
 }
 
-// toUnstructured convers an arbitrary object (which MUST obey the
+// ToUnstructured convers an arbitrary object (which MUST obey the
 // k8s object conventions) to an Unstructured
-func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
+func ToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 	b, err := json.Marshal(obj)
 	if err != nil {
 		return nil, err
@@ -207,7 +207,7 @@ func GetRuntimeObject(ctx context.Context, c client.Client, obj client.Object, l
 // ComponentResourceRemoval removes the resource `obj` if it exists and belongs to the HCO
 // with wait=true it will wait, (util ctx timeout, please set it!) for the resource to be effectively deleted
 func ComponentResourceRemoval(ctx context.Context, c client.Client, obj interface{}, hcoName string, logger logr.Logger, dryRun bool, wait bool) error {
-	resource, err := toUnstructured(obj)
+	resource, err := ToUnstructured(obj)
 	if err != nil {
 		logger.Error(err, "Failed to convert object to Unstructured")
 		return err
