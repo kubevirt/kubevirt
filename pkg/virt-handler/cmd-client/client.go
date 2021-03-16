@@ -231,7 +231,7 @@ func FindPodDirOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 	// this particular local node if it exists. A active pod not
 	// running on this node will not have a kubelet pods directory,
 	// so it will not be found.
-	for podUID, _ := range vmi.Status.ActivePods {
+	for podUID := range vmi.Status.ActivePods {
 		socketPodDir := SocketDirectoryOnHost(string(podUID))
 		exists, _ := diskutils.FileExists(socketPodDir)
 		if exists {
@@ -260,7 +260,7 @@ func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 	// this particular local node if it exists. A active pod not
 	// running on this node will not have a kubelet pods directory,
 	// so it will not be found.
-	for podUID, _ := range vmi.Status.ActivePods {
+	for podUID := range vmi.Status.ActivePods {
 		socket := SocketFilePathOnHost(string(podUID))
 		exists, _ := diskutils.FileExists(socket)
 		if exists {

@@ -89,7 +89,7 @@ var _ = Describe("Apply Security Context Constraints", func() {
 			var expectedJsonPatch string
 			var serviceAccounts []string
 			saMap := rbac.GetKubevirtComponentsServiceAccounts(namespace)
-			for key, _ := range saMap {
+			for key := range saMap {
 				serviceAccounts = append(serviceAccounts, key)
 			}
 			serviceAccounts = append(serviceAccounts, additionalUserlist...)
