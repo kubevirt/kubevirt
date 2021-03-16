@@ -1,4 +1,4 @@
-package tests_test
+package storage
 
 import (
 	"context"
@@ -22,7 +22,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
+var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 	var (
 		err        error
