@@ -1,4 +1,4 @@
-package tests_test
+package storage
 
 import (
 	"context"
@@ -28,7 +28,7 @@ const (
 	imagePath            = "/tmp/alpine.iso"
 )
 
-var _ = Describe("[Serial]ImageUpload", func() {
+var _ = SIGDescribe("[Serial]ImageUpload", func() {
 	var kubectlCmd *exec.Cmd
 
 	pvcSize := "100Mi"
