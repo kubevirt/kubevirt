@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "datavolume.go",
         "framework.go",
         "hotplug.go",
     ],
@@ -15,12 +16,16 @@ go_library(
         "//tests:go_default_library",
         "//tests/console:go_default_library",
         "//tests/containerdisk:go_default_library",
+        "//tests/flags:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/api/rbac/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/utils/pointer:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
     ],
 )
