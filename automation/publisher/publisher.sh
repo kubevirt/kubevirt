@@ -6,11 +6,25 @@ function main() {
   PR_TEMPLATE="https://raw.githubusercontent.com/operator-framework/community-operators/master/docs/pull_request_template.md"
   BOT_USERNAME="hco-bot"
 
-  TAGGED_VERSION=${GIT_TAG##*/v}
+  if [ -z "${TAGGED_VERSION}" ]
+  then
+    echo "ERROR: Tagged version was not provided."
+    exit 1
+  fi
+
   echo "The tagged HCO version is: ${TAGGED_VERSION}"
   BASE_TAGGED_VERSION=${TAGGED_VERSION%.*}.0
 
   echo "Copy tagged HCO version ${BASE_TAGGED_VERSION} bundle folder"
+  if [ ! -d ${PACKAGE_DIR}/${BASE_TAGGED_VERSION} ]
+  then
+    echo "ERROR: Tagged version not found in ${TARGET_BRANCH}."
+    exit 1
+  fi
+
+  # Publish only if the images of the operator and the webhook are up-to-date in quay.io/kubevirt
+  compare_git_digests
+
   cp -r ${PACKAGE_DIR}/${BASE_TAGGED_VERSION} ../hco_bundle
 
   cd ..
@@ -27,20 +41,26 @@ function main() {
 
   echo "Bump version to ${TAGGED_VERSION}"
   CSV_FILE="hco_bundle/manifests/kubevirt-hyperconverged-operator.v${TAGGED_VERSION}.clusterserviceversion.yaml"
-  mv hco_bundle/manifests/kubevirt-hyperconverged-operator.v${BASE_TAGGED_VERSION}.clusterserviceversion.yaml ${CSV_FILE}
-  sed -r -i "s/${BASE_TAGGED_VERSION}/${TAGGED_VERSION}/g" ${CSV_FILE}
+  mv hco_bundle/manifests/kubevirt-hyperconverged-operator.v${BASE_TAGGED_VERSION}.clusterserviceversion.yaml ${CSV_FILE} || true
 
-  echo "Add olm.skipRange annotation to CSV"
+  sed -i "s/^  name: kubevirt-hyperconverged-operator.*$/  name: kubevirt-hyperconverged-operator.v${TAGGED_VERSION}/g" ${CSV_FILE}
+  sed -i "s/value: ${BASE_TAGGED_VERSION}/value: ${TAGGED_VERSION}/g" ${CSV_FILE}
+  sed -i "s/version: ${BASE_TAGGED_VERSION}/version: ${TAGGED_VERSION}/g" ${CSV_FILE}
+
   PREVIOUS_BASE_VERSION=$(echo "${BASE_TAGGED_VERSION%.*}-0.1" | bc).0
-  OLM_SKIP_RANGE="'>=${PREVIOUS_BASE_VERSION} <${TAGGED_VERSION}'"
-  sed -r -i "s/^  annotations:.*$/  annotations:\n    olm.skipRange: $OLM_SKIP_RANGE/g" ${CSV_FILE}
-
+  if [ ${TAGGED_VERSION##*.} != "0" ]
+  # Add olm.skipRange annotation only if the release is a z-stream.
+  then
+    echo "Add olm.skipRange annotation to CSV"
+    OLM_SKIP_RANGE="'>=${PREVIOUS_BASE_VERSION} <${TAGGED_VERSION}'"
+    sed -r -i "s/^  annotations:.*$/  annotations:\n    olm.skipRange: $OLM_SKIP_RANGE/g" ${CSV_FILE}
+  fi
   echo "New CSV to publish to community-operators:"
   cat ${CSV_FILE}
 
 
   echo "Login to GH account for GH CLI"
-  echo ${HCO_TOKEN} > token.txt
+  echo ${HCO_BOT_TOKEN} > token.txt
   gh auth login --with-token < token.txt
   rm -f token.txt
 
@@ -55,20 +75,22 @@ function create_pr() {
   gh repo clone ${TARGET_REPO}
 
   echo "Update HCO manifests in ${TARGET_FOLDER}"
-  cp -r hco_bundle ${TARGET_REPO##*/}/${TARGET_FOLDER}/community-kubevirt-hyperconverged/${TAGGED_VERSION}
+  BUNDLE_DIR=${TARGET_REPO##*/}/${TARGET_FOLDER}/community-kubevirt-hyperconverged/${TAGGED_VERSION}
+  mkdir -p ${BUNDLE_DIR}
+  cp -r hco_bundle/* ${BUNDLE_DIR}
 
   echo "Open a pull request to community operators"
   cd ${TARGET_REPO##*/}
   git config user.name "hco-bot"
   git config user.email "hco-bot@redhat.com"
   git add .
-  BRANCH_NAME=${TARGET_FOLDER%%-*}-update_hco_to_${TAGGED_VERSION}
+  BRANCH_NAME=${TARGET_FOLDER%%-*}-release_hco_v${TAGGED_VERSION}
   git checkout -b ${BRANCH_NAME}
   git status
-  git commit -asm "Update Kubevirt HCO to ${TAGGED_VERSION}"
-  git push https://${HCO_TOKEN}@github.com/${BOT_USERNAME}/${TARGET_REPO##*/}.git
+  git commit -asm "Release Kubevirt HCO v${TAGGED_VERSION}"
+  git push https://${HCO_BOT_TOKEN}@github.com/${BOT_USERNAME}/${TARGET_REPO##*/}.git
   echo "Create a pull request to community operator with tagged HCO version"
-  gh pr create --title "[${TARGET_FOLDER%%-*}]: Update HCO to ${TAGGED_VERSION}" --body "${PR_BODY}" \
+  gh pr create --title "[${TARGET_FOLDER%%-*}]: Release Kubevirt HCO v${TAGGED_VERSION}" --body "${PR_BODY}" \
     --repo ${TARGET_REPO} --head ${BOT_USERNAME}:${BRANCH_NAME}
   cd ..
   rm -rf ${TARGET_REPO##*/}
@@ -77,8 +99,44 @@ function create_pr() {
 function get_pr_body() {
    wget ${PR_TEMPLATE}
    sed -ir "s/\[ \]/\[x\]/g; 0,/Is operator/d" pull_request_template.md
-   sed -r "1s/^/Update Kubevirt HCO to version $1\n/" pull_request_template.md
-   rm -rf pull_request_template.md
+   sed -r "1s/^/Release Kubevirt HCO v$1\n/" pull_request_template.md
+   rm -f pull_request_template.md
 }
+
+function compare_git_digests() {
+  # check that the last commit was only updating manifests and digests
+  DIFFS=$(git diff ^HEAD~1 --name-only -- \
+    :^deploy/olm-catalog :^deploy/images.* :^deploy/operator.yaml :^deploy/index-image)
+  if [ ${DIFFS} ]
+  then
+    echo "ERROR: the last commit has changes other than manifests and digests. Aborting job..."
+    exit 1
+  fi
+
+  PREVIOUS_GIT_SHA=$(git describe "$(git log -n 1 --skip 1 --pretty=format:'%H')" --no-match  --always --abbrev=40)
+  OPERATOR_IMAGE_GIT_SHA=$(get_image_git_sha operator)
+  WEBHOOK_IMAGE_GIT_SHA=$(get_image_git_sha webhook)
+
+  compare_digests ${OPERATOR_IMAGE_GIT_SHA} Operator
+  compare_digests ${WEBHOOK_IMAGE_GIT_SHA} Webhook
+
+}
+
+function get_image_git_sha() {
+  TYPE=$1
+  SHA=$(skopeo inspect docker://quay.io/kubevirt/hyperconverged-cluster-${TYPE}:${TAGGED_VERSION} | jq '.Labels."multi.GIT_SHA"' | tr -d '"')
+  echo ${SHA:(-40)}
+}
+
+function compare_digests() {
+  if [ "${PREVIOUS_GIT_SHA}" != "$1" ]
+  then
+    echo "ERROR: HCO $2 image git SHA digest does not match to current git SHA digest."
+    echo "Expected: ${PREVIOUS_GIT_SHA}, Found: $1"
+    exit 1
+  fi
+}
+
+
 
 main

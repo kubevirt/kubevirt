@@ -10,12 +10,28 @@ jobs:
     name: Publish HCO tagged version to community-operators
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the latest code
+      - name: resolve the correct branch of the tag
+        run: |
+          GIT_TAG=${{ github.ref }}
+          TAGGED_VERSION=${GIT_TAG##*/v}
+          TAGGED_MINOR_VERSION=${TAGGED_VERSION%.*}
+          REPO_BRANCHES=$(curl https://api.github.com/repos/kubevirt/hyperconverged-cluster-operator/branches | jq .[].name)
+          if [[ "${REPO_BRANCHES[@]}" =~ "release-${TAGGED_MINOR_VERSION}" ]]
+          then
+            TARGET_BRANCH=release-${TAGGED_MINOR_VERSION}
+          else
+            TARGET_BRANCH=master
+          fi
+          echo "TARGET_BRANCH=${TARGET_BRANCH}" >> $GITHUB_ENV
+          echo "TAGGED_VERSION=${TAGGED_VERSION}" >> $GITHUB_ENV
+      - name: Checkout the latest code of ${{ env.TARGET_BRANCH }} branch
         uses: actions/checkout@v2
         with:
-          ref: master
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 2
       - name: Run Publisher script
         run: |
-          GIT_TAG=${{ github.ref }} \
-          HCO_TOKEN=${{ secrets.HCO_BOT_TOKEN }} \
-          ./automation/publisher/publisher.sh
+          export TAGGED_VERSION=${{ env.TAGGED_VERSION }}
+          export TARGET_BRANCH=${{ env.TARGET_BRANCH }}
+          export HCO_BOT_TOKEN=${{ secrets.HCO_BOT_TOKEN }}
+          curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/automation/publisher/publisher.sh | bash
