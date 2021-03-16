@@ -6,6 +6,7 @@ go_library(
         "datavolume.go",
         "framework.go",
         "hotplug.go",
+        "imageupload.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/storage",
     visibility = ["//visibility:public"],
