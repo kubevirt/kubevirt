@@ -1543,7 +1543,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 				},
 					table.Entry("[test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
-					table.Entry("[test_id:2731] with OCS Disk (using ISCSI IPv4 address)", newVirtualMachineInstanceWithFedoraOCSDisk),
+					table.Entry("[QUARANTINE][owner:@sig-storage][owner:@sig-compute][test_id:2731] with OCS Disk (using ISCSI IPv4 address)", newVirtualMachineInstanceWithFedoraOCSDisk),
 				)
 				It("[test_id:3241]should be able to cancel a migration right after posting it", func() {
 					vmi := tests.NewRandomFedoraVMIWithGuestAgent()
