@@ -105,19 +105,67 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 		)
 	}
 
-	if mem.SwapInSet || mem.SwapOutSet {
-		desc := metrics.newPrometheusDesc(
-			"kubevirt_vmi_memory_swap_traffic_bytes_total",
-			"swap memory traffic.",
-			[]string{"type"},
+	if mem.SwapInSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_swap_in_traffic_bytes_total",
+			"Swap in memory traffic in bytes",
+			prometheus.GaugeValue,
+			float64(mem.SwapIn)*1024,
 		)
+	}
 
-		if mem.SwapInSet {
-			metrics.pushPrometheusMetric(desc, prometheus.GaugeValue, float64(mem.SwapIn)*1024, []string{"in"})
-		}
-		if mem.SwapOutSet {
-			metrics.pushPrometheusMetric(desc, prometheus.GaugeValue, float64(mem.SwapOut)*1024, []string{"out"})
-		}
+	if mem.SwapOutSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_swap_out_traffic_bytes_total",
+			"Swap out memory traffic in bytes",
+			prometheus.GaugeValue,
+			float64(mem.SwapOut)*1024,
+		)
+	}
+
+	if mem.MajorFaultSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_pgmajfault",
+			"The number of page faults when disk IO was required.",
+			prometheus.CounterValue,
+			float64(mem.MajorFault),
+		)
+	}
+
+	if mem.MinorFaultSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_pgminfault",
+			"The number of other page faults, when disk IO was not required.",
+			prometheus.CounterValue,
+			float64(mem.MinorFault),
+		)
+	}
+
+	if mem.ActualBalloonSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_actual_balloon_bytes",
+			"current balloon bytes.",
+			prometheus.GaugeValue,
+			float64(mem.ActualBalloon)*1024,
+		)
+	}
+
+	if mem.UsableSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_usable_bytes",
+			"The amount of memory which can be reclaimed by balloon without causing host swapping in bytes.",
+			prometheus.GaugeValue,
+			float64(mem.Usable)*1024,
+		)
+	}
+
+	if mem.TotalSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_used_total_bytes",
+			"The amount of memory in bytes used by the domain.",
+			prometheus.GaugeValue,
+			float64(mem.Total)*1024,
+		)
 	}
 }
 

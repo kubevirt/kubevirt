@@ -170,7 +170,15 @@ var Testdataexpected = `{
      "SwapOut": 0,
      "SwapOutSet": false,
      "Unused": 0, 
-     "UnusedSet": false
+     "UnusedSet": false,
+     "MajorFault": 0,
+     "MajorFaultSet": false,
+     "MinorFault": 0,
+     "MinorFaultSet": false,
+     "Usable": 0,
+     "UsableSet": false,
+     "Total": 0,
+     "TotalSet": false
    }, 
    "Name": "testName", 
    "Net": [
