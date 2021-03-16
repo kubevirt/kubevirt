@@ -59,7 +59,7 @@ import (
 
 type VMICreationFuncWithEFI func() *v1.VirtualMachineInstance
 
-var _ = Describe("Configurations", func() {
+var _ = Describe("[owner:@sig-compute]Configurations", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

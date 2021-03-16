@@ -76,7 +76,7 @@ func addNodeAffinityToVMI(vmi *v1.VirtualMachineInstance, nodeName string) {
 	}
 }
 
-var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]VMIlifecycle", func() {
+var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component][owner:@sig-compute]VMIlifecycle", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

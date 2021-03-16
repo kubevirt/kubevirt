@@ -66,7 +66,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
-var _ = Describe("[Serial]Infrastructure", func() {
+var _ = Describe("[Serial][owner:@sig-compute]Infrastructure", func() {
 	var (
 		virtClient       kubecli.KubevirtClient
 		aggregatorClient *aggregatorclient.Clientset
@@ -1072,7 +1072,7 @@ func getKeysFromMetrics(metrics map[string]float64) []string {
 // returning the first unexpected error if any, or a custom error in case
 // there were no errors at all.
 func validatedHTTPResponses(errorsChan chan error, concurrency int) error {
-	var expectedErrorsCount int = 0
+	var expectedErrorsCount = 0
 	var unexpectedError error
 	for ix := 0; ix < concurrency; ix++ {
 		err := <-errorsChan

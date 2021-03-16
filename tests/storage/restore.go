@@ -638,7 +638,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
 					},
 				}
 
-				pvc, err = virtClient.CoreV1().PersistentVolumeClaims((pvc.Namespace)).Create(context.Background(), pvc, metav1.CreateOptions{})
+				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				pvc = waitPVCReady(pvc)
 
