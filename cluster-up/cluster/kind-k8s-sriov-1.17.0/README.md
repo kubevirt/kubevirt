@@ -56,6 +56,7 @@ In order to achieve that, there are two options:
 The user can list the PFs that should not be allocated to the current cluster, keeping in mind
 that at least one (or 2 in case of migration), should not be listed, so they would be allocated for the current cluster.
 Note: another reason to blacklist a PF, is in case its has a defect or should be kept for other operations (for example sniffing).
+- Clusters should be created one by another and not in parallel (to avoid races over SRIOV PF's).
 - The cluster names must be different.
 This can be achieved by setting `export CLUSTER_NAME=sriov2` on the 2nd cluster.
 The default `CLUSTER_NAME` is `sriov`.
@@ -70,6 +71,4 @@ Kubevirtci is agnostic and nothing needs to be done, since all conditions above 
 - Upper limit of the number of clusters that can be run on the same time equals number of PFs / number of PFs per cluster,
 therefore, in case there is only one PF, only one cluster can be created.
 Locally the actual limit currently supported is two clusters.
-- Kubevirtci supports starting `cluster-up` simultaneously, since it is capable of handling race conditions,
-when allocating PFs.
 - In order to use `make cluster-down` please make sure the right `CLUSTER_NAME` is exported.
