@@ -174,10 +174,8 @@ make cluster-down
 
 # Create .bazelrc to use remote cache
 cat >ci.bazelrc <<EOF
-startup --host_jvm_args=-Dbazel.DigestFunction=sha256
-build --remote_local_fallback
-build --remote_http_cache=${BAZEL_CACHE}
 build --jobs=4
+build --remote_download_toplevel
 EOF
 
 # Build and test images with a custom image name prefix

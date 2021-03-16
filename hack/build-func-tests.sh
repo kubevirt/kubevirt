@@ -23,10 +23,35 @@ source hack/common.sh
 source hack/config.sh
 
 rm -rf "${TESTS_OUT_DIR}"
-mkdir -p "${TESTS_OUT_DIR}"
+mkdir -p "${TESTS_OUT_DIR}/tools"
+mkdir -p "${CMD_OUT_DIR}/dump"
+mkdir -p "${CMD_OUT_DIR}/virtctl"
+
+# The --remote_download_toplevel command does not work with run targets out of
+# the box. In order to make run targets work with reduced artifact downloads,
+# we have to explicitly call them as top-level targets, so that they get
+# downloaded.
+bazel build \
+    --config=${ARCHITECTURE} \
+    //cmd/virtctl:virtctl \
+    //cmd/dump:dump \
+    //tools/manifest-templator:templator \
+    //vendor/github.com/onsi/ginkgo/ginkgo:ginkgo \
+    //tests:go_default_test \
+    //tools/junit-merger:junit-merger
+
 bazel run \
+    --config=${ARCHITECTURE} \
     :build-ginkgo -- ${TESTS_OUT_DIR}/ginkgo
 bazel run \
+    --config=${ARCHITECTURE} \
     :build-functests -- ${TESTS_OUT_DIR}/tests.test
 bazel run \
+    --config=${ARCHITECTURE} \
     :build-junit-merger -- ${TESTS_OUT_DIR}/junit-merger
+bazel run \
+    --config=${ARCHITECTURE} \
+    :build-dump -- ${CMD_OUT_DIR}/dump/dump
+bazel run \
+    --config=${ARCHITECTURE} \
+    :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl
