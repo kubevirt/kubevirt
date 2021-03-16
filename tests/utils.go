@@ -223,6 +223,8 @@ const (
 	capSysNice  k8sv1.Capability = "SYS_NICE"
 )
 
+const MigrationWaitTime = 240
+
 type ProcessFunc func(event *k8sv1.Event) (done bool)
 
 type ObjectEventWatcher struct {
