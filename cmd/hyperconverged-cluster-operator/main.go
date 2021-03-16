@@ -70,8 +70,10 @@ func main() {
 	// Create a new Cmd to provide shared dependencies and start components
 	// TODO: consider changing LeaderElectionResourceLock to new default "configmapsleases".
 	mgr, err := manager.New(cfg, getManagerOptions(watchNamespace, needLeaderElection))
-
 	cmdHelper.ExitOnError(err, "can't initiate manager")
+
+	// register pprof instrumentation if HCO_PPROF_ADDR is set
+	cmdHelper.ExitOnError(cmdHelper.RegisterPPROFServer(mgr), "can't register pprof server")
 
 	logger.Info("Registering Components.")
 

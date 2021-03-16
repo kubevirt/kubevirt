@@ -68,8 +68,10 @@ func main() {
 		LivenessEndpointName:   hcoutil.LivenessEndpointName,
 		LeaderElection:         false,
 	})
-
 	cmdHelper.ExitOnError(err, "failed to create manager")
+
+	// register pprof instrumentation if HCO_PPROF_ADDR is set
+	cmdHelper.ExitOnError(cmdHelper.RegisterPPROFServer(mgr), "can't register pprof server")
 
 	logger.Info("Registering Components.")
 

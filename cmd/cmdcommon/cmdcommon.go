@@ -1,8 +1,11 @@
 package cmdcommon
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"net/http"
+	"net/http/pprof"
 	"os"
 	"runtime"
 
@@ -44,6 +47,48 @@ func (h HcCmdHelper) InitiateCommand() {
 	h.printVersion()
 
 	h.checkNameSpace()
+}
+
+const pprofAddrEnvVar = "HCO_PPROF_ADDR"
+
+// Registers a pprof server for cpu and memory profiling the running operator.
+func (h HcCmdHelper) RegisterPPROFServer(mgr manager.Manager) error {
+	pprofAddr := os.Getenv(pprofAddrEnvVar)
+	if len(pprofAddr) == 0 {
+		return nil
+	}
+
+	h.Logger.Info("Registering pprof server.")
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
+	s := &http.Server{Addr: pprofAddr, Handler: mux}
+	return mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
+		errCh := make(chan error)
+		defer func() {
+			for range errCh {
+			} // drain errCh for GC
+		}()
+
+		go func() {
+			// start http Server
+			defer close(errCh)
+			errCh <- s.ListenAndServe()
+		}()
+
+		select {
+		case err := <-errCh:
+			return err
+		case <-ctx.Done():
+			s.Close()
+			return nil
+		}
+	}))
 }
 
 func (h HcCmdHelper) GetWatchNS() string {
