@@ -61,7 +61,12 @@ if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
   exit 1
 fi
 
-export KUBEVIRT_NUM_NODES=2
+if [[ $TARGET =~ sriov.* ]]; then
+  export KUBEVIRT_NUM_NODES=3
+else
+  export KUBEVIRT_NUM_NODES=2
+fi
+
 # Give the nodes enough memory to run tests in parallel, including tests which involve fedora
 export KUBEVIRT_MEMORY_SIZE=9216M
 
