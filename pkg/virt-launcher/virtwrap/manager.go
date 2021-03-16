@@ -537,7 +537,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 			return
 		}
 
-		if err := detachHostDevices(l.virConn, dom); err != nil {
+		if err := hotUnplugHostDevices(l.virConn, dom); err != nil {
 			log.Log.Object(vmi).Reason(err).Error(fmt.Sprintf("Live migration failed."))
 			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
 		}
@@ -2091,7 +2091,7 @@ func (l *LibvirtDomainManager) GetFilesystems() ([]v1.VirtualMachineInstanceFile
 	return fsList, nil
 }
 
-func detachHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
+func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 	domainSpec, err := util.GetDomainSpecWithFlags(dom, 0)
 	if err != nil {
 		return err
