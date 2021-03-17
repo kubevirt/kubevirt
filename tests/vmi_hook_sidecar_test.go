@@ -116,7 +116,7 @@ var _ = Describe("HookSidecars", func() {
 				Expect(domainXml).Should(ContainSubstring("<entry name='manufacturer'>Radical Edward</entry>"))
 			}, 300)
 
-			It("should not start with hook sidecar annotation when the version is not provided", func() {
+			It("[QUARANTINE]should not start with hook sidecar annotation when the version is not provided", func() {
 				By("Starting a VMI")
 				vmi.ObjectMeta.Annotations = RenderInvalidSMBiosSidecar()
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)

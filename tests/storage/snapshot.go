@@ -177,7 +177,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				}
 			})
 
-			It("[test_id:4611]should successfully create a snapshot", func() {
+			It("[QUARANTINE][test_id:4611]should successfully create a snapshot", func() {
 				snapshot = newSnapshot()
 
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
@@ -224,7 +224,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				}
 			})
 
-			It("VM should contain snapshot status for all volumes", func() {
+			It("[QUARANTINE]VM should contain snapshot status for all volumes", func() {
 				volumes := len(vm.Spec.Template.Spec.Volumes)
 				Eventually(func() int {
 					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
@@ -243,7 +243,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				}, 180*time.Second, time.Second).Should(BeTrue())
 			})
 
-			It("should error if VolumeSnapshot deleted", func() {
+			It("[QUARANTINE]should error if VolumeSnapshot deleted", func() {
 				snapshot = newSnapshot()
 
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
@@ -276,7 +276,7 @@ var _ = SIGDescribe("[Serial]VirtualMachineSnapshot Tests", func() {
 				Expect(snapshot.Status.Error.Message).ToNot(Equal(errStr))
 			})
 
-			It("should not error if VolumeSnapshot has error", func() {
+			It("[QUARANTINE]should not error if VolumeSnapshot has error", func() {
 				snapshot = newSnapshot()
 
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})

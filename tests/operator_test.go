@@ -1025,7 +1025,7 @@ spec:
 		// running a VM/VMI using that previous release
 		// Updating KubeVirt to the target tested code
 		// Ensuring VM/VMI is still operational after the update from previous release.
-		It("[release-blocker][owner:@sig-compute][test_id:3145]from previous release to target tested release", func() {
+		It("[QUARANTINE][release-blocker][owner:@sig-compute][test_id:3145]from previous release to target tested release", func() {
 			if !tests.HasCDI() {
 				Skip("Skip Update test when CDI is not present")
 			}
@@ -1500,7 +1500,7 @@ spec:
 		// NOTE - this test verifies new operators can grab the leader election lease
 		// during operator updates. The only way the new infrastructure is deployed
 		// is if the update operator is capable of getting the lease.
-		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", func() {
+		It("[QUARANTINE][test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")

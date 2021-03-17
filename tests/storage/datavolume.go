@@ -728,8 +728,8 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 			},
 				table.Entry("[QUARANTINE][test_id:3193]with explicit role", explicitCloneRole, false, false),
 				table.Entry("[QUARANTINE][test_id:3194]with implicit role", implicitCloneRole, false, false),
-				table.Entry("[test_id:5253]with explicit role (all namespaces)", explicitCloneRole, true, false),
-				table.Entry("[test_id:5254]with explicit role (one namespace)", explicitCloneRole, false, true),
+				table.Entry("[QUARANTINE][test_id:5253]with explicit role (all namespaces)", explicitCloneRole, true, false),
+				table.Entry("[QUARANTINE][test_id:5254]with explicit role (one namespace)", explicitCloneRole, false, true),
 			)
 		})
 	})
