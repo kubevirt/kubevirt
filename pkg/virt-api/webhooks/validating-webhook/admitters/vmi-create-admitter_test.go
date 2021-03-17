@@ -1082,7 +1082,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name: "redtest",
 					NetworkSource: v1.NetworkSource{
 						Pod: &v1.PodNetwork{},
@@ -1099,7 +1099,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{}
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name: "redtest",
 					NetworkSource: v1.NetworkSource{
 						Pod: &v1.PodNetwork{},
@@ -1115,13 +1115,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
 						Pod: &v1.PodNetwork{},
 					},
 				},
-				v1.Network{
+				{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "test"},
@@ -1145,7 +1145,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 			vmi.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name: "d.efault",
 					NetworkSource: v1.NetworkSource{
 						Pod: &v1.PodNetwork{},
@@ -1184,7 +1184,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
@@ -1197,7 +1197,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "default"},
@@ -1212,7 +1212,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "default1"},
@@ -1236,19 +1236,19 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vm.Spec.Domain.Devices.Interfaces[1].Name = "multus2"
 			// 3rd interfaces uses the default pod network, name is "default"
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
 						Pod: &v1.PodNetwork{},
 					},
 				},
-				v1.Network{
+				{
 					Name: "multus1",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "multus-net1"},
 					},
 				},
-				v1.Network{
+				{
 					Name: "multus2",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "multus-net2"},
@@ -1266,7 +1266,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus1"
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name: "multus1",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
@@ -1286,13 +1286,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus1"
 			vm.Spec.Domain.Devices.Interfaces[1].Name = "multus2"
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name: "multus1",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
 					},
 				},
-				v1.Network{
+				{
 					Name: "multus2",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "multus-net2", Default: true},
@@ -1314,13 +1314,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 			vm.Spec.Domain.Devices.Interfaces[1].Name = "multus1"
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
 						Pod: &v1.PodNetwork{},
 					},
 				},
-				v1.Network{
+				{
 					Name: "multus1",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
@@ -1338,7 +1338,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{},
@@ -1353,13 +1353,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should reject networks with a multus network source and slirp interface", func() {
 			enableSlirpInterface()
 			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Slirp: &v1.InterfaceSlirp{},
 				}}}
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "default"},
@@ -1373,14 +1373,14 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should accept networks with a pod network source and slirp interface", func() {
 			enableSlirpInterface()
 			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Slirp: &v1.InterfaceSlirp{},
 				}}}
 
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
@@ -1392,7 +1392,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should accept networks with a pod network source and slirp interface with port", func() {
 			enableSlirpInterface()
 			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Slirp: &v1.InterfaceSlirp{},
@@ -1400,7 +1400,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Ports: []v1.Port{{Port: 80}}}}
 
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
@@ -1412,7 +1412,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should reject networks with a pod network source and slirp interface without specific port", func() {
 			enableSlirpInterface()
 			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Slirp: &v1.InterfaceSlirp{},
@@ -1420,7 +1420,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Ports: []v1.Port{{Name: "test"}}}}
 
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
@@ -1432,7 +1432,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		It("should reject a masquerade interface on a network different than pod", func() {
 			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Masquerade: &v1.InterfaceMasquerade{},
@@ -1440,7 +1440,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Ports: []v1.Port{{Name: "test"}}}}
 
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}},
 				},
@@ -1488,7 +1488,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should reject networks with a pod network source and slirp interface with bad protocol type", func() {
 			enableSlirpInterface()
 			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Slirp: &v1.InterfaceSlirp{},
@@ -1496,7 +1496,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Ports: []v1.Port{{Protocol: "bad", Port: 80}}}}
 
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
@@ -1509,7 +1509,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should accept networks with a pod network source and slirp interface with multiple Ports", func() {
 			enableSlirpInterface()
 			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Slirp: &v1.InterfaceSlirp{},
@@ -1517,7 +1517,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Ports: []v1.Port{{Port: 80}, {Protocol: "UDP", Port: 80}}}}
 
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
@@ -1528,7 +1528,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		It("should reject a macvtap interface on a network different than multus", func() {
 			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Macvtap: &v1.InterfaceMacvtap{},
@@ -1536,7 +1536,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}}
 
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
@@ -1550,7 +1550,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		It("should reject a macvtap interface on a multus network when the feature is inactive", func() {
 			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Macvtap: &v1.InterfaceMacvtap{},
@@ -1558,7 +1558,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}}
 
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}},
 				},
@@ -1571,7 +1571,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		It("should accept a macvtap interface on a multus network when the feature is active", func() {
 			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Macvtap: &v1.InterfaceMacvtap{},
@@ -1579,7 +1579,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}}
 
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}},
 				},
@@ -1592,7 +1592,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should reject port out of range", func() {
 			enableSlirpInterface()
 			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Slirp: &v1.InterfaceSlirp{},
@@ -1600,7 +1600,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Ports: []v1.Port{{Port: 80000}}}}
 
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
@@ -1613,7 +1613,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should reject interface with two ports with the same name", func() {
 			enableSlirpInterface()
 			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Slirp: &v1.InterfaceSlirp{},
@@ -1621,7 +1621,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Ports: []v1.Port{{Name: "testport", Port: 80}, {Name: "testport", Protocol: "UDP", Port: 80}}}}
 
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
@@ -1634,13 +1634,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should reject two interfaces with same port name", func() {
 			enableSlirpInterface()
 			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Slirp: &v1.InterfaceSlirp{},
 				},
 				Ports: []v1.Port{{Name: "testport", Port: 80}}},
-				v1.Interface{
+				{
 					Name: "default",
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{
 						Slirp: &v1.InterfaceSlirp{},
@@ -1648,7 +1648,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Ports: []v1.Port{{Name: "testport", Protocol: "UDP", Port: 80}}}}
 
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
@@ -1662,7 +1662,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should allow interface with two same ports and protocol", func() {
 			enableSlirpInterface()
 			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Slirp: &v1.InterfaceSlirp{},
@@ -1670,7 +1670,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Ports: []v1.Port{{Port: 80}, {Protocol: "UDP", Port: 80}, {Protocol: "TCP", Port: 80}}}}
 
 			vm.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
@@ -1773,7 +1773,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
-				PrivateOptions: []v1.DHCPPrivateOptions{v1.DHCPPrivateOptions{Option: 240, Value: "extra.options.kubevirt.io"}},
+				PrivateOptions: []v1.DHCPPrivateOptions{{Option: 240, Value: "extra.options.kubevirt.io"}},
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
@@ -1784,7 +1784,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
-				PrivateOptions: []v1.DHCPPrivateOptions{v1.DHCPPrivateOptions{Option: 223, Value: "extra.options.kubevirt.io"}},
+				PrivateOptions: []v1.DHCPPrivateOptions{{Option: 223, Value: "extra.options.kubevirt.io"}},
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
@@ -1796,8 +1796,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
 				PrivateOptions: []v1.DHCPPrivateOptions{
-					v1.DHCPPrivateOptions{Option: 240, Value: "extra.options.kubevirt.io"},
-					v1.DHCPPrivateOptions{Option: 240, Value: "sameextra.options.kubevirt.io"}},
+					{Option: 240, Value: "extra.options.kubevirt.io"},
+					{Option: 240, Value: "sameextra.options.kubevirt.io"}},
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
@@ -1809,8 +1809,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
 				PrivateOptions: []v1.DHCPPrivateOptions{
-					v1.DHCPPrivateOptions{Option: 240, Value: "extra.options.kubevirt.io"},
-					v1.DHCPPrivateOptions{Option: 241, Value: "sameextra.options.kubevirt.io"}},
+					{Option: 240, Value: "extra.options.kubevirt.io"},
+					{Option: 241, Value: "sameextra.options.kubevirt.io"}},
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
@@ -1818,8 +1818,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should return error if not unique DHCPPrivateOptions", func() {
 			testDHCPPrivateOptions := []v1.DHCPPrivateOptions{
-				v1.DHCPPrivateOptions{Option: 240, Value: "extra.options.kubevirt.io"},
-				v1.DHCPPrivateOptions{Option: 240, Value: "sameextra.options.kubevirt.io"},
+				{Option: 240, Value: "extra.options.kubevirt.io"},
+				{Option: 240, Value: "sameextra.options.kubevirt.io"},
 			}
 			err := ValidateDuplicateDHCPPrivateOptions(testDHCPPrivateOptions)
 			Expect(err).To(Equal(fmt.Errorf("You have provided duplicate DHCPPrivateOptions")))
@@ -1827,8 +1827,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should not return error if unique DHCPPrivateOptions", func() {
 			testDHCPPrivateOptions := []v1.DHCPPrivateOptions{
-				v1.DHCPPrivateOptions{Option: 240, Value: "extra.options.kubevirt.io"},
-				v1.DHCPPrivateOptions{Option: 241, Value: "sameextra.options.kubevirt.io"},
+				{Option: 240, Value: "extra.options.kubevirt.io"},
+				{Option: 241, Value: "sameextra.options.kubevirt.io"},
 			}
 			err := ValidateDuplicateDHCPPrivateOptions(testDHCPPrivateOptions)
 			Expect(err).To(BeNil())
@@ -1889,7 +1889,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should reject GPU devices when feature gate is disabled", func() {
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
-				v1.GPU{
+				{
 					Name:       "gpu1",
 					DeviceName: "vendor.com/gpu_name",
 				},
@@ -1912,7 +1912,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2Mi"
 			vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{
-				v1.Filesystem{
+				{
 					Name:     "sharednfstest",
 					Virtiofs: &v1.FilesystemVirtiofs{},
 				},
@@ -1937,7 +1937,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2Mi"
 			vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{
-				v1.Filesystem{
+				{
 					Name:     "sharednfstest",
 					Virtiofs: &v1.FilesystemVirtiofs{},
 				},
@@ -1962,7 +1962,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
-				v1.GPU{
+				{
 					Name:       "gpu1",
 					DeviceName: "example.org/deadbeef1",
 				},
@@ -1978,7 +1978,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
-				v1.GPU{
+				{
 					Name:       "gpu1",
 					DeviceName: "example.org/deadbeef",
 				},
@@ -2001,7 +2001,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
-				v1.GPU{
+				{
 					Name:       "gpu1",
 					DeviceName: "example.org/deadbeef",
 				},
@@ -2012,7 +2012,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should reject host devices when feature gate is disabled", func() {
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
-				v1.HostDevice{
+				{
 					Name:       "hostdev1",
 					DeviceName: "vendor.com/hostdev_name",
 				},
@@ -2036,7 +2036,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
-				v1.HostDevice{
+				{
 					Name:       "hostdev1",
 					DeviceName: "example.org/deadbeef1",
 				},
@@ -2059,7 +2059,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
-				v1.HostDevice{
+				{
 					Name:       "hostdev1",
 					DeviceName: "example.org/deadbeef",
 				},

@@ -232,7 +232,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm := kubecli.NewMinimalVM(vmName)
 			fsList := v1.VirtualMachineInstanceFileSystemList{
 				Items: []v1.VirtualMachineInstanceFileSystem{
-					v1.VirtualMachineInstanceFileSystem{
+					{
 						DiskName: "TEST",
 					},
 				},
@@ -254,7 +254,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm := kubecli.NewMinimalVM(vmName)
 			userList := v1.VirtualMachineInstanceGuestOSUserList{
 				Items: []v1.VirtualMachineInstanceGuestOSUser{
-					v1.VirtualMachineInstanceGuestOSUser{
+					{
 						UserName: "TEST",
 					},
 				},

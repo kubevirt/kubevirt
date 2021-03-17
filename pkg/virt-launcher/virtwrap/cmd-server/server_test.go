@@ -182,7 +182,7 @@ var _ = Describe("Virt remote commands", func() {
 
 		It("should return full user list", func() {
 			userList := []v1.VirtualMachineInstanceGuestOSUser{
-				v1.VirtualMachineInstanceGuestOSUser{
+				{
 					UserName: "testUser",
 				},
 			}
@@ -196,7 +196,7 @@ var _ = Describe("Virt remote commands", func() {
 
 		It("should return full filesystem list", func() {
 			fsList := []v1.VirtualMachineInstanceFileSystem{
-				v1.VirtualMachineInstanceFileSystem{
+				{
 					DiskName:       "main",
 					MountPoint:     "/",
 					FileSystemType: "EXT4",

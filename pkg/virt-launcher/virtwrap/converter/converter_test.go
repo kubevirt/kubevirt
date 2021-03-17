@@ -1692,7 +1692,7 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should add tcp if protocol not exist", func() {
-			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{v1.Port{Port: 80}}}
+			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 80}}}
 			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			qemuArg := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
@@ -1783,19 +1783,19 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red2"
 			// 3rd network is the default pod network, name is "default"
 			vmi.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "red"},
 					},
 				},
-				v1.Network{
+				{
 					Name: "red2",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "red"},
 					},
 				},
-				v1.Network{
+				{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
 						Pod: &v1.PodNetwork{},
@@ -1819,13 +1819,13 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Interfaces[0].Name = "red1"
 			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red2"
 			vmi.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "red", Default: true},
 					},
 				},
-				v1.Network{
+				{
 					Name: "red2",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "red"},
@@ -2432,12 +2432,12 @@ var _ = Describe("Converter", func() {
 			err := formatDomainIOThreadPin(vmi, domain, c)
 			Expect(err).ToNot(HaveOccurred())
 			expectedLayout := []api.CPUTuneIOThreadPin{
-				api.CPUTuneIOThreadPin{IOThread: 1, CPUSet: "5,6,7"},
-				api.CPUTuneIOThreadPin{IOThread: 2, CPUSet: "8,9,10"},
-				api.CPUTuneIOThreadPin{IOThread: 3, CPUSet: "11,12,13"},
-				api.CPUTuneIOThreadPin{IOThread: 4, CPUSet: "14,15,16"},
-				api.CPUTuneIOThreadPin{IOThread: 5, CPUSet: "17,18"},
-				api.CPUTuneIOThreadPin{IOThread: 6, CPUSet: "19,20"},
+				{IOThread: 1, CPUSet: "5,6,7"},
+				{IOThread: 2, CPUSet: "8,9,10"},
+				{IOThread: 3, CPUSet: "11,12,13"},
+				{IOThread: 4, CPUSet: "14,15,16"},
+				{IOThread: 5, CPUSet: "17,18"},
+				{IOThread: 6, CPUSet: "19,20"},
 			}
 			isExpectedThreadsLayout := reflect.DeepEqual(expectedLayout, domain.Spec.CPUTune.IOThreadPin)
 			Expect(isExpectedThreadsLayout).To(BeTrue())
@@ -2454,12 +2454,12 @@ var _ = Describe("Converter", func() {
 			err := formatDomainIOThreadPin(vmi, domain, c)
 			Expect(err).ToNot(HaveOccurred())
 			expectedLayout := []api.CPUTuneIOThreadPin{
-				api.CPUTuneIOThreadPin{IOThread: 1, CPUSet: "6"},
-				api.CPUTuneIOThreadPin{IOThread: 2, CPUSet: "5"},
-				api.CPUTuneIOThreadPin{IOThread: 3, CPUSet: "6"},
-				api.CPUTuneIOThreadPin{IOThread: 4, CPUSet: "5"},
-				api.CPUTuneIOThreadPin{IOThread: 5, CPUSet: "6"},
-				api.CPUTuneIOThreadPin{IOThread: 6, CPUSet: "5"},
+				{IOThread: 1, CPUSet: "6"},
+				{IOThread: 2, CPUSet: "5"},
+				{IOThread: 3, CPUSet: "6"},
+				{IOThread: 4, CPUSet: "5"},
+				{IOThread: 5, CPUSet: "6"},
+				{IOThread: 6, CPUSet: "5"},
 			}
 			isExpectedThreadsLayout := reflect.DeepEqual(expectedLayout, domain.Spec.CPUTune.IOThreadPin)
 			Expect(isExpectedThreadsLayout).To(BeTrue())
@@ -2625,7 +2625,7 @@ var _ = Describe("Converter", func() {
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						GPUs: []v1.GPU{
-							v1.GPU{
+							{
 								Name: "vendor.com/gpu_name",
 							},
 						},
@@ -2691,7 +2691,7 @@ var _ = Describe("Converter", func() {
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						GPUs: []v1.GPU{
-							v1.GPU{
+							{
 								DeviceName: "vendor.com/gpu_name",
 								Name:       "gpu_name",
 							},
@@ -2707,7 +2707,7 @@ var _ = Describe("Converter", func() {
 			c := &ConverterContext{
 				UseEmulation: true,
 				HostDevices: map[string]HostDevicesList{
-					"vendor.com/gpu_name": HostDevicesList{
+					"vendor.com/gpu_name": {
 						Type:     HostDevicePCI,
 						AddrList: []string{"2609:19:90.0", "2609:19:90.1"},
 					},
@@ -2730,7 +2730,7 @@ var _ = Describe("Converter", func() {
 			c := &ConverterContext{
 				UseEmulation: true,
 				HostDevices: map[string]HostDevicesList{
-					"vendor.com/gpu_name": HostDevicesList{
+					"vendor.com/gpu_name": {
 						Type:     HostDevicePCI,
 						AddrList: []string{"2609:19:90.0", "2609:19:90.1"},
 					},
@@ -2765,22 +2765,22 @@ var _ = Describe("Converter", func() {
 			c := &ConverterContext{
 				UseEmulation: true,
 				HostDevices: map[string]HostDevicesList{
-					"vendor.com/gpu_name": HostDevicesList{
+					"vendor.com/gpu_name": {
 						Type:     HostDevicePCI,
 						AddrList: []string{"2609:19:90.0", "2609:19:90.1"},
 					},
-					"vendor.com/vgpu_name": HostDevicesList{
+					"vendor.com/vgpu_name": {
 						Type:     HostDeviceMDEV,
 						AddrList: []string{"aa618089-8b16-4d01-a136-25a0f3c73123", "aa618089-8b16-4d01-a136-25a0f3c73124"},
 					},
 				},
 			}
 			gpus := []v1.GPU{
-				v1.GPU{
+				{
 					DeviceName: "vendor.com/gpu_name",
 					Name:       "gpu_name",
 				},
-				v1.GPU{
+				{
 					DeviceName: "vendor.com/vgpu_name",
 					Name:       "vgpu_name1",
 				},
@@ -2816,11 +2816,11 @@ var _ = Describe("Converter", func() {
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						HostDevices: []v1.HostDevice{
-							v1.HostDevice{
+							{
 								DeviceName: "vendor.com/pci_name",
 								Name:       "pci_name",
 							},
-							v1.HostDevice{
+							{
 								DeviceName: "vendor.com/mdev_name",
 								Name:       "mdev_name",
 							},
@@ -2835,11 +2835,11 @@ var _ = Describe("Converter", func() {
 			c := &ConverterContext{
 				UseEmulation: true,
 				HostDevices: map[string]HostDevicesList{
-					"vendor.com/pci_name": HostDevicesList{
+					"vendor.com/pci_name": {
 						Type:     HostDevicePCI,
 						AddrList: []string{"2609:19:90.0", "2609:19:90.1"},
 					},
-					"vendor.com/mdev_name": HostDevicesList{
+					"vendor.com/mdev_name": {
 						Type:     HostDeviceMDEV,
 						AddrList: []string{"aa618089-8b16-4d01-a136-25a0f3c73123", "aa618089-8b16-4d01-a136-25a0f3c73124"},
 					},
