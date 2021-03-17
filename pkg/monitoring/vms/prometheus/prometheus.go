@@ -178,7 +178,7 @@ func (metrics *vmiMetrics) updateVcpu(vcpuStats []stats.DomainStatsVcpu) {
 				"kubevirt_vmi_vcpu_seconds",
 				"Vcpu elapsed time.",
 				prometheus.CounterValue,
-				float64(vcpu.Time/1000000000),
+				float64(vcpu.Time/1000000),
 				[]string{"id", "state"},
 				[]string{stringVcpuIdx, humanReadableState(vcpu.State)},
 			)
