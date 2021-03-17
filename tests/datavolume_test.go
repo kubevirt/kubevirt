@@ -633,7 +633,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(dataVolume.Status.Phase).ToNot(Equal(cdiv1.Failed))
 					return dataVolume.Status.Phase == cdiv1.Succeeded
-				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+				}, 180*time.Second, 1*time.Second).Should(BeTrue())
 			})
 
 			AfterEach(func() {
@@ -707,7 +707,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 						return false
 					}
 					return true
-				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+				}, 180*time.Second, 1*time.Second).Should(BeTrue())
 
 				createdVirtualMachine = vm
 
@@ -720,7 +720,7 @@ var _ = Describe("[Serial]DataVolume Integration", func() {
 					}
 					Expect(err).ToNot(HaveOccurred())
 					return dv.Status.Phase == cdiv1.Succeeded
-				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+				}, 180*time.Second, 1*time.Second).Should(BeTrue())
 
 				// start/stop vm
 				createdVirtualMachine = tests.StartVirtualMachine(createdVirtualMachine)
