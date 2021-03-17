@@ -695,7 +695,7 @@ func SynchronizedBeforeTestSetup() []byte {
 }
 
 func BeforeTestSuitSetup(_ []byte) {
-	rand.Seed(time.Now().Unix())
+	rand.Seed(int64(config.GinkgoConfig.ParallelNode))
 	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
 	var err error
