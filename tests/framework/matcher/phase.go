@@ -9,6 +9,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+func BeRunning() types.GomegaMatcher {
+	return phaseMatcher{
+		expectedPhase: "Running",
+	}
+}
+
+func HaveSucceeded() types.GomegaMatcher {
+	return phaseMatcher{
+		expectedPhase: "Succeeded",
+	}
+}
+
 func BeInPhase(phase interface{}) types.GomegaMatcher {
 	return phaseMatcher{
 		expectedPhase: phase,
@@ -49,7 +61,7 @@ func (p phaseMatcher) FailureMessage(actual interface{}) (message string) {
 		return err.Error()
 	}
 	expectedPhase := getExpectedPhase(p.expectedPhase)
-	return fmt.Sprintf("expected phase is %v but got %v", expectedPhase, phase)
+	return fmt.Sprintf("expected phase is '%v' but got '%v'", expectedPhase, phase)
 }
 
 func (p phaseMatcher) NegatedFailureMessage(actual interface{}) (message string) {
@@ -61,7 +73,7 @@ func (p phaseMatcher) NegatedFailureMessage(actual interface{}) (message string)
 		return err.Error()
 	}
 	expectedPhase := getExpectedPhase(p.expectedPhase)
-	return fmt.Sprintf("expected phase %v to not match %v", expectedPhase, phase)
+	return fmt.Sprintf("expected phase '%v' to not match '%v'", expectedPhase, phase)
 }
 
 func getCurrentPhase(actual interface{}) (string, error) {
