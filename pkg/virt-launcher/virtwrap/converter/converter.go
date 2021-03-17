@@ -65,7 +65,8 @@ const (
 	resolvConf                       = "/etc/resolv.conf"
 )
 const (
-	multiQueueMaxQueues = uint32(256)
+	multiQueueMaxQueues  = uint32(256)
+	QEMUSeaBiosDebugPipe = "/QEMUSeaBiosDebugPipe"
 )
 
 type deviceNamer struct {
@@ -1502,7 +1503,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg,
 			api.Arg{Value: "-chardev"},
-			api.Arg{Value: "file,id=firmwarelog,path=/tmp/qemu-firmware.log"},
+			api.Arg{Value: fmt.Sprintf("file,id=firmwarelog,path=%s", QEMUSeaBiosDebugPipe)},
 			api.Arg{Value: "-device"},
 			api.Arg{Value: "isa-debugcon,iobase=0x402,chardev=firmwarelog"})
 	}
