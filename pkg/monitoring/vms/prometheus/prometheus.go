@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/tools/cache"
+
 	libvirt "libvirt.org/libvirt-go"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -34,7 +36,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/version"
-	"kubevirt.io/kubevirt/pkg/util/lookup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
@@ -437,15 +438,17 @@ type Collector struct {
 	virtShareDir  string
 	nodeName      string
 	concCollector *concurrentCollector
+	vmiInformer   cache.SharedIndexInformer
 }
 
-func SetupCollector(virtCli kubecli.KubevirtClient, virtShareDir, nodeName string, MaxRequestsInFlight int) *Collector {
+func SetupCollector(virtCli kubecli.KubevirtClient, virtShareDir, nodeName string, MaxRequestsInFlight int, vmiInformer cache.SharedIndexInformer) *Collector {
 	log.Log.Infof("Starting collector: node name=%v", nodeName)
 	co := &Collector{
 		virtCli:       virtCli,
 		virtShareDir:  virtShareDir,
 		nodeName:      nodeName,
 		concCollector: NewConcurrentCollector(MaxRequestsInFlight),
+		vmiInformer:   vmiInformer,
 	}
 	prometheus.MustRegister(co)
 	return co
@@ -478,15 +481,16 @@ func newvmiSocketMapFromVMIs(baseDir string, vmis []*k6tv1.VirtualMachineInstanc
 func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 	updateVersion(ch)
 
-	vmis, err := lookup.VirtualMachinesOnNode(co.virtCli, co.nodeName)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to list all VMIs in '%s': %s", co.nodeName, err)
+	cachedObjs := co.vmiInformer.GetIndexer().List()
+	if len(cachedObjs) == 0 {
+		log.Log.V(4).Infof("No VMIs detected")
 		return
 	}
 
-	if len(vmis) == 0 {
-		log.Log.V(4).Infof("No VMIs detected")
-		return
+	vmis := make([]*k6tv1.VirtualMachineInstance, len(cachedObjs))
+
+	for i, obj := range cachedObjs {
+		vmis[i] = obj.(*k6tv1.VirtualMachineInstance)
 	}
 
 	socketToVMIs := newvmiSocketMapFromVMIs(co.virtShareDir, vmis)
