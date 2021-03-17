@@ -4860,24 +4860,22 @@ rpm(
 )
 
 rpm(
-    name = "perl-Errno-0__1.30-459.fc32.ppc64le",
-    sha256 = "db76e8bb2871e77bd4d24c75dc61f82766e96d3f2c0a7532132161610efee091",
+    name = "perl-Errno-0__1.30-460.fc32.ppc64le",
+    sha256 = "c2010430702e18c4c676d9f00e0bfd242ebc19f53ac30d0b009ed39d816eea11",
     urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-Errno-1.30-459.fc32.ppc64le.rpm",
-        "https://mirrors.dotsrc.org/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-Errno-1.30-459.fc32.ppc64le.rpm",
-        "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-Errno-1.30-459.fc32.ppc64le.rpm",
-        "https://mirror.yandex.ru/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-Errno-1.30-459.fc32.ppc64le.rpm",
+        "https://ftp-stud.hs-esslingen.de/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-Errno-1.30-460.fc32.ppc64le.rpm",
+        "https://fr2.rpmfind.net/linux/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-Errno-1.30-460.fc32.ppc64le.rpm",
+        "https://fedora-secondary.mirrors.theom.nz/updates/32/Everything/ppc64le/Packages/p/perl-Errno-1.30-460.fc32.ppc64le.rpm",
+        "https://download-ib01.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-Errno-1.30-460.fc32.ppc64le.rpm",
     ],
 )
 
 rpm(
-    name = "perl-Errno-0__1.30-459.fc32.x86_64",
-    sha256 = "80654e7fab7eaa39044104e3619908a7e83a9f9d6906eb395badf78be011b2ca",
+    name = "perl-Errno-0__1.30-460.fc32.x86_64",
+    sha256 = "f9d507a9268086ce85d7c3bd112700c5bcc7aef71b69f95944ef31b93d02f7e7",
     urls = [
-        "https://mirror.karneval.cz/pub/linux/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-Errno-1.30-459.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-Errno-1.30-459.fc32.x86_64.rpm",
-        "https://mirror.init7.net/fedora/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-Errno-1.30-459.fc32.x86_64.rpm",
-        "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/p/perl-Errno-1.30-459.fc32.x86_64.rpm",
+        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-Errno-1.30-460.fc32.x86_64.rpm",
+        "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-Errno-1.30-460.fc32.x86_64.rpm",
     ],
 )
 
@@ -5002,24 +5000,22 @@ rpm(
 )
 
 rpm(
-    name = "perl-IO-0__1.40-459.fc32.ppc64le",
-    sha256 = "2b50d32c196c1a890235d64470a08bd78ebca7585849b8c2e218071e623ac9d9",
+    name = "perl-IO-0__1.40-460.fc32.ppc64le",
+    sha256 = "67ffff56551f9ab91a7efda4b2d01a3d91685db819f9f88738a1bffeea4214db",
     urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-IO-1.40-459.fc32.ppc64le.rpm",
-        "https://mirrors.dotsrc.org/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-IO-1.40-459.fc32.ppc64le.rpm",
-        "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-IO-1.40-459.fc32.ppc64le.rpm",
-        "https://mirror.yandex.ru/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-IO-1.40-459.fc32.ppc64le.rpm",
+        "https://ftp-stud.hs-esslingen.de/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-IO-1.40-460.fc32.ppc64le.rpm",
+        "https://fr2.rpmfind.net/linux/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-IO-1.40-460.fc32.ppc64le.rpm",
+        "https://fedora-secondary.mirrors.theom.nz/updates/32/Everything/ppc64le/Packages/p/perl-IO-1.40-460.fc32.ppc64le.rpm",
+        "https://download-ib01.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-IO-1.40-460.fc32.ppc64le.rpm",
     ],
 )
 
 rpm(
-    name = "perl-IO-0__1.40-459.fc32.x86_64",
-    sha256 = "d8cdf44ba58a7fe9d020469626c4c836288ba3cd6115d019e0643835dca5a37e",
+    name = "perl-IO-0__1.40-460.fc32.x86_64",
+    sha256 = "bf7063b4aa2ec1dd29edf638cfb57002393e89fbf4ff849a095921e19190ced8",
     urls = [
-        "https://mirror.karneval.cz/pub/linux/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-IO-1.40-459.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-IO-1.40-459.fc32.x86_64.rpm",
-        "https://mirror.init7.net/fedora/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-IO-1.40-459.fc32.x86_64.rpm",
-        "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/p/perl-IO-1.40-459.fc32.x86_64.rpm",
+        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-IO-1.40-460.fc32.x86_64.rpm",
+        "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-IO-1.40-460.fc32.x86_64.rpm",
     ],
 )
 
@@ -5408,68 +5404,62 @@ rpm(
 )
 
 rpm(
-    name = "perl-interpreter-4__5.30.3-459.fc32.ppc64le",
-    sha256 = "e9ec1559d3157b85a91689686d7d76574dd326bfae92fc6ab0b45df934c648e5",
+    name = "perl-interpreter-4__5.30.3-460.fc32.ppc64le",
+    sha256 = "550a1b4a759a78c227d0c513899bdc76ab84eda8b5cc62db2ac2bcd952417770",
     urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-interpreter-5.30.3-459.fc32.ppc64le.rpm",
-        "https://mirrors.dotsrc.org/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-interpreter-5.30.3-459.fc32.ppc64le.rpm",
-        "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-interpreter-5.30.3-459.fc32.ppc64le.rpm",
-        "https://mirror.yandex.ru/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-interpreter-5.30.3-459.fc32.ppc64le.rpm",
+        "https://ftp-stud.hs-esslingen.de/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-interpreter-5.30.3-460.fc32.ppc64le.rpm",
+        "https://fr2.rpmfind.net/linux/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-interpreter-5.30.3-460.fc32.ppc64le.rpm",
+        "https://fedora-secondary.mirrors.theom.nz/updates/32/Everything/ppc64le/Packages/p/perl-interpreter-5.30.3-460.fc32.ppc64le.rpm",
+        "https://download-ib01.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-interpreter-5.30.3-460.fc32.ppc64le.rpm",
     ],
 )
 
 rpm(
-    name = "perl-interpreter-4__5.30.3-459.fc32.x86_64",
-    sha256 = "366d24647ee85cfe314e03a51ab457f753efc26b504eda3f70e2c6b64d95c404",
+    name = "perl-interpreter-4__5.30.3-460.fc32.x86_64",
+    sha256 = "c5853758e48063ef0c3c7d7521a4fd7a6a81f4542d1a744872a707559bdefe3f",
     urls = [
-        "https://mirror.karneval.cz/pub/linux/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-interpreter-5.30.3-459.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-interpreter-5.30.3-459.fc32.x86_64.rpm",
-        "https://mirror.init7.net/fedora/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-interpreter-5.30.3-459.fc32.x86_64.rpm",
-        "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/p/perl-interpreter-5.30.3-459.fc32.x86_64.rpm",
+        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-interpreter-5.30.3-460.fc32.x86_64.rpm",
+        "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-interpreter-5.30.3-460.fc32.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "perl-libs-4__5.30.3-459.fc32.ppc64le",
-    sha256 = "22f8d3fc1080dcd59426c97b62b07cce73c079b7b07db4e76d38b5e2e29865f7",
+    name = "perl-libs-4__5.30.3-460.fc32.ppc64le",
+    sha256 = "1446924b04d5f79a4bbb4b0c193ead623399b8ddc27d9f1d98a6438eaed59e78",
     urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-libs-5.30.3-459.fc32.ppc64le.rpm",
-        "https://mirrors.dotsrc.org/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-libs-5.30.3-459.fc32.ppc64le.rpm",
-        "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-libs-5.30.3-459.fc32.ppc64le.rpm",
-        "https://mirror.yandex.ru/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-libs-5.30.3-459.fc32.ppc64le.rpm",
+        "https://ftp-stud.hs-esslingen.de/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-libs-5.30.3-460.fc32.ppc64le.rpm",
+        "https://fr2.rpmfind.net/linux/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-libs-5.30.3-460.fc32.ppc64le.rpm",
+        "https://fedora-secondary.mirrors.theom.nz/updates/32/Everything/ppc64le/Packages/p/perl-libs-5.30.3-460.fc32.ppc64le.rpm",
+        "https://download-ib01.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-libs-5.30.3-460.fc32.ppc64le.rpm",
     ],
 )
 
 rpm(
-    name = "perl-libs-4__5.30.3-459.fc32.x86_64",
-    sha256 = "14c370c60c701414fbfa89ced69a76f541fc764c45d0df83cd9b8070d5c624da",
+    name = "perl-libs-4__5.30.3-460.fc32.x86_64",
+    sha256 = "646517682fc49aa5f59bcc8b0110610a12595ce23919ab49bfd152fbd05ba3cc",
     urls = [
-        "https://mirror.karneval.cz/pub/linux/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-libs-5.30.3-459.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-libs-5.30.3-459.fc32.x86_64.rpm",
-        "https://mirror.init7.net/fedora/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-libs-5.30.3-459.fc32.x86_64.rpm",
-        "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/p/perl-libs-5.30.3-459.fc32.x86_64.rpm",
+        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-libs-5.30.3-460.fc32.x86_64.rpm",
+        "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-libs-5.30.3-460.fc32.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "perl-macros-4__5.30.3-459.fc32.ppc64le",
-    sha256 = "42560b4e16da6453579761e111972aa9e09ebdd26a4e02d7ce8f39a9f3aad6b5",
+    name = "perl-macros-4__5.30.3-460.fc32.ppc64le",
+    sha256 = "f145219633ef6d0e30e21d15728f4d53aafcfcdba6920b97691346e21e6c2533",
     urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-macros-5.30.3-459.fc32.noarch.rpm",
-        "https://mirrors.dotsrc.org/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-macros-5.30.3-459.fc32.noarch.rpm",
-        "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-macros-5.30.3-459.fc32.noarch.rpm",
-        "https://mirror.yandex.ru/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-macros-5.30.3-459.fc32.noarch.rpm",
+        "https://ftp-stud.hs-esslingen.de/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-macros-5.30.3-460.fc32.noarch.rpm",
+        "https://fr2.rpmfind.net/linux/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-macros-5.30.3-460.fc32.noarch.rpm",
+        "https://fedora-secondary.mirrors.theom.nz/updates/32/Everything/ppc64le/Packages/p/perl-macros-5.30.3-460.fc32.noarch.rpm",
+        "https://download-ib01.fedoraproject.org/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/p/perl-macros-5.30.3-460.fc32.noarch.rpm",
     ],
 )
 
 rpm(
-    name = "perl-macros-4__5.30.3-459.fc32.x86_64",
-    sha256 = "42560b4e16da6453579761e111972aa9e09ebdd26a4e02d7ce8f39a9f3aad6b5",
+    name = "perl-macros-4__5.30.3-460.fc32.x86_64",
+    sha256 = "f145219633ef6d0e30e21d15728f4d53aafcfcdba6920b97691346e21e6c2533",
     urls = [
-        "https://mirror.karneval.cz/pub/linux/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-macros-5.30.3-459.fc32.noarch.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-macros-5.30.3-459.fc32.noarch.rpm",
-        "https://mirror.init7.net/fedora/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-macros-5.30.3-459.fc32.noarch.rpm",
-        "https://fedora.mirror.wearetriple.com/linux/updates/32/Everything/x86_64/Packages/p/perl-macros-5.30.3-459.fc32.noarch.rpm",
+        "https://ftp.halifax.rwth-aachen.de/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-macros-5.30.3-460.fc32.noarch.rpm",
+        "https://www.mirrorservice.org/sites/dl.fedoraproject.org/pub/fedora/linux/updates/32/Everything/x86_64/Packages/p/perl-macros-5.30.3-460.fc32.noarch.rpm",
     ],
 )
 

@@ -2210,8 +2210,6 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		d.prepareStorage(vmi, origVMI)
 	}
 
-	// set runtime limits as needed
-	err = d.podIsolationDetector.AdjustResources(vmi)
 	if err := client.SyncMigrationTarget(vmi); err != nil {
 		return fmt.Errorf("syncing migration target failed: %v", err)
 
