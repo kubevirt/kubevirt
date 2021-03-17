@@ -838,6 +838,9 @@ spec:
               operatorVersion:
                 description: The version of the resource as defined by the operator
                 type: string
+              paused:
+                description: Paused is true when the operator notices paused annotation.
+                type: boolean
               phase:
                 description: Phase is the current phase of the deployment
                 type: string
