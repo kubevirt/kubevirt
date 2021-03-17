@@ -9,7 +9,7 @@ test --cache_test_results=no --runs_per_test=1
 EOF
 fi
 
-rm -rf ${ARTIFACTS}/junit
+rm -rf ${ARTIFACTS}/junit ${ARTIFACTS}/testlogs
 
 function collect_results() {
     cd ${KUBEVIRT_DIR}
@@ -18,10 +18,16 @@ function collect_results() {
         mkdir -p ${dir}
         cp -f ${f} ${dir}/junit.xml
     done
+    for f in $(find bazel-out/ -name 'test.log'); do
+        dir=${ARTIFACTS}/testlogs/$(dirname $f)
+        mkdir -p ${dir}
+        cp -f ${f} ${dir}/test.log
+    done
 }
 
 trap collect_results EXIT
 
 bazel test \
     --config=${ARCHITECTURE} \
+    --features race \
     --test_output=errors -- //staging/src/kubevirt.io/client-go/... //pkg/... //cmd/... //tests/framework/...
