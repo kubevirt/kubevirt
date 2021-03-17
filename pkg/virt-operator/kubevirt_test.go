@@ -2557,6 +2557,44 @@ var _ = Describe("KubeVirt Operator", func() {
 		}, 15)
 	})
 
+	Context("when the monitor namespace does not exist", func() {
+		It("should not create ServiceMonitor resources", func() {
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+			}
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
+			addKubeVirt(kv)
+
+			// install strategy config
+			resource, _ := install.NewInstallStrategyConfigMap(defaultConfig, false, NAMESPACE)
+			resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
+			addResource(resource, defaultConfig, nil)
+
+			job, err := controller.generateInstallStrategyJob(util.GetTargetConfigFromKV(kv))
+			Expect(err).ToNot(HaveOccurred())
+
+			job.Status.CompletionTime = now()
+			addInstallStrategyJob(job)
+
+			// ensure completed jobs are garbage collected once install strategy
+			// is loaded
+			deleteFromCache = false
+			shouldExpectJobDeletion()
+			shouldExpectKubeVirtUpdateStatus(1)
+			shouldExpectCreations()
+
+			controller.Execute()
+
+			Expect(len(controller.stores.RoleCache.List())).To(Equal(2))
+			Expect(len(controller.stores.RoleBindingCache.List())).To(Equal(2))
+			Expect(len(controller.stores.ServiceMonitorCache.List())).To(Equal(0))
+		}, 15)
+	})
+
 	Context("On install strategy dump", func() {
 		It("should generate latest install strategy and post as config map", func(done Done) {
 			defer close(done)

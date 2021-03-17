@@ -24,4 +24,5 @@ trap collect_results EXIT
 
 bazel test \
     --config=${ARCHITECTURE} \
+    --features race \
     --test_output=errors -- //staging/src/kubevirt.io/client-go/... //pkg/... //cmd/... //tests/framework/...
