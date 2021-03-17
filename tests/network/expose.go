@@ -48,7 +48,7 @@ func newLabeledVMI(label string, virtClient kubecli.KubevirtClient, createVMI bo
 	return
 }
 
-var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:component]Expose", func() {
+var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:component]Expose", func() {
 
 	var virtClient kubecli.KubevirtClient
 	var err error
