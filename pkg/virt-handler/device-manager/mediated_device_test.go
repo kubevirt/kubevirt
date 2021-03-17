@@ -35,7 +35,7 @@ var _ = Describe("Mediated Device", func() {
 	var fakePermittedHostDevices v1.PermittedHostDevices
 	var ctrl *gomock.Controller
 	var fakeSupportedTypesPath string
-	reourceNameToTypeName := func(rawName string) string {
+	resourceNameToTypeName := func(rawName string) string {
 		typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
 		typeNameStr = strings.TrimSpace(typeNameStr)
 		return typeNameStr
@@ -89,11 +89,11 @@ var _ = Describe("Mediated Device", func() {
 		if namePathExist {
 			mdevName, err := getMdevTypeName(fakeMdevUUID)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(mdevName).To(Equal(reourceNameToTypeName(fakeMdevNameSelector)))
+			Expect(mdevName).To(Equal(resourceNameToTypeName(fakeMdevNameSelector)))
 		} else {
 			mdevName, err := getMdevTypeName(fakeIntelMdevUUID)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(mdevName).To(Equal(reourceNameToTypeName(fakeIntelMdevNameSelector)))
+			Expect(mdevName).To(Equal(resourceNameToTypeName(fakeIntelMdevNameSelector)))
 		}
 	},
 		table.Entry("Nvidia name file exist", true),
