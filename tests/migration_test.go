@@ -1010,7 +1010,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new NFS PV and PVC")
 				os := string(cd.ContainerDiskFedora)
-				tests.CreateNFSPvAndPvc(pvName, tests.NamespaceTestDefault, "5Gi", nfsIP, os)
+				tests.CreateNFSPvAndPvc(pvName, tests.NamespaceTestDefault, "5Gi", nfsIP, os, "")
 			})
 
 			AfterEach(func() {

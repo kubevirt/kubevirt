@@ -3665,11 +3665,11 @@ func newISCSIPVC(name string, size string, accessMode k8sv1.PersistentVolumeAcce
 	}
 }
 
-func CreateNFSPvAndPvc(name string, namespace string, size string, nfsTargetIP string, os string) {
+func CreateNFSPvAndPvc(name string, namespace string, size string, nfsTargetIP string, os string, nodeName string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(context.Background(), newNFSPV(name, namespace, size, nfsTargetIP, os), metav1.CreateOptions{})
+	_, err = virtCli.CoreV1().PersistentVolumes().Create(context.Background(), newNFSPV(name, namespace, size, nfsTargetIP, os, nodeName), metav1.CreateOptions{})
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
@@ -3680,7 +3680,7 @@ func CreateNFSPvAndPvc(name string, namespace string, size string, nfsTargetIP s
 	}
 }
 
-func newNFSPV(name string, namespace string, size string, nfsTargetIP string, os string) *k8sv1.PersistentVolume {
+func newNFSPV(name string, namespace string, size string, nfsTargetIP string, os string, nodeName string) *k8sv1.PersistentVolume {
 	quantity := resource.MustParse(size)
 
 	storageClass := Config.StorageClassLocal
@@ -3688,7 +3688,7 @@ func newNFSPV(name string, namespace string, size string, nfsTargetIP string, os
 
 	nfsTargetIP = ip.NormalizeIPAddress(nfsTargetIP)
 
-	return &k8sv1.PersistentVolume{
+	pv := &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
@@ -3711,6 +3711,24 @@ func newNFSPV(name string, namespace string, size string, nfsTargetIP string, os
 			},
 		},
 	}
+	if nodeName != "" {
+		pv.Spec.NodeAffinity = &k8sv1.VolumeNodeAffinity{
+			Required: &k8sv1.NodeSelector{
+				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+					{
+						MatchExpressions: []k8sv1.NodeSelectorRequirement{
+							{
+								Key:      "kubernetes.io/hostname",
+								Operator: k8sv1.NodeSelectorOpIn,
+								Values:   []string{nodeName},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+	return pv
 }
 
 func newNFSPVC(name string, namespace string, size string, os string) *k8sv1.PersistentVolumeClaim {

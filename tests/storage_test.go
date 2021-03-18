@@ -96,7 +96,7 @@ var _ = Describe("Storage", func() {
 			return nfsPod
 		}
 
-		createNFSPvAndPvc := func(ipFamily k8sv1.IPFamily, nfsPod *k8sv1.Pod) string {
+		createNFSPvAndPvc := func(ipFamily k8sv1.IPFamily, nfsPod *k8sv1.Pod, nodeName string) string {
 			pvName := fmt.Sprintf("test-nfs%s", rand.String(48))
 
 			// create a new PV and PVC (PVs can't be reused)
@@ -104,19 +104,20 @@ var _ = Describe("Storage", func() {
 			nfsIP := libnet.GetPodIpByFamily(nfsPod, ipFamily)
 			ExpectWithOffset(1, nfsIP).NotTo(BeEmpty())
 			os := string(cd.ContainerDiskAlpine)
-			tests.CreateNFSPvAndPvc(pvName, tests.NamespaceTestDefault, "5Gi", nfsIP, os)
+			tests.CreateNFSPvAndPvc(pvName, tests.NamespaceTestDefault, "5Gi", nfsIP, os, nodeName)
 			return pvName
 		}
 
-		runHostPathJobAndExpectCompletion := func(pod *k8sv1.Pod) {
+		runHostPathJobAndExpectCompletion := func(pod *k8sv1.Pod) *k8sv1.Pod {
 			pod, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(context.Background(), pod, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
-			_, err = ThisPod(pod)()
+			pod, err = ThisPod(pod)()
 			Expect(err).ToNot(HaveOccurred())
+			return pod
 		}
 
-		copyAlpineWithNonQEMUPermissions := func() string {
+		copyAlpineWithNonQEMUPermissions := func() (string, string) {
 
 			dstPath := tests.HostPathAlpine + "-nopriv"
 
@@ -127,8 +128,8 @@ var _ = Describe("Storage", func() {
 			By("creating an image with without qemu permissions")
 			pod := tests.RenderHostPathPod("tmp-image-create-job", tests.HostPathBase, hostPathType, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 
-			runHostPathJobAndExpectCompletion(pod)
-			return dstPath
+			pod = runHostPathJobAndExpectCompletion(pod)
+			return dstPath, pod.Spec.NodeName
 		}
 
 		deleteAlpineWithNonQEMUPermissions := func() {
@@ -161,14 +162,15 @@ var _ = Describe("Storage", func() {
 					}
 
 					var ignoreWarnings bool
+					var nodeName = ""
 					// Start the VirtualMachineInstance with the PVC attached
 					if storageEngine == "nfs" {
 						targetImage := targetImagePath
 						if !imageOwnedByQEMU {
-							targetImage = copyAlpineWithNonQEMUPermissions()
+							targetImage, nodeName = copyAlpineWithNonQEMUPermissions()
 						}
 						nfsPod = initNFS(targetImage)
-						pvName = createNFSPvAndPvc(family, nfsPod)
+						pvName = createNFSPvAndPvc(family, nfsPod, nodeName)
 						ignoreWarnings = true
 					} else {
 						pvName = tests.DiskAlpineHostPath
@@ -183,9 +185,8 @@ var _ = Describe("Storage", func() {
 					table.Entry("[test_id:3130]with Disk PVC", tests.NewRandomVMIWithPVC, "", nil, true),
 					table.Entry("[test_id:3131]with CDRom PVC", tests.NewRandomVMIWithCDRom, "", nil, true),
 					table.Entry("[test_id:4618]with NFS Disk PVC using ipv4 address of the NFS pod", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, true),
-					// Skipping the following 2 tests until https://github.com/kubevirt/kubevirt/issues/4829 is fixed
-					table.PEntry("with NFS Disk PVC using ipv6 address of the NFS pod", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv6Protocol, true),
-					table.PEntry("with NFS Disk PVC using ipv4 address of the NFS pod not owned by qemu", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, false),
+					table.Entry("with NFS Disk PVC using ipv6 address of the NFS pod", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv6Protocol, true),
+					table.Entry("with NFS Disk PVC using ipv4 address of the NFS pod not owned by qemu", tests.NewRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, false),
 				)
 			})
 
@@ -450,7 +451,7 @@ var _ = Describe("Storage", func() {
 					// Start the VirtualMachineInstance with the PVC attached
 					if storageEngine == "nfs" {
 						nfsPod = initNFS(tests.HostPathAlpine)
-						pvName = createNFSPvAndPvc(family, nfsPod)
+						pvName = createNFSPvAndPvc(family, nfsPod, "")
 						ignoreWarnings = true
 					} else {
 						pvName = tests.DiskAlpineHostPath
