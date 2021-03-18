@@ -610,6 +610,9 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 	})
 
 	Context("VirtualMachineInstance with masquerade binding mechanism", func() {
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+		})
 		masqueradeVMI := func(ports []v1.Port, ipv4NetworkCIDR string) *v1.VirtualMachineInstance {
 			containerImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			userData := "#!/bin/bash\necho 'hello'\n"
@@ -662,7 +665,6 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 		}
 
 		Context("[Conformance][test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", func() {
-			var serverVMI *v1.VirtualMachineInstance
 
 			verifyClientServerConnectivity := func(clientVMI *v1.VirtualMachineInstance, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
 				serverIP := libnet.GetVmiPrimaryIpByFamily(serverVMI, ipFamily)
@@ -686,21 +688,14 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				return nil
 			}
 
-			AfterEach(func() {
-				err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(serverVMI.Name, &v13.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
-			})
-
 			table.DescribeTable("ipv4", func(ports []v1.Port, networkCIDR string) {
 				var clientVMI *v1.VirtualMachineInstance
+				var serverVMI *v1.VirtualMachineInstance
 
-				// Create the client only one time
-				if clientVMI == nil {
-					clientVMI = masqueradeVMI([]v1.Port{}, networkCIDR)
-					_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
-					Expect(err).ToNot(HaveOccurred())
-					clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToCirros)
-				}
+				clientVMI = masqueradeVMI([]v1.Port{}, networkCIDR)
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
+				Expect(err).ToNot(HaveOccurred())
+				clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToCirros)
 
 				serverVMI = masqueradeVMI(ports, networkCIDR)
 
@@ -736,19 +731,16 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 
 			table.DescribeTable("IPv6", func(ports []v1.Port) {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
-
+				var serverVMI *v1.VirtualMachineInstance
 				var clientVMI *v1.VirtualMachineInstance
 
-				// Create the client only one time
-				if clientVMI == nil {
-					clientVMI, err = fedoraMasqueradeVMI([]v1.Port{})
-					Expect(err).ToNot(HaveOccurred())
-					clientVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
-					Expect(err).ToNot(HaveOccurred())
-					clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
+				clientVMI, err = fedoraMasqueradeVMI([]v1.Port{})
+				Expect(err).ToNot(HaveOccurred())
+				clientVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
+				Expect(err).ToNot(HaveOccurred())
+				clientVMI = tests.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
 
-					Expect(configureIpv6(clientVMI)).To(Succeed(), "failed to configure ipv6 on client vmi")
-				}
+				Expect(configureIpv6(clientVMI)).To(Succeed(), "failed to configure ipv6 on client vmi")
 
 				serverVMI, err = fedoraMasqueradeVMI(ports)
 				Expect(err).ToNot(HaveOccurred())
@@ -776,7 +768,8 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				})
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
-			}, table.Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}),
+			},
+				table.Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}),
 				table.Entry("without a specific port number [IPv6]", []v1.Port{}),
 			)
 		})
