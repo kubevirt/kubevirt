@@ -1179,27 +1179,27 @@ var _ = Describe("Snapshot controlleer", func() {
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Name).To(Equal("disk1"))
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[0].Reason).
-							To(Equal("No Volume Snapshot Storage Class found for volume [disk1]"))
+							To(Equal("No VolumeSnapshotClass: Volume snapshots are not configured for this StorageClass [local] [disk1]"))
 
 						Expect(vm.Status.VolumeSnapshotStatuses[1].Name).To(Equal("disk2"))
 						Expect(vm.Status.VolumeSnapshotStatuses[1].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[1].Reason).
-							To(Equal("Volume type does not suport snapshots"))
+							To(Equal("Volume type has no StorageClass defined"))
 
 						Expect(vm.Status.VolumeSnapshotStatuses[2].Name).To(Equal("disk3"))
 						Expect(vm.Status.VolumeSnapshotStatuses[2].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[2].Reason).
-							To(Equal("No Volume Snapshot Storage Class found for volume [disk3]"))
+							To(Equal("No VolumeSnapshotClass: Volume snapshots are not configured for this StorageClass [local] [disk3]"))
 
 						Expect(vm.Status.VolumeSnapshotStatuses[3].Name).To(Equal("disk4"))
 						Expect(vm.Status.VolumeSnapshotStatuses[3].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[3].Reason).
-							To(Equal("Volume type does not suport snapshots"))
+							To(Equal("Volume type has no StorageClass defined"))
 
 						Expect(vm.Status.VolumeSnapshotStatuses[4].Name).To(Equal("disk5"))
 						Expect(vm.Status.VolumeSnapshotStatuses[4].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[4].Reason).
-							To(Equal("No Volume Snapshot Storage Class found for volume [disk5]"))
+							To(Equal("No VolumeSnapshotClass: Volume snapshots are not configured for this StorageClass [local] [disk5]"))
 
 						Expect(vm.Status.VolumeSnapshotStatuses[5].Name).To(Equal("disk6"))
 						Expect(vm.Status.VolumeSnapshotStatuses[5].Enabled).To(BeFalse())
@@ -1209,12 +1209,12 @@ var _ = Describe("Snapshot controlleer", func() {
 						Expect(vm.Status.VolumeSnapshotStatuses[6].Name).To(Equal("disk7"))
 						Expect(vm.Status.VolumeSnapshotStatuses[6].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[6].Reason).
-							To(Equal("No Volume Snapshot Storage Class found for volume [disk7]"))
+							To(Equal("No VolumeSnapshotClass: Volume snapshots are not configured for this StorageClass [] [disk7]"))
 
 						Expect(vm.Status.VolumeSnapshotStatuses[7].Name).To(Equal("disk8"))
 						Expect(vm.Status.VolumeSnapshotStatuses[7].Enabled).To(BeFalse())
 						Expect(vm.Status.VolumeSnapshotStatuses[7].Reason).
-							To(Equal("No Volume Snapshot Storage Class found for volume [disk8]"))
+							To(Equal("No VolumeSnapshotClass: Volume snapshots are not configured for this StorageClass [] [disk8]"))
 
 						updateCalled = true
 					})
