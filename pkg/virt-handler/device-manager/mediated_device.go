@@ -417,7 +417,15 @@ func getMdevTypeName(mdevUUID string) (string, error) {
 	// #nosec No risk for path injection. Path is composed from static base  "mdevBasePath" and static components
 	rawName, err := ioutil.ReadFile(filepath.Join(mdevBasePath, mdevUUID, "mdev_type/name"))
 	if err != nil {
-		return "", err
+		if os.IsNotExist(err) {
+			originFile, err := os.Readlink(filepath.Join(mdevBasePath, mdevUUID, "mdev_type"))
+			if err != nil {
+				return "", err
+			}
+			rawName = []byte(filepath.Base(originFile))
+		} else {
+			return "", err
+		}
 	}
 	// The name usually contain spaces which should be replaced with _
 	typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
