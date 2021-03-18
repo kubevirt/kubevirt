@@ -155,7 +155,7 @@ A design proposal and its implementation history can be seen [here](https://docs
 ## kubevirt_vmi_network_transmit_packets_total
 #### HELP kubevirt_vmi_network_transmit_packets_total Network traffic transmit packets
 
- # Other Metrics 
+ # Other Metrics
 ## kubevirt_vmi_memory_actual_balloon_bytes
 #### HELP kubevirt_vmi_memory_actual_balloon_bytes current balloon bytes.
 ## kubevirt_vmi_memory_pgmajfault
@@ -170,3 +170,7 @@ A design proposal and its implementation history can be seen [here](https://docs
 #### HELP kubevirt_vmi_memory_usable_bytes The amount of memory which can be reclaimed by balloon without causing host swapping in bytes.
 ## kubevirt_vmi_memory_used_total_bytes
 #### HELP kubevirt_vmi_memory_used_total_bytes The amount of memory in bytes used by the domain.
+
+ # Other Metrics 
+## kubevirt_vmi_cpu_affinity
+#### HELP kubevirt_vmi_cpu_affinity vcpu affinity details

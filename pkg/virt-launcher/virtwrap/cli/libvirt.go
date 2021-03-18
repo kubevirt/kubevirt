@@ -302,6 +302,14 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 			return list, err
 		}
 
+		cpuMap, err := domStat.Domain.GetVcpuPinInfo(libvirt.DOMAIN_AFFECT_CURRENT)
+		if err != nil {
+			return list, err
+		}
+
+		stat.CPUMap = cpuMap
+		stat.CPUMapSet = true
+
 		list = append(list, stat)
 	}
 
