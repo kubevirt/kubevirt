@@ -37,7 +37,6 @@ function build_release_artifacts() {
     make olm-verify
     make prom-rules-verify
 
-    docker login -u="$QUAY_USER" -p="$QUAY_PASSWORD" quay.io
     QUAY_REPOSITORY="kubevirt" PACKAGE_NAME="kubevirt-operatorhub" make bazel-push-images
 
     make build-functests
