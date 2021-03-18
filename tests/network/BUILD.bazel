@@ -8,6 +8,7 @@ go_library(
         "framework.go",
         "networkpolicy.go",
         "primary_pod_network.go",
+        "probes.go",
         "services.go",
         "vmi_multus.go",
         "vmi_networking.go",
