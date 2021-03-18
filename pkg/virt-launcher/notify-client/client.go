@@ -44,6 +44,10 @@ type Notifier struct {
 	connLock         sync.Mutex
 	pipeSocketPath   string
 	legacySocketPath string
+
+	intervalTimeout time.Duration
+	sendTimeout     time.Duration
+	totalTimeout    time.Duration
 }
 
 type libvirtEvent struct {
@@ -56,8 +60,17 @@ func NewNotifier(virtShareDir string) *Notifier {
 	return &Notifier{
 		pipeSocketPath:   filepath.Join(virtShareDir, "domain-notify-pipe.sock"),
 		legacySocketPath: filepath.Join(virtShareDir, "domain-notify.sock"),
+		intervalTimeout:  defaultIntervalTimeout,
+		sendTimeout:      defaultSendTimeout,
+		totalTimeout:     defaultTotalTimeout,
 	}
 }
+
+var (
+	defaultIntervalTimeout = 1 * time.Second
+	defaultSendTimeout     = 5 * time.Second
+	defaultTotalTimeout    = 20 * time.Second
+)
 
 func negotiateVersion(infoClient info.NotifyInfoClient) (uint32, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
@@ -80,6 +93,14 @@ func negotiateVersion(infoClient info.NotifyInfoClient) (uint32, error) {
 	return version, nil
 }
 
+// used by unit tests
+func (n *Notifier) SetCustomTimeouts(interval, send, total time.Duration) {
+	n.intervalTimeout = interval
+	n.sendTimeout = send
+	n.totalTimeout = total
+
+}
+
 func (n *Notifier) detectSocketPath() string {
 
 	// use the legacy domain socket if it exists. This would
@@ -95,49 +116,40 @@ func (n *Notifier) detectSocketPath() string {
 }
 
 func (n *Notifier) connect() error {
-	connectionInterval := 2 * time.Second
-	connectionTimeout := 20 * time.Second
+	if n.conn != nil {
+		// already connected
+		return nil
+	}
 
-	err := utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
-		n.connLock.Lock()
-		defer n.connLock.Unlock()
-		if n.conn != nil {
-			// already connected
-			return true, nil
-		}
+	socketPath := n.detectSocketPath()
 
-		socketPath := n.detectSocketPath()
+	// dial socket
+	conn, err := grpcutil.DialSocketWithTimeout(socketPath, 5)
+	if err != nil {
+		log.Log.Reason(err).Infof("failed to dial notify socket: %s", socketPath)
+		return err
+	}
 
-		// dial socket
-		conn, err := grpcutil.DialSocketWithTimeout(socketPath, 5)
-		if err != nil {
-			log.Log.Reason(err).Infof("failed to dial notify socket: %s", socketPath)
-			return false, nil
-		}
+	version, err := negotiateVersion(info.NewNotifyInfoClient(conn))
+	if err != nil {
+		log.Log.Reason(err).Infof("failed to negotiate version")
+		conn.Close()
+		return err
+	}
 
-		version, err := negotiateVersion(info.NewNotifyInfoClient(conn))
-		if err != nil {
-			log.Log.Reason(err).Infof("failed to negotiate version")
-			conn.Close()
-			return false, nil
-		}
+	// create cmd v1client
+	switch version {
+	case 1:
+		client := notifyv1.NewNotifyClient(conn)
+		n.v1client = client
+		n.conn = conn
+	default:
+		conn.Close()
+		return fmt.Errorf("cmd v1client version %v not implemented yet", version)
+	}
 
-		// create cmd v1client
-		switch version {
-		case 1:
-			client := notifyv1.NewNotifyClient(conn)
-			n.v1client = client
-			n.conn = conn
-		default:
-			conn.Close()
-			return false, fmt.Errorf("cmd v1client version %v not implemented yet", version)
-		}
-
-		log.Log.Infof("Successfully connected to domain notify socket at %s", socketPath)
-		return true, nil
-	})
-
-	return err
+	log.Log.Infof("Successfully connected to domain notify socket at %s", socketPath)
+	return nil
 }
 
 func (n *Notifier) SendDomainEvent(event watch.Event) error {
@@ -145,11 +157,6 @@ func (n *Notifier) SendDomainEvent(event watch.Event) error {
 	var domainJSON []byte
 	var statusJSON []byte
 	var err error
-
-	err = n.connect()
-	if err != nil {
-		return err
-	}
 
 	if event.Type == watch.Error {
 		status := event.Object.(*metav1.Status)
@@ -172,9 +179,30 @@ func (n *Notifier) SendDomainEvent(event watch.Event) error {
 		EventType:  string(event.Type),
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	response, err := n.v1client.HandleDomainEvent(ctx, &request)
+	var response *notifyv1.Response
+	err = utilwait.PollImmediate(n.intervalTimeout, n.totalTimeout, func() (done bool, err error) {
+		n.connLock.Lock()
+		defer n.connLock.Unlock()
+
+		err = n.connect()
+		if err != nil {
+			log.Log.Reason(err).Errorf("Failed to connect to notify server")
+			return false, nil
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), n.sendTimeout)
+		defer cancel()
+		response, err = n.v1client.HandleDomainEvent(ctx, &request)
+
+		if err != nil {
+			log.Log.Reason(err).Errorf("Failed to send domain notify event. closing connection.")
+			n._close()
+			return false, nil
+		}
+
+		return true, nil
+
+	})
 
 	if err != nil {
 		log.Log.Reason(err).Infof("Failed to send domain notify event")
@@ -449,11 +477,6 @@ func (n *Notifier) StartDomainNotifier(
 }
 
 func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error {
-	err := n.connect()
-	if err != nil {
-		return err
-	}
-
 	vmiRef, err := reference.GetReference(v1.Scheme, vmi)
 	if err != nil {
 		return err
@@ -475,9 +498,29 @@ func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string,
 		EventJSON: json,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	response, err := n.v1client.HandleK8SEvent(ctx, &request)
+	var response *notifyv1.Response
+	err = utilwait.PollImmediate(n.intervalTimeout, n.totalTimeout, func() (done bool, err error) {
+		n.connLock.Lock()
+		defer n.connLock.Unlock()
+
+		err = n.connect()
+		if err != nil {
+			log.Log.Reason(err).Errorf("Failed to connect to notify server")
+			return false, nil
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), n.sendTimeout)
+		defer cancel()
+		response, err = n.v1client.HandleK8SEvent(ctx, &request)
+
+		if err != nil {
+			log.Log.Reason(err).Errorf("Failed to send k8s notify event. closing connection.")
+			n._close()
+			return false, nil
+		}
+
+		return true, nil
+	})
 
 	if err != nil {
 		return err
@@ -489,12 +532,16 @@ func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string,
 	return nil
 }
 
-func (n *Notifier) Close() {
-	n.connLock.Lock()
-	defer n.connLock.Unlock()
-
+func (n *Notifier) _close() {
 	if n.conn != nil {
 		n.conn.Close()
 		n.conn = nil
 	}
+}
+
+func (n *Notifier) Close() {
+	n.connLock.Lock()
+	defer n.connLock.Unlock()
+	n._close()
+
 }
