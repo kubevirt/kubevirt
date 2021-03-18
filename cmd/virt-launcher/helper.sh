@@ -1,30 +1,35 @@
 #!/bin/bash
 
 echo hosts
-ls -alZ /etc/hosts 
+ls -ialZ /etc/hosts 
 echo cap
-ls -alZ /usr/bin/virt-launcher-cap
+ls -ialZ /usr/bin/virt-launcher-cap
 echo term-log
-ls -alZ /dev/termination-log
+ls -ialZ /dev/termination-log
 echo resolv
-ls -alZ /etc/resolv.conf
+ls -ialZ /etc/resolv.conf
 echo hostname 
-ls -alZ /etc/hostname
+ls -ialZ /etc/hostname
 echo kv
-ls -alZ /run/kubevirt
-ls -alZ /var/run/kubevirt
+ls -ialZ /run/kubevirt
+ls -ialZ /var/run/kubevirt
 echo e-disk
-ls -alZ /run/kubevirt-ephemeral-disks
+ls -ialZ /run/kubevirt-ephemeral-disks
 echo kv-private
-ls -alZ /run/kubevirt-private
-ls -alZ /var/run/kubevirt-private
+ls -ialZ /run/kubevirt-private
+ls -ialZ /var/run/kubevirt-private
 echo libvirt
-ls -alZ /run/libvirt
+ls -ialZ /run/libvirt
 echo cdisk
-ls -alZ /run/kubevirt/container-disks
-ls -alZ /run/kubevirt/sockets
-ls -alZ /run/kubevirt/hotplug-disks
+ls -ialZ /run/kubevirt/container-disks
+ls -ialZ /run/kubevirt/sockets
+ls -ialZ /run/kubevirt/hotplug-disks
 echo lib
-ls -alZ /lib64
+ls -ialZ /lib64
+echo proc
+ls -ialZ /proc
+echo dev
+ls -ialZ /dev
+ps axZ
 mount 
-strace $@
+strace $@ 
