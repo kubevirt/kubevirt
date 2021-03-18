@@ -43,7 +43,7 @@ const (
 	DefaultPollIntervalInSeconds         = 3
 )
 
-var _ = Describe("[Serial][ref_id:2717]KubeVirt control plane resilience", func() {
+var _ = FDescribe("[Serial][ref_id:2717]KubeVirt control plane resilience", func() {
 
 	var err error
 	var virtCli kubecli.KubevirtClient

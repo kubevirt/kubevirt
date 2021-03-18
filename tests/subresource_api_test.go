@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-var _ = Describe("Subresource Api", func() {
+var _ = FDescribe("Subresource Api", func() {
 
 	var err error
 	var virtCli kubecli.KubevirtClient

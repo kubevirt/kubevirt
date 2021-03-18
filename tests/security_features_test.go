@@ -36,7 +36,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-var _ = Describe("[Serial]SecurityFeatures", func() {
+var _ = FDescribe("[Serial]SecurityFeatures", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

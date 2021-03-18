@@ -44,7 +44,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstanceReplicaSet", func() {
+var _ = FDescribe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstanceReplicaSet", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
