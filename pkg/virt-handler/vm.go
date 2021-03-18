@@ -1076,24 +1076,26 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting virt-handler controller.")
 
-	// Wait for the domain cache to be synced
-	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced)
-
 	go c.deviceManagerController.Run(stopCh)
 
-	// Poplulate the VirtualMachineInstance store with known Domains on the host, to get deletes since the last run
+	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiSourceInformer.HasSynced, c.vmiTargetInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
+
+	// Queue keys for previous Domains on the host that no longer exist
+	// in the cache. This ensures we perform local cleanup of deleted VMs.
 	for _, domain := range c.domainInformer.GetStore().List() {
 		d := domain.(*api.Domain)
-		c.vmiSourceInformer.GetStore().Add(
-			v1.NewVMIReferenceWithUUID(
-				d.ObjectMeta.Namespace,
-				d.ObjectMeta.Name,
-				d.Spec.Metadata.KubeVirt.UID,
-			),
-		)
-	}
+		vmiRef := v1.NewVMIReferenceWithUUID(
+			d.ObjectMeta.Namespace,
+			d.ObjectMeta.Name,
+			d.Spec.Metadata.KubeVirt.UID)
 
-	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiSourceInformer.HasSynced, c.vmiTargetInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
+		key := controller.VirtualMachineKey(vmiRef)
+
+		_, exists, _ := c.vmiSourceInformer.GetStore().GetByKey(key)
+		if !exists {
+			c.Queue.Add(key)
+		}
+	}
 
 	go c.heartBeat.Run(c.heartBeatInterval, stopCh)
 
