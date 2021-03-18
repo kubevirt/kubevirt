@@ -98,7 +98,7 @@ group_entry(
 group_entry(
     name = "root-group",
     gid = 0,
-    groupname = "qemu",
+    groupname = "root",
 )
 
 group_file(
