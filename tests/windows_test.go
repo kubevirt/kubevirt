@@ -114,7 +114,7 @@ var getWindowsVMISpec = func() v1.VirtualMachineInstanceSpec {
 
 }
 
-var _ = Describe("[Serial]Windows VirtualMachineInstance", func() {
+var _ = FDescribe("[Serial]Windows VirtualMachineInstance", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 

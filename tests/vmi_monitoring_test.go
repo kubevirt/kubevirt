@@ -33,7 +33,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-var _ = Describe("Health Monitoring", func() {
+var _ = FDescribe("Health Monitoring", func() {
 
 	var virtClient kubecli.KubevirtClient
 

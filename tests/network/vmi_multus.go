@@ -584,7 +584,7 @@ var _ = SIGDescribe("[Serial]Multus", func() {
 	})
 })
 
-var _ = Describe("[Serial]SRIOV", func() {
+var _ = FDescribe("[Serial]SRIOV", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

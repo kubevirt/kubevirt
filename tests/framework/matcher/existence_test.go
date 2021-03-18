@@ -7,7 +7,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-var _ = Describe("Existence matchers", func() {
+var _ = FDescribe("Existence matchers", func() {
 
 	var toNilPointer *v1.Pod = nil
 
