@@ -3,7 +3,7 @@ package testutils
 import (
 	v1 "k8s.io/api/core/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/cache"
 
@@ -44,6 +44,22 @@ func NewFakeClusterConfigUsingKV(kv *KVv1.KubeVirt) (*virtconfig.ClusterConfig, 
 	return virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, namespace), configMapInformer, crdInformer, kubeVirtInformer
 }
 
+func NewFakeClusterConfigUsingKVConfig(config *KVv1.KubeVirtConfiguration) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
+	kv := &KVv1.KubeVirt{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubevirt",
+			Namespace: "kubevirt",
+		},
+		Spec: KVv1.KubeVirtSpec{
+			Configuration: *config,
+		},
+		Status: KVv1.KubeVirtStatus{
+			Phase: "Deployed",
+		},
+	}
+	return NewFakeClusterConfigUsingKV(kv)
+}
+
 func RemoveDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
 	crdInformer.GetStore().Replace(nil, "")
 }
@@ -74,7 +90,7 @@ func UpdateFakeKubeVirtClusterConfig(kubeVirtInformer cache.SharedIndexInformer,
 
 func copy(cfgMap *v1.ConfigMap) *v1.ConfigMap {
 	copy := cfgMap.DeepCopy()
-	copy.ObjectMeta = v12.ObjectMeta{
+	copy.ObjectMeta = metav1.ObjectMeta{
 		Namespace: namespace,
 		Name:      configMapName,
 		// Change the resource version, or the config will not be updated

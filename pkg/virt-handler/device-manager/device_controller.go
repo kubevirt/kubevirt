@@ -36,6 +36,10 @@ var permanentDevicePluginPaths = map[string]string{
 	"vhost-net": "/dev/vhost-net",
 }
 
+type DeviceControllerInterface interface {
+	Initialized() bool
+}
+
 type DeviceController struct {
 	devicePlugins      map[string]ControlledDevice
 	devicePluginsMutex sync.Mutex
