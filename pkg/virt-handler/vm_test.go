@@ -2580,7 +2580,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			Expect(timedOut).To(BeFalse(), "should not time out")
 		})
 
-		It("should get eventually get notify events once pipe is online", func() {
+		It("should eventually get notify events once pipe is online", func() {
 			vmi := v1.NewMinimalVMI("fake-vmi")
 			vmi.UID = "4321"
 			vmiStore.Add(vmi)
@@ -2596,6 +2596,9 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 
 			// Client should fail when pipe is offline
 			client = notifyclient.NewNotifier(pipeDir)
+
+			client.SetCustomTimeouts(1*time.Second, 1*time.Second, 3*time.Second)
+
 			err = client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
 			Expect(err).To(HaveOccurred())
 
@@ -2606,10 +2609,9 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			handleDomainNotifyPipe(domainPipeStopChan, listener, shareDir, vmi)
 			time.Sleep(1)
 
-			// Expect the client to eventually reconnect and succeed despite initial failure
-			Eventually(func() error {
-				return client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
-			}, 10, 1).Should(BeNil())
+			// Expect the client to reconnect and succeed despite initial failure
+			err = client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
+			Expect(err).ToNot(HaveOccurred())
 
 		})
 
@@ -2640,6 +2642,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 				close(serverStopChan)
 				<-serverIsStoppedChan
 
+				client.SetCustomTimeouts(1*time.Second, 1*time.Second, 1*time.Second)
 				// Expect a client error to occur here because the server is down
 				err = client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
 				Expect(err).To(HaveOccurred())
@@ -2652,10 +2655,10 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 					close(serverIsStoppedChan)
 				}()
 
-				// Expect the client to eventually reconnect and succeed despite server restarts
-				Eventually(func() error {
-					return client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
-				}, 10, 1).Should(BeNil())
+				// Expect the client to reconnect and succeed despite server restarts
+				client.SetCustomTimeouts(1*time.Second, 1*time.Second, 3*time.Second)
+				err = client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
+				Expect(err).ToNot(HaveOccurred())
 
 				timedOut := false
 				timeout := time.After(4 * time.Second)
