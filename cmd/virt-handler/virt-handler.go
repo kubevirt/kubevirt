@@ -295,8 +295,6 @@ func (app *virtHandlerApp) Run() {
 		int(app.WatchdogTimeoutDuration.Seconds()),
 		app.MaxDevices,
 		app.clusterConfig,
-		app.serverTLSConfig,
-		app.clientTLSConfig,
 		podIsolationDetector,
 		migrationProxy,
 	)

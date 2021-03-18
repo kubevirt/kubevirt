@@ -20,7 +20,6 @@
 package virthandler
 
 import (
-	"crypto/tls"
 	goerror "errors"
 	"fmt"
 	"io"
@@ -93,9 +92,8 @@ func NewController(
 	watchdogTimeoutSeconds int,
 	maxDevices int,
 	clusterConfig *virtconfig.ClusterConfig,
-	serverTLSConfig *tls.Config,
-	clientTLSConfig *tls.Config,
 	podIsolationDetector isolation.PodIsolationDetector,
+	migrationProxy migrationproxy.ProxyManager,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -113,7 +111,7 @@ func NewController(
 		gracefulShutdownInformer:    gracefulShutdownInformer,
 		heartBeatInterval:           1 * time.Minute,
 		watchdogTimeoutSeconds:      watchdogTimeoutSeconds,
-		migrationProxy:              migrationproxy.NewMigrationProxyManager(serverTLSConfig, clientTLSConfig),
+		migrationProxy:              migrationProxy,
 		podIsolationDetector:        podIsolationDetector,
 		containerDiskMounter:        container_disk.NewMounter(podIsolationDetector, virtPrivateDir+"/container-disk-mount-state"),
 		hotplugVolumeMounter:        hotplug_volume.NewVolumeMounter(podIsolationDetector, virtPrivateDir+"/hotplug-volume-mount-state"),
