@@ -35,6 +35,11 @@ readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="https://templates.ovirt.org/kubevirt/"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
 
+if [ -z $TARGET ]; then
+  echo "FATAL: TARGET must be non empty"
+  exit 1
+fi
+
 if [[ $TARGET =~ windows.* ]]; then
   echo "picking the default provider for windows tests"
 elif [[ $TARGET =~ cnao ]]; then
