@@ -3850,6 +3850,22 @@ func SkipIfOpenShift4(message string) {
 	}
 }
 
+func SkipIfMigrationIsNotPossible() {
+	if !HasLiveMigration() {
+		Skip("LiveMigration feature gate is not enabled in kubevirt-config")
+	}
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	nodes := GetAllSchedulableNodes(virtClient)
+	Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
+
+	if len(nodes.Items) < 2 {
+		Skip("Migration tests require at least 2 nodes")
+	}
+}
+
 // StartVmOnNode starts a VMI on the specified node
 func StartVmOnNode(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualMachineInstance {
 	virtClient, err := kubecli.GetKubevirtClient()
