@@ -41,6 +41,39 @@ type MigrationCreateAdmitter struct {
 	VirtClient    kubecli.KubevirtClient
 }
 
+func isMigratable(vmi *v1.VirtualMachineInstance) error {
+	for _, c := range vmi.Status.Conditions {
+		if c.Type == v1.VirtualMachineInstanceIsMigratable &&
+			c.Status == k8sv1.ConditionFalse {
+			return fmt.Errorf("Cannot migrate VMI, Reason: %s, Message: %s", c.Reason, c.Message)
+		}
+	}
+	return nil
+}
+
+func (admitter *MigrationCreateAdmitter) ensureNoConflict(migration *v1.VirtualMachineInstanceMigration) error {
+	labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, migration.Spec.VMIName))
+	if err != nil {
+		return err
+	}
+	list, err := admitter.VirtClient.VirtualMachineInstanceMigration(migration.Namespace).List(&metav1.ListOptions{
+		LabelSelector: labelSelector.String(),
+	})
+	if err != nil {
+		return err
+	}
+	if len(list.Items) > 0 {
+		for _, mig := range list.Items {
+			if mig.Status.Phase == v1.MigrationSucceeded || mig.Status.Phase == v1.MigrationFailed {
+				continue
+			}
+			return fmt.Errorf("in-flight migration detected. Active migration job (%s) is currently already in progress for VMI %s.", string(mig.UID), mig.Spec.VMIName)
+		}
+	}
+
+	return nil
+}
+
 func (admitter *MigrationCreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	migration, _, err := getAdmissionReviewMigration(ar)
 	if err != nil {
@@ -79,34 +112,16 @@ func (admitter *MigrationCreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1b
 	}
 
 	// Reject migration jobs for non-migratable VMIs
-	for _, c := range vmi.Status.Conditions {
-		if c.Type == v1.VirtualMachineInstanceIsMigratable &&
-			c.Status == k8sv1.ConditionFalse {
-			errMsg := fmt.Errorf("Cannot migrate VMI, Reason: %s, Message: %s",
-				c.Reason, c.Message)
-			return webhookutils.ToAdmissionResponseError(errMsg)
-		}
+	err = isMigratable(vmi)
+	if err != nil {
+		return webhookutils.ToAdmissionResponseError(err)
 	}
 
 	// Don't allow new migration jobs to be introduced when previous migration jobs
 	// are already in flight.
-	labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, migration.Spec.VMIName))
+	err = admitter.ensureNoConflict(migration)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
-	}
-	list, err := admitter.VirtClient.VirtualMachineInstanceMigration(migration.Namespace).List(&metav1.ListOptions{
-		LabelSelector: labelSelector.String(),
-	})
-	if err != nil {
-		return webhookutils.ToAdmissionResponseError(err)
-	}
-	if len(list.Items) > 0 {
-		for _, mig := range list.Items {
-			if mig.Status.Phase == v1.MigrationSucceeded || mig.Status.Phase == v1.MigrationFailed {
-				continue
-			}
-			return webhookutils.ToAdmissionResponseError(fmt.Errorf("in-flight migration detected. Active migration job (%s) is currently already in progress for VMI %s.", string(mig.UID), mig.Spec.VMIName))
-		}
 	}
 
 	reviewResponse := v1beta1.AdmissionResponse{}
