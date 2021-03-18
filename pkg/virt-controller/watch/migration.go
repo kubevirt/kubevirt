@@ -149,6 +149,14 @@ func (c *MigrationController) Execute() bool {
 	return true
 }
 
+func ensureSelectorLabelPresent(migration *virtv1.VirtualMachineInstanceMigration) {
+	if migration.Labels == nil {
+		migration.Labels = map[string]string{virtv1.MigrationSelectorLabel: migration.Spec.VMIName}
+	} else if _, exist := migration.Labels[virtv1.MigrationSelectorLabel]; !exist {
+		migration.Labels[virtv1.MigrationSelectorLabel] = migration.Spec.VMIName
+	}
+}
+
 func (c *MigrationController) execute(key string) error {
 	var vmi *virtv1.VirtualMachineInstance
 	var targetPods []*k8sv1.Pod
@@ -172,11 +180,7 @@ func (c *MigrationController) execute(key string) error {
 		migration := migration.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(migration)
 		// Ensure the migration contains our selector label
-		if migration.Labels == nil {
-			migration.Labels = map[string]string{virtv1.MigrationSelectorLabel: migration.Spec.VMIName}
-		} else if _, exist := migration.Labels[virtv1.MigrationSelectorLabel]; !exist {
-			migration.Labels[virtv1.MigrationSelectorLabel] = migration.Spec.VMIName
-		}
+		ensureSelectorLabelPresent(migration)
 		_, err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Update(migration)
 		return err
 	}
