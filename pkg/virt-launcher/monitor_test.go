@@ -31,6 +31,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"github.com/google/uuid"
+
 	"kubevirt.io/client-go/log"
 )
 
@@ -46,7 +48,7 @@ var _ = Describe("VirtLauncher", func() {
 	var cmdLock sync.Mutex
 	var gracefulShutdownChannel chan struct{}
 
-	uuid := "123-123-123-123"
+	uuid := uuid.New().String()
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
