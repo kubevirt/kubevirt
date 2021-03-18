@@ -45,7 +45,7 @@ func (r *Reconciler) createOrUpdate(role interface{},
 	roleType RoleType,
 	avoidIfServiceAccount bool) (err error) {
 
-	roleTypeName := getName(roleType)
+	roleTypeName := getRoleTypeName(roleType)
 	createRole := r.getRoleCreateFunction(role, roleType)
 	updateRole := r.getRoleUpdateFunction(role, roleType)
 
@@ -172,7 +172,7 @@ func (r *Reconciler) getRoleUpdateFunction(obj interface{}, roleType RoleType) (
 	return
 }
 
-func getName(roleType RoleType) (name string) {
+func getRoleTypeName(roleType RoleType) (name string) {
 	switch roleType {
 	case TypeRole:
 		name = "role"

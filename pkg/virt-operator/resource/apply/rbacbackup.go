@@ -1,9 +1,6 @@
 package apply
 
 import (
-	"context"
-	"fmt"
-
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -12,9 +9,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-func (r *Reconciler) backupRbac() error {
-
-	rbac := r.clientset.RbacV1()
+func (r *Reconciler) backupRBACs() error {
 
 	// Backup existing ClusterRoles
 	objects := r.stores.ClusterRoleCache.List()
@@ -28,24 +23,10 @@ func (r *Reconciler) backupRbac() error {
 			continue
 		}
 
-		// needs backup, so create a new object that will temporarily
-		// backup this object while the update is in progress.
-		cr := cachedCr.DeepCopy()
-		cr.ObjectMeta = metav1.ObjectMeta{
-			GenerateName: cachedCr.Name,
-		}
-		injectOperatorMetadata(r.kv, &cr.ObjectMeta, imageTag, imageRegistry, id, true)
-		cr.Annotations[v1.EphemeralBackupObject] = string(cachedCr.UID)
-
-		// Create backup
-		r.expectations.ClusterRole.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := rbac.ClusterRoles().Create(context.Background(), cr, metav1.CreateOptions{})
+		err := r.backupRBAC(cachedCr.DeepCopy(), cachedCr.Name, string(cachedCr.UID), imageTag, imageRegistry, id, TypeClusterRole)
 		if err != nil {
-			r.expectations.ClusterRole.LowerExpectations(r.kvKey, 1, 0)
-			return fmt.Errorf("unable to create backup clusterrole %+v: %v", cr, err)
+			return err
 		}
-
-		log.Log.V(2).Infof("backup clusterrole %v created", cr.GetName())
 	}
 
 	// Backup existing ClusterRoleBindings
@@ -60,23 +41,10 @@ func (r *Reconciler) backupRbac() error {
 			continue
 		}
 
-		// needs backup, so create a new object that will temporarily
-		// backup this object while the update is in progress.
-		crb := cachedCrb.DeepCopy()
-		crb.ObjectMeta = metav1.ObjectMeta{
-			GenerateName: cachedCrb.Name,
-		}
-		injectOperatorMetadata(r.kv, &crb.ObjectMeta, imageTag, imageRegistry, id, true)
-		crb.Annotations[v1.EphemeralBackupObject] = string(cachedCrb.UID)
-
-		// Create backup
-		r.expectations.ClusterRoleBinding.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := rbac.ClusterRoleBindings().Create(context.Background(), crb, metav1.CreateOptions{})
+		err := r.backupRBAC(cachedCrb.DeepCopy(), cachedCrb.Name, string(cachedCrb.UID), imageTag, imageRegistry, id, TypeClusterRole)
 		if err != nil {
-			r.expectations.ClusterRoleBinding.LowerExpectations(r.kvKey, 1, 0)
-			return fmt.Errorf("unable to create backup clusterrolebinding %+v: %v", crb, err)
+			return err
 		}
-		log.Log.V(2).Infof("backup clusterrolebinding %v created", crb.GetName())
 	}
 
 	// Backup existing Roles
@@ -91,23 +59,10 @@ func (r *Reconciler) backupRbac() error {
 			continue
 		}
 
-		// needs backup, so create a new object that will temporarily
-		// backup this object while the update is in progress.
-		cr := cachedCr.DeepCopy()
-		cr.ObjectMeta = metav1.ObjectMeta{
-			GenerateName: cachedCr.Name,
-		}
-		injectOperatorMetadata(r.kv, &cr.ObjectMeta, imageTag, imageRegistry, id, true)
-		cr.Annotations[v1.EphemeralBackupObject] = string(cachedCr.UID)
-
-		// Create backup
-		r.expectations.Role.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := rbac.Roles(cachedCr.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
+		err := r.backupRBAC(cachedCr.DeepCopy(), cachedCr.Name, string(cachedCr.UID), imageTag, imageRegistry, id, TypeClusterRole)
 		if err != nil {
-			r.expectations.Role.LowerExpectations(r.kvKey, 1, 0)
-			return fmt.Errorf("unable to create backup role %+v: %v", r, err)
+			return err
 		}
-		log.Log.V(2).Infof("backup role %v created", cr.GetName())
 	}
 
 	// Backup existing RoleBindings
@@ -122,31 +77,39 @@ func (r *Reconciler) backupRbac() error {
 			continue
 		}
 
-		// needs backup, so create a new object that will temporarily
-		// backup this object while the update is in progress.
-		rb := cachedRb.DeepCopy()
-		rb.ObjectMeta = metav1.ObjectMeta{
-			GenerateName: cachedRb.Name,
-		}
-		injectOperatorMetadata(r.kv, &rb.ObjectMeta, imageTag, imageRegistry, id, true)
-		rb.Annotations[v1.EphemeralBackupObject] = string(cachedRb.UID)
-
-		// Create backup
-		r.expectations.RoleBinding.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := rbac.RoleBindings(cachedRb.Namespace).Create(context.Background(), rb, metav1.CreateOptions{})
+		err := r.backupRBAC(cachedRb.DeepCopy(), cachedRb.Name, string(cachedRb.UID), imageTag, imageRegistry, id, TypeClusterRole)
 		if err != nil {
-			r.expectations.RoleBinding.LowerExpectations(r.kvKey, 1, 0)
-			return fmt.Errorf("unable to create backup rolebinding %+v: %v", rb, err)
+			return err
 		}
-		log.Log.V(2).Infof("backup rolebinding %v created", rb.GetName())
 	}
 
 	return nil
 }
 
+func (r *Reconciler) backupRBAC(obj interface{}, name, UID, imageTag, imageRegistry, id string, roleType RoleType) error {
+	meta := getRoleMetaObject(obj, roleType)
+	*meta = metav1.ObjectMeta{
+		GenerateName: name,
+	}
+	injectOperatorMetadata(r.kv, meta, imageTag, imageRegistry, id, true)
+	meta.Annotations[v1.EphemeralBackupObject] = UID
+
+	// Create backup
+	createRole := r.getRoleCreateFunction(obj, roleType)
+	err := createRole()
+	if err != nil {
+		return err
+	}
+
+	log.Log.V(2).Infof("backup %v %v created", getRoleTypeName(roleType), name)
+	return nil
+}
+
 func needsClusterRoleBackup(kv *v1.KubeVirt, stores util.Stores, cr *rbacv1.ClusterRole) bool {
-	imageTag, imageRegistry, id, shouldBackup := shouldBackupRBACObject(kv, &cr.ObjectMeta)
-	if !shouldBackup {
+
+	shouldBackup := shouldBackupRBACObject(kv, &cr.ObjectMeta)
+	imageTag, imageRegistry, id, ok := getInstallStrategyAnnotations(&cr.ObjectMeta)
+	if !shouldBackup || !ok {
 		return false
 	}
 
@@ -181,8 +144,9 @@ func needsClusterRoleBackup(kv *v1.KubeVirt, stores util.Stores, cr *rbacv1.Clus
 
 func needsRoleBindingBackup(kv *v1.KubeVirt, stores util.Stores, rb *rbacv1.RoleBinding) bool {
 
-	imageTag, imageRegistry, id, shouldBackup := shouldBackupRBACObject(kv, &rb.ObjectMeta)
-	if !shouldBackup {
+	shouldBackup := shouldBackupRBACObject(kv, &rb.ObjectMeta)
+	imageTag, imageRegistry, id, ok := getInstallStrategyAnnotations(&rb.ObjectMeta)
+	if !shouldBackup || !ok {
 		return false
 	}
 
@@ -217,8 +181,9 @@ func needsRoleBindingBackup(kv *v1.KubeVirt, stores util.Stores, rb *rbacv1.Role
 
 func needsRoleBackup(kv *v1.KubeVirt, stores util.Stores, r *rbacv1.Role) bool {
 
-	imageTag, imageRegistry, id, shouldBackup := shouldBackupRBACObject(kv, &r.ObjectMeta)
-	if !shouldBackup {
+	shouldBackup := shouldBackupRBACObject(kv, &r.ObjectMeta)
+	imageTag, imageRegistry, id, ok := getInstallStrategyAnnotations(&r.ObjectMeta)
+	if !shouldBackup || !ok {
 		return false
 	}
 
@@ -251,36 +216,34 @@ func needsRoleBackup(kv *v1.KubeVirt, stores util.Stores, r *rbacv1.Role) bool {
 	return true
 }
 
-func shouldBackupRBACObject(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta) (imageTag, imageRegistry, id string, shouldBackup bool) {
+func shouldBackupRBACObject(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta) bool {
 	curVersion, curImageRegistry, curID := getTargetVersionRegistryID(kv)
-	shouldBackup = false
 
 	if objectMatchesVersion(objectMeta, curVersion, curImageRegistry, curID, kv.GetGeneration()) {
 		// matches current target version already, so doesn't need backup
-		return
+		return false
 	}
 
 	if objectMeta.Annotations == nil {
-		return
+		return false
 	}
 
 	_, ok := objectMeta.Annotations[v1.EphemeralBackupObject]
 	if ok {
 		// ephemeral backup objects don't need to be backed up because
 		// they are the backup
-		return
+		return false
 	}
 
-	imageTag, imageRegistry, id, shouldBackup = getInstallStrategyAnnotations(objectMeta)
-
-	return
+	return true
 
 }
 
 func needsClusterRoleBindingBackup(kv *v1.KubeVirt, stores util.Stores, crb *rbacv1.ClusterRoleBinding) bool {
 
-	imageTag, imageRegistry, id, shouldBackup := shouldBackupRBACObject(kv, &crb.ObjectMeta)
-	if !shouldBackup {
+	shouldBackup := shouldBackupRBACObject(kv, &crb.ObjectMeta)
+	imageTag, imageRegistry, id, ok := getInstallStrategyAnnotations(&crb.ObjectMeta)
+	if !shouldBackup || !ok {
 		return false
 	}
 
@@ -311,24 +274,4 @@ func needsClusterRoleBindingBackup(kv *v1.KubeVirt, stores util.Stores, crb *rba
 	}
 
 	return true
-}
-
-func getInstallStrategyAnnotations(meta *metav1.ObjectMeta) (imageTag, imageRegistry, id string, ok bool) {
-	ok = false
-
-	imageTag, ok = meta.Annotations[v1.InstallStrategyVersionAnnotation]
-	if !ok {
-		return
-	}
-	imageRegistry, ok = meta.Annotations[v1.InstallStrategyRegistryAnnotation]
-	if !ok {
-		return
-	}
-	id, ok = meta.Annotations[v1.InstallStrategyIdentifierAnnotation]
-	if !ok {
-		return
-	}
-
-	ok = true
-	return
 }
