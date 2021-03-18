@@ -51,17 +51,25 @@ var once sync.Once
 
 type Manager struct {
 	CallbacksPerHookPoint map[string][]*callBackClient
+	SocketsDir            string
 }
 
 func GetManager() *Manager {
 	once.Do(func() {
-		manager = &Manager{CallbacksPerHookPoint: make(map[string][]*callBackClient)}
+		manager = NewManager(HookSocketsSharedDirectory)
 	})
 	return manager
 }
 
+func NewManager(socketsDir string) *Manager {
+	return &Manager{
+		CallbacksPerHookPoint: make(map[string][]*callBackClient),
+		SocketsDir:            socketsDir,
+	}
+}
+
 func (m *Manager) Collect(numberOfRequestedHookSidecars uint, timeout time.Duration) error {
-	callbacksPerHookPoint, err := collectSideCarSockets(numberOfRequestedHookSidecars, timeout)
+	callbacksPerHookPoint, err := collectSideCarSockets(m.SocketsDir, numberOfRequestedHookSidecars, timeout)
 	if err != nil {
 		return err
 	}
@@ -76,14 +84,14 @@ func (m *Manager) Collect(numberOfRequestedHookSidecars uint, timeout time.Durat
 }
 
 // TODO: Handle sockets in parallel, when a socket appears, run a goroutine trying to read Info from it
-func collectSideCarSockets(numberOfRequestedHookSidecars uint, timeout time.Duration) (map[string][]*callBackClient, error) {
+func collectSideCarSockets(socketsDir string, numberOfRequestedHookSidecars uint, timeout time.Duration) (map[string][]*callBackClient, error) {
 	callbacksPerHookPoint := make(map[string][]*callBackClient)
 	processedSockets := make(map[string]bool)
 
 	timeoutCh := time.After(timeout)
 
 	for uint(len(processedSockets)) < numberOfRequestedHookSidecars {
-		sockets, err := ioutil.ReadDir(HookSocketsSharedDirectory)
+		sockets, err := ioutil.ReadDir(socketsDir)
 		if err != nil {
 			return nil, err
 		}
@@ -97,7 +105,7 @@ func collectSideCarSockets(numberOfRequestedHookSidecars uint, timeout time.Dura
 					continue
 				}
 
-				callBackClient, notReady, err := processSideCarSocket(HookSocketsSharedDirectory + "/" + socket.Name())
+				callBackClient, notReady, err := processSideCarSocket(socketsDir + "/" + socket.Name())
 				if notReady {
 					log.Log.Info("Sidecar server might not be ready yet, retrying in the next iteration")
 					continue
