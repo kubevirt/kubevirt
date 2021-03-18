@@ -476,13 +476,17 @@ type VirDomain interface {
 }
 
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {
+	return NewConnectionWithTimeout(uri, user, pass, checkInterval, ConnectionInterval, ConnectionTimeout)
+}
+
+func NewConnectionWithTimeout(uri string, user string, pass string, checkInterval, connectionInterval, connectionTimeout time.Duration) (Connection, error) {
 	logger := log.Log
 	logger.V(1).Infof("Connecting to libvirt daemon: %s", uri)
 
 	var err error
 	var virConn *libvirt.Connect
 
-	err = utilwait.PollImmediate(ConnectionInterval, ConnectionTimeout, func() (done bool, err error) {
+	err = utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
 		virConn, err = newConnection(uri, user, pass)
 		if err != nil {
 			logger.V(1).Infof("Connecting to libvirt daemon failed: %v", err)
