@@ -70,7 +70,7 @@ type vmYamlDefinition struct {
 	yamlFile      string
 }
 
-var _ = Describe("[Serial]Operator", func() {
+var _ = FDescribe("[Serial]Operator", func() {
 	var originalKv *v1.KubeVirt
 	var originalCDI *cdiv1.CDI
 	var originalOperatorVersion string

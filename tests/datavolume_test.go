@@ -50,7 +50,7 @@ import (
 const InvalidDataVolumeUrl = "http://127.0.0.1/invalid"
 const DummyFilePath = "/usr/share/nginx/html/dummy.file"
 
-var _ = Describe("[Serial][owner:@sig-storage]DataVolume Integration", func() {
+var _ = FDescribe("[Serial][owner:@sig-storage]DataVolume Integration", func() {
 
 	var virtClient kubecli.KubevirtClient
 	var err error

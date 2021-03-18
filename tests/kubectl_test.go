@@ -13,7 +13,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("oc/kubectl integration", func() {
+var _ = FDescribe("oc/kubectl integration", func() {
 	var (
 		k8sClient, result string
 		err               error

@@ -72,7 +72,7 @@ const (
 	stressdefaultVMSize = "100"
 )
 
-var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system] VM Live Migration", func() {
+var _ = FDescribe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system] VM Live Migration", func() {
 	var virtClient kubecli.KubevirtClient
 	var originalKubeVirtConfig *v1.KubeVirt
 	var err error

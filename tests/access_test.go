@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:component]User Access", func() {
+var _ = FDescribe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:component]User Access", func() {
 
 	view := tests.ViewServiceAccountName
 	edit := tests.EditServiceAccountName

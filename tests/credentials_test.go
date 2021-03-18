@@ -38,7 +38,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("Guest Access Credentials", func() {
+var _ = FDescribe("Guest Access Credentials", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

@@ -36,7 +36,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
-var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component]Config", func() {
+var _ = FDescribe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component]Config", func() {
 
 	var virtClient kubecli.KubevirtClient
 
