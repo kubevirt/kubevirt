@@ -2373,7 +2373,7 @@ var _ = Describe("Configurations", func() {
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "[ $(sudo dmidecode -s chassis-asset-tag | tr -s ' ') = Test-123 ] && echo 'pass'\n"},
 				&expect.BExp{R: console.RetValue("pass")},
-			}, 1)).To(Succeed())
+			}, 10)).To(Succeed())
 		})
 	})
 
