@@ -55,7 +55,9 @@ func TestTests(t *testing.T) {
 		junitOutput = path.Join(flags.ArtifactsDir, fmt.Sprintf("partial.junit.functest.%d.xml", config.GinkgoConfig.ParallelNode))
 	}
 	reporters := []Reporter{
-		ginkgo_reporters.NewJUnitReporter(junitOutput),
+		reporter.NewCapturedOutputEnricher(
+			ginkgo_reporters.NewJUnitReporter(junitOutput),
+		),
 		reporter.NewKubernetesReporter(artifactsPath, maxFails),
 	}
 	if qe_reporters.Polarion.Run {

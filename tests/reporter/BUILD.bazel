@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["kubernetes.go"],
+    srcs = [
+        "kubernetes.go",
+        "outputenricher.go",
+    ],
     importpath = "kubevirt.io/kubevirt/tests/reporter",
     visibility = ["//visibility:public"],
     deps = [
