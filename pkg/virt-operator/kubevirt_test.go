@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
+	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 
@@ -1451,7 +1452,8 @@ var _ = Describe("KubeVirt Operator", func() {
 					Finalizers: []string{util.KubeVirtFinalizer},
 				},
 				Status: v1.KubeVirtStatus{
-					Phase: v1.KubeVirtPhaseDeleted,
+					Phase:              v1.KubeVirtPhaseDeleted,
+					ObservedGeneration: pointer.Int64Ptr(1),
 				},
 			}
 			// Add kubevirt deployment and mark everything as ready
@@ -1513,8 +1515,9 @@ var _ = Describe("KubeVirt Operator", func() {
 					ImageTag: "custom.tag",
 				},
 				Status: v1.KubeVirtStatus{
-					Phase:           v1.KubeVirtPhaseDeployed,
-					OperatorVersion: version.Get().String(),
+					Phase:              v1.KubeVirtPhaseDeployed,
+					OperatorVersion:    version.Get().String(),
+					ObservedGeneration: pointer.Int64Ptr(1),
 				},
 			}
 
@@ -1537,7 +1540,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			controller.Execute()
 			kv = getLatestKubeVirt(kv)
 			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
-
 		}, 15)
 
 		It("delete temporary validation webhook once virt-api is deployed", func(done Done) {
@@ -1551,8 +1553,9 @@ var _ = Describe("KubeVirt Operator", func() {
 					Generation: int64(1),
 				},
 				Status: v1.KubeVirtStatus{
-					Phase:           v1.KubeVirtPhaseDeployed,
-					OperatorVersion: version.Get().String(),
+					Phase:              v1.KubeVirtPhaseDeployed,
+					OperatorVersion:    version.Get().String(),
+					ObservedGeneration: pointer.Int64Ptr(1),
 				},
 			}
 			defaultConfig.SetTargetDeploymentConfig(kv)
@@ -1591,8 +1594,9 @@ var _ = Describe("KubeVirt Operator", func() {
 					Generation: int64(1),
 				},
 				Status: v1.KubeVirtStatus{
-					Phase:           v1.KubeVirtPhaseDeployed,
-					OperatorVersion: version.Get().String(),
+					Phase:              v1.KubeVirtPhaseDeployed,
+					OperatorVersion:    version.Get().String(),
+					ObservedGeneration: pointer.Int64Ptr(1),
 				},
 			}
 			defaultConfig.SetTargetDeploymentConfig(kv)
@@ -1625,8 +1629,9 @@ var _ = Describe("KubeVirt Operator", func() {
 					Generation: int64(1),
 				},
 				Status: v1.KubeVirtStatus{
-					Phase:           v1.KubeVirtPhaseDeployed,
-					OperatorVersion: version.Get().String(),
+					Phase:              v1.KubeVirtPhaseDeployed,
+					OperatorVersion:    version.Get().String(),
+					ObservedGeneration: pointer.Int64Ptr(1),
 				},
 			}
 			defaultConfig.SetTargetDeploymentConfig(kv)
