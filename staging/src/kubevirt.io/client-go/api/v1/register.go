@@ -54,7 +54,8 @@ var (
 
 var (
 	// GroupVersion is the latest group version for the KubeVirt api
-	GroupVersion = schema.GroupVersion{Group: GroupName, Version: ApiLatestVersion}
+	GroupVersion       = schema.GroupVersion{Group: GroupName, Version: ApiLatestVersion}
+	SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: ApiLatestVersion}
 
 	// StorageGroupVersion is the group version our api is persistented internally as
 	StorageGroupVersion = schema.GroupVersion{Group: GroupName, Version: ApiStorageVersion}
