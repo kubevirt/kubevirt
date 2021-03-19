@@ -249,6 +249,7 @@ func Execute() {
 	// Wire up health check triggers
 	configMapInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		apiHealthVersion.Clear()
+		cache.DefaultWatchErrorHandler(r, err)
 	})
 
 	cache.WaitForCacheSync(stopChan, configMapInformer.HasSynced, app.crdInformer.HasSynced, app.kubeVirtInformer.HasSynced)

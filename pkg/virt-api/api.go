@@ -738,6 +738,7 @@ func (app *virtAPIApp) Run() {
 	// Wire up health check trigger
 	configMapInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		apiHealthVersion.Clear()
+		cache.DefaultWatchErrorHandler(r, err)
 	})
 
 	stopChan := make(chan struct{}, 1)

@@ -71,8 +71,9 @@ func (h *KubeApiHealthzVersion) GetVersion() (v interface{}) {
 func KubeConnectionHealthzFuncFactory(clusterConfig *virtconfig.ClusterConfig, hVersion *KubeApiHealthzVersion) func(_ *restful.Request, response *restful.Response) {
 	return func(_ *restful.Request, response *restful.Response) {
 		res := map[string]interface{}{}
+		var version = hVersion.GetVersion()
 
-		if hVersion.GetVersion() == nil {
+		if version == nil {
 			cli, err := kubecli.GetKubevirtClient()
 			if err != nil {
 				unhealthy(err, clusterConfig, response)
@@ -85,7 +86,6 @@ func KubeConnectionHealthzFuncFactory(clusterConfig *virtconfig.ClusterConfig, h
 				return
 			}
 
-			var version interface{}
 			err = json.Unmarshal(body, &version)
 			if err != nil {
 				unhealthy(err, clusterConfig, response)
@@ -95,7 +95,7 @@ func KubeConnectionHealthzFuncFactory(clusterConfig *virtconfig.ClusterConfig, h
 			hVersion.Update(version)
 		}
 
-		res["apiserver"] = map[string]interface{}{"connectivity": "ok", "version": hVersion.GetVersion()}
+		res["apiserver"] = map[string]interface{}{"connectivity": "ok", "version": version}
 		res["config-resource-version"] = clusterConfig.GetResourceVersion()
 		response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON)
 		return

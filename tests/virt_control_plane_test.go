@@ -230,8 +230,8 @@ var _ = Describe("[Serial][ref_id:2717]KubeVirt control plane resilience", func(
 
 		})
 
-		When("[test_id:2807]Control plane pods temporarily lose connection to Kubernetes API", func() {
-			// virt-handler is the only component that has the tools to add blackhole routes for testing healthz
+		When("Control plane pods temporarily lose connection to Kubernetes API", func() {
+			// virt-handler is the only component that has the tools to add blackhole routes for testing healthz. Ideally we would test all component healthz endpoints.
 			componentName := "virt-handler"
 
 			readyFunc := func() int32 {
@@ -253,7 +253,7 @@ var _ = Describe("[Serial][ref_id:2717]KubeVirt control plane resilience", func(
 				}
 			}
 
-			It("should begin to fail health checks", func() {
+			It("should fail health checks when connectivity is lost, and recover when connectivity is regained", func() {
 				By("ensuring we have ready pods")
 				Eventually(readyFunc, 30*time.Second, time.Second).Should(BeNumerically(">", 0))
 
@@ -262,9 +262,7 @@ var _ = Describe("[Serial][ref_id:2717]KubeVirt control plane resilience", func(
 
 				By("ensuring we no longer have a ready pod")
 				Eventually(readyFunc, 120*time.Second, time.Second).Should(BeNumerically("==", 0))
-			})
 
-			It("should recover health checks", func() {
 				By("removing blockage to API")
 				blackHolePodFunc("del")
 
