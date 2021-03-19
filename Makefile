@@ -33,7 +33,7 @@ bazel-push-images:
 push: bazel-push-images
 
 bazel-test:
-	hack/dockerized "hack/bazel-fmt.sh && CI=${CI} ARTIFACTS=${ARTIFACTS} hack/bazel-test.sh"
+	hack/dockerized "hack/bazel-fmt.sh && CI=${CI} KUBEVIRT_FOCUS=\"${KUBEVIRT_FOCUS}\" KUBEVIRT_EXTRA_ARGS=\"${KUBEVIRT_EXTRA_ARGS}\" KUBEVIRT_TARGETS=\"${KUBEVIRT_TARGETS}\" ARTIFACTS=${ARTIFACTS} hack/bazel-test.sh"
 
 generate:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/generate.sh"
