@@ -688,6 +688,10 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 }
 
 func (d *VirtualMachineController) generateEventsForVolumeStatusChange(vmi *v1.VirtualMachineInstance, newStatusMap map[string]v1.VolumeStatus) {
+	newStatusMapCopy := make(map[string]v1.VolumeStatus)
+	for k, v := range newStatusMap {
+		newStatusMapCopy[k] = v
+	}
 	for _, oldStatus := range vmi.Status.VolumeStatus {
 		newStatus, ok := newStatusMap[oldStatus.Name]
 		if !ok {
@@ -698,10 +702,10 @@ func (d *VirtualMachineController) generateEventsForVolumeStatusChange(vmi *v1.V
 		if newStatus.Phase != oldStatus.Phase {
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, newStatus.Reason, newStatus.Message)
 		}
-		delete(newStatusMap, newStatus.Name)
+		delete(newStatusMapCopy, newStatus.Name)
 	}
 	// Send events for any new statuses.
-	for _, v := range newStatusMap {
+	for _, v := range newStatusMapCopy {
 		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v.Reason, v.Message)
 	}
 }

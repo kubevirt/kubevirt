@@ -1411,6 +1411,34 @@ var _ = Describe("VirtualMachineInstance", func() {
 				By("Calling it again with updated status, no new events are generated")
 				controller.updateVolumeStatusesFromDomain(vmi, domain)
 			})
+
+			It("generateEventsForVolumeStatusChange should not modify arguments", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: "test",
+				})
+				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
+					Name:    "test",
+					Phase:   v1.HotplugVolumeMounted,
+					Reason:  "reason",
+					Message: "message",
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "testpod",
+						AttachPodUID:  "1234",
+					},
+				})
+				testStatusMap := make(map[string]v1.VolumeStatus)
+				testStatusMap["test"] = vmi.Status.VolumeStatus[0]
+				testStatusMap["test2"] = vmi.Status.VolumeStatus[0]
+				testStatusMap["test3"] = vmi.Status.VolumeStatus[0]
+				Expect(len(testStatusMap)).To(Equal(3))
+				controller.generateEventsForVolumeStatusChange(vmi, testStatusMap)
+				testutils.ExpectEvent(recorder, "message")
+				testutils.ExpectEvent(recorder, "message")
+				Expect(len(testStatusMap)).To(Equal(3))
+			})
 		})
 
 		table.DescribeTable("should leave the VirtualMachineInstance alone if it is in the final phase", func(phase v1.VirtualMachineInstancePhase) {
