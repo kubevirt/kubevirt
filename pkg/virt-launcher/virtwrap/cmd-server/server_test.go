@@ -20,6 +20,7 @@
 package cmdserver
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -210,6 +211,20 @@ var _ = Describe("Virt remote commands", func() {
 			fetchedList, err := client.GetFilesystems()
 			Expect(err).ToNot(HaveOccurred(), "should fetch filesystems without any issue")
 			Expect(fetchedList.Items).To(Equal(fsList), "fetched list should be the same")
+		})
+
+		It("should finalize VM migration", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().FinalizeVirtualMachineMigration(vmi).Return(nil)
+
+			Expect(client.FinalizeVirtualMachineMigration(vmi)).Should(Succeed())
+		})
+
+		It("should fail to finalize VM migration", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().FinalizeVirtualMachineMigration(vmi).Return(errors.New("error"))
+
+			Expect(client.FinalizeVirtualMachineMigration(vmi)).ToNot(Succeed())
 		})
 	})
 

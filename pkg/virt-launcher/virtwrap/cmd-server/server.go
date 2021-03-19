@@ -256,23 +256,21 @@ func (l *Launcher) DeleteVirtualMachine(ctx context.Context, request *cmdv1.VMIR
 	return response, nil
 }
 
-func (l *Launcher) SetVirtualMachineGuestTime(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-
+func (l *Launcher) FinalizeVirtualMachineMigration(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
 	}
 
-	if err := l.domainManager.SetGuestTime(vmi); err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("failed to update VMI guest current time")
+	if err := l.domainManager.FinalizeVirtualMachineMigration(vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("failed to finalize migration")
 		response.Success = false
 		response.Message = getErrorMessage(err)
 		return response, nil
 	}
 
-	log.Log.Object(vmi).Info("VMI Guests time has been updated")
+	log.Log.Object(vmi).Info("migration finalized successfully")
 	return response, nil
-
 }
 
 func (l *Launcher) GetDomain(ctx context.Context, request *cmdv1.EmptyRequest) (*cmdv1.DomainResponse, error) {

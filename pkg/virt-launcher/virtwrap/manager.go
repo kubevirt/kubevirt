@@ -106,7 +106,7 @@ type DomainManager interface {
 	GetGuestInfo() (v1.VirtualMachineInstanceGuestAgentInfo, error)
 	GetUsers() ([]v1.VirtualMachineInstanceGuestOSUser, error)
 	GetFilesystems() ([]v1.VirtualMachineInstanceFileSystem, error)
-	SetGuestTime(*v1.VirtualMachineInstance) error
+	FinalizeVirtualMachineMigration(*v1.VirtualMachineInstance) error
 }
 
 type LibvirtDomainManager struct {
@@ -537,7 +537,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 			return
 		}
 
-		if err := detachHostDevices(l.virConn, dom); err != nil {
+		if err := hotUnplugHostDevices(l.virConn, dom); err != nil {
 			log.Log.Object(vmi).Reason(err).Error(fmt.Sprintf("Live migration failed."))
 			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
 		}
@@ -580,7 +580,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 	}(l, vmi)
 }
 
-func (l *LibvirtDomainManager) SetGuestTime(vmi *v1.VirtualMachineInstance) error {
+func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) error {
 	// Try to set VM time to the current value.  This is typically useful
 	// when clock wasn't running on the VM for some time (e.g. during
 	// suspension or migration), especially if the time delay exceeds NTP
@@ -637,6 +637,7 @@ func (l *LibvirtDomainManager) SetGuestTime(vmi *v1.VirtualMachineInstance) erro
 						log.Log.Object(vmi).Reason(err).Warning("failed to sync guest time")
 					}
 				} else {
+					log.Log.Object(vmi).Info("guest VM time sync finished successfully")
 					return
 				}
 			}
@@ -658,6 +659,49 @@ func (l *LibvirtDomainManager) getGuestTimeContext() context.Context {
 	ctx, cancel := context.WithCancel(context.Background())
 	l.setGuestTimeContextPtr = &contextStore{ctx: ctx, cancel: cancel}
 	return ctx
+}
+
+// FinalizeVirtualMachineMigration apply all post-migration changes on the domain.
+func (l *LibvirtDomainManager) FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error {
+	if err := l.hotPlugHostDevices(vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("failed to hot-plug host-devices")
+	}
+
+	if err := l.setGuestTime(vmi); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// hotPlugHostDevices attach host-devices to running domain
+// Currently only SRIOV host-devices are supported
+func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance) error {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	domainName := api.VMINamespaceKeyFunc(vmi)
+	domain, err := l.virConn.LookupDomainByName(domainName)
+	if err != nil {
+		return err
+	}
+	defer domain.Free()
+
+	domainSpec, err := util.GetDomainSpecWithFlags(domain, 0)
+	if err != nil {
+		return err
+	}
+
+	sriovHostDevices, err := sriov.GetHostDevicesToAttach(vmi, domainSpec)
+	if err != nil {
+		return err
+	}
+
+	if err := sriov.AttachHostDevices(domain, sriovHostDevices); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func getVMIEphemeralDisksTotalSize() *resource.Quantity {
@@ -1715,7 +1759,7 @@ func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) error 
 		l.paused.remove(vmi.UID)
 		// Try to set guest time after this commands execution.
 		// This operation is not disruptive.
-		if err := l.SetGuestTime(vmi); err != nil {
+		if err := l.setGuestTime(vmi); err != nil {
 			return err
 		}
 
@@ -2052,7 +2096,7 @@ func (l *LibvirtDomainManager) GetFilesystems() ([]v1.VirtualMachineInstanceFile
 	return fsList, nil
 }
 
-func detachHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
+func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 	domainSpec, err := util.GetDomainSpecWithFlags(dom, 0)
 	if err != nil {
 		return err
