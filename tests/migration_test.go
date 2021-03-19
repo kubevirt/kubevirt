@@ -479,7 +479,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 
-			It("[test_id:1783]should be successfully migrated multiple times with cloud-init disk", func() {
+			It("[QUARANTINE][test_id:1783]should be successfully migrated multiple times with cloud-init disk", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
@@ -714,7 +714,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
 
-			It("[test_id:3238]should migrate a vmi with UNSAFE_MIGRATION flag set", func() {
+			It("[QUARANTINE][test_id:3238]should migrate a vmi with UNSAFE_MIGRATION flag set", func() {
 				// Normally, live migration with a shared volume that contains
 				// a non-clustered filesystem will be prevented for disk safety reasons.
 				// This test sets a UNSAFE_MIGRATION flag and a migration with an ext4 filesystem
@@ -1098,7 +1098,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				}, v1.MigrationPostCopy),
 			)
 
-			It("should have guest agent functional after migration", func() {
+			It("[QUARANTINE]should have guest agent functional after migration", func() {
 				By("Creating the  VMI")
 				vmi = tests.NewRandomVMIWithPVC(pvName)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
@@ -1233,7 +1233,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		})
 
 		Context("migration postcopy", func() {
-			It("[test_id:4747] should migrate using cluster level config for postcopy", func() {
+			It("[QUARANTINE][test_id:4747] should migrate using cluster level config for postcopy", func() {
 				config := defaultKVConfig()
 				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
 				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
@@ -1327,7 +1327,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 
-			It(" Should detect a failed migration", func() {
+			It("[QUARANTINE] Should detect a failed migration", func() {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
@@ -1438,7 +1438,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// create a new PV and PVC (PVs can't be reused)
 				tests.DeletePvAndPvc(pvName)
 			})
-			It("[test_id:1862][posneg:negative]should reject migrations for a non-migratable vmi", func() {
+			It("[QUARANTINE][test_id:1862][posneg:negative]should reject migrations for a non-migratable vmi", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
@@ -1544,10 +1544,10 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					By("Waiting for VMI to disappear")
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 				},
-					table.Entry("[test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
+					table.Entry("[QUARANTINE][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
 					table.Entry("[QUARANTINE][owner:@sig-storage][owner:@sig-compute][test_id:2731] with OCS Disk (using ISCSI IPv4 address)", newVirtualMachineInstanceWithFedoraOCSDisk),
 				)
-				It("[test_id:3241]should be able to cancel a migration right after posting it", func() {
+				It("[QUARANTINE][test_id:3241]should be able to cancel a migration right after posting it", func() {
 					vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
@@ -1583,7 +1583,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 	Context("with sata disks", func() {
 
-		It("[test_id:1853]VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret + DownwardAPI", func() {
+		It("[QUARANTINE][test_id:1853]VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret + DownwardAPI", func() {
 			configMapName := "configmap-" + rand.String(5)
 			secretName := "secret-" + rand.String(5)
 			downwardAPIName := "downwardapi-" + rand.String(5)
@@ -1646,7 +1646,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = cirrosVMIWithEvictionStrategy()
 			})
 
-			It("[test_id:3242]should block the eviction api and migrate", func() {
+			It("[QUARANTINE][test_id:3242]should block the eviction api and migrate", func() {
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 				vmiNodeOrig := vmi.Status.NodeName
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -1679,7 +1679,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				Expect(resVMI.Status.EvacuationNodeName).To(Equal(""), "vmi evacuation state should be clean")
 			})
 
-			It("[test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
+			It("[QUARANTINE][test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
 				for x := 0; x < 3; x++ {
 					By("creating the VMI")
 					_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -1768,7 +1768,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					tests.CleanNodes()
 				})
 
-				It("should migrate a VMI only one time", func() {
+				It("[QUARANTINE]should migrate a VMI only one time", func() {
 					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
 					vmi = fedoraVMIWithEvictionStrategy()
@@ -1818,7 +1818,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				})
 
-				It("[test_id:2221] should migrate a VMI under load to another node", func() {
+				It("[QUARANTINE][test_id:2221] should migrate a VMI under load to another node", func() {
 					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
 					vmi = fedoraVMIWithEvictionStrategy()
@@ -1863,7 +1863,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					}, 180*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 				})
 
-				It("[test_id:2222] should migrate a VMI when custom taint key is configured", func() {
+				It("[QUARANTINE][test_id:2222] should migrate a VMI when custom taint key is configured", func() {
 					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
 					vmi = cirrosVMIWithEvictionStrategy()
@@ -1901,7 +1901,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					}, 180*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 				}, 400)
 
-				It("[test_id:2224] should handle mixture of VMs with different eviction strategies.", func() {
+				It("[QUARANTINE][test_id:2224] should handle mixture of VMs with different eviction strategies.", func() {
 					tests.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
 
 					vmi_evict1 := cirrosVMIWithEvictionStrategy()

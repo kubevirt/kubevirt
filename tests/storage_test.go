@@ -698,7 +698,7 @@ var _ = Describe("Storage", func() {
 						Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodSucceeded))
 					})
 
-					It("[test_id:2306]Should use existing disk image and start", func() {
+					It("[QUARANTINE][test_id:2306]Should use existing disk image and start", func() {
 						By("Starting VirtualMachineInstance")
 						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExists, nodeName)
 						tests.RunVMIAndExpectLaunch(vmi, 30)
@@ -758,7 +758,7 @@ var _ = Describe("Storage", func() {
 				}, 120)
 
 				// Not a candidate for NFS testing because multiple VMIs are started
-				It("[test_id:868]Should initialize an empty PVC by creating a disk.img", func() {
+				It("[QUARANTINE][test_id:868]Should initialize an empty PVC by creating a disk.img", func() {
 					for _, pvc := range pvcs {
 						By("starting VirtualMachineInstance")
 						vmi = tests.NewRandomVMIWithPVC(fmt.Sprintf("disk-%s", pvc))

@@ -100,7 +100,7 @@ var _ = Describe("[Serial][owner:@sig-storage]DataVolume Integration", func() {
 					Skip("HonorWaitForFirstConsumer is disabled in CDI, skipping tests relying on it")
 				}
 			})
-			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
+			It("[QUARANTINE][test_id:3189]should be successfully started and stopped multiple times", func() {
 
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -436,7 +436,7 @@ var _ = Describe("[Serial][owner:@sig-storage]DataVolume Integration", func() {
 			deleteIfExistsDataVolume(dataVolumeName, vm.Namespace)
 		})
 
-		It("[test_id:836] Creating a VM with DataVolumeTemplates should succeed.", func() {
+		It("[QUARANTINE][test_id:836] Creating a VM with DataVolumeTemplates should succeed.", func() {
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
 			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
@@ -455,7 +455,7 @@ var _ = Describe("[Serial][owner:@sig-storage]DataVolume Integration", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("[test_id:837]deleting VM with cascade=true should automatically delete DataVolumes and VMI owned by VM.", func() {
+		It("[QUARANTINE][test_id:837]deleting VM with cascade=true should automatically delete DataVolumes and VMI owned by VM.", func() {
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
 			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
@@ -486,7 +486,7 @@ var _ = Describe("[Serial][owner:@sig-storage]DataVolume Integration", func() {
 			waitForDeletionPVC(pvcName, vm.Namespace)
 		})
 
-		It("[test_id:838]deleting VM with cascade=false should orphan DataVolumes and VMI owned by VM.", func() {
+		It("[QUARANTINE][test_id:838]deleting VM with cascade=false should orphan DataVolumes and VMI owned by VM.", func() {
 
 			// Cascade=false delete fails in ocp 3.11 with CRDs that contain multiple versions.
 			tests.SkipIfOpenShiftAndBelowOrEqualVersion("cascade=false delete does not work with CRD multi version support in ocp 3.11", "1.11.0")

@@ -241,7 +241,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				tests.RunVMIAndExpectLaunch(vmi, 30)
 			})
 
-			It("[test_id:4117]should not have the  serial console in xml", func() {
+			It("[QUARANTINE][test_id:4117]should not have the  serial console in xml", func() {
 				tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)

@@ -879,7 +879,7 @@ spec:
 		verifyOperatorWebhookCertificate()
 	})
 
-	It("[test_id:1746]should have created and available condition", func() {
+	It("[QUARANTINE][test_id:1746]should have created and available condition", func() {
 		kv := tests.GetCurrentKv(virtClient)
 
 		By("verifying that created and available condition is present")
@@ -887,7 +887,7 @@ spec:
 	})
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should start a VM", func() {
-		It("[test_id:3144]using virt-launcher with a shasum", func() {
+		It("[QUARANTINE][test_id:3144]using virt-launcher with a shasum", func() {
 
 			if flags.SkipShasumCheck {
 				Skip("Cannot currently test shasums, skipping")
@@ -910,7 +910,7 @@ spec:
 		})
 	})
 
-	Describe("[test_id:4744]should apply component customization", func() {
+	Describe("[QUARANTINE][test_id:4744]should apply component customization", func() {
 
 		It("test applying and removing a patch", func() {
 			annotationPatchValue := "new-annotation-value"
@@ -970,7 +970,7 @@ spec:
 		// running a VM/VMI using that previous release
 		// Updating KubeVirt to the target tested code
 		// Ensuring VM/VMI is still operational after the update from previous release.
-		It("[release-blocker][owner:@sig-compute][test_id:3145]from previous release to target tested release", func() {
+		It("[QUARANTINE][release-blocker][owner:@sig-compute][test_id:3145]from previous release to target tested release", func() {
 			if !tests.HasCDI() {
 				Skip("Skip Update test when CDI is not present")
 			}
@@ -1213,7 +1213,7 @@ spec:
 	})
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]infrastructure management", func() {
-		It("[test_id:3146]should be able to delete and re-create kubevirt install", func() {
+		It("[QUARANTINE][test_id:3146]should be able to delete and re-create kubevirt install", func() {
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
@@ -1250,7 +1250,7 @@ spec:
 		})
 
 		Describe("[rfe_id:3578][crit:high][vendor:cnv-qe@redhat.com][level:component] deleting with BlockUninstallIfWorkloadsExist", func() {
-			It("[test_id:3683]should be blocked if a workload exists", func() {
+			It("[QUARANTINE][test_id:3683]should be blocked if a workload exists", func() {
 				allPodsAreReady(originalKv)
 				sanityCheckDeploymentsExist()
 
@@ -1272,7 +1272,7 @@ spec:
 			})
 		})
 
-		It("[test_id:3148]should be able to create kubevirt install with custom image tag", func() {
+		It("[QUARANTINE][test_id:3148]should be able to create kubevirt install with custom image tag", func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
@@ -1448,7 +1448,7 @@ spec:
 		// NOTE - this test verifies new operators can grab the leader election lease
 		// during operator updates. The only way the new infrastructure is deployed
 		// is if the update operator is capable of getting the lease.
-		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", func() {
+		It("[QUARANTINE][test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
@@ -1486,7 +1486,7 @@ spec:
 			allPodsAreReady(kv)
 		})
 
-		It("[test_id:3152]should fail if KV object already exists", func() {
+		It("[QUARANTINE][test_id:3152]should fail if KV object already exists", func() {
 
 			newKv := copyOriginalKv()
 			newKv.Name = "someother-kubevirt"
@@ -1519,13 +1519,13 @@ spec:
 			deleteAllKvAndWait(true)
 		})
 
-		It("[test_id:4612]should create non-namespaces resources without owner references", func() {
+		It("[QUARANTINE][test_id:4612]should create non-namespaces resources without owner references", func() {
 			crd, err := virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.Background(), "virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(crd.ObjectMeta.OwnerReferences).To(HaveLen(0))
 		})
 
-		It("[test_id:4613]should remove owner references on non-namespaces resources when updating a resource", func() {
+		It("[QUARANTINE][test_id:4613]should remove owner references on non-namespaces resources when updating a resource", func() {
 			By("adding an owner reference")
 			origCRD, err := virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.Background(), "virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
 			crd := origCRD.DeepCopy()
@@ -1553,7 +1553,7 @@ spec:
 			Expect(crd.ObjectMeta.OwnerReferences).To(HaveLen(0))
 		})
 
-		It("[test_id:5010]should be able to update product related labels of kubevirt install", func() {
+		It("[QUARANTINE][test_id:5010]should be able to update product related labels of kubevirt install", func() {
 			productName := "kubevirt-test"
 			productVersion := "0.0.0"
 			allPodsAreReady(originalKv)
@@ -1659,7 +1659,7 @@ spec:
 			}
 		})
 
-		It("[test_id:3153]Ensure infra can handle dynamically detecting DataVolume Support", func() {
+		It("[QUARANTINE][test_id:3153]Ensure infra can handle dynamically detecting DataVolume Support", func() {
 			if !tests.HasDataVolumeCRD() {
 				Skip("Can't test DataVolume support when DataVolume CRD isn't present")
 			}
@@ -1726,7 +1726,7 @@ spec:
 			}
 		})
 
-		It("[test_id:3154]Should not create RBAC Role or RoleBinding for ServiceMonitor", func() {
+		It("[QUARANTINE][test_id:3154]Should not create RBAC Role or RoleBinding for ServiceMonitor", func() {
 			rbacClient := virtClient.RbacV1()
 
 			By("Checking that Role for ServiceMonitor doesn't exist")
@@ -1771,7 +1771,7 @@ spec:
 			}
 		})
 
-		It("[test_id:4615]Checks that we do not deploy a PrometheusRule cr when not needed", func() {
+		It("[QUARANTINE][test_id:4615]Checks that we do not deploy a PrometheusRule cr when not needed", func() {
 			monv1 := virtClient.PrometheusClient().MonitoringV1()
 			_, err := monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KUBEVIRT_PROMETHEUS_RULE_NAME, metav1.GetOptions{})
 			Expect(err).To(HaveOccurred())
@@ -1814,7 +1814,7 @@ spec:
 		})
 	})
 
-	It("[test_id:4617]should adopt previously unmanaged entities by updating its metadata", func() {
+	It("[QUARANTINE][test_id:4617]should adopt previously unmanaged entities by updating its metadata", func() {
 		By("removing registration metadata")
 		patchData := []byte(fmt.Sprint(`[{ "op": "replace", "path": "/metadata/labels", "value": {} }]`))
 		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(context.Background(), components.VirtApiCertSecretName, types.JSONPatchType, patchData, metav1.PatchOptions{})
@@ -1850,7 +1850,7 @@ spec:
 	})
 
 	Context("[rfe_id:4356]Node Placement", func() {
-		It("[test_id:4927]should dynamically update infra config", func() {
+		It("[QUARANTINE][test_id:4927]should dynamically update infra config", func() {
 			// This label shouldn't exist, but this isn't harmful
 			// existing/running deployments will not be torn down until
 			// new ones are stood up (and the new ones will get stuck in scheduling)
@@ -1878,7 +1878,7 @@ spec:
 			patchKvInfra(kv.Name, nil)
 		})
 
-		It("[test_id:4928]should dynamically update workloads config", func() {
+		It("[QUARANTINE][test_id:4928]should dynamically update workloads config", func() {
 			labelKey := "kubevirt-test"
 			labelValue := "test-label"
 			kv := copyOriginalKv()

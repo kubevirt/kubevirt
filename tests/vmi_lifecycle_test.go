@@ -1518,7 +1518,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, gracePeriod+5, 0.5).Should(Equal(v1.Succeeded), "VMI should be succeeded")
 			},
 				table.Entry("[test_id:1653]with set grace period seconds", int64(10)),
-				table.Entry("[test_id:1654]with default grace period seconds", int64(-1)),
+				table.Entry("[QUARANTINE][test_id:1654]with default grace period seconds", int64(-1)),
 			)
 		})
 		Context("with grace period greater than 0", func() {
@@ -1576,7 +1576,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	})
 
 	Describe("[Serial][rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Killed VirtualMachineInstance", func() {
-		It("[test_id:1656]should be in Failed phase", func() {
+		It("[QUARANTINE][test_id:1656]should be in Failed phase", func() {
 			By("Starting a VirtualMachineInstance")
 			obj, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(BeNil(), "Should create VMI")

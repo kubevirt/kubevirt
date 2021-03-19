@@ -87,7 +87,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 	})
 
 	Describe("CRDs", func() {
-		It("[test_id:5177]Should have structural schema", func() {
+		It("[QUARANTINE][test_id:5177]Should have structural schema", func() {
 			ourCRDs := []string{crds.VIRTUALMACHINE, crds.VIRTUALMACHINEINSTANCE, crds.VIRTUALMACHINEINSTANCEPRESET,
 				crds.VIRTUALMACHINEINSTANCEREPLICASET, crds.VIRTUALMACHINEINSTANCEMIGRATION, crds.KUBEVIRT,
 				crds.VIRTUALMACHINESNAPSHOT, crds.VIRTUALMACHINESNAPSHOTCONTENT,
@@ -115,7 +115,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			tests.BeforeTestCleanup()
 		})
 
-		It("[test_id:4099] should be rotated when a new CA is created", func() {
+		It("[QUARANTINE][test_id:4099] should be rotated when a new CA is created", func() {
 			By("checking that the config-map gets the new CA bundle attached")
 			Eventually(func() int {
 				_, crts := tests.GetBundleFromConfigMap(components.KubeVirtCASecretName)
@@ -283,7 +283,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 				}
 			})
 
-			It("[test_id:4134] kubevirt components on that node should not evict", func() {
+			It("[QUARANTINE][test_id:4134] kubevirt components on that node should not evict", func() {
 
 				By("finding all kubevirt pods")
 				pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{})
@@ -636,7 +636,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			Expect(foundMetrics["leading"]).To(Equal(1), "expected 1 leading virt-controller")
 		})
 
-		It("[test_id:4137]should find one leading virt-operator and two ready", func() {
+		It("[QUARANTINE][test_id:4137]should find one leading virt-operator and two ready", func() {
 			endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			foundMetrics := map[string]int{
@@ -675,7 +675,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			Expect(foundMetrics["leading"]).To(Equal(1), "expected 1 leading virt-operator")
 		})
 
-		It("[test_id:4138]should be exposed and registered on the metrics endpoint", func() {
+		It("[QUARANTINE][test_id:4138]should be exposed and registered on the metrics endpoint", func() {
 			endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			l, err := labels.Parse("prometheus.kubevirt.io")
@@ -701,7 +701,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 				Expect(ips).To(HaveKey(pod.Status.PodIP), fmt.Sprintf("IP of Pod %s not found in metrics endpoint", pod.Name))
 			}
 		})
-		It("[test_id:4139]should return Prometheus metrics", func() {
+		It("[QUARANTINE][test_id:4139]should return Prometheus metrics", func() {
 			endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, ep := range endpoint.Subsets[0].Addresses {
@@ -954,7 +954,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 		})
 
 		Context("when the controller pod is not running and an election happens", func() {
-			It("[test_id:4642]should succeed afterwards", func() {
+			It("[QUARANTINE][test_id:4642]should succeed afterwards", func() {
 				newLeaderPod := getNewLeaderPod(virtClient)
 				Expect(newLeaderPod).NotTo(BeNil())
 

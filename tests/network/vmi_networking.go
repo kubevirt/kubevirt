@@ -1015,8 +1015,8 @@ var _ = SIGDescribe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com]
 				By("checking the VirtualMachineInstance cannot send bigger than MTU sized frames to another VirtualMachineInstance")
 				Expect(libnet.PingFromVMConsole(vmi, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize+1), "-M do")).ToNot(Succeed())
 			},
-				table.Entry("IPv4", k8sv1.IPv4Protocol),
-				table.Entry("IPv6", k8sv1.IPv6Protocol),
+				table.Entry("[QUARANTINE]IPv4", k8sv1.IPv4Protocol),
+				table.Entry("[QUARANTINE]IPv6", k8sv1.IPv6Protocol),
 			)
 		})
 	})

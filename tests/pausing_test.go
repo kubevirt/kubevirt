@@ -117,7 +117,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		Context("with a LivenessProbe configured", func() {
 			When("paused via virtctl", func() {
-				It("[test_id:3224]should not be paused", func() {
+				It("[QUARANTINE][test_id:3224]should not be paused", func() {
 					By("Launching a VMI with LivenessProbe")
 					vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 					// a random probe which will not fail immediately
