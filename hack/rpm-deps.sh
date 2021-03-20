@@ -5,9 +5,13 @@ set -ex
 source hack/common.sh
 source hack/config.sh
 
-LIBVIRT_VERSION=0:6.6.0-13
-SEABIOS_VERSION=0:1.14.0-1
-QEMU_VERSION=15:5.1.0-18
+LIBVIRT_VERSION=-0:6.6.0-13
+SEABIOS_VERSION=-0:1.14.0-1
+QEMU_VERSION=-15:5.1.0-18
+
+unset LIBVIRT_VERSION
+unset SEABIOS_VERSION
+unset QEMU_VERSION
 
 # Define some base packages to avoid dependency flipping
 # since some dependencies can be satisfied by multiple packages
@@ -47,7 +51,7 @@ bazel run \
 # create a rpmtree for libvirt-devel. libvirt-devel is needed for compilation and unit-testing.
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --name libvirt-devel_x86_64 $basesystem libvirt-devel-${LIBVIRT_VERSION}
+    //:bazeldnf -- rpmtree --public --name libvirt-devel_x86_64 $basesystem libvirt-devel${LIBVIRT_VERSION}
 
 # create a rpmtree for virt-launcher and virt-handler. This is the OS for our node-components.
 bazel run \
@@ -55,11 +59,11 @@ bazel run \
     //:bazeldnf -- rpmtree --public --name launcherbase_x86_64 \
     $basesystem \
     libverto-libev \
-    libvirt-daemon-driver-qemu-${LIBVIRT_VERSION} \
-    libvirt-client-${LIBVIRT_VERSION} \
-    libvirt-daemon-driver-storage-core-${LIBVIRT_VERSION} \
-    qemu-kvm-${QEMU_VERSION} \
-    seabios-${SEABIOS_VERSION} \
+    libvirt-daemon-driver-qemu${LIBVIRT_VERSION} \
+    libvirt-client${LIBVIRT_VERSION} \
+    libvirt-daemon-driver-storage-core${LIBVIRT_VERSION} \
+    qemu-kvm${QEMU_VERSION} \
+    seabios${SEABIOS_VERSION} \
     genisoimage \
     selinux-policy selinux-policy-targeted \
     nftables \
