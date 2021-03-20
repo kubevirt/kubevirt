@@ -1445,6 +1445,15 @@ func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.Virt
 	return obj
 }
 
+func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, timeout int) *v1.VirtualMachineInstance {
+	obj := RunVMI(vmi, timeout)
+	By("Waiting until the DataVolume is ready")
+	WaitForSuccessfulDataVolumeImport(dv, timeout)
+	By("Waiting until the VirtualMachineInstance will start")
+	WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
+	return obj
+}
+
 func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
 	By("Waiting until the VirtualMachineInstance will start")
