@@ -7782,6 +7782,45 @@
    }
   },
   "definitions": {
+   "github.com.openshift.api.operator.v1.GenerationStatus": {
+    "description": "GenerationStatus keeps track of the generation for a given resource so that decisions about forced updates can be made.",
+    "type": "object",
+    "required": [
+     "group",
+     "resource",
+     "namespace",
+     "name",
+     "lastGeneration",
+     "hash"
+    ],
+    "properties": {
+     "group": {
+      "description": "group is the group of the thing you're tracking",
+      "type": "string"
+     },
+     "hash": {
+      "description": "hash is an optional field set for resources without generation that are content sensitive like secrets and configmaps",
+      "type": "string"
+     },
+     "lastGeneration": {
+      "description": "lastGeneration is the last generation of the workload controller involved",
+      "type": "integer",
+      "format": "int64"
+     },
+     "name": {
+      "description": "name is the name of the thing you're tracking",
+      "type": "string"
+     },
+     "namespace": {
+      "description": "namespace is where the thing you're tracking is",
+      "type": "string"
+     },
+     "resource": {
+      "description": "resource is the resource type of the thing you're tracking",
+      "type": "string"
+     }
+    }
+   },
    "k8s.io.api.core.v1.Affinity": {
     "description": "Affinity is a group of affinity scheduling rules.",
     "type": "object",
@@ -10310,6 +10349,13 @@
       "items": {
        "$ref": "#/definitions/v1.KubeVirtCondition"
       }
+     },
+     "generations": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/github.com.openshift.api.operator.v1.GenerationStatus"
+      },
+      "x-kubernetes-list-type": "atomic"
      },
      "observedDeploymentConfig": {
       "type": "string"

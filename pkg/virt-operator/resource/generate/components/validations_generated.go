@@ -1281,6 +1281,32 @@ var CRDsValidation map[string]string = map[string]string{
             - type
             type: object
           type: array
+        generations:
+          items:
+            description: GenerationStatus keeps track of the generation for a given resource so that decisions about forced updates can be made.
+            properties:
+              group:
+                description: group is the group of the thing you're tracking
+                type: string
+              hash:
+                description: hash is an optional field set for resources without generation that are content sensitive like secrets and configmaps
+                type: string
+              lastGeneration:
+                description: lastGeneration is the last generation of the workload controller involved
+                format: int64
+                type: integer
+              name:
+                description: name is the name of the thing you're tracking
+                type: string
+              namespace:
+                description: namespace is where the thing you're tracking is
+                type: string
+              resource:
+                description: resource is the resource type of the thing you're tracking
+                type: string
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
         observedDeploymentConfig:
           type: string
         observedDeploymentID:
