@@ -28,7 +28,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
-var _ = SIGDescribe("[Serial]VirtualMachineRestore Tests", func() {
+var _ = SIGDescribe("[SKIP][Serial]VirtualMachineRestore Tests", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
