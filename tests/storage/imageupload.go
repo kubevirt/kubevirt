@@ -28,7 +28,7 @@ const (
 	imagePath            = "/tmp/alpine.iso"
 )
 
-var _ = SIGDescribe("[Serial]ImageUpload", func() {
+var _ = SIGDescribe("[SKIP][Serial]ImageUpload", func() {
 	var kubectlCmd *exec.Cmd
 
 	pvcSize := "100Mi"
