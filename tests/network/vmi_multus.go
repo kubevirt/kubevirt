@@ -46,7 +46,6 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/assert"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -894,15 +893,12 @@ var _ = Describe("[Serial]SRIOV", func() {
 			//create two vms on the same sriov network
 			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, cidrA, cidrB)
 
-			assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642", func() {
-
-				Eventually(func() error {
-					return libnet.PingFromVMConsole(vmi1, ipB)
-				}, 15*time.Second, time.Second).Should(Succeed())
-				Eventually(func() error {
-					return libnet.PingFromVMConsole(vmi2, ipA)
-				}, 15*time.Second, time.Second).Should(Succeed())
-			})
+			Eventually(func() error {
+				return libnet.PingFromVMConsole(vmi1, ipB)
+			}, 15*time.Second, time.Second).Should(Succeed())
+			Eventually(func() error {
+				return libnet.PingFromVMConsole(vmi2, ipA)
+			}, 15*time.Second, time.Second).Should(Succeed())
 		})
 
 		It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
@@ -916,14 +912,12 @@ var _ = Describe("[Serial]SRIOV", func() {
 			//create two vms on the same sriov network
 			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, cidrA, cidrB)
 
-			assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642", func() {
-				Eventually(func() error {
-					return libnet.PingFromVMConsole(vmi1, ipA)
-				}, 15*time.Second, time.Second).Should(Succeed())
-				Eventually(func() error {
-					return libnet.PingFromVMConsole(vmi2, ipB)
-				}, 15*time.Second, time.Second).Should(Succeed())
-			})
+			Eventually(func() error {
+				return libnet.PingFromVMConsole(vmi1, ipA)
+			}, 15*time.Second, time.Second).Should(Succeed())
+			Eventually(func() error {
+				return libnet.PingFromVMConsole(vmi2, ipB)
+			}, 15*time.Second, time.Second).Should(Succeed())
 		})
 
 		Context("With VLAN", func() {
@@ -943,23 +937,19 @@ var _ = Describe("[Serial]SRIOV", func() {
 			It("should be able to ping between two VMIs with the same VLAN over SRIOV network", func() {
 				_, vlanedVMI2 := createSriovVMs(sriovVlanNetworkName, sriovVlanNetworkName, cidrVlaned1, "192.168.0.2/24")
 
-				assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642", func() {
-					By("pinging from vlanedVMI2 and the anonymous vmi over vlan")
-					Eventually(func() error {
-						return libnet.PingFromVMConsole(vlanedVMI2, ipVlaned1)
-					}, 15*time.Second, time.Second).ShouldNot(HaveOccurred())
-				})
+				By("pinging from vlanedVMI2 and the anonymous vmi over vlan")
+				Eventually(func() error {
+					return libnet.PingFromVMConsole(vlanedVMI2, ipVlaned1)
+				}, 15*time.Second, time.Second).ShouldNot(HaveOccurred())
 			})
 
 			It("should NOT be able to ping between Vlaned VMI and a non Vlaned VMI", func() {
 				_, nonVlanedVMI := createSriovVMs(sriovVlanNetworkName, sriovnet3, cidrVlaned1, "192.168.0.3/24")
 
-				assert.XFail("suspected cloud-init issue: https://github.com/kubevirt/kubevirt/issues/4642", func() {
-					By("pinging between nonVlanedVMIand the anonymous vmi")
-					Eventually(func() error {
-						return libnet.PingFromVMConsole(nonVlanedVMI, ipVlaned1)
-					}, 15*time.Second, time.Second).Should(HaveOccurred())
-				})
+				By("pinging between nonVlanedVMIand the anonymous vmi")
+				Eventually(func() error {
+					return libnet.PingFromVMConsole(nonVlanedVMI, ipVlaned1)
+				}, 15*time.Second, time.Second).Should(HaveOccurred())
 			})
 		})
 
