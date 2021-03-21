@@ -112,20 +112,6 @@ var _ = Describe("HotplugVolume mount target records", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("setMountTargetRecord should not write record to file, if record already exists, and no changes", func() {
-		recordFile := filepath.Join(tempDir, string(vmi.UID))
-		info, err := os.Stat(recordFile)
-		Expect(err).ToNot(HaveOccurred())
-		expectedModTime := info.ModTime()
-		m.mountRecords[vmi.UID] = record
-		err = m.setMountTargetRecord(vmi, record)
-		Expect(err).ToNot(HaveOccurred())
-		resInfo, err := os.Stat(recordFile)
-		Expect(err).ToNot(HaveOccurred())
-		resModTime := resInfo.ModTime()
-		Expect(expectedModTime).To(Equal(resModTime))
-	})
-
 	It("getMountTargetRecord should get record from file if not in cache", func() {
 		res, err := m.getMountTargetRecord(vmi)
 		Expect(err).ToNot(HaveOccurred())
