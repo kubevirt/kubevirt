@@ -1153,16 +1153,7 @@ var _ = SIGDescribe("[Serial]Macvtap", func() {
 		var clientVMI *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			nodes := tests.GetAllSchedulableNodes(virtClient)
-			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
-
-			if len(nodes.Items) < 2 {
-				Skip("Migration tests require at least 2 nodes")
-			}
-
-			if !tests.HasLiveMigration() {
-				Skip("Migration tests require the 'LiveMigration' feature gate")
-			}
+			tests.SkipIfMigrationIsNotPossible()
 		})
 
 		BeforeEach(func() {
