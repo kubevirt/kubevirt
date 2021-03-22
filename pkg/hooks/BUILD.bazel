@@ -28,8 +28,8 @@ go_test(
         "hooks_test.go",
         "manager_test.go",
     ],
+    embed = [":go_default_library"],
     deps = [
-        ":go_default_library",
         "//pkg/hooks/info:go_default_library",
         "//pkg/hooks/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
