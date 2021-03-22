@@ -274,12 +274,6 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ra
 		return err
 	}
 
-	// create/update Certificate secrets
-	err = r.createOrUpdateCertificateSecrets(queue, caCert, certDuration)
-	if err != nil {
-		return err
-	}
-
 	// create/update ValidatingWebhookConfiguration
 	err = r.createOrUpdateValidatingWebhookConfigurations(caBundle)
 	if err != nil {
@@ -294,6 +288,12 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ra
 
 	// create/update APIServices
 	err = r.createOrUpdateAPIServices(caBundle)
+	if err != nil {
+		return err
+	}
+
+	// create/update Certificate secrets
+	err = r.createOrUpdateCertificateSecrets(queue, caCert, certDuration)
 	if err != nil {
 		return err
 	}
