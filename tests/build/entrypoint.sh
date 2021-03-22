@@ -19,6 +19,7 @@ set -eo pipefail
 
 source /etc/profile.d/gimme.sh
 
+# Update path to include go binary
 export PATH=${GOPATH}/bin:$PATH
 
 eval "$@"
