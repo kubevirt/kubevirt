@@ -810,6 +810,9 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
+				By("Stressing the VMI")
+				runStressTest(vmi)
+
 				By("Starting a first migration")
 				migration1 := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 				migration1, err = virtClient.VirtualMachineInstanceMigration(migration1.Namespace).Create(migration1)
