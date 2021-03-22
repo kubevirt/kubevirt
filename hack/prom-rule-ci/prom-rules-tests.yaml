@@ -199,7 +199,7 @@ tests:
         alertname: KubevirtVmHighMemoryUsage
         exp_alerts:
           - exp_annotations:
-              description: "Container compute in pod virt-launcher-testvm-123 memory utilization is 20 MB close to the limit"
+              description: "Container compute in pod virt-launcher-testvm-123 free memory is less than 20 MB and it is close to memory limit"
               summary: "VM is at risk of being terminated by the runtime."
             exp_labels:
               severity: "warning"

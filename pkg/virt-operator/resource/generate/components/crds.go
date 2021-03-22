@@ -775,7 +775,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 						Expr:  intstr.FromString("kubevirt_vm_container_free_memory_bytes < 20971520"),
 						For:   "1m",
 						Annotations: map[string]string{
-							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} memory utilization is 20 MB close to the limit",
+							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} free memory is less than 20 MB and it is close to memory limit",
 							"summary":     "VM is at risk of being terminated by the runtime.",
 						},
 						Labels: map[string]string{
