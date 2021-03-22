@@ -1628,7 +1628,7 @@ var _ = Describe("getDetachedDisks", func() {
 	)
 })
 
-var _ = Describe("domXMLWithoutKubevirtMetadata", func() {
+var _ = Describe("migratableDomXML", func() {
 	var ctrl *gomock.Controller
 	var mockDomain *cli.MockVirDomain
 	BeforeEach(func() {
@@ -1656,7 +1656,7 @@ var _ = Describe("domXMLWithoutKubevirtMetadata", func() {
   </metadata>
   <kubevirt>this should stay</kubevirt>
 </domain>`
-		// domXMLWithoutKubevirtMetadata() removes the kubevirt block but not its ident, which is its own token, hence the blank line below
+		// migratableDomXML() removes the kubevirt block but not its ident, which is its own token, hence the blank line below
 		expectedXML := `<domain type="kvm" id="1">
   <name>kubevirt</name>
   <metadata>
@@ -1672,7 +1672,7 @@ var _ = Describe("domXMLWithoutKubevirtMetadata", func() {
 		mockDomain.EXPECT().Free()
 		vmi := newVMI("testns", "kubevirt")
 		mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE).MaxTimes(1).Return(string(domXML), nil)
-		newXML, err := domXMLWithoutKubevirtMetadata(mockDomain, vmi)
+		newXML, err := migratableDomXML(mockDomain, vmi)
 		Expect(err).To(BeNil())
 		Expect(newXML).To(Equal(expectedXML))
 	})
