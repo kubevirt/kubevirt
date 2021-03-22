@@ -74,14 +74,14 @@ var _ = Describe("Device Controller", func() {
 		It("Should indicate if node has device", func() {
 			deviceController := NewDeviceController(host, 10, fakeConfigMap)
 			devicePath := path.Join(workDir, "fake-device")
-			res := deviceController.nodeHasDevice(devicePath)
+			res := deviceController.NodeHasDevice(devicePath)
 			Expect(res).To(BeFalse())
 
 			fileObj, err := os.Create(devicePath)
 			Expect(err).ToNot(HaveOccurred())
 			fileObj.Close()
 
-			res = deviceController.nodeHasDevice(devicePath)
+			res = deviceController.NodeHasDevice(devicePath)
 			Expect(res).To(BeTrue())
 		})
 	})
@@ -155,8 +155,8 @@ var _ = Describe("Device Controller", func() {
 			}
 			go deviceController.Run(stop)
 
-			Expect(deviceController.nodeHasDevice(devicePath1)).To(BeFalse())
-			Expect(deviceController.nodeHasDevice(devicePath2)).To(BeTrue())
+			Expect(deviceController.NodeHasDevice(devicePath1)).To(BeFalse())
+			Expect(deviceController.NodeHasDevice(devicePath2)).To(BeTrue())
 
 			Eventually(func() int {
 				return int(atomic.LoadInt32(&plugin1.Starts))

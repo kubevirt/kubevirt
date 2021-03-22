@@ -75,9 +75,9 @@ const LibvirtStartupDelay = 10
 
 //These perfixes for node feature discovery, are used in a NodeSelector on the pod
 //to match a VirtualMachineInstance CPU model(Family) and/or features to nodes that support them.
-const NFD_CPU_MODEL_PREFIX = "feature.node.kubernetes.io/cpu-model-"
-const NFD_CPU_FEATURE_PREFIX = "feature.node.kubernetes.io/cpu-feature-"
-const NFD_KVM_INFO_PREFIX = "feature.node.kubernetes.io/kvm-info-cap-hyperv-"
+const NFD_CPU_MODEL_PREFIX = "cpu-model.node.kubevirt.io/"
+const NFD_CPU_FEATURE_PREFIX = "cpu-feature.node.kubevirt.io/"
+const NFD_KVM_INFO_PREFIX = "hyperv.node.kubevirt.io/"
 
 const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
 const MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION = "v1.multus-cni.io/default-network"
