@@ -7,7 +7,7 @@ main() {
   HCO_DIR="$(readlink -f $(dirname $0)/../)"
   local BUILD_DIR=${HCO_DIR}/tests/build
   local BUILD_TAG="hco-test-build"
-  local REGISTRY="docker.io/kubevirtci"
+  local REGISTRY="quay.io/kubevirtci"
   local TAG
   TAG="$(get_image_tag)"
   local TEST_BUILD_TAG="${REGISTRY}/${BUILD_TAG}:${TAG}"
