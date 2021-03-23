@@ -56,7 +56,6 @@ func NewAdmissionResponse(causes []v1.StatusCause) *v1beta1.AdmissionResponse {
 }
 
 func Serve(resp http.ResponseWriter, req *http.Request, admitter Admitter) {
-	response := v1beta1.AdmissionReview{}
 	review, err := webhooks.GetAdmissionReview(req)
 
 	if err != nil {
@@ -64,6 +63,12 @@ func Serve(resp http.ResponseWriter, req *http.Request, admitter Admitter) {
 		return
 	}
 
+	response := v1beta1.AdmissionReview{
+		TypeMeta: v1.TypeMeta{
+			APIVersion: v1beta1.SchemeGroupVersion.String(),
+			Kind:       "AdmissionReview",
+		},
+	}
 	reviewResponse := admitter.Admit(review)
 	if reviewResponse != nil {
 		response.Response = reviewResponse
