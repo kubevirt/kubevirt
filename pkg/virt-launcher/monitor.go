@@ -30,6 +30,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 type OnShutdownCallback func(pid int)
@@ -52,7 +53,7 @@ type ProcessMonitor interface {
 }
 
 func InitializePrivateDirectories(baseDir string) error {
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
+	if err := util.MkdirAllWithNosec(baseDir); err != nil {
 		return err
 	}
 	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(baseDir); err != nil {
@@ -62,12 +63,13 @@ func InitializePrivateDirectories(baseDir string) error {
 }
 
 func InitializeDisksDirectories(baseDir string) error {
-	err := os.MkdirAll(baseDir, 0755)
+	err := os.MkdirAll(baseDir, 0750)
 	if err != nil {
 		return err
 	}
 
-	err = os.Chmod(baseDir, 0755)
+	// #nosec G302: Poor file permissions used with chmod. Using the safe permission setting for a directory.
+	err = os.Chmod(baseDir, 0750)
 	if err != nil {
 		return err
 	}

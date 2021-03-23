@@ -42,6 +42,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"kubevirt.io/kubevirt/pkg/util"
 	netcache "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/cache"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/heartbeat"
@@ -292,7 +293,7 @@ func (d *VirtualMachineController) startDomainNotifyPipe(domainPipeStopChan chan
 	socketPath := filepath.Join(res.MountRoot(), d.virtShareDir, "domain-notify-pipe.sock")
 
 	os.RemoveAll(socketPath)
-	err = os.MkdirAll(filepath.Dir(socketPath), 0755)
+	err = util.MkdirAllWithNosec(filepath.Dir(socketPath))
 	if err != nil {
 		log.Log.Reason(err).Error("unable to create directory for unix socket")
 		return err

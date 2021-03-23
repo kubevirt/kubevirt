@@ -96,7 +96,7 @@ func GetDiskTargetPathFromLauncherView(volumeIndex int) string {
 
 func SetLocalDirectory(dir string) error {
 	mountBaseDir = dir
-	return os.MkdirAll(dir, 0755)
+	return os.MkdirAll(dir, 0750)
 }
 
 func SetKubeletPodsDirectory(dir string) {
@@ -106,7 +106,7 @@ func SetKubeletPodsDirectory(dir string) {
 // used for testing - we don't want to MkdirAll on a production host mount
 func setPodsDirectory(dir string) error {
 	podsBaseDir = dir
-	return os.MkdirAll(dir, 0755)
+	return os.MkdirAll(dir, 0750)
 }
 
 // The unit test suite uses this function

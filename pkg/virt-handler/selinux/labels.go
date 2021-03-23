@@ -130,7 +130,7 @@ func defaultCopyPolicyFunc(policyName string, dir string) (err error) {
 	}
 
 	destinationFile := dir + "/" + sourceFile
-	err = ioutil.WriteFile(destinationFile, input, 0644)
+	err = ioutil.WriteFile(destinationFile, input, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to create a policy file %v: %v ", destinationFile, err)
 	}
