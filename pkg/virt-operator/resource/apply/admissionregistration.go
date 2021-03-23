@@ -172,11 +172,13 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 
 	if !exists {
 		r.expectations.MutatingWebhook.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(context.Background(), webhook, metav1.CreateOptions{})
+		webhook, err = r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(context.Background(), webhook, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.MutatingWebhook.LowerExpectations(r.kvKey, 1, 0)
 			return fmt.Errorf("unable to create mutatingwebhook %+v: %v", webhook, err)
 		}
+
+		SetMutatingWebhookConfigurationGeneration(&r.kv.Status.Generations, webhook)
 
 		return nil
 	}
