@@ -909,7 +909,8 @@ var _ = Describe("Manager", func() {
 				AnyTimes().
 				Return("<kubevirt></kubevirt>", nil)
 
-			liveMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			monitor.startMonitor()
 		})
 		It("migration should be canceled if timeout has been reached", func() {
 			migrationErrorChan := make(chan error)
@@ -955,7 +956,8 @@ var _ = Describe("Manager", func() {
 				AnyTimes().
 				Return("<kubevirt></kubevirt>", nil)
 
-			liveMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			monitor.startMonitor()
 		})
 		It("migration should switch to PostCopy", func() {
 			migrationErrorChan := make(chan error)
@@ -1026,7 +1028,8 @@ var _ = Describe("Manager", func() {
 				return mockDomain, nil
 			})
 
-			liveMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			monitor.startMonitor()
 		})
 		It("migration should be canceled when requested", func() {
 			// Make sure that we always free the domain after use
@@ -1343,7 +1346,7 @@ var _ = Describe("Manager", func() {
 			migrationMode := migrationType == "postCopy"
 			isVmiPaused := migrationType == "paused"
 
-			flags := prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, migrationMode, isVmiPaused)
+			flags := generateMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, migrationMode, isVmiPaused)
 			expectedMigrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_PERSIST_DEST
 
 			if isBlockMigration {

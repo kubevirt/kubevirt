@@ -1,3 +1,22 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2021 Red Hat, Inc.
+ *
+ */
+
 package virtwrap
 
 import (
@@ -39,7 +58,28 @@ type migrationDisks struct {
 	generated map[string]bool
 }
 
-func prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, allowPostyCopy bool, migratePaused bool) libvirt.DomainMigrateFlags {
+type migrationMonitor struct {
+	l       *LibvirtDomainManager
+	vmi     *v1.VirtualMachineInstance
+	options *cmdclient.MigrationOptions
+
+	migrationErr chan error
+
+	start              int64
+	lastProgressUpdate int64
+	progressWatermark  int64
+	remainingData      int64
+
+	progressTimeout          int64
+	acceptableCompletionTime int64
+}
+
+type inflightMigrationAborted struct {
+	message     string
+	abortStatus v1.MigrationAbortStatus
+}
+
+func generateMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, allowPostyCopy, migratePaused bool) libvirt.DomainMigrateFlags {
 	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_PERSIST_DEST
 
 	if isBlockMigration {
@@ -221,10 +261,15 @@ func (l *LibvirtDomainManager) startMigration(vmi *v1.VirtualMachineInstance, op
 	if err := updateHostsFile(fmt.Sprintf("%s %s\n", ip.GetLoopbackAddress(), vmi.Status.MigrationState.TargetPod)); err != nil {
 		return fmt.Errorf("failed to update the hosts file: %v", err)
 	}
-	l.asyncMigrate(vmi, options)
+
+	err = l.asyncMigrate(vmi, options)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
+		l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
+		return err
+	}
 
 	return nil
-
 }
 
 func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachineInstance, migrationMode v1.MigrationMode) (bool, error) {
@@ -386,133 +431,220 @@ func (l *LibvirtDomainManager) setMigrationAbortStatus(vmi *v1.VirtualMachineIns
 
 }
 
-func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationErr chan error) {
+func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationErr chan error) *migrationMonitor {
+
+	monitor := &migrationMonitor{
+		l:                        l,
+		vmi:                      vmi,
+		options:                  options,
+		migrationErr:             migrationErr,
+		progressWatermark:        int64(0),
+		remainingData:            int64(0),
+		progressTimeout:          options.ProgressTimeout,
+		acceptableCompletionTime: options.CompletionTimeoutPerGiB * getVMIMigrationDataSize(vmi),
+	}
+
+	return monitor
+}
+
+func (m *migrationMonitor) isMigrationPostCopy(domSpec *api.DomainSpec) bool {
+
+	if domSpec.Metadata.KubeVirt.Migration != nil && domSpec.Metadata.KubeVirt.Migration.Mode == v1.MigrationPostCopy {
+		return true
+	}
+
+	return false
+}
+
+func (m *migrationMonitor) shouldTriggerTimeout(elapsed int64, domSpec *api.DomainSpec) bool {
+	if m.acceptableCompletionTime == 0 {
+		return false
+	}
+
+	if elapsed > m.acceptableCompletionTime {
+		return true
+	}
+
+	return false
+}
+
+func (m *migrationMonitor) shouldTriggerPostCopy(elapsed int64, domSpec *api.DomainSpec) bool {
+	if m.shouldTriggerTimeout(elapsed, domSpec) && m.options.AllowPostCopy {
+
+		return true
+	}
+	return false
+}
+
+func (m *migrationMonitor) isMigrationProgressing(domainSpec *api.DomainSpec) bool {
+	logger := log.Log.Object(m.vmi)
+
+	now := time.Now().UTC().Unix()
+
+	// check if the migration is progressing
+	progressDelay := now - m.lastProgressUpdate
+	if m.progressTimeout != 0 && progressDelay > m.progressTimeout {
+		logger.Warningf("Live migration stuck for %d sec", progressDelay)
+		return false
+	}
+
+	return true
+}
+
+func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain) *inflightMigrationAborted {
+	logger := log.Log.Object(m.vmi)
+
+	// Migration is running
+	now := time.Now().UTC().Unix()
+	elapsed := now - m.start
+
+	if (m.progressWatermark == 0) ||
+		(m.progressWatermark > m.remainingData) {
+		m.progressWatermark = m.remainingData
+		m.lastProgressUpdate = now
+	}
+
+	domainSpec, err := m.l.getDomainSpec(dom)
+	if err != nil {
+		logger.Reason(err).Error("failed to get domain spec info")
+		return nil
+	}
+
+	switch {
+	case m.isMigrationPostCopy(domainSpec):
+		// Currently, there is nothing for us to track when in Post Copy mode.
+		// The reasoning here is that post copy migrations transfer the state
+		// directly to the target pod in a way that results in the target pod
+		// hosting the active workload while the migration completes.
+
+		// If we were to abort the migration due to a timeout while in post copy,
+		// then it would result in that active state being lost.
+
+	case m.shouldTriggerPostCopy(elapsed, domainSpec):
+		logger.Info("Starting post copy mode for migration")
+		// if a migration has stalled too long, post copy will be
+		// triggered when allowPostCopy is enabled
+		err = dom.MigrateStartPostCopy(uint32(0))
+		if err != nil {
+			logger.Reason(err).Error("failed to start post migration")
+		}
+
+		err = m.l.updateVMIMigrationMode(dom, m.vmi, v1.MigrationPostCopy)
+		if err != nil {
+			logger.Reason(err).Error("Unable to update migration mode on domain xml")
+			return nil
+		}
+
+	case !m.isMigrationProgressing(domainSpec):
+		// check if the migration is still progressing
+		// a stuck migration will get terminated when post copy
+		// isn't enabled
+		err := dom.AbortJob()
+		if err != nil {
+			logger.Reason(err).Error("failed to abort migration")
+			return nil
+		}
+
+		progressDelay := now - m.lastProgressUpdate
+		aborted := &inflightMigrationAborted{}
+		aborted.message = fmt.Sprintf("Live migration stuck for %d sec and has been aborted", progressDelay)
+		aborted.abortStatus = v1.MigrationAbortSucceeded
+		return aborted
+	case m.shouldTriggerTimeout(elapsed, domainSpec):
+		// check the overall migration time
+		// if the total migration time exceeds an acceptable
+		// limit, then the migration will get aborted, but
+		// only if post copy migration hasn't been enabled
+
+		err := dom.AbortJob()
+		if err != nil {
+			logger.Reason(err).Error("failed to abort migration")
+			return nil
+		}
+
+		aborted := &inflightMigrationAborted{}
+		aborted.message = fmt.Sprintf("Live migration is not completed after %d sec and has been aborted", m.acceptableCompletionTime)
+		aborted.abortStatus = v1.MigrationAbortSucceeded
+		return aborted
+	}
+
+	return nil
+}
+
+func (m *migrationMonitor) hasMigrationErr() error {
+
+	select {
+	case err := <-m.migrationErr:
+		if err != nil {
+			return err
+		}
+	default:
+	}
+
+	return nil
+}
+
+func (m *migrationMonitor) startMonitor() {
+
+	vmi := m.vmi
+	m.start = time.Now().UTC().Unix()
+	m.lastProgressUpdate = m.start
 
 	logger := log.Log.Object(vmi)
 
 	domName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
+	dom, err := m.l.virConn.LookupDomainByName(domName)
 	if err != nil {
 		logger.Reason(err).Error("Live migration failed.")
-		l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
+		m.l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
 		return
 	}
 	defer dom.Free()
 
-	start := time.Now().UTC().Unix()
-	lastProgressUpdate := start
-	progressWatermark := int64(0)
-
-	// update timeouts from migration config
-	progressTimeout := options.ProgressTimeout
-	completionTimeoutPerGiB := options.CompletionTimeoutPerGiB
-
-	acceptableCompletionTime := completionTimeoutPerGiB * getVMIMigrationDataSize(vmi)
-monitorLoop:
 	for {
+		time.Sleep(400 * time.Millisecond)
 
-		select {
-		case passedErr := <-migrationErr:
-			if passedErr != nil {
-				logger.Reason(passedErr).Error("Live migration failed")
-				var abortStatus v1.MigrationAbortStatus
-				if strings.Contains(passedErr.Error(), "canceled by client") {
-					abortStatus = v1.MigrationAbortSucceeded
-				}
-				l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration failed %v", passedErr), abortStatus)
-				break monitorLoop
+		err := m.hasMigrationErr()
+		if err != nil {
+			logger.Reason(err).Error("Live migration failed")
+			var abortStatus v1.MigrationAbortStatus
+			if strings.Contains(err.Error(), "canceled by client") {
+				abortStatus = v1.MigrationAbortSucceeded
 			}
-		default:
+			m.l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration failed %v", err), abortStatus)
+			return
 		}
 
 		stats, err := dom.GetJobInfo()
 		if err != nil {
 			logger.Reason(err).Error("failed to get domain job info")
-			break
+			continue
 		}
+		m.remainingData = int64(stats.DataRemaining)
 
-		remainingData := int64(stats.DataRemaining)
 		switch stats.Type {
 		case libvirt.DOMAIN_JOB_UNBOUNDED:
-			// Migration is running
-			now := time.Now().UTC().Unix()
-			elapsed := now - start
-
-			if (progressWatermark == 0) ||
-				(progressWatermark > remainingData) {
-				progressWatermark = remainingData
-				lastProgressUpdate = now
+			aborted := m.processInflightMigration(dom)
+			if aborted != nil {
+				logger.Errorf("Live migration abort detected with reason: %s", aborted.message)
+				m.l.setMigrationResult(vmi, true, aborted.message, aborted.abortStatus)
+				return
 			}
-
-			domainSpec, err := l.getDomainSpec(dom)
-			if err != nil {
-				logger.Reason(err).Error("failed to get domain spec info")
-				break
-			}
-
-			// check if the migration is progressing
-			progressDelay := now - lastProgressUpdate
-			if progressTimeout != 0 &&
-				progressDelay > progressTimeout {
-				logger.Warningf("Live migration stuck for %d sec", progressDelay)
-
-				// If the migration is in post copy mode we should not abort the job as the migration would lose state
-				if domainSpec.Metadata.KubeVirt.Migration != nil && domainSpec.Metadata.KubeVirt.Migration.Mode == v1.MigrationPostCopy {
-					break
-				}
-
-				err := dom.AbortJob()
-				if err != nil {
-					logger.Reason(err).Error("failed to abort migration")
-				}
-				l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration stuck for %d sec and has been aborted", progressDelay), v1.MigrationAbortSucceeded)
-				break monitorLoop
-			}
-
-			// check the overall migration time
-			if shouldTriggerTimeout(acceptableCompletionTime, elapsed, domainSpec) {
-
-				if options.AllowPostCopy {
-					err = dom.MigrateStartPostCopy(uint32(0))
-					if err != nil {
-						logger.Reason(err).Error("failed to start post migration")
-					}
-
-					err = l.updateVMIMigrationMode(dom, vmi, v1.MigrationPostCopy)
-					if err != nil {
-						log.Log.Object(vmi).Reason(err).Error("Unable to update migration mode on domain xml")
-					}
-
-					break
-				}
-
-				logger.Warningf("Live migration is not completed after %d sec",
-					acceptableCompletionTime)
-
-				err := dom.AbortJob()
-				if err != nil {
-					logger.Reason(err).Error("failed to abort migration")
-				}
-				l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration is not completed after %d sec and has been aborted", acceptableCompletionTime), v1.MigrationAbortSucceeded)
-				break monitorLoop
-			}
-
 		case libvirt.DOMAIN_JOB_NONE:
 			logger.Info("Migration job didn't start yet")
 		case libvirt.DOMAIN_JOB_COMPLETED:
 			logger.Info("Migration has been completed")
-			l.setMigrationResult(vmi, false, "", "")
-			break monitorLoop
+			m.l.setMigrationResult(vmi, false, "", "")
+			return
 		case libvirt.DOMAIN_JOB_FAILED:
 			logger.Info("Migration job failed")
-			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
-			break monitorLoop
+			m.l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
+			return
 		case libvirt.DOMAIN_JOB_CANCELLED:
 			logger.Info("Migration was canceled")
-			l.setMigrationResult(vmi, true, "Live migration aborted ", v1.MigrationAbortSucceeded)
-			break monitorLoop
+			m.l.setMigrationResult(vmi, true, "Live migration aborted ", v1.MigrationAbortSucceeded)
+			return
 		}
-		time.Sleep(400 * time.Millisecond)
 	}
 }
 
@@ -544,119 +676,164 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 	}(l, vmi)
 }
 
-func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
+func isBlockMigration(vmi *v1.VirtualMachineInstance) bool {
+	return (vmi.Status.MigrationMethod == v1.BlockMigration)
+}
 
-	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
+func (l *LibvirtDomainManager) generateMigrationProxies(vmi *v1.VirtualMachineInstance) []migrationproxy.MigrationProxyListener {
+	// create local migration proxies.
+	//
+	// Right now Libvirt won't let us perform a migration using a unix socket, so
+	// we have to create a local host tcp server (on port 22222) that forwards the traffic
+	// to libvirt in order to trick libvirt into doing what we want.
+	// This also creates a tcp server for each additional direct migration connections
+	// that will be proxied to the destination pod
+	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration(vmi))
 
-		// Start local migration proxy.
-		//
-		// Right now Libvirt won't let us perform a migration using a unix socket, so
-		// we have to create a local host tcp server (on port 22222) that forwards the traffic
-		// to libvirt in order to trick libvirt into doing what we want.
-		// This also creates a tcp server for each additional direct migration connections
-		// that will be proxied to the destination pod
+	proxies := []migrationproxy.MigrationProxyListener{}
 
-		isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
-		migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration)
-
-		loopbackAddress := ip.GetLoopbackAddress()
-		// Create a tcp server for each direct connection proxy
-		for _, port := range migrationPortsRange {
-			if osChosenMigrationProxyPort {
-				// this is only set to 0 during unit tests
-				port = 0
-			}
-			key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
-			migrationProxy := migrationproxy.NewTargetProxy(loopbackAddress, port, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, key))
-			defer migrationProxy.StopListening()
-			err := migrationProxy.StartListening()
-			if err != nil {
-				l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
-				return
-			}
-		}
-
-		//  proxy incoming migration requests on port 22222 to the vmi's existing libvirt connection
-		tcpBindPort := LibvirtLocalConnectionPort
+	loopbackAddress := ip.GetLoopbackAddress()
+	// Create a tcp server for each direct connection proxy
+	for _, port := range migrationPortsRange {
 		if osChosenMigrationProxyPort {
 			// this is only set to 0 during unit tests
-			tcpBindPort = 0
+			port = 0
 		}
-		libvirtConnectionProxy := migrationproxy.NewTargetProxy(loopbackAddress, tcpBindPort, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
-		defer libvirtConnectionProxy.StopListening()
-		err := libvirtConnectionProxy.StartListening()
+		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
+		newProxy := migrationproxy.NewTargetProxy(loopbackAddress, port, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, key))
+		proxies = append(proxies, newProxy)
+	}
+
+	//  proxy incoming migration requests on port 22222 to the vmi's existing libvirt connection
+	tcpBindPort := LibvirtLocalConnectionPort
+	if osChosenMigrationProxyPort {
+		// this is only set to 0 during unit tests
+		tcpBindPort = 0
+	}
+	libvirtConnectionProxy := migrationproxy.NewTargetProxy(loopbackAddress, tcpBindPort, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
+	proxies = append(proxies, libvirtConnectionProxy)
+
+	return proxies
+}
+
+func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) (*libvirt.DomainMigrateParameters, error) {
+
+	migrURI := fmt.Sprintf("tcp://%s", ip.NormalizeIPAddress(ip.GetLoopbackAddress()))
+
+	bandwidth, err := converter.QuantityToMebiByte(options.Bandwidth)
+	if err != nil {
+		return nil, err
+	}
+
+	xmlstr, err := migratableDomXML(dom, vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	params := &libvirt.DomainMigrateParameters{
+		Bandwidth:  bandwidth, // MiB/s
+		URI:        migrURI,
+		URISet:     true,
+		DestXML:    xmlstr,
+		DestXMLSet: true,
+	}
+
+	copyDisks := getDiskTargetsForMigration(dom, vmi)
+	if len(copyDisks) != 0 {
+		params.MigrateDisks = copyDisks
+		params.MigrateDisksSet = true
+	}
+
+	return params, nil
+}
+
+func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
+
+	var err error
+	var params *libvirt.DomainMigrateParameters
+
+	proxies := l.generateMigrationProxies(vmi)
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		return err
+	}
+	defer dom.Free()
+
+	migratePaused, err := isDomainPaused(dom)
+	if err != nil {
+		return fmt.Errorf("failed to retrive domain state")
+	}
+	migrateFlags := generateMigrationFlags(isBlockMigration(vmi), options.UnsafeMigration, options.AllowAutoConverge, options.AllowPostCopy, migratePaused)
+
+	// anything that modifies the domain needs to be performed with the domainModifyLock held
+	// The domain params and unHotplug need to be performed in a critical section together.
+	critSection := func() error {
+		l.domainModifyLock.Lock()
+		defer l.domainModifyLock.Unlock()
+		params, err = generateMigrationParams(dom, vmi, options)
 		if err != nil {
-			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
-			return
+			return fmt.Errorf("error encountered while generating migration parameters: %v", err)
 		}
-
-		// For a tunnelled migration, this is always the uri
-		dstURI := fmt.Sprintf("qemu+tcp://%s/system", net.JoinHostPort(loopbackAddress, strconv.Itoa(LibvirtLocalConnectionPort)))
-		migrURI := fmt.Sprintf("tcp://%s", ip.NormalizeIPAddress(loopbackAddress))
-
-		domName := api.VMINamespaceKeyFunc(vmi)
-		dom, err := l.virConn.LookupDomainByName(domName)
-		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
-			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
-			return
-		}
-		defer dom.Free()
-
-		bandwidth, err := converter.QuantityToMebiByte(options.Bandwidth)
-		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Live migration failed. Invalid bandwidth supplied.")
-			return
-		}
-
 		if err := hotUnplugHostDevices(l.virConn, dom); err != nil {
-			log.Log.Object(vmi).Reason(err).Error(fmt.Sprintf("Live migration failed."))
-			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
+			return fmt.Errorf("error encountered during device unhotplug: %v", err)
 		}
+		return nil
+	}
 
-		xmlstr, err := migratableDomXML(dom, vmi)
+	err = critSection()
+	if err != nil {
+		return err
+	}
+
+	// establish all connection proxies before starting migration
+	for _, proxy := range proxies {
+		defer proxy.Stop()
+		err := proxy.Start()
 		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Live migration failed. Could not compute target XML.")
-			return
+			return fmt.Errorf("error encountered during proxy setup: %v", err)
 		}
+	}
 
-		params := &libvirt.DomainMigrateParameters{
-			Bandwidth:  bandwidth, // MiB/s
-			URI:        migrURI,
-			URISet:     true,
-			DestXML:    xmlstr,
-			DestXMLSet: true,
-		}
-		copyDisks := getDiskTargetsForMigration(dom, vmi)
-		if len(copyDisks) != 0 {
-			params.MigrateDisks = copyDisks
-			params.MigrateDisksSet = true
-		}
-		// start live migration tracking
+	// initiate the live migration
+	dstURI := fmt.Sprintf("qemu+tcp://%s/system", net.JoinHostPort(ip.GetLoopbackAddress(), strconv.Itoa(LibvirtLocalConnectionPort)))
+	err = dom.MigrateToURI3(dstURI, params, migrateFlags)
+	if err != nil {
+		return fmt.Errorf("error encountered during MigrateToURI3 libvirt api call: %v", err)
+	}
+
+	return nil
+}
+
+func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
+
+	// get connection proxies for tunnelling migration through virt-handler
+	go func() {
 		migrationErrorChan := make(chan error, 1)
 		defer close(migrationErrorChan)
-		go liveMigrationMonitor(vmi, l, options, migrationErrorChan)
 
-		migratePaused, err := isDomainPaused(dom)
-		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Live migration failed: can't retrive state")
-			migrationErrorChan <- err
-			return
-		}
-
-		migrateFlags := prepareMigrationFlags(isBlockMigration, options.UnsafeMigration, options.AllowAutoConverge, options.AllowPostCopy, migratePaused)
+		log.Log.Object(vmi).Infof("Initiating live migration.")
 		if options.UnsafeMigration {
 			log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
 		}
 
-		err = dom.MigrateToURI3(dstURI, params, migrateFlags)
+		// From here on out, any error encountered must be sent to the
+		// migrationError channel which is processed by the liveMigrationMonitor
+		// go routine.
+		monitor := newMigrationMonitor(vmi, l, options, migrationErrorChan)
+		go monitor.startMonitor()
+
+		err := l.migrateHelper(vmi, options)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
 			migrationErrorChan <- err
 			return
 		}
+
 		log.Log.Object(vmi).Infof("Live migration succeeded.")
-	}(l, vmi)
+	}()
+	return nil
 }
 
 func (l *LibvirtDomainManager) updateVMIMigrationMode(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, mode v1.MigrationMode) error {

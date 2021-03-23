@@ -350,22 +350,6 @@ func getVMIMigrationDataSize(vmi *v1.VirtualMachineInstance) int64 {
 	return memory.ScaledValue(resource.Giga)
 }
 
-func shouldTriggerTimeout(acceptableCompletionTime, elapsed int64, domSpec *api.DomainSpec) bool {
-	if acceptableCompletionTime == 0 {
-		return false
-	}
-
-	if domSpec.Metadata.KubeVirt.Migration != nil && domSpec.Metadata.KubeVirt.Migration.Mode == v1.MigrationPostCopy {
-		return false
-	}
-
-	if elapsed > acceptableCompletionTime {
-		return true
-	}
-
-	return false
-}
-
 func (l *LibvirtDomainManager) CancelVMIMigration(vmi *v1.VirtualMachineInstance) error {
 	return l.cancelMigration(vmi)
 }
