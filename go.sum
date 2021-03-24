@@ -822,8 +822,8 @@ github.com/kshvakov/clickhouse v1.3.5/go.mod h1:DMzX7FxRymoNkVgizH0DWAL8Cur7wHLg
 github.com/kubernetes-csi/csi-lib-utils v0.7.0/go.mod h1:bze+2G9+cmoHxN6+WyG1qT4MDxgZJMLGwc7V4acPNm0=
 github.com/kubernetes-csi/csi-test v2.0.0+incompatible/go.mod h1:YxJ4UiuPWIhMBkxUKY5c267DyA0uDZ/MtAimhx/2TA0=
 github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1/go.mod h1:dV5oB3U62KBdlf9ADWkMmjGd3USauqQtwIm2OZb5mqI=
-github.com/kubevirt/cluster-network-addons-operator v0.48.0 h1:cqbUyptnmoWkeOjsiUneE4G2OfORUC9MagY9ty3rU74=
-github.com/kubevirt/cluster-network-addons-operator v0.48.0/go.mod h1:FDgI0XZI5rQrd9OcVffJ+lJl1iplpCLX6u6qRGqgFu4=
+github.com/kubevirt/cluster-network-addons-operator v0.49.0 h1:A2wBpn2HXBqFjOQDC9TeLy1PADaph4c24cRuNXrTx+0=
+github.com/kubevirt/cluster-network-addons-operator v0.49.0/go.mod h1:FDgI0XZI5rQrd9OcVffJ+lJl1iplpCLX6u6qRGqgFu4=
 github.com/kubevirt/vm-import-operator v0.3.0 h1:4CLtV2kI0QtWgq0BnNcxngbSo/ZICaf0SlRdFx/wjJc=
 github.com/kubevirt/vm-import-operator v0.3.0/go.mod h1:vMW9982ayVHdRBGqO9/ybzLeL5Yl6OBkhMiNgnKqjMI=
 github.com/kylelemons/godebug v0.0.0-20160406211939-eadb3ce320cb/go.mod h1:B69LEHPfb2qLo0BaaOLcbitczOKLWTsrBG9LczfCD4k=
@@ -853,7 +853,6 @@ github.com/mailru/easyjson v0.0.0-20180823135443-60711f1a8329/go.mod h1:C1wdFJiN
 github.com/mailru/easyjson v0.0.0-20190312143242-1de009706dbe/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/mailru/easyjson v0.0.0-20190614124828-94de47d64c63/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
-github.com/mailru/easyjson v0.7.0 h1:aizVhC/NAAcKWb+5QsU1iNOZb4Yws5UO2I+aIprQITM=
 github.com/mailru/easyjson v0.7.0/go.mod h1:KAzv3t3aY1NaHWoQz1+4F1ccyAH66Jk7yos7ldAVICs=
 github.com/mailru/easyjson v0.7.1 h1:mdxE1MF9o53iCb2Ghj1VfWvh7ZOwHpnVG/xwXrV90U8=
 github.com/mailru/easyjson v0.7.1/go.mod h1:KAzv3t3aY1NaHWoQz1+4F1ccyAH66Jk7yos7ldAVICs=
