@@ -14,7 +14,11 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
+<<<<<<< HEAD
 var _ = Describe("[owner:@sig-compute]Controller devices", func() {
+=======
+var _ = Describe("[SKIP]Controller devices", func() {
+>>>>>>> Skip more tests
 	var err error
 	var virtClient kubecli.KubevirtClient
 

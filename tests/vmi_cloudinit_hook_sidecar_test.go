@@ -40,7 +40,11 @@ import (
 
 const cloudinitHookSidecarImage = "example-cloudinit-hook-sidecar"
 
+<<<<<<< HEAD
 var _ = Describe("[owner:@sig-compute]CloudInitHookSidecars", func() {
+=======
+var _ = Describe("[SKIP]CloudInitHookSidecars", func() {
+>>>>>>> Skip more tests
 
 	var err error
 	var virtClient kubecli.KubevirtClient
