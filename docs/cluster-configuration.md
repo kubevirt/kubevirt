@@ -304,11 +304,33 @@ metadata:
       [
         {
           "op": "add",
-          "path": "/configuration/migrations",
-          "value": '{"allowPostCopy": "true"}'
+          "path": "/spec/configuration/migrations",
+          "value": {"allowPostCopy": true}
         }
       ]
 ```
+
+From CLI it will be:
+```bash
+$ kubectl annotate --overwrite -n kubevirt-hyperconverged hco kubevirt-hyperconverged kubevirt.kubevirt.io/jsonpatch='[{"op": "add", "path": "/spec/configuration/migrations", "value": {"allowPostCopy": true} }]'
+hyperconverged.hco.kubevirt.io/kubevirt-hyperconverged annotated
+$ kubectl get kubevirt -n kubevirt-hyperconverged kubevirt-kubevirt-hyperconverged -o json | jq '.spec.configuration.migrations.allowPostCopy'
+true
+$ kubectl annotate --overwrite -n kubevirt-hyperconverged hco kubevirt-hyperconverged kubevirt.kubevirt.io/jsonpatch='[{"op": "add", "path": "/spec/configuration/migrations", "value": {"allowPostCopy": false} }]'
+hyperconverged.hco.kubevirt.io/kubevirt-hyperconverged annotated
+$ kubectl get kubevirt -n kubevirt-hyperconverged kubevirt-kubevirt-hyperconverged -o json | jq '.spec.configuration.migrations.allowPostCopy'
+false
+$ kubectl get hco -n kubevirt-hyperconverged  kubevirt-hyperconverged -o json | jq '.status.conditions[] | select(.type == "TaintedConfiguration")'
+{
+  "lastHeartbeatTime": "2021-03-24T17:25:49Z",
+  "lastTransitionTime": "2021-03-24T11:33:11Z",
+  "message": "Unsupported feature was activated via an HCO annotation",
+  "reason": "UnsupportedFeatureAnnotation",
+  "status": "True",
+  "type": "TaintedConfiguration"
+}
+```
+
 * The user wants to override the default URL used when uploading to a DataVolume, by setting the CDI CR's `spec.config.uploadProxyURLOverride` to `myproxy.example.com`. In order to do that, the following annotation should be added to the HyperConverged CR:
 ```yaml
 metadata:
@@ -317,7 +339,7 @@ metadata:
       [
         {
           "op": "add",
-          "path": "/config/uploadProxyURLOverride",
+          "path": "/spec/config/uploadProxyURLOverride",
           "value": "myproxy.example.com"
         }
       ]
