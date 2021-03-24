@@ -316,6 +316,14 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   fi
 fi
 
+if [[ "$KUBEVIRT_E2E_FOCUS" != "\\[sig-network\\]" ]]; then
+  if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
+    export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|\\[sig-network\\]"
+  else
+    export KUBEVIRT_E2E_SKIP="\\[sig-network\\]"
+  fi
+fi
+
 # If KUBEVIRT_QUARANTINE is not set, do not run quarantined tests. When it is
 # set the whole suite (quarantined and stable) will be run.
 if [ -z "$KUBEVIRT_QUARANTINE" ]; then
