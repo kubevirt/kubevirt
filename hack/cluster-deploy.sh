@@ -24,6 +24,7 @@ DOCKER_TAG=${DOCKER_TAG:-devel}
 source hack/common.sh
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
+source hack/prefetch-images.sh
 
 function dump_kubevirt() {
     if [ "$?" -ne "0" ]; then
@@ -47,26 +48,8 @@ function _ensure_cdi_deployment() {
     # sriov-lane until kubevirt/kubevirt#4120 is fixed
     if [[ ! "$KUBEVIRT_PROVIDER" =~ sriov.* ]]; then
         # prefetch cdi images
-        if [[ $KUBEVIRT_PROVIDER == "external" ]] || [[ $KUBEVIRT_PROVIDER =~ kind.* ]] || [[ $KUBEVIRT_PROVIDER == "local" ]]; then
-            nodes=() # in case of external provider / kind we have no control over the nodes
-        else
-            nodes=()
-            nodes+=($(_kubectl get nodes -o name | sed "s#node/##g"))
-            pull_command="docker"
-        fi
-
         cdi_images=$(sed -ne "s/.*\(quay.io[^\s]*\)/\1/p" manifests/testing/cdi*)
-        for node in ${nodes[@]}; do
-            count=0
-            until ${KUBEVIRT_PATH}cluster-up/ssh.sh ${node} "echo \"${cdi_images}\" | xargs \-\-max-args=1 sudo ${pull_command} pull"; do
-                count=$((count + 1))
-                if [ $count -eq 10 ]; then
-                    echo "Failed to '${pull_command} pull' in ${node}" >&2
-                    exit 1
-                fi
-                sleep 1
-            done
-        done
+        prefetch-images::pull_on_nodes $cdi_images
 
         _kubectl apply -f - <<EOF
 ---
