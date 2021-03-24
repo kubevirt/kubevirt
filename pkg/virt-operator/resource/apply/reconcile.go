@@ -541,42 +541,7 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 		return false, err
 	}
 
-	caDuration := getCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caOverlapTime := getCAOverlapTime(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	certDuration := getCertDuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-
-	// create/update CA Certificate secret
-	caCert, err := r.createOrUpdateCACertificateSecret(queue, caDuration)
-	if err != nil {
-		return false, err
-	}
-
-	// create/update CA config map
-	caBundle, err := r.createOrUpdateKubeVirtCAConfigMap(queue, caCert, caOverlapTime)
-	if err != nil {
-		return false, err
-	}
-
-	// create/update Certificate secrets
-	err = r.createOrUpdateCertificateSecrets(queue, caCert, certDuration)
-	if err != nil {
-		return false, err
-	}
-
-	// create/update ValidatingWebhookConfiguration
-	err = r.createOrUpdateValidatingWebhookConfigurations(caBundle)
-	if err != nil {
-		return false, err
-	}
-
-	// create/update MutatingWebhookConfiguration
-	err = r.createOrUpdateMutatingWebhookConfigurations(caBundle)
-	if err != nil {
-		return false, err
-	}
-
-	// create/update APIServices
-	err = r.createOrUpdateAPIServices(caBundle)
+	err = r.createOrUpdateComponentsWithCertificates(queue)
 	if err != nil {
 		return false, err
 	}
