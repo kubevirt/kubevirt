@@ -185,3 +185,36 @@ tests:
       - eval_time: 5m
         alertname: LowKVMNodesCount
         exp_alerts: []
+
+  # Memory utilization less than 20MB close to limit
+  - interval: 1m
+    input_series:
+      - series: 'kube_pod_container_resource_limits_memory_bytes{pod="virt-launcher-testvm-123", container="compute"}'
+        values: "67108864 67108864 67108864 67108864"
+      - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute"}'
+        values: "47185920 48234496 48234496 49283072"
+
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: KubevirtVmHighMemoryUsage
+        exp_alerts:
+          - exp_annotations:
+              description: "Container compute in pod virt-launcher-testvm-123 free memory is less than 20 MB and it is close to memory limit"
+              summary: "VM is at risk of being terminated by the runtime."
+            exp_labels:
+              severity: "warning"
+              pod: "virt-launcher-testvm-123"
+              container: "compute"
+
+  # Memory utilization more than 20MB close to limit
+  - interval: 30s
+    input_series:
+      - series: 'kube_pod_container_resource_limits_memory_bytes{pod="virt-launcher-testvm-123", container="compute"}'
+        values: "67108864 67108864 67108864 67108864"
+      - series: 'container_memory_working_set_bytes{pod="virt-launcher-testvm-123", container="compute"}'
+        values: "19922944 18874368 18874368 17825792"
+
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: KubevirtVmHighMemoryUsage
+        exp_alerts: []

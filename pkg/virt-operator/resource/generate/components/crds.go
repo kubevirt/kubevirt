@@ -766,6 +766,22 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 							"summary": "More than 80% of the rest calls failed in virt-handler for the last 5 minutes",
 						},
 					},
+					{
+						Record: "kubevirt_vm_container_free_memory_bytes",
+						Expr:   intstr.FromString("sum by(pod, container) ( kube_pod_container_resource_limits_memory_bytes{pod=~'virt-launcher-.*', container='compute'} - on(pod,container) container_memory_working_set_bytes{pod=~'virt-launcher-.*', container='compute'})"),
+					},
+					{
+						Alert: "KubevirtVmHighMemoryUsage",
+						Expr:  intstr.FromString("kubevirt_vm_container_free_memory_bytes < 20971520"),
+						For:   "1m",
+						Annotations: map[string]string{
+							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} free memory is less than 20 MB and it is close to memory limit",
+							"summary":     "VM is at risk of being terminated by the runtime.",
+						},
+						Labels: map[string]string{
+							"severity": "warning",
+						},
+					},
 				},
 			},
 		},
