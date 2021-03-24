@@ -22,6 +22,7 @@ package selinux
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 import (
+	"fmt"
 	"os/exec"
 	"runtime"
 	"syscall"
@@ -67,5 +68,9 @@ func (se SELinuxExecutor) CloseOnExec(fd int) {
 }
 
 func (se SELinuxExecutor) Run(cmd *exec.Cmd) error {
-	return cmd.Run()
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed running command %s, err: %v, output: %s", cmd.String(), err, output)
+	}
+	return nil
 }
