@@ -56,22 +56,11 @@ if [[ $image_prefix_alt ]]; then
     done
 fi
 
-# OKD/OCP providers has different node names and does not have docker
-if [[ $KUBEVIRT_PROVIDER =~ ocp.* ]]; then
-    nodes=()
-    nodes+=($(kubectl get nodes --no-headers | awk '{print $1}' | grep master))
-    nodes+=($(kubectl get nodes --no-headers | awk '{print $1}' | grep worker))
-    pull_command="podman"
-elif [[ $KUBEVIRT_PROVIDER =~ okd.* ]]; then
-    nodes=("master-0" "worker-0")
-    pull_command="podman"
-elif [[ $KUBEVIRT_PROVIDER == "external" ]] || [[ $KUBEVIRT_PROVIDER =~ kind.* ]] || [[ $KUBEVIRT_PROVIDER == "local" ]]; then
+if [[ $KUBEVIRT_PROVIDER == "external" ]] || [[ $KUBEVIRT_PROVIDER =~ kind.* ]] || [[ $KUBEVIRT_PROVIDER == "local" ]]; then
     nodes=() # in case of external provider / kind we have no control over the nodes
 else
     nodes=()
-    for i in $(seq 1 ${KUBEVIRT_NUM_NODES}); do
-        nodes+=("node$(printf "%02d" ${i})")
-    done
+    nodes+=($(_kubectl get nodes -o name | sed "s#node/##g"))
     pull_command="docker"
 fi
 
