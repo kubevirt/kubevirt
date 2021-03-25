@@ -163,7 +163,7 @@ func indexNetworksByName(networks []v1.Network) map[string]*v1.Network {
 func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *api.Domain) error {
 	qemuArg := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
 
-	err := configVMCIDR(&qemuArg, iface, network)
+	err := configVMCIDR(&qemuArg, network)
 	if err != nil {
 		return err
 	}
@@ -222,7 +222,7 @@ func configPortForward(qemuArg *api.Arg, iface v1.Interface) error {
 	return nil
 }
 
-func configVMCIDR(qemuArg *api.Arg, iface v1.Interface, network v1.Network) error {
+func configVMCIDR(qemuArg *api.Arg, network v1.Network) error {
 	vmNetworkCIDR := ""
 	if network.Pod.VMNetworkCIDR != "" {
 		_, _, err := net.ParseCIDR(network.Pod.VMNetworkCIDR)

@@ -478,7 +478,7 @@ func (co *Collector) Describe(ch chan<- *prometheus.Desc) {
 	// TODO: Use DescribeByCollect?
 }
 
-func newvmiSocketMapFromVMIs(baseDir string, vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap {
+func newvmiSocketMapFromVMIs(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap {
 	if len(vmis) == 0 {
 		return nil
 	}
@@ -513,7 +513,7 @@ func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 		vmis[i] = obj.(*k6tv1.VirtualMachineInstance)
 	}
 
-	socketToVMIs := newvmiSocketMapFromVMIs(co.virtShareDir, vmis)
+	socketToVMIs := newvmiSocketMapFromVMIs(vmis)
 	scraper := &prometheusScraper{ch: ch}
 	co.concCollector.Collect(socketToVMIs, scraper, collectionTimeout)
 

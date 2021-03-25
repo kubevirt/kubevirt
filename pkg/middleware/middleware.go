@@ -26,7 +26,6 @@ import (
 	"runtime/debug"
 
 	"github.com/go-kit/kit/endpoint"
-	gklog "github.com/go-kit/kit/log"
 	"golang.org/x/net/context"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -112,7 +111,7 @@ func (k *KubernetesError) Body() []byte {
 // level PreconditionError. All other detected panics will be converted into an InternalServerError. In both cases it
 // is most likely that there is an error within the application or a library. Long story short, this is about
 // failing early in non recoverable situations.
-func InternalErrorMiddleware(logger gklog.Logger) endpoint.Middleware {
+func InternalErrorMiddleware() endpoint.Middleware {
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
 		return func(ctx context.Context, request interface{}) (d interface{}, e error) {
 			var data interface{}

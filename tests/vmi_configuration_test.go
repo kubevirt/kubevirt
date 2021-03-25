@@ -1004,7 +1004,7 @@ var _ = Describe("Configurations", func() {
 
 			table.DescribeTable("should consume hugepages ", func(hugepageSize string, memory string, guestMemory string) {
 				hugepageType := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + hugepageSize)
-				v, err := cluster.GetKubernetesVersion(virtClient)
+				v, err := cluster.GetKubernetesVersion()
 				Expect(err).ShouldNot(HaveOccurred())
 				if strings.Contains(v, "1.16") {
 					hugepagesVmi.Annotations = map[string]string{

@@ -83,7 +83,6 @@ func deleteDummyWebhookValidators(kv *v1.KubeVirt,
 }
 
 func DeleteAll(kv *v1.KubeVirt,
-	strategy *install.Strategy,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
 	aggregatorclient install.APIServiceInterface,

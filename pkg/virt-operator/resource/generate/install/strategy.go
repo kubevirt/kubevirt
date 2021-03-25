@@ -326,7 +326,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	}
 
 	rbaclist := make([]interface{}, 0)
-	rbaclist = append(rbaclist, rbac.GetAllCluster(config.GetNamespace())...)
+	rbaclist = append(rbaclist, rbac.GetAllCluster()...)
 	rbaclist = append(rbaclist, rbac.GetAllApiServer(config.GetNamespace())...)
 	rbaclist = append(rbaclist, rbac.GetAllController(config.GetNamespace())...)
 	rbaclist = append(rbaclist, rbac.GetAllHandler(config.GetNamespace())...)

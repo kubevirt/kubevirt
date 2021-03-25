@@ -207,7 +207,7 @@ func (c *MigrationController) execute(key string) error {
 		syncErr = c.sync(key, migration, vmi, targetPods)
 	}
 
-	err = c.updateStatus(migration, vmi, targetPods, syncErr)
+	err = c.updateStatus(migration, vmi, targetPods)
 	if err != nil {
 		return err
 	}
@@ -254,7 +254,7 @@ func (c *MigrationController) canMigrateVMI(migration *virtv1.VirtualMachineInst
 
 }
 
-func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, syncErr error) error {
+func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) error {
 
 	var pod *k8sv1.Pod = nil
 	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()

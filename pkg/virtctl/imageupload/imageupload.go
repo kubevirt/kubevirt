@@ -124,7 +124,7 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v := command{clientConfig: clientConfig}
-			return v.run(cmd, args)
+			return v.run(args)
 		},
 	}
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "Allow insecure server connections when using HTTPS.")
@@ -207,7 +207,7 @@ func parseArgs(args []string) error {
 	return nil
 }
 
-func (c *command) run(cmd *cobra.Command, args []string) error {
+func (c *command) run(args []string) error {
 	if err := parseArgs(args); err != nil {
 		return err
 	}

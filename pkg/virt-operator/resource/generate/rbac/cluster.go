@@ -25,7 +25,7 @@ import (
 	virtv1 "kubevirt.io/client-go/api/v1"
 )
 
-func GetAllCluster(namespace string) []interface{} {
+func GetAllCluster() []interface{} {
 	return []interface{}{
 		newDefaultClusterRole(),
 		newDefaultClusterRoleBinding(),

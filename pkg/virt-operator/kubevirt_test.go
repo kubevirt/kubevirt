@@ -864,7 +864,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		all := make([]interface{}, 0)
 
 		// rbac
-		all = append(all, rbac.GetAllCluster(NAMESPACE)...)
+		all = append(all, rbac.GetAllCluster()...)
 		all = append(all, rbac.GetAllApiServer(NAMESPACE)...)
 		all = append(all, rbac.GetAllHandler(NAMESPACE)...)
 		all = append(all, rbac.GetAllController(NAMESPACE)...)

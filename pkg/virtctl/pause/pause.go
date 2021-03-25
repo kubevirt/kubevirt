@@ -58,7 +58,7 @@ Second argument is the name of the resource.`,
 				command:      COMMAND_PAUSE,
 				clientConfig: clientConfig,
 			}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -79,7 +79,7 @@ Second argument is the name of the resource.`,
 				command:      COMMAND_UNPAUSE,
 				clientConfig: clientConfig,
 			}
-			return c.Run(cmd, args)
+			return c.Run(args)
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -97,7 +97,7 @@ type VirtCommand struct {
 	command      string
 }
 
-func (vc *VirtCommand) Run(cmd *cobra.Command, args []string) error {
+func (vc *VirtCommand) Run(args []string) error {
 	resourceType := strings.ToLower(args[0])
 	resourceName := args[1]
 	namespace, _, err := vc.clientConfig.Namespace()
