@@ -71,6 +71,37 @@ import (
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
+const (
+	//VolumeReadyReason is the reason set when the volume is ready.
+	VolumeReadyReason = "VolumeReady"
+	//VolumeUnMountedFromPodReason is the reason set when the volume is unmounted from the virtlauncher pod
+	VolumeUnMountedFromPodReason = "VolumeUnMountedFromPod"
+	//VolumeMountedToPodReason is the reason set when the volume is mounted to the virtlauncher pod
+	VolumeMountedToPodReason = "VolumeMountedToPod"
+	//VolumeUnplugged is the reason set when the volume is completely unplugged from the VMI
+	VolumeUnplugged = "VolumeUnplugged"
+	//VMIDefined is the reason set when a VMI is defined
+	VMIDefined = "VirtualMachineInstance defined."
+	//VMIStarted is the reason set when a VMI is started
+	VMIStarted = "VirtualMachineInstance started."
+	//VMIShutdown is the reason set when a VMI is shutdown
+	VMIShutdown = "The VirtualMachineInstance was shut down."
+	//VMICrashed is the reason set when a VMI crashed
+	VMICrashed = "The VirtualMachineInstance crashed."
+	//VMIAbortingMigration is the reason set when migration is being aborted
+	VMIAbortingMigration = "VirtualMachineInstance is aborting migration."
+	//VMIMigrating in the reason set when the VMI is migrating
+	VMIMigrating = "VirtualMachineInstance is migrating."
+	//VMIMigrationTargetPrepared is the reason set when the migration target has been prepared
+	VMIMigrationTargetPrepared = "VirtualMachineInstance Migration Target Prepared."
+	//VMIStopping is the reason set when the VMI is stopping
+	VMIStopping = "VirtualMachineInstance stopping"
+	//VMIGracefulShutdown is the reason set when the VMI is gracefully shut down
+	VMIGracefulShutdown = "Signaled Graceful Shutdown"
+	//VMISignalDeletion is the reason set when the VMI has signal deletion
+	VMISignalDeletion = "Signaled Deletion"
+)
+
 type launcherClientInfo struct {
 	client              cmdclient.LauncherClient
 	socketFile          string
@@ -657,6 +688,97 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 	return nil
 }
 
+func (d *VirtualMachineController) generateEventsForVolumeStatusChange(vmi *v1.VirtualMachineInstance, newStatusMap map[string]v1.VolumeStatus) {
+	newStatusMapCopy := make(map[string]v1.VolumeStatus)
+	for k, v := range newStatusMap {
+		newStatusMapCopy[k] = v
+	}
+	for _, oldStatus := range vmi.Status.VolumeStatus {
+		newStatus, ok := newStatusMap[oldStatus.Name]
+		if !ok {
+			// status got removed
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, VolumeUnplugged, fmt.Sprintf("Volume %s has been unplugged", oldStatus.Name))
+			continue
+		}
+		if newStatus.Phase != oldStatus.Phase {
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, newStatus.Reason, newStatus.Message)
+		}
+		delete(newStatusMapCopy, newStatus.Name)
+	}
+	// Send events for any new statuses.
+	for _, v := range newStatusMapCopy {
+		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v.Reason, v.Message)
+	}
+}
+
+func (d *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMachineInstance, volumeStatus v1.VolumeStatus, specVolumeMap map[string]v1.Volume) (v1.VolumeStatus, bool) {
+	needsRefresh := false
+	if volumeStatus.Target == "" {
+		needsRefresh = true
+		if mounted, _ := d.hotplugVolumeMounter.IsMounted(vmi, volumeStatus.Name, volumeStatus.HotplugVolume.AttachPodUID); mounted {
+			if _, ok := specVolumeMap[volumeStatus.Name]; ok && canUpdateToMounted(volumeStatus.Phase) {
+				log.DefaultLogger().Infof("Marking volume %s as mounted in pod, it can now be attached", volumeStatus.Name)
+				// mounted, and still in spec, and in phase we can change, update status to mounted.
+				volumeStatus.Phase = v1.HotplugVolumeMounted
+				volumeStatus.Message = fmt.Sprintf("Volume %s has been mounted in virt-launcher pod", volumeStatus.Name)
+				volumeStatus.Reason = VolumeMountedToPodReason
+			}
+		} else {
+			// Not mounted, check if the volume is in the spec, if not update status
+			if _, ok := specVolumeMap[volumeStatus.Name]; !ok && canUpdateToUnmounted(volumeStatus.Phase) {
+				log.DefaultLogger().Infof("Marking volume %s as unmounted from pod, it can now be detached", volumeStatus.Name)
+				// Not mounted.
+				volumeStatus.Phase = v1.HotplugVolumeUnMounted
+				volumeStatus.Message = fmt.Sprintf("Volume %s has been unmounted from virt-launcher pod", volumeStatus.Name)
+				volumeStatus.Reason = VolumeUnMountedFromPodReason
+			}
+		}
+	} else {
+		// Successfully attached to VM.
+		volumeStatus.Phase = v1.VolumeReady
+		volumeStatus.Message = fmt.Sprintf("Successfully attach hotplugged volume %s to VM", volumeStatus.Name)
+		volumeStatus.Reason = VolumeReadyReason
+	}
+	return volumeStatus, needsRefresh
+}
+
+func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
+	hasHotplug := false
+	if len(vmi.Status.VolumeStatus) > 0 {
+		diskDeviceMap := make(map[string]string)
+		for _, disk := range domain.Spec.Devices.Disks {
+			diskDeviceMap[disk.Alias.GetName()] = disk.Target.Device
+		}
+		specVolumeMap := make(map[string]v1.Volume)
+		for _, volume := range vmi.Spec.Volumes {
+			specVolumeMap[volume.Name] = volume
+		}
+		newStatusMap := make(map[string]v1.VolumeStatus)
+		newStatuses := make([]v1.VolumeStatus, 0)
+		needsRefresh := false
+		for _, volumeStatus := range vmi.Status.VolumeStatus {
+			if _, ok := diskDeviceMap[volumeStatus.Name]; ok {
+				volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
+			}
+			if volumeStatus.HotplugVolume != nil {
+				hasHotplug = true
+				volumeStatus, needsRefresh = d.updateHotplugVolumeStatus(vmi, volumeStatus, specVolumeMap)
+			}
+			newStatuses = append(newStatuses, volumeStatus)
+			newStatusMap[volumeStatus.Name] = volumeStatus
+		}
+		sort.SliceStable(newStatuses, func(i, j int) bool {
+			return strings.Compare(newStatuses[i].Name, newStatuses[j].Name) == -1
+		})
+		if needsRefresh {
+			d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second)
+		}
+		d.generateEventsForVolumeStatusChange(vmi, newStatusMap)
+		vmi.Status.VolumeStatus = newStatuses
+	}
+	return hasHotplug
+}
+
 func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 	hasHotplug := false
@@ -697,60 +819,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 			}
 		}
 
-		if len(vmi.Status.VolumeStatus) > 0 {
-			diskDeviceMap := make(map[string]string)
-			for _, disk := range domain.Spec.Devices.Disks {
-				diskDeviceMap[disk.Alias.GetName()] = disk.Target.Device
-			}
-			specVolumeMap := make(map[string]v1.Volume)
-			for _, volume := range vmi.Spec.Volumes {
-				specVolumeMap[volume.Name] = volume
-			}
-			newStatuses := make([]v1.VolumeStatus, 0)
-			needsRefresh := false
-			for _, volumeStatus := range vmi.Status.VolumeStatus {
-				if _, ok := diskDeviceMap[volumeStatus.Name]; ok {
-					volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
-				}
-				if volumeStatus.HotplugVolume != nil {
-					hasHotplug = true
-					if volumeStatus.Target == "" {
-						needsRefresh = true
-						if mounted, _ := d.hotplugVolumeMounter.IsMounted(vmi, volumeStatus.Name, volumeStatus.HotplugVolume.AttachPodUID); mounted {
-							if _, ok := specVolumeMap[volumeStatus.Name]; ok && canUpdateToMounted(volumeStatus.Phase) {
-								log.DefaultLogger().Infof("Marking volume %s as mounted in pod, it can now be attached", volumeStatus.Name)
-								// mounted, and still in spec, and in phase we can change, update status to mounted.
-								volumeStatus.Phase = v1.HotplugVolumeMounted
-								volumeStatus.Message = fmt.Sprintf("Volume %s has been mounted in virt-launcher pod", volumeStatus.Name)
-								volumeStatus.Reason = "VolumeMountedToPod"
-							}
-						} else {
-							// Not mounted, check if the volume is in the spec, if not update status
-							if _, ok := specVolumeMap[volumeStatus.Name]; !ok && canUpdateToUnmounted(volumeStatus.Phase) {
-								// Not mounted.
-								volumeStatus.Phase = v1.HotplugVolumeUnMounted
-								volumeStatus.Message = fmt.Sprintf("Volume %s has been unmounted from virt-launcher pod", volumeStatus.Name)
-								volumeStatus.Reason = "VolumeUnMountedFromPod"
-							}
-						}
-					} else {
-						// Successfully attached to VM.
-						volumeStatus.Phase = v1.VolumeReady
-						volumeStatus.Message = fmt.Sprintf("Successfully attach hotplugged volume %s to VM", volumeStatus.Name)
-						volumeStatus.Reason = "VolumeReady"
-					}
-				}
-				newStatuses = append(newStatuses, volumeStatus)
-			}
-			sort.SliceStable(newStatuses, func(i, j int) bool {
-				return strings.Compare(newStatuses[i].Name, newStatuses[j].Name) == -1
-			})
-			if needsRefresh {
-				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second)
-			}
-			vmi.Status.VolumeStatus = newStatuses
-		}
-
+		hasHotplug = d.updateVolumeStatusesFromDomain(vmi, domain)
 		if len(vmi.Status.Interfaces) == 0 {
 			// Set Pod Interface
 			interfaces := make([]v1.VirtualMachineInstanceNetworkInterface, 0)
@@ -1026,11 +1095,11 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	if oldStatus.Phase != vmi.Status.Phase {
 		switch vmi.Status.Phase {
 		case v1.Running:
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Started.String(), "VirtualMachineInstance started.")
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Started.String(), VMIStarted)
 		case v1.Succeeded:
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Stopped.String(), "The VirtualMachineInstance was shut down.")
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Stopped.String(), VMIShutdown)
 		case v1.Failed:
-			d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Stopped.String(), "The VirtualMachineInstance crashed.")
+			d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Stopped.String(), VMICrashed)
 		}
 	}
 
@@ -1808,7 +1877,7 @@ func (d *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 
 				// pending graceful shutdown.
 				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Duration(timeLeft)*time.Second)
-				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), "Signaled Graceful Shutdown")
+				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), VMIGracefulShutdown)
 			} else {
 				log.Log.V(4).Object(vmi).Infof("%s is already shutting down.", vmi.GetObjectMeta().GetName())
 			}
@@ -1830,7 +1899,7 @@ func (d *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Deleted.String(), "VirtualMachineInstance stopping")
+	d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Deleted.String(), VMIStopping)
 
 	return nil
 }
@@ -1846,7 +1915,7 @@ func (d *VirtualMachineController) processVmDelete(vmi *v1.VirtualMachineInstanc
 		log.Log.Object(vmi).Infof("Signaled deletion for %s", vmi.GetObjectMeta().GetName())
 
 		// pending deletion.
-		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Deleted.String(), "Signaled Deletion")
+		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Deleted.String(), VMISignalDeletion)
 
 		err = client.DeleteDomain(vmi)
 		if err != nil && !cmdclient.IsDisconnected(err) {

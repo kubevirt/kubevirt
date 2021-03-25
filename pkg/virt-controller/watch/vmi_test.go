@@ -2054,7 +2054,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			return makeVolumeStatusesForUpdateWithMessage("test-pod%d", "abcd%d", v1.HotplugVolumeAttachedToNode, "Created hotplug attachment pod test-pod%d, for volume volume%d", SuccessfulCreatePodReason, indexes...)
 		}
 
-		table.DescribeTable("updateVolumeStatus", func(oldStatus []v1.VolumeStatus, specVolumes []*v1.Volume, podIndexes []int, pvcIndexes []int, expectedStatus []v1.VolumeStatus) {
+		table.DescribeTable("updateVolumeStatus", func(oldStatus []v1.VolumeStatus, specVolumes []*v1.Volume, podIndexes []int, pvcIndexes []int, expectedStatus []v1.VolumeStatus, expectedEvents []string) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			volumes := make([]v1.Volume, 0)
 			for _, volume := range specVolumes {
@@ -2074,6 +2074,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				pvcInformer.GetIndexer().Add(pvc)
 			}
 			err := controller.updateVolumeStatus(vmi, virtlauncherPod)
+			testutils.ExpectEvents(recorder, expectedEvents...)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(reflect.DeepEqual(expectedStatus, vmi.Status.VolumeStatus)).To(BeTrue())
 		},
@@ -2082,37 +2083,43 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				makeVolumes(),
 				[]int{},
 				[]int{},
-				makeVolumeStatusesForUpdate()),
+				makeVolumeStatusesForUpdate(),
+				[]string{}),
 			table.Entry("should update volume status, if a new volume is added, and pod exists",
 				makeVolumeStatusesForUpdate(),
 				makeVolumes(0),
 				[]int{0},
 				[]int{},
-				makeVolumeStatusesForUpdate(0)),
+				makeVolumeStatusesForUpdate(0),
+				[]string{SuccessfulCreatePodReason}),
 			table.Entry("should update volume status, if a new volume is added, and pod does not exist",
 				makeVolumeStatusesForUpdate(),
 				makeVolumes(0),
 				[]int{},
 				[]int{0},
-				makeVolumeStatusesForUpdateWithMessage("", "", v1.VolumeBound, "PVC is in phase Bound", PVCNotReadyReason, 0)),
+				makeVolumeStatusesForUpdateWithMessage("", "", v1.VolumeBound, "PVC is in phase Bound", PVCNotReadyReason, 0),
+				[]string{}),
 			table.Entry("should update volume status, if a existing volume is changed, and pod does not exist",
 				makeVolumeStatusesForUpdateWithMessage("", "", v1.VolumePending, "PVC is in phase Pending", PVCNotReadyReason, 0),
 				makeVolumes(0),
 				[]int{},
 				[]int{0},
-				makeVolumeStatusesForUpdateWithMessage("", "", v1.VolumeBound, "PVC is in phase Bound", PVCNotReadyReason, 0)),
+				makeVolumeStatusesForUpdateWithMessage("", "", v1.VolumeBound, "PVC is in phase Bound", PVCNotReadyReason, 0),
+				[]string{}),
 			table.Entry("should keep status, if volume removed and if pod still exists",
 				makeVolumeStatusesForUpdate(0),
 				makeVolumes(),
 				[]int{0},
 				[]int{0},
-				makeVolumeStatusesForUpdateWithMessage("test-pod0", "abcd0", v1.HotplugVolumeDetaching, "Deleted hotplug attachment pod test-pod0, for volume volume0", SuccessfulDeletePodReason, 0)),
+				makeVolumeStatusesForUpdateWithMessage("test-pod0", "abcd0", v1.HotplugVolumeDetaching, "Deleted hotplug attachment pod test-pod0, for volume volume0", SuccessfulDeletePodReason, 0),
+				[]string{SuccessfulDeletePodReason}),
 			table.Entry("should remove volume status, if volume is removed and pod is gone",
 				makeVolumeStatusesForUpdate(0),
 				makeVolumes(),
 				[]int{},
 				[]int{},
-				makeVolumeStatusesForUpdate()),
+				makeVolumeStatusesForUpdate(),
+				[]string{}),
 		)
 
 		It("Should properly create attachmentpod, if correct volume and disk are added", func() {
