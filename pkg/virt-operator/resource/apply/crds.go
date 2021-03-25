@@ -69,7 +69,7 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1beta1.CustomResourceDefinition)
 	ops = append(ops, labelAnnotationPatch...)
 
 	// subresource support needs to be introduced carefully after the control plane roll-over
-	// to avoid creating zombie entities which don't get processed du to ignored status updates
+	// to avoid creating zombie entities which don't get processed due to ignored status updates
 	if cachedCrd.Spec.Subresources == nil || cachedCrd.Spec.Subresources.Status == nil {
 		if crd.Spec.Subresources != nil && crd.Spec.Subresources.Status != nil {
 			crd.Spec.Subresources.Status = nil
