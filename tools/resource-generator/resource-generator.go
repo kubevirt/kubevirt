@@ -32,9 +32,10 @@ import (
 )
 
 func main() {
-	resourceType := flag.String("type", "", "Type of resource to generate. vmi | vmipreset | vmirs | vm | vmim | kv | rbac | priorityclass")
+	resourceType := flag.String("type", "", "Type of resource to generate. kv | kv-cr | operator-rbac | priorityclass")
 	namespace := flag.String("namespace", "kube-system", "Namespace to use.")
 	pullPolicy := flag.String("pullPolicy", "IfNotPresent", "ImagePullPolicy to use.")
+	featureGates := flag.String("featureGates", "", "Feature gates to enable.")
 
 	flag.Parse()
 
@@ -48,7 +49,7 @@ func main() {
 		}
 		util.MarshallObject(kv, os.Stdout)
 	case "kv-cr":
-		util.MarshallObject(components.NewKubeVirtCR(*namespace, imagePullPolicy), os.Stdout)
+		util.MarshallObject(components.NewKubeVirtCR(*namespace, imagePullPolicy, *featureGates), os.Stdout)
 	case "operator-rbac":
 		all := rbac.GetAllOperator(*namespace)
 		for _, r := range all {

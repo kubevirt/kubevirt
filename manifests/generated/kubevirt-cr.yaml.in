@@ -6,7 +6,12 @@ metadata:
   namespace: {{.Namespace}}
 spec:
   certificateRotateStrategy: {}
-  configuration: {}
+  configuration:
+    developerConfiguration:
+      featureGates:{{if .FeatureGates}}
+      {{- range .FeatureGates}}
+      - {{.}}
+      {{- end}}{{else}} []{{end}}
   customizeComponents: {}
   imagePullPolicy: {{.ImagePullPolicy}}
   workloadUpdateStrategy: {}
