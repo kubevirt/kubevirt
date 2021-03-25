@@ -293,7 +293,6 @@ The following annotations are supported in the HyperConverged CR:
 * `networkaddonsconfig.kubevirt.io/jsonpatch` - for CNAO configurations
 
 The content of the annotation will be a json array of patch objects, as defined in [RFC6902](https://tools.ietf.org/html/rfc6902).
-The patch’s path is relative to the `spec` field in each CR.
 
 #### Examples
 * The user wants to set the KubeVirt CR’s `spec.configuration.migrations.allowPostCopy` field to `true`. In order to do that, the following annotation should be added to the HyperConverged CR:
@@ -312,15 +311,24 @@ metadata:
 
 From CLI it will be:
 ```bash
-$ kubectl annotate --overwrite -n kubevirt-hyperconverged hco kubevirt-hyperconverged kubevirt.kubevirt.io/jsonpatch='[{"op": "add", "path": "/spec/configuration/migrations", "value": {"allowPostCopy": true} }]'
+$ kubectl annotate --overwrite -n kubevirt-hyperconverged hco kubevirt-hyperconverged \
+  kubevirt.kubevirt.io/jsonpatch='[{"op": "add", \
+    "path": "/spec/configuration/migrations", \
+    "value": {"allowPostCopy": true} }]'
 hyperconverged.hco.kubevirt.io/kubevirt-hyperconverged annotated
-$ kubectl get kubevirt -n kubevirt-hyperconverged kubevirt-kubevirt-hyperconverged -o json | jq '.spec.configuration.migrations.allowPostCopy'
+$ kubectl get kubevirt -n kubevirt-hyperconverged kubevirt-kubevirt-hyperconverged -o json \
+  | jq '.spec.configuration.migrations.allowPostCopy'
 true
-$ kubectl annotate --overwrite -n kubevirt-hyperconverged hco kubevirt-hyperconverged kubevirt.kubevirt.io/jsonpatch='[{"op": "add", "path": "/spec/configuration/migrations", "value": {"allowPostCopy": false} }]'
+$ kubectl annotate --overwrite -n kubevirt-hyperconverged hco kubevirt-hyperconverged \
+  kubevirt.kubevirt.io/jsonpatch='[{"op": "add", \
+    "path": "/spec/configuration/migrations", \
+    "value": {"allowPostCopy": false} }]'
 hyperconverged.hco.kubevirt.io/kubevirt-hyperconverged annotated
-$ kubectl get kubevirt -n kubevirt-hyperconverged kubevirt-kubevirt-hyperconverged -o json | jq '.spec.configuration.migrations.allowPostCopy'
+$ kubectl get kubevirt -n kubevirt-hyperconverged kubevirt-kubevirt-hyperconverged -o json \
+  | jq '.spec.configuration.migrations.allowPostCopy'
 false
-$ kubectl get hco -n kubevirt-hyperconverged  kubevirt-hyperconverged -o json | jq '.status.conditions[] | select(.type == "TaintedConfiguration")'
+$ kubectl get hco -n kubevirt-hyperconverged  kubevirt-hyperconverged -o json \
+  | jq '.status.conditions[] | select(.type == "TaintedConfiguration")'
 {
   "lastHeartbeatTime": "2021-03-24T17:25:49Z",
   "lastTransitionTime": "2021-03-24T11:33:11Z",
