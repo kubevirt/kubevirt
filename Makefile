@@ -128,6 +128,9 @@ test-functional-prow:
 test-functional-in-container:
 	./hack/run-tests-in-container.sh
 
+test-kv-smoke-prow:
+	./hack/kv-smoke-tests.sh
+
 stageRegistry:
 	@APP_REGISTRY_NAMESPACE=redhat-operators-stage PACKAGE=kubevirt-hyperconverged ./tools/quay-registry.sh $(QUAY_USERNAME) $(QUAY_PASSWORD)
 
@@ -211,6 +214,8 @@ deploy_cr:
 		build-functest \
 		test-functional \
 		test-functional-prow \
+		test-functional-in-container \
+		test-kv-smoke-prow \
 		charts \
 		kubevirt-nightly-test \
 		local \
