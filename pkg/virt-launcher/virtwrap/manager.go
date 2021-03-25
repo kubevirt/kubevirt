@@ -774,6 +774,9 @@ monitorLoop:
 				if strings.Contains(passedErr.Error(), "canceled by client") {
 					abortStatus = v1.MigrationAbortSucceeded
 				}
+				if strings.Contains(passedErr.Error(), "client socket is closed") {
+					abortStatus = v1.MigrationAbortSucceeded
+				}
 				l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration failed %v", passedErr), abortStatus)
 				break monitorLoop
 			}
