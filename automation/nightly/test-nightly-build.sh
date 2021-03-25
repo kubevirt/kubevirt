@@ -3,7 +3,7 @@
 set -ex
 
 # Get golang
-docker login --username "$(cat "${DOCKER_USER}")" --password-stdin < "${DOCKER_PASSWORD}"
+docker login --username "$(cat "${QUAY_USER}")" --password-stdin quay.io < "${QUAY_PASSWORD}"
 wget -q https://dl.google.com/go/go1.15.2.linux-amd64.tar.gz
 tar -C /usr/local -xf go*.tar.gz
 export PATH=/usr/local/go/bin:$PATH
@@ -27,7 +27,7 @@ go mod vendor
 
 # set envs
 build_date="$(date +%Y%m%d)"
-export IMAGE_REGISTRY=docker.io
+export IMAGE_REGISTRY=quay.io
 export IMAGE_TAG="${build_date}_$(git show -s --format=%h)"
 export DOCKER_PREFIX=kubevirtnightlybuilds
 TEMP_OPERATOR_IMAGE=${DOCKER_PREFIX}/hyperconverged-cluster-operator
