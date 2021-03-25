@@ -80,16 +80,17 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 				By("Specifying a VMI with a readiness probe")
 				vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
+
+				assertPodNotReady(virtClient, vmi)
 			} else {
 				By("Specifying a VMI with a readiness probe")
 				vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
 
+				assertPodNotReady(virtClient, vmi)
+
 				By("Starting the server inside the VMI")
 				serverStarter(vmi, readinessProbe, 1500)
 			}
-
-			// pod is not ready until our probe contacts the server
-			assertPodNotReady(virtClient, vmi)
 
 			By("Checking that the VMI and the pod will be marked as ready to receive traffic")
 			Eventually(isVMIReady, 60, 1).Should(Equal(true))
