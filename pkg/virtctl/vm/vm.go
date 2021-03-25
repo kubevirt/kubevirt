@@ -183,6 +183,12 @@ func usage(cmd string) string {
 		return usage
 	}
 
+	if cmd == COMMAND_USERLIST || cmd == COMMAND_FSLIST || cmd == COMMAND_GUESTOSINFO {
+		usage := fmt.Sprintf("  # %s a virtual machine instance called 'myvm':\n", strings.Title(cmd))
+		usage += fmt.Sprintf("  {{ProgramName}} %s myvm", cmd)
+		return usage
+	}
+
 	usage := fmt.Sprintf("  # %s a virtual machine called 'myvm':\n", strings.Title(cmd))
 	usage += fmt.Sprintf("  {{ProgramName}} %s myvm", cmd)
 	return usage
@@ -245,7 +251,7 @@ func (o *Command) Run(args []string) error {
 	case COMMAND_GUESTOSINFO:
 		guestosinfo, err := virtClient.VirtualMachineInstance(namespace).GuestOsInfo(vmiName)
 		if err != nil {
-			return fmt.Errorf("Error getting guestosinfo of VirtualMachine %s, %v", vmiName, err)
+			return fmt.Errorf("Error getting guestosinfo of VirtualMachineInstance %s, %v", vmiName, err)
 		}
 
 		data, err := json.MarshalIndent(guestosinfo, "", "  ")
@@ -258,7 +264,7 @@ func (o *Command) Run(args []string) error {
 	case COMMAND_USERLIST:
 		userlist, err := virtClient.VirtualMachineInstance(namespace).UserList(vmiName)
 		if err != nil {
-			return fmt.Errorf("Error listing users of VirtualMachine %s, %v", vmiName, err)
+			return fmt.Errorf("Error listing users of VirtualMachineInstance %s, %v", vmiName, err)
 		}
 
 		data, err := json.MarshalIndent(userlist, "", "  ")
@@ -271,7 +277,7 @@ func (o *Command) Run(args []string) error {
 	case COMMAND_FSLIST:
 		fslist, err := virtClient.VirtualMachineInstance(namespace).FilesystemList(vmiName)
 		if err != nil {
-			return fmt.Errorf("Error listing filesystems of VirtualMachine %s, %v", vmiName, err)
+			return fmt.Errorf("Error listing filesystems of VirtualMachineInstance %s, %v", vmiName, err)
 		}
 
 		data, err := json.MarshalIndent(fslist, "", "  ")
