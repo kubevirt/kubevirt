@@ -5,7 +5,7 @@ source hack/config.sh
 
 if [ "${CI}" == "true" ]; then
     cat >>ci.bazelrc <<EOF
-test --cache_test_results=no --runs_per_test=4
+test --cache_test_results=no --runs_per_test=1
 EOF
 fi
 
