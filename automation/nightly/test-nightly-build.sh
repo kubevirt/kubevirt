@@ -28,8 +28,8 @@ go mod vendor
 # set envs
 build_date="$(date +%Y%m%d)"
 export IMAGE_REGISTRY=quay.io
-export IMAGE_TAG="${build_date}_$(git show -s --format=%h)"
-export DOCKER_PREFIX=kubevirtnightlybuilds
+export IMAGE_TAG="nb_${build_date}_$(git show -s --format=%h)"
+export DOCKER_PREFIX=kubevirtci
 TEMP_OPERATOR_IMAGE=${DOCKER_PREFIX}/hyperconverged-cluster-operator
 TEMP_WEBHOOK_IMAGE=${DOCKER_PREFIX}/hyperconverged-cluster-webhook
 
