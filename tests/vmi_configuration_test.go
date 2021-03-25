@@ -493,7 +493,7 @@ var _ = Describe("Configurations", func() {
 				// The expecter *should* have error-ed since the network interface is not marked bootable
 			})
 
-			It("[test_id:5266]should boot to NIC rom if a boot order was set on a network interface", func() {
+			It("[QUARANTINE][test_id:5266]should boot to NIC rom if a boot order was set on a network interface", func() {
 				By("Creating a VMI with no disk and an explicit network interface")
 				vmi := tests.NewRandomVMI()
 				tests.AddExplicitPodNetworkInterface(vmi)
@@ -892,7 +892,7 @@ var _ = Describe("Configurations", func() {
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with namespace limits higher than VMI requests", func() {
 			var vmi *v1.VirtualMachineInstance
-			It("[test_id:3120]should start the VMI with the right default settings from namespace limits", func() {
+			It("[QUARANTINE][test_id:3120]should start the VMI with the right default settings from namespace limits", func() {
 				// create a namespace default limit
 				limitRangeObj := kubev1.LimitRange{
 
@@ -2097,7 +2097,7 @@ var _ = Describe("Configurations", func() {
 				By("Checking if pod memory usage is > 80Mi")
 				Expect(m > 83886080).To(BeTrue(), "83886080 B = 80 Mi")
 			})
-			It("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", func() {
+			It("[QUARANTINE][test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", func() {
 
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
