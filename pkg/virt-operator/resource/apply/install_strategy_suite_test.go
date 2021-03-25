@@ -3,11 +3,9 @@ package apply
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestInstallStrategy(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "InstallStrategy Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "InstallStrategy Suite")
 }

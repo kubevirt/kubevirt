@@ -32,7 +32,6 @@ import (
 	. "github.com/onsi/gomega"
 	libvirt "libvirt.org/libvirt-go"
 
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv/util"
 )
@@ -41,8 +40,6 @@ var _ = Describe("StatsConverter", func() {
 	var mockDomainIdent *MockDomainIdentifier
 	var ctrl *gomock.Controller
 	var testStats []libvirt.DomainStats
-
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())

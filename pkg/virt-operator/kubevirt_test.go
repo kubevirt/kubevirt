@@ -60,7 +60,6 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	promclientfake "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/version"
 	kubecontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -79,7 +78,6 @@ const (
 )
 
 var _ = Describe("KubeVirt Operator", func() {
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	var ctrl *gomock.Controller
 	var kvInterface *kubecli.MockKubeVirtInterface

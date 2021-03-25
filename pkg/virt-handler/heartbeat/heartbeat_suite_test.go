@@ -3,14 +3,9 @@ package heartbeat_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestHeartbeat(t *testing.T) {
-	RegisterFailHandler(Fail)
-	log.Log.SetIOWriter(GinkgoWriter)
-	RunSpecs(t, "Heartbeat Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "Heartbeat Suite")
 }

@@ -59,7 +59,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -112,8 +111,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var eventChan chan watch.Event
 
 	var host string
-
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	var certDir string
 

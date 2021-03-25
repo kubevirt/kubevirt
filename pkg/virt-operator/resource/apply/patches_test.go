@@ -24,8 +24,6 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/client-go/log"
-
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -33,7 +31,6 @@ import (
 )
 
 var _ = Describe("Patches", func() {
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	namespace := "fake-namespace"
 

@@ -3,11 +3,9 @@ package cmdclient_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestCmdClient(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "CmdClient Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "CmdClient Suite")
 }

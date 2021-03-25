@@ -29,11 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/log"
 )
 
 var _ = Describe("Virt remote commands", func() {
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	var err error
 	var shareDir string

@@ -52,7 +52,7 @@ go_test(
         "//staging/src/kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",

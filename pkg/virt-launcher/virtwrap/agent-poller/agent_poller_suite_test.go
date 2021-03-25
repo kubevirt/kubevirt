@@ -21,11 +21,9 @@ package agentpoller
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestAgentPoller(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "AgentPoller Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "AgentPoller Suite")
 }

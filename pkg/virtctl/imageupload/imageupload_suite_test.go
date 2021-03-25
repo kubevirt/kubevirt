@@ -3,11 +3,9 @@ package imageupload_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestImageUpload(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "ImageUpload Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "ImageUpload Suite")
 }

@@ -1,16 +1,11 @@
 package bootstrap_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	"kubevirt.io/client-go/log"
-
 	"testing"
+
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestBootstrap(t *testing.T) {
-	log.Log.SetIOWriter(GinkgoWriter)
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Bootstrap Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "Bootstrap Suite")
 }

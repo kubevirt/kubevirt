@@ -22,17 +22,11 @@ package ephemeraldisk
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
+	"kubevirt.io/client-go/testutils"
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-
-	"kubevirt.io/client-go/log"
 )
 
 func TestContainerDisk(t *testing.T) {
-	log.Log.SetIOWriter(GinkgoWriter)
-	RegisterFailHandler(Fail)
 	ephemeraldiskutils.MockDefaultOwnershipManager()
-	RunSpecs(t, "EphemeralDisk Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "EphemeralDisk Suite")
 }

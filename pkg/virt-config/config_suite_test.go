@@ -1,13 +1,11 @@
 package virtconfig
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
 	"testing"
+
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestConfig(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Config Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "Config Suite")
 }

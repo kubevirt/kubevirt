@@ -32,8 +32,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/google/uuid"
-
-	"kubevirt.io/client-go/log"
 )
 
 var fakeQEMUBinary string
@@ -49,8 +47,6 @@ var _ = Describe("VirtLauncher", func() {
 	var gracefulShutdownChannel chan struct{}
 
 	uuid := uuid.New().String()
-
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	processStarted := false
 

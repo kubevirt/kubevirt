@@ -29,7 +29,6 @@ import (
 )
 
 var _ = Describe("Node controller with", func() {
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	var ctrl *gomock.Controller
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
