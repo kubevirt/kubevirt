@@ -35,6 +35,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedStatus":        schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.LiveMigrationConfigurations": schema_pkg_apis_hco_v1beta1_LiveMigrationConfigurations(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.MediatedHostDevice":          schema_pkg_apis_hco_v1beta1_MediatedHostDevice(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.OperandResourceRequirements": schema_pkg_apis_hco_v1beta1_OperandResourceRequirements(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.PciHostDevice":               schema_pkg_apis_hco_v1beta1_PciHostDevice(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.PermittedHostDevices":        schema_pkg_apis_hco_v1beta1_PermittedHostDevices(ref),
 	}
@@ -148,6 +149,25 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.PermittedHostDevices"),
 						},
 					},
+					"certConfig": {
+						SchemaProps: spec.SchemaProps{
+							Description: "certConfig holds the rotation policy for internal, self-signed certificates",
+							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedCertConfig"),
+						},
+					},
+					"resourceRequirements": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResourceRequirements describes the resource requirements for the operand workloads.",
+							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.OperandResourceRequirements"),
+						},
+					},
+					"scratchSpaceStorageClass": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Override the storage class used for scratch space during transfer operations. The scratch space storage class is determined in the following order: value of scratchSpaceStorageClass, if that doesn't exist, use the default storage class, if there is no default storage class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"version": {
 						SchemaProps: spec.SchemaProps{
 							Description: "operator version",
@@ -159,7 +179,7 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback
 			},
 		},
 		Dependencies: []string{
-			"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedConfig", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedFeatureGates", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.LiveMigrationConfigurations", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.PermittedHostDevices"},
+			"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedCertConfig", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedConfig", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedFeatureGates", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.LiveMigrationConfigurations", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.OperandResourceRequirements", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.PermittedHostDevices"},
 	}
 }
 
@@ -300,6 +320,27 @@ func schema_pkg_apis_hco_v1beta1_MediatedHostDevice(ref common.ReferenceCallback
 				Required: []string{"mdevNameSelector", "resourceName"},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_hco_v1beta1_OperandResourceRequirements(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ResourceRequirements is a list of resource requirements for the operand workloads pods",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"storageWorkloads": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StorageWorkloads defines the resources requirements for storage workloads. It will propagate to the CDI custom resource",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.ResourceRequirements"},
 	}
 }
 

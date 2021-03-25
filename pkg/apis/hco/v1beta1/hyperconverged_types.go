@@ -54,6 +54,18 @@ type HyperConvergedSpec struct {
 	// +optional
 	CertConfig *HyperConvergedCertConfig `json:"certConfig,omitempty"`
 
+	// ResourceRequirements describes the resource requirements for the operand workloads.
+	// +optional
+	ResourceRequirements *OperandResourceRequirements `json:"resourceRequirements,omitempty"`
+
+	// Override the storage class used for scratch space during transfer operations. The scratch space storage class
+	// is determined in the following order:
+	// value of scratchSpaceStorageClass, if that doesn't exist, use the default storage class, if there is no default
+	// storage class, use the storage class of the DataVolume, if no storage class specified, use no storage class for
+	// scratch space
+	// +optional
+	ScratchSpaceStorageClass *string `json:"scratchSpaceStorageClass,omitempty"`
+
 	// operator version
 	Version string `json:"version,omitempty"`
 }
@@ -165,6 +177,15 @@ type MediatedHostDevice struct {
 	MDEVNameSelector         string `json:"mdevNameSelector"`
 	ResourceName             string `json:"resourceName"`
 	ExternalResourceProvider bool   `json:"externalResourceProvider,omitempty"`
+}
+
+// ResourceRequirements is a list of resource requirements for the operand workloads pods
+// +k8s:openapi-gen=true
+type OperandResourceRequirements struct {
+	// StorageWorkloads defines the resources requirements for storage workloads. It will propagate to the CDI custom
+	// resource
+	// +optional
+	StorageWorkloads *corev1.ResourceRequirements `json:"storageWorkloads,omitempty"`
 }
 
 // HyperConvergedStatus defines the observed state of HyperConverged

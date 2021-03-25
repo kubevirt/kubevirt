@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	v1 "github.com/openshift/custom-resource-status/objectreferences/v1"
+	"k8s.io/client-go/tools/reference"
 	"os"
 	"time"
 
@@ -1140,7 +1142,7 @@ var _ = Describe("HyperconvergedController", func() {
 					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
 					expected.hco.Spec.Version = oldVersion
 
-					resources := append(expected.toArray(), &corev1.ConfigMap{
+					kvCM := &corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      kvCmName,
 							Namespace: namespace,
@@ -1148,7 +1150,12 @@ var _ = Describe("HyperconvergedController", func() {
 								hcoutil.AppLabel: expected.hco.Name,
 							},
 						},
-					})
+					}
+					kvCMRef, err := reference.GetReference(commonTestUtils.GetScheme(), kvCM)
+					Expect(err).ToNot(HaveOccurred())
+					v1.SetObjectReference(&expected.hco.Status.RelatedObjects, *kvCMRef)
+
+					resources := append(expected.toArray(), kvCM)
 
 					cl := commonTestUtils.InitClient(resources)
 					foundResource, requeue := doReconcile(cl, expected.hco)
@@ -1166,7 +1173,7 @@ var _ = Describe("HyperconvergedController", func() {
 					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
 					expected.hco.Spec.Version = oldVersion
 
-					resources := append(expected.toArray(), &corev1.ConfigMap{
+					kvCM := &corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      kvCmName,
 							Namespace: namespace,
@@ -1181,7 +1188,12 @@ bandwidthPerMigration: 64Mi
 completionTimeoutPerGiB: 800
 progressTimeout: 150`,
 						},
-					})
+					}
+					kvCMRef, err := reference.GetReference(commonTestUtils.GetScheme(), kvCM)
+					Expect(err).ToNot(HaveOccurred())
+					v1.SetObjectReference(&expected.hco.Status.RelatedObjects, *kvCMRef)
+
+					resources := append(expected.toArray(), kvCM)
 
 					cl := commonTestUtils.InitClient(resources)
 					foundResource, requeue := doReconcile(cl, expected.hco)
@@ -1198,7 +1210,7 @@ progressTimeout: 150`,
 
 					By("Check that KV's MigrationConfiguration field does not contain the configmap values, yet")
 					kv := operands.NewKubeVirtWithNameOnly(foundResource)
-					err := hcoutil.GetRuntimeObject(context.TODO(), cl, kv, log)
+					err = hcoutil.GetRuntimeObject(context.TODO(), cl, kv, log)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(kv.Spec.Configuration.MigrationConfiguration.BandwidthPerMigration).To(BeNil())
 					Expect(kv.Spec.Configuration.MigrationConfiguration.CompletionTimeoutPerGiB).To(BeNil())
@@ -1244,7 +1256,7 @@ progressTimeout: 150`,
 					expected.hco.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster = &parallelMigrationsPerCluster
 					expected.hco.Spec.LiveMigrationConfig.ProgressTimeout = &progressTimeout
 
-					resources := append(expected.toArray(), &corev1.ConfigMap{
+					kvCM := &corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      kvCmName,
 							Namespace: namespace,
@@ -1259,7 +1271,11 @@ bandwidthPerMigration: 16Mi
 completionTimeoutPerGiB: 400
 progressTimeout: 300`,
 						},
-					})
+					}
+					kvCMRef, err := reference.GetReference(commonTestUtils.GetScheme(), kvCM)
+					Expect(err).ToNot(HaveOccurred())
+					v1.SetObjectReference(&expected.hco.Status.RelatedObjects, *kvCMRef)
+					resources := append(expected.toArray(), kvCM)
 
 					cl := commonTestUtils.InitClient(resources)
 					foundResource, requeue := doReconcile(cl, expected.hco)
@@ -1276,7 +1292,7 @@ progressTimeout: 300`,
 
 					By("Check that KV's MigrationConfiguration field does not contain the configmap values, yet")
 					kv := operands.NewKubeVirtWithNameOnly(foundResource)
-					err := hcoutil.GetRuntimeObject(context.TODO(), cl, kv, log)
+					err = hcoutil.GetRuntimeObject(context.TODO(), cl, kv, log)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(kv.Spec.Configuration.MigrationConfiguration.BandwidthPerMigration).To(BeNil())
 					Expect(kv.Spec.Configuration.MigrationConfiguration.CompletionTimeoutPerGiB).To(BeNil())
@@ -1321,7 +1337,7 @@ progressTimeout: 300`,
 					expected.hco.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster = &parallelMigrationsPerCluster
 					expected.hco.Spec.LiveMigrationConfig.ProgressTimeout = &progressTimeout
 
-					resources := append(expected.toArray(), &corev1.ConfigMap{
+					kvCM := &corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      kvCmName,
 							Namespace: namespace,
@@ -1336,7 +1352,11 @@ bandwidthPerMigration: 64Mi
 completionTimeoutPerGiB: 800
 progressTimeout: 150`,
 						},
-					})
+					}
+					kvCMRef, err := reference.GetReference(commonTestUtils.GetScheme(), kvCM)
+					Expect(err).ToNot(HaveOccurred())
+					v1.SetObjectReference(&expected.hco.Status.RelatedObjects, *kvCMRef)
+					resources := append(expected.toArray(), kvCM)
 
 					cl := commonTestUtils.InitClient(resources)
 					foundResource, requeue := doReconcile(cl, expected.hco)
@@ -1353,7 +1373,7 @@ progressTimeout: 150`,
 
 					By("Check that KV's MigrationConfiguration field contains the configmap values")
 					kv := operands.NewKubeVirtWithNameOnly(foundResource)
-					err := hcoutil.GetRuntimeObject(context.TODO(), cl, kv, log)
+					err = hcoutil.GetRuntimeObject(context.TODO(), cl, kv, log)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(*kv.Spec.Configuration.MigrationConfiguration.BandwidthPerMigration).Should(Equal(resource.MustParse(bandwidthPerMigration)))
 					Expect(*kv.Spec.Configuration.MigrationConfiguration.CompletionTimeoutPerGiB).Should(Equal(completionTimeoutPerGiB))
@@ -1366,6 +1386,152 @@ progressTimeout: 150`,
 					Expect(foundBackup).To(BeTrue())
 
 					Expect(searchInRelatedObjects(foundResource.Status.RelatedObjects, "ConfigMap", kvCmName)).To(BeFalse())
+				})
+			})
+
+			Context("Adopt CDI Config on upgrade", func() {
+				testResourceReqs := &corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("500m"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("250m"),
+						corev1.ResourceMemory: resource.MustParse("1Gi"),
+					},
+				}
+
+				It("should adopt CDI config into HC CR", func() {
+					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+					expected.hco.Spec.Version = oldVersion
+
+					ScratchSpaceStorageClassValue := "ScratchSpaceStorageClassValue"
+
+					expected.cdi.Spec.Config = &cdiv1beta1.CDIConfigSpec{
+						ScratchSpaceStorageClass: &ScratchSpaceStorageClassValue,
+						PodResourceRequirements:  testResourceReqs,
+					}
+
+					resources := expected.toArray()
+					cl := commonTestUtils.InitClient(resources)
+					foundHC, requeue := doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeTrue())
+					checkAvailability(foundHC, corev1.ConditionUnknown)
+
+					By("Check that the spec.ScratchSpaceStorageClass is now populated")
+					Expect(foundHC.Spec.ScratchSpaceStorageClass).ShouldNot(BeNil())
+					Expect(*foundHC.Spec.ScratchSpaceStorageClass).Should(Equal(ScratchSpaceStorageClassValue))
+					By("Check that the spec.ResourceRequirements is now populated")
+					Expect(foundHC.Spec.ResourceRequirements).ShouldNot(BeNil())
+					Expect(foundHC.Spec.ResourceRequirements.StorageWorkloads).ShouldNot(BeNil())
+					Expect(*foundHC.Spec.ResourceRequirements.StorageWorkloads).Should(Equal(*testResourceReqs))
+
+					By("Run reconcile again")
+					foundHC, requeue = doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundHC, corev1.ConditionTrue)
+
+					By("Check that CDI's still contains the expected values")
+					cdi := operands.NewCDIWithNameOnly(foundHC)
+					err := hcoutil.GetRuntimeObject(context.TODO(), cl, cdi, log)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(cdi.Spec.Config).ShouldNot(BeNil())
+					Expect(cdi.Spec.Config.ScratchSpaceStorageClass).ShouldNot(BeNil())
+					Expect(*cdi.Spec.Config.ScratchSpaceStorageClass).Should(Equal(ScratchSpaceStorageClassValue))
+					Expect(cdi.Spec.Config.PodResourceRequirements).ShouldNot(BeNil())
+					Expect(*cdi.Spec.Config.PodResourceRequirements).Should(Equal(*testResourceReqs))
+				})
+
+				It("should ignore CDI configurations if already exists in HC CR", func() {
+					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+					expected.hco.Spec.Version = oldVersion
+
+					hcoScratchSpaceStorageClass := "hcoScratchSpaceStorageClass"
+					hcoPodResourceRequirements := &corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("700m"),
+							corev1.ResourceMemory: resource.MustParse("4Gi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("500m"),
+							corev1.ResourceMemory: resource.MustParse("2Gi"),
+						},
+					}
+
+					cdiScratchSpaceStorageClass := "cdiScratchSpaceStorageClass"
+
+					expected.hco.Spec.ScratchSpaceStorageClass = &hcoScratchSpaceStorageClass
+					expected.hco.Spec.ResourceRequirements = &hcov1beta1.OperandResourceRequirements{
+						StorageWorkloads: hcoPodResourceRequirements,
+					}
+
+					expected.cdi.Spec.Config = &cdiv1beta1.CDIConfigSpec{
+						ScratchSpaceStorageClass: &cdiScratchSpaceStorageClass,
+						PodResourceRequirements:  testResourceReqs,
+					}
+
+					cl := commonTestUtils.InitClient(expected.toArray())
+					foundHC, requeue := doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundHC, corev1.ConditionTrue)
+
+					By("Check that the spec.ScratchSpaceStorageClass is now populated")
+					Expect(foundHC.Spec.ScratchSpaceStorageClass).ShouldNot(BeNil())
+					Expect(*foundHC.Spec.ScratchSpaceStorageClass).Should(Equal(hcoScratchSpaceStorageClass))
+					By("Check that the spec.ResourceRequirements is now populated")
+					Expect(foundHC.Spec.ResourceRequirements).ShouldNot(BeNil())
+					Expect(foundHC.Spec.ResourceRequirements.StorageWorkloads).ShouldNot(BeNil())
+					Expect(*foundHC.Spec.ResourceRequirements.StorageWorkloads).Should(Equal(*hcoPodResourceRequirements))
+
+					By("Check that CDI's configuration are now the same as HCO's")
+					cdi := operands.NewCDIWithNameOnly(foundHC)
+					err := hcoutil.GetRuntimeObject(context.TODO(), cl, cdi, log)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(cdi.Spec.Config).ToNot(BeNil())
+					Expect(cdi.Spec.Config.ScratchSpaceStorageClass).ToNot(BeNil())
+					Expect(*cdi.Spec.Config.ScratchSpaceStorageClass).Should(Equal(hcoScratchSpaceStorageClass))
+					Expect(cdi.Spec.Config.PodResourceRequirements).ToNot(BeNil())
+					Expect(*cdi.Spec.Config.PodResourceRequirements).Should(Equal(*hcoPodResourceRequirements))
+				})
+
+				It("should ignore CDI config into HC CR if there is no change", func() {
+					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+					expected.hco.Spec.Version = oldVersion
+
+					aScratchSpaceStorageClassValue := "aScratchSpaceStorageClassValue"
+
+					expected.hco.Spec.ScratchSpaceStorageClass = &aScratchSpaceStorageClassValue
+					expected.hco.Spec.ResourceRequirements = &hcov1beta1.OperandResourceRequirements{
+						StorageWorkloads: testResourceReqs,
+					}
+
+					expected.cdi.Spec.Config = &cdiv1beta1.CDIConfigSpec{
+						ScratchSpaceStorageClass: &aScratchSpaceStorageClassValue,
+						PodResourceRequirements:  testResourceReqs,
+					}
+
+					cl := commonTestUtils.InitClient(expected.toArray())
+					foundHC, requeue := doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundHC, corev1.ConditionTrue)
+
+					By("Check that the spec.ScratchSpaceStorageClass is now populated")
+					Expect(foundHC.Spec.ScratchSpaceStorageClass).ShouldNot(BeNil())
+					Expect(*foundHC.Spec.ScratchSpaceStorageClass).Should(Equal(aScratchSpaceStorageClassValue))
+					By("Check that the spec.ResourceRequirements is now populated")
+					Expect(foundHC.Spec.ResourceRequirements).ShouldNot(BeNil())
+					Expect(foundHC.Spec.ResourceRequirements.StorageWorkloads).ShouldNot(BeNil())
+					Expect(*foundHC.Spec.ResourceRequirements.StorageWorkloads).Should(Equal(*testResourceReqs))
+
+					By("Check that CDI's configuration are now the same as HCO's")
+					cdi := operands.NewCDIWithNameOnly(foundHC)
+					err := hcoutil.GetRuntimeObject(context.TODO(), cl, cdi, log)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(cdi.Spec.Config).ToNot(BeNil())
+					Expect(cdi.Spec.Config.ScratchSpaceStorageClass).ToNot(BeNil())
+					Expect(*cdi.Spec.Config.ScratchSpaceStorageClass).Should(Equal(aScratchSpaceStorageClassValue))
+					Expect(cdi.Spec.Config.PodResourceRequirements).ToNot(BeNil())
+					Expect(*cdi.Spec.Config.PodResourceRequirements).Should(Equal(*testResourceReqs))
 				})
 			})
 		})

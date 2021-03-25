@@ -868,7 +868,20 @@ const (
 )
 
 func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (bool, error) {
+	kvConfigMmodified, err := r.migrateKvConfigurations(req)
+	if err != nil {
+		return false, err
+	}
 
+	cdiConfigMmodified, err := r.migrateCdiConfigurations(req)
+	if err != nil {
+		return false, err
+	}
+
+	return kvConfigMmodified || cdiConfigMmodified, nil
+}
+
+func (r ReconcileHyperConverged) migrateKvConfigurations(req *common.HcoRequest) (bool, error) {
 	req.Logger.Info("read KubeVirt configmap")
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -908,6 +921,20 @@ func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (
 	}
 
 	return modified, nil
+}
+
+func (r ReconcileHyperConverged) migrateCdiConfigurations(req *common.HcoRequest) (bool, error) {
+	cdi := operands.NewCDIWithNameOnly(req.Instance)
+
+	err := hcoutil.GetRuntimeObject(req.Ctx, r.client, cdi, req.Logger)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return adoptCdiConfigs(req, cdi.Spec.Config), nil
 }
 
 func (r *ReconcileHyperConverged) removeKvConfigMap(req *common.HcoRequest, cm *corev1.ConfigMap) error {
@@ -968,6 +995,34 @@ func adoptOldKvConfigs(req *common.HcoRequest, cm *corev1.ConfigMap) bool {
 
 		req.Dirty = true
 		modified = true
+	}
+
+	return modified
+}
+
+func adoptCdiConfigs(req *common.HcoRequest, cdiCfg *cdiv1beta1.CDIConfigSpec) bool {
+	modified := false
+	if cdiCfg != nil {
+		if req.Instance.Spec.ScratchSpaceStorageClass == nil && cdiCfg.ScratchSpaceStorageClass != nil {
+			req.Instance.Spec.ScratchSpaceStorageClass = new(string)
+			*req.Instance.Spec.ScratchSpaceStorageClass = *cdiCfg.ScratchSpaceStorageClass
+			modified = true
+		}
+
+		if cdiCfg.PodResourceRequirements != nil {
+			if req.Instance.Spec.ResourceRequirements == nil {
+				req.Instance.Spec.ResourceRequirements = &hcov1beta1.OperandResourceRequirements{}
+			}
+
+			if req.Instance.Spec.ResourceRequirements.StorageWorkloads == nil {
+				req.Instance.Spec.ResourceRequirements.StorageWorkloads = cdiCfg.PodResourceRequirements.DeepCopy()
+				modified = true
+			}
+		}
+	}
+
+	if modified {
+		req.Dirty = true
 	}
 
 	return modified

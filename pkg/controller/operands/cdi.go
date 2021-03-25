@@ -82,18 +82,6 @@ func (h *cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists
 		return false, false, errors.New("can't convert to CDI")
 	}
 
-	// HCO reconciles the CR for CDI excluding the `spec.CDIConfig`,
-	if found.Spec.Config != nil {
-		cdi.Spec.Config = found.Spec.Config.DeepCopy()
-	} else {
-		cdi.Spec.Config = nil
-	}
-
-	// only set feature gates if annotation exists
-	if _, ok := found.Annotations[cdiConfigAuthorityAnnotation]; ok {
-		setDefaultFeatureGates(&cdi.Spec)
-	}
-
 	if !reflect.DeepEqual(found.Spec, cdi.Spec) ||
 		!reflect.DeepEqual(found.Labels, cdi.Labels) {
 		overwritten := false
@@ -112,18 +100,6 @@ func (h *cdiHooks) updateCr(req *common.HcoRequest, Client client.Client, exists
 		return true, overwritten, nil
 	}
 	return false, false, nil
-}
-
-func setDefaultFeatureGates(spec *cdiv1beta1.CDISpec) {
-	if spec.Config == nil {
-		spec.Config = &cdiv1beta1.CDIConfigSpec{}
-	}
-
-	if hcoutil.ContainsString(spec.Config.FeatureGates, HonorWaitForFirstConsumerGate) {
-		return
-	}
-
-	spec.Config.FeatureGates = append(spec.Config.FeatureGates, getDefaultFeatureGates()...)
 }
 
 func getDefaultFeatureGates() []string {
@@ -149,7 +125,17 @@ func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) (*cdiv1beta1.CDI, err
 
 	spec := cdiv1beta1.CDISpec{
 		UninstallStrategy: &uninstallStrategy,
-		Config:            &cdiv1beta1.CDIConfigSpec{FeatureGates: getDefaultFeatureGates()},
+		Config: &cdiv1beta1.CDIConfigSpec{
+			FeatureGates: getDefaultFeatureGates(),
+		},
+	}
+
+	if hc.Spec.ResourceRequirements != nil && hc.Spec.ResourceRequirements.StorageWorkloads != nil {
+		spec.Config.PodResourceRequirements = hc.Spec.ResourceRequirements.StorageWorkloads.DeepCopy()
+	}
+
+	if hc.Spec.ScratchSpaceStorageClass != nil {
+		spec.Config.ScratchSpaceStorageClass = hc.Spec.ScratchSpaceStorageClass
 	}
 
 	if hc.Spec.Infra.NodePlacement != nil {

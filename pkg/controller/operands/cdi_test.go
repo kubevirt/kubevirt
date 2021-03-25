@@ -3,6 +3,7 @@ package operands
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"reflect"
 	"time"
 
@@ -53,7 +54,7 @@ var _ = Describe("CDI Operand", func() {
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
-			Expect(foundResource.Annotations).To(Equal(map[string]string{"cdi.kubevirt.io/configAuthority": ""}))
+			Expect(foundResource.Annotations).To(Equal(map[string]string{cdiConfigAuthorityAnnotation: ""}))
 		})
 
 		It("should find if present", func() {
@@ -116,176 +117,400 @@ var _ = Describe("CDI Operand", func() {
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 					foundResource),
 			).To(BeNil())
-			Expect(*foundResource.Spec.UninstallStrategy).To(Equal(*expectedResource.Spec.UninstallStrategy))
+
+			Expect(*foundResource.Spec.UninstallStrategy).To(Equal(cdiv1beta1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist))
 		})
 
-		It("should add node placement if missing in CDI", func() {
-			existingResource, err := NewCDI(hco)
-			Expect(err).ToNot(HaveOccurred())
+		Context("Test node placement", func() {
+			It("should add node placement if missing in CDI", func() {
+				existingResource, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
 
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
-			res := handler.ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).To(BeNil())
 
-			foundResource := &cdiv1beta1.CDI{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
+				foundResource := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
 
-			Expect(existingResource.Spec.Infra.Affinity).To(BeNil())
-			Expect(existingResource.Spec.Infra.Tolerations).To(BeEmpty())
-			Expect(existingResource.Spec.Infra.NodeSelector).To(BeNil())
-			Expect(existingResource.Spec.Workloads.Affinity).To(BeNil())
-			Expect(existingResource.Spec.Workloads.Tolerations).To(BeEmpty())
-			Expect(existingResource.Spec.Workloads.NodeSelector).To(BeNil())
+				Expect(existingResource.Spec.Infra.Affinity).To(BeNil())
+				Expect(existingResource.Spec.Infra.Tolerations).To(BeEmpty())
+				Expect(existingResource.Spec.Infra.NodeSelector).To(BeNil())
+				Expect(existingResource.Spec.Workloads.Affinity).To(BeNil())
+				Expect(existingResource.Spec.Workloads.Tolerations).To(BeEmpty())
+				Expect(existingResource.Spec.Workloads.NodeSelector).To(BeNil())
 
-			Expect(foundResource.Spec.Infra.Affinity).ToNot(BeNil())
-			Expect(foundResource.Spec.Infra.NodeSelector["key1"]).Should(Equal("value1"))
-			Expect(foundResource.Spec.Infra.NodeSelector["key2"]).Should(Equal("value2"))
+				Expect(foundResource.Spec.Infra.Affinity).ToNot(BeNil())
+				Expect(foundResource.Spec.Infra.NodeSelector["key1"]).Should(Equal("value1"))
+				Expect(foundResource.Spec.Infra.NodeSelector["key2"]).Should(Equal("value2"))
 
-			Expect(foundResource.Spec.Workloads).ToNot(BeNil())
-			Expect(foundResource.Spec.Workloads.Tolerations).Should(Equal(hco.Spec.Workloads.NodePlacement.Tolerations))
+				Expect(foundResource.Spec.Workloads).ToNot(BeNil())
+				Expect(foundResource.Spec.Workloads.Tolerations).Should(Equal(hco.Spec.Workloads.NodePlacement.Tolerations))
 
-			Expect(req.Conditions).To(BeEmpty())
-		})
-
-		It("should remove node placement if missing in HCO CR", func() {
-
-			hcoNodePlacement := commonTestUtils.NewHco()
-			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			existingResource, err := NewCDI(hcoNodePlacement)
-			Expect(err).ToNot(HaveOccurred())
-
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
-			res := handler.ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &cdiv1beta1.CDI{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
-
-			Expect(existingResource.Spec.Infra.Affinity).ToNot(BeNil())
-			Expect(existingResource.Spec.Infra.Tolerations).ToNot(BeEmpty())
-			Expect(existingResource.Spec.Infra.NodeSelector).ToNot(BeNil())
-			Expect(existingResource.Spec.Workloads.Affinity).ToNot(BeNil())
-			Expect(existingResource.Spec.Workloads.Tolerations).ToNot(BeEmpty())
-			Expect(existingResource.Spec.Workloads.NodeSelector).ToNot(BeNil())
-
-			Expect(foundResource.Spec.Infra.Affinity).To(BeNil())
-			Expect(foundResource.Spec.Infra.Tolerations).To(BeEmpty())
-			Expect(foundResource.Spec.Infra.NodeSelector).To(BeNil())
-			Expect(foundResource.Spec.Workloads.Affinity).To(BeNil())
-			Expect(foundResource.Spec.Workloads.Tolerations).To(BeEmpty())
-			Expect(foundResource.Spec.Workloads.NodeSelector).To(BeNil())
-
-			Expect(req.Conditions).To(BeEmpty())
-		})
-
-		It("should modify node placement according to HCO CR", func() {
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			existingResource, err := NewCDI(hco)
-			Expect(err).ToNot(HaveOccurred())
-
-			// now, modify HCO's node placement
-			seconds3 := int64(3)
-			hco.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
-				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+				Expect(req.Conditions).To(BeEmpty())
 			})
 
-			hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
+			It("should remove node placement if missing in HCO CR", func() {
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
-			res := handler.ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.Err).To(BeNil())
+				hcoNodePlacement := commonTestUtils.NewHco()
+				hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+				hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+				existingResource, err := NewCDI(hcoNodePlacement)
+				Expect(err).ToNot(HaveOccurred())
 
-			foundResource := &cdiv1beta1.CDI{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).To(BeNil())
 
-			Expect(existingResource.Spec.Infra.Tolerations).To(HaveLen(2))
-			Expect(existingResource.Spec.Workloads.NodeSelector["key1"]).Should(Equal("value1"))
+				foundResource := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
 
-			Expect(foundResource.Spec.Infra.Tolerations).To(HaveLen(3))
-			Expect(foundResource.Spec.Workloads.NodeSelector["key1"]).Should(Equal("something else"))
+				Expect(existingResource.Spec.Infra.Affinity).ToNot(BeNil())
+				Expect(existingResource.Spec.Infra.Tolerations).ToNot(BeEmpty())
+				Expect(existingResource.Spec.Infra.NodeSelector).ToNot(BeNil())
+				Expect(existingResource.Spec.Workloads.Affinity).ToNot(BeNil())
+				Expect(existingResource.Spec.Workloads.Tolerations).ToNot(BeEmpty())
+				Expect(existingResource.Spec.Workloads.NodeSelector).ToNot(BeNil())
 
-			Expect(req.Conditions).To(BeEmpty())
-		})
+				Expect(foundResource.Spec.Infra.Affinity).To(BeNil())
+				Expect(foundResource.Spec.Infra.Tolerations).To(BeEmpty())
+				Expect(foundResource.Spec.Infra.NodeSelector).To(BeNil())
+				Expect(foundResource.Spec.Workloads.Affinity).To(BeNil())
+				Expect(foundResource.Spec.Workloads.Tolerations).To(BeEmpty())
+				Expect(foundResource.Spec.Workloads.NodeSelector).To(BeNil())
 
-		It("should overwrite node placement if directly set on CDI CR", func() {
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			existingResource, err := NewCDI(hco)
-			Expect(err).ToNot(HaveOccurred())
-
-			// mock a reconciliation triggered by a change in CDI CR
-			req.HCOTriggered = false
-
-			// now, modify CDI's node placement
-			seconds3 := int64(3)
-			existingResource.Spec.Infra.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
-				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
-			})
-			existingResource.Spec.Workloads.Tolerations = append(hco.Spec.Workloads.NodePlacement.Tolerations, corev1.Toleration{
-				Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+				Expect(req.Conditions).To(BeEmpty())
 			})
 
-			existingResource.Spec.Infra.NodeSelector["key1"] = "BADvalue1"
-			existingResource.Spec.Workloads.NodeSelector["key2"] = "BADvalue2"
+			It("should modify node placement according to HCO CR", func() {
+				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+				existingResource, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
-			res := handler.ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeTrue())
-			Expect(res.Overwritten).To(BeTrue())
-			Expect(res.Err).To(BeNil())
+				// now, modify HCO's node placement
+				seconds3 := int64(3)
+				hco.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
+					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+				})
 
-			foundResource := &cdiv1beta1.CDI{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-					foundResource),
-			).To(BeNil())
+				hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
 
-			Expect(existingResource.Spec.Infra.Tolerations).To(HaveLen(3))
-			Expect(existingResource.Spec.Workloads.Tolerations).To(HaveLen(3))
-			Expect(existingResource.Spec.Infra.NodeSelector["key1"]).Should(Equal("BADvalue1"))
-			Expect(existingResource.Spec.Workloads.NodeSelector["key2"]).Should(Equal("BADvalue2"))
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).To(BeNil())
 
-			Expect(foundResource.Spec.Infra.Tolerations).To(HaveLen(2))
-			Expect(foundResource.Spec.Workloads.Tolerations).To(HaveLen(2))
-			Expect(foundResource.Spec.Infra.NodeSelector["key1"]).Should(Equal("value1"))
-			Expect(foundResource.Spec.Workloads.NodeSelector["key2"]).Should(Equal("value2"))
+				foundResource := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
 
-			Expect(req.Conditions).To(BeEmpty())
+				Expect(existingResource.Spec.Infra.Tolerations).To(HaveLen(2))
+				Expect(existingResource.Spec.Workloads.NodeSelector["key1"]).Should(Equal("value1"))
+
+				Expect(foundResource.Spec.Infra.Tolerations).To(HaveLen(3))
+				Expect(foundResource.Spec.Workloads.NodeSelector["key1"]).Should(Equal("something else"))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+
+			It("should overwrite node placement if directly set on CDI CR", func() {
+				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+				existingResource, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				// mock a reconciliation triggered by a change in CDI CR
+				req.HCOTriggered = false
+
+				// now, modify CDI's node placement
+				seconds3 := int64(3)
+				existingResource.Spec.Infra.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, corev1.Toleration{
+					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+				})
+				existingResource.Spec.Workloads.Tolerations = append(hco.Spec.Workloads.NodePlacement.Tolerations, corev1.Toleration{
+					Key: "key3", Operator: "operator3", Value: "value3", Effect: "effect3", TolerationSeconds: &seconds3,
+				})
+
+				existingResource.Spec.Infra.NodeSelector["key1"] = "BADvalue1"
+				existingResource.Spec.Workloads.NodeSelector["key2"] = "BADvalue2"
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeTrue())
+				Expect(res.Err).To(BeNil())
+
+				foundResource := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(existingResource.Spec.Infra.Tolerations).To(HaveLen(3))
+				Expect(existingResource.Spec.Workloads.Tolerations).To(HaveLen(3))
+				Expect(existingResource.Spec.Infra.NodeSelector["key1"]).Should(Equal("BADvalue1"))
+				Expect(existingResource.Spec.Workloads.NodeSelector["key2"]).Should(Equal("BADvalue2"))
+
+				Expect(foundResource.Spec.Infra.Tolerations).To(HaveLen(2))
+				Expect(foundResource.Spec.Workloads.Tolerations).To(HaveLen(2))
+				Expect(foundResource.Spec.Infra.NodeSelector["key1"]).Should(Equal("value1"))
+				Expect(foundResource.Spec.Workloads.NodeSelector["key2"]).Should(Equal("value2"))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
 		})
 
-		It("should only set featureGate on Spec.Config if directly set on CDI CR", func() {
+		Context("Test Resource Requirements", func() {
+			It("should add Resource Requirements if missing in CDI", func() {
+				existingResource, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Spec.ResourceRequirements = &hcov1beta1.OperandResourceRequirements{
+					StorageWorkloads: &corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("500m"),
+							corev1.ResourceMemory: resource.MustParse("2Gi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("250m"),
+							corev1.ResourceMemory: resource.MustParse("1Gi"),
+						},
+					},
+				}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).To(BeNil())
+
+				foundResource := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(foundResource.Spec.Config).ToNot(BeNil())
+				Expect(foundResource.Spec.Config.PodResourceRequirements).ToNot(BeNil())
+				Expect(foundResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceCPU]).Should(Equal(resource.MustParse("500m")))
+				Expect(foundResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceMemory]).Should(Equal(resource.MustParse("2Gi")))
+				Expect(foundResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceCPU]).Should(Equal(resource.MustParse("250m")))
+				Expect(foundResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceMemory]).Should(Equal(resource.MustParse("1Gi")))
+			})
+
+			It("should remove Resource Requirements if missing in HCO CR", func() {
+
+				hcoResourceRequirements := commonTestUtils.NewHco()
+				hcoResourceRequirements.Spec.ResourceRequirements = &hcov1beta1.OperandResourceRequirements{
+					StorageWorkloads: &corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("500m"),
+							corev1.ResourceMemory: resource.MustParse("2Gi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("250m"),
+							corev1.ResourceMemory: resource.MustParse("1Gi"),
+						},
+					},
+				}
+
+				existingResource, err := NewCDI(hcoResourceRequirements)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(existingResource.Spec.Config).ToNot(BeNil())
+				Expect(existingResource.Spec.Config.PodResourceRequirements).ToNot(BeNil())
+				Expect(existingResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceCPU]).Should(Equal(resource.MustParse("500m")))
+				Expect(existingResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceMemory]).Should(Equal(resource.MustParse("2Gi")))
+				Expect(existingResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceCPU]).Should(Equal(resource.MustParse("250m")))
+				Expect(existingResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceMemory]).Should(Equal(resource.MustParse("1Gi")))
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).To(BeNil())
+
+				foundResource := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(foundResource.Spec.Config).ToNot(BeNil())
+				Expect(foundResource.Spec.Config.PodResourceRequirements).To(BeNil())
+			})
+
+			It("should modify Resource Requirements according to HCO CR", func() {
+				hco.Spec.ResourceRequirements = &hcov1beta1.OperandResourceRequirements{
+					StorageWorkloads: &corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("500m"),
+							corev1.ResourceMemory: resource.MustParse("2Gi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("250m"),
+							corev1.ResourceMemory: resource.MustParse("1Gi"),
+						},
+					},
+				}
+				existingResource, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Spec.ResourceRequirements.StorageWorkloads.Limits[corev1.ResourceCPU] = resource.MustParse("1024m")
+				hco.Spec.ResourceRequirements.StorageWorkloads.Limits[corev1.ResourceMemory] = resource.MustParse("4Gi")
+				hco.Spec.ResourceRequirements.StorageWorkloads.Requests[corev1.ResourceCPU] = resource.MustParse("500m")
+				hco.Spec.ResourceRequirements.StorageWorkloads.Requests[corev1.ResourceMemory] = resource.MustParse("2Gi")
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).To(BeNil())
+
+				foundResource := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(foundResource.Spec.Config.PodResourceRequirements.Limits).To(HaveLen(2))
+				Expect(foundResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceCPU]).Should(Equal(resource.MustParse("1024m")))
+				Expect(foundResource.Spec.Config.PodResourceRequirements.Limits[corev1.ResourceMemory]).To(Equal(resource.MustParse("4Gi")))
+				Expect(foundResource.Spec.Config.PodResourceRequirements.Requests).To(HaveLen(2))
+				Expect(foundResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceCPU]).Should(Equal(resource.MustParse("500m")))
+				Expect(foundResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("2Gi")))
+			})
+		})
+
+		Context("Test ScratchSpaceStorageClass", func() {
+
+			hcoScratchSpaceStorageClassValue := "hcoScratchSpaceStorageClassValue"
+			cdiScratchSpaceStorageClassValue := "cdiScratchSpaceStorageClassValue"
+
+			It("should add ScratchSpaceStorageClass if missing in CDI", func() {
+				existingResource, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+				hco.Spec.ScratchSpaceStorageClass = &hcoScratchSpaceStorageClassValue
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).To(BeNil())
+
+				foundCdi := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundCdi),
+				).To(BeNil())
+
+				Expect(foundCdi.Spec.Config).ToNot(BeNil())
+				Expect(foundCdi.Spec.Config.ScratchSpaceStorageClass).ToNot(BeNil())
+				Expect(*foundCdi.Spec.Config.ScratchSpaceStorageClass).Should(Equal(hcoScratchSpaceStorageClassValue))
+			})
+
+			It("should remove ScratchSpaceStorageClass if missing in HCO CR", func() {
+				hcoResourceRequirements := commonTestUtils.NewHco()
+
+				existingCdi, err := NewCDI(hcoResourceRequirements)
+				Expect(err).ToNot(HaveOccurred())
+				existingCdi.Spec.Config.ScratchSpaceStorageClass = &cdiScratchSpaceStorageClassValue
+
+				Expect(existingCdi.Spec.Config).ToNot(BeNil())
+				Expect(existingCdi.Spec.Config.ScratchSpaceStorageClass).ToNot(BeNil())
+				Expect(*existingCdi.Spec.Config.ScratchSpaceStorageClass).Should(Equal(cdiScratchSpaceStorageClassValue))
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingCdi})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).To(BeNil())
+
+				foundCDI := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingCdi.Name, Namespace: existingCdi.Namespace},
+						foundCDI),
+				).To(BeNil())
+
+				Expect(foundCDI.Spec.Config).ToNot(BeNil())
+				Expect(foundCDI.Spec.Config.ScratchSpaceStorageClass).To(BeNil())
+			})
+
+			It("should modify ScratchSpaceStorageClass according to HCO CR", func() {
+				hco.Spec.ScratchSpaceStorageClass = &cdiScratchSpaceStorageClassValue
+				existingCDI, err := NewCDI(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(existingCDI.Spec.Config).ToNot(BeNil())
+				Expect(*existingCDI.Spec.Config.ScratchSpaceStorageClass).To(Equal(cdiScratchSpaceStorageClassValue))
+
+				hco.Spec.ScratchSpaceStorageClass = &hcoScratchSpaceStorageClassValue
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingCDI})
+				handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).To(BeNil())
+
+				foundCDI := &cdiv1beta1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingCDI.Name, Namespace: existingCDI.Namespace},
+						foundCDI),
+				).To(BeNil())
+
+				Expect(foundCDI.Spec.Config.ScratchSpaceStorageClass).ToNot(BeNil())
+				Expect(*foundCDI.Spec.Config.ScratchSpaceStorageClass).To(Equal(hcoScratchSpaceStorageClassValue))
+			})
+		})
+
+		It("should override CDI config field", func() {
 			expectedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
@@ -320,44 +545,16 @@ var _ = Describe("CDI Operand", func() {
 			).To(BeNil())
 			Expect(foundResource.Spec.Config).ToNot(BeNil())
 			// contains all that was found
-			Expect(*foundResource.Spec.Config.UploadProxyURLOverride).To(Equal(*expectedResource.Spec.Config.UploadProxyURLOverride))
-			Expect(*foundResource.Spec.Config.ScratchSpaceStorageClass).To(Equal(*expectedResource.Spec.Config.ScratchSpaceStorageClass))
-			Expect(*foundResource.Spec.Config.PodResourceRequirements).To(Equal(*expectedResource.Spec.Config.PodResourceRequirements))
-			Expect(*foundResource.Spec.Config.FilesystemOverhead).To(Equal(*expectedResource.Spec.Config.FilesystemOverhead))
-			Expect(foundResource.Spec.Config.FeatureGates).To(ContainElement("SomeFeatureGate"))
-			// additionally contains HonorWaitForFirstConsumer
+			Expect(foundResource.Spec.Config.UploadProxyURLOverride).To(BeNil())
+			Expect(foundResource.Spec.Config.ScratchSpaceStorageClass).To(BeNil())
+			Expect(foundResource.Spec.Config.PodResourceRequirements).To(BeNil())
+			Expect(foundResource.Spec.Config.FilesystemOverhead).To(BeNil())
+			Expect(foundResource.Spec.Config.FeatureGates).To(HaveLen(1))
 			Expect(foundResource.Spec.Config.FeatureGates).To(ContainElement("HonorWaitForFirstConsumer"))
-
+			Expect(*foundResource.Spec.UninstallStrategy).To(Equal(cdiv1beta1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist))
 		})
 
-		It("should NOT add HonorWaitForFirstConsumer featuregate if configauthority not set", func() {
-			expectedResource, err := NewCDI(hco)
-			Expect(err).ToNot(HaveOccurred())
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			expectedResource.Spec.Config = nil
-			delete(expectedResource.Annotations, "cdi.kubevirt.io/configAuthority")
-
-			// mock a reconciliation triggered by a change in CDI CR
-			req.HCOTriggered = false
-
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
-			res := handler.ensure(req)
-			Expect(res.UpgradeDone).To(BeFalse())
-			Expect(res.Updated).To(BeFalse())
-			Expect(res.Overwritten).To(BeFalse())
-			Expect(res.Err).To(BeNil())
-
-			foundResource := &cdiv1beta1.CDI{}
-			Expect(
-				cl.Get(context.TODO(),
-					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-					foundResource),
-			).To(BeNil())
-			Expect(foundResource.Spec.Config).To(BeNil())
-		})
-
-		It("should add HonorWaitForFirstConsumer featuregate if Spec.Config if empty", func() {
+		It("should add HonorWaitForFirstConsumer feature gate if Spec.Config if empty", func() {
 			expectedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
@@ -382,6 +579,7 @@ var _ = Describe("CDI Operand", func() {
 			).To(BeNil())
 			Expect(foundResource.Spec.Config).ToNot(BeNil())
 			Expect(foundResource.Spec.Config.FeatureGates).To(ContainElement("HonorWaitForFirstConsumer"))
+			Expect(*foundResource.Spec.UninstallStrategy).To(Equal(cdiv1beta1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist))
 		})
 
 		It("should add cert configuration if missing in CDI", func() {

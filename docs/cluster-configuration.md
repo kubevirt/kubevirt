@@ -252,6 +252,54 @@ spec:
       - mdevNameSelector: "GRID T4-1Q"
         resourceName: "nvidia.com/GRID_T4-1Q"
 ```
+
+## Storage Class for Scratch Space
+
+Administrators can Override the storage class used for scratch space during transfer operations by setting the
+`scratchSpaceStorageClass` field under the HyperConverged `spec` field.
+
+The scratch space storage class is determined in the following order:
+
+value of scratchSpaceStorageClass, if that doesn't exist, use the default storage class, if there is no default storage
+class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space
+
+### Storage Class for Scratch Space Example
+
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  scratchSpaceStorageClass: aStorageClassName
+```
+
+## Storage Resource Configurations
+
+The administrator can limit storage workloads resources and to require minimal resources. Use the `resourceRequirements`
+field under the HyperConverged `spec` filed. Add the `storageWorkloads` field under the `resourceRequirements`. The
+content of the `storageWorkloads` field is
+the [standard kubernetes resource configuration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#resourcerequirements-v1-core)
+.
+
+### Storage Resource Configurations Example
+
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  resourceRequirements:
+    storageWorkloads:
+      limits:
+        cpu: "500m"
+        memory: "2Gi"
+      requests:
+        cpu: "250m"
+        memory: "1Gi"
+```
+
 ## Configurations via Annotations
 
 In addition to `featureGates` field in HyperConverged CR's spec, the user can set annotations in the HyperConverged CR

@@ -16,6 +16,7 @@ This Document documents the types introduced by the hyperconverged-cluster-opera
 * [HyperConvergedStatus](#hyperconvergedstatus)
 * [LiveMigrationConfigurations](#livemigrationconfigurations)
 * [MediatedHostDevice](#mediatedhostdevice)
+* [OperandResourceRequirements](#operandresourcerequirements)
 * [PciHostDevice](#pcihostdevice)
 * [PermittedHostDevices](#permittedhostdevices)
 * [Version](#version)
@@ -98,6 +99,8 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | liveMigrationConfig | Live migration limits and timeouts are applied so that migration processes do not overwhelm the cluster. | [LiveMigrationConfigurations](#livemigrationconfigurations) |  | false |
 | permittedHostDevices | PermittedHostDevices holds inforamtion about devices allowed for passthrough | *[PermittedHostDevices](#permittedhostdevices) |  | false |
 | certConfig | certConfig holds the rotation policy for internal, self-signed certificates | *[HyperConvergedCertConfig](#hyperconvergedcertconfig) |  | false |
+| resourceRequirements | ResourceRequirements describes the resource requirements for the operand workloads. | *[OperandResourceRequirements](#operandresourcerequirements) |  | false |
+| scratchSpaceStorageClass | Override the storage class used for scratch space during transfer operations. The scratch space storage class is determined in the following order: value of scratchSpaceStorageClass, if that doesn't exist, use the default storage class, if there is no default storage class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space | *string |  | false |
 | version | operator version | string |  | false |
 
 [Back to TOC](#table-of-contents)
@@ -137,6 +140,16 @@ MediatedHostDevice represents a host mediated device allowed for passthrough
 | mdevNameSelector |  | string |  | true |
 | resourceName |  | string |  | true |
 | externalResourceProvider |  | bool |  | false |
+
+[Back to TOC](#table-of-contents)
+
+## OperandResourceRequirements
+
+ResourceRequirements is a list of resource requirements for the operand workloads pods
+
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+| storageWorkloads | StorageWorkloads defines the resources requirements for storage workloads. It will propagate to the CDI custom resource | *corev1.ResourceRequirements |  | false |
 
 [Back to TOC](#table-of-contents)
 

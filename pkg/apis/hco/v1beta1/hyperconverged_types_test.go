@@ -1,7 +1,9 @@
 package v1beta1
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -333,6 +335,12 @@ var _ = Describe("HyperconvergedTypes", func() {
 
 	Context("Test Auto generated code", func() {
 		enabled := true
+		bandwidthPerMigration := "64Mi"
+		completionTimeoutPerGiB := int64(800)
+		parallelMigrationsPerCluster := uint32(5)
+		parallelOutboundMigrationsPerNode := uint32(2)
+		progressTimeout := int64(150)
+		ScratchSpaceStorageClass := "ScratchSpaceStorageClassValue"
 
 		hco := HyperConverged{
 			TypeMeta: metav1.TypeMeta{
@@ -363,9 +371,83 @@ var _ = Describe("HyperconvergedTypes", func() {
 				FeatureGates: HyperConvergedFeatureGates{
 					WithHostPassthroughCPU: &enabled,
 				},
-				Version: "v1.2.3",
+				LiveMigrationConfig: LiveMigrationConfigurations{
+					BandwidthPerMigration:             &bandwidthPerMigration,
+					CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
+					ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
+					ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
+					ProgressTimeout:                   &progressTimeout,
+				},
+				PermittedHostDevices: &PermittedHostDevices{
+					PciHostDevices: []PciHostDevice{
+						{
+							PCIVendorSelector:        "PCIVendorSelector",
+							ResourceName:             "ResourceName",
+							ExternalResourceProvider: true,
+						},
+					},
+					MediatedDevices: []MediatedHostDevice{
+						{
+							MDEVNameSelector:         "MDEVNameSelector",
+							ResourceName:             "ResourceName",
+							ExternalResourceProvider: false,
+						},
+					},
+				},
+				CertConfig: &HyperConvergedCertConfig{
+					CA: &CertRotateConfig{
+						Duration: metav1.Duration{
+							Duration: time.Hour * 24 * 365,
+						},
+						RenewBefore: metav1.Duration{
+							Duration: time.Hour * 24,
+						},
+					},
+					Server: &CertRotateConfig{
+						Duration: metav1.Duration{
+							Duration: time.Hour * 24 * 365,
+						},
+						RenewBefore: metav1.Duration{
+							Duration: time.Hour * 24,
+						},
+					},
+				},
+				ResourceRequirements: &OperandResourceRequirements{
+					StorageWorkloads: &corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU: resource.MustParse("300m"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU: resource.MustParse("250m"),
+						},
+					},
+				},
+				ScratchSpaceStorageClass: &ScratchSpaceStorageClass,
+				Version:                  "v1.2.3",
+			},
+			Status: HyperConvergedStatus{
+				Conditions: []conditionsv1.Condition{
+					{
+						Type:   "a condition type",
+						Status: "True",
+					},
+				},
+				RelatedObjects: []corev1.ObjectReference{
+					{
+						Kind:      "kind",
+						Name:      "a name",
+						Namespace: "a namespace",
+					},
+				},
+				Versions: Versions{
+					{
+						Name:    "HCO",
+						Version: "version",
+					},
+				},
 			},
 		}
+
 		It("Should copy the HC type", func() {
 			aCopy := hco.DeepCopy()
 
