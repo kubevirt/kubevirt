@@ -36,7 +36,7 @@ func (r *Reconciler) syncDeployment(deployment *appsv1.Deployment) error {
 			return fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
 		}
 
-		resourcemerge.SetDeploymentGeneration(&kv.Status.Generations, deployment)
+		SetGeneration(&kv.Status.Generations, deployment)
 
 		return nil
 	}
@@ -44,7 +44,7 @@ func (r *Reconciler) syncDeployment(deployment *appsv1.Deployment) error {
 	cachedDeployment := obj.(*appsv1.Deployment)
 	modified := resourcemerge.BoolPtr(false)
 	existingCopy := cachedDeployment.DeepCopy()
-	expectedGeneration := resourcemerge.ExpectedDeploymentGeneration(deployment, kv.Status.Generations)
+	expectedGeneration := GetExpectedGeneration(deployment, kv.Status.Generations)
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, deployment.ObjectMeta)
 
@@ -71,7 +71,7 @@ func (r *Reconciler) syncDeployment(deployment *appsv1.Deployment) error {
 		return fmt.Errorf("unable to update deployment %+v: %v", deployment, err)
 	}
 
-	resourcemerge.SetDeploymentGeneration(&kv.Status.Generations, deployment)
+	SetGeneration(&kv.Status.Generations, deployment)
 	log.Log.V(2).Infof("deployment %v updated", deployment.GetName())
 
 	return nil
@@ -100,7 +100,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) error {
 			return fmt.Errorf("unable to create daemonset %+v: %v", daemonSet, err)
 		}
 
-		resourcemerge.SetDaemonSetGeneration(&kv.Status.Generations, daemonSet)
+		SetGeneration(&kv.Status.Generations, daemonSet)
 
 		return nil
 	}
@@ -108,7 +108,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) error {
 	cachedDaemonSet = obj.(*appsv1.DaemonSet)
 	modified := resourcemerge.BoolPtr(false)
 	existingCopy := cachedDaemonSet.DeepCopy()
-	expectedGeneration := resourcemerge.ExpectedDaemonSetGeneration(daemonSet, kv.Status.Generations)
+	expectedGeneration := GetExpectedGeneration(daemonSet, kv.Status.Generations)
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, daemonSet.ObjectMeta)
 	// there was no change to metadata, the generation was right
@@ -134,7 +134,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) error {
 		return fmt.Errorf("unable to update daemonset %+v: %v", daemonSet, err)
 	}
 
-	resourcemerge.SetDaemonSetGeneration(&kv.Status.Generations, daemonSet)
+	SetGeneration(&kv.Status.Generations, daemonSet)
 	log.Log.V(2).Infof("daemonSet %v updated", daemonSet.GetName())
 
 	return nil

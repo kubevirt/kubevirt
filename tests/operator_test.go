@@ -28,6 +28,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
+
 	"regexp"
 	"strings"
 	"time"
@@ -35,7 +37,6 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	v12 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -917,13 +918,13 @@ spec:
 			generation := vc.ObjectMeta.Generation
 			Eventually(func() int64 {
 				currentKV := tests.GetCurrentKv(virtClient)
-				return resourcemerge.ExpectedDeploymentGeneration(vc, currentKV.Status.Generations)
+				return apply.GetExpectedGeneration(vc, currentKV.Status.Generations)
 			}, 60*time.Second, 5*time.Second).Should(Equal(generation), "reverted deployment generation should be set on KV resource")
 
 			By("Test that the expected generation is unchanged")
 			Consistently(func() int64 {
 				currentKV := tests.GetCurrentKv(virtClient)
-				return resourcemerge.ExpectedDeploymentGeneration(vc, currentKV.Status.Generations)
+				return apply.GetExpectedGeneration(vc, currentKV.Status.Generations)
 			}, 30*time.Second, 5*time.Second).Should(Equal(generation))
 
 		})

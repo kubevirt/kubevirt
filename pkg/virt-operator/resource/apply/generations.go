@@ -3,21 +3,20 @@ package apply
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/runtime"
+
+	appsv1 "k8s.io/api/apps/v1"
+
 	operatorsv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/api/policy/v1beta1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 
-type NamespaceNameGenerationGetter interface {
-	GetNamespace() string
-	GetName() string
-	GetGeneration() int64
-}
-
-func getResourceInfo(required NamespaceNameGenerationGetter) (namespace string, name string, group string, resource string, generation int64, err error) {
+func getGroupResource(required runtime.Object) (group string, resource string, err error) {
 
 	switch required.(type) {
 	case *admissionregistrationv1.MutatingWebhookConfiguration:
@@ -28,26 +27,29 @@ func getResourceInfo(required NamespaceNameGenerationGetter) (namespace string, 
 		resource = "validatingwebhookconfigurations"
 	case *v1beta1.PodDisruptionBudget:
 		group = "apps"
-		resource = "poddisruptionbudget"
+		resource = "poddisruptionbudgets"
+	case *appsv1.Deployment:
+		group = "apps"
+		resource = "deployments"
+	case *appsv1.DaemonSet:
+		group = "apps"
+		resource = "daemonsets"
 	default:
 		err = fmt.Errorf("resource type is not known")
 		return
 	}
 
-	namespace = required.GetNamespace()
-	name = required.GetName()
-	generation = required.GetGeneration()
-
 	return
 }
 
-func GetExpectedGeneration(required NamespaceNameGenerationGetter, previousGenerations []operatorsv1.GenerationStatus) int64 {
-	namespace, name, group, resource, _, err := getResourceInfo(required)
+func GetExpectedGeneration(required runtime.Object, previousGenerations []operatorsv1.GenerationStatus) int64 {
+	group, resource, err := getGroupResource(required)
 	if err != nil {
 		return -1
 	}
 
-	generation := resourcemerge.GenerationFor(previousGenerations, schema.GroupResource{Group: group, Resource: resource}, namespace, name)
+	meta := required.(v1.Object)
+	generation := resourcemerge.GenerationFor(previousGenerations, schema.GroupResource{Group: group, Resource: resource}, meta.GetNamespace(), meta.GetName())
 	if generation == nil {
 		return -1
 	}
@@ -55,21 +57,23 @@ func GetExpectedGeneration(required NamespaceNameGenerationGetter, previousGener
 	return generation.LastGeneration
 }
 
-func SetGeneration(generations *[]operatorsv1.GenerationStatus, actual NamespaceNameGenerationGetter) {
+func SetGeneration(generations *[]operatorsv1.GenerationStatus, actual runtime.Object) {
 	if actual == nil {
 		return
 	}
 
-	namespace, name, group, resource, generation, err := getResourceInfo(actual)
+	group, resource, err := getGroupResource(actual)
 	if err != nil {
 		return
 	}
 
+	meta := actual.(v1.Object)
+
 	resourcemerge.SetGeneration(generations, operatorsv1.GenerationStatus{
 		Group:          group,
 		Resource:       resource,
-		Namespace:      namespace,
-		Name:           name,
-		LastGeneration: generation,
+		Namespace:      meta.GetNamespace(),
+		Name:           meta.GetName(),
+		LastGeneration: meta.GetGeneration(),
 	})
 }

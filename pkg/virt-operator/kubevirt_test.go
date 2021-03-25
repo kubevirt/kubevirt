@@ -38,7 +38,6 @@ import (
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -459,7 +458,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	addDeployment := func(depl *appsv1.Deployment, kv *v1.KubeVirt) {
 		mockQueue.ExpectAdds(1)
 		if kv != nil {
-			resourcemerge.SetDeploymentGeneration(&kv.Status.Generations, depl)
+			apply.SetGeneration(&kv.Status.Generations, depl)
 		}
 
 		deploymentSource.Add(depl)
@@ -469,7 +468,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	addDaemonset := func(ds *appsv1.DaemonSet, kv *v1.KubeVirt) {
 		mockQueue.ExpectAdds(1)
 		if kv != nil {
-			resourcemerge.SetDaemonSetGeneration(&kv.Status.Generations, ds)
+			apply.SetGeneration(&kv.Status.Generations, ds)
 		}
 
 		daemonSetSource.Add(ds)
@@ -1763,7 +1762,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(resourceChanges["deployements"][Patched]).To(Equal(resourceChanges["deployements"][Added]))
 			Expect(resourceChanges["daemonsets"][Patched]).To(Equal(resourceChanges["daemonsets"][Added]))
 			Expect(resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(resourceChanges["poddisruptionbudgets"][Added]))
-		}, 15)
+		}, 150)
 
 		It("should delete operator managed resources not in the deployed installstrategy", func() {
 			defer GinkgoRecover()
