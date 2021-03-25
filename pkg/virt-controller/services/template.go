@@ -61,11 +61,13 @@ const virtiofsDebugLogs = "virtiofsdDebugLogs"
 
 const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
 
-const CAP_NET_ADMIN = "NET_ADMIN"
-const CAP_NET_RAW = "NET_RAW"
-const CAP_SYS_ADMIN = "SYS_ADMIN"
-const CAP_SYS_NICE = "SYS_NICE"
-const CAP_SYS_RESOURCE = "SYS_RESOURCE"
+const (
+	CAP_NET_ADMIN    = "NET_ADMIN"
+	CAP_NET_RAW      = "NET_RAW"
+	CAP_SYS_ADMIN    = "SYS_ADMIN"
+	CAP_SYS_NICE     = "SYS_NICE"
+	CAP_SYS_RESOURCE = "SYS_RESOURCE"
+)
 
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
 // Libvirt needs roughly 10 seconds to start.
@@ -1370,6 +1372,19 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volume *v1.Volume, 
 	return pod, nil
 }
 
+func getVirtiofsCapabilities() []k8sv1.Capability {
+	return []k8sv1.Capability{
+		"CHOWN",
+		"DAC_OVERRIDE",
+		"FOWNER",
+		"FSETID",
+		"SETGID",
+		"SETUID",
+		"MKNOD",
+		"SETFCAP",
+	}
+}
+
 func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) []k8sv1.Capability {
 	capabilities := []k8sv1.Capability{}
 
@@ -1384,6 +1399,7 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance, config *virtconfig.
 	// add CAP_SYS_ADMIN capability to allow virtiofs
 	if util.IsVMIVirtiofsEnabled(vmi) {
 		capabilities = append(capabilities, CAP_SYS_ADMIN)
+		capabilities = append(capabilities, getVirtiofsCapabilities()...)
 	}
 
 	// add SYS_RESOURCE capability to enable Live Migration for VM with SRIOV interfaces
