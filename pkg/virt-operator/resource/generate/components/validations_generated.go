@@ -2197,7 +2197,7 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.
                           type: boolean
                         blockMultiQueue:
-                          description: Whether or not to enable virtio multi-queue for block devices
+                          description: Whether or not to enable virtio multi-queue for block devices. Defaults to false.
                           type: boolean
                         disableHotplug:
                           description: DisableHotplug disabled the ability to hotplug disks.
@@ -4002,7 +4002,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.
                   type: boolean
                 blockMultiQueue:
-                  description: Whether or not to enable virtio multi-queue for block devices
+                  description: Whether or not to enable virtio multi-queue for block devices. Defaults to false.
                   type: boolean
                 disableHotplug:
                   description: DisableHotplug disabled the ability to hotplug disks.
@@ -5404,7 +5404,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.
                   type: boolean
                 blockMultiQueue:
-                  description: Whether or not to enable virtio multi-queue for block devices
+                  description: Whether or not to enable virtio multi-queue for block devices. Defaults to false.
                   type: boolean
                 disableHotplug:
                   description: DisableHotplug disabled the ability to hotplug disks.
@@ -6581,7 +6581,7 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.
                           type: boolean
                         blockMultiQueue:
-                          description: Whether or not to enable virtio multi-queue for block devices
+                          description: Whether or not to enable virtio multi-queue for block devices. Defaults to false.
                           type: boolean
                         disableHotplug:
                           description: DisableHotplug disabled the ability to hotplug disks.
@@ -8696,7 +8696,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.
                                       type: boolean
                                     blockMultiQueue:
-                                      description: Whether or not to enable virtio multi-queue for block devices
+                                      description: Whether or not to enable virtio multi-queue for block devices. Defaults to false.
                                       type: boolean
                                     disableHotplug:
                                       description: DisableHotplug disabled the ability to hotplug disks.
