@@ -11,6 +11,10 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
+// KubeVirtTestSuiteSetup is the default setup function for kubevirts unittests.
+// If tests are executed through bazel, the provided description is ignored. Instead
+// the TEST_TARGET environment variable will be used to synchronize the output
+// with bazels test output and make test navigation and detection consistent.
 func KubeVirtTestSuiteSetup(t *testing.T, description string) {
 	// Redirect writes to ginkgo writer to keep tests quiet when
 	// they succeed
@@ -27,6 +31,11 @@ func KubeVirtTestSuiteSetup(t *testing.T, description string) {
 	// and rules_go is configured to not produce the junit xml
 	// produce it here. Otherwise just run the default RunSpec
 	if testsWrapped == "0" && outputFile != "" {
+		testTarget := os.Getenv("TEST_TARGET")
+		if testTarget != "" {
+			description = testTarget
+		}
+
 		ginkgo.RunSpecsWithDefaultAndCustomReporters(
 			t,
 			description,
