@@ -127,8 +127,8 @@ var _ = Describe("Certificate Management", func() {
 			now := time.Now()
 			current := NewSelfSignedCert(now, now.Add(1*time.Hour))
 			ca := NewSelfSignedCert(now, now.Add(1*time.Hour))
-			duration := &v1.Duration{Duration: 5 * time.Hour}
-			deadline := NextRotationDeadline(current, ca, duration)
+			renewal := &v1.Duration{Duration: 4 * time.Hour}
+			deadline := NextRotationDeadline(current, ca, renewal, nil)
 			Expect(deadline.Before(time.Now())).To(BeTrue())
 		})
 
@@ -157,15 +157,15 @@ var _ = Describe("Certificate Management", func() {
 			crt, err := LoadCertificates(crtSecret)
 			Expect(err).NotTo(HaveOccurred())
 
-			//deadline := now.Add(time.Duration(float64(crtDuration.Duration) * 0.8))
 			Expect(crt.Leaf.NotAfter.Unix()).To(BeNumerically("==", now.Add(crtDuration.Duration).Unix(), 3))
 		},
 			table.Entry("with a long valid CA", 24*time.Hour),
 			table.Entry("with a CA which expires before the certificate rotation", 1*time.Hour),
 		)
 
-		table.DescribeTable("should suggaest a rotation on the certificate according on 80% of the certificate lifespan", func(caDuration time.Duration) {
+		table.DescribeTable("should suggest a rotation on the certificate according to its expiration", func(caDuration time.Duration) {
 			crtDuration := &v1.Duration{Duration: 2 * time.Hour}
+			crtRenewBefore := &v1.Duration{Duration: 1 * time.Hour}
 			caSecret := NewCACertSecret("test")
 			Expect(PopulateSecretWithCertificate(caSecret, nil, &v1.Duration{Duration: caDuration})).To(Succeed())
 			caCrt, err := LoadCertificates(caSecret)
@@ -176,11 +176,11 @@ var _ = Describe("Certificate Management", func() {
 			crt, err := LoadCertificates(crtSecret)
 			Expect(err).NotTo(HaveOccurred())
 
-			deadline := now.Add(time.Duration(float64(crtDuration.Duration) * 0.8))
+			deadline := now.Add(time.Hour)
 			// Generating certificates may take a little bit of time to execute (entropy, ...). Since we can't
 			// inject a fake time into the foreign code which generates the certificates, allow a generous diff of three
 			// seconds.
-			Expect(NextRotationDeadline(crt, caCrt, crtDuration).Unix()).To(BeNumerically("==", deadline.Unix(), 3))
+			Expect(NextRotationDeadline(crt, caCrt, crtRenewBefore, nil).Unix()).To(BeNumerically("==", deadline.Unix(), 3))
 		},
 			table.Entry("with a long valid CA", 24*time.Hour),
 			table.Entry("with a CA which expires before the certificate rotation", 1*time.Hour),
@@ -210,6 +210,27 @@ var _ = Describe("Certificate Management", func() {
 			table.Entry("virt-api", VirtApiCertSecretName),
 			table.Entry("virt-operator", VirtOperatorCertSecretName),
 		)
+
+		It("should suggest earlier rotation if CA expires before cert", func() {
+			caDuration := 6 * time.Hour
+			crtDuration := &v1.Duration{Duration: 24 * time.Hour}
+			crtRenewBefore := &v1.Duration{Duration: 18 * time.Hour}
+			caSecret := NewCACertSecret("test")
+			Expect(PopulateSecretWithCertificate(caSecret, nil, &v1.Duration{Duration: caDuration})).To(Succeed())
+			caCrt, err := LoadCertificates(caSecret)
+			now := time.Now()
+			Expect(err).NotTo(HaveOccurred())
+			crtSecret := NewCertSecrets("test", "test")[0]
+			Expect(PopulateSecretWithCertificate(crtSecret, caCrt, crtDuration)).To(Succeed())
+			crt, err := LoadCertificates(crtSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			deadline := now.Add(6 * time.Hour)
+			// Generating certificates may take a little bit of time to execute (entropy, ...). Since we can't
+			// inject a fake time into the foreign code which generates the certificates, allow a generous diff of three
+			// seconds.
+			Expect(NextRotationDeadline(crt, caCrt, crtRenewBefore, nil).Unix()).To(BeNumerically("==", deadline.Unix(), 3))
+		})
 	})
 
 	It("should set the right namespaces on the certificate secrets", func() {
