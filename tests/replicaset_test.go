@@ -44,7 +44,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstanceReplicaSet", func() {
+var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component][owner:@sig-compute]VirtualMachineInstanceReplicaSet", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -178,7 +178,7 @@ var _ = Describe("[Serial][rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][le
 		newRS, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Create(newRS)
 		Expect(err).ToNot(HaveOccurred())
 		doScaleWithHPA(newRS.ObjectMeta.Name, int32(startScale), int32(startScale), int32(startScale))
-		doScaleWithHPA(newRS.ObjectMeta.Name, int32(stopScale), (int32(stopScale)), int32(stopScale))
+		doScaleWithHPA(newRS.ObjectMeta.Name, int32(stopScale), int32(stopScale), int32(stopScale))
 		doScaleWithHPA(newRS.ObjectMeta.Name, int32(1), int32(1), int32(1))
 
 	},
