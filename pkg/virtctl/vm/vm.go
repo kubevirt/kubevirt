@@ -56,7 +56,7 @@ var (
 	volumeName   string
 	diskName     string
 	serial       string
-	persist		 bool
+	persist      bool
 )
 
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -282,6 +282,57 @@ func usageAddVolume() string {
 	return usage
 }
 
+func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient) error {
+	volumeSource, err := getVolumeSourceFromVolume(volumeName, namespace, virtClient)
+	if err != nil {
+		return fmt.Errorf("error adding volume, %v", err)
+	}
+	if diskName == "" {
+		diskName = volumeName
+	}
+	hotplugRequest := &v1.AddVolumeOptions{
+		Name: volumeName,
+		Disk: &v1.Disk{
+			Name: diskName,
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: "scsi",
+				},
+			},
+		},
+		VolumeSource: volumeSource,
+	}
+	if serial != "" {
+		hotplugRequest.Disk.Serial = serial
+	}
+	if !persist {
+		err = virtClient.VirtualMachineInstance(namespace).AddVolume(vmiName, hotplugRequest)
+	} else {
+		err = virtClient.VirtualMachine(namespace).AddVolume(vmiName, hotplugRequest)
+	}
+	if err != nil {
+		return fmt.Errorf("error adding volume, %v", err)
+	}
+	return nil
+}
+
+func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient) error {
+	var err error
+	if !persist {
+		err = virtClient.VirtualMachineInstance(namespace).RemoveVolume(vmiName, &v1.RemoveVolumeOptions{
+			Name: volumeName,
+		})
+	} else {
+		err = virtClient.VirtualMachine(namespace).RemoveVolume(vmiName, &v1.RemoveVolumeOptions{
+			Name: volumeName,
+		})
+	}
+	if err != nil {
+		return fmt.Errorf("Error removing volume, %v", err)
+	}
+	return nil
+}
+
 func (o *Command) Run(args []string) error {
 
 	vmiName := args[0]
@@ -376,52 +427,9 @@ func (o *Command) Run(args []string) error {
 		fmt.Printf("%s\n", string(data))
 		return nil
 	case COMMAND_ADDVOLUME:
-		volumeSource, err := getVolumeSourceFromVolume(volumeName, namespace, virtClient)
-		if err != nil {
-			return fmt.Errorf("Error adding volume, %v", err)
-		}
-		if diskName == "" {
-			diskName = volumeName
-		}
-		hotplugRequest := &v1.AddVolumeOptions{
-			Name: volumeName,
-			Disk: &v1.Disk{
-				Name: diskName,
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{
-						Bus: "scsi",
-					},
-				},
-			},
-			VolumeSource: volumeSource,
-		}
-		if serial != "" {
-			hotplugRequest.Disk.Serial = serial
-		}
-		if !persist {
-			err = virtClient.VirtualMachineInstance(namespace).AddVolume(args[0], hotplugRequest)
-		} else {
-			err = virtClient.VirtualMachine(namespace).AddVolume(args[0], hotplugRequest)
-		}
-		if err != nil {
-			return fmt.Errorf("Error adding volume, %v", err)
-		}
-		return nil
+		return addVolume(args[0], volumeName, namespace, virtClient)
 	case COMMAND_REMOVEVOLUME:
-		var err error
-		if !persist {
-			err = virtClient.VirtualMachineInstance(namespace).RemoveVolume(args[0], &v1.RemoveVolumeOptions{
-				Name: volumeName,
-			})
-		} else {
-			err = virtClient.VirtualMachine(namespace).RemoveVolume(args[0], &v1.RemoveVolumeOptions{
-				Name: volumeName,
-			})
-		}
-		if err != nil {
-			return fmt.Errorf("Error removing volume, %v", err)
-		}
-		return nil
+		return removeVolume(args[0], volumeName, namespace, virtClient)
 	}
 
 	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
