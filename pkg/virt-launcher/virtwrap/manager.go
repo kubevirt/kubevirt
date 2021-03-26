@@ -615,23 +615,21 @@ func parseDeviceAddress(addrString string) []string {
 	}
 	return addrs
 }
-func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {
-	l.domainModifyLock.Lock()
-	defer l.domainModifyLock.Unlock()
+
+func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineInstance, useEmulation bool, options *cmdv1.VirtualMachineOptions, isMigrationTarget bool) (*converter.ConverterContext, error) {
 
 	logger := log.Log.Object(vmi)
 
-	domain := &api.Domain{}
 	var emulatorThreadCpu *int
 	podCPUSet, err := util.GetPodCPUSet()
 	if err != nil {
 		logger.Reason(err).Error("failed to read pod cpuset.")
-		return nil, err
+		return nil, fmt.Errorf("failed to read pod cpuset: %v", err)
 	}
 	// reserve the last cpu for the emulator thread
 	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
 		if len(podCPUSet) > 0 {
-			emulatorThreadCpu = &podCPUSet[len(podCPUSet)-1]
+			emulatorThreadCpu = &podCPUSet[len(podCPUSet)]
 			podCPUSet = podCPUSet[:len(podCPUSet)-1]
 		}
 	}
@@ -680,11 +678,6 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		}
 	}
 
-	sriovDevices, err := sriov.CreateHostDevices(vmi)
-	if err != nil {
-		return nil, err
-	}
-
 	// Map the VirtualMachineInstance to the Domain
 	c := &converter.ConverterContext{
 		Architecture:          runtime.GOARCH,
@@ -693,17 +686,13 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		CPUSet:                podCPUSet,
 		IsBlockPVC:            isBlockPVCMap,
 		IsBlockDV:             isBlockDVMap,
-		HotplugVolumes:        hotplugVolumes,
-		PermanentVolumes:      permanentVolumes,
 		DiskType:              diskInfo,
-		SRIOVDevices:          sriovDevices,
-		GpuDevices:            getEnvAddressListByPrefix(gpuEnvPrefix),
-		VgpuDevices:           getEnvAddressListByPrefix(vgpuEnvPrefix),
-		HostDevices:           getDevicesForAssignment(vmi.Spec.Domain.Devices),
 		EmulatorThreadCpu:     emulatorThreadCpu,
 		OVMFPath:              l.ovmfPath,
 		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
+		PermanentVolumes:      permanentVolumes,
 	}
+
 	if options != nil {
 		if options.VirtualMachineSMBios != nil {
 			c.SMBios = options.VirtualMachineSMBios
@@ -711,6 +700,36 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		c.MemBalloonStatsPeriod = uint(options.MemBalloonStatsPeriod)
 		// Add preallocated and thick-provisioned volumes for which we need to avoid the discard=unmap option
 		c.VolumesDiscardIgnore = options.PreallocatedVolumes
+	}
+
+	if !isMigrationTarget {
+		sriovDevices, err := sriov.CreateHostDevices(vmi)
+		if err != nil {
+			return nil, err
+		}
+
+		c.HotplugVolumes = hotplugVolumes
+		c.SRIOVDevices = sriovDevices
+		c.GpuDevices = getEnvAddressListByPrefix(gpuEnvPrefix)
+		c.VgpuDevices = getEnvAddressListByPrefix(vgpuEnvPrefix)
+		c.HostDevices = getDevicesForAssignment(vmi.Spec.Domain.Devices)
+	}
+
+	return c, nil
+}
+
+func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	logger := log.Log.Object(vmi)
+
+	domain := &api.Domain{}
+
+	c, err := l.generateConverterContext(vmi, useEmulation, options, false)
+	if err != nil {
+		logger.Reason(err).Error("failed to generate libvirt domain from VMI spec")
+		return nil, err
 	}
 
 	if err := converter.CheckEFI_OVMFRoms(vmi, c); err != nil {

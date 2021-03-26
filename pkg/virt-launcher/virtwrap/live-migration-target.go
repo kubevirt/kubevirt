@@ -22,18 +22,15 @@ package virtwrap
 import (
 	"fmt"
 	"net"
-	"runtime"
 	"strconv"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
 func (l *LibvirtDomainManager) finalizeMigrationTarget(vmi *v1.VirtualMachineInstance) error {
@@ -49,70 +46,14 @@ func (l *LibvirtDomainManager) finalizeMigrationTarget(vmi *v1.VirtualMachineIns
 }
 
 func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInstance, useEmulation bool) error {
-
 	logger := log.Log.Object(vmi)
 
-	var emulatorThreadCpu *int
-	domain := &api.Domain{}
-	podCPUSet, err := util.GetPodCPUSet()
+	c, err := l.generateConverterContext(vmi, useEmulation, nil, true)
 	if err != nil {
-		logger.Reason(err).Error("failed to read pod cpuset.")
-		return fmt.Errorf("failed to read pod cpuset: %v", err)
+		return fmt.Errorf("Failed to generate libvirt domain from VMI spec: %v", err)
 	}
-	// reserve the last cpu for the emulator thread
-	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-		if len(podCPUSet) > 0 {
-			emulatorThreadCpu = &podCPUSet[len(podCPUSet)]
-			podCPUSet = podCPUSet[:len(podCPUSet)-1]
-		}
-	}
-	// Check if PVC volumes are block volumes
-	isBlockPVCMap := make(map[string]bool)
-	isBlockDVMap := make(map[string]bool)
-	diskInfo := make(map[string]*containerdisk.DiskInfo)
-	for i, volume := range vmi.Spec.Volumes {
-		if volume.VolumeSource.PersistentVolumeClaim != nil {
-			isBlockPVC, err := isBlockDeviceVolume(volume.Name)
-			if err != nil {
-				logger.Reason(err).Errorf("failed to detect volume mode for Volume %v and PVC %v.",
-					volume.Name, volume.VolumeSource.PersistentVolumeClaim.ClaimName)
-				return err
-			}
-			isBlockPVCMap[volume.Name] = isBlockPVC
-		} else if volume.VolumeSource.ContainerDisk != nil {
-			image, err := containerdisk.GetDiskTargetPartFromLauncherView(i)
-			if err != nil {
-				return err
-			}
-			info, err := converter.GetImageInfo(image)
-			if err != nil {
-				return err
-			}
-			diskInfo[volume.Name] = info
-		} else if volume.VolumeSource.DataVolume != nil {
-			isBlockDV, err := isBlockDeviceVolume(volume.Name)
-			if err != nil {
-				logger.Reason(err).Errorf("failed to detect volume mode for Volume %v and DataVolume %v.",
-					volume.Name, volume.VolumeSource.DataVolume.Name)
-				return err
-			}
-			isBlockDVMap[volume.Name] = isBlockDV
-		}
 
-	}
-	// Map the VirtualMachineInstance to the Domain
-	c := &converter.ConverterContext{
-		Architecture:          runtime.GOARCH,
-		VirtualMachine:        vmi,
-		UseEmulation:          useEmulation,
-		CPUSet:                podCPUSet,
-		IsBlockPVC:            isBlockPVCMap,
-		IsBlockDV:             isBlockDVMap,
-		DiskType:              diskInfo,
-		EmulatorThreadCpu:     emulatorThreadCpu,
-		OVMFPath:              l.ovmfPath,
-		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
-	}
+	domain := &api.Domain{}
 	if err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c); err != nil {
 		return fmt.Errorf("conversion failed: %v", err)
 	}
@@ -140,8 +81,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(vmi *v1.VirtualMachineInst
 		return fmt.Errorf("failed to update the hosts file: %v", err)
 	}
 
-	isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
-	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration)
+	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration(vmi))
 	for _, port := range migrationPortsRange {
 		// Prepare the direct migration proxy
 		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
