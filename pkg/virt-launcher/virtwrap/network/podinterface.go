@@ -72,6 +72,12 @@ type podNICImpl struct {
 	cacheFactory cache.InterfaceCacheFactory
 }
 
+var vifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
+
+func setVifCacheFile(path string) {
+	vifCacheFile = path
+}
+
 func getVifFilePath(pid, name string) string {
 	return fmt.Sprintf(vifCacheFile, pid, name)
 }

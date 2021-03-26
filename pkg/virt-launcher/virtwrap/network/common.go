@@ -511,7 +511,3 @@ func filterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []
 	}
 	return
 }
-
-func setVifCacheFile(path string) {
-	vifCacheFile = path
-}
