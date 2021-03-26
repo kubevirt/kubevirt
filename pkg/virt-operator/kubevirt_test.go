@@ -885,7 +885,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			all = append(all, crd)
 		}
 		// cr
-		all = append(all, components.NewPrometheusRuleCR(config.GetNamespace(), true))
+		all = append(all, components.NewPrometheusRuleCR(config.GetNamespace(), config.WorkloadUpdatesEnabled()))
 		// sccs
 		all = append(all, components.NewKubeVirtControllerSCC(NAMESPACE))
 		all = append(all, components.NewKubeVirtHandlerSCC(NAMESPACE))

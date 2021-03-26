@@ -20,10 +20,8 @@ func (r *Reconciler) createOrUpdateServiceMonitors() error {
 		return nil
 	}
 
-	var err error
 	for _, serviceMonitor := range r.targetStrategy.ServiceMonitors() {
-		err = r.createOrUpdateServiceMonitor(serviceMonitor.DeepCopy())
-		if err != nil {
+		if err := r.createOrUpdateServiceMonitor(serviceMonitor.DeepCopy()); err != nil {
 			return err
 		}
 	}
@@ -66,7 +64,7 @@ func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.Service
 
 	// there was no change to metadata and the spec fields are equal
 	if !*modified && !endpointsModified {
-		log.Log.V(2).Infof("serviceMonitor %v is up-to-date", serviceMonitor.GetName())
+		log.Log.V(4).Infof("serviceMonitor %v is up-to-date", serviceMonitor.GetName())
 		return nil
 	}
 
@@ -104,58 +102,71 @@ func ensureServiceMonitorSpec(required, existing *promv1.ServiceMonitor) (bool, 
 }
 
 func (r *Reconciler) createOrUpdatePrometheusRules() error {
-
 	if !r.stores.PrometheusRulesEnabled {
 		return nil
 	}
 
+	for _, prometheusRule := range r.targetStrategy.PrometheusRules() {
+		if err := r.createOrUpdatePrometheusRule(prometheusRule.DeepCopy()); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.PrometheusRule) error {
 	prometheusClient := r.clientset.PrometheusClient()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
-	for _, prometheusRule := range r.targetStrategy.PrometheusRules() {
-		var cachedPrometheusRule *promv1.PrometheusRule
+	var cachedPrometheusRule *promv1.PrometheusRule
 
-		prometheusRule := prometheusRule.DeepCopy()
-		obj, exists, _ := r.stores.PrometheusRuleCache.Get(prometheusRule)
-		if exists {
-			cachedPrometheusRule = obj.(*promv1.PrometheusRule)
-		}
-
-		injectOperatorMetadata(r.kv, &prometheusRule.ObjectMeta, version, imageRegistry, id, true)
-		if !exists {
-			// Create non existent
-			r.expectations.PrometheusRule.RaiseExpectations(r.kvKey, 1, 0)
-			_, err := prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Create(context.Background(), prometheusRule, metav1.CreateOptions{})
-			if err != nil {
-				r.expectations.PrometheusRule.LowerExpectations(r.kvKey, 1, 0)
-				return fmt.Errorf("unable to create PrometheusRule %+v: %v", prometheusRule, err)
-			}
-
-			log.Log.V(2).Infof("PrometheusRule %v created", prometheusRule.GetName())
-
-		} else if !objectMatchesVersion(&cachedPrometheusRule.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
-			// Add Spec Patch
-			newSpec, err := json.Marshal(prometheusRule.Spec)
-			if err != nil {
-				return err
-			}
-
-			ops, err := getPatchWithObjectMetaAndSpec([]string{}, &prometheusRule.ObjectMeta, newSpec)
-			if err != nil {
-				return err
-			}
-
-			_, err = prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Patch(context.Background(), prometheusRule.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to patch PrometheusRule %+v: %v", prometheusRule, err)
-			}
-
-			log.Log.V(2).Infof("PrometheusRule %v updated", prometheusRule.GetName())
-
-		} else {
-			log.Log.V(4).Infof("PrometheusRule %v is up-to-date", prometheusRule.GetName())
-		}
+	obj, exists, _ := r.stores.PrometheusRuleCache.Get(prometheusRule)
+	if exists {
+		cachedPrometheusRule = obj.(*promv1.PrometheusRule)
 	}
+
+	injectOperatorMetadata(r.kv, &prometheusRule.ObjectMeta, version, imageRegistry, id, true)
+	if !exists {
+		// Create non existent
+		r.expectations.PrometheusRule.RaiseExpectations(r.kvKey, 1, 0)
+		_, err := prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Create(context.Background(), prometheusRule, metav1.CreateOptions{})
+		if err != nil {
+			r.expectations.PrometheusRule.LowerExpectations(r.kvKey, 1, 0)
+			return fmt.Errorf("unable to create PrometheusRule %+v: %v", prometheusRule, err)
+		}
+
+		log.Log.V(2).Infof("PrometheusRule %v created", prometheusRule.GetName())
+		return nil
+	}
+
+	modified := resourcemerge.BoolPtr(false)
+	existingCopy := cachedPrometheusRule.DeepCopy()
+
+	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, prometheusRule.ObjectMeta)
+
+	if !*modified && equality.Semantic.DeepEqual(cachedPrometheusRule.Spec, prometheusRule.Spec) {
+		log.Log.V(4).Infof("PrometheusRule %v is up-to-date", prometheusRule.GetName())
+		return nil
+	}
+
+	// Add Spec Patch
+	newSpec, err := json.Marshal(prometheusRule.Spec)
+	if err != nil {
+		return err
+	}
+
+	ops, err := getPatchWithObjectMetaAndSpec([]string{}, &prometheusRule.ObjectMeta, newSpec)
+	if err != nil {
+		return err
+	}
+
+	_, err = prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Patch(context.Background(), prometheusRule.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to patch PrometheusRule %+v: %v", prometheusRule, err)
+	}
+
+	log.Log.V(2).Infof("PrometheusRule %v updated", prometheusRule.GetName())
 
 	return nil
 }
