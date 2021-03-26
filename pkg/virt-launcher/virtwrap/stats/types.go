@@ -107,7 +107,6 @@ type DomainStatsNet struct {
 type DomainStatsBlock struct {
 	NameSet         bool
 	Name            string
-	AliasSet        bool
 	Alias           string
 	BackingIndexSet bool
 	BackingIndex    uint

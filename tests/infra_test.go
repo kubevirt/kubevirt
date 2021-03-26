@@ -791,25 +791,42 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			table.Entry("by using IPv6", k8sv1.IPv6Protocol),
 		)
 
-		table.DescribeTable("should include the storage metrics for a running VM", func(family k8sv1.IPFamily) {
+		table.DescribeTable("should include the storage metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
 			if family == k8sv1.IPv6Protocol {
 				libnet.SkipWhenNotDualStackCluster(virtClient)
 			}
 
 			ip := getSupportedIP(metricsIPs, family)
 
-			metrics := collectMetrics(ip, "kubevirt_vmi_storage_")
+			metrics := collectMetrics(ip, metricSubstring)
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
 				if strings.Contains(key, `drive="vdb"`) {
 					value := metrics[key]
-					Expect(value).To(BeNumerically(">", float64(0.0)))
+					fmt.Fprintf(GinkgoWriter, "metric value was %f\n", value)
+					Expect(value).To(BeNumerically(operator, float64(0.0)))
 				}
 			}
 		},
-			table.Entry("[test_id:4142] by using IPv4", k8sv1.IPv4Protocol),
-			table.Entry("by using IPv6", k8sv1.IPv6Protocol),
+			table.Entry("[test_id:4142] by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_", ">="),
+			table.Entry("by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_", ">="),
+			table.Entry("[test_id:4142] storage flush requests metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
+			table.Entry("storage flush requests metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
+			table.Entry("[test_id:4142] time (ms) spent on cache flushing metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_times_ms_total", ">="),
+			table.Entry("time (ms) spent on cache flushing metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_times_ms_total", ">="),
+			table.Entry("[test_id:4142] I/O read operations metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
+			table.Entry("I/O read operations metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
+			table.Entry("[test_id:4142] I/O write operations metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
+			table.Entry("I/O write operations metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
+			table.Entry("[test_id:4142] storage read operation time metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_times_ms_total", ">="),
+			table.Entry("storage read operation time metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_times_ms_total", ">="),
+			table.Entry("[test_id:4142] storage read traffic in bytes metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
+			table.Entry("storage read traffic in bytes metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
+			table.Entry("[test_id:4142] storage write operation time metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_times_ms_total", ">="),
+			table.Entry("storage write operation time metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_times_ms_total", ">="),
+			table.Entry("[test_id:4142] storage write traffic in bytes metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
+			table.Entry("storage write traffic in bytes metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
 		)
 
 		table.DescribeTable("should include metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {

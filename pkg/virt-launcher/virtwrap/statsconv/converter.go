@@ -197,7 +197,7 @@ func Convert_libvirt_DomainStatsBlock_To_stats_DomainStatsBlock(in []libvirt.Dom
 		}
 
 		if inItem.NameSet {
-			blkStat.Alias, blkStat.AliasSet = devAliasMap[inItem.Name]
+			blkStat.Alias, _ = devAliasMap[inItem.Name]
 		}
 
 		ret = append(ret, blkStat)

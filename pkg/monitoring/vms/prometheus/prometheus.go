@@ -228,7 +228,7 @@ func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 		blkLabels := []string{"drive"}
 		blkLabelValues := []string{block.Name}
 
-		if block.AliasSet {
+		if block.Name != "" || block.Alias != "" {
 			blkLabelValues[0] = block.Alias
 		}
 
