@@ -5,9 +5,9 @@ set -ex
 source hack/common.sh
 source hack/config.sh
 
-LIBVIRT_VERSION=0:6.6.0-13.1
+LIBVIRT_VERSION=0:7.0.0-12
 SEABIOS_VERSION=0:1.14.0-1
-QEMU_VERSION=15:5.1.0-18
+QEMU_VERSION=15:5.2.0-15
 
 # Define some base packages to avoid dependency flipping
 # since some dependencies can be satisfied by multiple packages
@@ -60,11 +60,24 @@ bazel run \
 # create a rpmtree for libvirt-devel. libvirt-devel is needed for compilation and unit-testing.
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --name libvirt-devel_x86_64 $basesystem libvirt-devel-${LIBVIRT_VERSION} lz4-libs
+    //:bazeldnf -- rpmtree --public --name libvirt-devel_x86_64 \
+    $basesystem \
+    libvirt-devel-${LIBVIRT_VERSION} \
+    keyutils-libs \
+    krb5-libs \
+    libmount \
+    lz4-libs
 
 bazel run \
     --config=${ARCHITECTURE} \
-    //:bazeldnf -- rpmtree --public --arch=aarch64 --name libvirt-devel_aarch64 $basesystem libvirt-devel-${LIBVIRT_VERSION} lz4-libs
+    //:bazeldnf -- rpmtree --public --arch=aarch64 --name libvirt-devel_aarch64 \
+    $basesystem \
+    libvirt-devel-${LIBVIRT_VERSION} \
+    keyutils-libs \
+    krb5-libs \
+    libmount \
+    lz4-libs
+
 # create a rpmtree for virt-launcher and virt-handler. This is the OS for our node-components.
 bazel run \
     --config=${ARCHITECTURE} \
