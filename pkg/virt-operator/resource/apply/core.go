@@ -140,7 +140,7 @@ func (r *Reconciler) createOrUpdateService() (bool, error) {
 	return false, nil
 }
 
-func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.RateLimitingInterface, ca *tls.Certificate, secret *corev1.Secret, duration *metav1.Duration) (*tls.Certificate, error) {
+func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.RateLimitingInterface, ca *tls.Certificate, secret *corev1.Secret, duration *metav1.Duration, renewBefore *metav1.Duration, caRenewBefore *metav1.Duration) (*tls.Certificate, error) {
 	var cachedSecret *corev1.Secret
 	var err error
 	secret = secret.DeepCopy()
@@ -175,8 +175,8 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.RateLimitin
 		} else if cachedSecret.Annotations["kubevirt.io/duration"] != duration.String() {
 			rotateCertificate = true
 		} else {
-			rotationTime := components.NextRotationDeadline(crt, ca, duration)
-			// We update the certificate if it has passed 80 percent of its lifetime
+			rotationTime := components.NextRotationDeadline(crt, ca, renewBefore, caRenewBefore)
+			// We update the certificate if it has passed its renewal timeout
 			if rotationTime.Before(time.Now()) {
 				rotateCertificate = true
 			}
@@ -197,7 +197,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.RateLimitin
 		return nil, err
 	}
 	// we need to ensure that we revisit certificates before they expire
-	wakeupDeadline := components.NextRotationDeadline(crt, ca, duration).Sub(time.Now())
+	wakeupDeadline := components.NextRotationDeadline(crt, ca, renewBefore, caRenewBefore).Sub(time.Now())
 	queue.AddAfter(r.kvKey, wakeupDeadline)
 
 	injectOperatorMetadata(r.kv, &secret.ObjectMeta, version, imageRegistry, id, true)
@@ -240,7 +240,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.RateLimitin
 	return crt, nil
 }
 
-func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.RateLimitingInterface, caCert *tls.Certificate, duration *metav1.Duration) error {
+func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.RateLimitingInterface, caCert *tls.Certificate, duration *metav1.Duration, renewBefore *metav1.Duration, caRenewBefore *metav1.Duration) error {
 
 	for _, secret := range r.targetStrategy.CertificateSecrets() {
 
@@ -249,7 +249,7 @@ func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.RateLimiti
 			continue
 		}
 
-		_, err := r.createOrUpdateCertificateSecret(queue, caCert, secret, duration)
+		_, err := r.createOrUpdateCertificateSecret(queue, caCert, secret, duration, renewBefore, caRenewBefore)
 		if err != nil {
 			return err
 		}
@@ -258,18 +258,19 @@ func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.RateLimiti
 }
 
 func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.RateLimitingInterface) error {
-	caDuration := getCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caOverlapTime := getCAOverlapTime(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	certDuration := getCertDuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
+	caDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
+	caRenewBefore := GetCARenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
+	certDuration := GetCertDuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
+	certRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 
 	// create/update CA Certificate secret
-	caCert, err := r.createOrUpdateCACertificateSecret(queue, caDuration)
+	caCert, err := r.createOrUpdateCACertificateSecret(queue, caDuration, caRenewBefore)
 	if err != nil {
 		return err
 	}
 
 	// create/update CA config map
-	caBundle, err := r.createOrUpdateKubeVirtCAConfigMap(queue, caCert, caOverlapTime)
+	caBundle, err := r.createOrUpdateKubeVirtCAConfigMap(queue, caCert, caRenewBefore)
 	if err != nil {
 		return err
 	}
@@ -293,7 +294,7 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ra
 	}
 
 	// create/update Certificate secrets
-	err = r.createOrUpdateCertificateSecrets(queue, caCert, certDuration)
+	err = r.createOrUpdateCertificateSecrets(queue, caCert, certDuration, certRenewBefore, caRenewBefore)
 	if err != nil {
 		return err
 	}
@@ -603,7 +604,7 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimit
 	return nil, nil
 }
 
-func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.RateLimitingInterface, duration *metav1.Duration) (caCert *tls.Certificate, err error) {
+func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.RateLimitingInterface, duration *metav1.Duration, renewBefore *metav1.Duration) (caCert *tls.Certificate, err error) {
 
 	for _, secret := range r.targetStrategy.CertificateSecrets() {
 
@@ -611,7 +612,7 @@ func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.RateLimit
 		if secret.Name != components.KubeVirtCASecretName {
 			continue
 		}
-		caCert, err := r.createOrUpdateCertificateSecret(queue, nil, secret, duration)
+		caCert, err := r.createOrUpdateCertificateSecret(queue, nil, secret, duration, renewBefore, nil)
 		if err != nil {
 			return nil, err
 		}
