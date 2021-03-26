@@ -3298,7 +3298,9 @@ func (d *Domain) GetJobStats(flags DomainGetJobStatsFlags) (*DomainJobInfo, erro
 	}
 	defer C.virTypedParamsFree(cparams, cnparams)
 
-	params := DomainJobInfo{}
+	params := DomainJobInfo{
+        Type: DomainJobType(jobtype),
+    }
 	info := getDomainJobInfoFieldInfo(&params)
 
 	_, gerr := typedParamsUnpack(cparams, cnparams, info)
