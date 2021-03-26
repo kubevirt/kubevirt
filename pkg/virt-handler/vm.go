@@ -1012,6 +1012,9 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 			vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
 		}
 	}
+	if vmi.IsEvictable() && liveMigrationCondition.Status == k8sv1.ConditionFalse {
+		d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), "EvictionStrategy is set but vmi is not migratable")
+	}
 	// Update the condition when GA is connected
 	channelConnected := false
 	if domain != nil {
