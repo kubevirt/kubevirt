@@ -179,7 +179,7 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 		}
 
 		SetMutatingWebhookConfigurationGeneration(&r.kv.Status.Generations, webhook)
-
+		log.Log.V(2).Infof("mutatingwebhoookconfiguration %v created", webhook.Name)
 		return nil
 	}
 
