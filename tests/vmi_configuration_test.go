@@ -64,6 +64,33 @@ var _ = Describe("[owner:@sig-compute]Configurations", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
+	const (
+		cgroupV1MemoryUsagePath = "/sys/fs/cgroup/memory/memory.usage_in_bytes"
+		cgroupV2MemoryUsagePath = "/sys/fs/cgroup/memory.current"
+	)
+
+	getPodMemoryUsage := func(pod *kubev1.Pod) (output string, err error) {
+		output, err = tests.ExecuteCommandOnPod(
+			virtClient,
+			pod,
+			"compute",
+			[]string{"cat", cgroupV2MemoryUsagePath},
+		)
+
+		if err == nil {
+			return
+		}
+
+		output, err = tests.ExecuteCommandOnPod(
+			virtClient,
+			pod,
+			"compute",
+			[]string{"cat", cgroupV1MemoryUsagePath},
+		)
+
+		return
+	}
+
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
@@ -619,12 +646,7 @@ var _ = Describe("[owner:@sig-compute]Configurations", func() {
 				}, 15)).To(Succeed())
 
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-				podMemoryUsage, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					pod,
-					"compute",
-					[]string{"/usr/bin/bash", "-c", "cat /sys/fs/cgroup/memory/memory.usage_in_bytes"},
-				)
+				podMemoryUsage, err := getPodMemoryUsage(pod)
 				Expect(err).ToNot(HaveOccurred())
 				By("Converting pod memory usage")
 				m, err := strconv.Atoi(strings.Trim(podMemoryUsage, "\n"))
@@ -2106,12 +2128,7 @@ var _ = Describe("[owner:@sig-compute]Configurations", func() {
 				}, 15)).To(Succeed())
 
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-				podMemoryUsage, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					pod,
-					"compute",
-					[]string{"/usr/bin/bash", "-c", "cat /sys/fs/cgroup/memory/memory.usage_in_bytes"},
-				)
+				podMemoryUsage, err := getPodMemoryUsage(pod)
 				Expect(err).ToNot(HaveOccurred())
 				By("Converting pod memory usage")
 				m, err := strconv.Atoi(strings.Trim(podMemoryUsage, "\n"))
