@@ -887,7 +887,7 @@ spec:
 	})
 
 	Describe("should reconcile components", func() {
-		It("test updating a deployment is reverted to it's original state", func() {
+		It("[QUARANTINE][owner:@sig-operator]test updating a deployment is reverted to it's original state", func() {
 			envVarKey := "USER_ADDED_ENV"
 
 			By("Updating KubeVirt Object")
