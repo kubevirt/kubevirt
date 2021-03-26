@@ -24,25 +24,25 @@ repositories:
   name: 32-aarch64-update-repo
   gpgkey: https://src.fedoraproject.org/rpms/fedora-repos/raw/main/f/RPM-GPG-KEY-fedora-32-primary
 - arch: x86_64
-  baseurl: https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.1.el8_3/fedora-32-x86_64/
+  baseurl: https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-7.0.0-12.el8/fedora-32-x86_64/
   name: kubevirt/libvirt-copr-x86_64
-  gpgkey: https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.1.el8_3/pubkey.gpg
+  gpgkey: https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-7.0.0-12.el8/pubkey.gpg
 - arch: x86_64
-  baseurl: https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-x86_64/
+  baseurl: https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/fedora-32-x86_64/
   name: kubevirt/qemu-copr-x86_64
-  gpgkey: https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/pubkey.gpg
+  gpgkey: https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/pubkey.gpg
 - arch: x86_64
   baseurl: https://download.copr.fedorainfracloud.org/results/@kubevirt/seabios-1.14.0-1.el8/fedora-32-x86_64/
   name: kubevirt/seabios-copr-x86_64
   gpgkey: https://download.copr.fedorainfracloud.org/results/@kubevirt/seabios-1.14.0-1.el8/pubkey.gpg
 - arch: aarch64
-  baseurl: https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-6.6.0-13.1.el8_3/fedora-32-aarch64/
+  baseurl: https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-7.0.0-12.el8/fedora-32-aarch64/
   name: kubevirt/libvirt-copr-aarch64
-  gpgkey: https://copr-be.cloud.fedoraproject.org/results/%40kubevirt/libvirt-6.6.0-13.1.el8_3/pubkey.gpg
+  gpgkey: https://download.copr.fedorainfracloud.org/results/@kubevirt/libvirt-7.0.0-12.el8/pubkey.gpg
 - arch: aarch64
-  baseurl: https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.1.0-18.el8/fedora-32-aarch64/
+  baseurl: https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/fedora-32-aarch64/
   name: kubevirt/qemu-copr-aarch64
-  gpgkey: https://copr-be.cloud.fedoraproject.org/results/%40kubevirt/qemu-5.1.0-18.el8/pubkey.gpg
+  gpgkey: https://download.copr.fedorainfracloud.org/results/@kubevirt/qemu-5.2.0-15.el8/pubkey.gpg
 - arch: aarch64
   baseurl: https://download.copr.fedorainfracloud.org/results/@kubevirt/seabios-1.14.0-1.el8/fedora-32-aarch64/
   name: kubevirt/seabios-copr-aarch64
