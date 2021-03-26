@@ -32,8 +32,6 @@ import (
 	"github.com/onsi/gomega/ghttp"
 	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
 	"k8s.io/client-go/tools/clientcmd"
-
-	"kubevirt.io/client-go/log"
 )
 
 var _ = Describe("Authorizer", func() {
@@ -42,7 +40,6 @@ var _ = Describe("Authorizer", func() {
 		var server *ghttp.Server
 		var req *restful.Request
 
-		log.Log.SetIOWriter(GinkgoWriter)
 		fakecert := &x509.Certificate{}
 
 		app := authorizor{}

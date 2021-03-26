@@ -31,7 +31,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -52,8 +51,6 @@ var _ = Describe("Virt remote commands", func() {
 	var stopped bool
 	var useEmulation bool
 	var options *ServerOptions
-
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
 		stop = make(chan struct{})

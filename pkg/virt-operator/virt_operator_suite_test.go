@@ -3,11 +3,9 @@ package virt_operator
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestVirtOperator(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "VirtOperator Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "VirtOperator Suite")
 }

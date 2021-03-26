@@ -37,10 +37,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/cache"
 
+	testutils2 "kubevirt.io/client-go/testutils"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -48,8 +49,6 @@ import (
 
 var _ = Describe("Template", func() {
 	var qemuGid int64 = 107
-
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 	var svc TemplateService
@@ -2787,7 +2786,5 @@ func False() *bool {
 }
 
 func TestTemplate(t *testing.T) {
-	log.Log.SetIOWriter(GinkgoWriter)
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Template")
+	testutils2.KubeVirtTestSuiteSetup(t, "Template")
 }

@@ -3,17 +3,11 @@ package emptydisk
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
+	"kubevirt.io/client-go/testutils"
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-
-	"kubevirt.io/client-go/log"
 )
 
 func TestEmptydisk(t *testing.T) {
-	log.Log.SetIOWriter(GinkgoWriter)
-	RegisterFailHandler(Fail)
 	ephemeraldiskutils.MockDefaultOwnershipManager()
-	RunSpecs(t, "Emptydisk Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "Emptydisk Suite")
 }

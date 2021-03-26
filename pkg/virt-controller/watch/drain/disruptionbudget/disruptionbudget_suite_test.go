@@ -1,16 +1,11 @@
 package disruptionbudget_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	"kubevirt.io/client-go/log"
-
 	"testing"
+
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestDisruptionbudget(t *testing.T) {
-	log.Log.SetIOWriter(GinkgoWriter)
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Disruptionbudget Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "Disruptionbudget Suite")
 }

@@ -3,11 +3,9 @@ package statsconv
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestStats(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Stats Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "Stats Suite")
 }

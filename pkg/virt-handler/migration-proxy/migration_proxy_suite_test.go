@@ -3,14 +3,9 @@ package migrationproxy_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestMigrationProxy(t *testing.T) {
-	RegisterFailHandler(Fail)
-	log.Log.SetIOWriter(GinkgoWriter)
-	RunSpecs(t, "MigrationProxy Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "MigrationProxy Suite")
 }

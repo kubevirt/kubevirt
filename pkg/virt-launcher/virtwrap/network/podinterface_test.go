@@ -42,7 +42,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -84,8 +83,6 @@ var _ = Describe("Pod Network", func() {
 	var queueNumber uint32
 	var mtu int
 	var cacheFactory cache.InterfaceCacheFactory
-
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
 		cacheFactory = fake.NewFakeInMemoryNetworkCacheFactory()

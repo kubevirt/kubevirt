@@ -1,13 +1,11 @@
 package lookup
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
 	"testing"
+
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestOpenapi(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Lookup Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "Lookup Suite")
 }

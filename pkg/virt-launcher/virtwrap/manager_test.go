@@ -44,7 +44,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/log"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -60,8 +59,6 @@ var _ = Describe("Manager", func() {
 	testVmName := "testvmi"
 	testNamespace := "testnamespace"
 	testDomainName := fmt.Sprintf("%s_%s", testNamespace, testVmName)
-
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	tmpDir, _ := ioutil.TempDir("", "cloudinittest")
 	isoCreationFunc := func(isoOutFile, volumeID string, inDir string) error {

@@ -1,13 +1,11 @@
 package openapi_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
 	"testing"
+
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestOpenapi(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Openapi Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "Openapi Suite")
 }

@@ -22,14 +22,9 @@ package ephemeraldiskutils
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestEphemeralDiskUtils(t *testing.T) {
-	log.Log.SetIOWriter(GinkgoWriter)
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "EphemeralDiskUtils Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "EphemeralDiskUtils Suite")
 }

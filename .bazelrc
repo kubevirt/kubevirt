@@ -15,3 +15,6 @@ run:ppc64le --platforms=@io_bazel_rules_go//go/toolchain:linux_ppc64le_cgo
 test:ppc64le --platforms=@io_bazel_rules_go//go/toolchain:linux_ppc64le_cgo --host_javabase=@local_jdk//:jdk
 
 build --define gotags=selinux
+
+# let our unit tests produce our own junit reports
+test --action_env=GO_TEST_WRAP=0

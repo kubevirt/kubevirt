@@ -22,11 +22,9 @@ package testutils
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestVirtHandler(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Testutils Suite")
+	testutils.KubeVirtTestSuiteSetup(t, "Suite")
 }

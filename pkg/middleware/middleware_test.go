@@ -26,13 +26,10 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 
-	klog "kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 )
 
 var _ = Describe("Middleware", func() {
-
-	klog.Log.SetIOWriter(GinkgoWriter)
 
 	Describe("Call", func() {
 		Context("with precond.PreconditionError panic", func() {

@@ -48,7 +48,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -73,8 +72,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 	running := true
 	notRunning := false
-
-	log.Log.SetIOWriter(GinkgoWriter)
 
 	kv := &v1.KubeVirt{
 		ObjectMeta: k8smetav1.ObjectMeta{

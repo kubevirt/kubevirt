@@ -113,6 +113,16 @@ if [ -n "$DOCKER_CA_CERT_FILE" ] && [ -f "$DOCKER_CA_CERT_FILE" ]; then
     volumes="$volumes -v ${DOCKER_CA_CERT_FILE}:${DOCKERIZED_CUSTOM_CA_PATH}:ro,z"
 fi
 
+# if defined, append the ARTIFACTS directory
+if [ -n "$ARTIFACTS" ]; then
+    if [[ "$ARTIFACTS" = /* ]]; then
+        volumes="$volumes -v ${ARTIFACTS}:${ARTIFACTS}:rw,z"
+    else
+        echo "ARTIFACTS directory is specified, but it is not an absolute directory"
+        exit 1
+    fi
+fi
+
 # Ensure that a bazel server which is running is the correct one
 if [ -n "$($KUBEVIRT_CRI ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
     # check if the image is correct
@@ -140,12 +150,6 @@ if ! $KUBEVIRT_CRI exec ${USE_TTY} ${BUILDER}-bazel-server /entrypoint.sh "$@"; 
     # Copy the build output out of the container, make sure that _out exactly matches the build result
     if [ "$SYNC_OUT" = "true" ]; then
         _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/out" ${OUT_DIR}
-    fi
-    set -x
-    # Copy the junit where prow can pick it up
-    if [ -f ${OUT_DIR}/artifacts/junit-gosec.xml ] && [ "$CI" = "true" ]; then
-        echo "Moving file in prow"
-        mv ${OUT_DIR}/artifacts/junit-gosec.xml ${ARTIFACTS}
     fi
     exit 1
 fi

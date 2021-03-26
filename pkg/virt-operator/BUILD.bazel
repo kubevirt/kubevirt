@@ -67,7 +67,7 @@ go_test(
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//staging/src/kubevirt.io/client-go/version:go_default_library",
         "//vendor/github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",

@@ -31,12 +31,10 @@ import (
 	. "github.com/onsi/gomega"
 
 	k6tv1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 var _ = BeforeSuite(func() {
-	log.Log.SetIOWriter(GinkgoWriter)
 })
 
 var _ = Describe("Prometheus", func() {
