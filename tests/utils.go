@@ -751,7 +751,8 @@ func AdjustKubeVirtResource() {
 			RenewBefore: &metav1.Duration{Duration: 12 * time.Minute},
 		},
 		Server: &v1.CertConfig{
-			Duration: &metav1.Duration{Duration: 14 * time.Minute},
+			Duration:    &metav1.Duration{Duration: 14 * time.Minute},
+			RenewBefore: &metav1.Duration{Duration: 10 * time.Minute},
 		},
 	}}
 
