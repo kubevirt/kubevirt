@@ -295,11 +295,11 @@ var _ = Describe("KubeVirt Operator", func() {
 		// test OpenShift components
 		stores.IsOnOpenshift = true
 
-		informers.ServiceMonitor, serviceMonitorSource = testutils.NewFakeInformerFor(&promv1.ServiceMonitor{})
+		informers.ServiceMonitor, serviceMonitorSource = testutils.NewFakeInformerFor(&promv1.ServiceMonitor{Spec: promv1.ServiceMonitorSpec{}})
 		stores.ServiceMonitorCache = informers.ServiceMonitor.GetStore()
 		stores.ServiceMonitorEnabled = true
 
-		informers.PrometheusRule, prometheusRuleSource = testutils.NewFakeInformerFor(&promv1.PrometheusRule{})
+		informers.PrometheusRule, prometheusRuleSource = testutils.NewFakeInformerFor(&promv1.PrometheusRule{Spec: promv1.PrometheusRuleSpec{}})
 		stores.PrometheusRuleCache = informers.PrometheusRule.GetStore()
 		stores.PrometheusRulesEnabled = true
 

@@ -6,6 +6,9 @@ import (
 	"fmt"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/imdario/mergo"
+	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -17,54 +20,87 @@ func (r *Reconciler) createOrUpdateServiceMonitors() error {
 		return nil
 	}
 
-	prometheusClient := r.clientset.PrometheusClient()
-	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
-
+	var err error
 	for _, serviceMonitor := range r.targetStrategy.ServiceMonitors() {
-		var cachedServiceMonitor *promv1.ServiceMonitor
-
-		serviceMonitor := serviceMonitor.DeepCopy()
-		obj, exists, _ := r.stores.ServiceMonitorCache.Get(serviceMonitor)
-		if exists {
-			cachedServiceMonitor = obj.(*promv1.ServiceMonitor)
-		}
-
-		injectOperatorMetadata(r.kv, &serviceMonitor.ObjectMeta, version, imageRegistry, id, true)
-		if !exists {
-			// Create non existent
-			r.expectations.ServiceMonitor.RaiseExpectations(r.kvKey, 1, 0)
-			_, err := prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Create(context.Background(), serviceMonitor, metav1.CreateOptions{})
-			if err != nil {
-				r.expectations.ServiceMonitor.LowerExpectations(r.kvKey, 1, 0)
-				return fmt.Errorf("unable to create serviceMonitor %+v: %v", serviceMonitor, err)
-			}
-
-			log.Log.V(2).Infof("serviceMonitor %v created", serviceMonitor.GetName())
-
-		} else if !objectMatchesVersion(&cachedServiceMonitor.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
-			newSpec, err := json.Marshal(serviceMonitor.Spec)
-			if err != nil {
-				return err
-			}
-
-			ops, err := getPatchWithObjectMetaAndSpec([]string{}, &serviceMonitor.ObjectMeta, newSpec)
-			if err != nil {
-				return err
-			}
-
-			_, err = prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Patch(context.Background(), serviceMonitor.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to patch serviceMonitor %+v: %v", serviceMonitor, err)
-			}
-
-			log.Log.V(2).Infof("serviceMonitor %v updated", serviceMonitor.GetName())
-
-		} else {
-			log.Log.V(4).Infof("serviceMonitor %v is up-to-date", serviceMonitor.GetName())
+		err = r.createOrUpdateServiceMonitor(serviceMonitor.DeepCopy())
+		if err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.ServiceMonitor) error {
+	prometheusClient := r.clientset.PrometheusClient()
+	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
+
+	var cachedServiceMonitor *promv1.ServiceMonitor
+
+	obj, exists, _ := r.stores.ServiceMonitorCache.Get(serviceMonitor)
+	if exists {
+		cachedServiceMonitor = obj.(*promv1.ServiceMonitor)
+	}
+
+	injectOperatorMetadata(r.kv, &serviceMonitor.ObjectMeta, version, imageRegistry, id, true)
+	if !exists {
+		// Create non existent
+		r.expectations.ServiceMonitor.RaiseExpectations(r.kvKey, 1, 0)
+		_, err := prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Create(context.Background(), serviceMonitor, metav1.CreateOptions{})
+		if err != nil {
+			r.expectations.ServiceMonitor.LowerExpectations(r.kvKey, 1, 0)
+			return fmt.Errorf("unable to create serviceMonitor %+v: %v", serviceMonitor, err)
+		}
+
+		log.Log.V(2).Infof("serviceMonitor %v created", serviceMonitor.GetName())
+		return nil
+	}
+
+	endpointsModified, err := ensureServiceMonitorSpec(serviceMonitor, cachedServiceMonitor)
+	if err != nil {
+		return err
+	}
+
+	modified := resourcemerge.BoolPtr(false)
+	resourcemerge.EnsureObjectMeta(modified, &cachedServiceMonitor.ObjectMeta, serviceMonitor.ObjectMeta)
+
+	// there was no change to metadata and the spec fields are equal
+	if !*modified && !endpointsModified {
+		log.Log.V(2).Infof("serviceMonitor %v is up-to-date", serviceMonitor.GetName())
+		return nil
+	}
+
+	// Add Spec Patch
+	newSpec, err := json.Marshal(serviceMonitor.Spec)
+	if err != nil {
+		return err
+	}
+	
+	ops, err := getPatchWithObjectMetaAndSpec([]string{}, &serviceMonitor.ObjectMeta, newSpec)
+	if err != nil {
+		return err
+	}
+
+	_, err = prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Patch(context.Background(), serviceMonitor.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to patch serviceMonitor %+v: %v", serviceMonitor, err)
+	}
+
+	log.Log.V(2).Infof("serviceMonitor %v updated", serviceMonitor.GetName())
+
+	return nil
+}
+
+func ensureServiceMonitorSpec(required, existing *promv1.ServiceMonitor) (bool, error) {
+	if err := mergo.Merge(&existing.Spec, &required.Spec); err != nil {
+		return false, err
+	}
+
+	if equality.Semantic.DeepEqual(existing.Spec, required.Spec) {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func (r *Reconciler) createOrUpdatePrometheusRules() error {
