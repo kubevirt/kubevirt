@@ -932,6 +932,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		Context("[Serial]with node feature discovery", func() {
 			var node *k8sv1.Node
 			var supportedCPU string
+			var supportedCPUs []string
 			var supportedFeatures []string
 
 			var supportedKVMInfoFeature []string
@@ -974,9 +975,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 				node = &nodes.Items[0]
+				supportedCPUs = tests.GetSupportedCPUModels(*nodes)
+				Expect(supportedCPUs).ToNot(BeEmpty(), "There should be some supported cpu models")
 
-				supportedCPU = tests.GetSupportedCPUModels(*node)[0]
-				supportedFeatures = tests.GetSupportedCPUFeatures(*node)
+				supportedCPU = supportedCPUs[0]
+
+				supportedFeatures = tests.GetSupportedCPUFeatures(*nodes)
+				Expect(supportedFeatures).ToNot(BeEmpty(), "There should be some supported cpu features")
 
 				for key, _ := range node.Labels {
 					if strings.Contains(key, services.NFD_KVM_INFO_PREFIX) &&
@@ -987,8 +992,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					}
 
 				}
-				Expect(supportedFeatures[0]).ToNot(Equal(""))
-				Expect(supportedCPU).ToNot(Equal(""))
 
 				tests.EnableFeatureGate(virtconfig.CPUNodeDiscoveryGate)
 			})

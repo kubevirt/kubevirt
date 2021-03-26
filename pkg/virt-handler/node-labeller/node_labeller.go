@@ -109,6 +109,7 @@ func (n *NodeLabeller) Run(threadiness int, stop chan struct{}) {
 	}
 	<-stop
 }
+
 func (n *NodeLabeller) runWorker() {
 	for n.execute() {
 	}

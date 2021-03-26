@@ -356,7 +356,7 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	nodeLabellerController.Run(10, stop)
+	go nodeLabellerController.Run(10, stop)
 
 	doneCh := make(chan string)
 	defer close(doneCh)

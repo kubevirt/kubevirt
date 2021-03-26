@@ -891,35 +891,49 @@ func GetNodesWithKVM() []*k8sv1.Node {
 	return nodes
 }
 
-func GetSupportedCPUFeatures(node k8sv1.Node) []string {
+func GetSupportedCPUFeatures(nodes k8sv1.NodeList) []string {
 	var featureDenyList = map[string]bool{
 		"svm": true,
 	}
-	features := make([]string, 0)
-	for key := range node.Labels {
-		if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) {
-			feature := strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX)
-			if _, ok := featureDenyList[feature]; !ok {
-				features = append(features, feature)
+	featuresMap := make(map[string]bool)
+	for _, node := range nodes.Items {
+		for key := range node.Labels {
+			if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) {
+				feature := strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX)
+				if _, ok := featureDenyList[feature]; !ok {
+					featuresMap[feature] = true
+				}
 			}
 		}
+	}
+
+	features := make([]string, 0)
+	for feature := range featuresMap {
+		features = append(features, feature)
 	}
 	return features
 }
 
-func GetSupportedCPUModels(node k8sv1.Node) []string {
+func GetSupportedCPUModels(nodes k8sv1.NodeList) []string {
 	var cpuDenyList = map[string]bool{
 		"qemu64":     true,
 		"Opteron_G2": true,
 	}
-	cpus := make([]string, 0)
-	for key := range node.Labels {
-		if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
-			cpu := strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
-			if _, ok := cpuDenyList[cpu]; !ok {
-				cpus = append(cpus, cpu)
+	cpuMap := make(map[string]bool)
+	for _, node := range nodes.Items {
+		for key := range node.Labels {
+			if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
+				cpu := strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
+				if _, ok := cpuDenyList[cpu]; !ok {
+					cpuMap[cpu] = true
+				}
 			}
 		}
+	}
+
+	cpus := make([]string, 0)
+	for model := range cpuMap {
+		cpus = append(cpus, model)
 	}
 	return cpus
 }

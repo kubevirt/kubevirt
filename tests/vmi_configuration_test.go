@@ -1484,7 +1484,7 @@ var _ = Describe("[owner:@sig-compute]Configurations", func() {
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model defined", func() {
 			It("[test_id:1678]should report defined CPU model", func() {
-				supportedCPUs := tests.GetSupportedCPUModels(nodes.Items[0])
+				supportedCPUs := tests.GetSupportedCPUModels(*nodes)
 				Expect(len(supportedCPUs)).ToNot(Equal(0))
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Model: supportedCPUs[0],
@@ -1558,7 +1558,7 @@ var _ = Describe("[owner:@sig-compute]Configurations", func() {
 
 		Context("when CPU features defined", func() {
 			It("[test_id:3123]should start a Virtual Machine with matching features", func() {
-				supportedCPUFeatures := tests.GetSupportedCPUFeatures(nodes.Items[0])
+				supportedCPUFeatures := tests.GetSupportedCPUFeatures(*nodes)
 				Expect(len(supportedCPUFeatures)).ToNot(Equal(0))
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Features: []v1.CPUFeature{
