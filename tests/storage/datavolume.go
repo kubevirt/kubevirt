@@ -65,23 +65,6 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 		}
 	})
 
-	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, timeout int) *v1.VirtualMachineInstance {
-		By("Starting a VirtualMachineInstance with DataVolume")
-		var obj *v1.VirtualMachineInstance
-		var err error
-		Eventually(func() error {
-			obj, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			return err
-		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
-
-		By("Waiting until the DV is ready")
-		tests.WaitForSuccessfulDataVolumeImport(dv, timeout)
-
-		By("Waiting until the VirtualMachineInstance will start")
-		tests.WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
-		return obj
-	}
-
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachineInstance with a DataVolume as a volume source", func() {
 
 		Context("Alpine import", func() {
@@ -116,7 +99,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 				By("Starting and stopping the VirtualMachineInstance a number of times")
 				for i := 1; i <= num; i++ {
 					tests.WaitForDataVolumeReadyToStartVMI(vmi, 140)
-					vmi := runVMIAndExpectLaunch(vmi, dataVolume, 500)
+					vmi := tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
 					if i == num {
@@ -144,7 +127,7 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 				}
 				// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
 				// import and start
-				vmi = runVMIAndExpectLaunch(vmi, dataVolume, 500)
+				vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
