@@ -879,7 +879,7 @@ var _ = Describe("Storage", func() {
 			})
 
 			// Not a candidate for NFS because local volumes are used in test
-			It("[QUARANTINE][owner:@sig-storage][test_id:1015] should be successfully started", func() {
+			It("[owner:@sig-storage][test_id:1015] should be successfully started", func() {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi = tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
