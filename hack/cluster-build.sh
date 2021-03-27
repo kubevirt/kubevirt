@@ -29,8 +29,7 @@ DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
 source hack/common.sh
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
-
-kubectl() { cluster-up/kubectl.sh "$@"; }
+source hack/prefetch-images.sh
 
 echo "Building ..."
 
@@ -56,45 +55,7 @@ if [[ $image_prefix_alt ]]; then
     done
 fi
 
-# OKD/OCP providers has different node names and does not have docker
-if [[ $KUBEVIRT_PROVIDER =~ ocp.* ]]; then
-    nodes=()
-    nodes+=($(kubectl get nodes --no-headers | awk '{print $1}' | grep master))
-    nodes+=($(kubectl get nodes --no-headers | awk '{print $1}' | grep worker))
-    pull_command="podman"
-elif [[ $KUBEVIRT_PROVIDER =~ okd.* ]]; then
-    nodes=("master-0" "worker-0")
-    pull_command="podman"
-elif [[ $KUBEVIRT_PROVIDER == "external" ]] || [[ $KUBEVIRT_PROVIDER =~ kind.* ]] || [[ $KUBEVIRT_PROVIDER == "local" ]]; then
-    nodes=() # in case of external provider / kind we have no control over the nodes
-else
-    nodes=()
-    for i in $(seq 1 ${KUBEVIRT_NUM_NODES}); do
-        nodes+=("node$(printf "%02d" ${i})")
-    done
-    pull_command="docker"
-fi
-
-for node in ${nodes[@]}; do
-    count=0
-    until ${KUBEVIRT_PATH}cluster-up/ssh.sh ${node} "echo \"${container}\" | xargs \-\-max-args=1 sudo ${pull_command} pull"; do
-        count=$((count + 1))
-        if [ $count -eq 10 ]; then
-            echo "Failed to '${pull_command} pull' in ${node}" >&2
-            exit 1
-        fi
-        sleep 1
-    done
-
-    count=0
-    until ${KUBEVIRT_PATH}cluster-up/ssh.sh ${node} "echo \"${container_alias}\" | xargs \-\-max-args=2 sudo ${pull_command} tag"; do
-        count=$((count + 1))
-        if [ $count -eq 10 ]; then
-            echo "Failed to '${pull_command} tag' in ${node}" >&2
-            exit 1
-        fi
-        sleep 1
-    done
-done
+prefetch-images::pull_on_nodes $container
+prefetch-images::tag_on_nodes $container_alias
 
 echo "Done $0"
