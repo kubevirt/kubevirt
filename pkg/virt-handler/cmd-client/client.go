@@ -69,12 +69,13 @@ const StandardInitLauncherSocketFileName = "launcher-init-sock"
 const StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
 
 type MigrationOptions struct {
-	Bandwidth               resource.Quantity
-	ProgressTimeout         int64
-	CompletionTimeoutPerGiB int64
-	UnsafeMigration         bool
-	AllowAutoConverge       bool
-	AllowPostCopy           bool
+	Bandwidth                  resource.Quantity
+	ProgressTimeout            int64
+	CompletionTimeoutPerGiB    int64
+	UnsafeMigration            bool
+	AllowAutoConverge          bool
+	AllowPostCopy              bool
+	OSChosenMigrationProxyPort bool
 }
 
 type LauncherClient interface {
