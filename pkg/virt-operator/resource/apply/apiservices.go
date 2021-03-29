@@ -58,23 +58,15 @@ func (r *Reconciler) createOrUpdateAPIServices(caBundle []byte) error {
 			}
 		} else {
 			if !objectMatchesVersion(&cachedAPIService.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) || !certsMatch {
-				// Patch if old version
-				var ops []string
-
-				// Add Labels and Annotations Patches
-				labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&apiService.ObjectMeta)
-				if err != nil {
-					return err
-				}
-				ops = append(ops, labelAnnotationPatch...)
-
-				// Add Spec Patch
 				spec, err := json.Marshal(apiService.Spec)
 				if err != nil {
 					return err
 				}
-				ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(spec)))
 
+				ops, err := getPatchWithObjectMetaAndSpec([]string{}, &apiService.ObjectMeta, spec)
+				if err != nil {
+					return err
+				}
 				_, err = r.aggregatorclient.Patch(context.Background(), apiService.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 				if err != nil {
 					return fmt.Errorf("unable to patch apiservice %+v: %v", apiService, err)

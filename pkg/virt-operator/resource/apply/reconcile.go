@@ -249,6 +249,21 @@ func createLabelsAndAnnotationsPatch(objectMeta *metav1.ObjectMeta) ([]string, e
 	return ops, nil
 }
 
+func getPatchWithObjectMetaAndSpec(ops []string, meta *metav1.ObjectMeta, spec []byte) ([]string, error) {
+	// Add Labels and Annotations Patches
+	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(meta)
+	if err != nil {
+		return ops, err
+	}
+
+	ops = append(ops, labelAnnotationPatch...)
+
+	// and spec replacement to patch
+	ops = append(ops, fmt.Sprintf(replaceSpecPatchTemplate, string(spec)))
+
+	return ops, nil
+}
+
 func shouldTakeUpdatePath(targetVersion, currentVersion string) bool {
 	// if no current version, then this can't be an update
 	if currentVersion == "" {

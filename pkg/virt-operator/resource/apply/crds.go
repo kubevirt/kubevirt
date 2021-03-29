@@ -51,7 +51,7 @@ func patchCRD(client clientset.Interface, crd *extv1.CustomResourceDefinition, o
 	if ops == nil {
 		ops = make([]string, 1)
 	}
-	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+	ops = append(ops, fmt.Sprintf(replaceSpecPatchTemplate, string(newSpec)))
 
 	_, err = client.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 	if err != nil {
@@ -112,6 +112,7 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 		if err := patchCRD(client, crd, ops); err != nil {
 			return err
 		}
+
 		log.Log.V(2).Infof("crd %v updated", crd.GetName())
 	} else {
 		log.Log.V(2).Infof("crd %v is up-to-date", crd.GetName())
