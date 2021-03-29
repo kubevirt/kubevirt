@@ -99,6 +99,22 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"patch",
+					"list",
+					"watch",
+					"get",
+				},
+			},
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"configmaps",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
 				},
 			},
 			{

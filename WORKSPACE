@@ -49,12 +49,11 @@ http_archive(
 )
 
 http_archive(
-    name = "com_github_atlassian_bazel_tools",
-    sha256 = "29813b426161f1f09f940e62224f4e54e5737686f2bd22146807d933fa1fa768",
-    strip_prefix = "bazel-tools-82b58b374e3b1746d6d6a58a37f7ada4400a13ce",
+    name = "com_github_ash2k_bazel_tools",
+    sha256 = "80ba082177c93e43a7c085a8566c7f11654dbae41da7da0da52e0ed2e917cd12",
+    strip_prefix = "bazel-tools-6e2a416f565062955735edcfae881cdba2b7abf7",
     urls = [
-        "https://github.com/atlassian/bazel-tools/archive/82b58b374e3b1746d6d6a58a37f7ada4400a13ce.zip",
-        "https://storage.googleapis.com/builddeps/29813b426161f1f09f940e62224f4e54e5737686f2bd22146807d933fa1fa768",
+        "https://github.com/ash2k/bazel-tools/archive/6e2a416f565062955735edcfae881cdba2b7abf7.zip",
     ],
 )
 
@@ -164,7 +163,7 @@ go_register_toolchains(
     nogo = "@//:nogo_vet",
 )
 
-load("@com_github_atlassian_bazel_tools//goimports:deps.bzl", "goimports_dependencies")
+load("@com_github_ash2k_bazel_tools//goimports:deps.bzl", "goimports_dependencies")
 
 goimports_dependencies()
 

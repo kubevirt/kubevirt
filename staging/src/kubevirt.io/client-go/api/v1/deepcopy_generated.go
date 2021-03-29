@@ -1717,6 +1717,13 @@ func (in *KubeVirtConfiguration) DeepCopyInto(out *KubeVirtConfiguration) {
 		*out = new(PermittedHostDevices)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.ObsoleteCPUModels != nil {
+		in, out := &in.ObsoleteCPUModels, &out.ObsoleteCPUModels
+		*out = make(map[string]bool, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 

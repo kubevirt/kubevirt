@@ -67,8 +67,10 @@ import (
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	devicemanager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	nodelabeller "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller"
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -348,6 +350,13 @@ func (app *virtHandlerApp) Run() {
 	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced, vmiSourceInformer.HasSynced, factory.CRD().HasSynced)
 
 	go vmController.Run(10, stop)
+
+	nodeLabellerController, err := nodelabeller.NewNodeLabeller(&devicemanager.DeviceController{}, app.clusterConfig, app.virtCli, app.HostOverride, app.namespace)
+	if err != nil {
+		panic(err)
+	}
+
+	go nodeLabellerController.Run(10, stop)
 
 	doneCh := make(chan string)
 	defer close(doneCh)

@@ -145,6 +145,8 @@ spec:
                     unsafeMigrationOverride:
                       type: boolean
                   type: object
+                minCPUModel:
+                  type: string
                 network:
                   description: NetworkConfiguration holds network options
                   properties:
@@ -154,6 +156,10 @@ spec:
                       type: boolean
                     permitSlirpInterface:
                       type: boolean
+                  type: object
+                obsoleteCPUModels:
+                  additionalProperties:
+                    type: boolean
                   type: object
                 ovmfPath:
                   type: string

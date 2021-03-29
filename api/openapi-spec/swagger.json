@@ -10217,8 +10217,17 @@
      "migrations": {
       "$ref": "#/definitions/v1.MigrationConfiguration"
      },
+     "minCPUModel": {
+      "type": "string"
+     },
      "network": {
       "$ref": "#/definitions/v1.NetworkConfiguration"
+     },
+     "obsoleteCPUModels": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "boolean"
+      }
      },
      "ovmfPath": {
       "type": "string"

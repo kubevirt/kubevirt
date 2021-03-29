@@ -46,6 +46,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/util/retry"
@@ -57,6 +58,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
+	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	crds "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests"
@@ -996,6 +998,259 @@ var _ = Describe("[Serial][owner:@sig-compute]Infrastructure", func() {
 		})
 
 	})
+
+	Describe("Node-labeller", func() {
+		Context("basic labelling", func() {
+			var nodesWithKVM []*k8sv1.Node
+
+			BeforeEach(func() {
+				tests.BeforeTestCleanup()
+				nodesWithKVM = tests.GetNodesWithKVM()
+			})
+
+			It("label nodes with cpu model and cpu features", func() {
+				for _, node := range nodesWithKVM {
+					Expect(err).ToNot(HaveOccurred())
+					cpuModelLabelPresent := false
+					cpuFeatureLabelPresent := false
+					hyperVLabelPresent := false
+					for key := range node.Labels {
+						if strings.Contains(key, v1.CPUModelLabel) {
+							cpuModelLabelPresent = true
+						}
+						if strings.Contains(key, v1.CPUFeatureLabel) {
+							cpuFeatureLabelPresent = true
+						}
+						if strings.Contains(key, v1.HypervLabel) {
+							hyperVLabelPresent = true
+						}
+
+						if cpuModelLabelPresent && cpuFeatureLabelPresent && hyperVLabelPresent {
+							break
+						}
+					}
+					Expect(cpuModelLabelPresent).To(Equal(true), "node "+node.Name+" doesn't contain cpu label")
+					Expect(cpuFeatureLabelPresent).To(Equal(true), "node "+node.Name+" doesn't contain feature label")
+					Expect(hyperVLabelPresent).To(Equal(true), "node "+node.Name+" doesn't contain hyperV label")
+				}
+			})
+
+			It("should set default obsolete cpu models filter when obsolete-cpus-models is not set in kubevirt config", func() {
+				node := nodesWithKVM[0]
+
+				for key := range node.Labels {
+					if strings.Contains(key, v1.CPUModelLabel) {
+						model := strings.TrimPrefix(key, v1.CPUModelLabel)
+						for obsoleteModel := range nodelabellerutil.DefaultObsoleteCPUModels {
+							Expect(model == obsoleteModel).To(Equal(false), "Node can't contain label with cpu model, which is in default obsolete filter")
+						}
+					}
+				}
+			})
+
+			It("should set default min cpu model filter when min-cpu is not set in kubevirt config", func() {
+				node := nodesWithKVM[0]
+
+				for key := range node.Labels {
+					Expect(key).ToNot(Equal(v1.CPUFeatureLabel+"apic"), "Node can't contain label with apic feature (it is feature of default min cpu)")
+				}
+			})
+		})
+
+		Context("advanced labelling", func() {
+			var nodesWithKVM []*k8sv1.Node
+			var originalKubeVirt *v1.KubeVirt
+
+			BeforeEach(func() {
+				tests.BeforeTestCleanup()
+				nodesWithKVM = tests.GetNodesWithKVM()
+
+				originalKubeVirt = tests.GetCurrentKv(virtClient)
+			})
+
+			AfterEach(func() {
+				tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
+			})
+
+			It("should update node with new cpu model label set", func() {
+				obsoleteModel := ""
+				node := nodesWithKVM[0]
+
+				kvConfig := originalKubeVirt.Spec.Configuration.DeepCopy()
+				kvConfig.ObsoleteCPUModels = make(map[string]bool)
+
+				for key := range node.Labels {
+					if strings.Contains(key, v1.CPUModelLabel) {
+						obsoleteModel = strings.TrimPrefix(key, v1.CPUModelLabel)
+						kvConfig.ObsoleteCPUModels[obsoleteModel] = true
+						break
+					}
+				}
+
+				tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+
+				node, err = virtClient.CoreV1().Nodes().Get(context.Background(), nodesWithKVM[0].Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				found := false
+				for key := range node.Labels {
+					if key == (v1.CPUModelLabel + obsoleteModel) {
+						found = true
+						break
+					}
+				}
+
+				Expect(found).To(Equal(false), "Node can't contain label "+v1.CPUModelLabel+obsoleteModel)
+			})
+
+			It("should update node with new cpu feature label set", func() {
+				node := nodesWithKVM[0]
+
+				numberOfLabelsBeforeUpdate := len(node.Labels)
+				minCPU := "Haswell"
+
+				kvConfig := originalKubeVirt.Spec.Configuration.DeepCopy()
+				kvConfig.MinCPUModel = minCPU
+				tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+
+				node, err = virtClient.CoreV1().Nodes().Get(context.Background(), nodesWithKVM[0].Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(numberOfLabelsBeforeUpdate).ToNot(Equal(len(node.Labels)), "Node should have different number of labels")
+			})
+
+			It("should remove all cpu model labels (all cpu model are in obsolete list)", func() {
+				node := nodesWithKVM[0]
+
+				obsoleteModels := nodelabellerutil.DefaultObsoleteCPUModels
+
+				for key := range node.Labels {
+					if strings.Contains(key, v1.CPUModelLabel) {
+						obsoleteModels[strings.TrimPrefix(key, v1.CPUModelLabel)] = true
+					}
+				}
+
+				kvConfig := originalKubeVirt.Spec.Configuration.DeepCopy()
+				kvConfig.ObsoleteCPUModels = obsoleteModels
+				tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+
+				node, err = virtClient.CoreV1().Nodes().Get(context.Background(), nodesWithKVM[0].Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				found := false
+				label := ""
+				for key := range node.Labels {
+					if strings.Contains(key, v1.CPUModelLabel) {
+						found = true
+						label = key
+						break
+					}
+				}
+
+				Expect(found).To(Equal(false), "Node can't contain any label "+label)
+			})
+		})
+
+		Context("Clean up after old labeller", func() {
+			var nodesWithKVM []*k8sv1.Node
+			nfdLabel := "feature.node.kubernetes.io/some-fancy-feature-which-should-not-be-deleted"
+			var originalKubeVirt *v1.KubeVirt
+
+			BeforeEach(func() {
+				tests.BeforeTestCleanup()
+				nodesWithKVM = tests.GetNodesWithKVM()
+				originalKubeVirt = tests.GetCurrentKv(virtClient)
+
+			})
+
+			AfterEach(func() {
+				originalNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodesWithKVM[0].Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				node := originalNode.DeepCopy()
+
+				for key := range node.Labels {
+					if strings.Contains(key, nfdLabel) {
+						delete(node.Labels, nfdLabel)
+					}
+				}
+				originalLabelsBytes, err := json.Marshal(originalNode.Labels)
+				Expect(err).ToNot(HaveOccurred())
+
+				labelsBytes, err := json.Marshal(node.Labels)
+				Expect(err).ToNot(HaveOccurred())
+
+				patchTestLabels := fmt.Sprintf(`{ "op": "test", "path": "/metadata/labels", "value": %s}`, string(originalLabelsBytes))
+				patchLabels := fmt.Sprintf(`{ "op": "replace", "path": "/metadata/labels", "value": %s}`, string(labelsBytes))
+
+				data := []byte(fmt.Sprintf("[ %s, %s ]", patchTestLabels, patchLabels))
+
+				_, err = virtClient.CoreV1().Nodes().Patch(context.Background(), nodesWithKVM[0].Name, types.JSONPatchType, data, metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should remove old labeller labels and annotations", func() {
+				originalNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodesWithKVM[0].Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				node := originalNode.DeepCopy()
+
+				node.Labels[nodelabellerutil.DeprecatedLabelNamespace+nodelabellerutil.DeprecatedcpuModelPrefix+"Penryn"] = "true"
+				node.Labels[nodelabellerutil.DeprecatedLabelNamespace+nodelabellerutil.DeprecatedcpuFeaturePrefix+"mmx"] = "true"
+				node.Labels[nodelabellerutil.DeprecatedLabelNamespace+nodelabellerutil.DeprecatedHyperPrefix+"synic"] = "true"
+				node.Labels[nfdLabel] = "true"
+				node.Annotations[nodelabellerutil.DeprecatedLabellerNamespaceAnnotation+nodelabellerutil.DeprecatedcpuModelPrefix+"Penryn"] = "true"
+				node.Annotations[nodelabellerutil.DeprecatedLabellerNamespaceAnnotation+nodelabellerutil.DeprecatedcpuFeaturePrefix+"mmx"] = "true"
+				node.Annotations[nodelabellerutil.DeprecatedLabellerNamespaceAnnotation+nodelabellerutil.DeprecatedHyperPrefix+"synic"] = "true"
+
+				originalLabelsBytes, err := json.Marshal(originalNode.Labels)
+				Expect(err).ToNot(HaveOccurred())
+
+				originalAnnotationsBytes, err := json.Marshal(originalNode.Annotations)
+				Expect(err).ToNot(HaveOccurred())
+
+				labelsBytes, err := json.Marshal(node.Labels)
+				Expect(err).ToNot(HaveOccurred())
+
+				annotationsBytes, err := json.Marshal(node.Annotations)
+				Expect(err).ToNot(HaveOccurred())
+
+				patchTestLabels := fmt.Sprintf(`{ "op": "test", "path": "/metadata/labels", "value": %s}`, string(originalLabelsBytes))
+				patchTestAnnotations := fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s}`, string(originalAnnotationsBytes))
+				patchLabels := fmt.Sprintf(`{ "op": "replace", "path": "/metadata/labels", "value": %s}`, string(labelsBytes))
+				patchAnnotations := fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s}`, string(annotationsBytes))
+
+				data := []byte(fmt.Sprintf("[ %s, %s, %s, %s ]", patchTestLabels, patchLabels, patchTestAnnotations, patchAnnotations))
+
+				_, err = virtClient.CoreV1().Nodes().Patch(context.Background(), nodesWithKVM[0].Name, types.JSONPatchType, data, metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				kvConfig := originalKubeVirt.Spec.Configuration.DeepCopy()
+				kvConfig.ObsoleteCPUModels = map[string]bool{"486": true}
+				tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+
+				time.Sleep(time.Second * 10)
+				node, err = virtClient.CoreV1().Nodes().Get(context.Background(), nodesWithKVM[0].Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				foundSpecialLabel := false
+				for key := range node.Labels {
+					Expect(key).ToNot(ContainSubstring(nodelabellerutil.DeprecatedLabelNamespace+nodelabellerutil.DeprecatedcpuModelPrefix), "Node can't contain any label with prefix "+nodelabellerutil.DeprecatedLabelNamespace+nodelabellerutil.DeprecatedcpuModelPrefix)
+					Expect(key).ToNot(ContainSubstring(nodelabellerutil.DeprecatedLabelNamespace+nodelabellerutil.DeprecatedcpuFeaturePrefix), "Node can't contain any label with prefix "+nodelabellerutil.DeprecatedLabelNamespace+nodelabellerutil.DeprecatedcpuFeaturePrefix)
+					Expect(key).ToNot(ContainSubstring(nodelabellerutil.DeprecatedLabelNamespace+nodelabellerutil.DeprecatedHyperPrefix), "Node can't contain any label with prefix "+nodelabellerutil.DeprecatedLabelNamespace+nodelabellerutil.DeprecatedHyperPrefix)
+
+					if key == nfdLabel {
+						foundSpecialLabel = true
+					}
+				}
+				Expect(foundSpecialLabel).To(Equal(true), "Labeller should not delete NFD labels")
+
+				for key := range node.Annotations {
+					Expect(key).ToNot(ContainSubstring(nodelabellerutil.DeprecatedLabellerNamespaceAnnotation), "Node can't contain any annotations with prefix "+nodelabellerutil.DeprecatedLabellerNamespaceAnnotation)
+
+				}
+			})
+
+		})
+	})
+
 })
 
 func getLeader() string {

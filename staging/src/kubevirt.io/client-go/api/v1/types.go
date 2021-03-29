@@ -633,6 +633,13 @@ const (
 	IgnitionAnnotation           string = "kubevirt.io/ignitiondata"
 	PlacePCIDevicesOnRootComplex string = "kubevirt.io/placePCIDevicesOnRootComplex"
 
+	// This label represents supported cpu features on the node
+	CPUFeatureLabel = "cpu-feature.node.kubevirt.io/"
+	// This laberepresents supported cpu models on the node
+	CPUModelLabel = "cpu-model.node.kubevirt.io/"
+	// This label represents supported HyperV features on the node
+	HypervLabel = "hyperv.node.kubevirt.io/"
+
 	VirtualMachineLabel        = AppLabel + "/vm"
 	MemfdMemoryBackend  string = "kubevirt.io/memfd"
 )
@@ -1649,6 +1656,8 @@ type KubeVirtConfiguration struct {
 	SupportedGuestAgentVersions []string                `json:"supportedGuestAgentVersions,omitempty"`
 	MemBalloonStatsPeriod       *uint32                 `json:"memBalloonStatsPeriod,omitempty"`
 	PermittedHostDevices        *PermittedHostDevices   `json:"permittedHostDevices,omitempty"`
+	MinCPUModel                 string                  `json:"minCPUModel,omitempty"`
+	ObsoleteCPUModels           map[string]bool         `json:"obsoleteCPUModels,omitempty"`
 }
 
 //

@@ -870,6 +870,74 @@ func EnsureKVMPresent() {
 	}
 }
 
+func GetNodesWithKVM() []*k8sv1.Node {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
+	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
+	Expect(err).ToNot(HaveOccurred())
+
+	nodes := make([]*k8sv1.Node, 0)
+	// cluster is not ready until all nodes are ready.
+	for _, pod := range virtHandlerPods.Items {
+		virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		_, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
+		if ok {
+			nodes = append(nodes, virtHandlerNode)
+		}
+	}
+	return nodes
+}
+
+func GetSupportedCPUFeatures(nodes k8sv1.NodeList) []string {
+	var featureDenyList = map[string]bool{
+		"svm": true,
+	}
+	featuresMap := make(map[string]bool)
+	for _, node := range nodes.Items {
+		for key := range node.Labels {
+			if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) {
+				feature := strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX)
+				if _, ok := featureDenyList[feature]; !ok {
+					featuresMap[feature] = true
+				}
+			}
+		}
+	}
+
+	features := make([]string, 0)
+	for feature := range featuresMap {
+		features = append(features, feature)
+	}
+	return features
+}
+
+func GetSupportedCPUModels(nodes k8sv1.NodeList) []string {
+	var cpuDenyList = map[string]bool{
+		"qemu64":     true,
+		"Opteron_G2": true,
+	}
+	cpuMap := make(map[string]bool)
+	for _, node := range nodes.Items {
+		for key := range node.Labels {
+			if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
+				cpu := strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
+				if _, ok := cpuDenyList[cpu]; !ok {
+					cpuMap[cpu] = true
+				}
+			}
+		}
+	}
+
+	cpus := make([]string, 0)
+	for model := range cpuMap {
+		cpus = append(cpus, model)
+	}
+	return cpus
+}
+
 func CreateConfigMap(name string, data map[string]string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
