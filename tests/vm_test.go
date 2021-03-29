@@ -55,11 +55,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
-<<<<<<< HEAD
-var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component][owner:@sig-compute]VirtualMachine", func() {
-=======
-var _ = Describe("[SKIP][rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachine", func() {
->>>>>>> Skip more tests
+var _ = Describe("[SKIP][rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component][owner:@sig-compute]VirtualMachine", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

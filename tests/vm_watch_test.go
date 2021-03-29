@@ -141,11 +141,7 @@ func createCommandWithNSAndRedirect(namespace, cmdName string, args ...string) (
 	return cmd, stdOut, stdErr, nil
 }
 
-<<<<<<< HEAD
-var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:component][owner:@sig-compute]VmWatch", func() {
-=======
-var _ = Describe("[SKIP][rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:component]VmWatch", func() {
->>>>>>> Skip more tests
+var _ = Describe("[SKIP][rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:component][owner:@sig-compute]VmWatch", func() {
 	var err error
 	var virtCli kubecli.KubevirtClient
 

@@ -36,11 +36,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
-<<<<<<< HEAD
-var _ = Describe("[rfe_id:609][owner:@sig-compute]VMIheadless", func() {
-=======
-var _ = Describe("[SKIP][rfe_id:609]VMIheadless", func() {
->>>>>>> Skip more tests
+var _ = Describe("[SKIP][rfe_id:609][owner:@sig-compute]VMIheadless", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

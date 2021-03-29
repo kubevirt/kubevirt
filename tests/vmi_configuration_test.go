@@ -58,11 +58,7 @@ import (
 
 type VMICreationFuncWithEFI func() *v1.VirtualMachineInstance
 
-<<<<<<< HEAD
-var _ = Describe("[owner:@sig-compute]Configurations", func() {
-=======
-var _ = Describe("[SKIP]Configurations", func() {
->>>>>>> Skip more tests
+var _ = Describe("[SKIP][owner:@sig-compute]Configurations", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

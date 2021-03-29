@@ -46,11 +46,7 @@ const (
 	sidecarContainerName = "hook-sidecar-0"
 )
 
-<<<<<<< HEAD
-var _ = Describe("[owner:@sig-compute]HookSidecars", func() {
-=======
-var _ = Describe("[SKIP]HookSidecars", func() {
->>>>>>> Skip more tests
+var _ = Describe("[SKIP][owner:@sig-compute]HookSidecars", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
