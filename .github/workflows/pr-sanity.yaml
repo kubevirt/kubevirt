@@ -29,7 +29,7 @@ jobs:
           # TODO: go.sum from go 1.16.0 and the one generated from go 1.15.z
           # are currently different, let's force this for consistency
           # until we are able to workaround this or definitively move to go 1.16
-          go-version: '1.15.8' # The Go version to download (if necessary) and use.
+          go-version: '1.15.10' # The Go version to download (if necessary) and use.
 
       - name: Do sanity checks
         run: make sanity
