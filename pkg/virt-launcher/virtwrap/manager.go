@@ -499,9 +499,6 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		loopbackAddress := ip.GetLoopbackAddress()
 		// Create a tcp server for each direct connection proxy
 		for _, port := range migrationPortsRange {
-			if options.OSChosenMigrationProxyPort {
-				port = 0
-			}
 			key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
 			migrationProxy := migrationproxy.NewTargetProxy(loopbackAddress, port, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, key))
 			defer migrationProxy.StopListening()
@@ -513,11 +510,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		}
 
 		//  proxy incoming migration requests on port 22222 to the vmi's existing libvirt connection
-		tcpBindPort := LibvirtLocalConnectionPort
-		if options.OSChosenMigrationProxyPort {
-			tcpBindPort = 0
-		}
-		libvirtConnectionProxy := migrationproxy.NewTargetProxy(loopbackAddress, tcpBindPort, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
+		libvirtConnectionProxy := migrationproxy.NewTargetProxy(loopbackAddress, LibvirtLocalConnectionPort, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
 		defer libvirtConnectionProxy.StopListening()
 		err := libvirtConnectionProxy.StartListening()
 		if err != nil {
@@ -526,7 +519,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		}
 
 		// For a tunnelled migration, this is always the uri
-		dstURI := fmt.Sprintf("qemu+tcp://%s/system", net.JoinHostPort(loopbackAddress, strconv.Itoa(tcpBindPort)))
+		dstURI := fmt.Sprintf("qemu+tcp://%s/system", net.JoinHostPort(loopbackAddress, strconv.Itoa(LibvirtLocalConnectionPort)))
 		migrURI := fmt.Sprintf("tcp://%s", ip.NormalizeIPAddress(loopbackAddress))
 
 		domName := api.VMINamespaceKeyFunc(vmi)
