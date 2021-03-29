@@ -14,7 +14,7 @@ require (
 	github.com/google/uuid v1.1.4
 	github.com/googleapis/gnostic v0.5.3 // indirect
 	github.com/imdario/mergo v0.3.11
-	github.com/kubevirt/cluster-network-addons-operator v0.49.0
+	github.com/kubevirt/cluster-network-addons-operator v0.50.0
 	github.com/kubevirt/vm-import-operator v0.3.0
 	github.com/onsi/ginkgo v1.15.0
 	github.com/onsi/gomega v1.10.5
