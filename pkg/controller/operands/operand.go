@@ -130,7 +130,12 @@ func (h *genericOperand) completeEnsureOperands(req *common.HcoRequest, found cl
 	// Handle KubeVirt resource conditions
 	isReady := handleComponentConditions(req, h.crType, h.hooks.getConditions(found))
 
-	upgradeDone := req.UpgradeMode && isReady && h.hooks.checkComponentVersion(found)
+	versionUpdated := h.hooks.checkComponentVersion(found)
+	if isReady && !versionUpdated {
+		req.Logger.Info(fmt.Sprintf("could not complete the upgrade process. %s is not with the expected version. Check %s observed version in the status field of its CR", h.crType, h.crType))
+	}
+
+	upgradeDone := req.UpgradeMode && isReady && versionUpdated
 	return res.SetUpgradeDone(upgradeDone)
 }
 
