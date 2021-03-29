@@ -394,8 +394,8 @@ var _ = Describe("HyperconvergedTypes", func() {
 						},
 					},
 				},
-				CertConfig: &HyperConvergedCertConfig{
-					CA: &CertRotateConfig{
+				CertConfig: HyperConvergedCertConfig{
+					CA: CertRotateConfig{
 						Duration: metav1.Duration{
 							Duration: time.Hour * 24 * 365,
 						},
@@ -403,7 +403,7 @@ var _ = Describe("HyperconvergedTypes", func() {
 							Duration: time.Hour * 24,
 						},
 					},
-					Server: &CertRotateConfig{
+					Server: CertRotateConfig{
 						Duration: metav1.Duration{
 							Duration: time.Hour * 24 * 365,
 						},

@@ -3,25 +3,24 @@ package commonTestUtils
 import (
 	"context"
 	"fmt"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	consolev1 "github.com/openshift/api/console/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/api"
 
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -49,27 +48,9 @@ var (
 )
 
 func NewHco() *hcov1beta1.HyperConverged {
-	bandwidthPerMigration := "64Mi"
-	completionTimeoutPerGiB := int64(800)
-	parallelMigrationsPerCluster := uint32(5)
-	parallelOutboundMigrationsPerNode := uint32(2)
-	progressTimeout := int64(150)
-
-	return &hcov1beta1.HyperConverged{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      Name,
-			Namespace: Namespace,
-		},
-		Spec: hcov1beta1.HyperConvergedSpec{
-			LiveMigrationConfig: hcov1beta1.LiveMigrationConfigurations{
-				BandwidthPerMigration:             &bandwidthPerMigration,
-				CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
-				ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
-				ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
-				ProgressTimeout:                   &progressTimeout,
-			},
-		},
-	}
+	hco := components.GetOperatorCR()
+	hco.ObjectMeta.Namespace = Namespace
+	return hco
 }
 
 func NewReq(inst *hcov1beta1.HyperConverged) *common.HcoRequest {

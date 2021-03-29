@@ -940,6 +940,20 @@ func GetV2VOvirtProviderCRD() *extv1beta1.CustomResourceDefinition {
 }
 
 func GetOperatorCR() *hcov1beta1.HyperConverged {
+	// TODO: better handle defaults
+	// on a real cluster the defaulting mechanism is properly
+	// ensured by the APIServer according to defaults set
+	// in the OpenAPIv3 specification on the CRD.
+	// With unit tests on a mock client or locally generating
+	// templates we cannot relay on that mechanism and we
+	// have to keep this up to date.
+
+	bandwidthPerMigration := "64Mi"
+	completionTimeoutPerGiB := int64(800)
+	parallelMigrationsPerCluster := uint32(5)
+	parallelOutboundMigrationsPerNode := uint32(2)
+	progressTimeout := int64(150)
+
 	return &hcov1beta1.HyperConverged{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "hco.kubevirt.io/v1beta1",
@@ -949,6 +963,23 @@ func GetOperatorCR() *hcov1beta1.HyperConverged {
 			Name: crName,
 		},
 		Spec: hcov1beta1.HyperConvergedSpec{
+			CertConfig: hcov1beta1.HyperConvergedCertConfig{
+				CA: hcov1beta1.CertRotateConfig{
+					Duration:    metav1.Duration{Duration: 48 * time.Hour},
+					RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
+				},
+				Server: hcov1beta1.CertRotateConfig{
+					Duration:    metav1.Duration{Duration: 24 * time.Hour},
+					RenewBefore: metav1.Duration{Duration: 12 * time.Hour},
+				},
+			},
+			LiveMigrationConfig: hcov1beta1.LiveMigrationConfigurations{
+				BandwidthPerMigration:             &bandwidthPerMigration,
+				CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
+				ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
+				ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
+				ProgressTimeout:                   &progressTimeout,
+			},
 			LocalStorageClassName: "",
 		},
 	}

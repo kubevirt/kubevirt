@@ -50,8 +50,8 @@ HyperConvergedCertConfig holds the CertConfig entries for the HCO operands
 
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
-| ca | CA configuration - CA certs are kept in the CA bundle as long as they are valid | *[CertRotateConfig](#certrotateconfig) | {duration: "48h", renewBefore: "24h"} | false |
-| server | Server configuration - Certs are rotated and discarded | *[CertRotateConfig](#certrotateconfig) | {duration: "24h", renewBefore: "12h"} | false |
+| ca | CA configuration - CA certs are kept in the CA bundle as long as they are valid | [CertRotateConfig](#certrotateconfig) | {duration: "48h", renewBefore: "24h"} | false |
+| server | Server configuration - Certs are rotated and discarded | [CertRotateConfig](#certrotateconfig) | {duration: "24h", renewBefore: "12h"} | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -98,7 +98,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | featureGates | featureGates is a map of feature gate flags. Setting a flag to `true` will enable the feature. Setting `false` or removing the feature gate, disables the feature. | [HyperConvergedFeatureGates](#hyperconvergedfeaturegates) |  | false |
 | liveMigrationConfig | Live migration limits and timeouts are applied so that migration processes do not overwhelm the cluster. | [LiveMigrationConfigurations](#livemigrationconfigurations) |  | false |
 | permittedHostDevices | PermittedHostDevices holds inforamtion about devices allowed for passthrough | *[PermittedHostDevices](#permittedhostdevices) |  | false |
-| certConfig | certConfig holds the rotation policy for internal, self-signed certificates | *[HyperConvergedCertConfig](#hyperconvergedcertconfig) |  | false |
+| certConfig | certConfig holds the rotation policy for internal, self-signed certificates | [HyperConvergedCertConfig](#hyperconvergedcertconfig) | {ca: {duration: "48h", renewBefore: "24h"}, server: {duration: "24h", renewBefore: "12h"}} | false |
 | resourceRequirements | ResourceRequirements describes the resource requirements for the operand workloads. | *[OperandResourceRequirements](#operandresourcerequirements) |  | false |
 | scratchSpaceStorageClass | Override the storage class used for scratch space during transfer operations. The scratch space storage class is determined in the following order: value of scratchSpaceStorageClass, if that doesn't exist, use the default storage class, if there is no default storage class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space | *string |  | false |
 | version | operator version | string |  | false |

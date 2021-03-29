@@ -4,13 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"strings"
-	"time"
-
 	jsonpatch "github.com/evanphx/json-patch"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strings"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
@@ -338,19 +336,6 @@ func getLabels(hc *hcov1beta1.HyperConverged, component hcoutil.AppComponent) ma
 		hcoutil.AppLabelVersion:   hcoutil.GetHcoKvIoVersion(),
 		hcoutil.AppLabelPartOf:    hcoutil.HyperConvergedCluster,
 		hcoutil.AppLabelComponent: string(component),
-	}
-}
-
-func getDefaultCertConfig() *hcov1beta1.HyperConvergedCertConfig {
-	return &hcov1beta1.HyperConvergedCertConfig{
-		CA: &hcov1beta1.CertRotateConfig{
-			Duration:    metav1.Duration{Duration: 48 * time.Hour},
-			RenewBefore: metav1.Duration{Duration: 24 * time.Hour},
-		},
-		Server: &hcov1beta1.CertRotateConfig{
-			Duration:    metav1.Duration{Duration: 24 * time.Hour},
-			RenewBefore: metav1.Duration{Duration: 12 * time.Hour},
-		},
 	}
 }
 

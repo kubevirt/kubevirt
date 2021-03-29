@@ -46,6 +46,13 @@ spec:
             description: HyperConvergedSpec defines the desired state of HyperConverged
             properties:
               certConfig:
+                default:
+                  ca:
+                    duration: 48h
+                    renewBefore: 24h
+                  server:
+                    duration: 24h
+                    renewBefore: 12h
                 description: certConfig holds the rotation policy for internal, self-signed
                   certificates
                 properties:

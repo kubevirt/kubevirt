@@ -51,8 +51,9 @@ type HyperConvergedSpec struct {
 	PermittedHostDevices *PermittedHostDevices `json:"permittedHostDevices,omitempty"`
 
 	// certConfig holds the rotation policy for internal, self-signed certificates
+	// +kubebuilder:default={ca: {duration: "48h", renewBefore: "24h"}, server: {duration: "24h", renewBefore: "12h"}}
 	// +optional
-	CertConfig *HyperConvergedCertConfig `json:"certConfig,omitempty"`
+	CertConfig HyperConvergedCertConfig `json:"certConfig,omitempty"`
 
 	// ResourceRequirements describes the resource requirements for the operand workloads.
 	// +optional
@@ -71,6 +72,7 @@ type HyperConvergedSpec struct {
 }
 
 // CertConfig contains the tunables for TLS certificates.
+// +k8s:openapi-gen=true
 type CertRotateConfig struct {
 	// The requested 'duration' (i.e. lifetime) of the Certificate.
 	// This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)
@@ -83,17 +85,18 @@ type CertRotateConfig struct {
 }
 
 // HyperConvergedCertConfig holds the CertConfig entries for the HCO operands
+// +k8s:openapi-gen=true
 // +optional
 type HyperConvergedCertConfig struct {
 	// CA configuration -
 	// CA certs are kept in the CA bundle as long as they are valid
 	// +kubebuilder:default={duration: "48h", renewBefore: "24h"}
-	CA *CertRotateConfig `json:"ca,omitempty"`
+	CA CertRotateConfig `json:"ca,omitempty"`
 
 	// Server configuration -
 	// Certs are rotated and discarded
 	// +kubebuilder:default={duration: "24h", renewBefore: "12h"}
-	Server *CertRotateConfig `json:"server,omitempty"`
+	Server CertRotateConfig `json:"server,omitempty"`
 }
 
 // HyperConvergedConfig defines a set of configurations to pass to components

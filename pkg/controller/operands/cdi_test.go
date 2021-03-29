@@ -583,22 +583,10 @@ var _ = Describe("CDI Operand", func() {
 		})
 
 		It("should add cert configuration if missing in CDI", func() {
-			expectedResource, err := NewCDI(hco)
-			Expect(err).ToNot(HaveOccurred())
-			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+			existingResource := NewCDIWithNameOnly(hco)
+			existingResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/%s/dummies/%s", existingResource.Namespace, existingResource.Name)
 
-			hco.Spec.CertConfig = &hcov1beta1.HyperConvergedCertConfig{
-				CA: &hcov1beta1.CertRotateConfig{
-					Duration:    metav1.Duration{Duration: 1 * time.Hour},
-					RenewBefore: metav1.Duration{Duration: 2 * time.Hour},
-				},
-				Server: &hcov1beta1.CertRotateConfig{
-					Duration:    metav1.Duration{Duration: 3 * time.Hour},
-					RenewBefore: metav1.Duration{Duration: 4 * time.Hour},
-				},
-			}
-
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
+			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
 			handler := (*genericOperand)(newCdiHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
 
@@ -609,21 +597,17 @@ var _ = Describe("CDI Operand", func() {
 			foundResource := &cdiv1beta1.CDI{}
 			Expect(
 				cl.Get(context.TODO(),
-					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
 					foundResource),
 			).To(BeNil())
 
-			Expect(expectedResource.Spec.CertConfig).ToNot(BeNil())
-			Expect(expectedResource.Spec.CertConfig.CA.Duration.Duration.String()).Should(Equal("48h0m0s"))
-			Expect(expectedResource.Spec.CertConfig.CA.RenewBefore.Duration.String()).Should(Equal("24h0m0s"))
-			Expect(expectedResource.Spec.CertConfig.Server.Duration.Duration.String()).Should(Equal("24h0m0s"))
-			Expect(expectedResource.Spec.CertConfig.Server.RenewBefore.Duration.String()).Should(Equal("12h0m0s"))
+			Expect(existingResource.Spec.CertConfig).To(BeNil())
 
 			Expect(foundResource.Spec.CertConfig).ToNot(BeNil())
-			Expect(foundResource.Spec.CertConfig.CA.Duration.Duration.String()).Should(Equal("1h0m0s"))
-			Expect(foundResource.Spec.CertConfig.CA.RenewBefore.Duration.String()).Should(Equal("2h0m0s"))
-			Expect(foundResource.Spec.CertConfig.Server.Duration.Duration.String()).Should(Equal("3h0m0s"))
-			Expect(foundResource.Spec.CertConfig.Server.RenewBefore.Duration.String()).Should(Equal("4h0m0s"))
+			Expect(foundResource.Spec.CertConfig.CA.Duration.Duration.String()).Should(Equal("48h0m0s"))
+			Expect(foundResource.Spec.CertConfig.CA.RenewBefore.Duration.String()).Should(Equal("24h0m0s"))
+			Expect(foundResource.Spec.CertConfig.Server.Duration.Duration.String()).Should(Equal("24h0m0s"))
+			Expect(foundResource.Spec.CertConfig.Server.RenewBefore.Duration.String()).Should(Equal("12h0m0s"))
 
 			Expect(req.Conditions).To(BeEmpty())
 		})
@@ -658,26 +642,16 @@ var _ = Describe("CDI Operand", func() {
 
 		It("should modify cert configuration according to HCO CR", func() {
 			hcoCertConfig := commonTestUtils.NewHco()
-			hcoCertConfig.Spec.CertConfig = &hcov1beta1.HyperConvergedCertConfig{
-				CA: &hcov1beta1.CertRotateConfig{
-					Duration:    metav1.Duration{Duration: 1 * time.Hour},
-					RenewBefore: metav1.Duration{Duration: 2 * time.Hour},
-				},
-				Server: &hcov1beta1.CertRotateConfig{
-					Duration:    metav1.Duration{Duration: 3 * time.Hour},
-					RenewBefore: metav1.Duration{Duration: 4 * time.Hour},
-				},
-			}
 
 			existingResource, err := NewCDI(hcoCertConfig)
 			Expect(err).ToNot(HaveOccurred())
 
-			hco.Spec.CertConfig = &hcov1beta1.HyperConvergedCertConfig{
-				CA: &hcov1beta1.CertRotateConfig{
+			hco.Spec.CertConfig = hcov1beta1.HyperConvergedCertConfig{
+				CA: hcov1beta1.CertRotateConfig{
 					Duration:    metav1.Duration{Duration: 5 * time.Hour},
 					RenewBefore: metav1.Duration{Duration: 6 * time.Hour},
 				},
-				Server: &hcov1beta1.CertRotateConfig{
+				Server: hcov1beta1.CertRotateConfig{
 					Duration:    metav1.Duration{Duration: 7 * time.Hour},
 					RenewBefore: metav1.Duration{Duration: 8 * time.Hour},
 				},
@@ -698,10 +672,10 @@ var _ = Describe("CDI Operand", func() {
 			).To(BeNil())
 
 			Expect(existingResource.Spec.CertConfig).ToNot(BeNil())
-			Expect(existingResource.Spec.CertConfig.CA.Duration.Duration.String()).Should(Equal("1h0m0s"))
-			Expect(existingResource.Spec.CertConfig.CA.RenewBefore.Duration.String()).Should(Equal("2h0m0s"))
-			Expect(existingResource.Spec.CertConfig.Server.Duration.Duration.String()).Should(Equal("3h0m0s"))
-			Expect(existingResource.Spec.CertConfig.Server.RenewBefore.Duration.String()).Should(Equal("4h0m0s"))
+			Expect(existingResource.Spec.CertConfig.CA.Duration.Duration.String()).Should(Equal("48h0m0s"))
+			Expect(existingResource.Spec.CertConfig.CA.RenewBefore.Duration.String()).Should(Equal("24h0m0s"))
+			Expect(existingResource.Spec.CertConfig.Server.Duration.Duration.String()).Should(Equal("24h0m0s"))
+			Expect(existingResource.Spec.CertConfig.Server.RenewBefore.Duration.String()).Should(Equal("12h0m0s"))
 
 			Expect(foundResource.Spec.CertConfig).ToNot(BeNil())
 			Expect(foundResource.Spec.CertConfig.CA.Duration.Duration.String()).Should(Equal("5h0m0s"))

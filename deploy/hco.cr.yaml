@@ -4,7 +4,19 @@ kind: HyperConverged
 metadata:
   name: kubevirt-hyperconverged
 spec:
+  certConfig:
+    ca:
+      duration: 48h0m0s
+      renewBefore: 24h0m0s
+    server:
+      duration: 24h0m0s
+      renewBefore: 12h0m0s
   featureGates: {}
   infra: {}
-  liveMigrationConfig: {}
+  liveMigrationConfig:
+    bandwidthPerMigration: 64Mi
+    completionTimeoutPerGiB: 800
+    parallelMigrationsPerCluster: 5
+    parallelOutboundMigrationsPerNode: 2
+    progressTimeout: 150
   workloads: {}

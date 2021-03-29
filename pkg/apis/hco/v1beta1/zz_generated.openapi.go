@@ -29,7 +29,9 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
+		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.CertRotateConfig":            schema_pkg_apis_hco_v1beta1_CertRotateConfig(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConverged":              schema_pkg_apis_hco_v1beta1_HyperConverged(ref),
+		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedCertConfig":    schema_pkg_apis_hco_v1beta1_HyperConvergedCertConfig(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedFeatureGates":  schema_pkg_apis_hco_v1beta1_HyperConvergedFeatureGates(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedSpec":          schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedStatus":        schema_pkg_apis_hco_v1beta1_HyperConvergedStatus(ref),
@@ -38,6 +40,33 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.OperandResourceRequirements": schema_pkg_apis_hco_v1beta1_OperandResourceRequirements(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.PciHostDevice":               schema_pkg_apis_hco_v1beta1_PciHostDevice(ref),
 		"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.PermittedHostDevices":        schema_pkg_apis_hco_v1beta1_PermittedHostDevices(ref),
+	}
+}
+
+func schema_pkg_apis_hco_v1beta1_CertRotateConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CertConfig contains the tunables for TLS certificates.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"duration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The requested 'duration' (i.e. lifetime) of the Certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+					"renewBefore": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The amount of time before the currently issued certificate's `notAfter` time that we will begin to attempt to renew the certificate. This should comply with golang's ParseDuration format (https://golang.org/pkg/time/#ParseDuration)",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
 	}
 }
 
@@ -82,6 +111,33 @@ func schema_pkg_apis_hco_v1beta1_HyperConverged(ref common.ReferenceCallback) co
 		},
 		Dependencies: []string{
 			"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedSpec", "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.HyperConvergedStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_hco_v1beta1_HyperConvergedCertConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "HyperConvergedCertConfig holds the CertConfig entries for the HCO operands",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"ca": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CA configuration - CA certs are kept in the CA bundle as long as they are valid",
+							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.CertRotateConfig"),
+						},
+					},
+					"server": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Server configuration - Certs are rotated and discarded",
+							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.CertRotateConfig"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1.CertRotateConfig"},
 	}
 }
 
