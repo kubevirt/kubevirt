@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -48,47 +47,42 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1beta1.CustomResourceDefinition)
 		return nil
 	}
 
-	modified := resourcemerge.BoolPtr(false)
-	existing := cachedCrd.DeepCopy()
+	if !objectMatchesVersion(&cachedCrd.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
+		// Patch if old version
+		var ops []string
 
-	resourcemerge.EnsureCustomResourceDefinitionV1Beta1(modified, existing, *crd)
-	// there was no change to metadata and the spec fields are equal
-	if !*modified {
-		log.Log.V(4).Infof("crd %v is up-to-date", crd.GetName())
+		// Add Labels and Annotations Patches
+		labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&crd.ObjectMeta)
+		if err != nil {
+			return err
+		}
+		ops = append(ops, labelAnnotationPatch...)
+
+		// subresource support needs to be introduced carefully after the control plane roll-over
+		// to avoid creating zombie entities which don't get processed du to ignored status updates
+		if cachedCrd.Spec.Subresources == nil || cachedCrd.Spec.Subresources.Status == nil {
+			if crd.Spec.Subresources != nil && crd.Spec.Subresources.Status != nil {
+				crd.Spec.Subresources.Status = nil
+			}
+		}
+
+		// Add Spec Patch
+		newSpec, err := json.Marshal(crd.Spec)
+		if err != nil {
+			return err
+		}
+		ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+
+		_, err = ext.ApiextensionsV1beta1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to patch crd %+v: %v", crd, err)
+		}
+
+		log.Log.V(2).Infof("crd %v updated", crd.GetName())
 		return nil
 	}
 
-	// Patch if old version
-	ops := []string{}
-
-	// Add Labels and Annotations Patches
-	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&crd.ObjectMeta)
-	if err != nil {
-		return err
-	}
-	ops = append(ops, labelAnnotationPatch...)
-
-	// subresource support needs to be introduced carefully after the control plane roll-over
-	// to avoid creating zombie entities which don't get processed due to ignored status updates
-	if cachedCrd.Spec.Subresources == nil || cachedCrd.Spec.Subresources.Status == nil {
-		if crd.Spec.Subresources != nil && crd.Spec.Subresources.Status != nil {
-			crd.Spec.Subresources.Status = nil
-		}
-	}
-
-	// Add Spec Patch
-	newSpec, err := json.Marshal(crd.Spec)
-	if err != nil {
-		return err
-	}
-	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
-
-	_, err = ext.ApiextensionsV1beta1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to patch crd %+v: %v", crd, err)
-	}
-
-	log.Log.V(2).Infof("crd %v updated", crd.GetName())
+	log.Log.V(4).Infof("crd %v is up-to-date", crd.GetName())
 	return nil
 }
 

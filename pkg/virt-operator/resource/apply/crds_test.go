@@ -5,8 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -199,77 +197,5 @@ var _ = Describe("Apply CRDs", func() {
 		}
 
 		Expect(r.rolloutNonCompatibleCRDChanges()).To(Succeed())
-	})
-
-	It("should not patch CRD on sync when they are equal", func() {
-		cachedCRD, err := components.NewKubeVirtCrd()
-		Expect(err).ToNot(HaveOccurred())
-
-		version, imageRegistry, id := getTargetVersionRegistryID(kv)
-		injectOperatorMetadata(kv, &cachedCRD.ObjectMeta, version, imageRegistry, id, true)
-
-		targetStrategy := loadTargetStrategy(cachedCRD)
-		stores.CrdCache.Add(cachedCRD)
-
-		extClient.Fake.PrependReactor("patch", "customresourcedefinitions", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-			// if patch is called we want to fail
-			Expect(true).To(BeFalse())
-
-			return true, nil, nil
-		})
-
-		r := &Reconciler{
-			kv:             kv,
-			targetStrategy: targetStrategy,
-			stores:         stores,
-			clientset:      clientset,
-			expectations:   expectations,
-		}
-
-		Expect(r.createOrUpdateCrd(cachedCRD)).To(BeNil())
-	})
-
-	It("should patch CRD on sync when it is not equal to the required CRD", func() {
-		updatedFieldName := "NewNameForCRDs"
-
-		cachedCRD, err := components.NewKubeVirtCrd()
-		Expect(err).ToNot(HaveOccurred())
-
-		version, imageRegistry, id := getTargetVersionRegistryID(kv)
-		injectOperatorMetadata(kv, &cachedCRD.ObjectMeta, version, imageRegistry, id, true)
-
-		targetStrategy := loadTargetStrategy(cachedCRD)
-		stores.CrdCache.Add(cachedCRD)
-
-		extClient.Fake.PrependReactor("patch", "customresourcedefinitions", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-			a := action.(testing.PatchActionImpl)
-			patch, err := jsonpatch.DecodePatch(a.Patch)
-			Expect(err).ToNot(HaveOccurred())
-
-			obj, err := json.Marshal(cachedCRD)
-			Expect(err).To(BeNil())
-
-			obj, err = patch.Apply(obj)
-			Expect(err).To(BeNil())
-
-			crd := &extv1beta1.CustomResourceDefinition{}
-			Expect(json.Unmarshal(obj, crd)).To(Succeed())
-			Expect(crd.Spec.Names.Plural).To(Equal(updatedFieldName))
-
-			return true, crd, nil
-		})
-
-		r := &Reconciler{
-			kv:             kv,
-			targetStrategy: targetStrategy,
-			stores:         stores,
-			clientset:      clientset,
-			expectations:   expectations,
-		}
-
-		requiredCRD := cachedCRD.DeepCopy()
-		requiredCRD.Spec.Names.Plural = updatedFieldName
-
-		Expect(r.createOrUpdateCrd(requiredCRD)).To(BeNil())
 	})
 })
