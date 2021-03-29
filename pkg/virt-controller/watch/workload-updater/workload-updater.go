@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/prometheus/client_golang/prometheus"
 	k8sv1 "k8s.io/api/core/v1"
 	policy "k8s.io/api/policy/v1beta1"
@@ -77,22 +79,6 @@ type WorkloadUpdateController struct {
 	statusUpdater         *status.KVStatusUpdater
 	launcherImage         string
 
-	throttleIntervalSeconds int
-
-	// This lock protects cached data within this struct
-	// that is dynamic. The lock is held for the duration
-	// of the reconcile loop. The reconcile loop is already
-	// single threaded and only a single KubeVirt object
-	// may exist in the cluster at once. This lock is simply
-	// protection in the event that those assumptions ever
-	// change.
-	cacheLock sync.Mutex
-
-	// loop can become quite chatty during the update process. This optimization
-	// throttles how quickly the loop can fire since each loop execution is acting at
-	// a cluster wide level.
-	reconcileThrottleMap map[string]time.Time
-
 	lastDeletionBatch time.Time
 }
 
@@ -115,8 +101,13 @@ func NewWorkloadUpdateController(
 	clusterConfig *virtconfig.ClusterConfig,
 ) *WorkloadUpdateController {
 
+	rl := workqueue.NewMaxOfRateLimiter(
+		workqueue.NewItemExponentialFailureRateLimiter(time.Duration(defaultThrottleIntervalSeconds)*time.Second, 300*time.Second),
+		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Every(time.Duration(defaultThrottleIntervalSeconds)*time.Second), 1)},
+	)
+
 	c := &WorkloadUpdateController{
-		queue:                 workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		queue:                 workqueue.NewRateLimitingQueue(rl),
 		vmiInformer:           vmiInformer,
 		podInformer:           podInformer,
 		migrationInformer:     migrationInformer,
@@ -127,10 +118,6 @@ func NewWorkloadUpdateController(
 		launcherImage:         launcherImage,
 		migrationExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		clusterConfig:         clusterConfig,
-
-		throttleIntervalSeconds: defaultThrottleIntervalSeconds,
-
-		reconcileThrottleMap: make(map[string]time.Time),
 	}
 
 	c.kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -351,15 +338,10 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 func (c *WorkloadUpdateController) execute(key string) error {
 	obj, exists, err := c.kubeVirtInformer.GetStore().GetByKey(key)
 
-	c.cacheLock.Lock()
-	defer c.cacheLock.Unlock()
-
 	if err != nil {
 		return err
 	} else if !exists {
 		c.migrationExpectations.DeleteExpectations(key)
-
-		delete(c.reconcileThrottleMap, key)
 		return nil
 	}
 
@@ -367,16 +349,6 @@ func (c *WorkloadUpdateController) execute(key string) error {
 	// this ensures we don't do things like creating multiple
 	// migrations for the same vmi
 	if !c.migrationExpectations.SatisfiedExpectations(key) {
-		return nil
-	}
-
-	now := time.Now()
-
-	ts, ok := c.reconcileThrottleMap[key]
-	if !ok {
-		c.reconcileThrottleMap[key] = now.Add(time.Duration(c.throttleIntervalSeconds) * time.Second)
-	} else if now.Before(ts) {
-		c.queue.AddAfter(key, time.Duration(c.throttleIntervalSeconds)*time.Second)
 		return nil
 	}
 

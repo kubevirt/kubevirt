@@ -389,8 +389,6 @@ var _ = Describe("Workload Updater", func() {
 		})
 
 		It("should respect custom batch interval", func() {
-			controller.throttleIntervalSeconds = 0
-
 			batchDeletions := 5
 			batchInterval := time.Duration(2) * time.Second
 			reasons := []string{}
@@ -433,62 +431,10 @@ var _ = Describe("Workload Updater", func() {
 			Expect(evictionCount).To(Equal(batchDeletions * 2))
 		})
 
-		It("should respect reconcile loop throttling", func() {
-			controller.throttleIntervalSeconds = 5
-
-			batchDeletions := 5
-			batchInterval := time.Duration(2) * time.Second
-			reasons := []string{}
-			for i := 0; i < batchDeletions; i++ {
-				reasons = append(reasons, SuccessfulEvictVirtualMachineInstanceReason)
-			}
-
-			for i := 0; i < batchDeletions*2; i++ {
-				newVirtualMachine(fmt.Sprintf("testvm-migratable-1-%d", i), true, "madeup", vmiSource, podSource)
-			}
-			// wait for informer to catch up since we aren't watching
-			// for vmis directly
-			time.Sleep(1 * time.Second)
-			kv := newKubeVirt(batchDeletions * 2)
-			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodEvict}
-			kv.Spec.WorkloadUpdateStrategy.BatchEvictionSize = &batchDeletions
-			kv.Spec.WorkloadUpdateStrategy.BatchEvictionInterval = &metav1.Duration{
-				Duration: batchInterval,
-			}
-
-			evictionCount := 0
-			shouldExpectMultiplePodEvictions(&evictionCount)
-
-			addKubeVirt(kv)
-			controller.Execute()
-			testutils.ExpectEvents(recorder, reasons...)
-
-			// Should do nothing this second execute due to interval
-			addKubeVirt(kv)
-			controller.Execute()
-			Expect(recorder.Events).To(BeEmpty())
-
-			// sleep to account for batch interval
-			time.Sleep(3 * time.Second)
-
-			// Should do nothing this third time due to reconcile loop throttle
-			addKubeVirt(kv)
-			controller.Execute()
-			Expect(recorder.Events).To(BeEmpty())
-
-			// sleep to account for throttle interval
-			time.Sleep(3 * time.Second)
-
-			// Should execute another batch of deletions after throttling expires
-			addKubeVirt(kv)
-			controller.Execute()
-			testutils.ExpectEvents(recorder, reasons...)
-			Expect(evictionCount).To(Equal(batchDeletions * 2))
-		})
-
 	})
 
 	AfterEach(func() {
+
 		close(stop)
 
 		Expect(recorder.Events).To(BeEmpty())
