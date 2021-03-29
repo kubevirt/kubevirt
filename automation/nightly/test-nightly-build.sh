@@ -32,6 +32,8 @@ export IMAGE_TAG="nb_${build_date}_$(git show -s --format=%h)"
 export DOCKER_PREFIX=kubevirtci
 TEMP_OPERATOR_IMAGE=${DOCKER_PREFIX}/hyperconverged-cluster-operator
 TEMP_WEBHOOK_IMAGE=${DOCKER_PREFIX}/hyperconverged-cluster-webhook
+CSV_OPERATOR_IMAGE=${IMAGE_REGISTRY}/${TEMP_OPERATOR_IMAGE}
+CSV_WEBHOOK_IMAGE=${IMAGE_REGISTRY}/${TEMP_WEBHOOK_IMAGE}
 
 # Build HCO & HCO Webhook
 OPERATOR_IMAGE=${TEMP_OPERATOR_IMAGE} WEBHOOK_IMAGE=${TEMP_WEBHOOK_IMAGE} make container-build-operator container-push-operator container-build-webhook container-push-webhook
@@ -39,8 +41,8 @@ OPERATOR_IMAGE=${TEMP_OPERATOR_IMAGE} WEBHOOK_IMAGE=${TEMP_WEBHOOK_IMAGE} make c
 # Update image digests
 sed -i "s#docker.io/kubevirt/virt-#${kv_image/-*/-}#" deploy/images.csv
 sed -i "s#^KUBEVIRT_VERSION=.*#KUBEVIRT_VERSION=\"${kv_tag}\"#" hack/config
-sed -i "s#quay.io/kubevirt/hyperconverged-cluster-operator#${TEMP_OPERATOR_IMAGE}#" deploy/images.csv
-sed -i "s#quay.io/kubevirt/hyperconverged-cluster-webhook#${TEMP_WEBHOOK_IMAGE}#" deploy/images.csv
+sed -i "s#quay.io/kubevirt/hyperconverged-cluster-operator#${CSV_OPERATOR_IMAGE}#" deploy/images.csv
+sed -i "s#quay.io/kubevirt/hyperconverged-cluster-webhook#${CSV_WEBHOOK_IMAGE}#" deploy/images.csv
 sed -i "s#CSV_VERSION#IMAGE_TAG#" deploy/images.csv
 (cd ./tools/digester && go build .)
 export HCO_VERSION="${IMAGE_TAG}"
