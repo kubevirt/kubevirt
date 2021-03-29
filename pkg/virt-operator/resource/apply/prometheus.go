@@ -33,12 +33,7 @@ func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.Service
 	prometheusClient := r.clientset.PrometheusClient()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
-	var cachedServiceMonitor *promv1.ServiceMonitor
-
 	obj, exists, _ := r.stores.ServiceMonitorCache.Get(serviceMonitor)
-	if exists {
-		cachedServiceMonitor = obj.(*promv1.ServiceMonitor)
-	}
 
 	injectOperatorMetadata(r.kv, &serviceMonitor.ObjectMeta, version, imageRegistry, id, true)
 	if !exists {
@@ -54,6 +49,7 @@ func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.Service
 		return nil
 	}
 
+	cachedServiceMonitor := obj.(*promv1.ServiceMonitor)
 	endpointsModified, err := ensureServiceMonitorSpec(serviceMonitor, cachedServiceMonitor)
 	if err != nil {
 		return err
@@ -73,7 +69,7 @@ func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.Service
 	if err != nil {
 		return err
 	}
-	
+
 	ops, err := getPatchWithObjectMetaAndSpec([]string{}, &serviceMonitor.ObjectMeta, newSpec)
 	if err != nil {
 		return err
@@ -119,12 +115,7 @@ func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.Prometh
 	prometheusClient := r.clientset.PrometheusClient()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
-	var cachedPrometheusRule *promv1.PrometheusRule
-
 	obj, exists, _ := r.stores.PrometheusRuleCache.Get(prometheusRule)
-	if exists {
-		cachedPrometheusRule = obj.(*promv1.PrometheusRule)
-	}
 
 	injectOperatorMetadata(r.kv, &prometheusRule.ObjectMeta, version, imageRegistry, id, true)
 	if !exists {
@@ -140,6 +131,7 @@ func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.Prometh
 		return nil
 	}
 
+	cachedPrometheusRule := obj.(*promv1.PrometheusRule)
 	modified := resourcemerge.BoolPtr(false)
 	existingCopy := cachedPrometheusRule.DeepCopy()
 
