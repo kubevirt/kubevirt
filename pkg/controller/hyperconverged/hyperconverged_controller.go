@@ -864,7 +864,9 @@ func (r *ReconcileHyperConverged) recoverHCOVersion(request *common.HcoRequest) 
 const (
 	kvCmName         = "kubevirt-config"
 	backupKvCmName   = kvCmName + "-backup"
+	imsCmName        = "v2v-vmware"
 	liveMigrationKey = "migrations"
+	vddkInitImakeKey = "vddk-init-image"
 )
 
 func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (bool, error) {
@@ -873,12 +875,17 @@ func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (
 		return false, err
 	}
 
-	cdiConfigMmodified, err := r.migrateCdiConfigurations(req)
+	cdiConfigModified, err := r.migrateCdiConfigurations(req)
 	if err != nil {
 		return false, err
 	}
 
-	return kvConfigMmodified || cdiConfigMmodified, nil
+	imsConfigModified, err := r.migrateImsConfigurations(req)
+	if err != nil {
+		return false, err
+	}
+
+	return kvConfigMmodified || cdiConfigModified || imsConfigModified, nil
 }
 
 func (r ReconcileHyperConverged) migrateKvConfigurations(req *common.HcoRequest) (bool, error) {
@@ -935,6 +942,38 @@ func (r ReconcileHyperConverged) migrateCdiConfigurations(req *common.HcoRequest
 	}
 
 	return adoptCdiConfigs(req, cdi.Spec.Config), nil
+}
+
+func (r ReconcileHyperConverged) migrateImsConfigurations(req *common.HcoRequest) (bool, error) {
+	req.Logger.Info("read IMS configmap")
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      imsCmName,
+			Namespace: req.Namespace,
+		},
+	}
+
+	if err := hcoutil.GetRuntimeObject(req.Ctx, r.client, cm, req.Logger); err != nil {
+		if apierrors.IsNotFound(err) {
+			req.Logger.Info("IMS configmap already removed")
+			return false, nil
+		}
+		req.Logger.Info("failed to get IMS configmap", "error", err.Error())
+		return false, err
+	}
+
+	modified := false
+	vddkInitImage, ok := cm.Data[vddkInitImakeKey]
+	if ok {
+		if req.Instance.Spec.VddkInitImage == nil {
+			req.Logger.Info("updating the HyperConverged CR from the IMS configMap")
+			req.Instance.Spec.VddkInitImage = &vddkInitImage
+			req.Dirty = true
+			modified = true
+		}
+	}
+
+	return modified, nil
 }
 
 func (r *ReconcileHyperConverged) removeKvConfigMap(req *common.HcoRequest, cm *corev1.ConfigMap) error {

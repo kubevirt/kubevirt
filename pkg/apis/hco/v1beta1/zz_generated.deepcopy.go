@@ -187,6 +187,11 @@ func (in *HyperConvergedSpec) DeepCopyInto(out *HyperConvergedSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.VddkInitImage != nil {
+		in, out := &in.VddkInitImage, &out.VddkInitImage
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 

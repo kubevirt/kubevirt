@@ -934,6 +934,10 @@ spec:
                   storage class, use the storage class of the DataVolume, if no storage
                   class specified, use no storage class for scratch space'
                 type: string
+              vddkInitImage:
+                description: VDDK Init Image eventually used to import VMs from external
+                  providers
+                type: string
               version:
                 description: operator version
                 type: string

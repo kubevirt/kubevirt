@@ -1534,6 +1534,107 @@ progressTimeout: 150`,
 					Expect(*cdi.Spec.Config.PodResourceRequirements).Should(Equal(*testResourceReqs))
 				})
 			})
+
+			Context("Adopt IMS Config on upgrade", func() {
+
+				It("should adopt IMS config into HC CR", func() {
+					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+					expected.hco.Spec.Version = oldVersion
+
+					vddkInitImageValue := "vddk-init-image-value-to-be-preserved"
+					vddkk := "vddk-init-image"
+
+					expected.imsConfig.Data[vddkk] = vddkInitImageValue
+
+					resources := expected.toArray()
+					cl := commonTestUtils.InitClient(resources)
+
+					foundHC, requeue := doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeTrue())
+					checkAvailability(foundHC, corev1.ConditionUnknown)
+
+					By("Check that the spec.VddkInitImage is now populated")
+					Expect(foundHC.Spec.VddkInitImage).ShouldNot(BeNil())
+					Expect(*foundHC.Spec.VddkInitImage).Should(Equal(vddkInitImageValue))
+
+					By("Run reconcile again")
+					foundHC, requeue = doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundHC, corev1.ConditionTrue)
+
+					By("Check that IMS cm still contains the expected values")
+					vmi_cm := operands.NewIMSConfigForCR(foundHC, namespace)
+					err := hcoutil.GetRuntimeObject(context.TODO(), cl, vmi_cm, log)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(vmi_cm.Data).ShouldNot(BeNil())
+					Expect(vmi_cm.Data).To(HaveKeyWithValue(vddkk, vddkInitImageValue))
+				})
+
+				It("should ignore IMS value if already exists in HC CR", func() {
+					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+					expected.hco.Spec.Version = oldVersion
+
+					vddkInitImageValue := "vddk-init-image-value-to-be-overwritten"
+					vddkk := "vddk-init-image"
+
+					expected.imsConfig.Data[vddkk] = vddkInitImageValue
+
+					hcoVddkInitImageValue := "vddk-init-image-value-to-be-preserved"
+					expected.hco.Spec.VddkInitImage = &hcoVddkInitImageValue
+
+					resources := expected.toArray()
+					cl := commonTestUtils.InitClient(resources)
+
+					foundHC, requeue := doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundHC, corev1.ConditionTrue)
+
+					By("Check that the spec.VddkInitImage has not been updated on HCO CR")
+					Expect(foundHC.Spec.VddkInitImage).ShouldNot(BeNil())
+					Expect(*foundHC.Spec.VddkInitImage).Should(Equal(hcoVddkInitImageValue))
+					Expect(*foundHC.Spec.VddkInitImage).Should(Not(Equal(vddkInitImageValue)))
+
+					By("Check that IMS CM value is now the same as HCO's")
+					vmi_cm := operands.NewIMSConfigForCR(foundHC, namespace)
+					err := hcoutil.GetRuntimeObject(context.TODO(), cl, vmi_cm, log)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(vmi_cm.Data).ShouldNot(BeNil())
+					Expect(vmi_cm.Data).To(HaveKeyWithValue(vddkk, hcoVddkInitImageValue))
+
+				})
+
+				It("TODO: should ignore IMS config into HC CR if there is no change", func() {
+					expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+					expected.hco.Spec.Version = oldVersion
+
+					vddkInitImageValue := "vddk-init-image-value-to-be-preserved"
+					vddkk := "vddk-init-image"
+
+					expected.imsConfig.Data[vddkk] = vddkInitImageValue
+
+					expected.hco.Spec.VddkInitImage = &vddkInitImageValue
+
+					resources := expected.toArray()
+					cl := commonTestUtils.InitClient(resources)
+
+					foundHC, requeue := doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundHC, corev1.ConditionTrue)
+
+					By("Check that the spec.VddkInitImage has not been updated on HCO CR")
+					Expect(foundHC.Spec.VddkInitImage).ShouldNot(BeNil())
+					Expect(*foundHC.Spec.VddkInitImage).Should(Equal(vddkInitImageValue))
+
+					By("Check that IMS CM value is still the same as HCO's")
+					vmi_cm := operands.NewIMSConfigForCR(foundHC, namespace)
+					err := hcoutil.GetRuntimeObject(context.TODO(), cl, vmi_cm, log)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(vmi_cm.Data).ShouldNot(BeNil())
+					Expect(vmi_cm.Data).To(HaveKeyWithValue(vddkk, vddkInitImageValue))
+				})
+
+			})
+
 		})
 
 		Context("Aggregate Negative Conditions", func() {

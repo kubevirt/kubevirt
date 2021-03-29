@@ -67,6 +67,10 @@ type HyperConvergedSpec struct {
 	// +optional
 	ScratchSpaceStorageClass *string `json:"scratchSpaceStorageClass,omitempty"`
 
+	// VDDK Init Image eventually used to import VMs from external providers
+	// +optional
+	VddkInitImage *string `json:"vddkInitImage,omitempty"`
+
 	// operator version
 	Version string `json:"version,omitempty"`
 }

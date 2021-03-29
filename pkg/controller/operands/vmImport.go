@@ -149,16 +149,11 @@ func (h *imsConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, 
 		return false, false, errors.New("can't convert to a ConfigMap")
 	}
 
-	// in an ideal world HCO should be managing the whole config map,
-	// now due to a bad design only a few values of this config map are
-	// really managed by HCO while others are managed by other entities
-	// TODO: fix this bad design splitting the config map into two distinct objects and reconcile the whole object here
 	needsUpdate := false
-	for key, value := range imsConfig.Data {
-		if found.Data[key] != value {
-			found.Data[key] = value
-			needsUpdate = true
-		}
+
+	if !reflect.DeepEqual(found.Data, imsConfig.Data) {
+		imsConfig.DeepCopyInto(found)
+		needsUpdate = true
 	}
 
 	if !reflect.DeepEqual(found.Labels, imsConfig.Labels) {
@@ -168,6 +163,13 @@ func (h *imsConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, 
 
 	if needsUpdate {
 		req.Logger.Info("Updating existing IMS Configmap to its default values")
+
+		if req.HCOTriggered {
+			req.Logger.Info("Updating existing IMS Configmap to new opinionated values")
+		} else {
+			req.Logger.Info("Reconciling an externally updated IMS Configmap to its opinionated values")
+		}
+
 		err := Client.Update(req.Ctx, found)
 		if err != nil {
 			return false, false, err
@@ -179,7 +181,7 @@ func (h *imsConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, 
 }
 
 func NewIMSConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
+	imscm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "v2v-vmware",
 			Labels:    getLabels(cr, hcoutil.AppComponentImport),
@@ -191,4 +193,8 @@ func NewIMSConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.
 			"kubevirt-vmware-image-pull-policy": "IfNotPresent",
 		},
 	}
+	if cr.Spec.VddkInitImage != nil {
+		imscm.Data["vddk-init-image"] = *cr.Spec.VddkInitImage
+	}
+	return imscm
 }

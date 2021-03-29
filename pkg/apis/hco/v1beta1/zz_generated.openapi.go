@@ -224,6 +224,13 @@ func schema_pkg_apis_hco_v1beta1_HyperConvergedSpec(ref common.ReferenceCallback
 							Format:      "",
 						},
 					},
+					"vddkInitImage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VDDK Init Image eventually used to import VMs from external providers",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"version": {
 						SchemaProps: spec.SchemaProps{
 							Description: "operator version",

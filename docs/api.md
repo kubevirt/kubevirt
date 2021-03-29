@@ -101,6 +101,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | certConfig | certConfig holds the rotation policy for internal, self-signed certificates | [HyperConvergedCertConfig](#hyperconvergedcertconfig) | {ca: {duration: "48h", renewBefore: "24h"}, server: {duration: "24h", renewBefore: "12h"}} | false |
 | resourceRequirements | ResourceRequirements describes the resource requirements for the operand workloads. | *[OperandResourceRequirements](#operandresourcerequirements) |  | false |
 | scratchSpaceStorageClass | Override the storage class used for scratch space during transfer operations. The scratch space storage class is determined in the following order: value of scratchSpaceStorageClass, if that doesn't exist, use the default storage class, if there is no default storage class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space | *string |  | false |
+| vddkInitImage | VDDK Init Image eventually used to import VMs from external providers | *string |  | false |
 | version | operator version | string |  | false |
 
 [Back to TOC](#table-of-contents)

@@ -363,18 +363,12 @@ var _ = Describe("VM-Import", func() {
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
 
-		// in an ideal world HCO should be managing the whole config map,
-		// now due to a bad design only a few values of this config map are
-		// really managed by HCO while others are managed by other entities
-		// TODO: fix this bad design splitting the config map into two distinct objects and reconcile the whole object here
-		It("should (partially!!!) reconcile according to env values", func() {
+		It("should reconcile according to env values and HCO CR", func() {
 			convk := "v2v-conversion-image"
 			vmwarek := "kubevirt-vmware-image"
+			vddkk := "vddk-init-image"
 			updatableKeys := [...]string{convk, vmwarek}
-			unupdatableKeyValues := map[string]string{
-				"ext_key_1": "ext_value_1",
-				"ext_key_2": "ext_value_2",
-			}
+			toBeRemovedKey := "toberemoved"
 
 			expectedResource := NewIMSConfigForCR(hco, commonTestUtils.Namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
@@ -383,10 +377,12 @@ var _ = Describe("VM-Import", func() {
 			// values we should update
 			outdatedResource.Data[convk] = "old-conversion-container-value-we-have-to-update"
 			outdatedResource.Data[vmwarek] = "old-vmware-container-value-we-have-to-update"
-			// add values we should not touch
-			for k, v := range unupdatableKeyValues {
-				outdatedResource.Data[k] = v
-			}
+
+			// add values we should remove
+			outdatedResource.Data[toBeRemovedKey] = "value-we-should-remove"
+
+			vddkInitImageValue := "new-vddk-value-we-have-to-update"
+			hco.Spec.VddkInitImage = &vddkInitImageValue
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, outdatedResource})
 			handler := (*genericOperand)(newImsConfigHandler(cl, commonTestUtils.GetScheme()))
@@ -407,9 +403,8 @@ var _ = Describe("VM-Import", func() {
 				Expect(foundResource.Data[k]).To(Equal(expectedResource.Data[k]))
 			}
 
-			for k, v := range unupdatableKeyValues {
-				Expect(foundResource.Data).To(HaveKeyWithValue(k, v))
-			}
+			Expect(foundResource.Data).To(Not(HaveKey(toBeRemovedKey)))
+			Expect(foundResource.Data).To(HaveKeyWithValue(vddkk, vddkInitImageValue))
 
 		})
 
