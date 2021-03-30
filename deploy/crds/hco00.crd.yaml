@@ -99,6 +99,13 @@ spec:
                   a flag to `true` will enable the feature. Setting `false` or removing
                   the feature gate, disables the feature.
                 properties:
+                  sriovLiveMigration:
+                    default: false
+                    description: Allow migrating a virtual machine with SRIOV interfaces.
+                      When enabled virt-launcher pods of virtual machines with SRIOV
+                      interfaces run with CAP_SYS_RESOURCE capability. This may degrade
+                      virt-launcher security.
+                    type: boolean
                   withHostPassthroughCPU:
                     default: false
                     description: Allow migrating a virtual machine with CPU host-passthrough

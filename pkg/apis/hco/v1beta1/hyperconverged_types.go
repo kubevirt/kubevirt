@@ -155,10 +155,22 @@ type HyperConvergedFeatureGates struct {
 	// +optional
 	// +kubebuilder:default=false
 	WithHostPassthroughCPU FeatureGate `json:"withHostPassthroughCPU,omitempty"`
+
+	// Allow migrating a virtual machine with SRIOV interfaces.
+	// When enabled virt-launcher pods of virtual machines with SRIOV
+	// interfaces run with CAP_SYS_RESOURCE capability.
+	// This may degrade virt-launcher security.
+	// +optional
+	// +kubebuilder:default=false
+	SRIOVLiveMigration FeatureGate `json:"sriovLiveMigration,omitempty"`
 }
 
 func (fgs *HyperConvergedFeatureGates) IsWithHostPassthroughCPUEnabled() bool {
 	return (fgs != nil) && (fgs.WithHostPassthroughCPU != nil) && (*fgs.WithHostPassthroughCPU)
+}
+
+func (fgs *HyperConvergedFeatureGates) IsSRIOVLiveMigrationEnabled() bool {
+	return (fgs != nil) && (fgs.SRIOVLiveMigration != nil) && (*fgs.SRIOVLiveMigration)
 }
 
 // PermittedHostDevices holds inforamtion about devices allowed for passthrough

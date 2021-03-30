@@ -120,6 +120,7 @@ var (
 // KubeVirt feature gates that are exposed in HCO API
 const (
 	kvWithHostPassthroughCPU = "WithHostPassthroughCPU"
+	kvSRIOVLiveMigration     = "SRIOVLiveMigration"
 )
 
 // ************  KubeVirt Handler  **************
@@ -388,6 +389,7 @@ type featureGateChecks map[string]func() bool
 func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) featureGateChecks {
 	return map[string]func() bool{
 		kvWithHostPassthroughCPU: featureGates.IsWithHostPassthroughCPUEnabled,
+		kvSRIOVLiveMigration:     featureGates.IsSRIOVLiveMigrationEnabled,
 	}
 }
 

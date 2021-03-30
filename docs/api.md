@@ -72,6 +72,7 @@ HyperConvergedFeatureGates is a set of optional feature gates to enable or disab
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
 | withHostPassthroughCPU | Allow migrating a virtual machine with CPU host-passthrough mode. This should be enabled only when the Cluster is homogeneous from CPU HW perspective doc here | FeatureGate | false | false |
+| sriovLiveMigration | Allow migrating a virtual machine with SRIOV interfaces. When enabled virt-launcher pods of virtual machines with SRIOV interfaces run with CAP_SYS_RESOURCE capability. This may degrade virt-launcher security. | FeatureGate | false | false |
 
 [Back to TOC](#table-of-contents)
 
