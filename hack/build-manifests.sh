@@ -413,6 +413,14 @@ fi
 # Intentionally removing last so failure leaves around the templates
 rm -rf ${TEMPDIR}
 
+# If the only change in the CSV file is its "created_at" field, rollback this change as it causes git conflicts for
+# no good reason.
+CSV_FILE="${CSV_DIR}/kubevirt-hyperconverged-operator.v${CSV_VERSION}.${CSV_EXT}"
+if git difftool -y --trust-exit-code --extcmd=./hack/diff-csv.sh ${CSV_FILE}; then
+  git checkout ${CSV_FILE}
+fi
+
+# Prepare files for index-image files that will be used for testing in openshift CI
 rm -rf "${INDEX_IMAGE_DIR:?}"
 mkdir -p "${INDEX_IMAGE_DIR:?}/${PACKAGE_NAME}"
 cp -r "${CSV_DIR%/*}" "${INDEX_IMAGE_DIR:?}/${PACKAGE_NAME}/"
