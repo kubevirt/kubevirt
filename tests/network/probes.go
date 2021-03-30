@@ -20,10 +20,9 @@ import (
 
 var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 	var (
-		err           error
-		virtClient    kubecli.KubevirtClient
-		vmi           *v12.VirtualMachineInstance
-		blankIPFamily = *new(v1.IPFamily)
+		err        error
+		virtClient kubecli.KubevirtClient
+		vmi        *v12.VirtualMachineInstance
 	)
 
 	BeforeEach(func() {
@@ -94,10 +93,8 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			Eventually(isVMIReady, 60, 1).Should(Equal(true))
 			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionTrue))
 		},
-			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server,no ip family specified ", tcpProbe, blankIPFamily),
 			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, v1.IPv4Protocol),
 			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, v1.IPv6Protocol),
-			table.Entry("[QUARANTINE][owner:@sig-network][test_id:1202][posneg:positive]with working HTTP probe and http server, no ip family is specified ", httpProbe, blankIPFamily),
 			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, v1.IPv4Protocol),
 			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, v1.IPv6Protocol),
 		)
@@ -160,10 +157,8 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				return vmi.IsFinal()
 			}, 120, 1).Should(Not(BeTrue()))
 		},
-			table.Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server, no ip family is specified", tcpProbe, blankIPFamily),
 			table.Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, v1.IPv4Protocol),
 			table.Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, v1.IPv6Protocol),
-			table.Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server, no ip family is specified", httpProbe, blankIPFamily),
 			table.Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, v1.IPv4Protocol),
 			table.Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, v1.IPv6Protocol),
 		)
