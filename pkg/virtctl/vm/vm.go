@@ -54,7 +54,6 @@ var (
 	forceRestart bool
 	gracePeriod  int = -1
 	volumeName   string
-	diskName     string
 	serial       string
 	persist      bool
 )
@@ -195,7 +194,6 @@ func NewAddVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&volumeName, "volume-name", "", "name used in volumes section of spec")
 	cmd.MarkFlagRequired("volume-name")
-	cmd.Flags().StringVar(&diskName, "disk-name", "", "name used in disks section of domain spec")
 	cmd.Flags().StringVar(&serial, "serial", "", "serial number you want to assign to the disk")
 	cmd.Flags().BoolVar(&persist, "persist", false, "if set, the added volume will be persisted in the VM spec (if it exists)")
 
@@ -275,9 +273,6 @@ func usageAddVolume() string {
 
   #Dynamically attach a volume to a running VM and persisting it in the VM spec. At next VM restart the volume will be attached like any other volume.
   {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --persist
-
-  #Dynamically attach a volume to a running VM and setting the disk name in disks section of the VMI spec.
-  {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --disk-name=example-disk
   `
 	return usage
 }
@@ -287,13 +282,9 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 	if err != nil {
 		return fmt.Errorf("error adding volume, %v", err)
 	}
-	if diskName == "" {
-		diskName = volumeName
-	}
 	hotplugRequest := &v1.AddVolumeOptions{
 		Name: volumeName,
 		Disk: &v1.Disk{
-			Name: diskName,
 			DiskDevice: v1.DiskDevice{
 				Disk: &v1.DiskTarget{
 					Bus: "scsi",
@@ -304,6 +295,8 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 	}
 	if serial != "" {
 		hotplugRequest.Disk.Serial = serial
+	} else {
+		hotplugRequest.Disk.Serial = volumeName
 	}
 	if !persist {
 		err = virtClient.VirtualMachineInstance(namespace).AddVolume(vmiName, hotplugRequest)
