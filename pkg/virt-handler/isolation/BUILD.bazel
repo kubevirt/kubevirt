@@ -3,6 +3,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "detector.go",
+        "generated_mock_detector.go",
         "generated_mock_isolation.go",
         "isolation.go",
         "validation.go",
@@ -27,6 +29,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "detector_test.go",
         "isolation_suite_test.go",
         "isolation_test.go",
     ],
