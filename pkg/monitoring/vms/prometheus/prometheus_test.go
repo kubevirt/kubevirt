@@ -663,7 +663,7 @@ var _ = Describe("Prometheus", func() {
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_flush_times_ms_total"))
 		})
 
-		It("should respect aliases", func() {
+		It("should use alias when alias is not empty", func() {
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
 
@@ -693,6 +693,38 @@ var _ = Describe("Prometheus", func() {
 			err := result.Write(dto)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(dto.String()).To(ContainSubstring("name:\"drive\" value:\"disk0\""))
+		})
+
+		It("should use the name when alias is empty", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu:    &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{},
+				Block: []stats.DomainStatsBlock{
+					{
+						NameSet:    true,
+						Name:       "vda",
+						Alias:      "",
+						FlTimesSet: true,
+						FlTimes:    1000000,
+					},
+				},
+			}
+
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			result := <-ch
+			Expect(result).ToNot(BeNil())
+
+			dto := &io_prometheus_client.Metric{}
+			err := result.Write(dto)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(dto.String()).To(ContainSubstring("name:\"drive\" value:\"vda\""))
 		})
 
 		It("should not expose nameless block metrics", func() {

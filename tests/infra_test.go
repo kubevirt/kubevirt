@@ -801,16 +801,18 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			metrics := collectMetrics(ip, metricSubstring)
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
-			for _, key := range keys {
-				if strings.Contains(key, `drive="vdb"`) {
+			for _, vmi := range preparedVMIs {
+				for _, vol := range vmi.Spec.Volumes {
+					key := getMetricKeyForVmiDisk(keys, vmi.Name, vol.Name)
+					Expect(key).To(Not(BeEmpty()))
+
 					value := metrics[key]
 					fmt.Fprintf(GinkgoWriter, "metric value was %f\n", value)
 					Expect(value).To(BeNumerically(operator, float64(0.0)))
+
 				}
 			}
 		},
-			table.Entry("[test_id:4142] by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_", ">="),
-			table.Entry("by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_", ">="),
 			table.Entry("[test_id:4142] storage flush requests metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
 			table.Entry("storage flush requests metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
 			table.Entry("[test_id:4142] time (ms) spent on cache flushing metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_times_ms_total", ">="),
@@ -827,25 +829,6 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", func() {
 			table.Entry("storage write operation time metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_times_ms_total", ">="),
 			table.Entry("[test_id:4142] storage write traffic in bytes metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
 			table.Entry("storage write traffic in bytes metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
-		)
-
-		table.DescribeTable("should respect alias for disk names", func(family k8sv1.IPFamily, metricSubstring string) {
-			if family == k8sv1.IPv6Protocol {
-				libnet.SkipWhenNotDualStackCluster(virtClient)
-			}
-
-			ip := getSupportedIP(metricsIPs, family)
-			metrics := collectMetrics(ip, metricSubstring)
-			keys := getKeysFromMetrics(metrics)
-			for _, vmi := range preparedVMIs {
-				for _, vol := range vmi.Spec.Volumes {
-					key := getMetricKeyForVmiDisk(keys, vmi.Name, vol.Name)
-					Expect(key).To(Not(BeEmpty()))
-				}
-			}
-		},
-			table.Entry("[test_id:4142] by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total"),
-			table.Entry("[test_id:4142] by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total"),
 		)
 
 		table.DescribeTable("should include metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
@@ -1399,7 +1382,7 @@ func prepareMetricsURL(ip string, port int) string {
 	return fmt.Sprintf("https://%s/metrics", net.JoinHostPort(ip, strconv.Itoa(port)))
 }
 
-func getMetricKeyForVmiDisk(keys []string, vmiName string, diskName string) interface{} {
+func getMetricKeyForVmiDisk(keys []string, vmiName string, diskName string) string {
 	for _, key := range keys {
 		if strings.Contains(key, "name=\""+vmiName+"\"") &&
 			strings.Contains(key, "drive=\""+diskName+"\"") {
