@@ -864,8 +864,8 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 }
 
 // Used by manifest generation
-func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy) *virtv1.KubeVirt {
-	return &virtv1.KubeVirt{
+func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy, featureGates string) *virtv1.KubeVirt {
+	cr := &virtv1.KubeVirt{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: virtv1.GroupVersion.String(),
 			Kind:       "KubeVirt",
@@ -878,6 +878,16 @@ func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy) *virtv1.KubeV
 			ImagePullPolicy: pullPolicy,
 		},
 	}
+
+	if featureGates != "" {
+		cr.Spec.Configuration = virtv1.KubeVirtConfiguration{
+			DeveloperConfiguration: &virtv1.DeveloperConfiguration{
+				FeatureGates: strings.Split(featureGates, ","),
+			},
+		}
+	}
+
+	return cr
 }
 
 // NewKubeVirtPriorityClassCR is used for manifest generation
