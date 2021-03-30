@@ -101,6 +101,8 @@ var _ = Describe("[Serial]Operator", func() {
 		patchKvNodePlacement              func(string, string, string, *v1.ComponentConfig)
 		patchKvInfra                      func(string, *v1.ComponentConfig)
 		patchKvWorkloads                  func(string, *v1.ComponentConfig)
+		patchKvCertConfig                 func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
+		patchKvCertConfigExpectError      func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
 		parseDaemonset                    func(string) (*v12.DaemonSet, string, string, string, string)
 		parseImage                        func(string, string) (string, string, string)
 		parseDeployment                   func(string) (*v12.Deployment, string, string, string, string)
@@ -420,6 +422,40 @@ var _ = Describe("[Serial]Operator", func() {
 			}
 
 			patchKvNodePlacement(name, "workloads", verb, workloads)
+		}
+
+		patchKvCertConfig = func(name string, certConfig *v1.KubeVirtSelfSignConfiguration) {
+			var data []byte
+
+			certRotationStrategy := v1.KubeVirtCertificateRotateStrategy{}
+			certRotationStrategy.SelfSigned = certConfig
+			certConfigData, _ := json.Marshal(certRotationStrategy)
+
+			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/certificateRotateStrategy", "value": %s}]`, "replace", string(certConfigData)))
+			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
+			Eventually(func() error {
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
+
+				return err
+			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+		}
+
+		patchKvCertConfigExpectError = func(name string, certConfig *v1.KubeVirtSelfSignConfiguration) {
+			var data []byte
+
+			certRotationStrategy := v1.KubeVirtCertificateRotateStrategy{}
+			certRotationStrategy.SelfSigned = certConfig
+			certConfigData, _ := json.Marshal(certRotationStrategy)
+
+			data = []byte(fmt.Sprintf(`[{"op": "%s", "path": "/spec/certificateRotateStrategy", "value": %s}]`, "replace", string(certConfigData)))
+			By(fmt.Sprintf("sending JSON patch: '%s'", string(data)))
+			Eventually(func() error {
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
+
+				return err
+			}, 10*time.Second, 1*time.Second).Should(HaveOccurred())
+
 		}
 
 		parseDaemonset = func(name string) (daemonSet *v12.DaemonSet, image, registry, imagePrefix, version string) {
@@ -1946,6 +1982,52 @@ spec:
 			}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
 			patchKvWorkloads(kv.Name, nil)
+		})
+	})
+
+	Context("Certificate Rotation", func() {
+		var certConfig *v1.KubeVirtSelfSignConfiguration
+		BeforeEach(func() {
+			certConfig = &v1.KubeVirtSelfSignConfiguration{
+				CA: &v1.CertConfig{
+					Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+					RenewBefore: &metav1.Duration{Duration: 16 * time.Hour},
+				},
+				Server: &v1.CertConfig{
+					Duration:    &metav1.Duration{Duration: 12 * time.Hour},
+					RenewBefore: &metav1.Duration{Duration: 10 * time.Hour},
+				},
+			}
+		})
+
+		It("should accept valid cert rotation parameters", func() {
+			kv := copyOriginalKv()
+			patchKvCertConfig(kv.Name, certConfig)
+		})
+
+		It("should reject combining deprecated and new cert rotation parameters", func() {
+			kv := copyOriginalKv()
+			certConfig.CAOverlapInterval = &metav1.Duration{Duration: 8 * time.Hour}
+			patchKvCertConfigExpectError(kv.Name, certConfig)
+		})
+
+		It("should reject CA expires before rotation", func() {
+			kv := copyOriginalKv()
+			certConfig.CA.Duration = &metav1.Duration{Duration: 14 * time.Hour}
+			patchKvCertConfigExpectError(kv.Name, certConfig)
+		})
+
+		It("should reject Cert expires before rotation", func() {
+			kv := copyOriginalKv()
+			certConfig.Server.Duration = &metav1.Duration{Duration: 8 * time.Hour}
+			patchKvCertConfigExpectError(kv.Name, certConfig)
+		})
+
+		It("should reject Cert rotates after CA expires", func() {
+			kv := copyOriginalKv()
+			certConfig.Server.Duration = &metav1.Duration{Duration: 48 * time.Hour}
+			certConfig.Server.RenewBefore = &metav1.Duration{Duration: 36 * time.Hour}
+			patchKvCertConfigExpectError(kv.Name, certConfig)
 		})
 	})
 })
