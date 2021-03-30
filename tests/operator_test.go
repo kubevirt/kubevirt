@@ -928,6 +928,45 @@ spec:
 			}, 30*time.Second, 5*time.Second).Should(Equal(generation))
 
 		})
+
+		It("test updating a PDB is reverted to it's original state", func() {
+			var originalVersion string
+			versionAnnotation := v1.InstallStrategyVersionAnnotation
+			fakeVersion := originalVersion + "_fake"
+
+			By("Updating KubeVirt Object")
+			pdb, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			originalVersion = pdb.Annotations[versionAnnotation]
+			pdb.Annotations[versionAnnotation] = fakeVersion
+
+			pdb, err = virtClient.PolicyV1beta1().PodDisruptionBudgets(originalKv.Namespace).Update(context.Background(), pdb, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pdb.Annotations[versionAnnotation]).To(Equal(fakeVersion))
+
+			By("Test that the version is back to the original")
+			Eventually(func() bool {
+				pdb, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(originalKv.Namespace).Get(context.Background(), "virt-controller-pdb", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				return pdb.Annotations[versionAnnotation] == originalVersion
+			}, 120*time.Second, 5*time.Second).Should(BeTrue(), "waiting for PDB to revert to original state")
+
+			generation := pdb.ObjectMeta.Generation
+			Eventually(func() int64 {
+				currentKV := tests.GetCurrentKv(virtClient)
+				return apply.GetExpectedGeneration(pdb, currentKV.Status.Generations)
+			}, 60*time.Second, 5*time.Second).Should(Equal(generation), "reverted PDB generation should be set on KV resource")
+
+			By("Test that the expected generation is unchanged")
+			Consistently(func() int64 {
+				currentKV := tests.GetCurrentKv(virtClient)
+				return apply.GetExpectedGeneration(pdb, currentKV.Status.Generations)
+			}, 30*time.Second, 5*time.Second).Should(Equal(generation))
+
+		})
+
 	})
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should start a VM", func() {

@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-
 func getGroupResource(required runtime.Object) (group string, resource string, err error) {
 
 	switch required.(type) {
