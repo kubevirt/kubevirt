@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 )
 
 // KubeVirtUpdateAdmitter validates KubeVirt updates
@@ -55,7 +56,10 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1be
 		return resp
 	}
 
-	results := validateCustomizeComponents(newKV.Spec.CustomizeComponents)
+	var results []metav1.StatusCause
+
+	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
+	results = append(results, validateCertificates(newKV.Spec.CertificateRotationStrategy.SelfSigned)...)
 
 	return validating_webhooks.NewAdmissionResponse(results)
 }
@@ -99,6 +103,60 @@ func validateCustomizeComponents(customization v1.CustomizeComponents) []metav1.
 		statuses = append(statuses, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueNotSupported,
 			Message: fmt.Sprintf("patch %q is not valid JSON", patch.Patch),
+		})
+	}
+
+	return statuses
+}
+
+func validateCertificates(certConfig *v1.KubeVirtSelfSignConfiguration) []metav1.StatusCause {
+	statuses := []metav1.StatusCause{}
+
+	if certConfig == nil {
+		return statuses
+	}
+
+	deprecatedApi := false
+	if certConfig.CARotateInterval != nil || certConfig.CertRotateInterval != nil || certConfig.CAOverlapInterval != nil {
+		deprecatedApi = true
+	}
+
+	currentApi := false
+	if certConfig.CA != nil || certConfig.Server != nil {
+		currentApi = true
+	}
+
+	if deprecatedApi && currentApi {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("caRotateInterval, certRotateInterval and caOverlapInterval are deprecated and conflict with CertConfig defined rotation parameters"),
+		})
+	}
+
+	caDuration := apply.GetCADuration(certConfig)
+	caRenewBefore := apply.GetCARenewBefore(certConfig)
+	certDuration := apply.GetCertDuration(certConfig)
+	certRenewBefore := apply.GetCertRenewBefore(certConfig)
+
+	if caDuration.Duration < caRenewBefore.Duration {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("CA RenewBefore cannot exceed Duration (spec.certificateRotationStrategy.selfSigned.ca.duration < spec.certificateRotationStrategy.selfSigned.ca.renewBefore)"),
+		})
+
+	}
+
+	if certDuration.Duration < certRenewBefore.Duration {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Cert RenewBefore cannot exceed Duration (spec.certificateRotationStrategy.selfSigned.server.duration < spec.certificateRotationStrategy.selfSigned.server.renewBefore)"),
+		})
+	}
+
+	if certDuration.Duration > caDuration.Duration {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Certificate duration cannot exceed CA (spec.certificateRotationStrategy.selfSigned.server.duration > spec.certificateRotationStrategy.selfSigned.ca.duration)"),
 		})
 	}
 
