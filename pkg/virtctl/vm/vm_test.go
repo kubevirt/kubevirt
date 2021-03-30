@@ -436,7 +436,7 @@ var _ = Describe("VirtualMachine", func() {
 			table.Entry("removevolume pvc, with persist shoud call VM endpoint", "removevolume", "testvmi", "testvolume", false, expectVMEndpointRemoveVolume, "--persist"),
 		)
 
-		It("removevolume should report error from call", func() {
+		It("removevolume should report error if call returns error", func() {
 			expectVMIEndpointRemoveVolumeError("testvmi", "testvolume")
 			cmd := tests.NewVirtctlCommand("removevolume", "testvmi", "--volume-name=testvolume")
 			res := cmd.Execute()
