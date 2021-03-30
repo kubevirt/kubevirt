@@ -47,9 +47,9 @@ import (
 )
 
 const (
-	guestDiskIdPrefix = "scsi-0QEMU_QEMU_HARDDISK_"
-	virtCtlNamespace = "--namespace"
-	virtCtlVolumeName = "--volume-name=%s"
+	guestDiskIdPrefix      = "scsi-0QEMU_QEMU_HARDDISK_"
+	virtCtlNamespace       = "--namespace"
+	virtCtlVolumeName      = "--volume-name=%s"
 	verifyCannotAccessDisk = "ls: cannot access '%s'"
 )
 
