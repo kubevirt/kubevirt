@@ -54,6 +54,7 @@ http_archive(
     strip_prefix = "bazel-tools-6e2a416f565062955735edcfae881cdba2b7abf7",
     urls = [
         "https://github.com/ash2k/bazel-tools/archive/6e2a416f565062955735edcfae881cdba2b7abf7.zip",
+        "https://storage.googleapis.com/builddeps/80ba082177c93e43a7c085a8566c7f11654dbae41da7da0da52e0ed2e917cd12",
     ],
 )
 
@@ -713,25 +714,13 @@ rpm(
 rpm(
     name = "cryptsetup-libs-0__2.3.4-1.fc32.ppc64le",
     sha256 = "0b621a7616827415a72d2f4d900ff8ca3f185d5b9f33fe0d63c635b69e7ad736",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora-secondary/updates/32/Everything/ppc64le/Packages/c/cryptsetup-libs-2.3.4-1.fc32.ppc64le.rpm",
-        "https://ftp.icm.edu.pl/pub/Linux/dist/fedora-secondary/updates/32/Everything/ppc64le/Packages/c/cryptsetup-libs-2.3.4-1.fc32.ppc64le.rpm",
-        "https://mirrors.dotsrc.org/fedora-buffet/fedora-secondary/updates/32/Everything/ppc64le/Packages/c/cryptsetup-libs-2.3.4-1.fc32.ppc64le.rpm",
-        "https://mirror.yandex.ru/fedora-secondary/updates/32/Everything/ppc64le/Packages/c/cryptsetup-libs-2.3.4-1.fc32.ppc64le.rpm",
-        "https://storage.googleapis.com/builddeps/0b621a7616827415a72d2f4d900ff8ca3f185d5b9f33fe0d63c635b69e7ad736",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/0b621a7616827415a72d2f4d900ff8ca3f185d5b9f33fe0d63c635b69e7ad736"],
 )
 
 rpm(
     name = "cryptsetup-libs-0__2.3.4-1.fc32.x86_64",
     sha256 = "fbea6919ace47f5be733d8828957d03ce473bb15d3381ce0d52bb1be3775f38a",
-    urls = [
-        "https://ftp.plusline.net/fedora/linux/updates/32/Everything/x86_64/Packages/c/cryptsetup-libs-2.3.4-1.fc32.x86_64.rpm",
-        "https://mirror.dogado.de/fedora/linux/updates/32/Everything/x86_64/Packages/c/cryptsetup-libs-2.3.4-1.fc32.x86_64.rpm",
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/c/cryptsetup-libs-2.3.4-1.fc32.x86_64.rpm",
-        "https://ftp.fau.de/fedora/linux/updates/32/Everything/x86_64/Packages/c/cryptsetup-libs-2.3.4-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/fbea6919ace47f5be733d8828957d03ce473bb15d3381ce0d52bb1be3775f38a",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/fbea6919ace47f5be733d8828957d03ce473bb15d3381ce0d52bb1be3775f38a"],
 )
 
 rpm(
@@ -2837,10 +2826,7 @@ rpm(
 rpm(
     name = "libnfsidmap-1__2.5.2-1.rc4.fc32.x86_64",
     sha256 = "9d4c7686724a268a09e4aa63afeae419823befde6dd90ef3e3c1eb13bb28f493",
-    urls = [
-        "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/l/libnfsidmap-2.5.2-1.rc4.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/9d4c7686724a268a09e4aa63afeae419823befde6dd90ef3e3c1eb13bb28f493",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/9d4c7686724a268a09e4aa63afeae419823befde6dd90ef3e3c1eb13bb28f493"],
 )
 
 rpm(
@@ -3794,11 +3780,7 @@ rpm(
 rpm(
     name = "libzstd-0__1.4.7-1.fc32.x86_64",
     sha256 = "2dd84d0037419612e9007ee329ff689a388a32213410fcce975a283035dccf77",
-    urls = [
-        "https://ftp-stud.hs-esslingen.de/pub/fedora/linux/updates/32/Everything/x86_64/Packages/l/libzstd-1.4.7-1.fc32.x86_64.rpm",
-        "https://ftp.plusline.net/fedora/linux/updates/32/Everything/x86_64/Packages/l/libzstd-1.4.7-1.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/2dd84d0037419612e9007ee329ff689a388a32213410fcce975a283035dccf77",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/2dd84d0037419612e9007ee329ff689a388a32213410fcce975a283035dccf77"],
 )
 
 rpm(
@@ -4128,10 +4110,7 @@ rpm(
 rpm(
     name = "nfs-utils-1__2.5.2-1.rc4.fc32.x86_64",
     sha256 = "0a6b38f901bf128d69026d76b2cc9a8ea0ff19db99761b1af8a274055656228b",
-    urls = [
-        "https://fedora.mirror.liteserver.nl/linux/updates/32/Everything/x86_64/Packages/n/nfs-utils-2.5.2-1.rc4.fc32.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/0a6b38f901bf128d69026d76b2cc9a8ea0ff19db99761b1af8a274055656228b",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/0a6b38f901bf128d69026d76b2cc9a8ea0ff19db99761b1af8a274055656228b"],
 )
 
 rpm(
