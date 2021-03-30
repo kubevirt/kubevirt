@@ -48,6 +48,9 @@ import (
 
 const (
 	guestDiskIdPrefix = "scsi-0QEMU_QEMU_HARDDISK_"
+	virtCtlNamespace = "--namespace"
+	virtCtlVolumeName = "--volume-name=%s"
+	verifyCannotAccessDisk = "ls: cannot access '%s'"
 )
 
 var _ = SIGDescribe("Hotplug", func() {
@@ -138,7 +141,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 	addVolumeVirtctl := func(name, namespace, volumeName, claimName, bus string) {
 		By("Invoking virtlctl addvolume")
-		addvolumeCommand := tests.NewRepeatableVirtctlCommand(virtctl.COMMAND_ADDVOLUME, name, fmt.Sprintf("--volume-name=%s", claimName), "--namespace", namespace)
+		addvolumeCommand := tests.NewRepeatableVirtctlCommand(virtctl.COMMAND_ADDVOLUME, name, fmt.Sprintf(virtCtlVolumeName, claimName), virtCtlNamespace, namespace)
 		err = addvolumeCommand()
 		Expect(err).ToNot(HaveOccurred())
 	}
@@ -159,7 +162,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 	removeVolumeVirtctl := func(name, namespace, volumeName string) {
 		By("Invoking virtlctl removevolume")
-		removeVolumeCommand := tests.NewRepeatableVirtctlCommand(virtctl.COMMAND_REMOVEVOLUME, name, fmt.Sprintf("--volume-name=%s", volumeName), "--namespace", namespace)
+		removeVolumeCommand := tests.NewRepeatableVirtctlCommand(virtctl.COMMAND_REMOVEVOLUME, name, fmt.Sprintf(virtCtlVolumeName, volumeName), virtCtlNamespace, namespace)
 		err = removeVolumeCommand()
 	}
 
@@ -416,15 +419,12 @@ var _ = SIGDescribe("Hotplug", func() {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
-			//testVolumes := make([]string, 0)
 			dvNames := make([]string, 0)
 			for i := 0; i < 3; i++ {
-				//volumeName := fmt.Sprintf("volume%d", i)
 				By("Creating DataVolume")
 				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, tests.Config.StorageClassLocal, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeFilesystem)
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.TODO(), dv, metav1.CreateOptions{})
 				Expect(err).To(BeNil())
-				//testVolumes = append(testVolumes, volumeName)
 				dvNames = append(dvNames, dv.Name)
 			}
 			defer func(dvNames []string, namespace string) {
@@ -466,7 +466,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Eventually(func() error {
 					return console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", volumeName)},
-						&expect.BExp{R: fmt.Sprintf("ls: cannot access '%s'", volumeName)},
+						&expect.BExp{R: fmt.Sprintf(verifyCannotAccessDisk, volumeName)},
 					}, 5)
 				}, 90*time.Second, 2*time.Second).Should(Succeed())
 			}
@@ -569,7 +569,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Eventually(func() error {
 					return console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", targets[0])},
-						&expect.BExp{R: fmt.Sprintf("ls: cannot access '%s'", targets[0])},
+						&expect.BExp{R: fmt.Sprintf(verifyCannotAccessDisk, targets[0])},
 					}, 10)
 				}, 40*time.Second, 2*time.Second).Should(Succeed())
 			},
@@ -642,7 +642,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					Eventually(func() error {
 						return console.SafeExpectBatch(vmi, []expect.Batcher{
 							&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", targets[i])},
-							&expect.BExp{R: fmt.Sprintf("ls: cannot access '%s'", targets[i])},
+							&expect.BExp{R: fmt.Sprintf(verifyCannotAccessDisk, targets[i])},
 						}, 5)
 					}, 90*time.Second, 2*time.Second).Should(Succeed())
 				}
@@ -858,7 +858,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					Eventually(func() error {
 						return console.SafeExpectBatch(vmi, []expect.Batcher{
 							&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", targets[i])},
-							&expect.BExp{R: fmt.Sprintf("ls: cannot access '%s'", targets[i])},
+							&expect.BExp{R: fmt.Sprintf(verifyCannotAccessDisk, targets[i])},
 						}, 5)
 					}, 90*time.Second, 2*time.Second).Should(Succeed())
 				}
@@ -1050,7 +1050,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			Eventually(func() error {
 				return console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", targets[0])},
-					&expect.BExp{R: fmt.Sprintf("ls: cannot access '%s'", targets[0])},
+					&expect.BExp{R: fmt.Sprintf(verifyCannotAccessDisk, targets[0])},
 				}, 10)
 			}, 40*time.Second, 2*time.Second).Should(Succeed())
 			By("Verifying the secret is gone")
@@ -1117,13 +1117,13 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			// verifyCreateData(vmi, targets[0])
 			By("Invoking virtlctl removevolume")
-			removeVolumeCommand := tests.NewRepeatableVirtctlCommand(virtctl.COMMAND_REMOVEVOLUME, vmi.Name, fmt.Sprintf("--volume-name=%s", dv.Name), "--namespace", vmi.Namespace)
+			removeVolumeCommand := tests.NewRepeatableVirtctlCommand(virtctl.COMMAND_REMOVEVOLUME, vmi.Name, fmt.Sprintf(virtCtlVolumeName, dv.Name), virtCtlNamespace, vmi.Namespace)
 			err = removeVolumeCommand()
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() error {
 				return console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("sudo ls %s\n", targets[0])},
-					&expect.BExp{R: fmt.Sprintf("ls: cannot access '%s'", targets[0])},
+					&expect.BExp{R: fmt.Sprintf(verifyCannotAccessDisk, targets[0])},
 				}, 5)
 			}, 90*time.Second, 2*time.Second).Should(Succeed())
 		})
