@@ -325,7 +325,7 @@ func (vca *VirtControllerApp) configModificationCallback() {
 
 // Update virt-controller log verbosity on relevant config changes
 func (vca *VirtControllerApp) shouldChangeLogVerbosity() {
-	verbosity := vca.clusterConfig.GetVirtHandlerVerbosity(vca.host)
+	verbosity := vca.clusterConfig.GetVirtControllerVerbosity(vca.host)
 	log.Log.SetVerbosityLevel(int(verbosity))
 	log.Log.V(2).Infof("set log verbosity to %d", verbosity)
 }
