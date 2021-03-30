@@ -125,12 +125,16 @@ var _ = Describe("[Serial][owner:@sig-compute]Infrastructure", func() {
 			}, 10*time.Second, 1*time.Second).Should(BeNumerically(">", 0))
 
 			By("destroying the certificate")
-			secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KubeVirtCASecretName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			secret.Data = map[string][]byte{
-				"random": []byte("nonsense"),
-			}
-			_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
+			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KubeVirtCASecretName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				secret.Data = map[string][]byte{
+					"random": []byte("nonsense"),
+				}
+
+				_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
+				return err
+			})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("checking that the CA secret gets restored with a new ca bundle")
