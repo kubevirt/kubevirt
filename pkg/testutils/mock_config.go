@@ -2,7 +2,7 @@ package testutils
 
 import (
 	v1 "k8s.io/api/core/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/cache"
@@ -18,7 +18,7 @@ const (
 
 func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
 	configMapInformer, _ := NewFakeInformerFor(&v1.ConfigMap{})
-	crdInformer, _ := NewFakeInformerFor(&extv1beta1.CustomResourceDefinition{})
+	crdInformer, _ := NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 	kubeVirtInformer, _ := NewFakeInformerFor(&KVv1.KubeVirt{})
 
 	if cfgMap != nil {
@@ -34,7 +34,7 @@ func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cach
 func NewFakeClusterConfigUsingKV(kv *KVv1.KubeVirt) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
 	kv.ResourceVersion = rand.String(10)
 	configMapInformer, _ := NewFakeInformerFor(&v1.ConfigMap{})
-	crdInformer, _ := NewFakeInformerFor(&extv1beta1.CustomResourceDefinition{})
+	crdInformer, _ := NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 	kubeVirtInformer, _ := NewFakeInformerFor(&KVv1.KubeVirt{})
 
 	kubeVirtInformer.GetStore().Add(kv)
@@ -65,9 +65,9 @@ func RemoveDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
 }
 
 func AddDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
-	crdInformer.GetStore().Add(&extv1beta1.CustomResourceDefinition{
-		Spec: extv1beta1.CustomResourceDefinitionSpec{
-			Names: extv1beta1.CustomResourceDefinitionNames{
+	crdInformer.GetStore().Add(&extv1.CustomResourceDefinition{
+		Spec: extv1.CustomResourceDefinitionSpec{
+			Names: extv1.CustomResourceDefinitionNames{
 				Kind: "DataVolume",
 			},
 		},

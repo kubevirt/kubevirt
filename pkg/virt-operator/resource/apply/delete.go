@@ -31,7 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 
@@ -102,10 +102,10 @@ func DeleteAll(kv *v1.KubeVirt,
 	ext := clientset.ExtensionsClient()
 	objects := stores.CrdCache.List()
 	for _, obj := range objects {
-		if crd, ok := obj.(*extv1beta1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
+		if crd, ok := obj.(*extv1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(crd); err == nil {
 				expectations.Crd.AddExpectedDeletion(kvkey, key)
-				err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(context.Background(), crd.Name, deleteOptions)
+				err := ext.ApiextensionsV1().CustomResourceDefinitions().Delete(context.Background(), crd.Name, deleteOptions)
 				if err != nil {
 					expectations.Crd.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete crd %+v: %v", crd, err)

@@ -53,7 +53,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/snapshot"
 
 	storagev1 "k8s.io/api/storage/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 func newValidGetRequest() *http.Request {
@@ -85,7 +85,7 @@ var _ = Describe("Application", func() {
 		dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		rsInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceReplicaSet{})
 		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
-		crdInformer, _ := testutils.NewFakeInformerFor(&extv1beta1.CustomResourceDefinition{})
+		crdInformer, _ := testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 		vmRestoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
 		dvInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 

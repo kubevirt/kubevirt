@@ -4151,7 +4151,7 @@ func HasDataVolumeCRD() bool {
 	ext, err := extclient.NewForConfig(virtClient.Config())
 	PanicOnError(err)
 
-	_, err = ext.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.Background(), "datavolumes.cdi.kubevirt.io", metav1.GetOptions{})
+	_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "datavolumes.cdi.kubevirt.io", metav1.GetOptions{})
 
 	if err != nil {
 		return false

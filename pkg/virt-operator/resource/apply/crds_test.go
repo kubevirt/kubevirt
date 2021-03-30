@@ -11,7 +11,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	corev1 "k8s.io/api/core/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,7 +37,7 @@ var _ = Describe("Apply CRDs", func() {
 
 	config := getConfig("fake-registry", "v9.9.9")
 
-	loadTargetStrategy := func(crd *extv1beta1.CustomResourceDefinition) *install.Strategy {
+	loadTargetStrategy := func(crd *extv1.CustomResourceDefinition) *install.Strategy {
 		var b bytes.Buffer
 		writer := bufio.NewWriter(&b)
 
@@ -98,28 +98,32 @@ var _ = Describe("Apply CRDs", func() {
 	})
 
 	It("should not roll out subresources on existing CRDs before control-plane rollover", func() {
-		crd := &extv1beta1.CustomResourceDefinition{
+		crd := &extv1.CustomResourceDefinition{
 			TypeMeta: v12.TypeMeta{
-				APIVersion: extv1beta1.GroupName,
+				APIVersion: extv1.SchemeGroupVersion.String(),
 				Kind:       "CustomResourceDefinition",
 			},
 			ObjectMeta: v12.ObjectMeta{
 				Name:      "test",
 				Namespace: "test",
 			},
-			Spec: extv1beta1.CustomResourceDefinitionSpec{
-				Subresources: &extv1beta1.CustomResourceSubresources{
-					Scale: &extv1beta1.CustomResourceSubresourceScale{
-						SpecReplicasPath: "blub",
+			Spec: extv1.CustomResourceDefinitionSpec{
+				Versions: []extv1.CustomResourceDefinitionVersion{
+					{
+						Subresources: &extv1.CustomResourceSubresources{
+							Scale: &extv1.CustomResourceSubresourceScale{
+								SpecReplicasPath: "blub",
+							},
+							Status: &extv1.CustomResourceSubresourceStatus{},
+						},
 					},
-					Status: &extv1beta1.CustomResourceSubresourceStatus{},
 				},
 			},
 		}
 		targetStrategy := loadTargetStrategy(crd)
 
 		crdWithoutSubresource := crd.DeepCopy()
-		crdWithoutSubresource.Spec.Subresources = nil
+		crdWithoutSubresource.Spec.Versions[0].Subresources = nil
 
 		stores.CrdCache.Add(crdWithoutSubresource)
 		extClient.Fake.PrependReactor("patch", "customresourcedefinitions", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
@@ -130,10 +134,10 @@ var _ = Describe("Apply CRDs", func() {
 			Expect(err).To(BeNil())
 			obj, err = patch.Apply(obj)
 			Expect(err).To(BeNil())
-			crd := &extv1beta1.CustomResourceDefinition{}
+			crd := &extv1.CustomResourceDefinition{}
 			Expect(json.Unmarshal(obj, crd)).To(Succeed())
-			Expect(crd.Spec.Subresources.Status).To(BeNil())
-			Expect(crd.Spec.Subresources.Scale).ToNot(BeNil())
+			Expect(crd.Spec.Versions[0].Subresources.Status).To(BeNil())
+			Expect(crd.Spec.Versions[0].Subresources.Scale).ToNot(BeNil())
 			return true, crd, nil
 		})
 
@@ -149,28 +153,32 @@ var _ = Describe("Apply CRDs", func() {
 	})
 
 	It("should not roll out subresources on existing CRDs after the control-plane rollover", func() {
-		crd := &extv1beta1.CustomResourceDefinition{
+		crd := &extv1.CustomResourceDefinition{
 			TypeMeta: v12.TypeMeta{
-				APIVersion: extv1beta1.GroupName,
+				APIVersion: extv1.SchemeGroupVersion.String(),
 				Kind:       "CustomResourceDefinition",
 			},
 			ObjectMeta: v12.ObjectMeta{
 				Name:      "test",
 				Namespace: "test",
 			},
-			Spec: extv1beta1.CustomResourceDefinitionSpec{
-				Subresources: &extv1beta1.CustomResourceSubresources{
-					Scale: &extv1beta1.CustomResourceSubresourceScale{
-						SpecReplicasPath: "blub",
+			Spec: extv1.CustomResourceDefinitionSpec{
+				Versions: []extv1.CustomResourceDefinitionVersion{
+					{
+						Subresources: &extv1.CustomResourceSubresources{
+							Scale: &extv1.CustomResourceSubresourceScale{
+								SpecReplicasPath: "blub",
+							},
+							Status: &extv1.CustomResourceSubresourceStatus{},
+						},
 					},
-					Status: &extv1beta1.CustomResourceSubresourceStatus{},
 				},
 			},
 		}
 		targetStrategy := loadTargetStrategy(crd)
 
 		crdWithoutSubresource := crd.DeepCopy()
-		crdWithoutSubresource.Spec.Subresources = nil
+		crdWithoutSubresource.Spec.Versions[0].Subresources = nil
 
 		stores.CrdCache.Add(crdWithoutSubresource)
 		extClient.Fake.PrependReactor("patch", "customresourcedefinitions", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
@@ -181,10 +189,10 @@ var _ = Describe("Apply CRDs", func() {
 			Expect(err).To(BeNil())
 			obj, err = patch.Apply(obj)
 			Expect(err).To(BeNil())
-			crd := &extv1beta1.CustomResourceDefinition{}
+			crd := &extv1.CustomResourceDefinition{}
 			Expect(json.Unmarshal(obj, crd)).To(Succeed())
-			Expect(crd.Spec.Subresources.Status).ToNot(BeNil())
-			Expect(crd.Spec.Subresources.Scale).ToNot(BeNil())
+			Expect(crd.Spec.Versions[0].Subresources.Status).ToNot(BeNil())
+			Expect(crd.Spec.Versions[0].Subresources.Scale).ToNot(BeNil())
 			return true, crd, nil
 		})
 

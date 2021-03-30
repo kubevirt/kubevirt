@@ -13,7 +13,7 @@ import (
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -268,7 +268,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			volumeSnapshotClassInformer, volumeSnapshotClassSource = testutils.NewFakeInformerFor(&vsv1beta1.VolumeSnapshotClass{})
 			storageClassInformer, storageClassSource = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 			pvcInformer, pvcSource = testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
-			crdInformer, crdSource = testutils.NewFakeInformerFor(&extv1beta1.CustomResourceDefinition{})
+			crdInformer, crdSource = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 			dvInformer, dvSource = testutils.NewFakeInformerFor(&cdiv1alpha1.DataVolume{})
 
 			recorder = record.NewFakeRecorder(100)
@@ -362,7 +362,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			mockVMSnapshotContentQueue.Wait()
 		}
 
-		addCRD := func(crd *extv1beta1.CustomResourceDefinition) {
+		addCRD := func(crd *extv1.CustomResourceDefinition) {
 			syncCaches(stop)
 			mockCRDQueue.ExpectAdds(1)
 			crdSource.Add(crd)
@@ -863,13 +863,13 @@ var _ = Describe("Snapshot controlleer", func() {
 			})
 
 			DescribeTable("should delete informer", func(crdName string) {
-				crd := &extv1beta1.CustomResourceDefinition{
+				crd := &extv1.CustomResourceDefinition{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:              crdName,
 						DeletionTimestamp: timeFunc(),
 					},
-					Spec: extv1beta1.CustomResourceDefinitionSpec{
-						Versions: []extv1beta1.CustomResourceDefinitionVersion{
+					Spec: extv1.CustomResourceDefinitionSpec{
+						Versions: []extv1.CustomResourceDefinitionVersion{
 							{
 								Name:   "v1beta1",
 								Served: true,
@@ -1373,12 +1373,12 @@ var _ = Describe("Snapshot controlleer", func() {
 			})
 
 			DescribeTable("should create informer", func(crdName string) {
-				crd := &extv1beta1.CustomResourceDefinition{
+				crd := &extv1.CustomResourceDefinition{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: crdName,
 					},
-					Spec: extv1beta1.CustomResourceDefinitionSpec{
-						Versions: []extv1beta1.CustomResourceDefinitionVersion{
+					Spec: extv1.CustomResourceDefinitionSpec{
+						Versions: []extv1.CustomResourceDefinitionVersion{
 							{
 								Name:   "v1beta1",
 								Served: true,

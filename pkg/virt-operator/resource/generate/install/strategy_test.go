@@ -23,6 +23,8 @@ import (
 	"reflect"
 	"strings"
 
+	"k8s.io/client-go/tools/cache"
+
 	"github.com/ghodss/yaml"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -30,7 +32,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -137,7 +139,7 @@ var _ = Describe("Install Strategy", func() {
 			}
 
 			for _, original := range strategy.crds {
-				var converted *extv1beta1.CustomResourceDefinition
+				var converted *extv1.CustomResourceDefinition
 				for _, converted = range newStrategy.crds {
 					if original.Name == converted.Name {
 						break
@@ -217,6 +219,44 @@ var _ = Describe("Install Strategy", func() {
 
 			configMap := mostRecentConfigMap(configMaps)
 			Expect(configMap.Name).To(Equal("test2"))
+		})
+	})
+
+	Context("should load", func() {
+		It("a plaintext install strategy.", func() {
+			// for backwards compatibility
+			stores := util.Stores{}
+			stores.InstallStrategyConfigMapCache = cache.NewStore(cache.MetaNamespaceKeyFunc)
+			strategy, err := GenerateCurrentInstallStrategy(config, true, namespace)
+			Expect(err).ToNot(HaveOccurred())
+			data := string(dumpInstallStrategyToBytes(strategy))
+
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "plaintext-install-strategy",
+					Namespace:    config.GetNamespace(),
+					Annotations: map[string]string{
+						v1.InstallStrategyVersionAnnotation:    config.GetKubeVirtVersion(),
+						v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
+						v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
+					},
+				},
+				Data: map[string]string{
+					"manifests": data,
+				},
+			}
+			stores.InstallStrategyConfigMapCache.Add(configMap)
+			_, err = LoadInstallStrategyFromCache(stores, config)
+			Expect(err).ToNot(HaveOccurred())
+		})
+		It("a gzip+base64 encoded install strategy.", func() {
+			stores := util.Stores{}
+			stores.InstallStrategyConfigMapCache = cache.NewStore(cache.MetaNamespaceKeyFunc)
+			configMap, err := NewInstallStrategyConfigMap(config, true, namespace)
+			Expect(err).ToNot(HaveOccurred())
+			stores.InstallStrategyConfigMapCache.Add(configMap)
+			_, err = LoadInstallStrategyFromCache(stores, config)
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })

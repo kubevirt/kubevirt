@@ -27,7 +27,7 @@ import (
 	"sync"
 
 	k8sv1 "k8s.io/api/core/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/cache"
@@ -129,7 +129,7 @@ func (c *ClusterConfig) configUpdated(old, cur interface{}) {
 	}
 }
 
-func isDataVolumeCrd(crd *extv1beta1.CustomResourceDefinition) bool {
+func isDataVolumeCrd(crd *extv1.CustomResourceDefinition) bool {
 	if crd.Spec.Names.Kind == "DataVolume" {
 		return true
 	}
@@ -139,7 +139,7 @@ func isDataVolumeCrd(crd *extv1beta1.CustomResourceDefinition) bool {
 
 func (c *ClusterConfig) crdAddedDeleted(obj interface{}) {
 	go c.GetConfig()
-	crd := obj.(*extv1beta1.CustomResourceDefinition)
+	crd := obj.(*extv1.CustomResourceDefinition)
 	if !isDataVolumeCrd(crd) {
 		return
 	}
@@ -550,7 +550,7 @@ func (c *ClusterConfig) HasDataVolumeAPI() bool {
 
 	objects := c.crdInformer.GetStore().List()
 	for _, obj := range objects {
-		if crd, ok := obj.(*extv1beta1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
+		if crd, ok := obj.(*extv1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
 			if isDataVolumeCrd(crd) {
 				return true
 			}
