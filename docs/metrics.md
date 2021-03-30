@@ -180,6 +180,8 @@ A design proposal and its implementation history can be seen [here](https://docs
 #### HELP kubevirt_virt_controller_leading Indication for an operating virt-controller.
 ## kubevirt_virt_controller_ready_total
 #### HELP kubevirt_virt_controller_ready Indication for a virt-controller that is ready to take the lead.
+
+ # Other Metrics
 ## kubevirt_vmi_storage_flush_requests_total
 #### HELP kubevirt_vmi_storage_flush_requests_total storage flush requests.
 ## kubevirt_vmi_storage_flush_times_ms_total
