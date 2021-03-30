@@ -1418,7 +1418,10 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 			c.SMBios = options.VirtualMachineSMBios
 		}
 		c.MemBalloonStatsPeriod = uint(options.MemBalloonStatsPeriod)
+		// Add preallocated and thick-provisioned volumes for which we need to avoid the discard=unmap option
+		c.VolumesDiscardIgnore = options.PreallocatedVolumes
 	}
+
 	if err := converter.CheckEFI_OVMFRoms(vmi, c); err != nil {
 		logger.Error("EFI OVMF roms missing")
 		return nil, err

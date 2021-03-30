@@ -99,6 +99,16 @@ type ConverterContext struct {
 	OVMFPath              string
 	MemBalloonStatsPeriod uint
 	UseVirtioTransitional bool
+	VolumesDiscardIgnore  []string
+}
+
+func contains(volumes []string, name string) bool {
+	for _, v := range volumes {
+		if name == v {
+			return true
+		}
+	}
+	return false
 }
 
 // pop next device ID or address from a list
@@ -208,7 +218,11 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		IO:          string(diskDevice.IO),
 		ErrorPolicy: "stop",
 	}
-
+	if diskDevice.Disk != nil || diskDevice.LUN != nil {
+		if !contains(c.VolumesDiscardIgnore, diskDevice.Name) {
+			disk.Driver.Discard = "unmap"
+		}
+	}
 	if numQueues != nil && disk.Target.Bus == "virtio" {
 		disk.Driver.Queues = numQueues
 	}
@@ -510,65 +524,77 @@ func GetHotplugBlockDeviceVolumePath(volumeName string) string {
 
 func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
 	if c.IsBlockPVC[name] {
-		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk)
+		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
 	}
-	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk)
+	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
 }
 
 // Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk converts a Hotplugged PVC to an api disk
 func Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
 	if c.IsBlockDV[name] {
-		return Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(name, disk)
+		return Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
 	}
-	return Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(name, disk)
+	return Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
 }
 
 func Convert_v1_DataVolume_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
 	if c.IsBlockDV[name] {
-		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk)
+		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
 	}
-	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk)
+	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
 }
 
 // Convert_v1_Hotplug_DataVolume_To_api_Disk converts a Hotplugged DataVolume to an api disk
 func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
 	if c.IsBlockDV[name] {
-		return Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(name, disk)
+		return Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
 	}
-	return Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(name, disk)
+	return Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
 }
 
 // Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the domain Disk representation
-func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk) error {
+func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = "stop"
 	disk.Source.File = GetFilesystemVolumePath(volumeName)
+	if !contains(volumesDiscardIgnore, volumeName) {
+		disk.Driver.Discard = "unmap"
+	}
 	return nil
 }
 
 // Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
-func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk) error {
+func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = "stop"
+	if !contains(volumesDiscardIgnore, volumeName) {
+		disk.Driver.Discard = "unmap"
+	}
 	disk.Source.File = GetHotplugFilesystemVolumePath(volumeName)
 	return nil
 }
 
-func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk) error {
+func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = "stop"
+	if !contains(volumesDiscardIgnore, volumeName) {
+		disk.Driver.Discard = "unmap"
+	}
 	disk.Source.Dev = GetBlockDeviceVolumePath(volumeName)
 	return nil
 }
 
 // Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk takes a block device source and builds the domain Disk representation
-func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk) error {
+func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = "stop"
+	if !contains(volumesDiscardIgnore, volumeName) {
+		disk.Driver.Discard = "unmap"
+	}
 	disk.Source.Dev = GetHotplugBlockDeviceVolumePath(volumeName)
 	return nil
 }
@@ -620,6 +646,7 @@ func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSo
 
 	disk.Type = "file"
 	disk.Driver.Type = "qcow2"
+	disk.Driver.Discard = "unmap"
 	disk.Source.File = emptydisk.FilePathForVolumeName(volumeName)
 	disk.Driver.ErrorPolicy = "stop"
 
@@ -633,6 +660,7 @@ func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.Contain
 	disk.Type = "file"
 	disk.Driver.Type = "qcow2"
 	disk.Driver.ErrorPolicy = "stop"
+	disk.Driver.Discard = "unmap"
 	disk.Source.File = ephemeraldisk.GetFilePath(volumeName)
 	disk.BackingStore = &api.BackingStore{
 		Format: &api.BackingStoreFormat{},
@@ -652,14 +680,18 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, disk *api.D
 	disk.Type = "file"
 	disk.Driver.Type = "qcow2"
 	disk.Driver.ErrorPolicy = "stop"
+	disk.Driver.Discard = "unmap"
 	disk.Source.File = ephemeraldisk.GetFilePath(volumeName)
 	disk.BackingStore = &api.BackingStore{
 		Format: &api.BackingStoreFormat{},
 		Source: &api.DiskSource{},
 	}
+	if !contains(c.VolumesDiscardIgnore, volumeName) {
+		disk.Driver.Discard = "unmap"
+	}
 
 	backingDisk := &api.Disk{Driver: &api.DiskDriver{}}
-	err := Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName, backingDisk)
+	err := Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName, backingDisk, c.VolumesDiscardIgnore)
 	if err != nil {
 		return err
 	}

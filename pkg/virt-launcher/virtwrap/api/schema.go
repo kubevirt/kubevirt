@@ -546,6 +546,7 @@ type DiskDriver struct {
 	Type        string `xml:"type,attr"`
 	IOThread    *uint  `xml:"iothread,attr,omitempty"`
 	Queues      *uint  `xml:"queues,attr,omitempty"`
+	Discard     string `xml:"discard,attr,omitempty"`
 }
 
 type DiskSourceHost struct {
