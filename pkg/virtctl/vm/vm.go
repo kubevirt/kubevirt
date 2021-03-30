@@ -48,6 +48,8 @@ const (
 	COMMAND_FSLIST       = "fslist"
 	COMMAND_ADDVOLUME    = "addvolume"
 	COMMAND_REMOVEVOLUME = "removevolume"
+
+	volumeNameArg = "volume-name"
 )
 
 var (
@@ -192,8 +194,8 @@ func NewAddVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
-	cmd.Flags().StringVar(&volumeName, "volume-name", "", "name used in volumes section of spec")
-	cmd.MarkFlagRequired("volume-name")
+	cmd.Flags().StringVar(&volumeName, volumeNameArg, "", "name used in volumes section of spec")
+	cmd.MarkFlagRequired(volumeNameArg)
 	cmd.Flags().StringVar(&serial, "serial", "", "serial number you want to assign to the disk")
 	cmd.Flags().BoolVar(&persist, "persist", false, "if set, the added volume will be persisted in the VM spec (if it exists)")
 
@@ -212,8 +214,8 @@ func NewRemoveVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
-	cmd.Flags().StringVar(&volumeName, "volume-name", "", "name used in volumes section of spec")
-	cmd.MarkFlagRequired("volume-name")
+	cmd.Flags().StringVar(&volumeName, volumeNameArg, "", "name used in volumes section of spec")
+	cmd.MarkFlagRequired(volumeNameArg)
 	cmd.Flags().BoolVar(&persist, "persist", false, "if set, the added volume will be persisted in the VM spec (if it exists)")
 	return cmd
 }
