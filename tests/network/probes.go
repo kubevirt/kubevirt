@@ -80,8 +80,6 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 				By("Specifying a VMI with a readiness probe")
 				vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
-
-				assertPodNotReady(virtClient, vmi)
 			} else {
 				By("Specifying a VMI with a readiness probe")
 				vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
