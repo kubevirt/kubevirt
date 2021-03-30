@@ -2812,6 +2812,10 @@ func WaitForDataVolumeReady(namespace, name string, seconds int) {
 	waitForDataVolumePhase(namespace, name, seconds, cdiv1.WaitForFirstConsumer, cdiv1.Succeeded)
 }
 
+func WaitForDataVolumeImportInProgress(namespace, name string, seconds int) {
+	waitForDataVolumePhase(namespace, name, seconds, cdiv1.WaitForFirstConsumer, cdiv1.ImportInProgress)
+}
+
 func WaitForDataVolumePhaseWFFC(namespace, name string, seconds int) {
 	waitForDataVolumePhase(namespace, name, seconds, cdiv1.WaitForFirstConsumer)
 }
@@ -2828,6 +2832,9 @@ func waitForDataVolumePhase(namespace, name string, seconds int, phase ...cdiv1.
 	EventuallyWithOffset(2,
 		func() cdiv1.DataVolumePhase {
 			dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
+			if apierrors.IsNotFound(err) {
+				return cdiv1.PhaseUnset
+			}
 			ExpectWithOffset(2, err).ToNot(HaveOccurred())
 
 			return dv.Status.Phase
@@ -4018,7 +4025,7 @@ func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.V
 	return vm
 }
 
-func StopVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
+func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration) *v1.VirtualMachine {
 	By("Stopping the VirtualMachineInstance")
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -4029,7 +4036,7 @@ func StopVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 		updatedVM.Spec.Running = &running
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
 		return err
-	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 	updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	// Observe the VirtualMachineInstance deleted
@@ -4039,15 +4046,20 @@ func StopVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 			return true
 		}
 		return false
-	}, 300*time.Second, 1*time.Second).Should(BeTrue(), "The vmi did not disappear")
+	}, timeout, 1*time.Second).Should(BeTrue(), "The vmi did not disappear")
 	By("VM has not the running condition")
 	Eventually(func() bool {
 		vm, err := virtClient.VirtualMachine(updatedVM.Namespace).Get(updatedVM.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return vm.Status.Ready
-	}, 300*time.Second, 1*time.Second).Should(BeFalse())
+	}, timeout, 1*time.Second).Should(BeFalse())
 	return updatedVM
 }
+
+func StopVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
+	return StopVirtualMachineWithTimeout(vm, time.Second*300)
+}
+
 func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	By("Starting the VirtualMachineInstance")
 	virtClient, err := kubecli.GetKubevirtClient()

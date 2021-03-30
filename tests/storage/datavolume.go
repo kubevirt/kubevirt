@@ -185,6 +185,26 @@ var _ = SIGDescribe("[Serial]DataVolume Integration", func() {
 					return vmi.Status.Phase
 				}, 100*time.Second, 1*time.Second).Should(Equal(phase), message)
 			}
+			It("shold be possible to stop VM if datavolume is crashing", func() {
+				dataVolume := tests.NewRandomDataVolumeWithHttpImport(InvalidDataVolumeUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				vm := tests.NewRandomVirtualMachine(tests.NewRandomVMIWithDataVolume(dataVolume.Name), true)
+				vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
+					{
+						ObjectMeta: dataVolume.ObjectMeta,
+						Spec:       dataVolume.Spec,
+					},
+				}
+
+				By("Creating a VM with an invalid DataVolume")
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for DV to start crashing")
+				tests.WaitForDataVolumeImportInProgress(vm.Namespace, dataVolume.Name, 30)
+
+				By("Stop VM")
+				tests.StopVirtualMachineWithTimeout(vm, time.Second*30)
+			})
 
 			It("[test_id:3190]should correctly handle invalid DataVolumes", func() {
 				// Don't actually create the DataVolume since it's invalid.
