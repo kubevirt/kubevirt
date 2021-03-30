@@ -283,11 +283,12 @@ func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.C
 			return fmt.Errorf("failed to parse SMBIOS config: %v", err)
 		}
 	}
+
 	// updates host devices in the config.
-	// Clear the list first, if whole categories get removed, we want the devices gone
-	newPermittedHostDevices := &v1.PermittedHostDevices{}
+	var newPermittedHostDevices *v1.PermittedHostDevices
 	rawConfig = strings.TrimSpace(configMap.Data[PermittedHostDevicesKey])
 	if rawConfig != "" {
+		newPermittedHostDevices = &v1.PermittedHostDevices{}
 		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(rawConfig), 1024).Decode(newPermittedHostDevices)
 		if err != nil {
 			return fmt.Errorf("failed to parse host devices config: %v", err)
