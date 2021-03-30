@@ -307,8 +307,8 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 			return fmt.Errorf("unable to create mutatingwebhook %+v: %v", webhook, err)
 		}
 
-		SetMutatingWebhookConfigurationGeneration(&r.kv.Status.Generations, webhook)
-		log.Log.V(2).Infof("mutatingwebhookconfiguration %v created", webhook.Name)
+		SetGeneration(&r.kv.Status.Generations, webhook)
+		log.Log.V(2).Infof("mutatingwebhoookconfiguration %v created", webhook.Name)
 		return nil
 	}
 

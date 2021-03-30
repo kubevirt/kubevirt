@@ -67,6 +67,7 @@ go_test(
         "crds_test.go",
         "install_strategy_suite_test.go",
         "patches_test.go",
+        "pdb_test.go",
         "reconcile_test.go",
         "scc_test.go",
     ],
