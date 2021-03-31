@@ -6312,6 +6312,16 @@
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine Instance",
      "operationId": "v1vmi-addvolume",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.AddVolumeOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -6493,6 +6503,16 @@
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine Instance",
      "operationId": "v1vmi-removevolume",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.RemoveVolumeOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -6662,6 +6682,16 @@
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine.",
      "operationId": "v1vm-addvolume",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.AddVolumeOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -6750,6 +6780,16 @@
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine.",
      "operationId": "v1vm-removevolume",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.RemoveVolumeOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -7062,6 +7102,16 @@
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine Instance",
      "operationId": "v1alpha3vmi-addvolume",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.AddVolumeOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -7243,6 +7293,16 @@
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine Instance",
      "operationId": "v1alpha3vmi-removevolume",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.RemoveVolumeOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -7412,6 +7472,16 @@
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine.",
      "operationId": "v1alpha3vm-addvolume",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.AddVolumeOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -7500,6 +7570,16 @@
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine.",
      "operationId": "v1alpha3vm-removevolume",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.RemoveVolumeOptions"
+       }
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
