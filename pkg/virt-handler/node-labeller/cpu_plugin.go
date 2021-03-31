@@ -86,6 +86,7 @@ func (n *NodeLabeller) loadHostCapabilities() error {
 	}
 
 	n.hostCapabilities.items = usableModels
+	n.hostCapabilitiesLoaded = true
 
 	return nil
 }
@@ -110,6 +111,7 @@ func (n *NodeLabeller) loadHostSupportedFeatures() error {
 	}
 
 	n.supportedFeatures = usableFeatures
+	n.supportedFeaturesLoaded = true
 	return nil
 }
 
@@ -135,7 +137,7 @@ func (n *NodeLabeller) loadCPUInfo() error {
 	}
 
 	n.cpuInfo.models = models
-
+	n.cpuInfoIsLoaded = true
 	return nil
 }
 
