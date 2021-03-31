@@ -87,7 +87,7 @@ func (r *Reconciler) backupRBACs() error {
 }
 
 func (r *Reconciler) backupRBAC(obj interface{}, name, UID, imageTag, imageRegistry, id string, roleType RoleType) error {
-	meta := getRoleMetaObject(obj, roleType)
+	meta := getMetaObject(obj, roleType)
 	*meta = metav1.ObjectMeta{
 		GenerateName: name,
 	}
@@ -95,7 +95,7 @@ func (r *Reconciler) backupRBAC(obj interface{}, name, UID, imageTag, imageRegis
 	meta.Annotations[v1.EphemeralBackupObject] = UID
 
 	// Create backup
-	createRole := r.getRoleCreateFunction(obj, roleType)
+	createRole := r.getCreateFunction(obj, roleType)
 	err := createRole()
 	if err != nil {
 		return err

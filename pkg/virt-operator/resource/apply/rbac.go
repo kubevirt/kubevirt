@@ -47,11 +47,11 @@ func (r *Reconciler) createOrUpdate(role interface{},
 	avoidIfServiceAccount bool) (err error) {
 
 	roleTypeName := getRoleTypeName(roleType)
-	createRole := r.getRoleCreateFunction(role, roleType)
-	updateRole := r.getRoleUpdateFunction(role, roleType)
+	createRole := r.getCreateFunction(role, roleType)
+	updateRole := r.getUpdateFunction(role, roleType)
 
-	cachedRole, exists, _ := r.getRoleCache(roleType).Get(role)
-	roleMeta := getRoleMetaObject(role, roleType)
+	cachedRole, exists, _ := r.getCache(roleType).Get(role)
+	roleMeta := getMetaObject(role, roleType)
 	if avoidIfServiceAccount && !r.stores.ServiceMonitorEnabled && (roleMeta.Name == rbac.MONITOR_SERVICEACCOUNT_NAME) {
 		return nil
 	}
@@ -68,11 +68,12 @@ func (r *Reconciler) createOrUpdate(role interface{},
 	}
 
 	modified := resourcemerge.BoolPtr(false)
-	cachedRoleMeta := getRoleMetaObject(cachedRole, roleType)
+	cachedRoleMeta := getMetaObject(cachedRole, roleType)
 	resourcemerge.EnsureObjectMeta(modified, cachedRoleMeta.DeepCopy(), *roleMeta)
+	enforceAPIGroup(cachedRole, role, roleType)
 
 	// there was no change to metadata, the generation matched
-	if !*modified && areRoleRulesEqual(role, cachedRole, roleType) {
+	if !*modified && arePolicyRulesEqual(role, cachedRole, roleType) {
 		log.Log.V(4).Infof("%v %v already exists", roleTypeName, roleMeta.GetName())
 		return nil
 	}
@@ -87,7 +88,7 @@ func (r *Reconciler) createOrUpdate(role interface{},
 	return nil
 }
 
-func (r *Reconciler) getRoleCreateFunction(obj interface{}, roleType RoleType) (createFunc func() error) {
+func (r *Reconciler) getCreateFunction(obj interface{}, roleType RoleType) (createFunc func() error) {
 
 	rbacObj := r.clientset.RbacV1()
 	namespace := r.kv.Namespace
@@ -143,7 +144,7 @@ func (r *Reconciler) getRoleCreateFunction(obj interface{}, roleType RoleType) (
 	return
 }
 
-func (r *Reconciler) getRoleUpdateFunction(obj interface{}, roleType RoleType) (updateFunc func() (err error)) {
+func (r *Reconciler) getUpdateFunction(obj interface{}, roleType RoleType) (updateFunc func() (err error)) {
 	rbacObj := r.clientset.RbacV1()
 	namespace := r.kv.Namespace
 
@@ -196,7 +197,7 @@ func getRoleTypeName(roleType RoleType) (name string) {
 	return
 }
 
-func getRoleMetaObject(role interface{}, roleType RoleType) (meta *metav1.ObjectMeta) {
+func getMetaObject(role interface{}, roleType RoleType) (meta *metav1.ObjectMeta) {
 	switch roleType {
 	case TypeRole:
 		role := role.(*rbacv1.Role)
@@ -215,9 +216,51 @@ func getRoleMetaObject(role interface{}, roleType RoleType) (meta *metav1.Object
 	return
 }
 
-func areRoleRulesEqual(role1 interface{}, role2 interface{}, roleType RoleType) (equal bool) {
+func enforceAPIGroup(existing interface{}, required interface{}, roleType RoleType) {
+	var existingRoleRef *rbacv1.RoleRef
+	var requiredRoleRef *rbacv1.RoleRef
+	var existingSubjects []rbacv1.Subject
+	var requiredSubjects []rbacv1.Subject
+
+	switch roleType {
+	case TypeRole:
+		fallthrough
+	case TypeClusterRole:
+		return
+	case TypeRoleBinding:
+		crExisting := existing.(*rbacv1.RoleBinding)
+		crRequired := required.(*rbacv1.RoleBinding)
+		existingRoleRef = &crExisting.RoleRef
+		requiredRoleRef = &crRequired.RoleRef
+		existingSubjects = crExisting.Subjects
+		requiredSubjects = crRequired.Subjects
+	case TypeClusterRoleBinding:
+		crbExisting := existing.(*rbacv1.ClusterRoleBinding)
+		crbRequired := required.(*rbacv1.ClusterRoleBinding)
+		existingRoleRef = &crbExisting.RoleRef
+		requiredRoleRef = &crbRequired.RoleRef
+		existingSubjects = crbExisting.Subjects
+		requiredSubjects = crbRequired.Subjects
+	}
+
+	existingRoleRef.APIGroup = rbacv1.GroupName
+	for i := range existingSubjects {
+		if existingSubjects[i].Kind == "User" {
+			existingSubjects[i].APIGroup = rbacv1.GroupName
+		}
+	}
+
+	requiredRoleRef.APIGroup = rbacv1.GroupName
+	for i := range requiredSubjects {
+		if existingSubjects[i].Kind == "User" {
+			requiredSubjects[i].APIGroup = rbacv1.GroupName
+		}
+	}
+}
+
+func arePolicyRulesEqual(role1 interface{}, role2 interface{}, roleType RoleType) (equal bool) {
 	// This is to avoid using reflections for performance reasons
-	arePolicyRulesEqual := func(pr1 []rbacv1.PolicyRule, pr2 []rbacv1.PolicyRule) bool {
+	arePolicyRulesEqualHelper := func(pr1 []rbacv1.PolicyRule, pr2 []rbacv1.PolicyRule) bool {
 		if len(pr1) != len(pr2) {
 			return false
 		}
@@ -249,11 +292,11 @@ func areRoleRulesEqual(role1 interface{}, role2 interface{}, roleType RoleType) 
 	case TypeRole:
 		role1Obj := role1.(*rbacv1.Role)
 		role2Obj := role2.(*rbacv1.Role)
-		equal = arePolicyRulesEqual(role1Obj.Rules, role2Obj.Rules)
+		equal = arePolicyRulesEqualHelper(role1Obj.Rules, role2Obj.Rules)
 	case TypeClusterRole:
 		role1Obj := role1.(*rbacv1.ClusterRole)
 		role2Obj := role2.(*rbacv1.ClusterRole)
-		equal = arePolicyRulesEqual(role1Obj.Rules, role2Obj.Rules)
+		equal = arePolicyRulesEqualHelper(role1Obj.Rules, role2Obj.Rules)
 	// Bindings do not have "rules" attribute
 	case TypeRoleBinding:
 		fallthrough
@@ -264,7 +307,7 @@ func areRoleRulesEqual(role1 interface{}, role2 interface{}, roleType RoleType) 
 	return
 }
 
-func (r *Reconciler) getRoleCache(roleType RoleType) (cache cache.Store) {
+func (r *Reconciler) getCache(roleType RoleType) (cache cache.Store) {
 	switch roleType {
 	case TypeRole:
 		cache = r.stores.RoleCache
