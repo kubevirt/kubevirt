@@ -1,6 +1,6 @@
 # Hotplug Volumes
 
-KubeVirt now supports hotplugging volumes into a running Virtual Machine Instance (VMI). The volume must be either a block volume or contain a disk image file just like any other regular volume.
+KubeVirt now supports hotplugging volumes into a running Virtual Machine Instance (VMI). The volume must be either a block volume or contain a disk image file just like any other regular volume. When a VM that has hotplugged volumes is rebooted, the hotplugged volumes will NOT be attached to the restarted VM unless the volumes are persisted.
 
 ## Enable feature gate
 
@@ -70,6 +70,32 @@ scsi-0QEMU_QEMU_HARDDISK_1234567890
 [fedora@vmi-fedora ~]$ 
 ```
 As you can see the serial is part of the disk name, so you can uniquely identify it.
+
+### Persist
+In some cases you want a hotplugged volume to become part of the standard disks after a restart of the VM. For instance if you added some permanent storage to the VM. We also assume that the running VMI has a matching VM that defines it specification. You can call the addvolume command with the --persist flag. This will update the VM domain disks section in addition to updating the VMI domain disks. This means that when you restart the VM, the disk is already defined in the VM, and thus in the new VMI.
+
+```bash
+$ virtctl addvolume vm-fedora --volume-name=example-volume-hotplug --persist
+```
+
+In the VM spec this will now show as a new disk
+```yaml
+    spec:
+    domain:
+        devices:
+            disks:
+            - disk:
+                bus: virtio
+                name: containerdisk
+            - disk:
+                bus: virtio
+                name: cloudinitdisk
+            - disk:
+                bus: scsi
+                name: example-volume-hotplug
+        machine:
+          type: ""
+```
 
 ### Removevolume
 In addition to hotplug plugging the volume, you can also unplug it by using the 'removevolume' command available with virtctl
