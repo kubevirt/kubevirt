@@ -352,10 +352,7 @@ func (app *virtHandlerApp) Run() {
 
 	go vmController.Run(10, stop)
 
-	nodeLabellerController, err := nodelabeller.NewNodeLabeller(&devicemanager.DeviceController{}, app.clusterConfig, app.virtCli, app.HostOverride, app.namespace)
-	if err != nil {
-		panic(err)
-	}
+	nodeLabellerController := nodelabeller.NewNodeLabeller(&devicemanager.DeviceController{}, app.clusterConfig, app.virtCli, app.HostOverride, app.namespace)
 
 	go nodeLabellerController.Run(10, stop)
 

@@ -46,20 +46,25 @@ const (
 
 //NodeLabeller struct holds informations needed to run node-labeller
 type NodeLabeller struct {
-	kvmController     *device_manager.DeviceController
-	clientset         kubecli.KubevirtClient
-	host              string
-	namespace         string
-	logger            *log.FilteredLogger
-	clusterConfig     *virtconfig.ClusterConfig
-	hypervFeatures    supportedFeatures
-	hostCapabilities  supportedFeatures
-	queue             workqueue.RateLimitingInterface
-	supportedFeatures []string
-	cpuInfo           cpuInfo
+	kvmController           *device_manager.DeviceController
+	clientset               kubecli.KubevirtClient
+	host                    string
+	namespace               string
+	logger                  *log.FilteredLogger
+	clusterConfig           *virtconfig.ClusterConfig
+	hypervFeatures          supportedFeatures
+	hostCapabilities        supportedFeatures
+	queue                   workqueue.RateLimitingInterface
+	supportedFeatures       []string
+	cpuInfo                 cpuInfo
+	cpuInfoIsLoaded         bool
+	hyperVIsLoaded          bool
+	hostCapabilitiesLoaded  bool
+	supportedFeaturesLoaded bool
+	kvmPostedError          bool
 }
 
-func NewNodeLabeller(kvmController *device_manager.DeviceController, clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string) (*NodeLabeller, error) {
+func NewNodeLabeller(kvmController *device_manager.DeviceController, clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string) *NodeLabeller {
 	n := &NodeLabeller{
 		kvmController: kvmController,
 		clientset:     clientset,
@@ -69,27 +74,8 @@ func NewNodeLabeller(kvmController *device_manager.DeviceController, clusterConf
 		clusterConfig: clusterConfig,
 		queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 	}
-	err := n.loadCPUInfo()
-	if err != nil {
-		n.logger.Errorf("node-labeller could not load cpu info: " + err.Error())
-		return nil, err
-	}
 
-	err = n.loadHostSupportedFeatures()
-	if err != nil {
-		n.logger.Errorf("node-labeller could not load supported features: " + err.Error())
-		return nil, err
-	}
-
-	err = n.loadHostCapabilities()
-	if err != nil {
-		n.logger.Errorf("node-labeller could not load host capabilities: " + err.Error())
-		return nil, err
-	}
-
-	n.loadHypervFeatures()
-
-	return n, nil
+	return n
 }
 
 //Run runs node-labeller
@@ -123,11 +109,21 @@ func (n *NodeLabeller) execute() bool {
 	defer n.queue.Done(key)
 
 	if !n.kvmController.NodeHasDevice(kvmPath) {
-		n.logger.Errorf("node-labeller cannot work without KVM device.")
+		if !n.kvmPostedError {
+			n.logger.Errorf("node-labeller cannot work without KVM device.")
+			n.kvmPostedError = true
+		}
 		return true
 	}
 
-	err := n.run()
+	err := n.loadAll()
+	if err != nil {
+		n.logger.Errorf("node-labeller load error encountered: %v", err)
+		n.queue.AddRateLimited(key)
+		return true
+	}
+
+	err = n.run()
 
 	if err != nil {
 		n.logger.Errorf("node-labeller sync error encountered: %v", err)
@@ -136,6 +132,38 @@ func (n *NodeLabeller) execute() bool {
 		n.queue.Forget(key)
 	}
 	return true
+}
+
+func (n *NodeLabeller) loadAll() error {
+	if !n.cpuInfoIsLoaded {
+		err := n.loadCPUInfo()
+		if err != nil {
+			n.logger.Errorf("node-labeller could not load cpu info: " + err.Error())
+			return err
+		}
+	}
+
+	if !n.supportedFeaturesLoaded {
+		err := n.loadHostSupportedFeatures()
+		if err != nil {
+			n.logger.Errorf("node-labeller could not load supported features: " + err.Error())
+			return err
+		}
+	}
+
+	if !n.hostCapabilitiesLoaded {
+		err := n.loadHostCapabilities()
+		if err != nil {
+			n.logger.Errorf("node-labeller could not load host capabilities: " + err.Error())
+			return err
+		}
+	}
+
+	if !n.hyperVIsLoaded {
+		n.loadHypervFeatures()
+	}
+
+	return nil
 }
 
 func (n *NodeLabeller) run() error {
@@ -216,6 +244,7 @@ func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
 
 func (n *NodeLabeller) loadHypervFeatures() {
 	n.hypervFeatures.items = getCapLabels()
+	n.hyperVIsLoaded = true
 }
 
 // prepareLabels converts cpu models, features, hyperv features to map[string]string format

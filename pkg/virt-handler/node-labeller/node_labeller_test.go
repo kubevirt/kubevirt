@@ -82,7 +82,7 @@ var _ = Describe("Node-labeller ", func() {
 
 		prepareFileDomCapabilities()
 
-		nlController, _ = NewNodeLabeller(&device_manager.DeviceController{}, config, virtClient, "testNode", k8sv1.NamespaceDefault)
+		nlController = NewNodeLabeller(&device_manager.DeviceController{}, config, virtClient, "testNode", k8sv1.NamespaceDefault)
 
 		mockQueue = testutils.NewMockWorkQueue(nlController.queue)
 
