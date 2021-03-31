@@ -208,9 +208,9 @@ const (
 	SecretLabel = "kubevirt.io/secret"
 )
 
-const (
+var (
 	// BlockDiskForTest contains name of the block PV and PVC
-	BlockDiskForTest = "block-disk-for-tests"
+	BlockDiskForTest string
 )
 
 const (
@@ -709,6 +709,8 @@ func BeforeTestSuitSetup(_ []byte) {
 	HostPathAlpine = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "alpine", worker))
 	HostPathCustom = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "custom", worker))
 	HostPathFedora = filepath.Join(HostPathBase, "fedora-cloud")
+
+	BlockDiskForTest = fmt.Sprintf("block-disk-for-tests%v", worker)
 
 	// Wait for schedulable nodes
 	virtClient, err := kubecli.GetKubevirtClient()
