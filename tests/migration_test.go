@@ -67,9 +67,10 @@ import (
 )
 
 const (
-	fedoraVMSize        = "256M"
-	secretDiskSerial    = "D23YZ9W6WA5DJ487"
-	stressdefaultVMSize = "100"
+	fedoraVMSize         = "256M"
+	secretDiskSerial     = "D23YZ9W6WA5DJ487"
+	stressdefaultVMSize  = "100"
+	stressdefaultTimeout = 1600
 )
 
 var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][owner:@sig-compute] VM Live Migration", func() {
@@ -307,17 +308,22 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		return uid
 	}
 
-	runStressTest := func(vmi *v1.VirtualMachineInstance, vmsize string) {
+	runStressTest := func(vmi *v1.VirtualMachineInstance, vmsize string, stressTimeoutSeconds int) {
 		By("Run a stress test to dirty some pages and slow down the migration")
-		stressCmd := fmt.Sprintf("stress --vm 1 --vm-bytes %sM --vm-keep --timeout 1600s&\n", vmsize)
+		stressCmd := fmt.Sprintf("stress --vm 1 --vm-bytes %sM --vm-keep --timeout %ds&\n", vmsize, stressTimeoutSeconds)
 		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: console.PromptExpression},
 			&expect.BSnd{S: stressCmd},
 			&expect.BExp{R: console.PromptExpression},
 		}, 15)).To(Succeed(), "should run a stress test")
+
 		// give stress tool some time to trash more memory pages before returning control to next steps
-		time.Sleep(15 * time.Second)
+		if stressTimeoutSeconds < 15 {
+			time.Sleep(time.Duration(stressTimeoutSeconds) * time.Second)
+		} else {
+			time.Sleep(15 * time.Second)
+		}
 	}
 
 	getLibvirtdPid := func(pod *k8sv1.Pod) string {
@@ -622,7 +628,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-				runStressTest(vmi, stressdefaultVMSize)
+				runStressTest(vmi, stressdefaultVMSize, stressdefaultTimeout)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -818,6 +824,53 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				// check VMI, confirm migration state
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+			})
+			It("should reject additional migrations on the same VMI if the first one is not finished", func() {
+				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				// Need to wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+				// Only stressing the VMI for 60 seconds to ensure the first migration eventually succeeds
+				By("Stressing the VMI")
+				runStressTest(vmi, stressdefaultVMSize, 60)
+
+				By("Starting a first migration")
+				migration1 := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration1, err = virtClient.VirtualMachineInstanceMigration(migration1.Namespace).Create(migration1)
+				Expect(err).To(BeNil())
+
+				// Successfully tested with 40, but requests start getting throttled above 10, which is better to avoid to prevent flakyness
+				By("Starting 10 more migrations expecting all to fail to create")
+				var wg sync.WaitGroup
+				for n := 0; n < 10; n++ {
+					wg.Add(1)
+					go func(n int) {
+						defer GinkgoRecover()
+						defer wg.Done()
+						migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+						_, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+						Expect(err).To(HaveOccurred(), fmt.Sprintf("Extra migration %d should have failed to create", n))
+						Expect(err.Error()).To(ContainSubstring(`admission webhook "migration-create-validator.kubevirt.io" denied the request: in-flight migration detected.`))
+					}(n)
+				}
+				wg.Wait()
+
+				tests.ExpectMigrationSuccess(virtClient, migration1, tests.MigrationWaitTime)
 
 				// delete VMI
 				By("Deleting the VMI")
@@ -1139,7 +1192,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// Run
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-				runStressTest(vmi, stressdefaultVMSize)
+				runStressTest(vmi, stressdefaultVMSize, stressdefaultTimeout)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -1242,7 +1295,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				runStressTest(vmi, "800")
+				runStressTest(vmi, "800", stressdefaultTimeout)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -1300,7 +1353,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				runStressTest(vmi, "800")
+				runStressTest(vmi, "800", stressdefaultTimeout)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -1513,7 +1566,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
 					tests.WaitAgentConnected(virtClient, vmi)
 
-					runStressTest(vmi, stressdefaultVMSize)
+					runStressTest(vmi, stressdefaultVMSize, stressdefaultTimeout)
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
@@ -1711,7 +1764,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				runStressTest(vmi, stressdefaultVMSize)
+				runStressTest(vmi, stressdefaultVMSize, stressdefaultTimeout)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -1826,7 +1879,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					tests.WaitAgentConnected(virtClient, vmi)
 
 					// Put VMI under load
-					runStressTest(vmi, stressdefaultVMSize)
+					runStressTest(vmi, stressdefaultVMSize, stressdefaultTimeout)
 
 					// Mark the masters as schedulable so we can migrate there
 					setMastersUnschedulable(false)

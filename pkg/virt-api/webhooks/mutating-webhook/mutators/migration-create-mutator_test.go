@@ -86,4 +86,10 @@ var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
 		_, migrationMeta := getMigrationSpecMetaFromResponse()
 		Expect(migrationMeta.Finalizers).To(ContainElement(v1.VirtualMachineInstanceMigrationFinalizer))
 	})
+
+	It("should add the selector label", func() {
+		_, migrationMeta := getMigrationSpecMetaFromResponse()
+		Expect(migrationMeta.Labels).ToNot(BeNil())
+		Expect(migrationMeta.Labels[v1.MigrationSelectorLabel]).To(Equal(migration.Spec.VMIName))
+	})
 })
