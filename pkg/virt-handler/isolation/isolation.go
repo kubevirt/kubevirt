@@ -26,7 +26,6 @@ package isolation
 */
 
 import (
-	"bufio"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -47,6 +46,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -81,8 +81,9 @@ var mountInfoFunc = func(pid int) string {
 }
 
 type socketBasedIsolationDetector struct {
-	socketDir  string
-	controller []string
+	socketDir    string
+	controller   []string
+	cgroupParser cgroup.Parser
 }
 
 func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error) {
@@ -108,8 +109,12 @@ func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInst
 
 // NewSocketBasedIsolationDetector takes socketDir and creates a socket based IsolationDetector
 // It returns a PodIsolationDetector which detects pid, cgroups and namespaces of the socket owner.
-func NewSocketBasedIsolationDetector(socketDir string) PodIsolationDetector {
-	return &socketBasedIsolationDetector{socketDir: socketDir, controller: []string{"devices"}}
+func NewSocketBasedIsolationDetector(socketDir string, cgroupParser cgroup.Parser) PodIsolationDetector {
+	return &socketBasedIsolationDetector{
+		socketDir:    socketDir,
+		controller:   []string{"devices"},
+		cgroupParser: cgroupParser,
+	}
 }
 
 func (s *socketBasedIsolationDetector) Whitelist(controller []string) PodIsolationDetector {
@@ -428,55 +433,32 @@ func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
 	return int(ucreds.Pid), nil
 }
 
-func (s *socketBasedIsolationDetector) getSlice(pid int) (controller []string, slice string, err error) {
-	cgroups, err := os.Open(fmt.Sprintf("/proc/%d/cgroup", pid))
+func (s *socketBasedIsolationDetector) getSlice(pid int) (controllers []string, slice string, err error) {
+	slices, err := s.cgroupParser.Parse(pid)
 	if err != nil {
 		return
 	}
-	defer util.CloseIOAndCheckErr(cgroups, nil)
-	scanner := bufio.NewScanner(cgroups)
-	for scanner.Scan() {
-		cgEntry := strings.SplitN(scanner.Text(), ":", 3)
-		// Check if we have a sane cgroup line
-		if len(cgEntry) != 3 {
-			err = fmt.Errorf("Could not extract slice from cgroup line: %s", scanner.Text())
-			return
-		}
-		// Skip not supported cgroup controller
-		if !sliceContains(s.controller, cgEntry[1]) {
-			continue
-		}
 
-		// Set and check cgroup slice
-		if slice == "" {
-			slice = cgEntry[2]
-		} else if slice != cgEntry[2] {
-			err = fmt.Errorf("Process is part of more than one slice. Expected %s, found %s", slice, cgEntry[2])
-			return
+	// Skip not supported cgroup controller
+	for _, c := range s.controller {
+		if s, ok := slices[c]; ok {
+			// Set and check cgroup slice
+			if slice == "" {
+				slice = s
+			} else if slice != s {
+				err = fmt.Errorf("Process is part of more than one slice. Expected %s, found %s", slice, s)
+				return
+			}
+			// Add controller
+			controllers = append(controllers, c)
 		}
-		// Add controller
-		controller = append(controller, cgEntry[1])
-	}
-	// Check if we encountered a read error
-	if scanner.Err() != nil {
-		err = scanner.Err()
-		return
 	}
 
 	if slice == "" {
-		err = fmt.Errorf("Could not detect slice of whitelisted controller: %v", s.controller)
-		return
+		err = fmt.Errorf("Could not detect slice of whitelisted controllers: %v", s.controller)
 	}
-	return
-}
 
-func sliceContains(controllers []string, value string) bool {
-	for _, c := range controllers {
-		if c == value {
-			return true
-		}
-	}
-	return false
+	return
 }
 
 func NodeIsolationResult() *realIsolationResult {

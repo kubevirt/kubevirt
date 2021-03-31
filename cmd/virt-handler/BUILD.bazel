@@ -21,6 +21,7 @@ go_library(
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler:go_default_library",
         "//pkg/virt-handler/cache:go_default_library",
+        "//pkg/virt-handler/cgroup:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-handler/device-manager:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",

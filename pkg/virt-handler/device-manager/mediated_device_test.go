@@ -183,7 +183,7 @@ var _ = Describe("Mediated Device", func() {
 			fakeClusterConfig, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 
 			By("creating an empty device controller")
-			deviceController := NewDeviceController("master", 10, fakeClusterConfig)
+			deviceController := NewDeviceController("master", 10, "rw", fakeClusterConfig)
 			deviceController.devicePlugins = make(map[string]ControlledDevice)
 
 			By("adding a host device to the cluster config")

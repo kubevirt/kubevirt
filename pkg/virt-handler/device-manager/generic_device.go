@@ -65,9 +65,10 @@ type GenericDevicePlugin struct {
 	preOpen      bool
 	initialized  bool
 	lock         *sync.Mutex
+	permissions  string
 }
 
-func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int, preOpen bool) *GenericDevicePlugin {
+func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int, permissions string, preOpen bool) *GenericDevicePlugin {
 	serverSock := SocketPath(deviceName)
 	dpi := &GenericDevicePlugin{
 		counter:      0,
@@ -81,6 +82,7 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 		preOpen:      preOpen,
 		initialized:  false,
 		lock:         &sync.Mutex{},
+		permissions:  permissions,
 	}
 	for i := 0; i < maxDevices; i++ {
 		dpi.addNewGenericDevice()
@@ -260,7 +262,7 @@ func (dpi *GenericDevicePlugin) Allocate(ctx context.Context, r *pluginapi.Alloc
 	dev := new(pluginapi.DeviceSpec)
 	dev.HostPath = dpi.devicePath
 	dev.ContainerPath = dpi.devicePath
-	dev.Permissions = "rw"
+	dev.Permissions = dpi.permissions
 	containerResponse.Devices = []*pluginapi.DeviceSpec{dev}
 
 	response.ContainerResponses = []*pluginapi.ContainerAllocateResponse{containerResponse}

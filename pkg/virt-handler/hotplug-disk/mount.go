@@ -19,6 +19,7 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups/devices"
@@ -46,7 +47,7 @@ var (
 	}
 
 	cgroupsBasePath = func() string {
-		return "/proc/1/root/sys/fs/cgroup/devices/"
+		return filepath.Join("/proc/1/root", cgroup.ControllerPath("devices"))
 	}
 
 	statCommand = func(fileName string) ([]byte, error) {
@@ -74,7 +75,7 @@ var (
 	}
 
 	isolationDetector = func(path string) isolation.PodIsolationDetector {
-		return isolation.NewSocketBasedIsolationDetector(path)
+		return isolation.NewSocketBasedIsolationDetector(path, cgroup.NewParser())
 	}
 
 	procMounts = func(pid int) ([]*procfs.MountInfo, error) {

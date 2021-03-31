@@ -63,6 +63,33 @@ var _ = Describe("[owner:@sig-compute]Configurations", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
+	const (
+		cgroupV1MemoryUsagePath = "/sys/fs/cgroup/memory/memory.usage_in_bytes"
+		cgroupV2MemoryUsagePath = "/sys/fs/cgroup/memory.current"
+	)
+
+	getPodMemoryUsage := func(pod *kubev1.Pod) (output string, err error) {
+		output, err = tests.ExecuteCommandOnPod(
+			virtClient,
+			pod,
+			"compute",
+			[]string{"cat", cgroupV2MemoryUsagePath},
+		)
+
+		if err == nil {
+			return
+		}
+
+		output, err = tests.ExecuteCommandOnPod(
+			virtClient,
+			pod,
+			"compute",
+			[]string{"cat", cgroupV1MemoryUsagePath},
+		)
+
+		return
+	}
+
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
@@ -618,12 +645,7 @@ var _ = Describe("[owner:@sig-compute]Configurations", func() {
 				}, 15)).To(Succeed())
 
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-				podMemoryUsage, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					pod,
-					"compute",
-					[]string{"/usr/bin/bash", "-c", "cat /sys/fs/cgroup/memory/memory.usage_in_bytes"},
-				)
+				podMemoryUsage, err := getPodMemoryUsage(pod)
 				Expect(err).ToNot(HaveOccurred())
 				By("Converting pod memory usage")
 				m, err := strconv.Atoi(strings.Trim(podMemoryUsage, "\n"))
@@ -1914,6 +1936,33 @@ var _ = Describe("[owner:@sig-compute]Configurations", func() {
 		})
 
 		Context("[Serial]with cpu pinning enabled", func() {
+			const (
+				cgroupV1cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
+				cgroupV2cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
+			)
+
+			getPodCPUSet := func(pod *kubev1.Pod) (output string, err error) {
+				output, err = tests.ExecuteCommandOnPod(
+					virtClient,
+					pod,
+					"compute",
+					[]string{"cat", cgroupV2cpusetPath},
+				)
+
+				if err == nil {
+					return
+				}
+
+				output, err = tests.ExecuteCommandOnPod(
+					virtClient,
+					pod,
+					"compute",
+					[]string{"cat", cgroupV1cpusetPath},
+				)
+
+				return
+			}
+
 			It("[test_id:1684]should set the cpumanager label to false when it's not running", func() {
 
 				By("adding a cpumanger=true label to a node")
@@ -1981,12 +2030,7 @@ var _ = Describe("[owner:@sig-compute]Configurations", func() {
 					tests.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 
-				output, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					readyPod,
-					"compute",
-					[]string{"cat", hw_utils.CPUSET_PATH},
-				)
+				output, err := getPodCPUSet(readyPod)
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())
 				output = strings.TrimSuffix(output, "\n")
@@ -2051,12 +2095,7 @@ var _ = Describe("[owner:@sig-compute]Configurations", func() {
 				}, 15)).To(Succeed())
 
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-				podMemoryUsage, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					pod,
-					"compute",
-					[]string{"/usr/bin/bash", "-c", "cat /sys/fs/cgroup/memory/memory.usage_in_bytes"},
-				)
+				podMemoryUsage, err := getPodMemoryUsage(pod)
 				Expect(err).ToNot(HaveOccurred())
 				By("Converting pod memory usage")
 				m, err := strconv.Atoi(strings.Trim(podMemoryUsage, "\n"))
@@ -2101,12 +2140,7 @@ var _ = Describe("[owner:@sig-compute]Configurations", func() {
 					tests.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
 
-				output, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					readyPod,
-					"compute",
-					[]string{"cat", hw_utils.CPUSET_PATH},
-				)
+				output, err := getPodCPUSet(readyPod)
 				log.Log.Infof("%v", output)
 				Expect(err).ToNot(HaveOccurred())
 				output = strings.TrimSuffix(output, "\n")

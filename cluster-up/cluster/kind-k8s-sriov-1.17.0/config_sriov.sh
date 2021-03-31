@@ -240,9 +240,15 @@ function move_sriov_pfs_netns_to_node {
       continue
     fi
 
-    ip link set "$pf_name" netns "$node"
-    pf_array+=("$pf_name")
-    [ "${#pf_array[@]}" -eq "$pf_count_per_node" ] && break
+    # In case two clusters started at the same time, they might race on the same PF.
+    # The first will manage to assign the PF to its container, and the 2nd will just skip it
+    # and try the rest of the PFs available.
+    if ip link set "$pf_name" netns "$node"; then
+      if timeout 10s bash -c "until ip netns exec $node ip link show $pf_name > /dev/null; do sleep 1; done"; then
+        pf_array+=("$pf_name")
+        [ "${#pf_array[@]}" -eq "$pf_count_per_node" ] && break
+      fi
+    fi
   done
 
   [ "${#pf_array[@]}" -lt "$pf_count_per_node" ] && \
