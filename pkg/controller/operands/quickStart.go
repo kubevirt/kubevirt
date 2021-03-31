@@ -13,16 +13,16 @@ import (
 
 	"github.com/ghodss/yaml"
 	log "github.com/go-logr/logr"
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	consolev1 "github.com/openshift/api/console/v1"
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 // ConsoleQuickStart resources are a short user guids
@@ -38,7 +38,6 @@ func newQuickStartHandler(Client client.Client, Scheme *runtime.Scheme, required
 		Client: Client,
 		Scheme: Scheme,
 		crType: "ConsoleQuickStart",
-		isCr:   false,
 		// Previous versions used to have HCO-operator (scope namespace)
 		// as the owner of NetworkAddons (scope cluster).
 		// It's not legal, so remove that.
@@ -65,21 +64,11 @@ func (h qsHooks) getEmptyCr() client.Object {
 	}
 }
 
-func (h qsHooks) validate() error                                        { return nil }
 func (h qsHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
-func (h qsHooks) getConditions(_ runtime.Object) []conditionsv1.Condition {
-	return nil
-}
-
-func (h qsHooks) checkComponentVersion(_ runtime.Object) bool {
-	return true
-}
 
 func (h qsHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*consolev1.ConsoleQuickStart).ObjectMeta
 }
-
-func (h qsHooks) reset() { /* no implementation */ }
 
 func (h qsHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, _ runtime.Object) (bool, bool, error) {
 	found, ok := exists.(*consolev1.ConsoleQuickStart)

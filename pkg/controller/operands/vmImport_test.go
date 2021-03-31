@@ -328,7 +328,8 @@ var _ = Describe("VM-Import", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := NewIMSConfigForCR(hco, commonTestUtils.Namespace)
+			expectedResource, err := NewIMSConfigForCR(hco, commonTestUtils.Namespace)
+			Expect(err).ToNot(HaveOccurred())
 			cl := commonTestUtils.InitClient([]runtime.Object{})
 			handler := (*genericOperand)(newImsConfigHandler(cl, commonTestUtils.GetScheme()))
 			res := handler.ensure(req)
@@ -347,7 +348,9 @@ var _ = Describe("VM-Import", func() {
 		})
 
 		It("should find if present", func() {
-			expectedResource := NewIMSConfigForCR(hco, commonTestUtils.Namespace)
+			expectedResource, err := NewIMSConfigForCR(hco, commonTestUtils.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
 			handler := (*genericOperand)(newImsConfigHandler(cl, commonTestUtils.GetScheme()))
@@ -370,9 +373,13 @@ var _ = Describe("VM-Import", func() {
 			updatableKeys := [...]string{convk, vmwarek}
 			toBeRemovedKey := "toberemoved"
 
-			expectedResource := NewIMSConfigForCR(hco, commonTestUtils.Namespace)
+			expectedResource, err := NewIMSConfigForCR(hco, commonTestUtils.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			outdatedResource := NewIMSConfigForCR(hco, commonTestUtils.Namespace)
+			outdatedResource, err := NewIMSConfigForCR(hco, commonTestUtils.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+
 			outdatedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", outdatedResource.Namespace, outdatedResource.Name)
 			// values we should update
 			outdatedResource.Data[convk] = "old-conversion-container-value-we-have-to-update"

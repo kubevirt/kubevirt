@@ -4,14 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	jsonpatch "github.com/evanphx/json-patch"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"strings"
 
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	jsonpatch "github.com/evanphx/json-patch"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -20,6 +18,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 type Operand interface {
@@ -40,8 +42,6 @@ type genericOperand struct {
 	removeExistingOwner bool
 	// Should the handler add the controller reference
 	setControllerReference bool
-	// Is it a custom resource
-	isCr bool
 	// Set of resource handler hooks, to be implement in each handler
 	hooks hcoResourceHooks
 }
@@ -53,18 +53,24 @@ type hcoResourceHooks interface {
 	// Generate an empty resource, to be used as the input of the client.Get method. After calling this method, it will
 	// contains the actual values in K8s.
 	getEmptyCr() client.Object
-	// optional validation before starting the ensure work
-	validate() error
 	// an optional hook that is called just after getting the resource from K8s
 	postFound(*common.HcoRequest, runtime.Object) error
 	// check if there is a change between the required resource and the resource read from K8s, and update K8s accordingly.
 	updateCr(*common.HcoRequest, client.Client, runtime.Object, runtime.Object) (bool, bool, error)
+	// cast he specific resource to *metav1.ObjectMeta
+	getObjectMeta(runtime.Object) *metav1.ObjectMeta
+}
+
+// Set of operand handler hooks, to be implement in each handler
+type hcoOperandHooks interface {
+	hcoResourceHooks
 	// get the CR conditions, if exists
 	getConditions(runtime.Object) []conditionsv1.Condition
 	// on upgrade mode, check if the CR is already with the expected version
 	checkComponentVersion(runtime.Object) bool
-	// cast he specific resource to *metav1.ObjectMeta
-	getObjectMeta(runtime.Object) *metav1.ObjectMeta
+}
+
+type reseter interface {
 	// reset handler cached, if exists
 	reset()
 }
@@ -78,9 +84,6 @@ func (h *genericOperand) ensure(req *common.HcoRequest) *EnsureResult {
 	}
 
 	res := NewEnsureResult(cr)
-	if err = h.hooks.validate(); err != nil {
-		return res.Error(err)
-	}
 
 	if err := h.doSetControllerReference(req, cr); err != nil {
 		return res.Error(err)
@@ -115,22 +118,22 @@ func (h *genericOperand) handleExistingCr(req *common.HcoRequest, key client.Obj
 		return res.SetUpdated().SetOverwritten(overwritten)
 	}
 
-	if err = h.addCrToTheRelatedObjectList(req, err, found); err != nil {
+	if err = h.addCrToTheRelatedObjectList(req, found); err != nil {
 		return res.Error(err)
 	}
 
-	if h.isCr { // for operands, perform some more checks
-		return h.completeEnsureOperands(req, found, res)
+	if opr, ok := h.hooks.(hcoOperandHooks); ok { // for operands, perform some more checks
+		return h.completeEnsureOperands(req, opr, found, res)
 	}
 	// For resources that are not CRs, such as priority classes or a config map, there is no new version to upgrade
 	return res.SetUpgradeDone(req.ComponentUpgradeInProgress)
 }
 
-func (h *genericOperand) completeEnsureOperands(req *common.HcoRequest, found client.Object, res *EnsureResult) *EnsureResult {
+func (h *genericOperand) completeEnsureOperands(req *common.HcoRequest, opr hcoOperandHooks, found client.Object, res *EnsureResult) *EnsureResult {
 	// Handle KubeVirt resource conditions
-	isReady := handleComponentConditions(req, h.crType, h.hooks.getConditions(found))
+	isReady := handleComponentConditions(req, h.crType, opr.getConditions(found))
 
-	versionUpdated := h.hooks.checkComponentVersion(found)
+	versionUpdated := opr.checkComponentVersion(found)
 	if isReady && !versionUpdated {
 		req.Logger.Info(fmt.Sprintf("could not complete the upgrade process. %s is not with the expected version. Check %s observed version in the status field of its CR", h.crType, h.crType))
 	}
@@ -139,7 +142,7 @@ func (h *genericOperand) completeEnsureOperands(req *common.HcoRequest, found cl
 	return res.SetUpgradeDone(upgradeDone)
 }
 
-func (h *genericOperand) addCrToTheRelatedObjectList(req *common.HcoRequest, err error, found client.Object) error {
+func (h *genericOperand) addCrToTheRelatedObjectList(req *common.HcoRequest, found client.Object) error {
 	// Add it to the list of RelatedObjects if found
 	objectRef, err := reference.GetReference(h.Scheme, found)
 	if err != nil {
@@ -195,7 +198,9 @@ func (h *genericOperand) createNewCr(req *common.HcoRequest, err error, cr clien
 }
 
 func (h *genericOperand) reset() {
-	h.hooks.reset()
+	if r, ok := h.hooks.(reseter); ok {
+		r.reset()
+	}
 }
 
 // handleComponentConditions - read and process a sub-component conditions.
@@ -244,7 +249,7 @@ func handleOperandDegradedCond(req *common.HcoRequest, component string, conditi
 			Type:    conditionsv1.ConditionDegraded,
 			Status:  corev1.ConditionTrue,
 			Reason:  fmt.Sprintf("%sDegraded", component),
-			Message: fmt.Sprintf("%s is degraded: %v", component, string(condition.Message)),
+			Message: fmt.Sprintf("%s is degraded: %v", component, condition.Message),
 		})
 
 		return false
@@ -259,13 +264,13 @@ func handleOperandProgressingCond(req *common.HcoRequest, component string, cond
 			Type:    conditionsv1.ConditionProgressing,
 			Status:  corev1.ConditionTrue,
 			Reason:  fmt.Sprintf("%sProgressing", component),
-			Message: fmt.Sprintf("%s is progressing: %v", component, string(condition.Message)),
+			Message: fmt.Sprintf("%s is progressing: %v", component, condition.Message),
 		})
 		req.Conditions.SetStatusCondition(conditionsv1.Condition{
 			Type:    conditionsv1.ConditionUpgradeable,
 			Status:  corev1.ConditionFalse,
 			Reason:  fmt.Sprintf("%sProgressing", component),
-			Message: fmt.Sprintf("%s is progressing: %v", component, string(condition.Message)),
+			Message: fmt.Sprintf("%s is progressing: %v", component, condition.Message),
 		})
 
 		return false
@@ -275,7 +280,7 @@ func handleOperandProgressingCond(req *common.HcoRequest, component string, cond
 
 func handleOperandAvailableCond(req *common.HcoRequest, component string, condition conditionsv1.Condition) bool {
 	if condition.Status == corev1.ConditionFalse {
-		msg := fmt.Sprintf("%s is not available: %v", component, string(condition.Message))
+		msg := fmt.Sprintf("%s is not available: %v", component, condition.Message)
 		componentNotAvailable(req, component, msg)
 		return false
 	}

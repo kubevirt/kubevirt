@@ -11,10 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
@@ -22,21 +18,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 const (
-	kubevirtDefaultNetworkInterfaceValue = "masquerade"
-	// We can import the constants below from Kubevirt virt-config package
-	// after Kubevirt will consume k8s.io v0.19.2 or higher
-	FeatureGatesKey         = "feature-gates"
-	MachineTypeKey          = "machine-type"
-	UseEmulationKey         = "debug.useEmulation"
-	MigrationsConfigKey     = "migrations"
-	NetworkInterfaceKey     = "default-network-interface"
-	SmbiosConfigKey         = "smbios"
-	SELinuxLauncherTypeKey  = "selinuxLauncherType"
-	DefaultNetworkInterface = "bridge"
-
 	SELinuxLauncherType = "virt_launcher.process"
 )
 
@@ -133,7 +122,6 @@ func newKubevirtHandler(Client client.Client, Scheme *runtime.Scheme) *kubevirtH
 		crType:                 "KubeVirt",
 		removeExistingOwner:    false,
 		setControllerReference: true,
-		isCr:                   true,
 		hooks:                  &kubevirtHooks{},
 	}
 }
@@ -154,7 +142,6 @@ func (h *kubevirtHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object,
 }
 
 func (h kubevirtHooks) getEmptyCr() client.Object                          { return &kubevirtv1.KubeVirt{} }
-func (h kubevirtHooks) validate() error                                    { return nil }
 func (h kubevirtHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
 func (h kubevirtHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
 	return translateKubeVirtConds(cr.(*kubevirtv1.KubeVirt).Status.Conditions)
@@ -403,7 +390,6 @@ func newKvPriorityClassHandler(Client client.Client, Scheme *runtime.Scheme) *kv
 		crType:                 "KubeVirtPriorityClass",
 		removeExistingOwner:    false,
 		setControllerReference: false,
-		isCr:                   false,
 		hooks:                  &kvPriorityClassHooks{},
 	}
 }
@@ -413,15 +399,11 @@ type kvPriorityClassHooks struct{}
 func (h kvPriorityClassHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	return NewKubeVirtPriorityClass(hc), nil
 }
-func (h kvPriorityClassHooks) getEmptyCr() client.Object                               { return &schedulingv1.PriorityClass{} }
-func (h kvPriorityClassHooks) validate() error                                         { return nil }
-func (h kvPriorityClassHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error  { return nil }
-func (h kvPriorityClassHooks) getConditions(_ runtime.Object) []conditionsv1.Condition { return nil }
-func (h kvPriorityClassHooks) checkComponentVersion(_ runtime.Object) bool             { return true }
+func (h kvPriorityClassHooks) getEmptyCr() client.Object                              { return &schedulingv1.PriorityClass{} }
+func (h kvPriorityClassHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
 func (h kvPriorityClassHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*schedulingv1.PriorityClass).ObjectMeta
 }
-func (h kvPriorityClassHooks) reset() { /* no implementation */ }
 
 func (h *kvPriorityClassHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	pc, ok1 := required.(*schedulingv1.PriorityClass)

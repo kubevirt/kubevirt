@@ -4,10 +4,6 @@ import (
 	"errors"
 	"reflect"
 
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -19,6 +15,11 @@ import (
 	cdiv1beta1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 const (
@@ -34,7 +35,6 @@ func newCdiHandler(Client client.Client, Scheme *runtime.Scheme) *cdiHandler {
 		Client: Client,
 		Scheme: Scheme,
 		crType: "CDI",
-		isCr:   true,
 		// Previous versions used to have HCO-operator (scope namespace)
 		// as the owner of CDI (scope cluster).
 		// It's not legal, so remove that.
@@ -60,7 +60,6 @@ func (h *cdiHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, erro
 	return h.cache, nil
 }
 func (h cdiHooks) getEmptyCr() client.Object { return &cdiv1beta1.CDI{} }
-func (h cdiHooks) validate() error           { return nil }
 func (h cdiHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
 	return cr.(*cdiv1beta1.CDI).Status.Conditions
 }
@@ -297,7 +296,6 @@ func newStorageConfigHandler(Client client.Client, Scheme *runtime.Scheme) *stor
 		Client:                 Client,
 		Scheme:                 Scheme,
 		crType:                 "StorageConfigmap",
-		isCr:                   false,
 		removeExistingOwner:    false,
 		setControllerReference: true,
 		hooks:                  &storageConfigHooks{},
@@ -309,15 +307,11 @@ type storageConfigHooks struct{}
 func (h storageConfigHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	return NewKubeVirtStorageConfigForCR(hc, hc.Namespace), nil
 }
-func (h storageConfigHooks) getEmptyCr() client.Object                               { return &corev1.ConfigMap{} }
-func (h storageConfigHooks) validate() error                                         { return nil }
-func (h storageConfigHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error  { return nil }
-func (h storageConfigHooks) getConditions(_ runtime.Object) []conditionsv1.Condition { return nil }
-func (h storageConfigHooks) checkComponentVersion(_ runtime.Object) bool             { return true }
+func (h storageConfigHooks) getEmptyCr() client.Object                              { return &corev1.ConfigMap{} }
+func (h storageConfigHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
 func (h storageConfigHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*corev1.ConfigMap).ObjectMeta
 }
-func (h storageConfigHooks) reset() { /* no implementation */ }
 func (h *storageConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	storageConfig, ok1 := required.(*corev1.ConfigMap)
 	found, ok2 := exists.(*corev1.ConfigMap)

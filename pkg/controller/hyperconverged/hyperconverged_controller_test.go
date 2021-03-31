@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	v1 "github.com/openshift/custom-resource-status/objectreferences/v1"
-	"k8s.io/client-go/tools/reference"
 	"os"
 	"time"
+
+	v1 "github.com/openshift/custom-resource-status/objectreferences/v1"
+	"k8s.io/client-go/tools/reference"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -748,14 +749,19 @@ var _ = Describe("HyperconvergedController", func() {
 		})
 
 		Context("Validate OLM required fields", func() {
-			expected := getBasicDeployment()
-			origConds := expected.hco.Status.Conditions
+			var (
+				expected  *BasicExpected
+				origConds []conditionsv1.Condition
+			)
 
 			BeforeEach(func() {
 				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.ConversionImage)
 				os.Setenv("VMWARE_CONTAINER", commonTestUtils.VmwareImage)
 				os.Setenv("OPERATOR_NAMESPACE", namespace)
 				os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
+
+				expected = getBasicDeployment()
+				origConds = expected.hco.Status.Conditions
 			})
 
 			It("Should set required fields on init", func() {
@@ -1563,8 +1569,10 @@ progressTimeout: 150`,
 					checkAvailability(foundHC, corev1.ConditionTrue)
 
 					By("Check that IMS cm still contains the expected values")
-					vmi_cm := operands.NewIMSConfigForCR(foundHC, namespace)
-					err := hcoutil.GetRuntimeObject(context.TODO(), cl, vmi_cm, log)
+					vmi_cm, err := operands.NewIMSConfigForCR(foundHC, namespace)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = hcoutil.GetRuntimeObject(context.TODO(), cl, vmi_cm, log)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(vmi_cm.Data).ShouldNot(BeNil())
 					Expect(vmi_cm.Data).To(HaveKeyWithValue(vddkk, vddkInitImageValue))
@@ -1595,8 +1603,10 @@ progressTimeout: 150`,
 					Expect(*foundHC.Spec.VddkInitImage).Should(Not(Equal(vddkInitImageValue)))
 
 					By("Check that IMS CM value is now the same as HCO's")
-					vmi_cm := operands.NewIMSConfigForCR(foundHC, namespace)
-					err := hcoutil.GetRuntimeObject(context.TODO(), cl, vmi_cm, log)
+					vmi_cm, err := operands.NewIMSConfigForCR(foundHC, namespace)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = hcoutil.GetRuntimeObject(context.TODO(), cl, vmi_cm, log)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(vmi_cm.Data).ShouldNot(BeNil())
 					Expect(vmi_cm.Data).To(HaveKeyWithValue(vddkk, hcoVddkInitImageValue))
@@ -1626,8 +1636,10 @@ progressTimeout: 150`,
 					Expect(*foundHC.Spec.VddkInitImage).Should(Equal(vddkInitImageValue))
 
 					By("Check that IMS CM value is still the same as HCO's")
-					vmi_cm := operands.NewIMSConfigForCR(foundHC, namespace)
-					err := hcoutil.GetRuntimeObject(context.TODO(), cl, vmi_cm, log)
+					vmi_cm, err := operands.NewIMSConfigForCR(foundHC, namespace)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = hcoutil.GetRuntimeObject(context.TODO(), cl, vmi_cm, log)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(vmi_cm.Data).ShouldNot(BeNil())
 					Expect(vmi_cm.Data).To(HaveKeyWithValue(vddkk, vddkInitImageValue))

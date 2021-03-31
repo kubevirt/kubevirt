@@ -7,11 +7,12 @@ import (
 	"strings"
 	"sync"
 
+	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
@@ -58,7 +59,6 @@ func newSspHandler(Client client.Client, Scheme *runtime.Scheme) *sspHandler {
 			Client:                 Client,
 			Scheme:                 Scheme,
 			crType:                 "SSP",
-			isCr:                   true,
 			removeExistingOwner:    false,
 			setControllerReference: false,
 			hooks:                  &sspHooks{},
@@ -128,7 +128,6 @@ func (h *sspHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, erro
 	return h.cache, nil
 }
 func (h sspHooks) getEmptyCr() client.Object                          { return &sspv1beta1.SSP{} }
-func (h sspHooks) validate() error                                    { return nil }
 func (h sspHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
 func (h sspHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
 	return cr.(*sspv1beta1.SSP).Status.Conditions

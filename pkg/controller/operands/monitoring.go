@@ -6,17 +6,17 @@ import (
 	"reflect"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 const (
@@ -37,7 +37,6 @@ func newMetricsServiceHandler(Client client.Client, Scheme *runtime.Scheme) *met
 		crType:                 "MetricsService",
 		removeExistingOwner:    false,
 		setControllerReference: true,
-		isCr:                   false,
 		hooks:                  &metricsServiceHooks{},
 	}
 }
@@ -47,11 +46,8 @@ type metricsServiceHooks struct{}
 func (h metricsServiceHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	return NewMetricsService(hc, hc.Namespace), nil
 }
-func (h metricsServiceHooks) getEmptyCr() client.Object                               { return &corev1.Service{} }
-func (h metricsServiceHooks) validate() error                                         { return nil }
-func (h metricsServiceHooks) postFound(*common.HcoRequest, runtime.Object) error      { return nil }
-func (h metricsServiceHooks) getConditions(_ runtime.Object) []conditionsv1.Condition { return nil }
-func (h metricsServiceHooks) checkComponentVersion(_ runtime.Object) bool             { return true }
+func (h metricsServiceHooks) getEmptyCr() client.Object                          { return &corev1.Service{} }
+func (h metricsServiceHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
 func (h metricsServiceHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*corev1.Service).ObjectMeta
 }
@@ -121,7 +117,6 @@ func newMetricsServiceMonitorHandler(Client client.Client, Scheme *runtime.Schem
 		crType:                 "ServiceMonitor",
 		removeExistingOwner:    false,
 		setControllerReference: true,
-		isCr:                   false,
 		hooks:                  &metricsServiceMonitorHooks{},
 	}
 }
@@ -134,12 +129,7 @@ func (h metricsServiceMonitorHooks) getFullCr(hc *hcov1beta1.HyperConverged) (cl
 func (h metricsServiceMonitorHooks) getEmptyCr() client.Object {
 	return &monitoringv1.ServiceMonitor{}
 }
-func (h metricsServiceMonitorHooks) validate() error                                    { return nil }
 func (h metricsServiceMonitorHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
-func (h metricsServiceMonitorHooks) getConditions(_ runtime.Object) []conditionsv1.Condition {
-	return nil
-}
-func (h metricsServiceMonitorHooks) checkComponentVersion(_ runtime.Object) bool { return true }
 func (h metricsServiceMonitorHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*monitoringv1.ServiceMonitor).ObjectMeta
 }
@@ -198,7 +188,6 @@ func newMonitoringPrometheusRuleHandler(Client client.Client, Scheme *runtime.Sc
 		crType:                 "PrometheusRule",
 		removeExistingOwner:    false,
 		setControllerReference: true,
-		isCr:                   false,
 		hooks:                  &prometheusRuleHooks{},
 	}
 }
@@ -208,11 +197,8 @@ type prometheusRuleHooks struct{}
 func (h prometheusRuleHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	return NewPrometheusRule(hc, hc.Namespace), nil
 }
-func (h prometheusRuleHooks) getEmptyCr() client.Object                               { return &monitoringv1.PrometheusRule{} }
-func (h prometheusRuleHooks) validate() error                                         { return nil }
-func (h prometheusRuleHooks) postFound(*common.HcoRequest, runtime.Object) error      { return nil }
-func (h prometheusRuleHooks) getConditions(_ runtime.Object) []conditionsv1.Condition { return nil }
-func (h prometheusRuleHooks) checkComponentVersion(_ runtime.Object) bool             { return true }
+func (h prometheusRuleHooks) getEmptyCr() client.Object                          { return &monitoringv1.PrometheusRule{} }
+func (h prometheusRuleHooks) postFound(*common.HcoRequest, runtime.Object) error { return nil }
 func (h prometheusRuleHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*monitoringv1.PrometheusRule).ObjectMeta
 }

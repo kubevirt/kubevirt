@@ -5,16 +5,17 @@ import (
 	"os"
 	"reflect"
 
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	vmimportv1beta1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 // ***********  VM Import Handler  ***********
@@ -25,7 +26,6 @@ func newVmImportHandler(Client client.Client, Scheme *runtime.Scheme) *vmImportH
 		Client: Client,
 		Scheme: Scheme,
 		crType: "vmImport",
-		isCr:   true,
 		// Previous versions used to have HCO-operator (scope namespace)
 		// as the owner of VMImportConfig (scope cluster).
 		// It's not legal, so remove that.
@@ -45,7 +45,6 @@ func (h *vmImportHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object,
 	return h.cache, nil
 }
 func (h vmImportHooks) getEmptyCr() client.Object                              { return &vmimportv1beta1.VMImportConfig{} }
-func (h vmImportHooks) validate() error                                        { return nil }
 func (h vmImportHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
 func (h vmImportHooks) getConditions(cr runtime.Object) []conditionsv1.Condition {
 	return cr.(*vmimportv1beta1.VMImportConfig).Status.Conditions
@@ -111,7 +110,6 @@ func newImsConfigHandler(Client client.Client, Scheme *runtime.Scheme) *imsConfi
 		Client:                 Client,
 		Scheme:                 Scheme,
 		crType:                 "IMSConfigmap",
-		isCr:                   false,
 		removeExistingOwner:    false,
 		setControllerReference: true,
 		hooks:                  &imsConfigHooks{},
@@ -121,7 +119,7 @@ func newImsConfigHandler(Client client.Client, Scheme *runtime.Scheme) *imsConfi
 type imsConfigHooks struct{}
 
 func (h imsConfigHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
-	return NewIMSConfigForCR(hc, hc.Namespace), nil
+	return NewIMSConfigForCR(hc, hc.Namespace)
 }
 func (h imsConfigHooks) getEmptyCr() client.Object { return &corev1.ConfigMap{} }
 func (h imsConfigHooks) validate() error {
@@ -134,13 +132,10 @@ func (h imsConfigHooks) validate() error {
 	}
 	return nil
 }
-func (h imsConfigHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error  { return nil }
-func (h imsConfigHooks) getConditions(_ runtime.Object) []conditionsv1.Condition { return nil }
-func (h imsConfigHooks) checkComponentVersion(_ runtime.Object) bool             { return true }
+func (h imsConfigHooks) postFound(_ *common.HcoRequest, _ runtime.Object) error { return nil }
 func (h imsConfigHooks) getObjectMeta(cr runtime.Object) *metav1.ObjectMeta {
 	return &cr.(*corev1.ConfigMap).ObjectMeta
 }
-func (h imsConfigHooks) reset() { /* no implementation */ }
 
 func (h *imsConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	imsConfig, ok1 := required.(*corev1.ConfigMap)
@@ -180,7 +175,17 @@ func (h *imsConfigHooks) updateCr(req *common.HcoRequest, Client client.Client, 
 	return false, false, nil
 }
 
-func NewIMSConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
+func NewIMSConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) (*corev1.ConfigMap, error) {
+	conversionContainer := os.Getenv("CONVERSION_CONTAINER")
+	if conversionContainer == "" {
+		return nil, errors.New("ims-conversion-container not specified")
+	}
+
+	vmwareContainer := os.Getenv("VMWARE_CONTAINER")
+	if vmwareContainer == "" {
+		return nil, errors.New("ims-vmware-container not specified")
+	}
+
 	imscm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "v2v-vmware",
@@ -188,13 +193,13 @@ func NewIMSConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.
 			Namespace: namespace,
 		},
 		Data: map[string]string{
-			"v2v-conversion-image":              os.Getenv("CONVERSION_CONTAINER"),
-			"kubevirt-vmware-image":             os.Getenv("VMWARE_CONTAINER"),
+			"v2v-conversion-image":              conversionContainer,
+			"kubevirt-vmware-image":             vmwareContainer,
 			"kubevirt-vmware-image-pull-policy": "IfNotPresent",
 		},
 	}
 	if cr.Spec.VddkInitImage != nil {
 		imscm.Data["vddk-init-image"] = *cr.Spec.VddkInitImage
 	}
-	return imscm
+	return imscm, nil
 }
