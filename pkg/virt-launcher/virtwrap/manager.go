@@ -485,42 +485,14 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 
 	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
 
-		// Start local migration proxy.
-		//
-		// Right now Libvirt won't let us perform a migration using a unix socket, so
-		// we have to create a local host tcp server (on port 22222) that forwards the traffic
-		// to libvirt in order to trick libvirt into doing what we want.
-		// This also creates a tcp server for each additional direct migration connections
-		// that will be proxied to the destination pod
-
-		isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
-		migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration)
-
 		loopbackAddress := ip.GetLoopbackAddress()
-		// Create a tcp server for each direct connection proxy
-		for _, port := range migrationPortsRange {
-			key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
-			migrationProxy := migrationproxy.NewTargetProxy(loopbackAddress, port, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, key))
-			defer migrationProxy.StopListening()
-			err := migrationProxy.StartListening()
-			if err != nil {
-				l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
-				return
-			}
-		}
 
-		//  proxy incoming migration requests on port 22222 to the vmi's existing libvirt connection
-		libvirtConnectionProxy := migrationproxy.NewTargetProxy(loopbackAddress, LibvirtLocalConnectionPort, nil, nil, migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
-		defer libvirtConnectionProxy.StopListening()
-		err := libvirtConnectionProxy.StartListening()
+		stopMigrationProxyServer, err := startMigrationProxyServer(l.virtShareDir, vmi, loopbackAddress)
 		if err != nil {
 			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
 			return
 		}
-
-		// For a tunnelled migration, this is always the uri
-		dstURI := fmt.Sprintf("qemu+tcp://%s/system", net.JoinHostPort(loopbackAddress, strconv.Itoa(LibvirtLocalConnectionPort)))
-		migrURI := fmt.Sprintf("tcp://%s", ip.NormalizeIPAddress(loopbackAddress))
+		defer stopMigrationProxyServer()
 
 		domName := api.VMINamespaceKeyFunc(vmi)
 		dom, err := l.virConn.LookupDomainByName(domName)
@@ -531,45 +503,23 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		}
 		defer dom.Free()
 
-		bandwidth, err := converter.QuantityToMebiByte(options.Bandwidth)
+		params, err := setupMigration(l, vmi, dom, options, loopbackAddress)
 		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Live migration failed. Invalid bandwidth supplied.")
-			return
-		}
-
-		if err := hotUnplugHostDevices(l.virConn, dom); err != nil {
-			log.Log.Object(vmi).Reason(err).Error(fmt.Sprintf("Live migration failed."))
 			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
-		}
-
-		xmlstr, err := domXMLWithoutKubevirtMetadata(dom, vmi)
-		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Live migration failed. Could not compute target XML.")
 			return
-		}
-
-		params := &libvirt.DomainMigrateParameters{
-			Bandwidth:  bandwidth, // MiB/s
-			URI:        migrURI,
-			URISet:     true,
-			DestXML:    xmlstr,
-			DestXMLSet: true,
-		}
-		copyDisks := getDiskTargetsForMigration(dom, vmi)
-		if len(copyDisks) != 0 {
-			params.MigrateDisks = copyDisks
-			params.MigrateDisksSet = true
 		}
 		// start live migration tracking
 		migrationErrorChan := make(chan error, 1)
 		defer close(migrationErrorChan)
 		go liveMigrationMonitor(vmi, l, options, migrationErrorChan)
 
+		isBlockMigration := vmi.Status.MigrationMethod == v1.BlockMigration
 		migrateFlags := prepareMigrationFlags(isBlockMigration, options.UnsafeMigration, options.AllowAutoConverge, options.AllowPostCopy)
 		if options.UnsafeMigration {
 			log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
 		}
 
+		dstURI := fmt.Sprintf("qemu+tcp://%s/system", net.JoinHostPort(loopbackAddress, strconv.Itoa(LibvirtLocalConnectionPort)))
 		err = dom.MigrateToURI3(dstURI, params, migrateFlags)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
@@ -578,6 +528,100 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		}
 		log.Log.Object(vmi).Infof("Live migration succeeded.")
 	}(l, vmi)
+}
+
+func setupMigration(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance, dom cli.VirDomain, options *cmdclient.MigrationOptions, loopbackAddress string) (*libvirt.DomainMigrateParameters, error) {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	if err := hotUnplugHostDevices(l.virConn, dom); err != nil {
+		log.Log.Object(vmi).Reason(err).Error(fmt.Sprintf("Live migration failed."))
+		return nil, err
+	}
+
+	params, err := prepareMigrationParams(options, vmi, loopbackAddress, dom)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
+		return nil, err
+	}
+	return params, nil
+}
+
+func prepareMigrationParams(options *cmdclient.MigrationOptions, vmi *v1.VirtualMachineInstance, loopbackAddress string, dom cli.VirDomain) (*libvirt.DomainMigrateParameters, error) {
+	bandwidth, err := converter.QuantityToMebiByte(options.Bandwidth)
+	if err != nil {
+		return nil, fmt.Errorf("invalid bandwidth supplied, err: %v", err)
+	}
+
+	migrURI := fmt.Sprintf("tcp://%s", ip.NormalizeIPAddress(loopbackAddress))
+
+	xmlstr, err := domXMLWithoutKubevirtMetadata(dom, vmi)
+	if err != nil {
+		return nil, fmt.Errorf("could not compute target XML, err: %v", err)
+	}
+
+	params := &libvirt.DomainMigrateParameters{
+		Bandwidth:  bandwidth, // MiB/s
+		URI:        migrURI,
+		URISet:     true,
+		DestXML:    xmlstr,
+		DestXMLSet: true,
+	}
+	copyDisks := getDiskTargetsForMigration(dom, vmi)
+	if len(copyDisks) != 0 {
+		params.MigrateDisks = copyDisks
+		params.MigrateDisksSet = true
+	}
+	return params, nil
+}
+
+// startMigrationProxyServer starts a local migration proxy.
+// Right now Libvirt won't let us perform a migration using a unix socket, so
+// we have to create a local host tcp server (on port 22222) that forwards the traffic
+// to libvirt in order to trick libvirt into doing what we want.
+// This also creates a tcp server for each additional direct migration connections
+// that will be proxied to the destination pod
+//
+// On success, a teardown function is returned that the caller is expected to call in order to
+// cleanup the proxy-server resources.
+// On failure, an error is returned and the cleanup is performed internally without any need
+// from the caller to act.
+func startMigrationProxyServer(virtShareDir string, vmi *v1.VirtualMachineInstance, loopbackAddress string) (stopServer func(), err error) {
+	var proxyStopListenPool []func()
+	stopServer = func() {
+		for _, f := range proxyStopListenPool {
+			f()
+		}
+	}
+	defer func() {
+		// On error, stop the servers before returning.
+		if err != nil {
+			stopServer()
+			stopServer = nil
+		}
+	}()
+
+	isBlockMigration := vmi.Status.MigrationMethod == v1.BlockMigration
+	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration)
+
+	// Create a tcp server for each direct connection proxy
+	for _, port := range migrationPortsRange {
+		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
+		migrationProxy := migrationproxy.NewTargetProxy(loopbackAddress, port, nil, nil, migrationproxy.SourceUnixFile(virtShareDir, key))
+		if e := migrationProxy.StartListening(); e != nil {
+			return stopServer, e
+		}
+		proxyStopListenPool = append(proxyStopListenPool, migrationProxy.StopListening)
+	}
+
+	//  proxy incoming migration requests on port 22222 to the vmi's existing libvirt connection
+	libvirtConnectionProxy := migrationproxy.NewTargetProxy(loopbackAddress, LibvirtLocalConnectionPort, nil, nil, migrationproxy.SourceUnixFile(virtShareDir, string(vmi.UID)))
+	if e := libvirtConnectionProxy.StartListening(); e != nil {
+		return stopServer, e
+	}
+	proxyStopListenPool = append(proxyStopListenPool, libvirtConnectionProxy.StopListening)
+
+	return stopServer, nil
 }
 
 func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) error {
