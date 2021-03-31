@@ -368,6 +368,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			verifyVolumeAndDiskVMAdded(vm, "some-new-volume1", "some-new-volume2")
 			By("Removing new volumes from VM")
 			removeVolumeFunc(vm.Name, vm.Namespace, "some-new-volume1")
+			// TODO: check hotplug
 			removeVolumeFunc(vm.Name, vm.Namespace, "some-new-volume2")
 
 			verifyVolumeAndDiskVMRemoved(vm, "some-new-volume1", "some-new-volume2")
