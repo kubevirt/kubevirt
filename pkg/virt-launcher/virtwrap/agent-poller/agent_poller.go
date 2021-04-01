@@ -223,7 +223,7 @@ func (p *PollerWorker) Poll(execAgentCommands agentCommandsExecutor, closeChan c
 
 func replaceTicker(ticker *time.Ticker, interval time.Duration) *time.Ticker {
 	ticker.Stop()
-	return time.NewTicker(time.Second * interval)
+	return time.NewTicker(interval)
 }
 
 func incrementPollInterval(interval time.Duration, maxInterval time.Duration) time.Duration {
