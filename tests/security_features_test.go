@@ -53,8 +53,6 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", func() {
 		tests.BeforeAll(func() {
 			kv := tests.GetCurrentKv(virtClient)
 			kubevirtConfiguration = &kv.Spec.Configuration
-
-			tests.SkipSELinuxTestIfRunnigOnKindInfra()
 		})
 
 		var container k8sv1.Container

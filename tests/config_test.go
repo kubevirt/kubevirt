@@ -74,8 +74,6 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			})
 
 			It("[test_id:782]Should be the fs layout the same for a pod and vmi", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
-
 				expectedOutput := "value1value2value3"
 
 				By("Running VMI")
@@ -167,8 +165,6 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 			})
 
 			It("[test_id:779]Should be the fs layout the same for a pod and vmi", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
-
 				expectedOutput := "adminredhat"
 
 				By("Running VMI")
@@ -241,8 +237,6 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 		serviceAccountPath := config.ServiceAccountSourceDir
 
 		It("[test_id:998]Should be the namespace and token the same for a pod and vmi", func() {
-			tests.SkipPVCTestIfRunnigOnKindInfra()
-
 			By("Running VMI")
 			vmi := tests.NewRandomVMIWithServiceAccount("default")
 			tests.RunVMIAndExpectLaunch(vmi, 90)
@@ -511,8 +505,6 @@ var _ = Describe("[Serial][rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][le
 		expectedOutput := testLabelKey + "=" + "\"" + testLabelVal + "\""
 
 		It("[test_id:790]Should be the namespace and token the same for a pod and vmi", func() {
-			tests.SkipPVCTestIfRunnigOnKindInfra()
-
 			By("Running VMI")
 			vmi := tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
 			//Add the testing label to the VMI

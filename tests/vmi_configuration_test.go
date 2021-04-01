@@ -1755,8 +1755,6 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
-			tests.SkipPVCTestIfRunnigOnKindInfra()
-
 			vmi := tests.NewRandomVMI()
 
 			By("adding disks to a VMI")
@@ -1805,8 +1803,6 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("[test_id:5360]should set appropriate IO modes", func() {
-			tests.SkipPVCTestIfRunnigOnKindInfra()
-
 			vmi := tests.NewRandomVMI()
 
 			By("adding disks to a VMI")
@@ -1867,8 +1863,6 @@ var _ = Describe("[sig-compute]Configurations", func() {
 	Context("Block size configuration set", func() {
 
 		It("Should set BlockIO when using custom block sizes", func() {
-			tests.SkipPVCTestIfRunnigOnKindInfra()
-
 			By("creating a block volume")
 			tests.CreateBlockVolumePvAndPvc("1Gi")
 
@@ -1901,8 +1895,6 @@ var _ = Describe("[sig-compute]Configurations", func() {
 		})
 
 		It("Should set BlockIO when set to match volume block sizes on block devices", func() {
-			tests.SkipPVCTestIfRunnigOnKindInfra()
-
 			By("creating a block volume")
 			tests.CreateBlockVolumePvAndPvc("1Gi")
 
