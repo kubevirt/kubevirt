@@ -192,7 +192,8 @@ func NewVirtualMachineCrd() (*extv1.CustomResourceDefinition, error) {
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
 		{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
 		{Name: "Volume", Description: "Primary Volume", Type: "string", JSONPath: ".spec.volumes[0].name"},
-		{Name: "Created", Type: "boolean", JSONPath: ".status.created", Priority: 1}}, &extv1.CustomResourceSubresources{
+		{Name: "Created", Type: "boolean", JSONPath: ".status.created", Priority: 1},
+		{Name: "Ready", Type: "boolean", JSONPath: ".status.ready", Priority: 1}}, &extv1.CustomResourceSubresources{
 		Status: &extv1.CustomResourceSubresourceStatus{}})
 	if err != nil {
 		return nil, err
