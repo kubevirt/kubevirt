@@ -372,8 +372,8 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			verifyVolumeAndDiskVMRemoved(vm, "some-new-volume1", "some-new-volume2")
 		},
-			table.Entry("with DataVolume", addDVVolumeVM, removeVolumeVM),
-			table.Entry("with PersistentVolume", addPVCVolumeVM, removeVolumeVM),
+			table.Entry("[test_id:5364]with DataVolume", addDVVolumeVM, removeVolumeVM),
+			table.Entry("[test_id:5294]with PersistentVolume", addPVCVolumeVM, removeVolumeVM),
 		)
 	})
 
@@ -397,7 +397,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		})
 
-		It("Should be able to add and use WFFC local storage", func() {
+		It("[test_id:5751]Should be able to add and use WFFC local storage", func() {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
@@ -555,13 +555,13 @@ var _ = SIGDescribe("Hotplug", func() {
 					}, 10)
 				}, 40*time.Second, 2*time.Second).Should(Succeed())
 			},
-				table.Entry("with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
-				table.Entry("with PersistentVolume immediate attach", addPVCVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
-				table.Entry("with DataVolume wait for VM to finish starting", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, true),
-				table.Entry("with PersistentVolume wait for VM to finish starting", addPVCVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, true),
-				table.Entry("with DataVolume immediate attach, VMI directly", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
-				table.Entry("with PersistentVolume immediate attach, VMI directly", addPVCVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
-				table.Entry("with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false, false),
+				table.Entry("[test_id:5295]with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
+				table.Entry("[test_id:5288]with PersistentVolume immediate attach", addPVCVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, false),
+				table.Entry("[test_id:5474]with DataVolume wait for VM to finish starting", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, true),
+				table.Entry("[test_id:5475]with PersistentVolume wait for VM to finish starting", addPVCVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false, true),
+				table.Entry("[test_id:5476]with DataVolume immediate attach, VMI directly", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
+				table.Entry("[test_id:5477]with PersistentVolume immediate attach, VMI directly", addPVCVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true, false),
+				table.Entry("[test_id:5478]with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false, false),
 			)
 
 			table.DescribeTable("Should be able to add and remove multiple volumes", func(addVolumeFunc func(name, namespace, volumeName, claimName, bus string), removeVolumeFunc func(name, namespace, volumeName string), volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
@@ -629,9 +629,9 @@ var _ = SIGDescribe("Hotplug", func() {
 					}, 90*time.Second, 2*time.Second).Should(Succeed())
 				}
 			},
-				table.Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
-				table.Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
-				table.Entry("with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
+				table.Entry("[test_id:5289]with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
+				table.Entry("[test_id:5471]with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
+				table.Entry("[test_id:5296]with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
 
 			table.DescribeTable("Should be able to add and remove and re-add multiple volumes", func(addVolumeFunc func(name, namespace, volumeName, claimName, bus string), removeVolumeFunc func(name, namespace, volumeName string), volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
@@ -725,12 +725,12 @@ var _ = SIGDescribe("Hotplug", func() {
 					}
 				}
 			},
-				table.Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
-				table.Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
-				table.Entry("with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
+				table.Entry("[test_id:5479]with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
+				table.Entry("[test_id:5481]with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
+				table.Entry("[test_id:5480]with VMs and block", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
 
-			It("should hotplug and permanently add volume when added to VM", func() {
+			It("[test_id:5297]should hotplug and permanently add volume when added to VM", func() {
 				By("Creating DataVolume")
 				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeBlock)
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -767,7 +767,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				verifyVolumePermanent(vmi, "testvolume")
 			})
 
-			It("should reject hotplugging a volume with the same name as an existing volume", func() {
+			It("[test_id:5470]should reject hotplugging a volume with the same name as an existing volume", func() {
 				By("Creating DataVolume")
 				dv := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeBlock)
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -791,7 +791,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(err.Error()).To(ContainSubstring("conflicts with an existing volume of the same name on the vmi template"))
 			})
 
-			It("should allow hotplugging both a filesystem and block volume", func() {
+			It("[test_id:5385]should allow hotplugging both a filesystem and block volume", func() {
 				By("Creating DataVolume")
 				dvBlock := tests.NewRandomBlankDataVolume(tests.NamespaceTestDefault, sc, "64Mi", corev1.ReadWriteOnce, corev1.PersistentVolumeBlock)
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dvBlock.Namespace).Create(context.Background(), dvBlock, metav1.CreateOptions{})
@@ -879,7 +879,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 			})
 
-			It("should mark VMI failed, if an attachment pod is deleted", func() {
+			It("[test_id:5482]should mark VMI failed, if an attachment pod is deleted", func() {
 				volumeMode := corev1.PersistentVolumeFilesystem
 				addVolumeFunc := addDVVolumeVMI
 				By("Creating DataVolume")
@@ -930,7 +930,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				}, 90*time.Second, 1*time.Second).Should(BeTrue(), "VMI not in failed state")
 			})
 
-			It("should mark VMI not migrateable, if a volume is attached", func() {
+			It("[test_id:5483]should mark VMI not migrateable, if a volume is attached", func() {
 				volumeMode := corev1.PersistentVolumeBlock
 				addVolumeFunc := addDVVolumeVMI
 				removeVolumeFunc := removeVolumeVMI
@@ -999,7 +999,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		}, 120)
 
-		It("should attach a hostpath based volume to running VM", func() {
+		It("[test_id:5775]should attach a hostpath based volume to running VM", func() {
 			By("Creating DataVolume")
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())

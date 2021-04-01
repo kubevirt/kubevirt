@@ -44,8 +44,8 @@ var _ = Describe("[owner:@sig-compute]Controller devices", func() {
 			}
 			Expect(found).To(Equal(enabled))
 		},
-			table.Entry("should appear if enabled", true),
-			table.Entry("should NOT appear if disabled", false),
+			table.Entry("[test_id:5286]should appear if enabled", true),
+			table.Entry("[test_id:5287]should NOT appear if disabled", false),
 		)
 	})
 })
