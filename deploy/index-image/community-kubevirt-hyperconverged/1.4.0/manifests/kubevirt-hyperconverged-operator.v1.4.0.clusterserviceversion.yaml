@@ -1800,6 +1800,8 @@ spec:
                   value: quay.io/kubevirt/kubevirt-v2v-conversion@sha256:c620233c71b805004c2cd38927c421b69d99b27cb40af521967e655882b2f815
                 - name: VMWARE_CONTAINER
                   value: quay.io/kubevirt/kubevirt-vmware@sha256:ae5ccd98a49ab9e154ce482d2fa73f044b00211f273210a9cd371b40746d3c92
+                - name: VIRTIOWIN_CONTAINER
+                  value: quay.io/kubevirt/virtio-container-disk@sha256:373fae39339fb0b77a101c825b66b5ceadd79397119e46d0c540df26f74fc06a
                 - name: SMBIOS
                   value: |-
                     Family: KubeVirt
@@ -2573,6 +2575,8 @@ spec:
     name: virt-launcher
   - image: quay.io/kubevirt/virt-operator@sha256:c0347d5d8d4c6a498fdb45ef3516ea28355e9981419a2d183932577542f70e58
     name: virt-operator
+  - image: quay.io/kubevirt/virtio-container-disk@sha256:373fae39339fb0b77a101c825b66b5ceadd79397119e46d0c540df26f74fc06a
+    name: virtio-container-disk
   - image: quay.io/kubevirt/vm-import-controller@sha256:07506b256210d84a7382277c232c8aeed14684f7b50a2d6c9091c1519d7d0ee0
     name: vm-import-controller
   - image: quay.io/kubevirt/vm-import-operator@sha256:c1597387534e4df8598ae4515d866d88f7360babbc175352041a740ed61e9a4a

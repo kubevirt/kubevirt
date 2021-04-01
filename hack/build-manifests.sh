@@ -331,6 +331,7 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --vmimport-csv="$(<${importCsv})" \
   --ims-conversion-image-name="${CONVERSION_IMAGE}" \
   --ims-vmware-image-name="${VMWARE_IMAGE}" \
+  --kv-virtiowin-image-name="${KUBEVIRT_VIRTIO_IMAGE}" \
   --operator-namespace="${OPERATOR_NAMESPACE}" \
   --smbios="${SMBIOS}" \
   --hco-kv-io-version="${CSV_VERSION}" \
@@ -365,6 +366,7 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --vmimport-csv="$(<${importCsv})" \
   --ims-conversion-image-name="${CONVERSION_IMAGE}" \
   --ims-vmware-image-name="${VMWARE_IMAGE}" \
+  --kv-virtiowin-image-name="${KUBEVIRT_VIRTIO_IMAGE}" \
   --csv-version=${CSV_VERSION_PARAM} \
   --replaces-csv-version=${REPLACES_CSV_VERSION} \
   --hco-kv-io-version="${CSV_VERSION}" \

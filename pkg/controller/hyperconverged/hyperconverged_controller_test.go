@@ -59,6 +59,7 @@ var _ = Describe("HyperconvergedController", func() {
 			BeforeEach(func() {
 				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.ConversionImage)
 				os.Setenv("VMWARE_CONTAINER", commonTestUtils.VmwareImage)
+				os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
 				os.Setenv("OPERATOR_NAMESPACE", namespace)
 			})
 
@@ -757,6 +758,7 @@ var _ = Describe("HyperconvergedController", func() {
 			BeforeEach(func() {
 				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.ConversionImage)
 				os.Setenv("VMWARE_CONTAINER", commonTestUtils.VmwareImage)
+				os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
 				os.Setenv("OPERATOR_NAMESPACE", namespace)
 				os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
 
@@ -815,6 +817,7 @@ var _ = Describe("HyperconvergedController", func() {
 			BeforeEach(func() {
 				os.Setenv("CONVERSION_CONTAINER", commonTestUtils.ConversionImage)
 				os.Setenv("VMWARE_CONTAINER", commonTestUtils.VmwareImage)
+				os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
 				os.Setenv("OPERATOR_NAMESPACE", namespace)
 
 				expected.kv.Status.ObservedKubeVirtVersion = newComponentVersion

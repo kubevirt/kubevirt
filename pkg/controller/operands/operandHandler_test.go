@@ -25,6 +25,7 @@ var _ = Describe("Test operandHandler", func() {
 
 		_ = os.Setenv("CONVERSION_CONTAINER", "just-a-value:version")
 		_ = os.Setenv("VMWARE_CONTAINER", "just-a-value:version")
+		_ = os.Setenv("VIRTIOWIN_CONTAINER", "just-a-value:version")
 
 		It("should create all objects are created", func() {
 			err := os.Setenv(manifestLocationVarName, testFileLocation)

@@ -61,6 +61,7 @@ var (
 	webhookImage       = flag.String("webhook-image", "", "HyperConverged Cluster Webhook image")
 	imsConversionImage = flag.String("ims-conversion-image-name", "", "IMS conversion image")
 	imsVMWareImage     = flag.String("ims-vmware-image-name", "", "IMS VMWare image")
+	kvVirtIOWinImage   = flag.String("kv-virtiowin-image-name", "", "KubeVirt VirtIO Win image")
 	smbios             = flag.String("smbios", "", "Custom SMBIOS string for KubeVirt ConfigMap")
 	machinetype        = flag.String("machinetype", "", "Custom MACHINETYPE string for KubeVirt ConfigMap")
 	hcoKvIoVersion     = flag.String("hco-kv-io-version", "", "KubeVirt version")
@@ -425,6 +426,7 @@ func getOperatorParameters() *components.DeploymentOperatorParams {
 		ImagePullPolicy:     "IfNotPresent",
 		ConversionContainer: *imsConversionImage,
 		VmwareContainer:     *imsVMWareImage,
+		VirtIOWinContainer:  *kvVirtIOWinImage,
 		Smbios:              *smbios,
 		Machinetype:         *machinetype,
 		HcoKvIoVersion:      *hcoKvIoVersion,

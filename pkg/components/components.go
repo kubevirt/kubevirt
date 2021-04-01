@@ -53,6 +53,7 @@ type DeploymentOperatorParams struct {
 	ImagePullPolicy     string
 	ConversionContainer string
 	VmwareContainer     string
+	VirtIOWinContainer  string
 	Smbios              string
 	Machinetype         string
 	HcoKvIoVersion      string
@@ -226,6 +227,10 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 							{
 								Name:  "VMWARE_CONTAINER",
 								Value: params.VmwareContainer,
+							},
+							{
+								Name:  "VIRTIOWIN_CONTAINER",
+								Value: params.VirtIOWinContainer,
 							},
 							{
 								Name:  "SMBIOS",
