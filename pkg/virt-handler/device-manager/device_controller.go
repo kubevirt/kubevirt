@@ -117,14 +117,14 @@ func (c *DeviceController) startDevicePlugin(controlledDev ControlledDevice) {
 func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]ControlledDevice, map[string]ControlledDevice) {
 	devicePluginsToRun := make(map[string]ControlledDevice)
 	devicePluginsToStop := make(map[string]ControlledDevice)
-	if hostDevs := c.virtConfig.GetPermittedHostDevices(); hostDevs != nil {
-		// generate a map of currently started device plugins
-		for resourceName, hostDevDP := range c.devicePlugins {
-			_, isPermanent := permanentDevicePluginPaths[resourceName]
-			if !isPermanent {
-				devicePluginsToStop[resourceName] = hostDevDP
-			}
+	// generate a map of currently started device plugins
+	for resourceName, hostDevDP := range c.devicePlugins {
+		_, isPermanent := permanentDevicePluginPaths[resourceName]
+		if !isPermanent {
+			devicePluginsToStop[resourceName] = hostDevDP
 		}
+	}
+	if hostDevs := c.virtConfig.GetPermittedHostDevices(); hostDevs != nil {
 		supportedPCIDeviceMap := make(map[string]string)
 		if len(hostDevs.PciHostDevices) != 0 {
 			for _, pciDev := range hostDevs.PciHostDevices {
