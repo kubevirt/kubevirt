@@ -44,6 +44,7 @@ go_library(
 
 go_test(
     name = "go_default_test",
+    timeout = "long",
     srcs = [
         "virt_handler_suite_test.go",
         "vm_test.go",

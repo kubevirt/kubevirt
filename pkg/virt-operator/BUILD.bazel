@@ -50,6 +50,7 @@ go_library(
 
 go_test(
     name = "go_default_test",
+    timeout = "long",
     srcs = [
         "kubevirt_test.go",
         "virt_operator_suite_test.go",
