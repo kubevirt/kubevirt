@@ -114,7 +114,7 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 		}
 		log.Log.V(2).Infof("crd %v updated", crd.GetName())
 	} else {
-		log.Log.V(2).Infof("crd %v is up-to-date", crd.GetName())
+		log.Log.V(4).Infof("crd %v is up-to-date", crd.GetName())
 	}
 	return nil
 }
