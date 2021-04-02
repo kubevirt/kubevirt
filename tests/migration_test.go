@@ -624,6 +624,33 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 
 			})
+			It("should be able to successfully migrate with a paused vmi", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(libnet.WithIPv6(console.LoginToCirros)(vmi)).To(Succeed())
+
+				By("Pausing the VirtualMachineInstance")
+				virtClient.VirtualMachineInstance(vmi.Namespace).Pause(vmi.Name)
+				tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+
+				By("starting the migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+				// check VMI, confirm migration state
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+
+				By("verifying that the vmi is still paused after migration")
+				isPaused, err := tests.LibvirtDomainIsPaused(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred(), "Should get domain state successfully")
+                Expect(isPaused).To(BeTrue(), "The VMI should be paused after migration, but it is not.")
+
+			})
 		})
 		Context("with auto converge enabled", func() {
 			BeforeEach(func() {

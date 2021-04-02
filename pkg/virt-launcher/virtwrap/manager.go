@@ -329,7 +329,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 
 }
 
-func prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, allowPostyCopy bool) libvirt.DomainMigrateFlags {
+func prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, allowPostyCopy, migratePaused bool) libvirt.DomainMigrateFlags {
 	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_PERSIST_DEST
 
 	if isBlockMigration {
@@ -345,6 +345,9 @@ func prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverg
 		migrateFlags |= libvirt.MIGRATE_POSTCOPY
 	}
 
+	if migratePaused {
+		migrateFlags |= libvirt.MIGRATE_PAUSED
+	}
 	return migrateFlags
 
 }
@@ -525,7 +528,14 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		go liveMigrationMonitor(vmi, l, options, migrationErrorChan)
 
 		isBlockMigration := vmi.Status.MigrationMethod == v1.BlockMigration
-		migrateFlags := prepareMigrationFlags(isBlockMigration, options.UnsafeMigration, options.AllowAutoConverge, options.AllowPostCopy)
+	    migratePaused, err := isDomainPaused(dom)
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Live migration failed: can't retrive state")
+			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
+			return
+		}
+
+		migrateFlags := prepareMigrationFlags(isBlockMigration, options.UnsafeMigration, options.AllowAutoConverge, options.AllowPostCopy, migratePaused)
 		if options.UnsafeMigration {
 			log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
 		}
@@ -539,6 +549,15 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		}
 		log.Log.Object(vmi).Infof("Live migration succeeded.")
 	}(l, vmi)
+}
+
+func isDomainPaused(dom cli.VirDomain) (bool, error) {
+    status, reason, err := dom.GetState()
+    if err != nil {
+        return false, err
+    }
+    return util.ConvState(status) == api.Paused &&
+            util.ConvReason(status, reason) == api.ReasonPausedUser, nil
 }
 
 func setupMigration(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance, dom cli.VirDomain, options *cmdclient.MigrationOptions, loopbackAddress string) (*libvirt.DomainMigrateParameters, error) {
