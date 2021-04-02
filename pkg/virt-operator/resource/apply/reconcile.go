@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blang/semver"
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -36,9 +37,7 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
-
-	"github.com/blang/semver"
+	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -735,7 +734,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	// remove unused APIServices
 	objects = r.stores.APIServiceCache.List()
 	for _, obj := range objects {
-		if apiService, ok := obj.(*v1beta1.APIService); ok && apiService.DeletionTimestamp == nil {
+		if apiService, ok := obj.(*apiregv1.APIService); ok && apiService.DeletionTimestamp == nil {
 			found := false
 			for _, targetAPIService := range r.targetStrategy.APIServices() {
 				if targetAPIService.Name == apiService.Name {

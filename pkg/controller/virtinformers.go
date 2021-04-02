@@ -46,7 +46,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	v1beta12 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
+	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	kubev1 "kubevirt.io/client-go/api/v1"
@@ -761,8 +761,8 @@ func (f *kubeInformerFactory) OperatorAPIService() cache.SharedIndexInformer {
 			panic(err)
 		}
 
-		lw := NewListWatchFromClient(f.aggregatorClient.ApiregistrationV1beta1().RESTClient(), "apiservices", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
-		return cache.NewSharedIndexInformer(lw, &v1beta12.APIService{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		lw := NewListWatchFromClient(f.aggregatorClient.ApiregistrationV1().RESTClient(), "apiservices", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &apiregv1.APIService{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

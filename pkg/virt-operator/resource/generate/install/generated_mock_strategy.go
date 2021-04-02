@@ -9,7 +9,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
-	v1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
+	v10 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 )
 
 // Mock of APIServiceInterface interface
@@ -33,9 +33,9 @@ func (_m *MockAPIServiceInterface) EXPECT() *_MockAPIServiceInterfaceRecorder {
 	return _m.recorder
 }
 
-func (_m *MockAPIServiceInterface) Get(ctx context.Context, name string, options v1.GetOptions) (*v1beta1.APIService, error) {
+func (_m *MockAPIServiceInterface) Get(ctx context.Context, name string, options v1.GetOptions) (*v10.APIService, error) {
 	ret := _m.ctrl.Call(_m, "Get", ctx, name, options)
-	ret0, _ := ret[0].(*v1beta1.APIService)
+	ret0, _ := ret[0].(*v10.APIService)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -44,9 +44,9 @@ func (_mr *_MockAPIServiceInterfaceRecorder) Get(arg0, arg1, arg2 interface{}) *
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1, arg2)
 }
 
-func (_m *MockAPIServiceInterface) Create(ctx context.Context, apiService *v1beta1.APIService, opts v1.CreateOptions) (*v1beta1.APIService, error) {
+func (_m *MockAPIServiceInterface) Create(ctx context.Context, apiService *v10.APIService, opts v1.CreateOptions) (*v10.APIService, error) {
 	ret := _m.ctrl.Call(_m, "Create", ctx, apiService, opts)
-	ret0, _ := ret[0].(*v1beta1.APIService)
+	ret0, _ := ret[0].(*v10.APIService)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -65,13 +65,13 @@ func (_mr *_MockAPIServiceInterfaceRecorder) Delete(arg0, arg1, arg2 interface{}
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1, arg2)
 }
 
-func (_m *MockAPIServiceInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (*v1beta1.APIService, error) {
+func (_m *MockAPIServiceInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (*v10.APIService, error) {
 	_s := []interface{}{ctx, name, pt, data, opts}
 	for _, _x := range subresources {
 		_s = append(_s, _x)
 	}
 	ret := _m.ctrl.Call(_m, "Patch", _s...)
-	ret0, _ := ret[0].(*v1beta1.APIService)
+	ret0, _ := ret[0].(*v10.APIService)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

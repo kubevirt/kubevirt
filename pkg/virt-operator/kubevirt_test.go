@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 
@@ -56,6 +55,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
+	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	promclientfake "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/fake"
@@ -267,7 +267,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		stores.ValidationWebhookCache = informers.ValidationWebhook.GetStore()
 		informers.MutatingWebhook, mutatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1beta1.MutatingWebhookConfiguration{})
 		stores.MutatingWebhookCache = informers.MutatingWebhook.GetStore()
-		informers.APIService, apiserviceSource = testutils.NewFakeInformerFor(&v1beta1.APIService{})
+		informers.APIService, apiserviceSource = testutils.NewFakeInformerFor(&apiregv1.APIService{})
 		stores.APIServiceCache = informers.APIService.GetStore()
 
 		informers.SCC, sccSource = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
@@ -496,7 +496,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
-	addAPIService := func(wh *v1beta1.APIService) {
+	addAPIService := func(wh *apiregv1.APIService) {
 		mockQueue.ExpectAdds(1)
 		apiserviceSource.Add(wh)
 		mockQueue.Wait()
@@ -589,8 +589,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		case *admissionregistrationv1beta1.MutatingWebhookConfiguration:
 			injectMetadata(&obj.(*admissionregistrationv1beta1.MutatingWebhookConfiguration).ObjectMeta, config)
 			addMutatingWebhook(resource, kv)
-		case *v1beta1.APIService:
-			injectMetadata(&obj.(*v1beta1.APIService).ObjectMeta, config)
+		case *apiregv1.APIService:
+			injectMetadata(&obj.(*apiregv1.APIService).ObjectMeta, config)
 			addAPIService(resource)
 		case *batchv1.Job:
 			injectMetadata(&obj.(*batchv1.Job).ObjectMeta, config)
