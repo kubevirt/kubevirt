@@ -35,7 +35,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/precond"
 )
 
 var _ = Describe("CloudInit", func() {
@@ -209,42 +208,6 @@ var _ = Describe("CloudInit", func() {
 					domain := "fake-domain"
 					err := removeLocalData(domain, namespace)
 					Expect(err).ToNot(HaveOccurred())
-				})
-			})
-
-			Context("with multiple data dirs and files", func() {
-				It("should list all VirtualMachineInstance's", func() {
-					domains := []string{
-						"fakens1/fakedomain1",
-						"fakens1/fakedomain2",
-						"fakens2/fakedomain1",
-						"fakens2/fakedomain2",
-						"fakens3/fakedomain1",
-						"fakens4/fakedomain1",
-					}
-					msg := "fake content"
-					bytes := []byte(msg)
-
-					for _, dom := range domains {
-						err := os.MkdirAll(fmt.Sprintf("%s/%s/some-other-dir", tmpDir, dom), 0755)
-						Expect(err).ToNot(HaveOccurred())
-						err = ioutil.WriteFile(fmt.Sprintf("%s/%s/some-file", tmpDir, dom), bytes, 0644)
-						Expect(err).ToNot(HaveOccurred())
-					}
-
-					vmis, err := listVmWithLocalData()
-					for _, vmi := range vmis {
-						namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
-						domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
-
-						Expect(namespace).To(ContainSubstring("fakens"))
-						Expect(domain).To(ContainSubstring("fakedomain"))
-					}
-
-					Expect(len(vmis)).To(Equal(len(domains)))
-					Expect(err).ToNot(HaveOccurred())
-
-					// verify a vmi from each namespace is present
 				})
 			})
 		})

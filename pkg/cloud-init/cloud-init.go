@@ -569,8 +569,3 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 	log.Log.V(2).Infof("generated nocloud iso file %s", iso)
 	return nil
 }
-
-// Lists all vmis cloud-init has local data for
-func listVmWithLocalData() ([]*v1.VirtualMachineInstance, error) {
-	return diskutils.ListVmWithEphemeralDisk(cloudInitLocalDir)
-}
