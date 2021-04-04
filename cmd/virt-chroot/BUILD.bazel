@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "envinfo.go",
         "main.go",
         "selinux.go",
         "tap-device-maker.go",
@@ -12,6 +13,7 @@ go_library(
     deps = [
         "//vendor/github.com/opencontainers/selinux/go-selinux:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
+        "//vendor/github.com/syndtr/gocapability/capability:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
     ],

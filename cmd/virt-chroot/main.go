@@ -100,8 +100,12 @@ func main() {
 					return fmt.Errorf("failed to switch to user: %v", err)
 				}
 			}
-			return nil
 
+			if err := executeEnvInfo(); err != nil {
+				return err
+			}
+
+			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			_, _ = fmt.Fprint(cmd.OutOrStderr(), cmd.UsageString())
@@ -112,6 +116,8 @@ func main() {
 	rootCmd.PersistentFlags().Uint32Var(&megabyte, "memory", 0, "memory in megabyte for the process")
 	rootCmd.PersistentFlags().StringVar(&mntNamespace, "mount", "", "mount namespace to use")
 	rootCmd.PersistentFlags().StringVar(&targetUser, "user", "", "switch to this targetUser to e.g. drop privileges")
+
+	addEnvInfoPersistentFlag(rootCmd)
 
 	execCmd := &cobra.Command{
 		Use:   "exec",
