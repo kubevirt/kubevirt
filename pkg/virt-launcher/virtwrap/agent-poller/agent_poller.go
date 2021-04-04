@@ -192,7 +192,7 @@ type PollerWorker struct {
 type agentCommandsExecutor func(commands []AgentCommand)
 
 // Poll is the call to the guestagent
-func (p *PollerWorker) Poll(execAgentCommands agentCommandsExecutor, closeChan chan struct{}) {
+func (p *PollerWorker) Poll(execAgentCommands agentCommandsExecutor, closeChan chan struct{}, initialInterval time.Duration) {
 	log.Log.Infof("Polling command: %v", p.AgentCommands)
 
 	// do the first round to fill the cache immediately
@@ -201,8 +201,8 @@ func (p *PollerWorker) Poll(execAgentCommands agentCommandsExecutor, closeChan c
 	pollMaxInterval := p.CallTick * time.Second
 	pollInterval := pollMaxInterval
 
-	if pollInitialInterval < pollMaxInterval {
-		pollInterval = pollInitialInterval
+	if initialInterval < pollMaxInterval {
+		pollInterval = initialInterval
 	}
 	ticker := time.NewTicker(pollInterval)
 
@@ -297,7 +297,7 @@ func (p *AgentPoller) Start() {
 		log.Log.Infof("Starting agent poller with commands: %v", p.workers[i].AgentCommands)
 		go p.workers[i].Poll(func(commands []AgentCommand) {
 			executeAgentCommands(commands, p.Connection, p.agentStore, p.domainName)
-		}, p.agentDone)
+		}, p.agentDone, pollInitialInterval)
 	}
 }
 
