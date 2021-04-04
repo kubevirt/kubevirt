@@ -442,6 +442,7 @@ func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int
 		"--gid", tapOwner,
 		"--queue-number", fmt.Sprintf("%d", queueNumber),
 		"--mtu", fmt.Sprintf("%d", mtu),
+		"--envinfo",
 	}
 	// #nosec No risk for attacket injection. createTapDeviceArgs includes predefined strings
 	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
