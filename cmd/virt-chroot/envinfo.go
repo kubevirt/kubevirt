@@ -21,6 +21,7 @@ package main
 
 import (
 	"fmt"
+	"os/user"
 
 	"github.com/spf13/cobra"
 	"github.com/syndtr/gocapability/capability"
@@ -39,7 +40,13 @@ func executeEnvInfo() error {
 		return nil
 	}
 
-	return reportCapabilities(0)
+	if err := reportUser(); err != nil {
+		return err
+	}
+	if err := reportCapabilities(0); err != nil {
+		return err
+	}
+	return nil
 }
 
 func reportCapabilities(pid int32) error {
@@ -53,6 +60,16 @@ func reportCapabilities(pid int32) error {
 	}
 
 	fmt.Printf("Capabilities:\n%s\n\n", caps)
+
+	return nil
+}
+
+func reportUser() error {
+	selfUser, err := user.Current()
+	if err != nil {
+		return fmt.Errorf("unable to report user information: %v", err)
+	}
+	fmt.Printf("\nUser: %s (%s/%s)\n", selfUser.Username, selfUser.Uid, selfUser.Gid)
 
 	return nil
 }
