@@ -22,9 +22,12 @@ package prometheus
 import (
 	"fmt"
 
+	"github.com/onsi/ginkgo/extensions/table"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	libvirt "libvirt.org/libvirt-go"
 
 	. "github.com/onsi/ginkgo"
@@ -966,6 +969,31 @@ var _ = Describe("Prometheus", func() {
 			Expect(s).To(ContainSubstring("vcpu_0_cpu_2=true"))
 		})
 	})
+
+	Context("VMI Eviction blocker", func() {
+
+		table.DescribeTable("Add evictionion alert matrics", func(evictable bool, migratable bool, expectedVal float64) {
+
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			vmis := createVMISForEviction(evictable, migratable)
+			updateVMIEvictionBlocker("testNode", vmis, ch)
+
+			result := <-ch
+			dto := &io_prometheus_client.Metric{}
+			result.Write(dto)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_non_evictable"))
+			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(expectedVal))
+		},
+			table.Entry("VMI Eviction policy set to LiveMigration and vm is not migratable", true, false, 1.0),
+			table.Entry("VMI Eviction policy set to LiveMigration and vm is migratable", true, true, 0.0),
+			table.Entry("VMI Eviction policy is not set and vm is not migratable", false, false, 0.0),
+			table.Entry("VMI Eviction policy is not set and vm is migratable", false, true, 0.0),
+		)
+	})
 })
 
 var _ = Describe("Utility functions", func() {
@@ -1086,3 +1114,34 @@ var _ = Describe("Utility functions", func() {
 		})
 	})
 })
+
+func createVMISForEviction(evictable bool, migratable bool) []*k6tv1.VirtualMachineInstance {
+
+	status := k8sv1.ConditionFalse
+	liveMigrateStrategy := k6tv1.EvictionStrategyLiveMigrate
+
+	if migratable {
+		status = k8sv1.ConditionTrue
+	}
+
+	vmis := []*k6tv1.VirtualMachineInstance{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "test-ns",
+				Name:      "testvmi",
+			},
+			Status: k6tv1.VirtualMachineInstanceStatus{
+				Conditions: []v1.VirtualMachineInstanceCondition{
+					{
+						Type:   k6tv1.VirtualMachineInstanceIsMigratable,
+						Status: status,
+					},
+				},
+			},
+		},
+	}
+	if evictable {
+		vmis[0].Spec.EvictionStrategy = &liveMigrateStrategy
+	}
+	return vmis
+}
