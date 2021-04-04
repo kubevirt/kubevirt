@@ -308,6 +308,8 @@ github.com/spf13/cobra
 github.com/spf13/pflag
 # github.com/subgraph/libmacouflage v0.0.1
 github.com/subgraph/libmacouflage
+# github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2
+github.com/syndtr/gocapability/capability
 # github.com/u-root/u-root v7.0.0+incompatible
 github.com/u-root/u-root/pkg/cmdline
 github.com/u-root/u-root/pkg/rand
