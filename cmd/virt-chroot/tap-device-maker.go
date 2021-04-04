@@ -83,9 +83,40 @@ func NewCreateTapCommand() *cobra.Command {
 					return createTapDevice(tapName, uint(uid), uint(gid), int(queueNumber), int(mtu))
 				})
 			})
-			return err
+
+			if err != nil {
+				if e := reportLinks(); e != nil {
+					return e
+				}
+				return err
+			}
+
+			return nil
 		},
 	}
+}
+
+func reportLinks() error {
+	if !envinfo {
+		return nil
+	}
+
+	links, err := netlink.LinkList()
+	if err != nil {
+		return err
+	}
+
+	linksReport := []string{"Links:"}
+	for _, link := range links {
+		attrs := link.Attrs()
+		linksReport = append(
+			linksReport,
+			fmt.Sprintf("- %d:\t%-16s[%s]\tm: %d", attrs.Index, attrs.Name, link.Type(), attrs.MasterIndex),
+		)
+	}
+	fmt.Fprintf(os.Stderr, "%s\n", strings.Join(linksReport, "\n"))
+
+	return nil
 }
 
 func retryCreateTap(cmd *cobra.Command, f func() error) error {
