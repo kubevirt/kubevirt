@@ -3,10 +3,16 @@ package main
 import (
 	"fmt"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+)
+
+const (
+	retryFlagName = "retry"
 )
 
 func createTapDevice(name string, owner uint, group uint, queueNumber int, mtu int) error {
@@ -39,6 +45,10 @@ func createTapDevice(name string, owner uint, group uint, queueNumber int, mtu i
 	return err
 }
 
+func addDebugTapFlags(command *cobra.Command) {
+	command.Flags().Uint(retryFlagName, 1, "the amount of times the operation is attempted on failure")
+}
+
 func NewCreateTapCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "create-tap",
@@ -65,11 +75,33 @@ func NewCreateTapCommand() *cobra.Command {
 				return fmt.Errorf("could not parse tap device group: %v", err)
 			}
 
-			if err := createTapDevice(tapName, uint(uid), uint(gid), int(queueNumber), int(mtu)); err != nil {
-				return fmt.Errorf("failed to create tap device named %s. Reason: %v", tapName, err)
-			}
-
-			return nil
+			err = retryCreateTap(cmd, func() error {
+				return createTapDevice(tapName, uint(uid), uint(gid), int(queueNumber), int(mtu))
+			})
+			return err
 		},
 	}
+}
+
+func retryCreateTap(cmd *cobra.Command, f func() error) error {
+	retryCount, err := cmd.Flags().GetUint(retryFlagName)
+	if err != nil {
+		return fmt.Errorf("could not access %s parameter: %v", retryFlagName, err)
+	}
+
+	var errorsString []string
+	for attemptID := uint(0); attemptID < retryCount; attemptID++ {
+		if err := f(); err != nil {
+			errorsString = append(errorsString, fmt.Sprintf("[%d]: %v", attemptID, err))
+			time.Sleep(time.Second)
+		} else {
+			fmt.Printf("Operation succeeded [%d]\n", attemptID)
+			break
+		}
+	}
+	if len(errorsString) > 0 {
+		return fmt.Errorf(strings.Join(errorsString, "\n"))
+	}
+
+	return nil
 }

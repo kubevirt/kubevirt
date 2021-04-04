@@ -188,6 +188,8 @@ func main() {
 	createTapCmd.Flags().Uint32("queue-number", 0, "the number of queues to use on multi-queued devices")
 	createTapCmd.Flags().Uint32("mtu", 1500, "the link MTU of the tap device")
 
+	addDebugTapFlags(createTapCmd)
+
 	rootCmd.AddCommand(
 		execCmd,
 		mntCmd,

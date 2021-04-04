@@ -435,6 +435,8 @@ func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, queueNumber uint32
 }
 
 func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int, mtu int, tapOwner string) (*selinux.ContextExecutor, error) {
+	const retryCount = 5
+
 	createTapDeviceArgs := []string{
 		"create-tap",
 		"--tap-name", tapName,
@@ -443,6 +445,7 @@ func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int
 		"--queue-number", fmt.Sprintf("%d", queueNumber),
 		"--mtu", fmt.Sprintf("%d", mtu),
 		"--envinfo",
+		"--retry", fmt.Sprintf("%d", retryCount),
 	}
 	// #nosec No risk for attacket injection. createTapDeviceArgs includes predefined strings
 	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
