@@ -913,10 +913,10 @@ var _ = Describe("[Serial]SRIOV", func() {
 			vmi1, vmi2 := createSriovVMs(sriovnet3, sriovnet3, vmi1CIDR, vmi2CIDR)
 
 			Eventually(func() error {
-				return libnet.PingFromVMConsole(vmi1, vmi1IP)
+				return libnet.PingFromVMConsole(vmi1, vmi2IP)
 			}, 15*time.Second, time.Second).Should(Succeed())
 			Eventually(func() error {
-				return libnet.PingFromVMConsole(vmi2, vmi2IP)
+				return libnet.PingFromVMConsole(vmi2, vmi1IP)
 			}, 15*time.Second, time.Second).Should(Succeed())
 		})
 
