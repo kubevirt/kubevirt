@@ -173,10 +173,6 @@ func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, respon
 			log.Log.Object(vmi).Reason(err).Error("Can't establish VNC connection.")
 			return errors.NewBadRequest(err.Error())
 		}
-		condManager := controller.NewVirtualMachineInstanceConditionManager()
-		if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
-			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is paused"))
-		}
 		return nil
 	}
 	getConsoleURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
@@ -201,10 +197,6 @@ func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, re
 		}
 		if vmi.Status.Phase == v1.Failed {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is in failed status"))
-		}
-		condManager := controller.NewVirtualMachineInstanceConditionManager()
-		if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
-			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is paused"))
 		}
 		return nil
 	}

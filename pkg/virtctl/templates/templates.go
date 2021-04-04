@@ -3,8 +3,14 @@ package templates
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/pkg/controller"
 )
 
 // UsageTemplate returns the usage template for all subcommands
@@ -56,5 +62,14 @@ func ExactArgs(nameOfCommand string, n int) cobra.PositionalArgs {
 			return errors.New("argument validation failed")
 		}
 		return nil
+	}
+}
+
+// WarnPaused prints warning message if VMI is paused
+func WarnPaused(virtCli kubecli.KubevirtClient, name string, namespace string) {
+	vmi, _ := virtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+	condManager := controller.NewVirtualMachineInstanceConditionManager()
+	if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
+		fmt.Fprintf(os.Stderr, "\rWarning: %s is paused. Console will be active after unpause.\n", name)
 	}
 }
