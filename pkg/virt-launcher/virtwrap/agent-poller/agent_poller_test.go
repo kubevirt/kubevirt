@@ -90,7 +90,7 @@ var _ = Describe("Qemu agent poller", func() {
 			const interval = 1
 			const expectedExecutions = 1
 
-			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, 0)
+			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, 0, pollInitialInterval)
 
 			Expect(commandExecutions).To(Equal(expectedExecutions))
 		})
@@ -99,7 +99,7 @@ var _ = Describe("Qemu agent poller", func() {
 			const interval = 1
 			const expectedExecutions = 3
 
-			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, 0)
+			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, 0, pollInitialInterval)
 
 			Expect(commandExecutions).To(Equal(expectedExecutions))
 		})
@@ -112,7 +112,7 @@ var _ = Describe("Qemu agent poller", func() {
 			// 0, 10sec, 10sec + 2*10sec
 			// Therefore, setting a timeout limit of 20sec should cover the first 2 executions.
 			t := 2 * pollInitialInterval
-			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, t)
+			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, t, pollInitialInterval)
 
 			Expect(commandExecutions).To(Equal(expectedExecutions))
 		})
@@ -124,7 +124,7 @@ var _ = Describe("Qemu agent poller", func() {
 // The operation is limited by the provided or self calculated timeout and the expected executions.
 // The timeout needs to be large enough to allow the expected executions to occur and to accommodate the
 // inaccuracy of the go-routine execution.
-func runPollAndCountCommandExecution(interval, expectedExecutions int, timeout time.Duration) int {
+func runPollAndCountCommandExecution(interval, expectedExecutions int, timeout time.Duration, initialInterval time.Duration) int {
 	const fakeAgentCommandName = "foo"
 	w := PollerWorker{
 		CallTick:      time.Duration(interval),
@@ -136,7 +136,7 @@ func runPollAndCountCommandExecution(interval, expectedExecutions int, timeout t
 	defer close(c)
 	done := make(chan struct{})
 
-	go w.Poll(func(commands []AgentCommand) { done <- struct{}{} }, c)
+	go w.Poll(func(commands []AgentCommand) { done <- struct{}{} }, c, initialInterval)
 
 	if timeout == 0 {
 		// Calculate the time needed for the poll to execute the commands.
