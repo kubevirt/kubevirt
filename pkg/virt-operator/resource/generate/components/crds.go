@@ -858,6 +858,14 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *promv1.Prome
 							"severity": "warning",
 						},
 					},
+					{
+						Alert: "VMCannotBeEvicted",
+						Expr:  intstr.FromString("kubevirt_vmi_non_evictable > 0"),
+						For:   "5m",
+						Annotations: map[string]string{
+							"summary": "The VM's eviction strategy is set to Live Migration but the VM is not migratable",
+						},
+					},
 				},
 			},
 		},
