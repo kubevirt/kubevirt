@@ -335,7 +335,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			})
 
-			It("[test_id:3083]should gracefully handle console connection", func() {
+			It("[test_id:3083]should connect to serial console", func() {
 
 				runVM()
 
@@ -346,11 +346,10 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				By("Trying to console into the VM")
 				_, err = virtClient.VirtualMachineInstance(vm.ObjectMeta.Namespace).SerialConsole(vm.ObjectMeta.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("VMI is paused"))
+				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[test_id:3084]should gracefully handle vnc connection", func() {
+			It("[test_id:3084]should connect to vnc console", func() {
 
 				runVM()
 
@@ -361,8 +360,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				By("Trying to vnc into the VM")
 				_, err = virtClient.VirtualMachineInstance(vm.ObjectMeta.Namespace).VNC(vm.ObjectMeta.Name)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("VMI is paused"))
+				Expect(err).ToNot(HaveOccurred())
 
 			})
 		})

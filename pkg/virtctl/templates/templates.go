@@ -67,7 +67,10 @@ func ExactArgs(nameOfCommand string, n int) cobra.PositionalArgs {
 
 // WarnPaused prints warning message if VMI is paused
 func WarnPaused(virtCli kubecli.KubevirtClient, name string, namespace string) {
-	vmi, _ := virtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+	vmi, err := virtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+	if err != nil {
+		return
+	}
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 	if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
 		fmt.Fprintf(os.Stderr, "\rWarning: %s is paused. Console will be active after unpause.\n", name)
