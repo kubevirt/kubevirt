@@ -900,6 +900,26 @@ var _ = Describe("[Serial][owner:@sig-compute]Infrastructure", func() {
 			table.Entry("by IPv6", k8sv1.IPv6Protocol),
 		)
 
+		table.DescribeTable("should include VMI eviction blocker status for all running VMs", func(family k8sv1.IPFamily) {
+			if family == k8sv1.IPv6Protocol {
+				libnet.SkipWhenNotDualStackCluster(virtClient)
+			}
+
+			ip := getSupportedIP(metricsIPs, family)
+
+			metrics := collectMetrics(ip, "kubevirt_vmi_non_evictable")
+			By("Checking the collected metrics")
+			keys := getKeysFromMetrics(metrics)
+			for _, key := range keys {
+				value := metrics[key]
+				fmt.Fprintf(GinkgoWriter, "metric value was %f\n", value)
+				Expect(value).To(BeNumerically(">=", float64(0.0)))
+			}
+		},
+			table.Entry("[test_id:4148] by IPv4", k8sv1.IPv4Protocol),
+			table.Entry("by IPv6", k8sv1.IPv6Protocol),
+		)
+
 		table.DescribeTable("should include kubernetes labels to VMI metrics", func(family k8sv1.IPFamily) {
 			if family == k8sv1.IPv6Protocol {
 				libnet.SkipWhenNotDualStackCluster(virtClient)

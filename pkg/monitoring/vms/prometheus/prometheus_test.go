@@ -1131,7 +1131,7 @@ func createVMISForEviction(evictable bool, migratable bool) []*k6tv1.VirtualMach
 				Name:      "testvmi",
 			},
 			Status: k6tv1.VirtualMachineInstanceStatus{
-				Conditions: []v1.VirtualMachineInstanceCondition{
+				Conditions: []k6tv1.VirtualMachineInstanceCondition{
 					{
 						Type:   k6tv1.VirtualMachineInstanceIsMigratable,
 						Status: status,
