@@ -91,8 +91,7 @@ func vmSnapshotError(vmSnapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.
 }
 
 func vmSnapshotProgressing(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
-	return vmSnapshotError(vmSnapshot) == nil &&
-		(vmSnapshot.Status == nil || vmSnapshot.Status.ReadyToUse == nil || !*vmSnapshot.Status.ReadyToUse)
+	return vmSnapshotError(vmSnapshot) == nil && !vmSnapshotReady(vmSnapshot)
 }
 
 func getVMSnapshotContentName(vmSnapshot *snapshotv1.VirtualMachineSnapshot) string {
@@ -183,7 +182,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	var volueSnapshotStatus []snapshotv1.VolumeSnapshotStatus
 	var deletedSnapshots, skippedSnapshots []string
 
-	currentlyReady := content.Status != nil && content.Status.ReadyToUse != nil && *content.Status.ReadyToUse
+	currentlyReady := vmSnapshotContentReady(content)
 	currentlyError := content.Status != nil && content.Status.Error != nil
 
 	for _, volumeBackup := range content.Spec.VolumeBackups {
