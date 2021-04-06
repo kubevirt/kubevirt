@@ -629,7 +629,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	// reserve the last cpu for the emulator thread
 	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
 		if len(podCPUSet) > 0 {
-			emulatorThreadCpu = &podCPUSet[len(podCPUSet)]
+			emulatorThreadCpu = &podCPUSet[len(podCPUSet)-1]
 			podCPUSet = podCPUSet[:len(podCPUSet)-1]
 		}
 	}
