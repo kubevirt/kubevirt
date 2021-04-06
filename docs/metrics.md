@@ -15,7 +15,6 @@ Labels:
 ## Node Metric
 
 #### kubevirt_vmi_phase_count
-#### HELP kubevirt_vmi_phase_count VMI phase.
 
 The total amount of VMIs per node and phase.
 
@@ -32,84 +31,152 @@ All VMI metrics listed below contain, but are not limited to, these three labels
 * `node` - Node where the VMI is running on.
 
 #### kubevirt_vmi_memory_resident_bytes
-#### HELP kubevirt_vmi_memory_resident_bytes resident set size of the process running the domain.
 
 Total resident memory of the process running the VMI.
 
 #### kubevirt_vmi_memory_available_bytes
-#### HELP kubevirt_vmi_memory_available_bytes amount of usable memory as seen by the domain.
 
 The total amount of usable memory.
 
+#### kubevirt_vmi_memory_used_total_bytes
+
+The amount of memory in bytes used by the domain.
+
+#### kubevirt_vmi_memory_actual_balloon_bytes
+
+The current balloon bytes.
+
+#### kubevirt_vmi_memory_pgmajfault
+
+The number of page faults when disk IO was required.
+
+#### kubevirt_vmi_memory_pgminfault
+
+The number of other page faults, when disk IO was not required.
+
+#### kubevirt_vmi_memory_usable_bytes
+
+The amount of memory which can be reclaimed by balloon without causing host swapping in bytes.
+
 #### kubevirt_vmi_memory_unused_bytes
-#### HELP kubevirt_vmi_memory_unused_bytes amount of unused memory as seen by the domain.
 
 The total amount of unused memory as seen by the domain.
 
-#### kubevirt_vmi_memory_swap_traffic_bytes_total
-#### HELP kubevirt_vmi_memory_swap_traffic_bytes_total swap memory traffic.
+#### kubevirt_vmi_memory_swap_in_traffic_bytes_total
 
-The amount of traffic that is being read and written in swap memory.
+The amount of traffic that is brought back into memory from the swap memory.
 
-Extra labels:
-* `type` - Whether the data is being transmitted or received. `in` when transmitting and `out` when receiving.
+#### kubevirt_vmi_memory_swap_out_traffic_bytes_total
 
-#### kubevirt_vmi_network_errors_total
-#### HELP kubevirt_vmi_network_errors_total network errors.
+The amount of traffic that is sent to the swap memory from the memory.
 
-Counter of network errors when transmitting and receiving data.
+#### kubevirt_vmi_network_receive_errors_total
 
-Extra labels:
-* `interface` - Which network interface that errors are occurring.
-* `type` - Whether the error occurred when transmitting or receiving data. `tx` when transmitting and `rx` when receiving.
-
-#### kubevirt_vmi_network_traffic_bytes_total
-#### HELP kubevirt_vmi_network_traffic_bytes_total network traffic.
-
-The total amount of traffic that is being transmitted and received.
+The counter of network errors when receiving data.
 
 Extra labels:
 * `interface` - Which network interface that errors are occurring.
-* `type` - Whether the error occurred when transmitting or receiving data. `tx` when transmitting and `rx` when receiving.
 
-#### kubevirt_vmi_network_traffic_packets_total
-#### HELP kubevirt_vmi_network_traffic_packets_total network traffic packets.
+#### kubevirt_vmi_network_transmit_errors_total
 
-The total amount of packets that are being transmitted and received.
+The counter of network errors when transmitting data.
 
 Extra labels:
 * `interface` - Which network interface that errors are occurring.
-* `type` - Whether the error occurred when transmitting or receiving data. `tx` when transmitting and `rx` when receiving.
 
-#### kubevirt_vmi_storage_iops_total
-#### HELP kubevirt_vmi_storage_iops_total I/O operation performed.
+#### kubevirt_vmi_network_receive_bytes_total
 
-Counter of read and write operations per disk device.
+The network traffic received in bytes
+
+Extra labels:
+* `interface` - Which network interface that errors are occurring.
+
+#### kubevirt_vmi_network_transmit_bytes_total
+
+The network traffic transmitted in bytes
+
+Extra labels:
+* `interface` - Which network interface that errors are occurring.
+
+#### kubevirt_vmi_network_receive_packets_total
+
+The total amount of packets that are that was received.
+
+Extra labels:
+* `interface` - Which network interface that errors are occurring.
+
+#### kubevirt_vmi_network_transmit_packets_total
+
+The total amount of packets that was transmitted.
+
+Extra labels:
+* `interface` - Which network interface that errors are occurring.
+
+#### kubevirt_vmi_network_receive_packets_dropped_total
+
+The number of rx packets dropped on vNIC interfaces.
+
+Extra labels:
+* `interface` - Which network interface that errors are occurring.
+
+#### kubevirt_vmi_network_transmit_packets_dropped_total
+
+The number of tx packets dropped on vNIC interfaces.
+
+Extra labels:
+* `interface` - Which network interface that errors are occurring.
+
+#### kubevirt_vmi_storage_iops_read_total
+
+The total count of I/O read operations per disk device.
 
 Extra labels:
 * `drive` - Disk device that is being written/read.
-* `type` - Whether it's a read or write operation.
 
-#### kubevirt_vmi_storage_times_ms_total
-#### HELP kubevirt_vmi_storage_times_ms_total storage operation time.
+#### kubevirt_vmi_storage_iops_write_total
 
-Total time spent on read and write operations per disk device.
+The total count of I/O write operations per disk device.
 
 Extra labels:
 * `drive` - Disk device that is being written/read.
-* `type` - Whether it's a read or write operation.
 
-#### kubevirt_vmi_storage_traffic_bytes_total
-#### HELP kubevirt_vmi_storage_traffic_bytes_total storage traffic.
+#### kubevirt_vmi_storage_read_times_ms_total
 
-The total amount of data read and written per disk device.
+Total time spent on read operations per disk device in milliseconds.
 
 Extra labels:
 * `drive` - Disk device that is being written/read.
-* `type` - Whether it's a read or write operation.
+
+#### kubevirt_vmi_storage_write_times_ms_total
+
+Total time spent on write operations per disk device in milliseconds.
+
+Extra labels:
+* `drive` - Disk device that is being written/read.
+
+#### kubevirt_vmi_storage_read_traffic_bytes_total
+
+The total amount of data read per disk device in bytes.
+
+Extra labels:
+* `drive` - Disk device that is being written/read.
+
+#### kubevirt_vmi_storage_write_traffic_bytes_total
+
+The total amount of data written per disk device in bytes.
+
+Extra labels:
+* `drive` - Disk device that is being written/read.
+
+#### kubevirt_vmi_storage_flush_requests_total
+
+The total count of the storage flush requests.
+
+#### kubevirt_vmi_storage_flush_times_ms_total
+
+The total time (ms) spent on cache flushing.
 
 #### kubevirt_vmi_vcpu_seconds
-#### HELP kubevirt_vmi_vcpu_seconds Vcpu elapsed time.
 
 The total amount of time spent in each vcpu state
 
@@ -117,6 +184,25 @@ Extra labels:
 * `id` - Identifier to a single Virtual CPU.
 * `state` - Identify the Virtual CPU state. It can be one of libvirt vcpu's states: `OFFLINE`, `RUNNING` or `BLOCKED`
 
+#### kubevirt_vmi_vcpu_wait_seconds
+
+The vcpu time spent by waiting on I/O.
+
+#### kubevirt_vmi_outdated_count
+
+The indication for the number of VirtualMachineInstance workloads that are not running within the most up-to-date version of the virt-launcher environment.
+
+#### kubevirt_vmi_cpu_affinity
+
+The vcpu affinity details
+
+#### leading_virt_controller
+
+The indication for an operating virt-controller.
+
+#### ready_virt_controller
+
+The indication for a virt-controller that is ready to take the lead.
 
 
 ## RoadMap
@@ -124,53 +210,3 @@ Extra labels:
 Improving Kubevirt's Observability is a important topic and we are currently working on new metrics.
 
 A design proposal and its implementation history can be seen [here](https://docs.google.com/document/d/1bEwrnZZkVsCtz0PSyzlxOdhupL6GTurkUYcz7TXFM1g/edit)
-
- # Other Metrics
-## kubevirt_vmi_vcpu_wait_seconds
-#### HELP kubevirt_vmi_vcpu_wait_seconds vcpu time spent by waiting on I/O.
-## leading_virt_controller
-#### HELP leading_virt_controller Indication for an operating virt-controller.
-## ready_virt_controller
-#### HELP ready_virt_controller Indication for a virt-controller that is ready to take the lead.
-
- # Other Metrics
-## kubevirt_vmi_outdated_count
-#### HELP kubevirt_vmi_outdated_count Indication for the number of VirtualMachineInstance workloads that are not running within the most up-to-date version of the virt-launcher environment.
-
- # Other Metrics
-## kubevirt_vmi_network_receive_bytes_total
-#### HELP kubevirt_vmi_network_receive_bytes_total Network traffic receive in bytes
-## kubevirt_vmi_network_receive_errors_total
-#### HELP kubevirt_vmi_network_receive_errors_total Network receive error packets
-## kubevirt_vmi_network_receive_packets_dropped_total
-#### HELP kubevirt_vmi_network_receive_packets_dropped_total The number of rx packets dropped on vNIC interfaces.
-## kubevirt_vmi_network_receive_packets_total
-#### HELP kubevirt_vmi_network_receive_packets_total Network traffic receive packets
-## kubevirt_vmi_network_transmit_bytes_total
-#### HELP kubevirt_vmi_network_transmit_bytes_total Network traffic transmit in bytes
-## kubevirt_vmi_network_transmit_errors_total
-#### HELP kubevirt_vmi_network_transmit_errors_total Network transmit error packets
-## kubevirt_vmi_network_transmit_packets_dropped_total
-#### HELP kubevirt_vmi_network_transmit_packets_dropped_total The number of tx packets dropped on vNIC interfaces.
-## kubevirt_vmi_network_transmit_packets_total
-#### HELP kubevirt_vmi_network_transmit_packets_total Network traffic transmit packets
-
- # Other Metrics
-## kubevirt_vmi_memory_actual_balloon_bytes
-#### HELP kubevirt_vmi_memory_actual_balloon_bytes current balloon bytes.
-## kubevirt_vmi_memory_pgmajfault
-#### HELP kubevirt_vmi_memory_pgmajfault The number of page faults when disk IO was required.
-## kubevirt_vmi_memory_pgminfault
-#### HELP kubevirt_vmi_memory_pgminfault The number of other page faults, when disk IO was not required.
-## kubevirt_vmi_memory_swap_in_traffic_bytes_total
-#### HELP kubevirt_vmi_memory_swap_in_traffic_bytes_total Swap in memory traffic in bytes
-## kubevirt_vmi_memory_swap_out_traffic_bytes_total
-#### HELP kubevirt_vmi_memory_swap_out_traffic_bytes_total Swap out memory traffic in bytes
-## kubevirt_vmi_memory_usable_bytes
-#### HELP kubevirt_vmi_memory_usable_bytes The amount of memory which can be reclaimed by balloon without causing host swapping in bytes.
-## kubevirt_vmi_memory_used_total_bytes
-#### HELP kubevirt_vmi_memory_used_total_bytes The amount of memory in bytes used by the domain.
-
- # Other Metrics 
-## kubevirt_vmi_cpu_affinity
-#### HELP kubevirt_vmi_cpu_affinity vcpu affinity details
