@@ -90,7 +90,7 @@ var _ = Describe("Qemu agent poller", func() {
 			const interval = 1
 			const expectedExecutions = 1
 
-			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, 0)
+			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, 0, pollInitialInterval)
 
 			Expect(commandExecutions).To(Equal(expectedExecutions))
 		})
@@ -99,20 +99,21 @@ var _ = Describe("Qemu agent poller", func() {
 			const interval = 1
 			const expectedExecutions = 3
 
-			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, 0)
+			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, 0, pollInitialInterval)
 
 			Expect(commandExecutions).To(Equal(expectedExecutions))
 		})
 
 		It("executes the agent commands based on the minimum interval at initial run", func() {
 			const interval = 30
-			const expectedExecutions = 2
+			const expectedExecutions = 3
+			const unitTestPollInitialInterval = time.Second
 
-			// Given the initial interval is 10sec, the code under test is expected to execute the commands at time:
-			// 0, 10sec, 10sec + 2*10sec
-			// Therefore, setting a timeout limit of 20sec should cover the first 2 executions.
-			t := 2 * pollInitialInterval
-			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, t)
+			// Given the initial interval is 1sec, the code under test is expected to execute the commands at time:
+			// 0, 1sec, 1sec + 2*1sec
+			// Therefore, setting a timeout limit of 4sec+ should cover the first 3 executions.
+			t := 10 * unitTestPollInitialInterval
+			commandExecutions := runPollAndCountCommandExecution(interval, expectedExecutions, t, unitTestPollInitialInterval)
 
 			Expect(commandExecutions).To(Equal(expectedExecutions))
 		})
@@ -124,7 +125,7 @@ var _ = Describe("Qemu agent poller", func() {
 // The operation is limited by the provided or self calculated timeout and the expected executions.
 // The timeout needs to be large enough to allow the expected executions to occur and to accommodate the
 // inaccuracy of the go-routine execution.
-func runPollAndCountCommandExecution(interval, expectedExecutions int, timeout time.Duration) int {
+func runPollAndCountCommandExecution(interval, expectedExecutions int, timeout time.Duration, initialInterval time.Duration) int {
 	const fakeAgentCommandName = "foo"
 	w := PollerWorker{
 		CallTick:      time.Duration(interval),
@@ -136,7 +137,7 @@ func runPollAndCountCommandExecution(interval, expectedExecutions int, timeout t
 	defer close(c)
 	done := make(chan struct{})
 
-	go w.Poll(func(commands []AgentCommand) { done <- struct{}{} }, c)
+	go w.Poll(func(commands []AgentCommand) { done <- struct{}{} }, c, initialInterval)
 
 	if timeout == 0 {
 		// Calculate the time needed for the poll to execute the commands.
