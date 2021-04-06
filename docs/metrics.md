@@ -100,14 +100,14 @@ Extra labels:
 
 #### kubevirt_vmi_network_receive_packets_total
 
-The total amount of packets that are that was received.
+The total amount of packets that were received.
 
 Extra labels:
 * `interface` - Which network interface that errors are occurring.
 
 #### kubevirt_vmi_network_transmit_packets_total
 
-The total amount of packets that was transmitted.
+The total amount of packets that were transmitted.
 
 Extra labels:
 * `interface` - Which network interface that errors are occurring.
