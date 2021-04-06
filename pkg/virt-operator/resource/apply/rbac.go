@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/runtime"
+
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"k8s.io/client-go/tools/cache"
 
@@ -16,42 +18,32 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 )
 
-type RoleType int
-
-const (
-	TypeRole               RoleType = iota
-	TypeClusterRole        RoleType = iota
-	TypeRoleBinding        RoleType = iota
-	TypeClusterRoleBinding RoleType = iota
-)
-
 func (r *Reconciler) createOrUpdateClusterRole(cr *rbacv1.ClusterRole, imageTag string, imageRegistry string, id string) error {
-	return r.createOrUpdate(cr, imageTag, imageRegistry, id, TypeClusterRole, false)
+	return r.createOrUpdate(cr, imageTag, imageRegistry, id, false)
 }
 
 func (r *Reconciler) createOrUpdateClusterRoleBinding(crb *rbacv1.ClusterRoleBinding, imageTag string, imageRegistry string, id string) error {
-	return r.createOrUpdate(crb, imageTag, imageRegistry, id, TypeClusterRoleBinding, false)
+	return r.createOrUpdate(crb, imageTag, imageRegistry, id, false)
 }
 
 func (r *Reconciler) createOrUpdateRole(role *rbacv1.Role, imageTag string, imageRegistry string, id string) error {
-	return r.createOrUpdate(role, imageTag, imageRegistry, id, TypeRole, true)
+	return r.createOrUpdate(role, imageTag, imageRegistry, id, true)
 }
 
 func (r *Reconciler) createOrUpdateRoleBinding(rb *rbacv1.RoleBinding, imageTag string, imageRegistry string, id string) error {
-	return r.createOrUpdate(rb, imageTag, imageRegistry, id, TypeRoleBinding, true)
+	return r.createOrUpdate(rb, imageTag, imageRegistry, id, true)
 }
 
-func (r *Reconciler) createOrUpdate(role interface{},
+func (r *Reconciler) createOrUpdate(role runtime.Object,
 	imageTag, imageRegistry, id string,
-	roleType RoleType,
 	avoidIfServiceAccount bool) (err error) {
 
-	roleTypeName := getRoleTypeName(roleType)
-	createRole := r.getCreateFunction(role, roleType)
-	updateRole := r.getUpdateFunction(role, roleType)
+	roleTypeName := role.GetObjectKind().GroupVersionKind().Kind
+	createRole := r.getCreateFunction(role)
+	updateRole := r.getUpdateFunction(role)
 
-	cachedRole, exists, _ := r.getCache(roleType).Get(role)
-	roleMeta := getMetaObject(role, roleType)
+	cachedRoleInterface, exists, _ := r.getCache(role).Get(role)
+	roleMeta := getMetaObject(role)
 	if avoidIfServiceAccount && !r.stores.ServiceMonitorEnabled && (roleMeta.Name == rbac.MONITOR_SERVICEACCOUNT_NAME) {
 		return nil
 	}
@@ -68,12 +60,13 @@ func (r *Reconciler) createOrUpdate(role interface{},
 	}
 
 	modified := resourcemerge.BoolPtr(false)
-	cachedRoleMeta := getMetaObject(cachedRole, roleType)
+	cachedRole := cachedRoleInterface.(runtime.Object)
+	cachedRoleMeta := getMetaObject(cachedRole)
 	resourcemerge.EnsureObjectMeta(modified, cachedRoleMeta.DeepCopy(), *roleMeta)
-	enforceAPIGroup(cachedRole, role, roleType)
+	enforceAPIGroup(cachedRole, role)
 
 	// there was no change to metadata, the generation matched
-	if !*modified && arePolicyRulesEqual(role, cachedRole, roleType) {
+	if !*modified && arePolicyRulesEqual(role, cachedRole) {
 		log.Log.V(4).Infof("%v %v already exists", roleTypeName, roleMeta.GetName())
 		return nil
 	}
@@ -88,7 +81,7 @@ func (r *Reconciler) createOrUpdate(role interface{},
 	return nil
 }
 
-func (r *Reconciler) getCreateFunction(obj interface{}, roleType RoleType) (createFunc func() error) {
+func (r *Reconciler) getCreateFunction(obj runtime.Object) (createFunc func() error) {
 
 	rbacObj := r.clientset.RbacV1()
 	namespace := r.kv.Namespace
@@ -102,8 +95,8 @@ func (r *Reconciler) getCreateFunction(obj interface{}, roleType RoleType) (crea
 		}
 	}
 
-	switch roleType {
-	case TypeRole:
+	switch obj.(type) {
+	case *rbacv1.Role:
 		role := obj.(*rbacv1.Role)
 
 		createFunc = func() error {
@@ -112,7 +105,7 @@ func (r *Reconciler) getCreateFunction(obj interface{}, roleType RoleType) (crea
 			lowerExpectationIfErr(r.expectations.Role, err)
 			return err
 		}
-	case TypeClusterRole:
+	case *rbacv1.ClusterRole:
 		role := obj.(*rbacv1.ClusterRole)
 
 		createFunc = func() error {
@@ -121,7 +114,7 @@ func (r *Reconciler) getCreateFunction(obj interface{}, roleType RoleType) (crea
 			lowerExpectationIfErr(r.expectations.ClusterRole, err)
 			return err
 		}
-	case TypeRoleBinding:
+	case *rbacv1.RoleBinding:
 		roleBinding := obj.(*rbacv1.RoleBinding)
 
 		createFunc = func() error {
@@ -130,7 +123,7 @@ func (r *Reconciler) getCreateFunction(obj interface{}, roleType RoleType) (crea
 			lowerExpectationIfErr(r.expectations.RoleBinding, err)
 			return err
 		}
-	case TypeClusterRoleBinding:
+	case *rbacv1.ClusterRoleBinding:
 		roleBinding := obj.(*rbacv1.ClusterRoleBinding)
 
 		createFunc = func() error {
@@ -144,33 +137,33 @@ func (r *Reconciler) getCreateFunction(obj interface{}, roleType RoleType) (crea
 	return
 }
 
-func (r *Reconciler) getUpdateFunction(obj interface{}, roleType RoleType) (updateFunc func() (err error)) {
+func (r *Reconciler) getUpdateFunction(obj runtime.Object) (updateFunc func() (err error)) {
 	rbacObj := r.clientset.RbacV1()
 	namespace := r.kv.Namespace
 
-	switch roleType {
-	case TypeRole:
+	switch obj.(type) {
+	case *rbacv1.Role:
 		role := obj.(*rbacv1.Role)
 
 		updateFunc = func() (err error) {
 			_, err = rbacObj.Roles(namespace).Update(context.Background(), role, metav1.UpdateOptions{})
 			return err
 		}
-	case TypeClusterRole:
+	case *rbacv1.ClusterRole:
 		role := obj.(*rbacv1.ClusterRole)
 
 		updateFunc = func() (err error) {
 			_, err = rbacObj.ClusterRoles().Update(context.Background(), role, metav1.UpdateOptions{})
 			return err
 		}
-	case TypeRoleBinding:
+	case *rbacv1.RoleBinding:
 		roleBinding := obj.(*rbacv1.RoleBinding)
 
 		updateFunc = func() (err error) {
 			_, err = rbacObj.RoleBindings(namespace).Update(context.Background(), roleBinding, metav1.UpdateOptions{})
 			return err
 		}
-	case TypeClusterRoleBinding:
+	case *rbacv1.ClusterRoleBinding:
 		roleBinding := obj.(*rbacv1.ClusterRoleBinding)
 
 		updateFunc = func() (err error) {
@@ -182,65 +175,48 @@ func (r *Reconciler) getUpdateFunction(obj interface{}, roleType RoleType) (upda
 	return
 }
 
-func getRoleTypeName(roleType RoleType) (name string) {
-	switch roleType {
-	case TypeRole:
-		name = "role"
-	case TypeClusterRole:
-		name = "clusterrole"
-	case TypeRoleBinding:
-		name = "rolebinding"
-	case TypeClusterRoleBinding:
-		name = "clusterrolebinding"
-	}
-
-	return
-}
-
-func getMetaObject(role interface{}, roleType RoleType) (meta *metav1.ObjectMeta) {
-	switch roleType {
-	case TypeRole:
-		role := role.(*rbacv1.Role)
+func getMetaObject(obj runtime.Object) (meta *metav1.ObjectMeta) {
+	switch obj.(type) {
+	case *rbacv1.Role:
+		role := obj.(*rbacv1.Role)
 		meta = &role.ObjectMeta
-	case TypeClusterRole:
-		role := role.(*rbacv1.ClusterRole)
+	case *rbacv1.ClusterRole:
+		role := obj.(*rbacv1.ClusterRole)
 		meta = &role.ObjectMeta
-	case TypeRoleBinding:
-		roleBinding := role.(*rbacv1.RoleBinding)
+	case *rbacv1.RoleBinding:
+		roleBinding := obj.(*rbacv1.RoleBinding)
 		meta = &roleBinding.ObjectMeta
-	case TypeClusterRoleBinding:
-		roleBinding := role.(*rbacv1.ClusterRoleBinding)
+	case *rbacv1.ClusterRoleBinding:
+		roleBinding := obj.(*rbacv1.ClusterRoleBinding)
 		meta = &roleBinding.ObjectMeta
 	}
 
 	return
 }
 
-func enforceAPIGroup(existing interface{}, required interface{}, roleType RoleType) {
+func enforceAPIGroup(existing runtime.Object, required runtime.Object) {
 	var existingRoleRef *rbacv1.RoleRef
 	var requiredRoleRef *rbacv1.RoleRef
 	var existingSubjects []rbacv1.Subject
 	var requiredSubjects []rbacv1.Subject
 
-	switch roleType {
-	case TypeRole:
-		fallthrough
-	case TypeClusterRole:
-		return
-	case TypeRoleBinding:
+	switch required.(type) {
+	case *rbacv1.RoleBinding:
 		crExisting := existing.(*rbacv1.RoleBinding)
 		crRequired := required.(*rbacv1.RoleBinding)
 		existingRoleRef = &crExisting.RoleRef
 		requiredRoleRef = &crRequired.RoleRef
 		existingSubjects = crExisting.Subjects
 		requiredSubjects = crRequired.Subjects
-	case TypeClusterRoleBinding:
+	case *rbacv1.ClusterRoleBinding:
 		crbExisting := existing.(*rbacv1.ClusterRoleBinding)
 		crbRequired := required.(*rbacv1.ClusterRoleBinding)
 		existingRoleRef = &crbExisting.RoleRef
 		requiredRoleRef = &crbRequired.RoleRef
 		existingSubjects = crbExisting.Subjects
 		requiredSubjects = crbRequired.Subjects
+	default:
+		return
 	}
 
 	existingRoleRef.APIGroup = rbacv1.GroupName
@@ -258,7 +234,7 @@ func enforceAPIGroup(existing interface{}, required interface{}, roleType RoleTy
 	}
 }
 
-func arePolicyRulesEqual(role1 interface{}, role2 interface{}, roleType RoleType) (equal bool) {
+func arePolicyRulesEqual(role1 runtime.Object, role2 runtime.Object) (equal bool) {
 	// This is to avoid using reflections for performance reasons
 	arePolicyRulesEqualHelper := func(pr1 []rbacv1.PolicyRule, pr2 []rbacv1.PolicyRule) bool {
 		if len(pr1) != len(pr2) {
@@ -288,34 +264,32 @@ func arePolicyRulesEqual(role1 interface{}, role2 interface{}, roleType RoleType
 		return true
 	}
 
-	switch roleType {
-	case TypeRole:
+	switch role1.(type) {
+	case *rbacv1.Role:
 		role1Obj := role1.(*rbacv1.Role)
 		role2Obj := role2.(*rbacv1.Role)
 		equal = arePolicyRulesEqualHelper(role1Obj.Rules, role2Obj.Rules)
-	case TypeClusterRole:
+	case *rbacv1.ClusterRole:
 		role1Obj := role1.(*rbacv1.ClusterRole)
 		role2Obj := role2.(*rbacv1.ClusterRole)
 		equal = arePolicyRulesEqualHelper(role1Obj.Rules, role2Obj.Rules)
 	// Bindings do not have "rules" attribute
-	case TypeRoleBinding:
-		fallthrough
-	case TypeClusterRoleBinding:
+	default:
 		equal = true
 	}
 
 	return
 }
 
-func (r *Reconciler) getCache(roleType RoleType) (cache cache.Store) {
-	switch roleType {
-	case TypeRole:
+func (r *Reconciler) getCache(obj runtime.Object) (cache cache.Store) {
+	switch obj.(type) {
+	case *rbacv1.Role:
 		cache = r.stores.RoleCache
-	case TypeClusterRole:
+	case *rbacv1.ClusterRole:
 		cache = r.stores.ClusterRoleCache
-	case TypeRoleBinding:
+	case *rbacv1.RoleBinding:
 		cache = r.stores.RoleBindingCache
-	case TypeClusterRoleBinding:
+	case *rbacv1.ClusterRoleBinding:
 		cache = r.stores.ClusterRoleBindingCache
 	}
 

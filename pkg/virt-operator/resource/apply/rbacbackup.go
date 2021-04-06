@@ -3,6 +3,7 @@ package apply
 import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -23,7 +24,7 @@ func (r *Reconciler) backupRBACs() error {
 			continue
 		}
 
-		err := r.backupRBAC(cachedCr.DeepCopy(), cachedCr.Name, string(cachedCr.UID), imageTag, imageRegistry, id, TypeClusterRole)
+		err := r.backupRBAC(cachedCr.DeepCopy(), cachedCr.Name, string(cachedCr.UID), imageTag, imageRegistry, id)
 		if err != nil {
 			return err
 		}
@@ -41,7 +42,7 @@ func (r *Reconciler) backupRBACs() error {
 			continue
 		}
 
-		err := r.backupRBAC(cachedCrb.DeepCopy(), cachedCrb.Name, string(cachedCrb.UID), imageTag, imageRegistry, id, TypeClusterRole)
+		err := r.backupRBAC(cachedCrb.DeepCopy(), cachedCrb.Name, string(cachedCrb.UID), imageTag, imageRegistry, id)
 		if err != nil {
 			return err
 		}
@@ -59,7 +60,7 @@ func (r *Reconciler) backupRBACs() error {
 			continue
 		}
 
-		err := r.backupRBAC(cachedCr.DeepCopy(), cachedCr.Name, string(cachedCr.UID), imageTag, imageRegistry, id, TypeClusterRole)
+		err := r.backupRBAC(cachedCr.DeepCopy(), cachedCr.Name, string(cachedCr.UID), imageTag, imageRegistry, id)
 		if err != nil {
 			return err
 		}
@@ -77,7 +78,7 @@ func (r *Reconciler) backupRBACs() error {
 			continue
 		}
 
-		err := r.backupRBAC(cachedRb.DeepCopy(), cachedRb.Name, string(cachedRb.UID), imageTag, imageRegistry, id, TypeClusterRole)
+		err := r.backupRBAC(cachedRb.DeepCopy(), cachedRb.Name, string(cachedRb.UID), imageTag, imageRegistry, id)
 		if err != nil {
 			return err
 		}
@@ -86,8 +87,8 @@ func (r *Reconciler) backupRBACs() error {
 	return nil
 }
 
-func (r *Reconciler) backupRBAC(obj interface{}, name, UID, imageTag, imageRegistry, id string, roleType RoleType) error {
-	meta := getMetaObject(obj, roleType)
+func (r *Reconciler) backupRBAC(obj runtime.Object, name, UID, imageTag, imageRegistry, id string) error {
+	meta := getMetaObject(obj)
 	*meta = metav1.ObjectMeta{
 		GenerateName: name,
 	}
@@ -95,13 +96,14 @@ func (r *Reconciler) backupRBAC(obj interface{}, name, UID, imageTag, imageRegis
 	meta.Annotations[v1.EphemeralBackupObject] = UID
 
 	// Create backup
-	createRole := r.getCreateFunction(obj, roleType)
+	createRole := r.getCreateFunction(obj)
 	err := createRole()
 	if err != nil {
 		return err
 	}
 
-	log.Log.V(2).Infof("backup %v %v created", getRoleTypeName(roleType), name)
+	kind := obj.GetObjectKind().GroupVersionKind().Kind
+	log.Log.V(2).Infof("backup %v %v created", kind, name)
 	return nil
 }
 
