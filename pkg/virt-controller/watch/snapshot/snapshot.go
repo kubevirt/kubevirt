@@ -179,7 +179,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.VirtualMachineSnapshotContent) (time.Duration, error) {
 	log.Log.V(3).Infof("Updating VirtualMachineSnapshotContent %s/%s", content.Namespace, content.Name)
 
-	var volueSnapshotStatus []snapshotv1.VolumeSnapshotStatus
+	var volumeSnapshotStatus []snapshotv1.VolumeSnapshotStatus
 	var deletedSnapshots, skippedSnapshots []string
 
 	currentlyReady := vmSnapshotContentReady(content)
@@ -234,7 +234,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 			vss.Error = translateError(volumeSnapshot.Status.Error)
 		}
 
-		volueSnapshotStatus = append(volueSnapshotStatus, vss)
+		volumeSnapshotStatus = append(volumeSnapshotStatus, vss)
 	}
 
 	ready := true
@@ -252,7 +252,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		ready = false
 		errorMessage = fmt.Sprintf("VolumeSnapshots (%s) skipped because in error state", strings.Join(skippedSnapshots, ","))
 	} else {
-		for _, vss := range volueSnapshotStatus {
+		for _, vss := range volumeSnapshotStatus {
 			if vss.ReadyToUse == nil || !*vss.ReadyToUse {
 				ready = false
 				break
@@ -272,7 +272,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	}
 
 	contentCpy.Status.ReadyToUse = &ready
-	contentCpy.Status.VolumeSnapshotStatus = volueSnapshotStatus
+	contentCpy.Status.VolumeSnapshotStatus = volumeSnapshotStatus
 
 	if !reflect.DeepEqual(content, contentCpy) {
 		if _, err := ctrl.Client.VirtualMachineSnapshotContent(contentCpy.Namespace).Update(context.Background(), contentCpy, metav1.UpdateOptions{}); err != nil {
