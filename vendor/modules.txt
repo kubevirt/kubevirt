@@ -904,6 +904,7 @@ kubevirt.io/client-go/kubecli
 kubevirt.io/client-go/log
 kubevirt.io/client-go/precond
 kubevirt.io/client-go/subresources
+kubevirt.io/client-go/testutils
 kubevirt.io/client-go/util
 kubevirt.io/client-go/version
 # kubevirt.io/containerized-data-importer v1.31.0 => kubevirt.io/containerized-data-importer v1.31.0

@@ -47,8 +47,6 @@ import (
 
 const (
 	randomMacGenerationAttempts = 10
-	tapOwnerUID                 = "0"
-	tapOwnerGID                 = "0"
 	allowForwarding             = 1
 )
 

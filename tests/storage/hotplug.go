@@ -372,7 +372,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			verifyVolumeAndDiskVMRemoved(vm, "some-new-volume1", "some-new-volume2")
 		},
-			table.Entry("[test_id:5364]with DataVolume", addDVVolumeVM, removeVolumeVM),
+			table.Entry("[test_id:5364][QUARANTINE][owner:@sig-storage]with DataVolume", addDVVolumeVM, removeVolumeVM),
 			table.Entry("[test_id:5294]with PersistentVolume", addPVCVolumeVM, removeVolumeVM),
 		)
 	})
