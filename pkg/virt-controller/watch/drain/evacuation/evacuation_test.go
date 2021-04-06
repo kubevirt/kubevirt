@@ -1,6 +1,8 @@
 package evacuation_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
 	v12 "k8s.io/api/core/v1"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +33,8 @@ var _ = Describe("Evacuation", func() {
 	var nodeInformer cache.SharedIndexInformer
 	var migrationInformer cache.SharedIndexInformer
 	var migrationSource *framework.FakeControllerSource
+	var podInformer cache.SharedIndexInformer
+	var podSource *framework.FakeControllerSource
 	var recorder *record.FakeRecorder
 	var mockQueue *testutils.MockWorkQueue
 	var kubeClient *fake.Clientset
@@ -43,11 +47,13 @@ var _ = Describe("Evacuation", func() {
 		go vmiInformer.Run(stop)
 		go migrationInformer.Run(stop)
 		go nodeInformer.Run(stop)
+		go podInformer.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
 			migrationInformer.HasSynced,
 			nodeInformer.HasSynced,
+			podInformer.HasSynced,
 		)).To(BeTrue())
 	}
 
@@ -71,10 +77,11 @@ var _ = Describe("Evacuation", func() {
 		})
 		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
 		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&v12.Node{})
+		podInformer, podSource = testutils.NewFakeInformerFor(&v12.Pod{})
 		recorder = record.NewFakeRecorder(100)
 		config, _, _, _ := testutils.NewFakeClusterConfig(&v12.ConfigMap{})
 
-		controller = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, recorder, virtClient, config)
+		controller = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 		migrationFeeder = testutils.NewMigrationFeeder(mockQueue, migrationSource)
@@ -346,6 +353,54 @@ var _ = Describe("Evacuation", func() {
 			controller.Execute()
 		})
 
+		It("should evict the VMI if only one pod is running", func() {
+			node := newNode("testnode")
+			node1 := newNode("anothernode")
+			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
+			addNode(node)
+			addNode(node1)
+
+			vmi := newVirtualMachine("testvm", node.Name)
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
+
+			podSource.Add(newPod(vmi, "runningPod", v12.PodRunning, true))
+			podSource.Add(newPod(vmi, "succededPod", v12.PodSucceeded, true))
+			podSource.Add(newPod(vmi, "failedPod", v12.PodFailed, true))
+			podSource.Add(newPod(vmi, "notOwnedRunningPod", v12.PodRunning, false))
+			// pods do not cause the queue to get added to
+			// we just use them for caching purposes
+			// so wait for cache to catch up with a brief sleep
+			time.Sleep(1 * time.Second)
+
+			vmiFeeder.Add(vmi)
+
+			migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+		})
+
+		It("should not evict the VMI with multiple pods active", func() {
+			node := newNode("testnode")
+			node1 := newNode("anothernode")
+			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
+			addNode(node)
+			addNode(node1)
+
+			vmi := newVirtualMachine("testvm", node.Name)
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
+
+			podSource.Add(newPod(vmi, "runningPod", v12.PodRunning, true))
+			podSource.Add(newPod(vmi, "pendingPod", v12.PodPending, true))
+			// pods do not cause the queue to get added to
+			// we just use them for caching purposes
+			// so wait for cache to catch up with a brief sleep
+			time.Sleep(1 * time.Second)
+
+			vmiFeeder.Add(vmi)
+
+			controller.Execute()
+		})
 	})
 
 	AfterEach(func() {
@@ -373,6 +428,33 @@ func newVirtualMachine(name string, nodeName string) *v1.VirtualMachineInstance 
 	vmi.UID = "1234"
 	vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceIsMigratable, Status: v12.ConditionTrue}}
 	return vmi
+}
+
+func newPod(vmi *v1.VirtualMachineInstance, name string, phase v12.PodPhase, ownedByVMI bool) *v12.Pod {
+	pod := &v12.Pod{
+		ObjectMeta: v13.ObjectMeta{
+			Name:      name,
+			Namespace: vmi.Namespace,
+		},
+		Status: v12.PodStatus{
+			Phase: phase,
+			ContainerStatuses: []v12.ContainerStatus{
+				{Ready: false, Name: "compute", State: v12.ContainerState{Running: &v12.ContainerStateRunning{}}},
+			},
+		},
+	}
+
+	if ownedByVMI {
+		pod.Labels = map[string]string{
+			v1.AppLabel:       "virt-launcher",
+			v1.CreatedByLabel: string(vmi.UID),
+		}
+		pod.Annotations = map[string]string{
+			v1.DomainAnnotation: vmi.Name,
+		}
+	}
+
+	return pod
 }
 
 func newMigration(name string, vmi string, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
