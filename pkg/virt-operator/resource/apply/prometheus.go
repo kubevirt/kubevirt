@@ -42,22 +42,15 @@ func (r *Reconciler) createOrUpdateServiceMonitors() error {
 			log.Log.V(2).Infof("serviceMonitor %v created", serviceMonitor.GetName())
 
 		} else if !objectMatchesVersion(&cachedServiceMonitor.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
-			// Patch if old version
-			var ops []string
-
-			// Add Labels and Annotations Patches
-			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&serviceMonitor.ObjectMeta)
-			if err != nil {
-				return err
-			}
-			ops = append(ops, labelAnnotationPatch...)
-
-			// Add Spec Patch
 			newSpec, err := json.Marshal(serviceMonitor.Spec)
 			if err != nil {
 				return err
 			}
-			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+
+			ops, err := getPatchWithObjectMetaAndSpec([]string{}, &serviceMonitor.ObjectMeta, newSpec)
+			if err != nil {
+				return err
+			}
 
 			_, err = prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Patch(context.Background(), serviceMonitor.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 			if err != nil {
@@ -105,22 +98,16 @@ func (r *Reconciler) createOrUpdatePrometheusRules() error {
 			log.Log.V(2).Infof("PrometheusRule %v created", prometheusRule.GetName())
 
 		} else if !objectMatchesVersion(&cachedPrometheusRule.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
-			// Patch if old version
-			var ops []string
-
-			// Add Labels and Annotations Patches
-			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&prometheusRule.ObjectMeta)
-			if err != nil {
-				return err
-			}
-			ops = append(ops, labelAnnotationPatch...)
-
 			// Add Spec Patch
 			newSpec, err := json.Marshal(prometheusRule.Spec)
 			if err != nil {
 				return err
 			}
-			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+
+			ops, err := getPatchWithObjectMetaAndSpec([]string{}, &prometheusRule.ObjectMeta, newSpec)
+			if err != nil {
+				return err
+			}
 
 			_, err = prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Patch(context.Background(), prometheusRule.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 			if err != nil {

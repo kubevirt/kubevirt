@@ -20,7 +20,12 @@
 package apply
 
 import (
+	"bufio"
+	"bytes"
 	"reflect"
+
+	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
+	marshalutil "kubevirt.io/kubevirt/tools/util"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -30,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -72,6 +78,39 @@ func getConfig(registry, version string) *util.KubeVirtDeploymentConfig {
 			ImageTag:      version,
 		},
 	})
+}
+
+func loadTargetStrategy(resource interface{}, config *util.KubeVirtDeploymentConfig, stores util.Stores) *install.Strategy {
+	var b bytes.Buffer
+	writer := bufio.NewWriter(&b)
+
+	marshalutil.MarshallObject(resource, writer)
+	writer.Flush()
+
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "kubevirt-install-strategy-",
+			Namespace:    config.GetNamespace(),
+			Labels: map[string]string{
+				v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,
+				v1.InstallStrategyLabel: "",
+			},
+			Annotations: map[string]string{
+				v1.InstallStrategyVersionAnnotation:    config.GetKubeVirtVersion(),
+				v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
+				v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
+			},
+		},
+		Data: map[string]string{
+			"manifests": string(b.Bytes()),
+		},
+	}
+
+	stores.InstallStrategyConfigMapCache.Add(configMap)
+	targetStrategy, err := installstrategy.LoadInstallStrategyFromCache(stores, config)
+	Expect(err).ToNot(HaveOccurred())
+
+	return targetStrategy
 }
 
 var _ = Describe("Apply", func() {

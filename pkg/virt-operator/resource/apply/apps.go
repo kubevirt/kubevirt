@@ -54,24 +54,17 @@ func (r *Reconciler) syncDeployment(deployment *appsv1.Deployment) error {
 		return nil
 	}
 
-	// Patch if old version
-	ops := []string{
-		fmt.Sprintf(testGenerationJSONPatchTemplate, cachedDeployment.ObjectMeta.Generation),
-	}
-
-	// Add Labels and Annotations Patches
-	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&deployment.ObjectMeta)
-	if err != nil {
-		return err
-	}
-	ops = append(ops, labelAnnotationPatch...)
-
-	// Add Spec Patch
 	newSpec, err := json.Marshal(deployment.Spec)
 	if err != nil {
 		return err
 	}
-	ops = append(ops, fmt.Sprintf(replaceSpecPatchTemplate, string(newSpec)))
+
+	ops, err := getPatchWithObjectMetaAndSpec([]string{
+		fmt.Sprintf(testGenerationJSONPatchTemplate, cachedDeployment.ObjectMeta.Generation),
+	}, &deployment.ObjectMeta, newSpec)
+	if err != nil {
+		return err
+	}
 
 	deployment, err = apps.Deployments(kv.Namespace).Patch(context.Background(), deployment.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 	if err != nil {
@@ -124,24 +117,17 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) error {
 		return nil
 	}
 
-	// Patch if old version
-	ops := []string{
-		fmt.Sprintf(testGenerationJSONPatchTemplate, cachedDaemonSet.ObjectMeta.Generation),
-	}
-
-	// Add Labels and Annotations Patches
-	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&daemonSet.ObjectMeta)
-	if err != nil {
-		return err
-	}
-	ops = append(ops, labelAnnotationPatch...)
-
-	// Add Spec Patch
 	newSpec, err := json.Marshal(daemonSet.Spec)
 	if err != nil {
 		return err
 	}
-	ops = append(ops, fmt.Sprintf(replaceSpecPatchTemplate, string(newSpec)))
+
+	ops, err := getPatchWithObjectMetaAndSpec([]string{
+		fmt.Sprintf(testGenerationJSONPatchTemplate, cachedDaemonSet.ObjectMeta.Generation),
+	}, &daemonSet.ObjectMeta, newSpec)
+	if err != nil {
+		return err
+	}
 
 	daemonSet, err = apps.DaemonSets(kv.Namespace).Patch(context.Background(), daemonSet.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 	if err != nil {
@@ -184,22 +170,17 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 		log.Log.V(4).Infof("poddisruptionbudget %v is up-to-date", cachedPodDisruptionBudget.GetName())
 		return nil
 	}
-	// Patch if old version
-	var ops []string
-
-	// Add Labels and Annotations Patches
-	labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&podDisruptionBudget.ObjectMeta)
-	if err != nil {
-		return err
-	}
-	ops = append(ops, labelAnnotationPatch...)
 
 	// Add Spec Patch
 	newSpec, err := json.Marshal(podDisruptionBudget.Spec)
 	if err != nil {
 		return err
 	}
-	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+
+	ops, err := getPatchWithObjectMetaAndSpec([]string{}, &podDisruptionBudget.ObjectMeta, newSpec)
+	if err != nil {
+		return err
+	}
 
 	_, err = pdbClient.Patch(context.Background(), podDisruptionBudget.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
 	if err != nil {
