@@ -1118,19 +1118,11 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 
 	}
 
+	//
 	// Update paused condition in case VMI was paused / unpaused
-	if domain != nil && domain.Status.Status == api.Paused && domain.Status.Reason == api.ReasonPausedUser {
+	if domain != nil && domain.Status.Status == api.Paused {
 		if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
-			log.Log.Object(vmi).V(3).Info("Adding paused condition")
-			now := metav1.NewTime(time.Now())
-			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
-				Type:               v1.VirtualMachineInstancePaused,
-				Status:             k8sv1.ConditionTrue,
-				LastProbeTime:      now,
-				LastTransitionTime: now,
-				Reason:             "PausedByUser",
-				Message:            "VMI was paused by user",
-			})
+			calculatePausedCondition(vmi, domain.Status.Reason)
 		}
 	} else if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
 		log.Log.Object(vmi).V(3).Info("Removing paused condition")
@@ -1224,6 +1216,21 @@ func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAg
 
 	log.Log.V(3).Object(vmi).Info("This guest agent is supported")
 	return true
+}
+
+func calculatePausedCondition(vmi *v1.VirtualMachineInstance, reason api.StateChangeReason) {
+	if reason == api.ReasonPausedUser {
+		log.Log.Object(vmi).V(3).Info("Adding paused condition")
+		now := metav1.NewTime(time.Now())
+		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+			Type:               v1.VirtualMachineInstancePaused,
+			Status:             k8sv1.ConditionTrue,
+			LastProbeTime:      now,
+			LastTransitionTime: now,
+			Reason:             "PausedByUser",
+			Message:            "VMI was paused by user",
+		})
+	}
 }
 
 func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.VirtualMachineInstance, hasHotplug bool) (*v1.VirtualMachineInstanceCondition, bool) {
