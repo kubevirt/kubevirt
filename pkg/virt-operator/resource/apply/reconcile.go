@@ -64,9 +64,7 @@ func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version, imageRegistry,
 		return false
 	}
 
-	foundVersion := objectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
-	foundImageRegistry := objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
-	foundID := objectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation]
+	foundVersion, foundImageRegistry, foundID, _ := getInstallStrategyAnnotations(objectMeta)
 	foundGeneration, generationExists := objectMeta.Annotations[v1.KubeVirtGenerationAnnotation]
 	foundLabels := objectMeta.Labels[v1.ManagedByLabel] == v1.ManagedByLabelOperatorValue
 	sGeneration := strconv.FormatInt(generation, 10)
@@ -537,7 +535,7 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 
 	// backup any old RBAC rules that don't match current version
 	if !infrastructureRolledOver {
-		err = r.backupRbac()
+		err = r.backupRBACs()
 		if err != nil {
 			return false, err
 		}
@@ -1120,4 +1118,23 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	}
 
 	return nil
+}
+
+func getInstallStrategyAnnotations(meta *metav1.ObjectMeta) (imageTag, imageRegistry, id string, ok bool) {
+	var exists bool
+
+	imageTag, exists = meta.Annotations[v1.InstallStrategyVersionAnnotation]
+	if !exists {
+		ok = false
+	}
+	imageRegistry, exists = meta.Annotations[v1.InstallStrategyRegistryAnnotation]
+	if !exists {
+		ok = false
+	}
+	id, exists = meta.Annotations[v1.InstallStrategyIdentifierAnnotation]
+	if !exists {
+		ok = false
+	}
+
+	return
 }

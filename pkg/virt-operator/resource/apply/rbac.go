@@ -4,6 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
+	"k8s.io/client-go/tools/cache"
+
+	"kubevirt.io/kubevirt/pkg/controller"
+
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -12,175 +19,279 @@ import (
 )
 
 func (r *Reconciler) createOrUpdateClusterRole(cr *rbacv1.ClusterRole, imageTag string, imageRegistry string, id string) error {
-
-	var err error
-	rbac := r.clientset.RbacV1()
-
-	var cachedCr *rbacv1.ClusterRole
-
-	cr = cr.DeepCopy()
-	obj, exists, _ := r.stores.ClusterRoleCache.Get(cr)
-
-	if exists {
-		cachedCr = obj.(*rbacv1.ClusterRole)
-	}
-
-	injectOperatorMetadata(r.kv, &cr.ObjectMeta, imageTag, imageRegistry, id, true)
-	if !exists {
-		// Create non existent
-		r.expectations.ClusterRole.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := rbac.ClusterRoles().Create(context.Background(), cr, metav1.CreateOptions{})
-		if err != nil {
-			r.expectations.ClusterRole.LowerExpectations(r.kvKey, 1, 0)
-			return fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
-		}
-		log.Log.V(2).Infof("clusterrole %v created", cr.GetName())
-	} else if !objectMatchesVersion(&cachedCr.ObjectMeta, imageTag, imageRegistry, id, r.kv.GetGeneration()) {
-		// Update existing, we don't need to patch for rbac rules.
-		_, err = rbac.ClusterRoles().Update(context.Background(), cr, metav1.UpdateOptions{})
-		if err != nil {
-			return fmt.Errorf("unable to update clusterrole %+v: %v", cr, err)
-		}
-		log.Log.V(2).Infof("clusterrole %v updated", cr.GetName())
-
-	} else {
-		log.Log.V(4).Infof("clusterrole %v already exists", cr.GetName())
-	}
-
-	return nil
+	return r.createOrUpdate(cr, imageTag, imageRegistry, id, false)
 }
 
-func (r *Reconciler) createOrUpdateRoleBinding(rb *rbacv1.RoleBinding,
-	imageTag string,
-	imageRegistry string,
-	id string,
-	namespace string) error {
+func (r *Reconciler) createOrUpdateClusterRoleBinding(crb *rbacv1.ClusterRoleBinding, imageTag string, imageRegistry string, id string) error {
+	return r.createOrUpdate(crb, imageTag, imageRegistry, id, false)
+}
 
-	if !r.stores.ServiceMonitorEnabled && (rb.Name == rbac.MONITOR_SERVICEACCOUNT_NAME) {
+func (r *Reconciler) createOrUpdateRole(role *rbacv1.Role, imageTag string, imageRegistry string, id string) error {
+	return r.createOrUpdate(role, imageTag, imageRegistry, id, true)
+}
+
+func (r *Reconciler) createOrUpdateRoleBinding(rb *rbacv1.RoleBinding, imageTag string, imageRegistry string, id string) error {
+	return r.createOrUpdate(rb, imageTag, imageRegistry, id, true)
+}
+
+func (r *Reconciler) createOrUpdate(role runtime.Object,
+	imageTag, imageRegistry, id string,
+	avoidIfServiceAccount bool) (err error) {
+
+	roleTypeName := role.GetObjectKind().GroupVersionKind().Kind
+	createRole := r.getCreateFunction(role)
+	updateRole := r.getUpdateFunction(role)
+
+	cachedRoleInterface, exists, _ := r.getCache(role).Get(role)
+	roleMeta := getMetaObject(role)
+	if avoidIfServiceAccount && !r.stores.ServiceMonitorEnabled && (roleMeta.Name == rbac.MONITOR_SERVICEACCOUNT_NAME) {
 		return nil
 	}
 
-	var err error
-	rbac := r.clientset.RbacV1()
-
-	var cachedRb *rbacv1.RoleBinding
-
-	rb = rb.DeepCopy()
-	obj, exists, _ := r.stores.RoleBindingCache.Get(rb)
-
-	if exists {
-		cachedRb = obj.(*rbacv1.RoleBinding)
-	}
-
-	injectOperatorMetadata(r.kv, &rb.ObjectMeta, imageTag, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, roleMeta, imageTag, imageRegistry, id, true)
 	if !exists {
 		// Create non existent
-		r.expectations.RoleBinding.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := rbac.RoleBindings(namespace).Create(context.Background(), rb, metav1.CreateOptions{})
+		err = createRole()
 		if err != nil {
-			r.expectations.RoleBinding.LowerExpectations(r.kvKey, 1, 0)
-			return fmt.Errorf("unable to create rolebinding %+v: %v", rb, err)
+			return fmt.Errorf("unable to create %v %+v: %v", roleTypeName, role, err)
 		}
-
-		log.Log.V(2).Infof("rolebinding %v created", rb.GetName())
-	} else if !objectMatchesVersion(&cachedRb.ObjectMeta, imageTag, imageRegistry, id, r.kv.GetGeneration()) {
-		// Update existing, we don't need to patch for rbac rules.
-		_, err = rbac.RoleBindings(namespace).Update(context.Background(), rb, metav1.UpdateOptions{})
-		if err != nil {
-			return fmt.Errorf("unable to update rolebinding %+v: %v", rb, err)
-		}
-
-		log.Log.V(2).Infof("rolebinding %v updated", rb.GetName())
-	} else {
-		log.Log.V(4).Infof("rolebinding %v already exists", rb.GetName())
-	}
-
-	return nil
-}
-
-func (r *Reconciler) createOrUpdateRole(role *rbacv1.Role,
-	imageTag string,
-	imageRegistry string,
-	id string,
-	namespace string) error {
-
-	if !r.stores.ServiceMonitorEnabled && (role.Name == rbac.MONITOR_SERVICEACCOUNT_NAME) {
+		log.Log.V(2).Infof("%v %v created", roleTypeName, roleMeta.GetName())
 		return nil
 	}
 
-	var err error
-	rbac := r.clientset.RbacV1()
+	modified := resourcemerge.BoolPtr(false)
+	cachedRole := cachedRoleInterface.(runtime.Object)
+	cachedRoleMeta := getMetaObject(cachedRole)
+	resourcemerge.EnsureObjectMeta(modified, cachedRoleMeta.DeepCopy(), *roleMeta)
+	enforceAPIGroup(cachedRole, role)
 
-	var cachedR *rbacv1.Role
-
-	role = role.DeepCopy()
-	obj, exists, _ := r.stores.RoleCache.Get(role)
-	if exists {
-		cachedR = obj.(*rbacv1.Role)
+	// there was no change to metadata, the generation matched
+	if !*modified && arePolicyRulesEqual(role, cachedRole) {
+		log.Log.V(4).Infof("%v %v already exists", roleTypeName, roleMeta.GetName())
+		return nil
 	}
 
-	injectOperatorMetadata(r.kv, &role.ObjectMeta, imageTag, imageRegistry, id, true)
-	if !exists {
-		// Create non existent
-		r.expectations.Role.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := rbac.Roles(namespace).Create(context.Background(), role, metav1.CreateOptions{})
-		if err != nil {
-			r.expectations.Role.LowerExpectations(r.kvKey, 1, 0)
-			return fmt.Errorf("unable to create role %+v: %v", r, err)
-		}
-
-		log.Log.V(2).Infof("role %v created", role.GetName())
-	} else if !objectMatchesVersion(&cachedR.ObjectMeta, imageTag, imageRegistry, id, r.kv.GetGeneration()) {
-		// Update existing, we don't need to patch for rbac rules.
-		_, err = rbac.Roles(namespace).Update(context.Background(), role, metav1.UpdateOptions{})
-		if err != nil {
-			return fmt.Errorf("unable to update role %+v: %v", r, err)
-		}
-		log.Log.V(2).Infof("role %v updated", role.GetName())
-
-	} else {
-		log.Log.V(4).Infof("role %v already exists", role.GetName())
+	// Update existing, we don't need to patch for rbac rules.
+	err = updateRole()
+	if err != nil {
+		return fmt.Errorf("unable to update %v %+v: %v", roleTypeName, role, err)
 	}
+	log.Log.V(2).Infof("%v %v updated", roleTypeName, roleMeta.GetName())
+
 	return nil
 }
 
-func (r *Reconciler) createOrUpdateClusterRoleBinding(crb *rbacv1.ClusterRoleBinding,
-	imageTag string,
-	imageRegistry string,
-	id string) error {
+func (r *Reconciler) getCreateFunction(obj runtime.Object) (createFunc func() error) {
 
-	var err error
-	rbac := r.clientset.RbacV1()
+	rbacObj := r.clientset.RbacV1()
+	namespace := r.kv.Namespace
 
-	var cachedCrb *rbacv1.ClusterRoleBinding
-
-	crb = crb.DeepCopy()
-	obj, exists, _ := r.stores.ClusterRoleBindingCache.Get(crb)
-	if exists {
-		cachedCrb = obj.(*rbacv1.ClusterRoleBinding)
+	raiseExpectation := func(exp *controller.UIDTrackingControllerExpectations) {
+		exp.RaiseExpectations(r.kvKey, 1, 0)
+	}
+	lowerExpectationIfErr := func(exp *controller.UIDTrackingControllerExpectations, err error) {
+		if err != nil {
+			exp.LowerExpectations(r.kvKey, 1, 0)
+		}
 	}
 
-	injectOperatorMetadata(r.kv, &crb.ObjectMeta, imageTag, imageRegistry, id, true)
-	if !exists {
-		// Create non existent
-		r.expectations.ClusterRoleBinding.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := rbac.ClusterRoleBindings().Create(context.Background(), crb, metav1.CreateOptions{})
-		if err != nil {
-			r.expectations.ClusterRoleBinding.LowerExpectations(r.kvKey, 1, 0)
-			return fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
-		}
-		log.Log.V(2).Infof("clusterrolebinding %v created", crb.GetName())
-	} else if !objectMatchesVersion(&cachedCrb.ObjectMeta, imageTag, imageRegistry, id, r.kv.GetGeneration()) {
-		// Update existing, we don't need to patch for rbac rules.
-		_, err = rbac.ClusterRoleBindings().Update(context.Background(), crb, metav1.UpdateOptions{})
-		if err != nil {
-			return fmt.Errorf("unable to update clusterrolebinding %+v: %v", crb, err)
-		}
-		log.Log.V(2).Infof("clusterrolebinding %v updated", crb.GetName())
+	switch obj.(type) {
+	case *rbacv1.Role:
+		role := obj.(*rbacv1.Role)
 
-	} else {
-		log.Log.V(4).Infof("clusterrolebinding %v already exists", crb.GetName())
+		createFunc = func() error {
+			raiseExpectation(r.expectations.Role)
+			_, err := rbacObj.Roles(namespace).Create(context.Background(), role, metav1.CreateOptions{})
+			lowerExpectationIfErr(r.expectations.Role, err)
+			return err
+		}
+	case *rbacv1.ClusterRole:
+		role := obj.(*rbacv1.ClusterRole)
+
+		createFunc = func() error {
+			raiseExpectation(r.expectations.ClusterRole)
+			_, err := rbacObj.ClusterRoles().Create(context.Background(), role, metav1.CreateOptions{})
+			lowerExpectationIfErr(r.expectations.ClusterRole, err)
+			return err
+		}
+	case *rbacv1.RoleBinding:
+		roleBinding := obj.(*rbacv1.RoleBinding)
+
+		createFunc = func() error {
+			raiseExpectation(r.expectations.RoleBinding)
+			_, err := rbacObj.RoleBindings(namespace).Create(context.Background(), roleBinding, metav1.CreateOptions{})
+			lowerExpectationIfErr(r.expectations.RoleBinding, err)
+			return err
+		}
+	case *rbacv1.ClusterRoleBinding:
+		roleBinding := obj.(*rbacv1.ClusterRoleBinding)
+
+		createFunc = func() error {
+			raiseExpectation(r.expectations.ClusterRoleBinding)
+			_, err := rbacObj.ClusterRoleBindings().Create(context.Background(), roleBinding, metav1.CreateOptions{})
+			lowerExpectationIfErr(r.expectations.ClusterRoleBinding, err)
+			return err
+		}
 	}
 
-	return nil
+	return
+}
+
+func (r *Reconciler) getUpdateFunction(obj runtime.Object) (updateFunc func() (err error)) {
+	rbacObj := r.clientset.RbacV1()
+	namespace := r.kv.Namespace
+
+	switch obj.(type) {
+	case *rbacv1.Role:
+		role := obj.(*rbacv1.Role)
+
+		updateFunc = func() (err error) {
+			_, err = rbacObj.Roles(namespace).Update(context.Background(), role, metav1.UpdateOptions{})
+			return err
+		}
+	case *rbacv1.ClusterRole:
+		role := obj.(*rbacv1.ClusterRole)
+
+		updateFunc = func() (err error) {
+			_, err = rbacObj.ClusterRoles().Update(context.Background(), role, metav1.UpdateOptions{})
+			return err
+		}
+	case *rbacv1.RoleBinding:
+		roleBinding := obj.(*rbacv1.RoleBinding)
+
+		updateFunc = func() (err error) {
+			_, err = rbacObj.RoleBindings(namespace).Update(context.Background(), roleBinding, metav1.UpdateOptions{})
+			return err
+		}
+	case *rbacv1.ClusterRoleBinding:
+		roleBinding := obj.(*rbacv1.ClusterRoleBinding)
+
+		updateFunc = func() (err error) {
+			_, err = rbacObj.ClusterRoleBindings().Update(context.Background(), roleBinding, metav1.UpdateOptions{})
+			return err
+		}
+	}
+
+	return
+}
+
+func getMetaObject(obj runtime.Object) (meta *metav1.ObjectMeta) {
+	switch obj.(type) {
+	case *rbacv1.Role:
+		role := obj.(*rbacv1.Role)
+		meta = &role.ObjectMeta
+	case *rbacv1.ClusterRole:
+		role := obj.(*rbacv1.ClusterRole)
+		meta = &role.ObjectMeta
+	case *rbacv1.RoleBinding:
+		roleBinding := obj.(*rbacv1.RoleBinding)
+		meta = &roleBinding.ObjectMeta
+	case *rbacv1.ClusterRoleBinding:
+		roleBinding := obj.(*rbacv1.ClusterRoleBinding)
+		meta = &roleBinding.ObjectMeta
+	}
+
+	return
+}
+
+func enforceAPIGroup(existing runtime.Object, required runtime.Object) {
+	var existingRoleRef *rbacv1.RoleRef
+	var requiredRoleRef *rbacv1.RoleRef
+	var existingSubjects []rbacv1.Subject
+	var requiredSubjects []rbacv1.Subject
+
+	switch required.(type) {
+	case *rbacv1.RoleBinding:
+		crExisting := existing.(*rbacv1.RoleBinding)
+		crRequired := required.(*rbacv1.RoleBinding)
+		existingRoleRef = &crExisting.RoleRef
+		requiredRoleRef = &crRequired.RoleRef
+		existingSubjects = crExisting.Subjects
+		requiredSubjects = crRequired.Subjects
+	case *rbacv1.ClusterRoleBinding:
+		crbExisting := existing.(*rbacv1.ClusterRoleBinding)
+		crbRequired := required.(*rbacv1.ClusterRoleBinding)
+		existingRoleRef = &crbExisting.RoleRef
+		requiredRoleRef = &crbRequired.RoleRef
+		existingSubjects = crbExisting.Subjects
+		requiredSubjects = crbRequired.Subjects
+	default:
+		return
+	}
+
+	existingRoleRef.APIGroup = rbacv1.GroupName
+	for i := range existingSubjects {
+		if existingSubjects[i].Kind == "User" {
+			existingSubjects[i].APIGroup = rbacv1.GroupName
+		}
+	}
+
+	requiredRoleRef.APIGroup = rbacv1.GroupName
+	for i := range requiredSubjects {
+		if existingSubjects[i].Kind == "User" {
+			requiredSubjects[i].APIGroup = rbacv1.GroupName
+		}
+	}
+}
+
+func arePolicyRulesEqual(role1 runtime.Object, role2 runtime.Object) (equal bool) {
+	// This is to avoid using reflections for performance reasons
+	arePolicyRulesEqualHelper := func(pr1 []rbacv1.PolicyRule, pr2 []rbacv1.PolicyRule) bool {
+		if len(pr1) != len(pr2) {
+			return false
+		}
+
+		areStringListsEqual := func(strList1 []string, strList2 []string) bool {
+			if len(strList1) != len(strList2) {
+				return false
+			}
+			for i := range strList1 {
+				if strList1[i] != strList2[i] {
+					return false
+				}
+			}
+			return true
+		}
+
+		for i := range pr1 {
+			if !areStringListsEqual(pr1[i].Verbs, pr2[i].Verbs) || !areStringListsEqual(pr1[i].Resources, pr2[i].Resources) ||
+				!areStringListsEqual(pr1[i].APIGroups, pr2[i].APIGroups) || !areStringListsEqual(pr1[i].NonResourceURLs, pr2[i].NonResourceURLs) ||
+				!areStringListsEqual(pr1[i].ResourceNames, pr2[i].ResourceNames) {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	switch role1.(type) {
+	case *rbacv1.Role:
+		role1Obj := role1.(*rbacv1.Role)
+		role2Obj := role2.(*rbacv1.Role)
+		equal = arePolicyRulesEqualHelper(role1Obj.Rules, role2Obj.Rules)
+	case *rbacv1.ClusterRole:
+		role1Obj := role1.(*rbacv1.ClusterRole)
+		role2Obj := role2.(*rbacv1.ClusterRole)
+		equal = arePolicyRulesEqualHelper(role1Obj.Rules, role2Obj.Rules)
+	// Bindings do not have "rules" attribute
+	default:
+		equal = true
+	}
+
+	return
+}
+
+func (r *Reconciler) getCache(obj runtime.Object) (cache cache.Store) {
+	switch obj.(type) {
+	case *rbacv1.Role:
+		cache = r.stores.RoleCache
+	case *rbacv1.ClusterRole:
+		cache = r.stores.ClusterRoleCache
+	case *rbacv1.RoleBinding:
+		cache = r.stores.RoleBindingCache
+	case *rbacv1.ClusterRoleBinding:
+		cache = r.stores.ClusterRoleBindingCache
+	}
+
+	return cache
 }
