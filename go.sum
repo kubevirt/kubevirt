@@ -824,8 +824,8 @@ github.com/kubernetes-csi/csi-test v2.0.0+incompatible/go.mod h1:YxJ4UiuPWIhMBkx
 github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1/go.mod h1:dV5oB3U62KBdlf9ADWkMmjGd3USauqQtwIm2OZb5mqI=
 github.com/kubevirt/cluster-network-addons-operator v0.50.0 h1:JC4l/VGPnyTR/z7bIbFF1ooQ7HGt/lc8kjNTUTMBsQQ=
 github.com/kubevirt/cluster-network-addons-operator v0.50.0/go.mod h1:FDgI0XZI5rQrd9OcVffJ+lJl1iplpCLX6u6qRGqgFu4=
-github.com/kubevirt/vm-import-operator v0.3.0 h1:4CLtV2kI0QtWgq0BnNcxngbSo/ZICaf0SlRdFx/wjJc=
-github.com/kubevirt/vm-import-operator v0.3.0/go.mod h1:vMW9982ayVHdRBGqO9/ybzLeL5Yl6OBkhMiNgnKqjMI=
+github.com/kubevirt/vm-import-operator v0.3.3 h1:kpi+Qzp/nm4Ab1uRhKgXtZEqanReDmvSA1xtzCEiyH0=
+github.com/kubevirt/vm-import-operator v0.3.3/go.mod h1:vMW9982ayVHdRBGqO9/ybzLeL5Yl6OBkhMiNgnKqjMI=
 github.com/kylelemons/godebug v0.0.0-20160406211939-eadb3ce320cb/go.mod h1:B69LEHPfb2qLo0BaaOLcbitczOKLWTsrBG9LczfCD4k=
 github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348/go.mod h1:B69LEHPfb2qLo0BaaOLcbitczOKLWTsrBG9LczfCD4k=
 github.com/lann/builder v0.0.0-20180802200727-47ae307949d0/go.mod h1:dXGbAdH5GtBTC4WfIxhKZfyBF/HBFgRZSWwZ9g/He9o=

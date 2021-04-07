@@ -179,6 +179,10 @@ const (
 	// WarmImportFailed represents a failure to complete a warm import on the target VM.
 	WarmImportFailed SucceededConditionReason = "WarmImportFailed"
 
+	// VMNotFound represents a failure to complete an import because
+	// the target VM cannot be found, perhaps due to being deleted during an import.
+	VMNotFound SucceededConditionReason = "VMNotFound"
+
 	// VirtualMachineReady represents the completion of the vm import
 	VirtualMachineReady SucceededConditionReason = "VirtualMachineReady"
 
