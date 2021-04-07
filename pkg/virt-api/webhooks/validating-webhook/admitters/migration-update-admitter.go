@@ -32,6 +32,34 @@ import (
 type MigrationUpdateAdmitter struct {
 }
 
+func ensureSelectorLabelSafe(newMigration *v1.VirtualMachineInstanceMigration, oldMigration *v1.VirtualMachineInstanceMigration) []metav1.StatusCause {
+	if newMigration.Status.Phase != v1.MigrationSucceeded && newMigration.Status.Phase != v1.MigrationFailed && oldMigration.Labels != nil {
+		oldLabel, oldExists := oldMigration.Labels[v1.MigrationSelectorLabel]
+		if newMigration.Labels == nil {
+			if oldExists {
+				return []metav1.StatusCause{
+					{
+						Type:    metav1.CauseTypeFieldValueNotSupported,
+						Message: "selector label can't be removed from an in-flight migration",
+					},
+				}
+			}
+		} else {
+			newLabel, newExists := newMigration.Labels[v1.MigrationSelectorLabel]
+			if oldExists && (!newExists || newLabel != oldLabel) {
+				return []metav1.StatusCause{
+					{
+						Type:    metav1.CauseTypeFieldValueNotSupported,
+						Message: "selector label can't be modified on an in-flight migration",
+					},
+				}
+			}
+		}
+	}
+
+	return []metav1.StatusCause{}
+}
+
 func (admitter *MigrationUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	// Get new migration from admission response
 	newMigration, oldMigration, err := getAdmissionReviewMigration(ar)
@@ -51,6 +79,12 @@ func (admitter *MigrationUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1b
 				Message: "update of Migration object's spec is restricted",
 			},
 		})
+	}
+
+	// Reject Migration update if selector label changed on an in-flight migration
+	causes := ensureSelectorLabelSafe(newMigration, oldMigration)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
 	}
 
 	reviewResponse := v1beta1.AdmissionResponse{}
