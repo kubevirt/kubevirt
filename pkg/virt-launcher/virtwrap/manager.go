@@ -1494,11 +1494,9 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	api.NewDefaulter(c.Architecture).SetObjectDefaults_Domain(domain)
 
 	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
-	newDomain := false
 	if err != nil {
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
-			newDomain = true
 			domain, err = l.preStartHook(vmi, domain)
 			if err != nil {
 				logger.Reason(err).Error("pre start setup for VirtualMachineInstance failed.")
@@ -1520,16 +1518,6 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	if err != nil {
 		logger.Reason(err).Error("Getting the domain state failed.")
 		return nil, err
-	}
-
-	// To make sure, that we set the right qemu wrapper arguments,
-	// we update the domain XML whenever a VirtualMachineInstance was already defined but not running
-	if !newDomain && cli.IsDown(domState) {
-		dom, err = l.setDomainSpecWithHooks(vmi, &domain.Spec)
-		if err != nil {
-			return nil, err
-		}
-		defer dom.Free()
 	}
 
 	// TODO Suspend, Pause, ..., for now we only support reaching the running state
