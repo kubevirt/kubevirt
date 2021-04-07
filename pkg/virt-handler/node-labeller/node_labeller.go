@@ -36,37 +36,25 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
-)
-
-const (
-	kvmPath = "/dev/kvm"
 )
 
 //NodeLabeller struct holds informations needed to run node-labeller
 type NodeLabeller struct {
-	kvmController           *device_manager.DeviceController
-	clientset               kubecli.KubevirtClient
-	host                    string
-	namespace               string
-	logger                  *log.FilteredLogger
-	clusterConfig           *virtconfig.ClusterConfig
-	hypervFeatures          supportedFeatures
-	hostCapabilities        supportedFeatures
-	queue                   workqueue.RateLimitingInterface
-	supportedFeatures       []string
-	cpuInfo                 cpuInfo
-	cpuInfoIsLoaded         bool
-	hyperVIsLoaded          bool
-	hostCapabilitiesLoaded  bool
-	supportedFeaturesLoaded bool
-	kvmPostedError          bool
+	clientset         kubecli.KubevirtClient
+	host              string
+	namespace         string
+	logger            *log.FilteredLogger
+	clusterConfig     *virtconfig.ClusterConfig
+	hypervFeatures    supportedFeatures
+	hostCapabilities  supportedFeatures
+	queue             workqueue.RateLimitingInterface
+	supportedFeatures []string
+	cpuInfo           cpuInfo
 }
 
-func NewNodeLabeller(kvmController *device_manager.DeviceController, clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string) *NodeLabeller {
+func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string) (*NodeLabeller, error) {
 	n := &NodeLabeller{
-		kvmController: kvmController,
 		clientset:     clientset,
 		host:          host,
 		namespace:     namespace,
@@ -75,12 +63,17 @@ func NewNodeLabeller(kvmController *device_manager.DeviceController, clusterConf
 		queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 	}
 
-	return n
+	err := n.loadAll()
+	if err != nil {
+		return n, err
+	}
+	return n, nil
 }
 
 //Run runs node-labeller
 func (n *NodeLabeller) Run(threadiness int, stop chan struct{}) {
 	defer n.queue.ShutDown()
+
 	n.logger.Infof("node-labeller is running")
 
 	n.clusterConfig.SetConfigModifiedCallback(func() {
@@ -108,22 +101,7 @@ func (n *NodeLabeller) execute() bool {
 	}
 	defer n.queue.Done(key)
 
-	if !n.kvmController.NodeHasDevice(kvmPath) {
-		if !n.kvmPostedError {
-			n.logger.Errorf("node-labeller cannot work without KVM device.")
-			n.kvmPostedError = true
-		}
-		return true
-	}
-
-	err := n.loadAll()
-	if err != nil {
-		n.logger.Errorf("node-labeller load error encountered: %v", err)
-		n.queue.AddRateLimited(key)
-		return true
-	}
-
-	err = n.run()
+	err := n.run()
 
 	if err != nil {
 		n.logger.Errorf("node-labeller sync error encountered: %v", err)
@@ -135,33 +113,25 @@ func (n *NodeLabeller) execute() bool {
 }
 
 func (n *NodeLabeller) loadAll() error {
-	if !n.cpuInfoIsLoaded {
-		err := n.loadCPUInfo()
-		if err != nil {
-			n.logger.Errorf("node-labeller could not load cpu info: " + err.Error())
-			return err
-		}
+	err := n.loadCPUInfo()
+	if err != nil {
+		n.logger.Errorf("node-labeller could not load cpu info: " + err.Error())
+		return err
 	}
 
-	if !n.supportedFeaturesLoaded {
-		err := n.loadHostSupportedFeatures()
-		if err != nil {
-			n.logger.Errorf("node-labeller could not load supported features: " + err.Error())
-			return err
-		}
+	err = n.loadHostSupportedFeatures()
+	if err != nil {
+		n.logger.Errorf("node-labeller could not load supported features: " + err.Error())
+		return err
 	}
 
-	if !n.hostCapabilitiesLoaded {
-		err := n.loadHostCapabilities()
-		if err != nil {
-			n.logger.Errorf("node-labeller could not load host capabilities: " + err.Error())
-			return err
-		}
+	err = n.loadHostCapabilities()
+	if err != nil {
+		n.logger.Errorf("node-labeller could not load host capabilities: " + err.Error())
+		return err
 	}
 
-	if !n.hyperVIsLoaded {
-		n.loadHypervFeatures()
-	}
+	n.loadHypervFeatures()
 
 	return nil
 }
@@ -244,7 +214,6 @@ func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
 
 func (n *NodeLabeller) loadHypervFeatures() {
 	n.hypervFeatures.items = getCapLabels()
-	n.hyperVIsLoaded = true
 }
 
 // prepareLabels converts cpu models, features, hyperv features to map[string]string format
