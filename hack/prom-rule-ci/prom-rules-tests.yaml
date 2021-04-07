@@ -33,6 +33,31 @@ tests:
           - exp_annotations:
               summary: "All virt-operator servers are down."
 
+    # vmi running on a node without a virt-handler pod
+  - interval: 1m
+    input_series:
+      - series: 'node_namespace_pod:kube_pod_info:{pod="virt-launcher-vmi", node="node01"}'
+        values: "1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1"
+      - series: 'kube_pod_container_status_ready{pod="virt-handler-asdf", node="node01"}'
+        values: "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+      - series: 'node_namespace_pod:kube_pod_info:{pod="virt-handler-asdf", node="node01"}'
+        values: "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+      - series: 'kube_pod_container_status_ready{pod="virt-handler-asdfg", node="node02"}'
+        values: "1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1"
+      - series: 'node_namespace_pod:kube_pod_info:{pod="virt-handler-asdfg", node="node02"}'
+        values: "1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1"
+
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: OrphanedVirtualMachineImages
+        exp_alerts:
+          - exp_annotations:
+              summary: "No virt-handler pod detected on node node01 with running vmis for more than an hour"
+            exp_labels:
+              node: "node01"
+              pod: "virt-handler-asdf"
+              severity: "warning"
+
   # Some virt controllers are not ready
   - interval: 1m
     input_series:
