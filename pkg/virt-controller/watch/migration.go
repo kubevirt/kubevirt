@@ -28,9 +28,11 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/api/policy/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -49,7 +51,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-const failedToProcessDeleteNotificationErrMsg = "Failed to process delete notification"
+const (
+	// FailedCreatePodDisruptionBudgetReason is added in an event if creating a PodDisruptionBudget failed.
+	FailedCreatePodDisruptionBudgetReason = "FailedCreate"
+	// SuccessfulCreatePodDisruptionBudgetReason is added in an event if creating a PodDisruptionBudget succeeded.
+	SuccessfulCreatePodDisruptionBudgetReason = "SuccessfulCreate"
+	// FailedDeletePodDisruptionBudgetReason is added in an event if deleting a PodDisruptionBudget failed.
+	FailedDeletePodDisruptionBudgetReason = "FailedDelete"
+	// SuccessfulDeletePodDisruptionBudgetReason is added in an event if deleting a PodDisruptionBudget succeeded.
+	SuccessfulDeletePodDisruptionBudgetReason = "SuccessfulDelete"
+
+	failedToProcessDeleteNotificationErrMsg = "Failed to process delete notification"
+)
 
 type MigrationController struct {
 	templateService    services.TemplateService
@@ -58,8 +71,10 @@ type MigrationController struct {
 	vmiInformer        cache.SharedIndexInformer
 	podInformer        cache.SharedIndexInformer
 	migrationInformer  cache.SharedIndexInformer
+	pdbInformer        cache.SharedIndexInformer
 	recorder           record.EventRecorder
 	podExpectations    *controller.UIDTrackingControllerExpectations
+	pdbExpectations    *controller.UIDTrackingControllerExpectations
 	migrationStartLock *sync.Mutex
 	clusterConfig      *virtconfig.ClusterConfig
 	statusUpdater      *status.MigrationStatusUpdater
@@ -69,6 +84,7 @@ func NewMigrationController(templateService services.TemplateService,
 	vmiInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
+	pdbInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -80,9 +96,11 @@ func NewMigrationController(templateService services.TemplateService,
 		vmiInformer:        vmiInformer,
 		podInformer:        podInformer,
 		migrationInformer:  migrationInformer,
+		pdbInformer:        pdbInformer,
 		recorder:           recorder,
 		clientset:          clientset,
 		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		pdbExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		migrationStartLock: &sync.Mutex{},
 		clusterConfig:      clusterConfig,
 		statusUpdater:      status.NewMigrationStatusUpdater(clientset),
@@ -106,6 +124,12 @@ func NewMigrationController(templateService services.TemplateService,
 		UpdateFunc: c.updateMigration,
 	})
 
+	c.pdbInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addPodDisruptionBudget,
+		DeleteFunc: c.deletePodDisruptionBudget,
+		UpdateFunc: c.updatePodDisruptionBudget,
+	})
+
 	return c
 }
 
@@ -115,7 +139,7 @@ func (c *MigrationController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting migration controller.")
 
 	// Wait for cache sync before we start the pod controller
-	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.migrationInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.migrationInformer.HasSynced, c.pdbInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -226,6 +250,11 @@ func (c *MigrationController) execute(key string) error {
 		return syncErr
 	}
 
+	if migration.DeletionTimestamp != nil || migration.IsFinal() {
+		if err := c.syncPDB(vmi); err != nil {
+			log.Log.V(2).Reason(err).Errorf("could not sync PDB for vmi %v after migration %v", vmi.Name, migration.Name)
+		}
+	}
 	return nil
 }
 
@@ -532,6 +561,11 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 			// migration was accepted into the system, now see if we
 			// should create the target pod
 			if vmi.IsRunning() {
+				// before creating the target pod the PDB must be re-created to protect both
+				// the source and target pod
+				if err := c.syncPDB(vmi); err != nil {
+					return err
+				}
 				return c.createTargetPod(migration, vmi)
 			}
 			return nil
@@ -772,11 +806,345 @@ func (c *MigrationController) listMigrationsMatchingVMI(namespace string, name s
 	return migrations, nil
 }
 
+func (c *MigrationController) AnyRunningMigrationsForVmi(vmi *virtv1.VirtualMachineInstance) bool {
+	vmims, err := c.listMigrationsMatchingVMI(vmi.Namespace, vmi.Name)
+	if err != nil {
+		return false
+	}
+	for i := range vmims {
+		if !vmims[i].IsFinal() {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *MigrationController) resolveControllerVmiRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.VirtualMachineInstance {
+	// We can't look up by UID, so look up by Name and then verify UID.
+	// Don't even try to look up by Name if it is nil or the wrong Kind.
+	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineInstanceGroupVersionKind.Kind {
+		return nil
+	}
+
+	return &virtv1.VirtualMachineInstance{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      controllerRef.Name,
+			Namespace: namespace,
+			UID:       controllerRef.UID,
+		},
+	}
+}
+
+func (c *MigrationController) addPodDisruptionBudget(obj interface{}) {
+	pdb := obj.(*v1beta1.PodDisruptionBudget)
+
+	if pdb.DeletionTimestamp != nil {
+		// on a restart of the controller manager, it's possible a new pdb shows up in a state that
+		// is already pending deletion. Prevent the pdb from being a creation observation.
+		c.deletePodDisruptionBudget(pdb)
+		return
+	}
+
+	controllerRef := v1.GetControllerOf(pdb)
+	vmi := c.resolveControllerVmiRef(pdb.Namespace, controllerRef)
+	if vmi == nil {
+		return
+	}
+	vmiKey, err := controller.KeyFunc(vmi)
+	if err != nil {
+		return
+	}
+	log.Log.V(4).Object(pdb).Infof("PodDisruptionBudget created")
+	c.pdbExpectations.CreationObserved(vmiKey)
+
+	if err := c.syncPDB(vmi); err != nil {
+		log.Log.V(2).Reason(err).Errorf("could not sync PDB for vmi %v on added PDB %v", vmi.Name, pdb.Name)
+	}
+}
+
+func (c *MigrationController) deletePodDisruptionBudget(obj interface{}) {
+	pdb, ok := obj.(*v1beta1.PodDisruptionBudget)
+
+	// When a delete is dropped, the relist will notice a pdb in the store not
+	// in the list, leading to the insertion of a tombstone object which contains
+	// the deleted key/value. Note that this value might be stale. If the pdb
+	// changed labels the new vmi will not be woken up till the periodic resync.
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			return
+		}
+		pdb, ok = tombstone.Obj.(*v1beta1.PodDisruptionBudget)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a pdb %#v", obj)).Error("Failed to process delete notification")
+			return
+		}
+	}
+
+	controllerRef := v1.GetControllerOf(pdb)
+	vmi := c.resolveControllerVmiRef(pdb.Namespace, controllerRef)
+	if vmi == nil {
+		return
+	}
+	vmiKey, err := controller.KeyFunc(vmi)
+	if err != nil {
+		return
+	}
+	key, err := controller.KeyFunc(pdb)
+	if err != nil {
+		return
+	}
+	c.pdbExpectations.DeletionObserved(vmiKey, key)
+	if err := c.syncPDB(vmi); err != nil {
+		log.Log.V(2).Reason(err).Errorf("could not sync PDB for vmi %v on deleted PDB %v", vmi.Name, pdb.Name)
+	}
+}
+
+func (c *MigrationController) updatePodDisruptionBudget(old, cur interface{}) {
+	curPodDisruptionBudget := cur.(*v1beta1.PodDisruptionBudget)
+	oldPodDisruptionBudget := old.(*v1beta1.PodDisruptionBudget)
+	if curPodDisruptionBudget.ResourceVersion == oldPodDisruptionBudget.ResourceVersion {
+		// Periodic resync will send update events for all known pdbs.
+		// Two different versions of the same pdb will always have different RVs.
+		return
+	}
+
+	if curPodDisruptionBudget.DeletionTimestamp != nil {
+		labelChanged := !reflect.DeepEqual(curPodDisruptionBudget.Labels, oldPodDisruptionBudget.Labels)
+		// having a pdb marked for deletion is enough to count as a deletion expectation
+		c.deletePodDisruptionBudget(curPodDisruptionBudget)
+		if labelChanged {
+			// we don't need to check the oldPodDisruptionBudget.DeletionTimestamp because DeletionTimestamp cannot be unset.
+			c.deletePodDisruptionBudget(oldPodDisruptionBudget)
+		}
+		return
+	}
+
+	curControllerRef := v1.GetControllerOf(curPodDisruptionBudget)
+	oldControllerRef := v1.GetControllerOf(oldPodDisruptionBudget)
+	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
+	if controllerRefChanged {
+		// The ControllerRef was changed. Sync the old controller, if any.
+		if vmi := c.resolveControllerVmiRef(oldPodDisruptionBudget.Namespace, oldControllerRef); vmi != nil {
+			if err := c.syncPDB(vmi); err != nil {
+				log.Log.V(2).Reason(err).Errorf("could not sync PDB for vmi %v on (old) updated PDB %v", vmi.Name, oldPodDisruptionBudget.Name)
+			}
+		}
+	}
+
+	vmi := c.resolveControllerVmiRef(curPodDisruptionBudget.Namespace, curControllerRef)
+	if vmi == nil {
+		return
+	}
+	log.Log.V(4).Object(curPodDisruptionBudget).Infof("PodDisruptionBudget updated")
+	if err := c.syncPDB(vmi); err != nil {
+		log.Log.V(2).Reason(err).Errorf("could not sync PDB for vmi %v on (current) updated PDB %v", vmi.Name, curPodDisruptionBudget.Name)
+	}
+	return
+}
+
+func (c *MigrationController) pdbForVMI(vmi *virtv1.VirtualMachineInstance) (*v1beta1.PodDisruptionBudget, error) {
+	key, err := controller.KeyFunc(vmi)
+	if err != nil {
+		return nil, fmt.Errorf("%v: Failed to extract key from vmi.", err)
+	}
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		// If the situation does not change there is no benefit in retrying
+		return nil, fmt.Errorf("%v: Could not extract namespace and name from the controller key.", err)
+	}
+
+	pbds, err := c.pdbInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, pdb := range pbds {
+		p := v1.GetControllerOf(pdb.(*v1beta1.PodDisruptionBudget))
+		if p != nil && p.Kind == virtv1.VirtualMachineInstanceGroupVersionKind.Kind &&
+			p.Name == name {
+			return pdb.(*v1beta1.PodDisruptionBudget), nil
+		}
+	}
+	return nil, nil
+}
+
+func wantsToMigrateOnDrain(vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi.Spec.EvictionStrategy == nil {
+		return false
+	}
+	if *vmi.Spec.EvictionStrategy == virtv1.EvictionStrategyLiveMigrate {
+		return true
+	}
+	return false
+}
+
+func (c *MigrationController) createPDBResource(vmi *virtv1.VirtualMachineInstance, minAvailable int) error {
+	minAvailableIntStr := intstr.FromInt(minAvailable)
+	createdPDB, err := c.clientset.PolicyV1beta1().PodDisruptionBudgets(vmi.Namespace).Create(context.Background(), &v1beta1.PodDisruptionBudget{
+		ObjectMeta: v1.ObjectMeta{
+			OwnerReferences: []v1.OwnerReference{
+				*v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
+			},
+			GenerateName: "kubevirt-disruption-budget-",
+		},
+		Spec: v1beta1.PodDisruptionBudgetSpec{
+			MinAvailable: &minAvailableIntStr,
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{
+					virtv1.CreatedByLabel: string(vmi.UID),
+				},
+			},
+		},
+	}, v1.CreateOptions{})
+	if err != nil {
+		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodDisruptionBudgetReason, "Error creating a PodDisruptionBudget: %v", err)
+		return err
+	}
+	c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulCreatePodDisruptionBudgetReason, "Created PodDisruptionBudget %s", createdPDB.Name)
+	log.Log.Infof("pdb %v created with MinAvailable %v", createdPDB.Name, minAvailable)
+	return nil
+}
+
+func (c *MigrationController) deletePDBResource(vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisruptionBudget) error {
+	err := c.clientset.PolicyV1beta1().PodDisruptionBudgets(pdb.Namespace).Delete(context.Background(), pdb.Name, v1.DeleteOptions{})
+	if err != nil {
+		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDeletePodDisruptionBudgetReason, "Error deleting the PodDisruptionBudget %s: %v", pdb.Name, err)
+		return err
+	}
+	c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulDeletePodDisruptionBudgetReason, "Deleted PodDisruptionBudget %s", pdb.Name)
+	log.Log.Infof("pdb %v deleted", pdb.Name)
+	return nil
+}
+
+func (c *MigrationController) createPDB(vmi *virtv1.VirtualMachineInstance, minAvailable int) error {
+	vmiKey, err := controller.KeyFunc(vmi)
+	if err != nil {
+		return fmt.Errorf("%v: Failed to extract key from vmi.", err)
+	}
+
+	c.pdbExpectations.ExpectCreations(vmiKey, 1)
+	if err := c.createPDBResource(vmi, minAvailable); err != nil {
+		c.pdbExpectations.CreationObserved(vmiKey)
+	}
+	return nil
+}
+
+func (c *MigrationController) removePDB(vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisruptionBudget) error {
+	if pdb.DeletionTimestamp != nil {
+		return nil
+	}
+
+	vmiKey, err := controller.KeyFunc(vmi)
+	if err != nil {
+		return fmt.Errorf("%v: Failed to extract key from vmi.", err)
+	}
+
+	pdbKey, err := cache.MetaNamespaceKeyFunc(pdb)
+	if err != nil {
+		return err
+	}
+
+	c.pdbExpectations.ExpectDeletions(vmiKey, []string{pdbKey})
+	if err := c.deletePDBResource(vmi, pdb); err != nil {
+		c.pdbExpectations.DeletionObserved(vmiKey, pdbKey)
+		return err
+	}
+	return nil
+}
+
+// since PDB cannot be patched it's actually create+delete(old)
+func (c *MigrationController) resizePDB(vmi *virtv1.VirtualMachineInstance, pdb *v1beta1.PodDisruptionBudget, minAvailable int) error {
+	vmiKey, err := controller.KeyFunc(vmi)
+	if err != nil {
+		return fmt.Errorf("%v: Failed to extract key from vmi.", err)
+	}
+	pdbKey, err := cache.MetaNamespaceKeyFunc(pdb)
+	if err != nil {
+		return err
+	}
+
+	c.pdbExpectations.ExpectCreations(vmiKey, 1)
+	c.pdbExpectations.ExpectDeletions(vmiKey, []string{pdbKey})
+	if err := c.createPDBResource(vmi, minAvailable); err != nil {
+		c.pdbExpectations.CreationObserved(vmiKey)
+		return err
+	}
+	if err := c.deletePDBResource(vmi, pdb); err != nil {
+		c.pdbExpectations.DeletionObserved(vmiKey, pdbKey)
+		return err
+	}
+	return nil
+}
+
+func (c *MigrationController) reconcilePDB(vmi *virtv1.VirtualMachineInstance) error {
+	pdb, err := c.pdbForVMI(vmi)
+	if err != nil {
+		return fmt.Errorf("%v: Failed to fetch pod disruption budgets for namespace from cache.", err)
+	}
+
+	wantsToMigrate := wantsToMigrateOnDrain(vmi)
+	minAvailable := 1
+	if c.AnyRunningMigrationsForVmi(vmi) {
+		minAvailable = 2
+	}
+
+	if pdb != nil {
+		if ownerRef := v1.GetControllerOf(pdb); ownerRef != nil && ownerRef.UID != vmi.UID {
+			c.removePDB(vmi, pdb)
+		} else if vmi.DeletionTimestamp != nil {
+			// The pdb is from an old vmi with a different uid, delete and later create the correct one
+			// The VMI always has a minimum grace period, so normally this should not happen, therefore no optimizations
+			c.removePDB(vmi, pdb)
+		} else if !wantsToMigrate {
+			// We don't want migrations on evictions, if there is a pdb, remove it
+			c.removePDB(vmi, pdb)
+		} else if pdb.Spec.MinAvailable.IntValue() != minAvailable {
+			// shrink or extend the PDB as needed
+			log.Log.Infof("setting PDB with minAvailable %v for VMI %v", minAvailable, vmi.Name)
+			c.resizePDB(vmi, pdb, minAvailable)
+		}
+	} else if wantsToMigrate && vmi.DeletionTimestamp == nil {
+		c.createPDB(vmi, minAvailable)
+	}
+	return nil
+}
+
+func (c *MigrationController) syncPDB(vmi *virtv1.VirtualMachineInstance) error {
+	key, err := controller.KeyFunc(vmi)
+	if err != nil {
+		return fmt.Errorf("%v: Failed to extract key from vmi.", err)
+	}
+
+	if !c.pdbExpectations.SatisfiedExpectations(key) {
+		return nil
+	}
+
+	// Fetch the latest Vm state from cache
+	obj, exists, err := c.vmiInformer.GetStore().GetByKey(key)
+	if err != nil {
+		return err
+	}
+	if exists {
+		vmi = obj.(*virtv1.VirtualMachineInstance)
+	}
+
+	if err = c.reconcilePDB(vmi); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *MigrationController) addVMI(obj interface{}) {
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 	if vmi.DeletionTimestamp != nil {
 		c.deleteVMI(vmi)
 		return
+	}
+
+	if err := c.syncPDB(vmi); err != nil {
+		log.Log.V(2).Reason(err).Errorf("Could not sync PDBs for added vmi %v", vmi.Name)
 	}
 
 	migrations, err := c.listMigrationsMatchingVMI(vmi.Namespace, vmi.Name)
@@ -797,12 +1165,16 @@ func (c *MigrationController) updateVMI(old, cur interface{}) {
 		// have different RVs.
 		return
 	}
-	labelChanged := !reflect.DeepEqual(curVMI.Labels, oldVMI.Labels)
+
+	if err := c.syncPDB(curVMI); err != nil {
+		log.Log.V(2).Reason(err).Errorf("Could not sync PDBs for deleted vmi %v", curVMI.Name)
+	}
+
 	if curVMI.DeletionTimestamp != nil {
 		// having a DataVOlume marked for deletion is enough
 		// to count as a deletion expectation
 		c.deleteVMI(curVMI)
-		if labelChanged {
+		if !reflect.DeepEqual(curVMI.Labels, oldVMI.Labels) {
 			// we don't need to check the oldVMI.DeletionTimestamp
 			// because DeletionTimestamp cannot be unset.
 			c.deleteVMI(oldVMI)
@@ -838,6 +1210,11 @@ func (c *MigrationController) deleteVMI(obj interface{}) {
 			return
 		}
 	}
+
+	if err := c.syncPDB(vmi); err != nil {
+		log.Log.V(2).Reason(err).Errorf("Could not sync PDBs for deleted vmi %v", vmi.Name)
+	}
+
 	migrations, err := c.listMigrationsMatchingVMI(vmi.Namespace, vmi.Name)
 	if err != nil {
 		return

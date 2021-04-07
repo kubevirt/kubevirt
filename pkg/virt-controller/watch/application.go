@@ -56,7 +56,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/snapshot"
 	workloadupdater "kubevirt.io/kubevirt/pkg/virt-controller/watch/workload-updater"
@@ -138,6 +137,7 @@ type VirtControllerApp struct {
 
 	migrationController *MigrationController
 	migrationInformer   cache.SharedIndexInformer
+	pdbInformer         cache.SharedIndexInformer
 
 	workloadUpdateController *workloadupdater.WorkloadUpdateController
 
@@ -153,18 +153,17 @@ type VirtControllerApp struct {
 
 	LeaderElection leaderelectionconfig.Configuration
 
-	launcherImage              string
-	imagePullSecret            string
-	virtShareDir               string
-	virtLibDir                 string
-	ephemeralDiskDir           string
-	containerDiskDir           string
-	hotplugDiskDir             string
-	readyChan                  chan bool
-	kubevirtNamespace          string
-	host                       string
-	evacuationController       *evacuation.EvacuationController
-	disruptionBudgetController *disruptionbudget.DisruptionBudgetController
+	launcherImage        string
+	imagePullSecret      string
+	virtShareDir         string
+	virtLibDir           string
+	ephemeralDiskDir     string
+	containerDiskDir     string
+	hotplugDiskDir       string
+	readyChan            chan bool
+	kubevirtNamespace    string
+	host                 string
+	evacuationController *evacuation.EvacuationController
 
 	ctx context.Context
 
@@ -174,17 +173,16 @@ type VirtControllerApp struct {
 	reInitChan chan string
 
 	// number of threads for each controller
-	nodeControllerThreads             int
-	vmiControllerThreads              int
-	rsControllerThreads               int
-	vmControllerThreads               int
-	migrationControllerThreads        int
-	evacuationControllerThreads       int
-	disruptionBudgetControllerThreads int
-	launcherSubGid                    int64
-	snapshotControllerThreads         int
-	restoreControllerThreads          int
-	snapshotControllerResyncPeriod    time.Duration
+	nodeControllerThreads          int
+	vmiControllerThreads           int
+	rsControllerThreads            int
+	vmControllerThreads            int
+	migrationControllerThreads     int
+	evacuationControllerThreads    int
+	launcherSubGid                 int64
+	snapshotControllerThreads      int
+	restoreControllerThreads       int
+	snapshotControllerResyncPeriod time.Duration
 
 	caConfigMapName  string
 	promCertFilePath string
@@ -270,11 +268,10 @@ func Execute() {
 	app.persistentVolumeClaimInformer = app.informerFactory.PersistentVolumeClaim()
 	app.persistentVolumeClaimCache = app.persistentVolumeClaimInformer.GetStore()
 
-	app.informerFactory.K8SInformerFactory().Policy().V1beta1().PodDisruptionBudgets().Informer()
-
 	app.vmInformer = app.informerFactory.VirtualMachine()
 
 	app.migrationInformer = app.informerFactory.VirtualMachineInstanceMigration()
+	app.pdbInformer = app.informerFactory.K8SInformerFactory().Policy().V1beta1().PodDisruptionBudgets().Informer()
 
 	app.vmSnapshotInformer = app.informerFactory.VirtualMachineSnapshot()
 	app.vmSnapshotContentInformer = app.informerFactory.VirtualMachineSnapshotContent()
@@ -296,7 +293,6 @@ func Execute() {
 	app.initCommon()
 	app.initReplicaSet()
 	app.initVirtualMachines()
-	app.initDisruptionBudgetController()
 	app.initEvacuationController()
 	app.initSnapshotController()
 	app.initRestoreController()
@@ -395,13 +391,11 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		vca.informerFactory.Start(stop)
 
 		golog.Printf("STARTING controllers with following threads : "+
-			"node %d, vmi %d, replicaset %d, vm %d, migration %d, evacuation %d, disruptionBudget %d",
+			"node %d, vmi %d, replicaset %d, vm %d, migration %d, evacuation %d",
 			vca.nodeControllerThreads, vca.vmiControllerThreads, vca.rsControllerThreads,
-			vca.vmControllerThreads, vca.migrationControllerThreads, vca.evacuationControllerThreads,
-			vca.disruptionBudgetControllerThreads)
+			vca.vmControllerThreads, vca.migrationControllerThreads, vca.evacuationControllerThreads)
 
 		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
-		go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
 		go vca.nodeController.Run(vca.nodeControllerThreads, stop)
 		go vca.vmiController.Run(vca.vmiControllerThreads, stop)
 		go vca.rsController.Run(vca.rsControllerThreads, stop)
@@ -447,7 +441,7 @@ func (vca *VirtControllerApp) initCommon() {
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.kvPodInformer, vca.persistentVolumeClaimInformer, vca.vmiRecorder, vca.clientSet, vca.dataVolumeInformer)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
-	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.kvPodInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet, vca.clusterConfig)
+	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.kvPodInformer, vca.migrationInformer, vca.pdbInformer, vca.vmiRecorder, vca.clientSet, vca.clusterConfig)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
@@ -465,17 +459,6 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.persistentVolumeClaimInformer,
 		recorder,
 		vca.clientSet)
-}
-
-func (vca *VirtControllerApp) initDisruptionBudgetController() {
-	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "disruptionbudget-controller")
-	vca.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(
-		vca.vmiInformer,
-		vca.informerFactory.K8SInformerFactory().Policy().V1beta1().PodDisruptionBudgets().Informer(),
-		recorder,
-		vca.clientSet,
-	)
-
 }
 
 func (vca *VirtControllerApp) initWorkloadUpdaterController() {
@@ -604,9 +587,6 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.IntVar(&vca.evacuationControllerThreads, "evacuation-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for evacuation controller")
-
-	flag.IntVar(&vca.disruptionBudgetControllerThreads, "disruption-budget-controller-threads", defaultControllerThreads,
-		"Number of goroutines to run for disruption budget controller")
 
 	flag.Int64Var(&vca.launcherSubGid, "launcher-subgid", defaultLauncherSubGid,
 		"ID of subgroup to virt-launcher")
