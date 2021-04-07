@@ -15,6 +15,7 @@ aliases:
       - ashleyschuett
       - mhenriks
       - enp0s3
+      - acardace
   emeritus_approvers:
       - cynepco3hahue
       - slintes
@@ -36,6 +37,7 @@ aliases:
       - mhenriks
       - maiqueb
       - EdDev
+      - acardace
   ux-reviewers:
       - matthewcarleton
   test-reviewers:
