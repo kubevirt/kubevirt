@@ -85,6 +85,9 @@ const (
 	MDEV_RESOURCE_PREFIX       = "MDEV_PCI_RESOURCE"
 )
 
+// Only used for testing, migration proxy ports are 'well-known' ports and should not be randomized in production
+var osChosenMigrationProxyPort = false
+
 type contextStore struct {
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -161,6 +164,10 @@ func (s pausedVMIs) remove(uid types.UID) {
 func (s pausedVMIs) contains(uid types.UID) bool {
 	_, ok := s.paused[uid]
 	return ok
+}
+
+func setOSChosenMigrationProxyPort(val bool) {
+	osChosenMigrationProxyPort = val
 }
 
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.Notifier, lessPVCSpaceToleration int, agentStore *agentpoller.AsyncAgentStore, ovmfPath string) (DomainManager, error) {
@@ -606,6 +613,9 @@ func startMigrationProxyServer(virtShareDir string, vmi *v1.VirtualMachineInstan
 
 	// Create a tcp server for each direct connection proxy
 	for _, port := range migrationPortsRange {
+		if osChosenMigrationProxyPort {
+			port = 0
+		}
 		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
 		migrationProxy := migrationproxy.NewTargetProxy(loopbackAddress, port, nil, nil, migrationproxy.SourceUnixFile(virtShareDir, key))
 		if e := migrationProxy.StartListening(); e != nil {
@@ -615,7 +625,11 @@ func startMigrationProxyServer(virtShareDir string, vmi *v1.VirtualMachineInstan
 	}
 
 	//  proxy incoming migration requests on port 22222 to the vmi's existing libvirt connection
-	libvirtConnectionProxy := migrationproxy.NewTargetProxy(loopbackAddress, LibvirtLocalConnectionPort, nil, nil, migrationproxy.SourceUnixFile(virtShareDir, string(vmi.UID)))
+	tcpBindPort := LibvirtLocalConnectionPort
+	if osChosenMigrationProxyPort {
+		tcpBindPort = 0
+	}
+	libvirtConnectionProxy := migrationproxy.NewTargetProxy(loopbackAddress, tcpBindPort, nil, nil, migrationproxy.SourceUnixFile(virtShareDir, string(vmi.UID)))
 	if e := libvirtConnectionProxy.StartListening(); e != nil {
 		return stopServer, e
 	}
