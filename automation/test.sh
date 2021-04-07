@@ -311,7 +311,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     export KUBEVIRT_E2E_SKIP="Multus|SRIOV|GPU|Macvtap"
   fi
 
-  if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" ]]; then
+  if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" || "$KUBEVIRT_STORAGE" == "rook-ceph-default" ]]; then
     export KUBEVIRT_E2E_FOCUS=rook-ceph
   fi
 fi
