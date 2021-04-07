@@ -1492,7 +1492,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		if err != nil {
 			return err
 		}
-		if vmi.Status.Phase == phase {
+		if vmi.Status.Phase != phase {
 			shouldUpdate = true
 		}
 	}
@@ -1761,7 +1761,7 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 			if err != nil {
 				// socket does not exist, but let's see if the pod is still there
 				if _, err = cmdclient.FindPodDirOnHost(vmi); err != nil {
-					// no pod meanst that waiting for it to initialize makes no sense
+					// no pod means that waiting for it to initialize makes no sense
 					return true, true, nil
 				}
 				// pod is still there, if there is no socket let's wait for it to become ready
