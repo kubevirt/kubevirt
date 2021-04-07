@@ -591,7 +591,7 @@ var _ = Describe("[Serial]SRIOV", func() {
 	sriovResourceName := os.Getenv("SRIOV_RESOURCE_NAME")
 
 	if sriovResourceName == "" {
-		sriovResourceName = "openshift.io/sriov_net"
+		sriovResourceName = "kubevirt.io/sriov_net"
 	}
 
 	createNetworkAttachementDefinition := func(networkName string, namespace string, networkAttachmentDefinition string) error {
