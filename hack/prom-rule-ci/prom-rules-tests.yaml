@@ -9,7 +9,7 @@ tests:
   # CR out of band update detected
   - interval: 1m
     input_series:
-      - series: 'hyperconverged_cluster_operator_out_of_band_modifications{component_name="kubevirt"}'
+      - series: 'kubevirt_hco_out_of_band_modifications_count{component_name="kubevirt"}'
         values: "0 1 1 1 1 1 1 1 1 1 1 1"
 
     alert_rule_test:
@@ -26,7 +26,7 @@ tests:
   # No CR out of band updates
   - interval: 1m
     input_series:
-      - series: 'hyperconverged_cluster_operator_out_of_band_modifications{component_name="kubevirt"}'
+      - series: 'kubevirt_hco_out_of_band_modifications_count{component_name="kubevirt"}'
         values: "0 0 0 0 0 0 0 0 0 0 0 0 0"
 
     alert_rule_test:

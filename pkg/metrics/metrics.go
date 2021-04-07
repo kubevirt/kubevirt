@@ -9,7 +9,7 @@ import (
 // HcoMetrics wrapper for all hco metrics
 var HcoMetrics = hcoMetrics{prometheus.NewCounterVec(
 	prometheus.CounterOpts{
-		Name: "hyperconverged_cluster_operator_out_of_band_modifications",
+		Name: "kubevirt_hco_out_of_band_modifications_count",
 		Help: "Count of out-of-band modifications overwritten by HCO",
 	},
 	[]string{"component_name"},
